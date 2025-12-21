@@ -31,7 +31,9 @@
 	let deleting = $state(false);
 	let toggleAction = $state<{ id: string; action: 'pause' | 'resume' } | undefined>();
 	let showDeleteConfirm = $state<
-		{ type: 'single'; export: ScheduledAuditLogExport } | { type: 'multi' } | undefined
+		| { type: 'single'; export: ScheduledAuditLogExport; onsuccess: () => void }
+		| { type: 'multi' }
+		| undefined
 	>();
 	let selected = $state<Record<string, ScheduledAuditLogExport>>({});
 
@@ -230,55 +232,63 @@
 						<Ellipsis class="size-4" />
 					{/snippet}
 
-					<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
-						{#if !readonly}
-							{#if d.enabled}
+					{#snippet children({ toggle })}
+						<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
+							{#if !readonly}
+								{#if d.enabled}
+									<button
+										class="menu-button"
+										disabled={toggleAction?.id === d.id}
+										onclick={async (e) => {
+											e.stopPropagation();
+											await handleUpdateScheduledExport(d.id, { enabled: false });
+
+											toggle(false);
+										}}
+									>
+										{#if toggleAction?.id === d.id && toggleAction.action === 'pause'}
+											<LoaderCircle class="size-4 animate-spin" />
+										{:else}
+											<PauseCircle class="size-4" />
+										{/if}
+										Pause Schedule
+									</button>
+								{:else}
+									<button
+										class="menu-button-primary"
+										disabled={toggleAction?.id === d.id}
+										onclick={async (e) => {
+											e.stopPropagation();
+											await handleUpdateScheduledExport(d.id, { enabled: true });
+											toggle(false);
+										}}
+									>
+										{#if toggleAction?.id === d.id && toggleAction.action === 'resume'}
+											<LoaderCircle class="size-4 animate-spin" />
+										{:else}
+											<PlayCircle class="size-4" />
+										{/if}
+										Resume Schedule
+									</button>
+								{/if}
 								<button
-									class="menu-button"
-									disabled={toggleAction?.id === d.id}
+									class="menu-button-destructive"
 									onclick={(e) => {
 										e.stopPropagation();
-										handleUpdateScheduledExport(d.id, { enabled: false });
+										showDeleteConfirm = {
+											type: 'single',
+											export: d,
+											onsuccess: () => {
+												toggle(false);
+											}
+										};
 									}}
 								>
-									{#if toggleAction?.id === d.id && toggleAction.action === 'pause'}
-										<LoaderCircle class="size-4 animate-spin" />
-									{:else}
-										<PauseCircle class="size-4" />
-									{/if}
-									Pause Schedule
-								</button>
-							{:else}
-								<button
-									class="menu-button-primary"
-									disabled={toggleAction?.id === d.id}
-									onclick={(e) => {
-										e.stopPropagation();
-										handleUpdateScheduledExport(d.id, { enabled: true });
-									}}
-								>
-									{#if toggleAction?.id === d.id && toggleAction.action === 'resume'}
-										<LoaderCircle class="size-4 animate-spin" />
-									{:else}
-										<PlayCircle class="size-4" />
-									{/if}
-									Resume Schedule
+									<Trash2 class="size-4" /> Delete
 								</button>
 							{/if}
-							<button
-								class="menu-button-destructive"
-								onclick={(e) => {
-									e.stopPropagation();
-									showDeleteConfirm = {
-										type: 'single',
-										export: d
-									};
-								}}
-							>
-								<Trash2 class="size-4" /> Delete
-							</button>
-						{/if}
-					</div>
+						</div>
+					{/snippet}
 				</DotDotDot>
 			{/snippet}
 			{#snippet tableSelectActions(currentSelected)}
@@ -355,6 +365,9 @@
 		}
 		tableRef?.clearSelectAll();
 		deleting = false;
+		if ('onsuccess' in showDeleteConfirm) {
+			showDeleteConfirm.onsuccess();
+		}
 		showDeleteConfirm = undefined;
 	}}
 	oncancel={() => (showDeleteConfirm = undefined)}

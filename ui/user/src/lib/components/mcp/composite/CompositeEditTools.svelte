@@ -27,9 +27,10 @@
 	let visibleTools = $derived(
 		tools.filter(
 			(tool) =>
-				tool.overrideName.toLowerCase().includes(search.toLowerCase()) ||
-				tool.overrideDescription?.toLowerCase().includes(search.toLowerCase()) ||
-				tool.description?.toLowerCase().includes(search.toLowerCase())
+				tool.name?.toLowerCase().includes(search.toLowerCase()) ||
+				tool.overrideName?.toLowerCase().includes(search.toLowerCase()) ||
+				tool.description?.toLowerCase().includes(search.toLowerCase()) ||
+				tool.overrideDescription?.toLowerCase().includes(search.toLowerCase())
 		)
 	);
 
@@ -113,11 +114,11 @@
 		{#each visibleTools as tool (tool.id)}
 			{@const overrideName = (tool.overrideName || '').trim()}
 			{@const overrideDescription = (tool.overrideDescription || '').trim()}
-			{@const currentName = overrideName || tool.originalName}
-			{@const currentDescription = overrideDescription || tool.description || ''}
+			{@const currentName = overrideName || tool.name}
+			{@const currentDescription = overrideDescription || tool.description}
 			{@const isCustomized =
-				(overrideName !== '' && overrideName !== tool.originalName) ||
-				(overrideDescription !== '' && overrideDescription !== (tool.description || ''))}
+				(overrideName !== '' && overrideName !== tool.name) ||
+				(overrideDescription !== '' && overrideDescription !== tool.description)}
 
 			<div
 				class="dark:bg-surface2 dark:border-surface3 bg-background flex items-start gap-2 rounded border border-transparent p-2 shadow-sm"
@@ -150,9 +151,9 @@
 								onclick={() => {
 									// When expanding, initialize inputs with current effective values
 									if (!expandedTools[tool.id]) {
-										tool.overrideName = (tool.overrideName || '').trim() || tool.originalName;
+										tool.overrideName = (tool.overrideName || '').trim() || tool.name;
 										tool.overrideDescription =
-											(tool.overrideDescription || '').trim() || tool.description || '';
+											(tool.overrideDescription || '').trim() || tool.description;
 									}
 									expandedTools[tool.id] = !expandedTools[tool.id];
 								}}
@@ -192,8 +193,8 @@
 									type="button"
 									class="button px-3 py-1 text-xs"
 									onclick={() => {
-										tool.overrideName = tool.originalName;
-										tool.overrideDescription = tool.description || '';
+										tool.overrideName = tool.name;
+										tool.overrideDescription = tool.description;
 									}}
 								>
 									Reset to default

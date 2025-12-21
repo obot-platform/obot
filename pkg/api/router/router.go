@@ -8,7 +8,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway/oauth"
 	"github.com/obot-platform/obot/pkg/api/handlers/registry"
-	"github.com/obot-platform/obot/pkg/api/handlers/sendgrid"
 	"github.com/obot-platform/obot/pkg/api/handlers/setup"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
 	"github.com/obot-platform/obot/pkg/services"
@@ -42,7 +41,6 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	threads := handlers.NewThreadHandler(services.ProviderDispatcher, services.Events)
 	runs := handlers.NewRunHandler(services.Events)
 	toolRefs := handlers.NewToolReferenceHandler()
-	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler()
 	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPLoader, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper, services.PersistentTokenServer.EncodedJWKS)
@@ -54,7 +52,6 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN)
 	fileScannerProviders := handlers.NewFileScannerProviderHandler(services.ProviderDispatcher, services.Invoker)
 	prompt := handlers.NewPromptHandler()
-	emailReceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.MCPLoader, services.Invoker)
 	projectShare := handlers.NewProjectShareHandler()
@@ -62,10 +59,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	files := handlers.NewFilesHandler(services.ProviderDispatcher)
 	memories := handlers.NewMemoryHandler()
 	workflows := handlers.NewWorkflowHandler()
-	slackEventHandler := handlers.NewSlackEventHandler()
-	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 	images := handlers.NewImageHandler(services.GeminiClient)
-	slackHandler := handlers.NewSlackHandler()
 	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.PersistentTokenServer.EncodedJWKS, services.ServerURL)
 	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.PersistentTokenServer.EncodedJWKS, services.ServerURL, services.InternalServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
@@ -77,6 +71,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
 	setupHandler := setup.NewHandler(services.ServerURL)
 	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth)
+	oauthClients := handlers.NewOAuthClientsHandler(services.OAuthServerConfig, services.ServerURL)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -155,12 +150,6 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	// Project Env
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/env", assistants.GetEnv)
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/env", assistants.SetEnv)
-
-	// Project Slack integration
-	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/slack", slackHandler.Get)
-	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/slack", slackHandler.Create)
-	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/slack", slackHandler.Update)
-	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/slack", slackHandler.Delete)
 
 	// Top level Tasks
 	mux.HandleFunc("GET /api/tasks", tasks.List)
@@ -384,25 +373,6 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/agents/{id}/env", handlers.RevealEnv)
 	mux.HandleFunc("POST /api/agents/{id}/env", handlers.SetEnv)
 
-	// Webhooks
-	mux.HandleFunc("POST /api/webhooks", webhooks.Create)
-	mux.HandleFunc("GET /api/webhooks", webhooks.List)
-	mux.HandleFunc("GET /api/webhooks/{id}", webhooks.ByID)
-	mux.HandleFunc("DELETE /api/webhooks/{id}", webhooks.Delete)
-	mux.HandleFunc("PUT /api/webhooks/{id}", webhooks.Update)
-	mux.HandleFunc("POST /api/webhooks/{id}/remove-token", webhooks.RemoveToken)
-	mux.HandleFunc("POST /api/webhooks/{namespace}/{id}", webhooks.Execute)
-
-	// Webhook for third party integration to trigger workflow
-	mux.HandleFunc("POST /api/sendgrid", sendgridWebhookHandler.InboundWebhookHandler)
-
-	// Email Receivers
-	mux.HandleFunc("POST /api/email-receivers", emailReceiver.Create)
-	mux.HandleFunc("GET /api/email-receivers", emailReceiver.List)
-	mux.HandleFunc("GET /api/email-receivers/{id}", emailReceiver.ByID)
-	mux.HandleFunc("DELETE /api/email-receivers/{id}", emailReceiver.Delete)
-	mux.HandleFunc("PUT /api/email-receivers/{id}", emailReceiver.Update)
-
 	// CronJobs
 	mux.HandleFunc("POST /api/cronjobs", cronJobs.Create)
 	mux.HandleFunc("GET /api/cronjobs", cronJobs.List)
@@ -410,9 +380,6 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("DELETE /api/cronjobs/{id}", cronJobs.Delete)
 	mux.HandleFunc("POST /api/cronjobs/{id}", cronJobs.Execute)
 	mux.HandleFunc("PUT /api/cronjobs/{id}", cronJobs.Update)
-
-	// Slack event receiver
-	mux.HandleFunc("POST /api/slack/events", slackEventHandler.HandleEvent)
 
 	// MCP Catalog Entries (user routes to access single-user and remote MCP servers from all sources)
 	mux.HandleFunc("GET /api/all-mcps/entries", mcp.ListEntriesFromAllSources)
@@ -597,6 +564,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mcp-audit-logs", mcpAuditLogs.ListAuditLogs)
 	mux.HandleFunc("POST /api/mcp-audit-logs", mcpAuditLogs.SubmitAuditLogs)
 	mux.HandleFunc("GET /api/mcp-audit-logs/filter-options/{filter}", mcpAuditLogs.ListAuditLogFilterOptions)
+	mux.HandleFunc("GET /api/mcp-audit-logs/detail/{audit_log_id}", mcpAuditLogs.GetAuditLog)
 	mux.HandleFunc("GET /api/mcp-audit-logs/{mcp_id}", mcpAuditLogs.ListAuditLogs)
 	mux.HandleFunc("GET /api/mcp-stats", mcpAuditLogs.GetUsageStats)
 	mux.HandleFunc("GET /api/mcp-stats/{mcp_id}", mcpAuditLogs.GetUsageStats)
@@ -636,6 +604,14 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/resources/{resource_uri}", projectMCP.ReadResource)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/prompts", projectMCP.GetPrompts)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/prompts/{prompt_name}", projectMCP.GetPrompt)
+
+	// OAuthClients
+	mux.HandleFunc("GET /api/oauth-clients", oauthClients.List)
+	mux.HandleFunc("POST /api/oauth-clients", oauthClients.Create)
+	mux.HandleFunc("GET /api/oauth-clients/{client_id}", oauthClients.Get)
+	mux.HandleFunc("PUT /api/oauth-clients/{client_id}", oauthClients.Update)
+	mux.HandleFunc("DELETE /api/oauth-clients/{client_id}", oauthClients.Delete)
+	mux.HandleFunc("POST /api/oauth-clients/{client_id}/client-secret", oauthClients.RollClientSecret)
 
 	// User Default Role Settings
 	mux.HandleFunc("GET /api/user-default-role-settings", userDefaultRoleSettings.Get)

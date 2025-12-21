@@ -229,14 +229,6 @@
 		};
 	}
 
-	function isTaskFromIntegration(task: Task) {
-		return (
-			task.id === project.workflowNamesFromIntegration?.slackWorkflowName ||
-			task.id === project.workflowNamesFromIntegration?.discordWorkflowName ||
-			task.id === project.workflowNamesFromIntegration?.emailWorkflowName ||
-			task.id === project.workflowNamesFromIntegration?.webhookWorkflowName
-		);
-	}
 	async function click() {
 		error = '';
 
@@ -259,7 +251,7 @@
 			return;
 		}
 
-		if (task.onDemand || task.email || task.webhook) {
+		if (task.onDemand) {
 			inputDialog?.showModal();
 			return;
 		}
@@ -322,7 +314,7 @@
 				{/if}
 			</button>
 		{/if}
-		{#if !readOnly && !isTaskFromIntegration(task)}
+		{#if !readOnly}
 			<button
 				class="bg-primary hover:bg-primary/50 flex items-center justify-center gap-2 rounded-2xl px-12 py-2 text-white transition-all duration-200"
 				onclick={click}
@@ -400,7 +392,7 @@
 							bind:this={taskHeaderActionDiv}
 							class="flex h-full flex-col items-end justify-center gap-4 md:justify-between"
 						>
-							{#if !readOnly && !isTaskFromIntegration(task)}
+							{#if !readOnly}
 								<button class="button-destructive p-4" onclick={() => (toDelete = true)}>
 									<Trash2 class="size-4" />
 								</button>
@@ -411,7 +403,7 @@
 				</div>
 				{#if responsive.isMobile}
 					<div bind:this={taskHeaderActionDiv} class="flex w-full justify-between px-4">
-						{#if !readOnly && !isTaskFromIntegration(task)}
+						{#if !readOnly}
 							<button class="button-destructive p-4" onclick={() => (toDelete = true)}>
 								<Trash2 class="size-4" />
 							</button>

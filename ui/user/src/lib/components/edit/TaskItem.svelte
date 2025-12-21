@@ -49,15 +49,6 @@
 		displayCount += 10;
 	}
 
-	function isTaskFromIntegration(task: Task) {
-		return (
-			task.id === project.workflowNamesFromIntegration?.slackWorkflowName ||
-			task.id === project.workflowNamesFromIntegration?.discordWorkflowName ||
-			task.id === project.workflowNamesFromIntegration?.emailWorkflowName ||
-			task.id === project.workflowNamesFromIntegration?.webhookWorkflowName
-		);
-	}
-
 	async function deleteTaskRun(taskRun: Thread) {
 		if (!taskRun.id || !task.id) return;
 
@@ -149,18 +140,16 @@
 							>
 								{formatTime(taskRun.created)}
 							</button>
-							{#if !isTaskFromIntegration(task)}
-								<button
-									class={twMerge(
-										'p-0 pr-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100',
-										classes?.taskItemAction
-									)}
-									onclick={() => deleteTaskRun(taskRun)}
-									use:tooltip={'Delete Run'}
-								>
-									<Trash2 class="size-4" />
-								</button>
-							{/if}
+							<button
+								class={twMerge(
+									'p-0 pr-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100',
+									classes?.taskItemAction
+								)}
+								onclick={() => deleteTaskRun(taskRun)}
+								use:tooltip={'Delete Run'}
+							>
+								<Trash2 class="size-4" />
+							</button>
 						</div>
 					</li>
 				{/each}

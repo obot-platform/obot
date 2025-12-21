@@ -162,7 +162,6 @@
 						onConnect={setupProjectMcp}
 						skipConnectDialog
 						connectOnly
-						{type}
 					/>
 				{:else}
 					<McpServerActions
@@ -170,7 +169,6 @@
 						onConnect={setupProjectMcp}
 						skipConnectDialog
 						connectOnly
-						{type}
 					/>
 				{/if}
 			</div>
@@ -186,6 +184,7 @@
 				entity="workspace"
 				{hasExistingConfigured}
 				isDialogView
+				limitViews={['overview', 'tools']}
 			/>
 		</div>
 	{/if}

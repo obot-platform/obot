@@ -5,8 +5,11 @@
 	import { formatTimeRange, getTimeRangeShorthand } from '$lib/time';
 	import { set, startOfDay, subDays, subHours } from 'date-fns';
 	import { twMerge } from 'tailwind-merge';
+	import { responsive } from '$lib/stores';
 
 	let { start, end, disabled = false, onChange } = $props();
+
+	let open = $state(false);
 
 	const actions = [
 		{
@@ -84,17 +87,38 @@
 
 	const quickActionsPopover = popover({
 		placement: 'bottom-start',
-		offset: 4
+		offset: 4,
+		onOpenChange: (val) => {
+			open = val;
+		}
 	});
+
+	const isSmallScreen = $derived(responsive.isMobile);
+
+	function refAction(node: HTMLElement) {
+		return quickActionsPopover.ref(node);
+	}
+
+	function tooltipAction(node: HTMLElement) {
+		if (isSmallScreen) {
+			return;
+		}
+
+		return quickActionsPopover.tooltip(node);
+	}
 </script>
 
-<div class="flex">
+<div class="flex w-full md:max-w-fit">
 	<button
 		type="button"
-		class="dark:border-surface3 dark:hover:bg-surface2/70 dark:active:bg-surface2 dark:bg-surface1 hover:bg-surface1/70 active:bg-surface1 bg-background flex min-h-12.5 flex-shrink-0 items-center gap-2 truncate rounded-l-lg border border-r-0 border-transparent px-2 text-sm shadow-sm transition-colors duration-200 disabled:opacity-50"
+		class="dark:border-surface3 dark:hover:bg-surface2/70 dark:active:bg-surface2 dark:bg-surface1 hover:bg-surface1/70 active:bg-surface1 bg-background relative z-40 flex min-h-12.5 flex-1 flex-shrink-0 items-center gap-2 truncate rounded-l-lg border border-r-0 border-transparent px-2 text-sm shadow-sm transition-colors duration-200 disabled:opacity-50"
 		{disabled}
-		use:quickActionsPopover.ref
-		onclick={() => !disabled && quickActionsPopover.toggle()}
+		use:refAction
+		onclick={() => {
+			if (!disabled) {
+				quickActionsPopover.toggle();
+			}
+		}}
 		{@attach (node: HTMLElement) => {
 			const response = tooltip(node, {
 				text: 'Calendar Quick Actions',
@@ -113,23 +137,50 @@
 	</button>
 
 	<div
-		class={twMerge('default-dialog flex flex-col items-start p-0')}
-		use:quickActionsPopover.tooltip
+		class={twMerge(
+			isSmallScreen
+				? 'fixed inset-0 z-50 flex min-w-full items-center justify-center p-4 backdrop-blur-sm'
+				: 'contents',
+			!open && 'hidden'
+		)}
+		role="button"
+		tabindex="-1"
+		onclick={(ev) => {
+			if (
+				ev.target &&
+				ev.currentTarget.contains(ev.target as HTMLElement) &&
+				!(ev.currentTarget === ev.target)
+			) {
+				return;
+			}
+			quickActionsPopover.toggle(false);
+		}}
+		onkeydown={undefined}
 	>
-		{#each actions as action (action.label)}
-			<button
-				type="button"
-				class="hover:bg-surface3 w-full min-w-max px-4 py-2 text-start"
-				onpointerdown={action.onpointerdown}
-			>
-				{action.label}
-			</button>
-		{/each}
+		{#key isSmallScreen}
+			<div class="default-dialog flex w-full max-w-sm flex-col py-2 md:max-w-fit" use:tooltipAction>
+				<div class="mb-6 px-4 text-center text-lg font-medium md:hidden md:text-start">
+					<div>Select Export Time Range</div>
+				</div>
+
+				<div class="flex w-full min-w-36 flex-col">
+					{#each actions as action (action.label)}
+						<button
+							type="button"
+							class="hover:bg-surface3/25 h-12 w-full min-w-max px-4 py-2 text-center last:border-b-transparent md:h-10 md:text-start"
+							onclick={action.onpointerdown}
+						>
+							{action.label}
+						</button>
+					{/each}
+				</div>
+			</div>
+		{/key}
 	</div>
 
 	<Calendar
 		compact
-		class="dark:border-surface3 hover:bg-surface1 dark:hover:bg-surface3 dark:bg-surface1 bg-background flex min-h-12.5 flex-shrink-0 items-center gap-2 truncate rounded-none rounded-r-lg border border-transparent px-4 text-sm shadow-sm"
+		class="dark:border-surface3 hover:bg-surface1 dark:hover:bg-surface3 dark:bg-surface1 bg-background relative z-40 flex min-h-12.5 flex-shrink-0 items-center gap-2 truncate rounded-none rounded-r-lg border border-transparent px-4 text-sm shadow-sm"
 		initialValue={{
 			start: new Date(start),
 			end: end ? new Date(end) : null

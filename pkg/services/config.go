@@ -28,6 +28,7 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/api/server/audit"
@@ -48,7 +49,6 @@ import (
 	"github.com/obot-platform/obot/pkg/logutil"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/proxy"
-	"github.com/obot-platform/obot/pkg/smtp"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
@@ -88,7 +88,6 @@ type Config struct {
 	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
 	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-4.1-mini"`
 	EmailServerName            string   `usage:"The name of the email server to display for email receivers"`
-	EnableSMTPServer           bool     `usage:"Enable SMTP server to receive emails" default:"false" env:"OBOT_ENABLE_SMTP_SERVER"`
 	Docker                     bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
 	EnvKeys                    []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
 	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" name:"knowledge-set-ingestion-limit"`
@@ -167,7 +166,7 @@ type Services struct {
 	MCPOAuthTokenStorage mcp.GlobalTokenStore
 
 	// OAuth configuration
-	OAuthServerConfig OAuthAuthorizationServerConfig
+	OAuthServerConfig handlers.OAuthAuthorizationServerConfig
 
 	// Local Kubernetes configuration for deployment monitoring
 	LocalK8sConfig     *rest.Config
@@ -704,10 +703,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, authn.NewNoAuth(gatewayClient))
 	}
 
-	if config.EmailServerName != "" && config.EnableSMTPServer {
-		go smtp.Start(ctx, storageClient, config.EmailServerName)
-	}
-
 	var geminiClient *gemini.Client
 	if config.GeminiAPIKey != "" {
 		// Enable gemini-powered image generation
@@ -799,7 +794,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DefaultMCPCatalogPath:      config.DefaultMCPCatalogPath,
 		MCPLoader:                  mcpSessionManager,
 		MCPOAuthTokenStorage:       mcpOAuthTokenStorage,
-		OAuthServerConfig: OAuthAuthorizationServerConfig{
+		OAuthServerConfig: handlers.OAuthAuthorizationServerConfig{
+			Issuer:                            config.Hostname,
+			AuthorizationEndpoint:             fmt.Sprintf("%s/oauth/authorize", config.Hostname),
+			TokenEndpoint:                     fmt.Sprintf("%s/oauth/token", config.Hostname),
+			RegistrationEndpoint:              fmt.Sprintf("%s/oauth/register", config.Hostname),
 			JWKSURI:                           config.Hostname + "/oauth/jwks.json",
 			ResponseTypesSupported:            []string{"code"},
 			GrantTypesSupported:               []string{"authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"},

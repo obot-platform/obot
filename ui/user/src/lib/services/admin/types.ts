@@ -655,8 +655,8 @@ export interface ServerK8sSettings {
 }
 export type CompositeServerToolRow = {
 	id: string;
-	originalName: string;
-	overrideName: string;
+	name: string;
+	overrideName?: string;
 	description?: string;
 	overrideDescription?: string;
 	enabled: boolean;

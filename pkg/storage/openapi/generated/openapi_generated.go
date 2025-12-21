@@ -134,6 +134,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus":                        schema_obot_platform_obot_apiclient_types_OAuthAppLoginAuthStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthAppManifest":                               schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthClient":                                    schema_obot_platform_obot_apiclient_types_OAuthClient(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthClientList":                                schema_obot_platform_obot_apiclient_types_OAuthClientList(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthClientManifest":                            schema_obot_platform_obot_apiclient_types_OAuthClientManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthToken":                                     schema_obot_platform_obot_apiclient_types_OAuthToken(ref),
 		"github.com/obot-platform/obot/apiclient/types.OnEmail":                                        schema_obot_platform_obot_apiclient_types_OnEmail(ref),
@@ -188,9 +189,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportListResponse":            schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportListResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportResponse":                schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportUpdateRequest":           schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequest(ref),
-		"github.com/obot-platform/obot/apiclient/types.SlackReceiver":                                  schema_obot_platform_obot_apiclient_types_SlackReceiver(ref),
-		"github.com/obot-platform/obot/apiclient/types.SlackReceiverList":                              schema_obot_platform_obot_apiclient_types_SlackReceiverList(ref),
-		"github.com/obot-platform/obot/apiclient/types.SlackReceiverManifest":                          schema_obot_platform_obot_apiclient_types_SlackReceiverManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.Step":                                           schema_obot_platform_obot_apiclient_types_Step(ref),
 		"github.com/obot-platform/obot/apiclient/types.StepTemplateInvoke":                             schema_obot_platform_obot_apiclient_types_StepTemplateInvoke(ref),
 		"github.com/obot-platform/obot/apiclient/types.StorageConfig":                                  schema_obot_platform_obot_apiclient_types_StorageConfig(ref),
@@ -203,16 +201,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.SystemMCPServerList":                            schema_obot_platform_obot_apiclient_types_SystemMCPServerList(ref),
 		"github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest":                        schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.Task":                                           schema_obot_platform_obot_apiclient_types_Task(ref),
-		"github.com/obot-platform/obot/apiclient/types.TaskEmail":                                      schema_obot_platform_obot_apiclient_types_TaskEmail(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskList":                                       schema_obot_platform_obot_apiclient_types_TaskList(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskManifest":                                   schema_obot_platform_obot_apiclient_types_TaskManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskOnDemand":                                   schema_obot_platform_obot_apiclient_types_TaskOnDemand(ref),
-		"github.com/obot-platform/obot/apiclient/types.TaskOnDiscordMessage":                           schema_obot_platform_obot_apiclient_types_TaskOnDiscordMessage(ref),
-		"github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage":                             schema_obot_platform_obot_apiclient_types_TaskOnSlackMessage(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskRun":                                        schema_obot_platform_obot_apiclient_types_TaskRun(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskRunList":                                    schema_obot_platform_obot_apiclient_types_TaskRunList(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskStep":                                       schema_obot_platform_obot_apiclient_types_TaskStep(ref),
-		"github.com/obot-platform/obot/apiclient/types.TaskWebhook":                                    schema_obot_platform_obot_apiclient_types_TaskWebhook(ref),
 		"github.com/obot-platform/obot/apiclient/types.TemplateAuthorization":                          schema_obot_platform_obot_apiclient_types_TemplateAuthorization(ref),
 		"github.com/obot-platform/obot/apiclient/types.TemplateAuthorizationList":                      schema_obot_platform_obot_apiclient_types_TemplateAuthorizationList(ref),
 		"github.com/obot-platform/obot/apiclient/types.TemplateAuthorizationManifest":                  schema_obot_platform_obot_apiclient_types_TemplateAuthorizationManifest(ref),
@@ -279,10 +273,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAliasSpec":         schema_storage_apis_obotobotai_v1_DefaultModelAliasSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAliasStatus":       schema_storage_apis_obotobotai_v1_DefaultModelAliasStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DeploymentCondition":           schema_storage_apis_obotobotai_v1_DeploymentCondition(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiver":                 schema_storage_apis_obotobotai_v1_EmailReceiver(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiverList":             schema_storage_apis_obotobotai_v1_EmailReceiverList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiverSpec":             schema_storage_apis_obotobotai_v1_EmailReceiverSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiverStatus":           schema_storage_apis_obotobotai_v1_EmailReceiverStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmptyStatus":                   schema_storage_apis_obotobotai_v1_EmptyStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall":                  schema_storage_apis_obotobotai_v1_ExternalCall(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult":            schema_storage_apis_obotobotai_v1_ExternalCallResult(ref),
@@ -386,14 +376,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ScheduledAuditLogExportList":   schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ScheduledAuditLogExportSpec":   schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ScheduledAuditLogExportStatus": schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiver":                 schema_storage_apis_obotobotai_v1_SlackReceiver(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiverList":             schema_storage_apis_obotobotai_v1_SlackReceiverList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiverSpec":             schema_storage_apis_obotobotai_v1_SlackReceiverSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiverStatus":           schema_storage_apis_obotobotai_v1_SlackReceiverStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTrigger":                  schema_storage_apis_obotobotai_v1_SlackTrigger(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerList":              schema_storage_apis_obotobotai_v1_SlackTriggerList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerSpec":              schema_storage_apis_obotobotai_v1_SlackTriggerSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerStatus":            schema_storage_apis_obotobotai_v1_SlackTriggerStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServer":               schema_storage_apis_obotobotai_v1_SystemMCPServer(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerList":           schema_storage_apis_obotobotai_v1_SystemMCPServerList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SystemMCPServerSpec":           schema_storage_apis_obotobotai_v1_SystemMCPServerSpec(ref),
@@ -432,10 +414,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChange":                schema_storage_apis_obotobotai_v1_UserRoleChange(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChangeList":            schema_storage_apis_obotobotai_v1_UserRoleChangeList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChangeSpec":            schema_storage_apis_obotobotai_v1_UserRoleChangeSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Webhook":                       schema_storage_apis_obotobotai_v1_Webhook(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WebhookList":                   schema_storage_apis_obotobotai_v1_WebhookList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WebhookSpec":                   schema_storage_apis_obotobotai_v1_WebhookSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WebhookStatus":                 schema_storage_apis_obotobotai_v1_WebhookStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Workflow":                      schema_storage_apis_obotobotai_v1_Workflow(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowExecution":             schema_storage_apis_obotobotai_v1_WorkflowExecution(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WorkflowExecutionList":         schema_storage_apis_obotobotai_v1_WorkflowExecutionList(ref),
@@ -6465,16 +6443,14 @@ func schema_obot_platform_obot_apiclient_types_OAuthClient(ref common.ReferenceC
 					},
 					"registration_token_issued_at": {
 						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 					"registration_token_expires_at": {
 						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 					"registration_client_uri": {
@@ -6499,24 +6475,68 @@ func schema_obot_platform_obot_apiclient_types_OAuthClient(ref common.ReferenceC
 					},
 					"client_secret_issued_at": {
 						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 					"client_secret_expires_at": {
 						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"static": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"authorize_url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"token_url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
-				Required: []string{"Metadata", "OAuthClientManifest", "registration_token_issued_at", "registration_token_expires_at", "registration_client_uri", "client_id", "client_secret_issued_at", "client_secret_expires_at"},
+				Required: []string{"Metadata", "OAuthClientManifest", "registration_client_uri", "client_id"},
 			},
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.OAuthClientManifest"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OAuthClientList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.OAuthClient"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.OAuthClient"},
 	}
 }
 
@@ -9056,105 +9076,6 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequ
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_SlackReceiver(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"Metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
-						},
-					},
-					"SlackReceiverManifest": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SlackReceiverManifest"),
-						},
-					},
-					"clientSecret": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"signingSecret": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"appToken": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-				Required: []string{"Metadata", "SlackReceiverManifest"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.SlackReceiverManifest"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_SlackReceiverList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.SlackReceiver"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.SlackReceiver"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_SlackReceiverManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "SlackReceiverManifest defines the configuration for a Slack receiver",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"appId": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AppID corresponds to the App ID of the Slack app. It's important to not that this value is not validated. The user can insert whatever they want here. Don't trust this value. Use the value from oauth flow to validate the app.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"clientId": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func schema_obot_platform_obot_apiclient_types_Step(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -9715,16 +9636,6 @@ func schema_obot_platform_obot_apiclient_types_Task(ref common.ReferenceCallback
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_TaskEmail(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-			},
-		},
-	}
-}
-
 func schema_obot_platform_obot_apiclient_types_TaskList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -9791,37 +9702,17 @@ func schema_obot_platform_obot_apiclient_types_TaskManifest(ref common.Reference
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Schedule"),
 						},
 					},
-					"webhook": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskWebhook"),
-						},
-					},
-					"email": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskEmail"),
-						},
-					},
 					"onDemand": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskOnDemand"),
 						},
 					},
-					"onSlackMessage": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage"),
-						},
-					},
-					"onDiscordMessage": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskOnDiscordMessage"),
-						},
-					},
 				},
-				Required: []string{"name", "description", "steps", "schedule", "webhook", "email", "onDemand", "onSlackMessage", "onDiscordMessage"},
+				Required: []string{"name", "description", "steps", "schedule", "onDemand"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Schedule", "github.com/obot-platform/obot/apiclient/types.TaskEmail", "github.com/obot-platform/obot/apiclient/types.TaskOnDemand", "github.com/obot-platform/obot/apiclient/types.TaskOnDiscordMessage", "github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage", "github.com/obot-platform/obot/apiclient/types.TaskStep", "github.com/obot-platform/obot/apiclient/types.TaskWebhook"},
+			"github.com/obot-platform/obot/apiclient/types.Schedule", "github.com/obot-platform/obot/apiclient/types.TaskOnDemand", "github.com/obot-platform/obot/apiclient/types.TaskStep"},
 	}
 }
 
@@ -9847,26 +9738,6 @@ func schema_obot_platform_obot_apiclient_types_TaskOnDemand(ref common.Reference
 						},
 					},
 				},
-			},
-		},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_TaskOnDiscordMessage(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-			},
-		},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_TaskOnSlackMessage(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
 			},
 		},
 	}
@@ -10006,16 +9877,6 @@ func schema_obot_platform_obot_apiclient_types_TaskStep(ref common.ReferenceCall
 						},
 					},
 				},
-			},
-		},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_TaskWebhook(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
 			},
 		},
 	}
@@ -10221,18 +10082,6 @@ func schema_obot_platform_obot_apiclient_types_Thread(ref common.ReferenceCallba
 						},
 					},
 					"taskRunID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"webhookID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"emailReceiverID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -11835,22 +11684,12 @@ func schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref common.Refer
 							Format: "",
 						},
 					},
-					"onSlackMessage": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage"),
-						},
-					},
-					"onDiscordMessage": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskOnDiscordMessage"),
-						},
-					},
 				},
 				Required: []string{"alias", "steps", "output"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Step", "github.com/obot-platform/obot/apiclient/types.TaskOnDiscordMessage", "github.com/obot-platform/obot/apiclient/types.TaskOnSlackMessage"},
+			"github.com/obot-platform/obot/apiclient/types.Step"},
 	}
 }
 
@@ -13071,184 +12910,6 @@ func schema_storage_apis_obotobotai_v1_DeploymentCondition(ref common.ReferenceC
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_EmailReceiver(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiverSpec"),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiverStatus"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiverSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiverStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_EmailReceiverList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiver"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiver", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_EmailReceiverSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"alias": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"workflowName": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"allowedSenders": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"threadName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-				Required: []string{"name", "description", "workflowName"},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_EmailReceiverStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"aliasAssigned": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-					"observedGeneration": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
-						},
-					},
-				},
-			},
-		},
 	}
 }
 
@@ -16035,13 +15696,6 @@ func schema_storage_apis_obotobotai_v1_OAuthAppSpec(ref common.ReferenceCallback
 							Format:      "",
 						},
 					},
-					"slackReceiverName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The Slack receiver that created and owns this OAuth app",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 				},
 			},
 		},
@@ -16444,8 +16098,16 @@ func schema_storage_apis_obotobotai_v1_OAuthClientSpec(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
+					"static": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Static indicates that the OAuth client is not dynamically registered, but was created manually.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"manifest", "clientSecretHash", "client_secret_issued_at", "client_secret_expires_at", "registrationTokenHash", "registration_token_issued_at", "registration_token_expires_at", "mcp_server_name", "ephemeral"},
+				Required: []string{"manifest", "clientSecretHash", "client_secret_issued_at", "client_secret_expires_at", "registrationTokenHash", "registration_token_issued_at", "registration_token_expires_at", "mcp_server_name", "ephemeral", "static"},
 			},
 		},
 		Dependencies: []string{
@@ -17781,278 +17443,6 @@ func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportStatus(ref common.
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_SlackReceiver(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiverSpec"),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiverStatus"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiverSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiverStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_SlackReceiverList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiver"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackReceiver", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_SlackReceiverSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"manifest": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.SlackReceiverManifest"),
-						},
-					},
-					"threadName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.SlackReceiverManifest"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_SlackReceiverStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"socketConnectError": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_SlackTrigger(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerSpec"),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerStatus"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_SlackTriggerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTrigger"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTrigger", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_SlackTriggerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"appID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"teamID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"threadName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_SlackTriggerStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-			},
-		},
-	}
-}
-
 func schema_storage_apis_obotobotai_v1_SystemMCPServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18873,20 +18263,6 @@ func schema_storage_apis_obotobotai_v1_ThreadSpec(ref common.ReferenceCallback) 
 					"knowledgeSetName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "KnowledgeSetName is the knowledge set owner of the thread",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"webhookName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "WebhookName is the webhook owner of the thread",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"emailReceiverName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "EmailReceiverName is the email receiver owner of the thread",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -19961,213 +19337,6 @@ func schema_storage_apis_obotobotai_v1_UserRoleChangeSpec(ref common.ReferenceCa
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_Webhook(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WebhookSpec"),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WebhookStatus"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WebhookSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WebhookStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_WebhookList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Webhook"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Webhook", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_WebhookSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"alias": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"workflowName": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"headers": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"secret": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"validationHeader": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"tokenHash": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "byte",
-						},
-					},
-					"ThreadName": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-				},
-				Required: []string{"name", "description", "alias", "workflowName", "headers", "secret", "validationHeader", "ThreadName"},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_WebhookStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"aliasAssigned": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-					"lastSuccessfulRunCompleted": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
-						},
-					},
-					"observedGeneration": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
-	}
-}
-
 func schema_storage_apis_obotobotai_v1_Workflow(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -20328,18 +19497,6 @@ func schema_storage_apis_obotobotai_v1_WorkflowExecutionSpec(ref common.Referenc
 						},
 					},
 					"workflowName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"webhookName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"emailReceiverName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
