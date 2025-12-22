@@ -152,3 +152,41 @@ func DeleteCredentialIfExists(ctx context.Context, gptClient *gptscript.GPTScrip
 	}
 	return nil
 }
+
+// EnsureCredential will ensure a given credential exists and it's env field is up to date.
+// Returns true if a credential was created or modified to match.
+func ensureCredential(ctx context.Context, gptClient *gptscript.GPTScript, cred gptscript.Credential) (bool, error) {
+	credCtx := []string{cred.Context}
+	existing, err := gptClient.RevealCredential(ctx, credCtx, cred.ToolName)
+	if err != nil {
+		if !errors.As(err, &gptscript.ErrNotFound{}) {
+			return false, fmt.Errorf("failed to find credential: %w", err)
+		}
+
+		// Create new credential
+		if err := gptClient.CreateCredential(ctx, cred); err != nil {
+			return false, fmt.Errorf("failed to create credential: %w", err)
+		}
+		return true, nil
+	}
+
+	// Existing credential, check if it needs an update
+	var modified bool
+	for key, env := range cred.Env {
+		existingEnv, ok := existing.Env[key]
+		if !ok || existingEnv != env {
+			modified = true
+			break
+		}
+	}
+	if !modified && len(cred.Env) == len(existing.Env) {
+		// No update needed
+		return false, nil
+	}
+
+	if err := gptClient.CreateCredential(ctx, cred); err != nil {
+		return false, fmt.Errorf("failed to create credential: %w", err)
+	}
+
+	return true, nil
+}

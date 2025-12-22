@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
@@ -22,10 +24,11 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
+	"github.com/obot-platform/obot/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/util/wait"
+	kwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -380,7 +383,7 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 	}
 
 	// Prevent deletion of multi-user servers that are referenced by running composite MCP servers or catalog entries.
-	dependencies, err := m.listCompositeDeletionDependencies(req, server)
+	dependencies, err := listCompositeDeletionDependencies(req, server)
 	if err != nil {
 		return fmt.Errorf("failed to list composite deletion dependencies: %w", err)
 	}
@@ -412,7 +415,7 @@ type compositeDeletionDependency struct {
 }
 
 // listCompositeDeletionDependencies lists the composite MCP servers and catalog entries that depend on the given multi-user server.
-func (m *MCPHandler) listCompositeDeletionDependencies(req api.Context, server v1.MCPServer) ([]compositeDeletionDependency, error) {
+func listCompositeDeletionDependencies(req api.Context, server v1.MCPServer) ([]compositeDeletionDependency, error) {
 	if server.Spec.MCPServerCatalogEntryName != "" {
 		// Not a multi-user server, skip dependency check
 		return nil, nil
@@ -1089,7 +1092,7 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 			}
 
 			// Convert the catalog entry manifest to a server manifest. Treat the user as non-admin always.
-			manifest, err := serverManifestFromCatalogEntryManifest(false, entry.Spec.Manifest, types.MCPServerManifest{})
+			manifest, err := serverManifestFromCatalogEntryManifest(false, false, entry.Spec.Manifest, types.MCPServerManifest{})
 			if err != nil {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
 			}
@@ -1280,17 +1283,24 @@ func serverConfigForAction(req api.Context, server v1.MCPServer) (mcp.ServerConf
 	}
 	if catalogName == "" && server.Spec.MCPServerCatalogEntryName != "" {
 		var entry v1.MCPServerCatalogEntry
-		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
+		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err == nil {
+			catalogName = entry.Spec.MCPCatalogName
+		} else if apierrors.IsNotFound(err) && server.Spec.CompositeName != "" {
+			// For composite component's, this usually happens when the component's catalog entry
+			// was deleted, but the component hasn't been removed from the composite catalog entry yet.
+			// At the moment, composite MCP servers can only contain catalog entries from the default catalog,
+			// so we can assume the deleted entry belongs to the default catalog for now.
+			catalogName = system.DefaultCatalog
+		} else {
 			return mcp.ServerConfig{}, fmt.Errorf("failed to get MCP server catalog entry: %w", err)
 		}
-		catalogName = entry.Spec.MCPCatalogName
 	}
 
 	var (
 		tokenExchangeCred gptscript.Credential
 		tokenCredErr      error
 	)
-	if err = retry.OnError(wait.Backoff{
+	if err = retry.OnError(kwait.Backoff{
 		Steps:    10,
 		Duration: 100 * time.Millisecond,
 		Factor:   2.0,
@@ -1365,6 +1375,7 @@ func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.Ses
 // If the user is an admin, they can override anything from the catalog entry.
 func serverManifestFromCatalogEntryManifest(
 	isAdmin bool,
+	disableHostnameValidation bool,
 	entry types.MCPServerCatalogEntryManifest,
 	input types.MCPServerManifest,
 ) (types.MCPServerManifest, error) {
@@ -1415,7 +1426,7 @@ func serverManifestFromCatalogEntryManifest(
 			// Map the catalog entry to a server manifest.
 			// Pass the disabled field to bypass hostname validation for disabled remote components.
 			// This is necessary because users don't need to provide required configuration for disabled components.
-			resultComponentManifest, err := types.MapCatalogEntryToServer(entryComponent.Manifest, userURL, inputComponent.Disabled)
+			resultComponentManifest, err := types.MapCatalogEntryToServer(entryComponent.Manifest, userURL, inputComponent.Disabled || disableHostnameValidation)
 			if err != nil {
 				return types.MCPServerManifest{}, fmt.Errorf("failed to convert component manifest: %w", err)
 			}
@@ -1566,7 +1577,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return types.NewErrForbidden("user does not have access to MCP server catalog entry")
 		}
 
-		manifest, err := serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), catalogEntry.Spec.Manifest, input.MCPServerManifest)
+		manifest, err := serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), false, catalogEntry.Spec.Manifest, input.MCPServerManifest)
 		if err != nil {
 			return err
 		}
@@ -1581,7 +1592,12 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return types.NewErrBadRequest("catalogEntryID is required")
 	}
 
-	if err := createServer(req, &server); err != nil {
+	if err := validation.ValidateServerManifest(server.Spec.Manifest); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
+	}
+
+	addExtractedEnvVars(&server)
+	if err := req.Create(&server); err != nil {
 		return err
 	}
 
@@ -1606,85 +1622,6 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	}
 
 	return req.WriteCreated(ConvertMCPServer(server, cred.Env, m.serverURL, slug))
-}
-
-// createServer validates and creates an MCP server.
-// If the server is a composite server, it also creates component servers and instances.
-func createServer(
-	req api.Context,
-	server *v1.MCPServer,
-) error {
-	if server == nil {
-		return types.NewErrBadRequest("server is required")
-	}
-
-	if err := validation.ValidateServerManifest(server.Spec.Manifest); err != nil {
-		return types.NewErrBadRequest("validation failed: %v", err)
-	}
-
-	addExtractedEnvVars(server)
-	if err := req.Create(server); err != nil {
-		return err
-	}
-
-	if server.Spec.Manifest.Runtime != types.RuntimeComposite {
-		return nil
-	}
-
-	// Create composite component servers and instances
-	for i, component := range server.Spec.Manifest.CompositeConfig.ComponentServers {
-		if component.MCPServerID != "" {
-			// Create an MCP server instance for multi-user components
-			var multiUserServer v1.MCPServer
-			if err := req.Get(&multiUserServer, component.MCPServerID); err != nil {
-				if apierrors.IsNotFound(err) {
-					log.Warnf("multi-user server %s not found for component %d, skipping", component.MCPServerID, i)
-					continue
-				}
-				return fmt.Errorf("failed to get multi-user server %s for component %d: %w", component.MCPServerID, i, err)
-			}
-
-			if err := req.Create(&v1.MCPServerInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: system.MCPServerInstancePrefix,
-					Namespace:    server.Namespace,
-				},
-				Spec: v1.MCPServerInstanceSpec{
-					MCPServerName:        component.MCPServerID,
-					MCPCatalogName:       multiUserServer.Spec.MCPCatalogID,
-					PowerUserWorkspaceID: multiUserServer.Spec.PowerUserWorkspaceID,
-					UserID:               server.Spec.UserID,
-					CompositeName:        server.Name,
-				},
-			}); err != nil {
-				return fmt.Errorf("failed to create instance for multi-user component %d: %w", i, err)
-			}
-
-			// Don't add MCP server instances to the list of converted components
-			continue
-		}
-
-		componentServer := v1.MCPServer{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: system.MCPServerPrefix,
-				Namespace:    server.Namespace,
-				Finalizers:   []string{v1.MCPServerFinalizer},
-			},
-			Spec: v1.MCPServerSpec{
-				Manifest:                  component.Manifest,
-				MCPServerCatalogEntryName: component.CatalogEntryID,
-				UserID:                    server.Spec.UserID,
-				CompositeName:             server.Name,
-			},
-		}
-		addExtractedEnvVars(&componentServer)
-
-		if err := req.Create(&componentServer); err != nil {
-			return fmt.Errorf("failed to create component server %d: %w", i, err)
-		}
-	}
-
-	return nil
 }
 
 // UpdateServer updates the manifest of an MCPServer.
@@ -1914,6 +1851,15 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 	if err := req.Read(&configRequest); err != nil {
 		return types.NewErrBadRequest("failed to read configuration: %v", err)
 	}
+	if len(configRequest.ComponentConfigs) < 1 {
+		return types.NewErrBadRequest("no component configurations provided")
+	}
+
+	// Wait for the composite server's child MCP servers and instances to match it's current runtime configuration.
+	compositeServer, err := m.waitForCompositeReady(req, compositeServer, 5*time.Second)
+	if err != nil {
+		return fmt.Errorf("failed to wait for composite server to be ready for configuration: %w", err)
+	}
 
 	// Query component servers
 	var componentServers v1.MCPServerList
@@ -1924,132 +1870,126 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 		return fmt.Errorf("failed to list component servers: %w", err)
 	}
 
-	// Load composite catalog entry once to map component manifests
-	var compositeEntry v1.MCPServerCatalogEntry
-	if err := req.Get(&compositeEntry, compositeServer.Spec.MCPServerCatalogEntryName); err != nil {
-		return fmt.Errorf("failed to get composite catalog entry %s: %w", compositeServer.Spec.MCPServerCatalogEntryName, err)
-	}
-
-	componentManifestByID := map[string]types.MCPServerCatalogEntryManifest{}
-	if compositeEntry.Spec.Manifest.CompositeConfig != nil {
-		for _, cs := range compositeEntry.Spec.Manifest.CompositeConfig.ComponentServers {
-			componentManifestByID[cs.ComponentID()] = cs.Manifest
+	// Build an index of existing servers and their credential contexts
+	// This lets us get/set the GPTScript credential for each server
+	existingServers := make(map[string]v1.MCPServer, len(componentServers.Items))
+	for _, server := range componentServers.Items {
+		if id := server.Spec.MCPServerCatalogEntryName; id != "" {
+			existingServers[id] = server
 		}
 	}
 
-	// Configure each component with its env vars and persist enabled flags
-	// Build quick map for parent composite components by catalog entry ID
-	parentComps := map[string]int{}
-	if compositeServer.Spec.Manifest.CompositeConfig != nil {
-		for i, comp := range compositeServer.Spec.Manifest.CompositeConfig.ComponentServers {
-			parentComps[comp.ComponentID()] = i
+	var (
+		manifestChanged bool
+		oldManifestHash = hash.Digest(compositeServer.Spec.Manifest)
+		componentCreds  = make(map[string]gptscript.Credential, len(existingServers))
+	)
+	for i, component := range compositeServer.Spec.Manifest.CompositeConfig.ComponentServers {
+		componentID := component.ComponentID()
+		if componentID == "" {
+			continue
 		}
-	}
 
-	// Hash the composite server's original manifest to determine if we should update it after processing the configuration request.
-	oldManifestHash := hash.Digest(compositeServer.Spec.Manifest)
-	for _, component := range componentServers.Items {
-		addExtractedEnvVars(&component)
-
-		componentConfig, hasConfig := configRequest.ComponentConfigs[component.Spec.MCPServerCatalogEntryName]
+		config, hasConfig := configRequest.ComponentConfigs[componentID]
 		if !hasConfig {
+			// Skip components we're not configuring and multi-user components
 			continue
 		}
 
-		// Calculate credential context for this component (after manifest update)
-		credCtx := fmt.Sprintf("%s-%s", req.User.GetUID(), component.Name)
-		// Remove existing credential and shutdown server to allow update
-		if err := m.removeMCPServerAndCred(req.Context(), req.GPTClient, component, []string{credCtx}); err != nil {
-			return err
+		if component.Disabled != config.Disabled {
+			component.Disabled = config.Disabled
+			manifestChanged = true
 		}
 
-		// Persist disabled state to parent composite manifest if present
-		if idx, ok := parentComps[component.Spec.MCPServerCatalogEntryName]; ok && compositeServer.Spec.Manifest.CompositeConfig != nil {
-			compositeServer.Spec.Manifest.CompositeConfig.ComponentServers[idx].Disabled = componentConfig.Disabled
-		}
+		if server, serverExists := existingServers[componentID]; serverExists && !component.Disabled {
+			if runtime, remoteConfig := component.Manifest.Runtime, component.Manifest.RemoteConfig; runtime == types.RuntimeRemote && remoteConfig != nil {
+				// Handle URL changes for templates and hostname constraints
+				originalURL := remoteConfig.URL
+				if remoteConfig.URLTemplate != "" {
+					finalURL, err := applyURLTemplate(remoteConfig.URLTemplate, config.Config)
+					if err != nil {
+						return fmt.Errorf("failed to apply URL template %w", err)
+					}
+					remoteConfig.URL = finalURL
+				} else if remoteConfig.Hostname != "" {
+					remoteConfig.URL = config.URL
+				}
 
-		if componentConfig.Disabled {
-			continue
-		}
+				if remoteConfig.URL != originalURL {
+					// Capture and validate the changes
+					component.Manifest.RemoteConfig = remoteConfig
+					if err := validation.ValidateServerManifest(component.Manifest); err != nil {
+						return fmt.Errorf("failed to validate server manifest %w", err)
+					}
 
-		// Key by catalog entry ID since the UI doesn't know the generated server names
-		manifest, hasManifest := componentManifestByID[component.Spec.MCPServerCatalogEntryName]
-		if !hasManifest {
-			continue
-		}
-
-		// Remote runtime URL handling mirrors non-composite ConfigureServer
-		if manifest.Runtime == types.RuntimeRemote &&
-			manifest.RemoteConfig != nil &&
-			manifest.RemoteConfig.URLTemplate != "" {
-			finalURL, err := applyURLTemplate(manifest.RemoteConfig.URLTemplate, componentConfig.Config)
-			if err != nil {
-				return fmt.Errorf("failed to apply URL template: %w", err)
-			}
-			if component.Spec.Manifest.RemoteConfig == nil {
-				component.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{}
-			}
-			component.Spec.Manifest.RemoteConfig.URL = finalURL
-			if err := validation.ValidateServerManifest(component.Spec.Manifest); err != nil {
-				return types.NewErrBadRequest("validation failed: %v", err)
-			}
-			if err := req.Update(&component); err != nil {
-				return fmt.Errorf("failed to update component server %s with processed URL: %w", component.Name, err)
-			}
-		}
-
-		// Remove empty values
-		for key, val := range componentConfig.Config {
-			if val == "" {
-				delete(componentConfig.Config, key)
-			}
-		}
-
-		// Create new credential
-		if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-			Context:  credCtx,
-			ToolName: component.Name,
-			Type:     gptscript.CredentialTypeTool,
-			Env:      componentConfig.Config,
-		}); err != nil {
-			return fmt.Errorf("failed to create credential for component %s: %w", component.Name, err)
-		}
-	}
-
-	// Apply disabled toggles for multi-user components (keyed by MCPServerID)
-	if compositeServer.Spec.Manifest.CompositeConfig != nil {
-		for key, cfg := range configRequest.ComponentConfigs {
-			if idx, ok := parentComps[key]; ok {
-				comp := &compositeServer.Spec.Manifest.CompositeConfig.ComponentServers[idx]
-				if comp.MCPServerID == key {
-					comp.Disabled = cfg.Disabled
+					// Mark the composite manifest as changed
+					manifestChanged = true
 				}
 			}
+
+			// Remove empty values
+			for key, val := range config.Config {
+				if val == "" {
+					delete(config.Config, key)
+				}
+			}
+
+			// Capture the updated credential
+			componentCreds[componentID] = gptscript.Credential{
+				Context:  fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name),
+				ToolName: server.Name,
+				Type:     gptscript.CredentialTypeTool,
+				Env:      config.Config,
+			}
+		}
+
+		// Capture any changes made back to the composite server's manifest
+		compositeServer.Spec.Manifest.CompositeConfig.ComponentServers[i] = component
+	}
+
+	// Create or update component server credentials
+	// We do this in parallel because shutting down servers can take some time
+	g, ctx := errgroup.WithContext(req.Context())
+	for id, cred := range componentCreds {
+		id, cred := id, cred // Rescope variables for closure
+		g.Go(func() error {
+			modified, err := ensureCredential(ctx, req.GPTClient, cred)
+			if err != nil {
+				return fmt.Errorf("failed to ensure credential for component %s: %w", id, err)
+			}
+
+			if modified {
+				// Only remove the server if the credential was created or updated
+				if err := m.removeMCPServer(ctx, existingServers[id]); err != nil {
+					return fmt.Errorf("failed to remove MCP server: %w", err)
+				}
+			}
+
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return fmt.Errorf("failed to save credentials for components: %w", err)
+	}
+
+	if manifestChanged {
+		// The composite MCP server's manifest has changed due to component configuration changes (e.g. Disabled or RemoteConfig fields)
+		compositeServer, err = m.updateCompositeManifest(req, compositeServer.Name, oldManifestHash, compositeServer.Spec.Manifest)
+		if err != nil {
+			return fmt.Errorf("failed to update composite server manifest: %w", err)
+		}
+
+		// Wait for the update to be applied across all component servers
+		compositeServer, err = m.waitForCompositeReady(req, compositeServer, 30)
+		if err != nil {
+			return fmt.Errorf("failed to wait for composite server to be ready for configuration: %w", err)
 		}
 	}
 
-	if hash.Digest(compositeServer.Spec.Manifest) != oldManifestHash {
-		// The composite MCP server's manifest has changed due to component configuration changes. Update it.
-		if err := wait.ExponentialBackoff(retry.DefaultBackoff, func() (bool, error) {
-			var latest v1.MCPServer
-			if err := req.Get(&latest, compositeServer.Name); err != nil {
-				return false, err
-			}
-
-			if hash.Digest(latest.Spec.Manifest) != oldManifestHash {
-				return false, types.NewErrHTTP(http.StatusConflict, "manifest changed before configuration could finish")
-			}
-
-			latest.Spec.Manifest = compositeServer.Spec.Manifest
-			updateErr := req.Update(&latest)
-			if apierrors.IsConflict(updateErr) {
-				return false, nil
-			}
-
-			return updateErr == nil, updateErr
-		}); err != nil {
-			return fmt.Errorf("failed to update composite server enabled flags: %w", err)
-		}
+	// Re-resolve the latest components to pick up latest config
+	components, err := resolveCompositeComponents(req, compositeServer)
+	if err != nil {
+		return fmt.Errorf("failed to resolve component servers: %w", err)
 	}
 
 	slug, err := SlugForMCPServer(req.Context(), req.Storage, compositeServer, req.User.GetUID(), "", "")
@@ -2057,7 +1997,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(ConvertMCPServer(compositeServer, nil, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(compositeServer, nil, m.serverURL, slug, components...))
 }
 
 // applyURLTemplate applies a URL template with environment variables
@@ -2550,13 +2490,12 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		}
 
 		for _, component := range components {
-			if component.CatalogEntryID != "" && disabledComponents[component.CatalogEntryID] {
+			if component.CatalogEntryID != "" && disabledComponents[component.CatalogEntryID] || component.Configured {
 				continue
 			}
-			if !component.Configured || component.NeedsURL {
-				converted.Configured = false
-				break
-			}
+
+			converted.Configured = false
+			break
 		}
 	}
 
@@ -2593,13 +2532,9 @@ func SlugForMCPServer(ctx context.Context, client kclient.Client, server v1.MCPS
 	return slug, nil
 }
 
-// resolveAndConvertCompositeComponents lists component MCP servers of a composite parent,
-// reveals their credentials, computes slugs, and converts them to API types.
-// Returns the converted components or an error.
-func resolveCompositeComponents(
-	req api.Context,
-	composite v1.MCPServer,
-) ([]types.MCPServer, error) {
+// resolveCompositeComponents lists catalog entry-based components of a composite MCP server, reveals their credentials, and
+// converts them to the public API type.
+func resolveCompositeComponents(req api.Context, composite v1.MCPServer) ([]types.MCPServer, error) {
 	var (
 		componentServers    v1.MCPServerList
 		convertedComponents []types.MCPServer
@@ -2612,33 +2547,8 @@ func resolveCompositeComponents(
 		return nil, fmt.Errorf("failed to list composite child servers: %w", err)
 	}
 
-	var compositeConfig types.CompositeRuntimeConfig
-	if composite.Spec.Manifest.CompositeConfig != nil {
-		compositeConfig = *composite.Spec.Manifest.CompositeConfig
-	}
-
-	disabledComponents := make(map[string]bool, len(compositeConfig.ComponentServers))
-	for _, comp := range compositeConfig.ComponentServers {
-		if id := comp.ComponentID(); id != "" {
-			disabledComponents[id] = comp.Disabled
-		}
-	}
-
 	for _, component := range componentServers.Items {
-		if disabledComponents[component.Spec.MCPServerCatalogEntryName] {
-			continue
-		}
-
-		var credCtx string
-		if component.Spec.MCPCatalogID != "" {
-			credCtx = fmt.Sprintf("%s-%s", component.Spec.MCPCatalogID, component.Name)
-		} else if component.Spec.PowerUserWorkspaceID != "" {
-			credCtx = fmt.Sprintf("%s-%s", component.Spec.PowerUserWorkspaceID, component.Name)
-		} else {
-			credCtx = fmt.Sprintf("%s-%s", component.Spec.UserID, component.Name)
-		}
-
-		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, component.Name)
+		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", component.Spec.UserID, component.Name)}, component.Name)
 		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return nil, fmt.Errorf("failed to reveal credential for component %s: %w", component.Name, err)
 		}
@@ -3489,7 +3399,8 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 				}
 
 				server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-					Headers: entry.Spec.Manifest.RemoteConfig.Headers,
+					Headers:  entry.Spec.Manifest.RemoteConfig.Headers,
+					Hostname: entry.Spec.Manifest.RemoteConfig.Hostname,
 				}
 			} else {
 				// No current URL, needs one
@@ -3497,6 +3408,11 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 				server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
 					Headers: entry.Spec.Manifest.RemoteConfig.Headers,
 				}
+			}
+		} else if entry.Spec.Manifest.RemoteConfig.URLTemplate != "" {
+			server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
+				Headers:     entry.Spec.Manifest.RemoteConfig.Headers,
+				URLTemplate: entry.Spec.Manifest.RemoteConfig.URLTemplate,
 			}
 		}
 	} else {
@@ -3517,146 +3433,86 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 }
 
 // triggerCompositeUpdate upgrades a composite server and all its component servers from the latest catalog entry
-func (m *MCPHandler) triggerCompositeUpdate(req api.Context, server v1.MCPServer, entry v1.MCPServerCatalogEntry) error {
+func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.MCPServer, entry v1.MCPServerCatalogEntry) error {
+	// Capture the hash of the initial server so we can compare changes on update.
+	// This will let us abort an update if the server's manifest has changed before the update was applied.
+	oldManifestHash := hash.Digest(compositeServer.Spec.Manifest)
+
 	// Build fresh manifest with user URLs applied
 	updatedManifest, err := serverManifestFromCatalogEntryManifest(
 		req.UserIsAdmin(),
+		true,
 		entry.Spec.Manifest,
-		server.Spec.Manifest,
+		compositeServer.Spec.Manifest,
 	)
 	if err != nil {
 		return err
 	}
 
-	// Validate the new manifest
-	if err := validation.ValidateServerManifest(updatedManifest); err != nil {
-		return types.NewErrBadRequest("validation failed: %v", err)
+	// Ensure the composite server's manifest is updated
+	compositeServer, err = m.updateCompositeManifest(req, compositeServer.Name, oldManifestHash, updatedManifest)
+	if err != nil {
+		return err
 	}
 
-	// Load all existing component servers
-	var componentServers v1.MCPServerList
-	if err := req.List(&componentServers, &kclient.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", server.Name),
-		Namespace:     server.Namespace,
-	}); err != nil {
-		return fmt.Errorf("failed to list component servers: %w", err)
+	// Wait for the composite server to apply the changes to all component servers
+	if _, err := m.waitForCompositeReady(req, compositeServer, 30*time.Second); err != nil {
+		return fmt.Errorf("failed to wait for component servers to sync: %w", err)
 	}
 
-	// Load all existing component instances (for multi-user components)
-	var componentInstances v1.MCPServerInstanceList
-	if err := req.List(&componentInstances, &kclient.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", server.Name),
-		Namespace:     server.Namespace,
-	}); err != nil {
-		return fmt.Errorf("failed to list component instances: %w", err)
-	}
+	return nil
+}
 
-	// Create index of existing catalog entry components by ID
-	existingServers := make(map[string]v1.MCPServer, len(componentServers.Items))
-	for _, existing := range componentServers.Items {
-		existingServers[existing.Spec.MCPServerCatalogEntryName] = existing
-	}
-
-	// Create index of existing multi-user component instances by MCPServerID
-	existingInstances := make(map[string]v1.MCPServerInstance, len(componentInstances.Items))
-	for _, existing := range componentInstances.Items {
-		existingInstances[existing.Spec.MCPServerName] = existing
-	}
-
-	// Updating a composite server has 3 steps:
-	// 1. Create new component servers and instances
-	// 2. Update existing component servers (no-op on existing instances, since there's nothing to change)
-	// 3. Delete removed component servers and instances
-
-	// Update existing components and create new ones
-	for _, component := range updatedManifest.CompositeConfig.ComponentServers {
-		if component.MCPServerID != "" {
-			// Multi-user component
-			if _, exists := existingInstances[component.MCPServerID]; !exists {
-				// New instance, create it
-				var multiUserServer v1.MCPServer
-				if err := req.Get(&multiUserServer, component.MCPServerID); err != nil {
-					return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
-				}
-
-				if err := req.Create(&v1.MCPServerInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: system.MCPServerInstancePrefix,
-						Namespace:    server.Namespace,
-					},
-					Spec: v1.MCPServerInstanceSpec{
-						MCPServerName:        component.MCPServerID,
-						MCPCatalogName:       multiUserServer.Spec.MCPCatalogID,
-						PowerUserWorkspaceID: multiUserServer.Spec.PowerUserWorkspaceID,
-						UserID:               server.Spec.UserID,
-						CompositeName:        server.Name,
-					},
-				}); err != nil {
-					return fmt.Errorf("failed to create instance for multi-user component: %w", err)
-				}
+// updateCompositeManifest attempts to update a composite server to have the given manifest.
+// This function will retry with backoff until the manifest is successfully applied, an
+func (*MCPHandler) updateCompositeManifest(req api.Context, name, oldManifestHash string, manifest types.MCPServerManifest) (v1.MCPServer, error) {
+	var compositeServer v1.MCPServer
+	return compositeServer, kwait.ExponentialBackoffWithContext(
+		req.Context(),
+		retry.DefaultBackoff,
+		func(context.Context) (bool, error) {
+			var latest v1.MCPServer
+			if err := req.Get(&latest, name); err != nil {
+				return false, err
 			}
 
-			// Remove the instance to build the list of existing instances to delete
-			delete(existingInstances, component.MCPServerID)
-			continue
-		}
-
-		// Catalog entry component
-		if existingServer, exists := existingServers[component.CatalogEntryID]; !exists {
-			// New server, create it
-			newServer := v1.MCPServer{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: system.MCPServerPrefix,
-					Namespace:    server.Namespace,
-					Finalizers:   []string{v1.MCPServerFinalizer},
-				},
-				Spec: v1.MCPServerSpec{
-					Manifest:                  component.Manifest,
-					MCPServerCatalogEntryName: component.CatalogEntryID,
-					UserID:                    server.Spec.UserID,
-					CompositeName:             server.Name,
-				},
+			if hash.Digest(latest.Spec.Manifest) != oldManifestHash {
+				return false, types.NewErrHTTP(http.StatusConflict, "manifest changed during update")
 			}
 
-			addExtractedEnvVars(&newServer)
-			if err := req.Create(&newServer); err != nil {
-				return fmt.Errorf("failed to create new component server: %w", err)
-			}
-		} else {
-			// Existing server, shut it down then update it
-			if err := m.removeMCPServer(req.Context(), existingServer); err != nil {
-				return err
+			latest.Spec.Manifest = manifest
+			if err := req.Update(&latest); apierrors.IsConflict(err) {
+				return false, nil
+			} else if err != nil {
+				return false, err
 			}
 
-			existingServer.Spec.Manifest = component.Manifest
-			addExtractedEnvVars(&existingServer)
-			if err := req.Update(&existingServer); err != nil {
-				return fmt.Errorf("failed to update component server %s: %w", existingServer.Name, err)
-			}
-		}
+			compositeServer = latest
 
-		// Remove the server to build the list of existing servers to delete
-		delete(existingServers, component.CatalogEntryID)
+			return true, nil
+		})
+}
+
+// waitForCompositeReady waits until the given timeout for the composite server's current manifest to be applied to its component servers
+func (*MCPHandler) waitForCompositeReady(req api.Context, compositeServer v1.MCPServer, timeout time.Duration) (v1.MCPServer, error) {
+	latest, err := wait.For(
+		req.Context(),
+		req.Storage,
+		&compositeServer,
+		func(cs *v1.MCPServer) (bool, error) {
+			return cs.Spec.Manifest.CompositeConfig != nil &&
+				len(cs.Spec.Manifest.CompositeConfig.ComponentServers) > 0 &&
+				hash.Digest(cs.Spec.Manifest) == cs.Status.ObservedCompositeManifestHash, nil
+		},
+		wait.Option{
+			Timeout: timeout,
+		},
+	)
+	if err != nil {
+		return compositeServer, err
 	}
 
-	// Delete existing instances that were not in the updated manifest
-	for _, instance := range existingInstances {
-		if err := req.Delete(&instance); kclient.IgnoreNotFound(err) != nil {
-			return fmt.Errorf("failed to delete instance %s: %w", instance.Name, err)
-		}
-	}
-
-	// Delete existing servers that were not in the updated manifest
-	for _, server := range existingServers {
-		if err := req.Delete(&server); kclient.IgnoreNotFound(err) != nil {
-			return fmt.Errorf("failed to delete server %s: %w", server.Name, err)
-		}
-	}
-
-	// Update the composite server manifest and server
-	server.Spec.Manifest = updatedManifest
-	server.Spec.UnsupportedTools = entry.Spec.UnsupportedTools
-	return req.Update(&server)
+	return *latest, nil
 }
 
 // ListServerInstances returns all instances for all servers within a specific catalog

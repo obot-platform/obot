@@ -8524,9 +8524,31 @@ func schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref common.Re
 							Format:  "",
 						},
 					},
-					"headers": {
+					"isTemplate": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Required: Full URL to remote MCP server",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"urlTemplate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: Whether the URL is a template",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL template for user URLs",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"headers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: Hostname constraint the URL conforms to",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -8536,14 +8558,6 @@ func schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref common.Re
 									},
 								},
 							},
-						},
-					},
-					"isTemplate": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Optional",
-							Default:     false,
-							Type:        []string{"boolean"},
-							Format:      "",
 						},
 					},
 				},
@@ -14802,6 +14816,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 					"auditLogTokenHash": {
 						SchemaProps: spec.SchemaProps{
 							Description: "AuditLogTokenHash is the hash of the token used to submit audit logs.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"observedCompositeManifestHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservedCompositeManifestHash is the hash of the server's manifest the last time all component servers were updated to match the composite server. This field is only populated for composite MCP servers.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

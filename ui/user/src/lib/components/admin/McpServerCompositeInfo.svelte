@@ -10,7 +10,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import Table from '../table/Table.svelte';
 	import { onMount } from 'svelte';
-	import { ChevronRight, Server } from 'lucide-svelte';
+	import { AlertCircle, ChevronRight, Server } from 'lucide-svelte';
 	import { ADMIN_SESSION_STORAGE, DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { openUrl } from '$lib/utils';
 	import { resolve } from '$app/paths';
@@ -65,53 +65,85 @@
 	<div>
 		<h2 class="mb-2 text-lg font-semibold">MCP Servers</h2>
 		<div class="flex flex-col gap-2">
-			{#each catalogEntry.manifest.compositeConfig.componentServers as componentServer (componentServer.catalogEntryID)}
+			{#each catalogEntry.manifest.compositeConfig.componentServers as componentServer (componentServer.catalogEntryID || componentServer.mcpServerID)}
 				{@const catalogEntryServerId =
 					componentServer.catalogEntryID && serversMap.get(componentServer.catalogEntryID)?.id}
-				<button
-					onclick={(e) => {
-						const isCtrlClick = e.metaKey || e.ctrlKey;
-						const url = componentServer.catalogEntryID
-							? `/admin/mcp-servers/c/${componentServer.catalogEntryID}/instance/${serversMap.get(componentServer.catalogEntryID)?.id}`
-							: `/admin/mcp-servers/s/${componentServer.mcpServerID}/details`;
+				{@const mcpServerId =
+					componentServer.mcpServerID && serversMap.get(componentServer.mcpServerID)?.id}
+				{@const componentExists = !!(catalogEntryServerId || mcpServerId)}
 
-						sessionStorage.setItem(
-							ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
-							JSON.stringify({
-								id: catalogEntry?.id,
-								name,
-								type: 'composite',
-								entity: 'catalog',
-								entityId: DEFAULT_MCP_CATALOG_ID,
-								serverId: mcpServerId
-							})
-						);
+				{#if componentExists}
+					<button
+						onclick={(e) => {
+							const isCtrlClick = e.metaKey || e.ctrlKey;
+							const url = componentServer.catalogEntryID
+								? `/admin/mcp-servers/c/${componentServer.catalogEntryID}/instance/${catalogEntryServerId}`
+								: `/admin/mcp-servers/s/${componentServer.mcpServerID}/details`;
 
-						openUrl(url, isCtrlClick);
-					}}
-					class="dark:bg-surface1 dark:border-surface3 dark:hover:bg-surface2 bg-background flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 shadow-sm hover:bg-gray-50"
-				>
-					<div class="flex items-center gap-2">
-						<div class="icon">
-							{#if componentServer.manifest?.icon}
-								<img
-									src={componentServer.manifest?.icon}
-									alt={componentServer.manifest?.name}
-									class="size-6"
-								/>
-							{:else}
-								<Server class="size-6" />
+							sessionStorage.setItem(
+								ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
+								JSON.stringify({
+									id: catalogEntry?.id,
+									name,
+									type: 'composite',
+									entity: 'catalog',
+									entityId: DEFAULT_MCP_CATALOG_ID,
+									serverId: mcpServerId
+								})
+							);
+
+							openUrl(url, isCtrlClick);
+						}}
+						class="dark:bg-surface1 dark:border-surface3 dark:hover:bg-surface2 bg-background flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 shadow-sm hover:bg-gray-50"
+					>
+						<div class="flex items-center gap-2">
+							<div class="icon">
+								{#if componentServer.manifest?.icon}
+									<img
+										src={componentServer.manifest?.icon}
+										alt={componentServer.manifest?.name}
+										class="size-6"
+									/>
+								{:else}
+									<Server class="size-6" />
+								{/if}
+							</div>
+							<p class="text-sm">{componentServer.manifest?.name}</p>
+							{#if catalogEntryServerId}
+								<span class="text-on-surface1 text-sm">({catalogEntryServerId})</span>
 							{/if}
 						</div>
-						<p class="text-sm">{componentServer.manifest?.name}</p>
-						{#if catalogEntryServerId}
-							<span class="text-on-surface1 text-sm">({catalogEntryServerId})</span>
-						{/if}
+						<div class="icon-button">
+							<ChevronRight class="size-6" />
+						</div>
+					</button>
+				{:else}
+					<div
+						class="dark:bg-surface1 dark:border-surface3 bg-background flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 opacity-60 shadow-sm"
+					>
+						<div class="flex items-center gap-2">
+							<div class="icon">
+								{#if componentServer.manifest?.icon}
+									<img
+										src={componentServer.manifest?.icon}
+										alt={componentServer.manifest?.name}
+										class="size-6"
+									/>
+								{:else}
+									<Server class="size-6" />
+								{/if}
+							</div>
+							<p class="text-sm">{componentServer.manifest?.name}</p>
+							<span
+								class="text-on-surface1 flex items-center gap-1 text-xs"
+								title="This component server no longer exists"
+							>
+								<AlertCircle class="size-4" />
+								<span>Deleted</span>
+							</span>
+						</div>
 					</div>
-					<div class="icon-button">
-						<ChevronRight class="size-6" />
-					</div>
-				</button>
+				{/if}
 			{/each}
 		</div>
 	</div>

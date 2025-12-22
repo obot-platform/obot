@@ -420,6 +420,7 @@
 			const componentServersForCreate: Array<{
 				catalogEntryID: string;
 				manifest: Record<string, unknown>;
+				disabled: boolean;
 			}> = [];
 			const payload: Record<
 				string,
@@ -431,7 +432,8 @@
 					catalogEntryID: id,
 					manifest: url
 						? { remoteConfig: { url: url.startsWith('http') ? url : `https://${url}` } }
-						: {}
+						: {},
+					disabled: comp.disabled ?? false
 				});
 				const config: Record<string, string> = {};
 				for (const f of [
@@ -443,13 +445,12 @@
 				payload[id] = { config, url, disabled: comp.disabled ?? false };
 			}
 
-			const manifest: Record<string, unknown> = {
-				compositeConfig: { componentServers: componentServersForCreate }
-			};
-			const created = await ChatService.createSingleOrRemoteMcpServer({
+			const created = await ChatService.createCompositeMcpServer({
 				catalogEntryID: entry.id,
 				alias: aliasToUse,
-				manifest
+				manifest: {
+					compositeConfig: { componentServers: componentServersForCreate }
+				}
 			});
 
 			await ChatService.configureCompositeMcpServer(created.id, payload);
