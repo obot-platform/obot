@@ -30,6 +30,8 @@ func (m *Model) Get(field string) (value string) {
 		switch field {
 		case "spec.manifest.modelProvider":
 			return m.Spec.Manifest.ModelProvider
+		case "spec.manifest.targetModel":
+			return m.Spec.Manifest.TargetModel
 		}
 	}
 
@@ -37,7 +39,7 @@ func (m *Model) Get(field string) (value string) {
 }
 
 func (m *Model) FieldNames() []string {
-	return []string{"spec.manifest.modelProvider"}
+	return []string{"spec.manifest.modelProvider", "spec.manifest.targetModel"}
 }
 
 func (m *Model) IsAssigned() bool {

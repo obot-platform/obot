@@ -245,7 +245,7 @@ func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c cl
 		types.DefaultModelAliasTypeVision:          "gpt-4.1",
 		types.DefaultModelAliasTypeImageGeneration: "dall-e-3",
 		types.DefaultModelAliasTypeTextEmbedding:   "text-embedding-3-large",
-	}, "openai-model-provider", "OPENAI_API_KEY")
+	}, system.OpenAIModelProviderTool, system.OpenAIAPIKeyEnvVar)
 }
 
 func (h *Handler) EnsureAnthropicCredentialAndDefaults(ctx context.Context, c client.Client) error {
@@ -253,7 +253,7 @@ func (h *Handler) EnsureAnthropicCredentialAndDefaults(ctx context.Context, c cl
 		types.DefaultModelAliasTypeLLM:     "claude-sonnet-4-20250514",
 		types.DefaultModelAliasTypeLLMMini: "claude-3-5-haiku-20241022",
 		types.DefaultModelAliasTypeVision:  "claude-sonnet-4-20250514",
-	}, "anthropic-model-provider", "ANTHROPIC_API_KEY")
+	}, system.AnthropicModelProviderTool, system.AnthropicAPIKeyEnvVar)
 }
 
 func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c client.Client, defaultModelAliasMapping map[types.DefaultModelAliasType]string, modelProviderName, envVarName string) error {
