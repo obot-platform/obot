@@ -222,7 +222,6 @@
 									{/if}
 									{#if parameter.sensitive}
 										<SensitiveInput
-											{error}
 											name={parameter.name}
 											bind:value={form[parameter.name]}
 											disabled={readonly}
