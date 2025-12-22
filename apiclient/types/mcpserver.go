@@ -47,7 +47,6 @@ type RemoteRuntimeConfig struct {
 	URLTemplate string      `json:"urlTemplate,omitempty"` // URL template for user URLs
 	Hostname    string      `json:"hostname,omitempty"`    // Optional: Hostname constraint the URL conforms to
 	Headers     []MCPHeader `json:"headers,omitempty"`     // Optional
-
 }
 
 // RemoteCatalogConfig represents template configuration for remote servers in catalog entries

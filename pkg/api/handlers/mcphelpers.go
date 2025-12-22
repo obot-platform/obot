@@ -184,11 +184,6 @@ func ensureCredential(ctx context.Context, gptClient *gptscript.GPTScript, cred 
 		return false, nil
 	}
 
-	// Remove and recreate the credential to update it
-	if err := gptClient.DeleteCredential(ctx, existing.Context, cred.ToolName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return false, fmt.Errorf("failed to remove existing credential: %w", err)
-	}
-
 	if err := gptClient.CreateCredential(ctx, cred); err != nil {
 		return false, fmt.Errorf("failed to create credential: %w", err)
 	}

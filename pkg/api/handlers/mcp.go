@@ -385,7 +385,7 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 	}
 
 	// Prevent deletion of multi-user servers that are referenced by running composite MCP servers or catalog entries.
-	dependencies, err := m.listCompositeDeletionDependencies(req, server)
+	dependencies, err := listCompositeDeletionDependencies(req, server)
 	if err != nil {
 		return fmt.Errorf("failed to list composite deletion dependencies: %w", err)
 	}
@@ -417,7 +417,7 @@ type compositeDeletionDependency struct {
 }
 
 // listCompositeDeletionDependencies lists the composite MCP servers and catalog entries that depend on the given multi-user server.
-func (*MCPHandler) listCompositeDeletionDependencies(req api.Context, server v1.MCPServer) ([]compositeDeletionDependency, error) {
+func listCompositeDeletionDependencies(req api.Context, server v1.MCPServer) ([]compositeDeletionDependency, error) {
 	if server.Spec.MCPServerCatalogEntryName != "" {
 		// Not a multi-user server, skip dependency check
 		return nil, nil
@@ -1932,9 +1932,9 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 	}
 
 	var (
-		manifestChanged    bool
-		oldCompositeServer = compositeServer.DeepCopy()
-		componentCreds     = make(map[string]gptscript.Credential, len(existingServers))
+		manifestChanged bool
+		oldManifestHash = hash.Digest(compositeServer.Spec.Manifest)
+		componentCreds  = make(map[string]gptscript.Credential, len(existingServers))
 	)
 	for i, component := range compositeServer.Spec.Manifest.CompositeConfig.ComponentServers {
 		componentID := component.ComponentID()
@@ -2026,7 +2026,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 
 	if manifestChanged {
 		// The composite MCP server's manifest has changed due to component configuration changes (e.g. Disabled or RemoteConfig fields)
-		compositeServer, err = m.updateCompositeManifest(req, *oldCompositeServer, compositeServer.Spec.Manifest)
+		compositeServer, err = m.updateCompositeManifest(req, compositeServer.Name, oldManifestHash, compositeServer.Spec.Manifest)
 		if err != nil {
 			return fmt.Errorf("failed to update composite server manifest: %w", err)
 		}
@@ -3516,7 +3516,9 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 
 // triggerCompositeUpdate upgrades a composite server and all its component servers from the latest catalog entry
 func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.MCPServer, entry v1.MCPServerCatalogEntry) error {
-	oldServer := compositeServer.DeepCopy()
+	// Capture the hash of the initial server so we can compare changes on update.
+	// This will let us abort an update if the server's manifest has changed before the update was applied.
+	oldManifestHash := hash.Digest(compositeServer.Spec.Manifest)
 
 	// Build fresh manifest with user URLs applied
 	updatedManifest, err := serverManifestFromCatalogEntryManifest(
@@ -3530,7 +3532,7 @@ func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.
 	}
 
 	// Ensure the composite server's manifest is updated
-	compositeServer, err = m.updateCompositeManifest(req, *oldServer, updatedManifest)
+	compositeServer, err = m.updateCompositeManifest(req, compositeServer.Name, oldManifestHash, updatedManifest)
 	if err != nil {
 		return err
 	}
@@ -3545,14 +3547,14 @@ func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.
 
 // updateCompositeManifest attempts to update a composite server to have the given manifest.
 // This function will retry with backoff until the manifest is successfully applied, an
-func (*MCPHandler) updateCompositeManifest(req api.Context, compositeServer v1.MCPServer, manifest types.MCPServerManifest) (v1.MCPServer, error) {
-	oldManifestHash := hash.Digest(compositeServer.Spec.Manifest)
+func (*MCPHandler) updateCompositeManifest(req api.Context, name, oldManifestHash string, manifest types.MCPServerManifest) (v1.MCPServer, error) {
+	var compositeServer v1.MCPServer
 	return compositeServer, kwait.ExponentialBackoffWithContext(
 		req.Context(),
 		retry.DefaultBackoff,
 		func(context.Context) (bool, error) {
 			var latest v1.MCPServer
-			if err := req.Get(&latest, compositeServer.Name); err != nil {
+			if err := req.Get(&latest, name); err != nil {
 				return false, err
 			}
 
