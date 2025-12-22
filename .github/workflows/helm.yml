@@ -49,6 +49,37 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4
 
+      - name: Determine chart version
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Tag push: extract version from git tag (e.g., v0.2.18 -> 0.2.18)
+            TAG="${{ github.ref }}"
+            VERSION="${TAG#refs/tags/v}"
+            VERSION_WITH_V="v${VERSION}"
+          else
+            # Main branch push: use version from Chart.yaml
+            VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}')
+            VERSION_WITH_V=$(grep '^appVersion:' chart/Chart.yaml | awk '{print $2}')
+          fi
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_with_v=$VERSION_WITH_V" >> $GITHUB_OUTPUT
+          echo "is_tag=$([[ "${{ github.ref }}" == refs/tags/v* ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+
+      - name: Update Chart.yaml with version
+        if: steps.version.outputs.is_tag == 'true'
+        run: |
+          # Update Chart.yaml version (without v prefix)
+          sed -i 's/^version: .*/version: ${{ steps.version.outputs.version }}/' chart/Chart.yaml
+          # Update Chart.yaml appVersion (with v prefix for Docker image)
+          sed -i 's/^appVersion: .*/appVersion: ${{ steps.version.outputs.version_with_v }}/' chart/Chart.yaml
+
+      - name: Verify Chart.yaml
+        run: |
+          echo "Chart.yaml content:"
+          grep -E '^(version|appVersion):' chart/Chart.yaml
+
       - name: Log in to GitHub Container Registry
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -58,17 +89,11 @@ jobs:
       - name: Package Helm chart
         run: helm package chart
 
-      - name: Get chart version
-        id: chart
-        run: |
-          VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       - name: Push Helm chart to GHCR
         env:
           REPO_OWNER: ${{ github.repository_owner }}
         run: |
-          helm push "$CHART_NAME-${{ steps.chart.outputs.version }}.tgz" "oci://$REGISTRY/$REPO_OWNER/charts"
+          helm push "$CHART_NAME-${{ steps.version.outputs.version }}.tgz" "oci://$REGISTRY/$REPO_OWNER/charts"
 
       - name: Summary
         env:
@@ -77,5 +102,11 @@ jobs:
           echo "### Helm Chart Published :rocket:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Chart:** $CHART_NAME" >> $GITHUB_STEP_SUMMARY
-          echo "**Version:** ${{ steps.chart.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**App Version:** ${{ steps.version.outputs.version_with_v }}" >> $GITHUB_STEP_SUMMARY
           echo "**Registry:** oci://$REGISTRY/$REPO_OWNER/charts/$CHART_NAME" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.version.outputs.is_tag }}" == "true" ]]; then
+            echo "**Source:** Git tag ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Source:** Chart.yaml" >> $GITHUB_STEP_SUMMARY
+          fi
