@@ -244,7 +244,6 @@
 										<textarea
 											id={parameter.name}
 											bind:value={form[parameter.name]}
-											class:error
 											class="text-input-filled min-h-[120px] resize-y"
 											disabled={readonly}
 											rows="5"
@@ -254,7 +253,6 @@
 											type="text"
 											id={parameter.name}
 											bind:value={form[parameter.name]}
-											class:error
 											class="text-input-filled"
 											disabled={readonly}
 										/>
