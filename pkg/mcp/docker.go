@@ -215,8 +215,6 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 		}
 
 		server.MCPServerName += "-shim"
-		// Set the container port to 0 for the shim so the default port is used.
-		server.ContainerPort = 0
 	} else {
 		server.URL = strings.Replace(server.URL, "http://localhost", d.hostBaseURL, 1)
 	}
@@ -230,6 +228,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfig, mcpServerName string, containerEnv bool, webhooks []Webhook) (ServerConfig, error) {
 	server.TokenExchangeEndpoint = localhostURLRegexp.ReplaceAllString(server.TokenExchangeEndpoint, d.hostBaseURLWithPort)
 	server.AuditLogEndpoint = localhostURLRegexp.ReplaceAllString(server.AuditLogEndpoint, d.hostBaseURLWithPort)
+	server.JWKSEndpoint = localhostURLRegexp.ReplaceAllString(server.JWKSEndpoint, d.hostBaseURLWithPort)
 
 	for i, component := range server.Components {
 		component.URL = strings.Replace(component.URL, "http://localhost", d.hostBaseURL, 1)
@@ -597,8 +596,9 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		Runtime:                   otypes.RuntimeRemote,
 		Audiences:                 server.Audiences,
 		Issuer:                    server.Issuer,
-		JWKS:                      server.JWKS,
+		JWKSEndpoint:              server.JWKSEndpoint,
 		TokenExchangeEndpoint:     server.TokenExchangeEndpoint,
+		AuthorizeEndpoint:         server.AuthorizeEndpoint,
 		TokenExchangeClientID:     server.TokenExchangeClientID,
 		TokenExchangeClientSecret: server.TokenExchangeClientSecret,
 		AuditLogEndpoint:          server.AuditLogEndpoint,
@@ -685,16 +685,18 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			// Set nanobot environment variables
 			env = []string{
 				"NANOBOT_RUN_TRUSTED_ISSUER=" + server.Issuer,
+				"NANOBOT_RUN_OAUTH_JWKSURL=" + localhostURLRegexp.ReplaceAllString(server.JWKSEndpoint, d.hostBaseURLWithPort),
 				"NANOBOT_RUN_TRUSTED_AUDIENCES=" + strings.Join(server.Audiences, ","),
-				"NANOBOT_RUN_JWKS=" + server.JWKS,
-				"NANOBOT_RUN_TOKEN_EXCHANGE_CLIENT_ID=" + server.TokenExchangeClientID,
-				"NANOBOT_RUN_TOKEN_EXCHANGE_CLIENT_SECRET=" + server.TokenExchangeClientSecret,
-				"NANOBOT_RUN_TOKEN_EXCHANGE_ENDPOINT=" + server.TokenExchangeEndpoint,
+				"NANOBOT_RUN_OAUTH_CLIENT_ID=" + server.TokenExchangeClientID,
+				"NANOBOT_RUN_OAUTH_CLIENT_SECRET=" + server.TokenExchangeClientSecret,
+				"NANOBOT_RUN_OAUTH_TOKEN_URL=" + server.TokenExchangeEndpoint,
+				"NANOBOT_RUN_OAUTH_AUTHORIZE_URL=" + server.AuthorizeEndpoint,
 				"NANOBOT_RUN_AUDIT_LOG_TOKEN=" + server.AuditLogToken,
 				"NANOBOT_RUN_AUDIT_LOG_SEND_URL=" + server.AuditLogEndpoint,
 				"NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE=" + strconv.Itoa(d.auditLogsBatchSize),
 				"NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS=" + strconv.Itoa(d.auditLogsFlushIntervalSeconds),
 				"NANOBOT_RUN_AUDIT_LOG_METADATA=" + server.AuditLogMetadata,
+				"NANOBOT_RUN_OAUTH_SCOPES=profile",
 				"NANOBOT_RUN_FORCE_FETCH_TOOL_LIST=true",
 				"NANOBOT_DISABLE_HEALTH_CHECKER=true",
 			}
@@ -782,7 +784,8 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		},
 	}
 
-	if os.Getenv("OBOT_DOCKER_INTERNAL_ADD_HOST") == "true" && strings.HasPrefix(server.TokenExchangeEndpoint, "http://host.docker.internal") {
+	if os.Getenv("OBOT_DOCKER_INTERNAL_ADD_HOST") == "true" &&
+		(strings.HasPrefix(server.TokenExchangeEndpoint, "http://host.docker.internal") || strings.HasPrefix(server.AuthorizeEndpoint, "http://host.docker.internal")) {
 		// On some systems (like Docker on Linux), we need to add the host-gateway entry to the container's /etc/hosts file.
 		// For Docker Desktop or Rancher Desktop, this isn't necessary.
 		hostConfig.ExtraHosts = []string{"host.docker.internal:host-gateway"}

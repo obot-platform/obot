@@ -5,7 +5,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
-	"github.com/obot-platform/obot/pkg/system"
 )
 
 type handler struct {
@@ -13,16 +12,14 @@ type handler struct {
 	tokenService *persistent.TokenService
 	oauthConfig  handlers.OAuthAuthorizationServerConfig
 	tokenStore   mcp.GlobalTokenStore
-	jwks         system.EncodedJWKS
 	baseURL      string
 }
 
-func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, oauthConfig handlers.OAuthAuthorizationServerConfig, jwks system.EncodedJWKS, baseURL string, mux *server.Server) {
+func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, oauthConfig handlers.OAuthAuthorizationServerConfig, baseURL string, mux *server.Server) {
 	h := &handler{
 		tokenStore:   tokenStore,
 		tokenService: tokenService,
 		oauthConfig:  oauthConfig,
-		jwks:         jwks,
 		baseURL:      baseURL,
 		oauthChecker: oauthChecker,
 	}
@@ -49,4 +46,6 @@ func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTo
 	mux.HandleFunc("POST /oauth/replace-jwks", h.tokenService.ReplaceJWK)
 
 	mux.HandleFunc("GET /api/oauth/composite/{mcp_id}", h.checkCompositeAuth)
+
+	mux.HandleFunc("GET /oauth/userinfo", h.userInfo)
 }

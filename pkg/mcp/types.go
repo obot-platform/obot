@@ -59,10 +59,11 @@ type ServerConfig struct {
 	ComponentMCPServer bool `json:"componentMCPServer"`
 
 	Issuer    string   `json:"issuer"`
-	JWKS      string   `json:"jwks"`
 	Audiences []string `json:"audiences"`
 
+	AuthorizeEndpoint         string `json:"authorizeEndpoint"`
 	TokenExchangeEndpoint     string `json:"tokenExchangeEndpoint"`
+	JWKSEndpoint              string `json:"jwksEndpoint"`
 	TokenExchangeClientID     string `json:"tokenExchangeClientID"`
 	TokenExchangeClientSecret string `json:"tokenExchangeClientSecret"`
 
@@ -187,8 +188,8 @@ func legacyServerToServerConfig(mcpServer v1.MCPServer, userID, scope string, cr
 	return serverConfig, missingRequiredNames, nil
 }
 
-func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, issuer, jwks, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
-	config, missing, err := ServerToServerConfig(mcpServer, audiences, issuer, jwks, userID, scope, mcpCatalogName, credEnv, tokenExchangeCredEnv)
+func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, issuer, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
+	config, missing, err := ServerToServerConfig(mcpServer, audiences, issuer, userID, scope, mcpCatalogName, credEnv, tokenExchangeCredEnv)
 	if err != nil {
 		return config, missing, err
 	}
@@ -271,7 +272,7 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 	return config, missing, err
 }
 
-func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, jwks, userID, scope, mcpCatalogName string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
+func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, userID, scope, mcpCatalogName string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
 	fileEnvVars := make(map[string]struct{})
 	for _, file := range mcpServer.Spec.Manifest.Env {
 		if file.File {
@@ -302,12 +303,13 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, jw
 		MCPCatalogEntryName:       mcpServer.Spec.MCPServerCatalogEntryName,
 		MCPServerDisplayName:      displayName,
 		Runtime:                   mcpServer.Spec.Manifest.Runtime,
-		JWKS:                      jwks,
 		Issuer:                    issuer,
 		Audiences:                 audiences,
 		TokenExchangeClientID:     secretsCred["TOKEN_EXCHANGE_CLIENT_ID"],
 		TokenExchangeClientSecret: secretsCred["TOKEN_EXCHANGE_CLIENT_SECRET"],
 		TokenExchangeEndpoint:     fmt.Sprintf("%s/oauth/token", issuer),
+		JWKSEndpoint:              fmt.Sprintf("%s/oauth/jwks.json", issuer),
+		AuthorizeEndpoint:         fmt.Sprintf("%s/oauth/authorize", issuer),
 		ComponentMCPServer:        mcpServer.Spec.CompositeName != "",
 	}
 

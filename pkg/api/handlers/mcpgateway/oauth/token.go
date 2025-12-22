@@ -202,6 +202,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
 		Audience:              oauthAuthRequest.Spec.Resource,
+		OAuthScope:            oauthAuthRequest.Spec.Scope,
 		IssuedAt:              now,
 		ExpiresAt:             now.Add(tokenExpiration),
 		UserID:                userID,
@@ -230,6 +231,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 			ClientID:              oauthClient.Name,
 			Resource:              oauthAuthRequest.Spec.Resource,
 			UserID:                oauthAuthRequest.Spec.UserID,
+			Scope:                 oauthAuthRequest.Spec.Scope,
 			AuthProviderNamespace: oauthAuthRequest.Spec.AuthProviderNamespace,
 			AuthProviderName:      oauthAuthRequest.Spec.AuthProviderName,
 			AuthProviderUserID:    oauthAuthRequest.Spec.AuthProviderUserID,
@@ -294,6 +296,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
+		Scope:                 oauthToken.Spec.Scope,
 		Audience:              oauthToken.Spec.Resource,
 		IssuedAt:              now,
 		ExpiresAt:             now.Add(tokenExpiration),

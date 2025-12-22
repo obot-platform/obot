@@ -11,7 +11,7 @@ func OAuthClients(req router.Request, resp router.Response) error {
 	o := req.Object.(*v1.OAuthClient)
 
 	// Client for MCP server token exchange will be cleaned up when the MCP server is deleted.
-	// And static OAuth clients will be deleted by admins.
+	// And static clients are deleted by users.
 	if o.Spec.MCPServerName != "" || o.Spec.Static {
 		return nil
 	}

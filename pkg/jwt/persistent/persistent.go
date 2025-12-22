@@ -140,6 +140,7 @@ type TokenContext struct {
 	UserID                string
 	UserName              string
 	UserEmail             string
+	OAuthScope            string
 	UserGroups            []string
 	Picture               string
 	AuthProviderName      string
@@ -206,6 +207,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 					"auth_provider_namespace": {tokenContext.AuthProviderNamespace},
 					"mcp_id":                  {tokenContext.MCPID},
 					"resource":                {tokenContext.Audience},
+					"oauthScope":              {tokenContext.OAuthScope},
 				},
 			},
 		}, true, nil
@@ -270,6 +272,7 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		Audience:              getStringClaim("aud"),
 		UserID:                getStringClaim("sub"),
 		Picture:               getStringClaim("picture"),
+		OAuthScope:            getStringClaim("scope"),
 		AuthProviderName:      getStringClaim("AuthProviderName"),
 		AuthProviderNamespace: getStringClaim("AuthProviderNamespace"),
 		AuthProviderUserID:    getStringClaim("AuthProviderUserID"),
@@ -306,6 +309,7 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (stri
 		"sub":                   context.UserID,
 		"name":                  context.UserName,
 		"email":                 context.UserEmail,
+		"scope":                 context.OAuthScope,
 		"picture":               picture,
 		"UserGroups":            strings.Join(context.UserGroups, ","),
 		"AuthProviderName":      context.AuthProviderName,
@@ -356,22 +360,13 @@ func (t *TokenService) NewTokenWithClaims(ctx context.Context, claims jwt.MapCla
 }
 
 func (t *TokenService) ServeJWKS(api api.Context) error {
-	jwks, err := t.JWKS(api.Context())
-	if err != nil {
-		return err
-	}
-
-	return api.Write(jwks)
-}
-
-func (t *TokenService) JWKS(ctx context.Context) ([]byte, error) {
 	t.lock.RLock()
 	jwks := t.jwks
 	t.lock.RUnlock()
 
 	if jwks == nil {
-		if err := t.setJWK(ctx); err != nil {
-			return nil, err
+		if err := t.setJWK(api.Context()); err != nil {
+			return err
 		}
 
 		t.lock.RLock()
@@ -379,15 +374,7 @@ func (t *TokenService) JWKS(ctx context.Context) ([]byte, error) {
 		t.lock.RUnlock()
 	}
 
-	return jwks, nil
-}
-
-func (t *TokenService) EncodedJWKS(ctx context.Context) (string, error) {
-	jwks, err := t.JWKS(ctx)
-	if err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(jwks), nil
+	return api.Write(jwks)
 }
 
 const keyEnvVar = "JWK_KEY"
