@@ -150,17 +150,18 @@ func (h *handler) authorize(req api.Context) error {
 		})
 	}
 
-	if scope := req.FormValue("scope"); scope != "" {
+	scope := req.FormValue("scope")
+	if scope != "" {
 		var (
 			unsupported []string
 			scopes      = make(map[string]struct{})
 		)
-		for s := range strings.SplitSeq(scope, " ") {
+		for s := range strings.SplitSeq(oauthClient.Spec.Manifest.Scope, " ") {
 			scopes[s] = struct{}{}
 		}
 
-		for s := range strings.SplitSeq(oauthClient.Spec.Manifest.Scope, " ") {
-			if _, ok := scopes[s]; !ok {
+		for s := range strings.SplitSeq(scope, " ") {
+			if _, ok := scopes[s]; s != "" && !ok {
 				unsupported = append(unsupported, s)
 			}
 		}
@@ -209,6 +210,7 @@ func (h *handler) authorize(req api.Context) error {
 			Namespace:    oauthClient.Namespace,
 		},
 		Spec: v1.OAuthAuthRequestSpec{
+			Scope:               scope,
 			Resource:            resource,
 			State:               state,
 			ClientID:            oauthClient.Name,
@@ -312,16 +314,7 @@ func (h *handler) callback(req api.Context) error {
 	}
 	if mcpID != "" {
 		// Check whether the MCP server needs authentication.
-		jwks, err := h.jwks(req.Context())
-		if err != nil {
-			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
-				Code:        ErrServerError,
-				Description: err.Error(),
-			})
-			return nil
-		}
-
-		mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID, jwks)
+		mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID)
 		if err != nil {
 			return err
 		}
@@ -341,7 +334,7 @@ func (h *handler) callback(req api.Context) error {
 		}
 	}
 
-	redirectWithAuthorizeResponse(req, oauthAppAuthRequest, code)
+	redirectWithAuthorizeResponse(req, oauthAppAuthRequest, code, oauthAppAuthRequest.Spec.Scope)
 
 	return nil
 }
@@ -407,7 +400,7 @@ func (h *handler) oauthCallback(req api.Context) error {
 		return nil
 	}
 
-	redirectWithAuthorizeResponse(req, oauthAppAuthRequest, code)
+	redirectWithAuthorizeResponse(req, oauthAppAuthRequest, code, oauthAppAuthRequest.Spec.Scope)
 
 	return nil
 }
@@ -416,10 +409,13 @@ func redirectWithAuthorizeError(req api.Context, redirectURI string, err Error) 
 	http.Redirect(req.ResponseWriter, req.Request, redirectURI+"?"+err.toQuery().Encode(), http.StatusFound)
 }
 
-func redirectWithAuthorizeResponse(req api.Context, oauthAuthRequest v1.OAuthAuthRequest, code string) {
+func redirectWithAuthorizeResponse(req api.Context, oauthAuthRequest v1.OAuthAuthRequest, code, scope string) {
 	q := url.Values{
 		"code":  {code},
 		"state": {oauthAuthRequest.Spec.State},
+	}
+	if scope != "" {
+		q.Set("scope", scope)
 	}
 
 	http.Redirect(req.ResponseWriter, req.Request, oauthAuthRequest.Spec.RedirectURI+"?"+q.Encode(), http.StatusFound)

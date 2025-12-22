@@ -49,6 +49,7 @@ type OAuthAuthRequestSpec struct {
 	State                 string `json:"state"`
 	ClientID              string `json:"clientID"`
 	CodeChallenge         string `json:"codeChallenge"`
+	Scope                 string `json:"scope"`
 	CodeChallengeMethod   string `json:"codeChallengeMethod"`
 	GrantType             string `json:"grantType"`
 	Resource              string `json:"resource"`

@@ -226,7 +226,7 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 			}
 			mcpServer.Name = "test-server"
 
-			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "", "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
+			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -413,7 +413,7 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 			}
 			mcpServer.Name = "test-server"
 
-			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "", "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
+			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -603,7 +603,7 @@ func TestServerToServerConfig_StaticHeaders_EdgeCases(t *testing.T) {
 			}
 			mcpServer.Name = "test-server"
 
-			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "", "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
+			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
 
 			if tt.expectError {
 				if err == nil {

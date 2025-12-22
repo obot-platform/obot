@@ -26,17 +26,15 @@ type ProjectMCPHandler struct {
 	mcpSessionManager *mcp.SessionManager
 	mcpOAuthChecker   MCPOAuthChecker
 	acrHelper         *accesscontrolrule.Helper
-	jwks              system.EncodedJWKS
 	serverURL         string
 	internalServerURL string
 }
 
-func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, jwks system.EncodedJWKS, serverURL, internalServerURL string) *ProjectMCPHandler {
+func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, serverURL, internalServerURL string) *ProjectMCPHandler {
 	return &ProjectMCPHandler{
 		mcpSessionManager: mcpLoader,
 		mcpOAuthChecker:   mcpOAuthChecker,
 		acrHelper:         acrHelper,
-		jwks:              jwks,
 		serverURL:         serverURL,
 		internalServerURL: internalServerURL,
 	}
@@ -324,12 +322,7 @@ func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {
 		return err
 	}
 
-	jwks, err := p.jwks(req.Context())
-	if err != nil {
-		return err
-	}
-
-	_, _, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, jwks)
+	_, _, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID)
 	if err != nil {
 		return err
 	}
@@ -362,12 +355,7 @@ func (p *ProjectMCPHandler) CheckOAuth(req api.Context) error {
 		return err
 	}
 
-	jwks, err := p.jwks(req.Context())
-	if err != nil {
-		return err
-	}
-
-	_, _, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, jwks)
+	_, _, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID)
 	if err != nil {
 		return err
 	}
@@ -391,12 +379,7 @@ func (p *ProjectMCPHandler) GetOAuthURL(req api.Context) error {
 		return err
 	}
 
-	jwks, err := p.jwks(req.Context())
-	if err != nil {
-		return err
-	}
-
-	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, jwks)
+	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID)
 	if err != nil {
 		return err
 	}

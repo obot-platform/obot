@@ -28,10 +28,9 @@ type MCPOAuthHandlerFactory struct {
 	gptscript         *gptscript.GPTScript
 	stateCache        *stateCache
 	tokenStore        mcp.GlobalTokenStore
-	jwks              system.EncodedJWKS
 }
 
-func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gptClient *gptscript.GPTScript, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, jwks system.EncodedJWKS) *MCPOAuthHandlerFactory {
+func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gptClient *gptscript.GPTScript, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore) *MCPOAuthHandlerFactory {
 	return &MCPOAuthHandlerFactory{
 		baseURL:           baseURL,
 		mcpSessionManager: sessionManager,
@@ -39,7 +38,6 @@ func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManage
 		gptscript:         gptClient,
 		stateCache:        newStateCache(gatewayClient),
 		tokenStore:        globalTokenStore,
-		jwks:              jwks,
 	}
 }
 
@@ -64,11 +62,6 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 			disabled[comp.CatalogEntryID] = comp.Disabled
 		}
 
-		jwks, err := f.jwks(req.Context())
-		if err != nil {
-			return "", fmt.Errorf("failed to get JWKS: %w", err)
-		}
-
 		for _, componentServer := range componentServers.Items {
 			// Skip disabled components defined in the composite server config using O(1) lookups
 			if disabled[componentServer.Spec.MCPServerCatalogEntryName] ||
@@ -76,7 +69,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 				continue
 			}
 
-			_, componentConfig, err := handlers.ServerForAction(req, componentServer.Name, jwks)
+			_, componentConfig, err := handlers.ServerForAction(req, componentServer.Name)
 			if err != nil {
 				continue
 			}

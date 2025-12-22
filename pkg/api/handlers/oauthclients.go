@@ -179,6 +179,11 @@ func ValidateClientConfig(oauthClient *v1.OAuthClient, oauthConfig OAuthAuthoriz
 	if oauthClient.Spec.Manifest.TokenEndpointAuthMethod != "" && !slices.Contains(oauthConfig.TokenEndpointAuthMethodsSupported, oauthClient.Spec.Manifest.TokenEndpointAuthMethod) {
 		return fmt.Errorf("token_endpoint_auth_method must be %s, not %s", strings.Join(oauthConfig.TokenEndpointAuthMethodsSupported, ", "), oauthClient.Spec.Manifest.TokenEndpointAuthMethod)
 	}
+	for scope := range strings.SplitSeq(oauthClient.Spec.Manifest.Scope, " ") {
+		if scope != "" && !slices.Contains(oauthConfig.ScopesSupported, scope) {
+			return fmt.Errorf("scope %s is not supported", scope)
+		}
+	}
 
 	return nil
 }
@@ -277,4 +282,7 @@ type OAuthAuthorizationServerConfig struct {
 	// CodeChallengeMethodsSupported is a JSON array containing a list of PKCE code challenge methods supported by this authorization server.
 	// OPTIONAL. If omitted, the authorization server does not support PKCE.
 	CodeChallengeMethodsSupported []string `json:"code_challenge_methods_supported,omitempty"`
+
+	// Additional fields can be added here
+	UserInfoEndpoint string `json:"userinfo_endpoint,omitempty"`
 }

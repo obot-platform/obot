@@ -62,18 +62,13 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 		disabledComponents[comp.CatalogEntryID] = comp.Disabled
 	}
 
-	jwks, err := h.jwks(req.Context())
-	if err != nil {
-		return fmt.Errorf("failed to get JWKS: %w", err)
-	}
-
 	for _, componentServer := range componentServers.Items {
 		if disabledComponents[componentServer.Spec.MCPServerCatalogEntryName] ||
 			componentServer.Spec.Manifest.Runtime != types.RuntimeRemote {
 			continue
 		}
 
-		_, serverConfig, err := handlers.ServerForAction(req, componentServer.Name, jwks)
+		_, serverConfig, err := handlers.ServerForAction(req, componentServer.Name)
 		if err != nil {
 			return fmt.Errorf("failed to get server config: %w", err)
 		}

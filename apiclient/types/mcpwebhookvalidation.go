@@ -92,9 +92,9 @@ func (f *MCPSelector) Matches(method, identifier string) bool {
 }
 
 func (f MCPSelector) Strings() []string {
-	s := "message:"
+	var s string
 	if f.Method != "" && f.Method != "*" {
-		s += f.Method
+		s = f.Method
 	}
 
 	if f.Identifiers == nil {

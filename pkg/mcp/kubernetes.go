@@ -90,10 +90,6 @@ func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfi
 }
 
 func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
-	// Transform token exchange endpoint to use internal service FQDN
-	server.TokenExchangeEndpoint = k.replaceHostWithServiceFQDN(server.TokenExchangeEndpoint)
-	server.AuditLogEndpoint = k.replaceHostWithServiceFQDN(server.AuditLogEndpoint)
-
 	// Transform component URLs to use internal service FQDN
 	for i, component := range server.Components {
 		component.URL = k.replaceHostWithServiceFQDN(component.URL)
@@ -123,7 +119,6 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		UserID:               server.UserID,
 		Runtime:              types.RuntimeRemote,
 		Issuer:               server.Issuer,
-		JWKS:                 server.JWKS,
 		ContainerPort:        server.ContainerPort,
 		ContainerPath:        server.ContainerPath,
 	}, nil
@@ -379,12 +374,14 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	secretEnvStringData["NANOBOT_RUN_HEALTHZ_PATH"] = "/healthz"
 
 	// JWT environment variables
+	secretEnvStringData["NANOBOT_RUN_OAUTH_SCOPES"] = "profile"
 	secretEnvStringData["NANOBOT_RUN_TRUSTED_ISSUER"] = server.Issuer
+	secretEnvStringData["NANOBOT_RUN_OAUTH_JWKSURL"] = k.replaceHostWithServiceFQDN(server.JWKSEndpoint)
 	secretEnvStringData["NANOBOT_RUN_TRUSTED_AUDIENCES"] = strings.Join(server.Audiences, ",")
-	secretEnvStringData["NANOBOT_RUN_JWKS"] = server.JWKS
-	secretEnvStringData["NANOBOT_RUN_TOKEN_EXCHANGE_CLIENT_ID"] = server.TokenExchangeClientID
-	secretEnvStringData["NANOBOT_RUN_TOKEN_EXCHANGE_CLIENT_SECRET"] = server.TokenExchangeClientSecret
-	secretEnvStringData["NANOBOT_RUN_TOKEN_EXCHANGE_ENDPOINT"] = server.TokenExchangeEndpoint
+	secretEnvStringData["NANOBOT_RUN_OAUTH_CLIENT_ID"] = server.TokenExchangeClientID
+	secretEnvStringData["NANOBOT_RUN_OAUTH_CLIENT_SECRET"] = server.TokenExchangeClientSecret
+	secretEnvStringData["NANOBOT_RUN_OAUTH_TOKEN_URL"] = k.replaceHostWithServiceFQDN(server.TokenExchangeEndpoint)
+	secretEnvStringData["NANOBOT_RUN_OAUTH_AUTHORIZE_URL"] = k.replaceHostWithServiceFQDN(server.AuthorizeEndpoint)
 	secretEnvStringData["NANOBOT_DISABLE_HEALTH_CHECKER"] = strconv.FormatBool(server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeComposite)
 	// Audit log variables
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_TOKEN"] = server.AuditLogToken

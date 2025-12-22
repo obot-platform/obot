@@ -23,4 +23,5 @@ func SetupHandlers(baseURL string, config handlers.OAuthAuthorizationServerConfi
 
 	mux.HandleFunc("GET /.well-known/oauth-protected-resource", h.oauthProtectedResource)
 	mux.HandleFunc("GET /.well-known/oauth-authorization-server", h.oauthAuthorization)
+	mux.HandleFunc("GET /.well-known/oauth-authorization-server/oauth/authorize", h.oauthAuthorization)
 }
