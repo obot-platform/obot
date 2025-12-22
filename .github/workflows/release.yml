@@ -6,11 +6,12 @@ on:
       - "v*"
 
 permissions:
+  id-token: write
   contents: write
 
 jobs:
   release-tag:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
 
     steps:
       - name: Trigger tools repo tag workflow
