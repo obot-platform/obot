@@ -344,7 +344,7 @@
 
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for="user_id">User IDs</label>
+							<label class="text-sm font-medium" for="user_id">Users</label>
 							<Select
 								class={twMerge(
 									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
@@ -368,7 +368,7 @@
 							/>
 
 							{#if (isViewMode && form.filters.user_id) || !isViewMode}
-								<p class="text-on-surface1 text-xs">List of user IDs</p>
+								<p class="text-on-surface1 text-xs">List of users</p>
 							{/if}
 						</div>
 
