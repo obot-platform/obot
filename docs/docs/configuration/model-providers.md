@@ -60,7 +60,7 @@ These defaults ensure that users have pre-selected models for the tools and othe
 
 ### Instructions for configuring specific providers
 
-#### Azure OpenAI
+#### Azure OpenAI (Enterprise only)
 
 The Azure OpenAI model provider supports legacy Azure OpenAI resources. Microsoft Foundry works with API key authentication as well.
 
