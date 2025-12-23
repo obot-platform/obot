@@ -214,6 +214,31 @@ func main() {
 		json.NewEncoder(w).Encode(userInfo)
 	})
 
+	// Icon URL endpoint - returns user's profile picture URL
+	// Required by auth-providers.md spec
+	mux.HandleFunc("/obot-get-icon-url", func(w http.ResponseWriter, r *http.Request) {
+		userInfo, err := fetchUserProfile(r.Context(), r.Header.Get("Authorization"), oidcIssuerURL)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to fetch icon URL: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Return JSON response as required by auth-providers.md spec
+		type iconResponse struct {
+			IconURL string `json:"iconURL"`
+		}
+
+		iconURL := ""
+		if url, ok := userInfo["icon_url"].(string); ok {
+			iconURL = url
+		}
+
+		if err := json.NewEncoder(w).Encode(iconResponse{IconURL: iconURL}); err != nil {
+			http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+			return
+		}
+	})
+
 	// Groups endpoint - return 404 as groups are extracted from token claims in getState
 	mux.HandleFunc("/obot-list-user-auth-groups", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
@@ -338,14 +363,14 @@ func fetchUserProfile(ctx context.Context, authHeader, issuerURL string) (map[st
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	// Add Gravatar fallback for icon_url since Keycloak doesn't have built-in profile pictures
-	// Uses email hash to generate consistent identicon avatars
-	if email, ok := result["email"].(string); ok && email != "" {
-		// Check if icon_url is not already set (e.g., from Keycloak custom attribute)
-		if _, hasIcon := result["icon_url"]; !hasIcon {
-			hash := md5.Sum([]byte(strings.ToLower(strings.TrimSpace(email))))
-			result["icon_url"] = fmt.Sprintf("https://www.gravatar.com/avatar/%x?d=identicon&s=200", hash)
-		}
+	// Map 'picture' to 'icon_url' for obot compatibility (same as EntraID provider)
+	// obot's UpdateProfileIfNeeded looks for profile["icon_url"]
+	if picture, ok := result["picture"].(string); ok && picture != "" {
+		result["icon_url"] = picture
+	} else if email, ok := result["email"].(string); ok && email != "" {
+		// Gravatar fallback using email hash for identicon avatars
+		hash := md5.Sum([]byte(strings.ToLower(strings.TrimSpace(email))))
+		result["icon_url"] = fmt.Sprintf("https://www.gravatar.com/avatar/%x?d=identicon&s=200", hash)
 	}
 
 	return result, nil
