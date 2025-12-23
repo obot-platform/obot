@@ -100,6 +100,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Enable PKCE with S256 method (required by Keycloak and MCP 2025-11-25 spec)
+	oauthProxyOpts.Providers[0].CodeChallengeMethod = "S256"
+
 	// Configure allowed roles if specified
 	if opts.AllowedRoles != "" {
 		roles := strings.Split(opts.AllowedRoles, ",")
