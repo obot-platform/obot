@@ -711,7 +711,9 @@ export interface AppPreferences {
 		logoDefault: string;
 		logoEnterprise: string;
 		logoChat: string;
+		logoWorkflow: string;
 		darkLogoDefault: string;
+		darkLogoWorkflow: string;
 		darkLogoChat: string;
 		darkLogoEnterprise: string;
 	};
