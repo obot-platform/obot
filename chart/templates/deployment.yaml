@@ -50,6 +50,7 @@ spec:
               - resources:
                   - credentials
                   - runstates.obot.obot.ai
+                  - sessioncookies.obot.obot.ai
                   - users.obot.obot.ai
                   - identities.obot.obot.ai
                   - mcpoauthtokens.obot.obot.ai
