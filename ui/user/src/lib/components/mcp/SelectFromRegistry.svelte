@@ -608,7 +608,8 @@
 		if (
 			server.parent &&
 			server.parent.manifest.runtime === 'remote' &&
-			server.parent.manifest.remoteConfig?.urlTemplate === undefined &&
+			// The update-url endpoint should only be called for remote servers that have a hostname set. For ones that have a fixedURL or urlTemplate the update-url endpoint is not supported.
+			server.parent.manifest.remoteConfig?.hostname &&
 			lf?.url
 		) {
 			await ChatService.updateRemoteMcpServerUrl(server.server.id, lf.url.trim());
