@@ -192,6 +192,13 @@
 								collapsible: false
 							},
 							{
+								id: 'model-permissions',
+								href: '/admin/model-permissions',
+								icon: LockKeyhole,
+								label: 'Model Permissions',
+								collapsible: false
+							},
+							{
 								id: 'chat',
 								href: '/chat',
 								icon: MessageCircle,

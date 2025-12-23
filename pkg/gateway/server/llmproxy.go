@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -22,6 +23,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
+	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -52,6 +54,7 @@ func (s *Server) llmProxy(req api.Context) error {
 
 	// If the model string is different from the model, then we need to look up the model in our database to get the
 	// correct model and model provider information.
+	var modelID string
 	if modelProvider == "" || modelStr != token.Model {
 		// First, check that the user has token usage available for this request.
 		if token.UserID != "" {
@@ -68,6 +71,7 @@ func (s *Server) llmProxy(req api.Context) error {
 			return fmt.Errorf("failed to get model: %w", err)
 		}
 
+		modelID = m.Name
 		modelProvider = m.Spec.Manifest.ModelProvider
 		model = m.Spec.Manifest.TargetModel
 	} else {
@@ -77,8 +81,44 @@ func (s *Server) llmProxy(req api.Context) error {
 			return fmt.Errorf("model provider not configured, failed to get credential: %w", err)
 		}
 
+		// For personal tokens, look up the model to get its ID for permission checking
+		m, err := getModelProviderForModel(req.Context(), req.Storage, token.Namespace, modelStr)
+		if err != nil {
+			return fmt.Errorf("failed to get model: %w", err)
+		}
+		modelID = m.Name
+
 		credEnv = cred.Env
 		personalToken = true
+	}
+
+	// Check if the user has permission to use this model
+	if s.mprHelper != nil && modelID != "" && token.UserID != "" {
+		userID, err := strconv.ParseUint(token.UserID, 10, 64)
+		if err == nil {
+			// Get the user's auth provider groups
+			authProviderGroups, err := req.GatewayClient.ListGroupIDsForUser(req.Context(), uint(userID))
+			if err != nil {
+				return fmt.Errorf("failed to get user groups: %w", err)
+			}
+
+			// Create a user.Info with the user's groups
+			userInfo := &user.DefaultInfo{
+				UID:    token.UserID,
+				Groups: token.UserGroups,
+				Extra: map[string][]string{
+					"auth_provider_groups": authProviderGroups,
+				},
+			}
+
+			hasAccess, err := s.mprHelper.UserHasAccessToModel(userInfo, modelID)
+			if err != nil {
+				return fmt.Errorf("failed to check model permission: %w", err)
+			}
+			if !hasAccess {
+				return types2.NewErrHTTP(http.StatusForbidden, fmt.Sprintf("user does not have permission to use model %q", modelID))
+			}
+		}
 	}
 
 	body["model"] = model

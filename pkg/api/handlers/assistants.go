@@ -16,10 +16,12 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/modelpermissionrule"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -32,15 +34,17 @@ type AssistantHandler struct {
 	events            *events.Emitter
 	dispatcher        *dispatcher.Dispatcher
 	cachedClient      kclient.WithWatch
+	mprHelper         *modelpermissionrule.Helper
 }
 
-func NewAssistantHandler(dispatcher *dispatcher.Dispatcher, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, events *events.Emitter, cachedClient kclient.WithWatch) *AssistantHandler {
+func NewAssistantHandler(dispatcher *dispatcher.Dispatcher, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, events *events.Emitter, cachedClient kclient.WithWatch, mprHelper *modelpermissionrule.Helper) *AssistantHandler {
 	return &AssistantHandler{
 		invoker:           invoker,
 		mcpSessionManager: mcpSessionManager,
 		events:            events,
 		dispatcher:        dispatcher,
 		cachedClient:      cachedClient,
+		mprHelper:         mprHelper,
 	}
 }
 
@@ -124,7 +128,9 @@ func (a *AssistantHandler) Get(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertAssistant(*agent))
+	assistant := convertAssistant(*agent)
+	assistant.AllowedModels = a.filterAllowedModelsByPermission(req.User, assistant.AllowedModels)
+	return req.Write(assistant)
 }
 
 func (a *AssistantHandler) List(req api.Context) error {
@@ -136,11 +142,56 @@ func (a *AssistantHandler) List(req api.Context) error {
 	var result types.AssistantList
 	for _, agent := range allAgents.Items {
 		if agent.Spec.Manifest.Default || req.UserIsAdmin() {
-			result.Items = append(result.Items, convertAssistant(agent))
+			assistant := convertAssistant(agent)
+			assistant.AllowedModels = a.filterAllowedModelsByPermission(req.User, assistant.AllowedModels)
+			result.Items = append(result.Items, assistant)
 		}
 	}
 
 	return req.Write(result)
+}
+
+// filterAllowedModelsByPermission filters the list of allowed models based on the user's model permissions.
+// If no Model Permission Rules exist, all models are allowed (no filtering).
+// If the user has wildcard access to all models, no filtering is applied.
+// Otherwise, only models the user has explicit permission for are returned.
+func (a *AssistantHandler) filterAllowedModelsByPermission(userInfo user.Info, allowedModels []string) []string {
+	if a.mprHelper == nil || len(allowedModels) == 0 {
+		return allowedModels
+	}
+
+	// Get the user's allowed models
+	userAllowedModels, hasWildcard, err := a.mprHelper.GetAllowedModelsForUser(userInfo)
+	if err != nil {
+		log.Warnf("failed to get allowed models for user: %v", err)
+		return allowedModels
+	}
+
+	// If user has wildcard access, return all models
+	if hasWildcard {
+		return allowedModels
+	}
+
+	// If no rules apply to the user, they have no permissions - return empty list
+	if len(userAllowedModels) == 0 {
+		return []string{}
+	}
+
+	// Create a set for O(1) lookup
+	allowedSet := make(map[string]struct{}, len(userAllowedModels))
+	for _, modelID := range userAllowedModels {
+		allowedSet[modelID] = struct{}{}
+	}
+
+	// Filter the assistant's allowed models to only include those the user has permission for
+	filtered := make([]string, 0, len(allowedModels))
+	for _, modelID := range allowedModels {
+		if _, ok := allowedSet[modelID]; ok {
+			filtered = append(filtered, modelID)
+		}
+	}
+
+	return filtered
 }
 
 func convertAssistant(agent v1.Agent) types.Assistant {

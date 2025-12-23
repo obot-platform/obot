@@ -48,6 +48,7 @@ const (
 	AuditLogExportPrefix          = "ael1"
 	ScheduledAuditLogExportPrefix = "sael1"
 	SystemMCPServerPrefix         = "sms1"
+	ModelPermissionRulePrefix     = "mpr1"
 )
 
 func IsThreadID(id string) bool {

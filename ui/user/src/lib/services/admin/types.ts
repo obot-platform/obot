@@ -329,6 +329,25 @@ export interface AccessControlRule extends Omit<AccessControlRuleManifest, 'id'>
 	powerUserWorkspaceID?: string;
 }
 
+export interface ModelResource {
+	modelID: string;
+}
+
+export interface ModelPermissionRuleManifest {
+	id?: string;
+	displayName: string;
+	subjects?: AccessControlRuleSubject[];
+	models?: ModelResource[];
+}
+
+export interface ModelPermissionRule extends Omit<ModelPermissionRuleManifest, 'id'> {
+	id: string;
+	created: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+}
+
 export interface BootstrapStatus {
 	enabled: boolean;
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
+	"github.com/obot-platform/obot/pkg/modelpermissionrule"
 )
 
 type Options struct {
@@ -22,17 +23,19 @@ type Server struct {
 	baseURL, uiURL                     string
 	tokenService                       *persistent.TokenService
 	dispatcher                         *dispatcher.Dispatcher
+	mprHelper                          *modelpermissionrule.Helper
 	dailyUserTokenPromptTokenLimit     int
 	dailyUserTokenCompletionTokenLimit int
 }
 
-func New(ctx context.Context, db *db.DB, tokenService *persistent.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, opts Options) (*Server, error) {
+func New(ctx context.Context, db *db.DB, tokenService *persistent.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, mprHelper *modelpermissionrule.Helper, opts Options) (*Server, error) {
 	s := &Server{
 		db:                                 db,
 		baseURL:                            opts.Hostname,
 		uiURL:                              opts.UIHostname,
 		tokenService:                       tokenService,
 		dispatcher:                         modelProviderDispatcher,
+		mprHelper:                          mprHelper,
 		dailyUserTokenPromptTokenLimit:     opts.DailyUserPromptTokenLimit,
 		dailyUserTokenCompletionTokenLimit: opts.DailyUserCompletionTokenLimit,
 	}
