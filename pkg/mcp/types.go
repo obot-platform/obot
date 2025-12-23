@@ -55,8 +55,7 @@ type ServerConfig struct {
 	MCPCatalogEntryName  string `json:"mcpCatalogEntryName"`
 	MCPServerDisplayName string `json:"mcpServerDisplayName"`
 
-	ProjectMCPServer   bool `json:"projectMCPServer"`
-	ComponentMCPServer bool `json:"componentMCPServer"`
+	ProjectMCPServer bool `json:"projectMCPServer"`
 
 	Issuer    string   `json:"issuer"`
 	Audiences []string `json:"audiences"`
@@ -310,14 +309,9 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		TokenExchangeEndpoint:     fmt.Sprintf("%s/oauth/token", issuer),
 		JWKSEndpoint:              fmt.Sprintf("%s/oauth/jwks.json", issuer),
 		AuthorizeEndpoint:         fmt.Sprintf("%s/oauth/authorize", issuer),
-		ComponentMCPServer:        mcpServer.Spec.CompositeName != "",
-	}
-
-	if mcpServer.Spec.CompositeName == "" {
-		// Don't set these for component MCP servers. Audit logging is handled at the composite level for these.
-		serverConfig.AuditLogEndpoint = fmt.Sprintf("%s/api/mcp-audit-logs", issuer)
-		serverConfig.AuditLogToken = secretsCred["AUDIT_LOG_TOKEN"]
-		serverConfig.AuditLogMetadata = fmt.Sprintf("mcpID=%s,mcpServerCatalogEntryName=%s,powerUserWorkspaceID=%s,mcpServerDisplayName=%s", mcpServer.Name, mcpServer.Spec.MCPServerCatalogEntryName, powerUserWorkspaceID, displayName)
+		AuditLogEndpoint:          fmt.Sprintf("%s/api/mcp-audit-logs", issuer),
+		AuditLogToken:             secretsCred["AUDIT_LOG_TOKEN"],
+		AuditLogMetadata:          fmt.Sprintf("mcpID=%s,mcpServerCatalogEntryName=%s,powerUserWorkspaceID=%s,mcpServerDisplayName=%s", mcpServer.Name, mcpServer.Spec.MCPServerCatalogEntryName, powerUserWorkspaceID, displayName),
 	}
 
 	var missingRequiredNames []string

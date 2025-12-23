@@ -353,7 +353,7 @@ func (h *Handler) EnsureMCPServerSecretInfo(req router.Request, _ router.Respons
 		}
 	}
 
-	if len(oauthClients.Items) > 0 && (server.Status.AuditLogTokenHash != "" || server.Spec.CompositeName != "") {
+	if len(oauthClients.Items) > 0 && server.Status.AuditLogTokenHash != "" {
 		// Nothing else to do here.
 		return nil
 	}
