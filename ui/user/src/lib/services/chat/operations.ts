@@ -1384,6 +1384,28 @@ export async function createSingleOrRemoteMcpServer(server: {
 	return response;
 }
 
+export async function createCompositeMcpServer(server: {
+	catalogEntryID?: string;
+	manifest?: {
+		compositeConfig?: {
+			componentServers: Array<{
+				catalogEntryID?: string;
+				mcpServerID?: string;
+				manifest?: {
+					remoteConfig?: {
+						url?: string;
+					};
+				};
+				disabled?: boolean;
+			}>;
+		};
+	};
+	alias?: string;
+}): Promise<MCPCatalogServer> {
+	const response = (await doPost('/mcp-servers', server)) as MCPCatalogServer;
+	return response;
+}
+
 export async function updateRemoteMcpServerUrl(id: string, url: string): Promise<void> {
 	await doPost(`/mcp-servers/${id}/update-url`, { url });
 }

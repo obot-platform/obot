@@ -42,9 +42,11 @@ type ContainerizedRuntimeConfig struct {
 
 // RemoteRuntimeConfig represents configuration for remote runtime (External MCP servers)
 type RemoteRuntimeConfig struct {
-	URL        string      `json:"url"`               // Required: Full URL to remote MCP server
-	Headers    []MCPHeader `json:"headers,omitempty"` // Optional
-	IsTemplate bool        `json:"isTemplate"`        // Optional: Whether the URL is a template
+	URL         string      `json:"url"`                   // Required: Full URL to remote MCP server
+	IsTemplate  bool        `json:"isTemplate"`            // Optional: Whether the URL is a template
+	URLTemplate string      `json:"urlTemplate,omitempty"` // URL template for user URLs
+	Hostname    string      `json:"hostname,omitempty"`    // Optional: Hostname constraint the URL conforms to
+	Headers     []MCPHeader `json:"headers,omitempty"`     // Optional
 }
 
 // RemoteCatalogConfig represents template configuration for remote servers in catalog entries
@@ -451,6 +453,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 				}
 			}
 
+			remoteConfig.Hostname = catalogEntry.RemoteConfig.Hostname
 			remoteConfig.URL = userURL
 		case catalogEntry.RemoteConfig.URLTemplate != "":
 			remoteConfig.IsTemplate = true

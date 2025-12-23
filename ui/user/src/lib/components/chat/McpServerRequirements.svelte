@@ -244,6 +244,18 @@
 				);
 				await ChatService.configureCompositeMcpServer(server.id, payload);
 				configDialog?.close();
+				currentConfigReq = null;
+				try {
+					const refreshed = await ChatService.listProjectMCPs(assistantId, projectId);
+					projectMcps.items = await validateOauthProjectMcps(
+						assistantId,
+						projectId,
+						refreshed,
+						true
+					);
+				} catch {
+					// ignore refresh errors
+				}
 			} else {
 				const secretValues = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
 				await ChatService.configureSingleOrRemoteMcpServer(server.id, secretValues);
