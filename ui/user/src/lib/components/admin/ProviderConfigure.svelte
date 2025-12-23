@@ -232,9 +232,6 @@
 										<MultiValueInput
 											bind:value={form[parameter.name]}
 											id={parameter.name}
-											labels={parameter.name === 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
-												? { '*': 'All domains' }
-												: {}}
 											class="text-input-filled"
 											placeholder={`Hit "Enter" to insert`.toString()}
 											disabled={readonly}
