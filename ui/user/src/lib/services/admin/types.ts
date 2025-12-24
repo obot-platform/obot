@@ -732,3 +732,13 @@ export interface AppPreferences {
 		darkPrimaryColor: string;
 	};
 }
+
+export type GroupRoleAssignment = {
+	groupName: string;
+	role: number;
+	description?: string;
+};
+
+export type GroupRoleAssignmentList = {
+	items: GroupRoleAssignment[];
+};

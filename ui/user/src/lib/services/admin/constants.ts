@@ -24,3 +24,22 @@ export const userRoleOptions = [
 		description: 'Every user is a full admin. Use caution when selecting this option.'
 	}
 ];
+
+export const groupRoleOptions = [
+	{
+		id: Role.ADMIN,
+		label: 'Admin',
+		description: 'All group members will be full admins. Use caution when selecting this option.'
+	},
+	{
+		id: Role.POWERUSER_PLUS,
+		label: 'Power User Plus',
+		description:
+			'In addition to Power User features, all group members can share their custom MCP servers through their own Access Control Rules.'
+	},
+	{
+		id: Role.POWERUSER,
+		label: 'Power User',
+		description: 'All group members can publish custom MCP servers for their own personal use.'
+	}
+];
