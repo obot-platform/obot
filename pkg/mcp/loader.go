@@ -268,25 +268,19 @@ func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server Se
 }
 
 func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, transformRemote bool) (ServerConfig, error) {
-	var webhooks []Webhook
-	if !server.ComponentMCPServer {
-		// Don't get webhooks for servers that are components of composite servers.
-		// The webhooks would be called at the composite level.
-		var err error
-		webhooks, err = sm.webhookHelper.GetWebhooksForMCPServer(ctx, sm.gptClient, server)
-		if err != nil {
-			return ServerConfig{}, err
-		}
-
-		slices.SortFunc(webhooks, func(a, b Webhook) int {
-			if a.Name < b.Name {
-				return -1
-			} else if a.Name > b.Name {
-				return 1
-			}
-			return 0
-		})
+	webhooks, err := sm.webhookHelper.GetWebhooksForMCPServer(ctx, sm.gptClient, server)
+	if err != nil {
+		return ServerConfig{}, err
 	}
+
+	slices.SortFunc(webhooks, func(a, b Webhook) int {
+		if a.Name < b.Name {
+			return -1
+		} else if a.Name > b.Name {
+			return 1
+		}
+		return 0
+	})
 
 	if server.Runtime == otypes.RuntimeRemote {
 		if server.URL == "" {
