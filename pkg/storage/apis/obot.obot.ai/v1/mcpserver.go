@@ -148,6 +148,8 @@ type MCPServerStatus struct {
 	// ObservedCompositeManifestHash is the hash of the server's manifest the last time all component servers were updated to match the composite server.
 	// This field is only populated for composite MCP servers.
 	ObservedCompositeManifestHash string `json:"observedCompositeManifestHash,omitempty"`
+	// LastRequestTime is the time of the last request to the server, in 15 minute granularity.
+	LastRequestTime metav1.Time `json:"lastRequestTime,omitzero"`
 }
 
 type DeploymentCondition struct {

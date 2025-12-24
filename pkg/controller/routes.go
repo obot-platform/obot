@@ -70,7 +70,7 @@ func (c *Controller) setupRoutes() {
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpSession := mcpsession.New(c.services.GPTClient)
-	mcpserver := mcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
+	mcpserver := mcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL, c.services.IdleMCPServerShutdownInterval)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 	mcpWebhookValidations := mcpwebhookvalidation.New()
@@ -239,6 +239,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerInstanceUserCount)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerSecretInfo)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureCompositeComponents)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.ShutdownIdleServers)
 	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentials)
 
 	// MCPServerInstance

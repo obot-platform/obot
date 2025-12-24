@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
@@ -27,13 +28,15 @@ type Handler struct {
 	gptClient         *gptscript.GPTScript
 	mcpSessionManager *mcp.SessionManager
 	baseURL           string
+	idleShutdownDelay time.Duration
 }
 
-func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, baseURL string) *Handler {
+func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, baseURL string, idleShutdownDelay time.Duration) *Handler {
 	return &Handler{
 		gptClient:         gptClient,
 		mcpSessionManager: mcpSessionManager,
 		baseURL:           baseURL,
+		idleShutdownDelay: idleShutdownDelay,
 	}
 }
 
@@ -565,6 +568,32 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 		if err := req.Client.Status().Update(req.Ctx, compositeServer); err != nil {
 			return fmt.Errorf("failed to update composite server status: %w", err)
 		}
+	}
+
+	return nil
+}
+
+func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) error {
+	mcpServer := req.Object.(*v1.MCPServer)
+	if mcpServer.Status.LastRequestTime.IsZero() {
+		if time.Since(mcpServer.CreationTimestamp.Time) > time.Minute {
+			// Set the time if it is zero so we don't shutdown servers that were just created.
+			mcpServer.Status.LastRequestTime = metav1.Now()
+			return req.Client.Status().Update(req.Ctx, mcpServer)
+		}
+
+		// Give things time to settle
+		resp.RetryAfter(time.Minute)
+		return nil
+	}
+
+	if since := time.Since(mcpServer.Status.LastRequestTime.Time); since > h.idleShutdownDelay {
+		if err := h.mcpSessionManager.ShutdownServer(req.Ctx, mcpServer.Name); err != nil {
+			return fmt.Errorf("failed to shutdown idle server %s: %w", mcpServer.Name, err)
+		}
+	} else if retry := h.idleShutdownDelay - since; retry < 10*time.Hour {
+		// All objects are retried every 10 hours. If we should retry sooner, then trigger a retry.
+		resp.RetryAfter(retry)
 	}
 
 	return nil

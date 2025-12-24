@@ -14827,11 +14827,18 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
+					"lastRequestTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastRequestTime is the time of the last request to the server, in 15 minute granularity.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
 				},
+				Required: []string{"lastRequestTime"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DeploymentCondition"},
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DeploymentCondition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 

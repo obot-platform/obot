@@ -175,9 +175,14 @@ type Services struct {
 	// Parsed settings from Helm for k8s to pass to controller
 	K8sSettingsFromHelm *v1.K8sSettingsSpec
 
+	// Disable the update check request
 	DisableUpdateCheck bool
-	MCPRuntimeBackend  string
-	RegistryNoAuth     bool
+	// The backend to use for MCP server
+	MCPRuntimeBackend string
+	// The interval to wait before shutting down idle MCP servers
+	IdleMCPServerShutdownInterval time.Duration
+
+	RegistryNoAuth bool
 }
 
 const (
@@ -807,14 +812,15 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
 			UserInfoEndpoint:                  fmt.Sprintf("%s/oauth/userinfo", config.Hostname),
 		},
-		AccessControlRuleHelper: acrHelper,
-		WebhookHelper:           webhookHelper,
-		LocalK8sConfig:          localK8sConfig,
-		MCPServerNamespace:      config.MCPNamespace,
-		K8sSettingsFromHelm:     helmK8sSettings,
-		DisableUpdateCheck:      config.DisableUpdateCheck,
-		MCPRuntimeBackend:       config.MCPRuntimeBackend,
-		RegistryNoAuth:          registryNoAuth,
+		AccessControlRuleHelper:       acrHelper,
+		WebhookHelper:                 webhookHelper,
+		LocalK8sConfig:                localK8sConfig,
+		MCPServerNamespace:            config.MCPNamespace,
+		K8sSettingsFromHelm:           helmK8sSettings,
+		DisableUpdateCheck:            config.DisableUpdateCheck,
+		MCPRuntimeBackend:             config.MCPRuntimeBackend,
+		IdleMCPServerShutdownInterval: time.Duration(config.IdleServerShutdownMinutes) * time.Minute,
+		RegistryNoAuth:                registryNoAuth,
 	}, nil
 }
 
