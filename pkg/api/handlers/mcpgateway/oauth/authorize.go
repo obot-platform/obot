@@ -153,27 +153,20 @@ func (h *handler) authorize(req api.Context) error {
 	scope := req.FormValue("scope")
 	if scope != "" {
 		var (
-			unsupported []string
-			scopes      = make(map[string]struct{})
+			supported []string
+			scopes    = make(map[string]struct{})
 		)
 		for s := range strings.SplitSeq(oauthClient.Spec.Manifest.Scope, " ") {
 			scopes[s] = struct{}{}
 		}
 
 		for s := range strings.SplitSeq(scope, " ") {
-			if _, ok := scopes[s]; s != "" && !ok {
-				unsupported = append(unsupported, s)
+			if _, ok := scopes[s]; s != "" && ok {
+				supported = append(supported, s)
 			}
 		}
 
-		if len(unsupported) > 0 {
-			redirectWithAuthorizeError(req, redirectURI, Error{
-				Code:        ErrInvalidScope,
-				Description: fmt.Sprintf("scopes %s are not allowed for this client", strings.Join(unsupported, ", ")),
-				State:       state,
-			})
-			return nil
-		}
+		scope = strings.Join(supported, " ")
 	}
 
 	mcpID := req.PathValue("mcp_id")
@@ -414,9 +407,7 @@ func redirectWithAuthorizeResponse(req api.Context, oauthAuthRequest v1.OAuthAut
 		"code":  {code},
 		"state": {oauthAuthRequest.Spec.State},
 	}
-	if scope != "" {
-		q.Set("scope", scope)
-	}
+	q.Set("scope", scope)
 
 	http.Redirect(req.ResponseWriter, req.Request, oauthAuthRequest.Spec.RedirectURI+"?"+q.Encode(), http.StatusFound)
 }

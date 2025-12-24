@@ -19,19 +19,25 @@ type Handler struct {
 	storageClient     kclient.Client
 	mcpSessionManager *mcp.SessionManager
 	webhookHelper     *mcp.WebhookHelper
+	scope             string
 }
 
-func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.WebhookHelper) *Handler {
+func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.WebhookHelper, scopesSupported []string) *Handler {
+	var scope string
+	if len(scopesSupported) > 0 {
+		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(scopesSupported, " "))
+	}
 	return &Handler{
 		storageClient:     storageClient,
 		mcpSessionManager: mcpSessionManager,
 		webhookHelper:     webhookHelper,
+		scope:             scope,
 	}
 }
 
 func (h *Handler) Proxy(req api.Context) error {
 	if req.User.GetUID() == "anonymous" {
-		req.ResponseWriter.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource%s"`, strings.TrimSuffix(req.APIBaseURL, "/api"), req.URL.Path))
+		req.ResponseWriter.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource%s"%s`, strings.TrimSuffix(req.APIBaseURL, "/api"), req.URL.Path, h.scope))
 		return apierrors.NewUnauthorized("user is not authenticated")
 	}
 
