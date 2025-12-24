@@ -31,7 +31,10 @@ func NewGatewayTokenReviewer(gatewayClient *client.Client, gptClient *gptscript.
 func (g *gatewayTokenReview) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
 	bearer := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
 	if bearer == "" {
-		return nil, false, nil
+		bearer = req.Header.Get("X-API-Key")
+		if bearer == "" {
+			return nil, false, nil
+		}
 	}
 
 	u, namespace, name, providerUserID, groupIDs, err := g.gatewayClient.UserFromToken(req.Context(), bearer)
