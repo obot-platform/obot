@@ -332,6 +332,14 @@
 		return key.replace(/_(\w)/g, ' $1');
 	}
 
+	function getFilterDisplayValue(key: string, value: string | number) {
+		if (key === 'user_id') {
+			return getUserDisplayName(users, value + '');
+		}
+
+		return value + '';
+	}
+
 	function getFilterValue(label: keyof AuditLogURLFilters, value: string | number) {
 		if (label === 'start_time' || label === 'end_time') {
 			return new Date(value).toLocaleString(undefined, {
@@ -747,7 +755,10 @@
 							<div class="break-words"><strong>Search:</strong> {query}</div>
 						{/if}
 						{#each entries as [key, value] (key)}
-							<div class="break-words"><strong>{getFilterDisplayLabel(key)}:</strong> {value}</div>
+							<div class="break-words">
+								<strong>{getFilterDisplayLabel(key)}:</strong>
+								{getFilterDisplayValue(key, value)}
+							</div>
 						{/each}
 					</div>
 				</div>

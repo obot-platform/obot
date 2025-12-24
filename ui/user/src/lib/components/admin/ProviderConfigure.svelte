@@ -89,7 +89,8 @@
 		'OBOT_GITHUB_AUTH_PROVIDER_ALLOW_USERS',
 		'OBOT_GITHUB_AUTH_PROVIDER_TEAMS',
 		'OBOT_GITHUB_AUTH_PROVIDER_REPO',
-		'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
+		'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS',
+		'OBOT_AZURE_OPENAI_MODEL_PROVIDER_DEPLOYMENTS'
 	]);
 </script>
 
@@ -213,9 +214,21 @@
 						{#each optionalConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
 								<li class="flex flex-col gap-1">
-									<label for={parameter.name}>{parameter.friendlyName}</label>
-									<span class="text-gray text-xs">{parameter.description}</span>
-									{#if multipValuesInputs.has(parameter.name)}
+									<label for={parameter.name} class:text-red-500={error}
+										>{parameter.friendlyName}</label
+									>
+									{#if parameter.description}
+										<span class="text-gray text-xs">{parameter.description}</span>
+									{/if}
+									{#if parameter.sensitive}
+										<SensitiveInput
+											name={parameter.name}
+											bind:value={form[parameter.name]}
+											disabled={readonly}
+											textarea={parameter.multiline}
+											growable={parameter.multiline}
+										/>
+									{:else if multipValuesInputs.has(parameter.name)}
 										<MultiValueInput
 											bind:value={form[parameter.name]}
 											id={parameter.name}

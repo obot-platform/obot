@@ -50,15 +50,17 @@ func newDockerBackend(ctx context.Context, exposedPort int, opts Options) (backe
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
 	}
 
-	containerEnv := os.Getenv("OBOT_CONTAINER_ENV") == "true"
-	network := "bridge"
-	host := "host.docker.internal"
+	var (
+		host         string
+		containerEnv = os.Getenv("OBOT_CONTAINER_ENV") == "true"
+		network      = "bridge"
+	)
 	if containerEnv {
 		network, host, err = detectContainerCurrentNetworkIP(ctx, cli)
 		if err != nil {
 			return nil, fmt.Errorf("failed to detect current IP: %w", err)
 		}
-	} else if os.Getenv("OBOT_DOCKER_INTERNAL_IP_LOOKUP") == "true" {
+	} else {
 		host, err = detectCurrentLocalIP()
 		if err != nil {
 			return nil, fmt.Errorf("failed to detect current IP: %w", err)
@@ -782,13 +784,6 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		RestartPolicy: container.RestartPolicy{
 			Name: "unless-stopped",
 		},
-	}
-
-	if os.Getenv("OBOT_DOCKER_INTERNAL_ADD_HOST") == "true" &&
-		(strings.HasPrefix(server.TokenExchangeEndpoint, "http://host.docker.internal") || strings.HasPrefix(server.AuthorizeEndpoint, "http://host.docker.internal")) {
-		// On some systems (like Docker on Linux), we need to add the host-gateway entry to the container's /etc/hosts file.
-		// For Docker Desktop or Rancher Desktop, this isn't necessary.
-		hostConfig.ExtraHosts = []string{"host.docker.internal:host-gateway"}
 	}
 
 	if err := d.pullImage(ctx, image, false); err != nil {

@@ -1589,13 +1589,13 @@ export async function getProjectMcpServerOauthURL(
 	assistantID: string,
 	projectID: string,
 	mcpServerID: string,
-	opts?: { signal?: AbortSignal }
+	opts?: { signal?: AbortSignal; dontLogErrors?: boolean }
 ): Promise<string> {
 	try {
 		const response = (await doGet(
 			`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerID}/oauth-url`,
 			{
-				dontLogErrors: false,
+				dontLogErrors: opts?.dontLogErrors ?? false,
 				signal: opts?.signal
 			}
 		)) as { oauthURL: string };
