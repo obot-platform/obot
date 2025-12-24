@@ -97,7 +97,7 @@
 						}}
 						class="icon-button"
 					>
-						{#if responsive.isMobile}
+						{#if responsive.isMobile && animate === 'slide'}
 							<ChevronRight class="size-6" />
 						{:else}
 							<X class="size-5" />
