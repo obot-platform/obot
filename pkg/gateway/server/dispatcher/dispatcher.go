@@ -188,7 +188,7 @@ func stopProvider(namespace, name string, urlMap map[string]url.URL, lock *sync.
 	delete(urlMap, key)
 }
 
-func (d *Dispatcher) TransformRequest(u url.URL, credEnv map[string]string) func(req *http.Request) {
+func TransformRequest(u url.URL, credEnv map[string]string) func(req *http.Request) {
 	return func(req *http.Request) {
 		if u.Path == "" {
 			u.Path = "/v1"
@@ -213,7 +213,7 @@ func (d *Dispatcher) GetConfiguredAuthProvider(ctx context.Context) (string, err
 	}
 
 	for _, authProvider := range authProviders.Items {
-		if d.isAuthProviderConfigured(ctx, d.gptscriptClient, []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}, authProvider) {
+		if d.isAuthProviderConfigured(ctx, d.gptscriptClient, authProvider) {
 			return authProvider.Name, nil
 		}
 	}
@@ -224,17 +224,17 @@ func (d *Dispatcher) GetConfiguredAuthProvider(ctx context.Context) (string, err
 // isAuthProviderConfigured checks an auth provider to see if all of its required environment variables are set.
 // Errors are ignored and reported as the auth provider is not configured.
 // Returns: isConfigured (bool)
-func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, gptscriptClient *gptscript.GPTScript, credCtx []string, toolRef v1.ToolReference) bool {
+func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, gptscriptClient *gptscript.GPTScript, toolRef v1.ToolReference) bool {
 	if toolRef.Status.Tool == nil {
 		return false
 	}
 
-	cred, err := gptscriptClient.RevealCredential(ctx, credCtx, toolRef.Name)
+	credEnv, err := CredentialEnvForAuthProvider(ctx, gptscriptClient, toolRef)
 	if err != nil {
 		return false
 	}
 
-	aps, err := providers.ConvertAuthProviderToolRef(toolRef, cred.Env)
+	aps, err := providers.ConvertAuthProviderToolRef(toolRef, credEnv)
 	if err != nil {
 		return false
 	}
@@ -249,10 +249,27 @@ func (d *Dispatcher) GetAuthProviderConfigEnv(ctx context.Context, gptscriptClie
 		return "", fmt.Errorf("failed to get auth provider: %w", err)
 	}
 
-	cred, err := gptscriptClient.RevealCredential(ctx, []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}, authProvider.Name)
+	cred, err := credentialEnvForProvider(ctx, gptscriptClient, authProvider, system.GenericAuthProviderCredentialContext)
 	if err != nil {
 		return "", fmt.Errorf("failed to reveal credential: %w", err)
 	}
 
-	return cred.Env[envName], nil
+	return cred[envName], nil
+}
+
+func CredentialEnvForAuthProvider(ctx context.Context, gptClient *gptscript.GPTScript, authProvider v1.ToolReference) (map[string]string, error) {
+	return credentialEnvForProvider(ctx, gptClient, authProvider, system.GenericAuthProviderCredentialContext)
+}
+
+func CredentialEnvForModelProvider(ctx context.Context, gptClient *gptscript.GPTScript, modelProvider v1.ToolReference) (map[string]string, error) {
+	return credentialEnvForProvider(ctx, gptClient, modelProvider, system.GenericModelProviderCredentialContext)
+}
+
+func credentialEnvForProvider(ctx context.Context, gptClient *gptscript.GPTScript, provider v1.ToolReference, genericCredentialContext string) (map[string]string, error) {
+	cred, err := gptClient.RevealCredential(ctx, []string{string(provider.UID), genericCredentialContext}, provider.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to reveal credential: %w", err)
+	}
+
+	return cred.Env, nil
 }

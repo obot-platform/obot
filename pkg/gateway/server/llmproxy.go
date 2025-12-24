@@ -10,6 +10,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
+	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -18,16 +21,33 @@ import (
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const tokenUsageTimePeriod = 24 * time.Hour
 
-func (s *Server) llmProxy(req api.Context) error {
+var (
+	openAIBaseURL    = "https://api.openai.com/v1"
+	anthropicBaseURL = "https://api.anthropic.com/v1"
+)
+
+func init() {
+	if base := os.Getenv("OPENAI_BASE_URL"); base != "" {
+		openAIBaseURL = base
+	}
+	if base := os.Getenv("ANTHROPIC_BASE_URL"); base != "" {
+		anthropicBaseURL = base
+	}
+}
+
+func (s *Server) dispatchLLMProxy(req api.Context) error {
 	token, err := s.tokenService.DecodeToken(req.Context(), strings.TrimPrefix(req.Request.Header.Get("Authorization"), "Bearer "))
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusUnauthorized, fmt.Sprintf("invalid token: %v", err))
@@ -109,7 +129,7 @@ func (s *Server) llmProxy(req api.Context) error {
 	}
 
 	(&httputil.ReverseProxy{
-		Director:       s.dispatcher.TransformRequest(u, credEnv),
+		Director:       dispatcher.TransformRequest(u, credEnv),
 		ModifyResponse: (&responseModifier{userID: token.UserID, runID: token.RunID, client: req.GatewayClient, personalToken: personalToken}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
@@ -118,7 +138,28 @@ func (s *Server) llmProxy(req api.Context) error {
 
 func getModelProviderForModel(ctx context.Context, client kclient.Client, namespace, model string) (*v1.Model, error) {
 	m, err := alias.GetFromScope(ctx, client, "Model", namespace, model)
-	if err != nil {
+	if apierrors.IsNotFound(err) {
+		// Maybe the user is trying to get a model by the target name.
+		var models v1.ModelList
+		if err := client.List(ctx, &models, &kclient.ListOptions{
+			Namespace:     namespace,
+			FieldSelector: fields.OneTermEqualSelector("spec.manifest.targetModel", model),
+		}); err != nil {
+			return nil, err
+		}
+
+		if len(models.Items) == 0 {
+			// Return the original error if no models are found.
+			return nil, err
+		}
+
+		// Return the oldest one.
+		sort.Slice(models.Items, func(i, j int) bool {
+			return models.Items[i].CreationTimestamp.Before(&models.Items[j].CreationTimestamp)
+		})
+
+		return &models.Items[0], nil
+	} else if err != nil {
 		return nil, err
 	}
 
@@ -146,6 +187,28 @@ func getModelProviderForModel(ctx context.Context, client kclient.Client, namesp
 	}
 
 	return nil, fmt.Errorf("model %q not found", model)
+}
+
+func envVarForModelProvider(modelProvider v1.ToolReference) (string, error) {
+	if modelProvider.Status.Tool == nil {
+		return "", fmt.Errorf("model provider %q is not configured", modelProvider.Name)
+	}
+
+	var providerMeta struct {
+		EnvVars []types2.ProviderConfigurationParameter
+	}
+
+	if err := json.Unmarshal([]byte(modelProvider.Status.Tool.Metadata["providerMeta"]), &providerMeta); err != nil {
+		return "", fmt.Errorf("failed to unmarshal model provider metadata: %w", err)
+	}
+
+	for _, envVar := range providerMeta.EnvVars {
+		if strings.HasSuffix(envVar.Name, "_MODEL_PROVIDER_API_KEY") {
+			return envVar.Name, nil
+		}
+	}
+
+	return "", fmt.Errorf("model provider %q does not have an API key", modelProvider.Name)
 }
 
 func readBody(r *http.Request) (map[string]any, error) {
@@ -205,8 +268,14 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 
 	usage := gjson.GetBytes(line, "usage")
 	promptTokens := usage.Get("prompt_tokens").Int()
+	promptTokens += usage.Get("input_tokens").Int()
 	completionTokens := usage.Get("completion_tokens").Int()
+	completionTokens += usage.Get("output_tokens").Int()
 	totalTokens := usage.Get("total_tokens").Int()
+
+	if totalTokens == 0 {
+		totalTokens = promptTokens + completionTokens
+	}
 
 	if promptTokens > 0 || completionTokens > 0 || totalTokens > 0 {
 		r.lock.Lock()
@@ -240,4 +309,77 @@ func (r *responseModifier) Close() error {
 		logger.Warnf("failed to save token usage for run %s: %v", r.runID, err)
 	}
 	return r.c.Close()
+}
+
+func mustParseURL(s string) *url.URL {
+	u, err := url.Parse(s)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
+type llmProviderProxy struct {
+	dailyUserTokenPromptTokenLimit     int
+	dailyUserTokenCompletionTokenLimit int
+	u                                  url.URL
+	modelProviderName                  string
+	modelProvider                      *v1.ToolReference
+	lock                               sync.RWMutex
+}
+
+func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmProviderProxy {
+	return &llmProviderProxy{
+		dailyUserTokenPromptTokenLimit:     s.dailyUserTokenPromptTokenLimit,
+		dailyUserTokenCompletionTokenLimit: s.dailyUserTokenCompletionTokenLimit,
+		u:                                  *u,
+		modelProviderName:                  modelProviderName,
+	}
+}
+
+func (l *llmProviderProxy) proxy(req api.Context) error {
+	l.lock.RLock()
+	modelProvider := l.modelProvider
+	l.lock.RUnlock()
+
+	if modelProvider == nil {
+		modelProvider = new(v1.ToolReference)
+		if err := req.Get(modelProvider, l.modelProviderName); err != nil {
+			return fmt.Errorf("model provider %s not found: %w", l.modelProviderName, err)
+		}
+
+		l.lock.Lock()
+		l.modelProvider = modelProvider
+		l.lock.Unlock()
+	}
+
+	remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(req.Context(), req.User.GetUID(), tokenUsageTimePeriod, l.dailyUserTokenPromptTokenLimit, l.dailyUserTokenCompletionTokenLimit)
+	if err != nil {
+		return err
+	} else if !remainingUsage.UnlimitedPromptTokens && remainingUsage.PromptTokens <= 0 || !remainingUsage.UnlimitedCompletionTokens && remainingUsage.CompletionTokens <= 0 {
+		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (prompt tokens remaining: %d, completion tokens remaining: %d)", remainingUsage.PromptTokens, remainingUsage.CompletionTokens))
+	}
+
+	credEnv, err := dispatcher.CredentialEnvForModelProvider(req.Context(), req.GPTClient, *modelProvider)
+	if err != nil {
+		return fmt.Errorf("failed to get credential environment for model provider: %w", err)
+	}
+
+	credEnvKey, err := envVarForModelProvider(*modelProvider)
+	if err != nil {
+		return fmt.Errorf("failed to get credential environment key for model provider: %w", err)
+	}
+
+	if bearer := req.Request.Header.Get("Authorization"); bearer != "" {
+		req.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", credEnv[credEnvKey]))
+	} else if token := req.Request.Header.Get("X-Api-Key"); token != "" {
+		req.Request.Header.Set("X-Api-Key", credEnv[credEnvKey])
+	}
+
+	(&httputil.ReverseProxy{
+		Director:       dispatcher.TransformRequest(l.u, nil),
+		ModifyResponse: (&responseModifier{userID: req.User.GetUID(), client: req.GatewayClient}).modifyResponse,
+	}).ServeHTTP(req.ResponseWriter, req.Request)
+
+	return nil
 }
