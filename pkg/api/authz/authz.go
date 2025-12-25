@@ -220,7 +220,7 @@ var (
 
 		types.GroupBasic: {
 			"/api/assistants",
-			"POST /api/llm-proxy/",
+			"/api/llm-proxy/",
 			"POST /api/prompt",
 			"GET /api/models",
 			"GET /api/model-providers",

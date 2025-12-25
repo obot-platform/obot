@@ -6,6 +6,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/server"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 func (s *Server) AddRoutes(mux *server.Server) {
@@ -80,5 +81,7 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	mux.HandleFunc("PUT /api/file-scanner-config", wrap(s.updateFileScannerConfig))
 
 	// LLM proxy
-	mux.HandleFunc("POST /api/llm-proxy/{path...}", s.llmProxy)
+	mux.HandleFunc("/api/llm-proxy/openai/{path...}", s.newLLMProviderProxy(mustParseURL(openAIBaseURL), system.OpenAIModelProviderTool).proxy)
+	mux.HandleFunc("/api/llm-proxy/anthropic/{path...}", s.newLLMProviderProxy(mustParseURL(anthropicBaseURL), system.AnthropicModelProviderTool).proxy)
+	mux.HandleFunc("/api/llm-proxy/{path...}", s.dispatchLLMProxy)
 }
