@@ -2,10 +2,27 @@ import { UNAUTHORIZED_PATHS } from '$lib/constants';
 import { profile } from '$lib/stores';
 import errors from '$lib/stores/errors.svelte';
 
+// For SSR, use VITE_API_TARGET if set (for remote API development)
+// For browser, use window.location.origin (requests go through Vite proxy)
+const apiTarget = import.meta.env.VITE_API_TARGET as string | undefined;
 export let baseURL = 'http://localhost:8080/api';
 
 if (typeof window !== 'undefined') {
 	baseURL = baseURL.replace('http://localhost:8080', window.location.origin);
+} else if (apiTarget) {
+	// SSR: use the configured API target directly
+	baseURL = apiTarget.endsWith('/api') ? apiTarget : apiTarget + '/api';
+}
+
+// API token for development - set VITE_API_TOKEN to bypass OAuth
+// Use `OBOT_BASE_URL=https://<hostname>/api obot token` to get a token
+const apiToken = import.meta.env.VITE_API_TOKEN as string | undefined;
+
+function getAuthHeaders(): Record<string, string> {
+	if (apiToken) {
+		return { Authorization: `Bearer ${apiToken}` };
+	}
+	return {};
 }
 
 interface GetOptions {
@@ -37,6 +54,7 @@ export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
 	const f = opts?.fetch || fetch;
 	const resp = await f(baseURL + path, {
 		headers: {
+			...getAuthHeaders(),
 			// Pass the browser timezone as a request header.
 			// This is consumed during authentication to set the user's default timezone in Obot.
 			// The timezone is plumbed down to tools at runtime as an environment variable.
@@ -77,6 +95,7 @@ export async function doDelete(
 ): Promise<unknown> {
 	const resp = await fetch(baseURL + path, {
 		method: 'DELETE',
+		headers: getAuthHeaders(),
 		signal: opts?.signal
 	});
 
@@ -153,7 +172,7 @@ export async function doWithBody(
 		const f = opts?.fetch || fetch;
 		const resp = await f(baseURL + path, {
 			method,
-			headers: { ...headers, ...opts?.headers },
+			headers: { ...getAuthHeaders(), ...headers, ...opts?.headers },
 			body,
 			signal: opts?.signal
 		});
