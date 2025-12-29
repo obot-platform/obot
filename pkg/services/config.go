@@ -643,7 +643,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, gserver.Options(config.GatewayConfig))
+	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, gserver.Options(config.GatewayConfig))
 	if err != nil {
 		return nil, err
 	}

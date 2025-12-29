@@ -17,6 +17,16 @@ type APIKey struct {
 	CreatedAt    time.Time  `json:"createdAt"`
 	LastUsedAt   *time.Time `json:"lastUsedAt,omitempty"`
 	ExpiresAt    *time.Time `json:"expiresAt,omitempty"` // nil means no expiration
+
+	// MCPServerNames contains Kubernetes resource names of MCPServers this key can access.
+	// Used for single-user, remote, and composite server types.
+	// Empty slice means unrestricted access to all servers the user can access.
+	MCPServerNames []string `json:"mcpServerNames,omitempty"`
+
+	// MCPServerInstanceNames contains Kubernetes resource names of MCPServerInstances.
+	// Used for multi-user server types where each user has their own instance.
+	// Empty slice means unrestricted access to all instances the user owns.
+	MCPServerInstanceNames []string `json:"mcpServerInstanceNames,omitempty"`
 }
 
 // APIKeyCreateResponse is returned when creating an API key.
