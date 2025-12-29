@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
+	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
@@ -31,6 +32,7 @@ const (
 	tokenExpiration         = 10 * time.Minute
 	tokenTypeJWT            = "urn:ietf:params:oauth:token-type:jwt"
 	tokenTypeAccessToken    = "urn:ietf:params:oauth:token-type:access_token"
+	tokenTypeAPIKey         = "urn:obot:token-type:api-key"
 	ErrUnsupportedGrantType = ErrorCode("unsupported_grant_type")
 )
 
@@ -353,10 +355,10 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		})
 	}
 
-	if subjectTokenType != tokenTypeJWT {
+	if subjectTokenType != tokenTypeJWT && subjectTokenType != tokenTypeAPIKey {
 		return types.NewErrBadRequest("%v", Error{
 			Code:        ErrInvalidRequest,
-			Description: "subject_token_type must be urn:ietf:params:oauth:token-type:jwt",
+			Description: "subject_token_type must be urn:ietf:params:oauth:token-type:jwt or urn:obot:token-type:api-key",
 		})
 	}
 
@@ -375,30 +377,66 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		})
 	}
 
-	// Parse the subject token JWT
-	tokenCtx, err := h.tokenService.DecodeToken(req.Context(), subjectToken)
-	if err != nil {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "invalid subject_token",
-		})
-	}
+	var (
+		mcpID    string
+		userID   string
+		tokenCtx *persistent.TokenContext
+	)
 
-	// Use the mcp_id claim from the parsed token
-	mcpID := tokenCtx.MCPID
-	if mcpID == "" {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "subject_token missing mcp_id claim",
-		})
-	}
+	if subjectTokenType == tokenTypeAPIKey {
+		// Validate the API key
+		apiKey, err := req.GatewayClient.ValidateAPIKey(req.Context(), subjectToken)
+		if err != nil {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: "invalid API key",
+			})
+		}
 
-	userID := tokenCtx.UserID
-	if userID == "" {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "subject_token missing sub claim",
-		})
+		// Get the MCP ID from the OAuth client
+		mcpID = oauthClient.Spec.MCPServerName
+		if mcpID == "" {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: "OAuth client not associated with an MCP server",
+			})
+		}
+
+		// Check if API key has access to this MCP server
+		if err := validateAPIKeyAccess(apiKey, mcpID); err != nil {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrAccessDenied,
+				Description: err.Error(),
+			})
+		}
+
+		userID = fmt.Sprintf("%d", apiKey.UserID)
+	} else {
+		// Parse the subject token JWT (existing logic)
+		var err error
+		tokenCtx, err = h.tokenService.DecodeToken(req.Context(), subjectToken)
+		if err != nil {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: "invalid subject_token",
+			})
+		}
+
+		mcpID = tokenCtx.MCPID
+		if mcpID == "" {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: "subject_token missing mcp_id claim",
+			})
+		}
+
+		userID = tokenCtx.UserID
+		if userID == "" {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: "subject_token missing sub claim",
+			})
+		}
 	}
 
 	// Ephemeral OAuth clients don't have an MCP server in the database. They are for generating tool previews.
@@ -413,8 +451,13 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 
 		if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
 			_, componentMCPID, ok := strings.Cut(resource, "/mcp-connect/")
-			token := subjectToken
 			audienceID := componentMCPID
+
+			var (
+				token     string
+				expiresAt time.Time
+			)
+
 			if ok {
 				if system.IsMCPServerInstanceID(componentMCPID) {
 					// Ensure this MCP server instance belongs to this composite MCP server.
@@ -438,25 +481,72 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 					}
 				}
 
-				tokenCtx.MCPID = componentMCPID
-				tokenCtx.Audience = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, audienceID)
+				if subjectTokenType == tokenTypeAPIKey {
+					// For API keys, we need to create a JWT for the component server
+					// since component servers may not support API key authentication yet
+					user, err := req.GatewayClient.UserByID(req.Context(), userID)
+					if err != nil {
+						return types.NewErrBadRequest("%v", Error{
+							Code:        ErrInvalidRequest,
+							Description: "failed to retrieve user",
+						})
+					}
 
-				token, err = h.tokenService.NewToken(req.Context(), *tokenCtx)
-				if err != nil {
-					log.Errorf("failed to create token for component MCP server %s: %v", componentMCPID, err)
-					return types.NewErrBadRequest("%v", Error{
-						Code:        ErrServerError,
-						Description: "failed to create token",
-					})
+					now := time.Now()
+					expiresAt = now.Add(tokenExpiration)
+					newTokenCtx := persistent.TokenContext{
+						Audience:   fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, audienceID),
+						IssuedAt:   now,
+						ExpiresAt:  expiresAt,
+						UserID:     userID,
+						UserName:   user.Username,
+						UserEmail:  user.Email,
+						UserGroups: user.Role.Groups(),
+						MCPID:      componentMCPID,
+					}
+
+					token, err = h.tokenService.NewToken(req.Context(), newTokenCtx)
+					if err != nil {
+						log.Errorf("failed to create token for component MCP server %s: %v", componentMCPID, err)
+						return types.NewErrBadRequest("%v", Error{
+							Code:        ErrServerError,
+							Description: "failed to create token",
+						})
+					}
+				} else {
+					// For JWTs, update the existing token context and create a new token
+					tokenCtx.MCPID = componentMCPID
+					tokenCtx.Audience = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, audienceID)
+					expiresAt = tokenCtx.ExpiresAt
+
+					var err error
+					token, err = h.tokenService.NewToken(req.Context(), *tokenCtx)
+					if err != nil {
+						log.Errorf("failed to create token for component MCP server %s: %v", componentMCPID, err)
+						return types.NewErrBadRequest("%v", Error{
+							Code:        ErrServerError,
+							Description: "failed to create token",
+						})
+					}
+				}
+			} else {
+				// No component MCP ID in resource, return the original token
+				token = subjectToken
+				if tokenCtx != nil {
+					expiresAt = tokenCtx.ExpiresAt
+				} else {
+					// For API keys without a component, use default expiration
+					expiresAt = time.Now().Add(tokenExpiration)
 				}
 			}
-			// For composite MCP servers, return the subject subject.
+
+			// For composite MCP servers, return the token.
 			// This ensures it gets passed to the component MCP servers so they can do token exchange.
 			return req.Write(TokenExchangeResponse{
 				AccessToken:     token,
 				IssuedTokenType: tokenTypeAccessToken,
 				TokenType:       "Bearer",
-				ExpiresIn:       max(int(time.Until(tokenCtx.ExpiresAt).Seconds()), 0),
+				ExpiresIn:       max(int(time.Until(expiresAt).Seconds()), 0),
 			})
 		}
 	} else if system.IsMCPServerInstanceID(mcpID) {
@@ -502,4 +592,31 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		TokenType:       "Bearer",
 		ExpiresIn:       max(int(time.Until(tok.Expiry).Seconds()), 0),
 	})
+}
+
+// validateAPIKeyAccess checks if the API key has access to the specified MCP server.
+// If the API key has no restrictions (empty MCPServerNames and MCPServerInstanceNames),
+// it has access to all servers the user has access to.
+// Otherwise, the mcpID must be in one of the allowed lists.
+func validateAPIKeyAccess(apiKey *gwtypes.APIKey, mcpID string) error {
+	// If no restrictions, allow access
+	if len(apiKey.MCPServerNames) == 0 && len(apiKey.MCPServerInstanceNames) == 0 {
+		return nil
+	}
+
+	// Check MCPServerNames for regular MCP servers
+	if system.IsMCPServerID(mcpID) {
+		if slices.Contains(apiKey.MCPServerNames, mcpID) {
+			return nil
+		}
+	}
+
+	// Check MCPServerInstanceNames for MCP server instances
+	if system.IsMCPServerInstanceID(mcpID) {
+		if slices.Contains(apiKey.MCPServerInstanceNames, mcpID) {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("API key does not have access to MCP server %s", mcpID)
 }
