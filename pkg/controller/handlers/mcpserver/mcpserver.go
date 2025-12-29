@@ -319,6 +319,18 @@ func (h *Handler) EnsureMCPServerSecretInfo(req router.Request, _ router.Respons
 		}
 	}
 
+	if server.Status.AuditLogTokenHash != "" {
+		cred, err := h.gptClient.RevealCredential(req.Ctx, []string{server.Name}, server.Name)
+		if err != nil {
+			return fmt.Errorf("failed to get credential: %w", err)
+		}
+
+		if server.Status.AuditLogTokenHash != hash.Digest(cred.Env["AUDIT_LOG_TOKEN"]) {
+			// Reset the audit log token hash to reset the credential.
+			server.Status.AuditLogTokenHash = ""
+		}
+	}
+
 	if len(oauthClients.Items) > 0 && (server.Status.AuditLogTokenHash != "" || server.Spec.CompositeName != "") {
 		// Nothing else to do here.
 		return nil
@@ -332,7 +344,6 @@ func (h *Handler) EnsureMCPServerSecretInfo(req router.Request, _ router.Respons
 	}
 
 	auditLogToken := strings.ToLower(rand.Text() + rand.Text())
-	server.Status.AuditLogTokenHash = hash.Digest(auditLogToken)
 
 	if err := h.gptClient.CreateCredential(req.Ctx, gptscript.Credential{
 		Context:  server.Name,
@@ -344,8 +355,6 @@ func (h *Handler) EnsureMCPServerSecretInfo(req router.Request, _ router.Respons
 			"AUDIT_LOG_TOKEN":              auditLogToken,
 		},
 	}); err != nil {
-		// Ensure we retry creating the credential if we failed.
-		server.Status.AuditLogTokenHash = ""
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
@@ -367,6 +376,8 @@ func (h *Handler) EnsureMCPServerSecretInfo(req router.Request, _ router.Respons
 	if err := req.Client.Create(req.Ctx, &oauthClient); err != nil {
 		return fmt.Errorf("failed to create OAuth client: %w", err)
 	}
+
+	server.Status.AuditLogTokenHash = hash.Digest(auditLogToken)
 
 	return nil
 }
