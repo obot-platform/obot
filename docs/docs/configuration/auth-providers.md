@@ -118,6 +118,21 @@ You can now return to Obot and finish configuring Entra. Use the table below to 
 | Client Secret | Secret `Value` column   | Certificates & secrets |
 | Tenant ID     | Directory (tenant) ID   | Overview               |
 
+#### Restricting Login to Specific Users and Groups
+
+You can restrict login access to specific Entra users and groups by taking the following steps:
+
+1. Navigate to the [Microsoft Entra admin center](https://entra.microsoft.com)
+2. Select `Enterprise apps`, then select `All applications`
+3. Select the application corresponding to your Obot instance
+4. On the application's `Overview` page, under the `Manage` section, select `Properties`
+5. Toggle the `Assignment required?` setting to `Yes`
+6. Select `Save` in the top bar
+7. Under `Manage`, select `Users and Groups` and then select `Add user/group`
+8. Search for and add the desired Entra users and groups to the application
+
+For more details, [see Entra's docs](https://learn.microsoft.com/en-us/entra/identity-platform/howto-restrict-your-app-to-a-set-of-users).
+
 ### Okta (Enterprise Only)
 
 :::note
