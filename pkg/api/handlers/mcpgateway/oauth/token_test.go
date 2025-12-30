@@ -7,7 +7,6 @@ import (
 )
 
 func TestValidateAPIKeyAccess(t *testing.T) {
-	// MCP server IDs use prefix "ms1", MCP server instance IDs use prefix "msi1"
 	tests := []struct {
 		name    string
 		apiKey  *gwtypes.APIKey
@@ -17,28 +16,17 @@ func TestValidateAPIKeyAccess(t *testing.T) {
 		{
 			name: "empty scopes denies MCP server",
 			apiKey: &gwtypes.APIKey{
-				MCPServerIDs:         nil,
-				MCPServerInstanceIDs: nil,
+				MCPServerIDs: nil,
 			},
 			mcpID:   "ms1abc123",
 			wantErr: true,
 		},
 		{
-			name: "empty slices denies MCP server",
+			name: "empty slice denies MCP server",
 			apiKey: &gwtypes.APIKey{
-				MCPServerIDs:         []string{},
-				MCPServerInstanceIDs: []string{},
+				MCPServerIDs: []string{},
 			},
 			mcpID:   "ms1abc123",
-			wantErr: true,
-		},
-		{
-			name: "empty scopes denies MCP server instance",
-			apiKey: &gwtypes.APIKey{
-				MCPServerIDs:         nil,
-				MCPServerInstanceIDs: nil,
-			},
-			mcpID:   "msi1abc123",
 			wantErr: true,
 		},
 		{
@@ -58,62 +46,19 @@ func TestValidateAPIKeyAccess(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "key allows matching instance",
+			name: "key allows second server in list",
 			apiKey: &gwtypes.APIKey{
-				MCPServerInstanceIDs: []string{"msi1xyz789"},
+				MCPServerIDs: []string{"ms1abc123", "ms1def456"},
 			},
-			mcpID:   "msi1xyz789",
+			mcpID:   "ms1def456",
 			wantErr: false,
 		},
 		{
-			name: "key denies non-matching instance",
+			name: "key with multiple servers denies unlisted server",
 			apiKey: &gwtypes.APIKey{
-				MCPServerInstanceIDs: []string{"msi1xyz789"},
+				MCPServerIDs: []string{"ms1abc123", "ms1def456"},
 			},
-			mcpID:   "msi1other123",
-			wantErr: true,
-		},
-		{
-			name: "key with server restriction denies MCP server instance",
-			apiKey: &gwtypes.APIKey{
-				MCPServerIDs: []string{"ms1abc123"},
-			},
-			mcpID:   "msi1xyz789",
-			wantErr: true,
-		},
-		{
-			name: "key with instance restriction denies MCP server",
-			apiKey: &gwtypes.APIKey{
-				MCPServerInstanceIDs: []string{"msi1xyz789"},
-			},
-			mcpID:   "ms1abc123",
-			wantErr: true,
-		},
-		{
-			name: "key with both restrictions allows matching server",
-			apiKey: &gwtypes.APIKey{
-				MCPServerIDs:         []string{"ms1abc123"},
-				MCPServerInstanceIDs: []string{"msi1xyz789"},
-			},
-			mcpID:   "ms1abc123",
-			wantErr: false,
-		},
-		{
-			name: "key with both restrictions allows matching instance",
-			apiKey: &gwtypes.APIKey{
-				MCPServerIDs:         []string{"ms1abc123"},
-				MCPServerInstanceIDs: []string{"msi1xyz789"},
-			},
-			mcpID:   "msi1xyz789",
-			wantErr: false,
-		},
-		{
-			name: "key with both restrictions denies non-matching ID",
-			apiKey: &gwtypes.APIKey{
-				MCPServerIDs:         []string{"ms1abc123"},
-				MCPServerInstanceIDs: []string{"msi1xyz789"},
-			},
-			mcpID:   "ms1other456",
+			mcpID:   "ms1other789",
 			wantErr: true,
 		},
 	}

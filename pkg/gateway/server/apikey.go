@@ -11,6 +11,7 @@ import (
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
@@ -18,11 +19,10 @@ import (
 )
 
 type createAPIKeyRequest struct {
-	Name                 string     `json:"name"`
-	Description          string     `json:"description,omitempty"`
-	ExpiresAt            *time.Time `json:"expiresAt,omitempty"`
-	MCPServerIDs         []string   `json:"mcpServerIds,omitempty"`
-	MCPServerInstanceIDs []string   `json:"mcpServerInstanceIds,omitempty"`
+	Name         string     `json:"name"`
+	Description  string     `json:"description,omitempty"`
+	ExpiresAt    *time.Time `json:"expiresAt,omitempty"`
+	MCPServerIDs []string   `json:"mcpServerIds,omitempty"`
 }
 
 // createAPIKey creates an API key for the authenticated user.
@@ -36,8 +36,8 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 		return types2.NewErrBadRequest("name is required")
 	}
 
-	if len(req.MCPServerIDs) == 0 && len(req.MCPServerInstanceIDs) == 0 {
-		return types2.NewErrBadRequest("at least one MCP server or MCP server instance must be specified")
+	if len(req.MCPServerIDs) == 0 {
+		return types2.NewErrBadRequest("at least one MCP server must be specified")
 	}
 
 	userID := apiContext.UserID()
@@ -62,20 +62,7 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 		}
 	}
 
-	// Validate that the user owns all specified MCPServerInstances
-	for _, instanceID := range req.MCPServerInstanceIDs {
-		var instance v1.MCPServerInstance
-		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: instanceID}, &instance); err != nil {
-			return types2.NewErrBadRequest("MCP server instance %q not found", instanceID)
-		}
-
-		// MCPServerInstances are per-user, so check ownership
-		if instance.Spec.UserID != strconv.FormatUint(uint64(userID), 10) {
-			return types2.NewErrBadRequest("MCP server instance %q not found", instanceID)
-		}
-	}
-
-	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, req.MCPServerIDs, req.MCPServerInstanceIDs)
+	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, req.MCPServerIDs)
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to create API key: %v", err))
 	}
@@ -216,8 +203,7 @@ func (s *Server) deleteAnyAPIKey(apiContext api.Context) error {
 // Authentication webhook endpoint
 
 type apiKeyAuthRequest struct {
-	MCPServerID         string `json:"mcpServerId,omitempty"`
-	MCPServerInstanceID string `json:"mcpServerInstanceId,omitempty"`
+	MCPID string `json:"mcpId,omitempty"`
 }
 
 type apiKeyAuthResponse struct {
@@ -269,93 +255,73 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 		})
 	}
 
-	// Check scope restrictions if a server/instance is specified
-	if req.MCPServerID != "" {
-		// Check if this server is in the key's allowed list
-		if !slices.Contains(apiKey.MCPServerIDs, req.MCPServerID) {
-			return apiContext.Write(apiKeyAuthResponse{
-				Authenticated: true,
-				Authorized:    false,
-				UserID:        user.ID,
-				Username:      user.Username,
-				Error:         "API key does not have access to this MCP server",
-			})
-		}
-
-		// Verify user still has access to the server
-		var server v1.MCPServer
-		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPServerID}, &server); err != nil {
-			return apiContext.Write(apiKeyAuthResponse{
-				Authenticated: true,
-				Authorized:    false,
-				UserID:        user.ID,
-				Username:      user.Username,
-				Error:         "MCP server not found",
-			})
-		}
-
-		hasAccess, err := s.userHasAccessToMCPServerByUserID(apiContext, &server, apiKey.UserID)
-		if err != nil {
-			return apiContext.Write(apiKeyAuthResponse{
-				Authenticated: true,
-				Authorized:    false,
-				UserID:        user.ID,
-				Username:      user.Username,
-				Error:         fmt.Sprintf("failed to verify access: %v", err),
-			})
-		}
-		if !hasAccess {
-			return apiContext.Write(apiKeyAuthResponse{
-				Authenticated: true,
-				Authorized:    false,
-				UserID:        user.ID,
-				Username:      user.Username,
-				Error:         "user does not have access to this MCP server",
-			})
-		}
+	// Check scope restrictions - an MCP server must be specified
+	if !system.IsMCPServerID(req.MCPID) {
+		return apiContext.Write(apiKeyAuthResponse{
+			Authenticated: true,
+			Authorized:    false,
+			UserID:        user.ID,
+			Username:      user.Username,
+			Error:         "bad request: no MCP server was specified",
+		})
 	}
 
-	if req.MCPServerInstanceID != "" {
-		// Check if this instance is in the key's allowed list
-		if !slices.Contains(apiKey.MCPServerInstanceIDs, req.MCPServerInstanceID) {
-			return apiContext.Write(apiKeyAuthResponse{
-				Authenticated: true,
-				Authorized:    false,
-				UserID:        user.ID,
-				Username:      user.Username,
-				Error:         "API key does not have access to this MCP server instance",
-			})
-		}
-
-		// Verify user still owns the instance
-		var instance v1.MCPServerInstance
-		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPServerInstanceID}, &instance); err != nil {
-			return apiContext.Write(apiKeyAuthResponse{
-				Authenticated: true,
-				Authorized:    false,
-				UserID:        user.ID,
-				Username:      user.Username,
-				Error:         "MCP server instance not found",
-			})
-		}
-
-		if instance.Spec.UserID != strconv.FormatUint(uint64(apiKey.UserID), 10) {
-			return apiContext.Write(apiKeyAuthResponse{
-				Authenticated: true,
-				Authorized:    false,
-				UserID:        user.ID,
-				Username:      user.Username,
-				Error:         "user does not own this MCP server instance",
-			})
-		}
+	// Check if this server is in the key's allowed list
+	if !slices.Contains(apiKey.MCPServerIDs, req.MCPID) {
+		return apiContext.Write(apiKeyAuthResponse{
+			Authenticated: true,
+			Authorized:    false,
+			UserID:        user.ID,
+			Username:      user.Username,
+			Error:         "API key does not have access to this MCP server",
+		})
 	}
 
-	return apiContext.Write(apiKeyAuthResponse{
+	// Verify user still has access to the server
+	var server v1.MCPServer
+	if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &server); err != nil {
+		return apiContext.Write(apiKeyAuthResponse{
+			Authenticated: true,
+			Authorized:    false,
+			UserID:        user.ID,
+			Username:      user.Username,
+			Error:         "MCP server not found",
+		})
+	}
+
+	hasAccess, err := s.userHasAccessToMCPServerByUserID(apiContext, &server, apiKey.UserID)
+	if err != nil {
+		return apiContext.Write(apiKeyAuthResponse{
+			Authenticated: true,
+			Authorized:    false,
+			UserID:        user.ID,
+			Username:      user.Username,
+			Error:         fmt.Sprintf("failed to verify access: %v", err),
+		})
+	}
+	if !hasAccess {
+		return apiContext.Write(apiKeyAuthResponse{
+			Authenticated: true,
+			Authorized:    false,
+			UserID:        user.ID,
+			Username:      user.Username,
+			Error:         "user does not have access to this MCP server",
+		})
+	}
+
+	err = apiContext.Write(apiKeyAuthResponse{
 		Authenticated: true,
 		Authorized:    true,
 		UserID:        user.ID,
 		Username:      user.Username,
 	})
+
+	// Update key's last used time
+	if keyErr := s.updateKeyLastUsedTime(apiContext, apiKey); keyErr != nil {
+		logger.Errorf("failed to update API key last used time: %v", keyErr)
+	}
+
+	return err
 }
 
 // userHasAccessToMCPServerByUserID checks if a specific user has access to the given MCPServer.
@@ -386,4 +352,9 @@ func (s *Server) userHasAccessToMCPServerByUserID(apiContext api.Context, server
 
 	// If not owner and not in catalog/workspace, no access
 	return false, nil
+}
+
+// updateKeyLastUsedTime updates the last used timestamp for an API key.
+func (s *Server) updateKeyLastUsedTime(apiContext api.Context, apiKey *types.APIKey) error {
+	return apiContext.GatewayClient.UpdateAPIKeyLastUsed(apiContext.Context(), apiKey.ID)
 }

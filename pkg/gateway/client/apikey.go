@@ -19,8 +19,8 @@ const (
 
 // CreateAPIKey generates a new API key for the given user.
 // Returns the full key only once in the response.
-// At least one of mcpServerIDs or mcpServerInstanceIDs must be non-empty.
-func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, description string, expiresAt *time.Time, mcpServerIDs, mcpServerInstanceIDs []string) (*types.APIKeyCreateResponse, error) {
+// At least one mcpServerID must be specified.
+func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, description string, expiresAt *time.Time, mcpServerIDs []string) (*types.APIKeyCreateResponse, error) {
 	// Generate cryptographically secure random secret
 	secretBytes := make([]byte, apiKeySecretLength)
 	if _, err := rand.Read(secretBytes); err != nil {
@@ -36,14 +36,13 @@ func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, descriptio
 
 	// Create the API key record
 	apiKey := &types.APIKey{
-		UserID:               userID,
-		Name:                 name,
-		Description:          description,
-		HashedSecret:         string(hashedSecret),
-		ExpiresAt:            expiresAt,
-		CreatedAt:            time.Now(),
-		MCPServerIDs:         mcpServerIDs,
-		MCPServerInstanceIDs: mcpServerInstanceIDs,
+		UserID:       userID,
+		Name:         name,
+		Description:  description,
+		HashedSecret: string(hashedSecret),
+		ExpiresAt:    expiresAt,
+		CreatedAt:    time.Now(),
+		MCPServerIDs: mcpServerIDs,
 	}
 
 	if err := c.db.WithContext(ctx).Create(apiKey).Error; err != nil {
@@ -173,6 +172,15 @@ func (c *Client) DeleteAPIKeyByID(ctx context.Context, keyID uint) error {
 	}
 	if result.RowsAffected == 0 {
 		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// UpdateAPIKeyLastUsed updates the last_used_at timestamp for an API key.
+func (c *Client) UpdateAPIKeyLastUsed(ctx context.Context, keyID uint) error {
+	result := c.db.WithContext(ctx).Model(&types.APIKey{}).Where("id = ?", keyID).Update("last_used_at", time.Now())
+	if result.Error != nil {
+		return fmt.Errorf("failed to update API key last used time: %w", result.Error)
 	}
 	return nil
 }
