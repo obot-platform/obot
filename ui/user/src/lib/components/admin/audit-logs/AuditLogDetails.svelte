@@ -19,6 +19,8 @@
 	let hasAuditorAccess = $derived(profile.current.groups.includes(Group.AUDITOR));
 
 	const shouldShowPayload = $derived(profile?.current?.hasAdminAccess?.() ?? false);
+
+	console.log(auditLog);
 </script>
 
 {#if !responsive.isMobile && container}
@@ -95,6 +97,9 @@
 			<div class="flex flex-col gap-1 px-4 py-2 text-sm font-light">
 				{#if auditLog.user}
 					<p><span class="font-medium">User</span>: {auditLog.user}</p>
+				{/if}
+				{#if auditLog.apiKey}
+					<p><span class="font-medium">API Key</span>: {auditLog.apiKey}</p>
 				{/if}
 				{#if auditLog.userAgent}
 					<p><span class="font-medium">User Agent</span>: {auditLog.userAgent}</p>
