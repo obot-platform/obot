@@ -118,7 +118,7 @@ You can now return to Obot and finish configuring Entra. Use the table below to 
 | Client Secret | Secret `Value` column   | Certificates & secrets |
 | Tenant ID     | Directory (tenant) ID   | Overview               |
 
-#### Restricting Login to Specific Users and Groups
+#### Restricting Login to Specific Users and Groups (Optional)
 
 You can restrict login access to specific Entra users and groups by taking the following steps:
 
@@ -154,3 +154,13 @@ or have Okta do it for you. Make sure you save the private key in PEM format, as
 in addition to the Client ID for this app. When you are done with that, the `Client Credentials` section should look similar to this:
 
 ![Okta API Services App Client Credentials configuration](/img/okta-client-credentials.png)
+
+#### Restricting Login to Specific Users and Groups (Optional)
+
+You can restrict login access to specific Okta users and groups by taking the following steps:
+
+1. While creating the `OIDC` App for Obot, select the `Skip group assignment for now` option in the `Assignments` configuration section
+2. After the App is created, go to the App's configuration page
+3. In the `Assignments` tab, click on the `Assign` button and select `Assign to Groups` in the dropdown menu
+4. Select `Assign` on groups you want to allow Obot access to
+5. Once you've made your selections, click `Done`
