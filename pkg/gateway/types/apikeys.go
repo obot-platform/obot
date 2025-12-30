@@ -20,12 +20,12 @@ type APIKey struct {
 
 	// MCPServerNames contains Kubernetes resource names of MCPServers this key can access.
 	// Used for single-user, remote, and composite server types.
-	// Empty slice means unrestricted access to all servers the user can access.
+	// At least one of MCPServerNames or MCPServerInstanceNames must be non-empty.
 	MCPServerNames []string `json:"mcpServerNames,omitempty" gorm:"serializer:json"`
 
 	// MCPServerInstanceNames contains Kubernetes resource names of MCPServerInstances.
 	// Used for multi-user server types where each user has their own instance.
-	// Empty slice means unrestricted access to all instances the user owns.
+	// At least one of MCPServerNames or MCPServerInstanceNames must be non-empty.
 	MCPServerInstanceNames []string `json:"mcpServerInstanceNames,omitempty" gorm:"serializer:json"`
 }
 

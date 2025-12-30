@@ -36,6 +36,10 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 		return types2.NewErrBadRequest("name is required")
 	}
 
+	if len(req.MCPServerNames) == 0 && len(req.MCPServerInstanceNames) == 0 {
+		return types2.NewErrBadRequest("at least one MCP server or MCP server instance must be specified")
+	}
+
 	userID := apiContext.UserID()
 	if userID == 0 {
 		return types2.NewErrHTTP(http.StatusUnauthorized, "user not authenticated")
@@ -267,8 +271,8 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 
 	// Check scope restrictions if a server/instance is specified
 	if req.MCPServerID != "" {
-		// Check if this server is in the key's allowed list (if list is non-empty)
-		if len(apiKey.MCPServerNames) > 0 && !slices.Contains(apiKey.MCPServerNames, req.MCPServerID) {
+		// Check if this server is in the key's allowed list
+		if !slices.Contains(apiKey.MCPServerNames, req.MCPServerID) {
 			return apiContext.Write(apiKeyAuthResponse{
 				Authenticated: true,
 				Authorized:    false,
@@ -312,8 +316,8 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	}
 
 	if req.MCPServerInstanceID != "" {
-		// Check if this instance is in the key's allowed list (if list is non-empty)
-		if len(apiKey.MCPServerInstanceNames) > 0 && !slices.Contains(apiKey.MCPServerInstanceNames, req.MCPServerInstanceID) {
+		// Check if this instance is in the key's allowed list
+		if !slices.Contains(apiKey.MCPServerInstanceNames, req.MCPServerInstanceID) {
 			return apiContext.Write(apiKeyAuthResponse{
 				Authenticated: true,
 				Authorized:    false,

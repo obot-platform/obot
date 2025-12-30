@@ -19,8 +19,7 @@ const (
 
 // CreateAPIKey generates a new API key for the given user.
 // Returns the full key only once in the response.
-// mcpServerNames and mcpServerInstanceNames are optional scope restrictions.
-// Empty slices mean unrestricted access to all servers the user has access to.
+// At least one of mcpServerNames or mcpServerInstanceNames must be non-empty.
 func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, description string, expiresAt *time.Time, mcpServerNames, mcpServerInstanceNames []string) (*types.APIKeyCreateResponse, error) {
 	// Generate cryptographically secure random secret
 	secretBytes := make([]byte, apiKeySecretLength)
