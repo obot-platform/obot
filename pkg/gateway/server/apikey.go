@@ -18,11 +18,11 @@ import (
 )
 
 type createAPIKeyRequest struct {
-	Name                   string     `json:"name"`
-	Description            string     `json:"description,omitempty"`
-	ExpiresAt              *time.Time `json:"expiresAt,omitempty"`
-	MCPServerNames         []string   `json:"mcpServerNames,omitempty"`
-	MCPServerInstanceNames []string   `json:"mcpServerInstanceNames,omitempty"`
+	Name                 string     `json:"name"`
+	Description          string     `json:"description,omitempty"`
+	ExpiresAt            *time.Time `json:"expiresAt,omitempty"`
+	MCPServerIDs         []string   `json:"mcpServerIds,omitempty"`
+	MCPServerInstanceIDs []string   `json:"mcpServerInstanceIds,omitempty"`
 }
 
 // createAPIKey creates an API key for the authenticated user.
@@ -36,7 +36,7 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 		return types2.NewErrBadRequest("name is required")
 	}
 
-	if len(req.MCPServerNames) == 0 && len(req.MCPServerInstanceNames) == 0 {
+	if len(req.MCPServerIDs) == 0 && len(req.MCPServerInstanceIDs) == 0 {
 		return types2.NewErrBadRequest("at least one MCP server or MCP server instance must be specified")
 	}
 
@@ -46,10 +46,10 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 	}
 
 	// Validate that the user has access to all specified MCPServers
-	for _, serverName := range req.MCPServerNames {
+	for _, serverID := range req.MCPServerIDs {
 		var server v1.MCPServer
-		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: serverName}, &server); err != nil {
-			return types2.NewErrBadRequest("MCP server %q not found", serverName)
+		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: serverID}, &server); err != nil {
+			return types2.NewErrBadRequest("MCP server %q not found", serverID)
 		}
 
 		// Check if user has access to this server
@@ -58,24 +58,24 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 			return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to check access to MCP server: %v", err))
 		}
 		if !hasAccess {
-			return types2.NewErrBadRequest("MCP server %q not found", serverName)
+			return types2.NewErrBadRequest("MCP server %q not found", serverID)
 		}
 	}
 
 	// Validate that the user owns all specified MCPServerInstances
-	for _, instanceName := range req.MCPServerInstanceNames {
+	for _, instanceID := range req.MCPServerInstanceIDs {
 		var instance v1.MCPServerInstance
-		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: instanceName}, &instance); err != nil {
-			return types2.NewErrBadRequest("MCP server instance %q not found", instanceName)
+		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: instanceID}, &instance); err != nil {
+			return types2.NewErrBadRequest("MCP server instance %q not found", instanceID)
 		}
 
 		// MCPServerInstances are per-user, so check ownership
 		if instance.Spec.UserID != strconv.FormatUint(uint64(userID), 10) {
-			return types2.NewErrBadRequest("MCP server instance %q not found", instanceName)
+			return types2.NewErrBadRequest("MCP server instance %q not found", instanceID)
 		}
 	}
 
-	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, req.MCPServerNames, req.MCPServerInstanceNames)
+	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, req.MCPServerIDs, req.MCPServerInstanceIDs)
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to create API key: %v", err))
 	}
@@ -272,7 +272,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	// Check scope restrictions if a server/instance is specified
 	if req.MCPServerID != "" {
 		// Check if this server is in the key's allowed list
-		if !slices.Contains(apiKey.MCPServerNames, req.MCPServerID) {
+		if !slices.Contains(apiKey.MCPServerIDs, req.MCPServerID) {
 			return apiContext.Write(apiKeyAuthResponse{
 				Authenticated: true,
 				Authorized:    false,
@@ -317,7 +317,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 
 	if req.MCPServerInstanceID != "" {
 		// Check if this instance is in the key's allowed list
-		if !slices.Contains(apiKey.MCPServerInstanceNames, req.MCPServerInstanceID) {
+		if !slices.Contains(apiKey.MCPServerInstanceIDs, req.MCPServerInstanceID) {
 			return apiContext.Write(apiKeyAuthResponse{
 				Authenticated: true,
 				Authorized:    false,

@@ -595,25 +595,18 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 }
 
 // validateAPIKeyAccess checks if the API key has access to the specified MCP server.
-// If the API key has no restrictions (empty MCPServerNames and MCPServerInstanceNames),
-// it has access to all servers the user has access to.
-// Otherwise, the mcpID must be in one of the allowed lists.
+// The mcpID must be in one of the allowed lists.
 func validateAPIKeyAccess(apiKey *gwtypes.APIKey, mcpID string) error {
-	// If no restrictions, allow access
-	if len(apiKey.MCPServerNames) == 0 && len(apiKey.MCPServerInstanceNames) == 0 {
-		return nil
-	}
-
-	// Check MCPServerNames for regular MCP servers
+	// Check MCPServerIDs for regular MCP servers
 	if system.IsMCPServerID(mcpID) {
-		if slices.Contains(apiKey.MCPServerNames, mcpID) {
+		if slices.Contains(apiKey.MCPServerIDs, mcpID) {
 			return nil
 		}
 	}
 
-	// Check MCPServerInstanceNames for MCP server instances
+	// Check MCPServerInstanceIDs for MCP server instances
 	if system.IsMCPServerInstanceID(mcpID) {
-		if slices.Contains(apiKey.MCPServerInstanceNames, mcpID) {
+		if slices.Contains(apiKey.MCPServerInstanceIDs, mcpID) {
 			return nil
 		}
 	}

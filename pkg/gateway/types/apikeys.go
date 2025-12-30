@@ -18,15 +18,15 @@ type APIKey struct {
 	LastUsedAt   *time.Time `json:"lastUsedAt,omitempty"`
 	ExpiresAt    *time.Time `json:"expiresAt,omitempty"` // nil means no expiration
 
-	// MCPServerNames contains Kubernetes resource names of MCPServers this key can access.
+	// MCPServerIDs contains Kubernetes resource names of MCPServers this key can access.
 	// Used for single-user, remote, and composite server types.
-	// At least one of MCPServerNames or MCPServerInstanceNames must be non-empty.
-	MCPServerNames []string `json:"mcpServerNames,omitempty" gorm:"serializer:json"`
+	// At least one of MCPServerIDs or MCPServerInstanceIDs must be non-empty.
+	MCPServerIDs []string `json:"mcpServerIds,omitempty" gorm:"serializer:json"`
 
-	// MCPServerInstanceNames contains Kubernetes resource names of MCPServerInstances.
+	// MCPServerInstanceIDs contains Kubernetes resource names of MCPServerInstances.
 	// Used for multi-user server types where each user has their own instance.
-	// At least one of MCPServerNames or MCPServerInstanceNames must be non-empty.
-	MCPServerInstanceNames []string `json:"mcpServerInstanceNames,omitempty" gorm:"serializer:json"`
+	// At least one of MCPServerIDs or MCPServerInstanceIDs must be non-empty.
+	MCPServerInstanceIDs []string `json:"mcpServerInstanceIds,omitempty" gorm:"serializer:json"`
 }
 
 // APIKeyCreateResponse is returned when creating an API key.

@@ -19,8 +19,8 @@ const (
 
 // CreateAPIKey generates a new API key for the given user.
 // Returns the full key only once in the response.
-// At least one of mcpServerNames or mcpServerInstanceNames must be non-empty.
-func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, description string, expiresAt *time.Time, mcpServerNames, mcpServerInstanceNames []string) (*types.APIKeyCreateResponse, error) {
+// At least one of mcpServerIDs or mcpServerInstanceIDs must be non-empty.
+func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, description string, expiresAt *time.Time, mcpServerIDs, mcpServerInstanceIDs []string) (*types.APIKeyCreateResponse, error) {
 	// Generate cryptographically secure random secret
 	secretBytes := make([]byte, apiKeySecretLength)
 	if _, err := rand.Read(secretBytes); err != nil {
@@ -36,14 +36,14 @@ func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, descriptio
 
 	// Create the API key record
 	apiKey := &types.APIKey{
-		UserID:                 userID,
-		Name:                   name,
-		Description:            description,
-		HashedSecret:           string(hashedSecret),
-		ExpiresAt:              expiresAt,
-		CreatedAt:              time.Now(),
-		MCPServerNames:         mcpServerNames,
-		MCPServerInstanceNames: mcpServerInstanceNames,
+		UserID:               userID,
+		Name:                 name,
+		Description:          description,
+		HashedSecret:         string(hashedSecret),
+		ExpiresAt:            expiresAt,
+		CreatedAt:            time.Now(),
+		MCPServerIDs:         mcpServerIDs,
+		MCPServerInstanceIDs: mcpServerInstanceIDs,
 	}
 
 	if err := c.db.WithContext(ctx).Create(apiKey).Error; err != nil {
