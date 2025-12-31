@@ -83,6 +83,7 @@ export interface MCPCatalogEntry {
 	isCatalogEntry: boolean;
 	needsUpdate?: boolean;
 	canConnect?: boolean;
+	needsK8sUpdate?: boolean;
 }
 
 // Matches the backend compositeDeletionDependency struct used when preventing
