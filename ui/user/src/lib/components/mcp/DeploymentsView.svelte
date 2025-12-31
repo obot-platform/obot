@@ -23,7 +23,7 @@
 		hasEditableConfiguration,
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
-	import { profile, mcpServersAndEntries } from '$lib/stores';
+	import { profile, mcpServersAndEntries, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
@@ -423,11 +423,24 @@
 				{:else if property === 'created'}
 					{formatTimeAgo(d.created).relativeTime}
 				{:else if property === 'deploymentStatus'}
+					{@const needsUpdate = d.needsUpdate && !d.compositeName}
+					{@const needsK8sUpdate =
+						version.current.engine === 'kubernetes' && d.needsK8sUpdate && !d.compositeName}
+
 					<div class="flex items-center gap-2">
 						{d.deploymentStatus || '--'}
-						{#if d.needsUpdate && !d.compositeName}
-							<div use:tooltip={'Upgrade available'}>
-								<CircleFadingArrowUp class="text-primary size-4" />
+						{#if needsUpdate || needsK8sUpdate}
+							<div class="flex gap-1">
+								{#if needsUpdate}
+									<div use:tooltip={'Upgrade available'}>
+										<CircleFadingArrowUp class="text-primary size-4" />
+									</div>
+								{/if}
+								{#if needsK8sUpdate}
+									<div use:tooltip={'Kubernetes Upgrade available'}>
+										<CircleFadingArrowUp class="size-4 text-yellow-500" />
+									</div>
+								{/if}
 							</div>
 						{/if}
 					</div>
