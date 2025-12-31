@@ -79,6 +79,8 @@ type MCPServerCatalogEntryStatus struct {
 	ManifestHash string `json:"manifestHash,omitempty"`
 	// NeedsUpdate indicates whether this composite catalog entry's component snapshots have drifted from their sources.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
+	// NeedsK8sUpdate indicates whether servers created from this catalog entry need redeployment with new K8s settings
+	NeedsK8sUpdate bool `json:"needsK8sUpdate,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

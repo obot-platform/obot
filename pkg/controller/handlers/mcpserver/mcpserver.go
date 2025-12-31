@@ -63,6 +63,44 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 	return nil
 }
 
+// DetectK8sSettingsDrift detects when a server needs redeployment with new K8s settings
+func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) error {
+	server := req.Object.(*v1.MCPServer)
+
+	// Only check for containerized or uvx/npx runtimes that might run in K8s
+	if server.Spec.Manifest.Runtime != types.RuntimeContainerized &&
+		server.Spec.Manifest.Runtime != types.RuntimeUVX &&
+		server.Spec.Manifest.Runtime != types.RuntimeNPX {
+		return nil
+	}
+
+	// Skip if server doesn't have K8s settings hash (not yet deployed)
+	if server.Status.K8sSettingsHash == "" {
+		return nil
+	}
+
+	// Get current K8s settings
+	var k8sSettings v1.K8sSettings
+	if err := req.Get(&k8sSettings, server.Namespace, system.K8sSettingsName); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to get K8s settings: %w", err)
+	}
+
+	// Compute current K8s settings hash
+	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+
+	// Only SET to true when drift detected, never clear it
+	// The flag gets cleared by the RedeployWithK8sSettings API endpoint after successful redeploy
+	if server.Status.K8sSettingsHash != currentHash && !server.Status.NeedsK8sUpdate {
+		server.Status.NeedsK8sUpdate = true
+		return req.Client.Status().Update(req.Ctx, server)
+	}
+
+	return nil
+}
+
 func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest) (bool, error) {
 	// Check if runtime types differ
 	if serverManifest.Runtime != entryManifest.Runtime {
