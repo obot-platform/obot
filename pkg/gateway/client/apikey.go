@@ -59,7 +59,6 @@ func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, descriptio
 }
 
 // ListAPIKeys returns all API keys for a user (without the secrets).
-// If userID is 0, returns all API keys (for admin use).
 func (c *Client) ListAPIKeys(ctx context.Context, userID uint) ([]types.APIKey, error) {
 	var keys []types.APIKey
 	if err := c.db.WithContext(ctx).Where("user_id = ?", userID).Order("created_at DESC").Find(&keys).Error; err != nil {
@@ -69,7 +68,6 @@ func (c *Client) ListAPIKeys(ctx context.Context, userID uint) ([]types.APIKey, 
 }
 
 // GetAPIKey retrieves a single API key by ID.
-// If userID is 0, retrieves the key regardless of owner (for admin use).
 func (c *Client) GetAPIKey(ctx context.Context, userID uint, keyID uint) (*types.APIKey, error) {
 	var key types.APIKey
 	if err := c.db.WithContext(ctx).Where("id = ?", keyID).Where("user_id = ?", userID).First(&key).Error; err != nil {
@@ -79,7 +77,6 @@ func (c *Client) GetAPIKey(ctx context.Context, userID uint, keyID uint) (*types
 }
 
 // DeleteAPIKey removes an API key.
-// If userID is 0, deletes the key regardless of owner (for admin use).
 func (c *Client) DeleteAPIKey(ctx context.Context, userID uint, keyID uint) error {
 	result := c.db.WithContext(ctx).Where("id = ?", keyID).Where("user_id = ?", userID).Delete(&types.APIKey{})
 	if result.Error != nil {

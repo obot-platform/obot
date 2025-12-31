@@ -19,8 +19,6 @@
 	let hasAuditorAccess = $derived(profile.current.groups.includes(Group.AUDITOR));
 
 	const shouldShowPayload = $derived(profile?.current?.hasAdminAccess?.() ?? false);
-
-	console.log(auditLog);
 </script>
 
 {#if !responsive.isMobile && container}

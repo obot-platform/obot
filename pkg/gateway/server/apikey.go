@@ -232,10 +232,14 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 		})
 	}
 
-	// Parse request body for MCP server info (optional)
+	// Parse request body for MCP server info
 	var req apiKeyAuthRequest
-	// Ignore read errors - body may be empty
-	_ = apiContext.Read(&req)
+	if err := apiContext.Read(&req); err != nil {
+		return apiContext.Write(apiKeyAuthResponse{
+			Authenticated: false,
+			Error:         "invalid request body",
+		})
+	}
 
 	// Validate the API key
 	apiKey, err := apiContext.GatewayClient.ValidateAPIKey(apiContext.Context(), bearer)

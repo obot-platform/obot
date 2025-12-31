@@ -53,6 +53,15 @@ func TestParseAPIKey(t *testing.T) {
 			wantErr:    false,
 		},
 		{
+			name:       "secret starts with a dash",
+			key:        "ok1-1-3--secret",
+			wantPrefix: "ok1",
+			wantUserID: 1,
+			wantKeyID:  3,
+			wantSecret: "-secret",
+			wantErr:    false,
+		},
+		{
 			name:          "empty key",
 			key:           "",
 			wantErr:       true,
