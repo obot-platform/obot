@@ -7,6 +7,8 @@ import (
 
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
@@ -84,6 +86,7 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 		mcpServer.Status.DeploymentConditions = conditions
 		needsUpdate = true
 	}
+
 	// Update K8s settings hash if it changed
 	// Note: k8sSettingsHash will be empty string for non-K8s runtimes or if annotation is missing
 	if mcpServer.Status.K8sSettingsHash != k8sSettingsHash {
@@ -91,8 +94,51 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 		needsUpdate = true
 	}
 
+	// Manage NeedsK8sUpdate flag for K8s-compatible runtimes
+	if mcpServer.Spec.Manifest.Runtime == types.RuntimeContainerized ||
+		mcpServer.Spec.Manifest.Runtime == types.RuntimeUVX ||
+		mcpServer.Spec.Manifest.Runtime == types.RuntimeNPX {
+
+		// Get current K8s settings to compare
+		var k8sSettings v1.K8sSettings
+		if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{
+			Namespace: h.mcpNamespace,
+			Name:      system.K8sSettingsName,
+		}, &k8sSettings); err == nil {
+			currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+
+			// Only SET to true if drift detected, never clear it
+			// The flag gets cleared by the RedeployWithK8sSettings API endpoint after successful redeploy
+			if k8sSettingsHash != "" && k8sSettingsHash != currentHash && !mcpServer.Status.NeedsK8sUpdate {
+				mcpServer.Status.NeedsK8sUpdate = true
+				needsUpdate = true
+			}
+		}
+	}
+
 	// Update the MCPServer status if needed
 	if needsUpdate {
+		mcpServer.Status.DeploymentStatus = deploymentStatus
+		mcpServer.Status.DeploymentAvailableReplicas = &availableReplicas
+		mcpServer.Status.DeploymentReadyReplicas = &readyReplicas
+		mcpServer.Status.DeploymentReplicas = replicas
+		mcpServer.Status.DeploymentConditions = conditions
+		mcpServer.Status.K8sSettingsHash = k8sSettingsHash
+
+		// Only SET NeedsK8sUpdate to true if drift detected, never clear it
+		if mcpServer.Spec.Manifest.Runtime == types.RuntimeContainerized ||
+			mcpServer.Spec.Manifest.Runtime == types.RuntimeUVX ||
+			mcpServer.Spec.Manifest.Runtime == types.RuntimeNPX {
+
+			var k8sSettings v1.K8sSettings
+			if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{Name: system.K8sSettingsName, Namespace: h.mcpNamespace}, &k8sSettings); err == nil {
+				currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+				if k8sSettingsHash != "" && k8sSettingsHash != currentHash && !mcpServer.Status.NeedsK8sUpdate {
+					mcpServer.Status.NeedsK8sUpdate = true
+				}
+			}
+		}
+
 		return h.storageClient.Status().Update(req.Ctx, &mcpServer)
 	}
 
