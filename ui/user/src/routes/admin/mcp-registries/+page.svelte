@@ -5,19 +5,19 @@
 	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { goto, replaceState } from '$lib/url';
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, invalidate } from '$app/navigation';
 	import { type AccessControlRule, type OrgUser } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
-	import { onMount, untrack } from 'svelte';
+	import { onMount } from 'svelte';
 	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { getUserDisplayName, openUrl } from '$lib/utils.js';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 	import { page } from '$app/state';
 
 	let { data } = $props();
-	let accessControlRules = $state(untrack(() => data.accessControlRules));
+	let accessControlRules = $derived(data.accessControlRules);
 	let showCreateRule = $state(false);
 	let ruleToDelete = $state<AccessControlRule>();
 
@@ -265,7 +265,8 @@
 		} else {
 			await AdminService.deleteAccessControlRule(ruleToDelete.id);
 		}
-		accessControlRules = await AdminService.listAccessControlRules();
+
+		invalidate('mcp-registries:data');
 
 		ruleToDelete = undefined;
 	}}
