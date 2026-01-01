@@ -98,7 +98,6 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 	if mcpServer.Spec.Manifest.Runtime == types.RuntimeContainerized ||
 		mcpServer.Spec.Manifest.Runtime == types.RuntimeUVX ||
 		mcpServer.Spec.Manifest.Runtime == types.RuntimeNPX {
-
 		// Get current K8s settings to compare
 		var k8sSettings v1.K8sSettings
 		if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{
@@ -129,7 +128,6 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 		if mcpServer.Spec.Manifest.Runtime == types.RuntimeContainerized ||
 			mcpServer.Spec.Manifest.Runtime == types.RuntimeUVX ||
 			mcpServer.Spec.Manifest.Runtime == types.RuntimeNPX {
-
 			var k8sSettings v1.K8sSettings
 			if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{Name: system.K8sSettingsName, Namespace: h.mcpNamespace}, &k8sSettings); err == nil {
 				currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
