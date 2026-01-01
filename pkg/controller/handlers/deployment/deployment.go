@@ -95,9 +95,11 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 	}
 
 	// Manage NeedsK8sUpdate flag for K8s-compatible runtimes
-	if mcpServer.Spec.Manifest.Runtime == types.RuntimeContainerized ||
+	isK8sRuntime := mcpServer.Spec.Manifest.Runtime == types.RuntimeContainerized ||
 		mcpServer.Spec.Manifest.Runtime == types.RuntimeUVX ||
-		mcpServer.Spec.Manifest.Runtime == types.RuntimeNPX {
+		mcpServer.Spec.Manifest.Runtime == types.RuntimeNPX
+
+	if isK8sRuntime {
 		// Get current K8s settings to compare
 		var k8sSettings v1.K8sSettings
 		if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{
@@ -108,7 +110,11 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 
 			// Only SET to true if drift detected, never clear it
 			// The flag gets cleared by the RedeployWithK8sSettings API endpoint after successful redeploy
-			if k8sSettingsHash != "" && k8sSettingsHash != currentHash && !mcpServer.Status.NeedsK8sUpdate {
+			hasHash := k8sSettingsHash != ""
+			hasDrift := k8sSettingsHash != currentHash
+			flagNotSet := !mcpServer.Status.NeedsK8sUpdate
+
+			if hasHash && hasDrift && flagNotSet {
 				mcpServer.Status.NeedsK8sUpdate = true
 				needsUpdate = true
 			}
@@ -117,26 +123,6 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 
 	// Update the MCPServer status if needed
 	if needsUpdate {
-		mcpServer.Status.DeploymentStatus = deploymentStatus
-		mcpServer.Status.DeploymentAvailableReplicas = &availableReplicas
-		mcpServer.Status.DeploymentReadyReplicas = &readyReplicas
-		mcpServer.Status.DeploymentReplicas = replicas
-		mcpServer.Status.DeploymentConditions = conditions
-		mcpServer.Status.K8sSettingsHash = k8sSettingsHash
-
-		// Only SET NeedsK8sUpdate to true if drift detected, never clear it
-		if mcpServer.Spec.Manifest.Runtime == types.RuntimeContainerized ||
-			mcpServer.Spec.Manifest.Runtime == types.RuntimeUVX ||
-			mcpServer.Spec.Manifest.Runtime == types.RuntimeNPX {
-			var k8sSettings v1.K8sSettings
-			if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{Name: system.K8sSettingsName, Namespace: h.mcpNamespace}, &k8sSettings); err == nil {
-				currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
-				if k8sSettingsHash != "" && k8sSettingsHash != currentHash && !mcpServer.Status.NeedsK8sUpdate {
-					mcpServer.Status.NeedsK8sUpdate = true
-				}
-			}
-		}
-
 		return h.storageClient.Status().Update(req.Ctx, &mcpServer)
 	}
 
