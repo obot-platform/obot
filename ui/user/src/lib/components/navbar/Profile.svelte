@@ -13,7 +13,8 @@
 		X,
 		MessageCircle,
 		CircleFadingArrowUp,
-		LayoutDashboard
+		LayoutDashboard,
+		KeyRound
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
@@ -194,6 +195,11 @@
 				<a href={resolve('/profile')} role="menuitem" class="link"
 					><User class="size-4" /> My Account</a
 				>
+				{#if !inAdminRoute}
+					<a href={resolve('/keys')} role="menuitem" class="link"
+						><KeyRound class="size-4" /> API Keys</a
+					>
+				{/if}
 				<button class="link" onclick={handleLogout}>
 					<LogOut class="size-4" /> Log out
 				</button>

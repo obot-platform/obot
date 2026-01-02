@@ -17,6 +17,7 @@
 		Cpu,
 		Funnel,
 		GlobeLock,
+		KeyRound,
 		LockKeyhole,
 		MessageCircle,
 		MessageCircleMore,
@@ -238,6 +239,14 @@
 								href: '/admin/auth-providers',
 								icon: LockKeyhole,
 								label: 'Auth Providers',
+								disabled: !version.current.authEnabled,
+								collapsible: false
+							},
+							{
+								id: 'api-keys',
+								href: '/admin/api-keys',
+								icon: KeyRound,
+								label: 'API Keys',
 								disabled: !version.current.authEnabled,
 								collapsible: false
 							}
