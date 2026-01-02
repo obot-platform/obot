@@ -296,18 +296,19 @@ func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c clie
 		}
 	} else if cred.Env[credentialEnvVarName] != apiKey {
 		// If the credential exists, but has a different value, then update it.
-		// The only way to update it is to delete the existing credential and recreate it.
-		if err = h.gptClient.DeleteCredential(ctx, string(modelProviderRef.UID), modelProviderName); err != nil {
-			return fmt.Errorf("failed to delete credential: %w", err)
-		}
-		return h.gptClient.CreateCredential(ctx, gptscript.Credential{
+		if err = h.gptClient.CreateCredential(ctx, gptscript.Credential{
 			Context:  string(modelProviderRef.UID),
 			ToolName: modelProviderName,
 			Type:     gptscript.CredentialTypeModelProvider,
 			Env: map[string]string{
 				credentialEnvVarName: apiKey,
 			},
-		})
+		}); err != nil {
+			return fmt.Errorf("failed to update model provider credential: %w", err)
+		}
+
+		// Stop the model provider if it was started while we were updating the credential.
+		h.dispatcher.StopModelProvider(modelProviderRef.Namespace, modelProviderRef.Name)
 	}
 
 	var modelAliases v1.DefaultModelAliasList
