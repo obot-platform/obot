@@ -311,7 +311,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	// Use remote shim image for remote runtimes
 	switch server.Runtime {
-	case types.RuntimeRemote:
+	case types.RuntimeRemote, types.RuntimeComposite:
 		image = k.remoteShimBaseImage
 	case types.RuntimeContainerized:
 		port = server.ContainerPort
@@ -385,7 +385,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	secretEnvStringData["NANOBOT_DISABLE_HEALTH_CHECKER"] = strconv.FormatBool(server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeComposite)
 	// Audit log variables
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_TOKEN"] = server.AuditLogToken
-	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_SEND_URL"] = server.AuditLogEndpoint
+	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_SEND_URL"] = k.replaceHostWithServiceFQDN(server.AuditLogEndpoint)
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE"] = strconv.Itoa(k.auditLogsBatchSize)
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS"] = strconv.Itoa(k.auditLogsFlushIntervalSeconds)
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_METADATA"] = server.AuditLogMetadata
