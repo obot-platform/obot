@@ -116,10 +116,13 @@ func (c *Client) ValidateAPIKey(ctx context.Context, key string) (*types.APIKey,
 			return fmt.Errorf("API key has expired")
 		}
 
-		// Update last used timestamp
+		// Update last used timestamp if more than a minute has elapsed
 		now := time.Now()
-		apiKey.LastUsedAt = &now
-		return tx.Model(&apiKey).Update("last_used_at", now).Error
+		if apiKey.LastUsedAt == nil || now.Sub(*apiKey.LastUsedAt) > time.Minute {
+			apiKey.LastUsedAt = &now
+			return tx.Model(&apiKey).Update("last_used_at", now).Error
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -173,9 +176,20 @@ func (c *Client) DeleteAPIKeyByID(ctx context.Context, keyID uint) error {
 	return nil
 }
 
-// UpdateAPIKeyLastUsed updates the last_used_at timestamp for an API key.
+// UpdateAPIKeyLastUsed updates the last_used_at timestamp for an API key
+// if more than a minute has elapsed since the previous timestamp.
 func (c *Client) UpdateAPIKeyLastUsed(ctx context.Context, keyID uint) error {
-	result := c.db.WithContext(ctx).Model(&types.APIKey{}).Where("id = ?", keyID).Update("last_used_at", time.Now())
+	var key types.APIKey
+	if err := c.db.WithContext(ctx).Where("id = ?", keyID).First(&key).Error; err != nil {
+		return fmt.Errorf("failed to find API key: %w", err)
+	}
+
+	now := time.Now()
+	if key.LastUsedAt != nil && now.Sub(*key.LastUsedAt) <= time.Minute {
+		return nil
+	}
+
+	result := c.db.WithContext(ctx).Model(&types.APIKey{}).Where("id = ?", keyID).Update("last_used_at", now)
 	if result.Error != nil {
 		return fmt.Errorf("failed to update API key last used time: %w", result.Error)
 	}

@@ -207,11 +207,13 @@ type apiKeyAuthRequest struct {
 }
 
 type apiKeyAuthResponse struct {
-	Authenticated bool   `json:"authenticated"`
-	Authorized    bool   `json:"authorized"`
-	UserID        uint   `json:"userId,omitempty"`
-	Username      string `json:"username,omitempty"`
-	Error         string `json:"error,omitempty"`
+	Allowed bool   `json:"allowed"`
+	Reason  string `json:"reason,omitempty"`
+
+	Subject           string `json:"sub,omitempty"`
+	Name              string `json:"name,omitempty"`
+	PreferredUsername string `json:"preferred_username,omitempty"`
+	Email             string `json:"email,omitempty"`
 }
 
 func (s *Server) authenticateAPIKey(apiContext api.Context) error {
@@ -219,16 +221,16 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	authHeader := apiContext.Request.Header.Get("Authorization")
 	if authHeader == "" {
 		return apiContext.Write(apiKeyAuthResponse{
-			Authenticated: false,
-			Error:         "missing Authorization header",
+			Allowed: false,
+			Reason:  "missing Authorization header",
 		})
 	}
 
 	bearer := strings.TrimPrefix(authHeader, "Bearer ")
 	if bearer == authHeader || !strings.HasPrefix(bearer, "ok1-") {
 		return apiContext.Write(apiKeyAuthResponse{
-			Authenticated: false,
-			Error:         "invalid API key format",
+			Allowed: false,
+			Reason:  "invalid API key format",
 		})
 	}
 
@@ -236,8 +238,8 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	var req apiKeyAuthRequest
 	if err := apiContext.Read(&req); err != nil {
 		return apiContext.Write(apiKeyAuthResponse{
-			Authenticated: false,
-			Error:         "invalid request body",
+			Allowed: false,
+			Reason:  "invalid request body",
 		})
 	}
 
@@ -245,8 +247,8 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	apiKey, err := apiContext.GatewayClient.ValidateAPIKey(apiContext.Context(), bearer)
 	if err != nil {
 		return apiContext.Write(apiKeyAuthResponse{
-			Authenticated: false,
-			Error:         "invalid or expired API key",
+			Allowed: false,
+			Reason:  "invalid or expired API key",
 		})
 	}
 
@@ -254,30 +256,24 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	user, err := apiContext.GatewayClient.UserByID(apiContext.Context(), strconv.FormatUint(uint64(apiKey.UserID), 10))
 	if err != nil {
 		return apiContext.Write(apiKeyAuthResponse{
-			Authenticated: false,
-			Error:         "user not found",
+			Allowed: false,
+			Reason:  "user not found",
 		})
 	}
 
 	// Check scope restrictions - an MCP server must be specified
 	if !system.IsMCPServerID(req.MCPID) {
 		return apiContext.Write(apiKeyAuthResponse{
-			Authenticated: true,
-			Authorized:    false,
-			UserID:        user.ID,
-			Username:      user.Username,
-			Error:         "bad request: no MCP server was specified",
+			Allowed: false,
+			Reason:  "bad request: no MCP server was specified",
 		})
 	}
 
 	// Check if this server is in the key's allowed list
 	if !slices.Contains(apiKey.MCPServerIDs, req.MCPID) {
 		return apiContext.Write(apiKeyAuthResponse{
-			Authenticated: true,
-			Authorized:    false,
-			UserID:        user.ID,
-			Username:      user.Username,
-			Error:         "API key does not have access to this MCP server",
+			Allowed: false,
+			Reason:  "API key does not have access to this MCP server",
 		})
 	}
 
@@ -285,39 +281,31 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	var server v1.MCPServer
 	if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &server); err != nil {
 		return apiContext.Write(apiKeyAuthResponse{
-			Authenticated: true,
-			Authorized:    false,
-			UserID:        user.ID,
-			Username:      user.Username,
-			Error:         "MCP server not found",
+			Allowed: false,
+			Reason:  "MCP server not found",
 		})
 	}
 
 	hasAccess, err := s.userHasAccessToMCPServerByUserID(apiContext, &server, apiKey.UserID)
 	if err != nil {
 		return apiContext.Write(apiKeyAuthResponse{
-			Authenticated: true,
-			Authorized:    false,
-			UserID:        user.ID,
-			Username:      user.Username,
-			Error:         fmt.Sprintf("failed to verify access: %v", err),
+			Allowed: false,
+			Reason:  fmt.Sprintf("failed to verify access: %v", err),
 		})
 	}
 	if !hasAccess {
 		return apiContext.Write(apiKeyAuthResponse{
-			Authenticated: true,
-			Authorized:    false,
-			UserID:        user.ID,
-			Username:      user.Username,
-			Error:         "user does not have access to this MCP server",
+			Allowed: false,
+			Reason:  "user does not have access to this MCP server",
 		})
 	}
 
 	err = apiContext.Write(apiKeyAuthResponse{
-		Authenticated: true,
-		Authorized:    true,
-		UserID:        user.ID,
-		Username:      user.Username,
+		Allowed:           true,
+		Subject:           fmt.Sprintf("%d", apiKey.UserID),
+		Name:              user.DisplayName,
+		PreferredUsername: user.Username,
+		Email:             user.Email,
 	})
 
 	// Update key's last used time
