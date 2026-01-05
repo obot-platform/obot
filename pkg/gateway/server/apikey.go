@@ -46,8 +46,15 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 	}
 
 	// Validate that the user has access to all specified MCPServers
+	// "*" is a special wildcard that grants access to all servers the user can access
 	var errs []error
 	for _, serverID := range req.MCPServerIDs {
+		if serverID == "*" {
+			// Wildcard - no validation needed at creation time
+			// Access is checked at authentication time
+			continue
+		}
+
 		var server v1.MCPServer
 		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: serverID}, &server); err != nil {
 			return types2.NewErrBadRequest("MCP server %q not found", serverID)
@@ -267,7 +274,9 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	}
 
 	// Check if this server is in the key's allowed list
-	if !slices.Contains(apiKey.MCPServerIDs, req.MCPID) {
+	// "*" is a special wildcard that grants access to all servers the user can access
+	hasWildcard := slices.Contains(apiKey.MCPServerIDs, "*")
+	if !hasWildcard && !slices.Contains(apiKey.MCPServerIDs, req.MCPID) {
 		// Check if this is a component server - if so, check the composite server ID
 		var mcpServer v1.MCPServer
 		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &mcpServer); err != nil || mcpServer.Spec.CompositeName == "" || !slices.Contains(apiKey.MCPServerIDs, mcpServer.Spec.CompositeName) {

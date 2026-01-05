@@ -21,6 +21,7 @@ type APIKey struct {
 
 	// MCPServerIDs contains Kubernetes resource names of MCPServers this key can access.
 	// Supports all server types: single-user, multi-user, remote, and composite.
+	// Use "*" as a wildcard to grant access to all servers the user can access.
 	// At least one MCPServerID must be specified.
 	MCPServerIDs []string `json:"mcpServerIds,omitempty" gorm:"serializer:json"`
 }
