@@ -390,7 +390,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS"] = strconv.Itoa(k.auditLogsFlushIntervalSeconds)
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_METADATA"] = server.AuditLogMetadata
 	// API key authentication webhook URL
-	secretEnvStringData["NANOBOT_RUN_API_KEY_AUTH_URL"] = k.replaceHostWithServiceFQDN(server.Issuer + "/api/api-keys/auth")
+	secretEnvStringData["NANOBOT_RUN_API_KEY_AUTH_WEBHOOK_URL"] = k.replaceHostWithServiceFQDN(server.Issuer + "/api/api-keys/auth")
 	secretEnvStringData["NANOBOT_RUN_MCP_SERVER_ID"] = strings.TrimSuffix(server.MCPServerName, "-shim")
 
 	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvStringData) + hash.Digest(secretVolumeStringData) + hash.Digest(webhooks))

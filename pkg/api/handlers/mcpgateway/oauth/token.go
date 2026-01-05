@@ -378,9 +378,10 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 	}
 
 	var (
-		mcpID    string
-		userID   string
-		tokenCtx *persistent.TokenContext
+		mcpID           string
+		userID          string
+		tokenCtx        *persistent.TokenContext
+		apiKeyExpiresAt *time.Time
 	)
 
 	if subjectTokenType == tokenTypeAPIKey {
@@ -403,7 +404,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		}
 
 		// Check if API key has access to this MCP server
-		if err := validateAPIKeyAccess(apiKey, mcpID); err != nil {
+		if err := validateAPIKeyAccess(req, apiKey, mcpID); err != nil {
 			return types.NewErrBadRequest("%v", Error{
 				Code:        ErrAccessDenied,
 				Description: err.Error(),
@@ -411,6 +412,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		}
 
 		userID = fmt.Sprintf("%d", apiKey.UserID)
+		apiKeyExpiresAt = apiKey.ExpiresAt
 	} else {
 		// Parse the subject token JWT (existing logic)
 		var err error
@@ -482,36 +484,11 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 				}
 
 				if subjectTokenType == tokenTypeAPIKey {
-					// For API keys, we need to create a JWT for the component server
-					// since component servers may not support API key authentication yet
-					user, err := req.GatewayClient.UserByID(req.Context(), userID)
-					if err != nil {
-						return types.NewErrBadRequest("%v", Error{
-							Code:        ErrInvalidRequest,
-							Description: "failed to retrieve user",
-						})
-					}
-
-					now := time.Now()
-					expiresAt = now.Add(tokenExpiration)
-					newTokenCtx := persistent.TokenContext{
-						Audience:   fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, audienceID),
-						IssuedAt:   now,
-						ExpiresAt:  expiresAt,
-						UserID:     userID,
-						UserName:   user.Username,
-						UserEmail:  user.Email,
-						UserGroups: user.Role.Groups(),
-						MCPID:      componentMCPID,
-					}
-
-					token, err = h.tokenService.NewToken(req.Context(), newTokenCtx)
-					if err != nil {
-						log.Errorf("failed to create token for component MCP server %s: %v", componentMCPID, err)
-						return types.NewErrBadRequest("%v", Error{
-							Code:        ErrServerError,
-							Description: "failed to create token",
-						})
+					// Pass the API key through to component servers for their own token exchange
+					token = subjectToken
+					expiresAt = time.Now().Add(tokenExpiration)
+					if apiKeyExpiresAt != nil {
+						expiresAt = *apiKeyExpiresAt
 					}
 				} else {
 					// For JWTs, update the existing token context and create a new token
@@ -534,8 +511,9 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 				token = subjectToken
 				if tokenCtx != nil {
 					expiresAt = tokenCtx.ExpiresAt
+				} else if apiKeyExpiresAt != nil {
+					expiresAt = *apiKeyExpiresAt
 				} else {
-					// For API keys without a component, use default expiration
 					expiresAt = time.Now().Add(tokenExpiration)
 				}
 			}
@@ -595,9 +573,21 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 }
 
 // validateAPIKeyAccess checks if the API key has access to the specified MCP server.
-func validateAPIKeyAccess(apiKey *gwtypes.APIKey, mcpID string) error {
+// For component servers (servers that belong to a composite), it instead checks whether
+// the corresponding composite server is in the allowed list.
+func validateAPIKeyAccess(ctx api.Context, apiKey *gwtypes.APIKey, mcpID string) error {
 	if slices.Contains(apiKey.MCPServerIDs, mcpID) {
 		return nil
 	}
+
+	// Check if this is a component server - if so, check the composite server ID
+	var mcpServer v1.MCPServer
+	if err := ctx.Get(&mcpServer, mcpID); err == nil && mcpServer.Spec.CompositeName != "" {
+		// This is a component server, check if the composite server is allowed
+		if slices.Contains(apiKey.MCPServerIDs, mcpServer.Spec.CompositeName) {
+			return nil
+		}
+	}
+
 	return fmt.Errorf("API key does not have access to MCP server %s", mcpID)
 }
