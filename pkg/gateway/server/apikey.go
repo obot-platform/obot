@@ -46,6 +46,7 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 	}
 
 	// Validate that the user has access to all specified MCPServers
+	var errs []error
 	for _, serverID := range req.MCPServerIDs {
 		var server v1.MCPServer
 		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: serverID}, &server); err != nil {
@@ -58,8 +59,12 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 			return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to check access to MCP server: %v", err))
 		}
 		if !hasAccess {
-			return types2.NewErrBadRequest("MCP server %q not found", serverID)
+			errs = append(errs, fmt.Errorf("MCP server %q not found", serverID))
 		}
+	}
+
+	if len(errs) > 0 {
+		return types2.NewErrHTTP(http.StatusBadRequest, errors.Join(errs...).Error())
 	}
 
 	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, req.MCPServerIDs)
@@ -72,7 +77,7 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 
 // userHasAccessToMCPServer checks if the current user has access to the given MCPServer.
 func (s *Server) userHasAccessToMCPServer(apiContext api.Context, server *v1.MCPServer) (bool, error) {
-	userID := strconv.FormatUint(uint64(apiContext.UserID()), 10)
+	userID := apiContext.User.GetUID()
 
 	// Owner always has access
 	if server.Spec.UserID == userID {
@@ -226,8 +231,8 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 		})
 	}
 
-	bearer := strings.TrimPrefix(authHeader, "Bearer ")
-	if bearer == authHeader || !strings.HasPrefix(bearer, "ok1-") {
+	bearer, ok := strings.CutPrefix(authHeader, "Bearer ")
+	if !ok || !strings.HasPrefix(bearer, "ok1-") {
 		return apiContext.Write(apiKeyAuthResponse{
 			Allowed: false,
 			Reason:  "invalid API key format",
@@ -258,14 +263,6 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 		return apiContext.Write(apiKeyAuthResponse{
 			Allowed: false,
 			Reason:  "user not found",
-		})
-	}
-
-	// Check scope restrictions - an MCP server must be specified
-	if !system.IsMCPServerID(req.MCPID) {
-		return apiContext.Write(apiKeyAuthResponse{
-			Allowed: false,
-			Reason:  "bad request: no MCP server was specified",
 		})
 	}
 
