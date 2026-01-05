@@ -352,5 +352,5 @@ func (s *Server) userHasAccessToMCPServerByUserID(apiContext api.Context, server
 
 // updateKeyLastUsedTime updates the last used timestamp for an API key.
 func (s *Server) updateKeyLastUsedTime(apiContext api.Context, apiKey *types.APIKey) error {
-	return apiContext.GatewayClient.UpdateAPIKeyLastUsed(apiContext.Context(), apiKey.ID)
+	return apiContext.GatewayClient.UpdateAPIKeyLastUsed(apiContext.Context(), apiKey)
 }

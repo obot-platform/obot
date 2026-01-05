@@ -178,18 +178,13 @@ func (c *Client) DeleteAPIKeyByID(ctx context.Context, keyID uint) error {
 
 // UpdateAPIKeyLastUsed updates the last_used_at timestamp for an API key
 // if more than a minute has elapsed since the previous timestamp.
-func (c *Client) UpdateAPIKeyLastUsed(ctx context.Context, keyID uint) error {
-	var key types.APIKey
-	if err := c.db.WithContext(ctx).Where("id = ?", keyID).First(&key).Error; err != nil {
-		return fmt.Errorf("failed to find API key: %w", err)
-	}
-
+func (c *Client) UpdateAPIKeyLastUsed(ctx context.Context, key *types.APIKey) error {
 	now := time.Now()
 	if key.LastUsedAt != nil && now.Sub(*key.LastUsedAt) <= time.Minute {
 		return nil
 	}
 
-	result := c.db.WithContext(ctx).Model(&types.APIKey{}).Where("id = ?", keyID).Update("last_used_at", now)
+	result := c.db.WithContext(ctx).Model(&types.APIKey{}).Where("id = ?", key.ID).Update("last_used_at", now)
 	if result.Error != nil {
 		return fmt.Errorf("failed to update API key last used time: %w", result.Error)
 	}
