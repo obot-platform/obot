@@ -33,13 +33,11 @@
 		disableClickOutside
 	>
 		<div class="flex flex-col gap-6">
-			<div
-				class="flex items-start gap-3 rounded-lg border border-amber-500 bg-amber-50 p-4 dark:bg-amber-950/30"
-			>
-				<AlertTriangle class="size-5 flex-shrink-0 text-amber-600 dark:text-amber-500" />
+			<div class="flex items-start gap-3 rounded-lg border p-4">
+				<AlertTriangle class="size-5 flex-shrink-0" />
 				<div class="flex flex-col gap-1">
-					<p class="text-sm font-medium text-amber-800 dark:text-amber-200">Save this key now</p>
-					<p class="text-xs text-amber-700 dark:text-amber-300">
+					<p class="text-sm font-medium">Save this key now</p>
+					<p class="text-xs">
 						This is the only time you will be able to see this API key. Make sure to copy and store
 						it securely. You will not be able to retrieve it later.
 					</p>
@@ -49,10 +47,8 @@
 			<div class="flex flex-col gap-2">
 				<label class="text-sm font-medium">Your API Key</label>
 				<div class="flex items-center gap-2">
-					<div
-						class="dark:bg-surface1 flex flex-1 items-center gap-2 rounded-md border bg-gray-50 px-3 py-2"
-					>
-						<KeyRound class="size-4 flex-shrink-0 text-gray-500" />
+					<div class="bg-surface1 flex flex-1 items-center gap-2 rounded-md border px-3 py-2">
+						<KeyRound class="text-on-surface1 size-4 flex-shrink-0" />
 						<code class="flex-1 font-mono text-sm break-all">{keyValue}</code>
 					</div>
 					<CopyButton text={keyValue} buttonText="Copy" />

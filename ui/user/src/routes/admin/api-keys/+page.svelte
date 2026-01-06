@@ -8,6 +8,7 @@
 	import type { OrgUser } from '$lib/services/admin/types';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import { profile } from '$lib/stores';
+	import { getUserDisplayName } from '$lib/utils';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import ApiKeyRevealDialog from '../../keys/ApiKeyRevealDialog.svelte';
@@ -25,16 +26,10 @@
 
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
 
-	function getUserDisplay(userId: number): string {
-		const user = usersMap.get(String(userId));
-		if (!user) return `User ${userId}`;
-		return user.displayName || user.email || user.username || `User ${userId}`;
-	}
-
 	const allTableData = $derived(
 		allApiKeys.map((key) => ({
 			...key,
-			userDisplay: getUserDisplay(key.userId),
+			userDisplay: getUserDisplayName(usersMap, String(key.userId)),
 			createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
 			lastUsedAtDisplay: key.lastUsedAt ? formatTimeAgo(key.lastUsedAt).relativeTime : 'Never',
 			expiresAtDisplay: key.expiresAt ? formatTimeUntil(key.expiresAt).relativeTime : 'Never',
@@ -115,7 +110,7 @@
 					{#if property === 'description'}
 						<span class="text-muted">{d.description || '-'}</span>
 					{:else if property === 'serverCount'}
-						<span class="rounded bg-gray-100 px-2 py-0.5 text-xs dark:bg-gray-800">
+						<span class="pill-rounded bg-surface3">
 							{d.serverCount} server{d.serverCount === 1 ? '' : 's'}
 						</span>
 					{:else}

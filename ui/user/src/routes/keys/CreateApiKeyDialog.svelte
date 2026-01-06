@@ -113,9 +113,9 @@
 		onClose={handleClose}
 		title="Create API Key"
 		class="h-full w-full overflow-visible md:h-auto md:max-h-[90vh] md:max-w-xl"
-		classes={{ content: 'min-h-inherit overflow-hidden' }}
+		classes={{ content: 'min-h-0 flex-1' }}
 	>
-		<div class="flex flex-col gap-6">
+		<div class="default-scrollbar-thin flex flex-1 flex-col gap-6 overflow-y-auto">
 			<div class="flex flex-col gap-2">
 				<label for="api-key-name" class="input-label">Name</label>
 				<input

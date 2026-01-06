@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { endOfDay, isSameDay, startOfDay } from 'date-fns';
-	import { ChevronLeft, ChevronRight, Calendar, X } from 'lucide-svelte';
+	import CalendarGrid, {
+		months,
+		isToday,
+		isCurrentMonth,
+		isDateDisabled
+	} from './CalendarGrid.svelte';
+	import { endOfDay, isSameDay } from 'date-fns';
+	import { Calendar, X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -33,44 +39,6 @@
 	let currentDate = $state(new Date());
 	let open = $state(false);
 
-	// Get current month's first day
-	let firstDayOfMonth = $derived(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
-	let startOfWeek = $derived(
-		new Date(
-			firstDayOfMonth.getFullYear(),
-			firstDayOfMonth.getMonth(),
-			firstDayOfMonth.getDate() - firstDayOfMonth.getDay()
-		)
-	);
-
-	function generateCalendarDays(): Date[] {
-		const days: Date[] = [];
-		for (let i = 0; i < 42; i++) {
-			days.push(
-				new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate() + i)
-			);
-		}
-		return days;
-	}
-
-	let calendarDays = $derived(generateCalendarDays());
-
-	const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-	const months = [
-		'January',
-		'February',
-		'March',
-		'April',
-		'May',
-		'June',
-		'July',
-		'August',
-		'September',
-		'October',
-		'November',
-		'December'
-	];
-
 	function formatDate(date: Date): string {
 		if (!date) return '';
 
@@ -90,25 +58,7 @@
 		return value ? isSameDay(date, value) : false;
 	}
 
-	function isToday(date: Date): boolean {
-		const today = new Date();
-		return date.toDateString() === today.toDateString();
-	}
-
-	function isCurrentMonth(date: Date): boolean {
-		return (
-			date.getMonth() === currentDate.getMonth() && date.getFullYear() === currentDate.getFullYear()
-		);
-	}
-
-	function isDisabled(date: Date): boolean {
-		if (minDate && date < startOfDay(minDate)) return true;
-		if (maxDate && date > endOfDay(maxDate)) return true;
-		return false;
-	}
-
 	function handleDateClick(date: Date) {
-		if (isDisabled(date)) return;
 		value = endOfDay(date);
 		onChange(value);
 		open = false;
@@ -128,19 +78,11 @@
 		}
 	}
 
-	function previousMonth() {
-		currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-	}
-
-	function nextMonth() {
-		currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
-	}
-
 	function getDayClass(date: Date): string {
 		const baseClasses =
 			'w-8 h-8 flex items-center justify-center text-sm rounded-md transition-colors';
 
-		if (isDisabled(date)) {
+		if (isDateDisabled(date, minDate, maxDate)) {
 			return twMerge(baseClasses, 'text-on-surface1 cursor-default opacity-50');
 		}
 
@@ -152,7 +94,7 @@
 			return twMerge(baseClasses, 'border border-primary text-primary bg-primary/10');
 		}
 
-		if (!isCurrentMonth(date)) {
+		if (!isCurrentMonth(date, currentDate)) {
 			return twMerge(baseClasses, 'text-on-surface1');
 		}
 
@@ -214,62 +156,29 @@
 
 	{#if open}
 		<div class="default-dialog absolute top-full z-50 mt-1 flex flex-col p-4">
-			<!-- Calendar Header -->
-			<div class="mb-4 flex items-center justify-between">
-				<button type="button" class="hover:bg-surface3 rounded p-1" onclick={previousMonth}>
-					<ChevronLeft class="size-4" />
-				</button>
-
-				<h3 class="text-sm font-medium">
-					{months[currentDate.getMonth()]}
-					{currentDate.getFullYear()}
-				</h3>
-
-				<button type="button" class="hover:bg-surface3 rounded p-1" onclick={nextMonth}>
-					<ChevronRight class="size-4" />
-				</button>
-			</div>
-
-			<!-- Weekday Headers -->
-			<div class="mb-2 grid grid-cols-7 gap-1">
-				{#each weekdays as day, i (i)}
-					<div
-						class="text-on-surface1 flex h-8 w-8 items-center justify-center text-xs font-medium"
-					>
-						{day}
+			<CalendarGrid
+				bind:currentDate
+				{minDate}
+				{maxDate}
+				{getDayClass}
+				onDateClick={handleDateClick}
+			>
+				{#if clearable}
+					<div class="mt-4 flex justify-end">
+						<button
+							type="button"
+							class="button text-xs"
+							onclick={() => {
+								value = null;
+								onChange(null);
+								open = false;
+							}}
+						>
+							Clear
+						</button>
 					</div>
-				{/each}
-			</div>
-
-			<!-- Calendar Grid -->
-			<div class="grid grid-cols-7 gap-1">
-				{#each calendarDays as date (date.toISOString())}
-					<button
-						type="button"
-						class={getDayClass(date)}
-						onclick={() => handleDateClick(date)}
-						disabled={isDisabled(date)}
-					>
-						{date.getDate()}
-					</button>
-				{/each}
-			</div>
-
-			{#if clearable}
-				<div class="mt-4 flex justify-end">
-					<button
-						type="button"
-						class="button text-xs"
-						onclick={() => {
-							value = null;
-							onChange(null);
-							open = false;
-						}}
-					>
-						Clear
-					</button>
-				</div>
-			{/if}
+				{/if}
+			</CalendarGrid>
 		</div>
 	{/if}
 </div>
