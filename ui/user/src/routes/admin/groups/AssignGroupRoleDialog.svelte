@@ -78,7 +78,7 @@
 		const result: GroupAssignment = {
 			group: groupAssignment.group,
 			assignment: {
-				groupName: groupAssignment.group.name,
+				groupName: groupAssignment.group.id,
 				role
 			}
 		};

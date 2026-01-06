@@ -3090,7 +3090,7 @@ func schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref common.Re
 				Properties: map[string]spec.Schema{
 					"groupName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "GroupName is the authentication provider group identifier (e.g., \"github:org/team\", \"entra:group-uuid\")",
+							Description: "GroupName is the authentication provider group ID (e.g., \"github:org/team\", \"entra:group-uuid\"), NOT the display name",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",

@@ -13,7 +13,7 @@ package types
 //   - PowerUser | Auditor (160)
 //   - Owner | Auditor (40)
 type GroupRoleAssignment struct {
-	// GroupName is the authentication provider group identifier (e.g., "github:org/team", "entra:group-uuid")
+	// GroupName is the authentication provider group ID (e.g., "github:org/team", "entra:group-uuid"), NOT the display name
 	GroupName string `json:"groupName"`
 
 	// Role is the role(s) assigned to all group members. Can be a single role or combination using bitwise OR.

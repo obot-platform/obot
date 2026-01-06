@@ -50,7 +50,7 @@
 
 	const preparedGroups = $derived(
 		groups.map((group) => {
-			const assignment = groupRoleMap[group.name];
+			const assignment = groupRoleMap[group.id];
 			const role = assignment?.role ?? 0;
 			return {
 				...group,
@@ -212,10 +212,10 @@
 	onsuccess={async () => {
 		if (!deletingGroup) return;
 		loading = true;
-		await AdminService.deleteGroupRoleAssignment(deletingGroup.name);
+		await AdminService.deleteGroupRoleAssignment(deletingGroup.id);
 		groupRoleAssignments = await AdminService.listGroupRoleAssignments();
 		// Refresh user's profile if they're in the affected group
-		if (profile.current.groups.includes(deletingGroup.name)) {
+		if (profile.current.groups.includes(deletingGroup.id)) {
 			profile.current = await ChatService.getProfile();
 		}
 		loading = false;
@@ -243,7 +243,7 @@
 	groupAssignment={updatingRole
 		? {
 				group: { id: updatingRole.id, name: updatingRole.name, iconURL: updatingRole.iconURL },
-				assignment: updatingRole.assignment || { groupName: updatingRole.name, role: 0 }
+				assignment: updatingRole.assignment || { groupName: updatingRole.id, role: 0 }
 			}
 		: undefined}
 	{loading}

@@ -75,7 +75,7 @@
 	function handleGroupSelect(group: OrgGroup) {
 		selectedGroup = group;
 		// Load existing assignment if available
-		const existingAssignment = groupRoleMap[group.name];
+		const existingAssignment = groupRoleMap[group.id];
 		if (existingAssignment) {
 			const role = existingAssignment.role || 0;
 			draftRoleId = role & ~Role.AUDITOR;
@@ -97,13 +97,13 @@
 		const result: GroupAssignment = {
 			group: selectedGroup,
 			assignment: {
-				groupName: selectedGroup.name,
+				groupName: selectedGroup.id,
 				role
 			}
 		};
 
 		// Check if group already had auditor privilege
-		const existingAssignment = groupRoleMap[selectedGroup.name];
+		const existingAssignment = groupRoleMap[selectedGroup.id];
 		const hadAuditorBefore = existingAssignment
 			? hasAuditorFlag(existingAssignment.role || 0)
 			: false;
@@ -139,8 +139,8 @@
 				</p>
 			{:else}
 				{#each availableGroups as group (group.id)}
-					{@const hasAssignment = !!groupRoleMap[group.name]}
-					{@const assignedRole = groupRoleMap[group.name]?.role}
+					{@const hasAssignment = !!groupRoleMap[group.id]}
+					{@const assignedRole = groupRoleMap[group.id]?.role}
 					<button
 						onclick={() => handleGroupSelect(group)}
 						class={twMerge(
@@ -185,7 +185,7 @@
 					<span class="font-semibold">{selectedGroup.name}</span>
 				</div>
 				<div class="text-on-surface1 text-xs">
-					{#if groupRoleMap[selectedGroup.name]}
+					{#if groupRoleMap[selectedGroup.id]}
 						Update the role for this group
 					{:else}
 						Select a role to assign to this group
@@ -229,7 +229,7 @@
 			{/if}
 
 			<span class="flex-1 text-center text-lg font-semibold md:text-start md:text-xl">
-				{#if selectedGroup && groupRoleMap[selectedGroup.name]}
+				{#if selectedGroup && groupRoleMap[selectedGroup.id]}
 					Update Group Role
 				{:else}
 					Assign Group Role
@@ -272,7 +272,7 @@
 			>
 				{#if loading}
 					<LoaderCircle class="size-4 animate-spin" />
-				{:else if selectedGroup && groupRoleMap[selectedGroup.name]}
+				{:else if selectedGroup && groupRoleMap[selectedGroup.id]}
 					Update Role
 				{:else}
 					Assign Role
