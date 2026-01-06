@@ -170,6 +170,33 @@
 				const compositeParentName = compositeParent
 					? compositeParent.alias || compositeParent.manifest.name
 					: '';
+
+				const needsUpdate = deployment.needsUpdate && !deployment.compositeName;
+				const needsK8sUpdate =
+					version.current.engine === 'kubernetes' &&
+					deployment.needsK8sUpdate &&
+					!deployment.compositeName;
+
+				let updateStatus = deployment.deploymentStatus || 'Unknown';
+
+				if (
+					!needsUpdate &&
+					!needsK8sUpdate &&
+					deployment.deploymentStatus?.toLocaleLowerCase().includes('unavailable')
+				) {
+					updateStatus = 'Up to date';
+				} else if (deployment.deploymentStatus?.toLocaleLowerCase().includes('available')) {
+					if (needsUpdate && needsK8sUpdate) {
+						updateStatus = 'Upgrades Available';
+					} else if (needsUpdate) {
+						updateStatus = 'Server Upgrade Available';
+					} else if (needsK8sUpdate) {
+						updateStatus = 'Kubernetes Upgrade Available';
+					} else {
+						updateStatus = 'Up to date';
+					}
+				}
+
 				return {
 					...deployment,
 					displayName: deployment.alias || deployment.manifest.name || '',
@@ -186,7 +213,8 @@
 						: false,
 					isMyServer:
 						(deployment.catalogEntryID && deployment.userID === profile.current.id) ||
-						(powerUserID === profile.current.id && powerUserWorkspaceID === id)
+						(powerUserID === profile.current.id && powerUserWorkspaceID === id),
+					updateStatus
 				};
 			})
 			.filter((d) => !d.disabled && (onlyMyServers ? d.isMyServer : true));
@@ -428,14 +456,14 @@
 			bind:this={tableRef}
 			data={tableData}
 			fields={entity === 'workspace'
-				? ['displayName', 'type', 'deploymentStatus', 'created']
-				: ['displayName', 'type', 'deploymentStatus', 'userName', 'registry', 'created']}
-			filterable={['displayName', 'type', 'deploymentStatus', 'userName', 'registry']}
+				? ['displayName', 'type', 'updateStatus', 'created']
+				: ['displayName', 'type', 'updateStatus', 'userName', 'registry', 'created']}
+			filterable={['displayName', 'type', 'updateStatus', 'userName', 'registry']}
 			{filters}
 			headers={[
 				{ title: 'Name', property: 'displayName' },
 				{ title: 'User', property: 'userName' },
-				{ title: 'Status', property: 'deploymentStatus' }
+				{ title: 'Status', property: 'updateStatus' }
 			]}
 			onClickRow={(d, isCtrlClick) => {
 				setLastVisitedMcpServer(d);
@@ -448,7 +476,7 @@
 			{onClearAllFilters}
 			{onSort}
 			{initSort}
-			sortable={['displayName', 'type', 'deploymentStatus', 'userName', 'registry', 'created']}
+			sortable={['displayName', 'type', 'updateStatus', 'userName', 'registry', 'created']}
 			noDataMessage="No catalog servers added."
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none',
@@ -481,13 +509,13 @@
 					</div>
 				{:else if property === 'created'}
 					{formatTimeAgo(d.created).relativeTime}
-				{:else if property === 'deploymentStatus'}
+				{:else if property === 'updateStatus'}
 					{@const needsUpdate = d.needsUpdate && !d.compositeName}
 					{@const needsK8sUpdate =
 						version.current.engine === 'kubernetes' && d.needsK8sUpdate && !d.compositeName}
 
 					<div class="flex items-center gap-2">
-						{d.deploymentStatus || '--'}
+						{d.updateStatus || '--'}
 						{#if needsUpdate || needsK8sUpdate}
 							<div class="flex gap-1">
 								{#if needsUpdate}
