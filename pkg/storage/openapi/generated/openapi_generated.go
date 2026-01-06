@@ -4642,12 +4642,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 							Format: "",
 						},
 					},
-					"needsK8sUpdate": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
 				},
 				Required: []string{"Metadata", "manifest"},
 			},
@@ -14720,13 +14714,6 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryStatus(ref common.Re
 					"needsUpdate": {
 						SchemaProps: spec.SchemaProps{
 							Description: "NeedsUpdate indicates whether this composite catalog entry's component snapshots have drifted from their sources.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"needsK8sUpdate": {
-						SchemaProps: spec.SchemaProps{
-							Description: "NeedsK8sUpdate indicates whether servers created from this catalog entry need redeployment with new K8s settings",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

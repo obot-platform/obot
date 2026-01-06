@@ -320,7 +320,6 @@ func (c *Controller) setupRoutes() {
 
 	// K8sSettings
 	root.Type(&v1.K8sSettings{}).HandlerFunc(k8ssettings.UpdateAllServerK8sSettingsDrift)
-	root.Type(&v1.K8sSettings{}).HandlerFunc(k8ssettings.UpdateAllCatalogEntryK8sSettingsDrift)
 
 	c.toolRefHandler = toolRef
 	c.mcpCatalogHandler = mcpCatalog

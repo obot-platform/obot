@@ -122,7 +122,6 @@ type MCPServerCatalogEntry struct {
 	PowerUserWorkspaceID      string                        `json:"powerUserWorkspaceID,omitempty"`
 	PowerUserID               string                        `json:"powerUserID,omitempty"`
 	NeedsUpdate               bool                          `json:"needsUpdate,omitempty"`
-	NeedsK8sUpdate            bool                          `json:"needsK8sUpdate,omitempty"`
 }
 
 type MCPServerCatalogEntryManifest struct {

@@ -156,7 +156,6 @@ func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, p
 		PowerUserWorkspaceID:      powerUserWorkspaceID,
 		PowerUserID:               powerUserID,
 		NeedsUpdate:               entry.Status.NeedsUpdate,
-		NeedsK8sUpdate:            entry.Status.NeedsK8sUpdate,
 	}
 }
 
