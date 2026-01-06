@@ -35,6 +35,7 @@ const (
 	GroupPowerUser     = "power-user"
 	GroupBasic         = "basic"
 	GroupAuthenticated = "authenticated"
+	GroupAPIKey        = "api-key" // API key users have restricted access to MCP-connect routes only
 )
 
 type Role int

@@ -643,7 +643,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, gserver.Options(config.GatewayConfig))
+	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, gserver.Options(config.GatewayConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -656,6 +656,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.NewFailOnError(authenticators, proxyManager)
 		// Add gateway user info
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
+		// API Key authentication (for MCP server access) - restricted to GroupAPIKey only
+		// Must come after UserDecorator since it handles its own user lookup
+		authenticators = union.New(authenticators, gserver.NewAPIKeyAuthenticator(gatewayClient))
 		// Persistent Token Auth
 		authenticators = union.New(authenticators, persistentTokenServer)
 		// Add bootstrap auth

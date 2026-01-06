@@ -96,6 +96,9 @@
 				{#if auditLog.user}
 					<p><span class="font-medium">User</span>: {auditLog.user}</p>
 				{/if}
+				{#if auditLog.apiKey}
+					<p><span class="font-medium">API Key</span>: {auditLog.apiKey}</p>
+				{/if}
 				{#if auditLog.userAgent}
 					<p><span class="font-medium">User Agent</span>: {auditLog.userAgent}</p>
 				{/if}

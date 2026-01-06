@@ -121,6 +121,11 @@ var (
 		// It's a bit of a hack, but it fixes the issue without refactoring the authz rules, changing the UI, or
 		// adding local authz checks to the handler (like the rest of the /api/all-mcps/ endpoints).
 		"GET /api/all-mcps/servers/{mcpserver_id}/tools",
+
+		// Admin API key management endpoints
+		"GET /api/admin-api-keys",
+		"GET /api/admin-api-keys/{id}",
+		"DELETE /api/admin-api-keys/{id}",
 	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,
@@ -216,6 +221,10 @@ var (
 
 			// The auth for this is handled in the HTTP handler
 			"POST /api/mcp-audit-logs",
+
+			// API Key authentication webhook (called by nanobot shim)
+			// This endpoint validates the API key passed in the header
+			"POST /api/api-keys/auth",
 		},
 
 		types.GroupBasic: {
@@ -267,6 +276,19 @@ var (
 			"POST /api/logout-all",
 			"GET /api/version",
 			"GET /api/setup/oauth-complete",
+
+			// API key management for user's own keys
+			"POST /api/api-keys",
+			"GET /api/api-keys",
+			"GET /api/api-keys/{id}",
+			"DELETE /api/api-keys/{id}",
+		},
+
+		// API key users have restricted access - they can only access MCP-connect routes and /api/me
+		// They get access to anyGroup routes automatically (health checks, OAuth flows, etc.)
+		types.GroupAPIKey: {
+			"GET /api/me",
+			"/mcp-connect/",
 		},
 
 		MetricsGroup: {

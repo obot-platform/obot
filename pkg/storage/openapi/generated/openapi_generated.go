@@ -3737,6 +3737,13 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 							Format:  "",
 						},
 					},
+					"apiKey": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"powerUserWorkspaceID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -3859,7 +3866,7 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"id", "createdAt", "userID", "mcpID", "mcpServerDisplayName", "mcpServerCatalogEntryName", "client", "clientIP", "callType", "responseStatus", "processingTimeMs"},
+				Required: []string{"id", "createdAt", "userID", "mcpID", "apiKey", "mcpServerDisplayName", "mcpServerCatalogEntryName", "client", "clientIP", "callType", "responseStatus", "processingTimeMs"},
 			},
 		},
 		Dependencies: []string{

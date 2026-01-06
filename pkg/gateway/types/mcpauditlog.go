@@ -13,6 +13,7 @@ import (
 type MCPAuditLog struct {
 	ID                        uint                                  `json:"id" gorm:"primaryKey"`
 	CreatedAt                 time.Time                             `json:"createdAt" gorm:"index"`
+	APIKey                    string                                `json:"apiKey,omitempty"`
 	UserID                    string                                `json:"userID" gorm:"index"`
 	MCPID                     string                                `json:"mcpID" gorm:"index"`
 	PowerUserWorkspaceID      string                                `json:"powerUserWorkspaceID,omitempty" gorm:"index"`
@@ -114,6 +115,7 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 		CreatedAt:                 *types2.NewTime(a.CreatedAt),
 		UserID:                    a.UserID,
 		MCPID:                     a.MCPID,
+		APIKey:                    a.APIKey,
 		PowerUserWorkspaceID:      a.PowerUserWorkspaceID,
 		MCPServerDisplayName:      a.MCPServerDisplayName,
 		MCPServerCatalogEntryName: a.MCPServerCatalogEntryName,

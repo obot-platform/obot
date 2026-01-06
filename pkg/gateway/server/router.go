@@ -84,4 +84,19 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	mux.HandleFunc("/api/llm-proxy/openai/{path...}", s.newLLMProviderProxy(mustParseURL(openAIBaseURL), system.OpenAIModelProviderTool).proxy)
 	mux.HandleFunc("/api/llm-proxy/anthropic/{path...}", s.newLLMProviderProxy(mustParseURL(anthropicBaseURL), system.AnthropicModelProviderTool).proxy)
 	mux.HandleFunc("/api/llm-proxy/{path...}", s.dispatchLLMProxy)
+
+	// API Keys for MCP server access - user's own keys
+	mux.HandleFunc("POST /api/api-keys", wrap(s.createAPIKey))
+	mux.HandleFunc("GET /api/api-keys", wrap(s.listAPIKeys))
+	mux.HandleFunc("GET /api/api-keys/{id}", wrap(s.getAPIKey))
+	mux.HandleFunc("DELETE /api/api-keys/{id}", wrap(s.deleteAPIKey))
+
+	// API Keys admin endpoints - for managing any user's keys (admin/owner only)
+	mux.HandleFunc("GET /api/admin-api-keys", wrap(s.listAllAPIKeys))
+	mux.HandleFunc("GET /api/admin-api-keys/{id}", wrap(s.getAnyAPIKey))
+	mux.HandleFunc("DELETE /api/admin-api-keys/{id}", wrap(s.deleteAnyAPIKey))
+
+	// API Key authentication webhook (called by nanobot shim)
+	// This endpoint is unauthenticated - it validates the API key passed in the header
+	mux.HandleFunc("POST /api/api-keys/auth", wrap(s.authenticateAPIKey))
 }

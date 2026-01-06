@@ -341,6 +341,7 @@ export type AuditLogClient = {
 export interface AuditLog {
 	id: string;
 	createdAt: string;
+	apiKey?: string;
 	userID: string;
 	userAgent?: string;
 	mcpServerInstanceName: string;
