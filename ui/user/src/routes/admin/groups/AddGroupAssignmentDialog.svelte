@@ -129,7 +129,7 @@
 </script>
 
 {#snippet groupList()}
-	<div class="flex flex-col gap-4 overflow-y-auto pr-2">
+	<div class="flex h-full flex-col gap-4 overflow-y-auto pr-2">
 		<Search value={searchQuery} onChange={updateSearch} />
 
 		<div class="flex flex-col gap-2">
@@ -164,7 +164,7 @@
 {/snippet}
 
 {#snippet roleForm()}
-	<div class="flex flex-col gap-4 overflow-y-auto pr-2">
+	<div class="flex h-full flex-col gap-4 overflow-y-auto pr-2">
 		{#if selectedGroup}
 			<div class="dark:bg-surface1 flex flex-col gap-1 rounded-lg bg-gray-50 p-3">
 				<div class="text-md flex items-center gap-2">
@@ -199,7 +199,7 @@
 			'flex max-h-[90svh] max-w-[94svw] flex-col overflow-visible md:min-h-[768px]',
 			!isSmallScreen ? 'w-full max-w-4xl' : 'w-full'
 		)}
-		classes={{ content: 'p-4 overflow-hidden', header: 'mb-4 flex', title: 'flex flex-1' }}
+		classes={{ content: 'p-4 overflow-hidden flex-1', header: 'mb-4 flex', title: 'flex flex-1' }}
 	>
 		{#snippet titleContent()}
 			{#if isSmallScreen && selectedGroup}
