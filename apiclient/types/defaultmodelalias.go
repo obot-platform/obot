@@ -8,6 +8,7 @@ const (
 	DefaultModelAliasTypeLLMMini         DefaultModelAliasType = "llm-mini"
 	DefaultModelAliasTypeImageGeneration DefaultModelAliasType = "image-generation"
 	DefaultModelAliasTypeVision          DefaultModelAliasType = "vision"
+	DefaultModelAliasTypeUnknown         DefaultModelAliasType = "unknown"
 )
 
 type DefaultModelAlias struct {
@@ -20,3 +21,19 @@ type DefaultModelAliasManifest struct {
 }
 
 type DefaultModelAliasList List[DefaultModelAlias]
+
+func DefaultModelAliasTypeFromString(str string) DefaultModelAliasType {
+	t := DefaultModelAliasType(str)
+	switch t {
+	case DefaultModelAliasTypeTextEmbedding,
+		DefaultModelAliasTypeLLM,
+		DefaultModelAliasTypeLLMMini,
+		DefaultModelAliasTypeImageGeneration,
+		DefaultModelAliasTypeVision,
+		DefaultModelAliasTypeUnknown:
+	default:
+		t = DefaultModelAliasTypeUnknown
+	}
+
+	return t
+}

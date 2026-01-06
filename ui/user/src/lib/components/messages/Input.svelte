@@ -19,6 +19,7 @@
 		placeholder?: string;
 		readonly?: boolean;
 		pending?: boolean;
+		disabled?: boolean;
 		initialValue?: string;
 		items?: EditorItem[];
 		inputPopover?: Snippet<[string]>;
@@ -35,6 +36,7 @@
 		children,
 		readonly,
 		pending,
+		disabled = false,
 		placeholder = 'Your message...',
 		initialValue,
 		items = $bindable([]),
@@ -61,6 +63,11 @@
 	}
 
 	async function submit() {
+		// Prevent submission if disabled (no model selected)
+		if (disabled) {
+			return;
+		}
+
 		let input: InvokeInput = {
 			prompt: value,
 			changedFiles: {}
@@ -109,7 +116,7 @@
 		}
 
 		e.preventDefault();
-		if (readonly || pending) {
+		if (readonly || pending || disabled) {
 			return;
 		}
 
@@ -133,14 +140,18 @@
 	<button
 		type="submit"
 		onclick={() => submit()}
-		class="button-colors text-primary h-fit self-end rounded-full p-2 transition-all duration-100 hover:border-none"
+		{disabled}
+		class="button-colors text-primary h-fit self-end rounded-full p-2 transition-all duration-100 hover:border-none {disabled
+			? 'cursor-not-allowed opacity-50'
+			: ''}"
+		title={disabled ? 'No model selected' : ''}
 	>
 		{#if readonly}
 			<div class="bg-background m-1.5 h-3 w-3 place-self-center rounded-xs"></div>
 		{:else if pending}
 			<LoaderCircle class="animate-spin" />
 		{:else}
-			<ArrowUp />
+			<ArrowUp class={disabled ? 'opacity-50' : ''} />
 		{/if}
 		<span class="sr-only">Send message</span>
 	</button>
@@ -168,6 +179,7 @@
 							bind:this={editor}
 							bind:value
 							{placeholder}
+							{disabled}
 							onfocus={onFocus}
 							onkeydown={onKey}
 						></PlaintextEditor>

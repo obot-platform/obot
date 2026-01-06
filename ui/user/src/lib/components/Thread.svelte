@@ -74,6 +74,7 @@
 
 	// Model selector state
 	let threadDetails = $state<ThreadType | null>(null);
+	let hasModelSelected = $state(false);
 
 	let centerInput = $derived(!createProject && (!id || isNew));
 	let imagePreviewDialog = $state<HTMLDialogElement>();
@@ -158,7 +159,13 @@
 			await constructThread();
 		}
 		if (!id) {
-			const body = params?.model ? { ...params } : {};
+			const body: { model?: string; modelProvider?: string } = {};
+			if (params?.model) {
+				body.model = params.model;
+				body.modelProvider = params.modelProvider;
+			}
+			// Note: Model fallback is now handled in ThreadModelSelector
+			// via the thread default model endpoint
 			id = (await ChatService.createThread(project.assistantID, project.id, body)).id;
 			await constructThread();
 		}
@@ -411,7 +418,7 @@
 		});
 		createProject = undefined;
 		savingNewProject = false;
-		await goto(`/o/${response.id}`);
+		goto(`/o/${response.id}`);
 	}
 </script>
 
@@ -576,7 +583,7 @@
 				<Input
 					id="thread-input"
 					bind:this={input}
-					readonly={messages.inProgress}
+					readonly={messages.inProgress || !hasModelSelected}
 					pending={thread?.pending || promptPending}
 					onAbort={async () => {
 						await thread?.abort();
@@ -633,17 +640,15 @@
 								</div>
 							{/key}
 						</div>
-						{#if projectModelProvider && projectModel}
-							<ThreadModelSelector
-								threadId={id}
-								{project}
-								{assistant}
-								projectDefaultModel={projectModel}
-								projectDefaultModelProvider={projectModelProvider}
-								onModelChanged={handleModelChanged}
-								onCreateThread={handleCreateThread}
-							/>
-						{/if}
+						<ThreadModelSelector
+							threadId={id}
+							{project}
+							projectDefaultModel={projectModel}
+							projectDefaultModelProvider={projectModelProvider}
+							onModelChanged={handleModelChanged}
+							onCreateThread={handleCreateThread}
+							bind:hasModelSelected
+						/>
 					</div>
 					{#snippet inputPopover(value: string)}
 						<McpPrompts

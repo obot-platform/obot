@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	threadmodel "github.com/obot-platform/obot/pkg/thread"
@@ -28,13 +29,15 @@ type ProjectsHandler struct {
 	cachedClient      kclient.Client
 	mcpSessionManager *mcp.SessionManager
 	invoker           *invoke.Invoker
+	mapHelper         *modelaccesspolicy.Helper
 }
 
-func NewProjectsHandler(cachedClient kclient.Client, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker) *ProjectsHandler {
+func NewProjectsHandler(cachedClient kclient.Client, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, mapHelper *modelaccesspolicy.Helper) *ProjectsHandler {
 	return &ProjectsHandler{
 		cachedClient:      cachedClient,
 		mcpSessionManager: mcpSessionManager,
 		invoker:           invoker,
+		mapHelper:         mapHelper,
 	}
 }
 
@@ -920,7 +923,19 @@ func (h *ProjectsHandler) GetDefaultModelForProject(req api.Context) error {
 		model = alias.Spec.Manifest.Model
 	}
 
-	if strings.HasPrefix(model, system.ModelPrefix) {
+	if system.IsModelID(model) {
+		// Check if the user has permission to use this model
+		hasAccess, err := h.mapHelper.UserHasAccessToModel(req.User, model)
+		if err != nil {
+			return fmt.Errorf("failed to check model permission: %w", err)
+		}
+		if !hasAccess {
+			return req.Write(map[string]string{
+				"model":         "",
+				"modelProvider": "",
+			})
+		}
+
 		var modelObj v1.Model
 		if err := req.Get(&modelObj, model); err != nil {
 			return fmt.Errorf("failed to get model with id %s: %w", model, err)

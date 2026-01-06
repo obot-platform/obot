@@ -76,6 +76,8 @@ var (
 		"GET /api/bookstrap",
 		"/api/models",
 		"/api/models/",
+		"/api/model-access-policies",
+		"/api/model-access-policies/",
 		"/api/available-models",
 		"/api/available-models/",
 		"/api/default-model-aliases",

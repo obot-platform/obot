@@ -12,7 +12,9 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -23,11 +25,13 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -72,6 +76,7 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 
 	// If the model string is different from the model, then we need to look up the model in our database to get the
 	// correct model and model provider information.
+	var modelID string
 	if modelProvider == "" || modelStr != token.Model {
 		// First, check that the user has token usage available for this request.
 		if token.UserID != "" {
@@ -83,11 +88,12 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 			}
 		}
 
-		m, err := getModelProviderForModel(req.Context(), req.Storage, token.Namespace, modelStr)
+		m, err := getModelFromReference(req.Context(), req.Storage, token.Namespace, modelStr)
 		if err != nil {
 			return fmt.Errorf("failed to get model: %w", err)
 		}
 
+		modelID = m.Name
 		modelProvider = m.Spec.Manifest.ModelProvider
 		model = m.Spec.Manifest.TargetModel
 	} else {
@@ -99,6 +105,34 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 
 		credEnv = cred.Env
 		personalToken = true
+	}
+
+	// Check if the user has permission to use this model
+	if modelID != "" && token.UserID != "" {
+		userID, err := strconv.ParseUint(token.UserID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("failed to parse user ID: %w", err)
+		}
+
+		// Get the user's auth provider groups
+		authProviderGroups, err := req.GatewayClient.ListGroupIDsForUser(req.Context(), uint(userID))
+		if err != nil {
+			return fmt.Errorf("failed to get user groups: %w", err)
+		}
+
+		hasAccess, err := s.mapHelper.UserHasAccessToModel(&user.DefaultInfo{
+			UID:    token.UserID,
+			Groups: token.UserGroups,
+			Extra: map[string][]string{
+				"auth_provider_groups": authProviderGroups,
+			},
+		}, modelID)
+		if err != nil {
+			return fmt.Errorf("failed to check model permission: %w", err)
+		}
+		if !hasAccess {
+			return types2.NewErrForbidden("user does not have permission to use model %q", modelID)
+		}
 	}
 
 	body["model"] = model
@@ -136,14 +170,19 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	return nil
 }
 
-func getModelProviderForModel(ctx context.Context, client kclient.Client, namespace, model string) (*v1.Model, error) {
-	m, err := alias.GetFromScope(ctx, client, "Model", namespace, model)
+// getModelFromReference retrieves the model with a matching reference name.
+// The reference name must be any one of the following:
+// - The target name of a default model alias
+// - The target name of the model itself
+// - The actual name of the model
+func getModelFromReference(ctx context.Context, client kclient.Client, namespace, modelReference string) (*v1.Model, error) {
+	m, err := alias.GetFromScope(ctx, client, "Model", namespace, modelReference)
 	if apierrors.IsNotFound(err) {
 		// Maybe the user is trying to get a model by the target name.
 		var models v1.ModelList
 		if err := client.List(ctx, &models, &kclient.ListOptions{
 			Namespace:     namespace,
-			FieldSelector: fields.OneTermEqualSelector("spec.manifest.targetModel", model),
+			FieldSelector: fields.OneTermEqualSelector("spec.manifest.targetModel", modelReference),
 		}); err != nil {
 			return nil, err
 		}
@@ -167,7 +206,7 @@ func getModelProviderForModel(ctx context.Context, client kclient.Client, namesp
 	switch m := m.(type) {
 	case *v1.DefaultModelAlias:
 		if m.Spec.Manifest.Model == "" {
-			return nil, fmt.Errorf("default model alias %q is not configured", model)
+			return nil, fmt.Errorf("default model alias %q is not configured", modelReference)
 		}
 		var model v1.Model
 		if err := alias.Get(ctx, client, &model, namespace, m.Spec.Manifest.Model); err != nil {
@@ -186,7 +225,7 @@ func getModelProviderForModel(ctx context.Context, client kclient.Client, namesp
 		return respModel, nil
 	}
 
-	return nil, fmt.Errorf("model %q not found", model)
+	return nil, fmt.Errorf("model %q not found", modelReference)
 }
 
 func envVarForModelProvider(modelProvider v1.ToolReference) (string, error) {
@@ -219,6 +258,24 @@ func readBody(r *http.Request) (map[string]any, error) {
 	}
 
 	return m, nil
+}
+
+// copyBody returns a copy of the bytes in a request body.
+// If the copy was successful the request body is restored to its original state before returning so that
+// it can be reused.
+// The returned byte slice is safe to modify without affecting the request body.
+func copyBody(r *http.Request) ([]byte, error) {
+	b, err := io.ReadAll(r.Body)
+	r.Body.Close()
+
+	if err != nil {
+		// b can be partial results on error, don't restore the body
+		return nil, err
+	}
+
+	// Read was successful, restore the body with a copy.
+	r.Body = io.NopCloser(bytes.NewReader(slices.Clone(b)))
+	return b, nil
 }
 
 type responseModifier struct {
@@ -325,6 +382,7 @@ type llmProviderProxy struct {
 	u                                  url.URL
 	modelProviderName                  string
 	modelProvider                      *v1.ToolReference
+	mapHelper                          *modelaccesspolicy.Helper
 	lock                               sync.RWMutex
 }
 
@@ -334,6 +392,7 @@ func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmP
 		dailyUserTokenCompletionTokenLimit: s.dailyUserTokenCompletionTokenLimit,
 		u:                                  *u,
 		modelProviderName:                  modelProviderName,
+		mapHelper:                          s.mapHelper,
 	}
 }
 
@@ -351,6 +410,42 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		l.lock.Lock()
 		l.modelProvider = modelProvider
 		l.lock.Unlock()
+	}
+
+	// Attempt to get the target model
+	body, err := copyBody(req.Request)
+	if err != nil {
+		return fmt.Errorf("failed to copy body: %w", err)
+	}
+
+	if targetModel := gjson.GetBytes(body, "model").String(); targetModel != "" {
+		// Get the models matching the target model and provider.
+		var models v1.ModelList
+		if err := req.List(&models, &kclient.ListOptions{
+			Namespace: l.modelProvider.Namespace,
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				"spec.manifest.targetModel":   targetModel,
+				"spec.manifest.modelProvider": l.modelProvider.Name,
+			}),
+		}); err != nil {
+			return fmt.Errorf("failed to list models: %w", err)
+		}
+
+		var hasAccess bool
+		for _, model := range models.Items {
+			var err error
+			hasAccess, err = l.mapHelper.UserHasAccessToModel(req.User, model.Name)
+			if err != nil {
+				return fmt.Errorf("failed to check user access to model %q: %w", model.Name, err)
+			}
+			if hasAccess {
+				break
+			}
+		}
+
+		if !hasAccess {
+			return types2.NewErrForbidden("user does not have permission to use model %q", targetModel)
+		}
 	}
 
 	remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(req.Context(), req.User.GetUID(), tokenUsageTimePeriod, l.dailyUserTokenPromptTokenLimit, l.dailyUserTokenCompletionTokenLimit)

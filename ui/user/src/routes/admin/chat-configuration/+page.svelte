@@ -1,17 +1,14 @@
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import MarkdownInput from '$lib/components/MarkdownInput.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte.js';
 	import { AdminService, ModelUsage, type Model, type ModelProvider } from '$lib/services';
 	import { sortModelProviders } from '$lib/sort';
-	import { Check, Info, LoaderCircle, Plus, TriangleAlert } from 'lucide-svelte';
+	import { Check, Info, LoaderCircle, TriangleAlert } from 'lucide-svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -37,12 +34,6 @@
 		models: []
 	});
 
-	let modelProvidersMap = $derived(
-		new Map(modelsData.modelProviders.map((provider) => [provider.id, provider]))
-	);
-	let selectedModels = $derived(
-		modelsData.models.filter((model) => baseAgent?.allowedModels?.includes(model.id))
-	);
 	let modelOptions = $derived(
 		modelsData.models.filter((model) => !model.usage || model.usage === ModelUsage.LLM)
 	);
@@ -73,13 +64,6 @@
 					})
 				}))
 			: []
-	);
-
-	let tableData = $derived(
-		selectedModels.map((model) => ({
-			...model,
-			isDefault: model.id === baseAgent?.model
-		}))
 	);
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
@@ -213,99 +197,6 @@
 							disabled={isAdminReadonly}
 						></textarea>
 					</div>
-				</div>
-
-				<div class="flex flex-col gap-2">
-					<div class="flex items-center justify-between gap-4">
-						<div class="flex items-center gap-2">
-							<h2 class="text-xl font-semibold">Allowed Models</h2>
-							<InfoTooltip
-								text="Select the specific models for each model provider that projects can use."
-								class="size-4"
-								classes={{ icon: 'size-4' }}
-							/>
-						</div>
-
-						{#if !isAdminReadonly}
-							<button
-								class="button-primary flex items-center gap-1"
-								onclick={() => showAddModelsDialog?.open()}
-							>
-								<Plus class="size-4" />
-								Add Model
-							</button>
-						{/if}
-					</div>
-
-					<Table
-						data={tableData}
-						fields={['name', 'isDefault']}
-						headers={[
-							{
-								property: 'isDefault',
-								title: 'Is Default'
-							}
-						]}
-						headerClasses={[
-							{
-								property: 'isDefault',
-								class: 'w-28'
-							}
-						]}
-						noDataMessage="No models added."
-					>
-						{#snippet actions(d)}
-							{#if !isAdminReadonly}
-								<DotDotDot>
-									<div class="default-dialog flex min-w-max flex-col p-2">
-										<button
-											class="menu-button"
-											onclick={() => {
-												if (!baseAgent) return;
-												baseAgent.model = d.id;
-											}}
-										>
-											Set as Default
-										</button>
-										{#if !d.isDefault}
-											<button
-												class="menu-button"
-												onclick={() => {
-													if (!baseAgent) return;
-													baseAgent.allowedModels = baseAgent.allowedModels?.filter(
-														(modelId) => modelId !== d.id
-													);
-												}}
-											>
-												Remove
-											</button>
-										{/if}
-									</div>
-								</DotDotDot>
-							{/if}
-						{/snippet}
-
-						{#snippet onRenderColumn(property, d)}
-							{#if property === 'name'}
-								<div class="flex items-center gap-2">
-									<img
-										src={modelProvidersMap.get(d.modelProvider)?.icon}
-										alt={d.modelProvider}
-										class="icon size-6"
-									/>
-									{d.name}
-								</div>
-							{:else if property === 'isDefault'}
-								<div class="flex w-full items-center justify-center gap-2">
-									{#if d.isDefault}
-										<Check class="text-primary size-5" />
-									{:else}
-										<div class="size-5"></div>
-									{/if}
-								</div>
-							{/if}
-						{/snippet}
-					</Table>
 				</div>
 
 				{#if !isAdminReadonly}

@@ -23,6 +23,8 @@ import type {
 	ModelAlias,
 	AccessControlRule,
 	AccessControlRuleManifest,
+	ModelAccessPolicy,
+	ModelAccessPolicyManifest,
 	AuthProvider,
 	BootstrapStatus,
 	AuditLog,
@@ -671,6 +673,43 @@ export async function updateAccessControlRule(
 
 export async function deleteAccessControlRule(id: string): Promise<void> {
 	await doDelete(`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/access-control-rules/${id}`);
+}
+
+// Model Permission Rules
+export async function listModelAccessPolicies(opts?: {
+	fetch?: Fetcher;
+}): Promise<ModelAccessPolicy[]> {
+	const response = (await doGet(
+		'/model-access-policies',
+		opts
+	)) as ItemsResponse<ModelAccessPolicy>;
+	return response.items ?? [];
+}
+
+export async function getModelAccessPolicy(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<ModelAccessPolicy> {
+	const response = (await doGet(`/model-access-policies/${id}`, opts)) as ModelAccessPolicy;
+	return response;
+}
+
+export async function createModelAccessPolicy(
+	rule: ModelAccessPolicyManifest
+): Promise<ModelAccessPolicy> {
+	const response = (await doPost('/model-access-policies', rule)) as ModelAccessPolicy;
+	return response;
+}
+
+export async function updateModelAccessPolicy(
+	id: string,
+	rule: ModelAccessPolicyManifest
+): Promise<ModelAccessPolicy> {
+	return (await doPut(`/model-access-policies/${id}`, rule)) as ModelAccessPolicy;
+}
+
+export async function deleteModelAccessPolicy(id: string): Promise<void> {
+	await doDelete(`/model-access-policies/${id}`);
 }
 
 export async function listAuthProviders(opts?: { fetch?: Fetcher }): Promise<AuthProvider[]> {

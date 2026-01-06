@@ -113,6 +113,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&ScheduledAuditLogExportList{},
 		&SystemMCPServer{},
 		&SystemMCPServerList{},
+		&ModelAccessPolicy{},
+		&ModelAccessPolicyList{},
 	); err != nil {
 		return err
 	}

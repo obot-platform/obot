@@ -13,17 +13,17 @@
 	import { twMerge } from 'tailwind-merge';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { darkMode } from '$lib/stores';
-	import type { Assistant } from '$lib/services/chat/types';
+	import { ModelUsage } from '$lib/services/admin/types';
 	import Logo from '../Logo.svelte';
 
 	interface Props {
 		threadId: string | undefined;
 		project: Project;
-		assistant?: Assistant;
 		projectDefaultModelProvider?: string;
 		projectDefaultModel?: string;
 		onModelChanged?: () => void;
 		onCreateThread?: (model?: string, modelProvider?: string) => Promise<void> | void;
+		hasModelSelected?: boolean;
 	}
 
 	let {
@@ -33,7 +33,7 @@
 		projectDefaultModelProvider,
 		onModelChanged,
 		onCreateThread,
-		assistant
+		hasModelSelected = $bindable(false)
 	}: Props = $props();
 
 	let showModelSelector = $state(false);
@@ -41,7 +41,11 @@
 	let isUpdatingModel = $state(false);
 	let modelSelectorRef = $state<HTMLDivElement>();
 	let modelButtonRef = $state<HTMLButtonElement>();
-	let allowedModels = $derived(assistant?.allowedModels || []);
+
+	// Available models fetched from API, filtered by active and usage
+	let availableModels = $state<Model[]>([]);
+	let isLoadingModels = $state(true);
+	let modelsError = $state<string>();
 
 	let threadDefaultModel = $state<string>();
 	let threadDefaultModelProvider = $state<string>();
@@ -49,10 +53,41 @@
 	let defaultModel = $derived(threadDefaultModel ?? projectDefaultModel);
 	let defaultModelProvider = $derived(threadDefaultModelProvider ?? projectDefaultModelProvider);
 
+	let modelProvidersMap = new SvelteMap<string, ModelProvider>();
+	let modelsMap = new SvelteMap<string, Model>();
+
+	// Calculate fallback model when default model is empty
+	let fallbackModel = $derived.by(() => {
+		// Only use fallback if default model is empty/missing
+		if (defaultModel) return undefined;
+
+		// If current thread model is not in available models, we rely on fetchDefaultModel
+		// which will be called by an effect
+		if (
+			threadType?.model &&
+			!availableModels.find((m) => m.id === threadType?.model || m.name === threadType?.model)
+		) {
+			return undefined;
+		}
+
+		// Return first available LLM model as fallback
+		if (availableModels.length > 0) {
+			const firstModel = availableModels[0];
+			return { id: firstModel.id, provider: firstModel.modelProvider };
+		}
+
+		return undefined;
+	});
+
 	// Selected model provider & model for the current thread
-	let threadModel = $derived(threadType?.model ?? threadDefaultModel ?? defaultModel);
+	let threadModel = $derived(
+		threadType?.model ?? threadDefaultModel ?? defaultModel ?? fallbackModel?.id
+	);
 	let threadModelProvider = $derived(
-		threadType?.modelProvider ?? threadDefaultModelProvider ?? defaultModelProvider
+		threadType?.modelProvider ??
+			threadDefaultModelProvider ??
+			defaultModelProvider ??
+			fallbackModel?.provider
 	);
 
 	const isDefaultModelSelected = $derived(
@@ -66,6 +101,29 @@
 		if (threadId) {
 			fetchThreadDetails();
 		}
+	});
+
+	// Fetch thread default model if current model is not in available models
+	$effect(() => {
+		if (threadType && threadId && availableModels.length > 0) {
+			const currentModelInAvailable = availableModels.find(
+				(m) => m.id === threadType?.model || m.name === threadType?.model
+			);
+
+			// If thread has a model not in available list, fetch the default
+			if (!currentModelInAvailable && !threadDefaultModel) {
+				fetchDefaultModel();
+			}
+		}
+	});
+
+	// Update parent about model selection state
+	$effect(() => {
+		const hasModel =
+			!!(threadModel && threadModelProvider) ||
+			!!(defaultModel && defaultModelProvider) ||
+			!!fallbackModel;
+		hasModelSelected = hasModel && availableModels.length > 0;
 	});
 
 	// Function to fetch thread details including model
@@ -153,6 +211,10 @@
 					// If resetting to default, fetch the default model
 					if (!model && !provider) {
 						await fetchDefaultModel();
+					} else {
+						// Update thread default model state to reflect the explicit model selection
+						threadDefaultModel = model || undefined;
+						threadDefaultModelProvider = provider || undefined;
 					}
 
 					// Close dropdown
@@ -208,9 +270,6 @@
 		};
 	});
 
-	let modelProvidersMap = new SvelteMap<string, ModelProvider>();
-	let modelsMap = new SvelteMap<string, Model>();
-
 	$effect(() => {
 		loadModelProviders();
 		loadModels();
@@ -218,15 +277,28 @@
 
 	async function loadModels() {
 		try {
-			listModels().then((res) => {
-				untrack(() => {
-					for (const model of res ?? []) {
-						modelsMap.set(model.id, model);
-					}
-				});
+			isLoadingModels = true;
+			const allModels = await listModels();
+
+			untrack(() => {
+				// Filter models: active=true AND usage='llm'
+				availableModels = (allModels ?? []).filter(
+					(model) => model.active && model.usage === ModelUsage.LLM
+				);
+
+				// Also populate modelsMap for display purposes
+				for (const model of allModels ?? []) {
+					modelsMap.set(model.id, model);
+				}
 			});
+
+			modelsError = undefined;
 		} catch (error) {
 			console.error('Failed to load models:', error);
+			modelsError = 'Failed to load models';
+			availableModels = [];
+		} finally {
+			isLoadingModels = false;
 		}
 	}
 
@@ -295,6 +367,8 @@
 				{modelsMap.get(threadModel)?.name || threadModel}
 			{:else if defaultModel}
 				{modelsMap.get(defaultModel)?.name || defaultModel}
+			{:else if fallbackModel}
+				{modelsMap.get(fallbackModel.id)?.name || fallbackModel.id}
 			{:else}
 				No Default Model
 			{/if}
@@ -322,33 +396,37 @@
 				modelId: threadModel
 			}}
 		>
-			{#if allowedModels.length}
+			{#if isLoadingModels}
+				<div class="flex justify-center p-4">
+					<div
+						class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+						aria-hidden="true"
+					></div>
+					<span class="sr-only">Loading models...</span>
+				</div>
+			{:else if modelsError}
+				<div class="text-on-surface1 p-4 text-sm">
+					{modelsError}
+				</div>
+			{:else if availableModels.length === 0}
+				<div class="text-on-surface1 p-4 text-sm">No Model Available</div>
+			{:else}
 				<div class="flex flex-col">
 					{#each (() => {
-						// eslint-disable-next-line svelte/prefer-svelte-reactivity
-						const modelsByProvider = new Map<string, string[]>();
-						allowedModels.forEach((modelId) => {
-							// Find model by ID since allowedModels contains model IDs
-							const model = modelsMap.get(modelId);
-							if (model) {
-								const providerId = model.modelProvider;
-								if (!modelsByProvider.has(providerId)) {
-									modelsByProvider.set(providerId, []);
-								}
-								modelsByProvider.get(providerId)!.push(modelId);
+						// Group available models by provider
+						const modelsByProvider = new Map<string, Model[]>();
+
+						availableModels.forEach((model) => {
+							const providerId = model.modelProvider;
+							if (!modelsByProvider.has(providerId)) {
+								modelsByProvider.set(providerId, []);
 							}
+							modelsByProvider.get(providerId)!.push(model);
 						});
-						if (defaultModel && defaultModelProvider) {
-							if (!modelsByProvider.has(defaultModelProvider)) {
-								modelsByProvider.set(defaultModelProvider, []);
-							}
-							if (!modelsByProvider.get(defaultModelProvider)!.includes(defaultModel)) {
-								modelsByProvider.get(defaultModelProvider)!.push(defaultModel);
-							}
-						}
+
 						return Array.from(modelsByProvider.entries());
-					})() as [providerId, modelIds] (providerId)}
-						{#if modelIds.length > 0}
+					})() as [providerId, models] (providerId)}
+						{#if models.length > 0}
 							{@const provider = modelProvidersMap.get(providerId)}
 							<div class="border-surface1 flex flex-col border-b py-2 last:border-transparent">
 								<div class="mb-2 flex gap-1 text-xs">
@@ -365,15 +443,14 @@
 									<div>{provider?.name ?? ''}</div>
 								</div>
 								<div class="provider-models flex flex-col gap-1">
-									{#each modelIds as modelId (modelId)}
-										{@const model = modelsMap.get(modelId)}
+									{#each models as model (model.id)}
 										{@const isModelSelected =
 											threadModelProvider === providerId &&
-											(threadModel === modelId || threadModel === model?.name)}
+											(threadModel === model.id || threadModel === model.name)}
 
 										{@const isDefaultModel =
 											defaultModelProvider === providerId &&
-											(defaultModel === model?.name || defaultModel === modelId)}
+											(defaultModel === model.name || defaultModel === model.id)}
 
 										<button
 											role="option"
@@ -384,25 +461,23 @@
 													'text-primary bg-primary/10 hover:bg-primary/15 active:bg-primary/20'
 											)}
 											onclick={() => {
-												if (model) {
-													setThreadModel(model.id, '');
-												} else if (isDefaultModel) {
+												if (isDefaultModel) {
 													setThreadModel('', '');
+												} else {
+													setThreadModel(model.id, '');
 												}
 											}}
 											tabindex="0"
 											data-provider={providerId}
-											data-model={modelId}
+											data-model={model.id}
 										>
-											<div>
-												{model?.name || modelId}
-											</div>
+											<div>{model.name || model.id}</div>
 
 											{#if isDefaultModel}
 												<Logo class={twMerge(' size-4', !isModelSelected && 'grayscale-100')} />
 											{/if}
 
-											{#if threadModelProvider === providerId && threadModel === modelId}
+											{#if isModelSelected}
 												<div class="text-primary ml-auto text-xs">✓</div>
 											{/if}
 										</button>
@@ -412,18 +487,16 @@
 						{/if}
 					{/each}
 				</div>
+			{/if}
 
-				{#if isUpdatingModel}
-					<div class="flex justify-center p-2">
-						<div
-							class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-							aria-hidden="true"
-						></div>
-						<span class="sr-only">Loading...</span>
-					</div>
-				{/if}
-			{:else}
-				<p class="text-on-surface1 truncate text-sm">See "Configuration" for more options</p>
+			{#if isUpdatingModel}
+				<div class="flex justify-center p-2">
+					<div
+						class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+						aria-hidden="true"
+					></div>
+					<span class="sr-only">Loading...</span>
+				</div>
 			{/if}
 		</div>
 	{/if}
