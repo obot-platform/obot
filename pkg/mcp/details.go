@@ -2,21 +2,16 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"slices"
-	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-// isServerNotRunningError checks if the error indicates the server is not running
-func isServerNotRunningError(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), "is not running")
-}
+// ErrServerNotRunning is returned when an MCP server is not running
+var ErrServerNotRunning = errors.New("mcp server is not running")
 
 // GetServerDetails will get the details of a specific MCP server based on its configuration, if the backend supports it.
 // If the backend does not support the operation, it will return an [ErrNotSupportedByBackend] error.
@@ -33,7 +28,7 @@ func (sm *SessionManager) GetServerDetails(ctx context.Context, serverConfig Ser
 	}
 
 	// Only deploy if server is not running - for any other error, return it
-	if !isServerNotRunningError(err) {
+	if !errors.Is(err, ErrServerNotRunning) {
 		return types.MCPServerDetails{}, err
 	}
 
@@ -60,7 +55,7 @@ func (sm *SessionManager) StreamServerLogs(ctx context.Context, serverConfig Ser
 	}
 
 	// Only deploy if server is not running - for any other error, return it
-	if !isServerNotRunningError(err) {
+	if !errors.Is(err, ErrServerNotRunning) {
 		return nil, err
 	}
 

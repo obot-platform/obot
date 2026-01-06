@@ -3037,14 +3037,6 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 		return fmt.Errorf("failed to redeploy server: %w", err)
 	}
 
-	// Clear the NeedsK8sUpdate flag since user explicitly redeployed
-	if server.Status.NeedsK8sUpdate {
-		server.Status.NeedsK8sUpdate = false
-		if err := req.Storage.Status().Update(req.Context(), &server); err != nil {
-			return fmt.Errorf("failed to update server status: %w", err)
-		}
-	}
-
 	// Get credential for server
 	var credCtxs []string
 	if server.Spec.MCPCatalogID != "" {

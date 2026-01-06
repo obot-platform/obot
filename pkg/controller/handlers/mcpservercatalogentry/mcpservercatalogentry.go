@@ -7,7 +7,6 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -130,76 +129,6 @@ func DetectCompositeDrift(req router.Request, _ router.Response) error {
 
 	if entry.Status.NeedsUpdate != drifted {
 		entry.Status.NeedsUpdate = drifted
-		return req.Client.Status().Update(req.Ctx, entry)
-	}
-
-	return nil
-}
-
-// DetectK8sSettingsDrift detects when servers created from this catalog entry need redeployment with new K8s settings
-func DetectK8sSettingsDrift(req router.Request, _ router.Response) error {
-	entry := req.Object.(*v1.MCPServerCatalogEntry)
-
-	// Only check for containerized or uvx/npx runtimes that might run in K8s
-	if entry.Spec.Manifest.Runtime != types.RuntimeContainerized &&
-		entry.Spec.Manifest.Runtime != types.RuntimeUVX &&
-		entry.Spec.Manifest.Runtime != types.RuntimeNPX {
-		// Remote and composite servers don't have K8s deployments
-		if entry.Status.NeedsK8sUpdate {
-			entry.Status.NeedsK8sUpdate = false
-			return req.Client.Status().Update(req.Ctx, entry)
-		}
-		return nil
-	}
-
-	// Get current K8s settings
-	var k8sSettings v1.K8sSettings
-	if err := req.Get(&k8sSettings, req.Object.GetNamespace(), system.K8sSettingsName); err != nil {
-		if apierrors.IsNotFound(err) {
-			// K8s settings not found, mark as not needing update
-			if entry.Status.NeedsK8sUpdate {
-				entry.Status.NeedsK8sUpdate = false
-				return req.Client.Status().Update(req.Ctx, entry)
-			}
-			return nil
-		}
-		return fmt.Errorf("failed to get K8s settings: %w", err)
-	}
-
-	// Compute current K8s settings hash
-	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
-
-	// List all servers created from this catalog entry
-	var mcpServers v1.MCPServerList
-	if err := req.List(&mcpServers, &kclient.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("spec.mcpServerCatalogEntryName", entry.Name),
-		Namespace:     req.Object.GetNamespace(),
-	}); err != nil {
-		return fmt.Errorf("failed to list MCP servers: %w", err)
-	}
-
-	// Check if any server has outdated K8s settings
-	var needsK8sUpdate bool
-	for _, server := range mcpServers.Items {
-		// Skip servers being deleted
-		if !server.DeletionTimestamp.IsZero() {
-			continue
-		}
-
-		// Skip servers without K8s settings hash (non-K8s runtimes or not yet deployed)
-		if server.Status.K8sSettingsHash == "" {
-			continue
-		}
-
-		// Check if hash differs from current settings
-		if server.Status.K8sSettingsHash != currentHash {
-			needsK8sUpdate = true
-			break
-		}
-	}
-
-	if entry.Status.NeedsK8sUpdate != needsK8sUpdate {
-		entry.Status.NeedsK8sUpdate = needsK8sUpdate
 		return req.Client.Status().Update(req.Ctx, entry)
 	}
 
