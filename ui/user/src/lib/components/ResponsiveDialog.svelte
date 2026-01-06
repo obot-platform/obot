@@ -50,7 +50,7 @@
 	}
 
 	export function close() {
-		onClose?.();
+		// Just close the dialog - onClose will be called via the native onclose event
 		dialog?.close();
 	}
 </script>
@@ -68,6 +68,10 @@
 		}
 	}}
 	use:dialogAnimation={{ type: animate }}
+	onclose={() => {
+		// Handle native dialog close (e.g., Escape key)
+		onClose?.();
+	}}
 >
 	<div
 		class={twMerge(

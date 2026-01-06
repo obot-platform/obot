@@ -99,6 +99,67 @@ export function formatTimeAgo(timestamp: string | undefined, granularity?: strin
 	return { relativeTime, fullDate };
 }
 
+/**
+ * Formats a future timestamp into a relative time description ("in 2 hours") and a localized full date string
+ * @param timestamp ISO string date or undefined
+ * @returns Object containing relativeTime and fullDate strings
+ */
+export function formatTimeUntil(timestamp: string | undefined): TimeAgoResult {
+	if (!timestamp) return { relativeTime: '', fullDate: '' };
+
+	const now = new Date();
+	const date = new Date(timestamp);
+	const seconds = Math.floor((date.getTime() - now.getTime()) / 1000);
+
+	// Format the full date for the tooltip
+	const options: Intl.DateTimeFormatOptions = {
+		weekday: 'long',
+		year: 'numeric',
+		month: 'long',
+		day: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit',
+		hour12: true
+	};
+	const fullDate = date.toLocaleString(undefined, options);
+
+	// If the date is in the past, return "Expired"
+	if (seconds < 0) {
+		return { relativeTime: 'Expired', fullDate };
+	}
+
+	// Relative time calculation for future dates
+	let relativeTime = '';
+	let interval = Math.floor(seconds / 31536000);
+	if (interval >= 1) {
+		relativeTime = interval === 1 ? 'in 1 year' : `in ${interval} years`;
+	} else {
+		interval = Math.floor(seconds / 2592000);
+		if (interval >= 1) {
+			relativeTime = interval === 1 ? 'in 1 month' : `in ${interval} months`;
+		} else {
+			interval = Math.floor(seconds / 86400);
+			if (interval >= 1) {
+				relativeTime = interval === 1 ? 'in 1 day' : `in ${interval} days`;
+			} else {
+				interval = Math.floor(seconds / 3600);
+				if (interval >= 1) {
+					relativeTime = interval === 1 ? 'in 1 hour' : `in ${interval} hours`;
+				} else {
+					interval = Math.floor(seconds / 60);
+					if (interval >= 1) {
+						relativeTime = interval === 1 ? 'in 1 minute' : `in ${interval} minutes`;
+					} else {
+						relativeTime = 'in less than a minute';
+					}
+				}
+			}
+		}
+	}
+
+	return { relativeTime, fullDate };
+}
+
 export function formatTimeRange(startTime: string, endTime: string): string {
 	if (!startTime || !endTime) return '';
 
