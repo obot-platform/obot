@@ -45,7 +45,7 @@
 	const adminModels = getAdminModels();
 
 	onMount(async () => {
-		const models = await AdminService.listModels();
+		const models = await AdminService.listModels({ all: true });
 		adminModels.items = models;
 	});
 

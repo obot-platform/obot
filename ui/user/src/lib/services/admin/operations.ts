@@ -585,8 +585,9 @@ export async function validateModelProvider(
 	});
 }
 
-export async function listModels(opts?: { fetch?: Fetcher }): Promise<Model[]> {
-	const response = (await doGet('/models', opts)) as ItemsResponse<Model>;
+export async function listModels(opts?: { fetch?: Fetcher; all?: boolean }): Promise<Model[]> {
+	const url = opts?.all ? '/models?all=true' : '/models';
+	const response = (await doGet(url, opts)) as ItemsResponse<Model>;
 	return response.items ?? [];
 }
 

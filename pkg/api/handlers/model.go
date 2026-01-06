@@ -33,9 +33,17 @@ func (a *ModelHandler) List(req api.Context) error {
 		return err
 	}
 
-	allowedModels, allowAll, err := a.mapHelper.GetUserAllowedModels(req.User)
-	if err != nil {
-		return err
+	var (
+		allowAll      = req.URL.Query().Get("all") == "true" && req.UserIsAdmin()
+		allowedModels map[string]bool
+		err           error
+	)
+
+	if !allowAll {
+		allowedModels, allowAll, err = a.mapHelper.GetUserAllowedModels(req.User)
+		if err != nil {
+			return err
+		}
 	}
 
 	var toolRefList v1.ToolReferenceList
