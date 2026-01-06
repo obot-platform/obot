@@ -43,6 +43,8 @@ The only functional difference between Owners and Admins is that Owners can assi
 | Server Scheduling | | | | ✓ |
 | **Chat Management** | | | | ✓ |
 | **User Management** | | | | ✓ |
+| API Keys (admin) | | | | ✓ |
+| **API Keys** | ✓ | ✓ | ✓ | ✓ |
 | **Branding** | | | | ✓ |
 | **Chat** | ✓ | ✓ | ✓ | ✓ |
 
@@ -57,6 +59,7 @@ The only functional difference between Owners and Admins is that Owners can assi
 - [Server Scheduling](server-scheduling) - Define server availability windows
 - [Chat Management](chat-management) - Configure default chat settings and monitor activity
 - [User Management](user-management) - Manage users, roles, and authentication
+- [API Keys](api-keys) - Create and manage API keys for programmatic MCP server access
 - [Branding](branding) - Customize theme colors and branding
 - [Obot Chat](chat/overview) - Projects, threads, tasks, and chat features
 - [User Roles](../configuration/user-roles) - Detailed permissions and role definitions

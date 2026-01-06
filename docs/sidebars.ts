@@ -27,6 +27,7 @@ const sidebars = {
         "functionality/server-scheduling",
         "functionality/chat-management",
         "functionality/user-management",
+        "functionality/api-keys",
         "functionality/branding",
         "functionality/chat/overview",
       ],

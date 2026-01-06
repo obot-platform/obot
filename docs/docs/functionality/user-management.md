@@ -27,6 +27,10 @@ Configure the default role assigned to new users when they first log in. Choose 
 
 For detailed role descriptions and permissions, see [User Roles](../configuration/user-roles).
 
+## API Keys
+
+View and manage API keys for all users. Administrators can see which users have created API keys and delete any key if necessary. For details on how API keys work, see [API Keys](api-keys).
+
 ## Auth Providers
 
 Configure identity providers for user authentication. See [Auth Providers](../configuration/auth-providers) for setup details.
