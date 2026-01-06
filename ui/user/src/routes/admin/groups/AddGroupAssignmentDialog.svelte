@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { debounce } from 'es-toolkit';
-	import { LoaderCircle, Group as GroupIcon, ChevronLeft } from 'lucide-svelte';
+	import { LoaderCircle, ChevronLeft } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { Role, type OrgGroup, type GroupRoleAssignment } from '$lib/services/admin/types';
 	import { responsive } from '$lib/stores/index.js';
@@ -149,15 +149,6 @@
 						)}
 					>
 						<div class="flex flex-1 items-center gap-3">
-							{#if group.iconURL}
-								<img src={group.iconURL} alt={group.name} class="size-8 rounded-full" />
-							{:else}
-								<div
-									class="dark:bg-surface3 flex size-8 items-center justify-center rounded-full bg-gray-200"
-								>
-									<GroupIcon class="size-4" />
-								</div>
-							{/if}
 							<div class="flex flex-1 flex-col">
 								<span class="font-medium">{group.name}</span>
 								{#if hasAssignment && assignedRole}
@@ -177,11 +168,6 @@
 		{#if selectedGroup}
 			<div class="dark:bg-surface1 flex flex-col gap-1 rounded-lg bg-gray-50 p-3">
 				<div class="text-md flex items-center gap-2">
-					{#if selectedGroup.iconURL}
-						<img src={selectedGroup.iconURL} alt={selectedGroup.name} class="size-6 rounded-full" />
-					{:else}
-						<GroupIcon class="size-5" />
-					{/if}
 					<span class="font-semibold">{selectedGroup.name}</span>
 				</div>
 				<div class="text-on-surface1 text-xs">
