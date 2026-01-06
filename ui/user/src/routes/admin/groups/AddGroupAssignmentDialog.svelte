@@ -129,8 +129,10 @@
 </script>
 
 {#snippet groupList()}
-	<div class="flex h-full flex-col gap-4 overflow-y-auto pr-2">
-		<Search value={searchQuery} onChange={updateSearch} />
+	<div class="flex h-full flex-col gap-4 overflow-y-auto px-1 pr-2">
+		<div class="bg-background dark:bg-surface2 sticky top-0 w-full pt-1">
+			<Search value={searchQuery} onChange={updateSearch} />
+		</div>
 
 		<div class="flex flex-col gap-2">
 			{#if availableGroups.length === 0}
