@@ -82,10 +82,6 @@ func (h *Helper) UserHasAccessToModel(user kuser.Info, modelID string) (bool, er
 // getUserAllowedModels returns a set of model IDs that a user can access.
 // If a user is an owner/admin or has been granted access to all models via a wildcard model selector, this method returns nil and true.
 func (h *Helper) GetUserAllowedModels(user kuser.Info) (map[string]bool, bool, error) {
-	if userIsAdminOrOwner(user) {
-		return nil, true, nil
-	}
-
 	var (
 		allowedModels   = make(map[string]bool)
 		aliasModels     = h.getAliasModels()
@@ -253,9 +249,4 @@ func authGroupSet(user kuser.Info) map[string]struct{} {
 		set[group] = struct{}{}
 	}
 	return set
-}
-
-// userIsAdminOrOwner checks if the user is an admin or owner.
-func userIsAdminOrOwner(user kuser.Info) bool {
-	return slices.Contains(user.GetGroups(), types.GroupAdmin)
 }

@@ -67,7 +67,7 @@
 
 	onMount(async () => {
 		const [fetchedModels, fetchedAliases] = await Promise.all([
-			AdminService.listModels(),
+			AdminService.listModels({ all: true }),
 			AdminService.listDefaultModelAliases()
 		]);
 
