@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { debounce } from 'es-toolkit';
-	import { LoaderCircle, Group as GroupIcon, ChevronLeft } from 'lucide-svelte';
+	import { LoaderCircle, ChevronLeft } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { Role, type OrgGroup, type GroupRoleAssignment } from '$lib/services/admin/types';
 	import { responsive } from '$lib/stores/index.js';
@@ -129,8 +129,10 @@
 </script>
 
 {#snippet groupList()}
-	<div class="flex flex-col gap-4 overflow-y-auto pr-2">
-		<Search value={searchQuery} onChange={updateSearch} />
+	<div class="flex h-full flex-col gap-4 overflow-y-auto px-1 pr-2">
+		<div class="bg-background dark:bg-surface2 sticky top-0 w-full pt-1">
+			<Search value={searchQuery} onChange={updateSearch} />
+		</div>
 
 		<div class="flex flex-col gap-2">
 			{#if availableGroups.length === 0}
@@ -149,15 +151,6 @@
 						)}
 					>
 						<div class="flex flex-1 items-center gap-3">
-							{#if group.iconURL}
-								<img src={group.iconURL} alt={group.name} class="size-8 rounded-full" />
-							{:else}
-								<div
-									class="dark:bg-surface3 flex size-8 items-center justify-center rounded-full bg-gray-200"
-								>
-									<GroupIcon class="size-4" />
-								</div>
-							{/if}
 							<div class="flex flex-1 flex-col">
 								<span class="font-medium">{group.name}</span>
 								{#if hasAssignment && assignedRole}
@@ -173,15 +166,10 @@
 {/snippet}
 
 {#snippet roleForm()}
-	<div class="flex flex-col gap-4 overflow-y-auto pr-2">
+	<div class="flex h-full flex-col gap-4 overflow-y-auto pr-2">
 		{#if selectedGroup}
 			<div class="dark:bg-surface1 flex flex-col gap-1 rounded-lg bg-gray-50 p-3">
 				<div class="text-md flex items-center gap-2">
-					{#if selectedGroup.iconURL}
-						<img src={selectedGroup.iconURL} alt={selectedGroup.name} class="size-6 rounded-full" />
-					{:else}
-						<GroupIcon class="size-5" />
-					{/if}
 					<span class="font-semibold">{selectedGroup.name}</span>
 				</div>
 				<div class="text-on-surface1 text-xs">
@@ -213,7 +201,7 @@
 			'flex max-h-[90svh] max-w-[94svw] flex-col overflow-visible md:min-h-[768px]',
 			!isSmallScreen ? 'w-full max-w-4xl' : 'w-full'
 		)}
-		classes={{ content: 'p-4 overflow-hidden', header: 'mb-4 flex', title: 'flex flex-1' }}
+		classes={{ content: 'p-4 overflow-hidden flex-1', header: 'mb-4 flex', title: 'flex flex-1' }}
 	>
 		{#snippet titleContent()}
 			{#if isSmallScreen && selectedGroup}
