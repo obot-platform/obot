@@ -206,12 +206,16 @@
 								onclick={() => toggleSelection(alias.id)}
 							>
 								<div class="flex flex-col text-left">
-									<span>{alias.aliasName}</span>
-									<span class="text-on-surface1 text-xs">
-										<span class={alias.isConfigured ? '' : 'text-yellow-500'}>
+									<div class="flex items-center gap-2">
+										<span>{alias.aliasName}</span>
+										<span
+											class="text-on-surface1 text-xs"
+											class:text-yellow-500={!alias.isConfigured}
+										>
 											{alias.effectiveModelName}
 										</span>
-									</span>
+									</div>
+									<span class="text-on-surface1 text-xs">{alias.label}</span>
 								</div>
 								{#if selectedSet.has(alias.id)}
 									<Check class="text-primary size-4" />

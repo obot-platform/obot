@@ -42,7 +42,7 @@ func MigrateAgentAllowedModels(req router.Request, _ router.Response) error {
 		policyModels = convertToModelResources(agent.Spec.Manifest.AllowedModels)
 	)
 
-	// Make sure there are actually policys to copy before attempting to avoid producing an invalid MAP.
+	// Make sure there are actually policies to copy before attempting to avoid producing an invalid MAP.
 	if len(policyModels) > 0 {
 		if err := req.Get(&policy, agent.Namespace, policyName); err == nil {
 			// Rule already exists, determine if we should add new models.

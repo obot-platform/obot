@@ -8,6 +8,8 @@
 		type AccessControlRuleSubject,
 		type OrgUser,
 		type OrgGroup,
+		ModelUsage,
+		ModelUsageLabels,
 		ModelAlias,
 		ModelAliasLabels,
 		type DefaultModelAlias
@@ -107,6 +109,7 @@
 				id: resource.id,
 				aliasName: aliasName,
 				aliasLabel: ModelAliasLabels[aliasName as ModelAlias] || aliasName,
+				usage: model?.usage,
 				effectiveModelName: model?.displayName || model?.targetModel || 'Not configured',
 				isConfigured: !!model
 			};
@@ -133,7 +136,8 @@
 				provider: effectiveModel?.modelProviderName || '-',
 				effectiveModel: alias.effectiveModelName,
 				isAlias: true,
-				isConfigured: alias.isConfigured
+				isConfigured: alias.isConfigured,
+				usage: alias.usage
 			};
 		});
 
@@ -142,6 +146,7 @@
 			aliasName: undefined,
 			name: model.name,
 			provider: model.provider,
+			usage: model.usage,
 			effectiveModel: null,
 			isAlias: false,
 			isConfigured: true
@@ -251,6 +256,7 @@
 			return {
 				id: model.id,
 				name: m?.displayName || m?.name || model.id,
+				usage: m?.usage,
 				provider: m?.modelProviderName || '-'
 			};
 		});
@@ -396,15 +402,27 @@
 					noDataMessage="No models added."
 				>
 					{#snippet onRenderColumn(field, d)}
-						{#if field === 'name' && d.isAlias}
-							<div class="flex items-center gap-2">
+						{#if field === 'name'}
+							{#if d.isAlias}
 								<div class="flex flex-col">
-									<span class="font-medium">{d.aliasName}</span>
-									<span class="text-on-surface1 text-xs" class:text-yellow-500={!d.isConfigured}>
-										{d.effectiveModel}
-									</span>
+									<div class="flex items-center gap-2">
+										<span class="font-medium">{d.aliasName}</span>
+										<span class="text-on-surface1 text-xs" class:text-yellow-500={!d.isConfigured}>
+											{d.effectiveModel}
+										</span>
+									</div>
+									<span class="text-on-surface1 text-xs">{d.name}</span>
 								</div>
-							</div>
+							{:else}
+								<div class="flex flex-col">
+									<span class="font-medium">{d.name}</span>
+									{#if d.usage}
+										<span class="text-on-surface1 text-xs">
+											{ModelUsageLabels[d.usage as ModelUsage] || d.usage}
+										</span>
+									{/if}
+								</div>
+							{/if}
 						{:else}
 							{d[field as keyof typeof d]}
 						{/if}

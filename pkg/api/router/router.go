@@ -34,7 +34,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPLoader, services.StorageClient, services.GPTClient, services.GatewayClient, services.MCPOAuthTokenStorage)
 
 	agents := handlers.NewAgentHandler(services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.ServerURL, services.InternalServerURL)
-	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.Events, services.Router.Backend(), services.ModelAccessPolicyHelper)
+	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.Events, services.Router.Backend())
 	tools := handlers.NewToolHandler(services.Invoker)
 	tasks := handlers.NewTaskHandler(services.Invoker, services.Events)
 	invoker := handlers.NewInvokeHandler(services.Invoker, services.MCPLoader)

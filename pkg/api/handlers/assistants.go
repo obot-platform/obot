@@ -16,7 +16,6 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/mcp"
-	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -33,17 +32,15 @@ type AssistantHandler struct {
 	events            *events.Emitter
 	dispatcher        *dispatcher.Dispatcher
 	cachedClient      kclient.WithWatch
-	mapHelper         *modelaccesspolicy.Helper
 }
 
-func NewAssistantHandler(dispatcher *dispatcher.Dispatcher, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, events *events.Emitter, cachedClient kclient.WithWatch, mapHelper *modelaccesspolicy.Helper) *AssistantHandler {
+func NewAssistantHandler(dispatcher *dispatcher.Dispatcher, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, events *events.Emitter, cachedClient kclient.WithWatch) *AssistantHandler {
 	return &AssistantHandler{
 		invoker:           invoker,
 		mcpSessionManager: mcpSessionManager,
 		events:            events,
 		dispatcher:        dispatcher,
 		cachedClient:      cachedClient,
-		mapHelper:         mapHelper,
 	}
 }
 
