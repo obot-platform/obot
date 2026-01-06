@@ -4472,6 +4472,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"needsK8sUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NeedsK8sUpdate indicates whether this server needs redeployment with new K8s settings",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"needsURL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "NeedsURL indicates whether the server's URL needs to be updated to match the catalog entry.",
@@ -4630,6 +4637,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 						},
 					},
 					"needsUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"needsK8sUpdate": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
@@ -7664,8 +7677,15 @@ func schema_obot_platform_obot_apiclient_types_ProjectMCPServer(ref common.Refer
 							Format:  "",
 						},
 					},
+					"needsK8sUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"Metadata", "ProjectMCPServerManifest", "name", "description", "icon", "userID", "configured", "needsURL", "needsUpdate"},
+				Required: []string{"Metadata", "ProjectMCPServerManifest", "name", "description", "icon", "userID", "configured", "needsURL", "needsUpdate", "needsK8sUpdate"},
 			},
 		},
 		Dependencies: []string{
@@ -14704,6 +14724,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryStatus(ref common.Re
 							Format:      "",
 						},
 					},
+					"needsK8sUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NeedsK8sUpdate indicates whether servers created from this catalog entry need redeployment with new K8s settings",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -15095,6 +15122,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 						SchemaProps: spec.SchemaProps{
 							Description: "K8sSettingsHash contains the hash of K8s settings (affinity, tolerations, resources) this server was deployed with. This field is only populated for servers running in Kubernetes runtime. For Docker, local, or remote runtimes, this field is omitted entirely.",
 							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"needsK8sUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NeedsK8sUpdate indicates whether this server needs redeployment with new K8s settings",
+							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
