@@ -98,22 +98,22 @@
 	function convertResourcesForOutput(output: ReturnType<typeof convertResourcesForInput>) {
 		let outputString = '';
 		if (output.requests.cpu || output.requests.memory) {
-			outputString += `requests:\n  `;
+			outputString += `requests:`;
 			if (output.requests.cpu) {
-				outputString += `cpu: ${output.requests.cpu.toString()}\n  `;
+				outputString += `\n  cpu: ${output.requests.cpu.toString()}`;
 			}
 			if (output.requests.memory) {
-				outputString += `memory: ${output.requests.memory.toString()}\n`;
+				outputString += `\n  memory: ${output.requests.memory.toString()}`;
 			}
 		}
 
 		if (output.limits.cpu || output.limits.memory) {
-			outputString += `limits:\n  `;
+			outputString += `\nlimits:`;
 			if (output.limits.cpu) {
-				outputString += `cpu: ${output.limits.cpu.toString()}\n  `;
+				outputString += `\n  cpu: ${output.limits.cpu.toString()}`;
 			}
 			if (output.limits.memory) {
-				outputString += `memory: ${output.limits.memory.toString()}\n`;
+				outputString += `\n  memory: ${output.limits.memory.toString()}`;
 			}
 		}
 
@@ -129,9 +129,10 @@
 		}
 		saving = true;
 		try {
+			const resources = convertResourcesForOutput(resourceInfo);
 			const response = await AdminService.updateK8sSettings({
 				...k8sSettings,
-				resources: convertResourcesForOutput(resourceInfo)
+				resources
 			});
 			prevK8sSettings = k8sSettings;
 			k8sSettings = response;
