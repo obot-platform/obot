@@ -93,8 +93,14 @@
 		| { type: 'single'; server: MCPCatalogServer; onConfirm?: () => void }
 		| undefined
 	>();
-	let showDeleteConfirm = $state<
+	let showK8sUpgradeConfirm = $state<
 		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
+	>(undefined);
+
+	let showDeleteConfirm = $state<
+		| { type: 'multi' }
+		| { type: 'single'; server: MCPCatalogServer; onConfirm?: () => void }
+		| undefined
 	>();
 	let selected = $state<Record<string, MCPCatalogServer>>({});
 	let updating = $state<Record<string, { inProgress: boolean; error: string }>>({});
@@ -242,6 +248,10 @@
 		await reload();
 	}
 
+	async function handleK8sBulkUpdate(selections: typeof selected) {
+		return Promise.all(Object.values(selections).map((server) => updateK8sSettings(server)));
+	}
+
 	async function handleBulkRestart() {
 		restarting = true;
 		try {
@@ -282,6 +292,41 @@
 		}
 
 		delete updating[server.id];
+	}
+	async function updateK8sSettings(server?: MCPCatalogServer) {
+		if (!server) return;
+		updating[server.id] = { inProgress: true, error: '' };
+
+		const mcpServerId = server.id;
+		const catalogEntryId = server.catalogEntryID;
+		// Use powerUserWorkspaceID if available, otherwise use the component's workspace id
+		const workspaceId = server.powerUserWorkspaceID || (entity === 'workspace' ? id : undefined);
+
+		let result: unknown | undefined = undefined;
+
+		try {
+			result = await (workspaceId
+				? catalogEntryId
+					? ChatService.redeployWorkspaceCatalogEntryServerWithK8sSettings(
+							workspaceId,
+							catalogEntryId,
+							mcpServerId
+						)
+					: ChatService.redeployWorkspaceK8sServerWithK8sSettings(workspaceId, mcpServerId)
+				: catalogEntryId
+					? AdminService.redeployMCPCatalogServerWithK8sSettings(catalogEntryId, mcpServerId)
+					: AdminService.redeployWithK8sSettings(mcpServerId));
+		} catch (err) {
+			updating[server.id] = {
+				inProgress: false,
+				error: err instanceof Error ? err.message : 'An unknown error occurred'
+			};
+
+			return undefined;
+		}
+
+		delete updating[server.id];
+		return result;
 	}
 
 	async function handleSingleDelete(server: MCPCatalogServer) {
@@ -553,6 +598,7 @@
 											Update Server
 										</button>
 									{/if}
+
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -566,6 +612,28 @@
 										}}
 									>
 										<GitCompare class="size-4" /> View Diff
+									</button>
+								{/if}
+
+								{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser && d.needsK8sUpdate}
+									<button
+										class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
+										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
+										onclick={(e) => {
+											e.stopPropagation();
+											if (!d) return;
+											showK8sUpgradeConfirm = {
+												type: 'single',
+												server: d
+											};
+										}}
+									>
+										{#if updating[d.id]?.inProgress}
+											<LoaderCircle class="size-4 animate-spin" />
+										{:else}
+											<CircleFadingArrowUp class="size-4" />
+										{/if}
+										Update Kubernetes Settings
 									</button>
 								{/if}
 
@@ -654,9 +722,13 @@
 				{@const upgradeableCount = Object.values(currentSelected).filter(
 					(s) => s.needsUpdate && !s.compositeName
 				).length}
+				{@const k8sUpgradeableCount = Object.values(currentSelected).filter(
+					(s) => s.needsK8sUpdate && !s.compositeName
+				).length}
 				{@const deletableCount = Object.values(currentSelected).filter(
 					(s) => !s.compositeName
 				).length}
+
 				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 					<button
 						class="button flex items-center gap-1 text-sm font-normal"
@@ -694,6 +766,33 @@
 						{#if upgradeableCount > 0 && !readonly}
 							<span class="pill-primary">
 								{upgradeableCount}
+							</span>
+						{/if}
+					</button>
+					<button
+						class="button flex items-center gap-1 text-sm font-normal"
+						onclick={() => {
+							selected = currentSelected;
+							const type = Object.keys(selected).length > 1 ? 'multi' : 'single';
+
+							if (type === 'multi') {
+								showK8sUpgradeConfirm = {
+									type: 'multi'
+								};
+							} else {
+								const server = type === 'single' ? Object.values(selected)[0] : undefined;
+								showK8sUpgradeConfirm = {
+									type: 'single',
+									server: server!
+								};
+							}
+						}}
+						disabled={readonly || k8sUpgradeableCount === 0}
+					>
+						<CircleFadingArrowUp class="size-4" /> Kubernetes Upgrade
+						{#if k8sUpgradeableCount > 0 && !readonly}
+							<span class="pill-primary">
+								{k8sUpgradeableCount}
 							</span>
 						{/if}
 					</button>
@@ -789,6 +888,53 @@
 			them before they can use {showUpgradeConfirm?.type === 'multi'
 				? 'these servers'
 				: 'this server'} again.
+		</p>
+	{/snippet}
+</Confirm>
+
+<Confirm
+	show={!!showK8sUpgradeConfirm}
+	onsuccess={async () => {
+		if (!showK8sUpgradeConfirm) return;
+
+		const { type } = showK8sUpgradeConfirm;
+
+		if (type === 'single') {
+			const { server } = showK8sUpgradeConfirm;
+			await updateK8sSettings(server);
+		} else {
+			await handleK8sBulkUpdate(selected);
+			selected = {};
+			tableRef?.clearSelectAll();
+		}
+
+		await reload();
+		showK8sUpgradeConfirm = undefined;
+	}}
+	oncancel={() => (showK8sUpgradeConfirm = undefined)}
+	classes={{
+		confirm: 'bg-primary hover:bg-primary/50 transition-colors duration-200'
+	}}
+	loading={Object.values(updating).some((u) => u.inProgress)}
+>
+	{#snippet title()}
+		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
+			<CircleAlert class="size-5" />
+			Update Kubernetes Settings
+		</h4>
+	{/snippet}
+	{#snippet note()}
+		<p class="mb-8 text-sm font-light">
+			{#if showK8sUpgradeConfirm?.type === 'multi'}
+				The selected servers ({Object.keys(selected).length})
+			{:else}
+				The <span class="font-medium"
+					>{showK8sUpgradeConfirm?.server.compositeName ??
+						showK8sUpgradeConfirm?.server.manifest.name}</span
+				> server
+			{/if}
+
+			will be redeployed with the latest Kubernetes settings.
 		</p>
 	{/snippet}
 </Confirm>
