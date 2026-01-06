@@ -7,7 +7,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -57,11 +56,6 @@ func (h *ModelAccessPolicyHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("invalid model access policy manifest: %v", err)
 	}
 
-	// Validate that referenced models exist (unless wildcard)
-	if err := h.validateModels(req, manifest.Models); err != nil {
-		return err
-	}
-
 	policy := v1.ModelAccessPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.ModelAccessPolicyPrefix,
@@ -97,11 +91,6 @@ func (h *ModelAccessPolicyHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("failed to get model access policy: %v", err)
 	}
 
-	// Validate that referenced models exist (unless wildcard)
-	if err := h.validateModels(req, manifest.Models); err != nil {
-		return err
-	}
-
 	existing.Spec.Manifest = manifest
 	if err := req.Update(&existing); err != nil {
 		return fmt.Errorf("failed to update model access policy: %w", err)
@@ -120,26 +109,6 @@ func (*ModelAccessPolicyHandler) Delete(req api.Context) error {
 			Namespace: req.Namespace(),
 		},
 	})
-}
-
-// validateModels validates that referenced model IDs exist
-func (*ModelAccessPolicyHandler) validateModels(req api.Context, models []types.ModelResource) error {
-	for _, model := range models {
-		// Skip validation for wildcard selector
-		if model.IsWildcard() {
-			continue
-		}
-
-		var m v1.Model
-		if err := req.Get(&m, model.ID); err != nil {
-			if apierrors.IsNotFound(err) {
-				return types.NewErrBadRequest("model %s not found: %v", model.ID, err)
-			}
-
-			return err
-		}
-	}
-	return nil
 }
 
 func convertModelAccessPolicy(policy v1.ModelAccessPolicy) types.ModelAccessPolicy {

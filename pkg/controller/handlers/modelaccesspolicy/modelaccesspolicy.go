@@ -14,13 +14,13 @@ import (
 // - Duplicates
 // - Explicit model references when a wildcard is present
 func PruneModels(req router.Request, _ router.Response) error {
-	mpr := req.Object.(*v1.ModelAccessPolicy)
+	policy := req.Object.(*v1.ModelAccessPolicy)
 
 	var (
-		resources = make([]types.ModelResource, 0, len(mpr.Spec.Manifest.Models))
-		included  = make(map[types.ModelResource]struct{}, len(mpr.Spec.Manifest.Models))
+		resources = make([]types.ModelResource, 0, len(policy.Spec.Manifest.Models))
+		included  = make(map[types.ModelResource]struct{}, len(policy.Spec.Manifest.Models))
 	)
-	for _, resource := range mpr.Spec.Manifest.Models {
+	for _, resource := range policy.Spec.Manifest.Models {
 		if _, ok := included[resource]; ok {
 			// Prune duplicate resources
 			continue
@@ -33,13 +33,22 @@ func PruneModels(req router.Request, _ router.Response) error {
 			break
 		}
 
+		if alias, isAlias := resource.IsDefaultModelAliasRef(); isAlias {
+			if types.DefaultModelAliasTypeFromString(alias) != types.DefaultModelAliasTypeUnknown {
+				// Valid model alias type, keep
+				resources = append(resources, resource)
+			}
+
+			continue
+		}
+
 		if !system.IsModelID(resource.ID) {
 			// Prune invalid model ID
 			continue
 		}
 
 		var model v1.Model
-		if err := req.Get(&model, mpr.Namespace, resource.ID); apierrors.IsNotFound(err) {
+		if err := req.Get(&model, policy.Namespace, resource.ID); apierrors.IsNotFound(err) {
 			// Prune missing model
 			continue
 		} else if err != nil {
@@ -49,13 +58,13 @@ func PruneModels(req router.Request, _ router.Response) error {
 		resources = append(resources, resource)
 	}
 
-	if len(resources) == len(mpr.Spec.Manifest.Models) {
+	if len(resources) == len(policy.Spec.Manifest.Models) {
 		// Nothing was pruned, no update required
 		return nil
 	}
 
 	// Update the models with the pruned resources
-	mpr.Spec.Manifest.Models = resources
+	policy.Spec.Manifest.Models = resources
 
-	return req.Client.Update(req.Ctx, mpr)
+	return req.Client.Update(req.Ctx, policy)
 }

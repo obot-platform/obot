@@ -333,22 +333,9 @@ func (a *ThreadHandler) GetDefaultModelForThread(req api.Context) error {
 		model = alias.Spec.Manifest.Model
 	}
 
-	// Track the model ID before resolving to check permissions
-	modelID := model
-
-	if strings.HasPrefix(model, system.ModelPrefix) {
-		var modelObj v1.Model
-		if err := req.Get(&modelObj, model); err != nil {
-			return fmt.Errorf("failed to get model with id %s: %w", model, err)
-		}
-
-		model = modelObj.Spec.Manifest.Name
-		modelProvider = modelObj.Spec.Manifest.ModelProvider
-	}
-
-	// Check if the user has permission to use this model
-	if a.mapHelper != nil && modelID != "" {
-		hasAccess, err := a.mapHelper.UserHasAccessToModel(req.User, modelID)
+	if system.IsModelID(model) {
+		// Check if the user has permission to use this model
+		hasAccess, err := a.mapHelper.UserHasAccessToModel(req.User, model)
 		if err != nil {
 			return fmt.Errorf("failed to check model permission: %w", err)
 		}
@@ -359,6 +346,14 @@ func (a *ThreadHandler) GetDefaultModelForThread(req api.Context) error {
 				"modelProvider": "",
 			})
 		}
+
+		var modelObj v1.Model
+		if err := req.Get(&modelObj, model); err != nil {
+			return fmt.Errorf("failed to get model with id %s: %w", model, err)
+		}
+
+		model = modelObj.Spec.Manifest.Name
+		modelProvider = modelObj.Spec.Manifest.ModelProvider
 	}
 
 	return req.Write(map[string]string{

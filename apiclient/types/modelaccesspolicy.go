@@ -1,6 +1,11 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
+
+const DefaultModelAliasRefPrefix = "obot://"
 
 type ModelAccessPolicy struct {
 	Metadata                  `json:",inline"`
@@ -44,7 +49,7 @@ func (m ModelAccessPolicyManifest) Validate() error {
 			return fmt.Errorf("invalid model: %w", err)
 		}
 
-		if model.ID == "*" && len(m.Models) > 1 {
+		if model.IsWildcard() && len(m.Models) > 1 {
 			return fmt.Errorf("wildcard model (*) must be the only model")
 		}
 
@@ -62,6 +67,7 @@ type ModelResource struct {
 	// It either be:
 	// - the wildcard '*', which selects all available models
 	// - the model ID of a specific model
+	// - an Obot default model alias in the form "obot://<alias>"
 	//
 	// When a model ID is provided, it must match the ID field of an existing referenced model.
 	ID string `json:"id"`
@@ -71,12 +77,22 @@ func (m ModelResource) Validate() error {
 	if m.ID == "" {
 		return fmt.Errorf("model resource ID is required")
 	}
+	if alias, isAlias := m.IsDefaultModelAliasRef(); isAlias {
+		if DefaultModelAliasTypeFromString(alias) == DefaultModelAliasTypeUnknown {
+			return fmt.Errorf("unknown model alias type reference: %s", alias)
+		}
+	}
 	return nil
 }
 
 // IsWildcard returns true if this model resource selects all models
 func (m ModelResource) IsWildcard() bool {
 	return m.ID == "*"
+}
+
+// IsModelAlias returns true if the given model references a DefaultModelAlias.
+func (m ModelResource) IsDefaultModelAliasRef() (string, bool) {
+	return strings.CutPrefix(m.ID, DefaultModelAliasRefPrefix)
 }
 
 type ModelAccessPolicyList List[ModelAccessPolicy]

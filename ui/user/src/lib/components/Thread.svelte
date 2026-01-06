@@ -74,6 +74,7 @@
 
 	// Model selector state
 	let threadDetails = $state<ThreadType | null>(null);
+	let hasModelSelected = $state(false);
 
 	let centerInput = $derived(!createProject && (!id || isNew));
 	let imagePreviewDialog = $state<HTMLDialogElement>();
@@ -158,14 +159,13 @@
 			await constructThread();
 		}
 		if (!id) {
-			// Use fallback model if no model is specified and default model is empty
-			let body: { model?: string; modelProvider?: string } = {};
+			const body: { model?: string; modelProvider?: string } = {};
 			if (params?.model) {
-				body = { ...params };
-			} else if (fallbackModel) {
-				// When default model is empty but user has allowed models, use the first allowed model
-				body = { model: fallbackModel };
+				body.model = params.model;
+				body.modelProvider = params.modelProvider;
 			}
+			// Note: Model fallback is now handled in ThreadModelSelector
+			// via the thread default model endpoint
 			id = (await ChatService.createThread(project.assistantID, project.id, body)).id;
 			await constructThread();
 		}
@@ -332,17 +332,6 @@
 	let projectModel = $derived(project.defaultModel ?? projectDefaultModel);
 	let lastMessageWithFile = $derived(messages.messages.findLastIndex((msg) => msg.file));
 
-	// Calculate fallback model when default model is empty but user has allowed models
-	let fallbackModel = $derived.by(() => {
-		// Only use fallback if default model is empty/missing
-		if (projectModel) return undefined;
-		// Return first allowed model if available
-		if (assistant?.allowedModels?.length) {
-			return assistant.allowedModels[0];
-		}
-		return undefined;
-	});
-
 	// Detect Safari for browser-specific styling
 	let isSafari = $derived(browser && /^((?!chrome|android).)*safari/i.test(navigator.userAgent));
 
@@ -429,7 +418,7 @@
 		});
 		createProject = undefined;
 		savingNewProject = false;
-		await goto(`/o/${response.id}`);
+		goto(`/o/${response.id}`);
 	}
 </script>
 
@@ -594,7 +583,7 @@
 				<Input
 					id="thread-input"
 					bind:this={input}
-					readonly={messages.inProgress}
+					readonly={messages.inProgress || !hasModelSelected}
 					pending={thread?.pending || promptPending}
 					onAbort={async () => {
 						await thread?.abort();
@@ -651,17 +640,15 @@
 								</div>
 							{/key}
 						</div>
-						{#if (projectModelProvider && projectModel) || assistant?.allowedModels?.length}
-							<ThreadModelSelector
-								threadId={id}
-								{project}
-								{assistant}
-								projectDefaultModel={projectModel}
-								projectDefaultModelProvider={projectModelProvider}
-								onModelChanged={handleModelChanged}
-								onCreateThread={handleCreateThread}
-							/>
-						{/if}
+						<ThreadModelSelector
+							threadId={id}
+							{project}
+							projectDefaultModel={projectModel}
+							projectDefaultModelProvider={projectModelProvider}
+							onModelChanged={handleModelChanged}
+							onCreateThread={handleCreateThread}
+							bind:hasModelSelected
+						/>
 					</div>
 					{#snippet inputPopover(value: string)}
 						<McpPrompts

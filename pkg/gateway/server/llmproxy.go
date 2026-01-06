@@ -412,22 +412,14 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		l.lock.Unlock()
 	}
 
-	// Reject chat completion and responses API requests that target models the user doesn't have access to
-	if path := req.URL.Path; req.Method == http.MethodPost &&
-		(strings.HasSuffix(path, "/chat/completions") || strings.HasSuffix(path, "/responses")) {
-		// Copy the target model from the request body
-		body, err := copyBody(req.Request)
-		if err != nil {
-			return fmt.Errorf("failed to read model from request body: %w", err)
-		}
+	// Attempt to get the target model
+	body, err := copyBody(req.Request)
+	if err != nil {
+		return fmt.Errorf("failed to copy body: %w", err)
+	}
 
-		targetModel := gjson.GetBytes(body, "model").String()
-		if targetModel == "" {
-			return types2.NewErrNotFound("the requested model %q does not exist", targetModel)
-		}
-
-		// Get the model ID for the target model and provider.
-		// Target models should be unique with the context of a given provider, so only take the first result.
+	if targetModel := gjson.GetBytes(body, "model").String(); targetModel != "" {
+		// Get the models matching the target model and provider.
 		var models v1.ModelList
 		if err := req.List(&models, &kclient.ListOptions{
 			Namespace: l.modelProvider.Namespace,
@@ -435,25 +427,22 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 				"spec.manifest.targetModel":   targetModel,
 				"spec.manifest.modelProvider": l.modelProvider.Name,
 			}),
-			Limit: 1,
 		}); err != nil {
 			return fmt.Errorf("failed to list models: %w", err)
 		}
 
-		var modelID string
-		if len(models.Items) > 0 {
-			modelID = models.Items[0].Name
+		var hasAccess bool
+		for _, model := range models.Items {
+			var err error
+			hasAccess, err = l.mapHelper.UserHasAccessToModel(req.User, model.Name)
+			if err != nil {
+				return fmt.Errorf("failed to check user access to model %q: %w", model.Name, err)
+			}
+			if hasAccess {
+				break
+			}
 		}
 
-		if modelID == "" {
-			return types2.NewErrNotFound("the requested model %q does not exist", targetModel)
-		}
-
-		// Check if the user has been granted access to the model
-		hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, modelID)
-		if err != nil {
-			return fmt.Errorf("failed to check user access to model %q: %w", targetModel, err)
-		}
 		if !hasAccess {
 			return types2.NewErrForbidden("user does not have permission to use model %q", targetModel)
 		}

@@ -64,7 +64,7 @@ func MigrateAgentAllowedModels(req router.Request, _ router.Response) error {
 				},
 				Spec: v1.ModelAccessPolicySpec{
 					Manifest: types.ModelAccessPolicyManifest{
-						DisplayName: "Default",
+						DisplayName: "Migrated Policy",
 						Subjects:    policySubjects,
 						Models:      policyModels,
 					},

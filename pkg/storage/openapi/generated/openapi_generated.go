@@ -1301,20 +1301,6 @@ func schema_obot_platform_obot_apiclient_types_Assistant(ref common.ReferenceCal
 							},
 						},
 					},
-					"allowedModels": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
 				},
 				Required: []string{"Metadata", "name", "default", "description", "icons", "introductionMessage", "starterMessages", "entityID"},
 			},
@@ -6285,7 +6271,7 @@ func schema_obot_platform_obot_apiclient_types_ModelResource(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"id": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ID is the unique identifier of the model resource. It either be: - the wildcard '*', which selects all available models - the model ID of a specific model\n\nWhen a model ID is provided, it must match the ID field of an existing referenced model.",
+							Description: "ID is the unique identifier of the model resource. It either be: - the wildcard '*', which selects all available models - the model ID of a specific model - an Obot default model alias in the form \"obot://<alias>\"\n\nWhen a model ID is provided, it must match the ID field of an existing referenced model.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -15514,11 +15500,17 @@ func schema_storage_apis_obotobotai_v1_ModelAccessPolicy(ref common.ReferenceCal
 							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelAccessPolicySpec"),
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmptyStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelAccessPolicySpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmptyStatus", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ModelAccessPolicySpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 

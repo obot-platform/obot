@@ -7,7 +7,10 @@
 		type ModelResource,
 		type AccessControlRuleSubject,
 		type OrgUser,
-		type OrgGroup
+		type OrgGroup,
+		ModelAlias,
+		ModelAliasLabels,
+		type DefaultModelAlias
 	} from '$lib/services/admin/types';
 	import type { Model } from '$lib/services/chat/types';
 	import { LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
@@ -52,6 +55,8 @@
 	let usersAndGroups = $state<{ users: OrgUser[]; groups: OrgGroup[] }>();
 	let loadingUsersAndGroups = $state(false);
 	let models = $state<Model[]>([]);
+	let defaultModelAliases = $state<DefaultModelAlias[]>([]);
+	let loadingModels = $state(true);
 
 	let addUserGroupDialog = $state<ReturnType<typeof SearchUsers>>();
 	let addModelDialog = $state<ReturnType<typeof SearchModels>>();
@@ -59,16 +64,90 @@
 	let deletingPolicy = $state(false);
 
 	onMount(async () => {
-		models = await AdminService.listModels();
+		const [fetchedModels, fetchedAliases] = await Promise.all([
+			AdminService.listModels(),
+			AdminService.listDefaultModelAliases()
+		]);
+
+		models = fetchedModels;
+		defaultModelAliases = fetchedAliases;
+		loadingModels = false;
 	});
 
 	let modelsMap = $derived(new Map(models.map((m) => [m.id, m])));
 
+	// Map alias name -> Model for quick lookups
+	let aliasToModelMap = $derived(
+		new Map(defaultModelAliases.map((alias) => [alias.alias, modelsMap.get(alias.model)]))
+	);
+
+	// Separate model resources into aliases vs regular models
+	let { aliasResources, regularModelResources } = $derived.by(() => {
+		const aliases: ModelResource[] = [];
+		const regular: ModelResource[] = [];
+
+		for (const modelResource of modelAccessPolicy.models ?? []) {
+			if (modelResource.id.startsWith('obot://')) {
+				aliases.push(modelResource);
+			} else {
+				regular.push(modelResource);
+			}
+		}
+
+		return { aliasResources: aliases, regularModelResources: regular };
+	});
+
+	// Convert alias resources to display data
+	let aliasesTableData = $derived.by(() => {
+		return aliasResources.map((resource) => {
+			const aliasName = resource.id.replace('obot://', '');
+			const model = aliasToModelMap.get(aliasName as ModelAlias);
+
+			return {
+				id: resource.id,
+				aliasName: aliasName,
+				aliasLabel: ModelAliasLabels[aliasName as ModelAlias] || aliasName,
+				effectiveModelName: model?.displayName || model?.targetModel || 'Not configured',
+				isConfigured: !!model
+			};
+		});
+	});
+
 	let modelsTableData = $derived.by(() => {
 		if (modelsMap) {
-			return convertModelsToTableData(modelAccessPolicy.models ?? []);
+			return convertModelsToTableData(regularModelResources);
 		}
 		return [];
+	});
+
+	// Combined table data for all models (aliases + regular models)
+	let combinedModelsTableData = $derived.by(() => {
+		const aliasRows = aliasesTableData.map((alias) => {
+			const aliasName = alias.id.replace('obot://', '');
+			const effectiveModel = aliasToModelMap.get(aliasName as ModelAlias);
+
+			return {
+				id: alias.id,
+				aliasName: aliasName,
+				name: alias.aliasLabel,
+				provider: effectiveModel?.modelProviderName || '-',
+				effectiveModel: alias.effectiveModelName,
+				isAlias: true,
+				isConfigured: alias.isConfigured
+			};
+		});
+
+		const regularRows = modelsTableData.map((model) => ({
+			id: model.id,
+			aliasName: undefined,
+			name: model.name,
+			provider: model.provider,
+			effectiveModel: null,
+			isAlias: false,
+			isConfigured: true
+		}));
+
+		return [...aliasRows, ...regularRows];
 	});
 
 	$effect(() => {
@@ -292,42 +371,60 @@
 			<div class="mb-2 flex items-center justify-between">
 				<h2 class="text-lg font-semibold">Models</h2>
 				{#if !readonly}
-					<div class="relative flex items-center gap-4">
-						<button
-							class="button-primary flex items-center gap-1 text-sm"
-							onclick={() => {
-								addModelDialog?.open();
-							}}
-						>
-							<Plus class="size-4" /> Add Model
-						</button>
-					</div>
+					<button
+						class="button-primary flex items-center gap-1 text-sm"
+						onclick={() => {
+							addModelDialog?.open();
+						}}
+					>
+						<Plus class="size-4" /> Add Model
+					</button>
 				{/if}
 			</div>
-			<Table
-				data={modelsTableData}
-				fields={['name', 'provider']}
-				headers={[
-					{ property: 'name', title: 'Model' },
-					{ property: 'provider', title: 'Provider' }
-				]}
-				noDataMessage="No models added."
-			>
-				{#snippet actions(d)}
-					{#if !readonly}
-						<button
-							class="icon-button hover:text-red-500"
-							onclick={() => {
-								modelAccessPolicy.models =
-									modelAccessPolicy.models?.filter((m) => m.id !== d.id) ?? [];
-							}}
-							use:tooltip={'Remove Model'}
-						>
-							<Trash2 class="size-4" />
-						</button>
-					{/if}
-				{/snippet}
-			</Table>
+			{#if loadingModels}
+				<div class="my-2 flex items-center justify-center">
+					<LoaderCircle class="size-6 animate-spin" />
+				</div>
+			{:else}
+				<Table
+					data={combinedModelsTableData}
+					fields={['name', 'provider']}
+					headers={[
+						{ property: 'name', title: 'Model' },
+						{ property: 'provider', title: 'Provider' }
+					]}
+					noDataMessage="No models added."
+				>
+					{#snippet onRenderColumn(field, d)}
+						{#if field === 'name' && d.isAlias}
+							<div class="flex items-center gap-2">
+								<div class="flex flex-col">
+									<span class="font-medium">{d.aliasName}</span>
+									<span class="text-on-surface1 text-xs" class:text-yellow-500={!d.isConfigured}>
+										{d.effectiveModel}
+									</span>
+								</div>
+							</div>
+						{:else}
+							{d[field as keyof typeof d]}
+						{/if}
+					{/snippet}
+					{#snippet actions(d)}
+						{#if !readonly}
+							<button
+								class="icon-button hover:text-red-500"
+								onclick={() => {
+									modelAccessPolicy.models =
+										modelAccessPolicy.models?.filter((m) => m.id !== d.id) ?? [];
+								}}
+								use:tooltip={'Remove Model'}
+							>
+								<Trash2 class="size-4" />
+							</button>
+						{/if}
+					{/snippet}
+				</Table>
+			{/if}
 		</div>
 	</div>
 	{#if !readonly}
@@ -418,6 +515,8 @@
 
 <SearchModels
 	bind:this={addModelDialog}
+	{models}
+	defaultAliases={defaultModelAliases}
 	exclude={modelAccessPolicy.models?.map((m) => m.id) ?? []}
 	onAdd={async (modelIds: string[]) => {
 		const existingModelIds = new Set(modelAccessPolicy.models?.map((m) => m.id) ?? []);

@@ -924,6 +924,18 @@ func (h *ProjectsHandler) GetDefaultModelForProject(req api.Context) error {
 	}
 
 	if system.IsModelID(model) {
+		// Check if the user has permission to use this model
+		hasAccess, err := h.mapHelper.UserHasAccessToModel(req.User, model)
+		if err != nil {
+			return fmt.Errorf("failed to check model permission: %w", err)
+		}
+		if !hasAccess {
+			return req.Write(map[string]string{
+				"model":         "",
+				"modelProvider": "",
+			})
+		}
+
 		var modelObj v1.Model
 		if err := req.Get(&modelObj, model); err != nil {
 			return fmt.Errorf("failed to get model with id %s: %w", model, err)
@@ -931,19 +943,6 @@ func (h *ProjectsHandler) GetDefaultModelForProject(req api.Context) error {
 
 		model = modelObj.Spec.Manifest.Name
 		modelProvider = modelObj.Spec.Manifest.ModelProvider
-	}
-
-	// Check if the user has permission to use this model
-	if model != "" {
-		hasAccess, err := h.mapHelper.UserHasAccessToModel(req.User, model)
-		if err != nil {
-			return fmt.Errorf("failed to check model permission: %w", err)
-		}
-		if !hasAccess {
-			// User doesn't have permission, return empty model
-			model = ""
-			modelProvider = ""
-		}
 	}
 
 	return req.Write(map[string]string{

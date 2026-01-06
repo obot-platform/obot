@@ -3,10 +3,13 @@ package modelaccesspolicy
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/obot-platform/nah/pkg/backend"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
 )
@@ -15,10 +18,11 @@ const (
 	mapUserIndex     = "user-id"
 	mapGroupIndex    = "group-id"
 	mapSelectorIndex = "selector-id"
+	dmaModelIndex    = "model-id"
 )
 
 type Helper struct {
-	mapIndexer gocache.Indexer
+	mapIndexer, dmaIndexer gocache.Indexer
 }
 
 func NewHelper(ctx context.Context, backend backend.Backend) (*Helper, error) {
@@ -41,8 +45,26 @@ func NewHelper(ctx context.Context, backend backend.Backend) (*Helper, error) {
 		return nil, err
 	}
 
+	// Create indexers for DefaultModelAlias
+	dmaGVK, err := backend.GroupVersionKindFor(&v1.DefaultModelAlias{})
+	if err != nil {
+		return nil, err
+	}
+
+	dmaInformer, err := backend.GetInformerForKind(ctx, dmaGVK)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := dmaInformer.AddIndexers(gocache.Indexers{
+		dmaModelIndex: dmaModelIndexFunc,
+	}); err != nil {
+		return nil, err
+	}
+
 	return &Helper{
 		mapIndexer: mapInformer.GetIndexer(),
+		dmaIndexer: dmaInformer.GetIndexer(),
 	}, nil
 }
 
@@ -64,19 +86,38 @@ func (h *Helper) GetUserAllowedModels(user kuser.Info) (map[string]bool, bool, e
 		return nil, true, nil
 	}
 
-	allowedModels := make(map[string]bool)
+	var (
+		allowedModels   = make(map[string]bool)
+		aliasModels     = h.getAliasModels()
+		addAllowedModel = func(model types.ModelResource) bool {
+			if model.IsWildcard() {
+				return true
+			}
+
+			modelID := model.ID
+			if alias, isAlias := model.IsDefaultModelAliasRef(); isAlias {
+				// The model ID is a default model alias reference (e.g. 'obot://llm')
+				// Look up the current model ID and swap it out
+				// If we can't find it, modelID will be an empty string, which is handled by the model ID check below
+				modelID = aliasModels[alias]
+			}
+
+			if system.IsModelID(modelID) {
+				allowedModels[modelID] = true
+			}
+
+			return false
+		}
+	)
 
 	// Check policies with wildcard subject selector (*)
 	wildcardUserPolicies, err := h.getWildcardUserPolicies()
 	if err != nil {
 		return nil, false, err
 	}
-	for _, rule := range wildcardUserPolicies {
-		for _, model := range rule.Spec.Manifest.Models {
-			if model.IsWildcard() {
-				return nil, true, nil
-			}
-			allowedModels[model.ID] = true
+	for _, policy := range wildcardUserPolicies {
+		if slices.ContainsFunc(policy.Spec.Manifest.Models, addAllowedModel) {
+			return nil, true, nil
 		}
 	}
 
@@ -86,12 +127,9 @@ func (h *Helper) GetUserAllowedModels(user kuser.Info) (map[string]bool, bool, e
 		return nil, false, err
 	}
 
-	for _, rule := range userPolicies {
-		for _, model := range rule.Spec.Manifest.Models {
-			if model.IsWildcard() {
-				return nil, true, nil
-			}
-			allowedModels[model.ID] = true
+	for _, policy := range userPolicies {
+		if slices.ContainsFunc(policy.Spec.Manifest.Models, addAllowedModel) {
+			return nil, true, nil
 		}
 	}
 
@@ -102,12 +140,9 @@ func (h *Helper) GetUserAllowedModels(user kuser.Info) (map[string]bool, bool, e
 			return nil, false, err
 		}
 
-		for _, rule := range groupPolicies {
-			for _, model := range rule.Spec.Manifest.Models {
-				if model.IsWildcard() {
-					return nil, true, nil
-				}
-				allowedModels[model.ID] = true
+		for _, policy := range groupPolicies {
+			if slices.ContainsFunc(policy.Spec.Manifest.Models, addAllowedModel) {
+				return nil, true, nil
 			}
 		}
 	}
@@ -147,7 +182,27 @@ func (h *Helper) getIndexedPolicies(index, key string) ([]v1.ModelAccessPolicy, 
 	return result, nil
 }
 
-// mapSubjectIndexFunc returns a function that indexes policies with the given subject type by subject ID.
+// getAliasModels returns a map alias -> model ID for all DefaultModelAliases.
+func (h *Helper) getAliasModels() map[string]string {
+	var (
+		indexed       = h.dmaIndexer.ListIndexFuncValues(dmaModelIndex)
+		aliasModelIDs = make(map[string]string, len(indexed))
+	)
+
+	for _, v := range indexed {
+		alias, model, ok := strings.Cut(v, "/")
+		if !ok || !system.IsModelID(model) || types.DefaultModelAliasTypeFromString(alias) == types.DefaultModelAliasTypeUnknown {
+			// This is a sanity check since our index function should always generate valid values
+			continue
+		}
+
+		aliasModelIDs[alias] = model
+	}
+
+	return aliasModelIDs
+}
+
+// mapSubjectIndexFunc returns a function that ModelAccessPolicies with the given subject type by subject ID.
 func mapSubjectIndexFunc(subjectType types.SubjectType) gocache.IndexFunc {
 	return func(obj any) ([]string, error) {
 		policy := obj.(*v1.ModelAccessPolicy)
@@ -170,6 +225,24 @@ func mapSubjectIndexFunc(subjectType types.SubjectType) gocache.IndexFunc {
 	}
 }
 
+func dmaModelIndexFunc(obj any) ([]string, error) {
+	var (
+		dma          = obj.(*v1.DefaultModelAlias)
+		alias, model = dma.Spec.Manifest.Alias, dma.Spec.Manifest.Model
+	)
+	if !dma.DeletionTimestamp.IsZero() ||
+		!system.IsModelID(model) ||
+		types.DefaultModelAliasTypeFromString(alias) == types.DefaultModelAliasTypeUnknown ||
+		dma.Name != alias {
+		// Drop deleted and invalid objects from the index
+		return nil, nil
+	}
+
+	return []string{
+		fmt.Sprintf("%s/%s", alias, model),
+	}, nil
+}
+
 // authGroupSet returns a set of auth provider groups for a given user.
 func authGroupSet(user kuser.Info) map[string]struct{} {
 	var (
@@ -184,11 +257,5 @@ func authGroupSet(user kuser.Info) map[string]struct{} {
 
 // userIsAdminOrOwner checks if the user is an admin or owner.
 func userIsAdminOrOwner(user kuser.Info) bool {
-	for _, group := range user.GetGroups() {
-		switch group {
-		case types.GroupAdmin, types.GroupOwner:
-			return true
-		}
-	}
-	return false
+	return slices.Contains(user.GetGroups(), types.GroupAdmin)
 }

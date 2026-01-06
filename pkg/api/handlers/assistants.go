@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"maps"
 	"net/http"
 	"slices"
@@ -22,7 +21,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -128,12 +126,7 @@ func (a *AssistantHandler) Get(req api.Context) error {
 		return err
 	}
 
-	assistant, err := a.withUserAllowedChatModels(req, convertAssistant(*agent))
-	if err != nil {
-		return fmt.Errorf("failed to get assistant %s with allowed models: %w", id, err)
-	}
-
-	return req.Write(assistant)
+	return req.Write(convertAssistant(*agent))
 }
 
 func (a *AssistantHandler) List(req api.Context) error {
@@ -142,56 +135,14 @@ func (a *AssistantHandler) List(req api.Context) error {
 		return err
 	}
 
-	var (
-		result types.AssistantList
-	)
+	var result types.AssistantList
 	for _, agent := range allAgents.Items {
 		if agent.Spec.Manifest.Default || req.UserIsAdmin() {
-			assistant, err := a.withUserAllowedChatModels(req, convertAssistant(agent))
-			if err != nil {
-				return fmt.Errorf("failed to get assistant %s with allowed models: %w", agent.Name, err)
-			}
-
-			result.Items = append(result.Items, assistant)
+			result.Items = append(result.Items, convertAssistant(agent))
 		}
 	}
 
 	return req.Write(result)
-}
-
-func (a *AssistantHandler) withUserAllowedChatModels(req api.Context, assistant types.Assistant) (types.Assistant, error) {
-	if !assistant.Default {
-		// Only get user allowed models for default assistant
-		return assistant, nil
-	}
-
-	userAllowedModels, allowAll, err := a.mapHelper.GetUserAllowedModels(req.User)
-	if err != nil || !allowAll && len(userAllowedModels) == 0 {
-		return assistant, err
-	}
-
-	// Fetch the available chat models
-	var modelList v1.ModelList
-	if err := req.List(&modelList, &kclient.ListOptions{
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.manifest.usage": string(types.ModelUsageLLM),
-		}),
-		Namespace: req.Namespace(),
-	}); err != nil {
-		return assistant, err
-	}
-
-	// Build the list of allowed models
-	allowedModels := make([]string, 0, len(modelList.Items))
-	for _, model := range modelList.Items {
-		if allowAll || userAllowedModels[model.Name] {
-			allowedModels = append(allowedModels, model.Name)
-		}
-	}
-
-	assistant.AllowedModels = allowedModels
-
-	return assistant, nil
 }
 
 func convertAssistant(agent v1.Agent) types.Assistant {
@@ -210,7 +161,6 @@ func convertAssistant(agent v1.Agent) types.Assistant {
 		Icons:                 icons,
 		WebsiteKnowledge:      agent.Spec.Manifest.WebsiteKnowledge,
 		AllowedModelProviders: agent.Spec.Manifest.AllowedModelProviders,
-		AllowedModels:         agent.Spec.Manifest.AllowedModels,
 		AvailableThreadTools:  agent.Spec.Manifest.AvailableThreadTools,
 		DefaultThreadTools:    agent.Spec.Manifest.DefaultThreadTools,
 		Tools:                 agent.Spec.Manifest.Tools,
