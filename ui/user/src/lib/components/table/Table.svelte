@@ -660,7 +660,7 @@
 {#snippet row(d: T)}
 	<tr
 		class={twMerge(
-			'border-surface2 dark:border-surface2 border-t shadow-xs transition-colors duration-300',
+			'border-surface2 dark:border-surface2 border-b shadow-xs transition-colors duration-300 last:border-b-0',
 			onClickRow && ' hover:bg-surface1 dark:hover:bg-surface3 cursor-pointer',
 			setRowClasses?.(d)
 		)}
