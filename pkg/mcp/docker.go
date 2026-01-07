@@ -701,6 +701,8 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 				"NANOBOT_RUN_OAUTH_SCOPES=profile",
 				"NANOBOT_RUN_FORCE_FETCH_TOOL_LIST=true",
 				"NANOBOT_DISABLE_HEALTH_CHECKER=true",
+				"NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL=" + localhostURLRegexp.ReplaceAllString(server.Issuer+"/api/api-keys/auth", d.hostBaseURLWithPort),
+				"NANOBOT_RUN_MCPSERVER_ID=" + strings.TrimSuffix(server.MCPServerName, "-shim"),
 			}
 		}
 

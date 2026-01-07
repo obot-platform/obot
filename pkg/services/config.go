@@ -48,6 +48,7 @@ import (
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/logutil"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -156,6 +157,9 @@ type Services struct {
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
+
+	// Used for indexed lookups of model access policies.
+	ModelAccessPolicyHelper *modelaccesspolicy.Helper
 
 	WebhookHelper *mcp.WebhookHelper
 
@@ -578,6 +582,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	acrHelper := accesscontrolrule.NewAccessControlRuleHelper(acrInformer.GetIndexer(), r.Backend())
 
+	mapHelper, err := modelaccesspolicy.NewHelper(ctx, r.Backend())
+	if err != nil {
+		return nil, err
+	}
+
 	// Set up MCPWebhookValidation indexer
 	mcpWebhookValidationGVK, err := r.Backend().GroupVersionKindFor(&v1.MCPWebhookValidation{})
 	if err != nil {
@@ -643,7 +652,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, gserver.Options(config.GatewayConfig))
+	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, gserver.Options(config.GatewayConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -656,6 +665,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.NewFailOnError(authenticators, proxyManager)
 		// Add gateway user info
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
+		// API Key authentication (for MCP server access) - restricted to GroupAPIKey only
+		// Must come after UserDecorator since it handles its own user lookup
+		authenticators = union.New(authenticators, gserver.NewAPIKeyAuthenticator(gatewayClient))
 		// Persistent Token Auth
 		authenticators = union.New(authenticators, persistentTokenServer)
 		// Add bootstrap auth
@@ -808,6 +820,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			UserInfoEndpoint:                  fmt.Sprintf("%s/oauth/userinfo", config.Hostname),
 		},
 		AccessControlRuleHelper: acrHelper,
+		ModelAccessPolicyHelper: mapHelper,
 		WebhookHelper:           webhookHelper,
 		LocalK8sConfig:          localK8sConfig,
 		MCPServerNamespace:      config.MCPNamespace,

@@ -17,6 +17,7 @@
 		Cpu,
 		Funnel,
 		GlobeLock,
+		KeyRound,
 		LockKeyhole,
 		MessageCircle,
 		MessageCircleMore,
@@ -193,6 +194,13 @@
 								collapsible: false
 							},
 							{
+								id: 'model-access-policies',
+								href: '/admin/model-access-policies',
+								icon: LockKeyhole,
+								label: 'Model Access Policies',
+								collapsible: false
+							},
+							{
 								id: 'chat',
 								href: '/chat',
 								icon: MessageCircle,
@@ -238,6 +246,14 @@
 								href: '/admin/auth-providers',
 								icon: LockKeyhole,
 								label: 'Auth Providers',
+								disabled: !version.current.authEnabled,
+								collapsible: false
+							},
+							{
+								id: 'api-keys',
+								href: '/admin/api-keys',
+								icon: KeyRound,
+								label: 'API Keys',
 								disabled: !version.current.authEnabled,
 								collapsible: false
 							}

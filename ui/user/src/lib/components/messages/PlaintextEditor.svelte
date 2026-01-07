@@ -16,6 +16,7 @@
 		class?: string;
 		value?: string;
 		placeholder?: string | Snippet;
+		disabled?: boolean;
 		onfocus?: () => void;
 		onkeydown?: (event: KeyboardEvent) => void;
 	};
@@ -25,6 +26,7 @@
 	let {
 		value = $bindable(),
 		placeholder,
+		disabled = false,
 		class: klass = '',
 		onkeydown,
 		onfocus,
@@ -137,6 +139,7 @@
 <div
 	class={twMerge(
 		'plaintext-editor text-md relative w-full flex-1 grow resize-none p-2 leading-8 outline-none',
+		disabled && 'pointer-events-none cursor-not-allowed opacity-50',
 		klass
 	)}
 >
@@ -158,7 +161,8 @@
 				});
 		}}
 		role="textbox"
-		tabindex="0"
+		tabindex={disabled ? -1 : 0}
+		aria-disabled={disabled}
 		id="chat"
 		class="w-full flex-1 grow resize-none outline-0"
 		{onkeydown}

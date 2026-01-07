@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { debounce } from 'es-toolkit';
-	import { LoaderCircle, Group as GroupIcon, ChevronLeft } from 'lucide-svelte';
+	import { LoaderCircle, ChevronLeft } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { Role, type OrgGroup, type GroupRoleAssignment } from '$lib/services/admin/types';
 	import { responsive } from '$lib/stores/index.js';
@@ -75,7 +75,7 @@
 	function handleGroupSelect(group: OrgGroup) {
 		selectedGroup = group;
 		// Load existing assignment if available
-		const existingAssignment = groupRoleMap[group.name];
+		const existingAssignment = groupRoleMap[group.id];
 		if (existingAssignment) {
 			const role = existingAssignment.role || 0;
 			draftRoleId = role & ~Role.AUDITOR;
@@ -97,13 +97,13 @@
 		const result: GroupAssignment = {
 			group: selectedGroup,
 			assignment: {
-				groupName: selectedGroup.name,
+				groupName: selectedGroup.id,
 				role
 			}
 		};
 
 		// Check if group already had auditor privilege
-		const existingAssignment = groupRoleMap[selectedGroup.name];
+		const existingAssignment = groupRoleMap[selectedGroup.id];
 		const hadAuditorBefore = existingAssignment
 			? hasAuditorFlag(existingAssignment.role || 0)
 			: false;
@@ -129,8 +129,10 @@
 </script>
 
 {#snippet groupList()}
-	<div class="flex flex-col gap-4 overflow-y-auto pr-2">
-		<Search value={searchQuery} onChange={updateSearch} />
+	<div class="flex h-full flex-col gap-4 overflow-y-auto px-1 pr-2">
+		<div class="bg-background dark:bg-surface2 sticky top-0 w-full pt-1">
+			<Search value={searchQuery} onChange={updateSearch} />
+		</div>
 
 		<div class="flex flex-col gap-2">
 			{#if availableGroups.length === 0}
@@ -139,8 +141,8 @@
 				</p>
 			{:else}
 				{#each availableGroups as group (group.id)}
-					{@const hasAssignment = !!groupRoleMap[group.name]}
-					{@const assignedRole = groupRoleMap[group.name]?.role}
+					{@const hasAssignment = !!groupRoleMap[group.id]}
+					{@const assignedRole = groupRoleMap[group.id]?.role}
 					<button
 						onclick={() => handleGroupSelect(group)}
 						class={twMerge(
@@ -149,15 +151,6 @@
 						)}
 					>
 						<div class="flex flex-1 items-center gap-3">
-							{#if group.iconURL}
-								<img src={group.iconURL} alt={group.name} class="size-8 rounded-full" />
-							{:else}
-								<div
-									class="dark:bg-surface3 flex size-8 items-center justify-center rounded-full bg-gray-200"
-								>
-									<GroupIcon class="size-4" />
-								</div>
-							{/if}
 							<div class="flex flex-1 flex-col">
 								<span class="font-medium">{group.name}</span>
 								{#if hasAssignment && assignedRole}
@@ -173,19 +166,14 @@
 {/snippet}
 
 {#snippet roleForm()}
-	<div class="flex flex-col gap-4 overflow-y-auto pr-2">
+	<div class="flex h-full flex-col gap-4 overflow-y-auto pr-2">
 		{#if selectedGroup}
 			<div class="dark:bg-surface1 flex flex-col gap-1 rounded-lg bg-gray-50 p-3">
 				<div class="text-md flex items-center gap-2">
-					{#if selectedGroup.iconURL}
-						<img src={selectedGroup.iconURL} alt={selectedGroup.name} class="size-6 rounded-full" />
-					{:else}
-						<GroupIcon class="size-5" />
-					{/if}
 					<span class="font-semibold">{selectedGroup.name}</span>
 				</div>
 				<div class="text-on-surface1 text-xs">
-					{#if groupRoleMap[selectedGroup.name]}
+					{#if groupRoleMap[selectedGroup.id]}
 						Update the role for this group
 					{:else}
 						Select a role to assign to this group
@@ -213,7 +201,7 @@
 			'flex max-h-[90svh] max-w-[94svw] flex-col overflow-visible md:min-h-[768px]',
 			!isSmallScreen ? 'w-full max-w-4xl' : 'w-full'
 		)}
-		classes={{ content: 'p-4 overflow-hidden', header: 'mb-4 flex', title: 'flex flex-1' }}
+		classes={{ content: 'p-4 overflow-hidden flex-1', header: 'mb-4 flex', title: 'flex flex-1' }}
 	>
 		{#snippet titleContent()}
 			{#if isSmallScreen && selectedGroup}
@@ -229,7 +217,7 @@
 			{/if}
 
 			<span class="flex-1 text-center text-lg font-semibold md:text-start md:text-xl">
-				{#if selectedGroup && groupRoleMap[selectedGroup.name]}
+				{#if selectedGroup && groupRoleMap[selectedGroup.id]}
 					Update Group Role
 				{:else}
 					Assign Group Role
@@ -272,7 +260,7 @@
 			>
 				{#if loading}
 					<LoaderCircle class="size-4 animate-spin" />
-				{:else if selectedGroup && groupRoleMap[selectedGroup.name]}
+				{:else if selectedGroup && groupRoleMap[selectedGroup.id]}
 					Update Role
 				{:else}
 					Assign Role

@@ -1,8 +1,14 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import popover from '$lib/actions/popover.svelte';
+	import CalendarGrid, {
+		months,
+		isToday,
+		isCurrentMonth,
+		isDateDisabled
+	} from './CalendarGrid.svelte';
 	import { differenceInDays, endOfDay, isBefore, isSameDay, startOfDay } from 'date-fns';
-	import { ChevronLeft, ChevronRight, CalendarCog } from 'lucide-svelte';
+	import { CalendarCog } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import TimeInput from './TimeInput.svelte';
 	import { slide } from 'svelte/transition';
@@ -55,50 +61,6 @@
 
 	let currentDate = $state(new Date());
 
-	// Local state for the date range being edited
-	// let localValue = $derived<DateRange>({ start, end });
-
-	// Get current month's first day and last day
-	let firstDayOfMonth = $derived(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
-	let startOfWeek = $derived(
-		new Date(
-			firstDayOfMonth.getFullYear(),
-			firstDayOfMonth.getMonth(),
-			firstDayOfMonth.getDate() - firstDayOfMonth.getDay()
-		)
-	);
-
-	function generateCalendarDays(): Date[] {
-		const days: Date[] = [];
-
-		// Generate 6 weeks of days (42 days)
-		for (let i = 0; i < 42; i++) {
-			days.push(
-				new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate() + i)
-			);
-		}
-
-		return days;
-	}
-
-	let calendarDays = $derived(generateCalendarDays());
-
-	const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-	const months = [
-		'January',
-		'February',
-		'March',
-		'April',
-		'May',
-		'June',
-		'July',
-		'August',
-		'September',
-		'October',
-		'November',
-		'December'
-	];
-
 	function formatDate(date: Date): string {
 		if (!date) return '';
 
@@ -134,26 +96,7 @@
 		return end ? date.toDateString() === end.toDateString() : false;
 	}
 
-	function isToday(date: Date): boolean {
-		const today = new Date();
-		return date.toDateString() === today.toDateString();
-	}
-
-	function isCurrentMonth(date: Date): boolean {
-		return (
-			date.getMonth() === currentDate.getMonth() && date.getFullYear() === currentDate.getFullYear()
-		);
-	}
-
-	function isDisabled(date: Date): boolean {
-		if (minDate && date < minDate) return true;
-		if (maxDate && date > maxDate) return true;
-		return false;
-	}
-
 	function handleDateClick(date: Date) {
-		if (isDisabled(date)) return;
-
 		if (!start || (start && isSameDay(date, start)) || (end && isSameDay(date, end))) {
 			// If clicked date is both start or end, collapse the range to that date
 			start = startOfDay(date);
@@ -169,14 +112,6 @@
 		}
 	}
 
-	function previousMonth() {
-		currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
-	}
-
-	function nextMonth() {
-		currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
-	}
-
 	function handleApply() {
 		onChange({ start, end });
 
@@ -185,7 +120,6 @@
 
 	function handleCancel() {
 		// Reset local value to initial value
-		// localValue = { ...initialValue };
 		start = initialValue.start;
 		end = initialValue.end;
 
@@ -196,7 +130,7 @@
 		const baseClasses =
 			'w-8 h-8 flex items-center justify-center text-sm rounded-md transition-colors';
 
-		if (isDisabled(date)) {
+		if (isDateDisabled(date, minDate, maxDate)) {
 			return twMerge(baseClasses, 'text-on-surface1 cursor-default');
 		}
 
@@ -212,7 +146,7 @@
 			return twMerge(baseClasses, 'border border-primary text-primary bg-primary/10');
 		}
 
-		if (!isCurrentMonth(date)) {
+		if (!isCurrentMonth(date, currentDate)) {
 			return twMerge(baseClasses, 'text-on-surface1');
 		}
 
@@ -309,90 +243,57 @@
 				<div>Select Export Time Range</div>
 			</div>
 
-			<!-- Calendar Header -->
-			<div class={twMerge('mb-4 flex items-center justify-between', classes?.header)}>
-				<button type="button" class="hover:bg-surface3 rounded p-1" onclick={previousMonth}>
-					<ChevronLeft class="size-4" />
-				</button>
-
-				<h3 class="">
-					{months[currentDate.getMonth()]}
-					{currentDate.getFullYear()}
-				</h3>
-
-				<button type="button" class="hover:bg-surface3 rounded p-1" onclick={nextMonth}>
-					<ChevronRight class="size-4" />
-				</button>
-			</div>
-
-			<!-- Weekday Headers -->
-			<div class="mb-2 grid grid-cols-7 gap-1">
-				{#each weekdays as day, i (i)}
+			<CalendarGrid
+				bind:currentDate
+				{minDate}
+				{maxDate}
+				{getDayClass}
+				onDateClick={handleDateClick}
+			>
+				{#if (start && !end) || (start && end && differenceInDays(end, start) <= 20)}
+					<!-- Render Time pickers -->
 					<div
-						class="text-on-surface1 flex h-8 w-8 items-center justify-center text-xs font-medium"
+						class="mt-4 flex flex-col gap-2"
+						in:slide={{ duration: 200 }}
+						out:slide={{ duration: 100 }}
 					>
-						{day}
+						<div class="flex flex-col gap-1">
+							<div class="text-on-surface1 text-xs">{start.toDateString()}</div>
+							<TimeInput
+								date={start}
+								onChange={(date) => {
+									start = date;
+								}}
+							/>
+						</div>
+
+						<div class="flex flex-col gap-1">
+							<!-- In case start and end dates in the same day do not render the label -->
+							{#if !isSameDay(end ?? start, start)}
+								<div
+									class="text-on-surface1 text-xs"
+									in:slide={{ duration: 200 }}
+									out:slide={{ duration: 100 }}
+								>
+									{end?.toDateString()}
+								</div>
+							{/if}
+
+							<TimeInput
+								date={end ?? endOfDay(start)}
+								onChange={(date) => {
+									end = date;
+								}}
+							/>
+						</div>
 					</div>
-				{/each}
-			</div>
+				{/if}
 
-			<!-- Calendar Grid -->
-			<div class={twMerge('grid grid-cols-7 gap-1', classes?.grid)}>
-				{#each calendarDays as date (date.toISOString())}
-					<button
-						type="button"
-						class={getDayClass(date)}
-						onclick={() => handleDateClick(date)}
-						disabled={isDisabled(date)}
-					>
-						{date.getDate()}
-					</button>
-				{/each}
-			</div>
-
-			{#if (start && !end) || (start && end && differenceInDays(end, start) <= 20)}
-				<!-- Render Time pickers -->
-				<div
-					class="mt-4 flex flex-col gap-2"
-					in:slide={{ duration: 200 }}
-					out:slide={{ duration: 100 }}
-				>
-					<div class="flex flex-col gap-1">
-						<div class="text-on-surface1 text-xs">{start.toDateString()}</div>
-						<TimeInput
-							date={start}
-							onChange={(date) => {
-								start = date;
-							}}
-						/>
-					</div>
-
-					<div class="flex flex-col gap-1">
-						<!-- In case start and end dates in the same day do not render the label -->
-						{#if !isSameDay(end ?? start, start)}
-							<div
-								class="text-on-surface1 text-xs"
-								in:slide={{ duration: 200 }}
-								out:slide={{ duration: 100 }}
-							>
-								{end?.toDateString()}
-							</div>
-						{/if}
-
-						<TimeInput
-							date={end ?? endOfDay(start)}
-							onChange={(date) => {
-								end = date;
-							}}
-						/>
-					</div>
+				<div class="mt-4 flex justify-end gap-2">
+					<button type="button" class="button text-xs" onclick={handleCancel}>Cancel</button>
+					<button type="button" class="button-primary text-xs" onclick={handleApply}>Apply</button>
 				</div>
-			{/if}
-
-			<div class="mt-4 flex justify-end gap-2">
-				<button type="button" class="button text-xs" onclick={handleCancel}>Cancel</button>
-				<button type="button" class="button-primary text-xs" onclick={handleApply}>Apply</button>
-			</div>
+			</CalendarGrid>
 		</div>
 	{/key}
 </div>

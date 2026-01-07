@@ -3,9 +3,11 @@ package server
 import (
 	"context"
 
+	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
+	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 )
 
 type Options struct {
@@ -22,17 +24,21 @@ type Server struct {
 	baseURL, uiURL                     string
 	tokenService                       *persistent.TokenService
 	dispatcher                         *dispatcher.Dispatcher
+	acrHelper                          *accesscontrolrule.Helper
+	mapHelper                          *modelaccesspolicy.Helper
 	dailyUserTokenPromptTokenLimit     int
 	dailyUserTokenCompletionTokenLimit int
 }
 
-func New(ctx context.Context, db *db.DB, tokenService *persistent.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, opts Options) (*Server, error) {
+func New(ctx context.Context, db *db.DB, tokenService *persistent.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, acrHelper *accesscontrolrule.Helper, mapHelper *modelaccesspolicy.Helper, opts Options) (*Server, error) {
 	s := &Server{
 		db:                                 db,
 		baseURL:                            opts.Hostname,
 		uiURL:                              opts.UIHostname,
 		tokenService:                       tokenService,
 		dispatcher:                         modelProviderDispatcher,
+		acrHelper:                          acrHelper,
+		mapHelper:                          mapHelper,
 		dailyUserTokenPromptTokenLimit:     opts.DailyUserPromptTokenLimit,
 		dailyUserTokenCompletionTokenLimit: opts.DailyUserCompletionTokenLimit,
 	}

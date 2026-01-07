@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpservercatalogentry"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpsession"
+	"github.com/obot-platform/obot/pkg/controller/handlers/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthclients"
 	"github.com/obot-platform/obot/pkg/controller/handlers/poweruserworkspace"
@@ -131,6 +132,8 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.WorkflowExecution{}).HandlerFunc(workflowExecution.ReassignThread)
 
 	// Agents
+	root.Type(&v1.Agent{}).HandlerFunc(modelaccesspolicy.MigrateAgentAllowedModels)
+	root.Type(&v1.Agent{}).HandlerFunc(modelaccesspolicy.MigrateAgentDefaultModel)
 	root.Type(&v1.Agent{}).HandlerFunc(agents.CreateWorkspaceAndKnowledgeSet)
 	root.Type(&v1.Agent{}).HandlerFunc(agents.BackPopulateAuthStatus)
 	root.Type(&v1.Agent{}).HandlerFunc(alias.AssignAlias)
@@ -255,6 +258,9 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.AccessControlRule{}).FinalizeFunc(v1.AccessControlRuleFinalizer, func(router.Request, router.Response) error {
 		return nil
 	})
+
+	// ModelAccessPolicys
+	root.Type(&v1.ModelAccessPolicy{}).HandlerFunc(modelaccesspolicy.PruneModels)
 
 	// ProjectInvitations
 	root.Type(&v1.ProjectInvitation{}).HandlerFunc(projectinvitation.SetRespondedTime)
