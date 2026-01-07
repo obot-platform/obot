@@ -31,6 +31,8 @@
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
 	import { getUserDisplayName } from '$lib/utils';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
+	import profile from '$lib/stores/profile.svelte';
+	import { Group } from '$lib/services';
 
 	interface Props {
 		mcpId?: string | null;
@@ -515,33 +517,35 @@
 			</div>
 		</div>
 	</div>
-	<div class="mt-4 flex justify-end gap-2">
-		<DotDotDot class="button-primary w-fit text-sm" placement="bottom">
-			{#snippet icon()}
-				<span class="flex items-center justify-center gap-1">
-					<Plus class="size-4" /> Create Export
-				</span>
-			{/snippet}
-			<div class="default-dialog flex min-w-max flex-col p-2">
-				<button class="menu-button" onclick={() => handleExportRequest('export')}>
-					Create One-time Export
-				</button>
-				<button class="menu-button" onclick={() => handleExportRequest('scheduled')}>
-					Create Export Schedule
-				</button>
-			</div>
-		</DotDotDot>
+	{#if profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.OWNER)}
+		<div class="mt-4 flex justify-end gap-2">
+			<DotDotDot class="button-primary w-fit text-sm" placement="bottom">
+				{#snippet icon()}
+					<span class="flex items-center justify-center gap-1">
+						<Plus class="size-4" /> Create Export
+					</span>
+				{/snippet}
+				<div class="default-dialog flex min-w-max flex-col p-2">
+					<button class="menu-button" onclick={() => handleExportRequest('export')}>
+						Create One-time Export
+					</button>
+					<button class="menu-button" onclick={() => handleExportRequest('scheduled')}>
+						Create Export Schedule
+					</button>
+				</div>
+			</DotDotDot>
 
-		<button
-			class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button bg-background flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent shadow-sm"
-			onclick={() => {
-				goto('/admin/audit-logs/exports');
-			}}
-		>
-			<Settings class="size-4" />
-			Manage Exports
-		</button>
-	</div>
+			<button
+				class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button bg-background flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent shadow-sm"
+				onclick={() => {
+					goto('/admin/audit-logs/exports');
+				}}
+			>
+				<Settings class="size-4" />
+				Manage Exports
+			</button>
+		</div>
+	{/if}
 </div>
 
 {@render filters()}
