@@ -56,7 +56,13 @@ The "Set Default Models" feature allows you to configure default models for vari
 - **Image Generation** - For creating images
 - **Vision** - For image analysis and processing
 
-These defaults ensure that users have pre-selected models for the tools and other functionality throughout the platform. After selecting the desired defaults, click "Save Changes" to confirm your configurations.
+These defaults determine which specific model is used when a [Model Access Policy](../functionality/model-access-policies) grants access to a default model alias (such as "Language Model (Chat)"). When you change a default here, any user with access to that alias automatically gains access to the new model.
+
+After selecting the desired defaults, click "Save Changes" to confirm your configurations.
+
+:::note
+Setting a default model here does not automatically grant users access to it. Users must be included in a Model Access Policy that grants access to the corresponding alias. See [Model Access Policies](../functionality/model-access-policies) for details.
+:::
 
 ### Instructions for configuring specific providers
 
