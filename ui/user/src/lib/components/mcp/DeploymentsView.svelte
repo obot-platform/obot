@@ -67,6 +67,13 @@
 		onlyMyServers?: boolean;
 	}
 
+	const SERVER_UPGRADES_AVAILABLE = {
+		NONE: 'Up to date',
+		BOTH: 'Server & Scheduling Updates',
+		SERVER: 'New Server Config Update',
+		K8S: 'Scheduling Update'
+	};
+
 	let {
 		entity = 'catalog',
 		usersMap = new Map(),
@@ -178,22 +185,28 @@
 					!deployment.compositeName;
 
 				let updateStatus = deployment.deploymentStatus || 'Unknown';
+				let updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
 
 				if (
 					!needsUpdate &&
 					!needsK8sUpdate &&
 					deployment.deploymentStatus?.toLocaleLowerCase().includes('unavailable')
 				) {
-					updateStatus = 'Up to date';
+					updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
+					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
 				} else if (deployment.deploymentStatus?.toLocaleLowerCase().includes('available')) {
 					if (needsUpdate && needsK8sUpdate) {
-						updateStatus = 'Upgrades Available';
+						updateStatus = SERVER_UPGRADES_AVAILABLE.BOTH;
+						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER, SERVER_UPGRADES_AVAILABLE.K8S];
 					} else if (needsUpdate) {
-						updateStatus = 'Server Upgrade Available';
+						updateStatus = SERVER_UPGRADES_AVAILABLE.SERVER;
+						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER];
 					} else if (needsK8sUpdate) {
-						updateStatus = 'Kubernetes Upgrade Available';
+						updateStatus = SERVER_UPGRADES_AVAILABLE.K8S;
+						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.K8S];
 					} else {
-						updateStatus = 'Up to date';
+						updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
+						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
 					}
 				}
 
@@ -214,7 +227,8 @@
 					isMyServer:
 						(deployment.catalogEntryID && deployment.userID === profile.current.id) ||
 						(powerUserID === profile.current.id && powerUserWorkspaceID === id),
-					updateStatus
+					updateStatus,
+					updatesAvailable
 				};
 			})
 			.filter((d) => !d.disabled && (onlyMyServers ? d.isMyServer : true));
@@ -456,14 +470,14 @@
 			bind:this={tableRef}
 			data={tableData}
 			fields={entity === 'workspace'
-				? ['displayName', 'type', 'updateStatus', 'created']
-				: ['displayName', 'type', 'updateStatus', 'userName', 'registry', 'created']}
-			filterable={['displayName', 'type', 'updateStatus', 'userName', 'registry']}
+				? ['displayName', 'type', 'updatesAvailable', 'created']
+				: ['displayName', 'type', 'updatesAvailable', 'userName', 'registry', 'created']}
+			filterable={['displayName', 'type', 'updatesAvailable', 'userName', 'registry']}
 			{filters}
 			headers={[
 				{ title: 'Name', property: 'displayName' },
 				{ title: 'User', property: 'userName' },
-				{ title: 'Status', property: 'updateStatus' }
+				{ title: 'Status', property: 'updatesAvailable' }
 			]}
 			onClickRow={(d, isCtrlClick) => {
 				setLastVisitedMcpServer(d);
@@ -476,7 +490,7 @@
 			{onClearAllFilters}
 			{onSort}
 			{initSort}
-			sortable={['displayName', 'type', 'updateStatus', 'userName', 'registry', 'created']}
+			sortable={['displayName', 'type', 'updatesAvailable', 'userName', 'registry', 'created']}
 			noDataMessage="No catalog servers added."
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none',
@@ -485,8 +499,21 @@
 			sectionedBy="isMyServer"
 			sectionPrimaryTitle="My Deployments"
 			sectionSecondaryTitle="All Deployments"
-			setRowClasses={(d) =>
-				d.needsUpdate ? 'bg-primary/10' : requiresUserUpdate(d) ? 'bg-yellow-500/10' : ''}
+			setRowClasses={(d) => {
+				if (d.needsUpdate && d.needsK8sUpdate) {
+					return 'bg-orange-500/5 hover:bg-orange-500/10 border-orange-500/20';
+				}
+
+				if (d.needsUpdate) {
+					return 'bg-primary/5 hover:bg-primary/10 border-primary/20';
+				}
+
+				if (d.needsK8sUpdate) {
+					return 'bg-yellow-500/5 hover:bg-yellow-500/10 border-yellow-500/20';
+				}
+
+				return '';
+			}}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
@@ -509,28 +536,8 @@
 					</div>
 				{:else if property === 'created'}
 					{formatTimeAgo(d.created).relativeTime}
-				{:else if property === 'updateStatus'}
-					{@const needsUpdate = d.needsUpdate && !d.compositeName}
-					{@const needsK8sUpdate =
-						version.current.engine === 'kubernetes' && d.needsK8sUpdate && !d.compositeName}
-
-					<div class="flex items-center gap-2">
-						{d.updateStatus || '--'}
-						{#if needsUpdate || needsK8sUpdate}
-							<div class="flex gap-1">
-								{#if needsUpdate}
-									<div use:tooltip={'Upgrade available'}>
-										<CircleFadingArrowUp class="text-primary size-4" />
-									</div>
-								{/if}
-								{#if needsK8sUpdate}
-									<div use:tooltip={'Kubernetes Upgrade available'}>
-										<CircleFadingArrowUp class="size-4 text-yellow-500" />
-									</div>
-								{/if}
-							</div>
-						{/if}
-					</div>
+				{:else if property === 'updatesAvailable'}
+					{d.updateStatus || '--'}
 				{:else}
 					{d[property as keyof typeof d]}
 				{/if}
