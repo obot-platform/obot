@@ -336,6 +336,12 @@
 
 	function getFilterDisplayValue(key: string, value: string | number) {
 		if (key === 'user_id') {
+			if (typeof value === 'string') {
+				const array = value.split(',').map((v) => v.trim());
+
+				return array.map((v) => getUserDisplayName(users, v)).join(', ');
+			}
+
 			return getUserDisplayName(users, value + '');
 		}
 
