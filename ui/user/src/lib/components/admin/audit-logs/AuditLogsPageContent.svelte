@@ -625,7 +625,7 @@
 		{emptyContent}
 	></AuditLogsTable>
 {:else if !showLoadingSpinner}
-	<div class="w-md mt-12 flex max-w-full flex-col items-center gap-4 self-center text-center">
+	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
 		<Captions class="text-on-surface1 size-24 opacity-50" />
 		<h4 class="text-on-surface1 text-lg font-semibold">No audit logs</h4>
 		<p class="text-on-surface text-sm font-light">
@@ -639,7 +639,7 @@
 	bind:this={rightSidebar}
 	use:clickOutside={[handleRightSidebarClose, true]}
 	use:dialogAnimation={{ type: 'drawer' }}
-	class="dark:border-surface1 dark:bg-surface1 bg-background fixed! top-0! right-0! bottom-0! left-auto! outline-none! z-40 h-dvh w-auto max-w-none rounded-none border-0 shadow-lg"
+	class="dark:border-surface1 dark:bg-surface1 bg-background fixed! top-0! right-0! bottom-0! left-auto! z-40 h-dvh w-auto max-w-none rounded-none border-0 shadow-lg outline-none!"
 >
 	{#if selectedAuditLog}
 		<AuditLogDetails onClose={handleRightSidebarClose} auditLog={selectedAuditLog} />
