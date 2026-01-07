@@ -198,7 +198,7 @@
 		bind:this={dialog}
 		onClose={handleClose}
 		class={twMerge(
-			'flex max-h-[90svh] max-w-[94svw] flex-col overflow-visible md:min-h-[768px]',
+			'flex max-h-[90svh] max-w-[94svw] flex-col overflow-visible md:h-[768px]',
 			!isSmallScreen ? 'w-full max-w-4xl' : 'w-full'
 		)}
 		classes={{ content: 'p-4 overflow-hidden flex-1', header: 'mb-4 flex', title: 'flex flex-1' }}
