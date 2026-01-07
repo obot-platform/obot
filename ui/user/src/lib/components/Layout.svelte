@@ -374,7 +374,7 @@
 	<div class="relative flex w-full grow">
 		{#if layout.sidebarOpen && !hideSidebar}
 			<div
-				class="bg-background flex max-h-dvh w-dvh min-w-dvw flex-shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[300px]"
+				class="bg-background flex max-h-dvh w-full min-w-dvw flex-shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[300px]"
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
