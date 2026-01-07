@@ -24,6 +24,7 @@
 	import { goto } from '$lib/url';
 	import PageLoading from '../PageLoading.svelte';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 
 	let versionDialog = $state<HTMLDialogElement>();
 	let showChatLink = $state(false);
@@ -191,7 +192,7 @@
 					><Book class="size-4" />Docs</a
 				>
 			{/if}
-			{#if profile.current.email}
+			{#if profile.current.email && page.url.pathname !== '/profile'}
 				<a href={resolve('/profile')} role="menuitem" class="link"
 					><User class="size-4" /> My Account</a
 				>
