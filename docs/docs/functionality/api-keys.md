@@ -21,6 +21,7 @@ API keys use the format `ok1-<userId>-<keyId>-<secret>` and are passed as Bearer
 
 1. Click your profile icon in the top-right corner of the navigation bar
 2. Select **API Keys** from the dropdown menu
+   - Note: if you are an admin, you can find the API Keys in the sidebar under the User Management section, rather than in the profile dropdown.
 3. Click **Create API Key**
 4. Fill in the required information:
    - **Name** (required): A descriptive name to identify the key's purpose
