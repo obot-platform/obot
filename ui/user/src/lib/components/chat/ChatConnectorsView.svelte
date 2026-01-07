@@ -70,9 +70,11 @@
 	);
 
 	let filteredTableData = $derived.by(() => {
-		const sorted = tableData.sort((a, b) => {
-			return a.name.localeCompare(b.name);
-		});
+		const sorted = tableData
+			.filter((d) => d.data.canConnect !== false)
+			.sort((a, b) => {
+				return a.name.localeCompare(b.name);
+			});
 		return query
 			? sorted.filter(
 					(d) =>

@@ -154,10 +154,6 @@ func (h *Helper) GetAccessControlRulesForSelectorInCatalog(namespace, selector, 
 // UserHasAccessToMCPServerInCatalog checks if a user has access to a specific MCP server through AccessControlRules
 // This method now requires the catalog ID to ensure proper scoping
 func (h *Helper) UserHasAccessToMCPServerInCatalog(user kuser.Info, serverName, catalogID string) (bool, error) {
-	if userIsAdminOrOwner(user) {
-		return true, nil
-	}
-
 	// See if there is a selector that this user is included on in the specified catalog.
 	selectorRules, err := h.GetAccessControlRulesForSelectorInCatalog(system.DefaultNamespace, "*", catalogID)
 	if err != nil {
@@ -218,10 +214,6 @@ func (h *Helper) UserHasAccessToMCPServerInCatalog(user kuser.Info, serverName, 
 // UserHasAccessToMCPServerCatalogEntryInCatalog checks if a user has access to a specific catalog entry through AccessControlRules
 // This method now requires the catalog ID to ensure proper scoping
 func (h *Helper) UserHasAccessToMCPServerCatalogEntryInCatalog(user kuser.Info, entryName, catalogID string) (bool, error) {
-	if userIsAdminOrOwner(user) {
-		return true, nil
-	}
-
 	// See if there is a selector that this user is included on in the specified catalog.
 	selectorRules, err := h.GetAccessControlRulesForSelectorInCatalog(system.DefaultNamespace, "*", catalogID)
 	if err != nil {
@@ -409,10 +401,6 @@ func (h *Helper) GetAccessControlRulesForSelectorInWorkspace(namespace, selector
 
 // UserHasAccessToMCPServerInWorkspace checks if a user has access to a specific MCP server through workspace-scoped AccessControlRules
 func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName, workspaceID, serverUserID string) (bool, error) {
-	if userIsAdminOrOwner(user) {
-		return true, nil
-	}
-
 	var (
 		userID = user.GetUID()
 		groups = authGroupSet(user)
@@ -478,10 +466,6 @@ func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName
 
 // UserHasAccessToMCPServerCatalogEntryInWorkspace checks if a user has access to a specific catalog entry through workspace-scoped AccessControlRules
 func (h *Helper) UserHasAccessToMCPServerCatalogEntryInWorkspace(ctx context.Context, user kuser.Info, entryName, workspaceID string) (bool, error) {
-	if userIsAdminOrOwner(user) {
-		return true, nil
-	}
-
 	// See if there is a selector that this user is included on in the specified workspace.
 	selectorRules, err := h.GetAccessControlRulesForSelectorInWorkspace(system.DefaultNamespace, "*", workspaceID)
 	if err != nil {
@@ -557,15 +541,4 @@ func authGroupSet(user kuser.Info) map[string]struct{} {
 		set[group] = struct{}{}
 	}
 	return set
-}
-
-func userIsAdminOrOwner(user kuser.Info) bool {
-	for _, group := range user.GetGroups() {
-		switch group {
-		case types.GroupAdmin, types.GroupOwner:
-			return true
-		}
-	}
-
-	return false
 }
