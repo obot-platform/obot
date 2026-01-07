@@ -3,7 +3,7 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { AdminService, type LaunchServerType } from '$lib/services';
+	import { AdminService, Group, type LaunchServerType } from '$lib/services';
 	import type { MCPCatalog, OrgUser } from '$lib/services/admin/types';
 	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
@@ -39,6 +39,8 @@
 	let view = $state<View>((page.url.searchParams.get('view') as View) || 'registry');
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 
+	const { data } = $props();
+	const { workspaceId } = $derived(data);
 	const query = $derived(page.url.searchParams.get('query') || '');
 
 	type LocalStorageViewQuery = Record<View, string>;
@@ -117,6 +119,9 @@
 	let syncInterval = $state<ReturnType<typeof setInterval>>();
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let canCreateServer = $derived(
+		profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.POWERUSER)
+	);
 
 	function selectServerType(type: LaunchServerType, updateUrl = true) {
 		selectedServerType = type;
@@ -236,17 +241,17 @@
 		{/if}
 	</div>
 	{#snippet rightNavActions()}
-		{#if !isAdminReadonly}
-			{#if !showServerForm}
-				<button class="button flex items-center gap-1 text-sm" onclick={sync}>
-					{#if syncing}
-						<LoaderCircle class="size-4 animate-spin" /> Syncing...
-					{:else}
-						<RefreshCcw class="size-4" />
-						Sync
-					{/if}
-				</button>
-			{/if}
+		{#if !isAdminReadonly && !showServerForm}
+			<button class="button flex items-center gap-1 text-sm" onclick={sync}>
+				{#if syncing}
+					<LoaderCircle class="size-4 animate-spin" /> Syncing...
+				{:else}
+					<RefreshCcw class="size-4" />
+					Sync
+				{/if}
+			</button>
+		{/if}
+		{#if canCreateServer}
 			{@render addServerButton()}
 		{/if}
 	{/snippet}
@@ -361,23 +366,34 @@
 			Click the button below to get started.
 		</p>
 
-		{@render addServerButton()}
+		{#if canCreateServer}
+			{@render addServerButton()}
+		{/if}
 	</div>
 {/snippet}
 
 {#snippet configureEntryScreen()}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		<McpServerEntryForm
+			entity={profile.current.isAdmin?.() ? 'catalog' : 'workspace'}
 			type={selectedServerType}
-			id={defaultCatalogId}
+			id={profile.current.isAdmin?.() ? defaultCatalogId : (workspaceId ?? '')}
 			onCancel={() => {
 				showServerForm = false;
 			}}
 			onSubmit={async (id, type) => {
-				if (type === 'single' || type === 'remote' || type === 'composite') {
-					goto(resolve(`/admin/mcp-servers/c/${id}?launch=true`));
+				if (profile.current.isAdmin?.()) {
+					if (type === 'single' || type === 'remote' || type === 'composite') {
+						goto(resolve(`/admin/mcp-servers/c/${id}?launch=true`));
+					} else {
+						goto(resolve(`/admin/mcp-servers/s/${id}?launch=true`));
+					}
 				} else {
-					goto(resolve(`/admin/mcp-servers/s/${id}?launch=true`));
+					if (type === 'single' || type === 'remote' || type === 'composite') {
+						goto(resolve(`/admin/mcp-servers/w/${workspaceId}/c/${id}?launch=true`));
+					} else {
+						goto(resolve(`/admin/mcp-servers/w/${workspaceId}/s/${id}?launch=true`));
+					}
 				}
 			}}
 		/>
