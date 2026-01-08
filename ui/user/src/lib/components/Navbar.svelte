@@ -13,6 +13,7 @@
 		unauthorized?: boolean;
 		hideProfileButton?: boolean;
 		chat?: boolean;
+		workflow?: boolean;
 	}
 
 	let {
@@ -22,7 +23,8 @@
 		class: klass,
 		unauthorized,
 		hideProfileButton,
-		chat
+		chat,
+		workflow
 	}: Props = $props();
 </script>
 
@@ -31,7 +33,7 @@
 		{#if leftContent}
 			{@render leftContent()}
 		{:else}
-			<BetaLogo {chat} />
+			<BetaLogo {chat} {workflow} />
 		{/if}
 		<div class="flex grow items-center justify-center">
 			{#if centerContent}

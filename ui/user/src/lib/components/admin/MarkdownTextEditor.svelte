@@ -9,7 +9,7 @@
 	import { Bold, Italic, Strikethrough } from 'lucide-svelte';
 	import { TooltipProvider } from '@milkdown/plugin-tooltip';
 	import { tooltipFactory } from '@milkdown/plugin-tooltip';
-	import { type Ctx } from '@milkdown/ctx';
+	import { type Ctx, type MilkdownPlugin } from '@milkdown/ctx';
 	import { toggleStrongCommand, toggleEmphasisCommand } from '@milkdown/kit/preset/commonmark';
 	import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm';
 
@@ -19,9 +19,19 @@
 		onUpdate?: (markdown: string) => void;
 		onCancel?: () => void;
 		initialFocus?: boolean;
+		placeholder?: string;
+		plugins?: MilkdownPlugin[];
 	}
 
-	let { value = $bindable(''), class: klass, onUpdate, onCancel, initialFocus }: Props = $props();
+	let {
+		value = $bindable(''),
+		class: klass,
+		onUpdate,
+		onCancel,
+		initialFocus,
+		placeholder = 'Add content...',
+		plugins = []
+	}: Props = $props();
 
 	let ttDiv: HTMLDivElement | undefined = $state();
 	let provider: TooltipProvider | undefined = $derived.by(() => {
@@ -75,11 +85,12 @@
 			root: node,
 			defaultValue: value,
 			features: {
-				[Crepe.Feature.Toolbar]: false
+				[Crepe.Feature.Toolbar]: false,
+				[Crepe.Feature.Latex]: false
 			}
 		});
 
-		crepe.editor
+		const editorConfig = crepe.editor
 			.config((ctx) => {
 				editorCtx = ctx;
 
@@ -103,6 +114,11 @@
 			})
 			.use(listener)
 			.use(tooltip);
+
+		// Apply any additional plugins
+		for (const plugin of plugins) {
+			editorConfig.use(plugin);
+		}
 
 		crepe.create();
 
@@ -130,6 +146,7 @@
 
 <div
 	class={klass}
+	style="--placeholder: '{placeholder}'"
 	use:editor
 	onfocusout={() => {
 		if (value !== lastSetValue) {
@@ -372,12 +389,12 @@
 		.milkdown .crepe-placeholder::before,
 		.milkdown [data-placeholder]::before,
 		.milkdown .ProseMirror[data-placeholder]:empty::before {
-			content: 'Add description here...' !important;
+			content: var(--placeholder) !important;
 		}
 
 		/* Additional selectors to catch different placeholder implementations */
 		.milkdown .ProseMirror:empty::before {
-			content: 'Add description here...' !important;
+			content: var(--placeholder) !important;
 			color: var(--color-gray-400);
 			pointer-events: none;
 			position: absolute;
@@ -387,6 +404,48 @@
 
 		.dark .milkdown .ProseMirror:empty::before {
 			color: var(--color-gray-600);
+		}
+
+		/* Variable pill styling */
+		.milkdown .ProseMirror .variable-pill {
+			background-color: color-mix(in oklab, var(--color-primary) 15%, transparent);
+			color: var(--color-primary);
+			padding: 0.125rem 0.5rem;
+			border-radius: 9999px;
+			font-size: 0.875rem;
+			font-weight: 500;
+			white-space: nowrap;
+		}
+
+		/* Completed variable pill - behaves as atomic unit */
+		.milkdown .ProseMirror .variable-pill-completed {
+			background-color: color-mix(in oklab, var(--color-primary) 25%, transparent);
+			cursor: default;
+			user-select: all;
+			border-top-right-radius: 0;
+			border-bottom-right-radius: 0;
+		}
+
+		/* Delete button for completed variable pills */
+		.milkdown .ProseMirror .variable-pill-delete {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			margin-right: 0.125rem;
+			border-top-right-radius: 9999px;
+			border-bottom-right-radius: 9999px;
+			padding: 0.125rem 0.5rem 0.125rem 0rem;
+			color: var(--color-primary);
+			background-color: color-mix(in oklab, var(--color-primary) 25%, transparent);
+			cursor: pointer;
+			transition: background-color 0.15s ease;
+			font-size: 0.875rem;
+			font-weight: 300;
+			height: 23px;
+		}
+
+		.milkdown .ProseMirror .variable-pill-delete:hover {
+			color: var(--color-on-background);
 		}
 	}
 </style>

@@ -11,8 +11,13 @@ export type DraggableContext<T = unknown> = {
 	readonly state: {
 		items: DraggableItem<T>[];
 		sourceItemId?: string;
+		sourceItemIndex: number;
+		sourceItemHeight: number;
 		targetItemId?: string;
+		targetItemIndex: number;
 		disabled?: boolean;
+		gap: number;
+		scrollDelta: number;
 	};
 	methods: {
 		reorder: () => void;
@@ -20,6 +25,8 @@ export type DraggableContext<T = unknown> = {
 		unmount: (id: string) => void;
 		setSourceItem: (id?: string) => void;
 		setTargetItem: (id?: string) => void;
+		getItemIndex: (id: string) => number;
+		setSourceItemHeight: (height: number) => void;
 	};
 };
 export function getDraggableContext<T = unknown>(): DraggableContext<T> {
