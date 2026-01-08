@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gptscript-ai/go-gptscript"
 	obottypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -15,6 +16,7 @@ import (
 // Uses the existing ConvertMCPServer function to ensure consistency with the rest of the codebase
 func ConvertMCPServerToRegistry(
 	ctx context.Context,
+	gptClient *gptscript.GPTScript,
 	server v1.MCPServer,
 	credEnv map[string]string,
 	serverURL string,
@@ -24,7 +26,7 @@ func ConvertMCPServerToRegistry(
 	mimeFetcher *mimeFetcher,
 ) (obottypes.RegistryServerResponse, error) {
 	// Use existing conversion function to get types.MCPServer
-	convertedServer := handlers.ConvertMCPServer(server, credEnv, serverURL, slug)
+	convertedServer := handlers.ConvertMCPServer(ctx, gptClient, server, credEnv, serverURL, slug)
 
 	// Generate registry server name
 	displayName := convertedServer.MCPServerManifest.Name

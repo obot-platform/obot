@@ -178,6 +178,27 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, ver
 }
 
 func (m *mcpOAuthHandler) Lookup(ctx context.Context, authServerURL string) (string, string, error) {
+	// First, try to look up credentials associated with the MCP server's catalog entry
+	if m.mcpID != "" {
+		var server v1.MCPServer
+		if err := m.client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: m.mcpID}, &server); err == nil {
+			// If the server was created from a catalog entry, look up OAuth credentials by catalog entry name
+			if server.Spec.MCPServerCatalogEntryName != "" {
+				credName := system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)
+				cred, err := m.gptscript.RevealCredential(ctx, []string{credName}, "oauth")
+				if err == nil {
+					clientID := cred.Env["CLIENT_ID"]
+					clientSecret := cred.Env["CLIENT_SECRET"]
+					if clientID != "" && clientSecret != "" {
+						return clientID, clientSecret, nil
+					}
+				}
+			}
+		}
+		// If not found, continue to OAuthApp fallback
+	}
+
+	// Fallback: Look up OAuthApp by authorization server URL (backwards compatibility)
 	var oauthApps v1.OAuthAppList
 	if err := m.client.List(ctx, &oauthApps, &kclient.ListOptions{
 		FieldSelector: fields.SelectorFromSet(map[string]string{

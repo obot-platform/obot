@@ -42,19 +42,21 @@ type ContainerizedRuntimeConfig struct {
 
 // RemoteRuntimeConfig represents configuration for remote runtime (External MCP servers)
 type RemoteRuntimeConfig struct {
-	URL         string      `json:"url"`                   // Required: Full URL to remote MCP server
-	IsTemplate  bool        `json:"isTemplate"`            // Optional: Whether the URL is a template
-	URLTemplate string      `json:"urlTemplate,omitempty"` // URL template for user URLs
-	Hostname    string      `json:"hostname,omitempty"`    // Optional: Hostname constraint the URL conforms to
-	Headers     []MCPHeader `json:"headers,omitempty"`     // Optional
+	URL                    string      `json:"url"`                              // Required: Full URL to remote MCP server
+	IsTemplate             bool        `json:"isTemplate"`                       // Optional: Whether the URL is a template
+	URLTemplate            string      `json:"urlTemplate,omitempty"`            // URL template for user URLs
+	Hostname               string      `json:"hostname,omitempty"`               // Optional: Hostname constraint the URL conforms to
+	Headers                []MCPHeader `json:"headers,omitempty"`                // Optional
+	AuthorizationServerURL string      `json:"authorizationServerURL,omitempty"` // OAuth authorization server URL (indicates static OAuth required)
 }
 
 // RemoteCatalogConfig represents template configuration for remote servers in catalog entries
 type RemoteCatalogConfig struct {
-	FixedURL    string      `json:"fixedURL,omitempty"`    // Fixed URL for all instances
-	URLTemplate string      `json:"urlTemplate,omitempty"` // URL template for user URLs
-	Hostname    string      `json:"hostname,omitempty"`    // Required hostname for user URLs
-	Headers     []MCPHeader `json:"headers,omitempty"`     // Optional
+	FixedURL               string      `json:"fixedURL,omitempty"`               // Fixed URL for all instances
+	URLTemplate            string      `json:"urlTemplate,omitempty"`            // URL template for user URLs
+	Hostname               string      `json:"hostname,omitempty"`               // Required hostname for user URLs
+	Headers                []MCPHeader `json:"headers,omitempty"`                // Optional
+	AuthorizationServerURL string      `json:"authorizationServerURL,omitempty"` // OAuth authorization server URL (indicates static OAuth required)
 }
 
 // CompositeCatalogConfig represents configuration for composite servers in catalog entries.
@@ -222,11 +224,12 @@ type MCPServer struct {
 
 	// Alias is a user-defined alias for the MCP server.
 	// This may only be set for single user and remote MCP servers (i.e. where `MCPCatalogID` is "").
-	Alias                  string   `json:"alias,omitempty"`
-	UserID                 string   `json:"userID"`
-	Configured             bool     `json:"configured"`
-	MissingRequiredEnvVars []string `json:"missingRequiredEnvVars,omitempty"`
-	MissingRequiredHeaders []string `json:"missingRequiredHeader,omitempty"`
+	Alias                   string   `json:"alias,omitempty"`
+	UserID                  string   `json:"userID"`
+	Configured              bool     `json:"configured"`
+	MissingRequiredEnvVars  []string `json:"missingRequiredEnvVars,omitempty"`
+	MissingRequiredHeaders  []string `json:"missingRequiredHeader,omitempty"`
+	MissingOAuthCredentials bool     `json:"missingOAuthCredentials,omitempty"`
 	CatalogEntryID         string   `json:"catalogEntryID"`
 	PowerUserWorkspaceID   string   `json:"powerUserWorkspaceID"`
 	MCPCatalogID           string   `json:"mcpCatalogID,omitempty"`
@@ -465,8 +468,9 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 
-		// Copy headers from catalog entry
+		// Copy headers and authorization server URL from catalog entry
 		remoteConfig.Headers = catalogEntry.RemoteConfig.Headers
+		remoteConfig.AuthorizationServerURL = catalogEntry.RemoteConfig.AuthorizationServerURL
 		serverManifest.RemoteConfig = remoteConfig
 	default:
 		return serverManifest, RuntimeValidationError{
@@ -534,4 +538,20 @@ func ValidateURLHostname(u string, hostname string) error {
 		}
 	}
 	return nil
+}
+
+// MCPServerOAuthCredentialRequest represents a request to set OAuth credentials for an MCP server
+type MCPServerOAuthCredentialRequest struct {
+	ClientID     string `json:"clientID"`
+	ClientSecret string `json:"clientSecret"`
+}
+
+// MCPServerOAuthCredentialStatus represents the status of OAuth credentials for an MCP server
+type MCPServerOAuthCredentialStatus struct {
+	// Configured is true if OAuth credentials have been set
+	Configured bool `json:"configured"`
+	// ClientID is the configured client ID (never includes secret)
+	ClientID string `json:"clientID,omitempty"`
+	// AuthorizationServerURL is the authorization server URL from the server config
+	AuthorizationServerURL string `json:"authorizationServerURL,omitempty"`
 }

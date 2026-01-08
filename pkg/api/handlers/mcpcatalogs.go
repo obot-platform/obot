@@ -473,7 +473,7 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 				return err
 			}
 		}
-		items = append(items, ConvertMCPServer(server, cred.Env, h.serverURL, slug, components...))
+		items = append(items, ConvertMCPServer(req.Context(), req.GPTClient, server, cred.Env, h.serverURL, slug, components...))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -552,7 +552,7 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 				return err
 			}
 		}
-		items = append(items, ConvertMCPServer(server, cred.Env, h.serverURL, slug, components...))
+		items = append(items, ConvertMCPServer(req.Context(), req.GPTClient, server, cred.Env, h.serverURL, slug, components...))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -628,7 +628,7 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 				return fmt.Errorf("failed to resolve composite components: %w", err)
 			}
 		}
-		items = append(items, ConvertMCPServer(server, cred.Env, h.serverURL, slug, components...))
+		items = append(items, ConvertMCPServer(req.Context(), req.GPTClient, server, cred.Env, h.serverURL, slug, components...))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -697,7 +697,7 @@ func (h *MCPCatalogHandler) GetServerFromEntry(req api.Context) error {
 			return err
 		}
 	}
-	return req.Write(ConvertMCPServer(server, cred.Env, h.serverURL, slug, components...))
+	return req.Write(ConvertMCPServer(req.Context(), req.GPTClient, server, cred.Env, h.serverURL, slug, components...))
 }
 
 // GenerateToolPreviews launches a temporary instance of an MCP server from a catalog entry
@@ -1646,4 +1646,175 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	}
 
 	return req.Write(ConvertMCPServerCatalogEntry(entry))
+}
+
+// GetOAuthCredentials returns the OAuth credential status for a catalog entry.
+// GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials
+// GET /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials
+func (h *MCPCatalogHandler) GetOAuthCredentials(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
+	entryName := req.PathValue("entry_id")
+
+	// Verify the scope exists
+	if catalogName != "" {
+		if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
+			return fmt.Errorf("failed to get catalog: %w", err)
+		}
+	} else if workspaceID != "" {
+		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
+			return fmt.Errorf("failed to get workspace: %w", err)
+		}
+	} else {
+		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, entryName); err != nil {
+		return fmt.Errorf("failed to get entry: %w", err)
+	}
+
+	// Verify entry belongs to the requested scope
+	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
+		return types.NewErrBadRequest("entry does not belong to catalog")
+	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
+		return types.NewErrBadRequest("entry does not belong to workspace")
+	}
+
+	// Check if the entry requires OAuth
+	if entry.Spec.Manifest.RemoteConfig == nil || entry.Spec.Manifest.RemoteConfig.AuthorizationServerURL == "" {
+		return types.NewErrBadRequest("entry does not require OAuth configuration")
+	}
+
+	// Check if credentials exist
+	credName := system.MCPOAuthCredentialName(entry.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credName}, "oauth")
+	configured := err == nil
+
+	var clientID string
+	if configured {
+		clientID = cred.Env["CLIENT_ID"]
+	}
+
+	return req.Write(types.MCPServerOAuthCredentialStatus{
+		Configured:             configured,
+		ClientID:               clientID,
+		AuthorizationServerURL: entry.Spec.Manifest.RemoteConfig.AuthorizationServerURL,
+	})
+}
+
+// SetOAuthCredentials sets OAuth credentials for a catalog entry.
+// POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials
+// POST /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials
+func (h *MCPCatalogHandler) SetOAuthCredentials(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
+	entryName := req.PathValue("entry_id")
+
+	// Verify the scope exists
+	if catalogName != "" {
+		if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
+			return fmt.Errorf("failed to get catalog: %w", err)
+		}
+	} else if workspaceID != "" {
+		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
+			return fmt.Errorf("failed to get workspace: %w", err)
+		}
+	} else {
+		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, entryName); err != nil {
+		return fmt.Errorf("failed to get entry: %w", err)
+	}
+
+	// Verify entry belongs to the requested scope
+	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
+		return types.NewErrBadRequest("entry does not belong to catalog")
+	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
+		return types.NewErrBadRequest("entry does not belong to workspace")
+	}
+
+	// Check if the entry requires OAuth
+	if entry.Spec.Manifest.RemoteConfig == nil || entry.Spec.Manifest.RemoteConfig.AuthorizationServerURL == "" {
+		return types.NewErrBadRequest("entry does not require OAuth configuration")
+	}
+
+	var credReq types.MCPServerOAuthCredentialRequest
+	if err := req.Read(&credReq); err != nil {
+		return err
+	}
+
+	if credReq.ClientID == "" || credReq.ClientSecret == "" {
+		return types.NewErrBadRequest("clientID and clientSecret are required")
+	}
+
+	// Delete existing credential if present
+	credName := system.MCPOAuthCredentialName(entry.Name)
+	_ = req.GPTClient.DeleteCredential(req.Context(), credName, "oauth")
+
+	// Store new credential
+	cred := gptscript.Credential{
+		Context:  credName,
+		ToolName: "oauth",
+		Type:     gptscript.CredentialTypeTool,
+		Env: map[string]string{
+			"CLIENT_ID":     credReq.ClientID,
+			"CLIENT_SECRET": credReq.ClientSecret,
+		},
+	}
+	if err := req.GPTClient.CreateCredential(req.Context(), cred); err != nil {
+		return err
+	}
+
+	return req.Write(types.MCPServerOAuthCredentialStatus{
+		Configured:             true,
+		ClientID:               credReq.ClientID,
+		AuthorizationServerURL: entry.Spec.Manifest.RemoteConfig.AuthorizationServerURL,
+	})
+}
+
+// DeleteOAuthCredentials removes OAuth credentials for a catalog entry.
+// DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials
+// DELETE /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials
+func (h *MCPCatalogHandler) DeleteOAuthCredentials(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
+	entryName := req.PathValue("entry_id")
+
+	// Verify the scope exists
+	if catalogName != "" {
+		if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
+			return fmt.Errorf("failed to get catalog: %w", err)
+		}
+	} else if workspaceID != "" {
+		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
+			return fmt.Errorf("failed to get workspace: %w", err)
+		}
+	} else {
+		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, entryName); err != nil {
+		return fmt.Errorf("failed to get entry: %w", err)
+	}
+
+	// Verify entry belongs to the requested scope
+	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
+		return types.NewErrBadRequest("entry does not belong to catalog")
+	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
+		return types.NewErrBadRequest("entry does not belong to workspace")
+	}
+
+	credName := system.MCPOAuthCredentialName(entry.Name)
+	if err := req.GPTClient.DeleteCredential(req.Context(), credName, "oauth"); err != nil {
+		var notFound gptscript.ErrNotFound
+		if !errors.As(err, &notFound) {
+			return err
+		}
+	}
+
+	return req.Write(map[string]bool{"deleted": true})
 }
