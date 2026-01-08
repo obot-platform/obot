@@ -155,6 +155,8 @@ var (
 			"GET /api/tasks/",
 			"GET /api/agents",
 			"GET /api/default-model-aliases",
+			"GET /api/model-access-policies",
+			"GET /api/model-access-policies/",
 			"GET /api/user-default-role-settings",
 			"GET /api/k8s-settings",
 			"POST /api/auth-providers/",

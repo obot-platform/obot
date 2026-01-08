@@ -65,6 +65,23 @@
 
 	let deletingPolicy = $state(false);
 
+	let initialPolicyJson = $derived(
+		initialModelAccessPolicy
+			? JSON.stringify({
+					subjects: initialModelAccessPolicy.subjects,
+					models: initialModelAccessPolicy.models
+				})
+			: ''
+	);
+
+	let hasChanges = $derived(
+		!initialPolicyJson ||
+			JSON.stringify({
+				subjects: modelAccessPolicy.subjects,
+				models: modelAccessPolicy.models
+			}) !== initialPolicyJson
+	);
+
 	onMount(async () => {
 		const [fetchedModels, fetchedAliases] = await Promise.all([
 			AdminService.listModels({ all: true }),
@@ -265,7 +282,11 @@
 	function validate(policy: typeof modelAccessPolicy) {
 		if (!policy) return false;
 
-		return policy.displayName.length > 0;
+		return (
+			policy.displayName.length > 0 &&
+			(policy.subjects?.length ?? 0) > 0 &&
+			(policy.models?.length ?? 0) > 0
+		);
 	}
 </script>
 
@@ -466,10 +487,13 @@
 						disabled={!validate(modelAccessPolicy) || saving}
 						onclick={async () => {
 							saving = true;
-							const response = await AdminService.createModelAccessPolicy(modelAccessPolicy);
-							modelAccessPolicy = response;
-							onCreate?.(response);
-							saving = false;
+							try {
+								const response = await AdminService.createModelAccessPolicy(modelAccessPolicy);
+								modelAccessPolicy = response;
+								onCreate?.(response);
+							} finally {
+								saving = false;
+							}
 						}}
 					>
 						{#if saving}
@@ -481,17 +505,20 @@
 				{:else}
 					<button
 						class="button-primary text-sm"
-						disabled={!validate(modelAccessPolicy) || saving}
+						disabled={!validate(modelAccessPolicy) || !hasChanges || saving}
 						onclick={async () => {
 							if (!modelAccessPolicy.id) return;
 							saving = true;
-							const response = await AdminService.updateModelAccessPolicy(
-								modelAccessPolicy.id,
-								modelAccessPolicy
-							);
-							modelAccessPolicy = response;
-							onUpdate?.(response);
-							saving = false;
+							try {
+								const response = await AdminService.updateModelAccessPolicy(
+									modelAccessPolicy.id,
+									modelAccessPolicy
+								);
+								modelAccessPolicy = response;
+								onUpdate?.(response);
+							} finally {
+								saving = false;
+							}
 						}}
 					>
 						{#if saving}

@@ -34,7 +34,7 @@ func (a *ModelHandler) List(req api.Context) error {
 	}
 
 	var (
-		allowAll      = req.URL.Query().Get("all") == "true" && req.UserIsAdmin()
+		allowAll      = req.URL.Query().Get("all") == "true" && (req.UserIsAdmin() || req.UserIsAuditor())
 		allowedModels map[string]bool
 		err           error
 	)
