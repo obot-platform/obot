@@ -38,6 +38,7 @@
 		SatelliteDish,
 		Server,
 		ServerCog,
+		Settings,
 		StepForward,
 		Trash2,
 		TriangleAlert,
@@ -51,6 +52,8 @@
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
+	import type { MCPServerOAuthCredentialStatus } from '$lib/services/admin/types';
 
 	type Item = ReturnType<typeof convertEntriesAndServersToTableData>[number];
 	type ServerSelectMode = 'connect' | 'rename' | 'edit' | 'disconnect' | 'chat' | 'server-details';
@@ -105,6 +108,10 @@
 	let selectedEntry = $state<MCPCatalogEntry>();
 	let selectServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selectServerMode = $state<ServerSelectMode>('connect');
+
+	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
+	let oauthConfigEntry = $state<MCPCatalogEntry>();
+	let oauthStatus = $state<MCPServerOAuthCredentialStatus>();
 
 	let instancesMap = $derived(
 		new Map(
@@ -185,6 +192,59 @@
 		selectedEntry = entry;
 		selectServerDialog?.open();
 		selectServerMode = mode;
+	}
+
+	async function handleConfigureOAuth(entry: MCPCatalogEntry) {
+		oauthConfigEntry = entry;
+		try {
+			const catalogId = entry.powerUserWorkspaceID ? undefined : 'default';
+			oauthStatus = entry.powerUserWorkspaceID
+				? await ChatService.getWorkspaceMCPCatalogEntryOAuthCredentials(
+						entry.powerUserWorkspaceID,
+						entry.id
+					)
+				: await AdminService.getMCPCatalogEntryOAuthCredentials(catalogId!, entry.id);
+		} catch {
+			oauthStatus = { configured: false };
+		}
+		oauthConfigModal?.open();
+	}
+
+	async function handleSaveOAuth(credentials: {
+		clientID: string;
+		clientSecret: string;
+		authorizationServerURL?: string;
+	}) {
+		if (!oauthConfigEntry) return;
+		if (oauthConfigEntry.powerUserWorkspaceID) {
+			await ChatService.setWorkspaceMCPCatalogEntryOAuthCredentials(
+				oauthConfigEntry.powerUserWorkspaceID,
+				oauthConfigEntry.id,
+				credentials
+			);
+		} else {
+			await AdminService.setMCPCatalogEntryOAuthCredentials(
+				'default',
+				oauthConfigEntry.id,
+				credentials
+			);
+		}
+		// Refresh the table to update status
+		mcpServersAndEntries.refreshAll();
+	}
+
+	async function handleDeleteOAuth() {
+		if (!oauthConfigEntry) return;
+		if (oauthConfigEntry.powerUserWorkspaceID) {
+			await ChatService.deleteWorkspaceMCPCatalogEntryOAuthCredentials(
+				oauthConfigEntry.powerUserWorkspaceID,
+				oauthConfigEntry.id
+			);
+		} else {
+			await AdminService.deleteMCPCatalogEntryOAuthCredentials('default', oauthConfigEntry.id);
+		}
+		// Refresh the table to update status
+		mcpServersAndEntries.refreshAll();
 	}
 </script>
 
@@ -312,6 +372,10 @@
 				{:else if property === 'connected'}
 					{#if d.connected}
 						<div class="pill-primary bg-primary">Connected</div>
+					{:else if 'isCatalogEntry' in d.data && d.data.manifest?.runtime === 'remote' && d.data.manifest?.remoteConfig?.staticOAuthRequired && !d.data.oauthCredentialConfigured}
+						<div class="pill-warning bg-yellow-500/20 text-yellow-700 dark:text-yellow-400">
+							Requires OAuth Config
+						</div>
 					{/if}
 				{:else if property === 'type'}
 					{getServerTypeLabelByType(d.type)}
@@ -334,6 +398,10 @@
 					d.connected && d.type === 'multi' ? instancesMap.get(d.data.id) : undefined}
 				{@const hasConnectedOptions =
 					'isCatalogEntry' in d.data ? matchingServers.length > 0 : !!matchingInstance}
+				{@const requiresOAuth =
+					'isCatalogEntry' in d.data &&
+					d.data.manifest?.runtime === 'remote' &&
+					d.data.manifest?.remoteConfig?.staticOAuthRequired}
 				<DotDotDot class="icon-button hover:dark:bg-background/50">
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
@@ -348,7 +416,9 @@
 									My Connection(s)
 								</div>
 								<div class="bg-surface1 flex flex-col gap-1 p-2">
-									{@render connectToServerAction(d.data, toggle)}
+									{#if !requiresOAuth || ('isCatalogEntry' in d.data && d.data.oauthCredentialConfigured)}
+										{@render connectToServerAction(d.data, toggle)}
+									{/if}
 									<button
 										class="menu-button hover:bg-surface3"
 										onclick={async (e) => {
@@ -427,7 +497,21 @@
 							{/if}
 							<div class="flex flex-col gap-1 p-2">
 								{#if !hasConnectedOptions}
-									{@render connectToServerAction(d.data, toggle, true)}
+									{#if !requiresOAuth || ('isCatalogEntry' in d.data && d.data.oauthCredentialConfigured)}
+										{@render connectToServerAction(d.data, toggle, true)}
+									{/if}
+								{/if}
+								{#if requiresOAuth && 'isCatalogEntry' in d.data}
+									<button
+										class="menu-button hover:bg-surface3"
+										onclick={async (e) => {
+											e.stopPropagation();
+											await handleConfigureOAuth(d.data as MCPCatalogEntry);
+											toggle(false);
+										}}
+									>
+										<Settings class="size-4" /> Configure OAuth
+									</button>
 								{/if}
 								{#if auditLogUrl && (belongsToUser || profile.current?.hasAdminAccess?.())}
 									<button
@@ -779,4 +863,12 @@
 	onUpdateConfigure={() => {
 		mcpServersAndEntries.refreshUserConfiguredServers();
 	}}
+/>
+
+<StaticOAuthConfigureModal
+	bind:this={oauthConfigModal}
+	defaultAuthorizationServerURL={oauthConfigEntry?.manifest?.remoteConfig?.authorizationServerURL}
+	{oauthStatus}
+	onSave={handleSaveOAuth}
+	onDelete={handleDeleteOAuth}
 />

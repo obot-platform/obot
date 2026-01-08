@@ -3,6 +3,7 @@ module github.com/obot-platform/obot
 go 1.25.5
 
 replace (
+	github.com/nanobot-ai/nanobot => ../../nanobot
 	github.com/obot-platform/obot/apiclient => ./apiclient
 	github.com/obot-platform/obot/logger => ./logger
 )
@@ -238,7 +239,7 @@ require (
 	github.com/nwaples/rardecode/v2 v2.2.1 // indirect
 	github.com/nxadm/tail v1.4.11 // indirect
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
-	github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20251219153209-05acb93b2b5c // indirect
+	github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260106135339-3745d9b14a30 // indirect
 	github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77 // indirect
 	github.com/onsi/ginkgo/v2 v2.20.2
 	github.com/opencontainers/go-digest v1.0.0 // indirect

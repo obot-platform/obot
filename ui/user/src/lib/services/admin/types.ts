@@ -37,6 +37,8 @@ export interface RemoteCatalogConfigAdmin {
 	urlTemplate?: string;
 	hostname?: string;
 	headers?: MCPCatalogEntryFieldManifest[];
+	authorizationServerURL?: string;
+	staticOAuthRequired?: boolean;
 }
 
 export interface CompositeCatalogConfig {
@@ -84,6 +86,7 @@ export interface MCPCatalogEntry {
 	needsUpdate?: boolean;
 	canConnect?: boolean;
 	needsK8sUpdate?: boolean;
+	oauthCredentialConfigured?: boolean;
 }
 
 // Matches the backend compositeDeletionDependency struct used when preventing
@@ -782,4 +785,17 @@ export interface MCPCapacityInfo {
 export interface MCPResourceRequests {
 	cpu?: string;
 	memory?: string;
+}
+
+// OAuth credential types for static OAuth configuration
+export interface MCPServerOAuthCredentialRequest {
+	clientID: string;
+	clientSecret: string;
+	authorizationServerURL?: string; // Optional, uses catalog entry default if omitted
+}
+
+export interface MCPServerOAuthCredentialStatus {
+	configured: boolean;
+	clientID?: string;
+	authorizationServerURL?: string;
 }

@@ -150,6 +150,9 @@ type MCPServerStatus struct {
 	// ObservedCompositeManifestHash is the hash of the server's manifest the last time all component servers were updated to match the composite server.
 	// This field is only populated for composite MCP servers.
 	ObservedCompositeManifestHash string `json:"observedCompositeManifestHash,omitempty"`
+	// OAuthCredentialConfigured indicates whether OAuth credentials have been configured
+	// for this server's catalog entry. Only relevant for remote servers that require static OAuth.
+	OAuthCredentialConfigured bool `json:"oauthCredentialConfigured,omitempty"`
 }
 
 type DeploymentCondition struct {

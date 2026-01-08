@@ -24,6 +24,7 @@
 		)
 	);
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
+	let promptOAuthConfig = $derived(page.url.searchParams.get('configure-oauth') === 'true');
 </script>
 
 <Layout
@@ -35,7 +36,7 @@
 	showBackButton
 >
 	{#snippet rightNavActions()}
-		<McpServerActions entry={catalogEntry} {promptInitialLaunch} />
+		<McpServerActions entry={catalogEntry} {promptInitialLaunch} {promptOAuthConfig} />
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if catalogEntry}

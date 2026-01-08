@@ -1,9 +1,11 @@
 package mcpservercatalogentry
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -15,8 +17,20 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Handler handles operations for MCP server catalog entries
+type Handler struct {
+	gClient *gptscript.GPTScript
+}
+
+// NewHandler creates a new Handler with the given GPTScript client
+func NewHandler(gClient *gptscript.GPTScript) *Handler {
+	return &Handler{
+		gClient: gClient,
+	}
+}
+
 // EnsureUserCount ensures that the user count for an MCP server catalog entry is up to date.
-func EnsureUserCount(req router.Request, _ router.Response) error {
+func (h *Handler) EnsureUserCount(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
 	var mcpServers v1.MCPServerList
@@ -43,7 +57,7 @@ func EnsureUserCount(req router.Request, _ router.Response) error {
 	return nil
 }
 
-func DeleteEntriesWithoutRuntime(req router.Request, _ router.Response) error {
+func (h *Handler) DeleteEntriesWithoutRuntime(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 	if string(entry.Spec.Manifest.Runtime) == "" {
 		return req.Client.Delete(req.Ctx, entry)
@@ -53,7 +67,7 @@ func DeleteEntriesWithoutRuntime(req router.Request, _ router.Response) error {
 }
 
 // UpdateManifestHashAndLastUpdated updates the manifest hash and last updated timestamp when configuration changes
-func UpdateManifestHashAndLastUpdated(req router.Request, _ router.Response) error {
+func (h *Handler) UpdateManifestHashAndLastUpdated(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
 	// Compute current config hash
@@ -72,7 +86,7 @@ func UpdateManifestHashAndLastUpdated(req router.Request, _ router.Response) err
 
 // DetectCompositeDrift detects when a composite catalog entry's component snapshots have drifted
 // from their source catalog entries or multi-user servers
-func DetectCompositeDrift(req router.Request, _ router.Response) error {
+func (h *Handler) DetectCompositeDrift(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
 	if entry.Spec.Manifest.Runtime != types.RuntimeComposite {
@@ -137,7 +151,7 @@ func DetectCompositeDrift(req router.Request, _ router.Response) error {
 
 // CleanupNestedCompositeServers removes component servers with composite runtimes from composite catalog entries.
 // This handler cleans up entries that were created before API validation to prevent nested composite servers.
-func CleanupNestedCompositeEntries(req router.Request, _ router.Response) error {
+func (h *Handler) CleanupNestedCompositeEntries(req router.Request, _ router.Response) error {
 	var (
 		entry    = req.Object.(*v1.MCPServerCatalogEntry)
 		manifest = entry.Spec.Manifest
@@ -164,4 +178,143 @@ func CleanupNestedCompositeEntries(req router.Request, _ router.Response) error 
 
 	entry.Spec.Manifest.CompositeConfig.ComponentServers = components
 	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, entry))
+}
+
+// CleanupUnusedOAuthCredentials removes OAuth credentials for remote catalog entries
+// that no longer require static OAuth configuration.
+func (h *Handler) CleanupUnusedOAuthCredentials(req router.Request, _ router.Response) error {
+	entry := req.Object.(*v1.MCPServerCatalogEntry)
+
+	// Only process remote entries
+	if entry.Spec.Manifest.Runtime != types.RuntimeRemote {
+		return nil
+	}
+
+	// Only cleanup if RemoteConfig exists and StaticOAuthRequired is false
+	if entry.Spec.Manifest.RemoteConfig != nil && entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired {
+		// OAuth is required, don't clean up
+		return nil
+	}
+
+	// Build the credential name for this entry
+	credName := system.MCPOAuthCredentialName(entry.Name)
+
+	// Try to reveal the credential to see if it exists
+	_, err := h.gClient.RevealCredential(req.Ctx, []string{credName}, "oauth")
+	if err != nil {
+		// If credential doesn't exist, nothing to clean up
+		var notFoundErr gptscript.ErrNotFound
+		if errors.As(err, &notFoundErr) {
+			return nil
+		}
+		// Some other error occurred
+		return fmt.Errorf("failed to check for OAuth credential: %w", err)
+	}
+
+	// Credential exists, delete it
+	if err := h.gClient.DeleteCredential(req.Ctx, credName, "oauth"); err != nil {
+		var notFoundErr gptscript.ErrNotFound
+		if errors.As(err, &notFoundErr) {
+			// Already deleted, that's fine
+			return nil
+		}
+		return fmt.Errorf("failed to delete OAuth credential: %w", err)
+	}
+
+	return nil
+}
+
+// propagateOAuthCredentialStatus updates OAuthCredentialConfigured status on all MCPServers
+// that were created from the given catalog entry.
+func (h *Handler) propagateOAuthCredentialStatus(req router.Request, entryName string, configured bool) error {
+	var mcpServers v1.MCPServerList
+	if err := req.List(&mcpServers, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.mcpServerCatalogEntryName", entryName),
+		Namespace:     system.DefaultNamespace,
+	}); err != nil {
+		return fmt.Errorf("failed to list MCP servers: %w", err)
+	}
+
+	for i := range mcpServers.Items {
+		server := &mcpServers.Items[i]
+		if server.Status.OAuthCredentialConfigured != configured {
+			server.Status.OAuthCredentialConfigured = configured
+			if err := req.Client.Status().Update(req.Ctx, server); err != nil {
+				return fmt.Errorf("failed to update MCP server %s status: %w", server.Name, err)
+			}
+		}
+	}
+	return nil
+}
+
+// EnsureOAuthCredentialStatus updates the OAuthCredentialConfigured status field
+// for remote catalog entries that require static OAuth.
+func (h *Handler) EnsureOAuthCredentialStatus(req router.Request, _ router.Response) error {
+	entry := req.Object.(*v1.MCPServerCatalogEntry)
+
+	// Clear sync annotation if present
+	if entry.Annotations != nil && entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation] == "true" {
+		delete(entry.Annotations, v1.MCPServerCatalogEntrySyncAnnotation)
+		if err := req.Client.Update(req.Ctx, entry); err != nil {
+			return fmt.Errorf("failed to clear sync annotation: %w", err)
+		}
+		// Re-fetch entry to get updated resource version
+		if err := req.Client.Get(req.Ctx, kclient.ObjectKeyFromObject(entry), entry); err != nil {
+			return fmt.Errorf("failed to re-fetch entry: %w", err)
+		}
+	}
+
+	// Only process remote entries that require static OAuth
+	if entry.Spec.Manifest.Runtime != types.RuntimeRemote ||
+		entry.Spec.Manifest.RemoteConfig == nil ||
+		!entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired {
+		// Clear status if not applicable
+		if entry.Status.OAuthCredentialConfigured {
+			entry.Status.OAuthCredentialConfigured = false
+			if err := req.Client.Status().Update(req.Ctx, entry); err != nil {
+				return err
+			}
+		}
+
+		return h.propagateOAuthCredentialStatus(req, entry.Name, false)
+	}
+
+	// Check if credentials exist
+	credName := system.MCPOAuthCredentialName(entry.Name)
+	_, err := h.gClient.RevealCredential(req.Ctx, []string{credName}, "oauth")
+	configured := err == nil
+
+	if entry.Status.OAuthCredentialConfigured != configured {
+		entry.Status.OAuthCredentialConfigured = configured
+		if err := req.Client.Status().Update(req.Ctx, entry); err != nil {
+			return err
+		}
+	}
+
+	return h.propagateOAuthCredentialStatus(req, entry.Name, configured)
+}
+
+// RemoveOAuthCredentials removes OAuth credentials when a catalog entry is deleted.
+func (h *Handler) RemoveOAuthCredentials(req router.Request, _ router.Response) error {
+	entry := req.Object.(*v1.MCPServerCatalogEntry)
+
+	// Only process remote entries
+	if entry.Spec.Manifest.Runtime != types.RuntimeRemote {
+		return nil
+	}
+
+	// Build the credential name for this entry
+	credName := system.MCPOAuthCredentialName(entry.Name)
+
+	// Delete the OAuth credential if it exists
+	if err := h.gClient.DeleteCredential(req.Ctx, credName, "oauth"); err != nil {
+		var notFoundErr gptscript.ErrNotFound
+		if errors.As(err, &notFoundErr) {
+			// Already deleted or never existed, that's fine
+			return nil
+		}
+		return fmt.Errorf("failed to delete OAuth credential: %w", err)
+	}
+
+	return nil
 }

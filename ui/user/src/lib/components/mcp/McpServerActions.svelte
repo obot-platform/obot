@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
+	import {
+		ChatService,
+		AdminService,
+		type MCPCatalogEntry,
+		type MCPCatalogServer
+	} from '$lib/services';
 	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
 	import { twMerge } from 'tailwind-merge';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -19,6 +24,7 @@
 	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
 	import Table from '../table/Table.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
@@ -34,6 +40,7 @@
 		skipConnectDialog?: boolean;
 		onConnect?: ({ server, entry }: { server?: MCPCatalogServer; entry?: MCPCatalogEntry }) => void;
 		promptInitialLaunch?: boolean;
+		promptOAuthConfig?: boolean;
 		connectOnly?: boolean;
 	}
 
@@ -44,6 +51,7 @@
 		skipConnectDialog,
 		onConnect,
 		promptInitialLaunch,
+		promptOAuthConfig,
 		connectOnly
 	}: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
@@ -54,6 +62,10 @@
 
 	let launchDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let launchPromptHandled = $state(false);
+
+	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
+	let oauthConfigPromptHandled = $state(false);
+	let isInitialOAuthConfig = $state(false);
 
 	let disconnecting = $state(false);
 
@@ -94,6 +106,38 @@
 		return entryCanConnect && serverCanConnect;
 	});
 
+	let oauthConfigured = $state<boolean | undefined>(undefined);
+	let requiresStaticOAuth = $derived(
+		entry?.manifest?.runtime === 'remote' && entry?.manifest?.remoteConfig?.staticOAuthRequired
+	);
+
+	async function checkOAuthConfigured() {
+		if (!entry || !requiresStaticOAuth) {
+			oauthConfigured = true;
+			return;
+		}
+
+		try {
+			const status = entry.powerUserWorkspaceID
+				? await ChatService.getWorkspaceMCPCatalogEntryOAuthCredentials(
+						entry.powerUserWorkspaceID,
+						entry.id
+					)
+				: await AdminService.getMCPCatalogEntryOAuthCredentials('default', entry.id);
+			oauthConfigured = status.configured;
+		} catch {
+			oauthConfigured = false;
+		}
+	}
+
+	$effect(() => {
+		if (requiresStaticOAuth) {
+			checkOAuthConfigured();
+		} else {
+			oauthConfigured = true;
+		}
+	});
+
 	function refresh() {
 		if (entry) {
 			mcpServersAndEntries.refreshUserConfiguredServers();
@@ -122,6 +166,19 @@
 		}
 	});
 
+	$effect(() => {
+		if (promptOAuthConfig && !oauthConfigPromptHandled) {
+			oauthConfigPromptHandled = true;
+			isInitialOAuthConfig = true;
+			oauthConfigModal?.open();
+
+			// clear out the configure-oauth param
+			const url = new URL(page.url);
+			url.searchParams.delete('configure-oauth');
+			goto(url, { replaceState: true });
+		}
+	});
+
 	function handleShowSelectServerDialog(mode: ServerSelectMode = 'connect') {
 		selectServerDialog?.open();
 		selectServerMode = mode;
@@ -146,7 +203,7 @@
 					});
 				}
 			}}
-			disabled={loading || !canConnect}
+			disabled={loading || !canConnect || (requiresStaticOAuth && oauthConfigured === false)}
 		>
 			{#if loading}
 				<LoaderCircle class="size-4 animate-spin" />
@@ -540,4 +597,28 @@
 			</div>
 		</div>
 	</ResponsiveDialog>
+
+	<StaticOAuthConfigureModal
+		bind:this={oauthConfigModal}
+		defaultAuthorizationServerURL={entry?.manifest?.remoteConfig?.authorizationServerURL}
+		onSave={async (credentials) => {
+			if (!entry) return;
+			if (entry.powerUserWorkspaceID) {
+				await ChatService.setWorkspaceMCPCatalogEntryOAuthCredentials(
+					entry.powerUserWorkspaceID,
+					entry.id,
+					credentials
+				);
+			} else {
+				await AdminService.setMCPCatalogEntryOAuthCredentials('default', entry.id, credentials);
+			}
+			oauthConfigured = true;
+
+			// Show the connect dialog if this was part of the initial creation flow
+			if (isInitialOAuthConfig) {
+				isInitialOAuthConfig = false;
+				launchDialog?.open();
+			}
+		}}
+	/>
 {/if}
