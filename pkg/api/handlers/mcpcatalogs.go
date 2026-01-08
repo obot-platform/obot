@@ -208,7 +208,6 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 
 		if hasAccess {
 			// Hide catalog entries that require OAuth credentials that haven't been configured (non-admins only).
-			// Workspace owners can always see their own entries (they need to configure the OAuth credentials).
 			if !req.UserIsAdmin() && workspaceID == "" && entryRequiresUnconfiguredOAuth(req.Context(), req.GPTClient, entry) {
 				continue
 			}
