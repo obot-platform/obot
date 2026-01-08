@@ -1,0 +1,21 @@
+name: Announce Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  announce-release-discord:
+    runs-on: ubuntu-latest
+    if: github.event.release.prerelease == false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Send Discord Notification
+        uses: SethCohen/github-releases-to-discord@v1
+        with:
+          webhook_url: ${{ secrets.DISCORD_ANNOUNCE_WEBHOOK_URL }}
+          color: "2105893"
+          footer_title: "Obot Release"
+          footer_timestamp: true
