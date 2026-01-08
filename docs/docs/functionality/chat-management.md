@@ -14,19 +14,18 @@ Configure default settings that apply to all new projects. Changes here affect t
 - **Description**: A brief description of the default assistant
 - **Introductions**: HTML content displayed when users start a new thread
 - **Instructions**: Default system prompt defining assistant behavior
-- **Allowed Models**: Models available to users, with a designated default
 
-### Allowed Models
-
-Control which models users can select while chatting:
-
-1. Click **+ Add Model** to add models from configured providers
-2. Set a default model by clicking the three-dot menu and selecting **Set as Default**
-3. Remove models by clicking the three-dot menu and selecting **Remove**
+:::note Model Access
+Model availability for chat is now controlled through [Model Access Policies](model-access-policies). The previous "Allowed Models" setting has been replaced by policies that let you control which users and groups can access which models.
+:::
 
 ## Model Providers
 
 Configure LLM providers and their available models. See [Model Providers](../configuration/model-providers) for setup details.
+
+## Model Access Policies
+
+Control which users and groups can access which models for chat. See [Model Access Policies](model-access-policies) for details.
 
 ## Chat Threads, Tasks, and Task Runs
 

@@ -26,6 +26,7 @@ const sidebars = {
         "functionality/filters",
         "functionality/server-scheduling",
         "functionality/chat-management",
+        "functionality/model-access-policies",
         "functionality/user-management",
         "functionality/api-keys",
         "functionality/branding",
