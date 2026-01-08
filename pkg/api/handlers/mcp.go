@@ -129,6 +129,21 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 		}
 
 		if hasAccess {
+			// Hide entries that require OAuth credentials that haven't been configured (non-admins only).
+			// Workspace owners can always see their own entries (they need to configure the OAuth credentials).
+			if !req.UserIsAdmin() && entryRequiresUnconfiguredOAuth(req.Context(), req.GPTClient, entry) {
+				// Check if this is a workspace entry owned by the current user
+				isOwnWorkspace := false
+				if entry.Spec.PowerUserWorkspaceID != "" {
+					var workspace v1.PowerUserWorkspace
+					if err := req.Get(&workspace, entry.Spec.PowerUserWorkspaceID); err == nil {
+						isOwnWorkspace = workspace.Spec.UserID == req.User.GetUID()
+					}
+				}
+				if !isOwnWorkspace {
+					continue
+				}
+			}
 			entries = append(entries, convertEntry(entry))
 		}
 	}

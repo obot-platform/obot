@@ -207,6 +207,11 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 		}
 
 		if hasAccess {
+			// Hide catalog entries that require OAuth credentials that haven't been configured (non-admins only).
+			// Workspace owners can always see their own entries (they need to configure the OAuth credentials).
+			if !req.UserIsAdmin() && workspaceID == "" && entryRequiresUnconfiguredOAuth(req.Context(), req.GPTClient, entry) {
+				continue
+			}
 			entries = append(entries, ConvertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, powerUserID))
 		}
 	}
@@ -1646,6 +1651,21 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	}
 
 	return req.Write(ConvertMCPServerCatalogEntry(entry))
+}
+
+// entryRequiresUnconfiguredOAuth checks if a catalog entry requires OAuth credentials
+// that haven't been configured yet. Returns true if the entry should be hidden from non-admin users.
+func entryRequiresUnconfiguredOAuth(ctx context.Context, gptClient *gptscript.GPTScript, entry v1.MCPServerCatalogEntry) bool {
+	// Check if the entry requires OAuth (has authorizationServerURL set)
+	if entry.Spec.Manifest.RemoteConfig == nil || entry.Spec.Manifest.RemoteConfig.AuthorizationServerURL == "" {
+		return false
+	}
+
+	// Check if credentials are configured
+	credName := system.MCPOAuthCredentialName(entry.Name)
+	_, err := gptClient.RevealCredential(ctx, []string{credName}, "oauth")
+	// If error (credential not found), OAuth is required but not configured
+	return err != nil
 }
 
 // GetOAuthCredentials returns the OAuth credential status for a catalog entry.
