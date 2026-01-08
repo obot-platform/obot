@@ -47,7 +47,9 @@ import type {
 	AppPreferences,
 	GroupRoleAssignment,
 	GroupRoleAssignmentList,
-	MCPCapacityInfo
+	MCPCapacityInfo,
+	MCPServerOAuthCredentialRequest,
+	MCPServerOAuthCredentialStatus
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -1256,4 +1258,41 @@ export async function deleteGroupRoleAssignment(
 export async function getMCPCapacity(opts?: { fetch?: Fetcher }): Promise<MCPCapacityInfo> {
 	const response = (await doGet('/mcp-capacity', opts)) as MCPCapacityInfo;
 	return response;
+}
+
+// GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials
+export async function getMCPCatalogEntryOAuthCredentials(
+	catalogID: string,
+	entryID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerOAuthCredentialStatus> {
+	const response = (await doGet(`/mcp-catalogs/${catalogID}/entries/${entryID}/oauth-credentials`, {
+		...opts,
+		dontLogErrors: true
+	})) as MCPServerOAuthCredentialStatus;
+	return response;
+}
+
+// POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials
+export async function setMCPCatalogEntryOAuthCredentials(
+	catalogID: string,
+	entryID: string,
+	credentials: MCPServerOAuthCredentialRequest,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerOAuthCredentialStatus> {
+	const response = (await doPost(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/oauth-credentials`,
+		credentials,
+		opts
+	)) as MCPServerOAuthCredentialStatus;
+	return response;
+}
+
+// DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials
+export async function deleteMCPCatalogEntryOAuthCredentials(
+	catalogID: string,
+	entryID: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/mcp-catalogs/${catalogID}/entries/${entryID}/oauth-credentials`, opts);
 }

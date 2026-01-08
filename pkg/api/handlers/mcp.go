@@ -131,6 +131,15 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 		}
 
 		if hasAccess {
+			// Hide entries that require OAuth credentials that haven't been configured (non-admins only).
+			// Workspace owners can always see their own entries (they need to configure the OAuth credentials).
+			if !req.UserIsAdmin() && entryRequiresStaticOAuthCreds(entry) {
+				// Check if this is a workspace entry owned by the current user
+				if entry.Spec.PowerUserWorkspaceID != system.GetPowerUserWorkspaceID(req.User.GetUID()) {
+					// Either the entry is not in a workspace, or it's in a workspace not owned by the user. Omit it.
+					continue
+				}
+			}
 			entries = append(entries, convertEntry(entry))
 		}
 	}
@@ -158,6 +167,7 @@ func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, p
 		PowerUserWorkspaceID:      powerUserWorkspaceID,
 		PowerUserID:               powerUserID,
 		NeedsUpdate:               entry.Status.NeedsUpdate,
+		OAuthCredentialConfigured: entry.Status.OAuthCredentialConfigured,
 	}
 }
 
@@ -1420,6 +1430,24 @@ func serverManifestFromCatalogEntryManifest(
 				inputComponent = inputComponents[entryComponent.ComponentID()]
 				userURL        string
 			)
+
+			// Check if the component has gained static OAuth.
+			// If so, reject the update - static OAuth components cannot be part of composites.
+			entryHasStaticOAuth := entryComponent.Manifest.Runtime == types.RuntimeRemote &&
+				entryComponent.Manifest.RemoteConfig != nil &&
+				entryComponent.Manifest.RemoteConfig.StaticOAuthRequired
+			inputHasStaticOAuth := inputComponent.Manifest.Runtime == types.RuntimeRemote &&
+				inputComponent.Manifest.RemoteConfig != nil &&
+				inputComponent.Manifest.RemoteConfig.StaticOAuthRequired
+
+			if entryHasStaticOAuth && !inputHasStaticOAuth {
+				// The component has gained static OAuth - reject the update.
+				return types.MCPServerManifest{}, types.NewErrBadRequest(
+					"cannot update composite server: component %s has been updated to require static OAuth, which is not allowed in composite servers",
+					entryComponent.ComponentID(),
+				)
+			}
+
 			if entryComponent.Manifest.Runtime == types.RuntimeRemote &&
 				entryComponent.Manifest.RemoteConfig != nil &&
 				entryComponent.Manifest.RemoteConfig.Hostname != "" &&
@@ -1583,6 +1611,11 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 
 		if !hasAccess {
 			return types.NewErrForbidden("user does not have access to MCP server catalog entry")
+		}
+
+		// Block server creation if OAuth is required but not configured
+		if entryRequiresStaticOAuthCreds(catalogEntry) {
+			return types.NewErrBadRequest("catalog entry requires OAuth configuration by an administrator before it can be used")
 		}
 
 		manifest, err := serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), false, catalogEntry.Spec.Manifest, input.MCPServerManifest)
@@ -2439,6 +2472,14 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		}
 	}
 
+	// Check if OAuth credentials are required but missing
+	missingOAuth := false
+	if server.Spec.Manifest.RemoteConfig != nil &&
+		server.Spec.Manifest.RemoteConfig.StaticOAuthRequired {
+		// Use the status field populated by the controller
+		missingOAuth = !server.Status.OAuthCredentialConfigured
+	}
+
 	var connectURL string
 	// Only single-user servers get a connect URL.
 	// Multi-user servers have connect URLs on the MCPServerInstances instead.
@@ -2463,8 +2504,9 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		Alias:                       server.Spec.Alias,
 		MissingRequiredEnvVars:      missingEnvVars,
 		MissingRequiredHeaders:      missingHeaders,
+		MissingOAuthCredentials:     missingOAuth,
 		UserID:                      server.Spec.UserID,
-		Configured:                  len(missingEnvVars) == 0 && len(missingHeaders) == 0 && !server.Spec.NeedsURL,
+		Configured:                  len(missingEnvVars) == 0 && len(missingHeaders) == 0 && !server.Spec.NeedsURL && !missingOAuth,
 		MCPServerManifest:           server.Spec.Manifest,
 		CatalogEntryID:              server.Spec.MCPServerCatalogEntryName,
 		PowerUserWorkspaceID:        server.Spec.PowerUserWorkspaceID,

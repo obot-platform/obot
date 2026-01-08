@@ -396,18 +396,23 @@
 			onCancel={() => {
 				showServerForm = false;
 			}}
-			onSubmit={async (id, type) => {
+			onSubmit={async (id, type, message) => {
+				let queryParam = '?launch=true';
+				if (message === 'requires-oauth-config') {
+					queryParam = '?configure-oauth=true';
+				}
+
 				if (profile.current.isAdmin?.()) {
 					if (type === 'single' || type === 'remote' || type === 'composite') {
-						goto(resolve(`/admin/mcp-servers/c/${id}?launch=true`));
+						goto(resolve(`/admin/mcp-servers/c/${id}${queryParam}`));
 					} else {
-						goto(resolve(`/admin/mcp-servers/s/${id}?launch=true`));
+						goto(resolve(`/admin/mcp-servers/s/${id}${queryParam}`));
 					}
 				} else {
 					if (type === 'single' || type === 'remote' || type === 'composite') {
-						goto(resolve(`/admin/mcp-servers/w/${workspaceId}/c/${id}?launch=true`));
+						goto(resolve(`/admin/mcp-servers/w/${workspaceId}/c/${id}${queryParam}`));
 					} else {
-						goto(resolve(`/admin/mcp-servers/w/${workspaceId}/s/${id}?launch=true`));
+						goto(resolve(`/admin/mcp-servers/w/${workspaceId}/s/${id}${queryParam}`));
 					}
 				}
 			}}

@@ -467,6 +467,17 @@ func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) err
 			}
 		}
 
+		// Prevent remote components with static OAuth from being included in composites
+		if component.Manifest.Runtime == types.RuntimeRemote &&
+			component.Manifest.RemoteConfig != nil &&
+			component.Manifest.RemoteConfig.StaticOAuthRequired {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
+				Message: "remote component with static OAuth cannot be included in a composite server",
+			}
+		}
+
 		// Validate tool overrides
 		if err := validateToolOverrides(component.ToolOverrides); err != nil {
 			return errors.Join(types.RuntimeValidationError{
@@ -476,12 +487,7 @@ func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) err
 			}, err)
 		}
 
-		// Use whichever ID is set for duplicate checking
-		componentID := component.CatalogEntryID
-		if componentID == "" {
-			componentID = component.MCPServerID
-		}
-
+		componentID := component.ComponentID()
 		if _, ok := componentServerIDs[componentID]; ok {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
@@ -542,6 +548,17 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 			}
 		}
 
+		// Prevent remote components with static OAuth from being included in composites
+		if component.Manifest.Runtime == types.RuntimeRemote &&
+			component.Manifest.RemoteConfig != nil &&
+			component.Manifest.RemoteConfig.StaticOAuthRequired {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
+				Message: "remote component with static OAuth cannot be included in a composite server",
+			}
+		}
+
 		// Validate tool overrides
 		if err := validateToolOverrides(component.ToolOverrides); err != nil {
 			return errors.Join(types.RuntimeValidationError{
@@ -551,12 +568,7 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 			}, err)
 		}
 
-		// Use whichever ID is set for duplicate checking
-		componentID := component.CatalogEntryID
-		if componentID == "" {
-			componentID = component.MCPServerID
-		}
-
+		componentID := component.ComponentID()
 		if _, ok := componentServerIDs[componentID]; ok {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,

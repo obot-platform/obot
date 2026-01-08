@@ -207,6 +207,10 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 		}
 
 		if hasAccess {
+			// Hide catalog entries that require OAuth credentials that haven't been configured (non-admins only).
+			if !req.UserIsAdmin() && entryRequiresStaticOAuthCreds(entry) {
+				continue
+			}
 			entries = append(entries, ConvertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, powerUserID))
 		}
 	}
@@ -287,6 +291,11 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		}
 	}
 
+	// Auto-set StaticOAuthRequired if AuthorizationServerURL is provided
+	if manifest.RemoteConfig != nil && manifest.RemoteConfig.AuthorizationServerURL != "" {
+		manifest.RemoteConfig.StaticOAuthRequired = true
+	}
+
 	if err := validation.ValidateCatalogEntryManifest(manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
@@ -357,6 +366,11 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	var manifest types.MCPServerCatalogEntryManifest
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
+	}
+
+	// Auto-set StaticOAuthRequired if AuthorizationServerURL is provided
+	if manifest.RemoteConfig != nil && manifest.RemoteConfig.AuthorizationServerURL != "" {
+		manifest.RemoteConfig.StaticOAuthRequired = true
 	}
 
 	if err := validation.ValidateCatalogEntryManifest(manifest); err != nil {
@@ -1532,6 +1546,13 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 				return types.NewErrBadRequest("component entry %s does not belong to workspace %s", component.CatalogEntryID, workspaceID)
 			}
 
+			// Reject remote entries with static OAuth from being included in composites
+			if entry.Spec.Manifest.Runtime == types.RuntimeRemote &&
+				entry.Spec.Manifest.RemoteConfig != nil &&
+				entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired {
+				return types.NewErrBadRequest("remote catalog entry %s with static OAuth cannot be included in a composite server", component.CatalogEntryID)
+			}
+
 			// Populate the manifest
 			component.Manifest = entry.Spec.Manifest
 			// Keep this component
@@ -1646,4 +1667,254 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	}
 
 	return req.Write(ConvertMCPServerCatalogEntry(entry))
+}
+
+// entryRequiresStaticOAuthCreds checks if a catalog entry requires OAuth credentials
+// that haven't been configured yet. Returns true if the entry should be hidden from non-admin users.
+func entryRequiresStaticOAuthCreds(entry v1.MCPServerCatalogEntry) bool {
+	// Check if the entry requires static OAuth
+	if entry.Spec.Manifest.RemoteConfig == nil || !entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired {
+		return false
+	}
+
+	// Use the cached status field instead of doing a credential lookup
+	return !entry.Status.OAuthCredentialConfigured
+}
+
+// validateAuthorizationServerURL validates that the URL is a valid HTTPS URL.
+func validateAuthorizationServerURL(rawURL string) error {
+	if rawURL == "" {
+		return nil
+	}
+
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return types.NewErrBadRequest("invalid authorization server URL format: %v", err)
+	}
+
+	if parsedURL.Scheme != "https" {
+		return types.NewErrBadRequest("authorization server URL must use HTTPS scheme")
+	}
+
+	if parsedURL.Host == "" {
+		return types.NewErrBadRequest("authorization server URL must have a host")
+	}
+
+	return nil
+}
+
+// verifyOAuthCredentialAccess verifies that:
+// 1. The scope (catalog or workspace) exists
+// 2. The entry exists and belongs to that scope
+// 3. The entry requires static OAuth configuration
+// Returns the entry on success, or an error.
+func verifyOAuthCredentialAccess(req api.Context, catalogName, workspaceID, entryName string) (*v1.MCPServerCatalogEntry, error) {
+	// Verify the scope exists
+	if catalogName != "" {
+		if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
+			return nil, fmt.Errorf("failed to get catalog: %w", err)
+		}
+	} else if workspaceID != "" {
+		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
+			return nil, fmt.Errorf("failed to get workspace: %w", err)
+		}
+	} else {
+		return nil, types.NewErrBadRequest("either catalog_id or workspace_id is required")
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, entryName); err != nil {
+		return nil, fmt.Errorf("failed to get entry: %w", err)
+	}
+
+	// Verify entry belongs to the requested scope
+	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
+		return nil, types.NewErrBadRequest("entry does not belong to catalog")
+	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
+		return nil, types.NewErrBadRequest("entry does not belong to workspace")
+	}
+
+	// Check if the entry requires static OAuth
+	if entry.Spec.Manifest.RemoteConfig == nil || !entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired {
+		return nil, types.NewErrBadRequest("entry does not require OAuth configuration")
+	}
+
+	return &entry, nil
+}
+
+// GetOAuthCredentials returns the OAuth credential status for a catalog entry.
+// GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials
+// GET /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials
+func (h *MCPCatalogHandler) GetOAuthCredentials(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
+	entryName := req.PathValue("entry_id")
+
+	entry, err := verifyOAuthCredentialAccess(req, catalogName, workspaceID, entryName)
+	if err != nil {
+		return err
+	}
+
+	// Check if credentials exist
+	credName := system.MCPOAuthCredentialName(entry.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credName}, "oauth")
+	configured := err == nil
+
+	var (
+		clientID      string
+		authServerURL string
+	)
+	if configured {
+		clientID = cred.Env["CLIENT_ID"]
+		// Use the stored authorization server URL if present
+		if url := cred.Env["AUTHORIZATION_SERVER_URL"]; url != "" {
+			authServerURL = url
+		}
+	}
+	// Fall back to catalog entry default if no override was stored
+	if authServerURL == "" {
+		authServerURL = entry.Spec.Manifest.RemoteConfig.AuthorizationServerURL
+	}
+
+	return req.Write(types.MCPServerOAuthCredentialStatus{
+		Configured:             configured,
+		ClientID:               clientID,
+		AuthorizationServerURL: authServerURL,
+	})
+}
+
+// SetOAuthCredentials sets OAuth credentials for a catalog entry.
+// POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials
+// POST /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials
+func (h *MCPCatalogHandler) SetOAuthCredentials(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
+	entryName := req.PathValue("entry_id")
+
+	entry, err := verifyOAuthCredentialAccess(req, catalogName, workspaceID, entryName)
+	if err != nil {
+		return err
+	}
+
+	var credReq types.MCPServerOAuthCredentialRequest
+	if err := req.Read(&credReq); err != nil {
+		return err
+	}
+
+	// Check if credentials already exist
+	credName := system.MCPOAuthCredentialName(entry.Name)
+	existingCred, err := req.GPTClient.RevealCredential(req.Context(), []string{credName}, "oauth")
+	credentialsExist := err == nil
+
+	var clientID, clientSecret, authServerURL string
+
+	if credentialsExist {
+		// Update mode: Only authorization server URL can be updated
+		// Return error if client tries to update credentials
+		if credReq.ClientID != "" || credReq.ClientSecret != "" {
+			return types.NewErrBadRequest("cannot update clientID or clientSecret; delete and recreate credentials to change them")
+		}
+
+		// Preserve existing client ID and secret
+		clientID = existingCred.Env["CLIENT_ID"]
+		clientSecret = existingCred.Env["CLIENT_SECRET"]
+
+		// Determine the authorization server URL
+		authServerURL = credReq.AuthorizationServerURL
+		if authServerURL == "" {
+			// If not provided in request, keep existing value or use entry default
+			authServerURL = existingCred.Env["AUTHORIZATION_SERVER_URL"]
+			if authServerURL == "" {
+				authServerURL = entry.Spec.Manifest.RemoteConfig.AuthorizationServerURL
+			}
+		}
+	} else {
+		// Initial setup mode: All fields are required
+		// Trim whitespace before validation
+		trimmedClientID := strings.TrimSpace(credReq.ClientID)
+		trimmedClientSecret := strings.TrimSpace(credReq.ClientSecret)
+		if trimmedClientID == "" || trimmedClientSecret == "" {
+			return types.NewErrBadRequest("clientID and clientSecret are required")
+		}
+
+		clientID = trimmedClientID
+		clientSecret = trimmedClientSecret
+
+		// Determine the effective authorization server URL
+		authServerURL = credReq.AuthorizationServerURL
+		if authServerURL == "" {
+			authServerURL = entry.Spec.Manifest.RemoteConfig.AuthorizationServerURL
+		}
+		if authServerURL == "" {
+			return types.NewErrBadRequest("authorizationServerURL is required because the catalog entry does not have a default")
+		}
+	}
+
+	// Validate the authorization server URL
+	if err := validateAuthorizationServerURL(authServerURL); err != nil {
+		return err
+	}
+
+	// Store new credential
+	cred := gptscript.Credential{
+		Context:  credName,
+		ToolName: "oauth",
+		Type:     gptscript.CredentialTypeTool,
+		Env: map[string]string{
+			"CLIENT_ID":                clientID,
+			"CLIENT_SECRET":            clientSecret,
+			"AUTHORIZATION_SERVER_URL": authServerURL,
+		},
+	}
+	if err := req.GPTClient.CreateCredential(req.Context(), cred); err != nil {
+		return fmt.Errorf("failed to create OAuth credential: %w", err)
+	}
+
+	// Trigger reconciliation to update the status
+	if entry.Annotations == nil {
+		entry.Annotations = make(map[string]string, 1)
+	}
+	entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation] = "true"
+	if err := req.Update(entry); err != nil {
+		return fmt.Errorf("failed to trigger reconciliation: %w", err)
+	}
+
+	return req.Write(types.MCPServerOAuthCredentialStatus{
+		Configured:             true,
+		ClientID:               clientID,
+		AuthorizationServerURL: authServerURL,
+	})
+}
+
+// DeleteOAuthCredentials removes OAuth credentials for a catalog entry.
+// DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials
+// DELETE /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials
+func (h *MCPCatalogHandler) DeleteOAuthCredentials(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
+	entryName := req.PathValue("entry_id")
+
+	entry, err := verifyOAuthCredentialAccess(req, catalogName, workspaceID, entryName)
+	if err != nil {
+		return err
+	}
+
+	credName := system.MCPOAuthCredentialName(entry.Name)
+	if err := req.GPTClient.DeleteCredential(req.Context(), credName, "oauth"); err != nil {
+		var notFound gptscript.ErrNotFound
+		if !errors.As(err, &notFound) {
+			return err
+		}
+	}
+
+	// Trigger reconciliation to update the status
+	if entry.Annotations == nil {
+		entry.Annotations = make(map[string]string, 1)
+	}
+	entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation] = "true"
+	if err := req.Update(entry); err != nil {
+		return fmt.Errorf("failed to trigger reconciliation: %w", err)
+	}
+
+	return req.Write(map[string]bool{"deleted": true})
 }

@@ -11,8 +11,13 @@
 		onfocus?: () => void;
 		textarea?: boolean;
 		disabled?: boolean;
+		readonly?: boolean;
 		growable?: boolean;
 		class?: string;
+		classes?: {
+			wrapper?: string;
+			input?: string;
+		};
 		hideReveal?: boolean;
 		placeholder?: string;
 		onkeydown?: (ev: KeyboardEvent) => void;
@@ -26,8 +31,10 @@
 		onfocus,
 		textarea,
 		disabled,
+		readonly,
 		growable,
 		class: klass,
+		classes,
 		hideReveal,
 		placeholder,
 		onkeydown
@@ -132,12 +139,13 @@
 	{#if textarea}
 		<div bind:this={containerElement} class="relative flex min-h-[60px] w-full flex-col leading-5">
 			{#if growable}
-				<input type="text" {name} {disabled} {value} {placeholder} hidden />
+				<input type="text" {name} {disabled} {readonly} {value} {placeholder} hidden />
 				<div
 					bind:this={scrollableWrapper}
 					class={twMerge(
 						'text-input-filled base flex w-full flex-1 flex-col overflow-x-hidden overflow-y-auto font-mono',
 						klass,
+						classes?.wrapper,
 						error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1',
 						disabled && 'opacity-50',
 						!showSensitive ? 'hide' : ''
@@ -147,6 +155,7 @@
 						<div
 							bind:this={textareaElement}
 							class="w-full outline-none"
+							class:pointer-events-none={readonly}
 							data-1p-ignore
 							id={name}
 							contenteditable="plaintext-only"
@@ -162,8 +171,10 @@
 							bind:innerText={
 								() => value,
 								(v) => {
-									value = v.trim();
-									oninput?.();
+									if (!readonly) {
+										value = v.trim();
+										oninput?.();
+									}
 								}
 							}
 							onfocus={handleFocus}
@@ -208,6 +219,7 @@
 					class={twMerge(
 						'text-input-filled base flex min-h-full w-full flex-1 flex-col overflow-hidden rounded font-mono [box-shadow:none]',
 						klass,
+						classes?.wrapper,
 						error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1',
 						!showSensitive ? 'hide' : ''
 					)}
@@ -220,6 +232,7 @@
 							id={name}
 							{name}
 							{disabled}
+							{readonly}
 							{placeholder}
 							spellcheck="false"
 							onscroll={(ev) => {
@@ -252,6 +265,7 @@
 			class={twMerge(
 				'text-input-filled w-full pr-10',
 				klass,
+				classes?.input,
 				error &&
 					'border-red-500 bg-red-500/20 [color:var(--color-red-500)] ring-red-500 focus:ring-1'
 			)}
@@ -261,6 +275,7 @@
 			onfocus={handleFocus}
 			autocomplete="new-password"
 			{disabled}
+			{readonly}
 			{placeholder}
 			{onkeydown}
 		/>

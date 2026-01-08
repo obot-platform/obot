@@ -232,11 +232,16 @@
 			onCancel={() => {
 				showServerForm = false;
 			}}
-			onSubmit={async (id, type) => {
+			onSubmit={async (id, type, message) => {
+				// Determine which query param to use based on the message
+				let queryParam = '?launch=true';
+				if (message === 'requires-oauth-config') {
+					queryParam = '?configure-oauth=true';
+				}
 				if (type === 'single' || type === 'remote') {
-					goto(`/mcp-servers/c/${id}?launch=true`);
+					goto(`/mcp-servers/c/${id}${queryParam}`);
 				} else {
-					goto(`/mcp-servers/s/${id}?launch=true`);
+					goto(`/mcp-servers/s/${id}${queryParam}`);
 				}
 			}}
 		/>
