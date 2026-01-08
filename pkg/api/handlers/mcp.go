@@ -1592,6 +1592,11 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return types.NewErrForbidden("user does not have access to MCP server catalog entry")
 		}
 
+		// Block server creation if OAuth is required but not configured
+		if entryRequiresUnconfiguredOAuth(req.Context(), req.GPTClient, catalogEntry) {
+			return types.NewErrBadRequest("catalog entry requires OAuth configuration by an administrator before it can be used")
+		}
+
 		manifest, err := serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), false, catalogEntry.Spec.Manifest, input.MCPServerManifest)
 		if err != nil {
 			return err
