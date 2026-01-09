@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cronjob"
+	"github.com/obot-platform/obot/pkg/controller/handlers/k8ssettings"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgefile"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgeset"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesource"
@@ -239,6 +240,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DeleteServersForAnonymousUser)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.CleanupNestedCompositeServers)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DetectDrift)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DetectK8sSettingsDrift)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerInstanceUserCount)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerSecretInfo)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureCompositeComponents)
@@ -315,6 +317,9 @@ func (c *Controller) setupRoutes() {
 
 	// ScheduledAuditLogExport
 	root.Type(&v1.ScheduledAuditLogExport{}).HandlerFunc(scheduledAuditLogExportHandler.ScheduleExports)
+
+	// K8sSettings
+	root.Type(&v1.K8sSettings{}).HandlerFunc(k8ssettings.UpdateAllServerK8sSettingsDrift)
 
 	c.toolRefHandler = toolRef
 	c.mcpCatalogHandler = mcpCatalog
