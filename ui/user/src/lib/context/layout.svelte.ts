@@ -1,3 +1,4 @@
+import { responsive } from '$lib/stores';
 import { getContext, hasContext, setContext } from 'svelte';
 
 export const LAYOUT_CONTEXT = 'layout';
@@ -8,7 +9,7 @@ export interface Layout {
 
 export function initLayout() {
 	const data = $state<Layout>({
-		sidebarOpen: true
+		sidebarOpen: !responsive.isMobile
 	});
 	setContext(LAYOUT_CONTEXT, data);
 }
