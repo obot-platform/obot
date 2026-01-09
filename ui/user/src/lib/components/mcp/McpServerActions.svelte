@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
 	import { twMerge } from 'tailwind-merge';
@@ -80,6 +81,18 @@
 	let showDisconnectUser = $derived(
 		entry && server && profile.current.isAdmin?.() && server.userID !== profile.current.id
 	);
+	// Look up canConnect from the store if not set on props (e.g., when entry/server loaded directly via API)
+	let canConnect = $derived.by(() => {
+		const entryCanConnect =
+			entry?.canConnect ??
+			mcpServersAndEntries.current.entries.find((e) => e.id === entry?.id)?.canConnect ??
+			true;
+		const serverCanConnect =
+			server?.canConnect ??
+			mcpServersAndEntries.current.servers.find((s) => s.id === server?.id)?.canConnect ??
+			true;
+		return entryCanConnect && serverCanConnect;
+	});
 
 	function refresh() {
 		if (entry) {
@@ -118,7 +131,10 @@
 {#if !belongsToComposite}
 	{#if (entry && !server) || (server && (!server.catalogEntryID || (server.catalogEntryID && server.userID === profile.current.id)))}
 		<button
-			class="button-primary flex w-full items-center gap-1 text-sm md:w-fit"
+			class="button-primary flex w-full items-center gap-1 text-sm disabled:cursor-not-allowed disabled:opacity-50 md:w-fit"
+			use:tooltip={{
+				text: canConnect ? '' : 'See MCP Registries to grant connect access to this server'
+			}}
 			onclick={() => {
 				if (entry && !server && configuredServers.length > 0) {
 					handleShowSelectServerDialog();
@@ -130,7 +146,7 @@
 					});
 				}
 			}}
-			disabled={loading}
+			disabled={loading || !canConnect}
 		>
 			{#if loading}
 				<LoaderCircle class="size-4 animate-spin" />
