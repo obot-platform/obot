@@ -106,7 +106,7 @@
 				.catch((error) => {
 					// 424 means resources not supported
 					if (!error.message.includes('424')) {
-						console.error('Failed to load resources for connector:', mcp.id, error);
+						console.error('Failed to load resources for MCP server:', mcp.id, error);
 					}
 				});
 		}
@@ -173,7 +173,7 @@
 
 			return new File([content], filename, { type: response.mimeType });
 		} catch (err) {
-			errors.append(`Failed to read resource from connector: ${err}`);
+			errors.append(`Failed to read resource from MCP server: ${err}`);
 		}
 
 		return;
@@ -182,7 +182,7 @@
 	async function downloadResource(resource: McpServerResource, mcp: ProjectMCP) {
 		const file = await getResourceFile(resource, mcp);
 		if (!file) {
-			errors.append(`Failed to download resource from connector`);
+			errors.append(`Failed to download resource from MCP server`);
 			return;
 		}
 
@@ -281,7 +281,7 @@
 			<LoaderCircle class="size-4 animate-spin" />
 		{:else}
 			<HardDrive class="size-4" />
-			Add from Connector
+			Add from MCP Servers
 		{/if}
 	</button>
 {/if}
@@ -300,7 +300,7 @@
 		>
 			<span class="flex items-center gap-2">
 				<HardDrive class="size-4" />
-				Connector Resources
+				MCP Server Resources
 			</span>
 			<button class:mobile-header-button={responsive.isMobile} onclick={close} class="icon-button">
 				{#if responsive.isMobile}
@@ -318,7 +318,7 @@
 					bind:this={searchInput}
 					bind:value={searchQuery}
 					type="text"
-					placeholder="Search by connector or resource name..."
+					placeholder="Search by MCP server or resource name..."
 					class="focus:border-primary focus:ring-primary dark:focus:border-primary/50 bg-background dark:text-on-background w-full rounded-lg border border-gray-300 py-2 pr-4 pl-10 text-sm focus:ring-1 focus:outline-none dark:border-gray-600 dark:bg-gray-800"
 				/>
 			</div>

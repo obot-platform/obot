@@ -167,7 +167,7 @@
 										<p class="my-0.5 flex flex-col text-sm font-semibold">Update Required</p>
 									</div>
 									<span class="text-sm font-light break-all">
-										Due to a recent update in the server, an update on this connector's
+										Due to a recent update in the server, an update on this MCP server's
 										configuration is required to continue using this server.
 									</span>
 								</div>

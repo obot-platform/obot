@@ -114,7 +114,7 @@
 </div>
 
 <Confirm
-	msg="Are you sure you want to delete this connector from the project?"
+	msg="Are you sure you want to delete this MCP server from the project?"
 	show={showDeleteConfirm}
 	onsuccess={handleRemoveMcp}
 	oncancel={() => (showDeleteConfirm = false)}

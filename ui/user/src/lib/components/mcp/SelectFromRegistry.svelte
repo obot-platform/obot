@@ -776,7 +776,7 @@
 			{#if filteredConnectedServers.length > 0}
 				<div class="flex flex-col gap-4">
 					<div class="flex items-center gap-4">
-						<h2 class="text-lg font-semibold">Enabled Connectors</h2>
+						<h2 class="text-lg font-semibold">Enabled MCP Servers</h2>
 						{#if appendConnectedServerTitle}
 							{@render appendConnectedServerTitle()}
 						{/if}
@@ -821,7 +821,7 @@
 				</div>
 			{/if}
 			<div class="flex h-full flex-col gap-4">
-				<h2 class="text-lg font-semibold">Available Connectors</h2>
+				<h2 class="text-lg font-semibold">Available MCP Servers</h2>
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 					{#each paginatedData as item (item.id)}
 						<McpCard
@@ -998,7 +998,7 @@
 				}}
 				class="button-text flex items-center gap-2 p-0 text-lg font-light"
 			>
-				My Connectors
+				My MCP Servers
 			</button>
 			<ChevronLeft class="mx-2 size-4" />
 			<span class="text-lg font-light"

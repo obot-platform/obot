@@ -193,7 +193,7 @@
 {#snippet mainContent()}
 	<div class="w-full px-4 py-2">
 		<div class="mb-2 flex items-center justify-between gap-4">
-			<h4 class="text-lg font-semibold">Add Connector</h4>
+			<h4 class="text-lg font-semibold">Add MCP Server</h4>
 			<button
 				class="icon-button"
 				onclick={() => closeCatalogDialog()}
