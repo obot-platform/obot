@@ -11,7 +11,6 @@
 	import { Info } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { profile } from '$lib/stores/index.js';
-	import McpServerRemoteInfo from '$lib/components/admin/McpServerRemoteInfo.svelte';
 	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 
@@ -53,17 +52,7 @@
 	{/snippet}
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if mcpServerId}
-			{#if catalogEntry?.manifest.runtime === 'remote'}
-				<McpServerRemoteInfo
-					{mcpServerId}
-					name={catalogEntryName}
-					{connectedUsers}
-					entity="catalog"
-					entityId={DEFAULT_MCP_CATALOG_ID}
-					{catalogEntry}
-					{compositeParentName}
-				/>
-			{:else if catalogEntry?.manifest.runtime === 'composite'}
+			{#if catalogEntry?.manifest.runtime === 'composite'}
 				<McpServerCompositeInfo
 					{mcpServerId}
 					name={catalogEntryName}
@@ -79,6 +68,7 @@
 					{connectedUsers}
 					readonly={profile.current.isAdminReadonly?.()}
 					{catalogEntry}
+					{mcpServer}
 					{compositeParentName}
 				/>
 			{/if}

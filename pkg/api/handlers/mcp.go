@@ -2772,10 +2772,6 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
-	if serverConfig.Runtime == types.RuntimeRemote {
-		return types.NewErrBadRequest("cannot get details for remote MCP server")
-	}
-
 	if !req.UserIsAdmin() && !req.UserIsAuditor() {
 		workspaceID := req.PathValue("workspace_id")
 		if workspaceID == "" {
@@ -2817,10 +2813,6 @@ func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 	server, serverConfig, err := serverForAction(req)
 	if err != nil {
 		return err
-	}
-
-	if serverConfig.Runtime == types.RuntimeRemote {
-		return types.NewErrBadRequest("cannot restart deployment for remote MCP server")
 	}
 
 	if !req.UserIsAdmin() {
@@ -2910,7 +2902,8 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 	workspaceID := req.PathValue("workspace_id")
 	entryID := req.PathValue("entry_id")
 
-	server, serverConfig, err := serverForAction(req)
+	// Get the server and load the config
+	server, _, err := serverForAction(req)
 	if err != nil {
 		return err
 	}
@@ -2935,11 +2928,6 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 	} else if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
 		// Multi-user server was not in the specified catalog or workspace
 		return types.NewErrNotFound("MCP server not found")
-	}
-
-	// Remote servers don't have deployments
-	if serverConfig.Runtime == types.RuntimeRemote {
-		return types.NewErrBadRequest("K8s settings check is not supported for remote servers")
 	}
 
 	// Check if server has K8sSettingsHash in Status (only populated for Kubernetes runtime)
@@ -3008,11 +2996,6 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 	} else if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
 		// Multi-user server was not in the specified catalog or workspace
 		return types.NewErrNotFound("MCP server not found")
-	}
-
-	// Remote servers don't have deployments
-	if serverConfig.Runtime == types.RuntimeRemote {
-		return types.NewErrBadRequest("Redeployment is not supported for remote servers")
 	}
 
 	// Check if server has K8sSettingsHash in Status (only populated for Kubernetes runtime)
@@ -3194,10 +3177,6 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 	server, serverConfig, err := serverForAction(req)
 	if err != nil {
 		return err
-	}
-
-	if serverConfig.Runtime == types.RuntimeRemote {
-		return types.NewErrBadRequest("cannot stream logs for remote MCP server")
 	}
 
 	// If this is a single-user MCP server that belongs to the user, then let them access the logs.
