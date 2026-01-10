@@ -261,9 +261,6 @@ func (sm *SessionManager) closeClients(serverName string) {
 // RestartServerDeployment restarts the server in the currently used backend, if the backend supports it.
 // If the backend does not support restarts, then an [ErrNotSupportedByBackend] error is returned.
 func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server ServerConfig) error {
-	if server.Runtime == otypes.RuntimeRemote {
-		return otypes.NewErrBadRequest("cannot restart deployment for remote MCP server")
-	}
 	return sm.backend.restartServer(ctx, server.MCPServerName)
 }
 

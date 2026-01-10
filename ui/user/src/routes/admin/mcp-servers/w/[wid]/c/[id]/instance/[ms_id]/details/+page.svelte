@@ -12,7 +12,6 @@
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { profile } from '$lib/stores/index.js';
-	import McpServerRemoteInfo from '$lib/components/admin/McpServerRemoteInfo.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 
 	let { data } = $props();
@@ -43,26 +42,16 @@
 	{/snippet}
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if mcpServerId}
-			{#if catalogEntry?.manifest.runtime === 'remote'}
-				<McpServerRemoteInfo
-					{mcpServerId}
-					name={catalogEntryName}
-					{connectedUsers}
-					entity="workspace"
-					entityId={workspaceId}
-					{catalogEntry}
-				/>
-			{:else}
-				<McpServerK8sInfo
-					id={workspaceId}
-					entity="workspace"
-					{mcpServerId}
-					name={catalogEntryName}
-					{connectedUsers}
-					readonly={profile.current.isAdminReadonly?.()}
-					{catalogEntry}
-				/>
-			{/if}
+			<McpServerK8sInfo
+				id={workspaceId}
+				entity="workspace"
+				{mcpServerId}
+				name={catalogEntryName}
+				{connectedUsers}
+				readonly={profile.current.isAdminReadonly?.()}
+				{catalogEntry}
+				{mcpServer}
+			/>
 		{:else}
 			<div class="notification-info p-3 text-sm font-light">
 				<div class="flex items-center gap-3">
