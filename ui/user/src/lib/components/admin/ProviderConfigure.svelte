@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { BaseProvider } from '$lib/services/admin/types';
+	import type { BaseProvider, ProviderParameter } from '$lib/services/admin/types';
 	import { darkMode, profile } from '$lib/stores';
 	import { AlertCircle, LoaderCircle } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -22,6 +22,60 @@
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let form = $state<Record<string, string>>({});
 	let showRequired = $state(false);
+
+	const isAzureOpernAIProvider = $derived(
+		provider && provider.id === 'azure-openai-model-provider'
+	);
+	const requiredConfigurationPairs = $derived.by(() => {
+		if (!isAzureOpernAIProvider) return [];
+
+		const endpoint = provider?.requiredConfigurationParameters?.find(
+			(p) => p.name === 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT'
+		);
+		const apiKey = provider?.optionalConfigurationParameters?.find(
+			(p) => p.name === 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY'
+		);
+
+		type Pair = NonNullable<typeof apiKey>;
+
+		return [[endpoint, apiKey].filter(Boolean) as Pair[]];
+	});
+
+	const filterOutParams = $derived.by(() => {
+		if (isAzureOpernAIProvider)
+			return [
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT'
+			];
+		return [];
+	});
+
+	const requiredConfigurationParameters = $derived(
+		provider?.requiredConfigurationParameters?.filter(
+			(p) => !p.hidden && !filterOutParams.includes(p.name)
+		) ?? []
+	);
+	const optionalConfigurationParameters = $derived(
+		provider?.optionalConfigurationParameters?.filter(
+			(p) => !p.hidden && !filterOutParams.includes(p.name)
+		) ?? []
+	);
+
+	const selectedParameterPair: Record<string, ProviderParameter | undefined> = $state({});
+	const defaultSelectedParameterPair = $derived.by(() => {
+		return requiredConfigurationPairs.reduce(
+			(acc, pair, i) => {
+				acc[i] = pair[0];
+				return acc;
+			},
+			{} as Record<string, ProviderParameter | undefined>
+		);
+	});
+
+	const readonlySelectedParameterPair = $derived({
+		...defaultSelectedParameterPair,
+		...selectedParameterPair
+	});
 
 	function onOpen() {
 		// Reset state on each open
@@ -63,9 +117,20 @@
 
 	async function configure() {
 		showRequired = false;
-		const requiredFields =
-			provider?.requiredConfigurationParameters?.filter((p) => !p.hidden) ?? [];
-		const requiredFieldsNotFilled = requiredFields.filter((p) => !form[p.name].length);
+
+		const requiredFieldsNotFilled = requiredConfigurationParameters.filter(
+			(p) => !form[p.name].length
+		);
+
+		// Check required pairs fields; at least one in each pair must be filled; the selected one should be filled
+		for (let index = 0; index < requiredConfigurationPairs.length; index++) {
+			const selectedParameter = readonlySelectedParameterPair[index + ''];
+
+			if (selectedParameter && !form[selectedParameter.name].length) {
+				requiredFieldsNotFilled.push(selectedParameter);
+			}
+		}
+
 		if (requiredFieldsNotFilled.length > 0) {
 			showRequired = true;
 			return;
@@ -73,10 +138,17 @@
 
 		// Convert multiline values to single line with literal \n
 		const processedForm = { ...form };
-		for (const param of [
-			...(provider?.requiredConfigurationParameters ?? []),
-			...(provider?.optionalConfigurationParameters ?? [])
-		]) {
+
+		const selectedPairs = Object.values(readonlySelectedParameterPair).filter(
+			Boolean
+		) as ProviderParameter[];
+		const allParams = [
+			...selectedPairs,
+			...requiredConfigurationParameters,
+			...optionalConfigurationParameters
+		];
+
+		for (const param of allParams) {
 			if (param.multiline && processedForm[param.name]) {
 				processedForm[param.name] = processedForm[param.name].replace(/\n/g, '\\n');
 			}
@@ -116,10 +188,6 @@
 		</div>
 	{/snippet}
 	{#if provider}
-		{@const requiredConfigurationParameters =
-			provider.requiredConfigurationParameters?.filter((p) => !p.hidden) ?? []}
-		{@const optionalConfigurationParameters =
-			provider.optionalConfigurationParameters?.filter((p) => !p.hidden) ?? []}
 		<form
 			class="default-scrollbar-thin flex max-h-[70vh] flex-col gap-4 overflow-y-auto p-4 pt-0"
 			onsubmit={readonly ? undefined : configure}
@@ -148,9 +216,91 @@
 			{#if note}
 				{@render note()}
 			{/if}
-			{#if requiredConfigurationParameters.length > 0}
+
+			{#if requiredConfigurationParameters.length > 0 || requiredConfigurationPairs.length > 0}
 				<div class="flex flex-col gap-4">
 					<h4 class="text-lg font-semibold">Required Configuration</h4>
+					{#if requiredConfigurationPairs.length > 0}
+						<ul class="flex flex-col gap-4">
+							{#each requiredConfigurationPairs as pair, i (i)}
+								{@const selectedParameter = readonlySelectedParameterPair[i + '']}
+								{@const hasError =
+									selectedParameter && !form[selectedParameter.name]?.length && showRequired}
+
+								<li class="flex flex-col gap-2">
+									<div class="flex gap-1">
+										{#each pair as parameter (parameter.name)}
+											{@const isSelected = selectedParameter?.name === parameter.name}
+											<button
+												class={twMerge(
+													'bg-surface1 hover:bg-surface2 text-gray rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
+													isSelected &&
+														'bg-blue-500 text-white shadow-sm hover:bg-blue-600/90 active:bg-blue-600',
+													isSelected &&
+														hasError &&
+														'bg-red-500 text-white hover:bg-red-600/90 active:bg-red-600'
+												)}
+												type="button"
+												onclick={() => {
+													// Clear errors when switching
+													showRequired = false;
+													selectedParameterPair[i + ''] = parameter;
+												}}>{parameter.friendlyName}</button
+											>
+										{/each}
+									</div>
+
+									{#if selectedParameter && typeof form[selectedParameter.name] === 'string'}
+										<div class="flex flex-col gap-1">
+											{#if selectedParameter.description}
+												<span class="text-gray text-xs">{selectedParameter.description}</span>
+											{/if}
+											{#if selectedParameter.sensitive}
+												<SensitiveInput
+													error={hasError}
+													name={selectedParameter.name}
+													bind:value={form[selectedParameter.name]}
+													disabled={readonly}
+													textarea={selectedParameter.multiline}
+													growable={selectedParameter.multiline}
+												/>
+											{:else if multipValuesInputs.has(selectedParameter.name)}
+												<MultiValueInput
+													bind:value={form[selectedParameter.name]}
+													id={selectedParameter.name}
+													labels={selectedParameter.name === 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
+														? { '*': 'All domains' }
+														: {}}
+													class="text-input-filled"
+													placeholder={`Hit "Enter" to insert`.toString()}
+													disabled={readonly}
+												/>
+											{:else if selectedParameter.multiline}
+												<textarea
+													id={selectedParameter.name}
+													bind:value={form[selectedParameter.name]}
+													class:error={hasError}
+													class="text-input-filled min-h-[120px] resize-y"
+													disabled={readonly}
+													rows="5"
+												></textarea>
+											{:else}
+												<input
+													type="text"
+													id={selectedParameter.name}
+													bind:value={form[selectedParameter.name]}
+													class:error={hasError}
+													class="text-input-filled"
+													disabled={readonly}
+												/>
+											{/if}
+										</div>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+
 					<ul class="flex flex-col gap-4">
 						{#each requiredConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
@@ -207,6 +357,7 @@
 					</ul>
 				</div>
 			{/if}
+
 			{#if optionalConfigurationParameters.length > 0}
 				<div class="flex flex-col gap-2">
 					<h4 class="text-lg font-semibold">Optional Configuration</h4>

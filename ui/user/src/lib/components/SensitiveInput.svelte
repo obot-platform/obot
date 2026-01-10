@@ -252,7 +252,8 @@
 			class={twMerge(
 				'text-input-filled w-full pr-10',
 				klass,
-				error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1'
+				error &&
+					'border-red-500 bg-red-500/20 [color:var(--color-red-500)] ring-red-500 focus:ring-1'
 			)}
 			{value}
 			type={showSensitive ? 'text' : 'password'}
