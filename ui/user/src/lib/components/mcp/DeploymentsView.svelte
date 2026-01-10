@@ -33,6 +33,7 @@
 		CircleAlert,
 		CircleFadingArrowUp,
 		Ellipsis,
+		FileBox,
 		GitCompare,
 		LoaderCircle,
 		MessageCircle,
@@ -588,6 +589,24 @@
 											View Audit Logs
 										{/if}
 									</button>
+
+									{#if d.catalogEntryID}
+										{@const catalogEntryUrl = d.powerUserWorkspaceID
+											? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}`
+											: `/admin/mcp-servers/c/${d.catalogEntryID}`}
+										<button
+											onclick={(e) => {
+												e.stopPropagation();
+												const isCtrlClick = e.ctrlKey || e.metaKey;
+												setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+												openUrl(catalogEntryUrl, isCtrlClick);
+											}}
+											class="menu-button text-left"
+										>
+											<FileBox class="size-4" />
+											View Catalog Entry
+										</button>
+									{/if}
 
 									{#if !readonly}
 										<button
