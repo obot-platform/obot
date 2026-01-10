@@ -86,6 +86,10 @@ will automatically treat it as a reasoning model.
 
 ##### Microsoft Entra Authentication
 
+:::important
+At this time, Microsoft Entra authentication is only supported for Azure OpenAI deployments and not for the newer Microsoft Foundry deployments.
+:::
+
 Instead of using an API key, you can set up a Microsoft Entra app registration as a service principal to use Azure OpenAI.
 
 Obot requires the Client ID, Client Secret, and Tenant ID of the Entra app, as well as the Endpoint URL, Subscription ID, and Resource Group from Azure OpenAI/Microsoft Foundry.
