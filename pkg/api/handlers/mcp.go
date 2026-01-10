@@ -129,6 +129,15 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 		}
 
 		if hasAccess {
+			// Hide entries that require OAuth credentials that haven't been configured (non-admins only).
+			// Workspace owners can always see their own entries (they need to configure the OAuth credentials).
+			if !req.UserIsAdmin() && entryRequiresUnconfiguredOAuth(req.Context(), req.GPTClient, entry) {
+				// Check if this is a workspace entry owned by the current user
+				if entry.Spec.PowerUserWorkspaceID == "" || entry.Spec.PowerUserWorkspaceID != system.GetPowerUserWorkspaceID(req.User.GetUID()) {
+					// Either the entry is not in a workspace, or it's in a workspace not owned by the user. Omit it.
+					continue
+				}
+			}
 			entries = append(entries, convertEntry(entry))
 		}
 	}
@@ -274,7 +283,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 				return err
 			}
 		}
-		converted := ConvertMCPServer(server, credMap[server.Name], m.serverURL, slug, components...)
+		converted := ConvertMCPServer(req.Context(), req.GPTClient, server, credMap[server.Name], m.serverURL, slug, components...)
 		items = append(items, converted)
 	}
 
@@ -343,7 +352,7 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 			return err
 		}
 	}
-	converted := ConvertMCPServer(server, cred.Env, m.serverURL, slug, components...)
+	converted := ConvertMCPServer(req.Context(), req.GPTClient, server, cred.Env, m.serverURL, slug, components...)
 	return req.Write(converted)
 }
 
@@ -398,7 +407,7 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(ConvertMCPServer(server, nil, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(req.Context(), req.GPTClient, server, nil, m.serverURL, slug))
 }
 
 // compositeDeletionDependency represents a composite MCP server or catalog entry that depends
@@ -1577,6 +1586,11 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return types.NewErrForbidden("user does not have access to MCP server catalog entry")
 		}
 
+		// Block server creation if OAuth is required but not configured
+		if entryRequiresUnconfiguredOAuth(req.Context(), req.GPTClient, catalogEntry) {
+			return types.NewErrBadRequest("catalog entry requires OAuth configuration by an administrator before it can be used")
+		}
+
 		manifest, err := serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), false, catalogEntry.Spec.Manifest, input.MCPServerManifest)
 		if err != nil {
 			return err
@@ -1621,7 +1635,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.WriteCreated(ConvertMCPServer(server, cred.Env, m.serverURL, slug))
+	return req.WriteCreated(ConvertMCPServer(req.Context(), req.GPTClient, server, cred.Env, m.serverURL, slug))
 }
 
 // UpdateServer updates the manifest of an MCPServer.
@@ -1698,7 +1712,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(ConvertMCPServer(existing, cred.Env, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(req.Context(), req.GPTClient, existing, cred.Env, m.serverURL, slug))
 }
 
 func (m *MCPHandler) UpdateServerAlias(req api.Context) error {
@@ -1836,7 +1850,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(ConvertMCPServer(mcpServer, envVars, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(req.Context(), req.GPTClient, mcpServer, envVars, m.serverURL, slug))
 }
 
 func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v1.MCPServer) error {
@@ -1997,7 +2011,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(ConvertMCPServer(compositeServer, nil, m.serverURL, slug, components...))
+	return req.Write(ConvertMCPServer(req.Context(), req.GPTClient, compositeServer, nil, m.serverURL, slug, components...))
 }
 
 // applyURLTemplate applies a URL template with environment variables
@@ -2055,7 +2069,7 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(ConvertMCPServer(mcpServer, nil, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(req.Context(), req.GPTClient, mcpServer, nil, m.serverURL, slug))
 }
 
 func (m *MCPHandler) deconfigureCompositeServer(req api.Context, compositeServer v1.MCPServer) error {
@@ -2104,7 +2118,7 @@ func (m *MCPHandler) deconfigureCompositeServer(req api.Context, compositeServer
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(ConvertMCPServer(compositeServer, nil, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(req.Context(), req.GPTClient, compositeServer, nil, m.serverURL, slug))
 }
 
 func (m *MCPHandler) Reveal(req api.Context) error {
@@ -2404,7 +2418,7 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 	}
 }
 
-func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL, slug string, components ...types.MCPServer) types.MCPServer {
+func ConvertMCPServer(ctx context.Context, gptClient *gptscript.GPTScript, server v1.MCPServer, credEnv map[string]string, serverURL, slug string, components ...types.MCPServer) types.MCPServer {
 	var missingEnvVars, missingHeaders []string
 
 	// Check for missing required env vars
@@ -2431,6 +2445,17 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		}
 	}
 
+	// Check if OAuth credentials are required but missing
+	missingOAuth := false
+	if server.Spec.Manifest.RemoteConfig != nil &&
+		server.Spec.Manifest.RemoteConfig.AuthorizationServerURL != "" &&
+		server.Spec.MCPServerCatalogEntryName != "" {
+		// Look up OAuth credentials for the catalog entry
+		credName := system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)
+		_, err := gptClient.RevealCredential(ctx, []string{credName}, "oauth")
+		missingOAuth = (err != nil)
+	}
+
 	var connectURL string
 	// Only single-user servers get a connect URL.
 	// Multi-user servers have connect URLs on the MCPServerInstances instead.
@@ -2455,8 +2480,9 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		Alias:                       server.Spec.Alias,
 		MissingRequiredEnvVars:      missingEnvVars,
 		MissingRequiredHeaders:      missingHeaders,
+		MissingOAuthCredentials:     missingOAuth,
 		UserID:                      server.Spec.UserID,
-		Configured:                  len(missingEnvVars) == 0 && len(missingHeaders) == 0 && !server.Spec.NeedsURL,
+		Configured:                  len(missingEnvVars) == 0 && len(missingHeaders) == 0 && !server.Spec.NeedsURL && !missingOAuth,
 		MCPServerManifest:           server.Spec.Manifest,
 		CatalogEntryID:              server.Spec.MCPServerCatalogEntryName,
 		PowerUserWorkspaceID:        server.Spec.PowerUserWorkspaceID,
@@ -2555,7 +2581,7 @@ func resolveCompositeComponents(req api.Context, composite v1.MCPServer) ([]type
 
 		addExtractedEnvVars(&component)
 		// No slug/URL needed; only Configured/NeedsURL are used from the component
-		convertedComponents = append(convertedComponents, ConvertMCPServer(component, cred.Env, "", ""))
+		convertedComponents = append(convertedComponents, ConvertMCPServer(req.Context(), req.GPTClient, component, cred.Env, "", ""))
 	}
 
 	return convertedComponents, nil
@@ -2662,7 +2688,7 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 				return err
 			}
 		}
-		parent := ConvertMCPServer(server, credMap[server.Name], m.serverURL, slug, components...)
+		parent := ConvertMCPServer(req.Context(), req.GPTClient, server, credMap[server.Name], m.serverURL, slug, components...)
 		mcpServers = append(mcpServers, parent)
 	}
 
@@ -2736,7 +2762,7 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(ConvertMCPServer(server, cred.Env, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(req.Context(), req.GPTClient, server, cred.Env, m.serverURL, slug))
 }
 
 func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
@@ -3067,7 +3093,7 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 	}
 
 	// Return updated server
-	return req.Write(ConvertMCPServer(server, cred.Env, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(req.Context(), req.GPTClient, server, cred.Env, m.serverURL, slug))
 }
 
 // ListServersNeedingK8sUpdateInCatalog lists all servers in a catalog that need redeployment with new K8s settings
@@ -3322,7 +3348,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(ConvertMCPServer(mcpServer, nil, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(req.Context(), req.GPTClient, mcpServer, nil, m.serverURL, slug))
 }
 
 func (m *MCPHandler) TriggerUpdate(req api.Context) error {

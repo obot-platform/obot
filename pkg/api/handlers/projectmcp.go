@@ -40,7 +40,7 @@ func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontro
 	}
 }
 
-func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.MCPServer, cred map[string]string, components ...types.MCPServer) types.ProjectMCPServer {
+func convertProjectMCPServer(ctx context.Context, gptClient *gptscript.GPTScript, projectServer *v1.ProjectMCPServer, mcpServer *v1.MCPServer, cred map[string]string, components ...types.MCPServer) types.ProjectMCPServer {
 	pmcp := types.ProjectMCPServer{
 		Metadata:                 MetadataFrom(projectServer),
 		ProjectMCPServerManifest: projectServer.Spec.Manifest,
@@ -62,7 +62,7 @@ func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.M
 		// We don't show this for shared servers, because the user can't do anything about it
 		// if something is wrong with one of those; only the admin can.
 		// We don't care about the connect URL here, so passing empty string for both URL an slug.
-		convertedServer := ConvertMCPServer(*mcpServer, cred, "", "", components...)
+		convertedServer := ConvertMCPServer(ctx, gptClient, *mcpServer, cred, "", "", components...)
 		pmcp.Configured = convertedServer.Configured
 		pmcp.NeedsURL = convertedServer.NeedsURL
 		pmcp.NeedsUpdate = convertedServer.NeedsUpdate
@@ -160,7 +160,7 @@ func (p *ProjectMCPHandler) ListServer(req api.Context) error {
 			}
 		}
 
-		items = append(items, convertProjectMCPServer(&server, &mcpServer, cred, components...))
+		items = append(items, convertProjectMCPServer(req.Context(), req.GPTClient, &server, &mcpServer, cred, components...))
 	}
 
 	return req.Write(types.ProjectMCPServerList{Items: items})
@@ -239,7 +239,7 @@ func (p *ProjectMCPHandler) CreateServer(req api.Context) error {
 			log.Warnf("failed to resolve composite components for project server %s: %v", mcpServer.Name, err)
 		}
 	}
-	return req.WriteCreated(convertProjectMCPServer(&projectServer, mcpServer, cred, components...))
+	return req.WriteCreated(convertProjectMCPServer(req.Context(), req.GPTClient, &projectServer, mcpServer, cred, components...))
 }
 
 func (p *ProjectMCPHandler) GetServer(req api.Context) error {
@@ -272,7 +272,7 @@ func (p *ProjectMCPHandler) GetServer(req api.Context) error {
 			log.Warnf("failed to resolve composite components for project server %s: %v", mcpServer.Name, err)
 		}
 	}
-	return req.Write(convertProjectMCPServer(&projectServer, mcpServer, cred, components...))
+	return req.Write(convertProjectMCPServer(req.Context(), req.GPTClient, &projectServer, mcpServer, cred, components...))
 }
 
 func (p *ProjectMCPHandler) DeleteServer(req api.Context) error {
@@ -313,7 +313,7 @@ func (p *ProjectMCPHandler) DeleteServer(req api.Context) error {
 			log.Warnf("failed to resolve composite components for project server %s: %v", mcpServer.Name, err)
 		}
 	}
-	return req.Write(convertProjectMCPServer(&projectServer, mcpServer, cred, components...))
+	return req.Write(convertProjectMCPServer(req.Context(), req.GPTClient, &projectServer, mcpServer, cred, components...))
 }
 
 func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {
