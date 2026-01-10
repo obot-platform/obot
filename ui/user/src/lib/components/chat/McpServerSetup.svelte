@@ -191,7 +191,7 @@
 {/snippet}
 
 {#snippet mainContent()}
-	<div class="w-full px-4 py-2">
+	<div class="bg-background sticky top-0 z-10 w-full px-4 py-2">
 		<div class="mb-2 flex items-center justify-between gap-4">
 			<h4 class="text-lg font-semibold">Add Connector</h4>
 			<button
