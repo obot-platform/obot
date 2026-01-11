@@ -25,7 +25,6 @@
 	import { onMount } from 'svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { poll } from '$lib/utils';
-	import { resolve } from '$app/paths';
 
 	interface Props {
 		assistantID: string;
@@ -288,7 +287,7 @@
 						<div class="flex items-center gap-1">
 							<CopyButton text={url} />
 							<a
-								href={resolve(url as `/${string}`)}
+								href={url}
 								class="overflow-hidden text-sm text-ellipsis hover:underline">{url}</a
 							>
 						</div>
