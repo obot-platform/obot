@@ -61,7 +61,7 @@ func (f MCPSelectors) Matches(method, identifier string) bool {
 
 func (f MCPSelectors) Strings() []string {
 	if len(f) == 0 {
-		return []string{"message:"}
+		return []string{"*"}
 	}
 
 	var result []string
@@ -92,8 +92,8 @@ func (f *MCPSelector) Matches(method, identifier string) bool {
 }
 
 func (f MCPSelector) Strings() []string {
-	var s string
-	if f.Method != "" && f.Method != "*" {
+	s := "*"
+	if f.Method != "" {
 		s = f.Method
 	}
 
