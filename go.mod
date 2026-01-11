@@ -42,7 +42,7 @@ require (
 	github.com/obot-platform/kinm v0.0.0-20250905213846-3c65d6845f83
 	github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317
 	github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2
-	github.com/obot-platform/obot/apiclient v0.0.0-20250813183905-ade719c1e8bf
+	github.com/obot-platform/obot/apiclient v0.0.0-20260109192351-ac4fbf6aaa74
 	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32
 	github.com/onsi/gomega v1.34.2
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
