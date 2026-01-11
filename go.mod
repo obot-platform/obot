@@ -29,7 +29,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250224164718-139cb4507b1d
 	github.com/gptscript-ai/cmd v0.0.0-20250530150401-bc71fddf8070
-	github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b
+	github.com/gptscript-ai/datasets v0.0.0-20251105164704-09ff940a99ef
 	github.com/gptscript-ai/go-gptscript v0.9.8
 	github.com/gptscript-ai/gptscript v0.9.8
 	github.com/jackc/pgx/v5 v5.7.5
