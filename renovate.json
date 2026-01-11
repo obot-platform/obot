@@ -4,15 +4,47 @@
     "config:recommended",
     "helpers:pinGitHubActionDigests",
     ":semanticCommits",
-    ":dependencyDashboard"
+    ":dependencyDashboard",
+    "group:kubernetes"
   ],
   "dependencyDashboardTitle": "Renovate Dashboard",
   "postUpdateOptions": ["gomodTidy"],
+  "rebaseWhen": "conflicted",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "schedule": ["after 10pm", "before 6am"],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 4am on monday"]
+  },
   "packageRules": [
+    {
+      "description": "Group gptscript-ai packages",
+      "matchPackagePatterns": ["^github.com/gptscript-ai/"],
+      "groupName": "gptscript packages"
+    },
+    {
+      "description": "Group golang.org/x packages",
+      "matchPackagePatterns": ["^golang.org/x/"],
+      "groupName": "golang.org/x packages"
+    },
+    {
+      "description": "Group obot-platform packages",
+      "matchPackagePatterns": ["^github.com/obot-platform/"],
+      "groupName": "obot-platform packages"
+    },
     {
       "description": "Auto-merge GitHub Actions minor/patch",
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["minor", "patch", "digest"],
+      "automerge": true,
+      "automergeType": "pr",
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Auto-merge Go patch updates",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["patch", "digest"],
       "automerge": true,
       "automergeType": "pr",
       "minimumReleaseAge": "3 days"
