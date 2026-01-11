@@ -286,10 +286,8 @@
 					<div class="p-3">
 						<div class="flex items-center gap-1">
 							<CopyButton text={url} />
-							<a
-								href={url}
-								class="overflow-hidden text-sm text-ellipsis hover:underline">{url}</a
-							>
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- url is already absolute (includes window.location.origin) -->
+							<a href={url} class="overflow-hidden text-sm text-ellipsis hover:underline">{url}</a>
 						</div>
 					</div>
 				</div>
