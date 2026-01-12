@@ -8,8 +8,9 @@
     ":configMigration",
     "group:kubernetes"
   ],
-  "dependencyDashboardTitle": "Renovate Dashboard",
+  "dependencyDashboardTitle": "Renovate Dashboard :robot:",
   "branchPrefix": "renovate/",
+  "timezone": "America/New_York",
   "postUpdateOptions": [
     "gomodTidy"
   ],
@@ -20,11 +21,14 @@
     "after 10pm",
     "before 6am"
   ],
+  "osvVulnerabilityAlerts": true,
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": [
       "before 4am on monday"
-    ]
+    ],
+    "automerge": true,
+    "automergeType": "branch"
   },
   "vulnerabilityAlerts": {
     "enabled": true,
@@ -100,17 +104,19 @@
       ]
     },
     {
-      "description": "Auto-merge GitHub Actions minor/patch",
+      "description": "Auto-merge GitHub Actions (grouped)",
       "matchManagers": [
         "github-actions"
       ],
+      "groupName": "github-actions",
+      "groupSlug": "github-actions",
       "matchUpdateTypes": [
         "minor",
         "patch",
         "digest"
       ],
       "automerge": true,
-      "automergeType": "pr",
+      "automergeType": "branch",
       "minimumReleaseAge": "3 days"
     },
     {
@@ -142,6 +148,9 @@
       "matchUpdateTypes": [
         "major"
       ],
+      "semanticCommitType": "feat",
+      "commitMessagePrefix": "{{semanticCommitType}}({{semanticCommitScope}})!:",
+      "commitMessageExtra": "( {{currentVersion}} → {{newVersion}} )",
       "labels": [
         "type/major"
       ]
@@ -150,18 +159,53 @@
       "matchUpdateTypes": [
         "minor"
       ],
+      "semanticCommitType": "feat",
+      "commitMessageExtra": "( {{currentVersion}} → {{newVersion}} )",
       "labels": [
         "type/minor"
       ]
     },
     {
       "matchUpdateTypes": [
-        "patch",
-        "digest"
+        "patch"
       ],
+      "semanticCommitType": "fix",
+      "commitMessageExtra": "( {{currentVersion}} → {{newVersion}} )",
       "labels": [
         "type/patch"
       ]
+    },
+    {
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "semanticCommitType": "chore",
+      "commitMessageExtra": "( {{currentDigestShort}} → {{newDigestShort}} )",
+      "labels": [
+        "type/digest"
+      ]
+    },
+    {
+      "matchManagers": [
+        "github-actions"
+      ],
+      "semanticCommitType": "ci",
+      "semanticCommitScope": "github-action",
+      "commitMessageTopic": "action {{depName}}"
+    },
+    {
+      "matchManagers": [
+        "gomod"
+      ],
+      "semanticCommitScope": "go",
+      "commitMessageTopic": "module {{depName}}"
+    },
+    {
+      "matchManagers": [
+        "npm"
+      ],
+      "semanticCommitScope": "npm",
+      "commitMessageTopic": "package {{depName}}"
     }
   ]
 }

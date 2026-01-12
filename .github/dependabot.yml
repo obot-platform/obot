@@ -1,0 +1,15 @@
+# Dependabot configuration file
+# This repository uses Renovate for all dependency management.
+# This file explicitly disables Dependabot to prevent conflicts.
+#
+# Why disable Dependabot?
+# - Renovate provides more flexible configuration options
+# - Single source of truth for dependency updates
+# - Avoids duplicate PRs and merge conflicts
+# - Better support for Go, npm/pnpm, and GitHub Actions ecosystem
+#
+# To configure Dependabot if needed in the future, see:
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates: []
