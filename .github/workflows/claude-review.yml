@@ -2,40 +2,28 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize]
-  issue_comment:
-    types: [created]
-
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: true
+    types: [opened, synchronize, ready_for_review, reopened]
 
 jobs:
-  review:
-    # Run on PR events, or on issue comments containing @claude
-    if: |
-      github.event_name == 'pull_request' ||
-      (github.event_name == 'issue_comment' &&
-       github.event.issue.pull_request &&
-       contains(github.event.comment.body, '@claude'))
+  claude-review:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Run Claude Code Review
-        uses: anthropics/claude-code-action@beta
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          model: claude-sonnet-4-20250514
-          trigger_phrase: "@claude"
-          timeout_minutes: 10
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
+          plugins: 'code-review@claude-code-plugins'
+          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
