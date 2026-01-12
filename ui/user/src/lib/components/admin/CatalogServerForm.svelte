@@ -746,10 +746,10 @@
 									be set inside your MCP server and you can reference it in the arguments section above
 									using the syntax ${'{KEY_NAME}'}.
 								{:else}
-									{type === 'single' ? 'The value the user supplies' : 'The value you provide'} will
-									be set as an environment variable using the name you specify in the Key field. This
-									environment variable will be set inside your MCP server and you can reference it in
-									the arguments section above using the syntax ${'{KEY_NAME}'}.
+									{type === 'single' ? 'The value the user supplies' : 'The value you provide'} will be
+									set as an environment variable using the name you specify in the Key field. This environment
+									variable will be set inside your MCP server and you can reference it in the arguments
+									section above using the syntax ${'{KEY_NAME}'}.
 								{/if}
 							</p>
 

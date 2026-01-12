@@ -37,7 +37,7 @@ export default tseslint.config(
 		}
 	},
 	{
-		ignores: ['build/', '.svelte-kit/', 'dist/']
+		ignores: ['build/', 'build-node/', '.svelte-kit/', 'dist/']
 	},
 	{
 		rules: {

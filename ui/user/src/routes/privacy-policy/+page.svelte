@@ -539,10 +539,10 @@
 						</p>
 						<p>
 							<u>Cookies can be session-based</u> (which disappear once you close your device or browser)
-							or persistent (which remain on your device afterwards). Acorn may also rely on cookies
-							or similar technology operating on other websites, for example to display our adverts to
-							you. You can generally disable the use of cookies by changing your browser settings. You
-							may also adjust your browser settings, however if you choose to not have your browser accept
+							or persistent (which remain on your device afterwards). Acorn may also rely on cookies or
+							similar technology operating on other websites, for example to display our adverts to you.
+							You can generally disable the use of cookies by changing your browser settings. You may
+							also adjust your browser settings, however if you choose to not have your browser accept
 							cookies from the Acorn Sites, you will not be able to experience a personalized visit and
 							it may limit your ability to use some features on our Sites. For more information about
 							cookies, visit https://www.aboutcookies.org. We may also use pixels, web beacons and similar

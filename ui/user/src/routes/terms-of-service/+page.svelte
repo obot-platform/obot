@@ -219,9 +219,9 @@
 						<h2 class="text-lg font-semibold" id={sectionHeaders[1].id}>Scope of the Agreement</h2>
 						<ol>
 							<li>
-								<b>Ordering.</b> Any Software or Services purchased by Customer shall be governed by
-								an Order Form. Professional Services will be governed by a separate written agreement
-								or an Order Form.
+								<b>Ordering.</b> Any Software or Services purchased by Customer shall be governed by an
+								Order Form. Professional Services will be governed by a separate written agreement or
+								an Order Form.
 							</li>
 							<li>
 								<b>Structure.</b> The Agreement also incorporates the following components: (1) the applicable
@@ -253,19 +253,19 @@
 								for evaluation purposes only and not for production use, (b) are not considered "Software"
 								under the Agreement, and (c) are not included in any support that may be offered by Acorn.
 								Acorn may discontinue Beta Software at any time. Beta Software is provided "as-is" without
-								warranty, and notwithstanding Section 12, Acorn will have no liability for any claim
-								arising from Customer's, its Affiliates', or Users' use of Beta Software.
+								warranty, and notwithstanding Section 12, Acorn will have no liability for any claim arising
+								from Customer's, its Affiliates', or Users' use of Beta Software.
 							</li>
 							<li>
 								<b>AI Features.</b> The Software employs artificial intelligence, machine learning, or
 								similar technologies through the Software' processing of Customer Data (the "AI Features").
-								Customer or its Authorized Users may provide input, including Customer Data, for use
-								with the AI Features ("AI Input") and receive output generated and returned by the AI
-								Features based on the AI Input ("AI Output"). Other customers providing similar AI Input
-								to the Al Features may receive the same or similar AI Output. Customer acknowledges and
-								agrees that Customer is responsible for reviewing and validating AI Output for its needs
-								and technical environment before electing to use AI Output. Customer agrees to comply
-								with any applicable AI Feature restrictions described in the Documentation. NOTWITHSTANDING
+								Customer or its Authorized Users may provide input, including Customer Data, for use with
+								the AI Features ("AI Input") and receive output generated and returned by the AI Features
+								based on the AI Input ("AI Output"). Other customers providing similar AI Input to the
+								Al Features may receive the same or similar AI Output. Customer acknowledges and agrees
+								that Customer is responsible for reviewing and validating AI Output for its needs and
+								technical environment before electing to use AI Output. Customer agrees to comply with
+								any applicable AI Feature restrictions described in the Documentation. NOTWITHSTANDING
 								ANY CONTRARY PROVISION HEREIN, ACORN DOES NOT REPRESENT OR WARRANT THAT THE AI OUTPUT
 								WILL BE ACCURATE, COMPLETE, ERROR-FREE, OR FIT FOR A PARTICULAR PURPOSE.
 							</li>
@@ -281,14 +281,14 @@
 								basis, and not part of the Subscription. Acorn makes no warranty or guarantee as to the
 								interoperability or availability of any Connected Applications and the Customer's use
 								of any such Connected Applications is wholly at Customer's own risk. Acorn may terminate
-								interoperability with Connected Applications at any time in Acorn's sole discretion,
-								after providing Customer commercially reasonable notice (except in the case where the
-								Connected Application poses a security risk to the Software). Any acquisition by Customer
-								of Connected Applications, and any exchange of Customer Data between Customer and any
-								Connected Application provider, product, or Software, is solely between Customer and
-								the applicable Connected Application provider. Acorn does not warrant or support Connected
-								Applications. Acorn is not responsible for any disclosure, modification or deletion of
-								Customer Data resulting from access by any Connected Application or its provider.
+								interoperability with Connected Applications at any time in Acorn's sole discretion, after
+								providing Customer commercially reasonable notice (except in the case where the Connected
+								Application poses a security risk to the Software). Any acquisition by Customer of Connected
+								Applications, and any exchange of Customer Data between Customer and any Connected Application
+								provider, product, or Software, is solely between Customer and the applicable Connected
+								Application provider. Acorn does not warrant or support Connected Applications. Acorn
+								is not responsible for any disclosure, modification or deletion of Customer Data resulting
+								from access by any Connected Application or its provider.
 							</li>
 							<li>
 								<b>Public AI Agents; Disclaimer of Warranties.</b> The Software may display or make available
@@ -331,30 +331,30 @@
 									content or otherwise; (h) to transmit, or procure the sending of, any advertising
 									or promotional material, including any "junk mail", "chain letter," "spam," or any
 									other similar solicitation;</b
-								> (i) use the Software to send or store material containing software viruses, worms,
-								Trojan horses or other harmful computer code, files, scripts, or agents; (j) disrupt
-								the integrity or performance of the Software; (k) remove, alter, or obscure in any way
-								the proprietary rights notices (including copyright, patent, and trademark notices and
-								symbols) of Acorn or its suppliers contained on or within any copies of the Software,
-								(l) bypass any security measure or access control measure of the Software, (m) use the
-								Software other than as described in the Documentation, (n) perform or disclose any benchmarking
-								or testing of the Software itself or of the security environment or associated infrastructure
-								without Acorn's prior written consent. Acorn may, without limiting its other rights and
-								remedies, suspend Customer's and/or applicable Users' access to the Software at any time
-								if: (i) required by applicable law, (ii) Customer or any User is in violation of the
-								terms of this Agreement, or (iii) Customer's or a User's use disrupts the integrity or
-								operation of the Software or interferes with use of the Software by others. Acorn will
-								use reasonable efforts to notify Customer prior to any suspension, unless prohibited
-								by applicable law or court order, and Acorn will promptly restore Customer's access to
-								the Software upon resolution of any violation under this section. If Acorn is notified
-								that any Customer Data violates applicable law or third-party rights, Acorn may so notify
-								Customer and in such event Customer will promptly remove such Customer Data from the
-								Software. If Customer does not take the required action, Acorn may disable the applicable
-								Customer Data until the potential violation is resolved.
+								> (i) use the Software to send or store material containing software viruses, worms, Trojan
+								horses or other harmful computer code, files, scripts, or agents; (j) disrupt the integrity
+								or performance of the Software; (k) remove, alter, or obscure in any way the proprietary
+								rights notices (including copyright, patent, and trademark notices and symbols) of Acorn
+								or its suppliers contained on or within any copies of the Software, (l) bypass any security
+								measure or access control measure of the Software, (m) use the Software other than as
+								described in the Documentation, (n) perform or disclose any benchmarking or testing of
+								the Software itself or of the security environment or associated infrastructure without
+								Acorn's prior written consent. Acorn may, without limiting its other rights and remedies,
+								suspend Customer's and/or applicable Users' access to the Software at any time if: (i)
+								required by applicable law, (ii) Customer or any User is in violation of the terms of
+								this Agreement, or (iii) Customer's or a User's use disrupts the integrity or operation
+								of the Software or interferes with use of the Software by others. Acorn will use reasonable
+								efforts to notify Customer prior to any suspension, unless prohibited by applicable law
+								or court order, and Acorn will promptly restore Customer's access to the Software upon
+								resolution of any violation under this section. If Acorn is notified that any Customer
+								Data violates applicable law or third-party rights, Acorn may so notify Customer and in
+								such event Customer will promptly remove such Customer Data from the Software. If Customer
+								does not take the required action, Acorn may disable the applicable Customer Data until
+								the potential violation is resolved.
 							</li>
 							<li>
-								<b>Customer Responsibilities.</b> Customer will: (a) at all times remain responsible
-								for Users' compliance with the Agreement and will promptly notify Acorn of any unauthorized
+								<b>Customer Responsibilities.</b> Customer will: (a) at all times remain responsible for
+								Users' compliance with the Agreement and will promptly notify Acorn of any unauthorized
 								access to the Software arising from a compromise or misuse of Customer's or its User's
 								access credentials, (b) use the Software only in accordance with the Documentation, applicable
 								laws, and government regulations, (c) comply with terms of service of any Connected Applications
@@ -364,14 +364,14 @@
 							<li>
 								<b>AI Agent Responsibilities/Indemnity.</b> Customer is solely responsible for the actions,
 								decisions, and outputs of any AI agents, models, or automated processes that it creates,
-								configures, deploys, or instructs using the Software. This includes any interactions
-								such AI Agents initiate with third parties, third-party systems or software, any data
-								they process or generate, and any consequences arising from their behavior or performance.
-								Customer agrees that it shall: (a) ensure all AI Agents comply with applicable laws,
-								regulations, and third-party rights, including but not limited to applicable data privacy
-								and processing regulations, (b) not use the Software to create AI Agents that engage
-								in deceptive, harmful, or unlawful conduct, and (c) monitor and control the behavior
-								of all AI Agents it deploys and implement appropriate safeguards to prevent misuse.
+								configures, deploys, or instructs using the Software. This includes any interactions such
+								AI Agents initiate with third parties, third-party systems or software, any data they
+								process or generate, and any consequences arising from their behavior or performance.
+								Customer agrees that it shall: (a) ensure all AI Agents comply with applicable laws, regulations,
+								and third-party rights, including but not limited to applicable data privacy and processing
+								regulations, (b) not use the Software to create AI Agents that engage in deceptive, harmful,
+								or unlawful conduct, and (c) monitor and control the behavior of all AI Agents it deploys
+								and implement appropriate safeguards to prevent misuse.
 							</li>
 							<li>
 								<b>Customer AI Agent Indemnity.</b> Customer agrees to indemnify, defend, and hold harmless
@@ -386,25 +386,24 @@
 						<h2 class="text-lg font-semibold" id={sectionHeaders[4].id}>Data Responsibilities</h2>
 						<ol>
 							<li>
-								<b>Compliance With Applicable Laws.</b> Customer is exclusively responsible for: (a)
-								determining what data Customer submits to the Software, (b) for obtaining all necessary
-								consent and permissions for submission of Customer Data and related data processing instructions
-								to Acorn, (c) for the accuracy, quality and legality of Customer Data, and (d) Customer's
+								<b>Compliance With Applicable Laws.</b> Customer is exclusively responsible for: (a) determining
+								what data Customer submits to the Software, (b) for obtaining all necessary consent and
+								permissions for submission of Customer Data and related data processing instructions to
+								Acorn, (c) for the accuracy, quality and legality of Customer Data, and (d) Customer's
 								compliance with applicable data privacy and protection regulations. Customer shall ensure
 								that it is entitled to transfer the relevant Customer Data to Acorn so that Acorn and
 								its service providers may lawfully use, process, and transfer the Customer Data in accordance
-								with this Agreement on Customer's behalf. No rights to the Customer Data are granted
-								to Acorn hereunder other than as expressly set forth in this Agreement.
+								with this Agreement on Customer's behalf. No rights to the Customer Data are granted to
+								Acorn hereunder other than as expressly set forth in this Agreement.
 							</li>
 							<li>
 								<b>Excluded Data.</b> Customer shall not provide Acorn with any Customer Data that is
-								subject to heightened security requirements by law, regulation or contract (examples
-								include but are not limited to the Gramm–Leach–Bliley Act (GLBA), Health Insurance and
-								Portability and Accountability Act (HIPAA), Family Educational Rights and Privacy Act
-								(FERPA), the Child's Online Privacy Protection Act (COPPA), the standards promulgated
-								by the PCI Security Standards Council (PCI-DSS), and their international equivalents
-								(such Customer Data collectively, "Excluded Data"). Acorn shall have no responsibility
-								or liability for Excluded Data.
+								subject to heightened security requirements by law, regulation or contract (examples include
+								but are not limited to the Gramm–Leach–Bliley Act (GLBA), Health Insurance and Portability
+								and Accountability Act (HIPAA), Family Educational Rights and Privacy Act (FERPA), the
+								Child's Online Privacy Protection Act (COPPA), the standards promulgated by the PCI Security
+								Standards Council (PCI-DSS), and their international equivalents (such Customer Data collectively,
+								"Excluded Data"). Acorn shall have no responsibility or liability for Excluded Data.
 							</li>
 						</ol>
 					</li>
@@ -416,18 +415,18 @@
 							<li>
 								<b>Reservation of Rights.</b> Access to the Software is sold on a subscription basis.
 								Except for the limited rights expressly granted to Customer hereunder, Acorn reserves
-								all rights, title, and interest in and to the Software, the underlying software, the
-								Acorn Materials and any and all improvements (including any arising from Customer's feedback),
+								all rights, title, and interest in and to the Software, the underlying software, the Acorn
+								Materials and any and all improvements (including any arising from Customer's feedback),
 								modifications and updates thereto, including without limitation all related intellectual
 								property rights inherent therein. Where Customer purchases Professional Services hereunder,
 								Acorn grants to Customer a non-sublicensable, non-exclusive license to use any materials
 								provided by Acorn as a result of the Professional Services (the "Acorn Materials") solely
-								in conjunction with Customer's authorized use of the Software and in accordance with
-								this Agreement. No rights are granted to Customer hereunder other than as expressly set
-								forth in this Agreement. Nothing in this Agreement will impair Acorn's right to develop,
-								acquire, license, market, promote or distribute products, software or technologies that
-								perform the same or similar functions as, or otherwise compete with, any products, software
-								or technologies that Customer may develop, produce, market, or distribute.
+								in conjunction with Customer's authorized use of the Software and in accordance with this
+								Agreement. No rights are granted to Customer hereunder other than as expressly set forth
+								in this Agreement. Nothing in this Agreement will impair Acorn's right to develop, acquire,
+								license, market, promote or distribute products, software or technologies that perform
+								the same or similar functions as, or otherwise compete with, any products, software or
+								technologies that Customer may develop, produce, market, or distribute.
 							</li>
 							<li>
 								<b>Ownership and Processing of Customer Data.</b> Customer and/or its licensors shall
@@ -449,27 +448,27 @@
 								<b>Termination by Customer</b> This Agreement shall commence on the date the Customer
 								subscribes to the Software and shall continue on a month-to-month basis. The Customer
 								may terminate this Agreement at any time through their account settings in the Software,
-								with such termination becoming effective immediately. The Customer acknowledges that
-								no refunds will be provided for the remainder of the subscription term in which they
-								terminate. Acorn shall not be liable for any termination or suspension of Customer's
-								subscription in the event the Customer's payment method is expired, deleted, or otherwise
-								fails to process a transaction.
+								with such termination becoming effective immediately. The Customer acknowledges that no
+								refunds will be provided for the remainder of the subscription term in which they terminate.
+								Acorn shall not be liable for any termination or suspension of Customer's subscription
+								in the event the Customer's payment method is expired, deleted, or otherwise fails to
+								process a transaction.
 							</li>
 							<li>
 								<b>Termination by Acorn.</b> Acorn may terminate the Customer's subscription to the Software
-								at any time, for any reason or no reason, by providing the Customer with thirty (30)
-								days' prior written notice. Additionally, Acorn may immediately terminate the Customer's
-								subscription for breach of this Agreement. Acorn may, at its sole discretion, provide
-								the Customer with an opportunity to cure such breach within the notice period (if applicable).
-								If the breach is not cured within the specified period, termination shall become effective
-								at the end of the notice period.
+								at any time, for any reason or no reason, by providing the Customer with thirty (30) days'
+								prior written notice. Additionally, Acorn may immediately terminate the Customer's subscription
+								for breach of this Agreement. Acorn may, at its sole discretion, provide the Customer
+								with an opportunity to cure such breach within the notice period (if applicable). If the
+								breach is not cured within the specified period, termination shall become effective at
+								the end of the notice period.
 							</li>
 							<li>
 								<b>Effect of Termination; Survival.</b> Upon termination of Customer's subscription Acorn's
 								obligation to provide the Software, and Customer's right to access or use the Software,
 								will terminate. Acorn will not issue any refunds for any pre-paid but unused Fees. Sections
-								3, 5, 6, 7, 8-10, and 12-14 will survive the termination of this Agreement including
-								any other term which by its nature and purpose should also survive.
+								3, 5, 6, 7, 8-10, and 12-14 will survive the termination of this Agreement including any
+								other term which by its nature and purpose should also survive.
 							</li>
 						</ol>
 					</li>
@@ -486,9 +485,9 @@
 								information provided is accurate and up-to-date. In the event of a payment failure due
 								to expired or invalid Payment Method information, Customer shall update the payment information
 								promptly to avoid service interruption. If payment is not received by Acorn within ten
-								(10) days after the due date, Acorn may suspend access to the Software until payment
-								is made in full. Acorn reserves the right to charge interest on any overdue amounts at
-								a rate of 1.5% per month or the maximum rate permitted by law, whichever is lower, from
+								(10) days after the due date, Acorn may suspend access to the Software until payment is
+								made in full. Acorn reserves the right to charge interest on any overdue amounts at a
+								rate of 1.5% per month or the maximum rate permitted by law, whichever is lower, from
 								the due date until the date of payment. Customer may dispute any charges by providing
 								written notice to Acorn within thirty (30) days of the charge, detailing the nature of
 								the dispute. Acorn and Customer shall work in good faith to resolve any such disputes
@@ -497,9 +496,9 @@
 								and other amounts paid under the Agreement are non-refundable.
 							</li>
 							<li>
-								<b>Taxes.</b> The Fees set forth in any Order Form are exclusive of, and Customer is
-								liable for and will pay, all taxes, including any value added tax and goods and services
-								tax or any similar tax imposed on or measured by this Agreement.
+								<b>Taxes.</b> The Fees set forth in any Order Form are exclusive of, and Customer is liable
+								for and will pay, all taxes, including any value added tax and goods and services tax
+								or any similar tax imposed on or measured by this Agreement.
 							</li>
 						</ol>
 					</li>
@@ -549,15 +548,14 @@
 						<ol>
 							<li>
 								<b>Imdemnification By Customer.</b> If a third party initiates or threatens legal action
-								against Acorn for processing Customer Data uploaded into the Software by Customer or
-								Users, or for a claim relating to Customer's, or a User's, breach of its obligations
-								under the Agreement, (a "Claim"), then Customer will promptly indemnify, defend, and
-								hold harmless Acorn and its officers, directors, employees, agents, successors, and assigns
-								(each, a "Acorn Indemnitee") from and against any and all losses, liabilities, damages,
-								costs, and expenses, including reasonable attorneys' fees and court costs, incurred by
-								any Acorn Indemnitee in connection with any third-party claim, action, or proceeding
-								arising out of such Claim. Acorn shall have the right to approve any settlement of a
-								Claim.
+								against Acorn for processing Customer Data uploaded into the Software by Customer or Users,
+								or for a claim relating to Customer's, or a User's, breach of its obligations under the
+								Agreement, (a "Claim"), then Customer will promptly indemnify, defend, and hold harmless
+								Acorn and its officers, directors, employees, agents, successors, and assigns (each, a
+								"Acorn Indemnitee") from and against any and all losses, liabilities, damages, costs,
+								and expenses, including reasonable attorneys' fees and court costs, incurred by any Acorn
+								Indemnitee in connection with any third-party claim, action, or proceeding arising out
+								of such Claim. Acorn shall have the right to approve any settlement of a Claim.
 							</li>
 						</ol>
 					</li>
@@ -618,19 +616,19 @@
 						<p>
 							<b>Governing Law and Claims.</b> The Agreement, and any claim, controversy or dispute related
 							to the Agreement, are governed by and construed in accordance with the laws of the State
-							of California without giving effect to any conflicts of laws provisions. To the extent
-							permissible, the United Nations Convention on Contracts for the International Sale of Goods
-							will not apply, even if adopted as part of the laws of the State of California. Any claim,
-							suit, action or proceeding arising out of or relating to this Agreement or its subject
-							matter will be brought exclusively in the state or federal courts of Santa Clara County,
-							California, and each party irrevocably submits to the exclusive jurisdiction and venue.
-							No claim or action, regardless of form, arising out of this Agreement may be brought by
-							either party more than one (1) year after the earlier of the following: (a) the expiration
-							of all Subscriptions or other ordering documents, (b) the termination of this Agreement,
-							or (c) the time a party first became aware, or reasonably should have been aware, of the
-							basis for the claim. To the fullest extent permitted, each party waives the right to trial
-							by jury in any legal proceeding arising out of or relating to this Agreement or the transactions
-							contemplated hereby.
+							of California without giving effect to any conflicts of laws provisions. To the extent permissible,
+							the United Nations Convention on Contracts for the International Sale of Goods will not
+							apply, even if adopted as part of the laws of the State of California. Any claim, suit,
+							action or proceeding arising out of or relating to this Agreement or its subject matter
+							will be brought exclusively in the state or federal courts of Santa Clara County, California,
+							and each party irrevocably submits to the exclusive jurisdiction and venue. No claim or
+							action, regardless of form, arising out of this Agreement may be brought by either party
+							more than one (1) year after the earlier of the following: (a) the expiration of all Subscriptions
+							or other ordering documents, (b) the termination of this Agreement, or (c) the time a party
+							first became aware, or reasonably should have been aware, of the basis for the claim. To
+							the fullest extent permitted, each party waives the right to trial by jury in any legal
+							proceeding arising out of or relating to this Agreement or the transactions contemplated
+							hereby.
 						</p>
 					</li>
 					<li>
@@ -639,16 +637,15 @@
 							<li>
 								<b>Export.</b> Customer will not provide to Acorn any data or engage Acorn in any activity,
 								in each case, that could constitute the development of a "defense article" or provision
-								of a "defense service" to Customer, as these terms are defined in Section 120 of the
-								International Traffic in Arms Regulations (ITAR). In addition, Customer will not, and
-								will not allow third parties under Customer's control, (i) to provide Acorn with Customer
-								Data that requires an export license under applicable export control laws or (ii) to
-								process or store any Customer Data that is subject to the ITAR. If Customer breaches
-								(or Acorn believes Customer has breached) this Section or the export provisions of an
-								end user license agreement for any software or Acorn is prohibited by law or otherwise
-								restricted from providing Software or Services to Customer, Acorn may terminate this
-								Agreement and/or the applicable Order Form. Customer shall comply with all applicable
-								U.S. export control laws.
+								of a "defense service" to Customer, as these terms are defined in Section 120 of the International
+								Traffic in Arms Regulations (ITAR). In addition, Customer will not, and will not allow
+								third parties under Customer's control, (i) to provide Acorn with Customer Data that requires
+								an export license under applicable export control laws or (ii) to process or store any
+								Customer Data that is subject to the ITAR. If Customer breaches (or Acorn believes Customer
+								has breached) this Section or the export provisions of an end user license agreement for
+								any software or Acorn is prohibited by law or otherwise restricted from providing Software
+								or Services to Customer, Acorn may terminate this Agreement and/or the applicable Order
+								Form. Customer shall comply with all applicable U.S. export control laws.
 							</li>
 							<li>
 								<b>Notices.</b> Notices must be in English, in writing, and transmitted to each
@@ -664,9 +661,9 @@
 							</li>
 							<li>
 								<b>Independent Contractors.</b> The parties are independent contractors and nothing in
-								this Agreement creates an employment, partnership or agency relationship between the
-								parties or any Affiliate. Each party is solely responsible for supervision, control and
-								payment of its personnel and contractors.
+								this Agreement creates an employment, partnership or agency relationship between the parties
+								or any Affiliate. Each party is solely responsible for supervision, control and payment
+								of its personnel and contractors.
 							</li>
 							<li>
 								<b>Third Party Beneficiaries.</b> This Agreement is binding on the parties to this Agreement
@@ -687,16 +684,16 @@
 								such subject matter, including any prior confidentiality agreements entered into by the
 								parties. Any terms contained in any other documentation that Customer delivers to Acorn,
 								including any purchase order or other order-related document (other than an Order Form),
-								are void and will not become part of the Agreement or otherwise bind the parties. To
-								the extent of any conflict or ambiguity between the terms and conditions of the Agreement
+								are void and will not become part of the Agreement or otherwise bind the parties. To the
+								extent of any conflict or ambiguity between the terms and conditions of the Agreement
 								and any other agreement applicable among the parties under the Agreement, the following
 								order of precedence will apply: (1) any fully executed Statement of Work among the parties;
 								(2) the Agreement; (3) all other documents and policies applicable between the parties.
 							</li>
 							<li>
-								<b>Severable.</b> If any provision of this Agreement is held by a court of competent
-								jurisdiction to be invalid or unenforceable, the remaining provisions of this Agreement
-								will remain in effect to the greatest extent permitted by law.
+								<b>Severable.</b> If any provision of this Agreement is held by a court of competent jurisdiction
+								to be invalid or unenforceable, the remaining provisions of this Agreement will remain
+								in effect to the greatest extent permitted by law.
 							</li>
 						</ol>
 					</li>
@@ -756,8 +753,8 @@
 					</li>
 
 					<li>
-						<b>Software</b> means Acorn, Inc.'s obot.ai branded software-as-service platform located
-						at obot.ai, including any applicable subdomains of each, and any web browser extension obtained
+						<b>Software</b> means Acorn, Inc.'s obot.ai branded software-as-service platform located at
+						obot.ai, including any applicable subdomains of each, and any web browser extension obtained
 						for use thereon.
 					</li>
 
@@ -769,8 +766,8 @@
 
 					<li>
 						<b>Subscription</b> means access to the Software during the Subscription Term. Each Subscription
-						is specific to a unique Authorized User and under no circumstance may an Authorized User
-						Subscription be transferred to, shared among or used by different Authorized Users.
+						is specific to a unique Authorized User and under no circumstance may an Authorized User Subscription
+						be transferred to, shared among or used by different Authorized Users.
 					</li>
 
 					<li>
@@ -780,8 +777,8 @@
 					</li>
 
 					<li>
-						<b>Supplier</b> means a third party that provides service(s) to Acorn in order for Acorn
-						to offer Software or Services to its customers and/or business partners.
+						<b>Supplier</b> means a third party that provides service(s) to Acorn in order for Acorn to
+						offer Software or Services to its customers and/or business partners.
 					</li>
 
 					<li>

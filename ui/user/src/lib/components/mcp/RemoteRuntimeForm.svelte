@@ -24,8 +24,8 @@
 	let showAdvanced = $state(
 		Boolean(
 			(config as RemoteCatalogConfigAdmin).hostname ||
-				(config as RemoteCatalogConfigAdmin).urlTemplate ||
-				(config.headers && config.headers.length > 0)
+			(config as RemoteCatalogConfigAdmin).urlTemplate ||
+			(config.headers && config.headers.length > 0)
 		)
 	);
 

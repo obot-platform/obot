@@ -18,9 +18,9 @@
 	const hasExistingConfigured = $derived(
 		Boolean(
 			catalogEntry &&
-				mcpServersAndEntries.current.userConfiguredServers.some(
-					(server) => server.catalogEntryID === catalogEntry.id
-				)
+			mcpServersAndEntries.current.userConfiguredServers.some(
+				(server) => server.catalogEntryID === catalogEntry.id
+			)
 		)
 	);
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');

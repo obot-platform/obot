@@ -388,8 +388,8 @@
 						</p>
 						<p class="mt-2">
 							<b>Note:</b> This will only be used to fetch the tools for this server; end users would
-							still need to login when consuming this composite server and must have the appropriate
-							permissions to access these tools.
+							still need to login when consuming this composite server and must have the appropriate permissions
+							to access these tools.
 						</p>
 					{:else}
 						<p>
