@@ -233,10 +233,6 @@ func (h *SystemMCPServerHandler) Restart(req api.Context) error {
 		return err
 	}
 
-	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote {
-		return types.NewErrBadRequest("cannot restart deployment for remote MCP server")
-	}
-
 	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
 	if err != nil {
 		return err
@@ -270,10 +266,6 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 	// Check if server is both enabled and configured
 	if err := h.checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
 		return err
-	}
-
-	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote {
-		return types.NewErrBadRequest("cannot stream logs for remote MCP server")
 	}
 
 	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
@@ -367,10 +359,6 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 	// Check if server is both enabled and configured
 	if err := h.checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
 		return err
-	}
-
-	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote {
-		return types.NewErrBadRequest("cannot get details for remote MCP server")
 	}
 
 	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
