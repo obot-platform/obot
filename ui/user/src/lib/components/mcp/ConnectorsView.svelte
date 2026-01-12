@@ -515,8 +515,14 @@
 	toggle: (value: boolean) => void,
 	isCreateFirst?: boolean
 )}
+	{@const canConnect = d.canConnect !== false}
 	<button
-		class="menu-button"
+		class="menu-button disabled:cursor-not-allowed disabled:opacity-50"
+		disabled={!canConnect}
+		use:tooltip={{
+			text: canConnect ? '' : 'See MCP Registries to grant connect access to this server',
+			disablePortal: true
+		}}
 		onclick={async (e) => {
 			e.stopPropagation();
 

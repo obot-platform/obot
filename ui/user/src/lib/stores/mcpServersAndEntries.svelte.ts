@@ -69,16 +69,38 @@ async function fetchData(forceRefresh = false) {
 		let userInstances: MCPServerInstance[] = [];
 
 		if (profile.current.hasAdminAccess?.()) {
-			const [adminEntries, adminServers, workspaceEntries, workspaceServers, ownConfiguredServers] =
-				await Promise.all([
-					AdminService.listMCPCatalogEntries(DEFAULT_MCP_CATALOG_ID, { all: true }),
-					AdminService.listMCPCatalogServers(DEFAULT_MCP_CATALOG_ID, { all: true }),
-					AdminService.listAllUserWorkspaceCatalogEntries(),
-					AdminService.listAllUserWorkspaceMCPServers(),
-					ChatService.listSingleOrRemoteMcpServers()
-				]);
-			entries = [...adminEntries, ...workspaceEntries].filter((entry) => !entry.deleted);
-			servers = [...adminServers, ...workspaceServers];
+			const [
+				adminEntries,
+				adminServers,
+				workspaceEntries,
+				workspaceServers,
+				ownConfiguredServers,
+				userScopedEntries,
+				userScopedServers
+			] = await Promise.all([
+				AdminService.listMCPCatalogEntries(DEFAULT_MCP_CATALOG_ID, { all: true }),
+				AdminService.listMCPCatalogServers(DEFAULT_MCP_CATALOG_ID, { all: true }),
+				AdminService.listAllUserWorkspaceCatalogEntries(),
+				AdminService.listAllUserWorkspaceMCPServers(),
+				ChatService.listSingleOrRemoteMcpServers(),
+				ChatService.listMCPs(),
+				ChatService.listMCPCatalogServers()
+			]);
+
+			// Create sets of IDs the admin has access to via ACRs
+			const accessibleEntryIds = new Set(userScopedEntries.map((e) => e.id));
+			const accessibleServerIds = new Set(userScopedServers.map((s) => s.id));
+
+			entries = [...adminEntries, ...workspaceEntries]
+				.filter((entry) => !entry.deleted)
+				.map((entry) => ({
+					...entry,
+					canConnect: accessibleEntryIds.has(entry.id)
+				}));
+			servers = [...adminServers, ...workspaceServers].map((server) => ({
+				...server,
+				canConnect: accessibleServerIds.has(server.id)
+			}));
 			userInstances = await ChatService.listMcpServerInstances();
 			userConfiguredServers = filterOutDuplicateAndDeleted([...servers, ...ownConfiguredServers]);
 		} else {
