@@ -13,7 +13,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
     paths-ignore:
       - docs/**
       - chart/**
@@ -65,7 +65,7 @@ jobs:
         with:
           context: .
           push: true
-          platforms: linux/amd64  # TODO: add linux/arm64 after testing
+          platforms: linux/amd64 # TODO: add linux/arm64 after testing
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
@@ -104,9 +104,9 @@ jobs:
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # 0.33.1
         with:
           image-ref: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-          skip-dirs: '**/venv'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+          skip-dirs: "**/venv"
+          format: "sarif"
+          output: "trivy-results.sarif"
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@5d4e8d1aca955e8d8589aabd499c5cae939e33c7 # v4
