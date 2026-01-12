@@ -6,7 +6,7 @@ settings:
 
 overrides:
   glob: 10.5.0
-  cookie: 0.7.0
+  cookie: 0.7.2
 
 importers:
 
@@ -1467,8 +1467,8 @@ packages:
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
-  cookie@0.7.0:
-    resolution: {integrity: sha512-qCf+V4dtlNhSRXGAZatc1TasyFO6GjohcOul807YOb5ik3+kQSnb4d7iajeCL8QHaJ4uZEjCgiCJerKXwdRVlQ==}
+  cookie@0.7.2:
+    resolution: {integrity: sha512-yki5XnKuf750l50uGTllt6kKILY4nQ1eNIQatoXEByZ5dWgnKqbnqmTrBE5B4N7lrMJKQ2ytWMiTO2o0v6Ew/w==}
     engines: {node: '>= 0.6'}
 
   crelt@1.0.6:
@@ -4082,7 +4082,7 @@ snapshots:
       '@sveltejs/vite-plugin-svelte': 6.2.1(svelte@5.45.8)(vite@7.2.7(jiti@2.4.2)(lightningcss@1.30.1)(yaml@2.8.0))
       '@types/cookie': 0.6.0
       acorn: 8.15.0
-      cookie: 0.7.0
+      cookie: 0.7.2
       devalue: 5.6.0
       esm-env: 1.2.2
       kleur: 4.1.5
@@ -4651,7 +4651,7 @@ snapshots:
 
   concat-map@0.0.1: {}
 
-  cookie@0.7.0: {}
+  cookie@0.7.2: {}
 
   crelt@1.0.6: {}
 
