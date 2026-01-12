@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { parseErrorContent } from '$lib/errors';
 	import {
 		AdminService,
 		ChatService,
@@ -7,7 +8,6 @@
 		type Project,
 		type ProjectMCP
 	} from '$lib/services';
-	import { parseErrorContent } from '$lib/errors';
 	import { Info, LoaderCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 

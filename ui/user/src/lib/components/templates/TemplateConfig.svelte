@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { fade } from 'svelte/transition';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import CopyButton from '$lib/components/CopyButton.svelte';
+	import ToolPill from '$lib/components/ToolPill.svelte';
+	import { DEFAULT_CUSTOM_SERVER_NAME, IGNORED_BUILTIN_TOOLS } from '$lib/constants';
+	import { closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
+	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import type {
 		ProjectTemplate,
 		ToolReference,
@@ -14,17 +20,11 @@
 		getProjectTemplateForProject,
 		createProjectTemplate
 	} from '$lib/services';
-	import { XIcon, Loader2, Trash2, Server } from 'lucide-svelte';
-	import { closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
-	import { DEFAULT_CUSTOM_SERVER_NAME, IGNORED_BUILTIN_TOOLS } from '$lib/constants';
 	import { sortShownToolsPriority } from '$lib/sort';
-	import ToolPill from '$lib/components/ToolPill.svelte';
-	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
-	import CopyButton from '$lib/components/CopyButton.svelte';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { onMount } from 'svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { poll } from '$lib/utils';
+	import { XIcon, Loader2, Trash2, Server } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		assistantID: string;

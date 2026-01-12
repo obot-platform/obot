@@ -1,12 +1,13 @@
 <script lang="ts">
-	import '../app.css';
-	import { darkMode, profile, appPreferences, version, mcpServersAndEntries } from '$lib/stores';
-	import { untrack } from 'svelte';
+	import { page } from '$app/state';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
 	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
+	import { darkMode, profile, appPreferences, version, mcpServersAndEntries } from '$lib/stores';
+	import '../app.css';
 	import type { PageData } from './$types';
-	import { page } from '$app/state';
+	import { untrack } from 'svelte';
+
 	interface Props {
 		children?: import('svelte').Snippet;
 		data: PageData;

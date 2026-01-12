@@ -1,10 +1,10 @@
 <script lang="ts">
+	import { clickOutside } from '$lib/actions/clickoutside';
 	import { AlertCircle, LoaderCircle, X } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
-	import { fade } from 'svelte/transition';
 	import { onDestroy } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import { clickOutside } from '$lib/actions/clickoutside';
 
 	interface Props {
 		show: boolean;

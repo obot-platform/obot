@@ -1,4 +1,8 @@
 <script lang="ts">
+	import { clickOutside } from '$lib/actions/clickoutside';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
+	import { getProjectMCPs, type ProjectMcpItem } from '$lib/context/projectMcps.svelte';
 	import {
 		ChatService,
 		type McpServerResource,
@@ -6,7 +10,8 @@
 		type ProjectMCP,
 		type File
 	} from '$lib/services';
-	import { getProjectMCPs, type ProjectMcpItem } from '$lib/context/projectMcps.svelte';
+	import { responsive, errors } from '$lib/stores';
+	import { poll } from '$lib/utils';
 	import {
 		ChevronRight,
 		LoaderCircle,
@@ -17,11 +22,6 @@
 		ChevronsRight,
 		Server
 	} from 'lucide-svelte';
-	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
-	import { responsive, errors } from '$lib/stores';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { clickOutside } from '$lib/actions/clickoutside';
-	import { poll } from '$lib/utils';
 	import { onMount } from 'svelte';
 
 	interface Props {

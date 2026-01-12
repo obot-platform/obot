@@ -2,12 +2,14 @@
 	/**
 	 * TODO: Change the logic in here to represent connecting to a server template
 	 */
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		ChatService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance
 	} from '$lib/services';
+	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import {
 		convertCompositeInfoToLaunchFormData,
 		convertCompositeLaunchFormDataToPayload,
@@ -15,22 +17,20 @@
 		hasEditableConfiguration,
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
-	import { fly } from 'svelte/transition';
-	import type { LaunchFormData, CompositeLaunchFormData } from './CatalogConfigureForm.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { ChevronLeft, ChevronRight, Info, LoaderCircle, ServerIcon } from 'lucide-svelte';
-	import { tick, type Snippet } from 'svelte';
-	import McpCard from './McpCard.svelte';
-	import Search from '../Search.svelte';
+	import Confirm from '../Confirm.svelte';
+	import DotDotDot from '../DotDotDot.svelte';
+	import PageLoading from '../PageLoading.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import Search from '../Search.svelte';
+	import type { LaunchFormData, CompositeLaunchFormData } from './CatalogConfigureForm.svelte';
 	import CatalogConfigureForm from './CatalogConfigureForm.svelte';
 	import CatalogEditAliasForm from './CatalogEditAliasForm.svelte';
-	import DotDotDot from '../DotDotDot.svelte';
-	import Confirm from '../Confirm.svelte';
-	import { twMerge } from 'tailwind-merge';
+	import McpCard from './McpCard.svelte';
 	import McpServerInfoAndTools from './McpServerInfoAndTools.svelte';
-	import PageLoading from '../PageLoading.svelte';
-	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
+	import { ChevronLeft, ChevronRight, Info, LoaderCircle, ServerIcon } from 'lucide-svelte';
+	import { tick, type Snippet } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	type Entry = MCPCatalogEntry & {
 		categories: string[]; // categories for the entry

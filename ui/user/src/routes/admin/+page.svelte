@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { goto } from '$lib/url';
+	import { resolve } from '$app/paths';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
+	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { AdminService, type BootstrapStatus, type TempUser } from '$lib/services';
+	import { goto } from '$lib/url';
 	import { AlertCircle, Handshake, LoaderCircle, ShieldAlert } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import { resolve } from '$app/paths';
 
 	const { data } = $props();
 	let { authProviders, loggedIn, hasAccess, showSetupHandoff } = $derived(data);

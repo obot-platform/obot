@@ -7,11 +7,11 @@
 		type DefaultModelAlias,
 		ModelAliasToUsageMap
 	} from '$lib/services';
-	import { onMount } from 'svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { AdminService } from '$lib/services';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Select from '../Select.svelte';
 	import { LoaderCircle } from 'lucide-svelte';
+	import { onMount } from 'svelte';
 
 	let { availableModels, readonly }: { availableModels: Model[]; readonly?: boolean } = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();

@@ -1,17 +1,15 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
-	import { fade, slide } from 'svelte/transition';
-	import { SvelteMap } from 'svelte/reactivity';
-	import { flip } from 'svelte/animate';
-	import { X, ChevronLeft, ChevronRight, Funnel, Captions, Plus, Settings } from 'lucide-svelte';
-	import { debounce } from 'es-toolkit';
-	import { set, endOfDay, isBefore, subDays } from 'date-fns';
-	import { page } from '$app/state';
 	import { afterNavigate } from '$app/navigation';
-	import { goto, replaceState } from '$lib/url';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import { page } from '$app/state';
+	import { clickOutside } from '$lib/actions/clickoutside';
+	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { type DateRange } from '$lib/components/Calendar.svelte';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import AuditLogDetails from '$lib/components/admin/audit-logs/AuditLogDetails.svelte';
+	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
+	import Loading from '$lib/icons/Loading.svelte';
+	import { localState } from '$lib/runes/localState.svelte';
 	import {
 		type OrgUser,
 		type AuditLogURLFilters,
@@ -19,20 +17,22 @@
 		type AuditLog,
 		ChatService
 	} from '$lib/services';
+	import { Group } from '$lib/services';
 	import { type PaginatedResponse } from '$lib/services/admin/operations';
-	import { clickOutside } from '$lib/actions/clickoutside';
-	import { dialogAnimation } from '$lib/actions/dialogAnimation';
-	import AuditLogDetails from '$lib/components/admin/audit-logs/AuditLogDetails.svelte';
+	import profile from '$lib/stores/profile.svelte';
+	import { goto, replaceState } from '$lib/url';
+	import { getUserDisplayName } from '$lib/utils';
+	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
+	import AuditLogCalendar from './AuditLogCalendar.svelte';
 	import AuditLogsTable from './AuditLogs.svelte';
 	import AuditLogsTimeline from './AuditLogsTimeline.svelte';
-	import AuditLogCalendar from './AuditLogCalendar.svelte';
-	import { localState } from '$lib/runes/localState.svelte';
-	import Loading from '$lib/icons/Loading.svelte';
-	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
-	import { getUserDisplayName } from '$lib/utils';
-	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
-	import profile from '$lib/stores/profile.svelte';
-	import { Group } from '$lib/services';
+	import { set, endOfDay, isBefore, subDays } from 'date-fns';
+	import { debounce } from 'es-toolkit';
+	import { X, ChevronLeft, ChevronRight, Funnel, Captions, Plus, Settings } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
+	import { flip } from 'svelte/animate';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { fade, slide } from 'svelte/transition';
 
 	interface Props {
 		mcpId?: string | null;

@@ -1,8 +1,16 @@
 <script lang="ts">
-	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
-	import { profile, responsive, darkMode } from '$lib/stores';
+	import { afterNavigate } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
+	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
+	import { AdminService, ChatService, EditorService } from '$lib/services';
+	import { profile, responsive, darkMode } from '$lib/stores';
+	import { version } from '$lib/stores';
+	import { goto } from '$lib/url';
 	import { getUserRoleLabel } from '$lib/utils';
+	import PageLoading from '../PageLoading.svelte';
 	import {
 		Book,
 		User,
@@ -17,14 +25,6 @@
 		KeyRound
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
-	import { version } from '$lib/stores';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { AdminService, ChatService, EditorService } from '$lib/services';
-	import { afterNavigate } from '$app/navigation';
-	import { goto } from '$lib/url';
-	import PageLoading from '../PageLoading.svelte';
-	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
 
 	let versionDialog = $state<HTMLDialogElement>();
 	let showChatLink = $state(false);

@@ -4,15 +4,15 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { ApiKeysService } from '$lib/services';
-	import type { APIKey } from '$lib/services/api-keys/types';
 	import type { OrgUser } from '$lib/services/admin/types';
-	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
+	import type { APIKey } from '$lib/services/api-keys/types';
 	import { profile } from '$lib/stores';
+	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import { getUserDisplayName } from '$lib/utils';
-	import { Plus, Trash2 } from 'lucide-svelte';
-	import { untrack } from 'svelte';
 	import ApiKeyRevealDialog from '../../keys/ApiKeyRevealDialog.svelte';
 	import CreateApiKeyDialog from '../../keys/CreateApiKeyDialog.svelte';
+	import { Plus, Trash2 } from 'lucide-svelte';
+	import { untrack } from 'svelte';
 
 	let { data } = $props();
 	let allApiKeys = $state<APIKey[]>(untrack(() => data.allApiKeys));

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { type Task } from '$lib/services';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
+	import { type Task } from '$lib/services';
 	import Trigger from './Trigger.svelte';
 
 	interface Props {

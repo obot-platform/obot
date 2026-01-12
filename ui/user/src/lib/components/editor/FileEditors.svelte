@@ -1,13 +1,13 @@
 <script lang="ts">
-	import type { EditorItem } from '$lib/services/editor/index.svelte';
-	import type { InvokeInput } from '$lib/services';
+	import Codemirror from '$lib/components/editor/Codemirror.svelte';
+	import Image from '$lib/components/editor/Image.svelte';
 	import Pdf from '$lib/components/editor/Pdf.svelte';
 	import { isImage } from '$lib/image';
-	import Image from '$lib/components/editor/Image.svelte';
-	import Codemirror from '$lib/components/editor/Codemirror.svelte';
+	import type { InvokeInput } from '$lib/services';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import Logo from '../Logo.svelte';
 	import MarkdownFile from './MarkdownFile.svelte';
 	import { fade } from 'svelte/transition';
-	import Logo from '../Logo.svelte';
 
 	interface Props {
 		onFileChanged: (name: string, contents: string) => void;

@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { ChevronsLeft, ChevronsRight, Funnel, ChartBarDecreasing, X } from 'lucide-svelte';
+	import { afterNavigate } from '$app/navigation';
+	import { page } from '$app/state';
+	import { clickOutside } from '$lib/actions/clickoutside';
+	import { dialogAnimation } from '$lib/actions/dialogAnimation';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import type { DateRange } from '$lib/components/Calendar.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		type AuditLogURLFilters,
@@ -7,24 +13,18 @@
 		type OrgUser,
 		type UsageStatsFilters
 	} from '$lib/services';
-	import StatBar from '../StatBar.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import HorizontalBarGraph from '../../graph/HorizontalBarGraph.svelte';
-	import { clickOutside } from '$lib/actions/clickoutside';
-	import { dialogAnimation } from '$lib/actions/dialogAnimation';
-	import { SvelteMap } from 'svelte/reactivity';
-	import { afterNavigate } from '$app/navigation';
 	import { goto } from '$lib/url';
-	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
 	import { getUserDisplayName } from '$lib/utils';
-	import type { SupportedStateFilter } from './types';
-	import { fade, slide } from 'svelte/transition';
-	import { flip } from 'svelte/animate';
-	import { endOfDay, isBefore, set, subDays } from 'date-fns';
-	import { page } from '$app/state';
-	import type { DateRange } from '$lib/components/Calendar.svelte';
+	import HorizontalBarGraph from '../../graph/HorizontalBarGraph.svelte';
+	import StatBar from '../StatBar.svelte';
 	import AuditLogCalendar from '../audit-logs/AuditLogCalendar.svelte';
-	import Loading from '$lib/icons/Loading.svelte';
+	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
+	import type { SupportedStateFilter } from './types';
+	import { endOfDay, isBefore, set, subDays } from 'date-fns';
+	import { ChevronsLeft, ChevronsRight, Funnel, ChartBarDecreasing, X } from 'lucide-svelte';
+	import { flip } from 'svelte/animate';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { fade, slide } from 'svelte/transition';
 
 	type Props = {
 		mcpId?: string | null;

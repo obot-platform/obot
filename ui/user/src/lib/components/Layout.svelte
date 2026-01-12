@@ -1,10 +1,18 @@
 <script lang="ts">
-	import Navbar from '$lib/components/Navbar.svelte';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
-	import { profile, responsive, version } from '$lib/stores';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Navbar from '$lib/components/Navbar.svelte';
 	import { initLayout, getLayout } from '$lib/context/layout.svelte';
-	import { type Component, type Snippet } from 'svelte';
-	import { fade, slide } from 'svelte/transition';
+	import { Group } from '$lib/services';
+	import { profile, responsive, version } from '$lib/stores';
+	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
+	import InfoTooltip from './InfoTooltip.svelte';
+	import ConfigureBanner from './admin/ConfigureBanner.svelte';
+	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
+	import BetaLogo from './navbar/BetaLogo.svelte';
+	import { Render } from './ui/render';
 	import {
 		AlarmClock,
 		Boxes,
@@ -32,17 +40,9 @@
 		Users,
 		Group as GroupIcon
 	} from 'lucide-svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { type Component, type Snippet } from 'svelte';
+	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import BetaLogo from './navbar/BetaLogo.svelte';
-	import ConfigureBanner from './admin/ConfigureBanner.svelte';
-	import InfoTooltip from './InfoTooltip.svelte';
-	import { Render } from './ui/render';
-	import { Group } from '$lib/services';
-	import { page } from '$app/state';
-	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
-	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import { resolve } from '$app/paths';
 
 	type NavLink = {
 		id: string;

@@ -6,20 +6,20 @@
 		type Project,
 		type ProjectMCP
 	} from '$lib/services';
-	import { twMerge } from 'tailwind-merge';
-	import McpServerInfo from './McpServerInfo.svelte';
-	import McpServerTools from './McpServerTools.svelte';
-	import McpOauth from './McpOauth.svelte';
-	import { AlertTriangle } from 'lucide-svelte';
-	import CatalogConfigureForm, {
-		type CompositeLaunchFormData,
-		type LaunchFormData
-	} from './CatalogConfigureForm.svelte';
 	import {
 		convertCompositeInfoToLaunchFormData,
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord
 	} from '$lib/services/chat/mcp';
+	import CatalogConfigureForm, {
+		type CompositeLaunchFormData,
+		type LaunchFormData
+	} from './CatalogConfigureForm.svelte';
+	import McpOauth from './McpOauth.svelte';
+	import McpServerInfo from './McpServerInfo.svelte';
+	import McpServerTools from './McpServerTools.svelte';
+	import { AlertTriangle } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		entry?: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;

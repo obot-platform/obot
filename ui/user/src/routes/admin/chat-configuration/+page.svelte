@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea.js';
-	import MarkdownInput from '$lib/components/MarkdownInput.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import MarkdownInput from '$lib/components/MarkdownInput.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte.js';
 	import { AdminService, ModelUsage, type Model, type ModelProvider } from '$lib/services';
 	import { sortModelProviders } from '$lib/sort';
+	import { profile } from '$lib/stores/index.js';
 	import { Check, Info, LoaderCircle, TriangleAlert } from 'lucide-svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import { profile } from '$lib/stores/index.js';
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let { data } = $props();

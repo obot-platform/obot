@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import {
 		ChatService,
 		type MCPCatalogEntry,
@@ -7,15 +9,13 @@
 		type Project,
 		type ProjectMCP
 	} from '$lib/services';
-	import { AlertCircle, ChevronDown, ChevronUp, Info, LoaderCircle, Wrench } from 'lucide-svelte';
-	import Toggle from '../Toggle.svelte';
-	import { slide } from 'svelte/transition';
 	import { responsive } from '$lib/stores';
-	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import Search from '../Search.svelte';
-	import { browser } from '$app/environment';
+	import Toggle from '../Toggle.svelte';
 	import McpOauth from './McpOauth.svelte';
+	import { AlertCircle, ChevronDown, ChevronUp, Info, LoaderCircle, Wrench } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;

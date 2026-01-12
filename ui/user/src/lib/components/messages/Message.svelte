@@ -1,5 +1,25 @@
 <script lang="ts">
+	import { overflowToolTip } from '$lib/actions/overflow';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import MemoriesDialog from '$lib/components/MemoriesDialog.svelte';
 	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
+	import { ABORTED_BY_USER_MESSAGE, ABORTED_THREAD_MESSAGE } from '$lib/constants';
+	import { getProjectTools } from '$lib/context/projectTools.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
+	import { toHTMLFromMarkdown } from '$lib/markdown.js';
+	import {
+		AdminService,
+		ChatService,
+		type CallFrame,
+		type Message,
+		type Project
+	} from '$lib/services';
+	import { profile } from '$lib/stores';
+	import { formatTime } from '$lib/time';
+	import { hasTool } from '$lib/tools';
+	import { isTextFile } from '$lib/utils';
+	import highlight from 'highlight.js';
+	import { Paperclip } from 'lucide-svelte';
 	import {
 		FileText,
 		Copy,
@@ -13,31 +33,11 @@
 		LoaderCircle,
 		Code
 	} from 'lucide-svelte/icons';
-	import { Tween } from 'svelte/motion';
-	import {
-		AdminService,
-		ChatService,
-		type CallFrame,
-		type Message,
-		type Project
-	} from '$lib/services';
-	import highlight from 'highlight.js';
-	import { toHTMLFromMarkdown } from '$lib/markdown.js';
-	import { Paperclip } from 'lucide-svelte';
-	import { formatTime } from '$lib/time';
-	import { fly, slide } from 'svelte/transition';
-	import Loading from '$lib/icons/Loading.svelte';
-	import { fade } from 'svelte/transition';
-	import { overflowToolTip } from '$lib/actions/overflow';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { ABORTED_BY_USER_MESSAGE, ABORTED_THREAD_MESSAGE } from '$lib/constants';
-	import { hasTool } from '$lib/tools';
-	import { getProjectTools } from '$lib/context/projectTools.svelte';
-	import MemoriesDialog from '$lib/components/MemoriesDialog.svelte';
 	import { linear } from 'svelte/easing';
+	import { Tween } from 'svelte/motion';
+	import { fly, slide } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import { isTextFile } from '$lib/utils';
-	import { profile } from '$lib/stores';
 
 	interface Props {
 		msg: Message;

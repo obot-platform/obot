@@ -1,15 +1,15 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import type {
 		RemoteCatalogConfigAdmin,
 		RemoteRuntimeConfigAdmin
 	} from '$lib/services/admin/types';
-	import { Plus, Trash2, Info } from 'lucide-svelte';
-	import Select from '../Select.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { fade, slide } from 'svelte/transition';
-	import Toggle from '../Toggle.svelte';
-	import { twMerge } from 'tailwind-merge';
 	import InfoTooltip from '../InfoTooltip.svelte';
+	import Select from '../Select.svelte';
+	import Toggle from '../Toggle.svelte';
+	import { Plus, Trash2, Info } from 'lucide-svelte';
+	import { fade, slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		config: RemoteCatalogConfigAdmin | RemoteRuntimeConfigAdmin;

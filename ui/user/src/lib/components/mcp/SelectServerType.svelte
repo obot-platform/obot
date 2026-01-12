@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { Container, Layers, User, Users } from 'lucide-svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { profile } from '$lib/stores';
 	import { Group, type LaunchServerType } from '$lib/services';
+	import { profile } from '$lib/stores';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import { Container, Layers, User, Users } from 'lucide-svelte';
 
 	interface Props {
 		onSelectServerType: (type: LaunchServerType) => void;

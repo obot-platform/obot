@@ -1,7 +1,10 @@
 <script lang="ts">
-	import { Trash2, Plus, Clock, X, Crown } from 'lucide-svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { browser } from '$app/environment';
+	import { clickOutside } from '$lib/actions/clickoutside';
+	import { dialogAnimation } from '$lib/actions/dialogAnimation';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import CopyButton from '$lib/components/CopyButton.svelte';
 	import {
 		ChatService,
 		type Project,
@@ -10,10 +13,7 @@
 	} from '$lib/services';
 	import { profile, responsive } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import CopyButton from '$lib/components/CopyButton.svelte';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { clickOutside } from '$lib/actions/clickoutside';
-	import { dialogAnimation } from '$lib/actions/dialogAnimation';
+	import { Trash2, Plus, Clock, X, Crown } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

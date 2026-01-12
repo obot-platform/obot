@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { twMerge } from 'tailwind-merge';
 	import { VirtualPageTable } from '$lib/components/ui';
+	import { throttle } from '$lib/utils';
 	import { GripVertical } from 'lucide-svelte';
 	import { tick } from 'svelte';
-	import { throttle } from '$lib/utils';
+	import { twMerge } from 'tailwind-merge';
 
 	let { data = [], onSelectRow, emptyContent, getUserDisplayName } = $props();
 

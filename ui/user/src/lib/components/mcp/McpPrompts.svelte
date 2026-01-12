@@ -1,13 +1,14 @@
 <script lang="ts">
-	import { ChatService, type MCPServerPrompt, type Project, type ProjectMCP } from '$lib/services';
-	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
-	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { ChevronRight, LoaderCircle, MessageSquarePlus, X } from 'lucide-svelte';
-	import { responsive } from '$lib/stores';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { twMerge } from 'tailwind-merge';
-	import { onMount } from 'svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Menu from '$lib/components/navbar/Menu.svelte';
+	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
+	import { ChatService, type MCPServerPrompt, type Project, type ProjectMCP } from '$lib/services';
+	import { responsive } from '$lib/stores';
+	import { ChevronRight, LoaderCircle, MessageSquarePlus, X } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
+
 	interface Props {
 		project: Project;
 		variant: 'button' | 'popover' | 'messages';

@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { goto } from '$lib/url';
-	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
 	import {
 		fetchMcpServerAndEntries,
 		getPoweruserWorkspace,
 		initMcpServerAndEntries
 	} from '$lib/context/poweruserWorkspace.svelte.js';
+	import { goto } from '$lib/url';
+	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 	let { accessControlRule, workspaceId } = $derived(data);

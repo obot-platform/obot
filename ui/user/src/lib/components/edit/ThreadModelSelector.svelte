@@ -1,8 +1,6 @@
 <script lang="ts">
-	import { onMount, tick, untrack } from 'svelte';
-	import { ChevronDown } from 'lucide-svelte';
-	import type { ModelProvider, Model, Thread as ThreadType } from '$lib/services/chat/types';
 	import type { Project } from '$lib/services';
+	import { ModelUsage } from '$lib/services/admin/types';
 	import {
 		getThread,
 		updateThread,
@@ -10,11 +8,13 @@
 		listGlobalModelProviders,
 		listModels
 	} from '$lib/services/chat/operations';
-	import { twMerge } from 'tailwind-merge';
-	import { SvelteMap } from 'svelte/reactivity';
+	import type { ModelProvider, Model, Thread as ThreadType } from '$lib/services/chat/types';
 	import { darkMode } from '$lib/stores';
-	import { ModelUsage } from '$lib/services/admin/types';
 	import Logo from '../Logo.svelte';
+	import { ChevronDown } from 'lucide-svelte';
+	import { onMount, tick, untrack } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		threadId: string | undefined;

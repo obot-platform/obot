@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { popover } from '$lib/actions';
-	import { type AssistantTool } from '$lib/services';
-	import { Plus, X } from 'lucide-svelte/icons';
-	import ToolCatalog from '$lib/components/edit/ToolCatalog.svelte';
-	import { getProjectTools } from '$lib/context/projectTools.svelte';
-	import { IGNORED_BUILTIN_TOOLS } from '$lib/constants';
-	import { twMerge } from 'tailwind-merge';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import ToolCatalog from '$lib/components/edit/ToolCatalog.svelte';
+	import { IGNORED_BUILTIN_TOOLS } from '$lib/constants';
+	import { getProjectTools } from '$lib/context/projectTools.svelte';
+	import { type AssistantTool } from '$lib/services';
+	import { Plus, X } from 'lucide-svelte/icons';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onNewTools: (tools: AssistantTool[]) => Promise<void>;

@@ -1,25 +1,25 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { clickOutside } from '$lib/actions/clickoutside';
+	import { columnResize } from '$lib/actions/resize';
 	import Editor from '$lib/components/Editors.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
+	import Thread from '$lib/components/Thread.svelte';
 	import Sidebar from '$lib/components/chat/ChatSidebar.svelte';
 	import Task from '$lib/components/tasks/Task.svelte';
-	import Thread from '$lib/components/Thread.svelte';
+	import { getLayout, isSomethingSelected } from '$lib/context/chatLayout.svelte';
 	import { type Project } from '$lib/services';
+	import type { Assistant, CreateProjectForm } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { responsive } from '$lib/stores';
-	import { getLayout, isSomethingSelected } from '$lib/context/chatLayout.svelte';
-	import { GripVertical, SidebarOpen } from 'lucide-svelte';
-	import { fade, slide } from 'svelte/transition';
-	import { twMerge } from 'tailwind-merge';
-	import { columnResize } from '$lib/actions/resize';
-	import { X } from 'lucide-svelte';
-	import type { Assistant, CreateProjectForm } from '$lib/services';
-	import { clickOutside } from '$lib/actions/clickoutside';
 	import SidebarConfig from './chat/ChatSidebarConfig.svelte';
-	import { onMount, onDestroy } from 'svelte';
-	import { browser } from '$app/environment';
 	import McpServerRequirements from './chat/McpServerRequirements.svelte';
 	import BetaLogo from './navbar/BetaLogo.svelte';
+	import { GripVertical, SidebarOpen } from 'lucide-svelte';
+	import { X } from 'lucide-svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { fade, slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		assistant?: Assistant;

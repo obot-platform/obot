@@ -1,13 +1,13 @@
 <script lang="ts">
-	import type { Component } from 'svelte';
-	import { fly } from 'svelte/transition';
-	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import { goto } from '$lib/url';
-	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
+	import { goto } from '$lib/url';
+	import type { Component } from 'svelte';
+	import { fly } from 'svelte/transition';
 
 	const duration = PAGE_TRANSITION_DURATION;
 

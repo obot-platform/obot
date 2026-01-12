@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { fade } from 'svelte/transition';
 	import Layout from '$lib/components/Layout.svelte';
-	import VirtualPageRoot from '$lib/components/ui/virtual-page/virtual-page-viewport.svelte';
 	import AuditLogsPageContent from '$lib/components/admin/audit-logs/AuditLogsPageContent.svelte';
+	import VirtualPageRoot from '$lib/components/ui/virtual-page/virtual-page-viewport.svelte';
+	import { fade } from 'svelte/transition';
 </script>
 
 <Layout classes={{ container: '', childrenContainer: 'max-w-none' }} title="Audit Logs">

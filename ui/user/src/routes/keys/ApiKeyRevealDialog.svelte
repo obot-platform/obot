@@ -1,6 +1,6 @@
 <script lang="ts">
-	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import { AlertTriangle, KeyRound } from 'lucide-svelte';
 
 	interface Props {

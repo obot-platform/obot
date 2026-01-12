@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { closeAll, closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
-	import { ChatService, type Project, type ProjectMCP } from '$lib/services';
-	import { Pencil, Server, Trash2, X } from 'lucide-svelte';
-	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
-	import McpServerInfoAndTools from '../mcp/McpServerInfoAndTools.svelte';
-	import Confirm from '../Confirm.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { mcpServersAndEntries } from '$lib/stores';
-	import EditExistingDeployment from '../mcp/EditExistingDeployment.svelte';
+	import { closeAll, closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
+	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
+	import { ChatService, type Project, type ProjectMCP } from '$lib/services';
 	import { hasEditableConfiguration } from '$lib/services/chat/mcp';
+	import { mcpServersAndEntries } from '$lib/stores';
+	import Confirm from '../Confirm.svelte';
+	import EditExistingDeployment from '../mcp/EditExistingDeployment.svelte';
+	import McpServerInfoAndTools from '../mcp/McpServerInfoAndTools.svelte';
+	import { Pencil, Server, Trash2, X } from 'lucide-svelte';
 
 	interface Props {
 		mcpServer: ProjectMCP;

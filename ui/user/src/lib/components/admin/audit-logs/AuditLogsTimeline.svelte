@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { AuditLog } from '$lib/services';
+	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
 	import {
 		scaleBand,
 		scaleLinear,
@@ -19,7 +21,6 @@
 		type NumberValue
 	} from 'd3';
 	import { timeFormat } from 'd3-time-format';
-
 	import {
 		startOfMonth,
 		endOfMonth,
@@ -42,9 +43,7 @@
 		type Duration,
 		getDay
 	} from 'date-fns';
-	import type { AuditLog } from '$lib/services';
 	import { debounce } from 'es-toolkit';
-	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
 	import { fade } from 'svelte/transition';
 
 	interface Props<T> {

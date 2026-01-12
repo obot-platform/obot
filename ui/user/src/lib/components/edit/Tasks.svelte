@@ -1,14 +1,14 @@
 <script lang="ts">
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { getLayout, openTask, openTaskRun } from '$lib/context/chatLayout.svelte';
-	import { ChatService, type Project, type Task } from '$lib/services';
-	import { ChevronRight, Plus, X } from 'lucide-svelte/icons';
-	import { onMount } from 'svelte';
-	import { responsive } from '$lib/stores';
-	import TaskItem from '$lib/components/edit/TaskItem.svelte';
-	import Input from '$lib/components/tasks/Input.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import TaskItem from '$lib/components/edit/TaskItem.svelte';
+	import Input from '$lib/components/tasks/Input.svelte';
+	import { getLayout, openTask, openTaskRun } from '$lib/context/chatLayout.svelte';
+	import { ChatService, type Project, type Task } from '$lib/services';
+	import { responsive } from '$lib/stores';
+	import { ChevronRight, Plus, X } from 'lucide-svelte/icons';
+	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 
 	interface Props {

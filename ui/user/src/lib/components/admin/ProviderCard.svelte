@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { CircleSlash, CircleCheck } from 'lucide-svelte';
-	import DotDotDot from '../DotDotDot.svelte';
-	import { darkMode } from '$lib/stores';
-	import { twMerge } from 'tailwind-merge';
-	import type { BaseProvider } from '$lib/services/admin/types';
-	import type { Snippet } from 'svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import type { BaseProvider } from '$lib/services/admin/types';
+	import { darkMode } from '$lib/stores';
+	import DotDotDot from '../DotDotDot.svelte';
+	import { CircleSlash, CircleCheck } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		recommended?: boolean;

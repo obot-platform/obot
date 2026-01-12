@@ -15,11 +15,11 @@
 </script>
 
 <script lang="ts">
+	import Select, { type SelectProps } from '$lib/components/Select.svelte';
+	import type { FilterKey } from './FiltersDrawer.svelte';
 	import { flip } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import Select, { type SelectProps } from '$lib/components/Select.svelte';
-	import type { FilterKey } from './FiltersDrawer.svelte';
 
 	interface Props {
 		filter: FilterInput;

@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { ChatService, type Project } from '$lib/services';
-	import { ChevronDown, Plus, Settings } from 'lucide-svelte/icons';
+	import { resolve } from '$app/paths';
 	import { popover } from '$lib/actions';
-	import { twMerge } from 'tailwind-merge';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
+	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
+	import { ChatService, type Project } from '$lib/services';
 	import { goto } from '$lib/url';
 	import Confirm from '../Confirm.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import PageLoading from '../PageLoading.svelte';
-	import { resolve } from '$app/paths';
+	import { ChevronDown, Plus, Settings } from 'lucide-svelte/icons';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		project: Project;

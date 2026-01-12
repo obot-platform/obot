@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { clickOutside } from '$lib/actions/clickoutside';
+	import { autoHeight } from '$lib/actions/textarea';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import {
 		type Project,
 		type Memory,
@@ -7,16 +10,13 @@
 		deleteMemory,
 		updateMemory
 	} from '$lib/services';
-	import { X, Trash2, RefreshCcw, Edit, Check, X as XIcon, Pencil } from 'lucide-svelte/icons';
-	import { fade } from 'svelte/transition';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import errors from '$lib/stores/errors.svelte';
 	import Confirm from './Confirm.svelte';
-	import { onMount, tick } from 'svelte';
-	import { twMerge } from 'tailwind-merge';
-	import { clickOutside } from '$lib/actions/clickoutside';
 	import DotDotDot from './DotDotDot.svelte';
-	import { autoHeight } from '$lib/actions/textarea';
+	import { X, Trash2, RefreshCcw, Edit, Check, X as XIcon, Pencil } from 'lucide-svelte/icons';
+	import { onMount, tick } from 'svelte';
+	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		project?: Project;

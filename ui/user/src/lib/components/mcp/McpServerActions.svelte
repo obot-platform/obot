@@ -1,8 +1,16 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
-	import { twMerge } from 'tailwind-merge';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { formatTimeAgo } from '$lib/time';
+	import { goto } from '$lib/url';
 	import DotDotDot from '../DotDotDot.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import Table from '../table/Table.svelte';
+	import ConnectToServer from './ConnectToServer.svelte';
+	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import {
 		LoaderCircle,
 		MessageCircle,
@@ -14,15 +22,7 @@
 		Trash2,
 		Unplug
 	} from 'lucide-svelte';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
-	import ConnectToServer from './ConnectToServer.svelte';
-	import EditExistingDeployment from './EditExistingDeployment.svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import Table from '../table/Table.svelte';
-	import { formatTimeAgo } from '$lib/time';
-	import { goto } from '$lib/url';
-	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
+	import { twMerge } from 'tailwind-merge';
 
 	type ServerSelectMode = 'connect' | 'rename' | 'edit' | 'disconnect' | 'chat' | 'server-details';
 

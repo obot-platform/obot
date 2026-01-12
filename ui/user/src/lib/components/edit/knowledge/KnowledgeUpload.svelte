@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { Upload } from 'lucide-svelte/icons';
+	import Error from '$lib/components/Error.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { ChatService, type Project } from '$lib/services';
 	import type { KnowledgeFile } from '$lib/services';
-	import Loading from '$lib/icons/Loading.svelte';
-	import Error from '$lib/components/Error.svelte';
+	import { Upload } from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

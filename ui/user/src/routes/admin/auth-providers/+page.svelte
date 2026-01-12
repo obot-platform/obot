@@ -1,23 +1,23 @@
 <script lang="ts">
-	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
+	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import {
 		CommonAuthProviderIds,
 		PAGE_TRANSITION_DURATION,
 		RecommendedModelProviders
 	} from '$lib/constants';
-	import { fade } from 'svelte/transition';
-	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
 	import { AdminService, Role } from '$lib/services/index.js';
-	import { AlertTriangle, Info } from 'lucide-svelte';
-	import CopyButton from '$lib/components/CopyButton.svelte';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { twMerge } from 'tailwind-merge';
-	import { darkMode, errors, profile } from '$lib/stores/index.js';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
-	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { darkMode, errors, profile } from '$lib/stores/index.js';
+	import { AlertTriangle, Info } from 'lucide-svelte';
 	import { untrack } from 'svelte';
+	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	let { data } = $props();
 	let authProviders = $state(untrack(() => data.authProviders));

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { type Snippet } from 'svelte';
-	import { EllipsisVertical } from 'lucide-svelte';
 	import { popover } from '$lib/actions';
-	import type { Placement } from '@floating-ui/dom';
 	import { responsive } from '$lib/stores';
+	import type { Placement } from '@floating-ui/dom';
+	import { EllipsisVertical } from 'lucide-svelte';
+	import { type Snippet } from 'svelte';
 
 	interface Props {
 		children: Snippet<[{ toggle: (newOpenValue?: boolean) => void }]>;

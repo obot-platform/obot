@@ -1,4 +1,24 @@
 <script lang="ts">
+	import { darkMode } from '$lib/stores';
+	import {
+		closeBrackets,
+		autocompletion,
+		closeBracketsKeymap,
+		completionKeymap
+	} from '@codemirror/autocomplete';
+	import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
+	import { yaml } from '@codemirror/lang-yaml';
+	import {
+		foldGutter,
+		indentOnInput,
+		syntaxHighlighting,
+		defaultHighlightStyle,
+		bracketMatching,
+		foldKeymap
+	} from '@codemirror/language';
+	import { lintKeymap } from '@codemirror/lint';
+	import { searchKeymap } from '@codemirror/search';
+	import { EditorState as CMEditorState } from '@codemirror/state';
 	import {
 		lineNumbers,
 		highlightActiveLineGutter,
@@ -9,27 +29,7 @@
 		placeholder as cmPlaceholder,
 		EditorView as CMEditorView
 	} from '@codemirror/view';
-	import {
-		foldGutter,
-		indentOnInput,
-		syntaxHighlighting,
-		defaultHighlightStyle,
-		bracketMatching,
-		foldKeymap
-	} from '@codemirror/language';
-	import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
-	import { searchKeymap } from '@codemirror/search';
-	import {
-		closeBrackets,
-		autocompletion,
-		closeBracketsKeymap,
-		completionKeymap
-	} from '@codemirror/autocomplete';
-	import { lintKeymap } from '@codemirror/lint';
-	import { yaml } from '@codemirror/lang-yaml';
-	import { EditorState as CMEditorState } from '@codemirror/state';
 	import { githubLight, githubDark } from '@uiw/codemirror-theme-github';
-	import { darkMode } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

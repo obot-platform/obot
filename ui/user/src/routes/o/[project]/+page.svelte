@@ -1,15 +1,15 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { afterNavigate } from '$app/navigation';
-	import { replaceState } from '$lib/url';
 	import Obot from '$lib/components/Obot.svelte';
 	import { getLayout, initLayout } from '$lib/context/chatLayout.svelte';
-	import { initToolReferences } from '$lib/context/toolReferences.svelte';
-	import { browser } from '$app/environment';
-	import { profile, responsive } from '$lib/stores';
-	import { qIsSet } from '$lib/url';
-	import { initProjectTools } from '$lib/context/projectTools.svelte.js';
-	import { initProjectMCPs } from '$lib/context/projectMcps.svelte.js';
 	import { initHelperMode } from '$lib/context/helperMode.svelte.js';
+	import { initProjectMCPs } from '$lib/context/projectMcps.svelte.js';
+	import { initProjectTools } from '$lib/context/projectTools.svelte.js';
+	import { initToolReferences } from '$lib/context/toolReferences.svelte';
+	import { profile, responsive } from '$lib/stores';
+	import { replaceState } from '$lib/url';
+	import { qIsSet } from '$lib/url';
 	import { untrack } from 'svelte';
 
 	let { data } = $props();

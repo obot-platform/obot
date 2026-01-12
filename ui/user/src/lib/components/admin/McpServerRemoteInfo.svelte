@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import {
 		ChatService,
@@ -8,11 +9,10 @@
 		type OrgUser
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
-	import { twMerge } from 'tailwind-merge';
+	import SensitiveInput from '../SensitiveInput.svelte';
 	import Table from '../table/Table.svelte';
 	import { onMount, untrack } from 'svelte';
-	import SensitiveInput from '../SensitiveInput.svelte';
-	import { resolve } from '$app/paths';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		entity?: 'workspace' | 'catalog';

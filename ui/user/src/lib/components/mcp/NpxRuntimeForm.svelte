@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import type { NPXRuntimeConfig } from '$lib/services/chat/types';
 	import { Plus, Trash2 } from 'lucide-svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

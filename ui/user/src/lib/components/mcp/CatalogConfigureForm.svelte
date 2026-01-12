@@ -1,13 +1,13 @@
 <script lang="ts">
 	import type { MCPServerInfo } from '$lib/services/chat/mcp';
-	import { AlertCircle, LoaderCircle, Server } from 'lucide-svelte';
-	import Toggle from '../Toggle.svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import type { Snippet } from 'svelte';
-	import InfoTooltip from '../InfoTooltip.svelte';
-	import SensitiveInput from '../SensitiveInput.svelte';
-	import { twMerge } from 'tailwind-merge';
 	import Confirm from '../Confirm.svelte';
+	import InfoTooltip from '../InfoTooltip.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import SensitiveInput from '../SensitiveInput.svelte';
+	import Toggle from '../Toggle.svelte';
+	import { AlertCircle, LoaderCircle, Server } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	export type LaunchFormData = {
 		envs?: MCPServerInfo['env'];

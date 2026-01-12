@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { parseErrorContent } from '$lib/errors';
+	import { ChatService, type MCPCatalogServer } from '$lib/services';
 	import { LoaderCircle, Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { ChatService, type MCPCatalogServer } from '$lib/services';
 
 	interface Props {
 		compositeMcpId: string;

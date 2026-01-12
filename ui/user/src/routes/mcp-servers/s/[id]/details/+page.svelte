@@ -1,6 +1,6 @@
 <script lang="ts">
-	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, ChatService, type MCPServerInstance, type OrgUser } from '$lib/services';

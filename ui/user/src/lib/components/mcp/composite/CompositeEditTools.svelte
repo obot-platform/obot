@@ -1,9 +1,9 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import { AlertTriangle } from 'lucide-svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import type { CompositeServerToolRow, MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
+	import { AlertTriangle } from 'lucide-svelte';
 
 	interface Props {
 		configuringEntry?: MCPCatalogEntry | MCPCatalogServer;

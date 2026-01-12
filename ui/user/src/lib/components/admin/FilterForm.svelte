@@ -1,13 +1,6 @@
 <script lang="ts">
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { Eye, EyeOff, LoaderCircle, Plus, Trash2, X } from 'lucide-svelte';
-	import { untrack, type Snippet } from 'svelte';
-	import { fly } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Table from '../table/Table.svelte';
-	import Confirm from '../Confirm.svelte';
-	import { goto } from '$lib/url';
-	import SearchMcpServers from './SearchMcpServers.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		AdminService,
 		type MCPFilter,
@@ -17,6 +10,13 @@
 	} from '$lib/services';
 	import { removeSecret } from '$lib/services/admin/operations';
 	import { mcpServersAndEntries } from '$lib/stores';
+	import { goto } from '$lib/url';
+	import Confirm from '../Confirm.svelte';
+	import Table from '../table/Table.svelte';
+	import SearchMcpServers from './SearchMcpServers.svelte';
+	import { Eye, EyeOff, LoaderCircle, Plus, Trash2, X } from 'lucide-svelte';
+	import { untrack, type Snippet } from 'svelte';
+	import { fly } from 'svelte/transition';
 
 	interface Props {
 		topContent?: Snippet;

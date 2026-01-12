@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { type Task } from '$lib/services';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
-	import { version } from '$lib/stores';
-	import Trigger from './Trigger.svelte';
+	import { getProjectTools } from '$lib/context/projectTools.svelte';
+	import { type Task } from '$lib/services';
 	import type { Project, ProjectCredential } from '$lib/services';
 	import { ChatService } from '$lib/services';
-	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import type { AssistantTool } from '$lib/services';
+	import { version } from '$lib/stores';
+	import Trigger from './Trigger.svelte';
 
 	interface Props {
 		task?: Task;

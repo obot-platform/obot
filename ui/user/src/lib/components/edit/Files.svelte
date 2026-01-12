@@ -3,11 +3,12 @@
 	import { overflowToolTip } from '$lib/actions/overflow';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import FileEditors from '$lib/components/editor/FileEditors.svelte';
 	import Error from '$lib/components/Error.svelte';
-	import Menu from '$lib/components/navbar/Menu.svelte';
+	import FileEditors from '$lib/components/editor/FileEditors.svelte';
 	import McpResources from '$lib/components/mcp/McpResources.svelte';
+	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { isImage } from '$lib/image';
 	import { newFileMonitor } from '$lib/save.js';
@@ -21,11 +22,10 @@
 	} from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { responsive } from '$lib/stores';
+	import CollapsePane from './CollapsePane.svelte';
 	import { Download, Image, Plus } from 'lucide-svelte';
 	import { FileText, Trash2, Upload, X } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
-	import CollapsePane from './CollapsePane.svelte';
-	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 
 	interface Props {
 		project: Project;

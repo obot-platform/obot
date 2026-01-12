@@ -14,6 +14,7 @@
 	} from '$lib/services/chat/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import {
 		CircleFadingArrowUp,
 		LoaderCircle,
@@ -21,7 +22,6 @@
 		StepForward,
 		TriangleAlert
 	} from 'lucide-svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 
 	interface Props {
 		usersMap?: Map<string, OrgUser>;

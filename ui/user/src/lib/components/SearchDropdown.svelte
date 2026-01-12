@@ -1,9 +1,9 @@
 <script lang="ts" generics="T extends { id: string | number }">
-	import { responsive } from '$lib/stores';
-	import { onMount, type Snippet } from 'svelte';
-	import Search from './Search.svelte';
-	import { twMerge } from 'tailwind-merge';
 	import { clickOutside } from '$lib/actions/clickoutside';
+	import { responsive } from '$lib/stores';
+	import Search from './Search.svelte';
+	import { onMount, type Snippet } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props<T> {
 		onSelect: (val: T) => void;

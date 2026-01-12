@@ -1,13 +1,13 @@
 <script lang="ts">
+	import Confirm from '$lib/components/Confirm.svelte';
+	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
+	import Navbar from '$lib/components/Navbar.svelte';
+	import Notifications from '$lib/components/Notifications.svelte';
 	import { ChatService } from '$lib/services';
 	import { profile, errors, version } from '$lib/stores';
-	import { goto } from '$lib/url';
-	import Notifications from '$lib/components/Notifications.svelte';
-	import { getUserRoleLabel } from '$lib/utils';
-	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
 	import { success } from '$lib/stores/success';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import Navbar from '$lib/components/Navbar.svelte';
+	import { goto } from '$lib/url';
+	import { getUserRoleLabel } from '$lib/utils';
 
 	let toDelete = $state(false);
 	let toRevoke = $state(false);

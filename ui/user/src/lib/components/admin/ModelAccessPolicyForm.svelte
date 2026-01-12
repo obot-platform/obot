@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService } from '$lib/services';
 	import {
@@ -15,16 +16,15 @@
 		type DefaultModelAlias
 	} from '$lib/services/admin/types';
 	import type { Model } from '$lib/services/chat/types';
+	import { goto } from '$lib/url';
+	import { getUserDisplayName } from '$lib/utils';
+	import Confirm from '../Confirm.svelte';
+	import Table from '../table/Table.svelte';
+	import SearchModels from './SearchModels.svelte';
+	import SearchUsers from './SearchUsers.svelte';
 	import { LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Table from '../table/Table.svelte';
-	import SearchUsers from './SearchUsers.svelte';
-	import Confirm from '../Confirm.svelte';
-	import { goto } from '$lib/url';
-	import SearchModels from './SearchModels.svelte';
-	import { getUserDisplayName } from '$lib/utils';
 
 	interface Props {
 		modelAccessPolicy?: ModelAccessPolicy;

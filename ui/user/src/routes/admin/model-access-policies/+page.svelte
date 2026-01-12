@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Layout from '$lib/components/Layout.svelte';
-	import Table from '$lib/components/table/Table.svelte';
-	import { LockKeyhole, Plus, Trash2 } from 'lucide-svelte';
-	import { fly } from 'svelte/transition';
-	import { goto, replaceState } from '$lib/url';
 	import { afterNavigate } from '$app/navigation';
-	import { type ModelAccessPolicy } from '$lib/services/admin/types';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import ModelAccessPolicyForm from '$lib/components/admin/ModelAccessPolicyForm.svelte';
-	import { onMount, untrack } from 'svelte';
-	import { AdminService } from '$lib/services/index.js';
-	import { openUrl } from '$lib/utils.js';
-	import { profile } from '$lib/stores/index.js';
 	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import Layout from '$lib/components/Layout.svelte';
+	import ModelAccessPolicyForm from '$lib/components/admin/ModelAccessPolicyForm.svelte';
+	import Table from '$lib/components/table/Table.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { type ModelAccessPolicy } from '$lib/services/admin/types';
+	import { AdminService } from '$lib/services/index.js';
+	import { profile } from '$lib/stores/index.js';
+	import { goto, replaceState } from '$lib/url';
+	import { openUrl } from '$lib/utils.js';
+	import { LockKeyhole, Plus, Trash2 } from 'lucide-svelte';
+	import { onMount, untrack } from 'svelte';
+	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 	let modelAccessPolicies = $state(untrack(() => data.modelAccessPolicies));

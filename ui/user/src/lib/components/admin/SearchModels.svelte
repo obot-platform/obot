@@ -1,8 +1,5 @@
 <script lang="ts">
-	import { Check, Cpu } from 'lucide-svelte';
-	import Search from '../Search.svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { twMerge } from 'tailwind-merge';
+	import { AdminService, type Model, type ModelProvider } from '$lib/services';
 	import {
 		ModelUsageLabels,
 		type ModelUsage,
@@ -10,10 +7,13 @@
 		ModelAliasLabels,
 		type DefaultModelAlias
 	} from '$lib/services/admin/types';
-	import { AdminService, type Model, type ModelProvider } from '$lib/services';
 	import { sortModelProviders } from '$lib/sort';
 	import Logo from '../Logo.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import Search from '../Search.svelte';
+	import { Check, Cpu } from 'lucide-svelte';
 	import { onMount } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onAdd: (modelIds: string[]) => void;

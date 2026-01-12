@@ -1,12 +1,12 @@
 <script lang="ts">
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import { page } from '$app/state';
+	import { AdminService, Group } from '$lib/services';
 	import { profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import Logo from '../Logo.svelte';
-	import { AdminService, Group } from '$lib/services';
-	import { CircleCheckBig, LoaderCircle } from 'lucide-svelte';
-	import { page } from '$app/state';
 	import { goto } from '$lib/url';
+	import Logo from '../Logo.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import { CircleCheckBig, LoaderCircle } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();

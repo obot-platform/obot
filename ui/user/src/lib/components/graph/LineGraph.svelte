@@ -1,7 +1,7 @@
 <script lang="ts" generics="T">
-	import { Chart, Axis, Spline, Tooltip, Highlight, Svg } from 'layerchart';
-	import { scaleTime } from 'd3';
 	import { formatTime } from '$lib/time';
+	import { scaleTime } from 'd3';
+	import { Chart, Axis, Spline, Tooltip, Highlight, Svg } from 'layerchart';
 	import { onMount } from 'svelte';
 
 	interface LineGraphProps {

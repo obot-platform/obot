@@ -1,7 +1,10 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
@@ -26,6 +29,8 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import {
 		AlertTriangle,
 		Captions,
@@ -45,12 +50,7 @@
 	} from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import EditExistingDeployment from './EditExistingDeployment.svelte';
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 
 	type Item = ReturnType<typeof convertEntriesAndServersToTableData>[number];
 	type ServerSelectMode = 'connect' | 'rename' | 'edit' | 'disconnect' | 'chat' | 'server-details';

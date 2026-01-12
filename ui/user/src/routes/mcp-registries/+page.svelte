@@ -1,24 +1,24 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Layout from '$lib/components/Layout.svelte';
-	import Table from '$lib/components/table/Table.svelte';
-	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
-	import { fly } from 'svelte/transition';
-	import { goto, replaceState } from '$lib/url';
 	import { afterNavigate } from '$app/navigation';
-	import { type AccessControlRule } from '$lib/services/admin/types';
+	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import Layout from '$lib/components/Layout.svelte';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
-	import { onMount } from 'svelte';
-	import { ChatService } from '$lib/services/index.js';
-	import { openUrl } from '$lib/utils.js';
+	import Table from '$lib/components/table/Table.svelte';
+	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import {
 		fetchMcpServerAndEntries,
 		getPoweruserWorkspace,
 		initMcpServerAndEntries
 	} from '$lib/context/poweruserWorkspace.svelte.js';
-	import { page } from '$app/state';
+	import { type AccessControlRule } from '$lib/services/admin/types';
+	import { ChatService } from '$lib/services/index.js';
+	import { goto, replaceState } from '$lib/url';
+	import { openUrl } from '$lib/utils.js';
+	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 	let { accessControlRules, workspaceId } = $derived(data);

@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import {
 		AdminService,
 		ChatService,
@@ -9,7 +12,11 @@
 		type ServerK8sSettings
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
+	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
+	import Confirm from '../Confirm.svelte';
+	import SensitiveInput from '../SensitiveInput.svelte';
+	import Table from '../table/Table.svelte';
 	import {
 		AlertTriangle,
 		Info,
@@ -19,15 +26,8 @@
 		CircleFadingArrowUp
 	} from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
-	import Table from '../table/Table.svelte';
-	import Confirm from '../Confirm.svelte';
 	import { fade } from 'svelte/transition';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { profile } from '$lib/stores';
-	import { page } from '$app/state';
-	import SensitiveInput from '../SensitiveInput.svelte';
-	import { resolve } from '$app/paths';
 
 	interface Props {
 		id?: string;

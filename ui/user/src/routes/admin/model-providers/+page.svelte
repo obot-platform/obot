@@ -1,23 +1,23 @@
 <script lang="ts">
-	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
-	import { AdminService, type ModelProvider as ModelProviderType } from '$lib/services';
-	import { delay } from '$lib/utils';
 	import Layout from '$lib/components/Layout.svelte';
+	import DefaultModels from '$lib/components/admin/DefaultModels.svelte';
+	import ListModels from '$lib/components/admin/ListModels.svelte';
+	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
+	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import {
 		CommonModelProviderIds,
 		PAGE_TRANSITION_DURATION,
 		RecommendedModelProviders
 	} from '$lib/constants';
-	import { fade } from 'svelte/transition';
-	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
-	import ListModels from '$lib/components/admin/ListModels.svelte';
 	import { getAdminModels, initModels } from '$lib/context/admin/models.svelte.js';
-	import { onMount, untrack } from 'svelte';
-	import DefaultModels from '$lib/components/admin/DefaultModels.svelte';
+	import { AdminService, type ModelProvider as ModelProviderType } from '$lib/services';
 	import { sortModelProviders } from '$lib/sort.js';
-	import { AlertTriangle } from 'lucide-svelte';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { profile } from '$lib/stores/index.js';
+	import { delay } from '$lib/utils';
+	import { AlertTriangle } from 'lucide-svelte';
+	import { onMount, untrack } from 'svelte';
+	import { fade } from 'svelte/transition';
 
 	let { data } = $props();
 	let modelProviders = $state(untrack(() => data.modelProviders));

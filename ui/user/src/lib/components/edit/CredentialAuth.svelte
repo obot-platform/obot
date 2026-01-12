@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { Thread } from '$lib/services/chat/thread.svelte';
-	import type { Messages, Project, ProjectCredential } from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
-	import { X } from 'lucide-svelte';
-	import { responsive } from '$lib/stores';
+	import type { Messages, Project, ProjectCredential } from '$lib/services';
 	import ChatService from '$lib/services/chat';
+	import { Thread } from '$lib/services/chat/thread.svelte';
+	import { responsive } from '$lib/stores';
+	import { X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {

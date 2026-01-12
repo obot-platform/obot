@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { onMount, type Snippet } from 'svelte';
-	import { ChevronDown } from 'lucide-svelte/icons';
-	import { twMerge } from 'tailwind-merge';
-	import { fade, slide } from 'svelte/transition';
-	import { getHelperMode } from '$lib/context/helperMode.svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
+	import { getHelperMode } from '$lib/context/helperMode.svelte';
+	import { ChevronDown } from 'lucide-svelte/icons';
+	import { onMount, type Snippet } from 'svelte';
+	import { fade, slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		endContent?: Snippet;

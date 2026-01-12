@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { ChatService, type Assistant, type Project } from '$lib/services';
-	import { type KnowledgeFile as KnowledgeFileType } from '$lib/services';
-	import KnowledgeFile from '$lib/components/edit/knowledge/KnowledgeFile.svelte';
-	import { Plus, Trash2, TriangleAlert } from 'lucide-svelte';
 	import { autoHeight } from '$lib/actions/textarea';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import KnowledgeFile from '$lib/components/edit/knowledge/KnowledgeFile.svelte';
 	import KnowledgeUpload from '$lib/components/edit/knowledge/KnowledgeUpload.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
-	import { hasTool } from '$lib/tools';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { twMerge } from 'tailwind-merge';
+	import { ChatService, type Assistant, type Project } from '$lib/services';
+	import { type KnowledgeFile as KnowledgeFileType } from '$lib/services';
+	import { hasTool } from '$lib/tools';
 	import InfoTooltip from '../InfoTooltip.svelte';
+	import { Plus, Trash2, TriangleAlert } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		project: Project;

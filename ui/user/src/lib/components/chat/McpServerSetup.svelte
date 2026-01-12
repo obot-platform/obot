@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { mcpServersAndEntries, responsive } from '$lib/stores';
-	import { ChevronLeft, X } from 'lucide-svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import {
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
@@ -10,15 +10,15 @@
 		type Project,
 		type ProjectMCP
 	} from '$lib/services';
-	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
-	import Search from '../Search.svelte';
 	import { createProjectMcp } from '$lib/services/chat/mcp';
-	import McpServerActions from '../mcp/McpServerActions.svelte';
-	import { fly } from 'svelte/transition';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { mcpServersAndEntries, responsive } from '$lib/stores';
+	import Search from '../Search.svelte';
 	import McpServerEntryForm from '../admin/McpServerEntryForm.svelte';
 	import ConnectToServer from '../mcp/ConnectToServer.svelte';
+	import McpServerActions from '../mcp/McpServerActions.svelte';
 	import ChatConnectorsView from './ChatConnectorsView.svelte';
+	import { ChevronLeft, X } from 'lucide-svelte';
+	import { fly } from 'svelte/transition';
 
 	interface Props {
 		project: Project;

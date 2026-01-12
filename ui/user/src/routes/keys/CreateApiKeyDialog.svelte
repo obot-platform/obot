@@ -2,10 +2,10 @@
 	import DatePicker from '$lib/components/DatePicker.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import { stripMarkdownToText } from '$lib/markdown';
 	import { ApiKeysService } from '$lib/services';
 	import type { APIKeyCreateResponse } from '$lib/services/api-keys/types';
 	import type { MCPCatalogServer } from '$lib/services/chat/types';
-	import { stripMarkdownToText } from '$lib/markdown';
 	import { Check, LoaderCircle, Server } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';

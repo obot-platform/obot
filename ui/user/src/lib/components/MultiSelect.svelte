@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { X } from 'lucide-svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import { fade } from 'svelte/transition';
+	import { X } from 'lucide-svelte';
 	import { createEventDispatcher } from 'svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Option {
 		label: string;

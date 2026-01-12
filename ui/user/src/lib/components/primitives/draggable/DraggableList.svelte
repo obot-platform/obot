@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
 	import { setDraggableContext, type DraggableContext, type DraggableItem } from './contextRoot';
+	import type { Snippet } from 'svelte';
 	import { on } from 'svelte/events';
 	import { twMerge } from 'tailwind-merge';
 

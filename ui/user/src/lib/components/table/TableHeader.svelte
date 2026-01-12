@@ -1,9 +1,9 @@
 <script lang="ts">
 	import popover from '$lib/actions/popover.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Select from '../Select.svelte';
 	import { ArrowDown, ArrowUp, Funnel } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
-	import Select from '../Select.svelte';
 
 	interface Props {
 		onSort?: (property: string) => void;

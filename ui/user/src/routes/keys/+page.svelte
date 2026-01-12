@@ -6,10 +6,10 @@
 	import { ApiKeysService } from '$lib/services';
 	import type { APIKey } from '$lib/services/api-keys/types';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
+	import ApiKeyRevealDialog from './ApiKeyRevealDialog.svelte';
+	import CreateApiKeyDialog from './CreateApiKeyDialog.svelte';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
-	import CreateApiKeyDialog from './CreateApiKeyDialog.svelte';
-	import ApiKeyRevealDialog from './ApiKeyRevealDialog.svelte';
 
 	let { data } = $props();
 	let apiKeys = $state<APIKey[]>(untrack(() => data.apiKeys));

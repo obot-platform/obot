@@ -1,4 +1,9 @@
 <script lang="ts">
+	import { clickOutside } from '$lib/actions/clickoutside';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import Steps from '$lib/components/tasks/Steps.svelte';
+	import { newSaveMonitor } from '$lib/save.js';
 	import {
 		ChatService,
 		getTaskRun,
@@ -8,6 +13,12 @@
 		type TaskStep,
 		type TaskRun
 	} from '$lib/services';
+	import { Thread } from '$lib/services/chat/thread.svelte';
+	import { errors, responsive } from '$lib/stores';
+	import ChatInput from '../messages/Input.svelte';
+	import Input from './Input.svelte';
+	import TaskOptions from './TaskOptions.svelte';
+	import { LoaderCircle, OctagonX, Play } from 'lucide-svelte';
 	import {
 		ChevronRight,
 		MessageCircle,
@@ -17,19 +28,8 @@
 		X
 	} from 'lucide-svelte/icons';
 	import { onDestroy, onMount, untrack } from 'svelte';
-	import Steps from '$lib/components/tasks/Steps.svelte';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { newSaveMonitor } from '$lib/save.js';
-	import { LoaderCircle, OctagonX, Play } from 'lucide-svelte';
-	import { Thread } from '$lib/services/chat/thread.svelte';
-	import { errors, responsive } from '$lib/stores';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { fade, slide } from 'svelte/transition';
-	import TaskOptions from './TaskOptions.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import ChatInput from '../messages/Input.svelte';
-	import Input from './Input.svelte';
-	import { clickOutside } from '$lib/actions/clickoutside';
 
 	interface Props {
 		task: Task;

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { LoaderCircle, Server } from 'lucide-svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { ChatService, type MCPCatalogServer } from '$lib/services';
 	import { errors } from '$lib/stores';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import { LoaderCircle, Server } from 'lucide-svelte';
 
 	interface Props {
 		server?: MCPCatalogServer;
