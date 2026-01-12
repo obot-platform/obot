@@ -96,7 +96,7 @@ importers:
         version: 9.30.1
       '@floating-ui/dom':
         specifier: ^1.6.13
-        version: 1.7.2
+        version: 1.7.4
       '@milkdown/crepe':
         specifier: ^7.6.3
         version: 7.15.1(prosemirror-model@1.25.1)(prosemirror-state@1.4.3)(prosemirror-view@1.40.0)(typescript@5.9.3)
@@ -597,11 +597,11 @@ packages:
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
-  '@floating-ui/core@1.7.2':
-    resolution: {integrity: sha512-wNB5ooIKHQc+Kui96jE/n69rHFWAVoxn5CAzL1Xdd8FG03cgY3MLO+GF9U3W737fYDSgPWA6MReKhBQBop6Pcw==}
+  '@floating-ui/core@1.7.3':
+    resolution: {integrity: sha512-sGnvb5dmrJaKEZ+LDIpguvdX3bDlEllmv4/ClQ9awcmCZrlx5jQyyMWFM5kBI+EyNOCDDiKk8il0zeuX3Zlg/w==}
 
-  '@floating-ui/dom@1.7.2':
-    resolution: {integrity: sha512-7cfaOQuCS27HD7DX+6ib2OrnW+b4ZBwDNnCcT0uTyidcmyWb03FnQqJybDBoCnpdxwBSfA94UAYlRCt7mV+TbA==}
+  '@floating-ui/dom@1.7.4':
+    resolution: {integrity: sha512-OOchDgh4F2CchOX94cRVqhvy7b3AFb+/rQXyswmzmGakRfkMgoWVjfnLWkRirfLEfuD4ysVW16eXzwt3jHIzKA==}
 
   '@floating-ui/utils@0.2.10':
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
@@ -3460,13 +3460,13 @@ snapshots:
       '@eslint/core': 0.17.0
       levn: 0.4.1
 
-  '@floating-ui/core@1.7.2':
+  '@floating-ui/core@1.7.3':
     dependencies:
       '@floating-ui/utils': 0.2.10
 
-  '@floating-ui/dom@1.7.2':
+  '@floating-ui/dom@1.7.4':
     dependencies:
-      '@floating-ui/core': 1.7.2
+      '@floating-ui/core': 1.7.3
       '@floating-ui/utils': 0.2.10
 
   '@floating-ui/utils@0.2.10': {}
@@ -3516,7 +3516,7 @@ snapshots:
 
   '@layerstack/svelte-actions@1.0.1':
     dependencies:
-      '@floating-ui/dom': 1.7.2
+      '@floating-ui/dom': 1.7.4
       '@layerstack/utils': 1.0.1
       d3-array: 3.2.4
       d3-scale: 4.0.2
@@ -3651,7 +3651,7 @@ snapshots:
       '@codemirror/language': 6.11.2
       '@codemirror/state': 6.5.2
       '@codemirror/view': 6.38.0
-      '@floating-ui/dom': 1.7.2
+      '@floating-ui/dom': 1.7.4
       '@milkdown/core': 7.15.1
       '@milkdown/ctx': 7.15.1
       '@milkdown/exception': 7.15.1
@@ -3696,7 +3696,7 @@ snapshots:
       '@codemirror/state': 6.5.2
       '@codemirror/theme-one-dark': 6.1.3
       '@codemirror/view': 6.38.0
-      '@floating-ui/dom': 1.7.2
+      '@floating-ui/dom': 1.7.4
       '@milkdown/kit': 7.15.1(@codemirror/language@6.11.2)(@codemirror/state@6.5.2)(@codemirror/view@6.38.0)(typescript@5.9.3)
       '@types/lodash-es': 4.17.12
       clsx: 2.1.1
@@ -3755,7 +3755,7 @@ snapshots:
 
   '@milkdown/plugin-block@7.15.1':
     dependencies:
-      '@floating-ui/dom': 1.7.2
+      '@floating-ui/dom': 1.7.4
       '@milkdown/core': 7.15.1
       '@milkdown/ctx': 7.15.1
       '@milkdown/exception': 7.15.1
@@ -3821,7 +3821,7 @@ snapshots:
 
   '@milkdown/plugin-slash@7.15.1':
     dependencies:
-      '@floating-ui/dom': 1.7.2
+      '@floating-ui/dom': 1.7.4
       '@milkdown/core': 7.15.1
       '@milkdown/ctx': 7.15.1
       '@milkdown/exception': 7.15.1
@@ -3835,7 +3835,7 @@ snapshots:
 
   '@milkdown/plugin-tooltip@7.15.1':
     dependencies:
-      '@floating-ui/dom': 1.7.2
+      '@floating-ui/dom': 1.7.4
       '@milkdown/core': 7.15.1
       '@milkdown/ctx': 7.15.1
       '@milkdown/exception': 7.15.1
