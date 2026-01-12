@@ -13,7 +13,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.3
 	github.com/MicahParks/jwkset v0.11.0
-	github.com/adhocore/gronx v1.19.5
+	github.com/adhocore/gronx v1.19.6
 	github.com/adrg/xdg v0.5.3
 	github.com/aws/aws-sdk-go-v2 v1.39.4
 	github.com/aws/aws-sdk-go-v2/config v1.31.15
