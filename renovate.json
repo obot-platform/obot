@@ -214,6 +214,14 @@
       ],
       "semanticCommitScope": "npm",
       "commitMessageTopic": "package {{depName}}"
+    },
+    {
+      "description": "Block moby/api and moby/client upgrades until docker/cli transitive dependency is resolved. Blocked at v1.52.0-alpha.1 + v0.1.0-alpha.0 due to: gptscript → docker/cli v26.0.0 → requires removed packages (types/versions, types/time, types/filters). See: https://github.com/moby/moby/discussions/51463",
+      "matchPackageNames": [
+        "github.com/moby/moby/api",
+        "github.com/moby/moby/client"
+      ],
+      "enabled": false
     }
   ]
 }

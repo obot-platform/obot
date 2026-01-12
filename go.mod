@@ -34,7 +34,7 @@ require (
 	github.com/gptscript-ai/gptscript v0.9.8
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
-	github.com/moby/moby/api v1.52.0
+	github.com/moby/moby/api v1.52.0-alpha.1
 	github.com/moby/moby/client v0.1.0-alpha.0
 	github.com/modelcontextprotocol/go-sdk v0.2.0
 	github.com/nanobot-ai/nanobot v0.0.49
