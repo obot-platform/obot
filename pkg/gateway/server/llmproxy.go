@@ -131,7 +131,7 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 			return fmt.Errorf("failed to check model permission: %w", err)
 		}
 		if !hasAccess {
-			return types2.NewErrForbidden("user does not have permission to use model %q", modelID)
+			return types2.NewErrForbidden("user does not have permission to use model %q (%s)", model, modelID)
 		}
 	}
 
