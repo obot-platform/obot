@@ -47,6 +47,23 @@
       ]
     },
     {
+      "description": "Group all k8s.io packages together (must update in lockstep)",
+      "groupName": "kubernetes packages",
+      "matchPackageNames": [
+        "/^k8s.io//",
+        "/^sigs.k8s.io//"
+      ]
+    },
+    {
+      "description": "Disable automerge for k8s digest updates (require manual review)",
+      "matchPackageNames": [
+        "/^k8s.io//",
+        "/^sigs.k8s.io//"
+      ],
+      "matchUpdateTypes": ["digest"],
+      "automerge": false
+    },
+    {
       "description": "Auto-merge GitHub Actions minor/patch",
       "matchManagers": [
         "github-actions"
