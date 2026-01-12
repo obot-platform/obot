@@ -212,7 +212,7 @@
 					<div class="max-w-2xl space-y-3 text-sm font-light text-gray-600 dark:text-gray-300">
 						<p>
 							When you share this project, we'll take a snapshot of its configuration that includes
-							instructions, connectors, knowledge files, and task definitions. You can share the
+							instructions, MCP servers, knowledge files, and task definitions. You can share the
 							generated link with others and they can use it to launch their own instance of the
 							project from your snapshot.
 						</p>
@@ -372,7 +372,7 @@
 
 					{#if mcpServers.length > 0}
 						<div class="p-3">
-							<h4 class="text-on-surface1 mb-2 text-xs font-medium">Connectors</h4>
+							<h4 class="text-on-surface1 mb-2 text-xs font-medium">MCP Servers</h4>
 							<div class="flex flex-col gap-2">
 								{#each mcpServers as mcpServer (mcpServer.id)}
 									<div

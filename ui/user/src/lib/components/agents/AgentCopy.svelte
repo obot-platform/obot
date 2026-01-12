@@ -52,11 +52,11 @@
 
 		<div class="mt-2 flex flex-col gap-4 border-t border-gray-100 pt-4 dark:border-gray-700">
 			<p class="text-on-surface1 px-2 text-sm font-light">
-				This project was shared by a user and may include instructions, Connectors, knowledge files,
-				and task definitions that were not reviewed or verified by our team. It could interact with
-				external systems, access additional data sources, or behave in unexpected ways. By clicking
-				"Launch Project", you acknowledge that you understand the risks and choose to proceed at
-				your own discretion.
+				This project was shared by a user and may include instructions, MCP servers, knowledge
+				files, and task definitions that were not reviewed or verified by our team. It could
+				interact with external systems, access additional data sources, or behave in unexpected
+				ways. By clicking "Launch Project", you acknowledge that you understand the risks and choose
+				to proceed at your own discretion.
 			</p>
 			<div class="flex flex-col items-center gap-3">
 				<button onclick={launchProject} class="button-primary w-full max-w-xs">
