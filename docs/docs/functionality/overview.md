@@ -6,7 +6,7 @@ title: Overview
 
 The MCP Platform is Obot's unified management interface for deploying, managing, and operating MCP servers. It provides role-based access to server management, registries, audit logs, usage tracking, and platform administration.
 
-For detailed permissions and role definitions, see [User Roles](../configuration/user-roles).
+For detailed permissions and role definitions, see [User Roles](/configuration/user-roles/).
 
 ## Roles and Capabilities
 
@@ -28,7 +28,7 @@ Power Users+ include all Power User capabilities and can additionally publish MC
 
 Admins and Owners have full administrative access to the platform, including system-wide configuration, user management, and chat administration.
 
-The only functional difference between Owners and Admins is that Owners can assign the **Auditor** role to users. For more information, see the [Auditor Role](../configuration/user-roles#auditor).
+The only functional difference between Owners and Admins is that Owners can assign the **Auditor** role to users. For more information, see the [Auditor Role](/configuration/user-roles/#auditor).
 
 ## Navigation by Role
 
@@ -52,14 +52,14 @@ The only functional difference between Owners and Admins is that Owners can assi
 
 ## Learn More
 
-- [MCP Servers](mcp-servers) - Deploy, configure, and manage MCP servers
-- [MCP Registries](mcp-registries) - Control which servers are available to which users and groups
-- [Audit Logs and Usage](audit-logs-and-usage) - Monitor activity and track consumption
-- [Filters](filters) - Inspect and control MCP traffic
-- [Server Scheduling](server-scheduling) - Define server availability windows
-- [Chat Management](chat-management) - Configure default chat settings and monitor activity
-- [User Management](user-management) - Manage users, roles, and authentication
-- [API Keys](api-keys) - Create and manage API keys for programmatic MCP server access
-- [Branding](branding) - Customize theme colors and branding
-- [Obot Chat](chat/overview) - Projects, threads, tasks, and chat features
-- [User Roles](../configuration/user-roles) - Detailed permissions and role definitions
+- [MCP Servers](../mcp-servers/) - Deploy, configure, and manage MCP servers
+- [MCP Registries](../mcp-registries/) - Control which servers are available to which users and groups
+- [Audit Logs and Usage](../audit-logs-and-usage/) - Monitor activity and track consumption
+- [Filters](../filters/) - Inspect and control MCP traffic
+- [Server Scheduling](../server-scheduling/) - Define server availability windows
+- [Chat Management](../chat-management/) - Configure default chat settings and monitor activity
+- [User Management](../user-management/) - Manage users, roles, and authentication
+- [API Keys](../api-keys/) - Create and manage API keys for programmatic MCP server access
+- [Branding](../branding/) - Customize theme colors and branding
+- [Obot Chat](../chat/overview/) - Projects, threads, tasks, and chat features
+- [User Roles](/configuration/user-roles/) - Detailed permissions and role definitions

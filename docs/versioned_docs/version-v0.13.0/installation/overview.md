@@ -27,7 +27,7 @@ Docker provides the fastest way to get Obot running on your local machine or a s
 - Ideal for development and evaluation
 - Uses built-in PostgreSQL
 
-👉 [Docker Deployment Guide](docker-deployment)
+👉 [Docker Deployment Guide](/installation/docker-deployment/)
 
 ### Kubernetes Deployment
 
@@ -39,7 +39,7 @@ Deploy Obot on Kubernetes for production-grade reliability and scalability.
 - Integrates with cloud services (KMS, S3, etc.)
 - Requires external PostgreSQL database
 
-👉 [Kubernetes Deployment Guide](kubernetes-deployment)
+👉 [Kubernetes Deployment Guide](/installation/kubernetes-deployment/)
 
 ### Cloud Platform Reference Architectures
 
@@ -53,9 +53,9 @@ If you're planning to deploy Obot on cloud-managed Kubernetes services, these re
 
 Reference architectures for cloud-managed Kubernetes:
 
-- [GCP GKE Reference Architecture](reference-architectures/gcp-gke)
-- [AWS EKS Reference Architecture](reference-architectures/aws-eks)
-- [Azure AKS Reference Architecture](reference-architectures/azure-aks)
+- [GCP GKE Reference Architecture](/installation/reference-architectures/gcp-gke/)
+- [AWS EKS Reference Architecture](/installation/reference-architectures/aws-eks/)
+- [Azure AKS Reference Architecture](/installation/reference-architectures/azure-aks/)
 
 ## System Requirements
 
@@ -85,17 +85,17 @@ For production deployments, you should have:
 
 | Use Case | Recommended Deployment |
 |----------|----------------------|
-| Local development | [Docker](docker-deployment) |
-| Production | [Kubernetes](kubernetes-deployment) |
+| Local development | [Docker](/installation/docker-deployment/) |
+| Production | [Kubernetes](/installation/kubernetes-deployment/) |
 
 ## Next Steps
 
 1. Choose your deployment method above
 2. Follow the deployment guide
-3. [Configure authentication](../configuration/auth-providers)
-4. [Set up model providers](../configuration/model-providers)
-5. Review [server configuration](../configuration/server-configuration)
+3. [Configure authentication](/configuration/auth-providers)
+4. [Set up model providers](/configuration/model-providers)
+5. Review [server configuration](/configuration/server-configuration)
 
 ## Getting Help
 
-- Check [FAQ](../faq)
+- Check [FAQ](/faq/)

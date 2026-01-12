@@ -86,28 +86,28 @@ To enable a high availability setup, uncomment the `replicaCount` line and set i
 
 For detailed configuration options, see:
 
-- **[Server Configuration](../configuration/server-configuration)** - All available environment variables
-- **[Workspace Provider](../configuration/workspace-provider)** - S3 storage configuration
-- **[Encryption Providers](../configuration/encryption-providers/aws-kms)** - KMS encryption setup
+- **[Server Configuration](/configuration/server-configuration)** - All available environment variables
+- **[Workspace Provider](/configuration/workspace-provider)** - S3 storage configuration
+- **[Encryption Providers](/configuration/encryption-providers/aws-kms)** - KMS encryption setup
 
 ## Cloud-Specific Guides
 
 For detailed cloud-specific deployment instructions:
 
-- [Google Kubernetes Engine (GKE)](reference-architectures/gcp-gke)
-- [Amazon Elastic Kubernetes Service (EKS)](reference-architectures/aws-eks)
-- [Azure Kubernetes Service (AKS)](reference-architectures/azure-aks)
+- [Google Kubernetes Engine (GKE)](/installation/reference-architectures/gcp-gke/)
+- [Amazon Elastic Kubernetes Service (EKS)](/installation/reference-architectures/aws-eks/)
+- [Azure Kubernetes Service (AKS)](/installation/reference-architectures/azure-aks/)
 
 ## Next Steps
 
-1. **Configure Authentication**: Set up [auth providers](../configuration/auth-providers)
-2. **Add Model Providers**: Configure [model providers](../configuration/model-providers)
-3. **Set Up MCP Servers**: Configure [MCP servers](../functionality/mcp-servers)
+1. **Configure Authentication**: Set up [auth providers](/configuration/auth-providers)
+2. **Add Model Providers**: Configure [model providers](/configuration/model-providers)
+3. **Set Up MCP Servers**: Configure [MCP servers](/functionality/mcp-servers)
 4. **Configure Monitoring**: Set up logging and metrics
 5. **Review Security**: Enable authentication and encryption
 
 ## Related Documentation
 
-- [Installation Overview](overview)
-- [Server Configuration](../configuration/server-configuration)
-- [Settings for Hosted MCP Server Deployments](../configuration/mcp-deployments-in-kubernetes)
+- [Installation Overview](/installation/overview/)
+- [Server Configuration](/configuration/server-configuration)
+- [Settings for Hosted MCP Server Deployments](/configuration/mcp-deployments-in-kubernetes)

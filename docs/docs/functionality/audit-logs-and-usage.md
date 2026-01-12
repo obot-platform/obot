@@ -7,7 +7,7 @@ title: Audit Logs & Usage
 The MCP Platform provides visibility into MCP activity through audit logs and usage tracking. These features help with monitoring, compliance, and understanding how MCP servers are being used.
 
 :::info Auditor Role
-Sensitive data (MCP request/response bodies, chat threads, and task runs) can **only** be viewed by users with the Auditor role. All other roles, including Owner and Admin, see only metadata for these resources. The Auditor role is an add-on permission that can be combined with any other role, granting read-only access to sensitive data across the platform. See [User Roles](../configuration/user-roles#auditor) for details.
+Sensitive data (MCP request/response bodies, chat threads, and task runs) can **only** be viewed by users with the Auditor role. All other roles, including Owner and Admin, see only metadata for these resources. The Auditor role is an add-on permission that can be combined with any other role, granting read-only access to sensitive data across the platform. See [User Roles](/configuration/user-roles/#auditor) for details.
 :::
 
 ## Audit Logs
@@ -51,7 +51,7 @@ Filter logs by:
 
 ### Exporting Audit Logs
 
-Audit logs can be exported for external analysis or compliance requirements. See [Audit Log Export](../configuration/audit-log-export) for configuration options.
+Audit logs can be exported for external analysis or compliance requirements. See [Audit Log Export](/configuration/audit-log-export/) for configuration options.
 
 ## Usage
 

@@ -52,7 +52,7 @@ resource "aws_iam_role_policy_attachment" "obot_kms" {
 }
 ```
 
-More information on the AWS KMS setup can be found [here](../../configuration/encryption-providers/aws-kms).
+More information on the AWS KMS setup can be found [here](/configuration/encryption-providers/aws-kms).
 
 Once you have these resources set up, install the Obot helm chart with:
 

@@ -8,7 +8,7 @@ Docker is suitable for local testing and small-scale deployments. For production
 
 ### Why can’t I see the User Management section?
 
-User Management is only visible when authentication is enabled. Make sure you start Obot with `OBOT_SERVER_ENABLE_AUTHENTICATION=true`. If you don’t see the bootstrap token prompt, the environment variable may not be set correctly. Follow the [installation guide](installation/enabling-authentication)
+User Management is only visible when authentication is enabled. Make sure you start Obot with `OBOT_SERVER_ENABLE_AUTHENTICATION=true`. If you don’t see the bootstrap token prompt, the environment variable may not be set correctly. Follow the [installation guide](/installation/enabling-authentication/)
 
 ### How do I assign roles to users before they log in?
 
@@ -37,12 +37,12 @@ Both use the same core codebase, but the enterprise version includes additional 
 
 ### How do I pass user-specific parameters (e.g., Jira PAT tokens) to a remote MCP server?
 
-As an admin, you can configure the server in the catalog section of the mcp-servers page. See [here](concepts/admin/mcp-servers#configuration-parameters) for details.
+As an admin, you can configure the server in the catalog section of the mcp-servers page. See [here](../concepts/admin/mcp-servers/#configuration-parameters) for details.
 
 ### How do I get started with AKS/GKE/AWS deployment?
 
 See the reference architecture guide for your cloud provider, and follow the Kubernetes installation.
 
-- [AKS](installation/reference-architectures/azure-aks)
-- [GKE](installation/reference-architectures/gcp-gke)
-- [AWS](installation/reference-architectures/aws-eks)
+- [AKS](/installation/reference-architectures/azure-aks/)
+- [GKE](/installation/reference-architectures/gcp-gke/)
+- [AWS](/installation/reference-architectures/aws-eks/)

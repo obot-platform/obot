@@ -73,7 +73,7 @@ resource "azurerm_federated_identity_credential" "obot" {
 }
 ```
 
-More information on the Azure Key Vault setup can be found [here](../../configuration/encryption-providers/azure-key-vault).
+More information on the Azure Key Vault setup can be found [here](/configuration/encryption-providers/azure-key-vault/).
 
 Once you have these resources set up, install the Obot helm chart with:
 

@@ -16,16 +16,16 @@ Configure default settings that apply to all new projects. Changes here affect t
 - **Instructions**: Default system prompt defining assistant behavior
 
 :::note Model Access
-Model availability for chat is now controlled through [Model Access Policies](model-access-policies). The previous "Allowed Models" setting has been replaced by policies that let you control which users and groups can access which models.
+Model availability for chat is now controlled through [Model Access Policies](../model-access-policies/). The previous "Allowed Models" setting has been replaced by policies that let you control which users and groups can access which models.
 :::
 
 ## Model Providers
 
-Configure LLM providers and their available models. See [Model Providers](../configuration/model-providers) for setup details.
+Configure LLM providers and their available models. See [Model Providers](/configuration/model-providers/) for setup details.
 
 ## Model Access Policies
 
-Control which users and groups can access which models for chat. See [Model Access Policies](model-access-policies) for details.
+Control which users and groups can access which models for chat. See [Model Access Policies](../model-access-policies/) for details.
 
 ## Chat Threads, Tasks, and Task Runs
 

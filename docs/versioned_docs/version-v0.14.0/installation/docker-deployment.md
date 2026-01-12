@@ -11,7 +11,7 @@ Docker deployment is the fastest way to get Obot running. It's ideal for:
 - Proof-of-concept and evaluation
 - Small team usage
 
-For production deployments, see [Kubernetes Deployment](kubernetes-deployment).
+For production deployments, see [Kubernetes Deployment](/installation/kubernetes-deployment/).
 
 ## Prerequisites
 
@@ -72,12 +72,12 @@ You will need to look for an entry like:
 
 ## Next Steps
 
-1. **Configure Authentication**: Set up [auth providers](../configuration/auth-providers) for secure access
-2. **Configure Model Providers**: Configure [model providers](../configuration/model-providers) (OpenAI, Anthropic, etc.)
-3. **Set Up MCP Tools**: Deploy [MCP servers](../concepts/mcp-gateway/overview) for extended functionality
+1. **Configure Authentication**: Set up [auth providers](/configuration/auth-providers) for secure access
+2. **Configure Model Providers**: Configure [model providers](/configuration/model-providers) (OpenAI, Anthropic, etc.)
+3. **Set Up MCP Tools**: Deploy [MCP servers](../../concepts/mcp-gateway/overview/) for extended functionality
 
 ## Related Documentation
 
-- [Installation Overview](overview)
-- [Kubernetes Deployment](kubernetes-deployment)
-- [Server Configuration](../configuration/server-configuration)
+- [Installation Overview](/installation/overview/)
+- [Kubernetes Deployment](/installation/kubernetes-deployment/)
+- [Server Configuration](/configuration/server-configuration)

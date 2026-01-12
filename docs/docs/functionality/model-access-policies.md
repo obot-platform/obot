@@ -44,7 +44,7 @@ Administrators do not have automatic access to all models. Like any other user, 
 
 Only models configured with the **Language Model (Chat)** usage type appear when creating policies. Models configured for other purposes—such as text embedding, image generation, or vision—do not appear as options.
 
-To change which models are available for chat or to configure new model providers, see [Model Providers](../configuration/model-providers).
+To change which models are available for chat or to configure new model providers, see [Model Providers](/configuration/model-providers).
 
 ## Default Model Aliases
 
@@ -53,7 +53,7 @@ When selecting models for a policy, you'll see options like:
 - **Language Model (Chat)** — The primary default model
 - **Language Model (Chat - Fast)** — A faster, typically smaller model
 
-These are aliases that automatically resolve to whichever model is currently configured as the default in [Model Providers](../configuration/model-providers).
+These are aliases that automatically resolve to whichever model is currently configured as the default in [Model Providers](/configuration/model-providers).
 
 Using aliases provides flexibility: if you later change which model serves as the default, users with access to the alias automatically gain access to the new default without needing to update any policies.
 
@@ -99,6 +99,6 @@ Deleting a policy removes model access for the affected subjects. If a user lose
 
 ## Related Topics
 
-- [Model Providers](../configuration/model-providers) — Configure language models and set defaults
-- [MCP Registries](mcp-registries) — Similar access control for MCP servers
-- [User Roles](../configuration/user-roles) — Understanding administrator and user permissions
+- [Model Providers](/configuration/model-providers) — Configure language models and set defaults
+- [MCP Registries](/functionality/mcp-registries/) — Similar access control for MCP servers
+- [User Roles](/configuration/user-roles) — Understanding administrator and user permissions

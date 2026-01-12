@@ -16,7 +16,7 @@ Obot is designed to enable organizations to consume MCP servers in an enterprise
 
 - **MCP Registry**: An index of MCP servers with metadata about how to run them and where to find them.
 
-- **MCP Gateway**: A reverse-proxy that authenticates users, ensures servers are deployed, and forwards requests. See [MCP Gateway](mcp-gateway) for details.
+- **MCP Gateway**: A reverse-proxy that authenticates users, ensures servers are deployed, and forwards requests. See [MCP Gateway](/concepts/mcp-gateway/) for details.
 
 - **MCP Server Shim**: A protocol-aware sidecar that runs alongside each MCP server, handling authorization, audit logging, webhook filters, and token exchange.
 
@@ -42,8 +42,8 @@ Key security properties:
 
 ## Encryption
 
-Obot uses cloud KMS systems to encrypt data at rest. See [Encryption Providers](../configuration/encryption-providers/overview) for configuration options.
+Obot uses cloud KMS systems to encrypt data at rest. See [Encryption Providers](/configuration/encryption-providers/overview) for configuration options.
 
 ## LLMs
 
-Obot operates with a bring-your-own-model philosophy. Multiple providers can be configured to meet organizational requirements. See [Model Providers](../configuration/model-providers) for details.
+Obot operates with a bring-your-own-model philosophy. Multiple providers can be configured to meet organizational requirements. See [Model Providers](/configuration/model-providers) for details.

@@ -34,4 +34,4 @@ Projects can persist important information across all threads, capturing key det
 
 ## Learn More
 
-- [Obot Chat](../functionality/chat/overview) - Detailed configuration and usage
+- [Obot Chat](/functionality/chat/overview) - Detailed configuration and usage
