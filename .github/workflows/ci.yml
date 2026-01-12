@@ -22,6 +22,7 @@ jobs:
   # Detect which files changed to conditionally run jobs
   changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       go: ${{ steps.filter.outputs.go }}
       ui: ${{ steps.filter.outputs.ui }}
@@ -55,6 +56,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -91,6 +93,7 @@ jobs:
     needs: [changes, lint]
     if: needs.changes.outputs.go == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -114,6 +117,7 @@ jobs:
     needs: [changes, test]
     if: needs.changes.outputs.go == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:14
@@ -152,6 +156,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.ui == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -188,6 +193,7 @@ jobs:
     needs: [changes, lint]
     if: github.event_name == 'pull_request' && needs.changes.outputs.docker == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Free up disk space
         run: |
@@ -214,3 +220,75 @@ jobs:
           platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Summary job to aggregate results for branch protection
+  summary:
+    name: CI Summary
+    if: always()
+    needs: [changes, lint, test, integration-test, ui, docker-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check job results
+        run: |
+          echo "## CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check each job result
+          changes_result="${{ needs.changes.result }}"
+          lint_result="${{ needs.lint.result }}"
+          test_result="${{ needs.test.result }}"
+          integration_result="${{ needs.integration-test.result }}"
+          ui_result="${{ needs.ui.result }}"
+          docker_result="${{ needs.docker-build.result }}"
+
+          echo "| Job | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Changes Detection | ${changes_result} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | ${lint_result} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test | ${test_result} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Test | ${integration_result} |" >> $GITHUB_STEP_SUMMARY
+          echo "| UI | ${ui_result} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Build | ${docker_result} |" >> $GITHUB_STEP_SUMMARY
+
+          # Fail if any required job failed (skipped is OK for conditional jobs)
+          failed=false
+
+          if [[ "$changes_result" == "failure" ]]; then
+            echo "Changes detection failed"
+            failed=true
+          fi
+
+          if [[ "$lint_result" == "failure" ]]; then
+            echo "Lint job failed"
+            failed=true
+          fi
+
+          if [[ "$test_result" == "failure" ]]; then
+            echo "Test job failed"
+            failed=true
+          fi
+
+          if [[ "$integration_result" == "failure" ]]; then
+            echo "Integration test job failed"
+            failed=true
+          fi
+
+          if [[ "$ui_result" == "failure" ]]; then
+            echo "UI job failed"
+            failed=true
+          fi
+
+          if [[ "$docker_result" == "failure" ]]; then
+            echo "Docker build job failed"
+            failed=true
+          fi
+
+          if [[ "$failed" == "true" ]]; then
+            echo ""
+            echo "One or more jobs failed. See details above."
+            exit 1
+          fi
+
+          echo ""
+          echo "All jobs completed successfully (or were skipped as expected)."

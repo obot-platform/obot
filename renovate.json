@@ -9,6 +9,7 @@
     "group:kubernetes"
   ],
   "dependencyDashboardTitle": "Renovate Dashboard",
+  "branchPrefix": "renovate/",
   "postUpdateOptions": [
     "gomodTidy"
   ],
@@ -23,6 +24,17 @@
     "enabled": true,
     "schedule": [
       "before 4am on monday"
+    ]
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": [
+      "security",
+      "priority/high"
+    ],
+    "automerge": true,
+    "schedule": [
+      "at any time"
     ]
   },
   "packageRules": [
@@ -73,6 +85,14 @@
       ]
     },
     {
+      "description": "Group Tailwind CSS packages",
+      "groupName": "tailwind packages",
+      "matchPackageNames": [
+        "/^tailwindcss/",
+        "/^@tailwindcss//"
+      ]
+    },
+    {
       "description": "Group AWS SDK v2 packages",
       "groupName": "aws-sdk packages",
       "matchPackageNames": [
@@ -101,6 +121,18 @@
       "matchUpdateTypes": [
         "patch",
         "digest"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Auto-merge npm patch updates",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchUpdateTypes": [
+        "patch"
       ],
       "automerge": true,
       "automergeType": "pr",

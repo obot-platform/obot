@@ -35,7 +35,7 @@ If you discover a security vulnerability in this project, please report it respo
 This project follows security best practices including:
 
 - Code scanning with GitHub CodeQL
-- Dependency vulnerability scanning with Renovate and Dependabot
+- Dependency vulnerability scanning with Renovate
 - Container image scanning with Trivy
 - Image signing with Cosign (Sigstore)
 - Least-privilege GitHub Actions permissions
