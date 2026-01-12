@@ -1,0 +1,25 @@
+# CODEOWNERS for obot-entraid
+# These owners will be requested for review when someone opens a PR
+
+# Default owner for everything
+* @jrmatherly
+
+# Custom auth providers (security-sensitive)
+/tools/entra-auth-provider/ @jrmatherly
+/tools/keycloak-auth-provider/ @jrmatherly
+
+# Frontend/UI
+/ui/ @jrmatherly
+
+# Infrastructure and deployment
+/chart/ @jrmatherly
+/Dockerfile @jrmatherly
+
+# CI/CD workflows
+/.github/ @jrmatherly
+
+# Go backend
+/pkg/ @jrmatherly
+/main.go @jrmatherly
+/go.mod @jrmatherly
+/go.sum @jrmatherly

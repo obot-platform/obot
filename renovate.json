@@ -5,6 +5,7 @@
     "helpers:pinGitHubActionDigests",
     ":semanticCommits",
     ":dependencyDashboard",
+    ":configMigration",
     "group:kubernetes"
   ],
   "dependencyDashboardTitle": "Renovate Dashboard",
@@ -62,6 +63,21 @@
       ],
       "matchUpdateTypes": ["digest"],
       "automerge": false
+    },
+    {
+      "description": "Group Svelte ecosystem packages",
+      "groupName": "svelte packages",
+      "matchPackageNames": [
+        "/^@sveltejs//",
+        "/^svelte/"
+      ]
+    },
+    {
+      "description": "Group AWS SDK v2 packages",
+      "groupName": "aws-sdk packages",
+      "matchPackageNames": [
+        "/^github.com/aws/aws-sdk-go-v2//"
+      ]
     },
     {
       "description": "Auto-merge GitHub Actions minor/patch",
