@@ -20,7 +20,7 @@ Docker provides the fastest way to get Obot running on your local machine or a s
 - Includes a built-in PostgreSQL database and local file storage
 - Deploys MCP servers as Docker containers using the host’s Docker socket
 
-For more details, see the [Docker Deployment Guide](docker-deployment).
+For more details, see the [Docker Deployment Guide](/installation/docker-deployment/).
 
 ## Kubernetes Deployment
 
@@ -30,7 +30,7 @@ Kubernetes provides the best way to run Obot reliably at scale in production env
 - Integrates with cloud-native services such as KMS and S3
 - Requires an external PostgreSQL database and external storage
 
-For more details, see the [Kubernetes Deployment Guide](kubernetes-deployment).
+For more details, see the [Kubernetes Deployment Guide](/installation/kubernetes-deployment/).
 
 ## Production System Requirements
 
@@ -40,7 +40,7 @@ For production deployments, the following components are required:
 - **External PostgreSQL database**: PostgreSQL 17 or later with the pgvector extension
 - **S3-compatible object storage**: For workspace files and persistent data
 - **Encryption provider**: AWS KMS, Google Cloud KMS, or Azure Key Vault
-- **Authentication provider**: See our supported [Authentication Providers](../configuration/auth-providers)
+- **Authentication provider**: See our supported [Authentication Providers](/configuration/auth-providers/)
 - **TLS/SSL certificates**: For secure HTTPS access
 - **Backup strategy**: Regular backups for both the database and object storage
 
@@ -48,18 +48,18 @@ For production deployments, the following components are required:
 
 If you plan to deploy Obot on a managed Kubernetes service, these reference architectures provide infrastructure guidance and best practices:
 
-- [GCP GKE Reference Architecture](reference-architectures/gcp-gke)
-- [AWS EKS Reference Architecture](reference-architectures/aws-eks)
-- [Azure AKS Reference Architecture](reference-architectures/azure-aks)
+- [GCP GKE Reference Architecture](/installation/reference-architectures/gcp-gke/)
+- [AWS EKS Reference Architecture](/installation/reference-architectures/aws-eks/)
+- [Azure AKS Reference Architecture](/installation/reference-architectures/azure-aks/)
 
 ## Next Steps
 
 1. Choose a deployment method above
 2. Follow the corresponding deployment guide
-3. [Configure authentication](../configuration/auth-providers)
-4. [Set up model providers](../configuration/model-providers)
-5. Review the [server configuration options](../configuration/server-configuration)
+3. [Configure authentication](/configuration/auth-providers/)
+4. [Set up model providers](/configuration/model-providers/)
+5. Review the [server configuration options](/configuration/server-configuration/)
 
 ## Getting Help
 
-- See the [FAQ](../faq)
+- See the [FAQ](/faq/)

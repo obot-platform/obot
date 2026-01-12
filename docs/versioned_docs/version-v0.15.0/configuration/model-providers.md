@@ -19,7 +19,7 @@ Obot supports a variety of model providers, including:
 The UI will indicate whether each provider has been configured. If a provider is configured you will have the ability to modify or deconfigure it.
 
 :::note
-Our Enterprise release adds support for additional Enterprise-grade model providers. [See here](../enterprise/overview) for more details.
+Our Enterprise release adds support for additional Enterprise-grade model providers. [See here](/enterprise/overview) for more details.
 :::
 
 ##### Configuring and enabling a provider

@@ -68,7 +68,7 @@ Configure the default role for new users on the **User Management > User Roles**
 
 ### Pre-Assigning Roles
 
-To grant admin or owner access to users before they log in, set these environment variables during deployment. See [Enabling Authentication](../installation/enabling-authentication) for details.
+To grant admin or owner access to users before they log in, set these environment variables during deployment. See [Enabling Authentication](/installation/enabling-authentication) for details.
 
 ```bash
 OBOT_SERVER_AUTH_ADMIN_EMAILS=admin@example.com,admin2@example.com

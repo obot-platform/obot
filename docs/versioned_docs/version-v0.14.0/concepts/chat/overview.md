@@ -55,4 +55,4 @@ Projects can interact with external systems through the Model Context Protocol. 
 
 ## Configuration
 
-For more information on configuring chat, visit the [chat configuration](../../configuration/chat-configuration) documentation.
+For more information on configuring chat, visit the [chat configuration](../../../configuration/chat-configuration/) documentation.
