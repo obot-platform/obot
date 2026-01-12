@@ -10,9 +10,10 @@ import (
 )
 
 type GroupInfo struct {
-	ID      string  `json:"id"`
-	Name    string  `json:"name"`
-	IconURL *string `json:"iconURL,omitempty"`
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
+	IconURL     *string `json:"iconURL,omitempty"`
 }
 
 type GroupInfoList []GroupInfo
@@ -23,6 +24,28 @@ func (a GroupInfoList) IDs() []string {
 		ids[i] = group.ID
 	}
 	return ids
+}
+
+// FilterByAllowed filters the group list to only include groups that are in the allowedGroups list.
+// If allowedGroups is empty, all groups are returned.
+func (a GroupInfoList) FilterByAllowed(allowedGroups []string) GroupInfoList {
+	if len(allowedGroups) == 0 {
+		return a
+	}
+
+	allowedSet := make(map[string]bool, len(allowedGroups))
+	for _, id := range allowedGroups {
+		allowedSet[id] = true
+	}
+
+	filtered := make(GroupInfoList, 0, len(a))
+	for _, group := range a {
+		if allowedSet[group.ID] {
+			filtered = append(filtered, group)
+		}
+	}
+
+	return filtered
 }
 
 type SerializableRequest struct {

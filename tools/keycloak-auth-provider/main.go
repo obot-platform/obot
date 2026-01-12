@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -21,7 +22,18 @@ import (
 	"github.com/obot-platform/tools/auth-providers-common/pkg/env"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/groups"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/state"
+	"github.com/sahilm/fuzzy"
 )
+
+// keycloakClient for Keycloak Admin API requests
+var keycloakClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
+
+// adminTokenCache caches service account access tokens for Client Credentials flow
+// Key: realm name, Value: access token
+// TTL set to 4 minutes (Keycloak tokens typically valid for 5 minutes)
+var adminTokenCache *expirable.LRU[string, string]
 
 type Options struct {
 	ClientID                 string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_CLIENT_ID"`
@@ -36,6 +48,9 @@ type Options struct {
 	AllowedGroups            string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_ALLOWED_GROUPS" optional:"true"`
 	AllowedRoles             string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_ALLOWED_ROLES" optional:"true"`
 	GroupCacheTTL            string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_GROUP_CACHE_TTL" optional:"true" default:"1h"`
+	// Admin service account credentials for Keycloak Admin API (optional - uses ClientID/ClientSecret if not provided)
+	AdminClientID     string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_ADMIN_CLIENT_ID" optional:"true"`
+	AdminClientSecret string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_ADMIN_CLIENT_SECRET" optional:"true"`
 }
 
 func main() {
@@ -193,12 +208,16 @@ func main() {
 		}
 	}
 
+	// Initialize admin token cache with 4-minute TTL (Keycloak tokens typically valid for 5 minutes)
+	// Capacity of 5 allows caching tokens for up to 5 realms
+	adminTokenCache = expirable.NewLRU[string, string](5, nil, 4*time.Minute)
+
 	// Setup HTTP routes
 	mux := http.NewServeMux()
 
 	// Root endpoint - returns daemon address (required by obot)
-	mux.HandleFunc("/{$}", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(fmt.Sprintf("http://127.0.0.1:%s", port)))
+	mux.HandleFunc("/{$}", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(fmt.Sprintf("http://127.0.0.1:%s", port)))
 	})
 
 	// State endpoint - returns auth state with group enrichment from token claims
@@ -211,7 +230,7 @@ func main() {
 			http.Error(w, fmt.Sprintf("failed to fetch user info: %v", err), http.StatusBadRequest)
 			return
 		}
-		json.NewEncoder(w).Encode(userInfo)
+		_ = json.NewEncoder(w).Encode(userInfo)
 	})
 
 	// Icon URL endpoint - returns user's profile picture URL
@@ -239,8 +258,12 @@ func main() {
 		}
 	})
 
+	// List auth groups endpoint - returns all groups from Keycloak for admin group discovery
+	// Uses service account Client Credentials flow since gateway doesn't pass Authorization header
+	mux.HandleFunc("/obot-list-auth-groups", listAuthGroupsKeycloak(opts, keycloakURL, allowedGroups))
+
 	// Groups endpoint - return 404 as groups are extracted from token claims in getState
-	mux.HandleFunc("/obot-list-user-auth-groups", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/obot-list-user-auth-groups", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	})
 
@@ -374,4 +397,195 @@ func fetchUserProfile(ctx context.Context, authHeader, issuerURL string) (map[st
 	}
 
 	return result, nil
+}
+
+// getKeycloakAdminToken retrieves a service account access token using Client Credentials flow.
+// Uses AdminClientID/AdminClientSecret if provided, otherwise falls back to ClientID/ClientSecret.
+// Tokens are cached with a 4-minute TTL (Keycloak tokens typically valid for 5 minutes).
+func getKeycloakAdminToken(ctx context.Context, opts Options, keycloakURL string) (string, error) {
+	// Determine which credentials to use
+	clientID := opts.ClientID
+	clientSecret := opts.ClientSecret
+	if opts.AdminClientID != "" && opts.AdminClientSecret != "" {
+		clientID = opts.AdminClientID
+		clientSecret = opts.AdminClientSecret
+	}
+
+	// Check cache first
+	cacheKey := opts.KeycloakRealm
+	if token, ok := adminTokenCache.Get(cacheKey); ok {
+		return token, nil
+	}
+
+	// Request new token using Client Credentials flow
+	tokenURL := fmt.Sprintf("%s/realms/%s/protocol/openid-connect/token", keycloakURL, opts.KeycloakRealm)
+	data := url.Values{}
+	data.Set("client_id", clientID)
+	data.Set("client_secret", clientSecret)
+	data.Set("grant_type", "client_credentials")
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return "", fmt.Errorf("failed to create token request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := keycloakClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to request token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read token response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("token request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var tokenResp struct {
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
+	}
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		return "", fmt.Errorf("failed to parse token response: %w", err)
+	}
+
+	// Cache the token
+	adminTokenCache.Add(cacheKey, tokenResp.AccessToken)
+
+	return tokenResp.AccessToken, nil
+}
+
+// fetchAllKeycloakGroups retrieves all groups from Keycloak Admin API recursively.
+// Returns groups filtered by allowedGroups if provided.
+// Includes group descriptions from attributes if available.
+func fetchAllKeycloakGroups(ctx context.Context, token, keycloakURL, realm, _ string, allowedGroups []string) (state.GroupInfoList, error) {
+	var allGroups state.GroupInfoList
+
+	// Keycloak Admin API endpoint for groups
+	apiURL := fmt.Sprintf("%s/admin/realms/%s/groups?briefRepresentation=false", keycloakURL, realm)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := keycloakClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch groups: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("keycloak API request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Keycloak group structure with recursive subgroups
+	type KeycloakGroup struct {
+		ID         string              `json:"id"`
+		Name       string              `json:"name"`
+		Path       string              `json:"path"`
+		Attributes map[string][]string `json:"attributes,omitempty"`
+		SubGroups  []KeycloakGroup     `json:"subGroups,omitempty"`
+	}
+
+	var groups []KeycloakGroup
+	if err := json.Unmarshal(body, &groups); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Recursively flatten group hierarchy
+	var flattenGroups func([]KeycloakGroup)
+	flattenGroups = func(groupList []KeycloakGroup) {
+		for _, g := range groupList {
+			// Use path for display name (shows hierarchy like /Parent/Child)
+			displayName := g.Path
+			if displayName == "" || displayName == "/" {
+				displayName = g.Name
+			}
+			// Remove leading slash for cleaner display
+			displayName = strings.TrimPrefix(displayName, "/")
+
+			// Extract description from attributes
+			var description *string
+			if desc, ok := g.Attributes["description"]; ok && len(desc) > 0 && desc[0] != "" {
+				description = &desc[0]
+			}
+
+			allGroups = append(allGroups, state.GroupInfo{
+				ID:          g.ID,
+				Name:        displayName,
+				Description: description,
+			})
+
+			// Process subgroups recursively
+			if len(g.SubGroups) > 0 {
+				flattenGroups(g.SubGroups)
+			}
+		}
+	}
+
+	flattenGroups(groups)
+
+	// Filter by allowed groups if specified
+	if len(allowedGroups) > 0 {
+		allGroups = allGroups.FilterByAllowed(allowedGroups)
+	}
+
+	return allGroups, nil
+}
+
+// listAuthGroupsKeycloak handles the /obot-list-auth-groups endpoint for Keycloak.
+// Supports optional "name" query parameter for fuzzy searching.
+func listAuthGroupsKeycloak(opts Options, keycloakURL string, allowedGroups []string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		nameFilter := r.URL.Query().Get("name")
+
+		// Get service account access token
+		token, err := getKeycloakAdminToken(r.Context(), opts, keycloakURL)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to get access token: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Fetch all groups
+		groups, err := fetchAllKeycloakGroups(r.Context(), token, keycloakURL, opts.KeycloakRealm, nameFilter, allowedGroups)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to fetch groups: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Apply client-side fuzzy search if name filter is provided
+		if nameFilter != "" {
+			var groupNames []string
+			for _, g := range groups {
+				groupNames = append(groupNames, g.Name)
+			}
+
+			// Use fuzzy matching to rank results by relevance
+			matches := fuzzy.Find(nameFilter, groupNames)
+
+			// Build result list in relevance order
+			var rankedGroups state.GroupInfoList
+			for _, match := range matches {
+				rankedGroups = append(rankedGroups, groups[match.Index])
+			}
+			groups = rankedGroups
+		}
+
+		// Return groups as JSON
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(groups); err != nil {
+			http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		}
+	}
 }

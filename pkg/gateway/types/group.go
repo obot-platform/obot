@@ -20,6 +20,9 @@ type Group struct {
 	// Name is the display name of the group.
 	Name string `json:"name"`
 
+	// Description is the optional description of the group.
+	Description *string `json:"description"`
+
 	// IconURL is the URL of the group's icon.
 	IconURL *string `json:"iconURL"`
 }

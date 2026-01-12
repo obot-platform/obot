@@ -45,9 +45,10 @@ func (ss SerializableState) ProviderUsername(providerName string) string {
 
 // GroupInfo represents information about a user group from an authentication provider
 type GroupInfo struct {
-	ID      string  `json:"id"`
-	Name    string  `json:"name"`
-	IconURL *string `json:"iconURL"`
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
+	IconURL     *string `json:"iconURL,omitempty"`
 }
 
 type authProviderURLKey struct{}

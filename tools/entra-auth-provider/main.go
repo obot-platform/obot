@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/obot-platform/tools/auth-providers-common/pkg/groups"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/ratelimit"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/state"
+	"github.com/sahilm/fuzzy"
 )
 
 const (
@@ -40,6 +42,9 @@ type Options struct {
 	AllowedTenants           string `env:"OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_TENANTS" optional:"true"`
 	GroupCacheTTL            string `env:"OBOT_ENTRA_AUTH_PROVIDER_GROUP_CACHE_TTL" optional:"true" default:"1h"`
 	IconCacheTTL             string `env:"OBOT_ENTRA_AUTH_PROVIDER_ICON_CACHE_TTL" optional:"true" default:"24h"`
+	// Admin credentials for Client Credentials flow (optional - uses ClientID/ClientSecret if not provided)
+	AdminClientID     string `env:"OBOT_ENTRA_AUTH_PROVIDER_ADMIN_CLIENT_ID" optional:"true"`
+	AdminClientSecret string `env:"OBOT_ENTRA_AUTH_PROVIDER_ADMIN_CLIENT_SECRET" optional:"true"`
 }
 
 // GraphClient for Microsoft Graph API requests
@@ -51,6 +56,11 @@ var graphClient = &http.Client{
 // Key: user OID, Value: base64 data URL
 // Initialized in main() with configurable TTL
 var iconCache *expirable.LRU[string, string]
+
+// appTokenCache caches app-only access tokens for Client Credentials flow
+// Key: tenantID, Value: access token
+// TTL set to 55 minutes (Microsoft Graph tokens valid for 60-75 minutes)
+var appTokenCache *expirable.LRU[string, string]
 
 func main() {
 	var opts Options
@@ -178,6 +188,10 @@ func main() {
 	// Initialize icon cache with configured TTL
 	iconCache = expirable.NewLRU[string, string](10000, nil, iconCacheTTL)
 
+	// Initialize app token cache with 55-minute TTL (Microsoft Graph tokens valid for 60-75 minutes)
+	// Capacity of 10 allows caching tokens for up to 10 tenants in multi-tenant scenarios
+	appTokenCache = expirable.NewLRU[string, string](10, nil, 55*time.Minute)
+
 	// Parse allowed groups for filtering
 	var allowedGroups []string
 	if opts.AllowedGroups != "" {
@@ -200,8 +214,8 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Root endpoint - returns daemon address (required by obot)
-	mux.HandleFunc("/{$}", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(fmt.Sprintf("http://127.0.0.1:%s", port)))
+	mux.HandleFunc("/{$}", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(fmt.Sprintf("http://127.0.0.1:%s", port)))
 	})
 
 	// State endpoint - returns auth state with token refresh support
@@ -214,7 +228,7 @@ func main() {
 			http.Error(w, fmt.Sprintf("failed to fetch user info: %v", err), http.StatusBadRequest)
 			return
 		}
-		json.NewEncoder(w).Encode(userInfo)
+		_ = json.NewEncoder(w).Encode(userInfo)
 	})
 
 	// Icon URL endpoint - returns user's profile picture URL from Microsoft Graph
@@ -249,9 +263,13 @@ func main() {
 		}
 	})
 
+	// List auth groups endpoint - returns all groups from identity provider for admin group discovery
+	// Uses Client Credentials flow (app-only authentication) since gateway doesn't pass Authorization header
+	mux.HandleFunc("/obot-list-auth-groups", listAuthGroups(opts, allowedGroups))
+
 	// Groups endpoint - return 404 as groups are fetched via getState instead
 	// (The gateway doesn't provide an access token to this endpoint, so we can't fetch groups here)
-	mux.HandleFunc("/obot-list-user-auth-groups", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/obot-list-user-auth-groups", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	})
 
@@ -481,4 +499,193 @@ func fetchUserGroups(ctx context.Context, accessToken string) ([]string, error) 
 	}
 
 	return allGroups, nil
+}
+
+// getAppAccessToken retrieves an app-only access token using Client Credentials flow.
+// Uses AdminClientID/AdminClientSecret if provided, otherwise falls back to ClientID/ClientSecret.
+// Tokens are cached with a 55-minute TTL to minimize API calls.
+func getAppAccessToken(ctx context.Context, opts Options) (string, error) {
+	// Determine which credentials to use
+	clientID := opts.ClientID
+	clientSecret := opts.ClientSecret
+	if opts.AdminClientID != "" && opts.AdminClientSecret != "" {
+		clientID = opts.AdminClientID
+		clientSecret = opts.AdminClientSecret
+	}
+
+	// Check cache first
+	cacheKey := opts.TenantID
+	if token, ok := appTokenCache.Get(cacheKey); ok {
+		return token, nil
+	}
+
+	// Request new token using Client Credentials flow
+	tokenURL := fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", opts.TenantID)
+	data := url.Values{}
+	data.Set("client_id", clientID)
+	data.Set("client_secret", clientSecret)
+	data.Set("scope", "https://graph.microsoft.com/.default")
+	data.Set("grant_type", "client_credentials")
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return "", fmt.Errorf("failed to create token request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := ratelimit.DoWithRetry(ctx, graphClient, req, ratelimit.DefaultConfig())
+	if err != nil {
+		return "", fmt.Errorf("failed to request token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read token response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("token request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var tokenResp struct {
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
+	}
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		return "", fmt.Errorf("failed to parse token response: %w", err)
+	}
+
+	// Cache the token
+	appTokenCache.Add(cacheKey, tokenResp.AccessToken)
+
+	return tokenResp.AccessToken, nil
+}
+
+// fetchAllGroups retrieves all groups from Microsoft Graph API with optional name filtering.
+// Returns groups filtered by allowedGroups if provided.
+// Includes group descriptions for better identification.
+func fetchAllGroups(ctx context.Context, token, nameFilter string, allowedGroups []string) (state.GroupInfoList, error) {
+	var allGroups state.GroupInfoList
+
+	// Build Graph API URL with query parameters
+	params := url.Values{}
+	params.Set("$select", "id,displayName,description")
+	params.Set("$top", "999")
+
+	// Apply server-side filtering for security and M365 groups
+	filter := "securityEnabled eq true or groupTypes/any(c:c eq 'Unified')"
+
+	// Add name filter if provided (server-side)
+	if nameFilter != "" {
+		// Escape single quotes in the filter string
+		escapedName := strings.ReplaceAll(nameFilter, "'", "''")
+		nameClause := fmt.Sprintf("startsWith(displayName, '%s')", escapedName)
+		filter = fmt.Sprintf("(%s) and %s", filter, nameClause)
+	}
+
+	params.Set("$filter", filter)
+
+	apiURL := fmt.Sprintf("%s/groups?%s", graphAPIBaseURL, params.Encode())
+
+	// Paginate through all results
+	for apiURL != "" {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err := ratelimit.DoWithRetry(ctx, graphClient, req, ratelimit.DefaultConfig())
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch groups: %w", err)
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response: %w", err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("graph API request failed with status %d: %s", resp.StatusCode, string(body))
+		}
+
+		var result struct {
+			Value []struct {
+				ID          string  `json:"id"`
+				DisplayName string  `json:"displayName"`
+				Description *string `json:"description"`
+			} `json:"value"`
+			NextLink string `json:"@odata.nextLink"`
+		}
+
+		if err := json.Unmarshal(body, &result); err != nil {
+			return nil, fmt.Errorf("failed to parse response: %w", err)
+		}
+
+		for _, g := range result.Value {
+			allGroups = append(allGroups, state.GroupInfo{
+				ID:          g.ID,
+				Name:        g.DisplayName,
+				Description: g.Description,
+			})
+		}
+
+		// Follow pagination
+		apiURL = result.NextLink
+	}
+
+	// Filter by allowed groups if specified
+	if len(allowedGroups) > 0 {
+		allGroups = allGroups.FilterByAllowed(allowedGroups)
+	}
+
+	return allGroups, nil
+}
+
+// listAuthGroups handles the /obot-list-auth-groups endpoint.
+// Supports optional "name" query parameter for fuzzy searching.
+func listAuthGroups(opts Options, allowedGroups []string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		nameFilter := r.URL.Query().Get("name")
+
+		// Get app-only access token
+		token, err := getAppAccessToken(r.Context(), opts)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to get access token: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Fetch all groups (with server-side name filtering if provided)
+		groups, err := fetchAllGroups(r.Context(), token, nameFilter, allowedGroups)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to fetch groups: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Apply client-side fuzzy search if name filter is provided
+		if nameFilter != "" {
+			var groupNames []string
+			for _, g := range groups {
+				groupNames = append(groupNames, g.Name)
+			}
+
+			// Use fuzzy matching to rank results by relevance
+			matches := fuzzy.Find(nameFilter, groupNames)
+
+			// Build result list in relevance order
+			var rankedGroups state.GroupInfoList
+			for _, match := range matches {
+				rankedGroups = append(rankedGroups, groups[match.Index])
+			}
+			groups = rankedGroups
+		}
+
+		// Return groups as JSON
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(groups); err != nil {
+			http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+		}
+	}
 }

@@ -13,6 +13,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/oauth2-proxy/oauth2-proxy/v7 v7.8.1
 	github.com/obot-platform/tools/auth-providers-common v0.0.0-20251106020319-94c074309ab3
+	github.com/sahilm/fuzzy v0.1.1
 )
 
 require (
