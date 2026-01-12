@@ -23,7 +23,7 @@
 	const tableData = $derived(
 		apiKeys.map((key) => ({
 			...key,
-			prefix: `ok1-${key.userId}-${key.id}-`,
+			prefix: `ok1-${key.userId}-${key.id}-*****`,
 			createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
 			lastUsedAtDisplay: key.lastUsedAt ? formatTimeAgo(key.lastUsedAt).relativeTime : 'Never',
 			expiresAtDisplay: key.expiresAt ? formatTimeUntil(key.expiresAt).relativeTime : 'Never',
@@ -92,7 +92,7 @@
 				]}
 				headers={[
 					{ title: 'Name', property: 'name' },
-					{ title: 'Key Prefix', property: 'prefix' },
+					{ title: 'Key', property: 'prefix' },
 					{ title: 'Description', property: 'description' },
 					{ title: 'Servers', property: 'serverCount' },
 					{ title: 'Created', property: 'createdAtDisplay' },
