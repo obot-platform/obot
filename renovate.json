@@ -104,6 +104,14 @@
       ]
     },
     {
+      "description": "Restrict Helm to v3.x (Helm 4 not yet production ready)",
+      "matchPackageNames": [
+        "azure/setup-helm",
+        "/helm/"
+      ],
+      "allowedVersions": "<4.0.0"
+    },
+    {
       "description": "Auto-merge GitHub Actions (grouped)",
       "matchManagers": [
         "github-actions"
