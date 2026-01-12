@@ -8,58 +8,95 @@
     "group:kubernetes"
   ],
   "dependencyDashboardTitle": "Renovate Dashboard",
-  "postUpdateOptions": ["gomodTidy"],
+  "postUpdateOptions": [
+    "gomodTidy"
+  ],
   "rebaseWhen": "conflicted",
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
-  "schedule": ["after 10pm", "before 6am"],
+  "schedule": [
+    "after 10pm",
+    "before 6am"
+  ],
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": ["before 4am on monday"]
+    "schedule": [
+      "before 4am on monday"
+    ]
   },
   "packageRules": [
     {
       "description": "Group gptscript-ai packages",
-      "matchPackagePatterns": ["^github.com/gptscript-ai/"],
-      "groupName": "gptscript packages"
+      "groupName": "gptscript packages",
+      "matchPackageNames": [
+        "/^github.com/gptscript-ai//"
+      ]
     },
     {
       "description": "Group golang.org/x packages",
-      "matchPackagePatterns": ["^golang.org/x/"],
-      "groupName": "golang.org/x packages"
+      "groupName": "golang.org/x packages",
+      "matchPackageNames": [
+        "/^golang.org/x//"
+      ]
     },
     {
       "description": "Group obot-platform packages",
-      "matchPackagePatterns": ["^github.com/obot-platform/"],
-      "groupName": "obot-platform packages"
+      "groupName": "obot-platform packages",
+      "matchPackageNames": [
+        "/^github.com/obot-platform//"
+      ]
     },
     {
       "description": "Auto-merge GitHub Actions minor/patch",
-      "matchManagers": ["github-actions"],
-      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest"
+      ],
       "automerge": true,
       "automergeType": "pr",
       "minimumReleaseAge": "3 days"
     },
     {
       "description": "Auto-merge Go patch updates",
-      "matchManagers": ["gomod"],
-      "matchUpdateTypes": ["patch", "digest"],
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchUpdateTypes": [
+        "patch",
+        "digest"
+      ],
       "automerge": true,
       "automergeType": "pr",
       "minimumReleaseAge": "3 days"
     },
     {
-      "matchUpdateTypes": ["major"],
-      "labels": ["type/major"]
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "labels": [
+        "type/major"
+      ]
     },
     {
-      "matchUpdateTypes": ["minor"],
-      "labels": ["type/minor"]
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "labels": [
+        "type/minor"
+      ]
     },
     {
-      "matchUpdateTypes": ["patch", "digest"],
-      "labels": ["type/patch"]
+      "matchUpdateTypes": [
+        "patch",
+        "digest"
+      ],
+      "labels": [
+        "type/patch"
+      ]
     }
   ]
 }
