@@ -57,7 +57,7 @@
 		"eslint": "^9.39.2",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.14.0",
-		"globals": "^15.15.0",
+		"globals": "^17.0.0",
 		"highlight.js": "^11.11.1",
 		"lucide-svelte": "^0.562.0",
 		"micromark": "^4.0.2",
@@ -89,7 +89,7 @@
 	"pnpm": {
 		"overrides": {
 			"glob": "10.5.0",
-			"cookie": "0.7.2"
+			"cookie": "1.1.1"
 		}
 	}
 }
