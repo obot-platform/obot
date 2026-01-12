@@ -101,6 +101,7 @@ var (
 		"/api/user-default-role-settings",
 		"/api/setup/",
 		"/api/k8s-settings",
+		"/api/mcp-capacity",
 		"/api/audit-log-exports",
 		"/api/audit-log-exports/{id}",
 		"/api/scheduled-audit-log-exports",

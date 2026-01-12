@@ -46,7 +46,8 @@ import type {
 	MCPCompositeDeletionDependency,
 	AppPreferences,
 	GroupRoleAssignment,
-	GroupRoleAssignmentList
+	GroupRoleAssignmentList,
+	MCPCapacityInfo
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -1241,4 +1242,10 @@ export async function deleteGroupRoleAssignment(
 	opts?: { signal?: AbortSignal | undefined }
 ): Promise<void> {
 	await doDelete(`/group-role-assignments/${encodeURIComponent(groupName)}`, opts);
+}
+
+// MCP Capacity
+export async function getMCPCapacity(opts?: { fetch?: Fetcher }): Promise<MCPCapacityInfo> {
+	const response = (await doGet('/mcp-capacity', opts)) as MCPCapacityInfo;
+	return response;
 }
