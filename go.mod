@@ -15,7 +15,7 @@ require (
 	github.com/MicahParks/jwkset v0.11.0
 	github.com/adhocore/gronx v1.19.6
 	github.com/adrg/xdg v0.5.3
-	github.com/aws/aws-sdk-go-v2 v1.39.4
+	github.com/aws/aws-sdk-go-v2 v1.41.1
 	github.com/aws/aws-sdk-go-v2/config v1.31.15
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.19.15
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.7
@@ -59,7 +59,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.35.0
 	go.opentelemetry.io/otel/sdk/log v0.11.0
 	go.opentelemetry.io/otel/sdk/metric v1.35.0
-	golang.org/x/crypto v0.46.0
+	golang.org/x/crypto v0.47.0
 	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93
 	golang.org/x/mod v0.32.0
 	golang.org/x/oauth2 v0.34.0
@@ -71,7 +71,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/postgres v1.6.0
-	gorm.io/gorm v1.30.1
+	gorm.io/gorm v1.31.1
 	k8s.io/api v0.31.1
 	k8s.io/apimachinery v0.31.1
 	k8s.io/apiserver v0.31.1
@@ -123,7 +123,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.29.8 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.38.9
-	github.com/aws/smithy-go v1.23.1 // indirect
+	github.com/aws/smithy-go v1.24.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
