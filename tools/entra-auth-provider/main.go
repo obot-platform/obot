@@ -18,6 +18,7 @@ import (
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/options"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/validation"
 	"github.com/obot-platform/obot-entraid/tools/entra-auth-provider/pkg/profile"
+	"github.com/obot-platform/tools/auth-providers-common/pkg/database"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/env"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/groups"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/ratelimit"
@@ -132,9 +133,25 @@ func main() {
 
 	// Session storage configuration
 	if opts.PostgresConnectionDSN != "" {
+		fmt.Printf("INFO: entra-auth-provider: validating PostgreSQL connection...\n")
+
+		if err := database.ValidatePostgresConnection(opts.PostgresConnectionDSN); err != nil {
+			fmt.Printf("ERROR: entra-auth-provider: PostgreSQL connection failed: %v\n", err)
+			fmt.Printf("ERROR: Set session storage to PostgreSQL but cannot connect\n")
+			fmt.Printf("ERROR: Check OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN\n")
+			os.Exit(1)
+		}
+
+		fmt.Printf("INFO: entra-auth-provider: PostgreSQL connection validated successfully\n")
+
 		oauthProxyOpts.Session.Type = options.PostgresSessionStoreType
 		oauthProxyOpts.Session.Postgres.ConnectionDSN = opts.PostgresConnectionDSN
 		oauthProxyOpts.Session.Postgres.TableNamePrefix = "entra_"
+
+		fmt.Printf("INFO: entra-auth-provider: using PostgreSQL session storage (table prefix: entra_)\n")
+	} else {
+		fmt.Printf("INFO: entra-auth-provider: using cookie-only session storage\n")
+		fmt.Printf("WARNING: Cookie-only sessions do not persist across pod restarts\n")
 	}
 
 	// Cookie configuration
