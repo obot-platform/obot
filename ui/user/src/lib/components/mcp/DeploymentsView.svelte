@@ -316,6 +316,11 @@
 				throw error;
 			}
 		}
+
+		// Immediately refresh capacity banner for admin users after any server deletion
+		if (entity === 'catalog' && profile.current.hasAdminAccess?.()) {
+			capacityBanner?.refresh();
+		}
 	}
 
 	async function handleBulkDelete() {

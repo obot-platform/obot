@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"errors"
+
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -27,7 +29,7 @@ func (h *MCPCapacityHandler) GetCapacity(req api.Context) error {
 	if err != nil {
 		// If backend doesn't support capacity info (e.g., Docker), return empty info
 		var notSupported *mcp.ErrNotSupportedByBackend
-		if ok := isErrNotSupportedByBackend(err, &notSupported); ok {
+		if errors.As(err, &notSupported) {
 			return req.Write(types.MCPCapacityInfo{
 				Error: notSupported.Error(),
 			})
@@ -36,12 +38,4 @@ func (h *MCPCapacityHandler) GetCapacity(req api.Context) error {
 	}
 
 	return req.Write(info)
-}
-
-func isErrNotSupportedByBackend(err error, target **mcp.ErrNotSupportedByBackend) bool {
-	if e, ok := err.(*mcp.ErrNotSupportedByBackend); ok {
-		*target = e
-		return true
-	}
-	return false
 }

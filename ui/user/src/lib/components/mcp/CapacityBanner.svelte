@@ -8,11 +8,6 @@
 	let capacityInfo = $state<MCPCapacityInfo | null>(null);
 	let loading = $state(true);
 
-	const sourceLabels: Record<string, string> = {
-		resourceQuota: 'ResourceQuota',
-		deployments: 'Deployments'
-	};
-
 	async function fetchCapacity() {
 		try {
 			capacityInfo = await AdminService.getMCPCapacity();
@@ -38,8 +33,12 @@
 	}
 
 	// Export refresh function for parent components to call
+	// Polls multiple times to catch ResourceQuota updates which happen asynchronously in Kubernetes
 	export function refresh() {
 		fetchCapacity();
+		// Poll a few more times to catch the ResourceQuota update
+		setTimeout(fetchCapacity, 2000);
+		setTimeout(fetchCapacity, 5000);
 	}
 </script>
 
@@ -51,15 +50,17 @@
 	<div class="bg-surface2 dark:bg-surface1 mb-4 rounded-md p-4 shadow-sm">
 		<div class="mb-3 flex items-center gap-1">
 			<h3 class="text-sm font-semibold">MCP Namespace Capacity</h3>
-			<span
-				class="text-on-surface1"
-				use:tooltip={{
-					text: `Data source: ${sourceLabels[capacityInfo.source] || capacityInfo.source}`,
-					disablePortal: true
-				}}
-			>
-				<Info class="size-3.5" />
-			</span>
+			{#if capacityInfo.source === 'resourceQuota'}
+				<span
+					class="text-on-surface1"
+					use:tooltip={{
+						text: 'Maximums based on resource quotas',
+						disablePortal: true
+					}}
+				>
+					<Info class="size-3.5" />
+				</span>
+			{/if}
 		</div>
 
 		<div class="grid grid-cols-3 gap-4">
