@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -43,12 +44,32 @@ func (ss SerializableState) ProviderUsername(providerName string) string {
 	return userName
 }
 
+const (
+	// MaxGroupDescriptionLength is the maximum allowed length for group descriptions
+	// This prevents storage abuse and potential display issues
+	MaxGroupDescriptionLength = 1000
+)
+
 // GroupInfo represents information about a user group from an authentication provider
 type GroupInfo struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`
 	Description *string `json:"description,omitempty"`
 	IconURL     *string `json:"iconURL,omitempty"`
+}
+
+// Validate validates group info fields for security and data integrity
+func (g *GroupInfo) Validate() error {
+	if g.Name == "" {
+		return fmt.Errorf("group name is required")
+	}
+
+	if g.Description != nil && len(*g.Description) > MaxGroupDescriptionLength {
+		return fmt.Errorf("description exceeds maximum length of %d characters (got %d)",
+			MaxGroupDescriptionLength, len(*g.Description))
+	}
+
+	return nil
 }
 
 type authProviderURLKey struct{}

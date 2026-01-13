@@ -89,6 +89,13 @@ Credential: ../placeholder-credential as entra-auth-provider
             "friendlyName": "Icon Cache TTL",
             "description": "How long to cache profile pictures. Format: 24h, 12h, etc. Default: 24h. Profile pictures rarely change, so longer values reduce API calls.",
             "sensitive": false
+        },
+        {
+            "name": "OBOT_AUTH_INSECURE_COOKIES",
+            "friendlyName": "Allow Insecure Cookies (Development Only)",
+            "description": "Set to 'true' to allow HTTP cookies for local development. NEVER enable in production - exposes session tokens over unencrypted HTTP.",
+            "sensitive": false,
+            "hidden": true
         }
     ]
 }

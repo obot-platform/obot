@@ -151,8 +151,65 @@ func main() {
 	oauthProxyOpts.Cookie.Refresh = refreshDuration
 	oauthProxyOpts.Cookie.Name = "obot_access_token"
 	oauthProxyOpts.Cookie.Secret = string(cookieSecret)
-	oauthProxyOpts.Cookie.Secure = strings.HasPrefix(opts.ObotServerURL, "https://")
 	oauthProxyOpts.Cookie.CSRFExpire = 30 * time.Minute
+
+	// Parse and validate server URL for secure cookie determination
+	parsedURL, err := url.Parse(opts.ObotServerURL)
+	if err != nil {
+		fmt.Printf("ERROR: keycloak-auth-provider: invalid OBOT_SERVER_PUBLIC_URL: %v\n", err)
+		os.Exit(1)
+	}
+
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		fmt.Printf("ERROR: keycloak-auth-provider: OBOT_SERVER_PUBLIC_URL must have http or https scheme\n")
+		os.Exit(1)
+	}
+
+	// Secure cookies configuration with fail-safe default
+	// Allow insecure cookies ONLY if explicitly enabled via environment variable
+	insecureCookies := os.Getenv("OBOT_AUTH_INSECURE_COOKIES") == "true"
+	isHTTPS := parsedURL.Scheme == "https"
+
+	if !isHTTPS && !insecureCookies {
+		fmt.Printf("ERROR: keycloak-auth-provider: OBOT_SERVER_PUBLIC_URL must use https:// scheme\n")
+		fmt.Printf("ERROR: For local development, set OBOT_AUTH_INSECURE_COOKIES=true (NOT for production)\n")
+		os.Exit(1)
+	}
+
+	oauthProxyOpts.Cookie.Secure = isHTTPS
+
+	if !isHTTPS {
+		fmt.Printf("WARNING: keycloak-auth-provider: insecure cookies enabled - DO NOT use in production\n")
+	}
+
+	// Set additional cookie security flags
+	oauthProxyOpts.Cookie.HTTPOnly = true
+	oauthProxyOpts.Cookie.SameSite = "Lax" // Prevents CSRF while allowing OAuth redirects
+
+	// Set cookie domain and path explicitly
+	oauthProxyOpts.Cookie.Domains = []string{parsedURL.Hostname()}
+	oauthProxyOpts.Cookie.Path = "/"
+
+	// Allow environment variable overrides for advanced configurations
+	if cookieDomain := os.Getenv("OBOT_AUTH_PROVIDER_COOKIE_DOMAIN"); cookieDomain != "" {
+		oauthProxyOpts.Cookie.Domains = []string{cookieDomain}
+	}
+
+	if cookiePath := os.Getenv("OBOT_AUTH_PROVIDER_COOKIE_PATH"); cookiePath != "" {
+		oauthProxyOpts.Cookie.Path = cookiePath
+	}
+
+	if sameSite := os.Getenv("OBOT_AUTH_PROVIDER_COOKIE_SAMESITE"); sameSite != "" {
+		oauthProxyOpts.Cookie.SameSite = sameSite
+	}
+
+	fmt.Printf("INFO: keycloak-auth-provider: cookie configuration:\n")
+	fmt.Printf("  - Name: %s\n", oauthProxyOpts.Cookie.Name)
+	fmt.Printf("  - Domains: %v\n", oauthProxyOpts.Cookie.Domains)
+	fmt.Printf("  - Path: %s\n", oauthProxyOpts.Cookie.Path)
+	fmt.Printf("  - Secure: %v\n", oauthProxyOpts.Cookie.Secure)
+	fmt.Printf("  - HTTPOnly: %v\n", oauthProxyOpts.Cookie.HTTPOnly)
+	fmt.Printf("  - SameSite: %s\n", oauthProxyOpts.Cookie.SameSite)
 
 	// Templates path
 	oauthProxyOpts.Templates.Path = os.Getenv("GPTSCRIPT_TOOL_DIR") + "/../auth-providers-common/templates"

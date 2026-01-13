@@ -118,6 +118,10 @@ OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN="<auto-provided if using PostgreSQL>"
 | `OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_TENANTS` | (empty) | Comma-separated list of tenant IDs allowed (required for multi-tenant) |
 | `OBOT_ENTRA_AUTH_PROVIDER_GROUP_CACHE_TTL` | `1h` | How long to cache user group memberships (format: `30m`, `2h`, etc.) |
 | `OBOT_ENTRA_AUTH_PROVIDER_ICON_CACHE_TTL` | `24h` | How long to cache profile pictures (format: `12h`, `48h`, etc.) |
+| `OBOT_AUTH_INSECURE_COOKIES` | `false` | Allow HTTP cookies for local development (**NEVER enable in production**) |
+| `OBOT_AUTH_PROVIDER_COOKIE_DOMAIN` | (auto) | Override cookie domain (default: hostname from `OBOT_SERVER_PUBLIC_URL`) |
+| `OBOT_AUTH_PROVIDER_COOKIE_PATH` | `/` | Override cookie path |
+| `OBOT_AUTH_PROVIDER_COOKIE_SAMESITE` | `Lax` | Override SameSite attribute (options: `Strict`, `Lax`, `None`) |
 
 ### Auto-Provided by Obot
 
@@ -231,11 +235,14 @@ User → Obot → /oauth2/start → Microsoft Login → /oauth2/callback → Ses
 ## Security Features
 
 - **State Parameter**: CSRF protection with random state values
-- **Secure Cookies**: `Secure`, `HttpOnly`, `SameSite=Lax` flags
+- **Secure Cookies**: `Secure`, `HttpOnly`, `SameSite=Lax` flags automatically configured
 - **Token Encryption**: Access tokens encrypted in database/cookies
-- **ID Token Validation**: JWT signature verification (via oauth2-proxy)
-- **HTTPS Enforcement**: Cookies only secure over HTTPS
+- **ID Token Validation**: JWT signature verification (via oauth2-proxy) with fail-fast authentication
+- **HTTPS Enforcement**: HTTPS required by default, fails on HTTP unless `OBOT_AUTH_INSECURE_COOKIES=true` (development only)
 - **Multi-Tenant Validation**: Issuer verification skipped for multi-tenant, but tenant filtering enforced
+- **Cookie Configuration**: Domain, path, and SameSite explicitly configured from server URL
+- **Token Refresh Error Handling**: Expired sessions redirect to login instead of showing 500 errors
+- **Group Description Validation**: Group metadata validated for length and security
 
 ## API Endpoints
 
@@ -275,6 +282,7 @@ make build
    export OBOT_SERVER_URL="http://localhost:8080"
    export OBOT_AUTH_PROVIDER_COOKIE_SECRET="$(openssl rand -base64 32)"
    export OBOT_AUTH_PROVIDER_EMAIL_DOMAINS="*"
+   export OBOT_AUTH_INSECURE_COOKIES="true"  # Required for HTTP in development
    export PORT="9999"
    ```
 

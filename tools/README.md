@@ -84,6 +84,10 @@ Optional:
 - `OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_TENANTS` - Required if tenant is 'common'/'organizations'
 - `OBOT_ENTRA_AUTH_PROVIDER_GROUP_CACHE_TTL` - Group cache duration (default: `1h`)
 - `OBOT_ENTRA_AUTH_PROVIDER_ICON_CACHE_TTL` - Profile picture cache duration (default: `24h`)
+- `OBOT_AUTH_INSECURE_COOKIES` - Set to `true` for local development with HTTP (default: `false`, **NEVER enable in production**)
+- `OBOT_AUTH_PROVIDER_COOKIE_DOMAIN` - Override cookie domain (default: hostname from server URL)
+- `OBOT_AUTH_PROVIDER_COOKIE_PATH` - Override cookie path (default: `/`)
+- `OBOT_AUTH_PROVIDER_COOKIE_SAMESITE` - Override SameSite attribute (default: `Lax`, options: `Strict`, `Lax`, `None`)
 
 See `entra-auth-provider/README.md` for detailed Azure setup instructions.
 
@@ -101,6 +105,10 @@ Optional:
 - `OBOT_KEYCLOAK_AUTH_PROVIDER_ALLOWED_GROUPS` - Comma-separated group names
 - `OBOT_KEYCLOAK_AUTH_PROVIDER_ALLOWED_ROLES` - Comma-separated role names
 - `OBOT_KEYCLOAK_AUTH_PROVIDER_GROUP_CACHE_TTL` - Group cache duration (default: `1h`)
+- `OBOT_AUTH_INSECURE_COOKIES` - Set to `true` for local development with HTTP (default: `false`, **NEVER enable in production**)
+- `OBOT_AUTH_PROVIDER_COOKIE_DOMAIN` - Override cookie domain (default: hostname from server URL)
+- `OBOT_AUTH_PROVIDER_COOKIE_PATH` - Override cookie path (default: `/`)
+- `OBOT_AUTH_PROVIDER_COOKIE_SAMESITE` - Override SameSite attribute (default: `Lax`, options: `Strict`, `Lax`, `None`)
 
 ## Container Build Architecture
 

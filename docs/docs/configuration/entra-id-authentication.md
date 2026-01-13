@@ -269,6 +269,78 @@ All logs use JSON format for observability platform integration:
 }
 ```
 
+## Sprint 1 Security Enhancements
+
+The following security enhancements were implemented to improve authentication reliability and security:
+
+### Fail-Fast Authentication
+
+**ID token parsing is mandatory** for reliable user identification. Authentication will fail immediately if:
+- ID token is missing from the OAuth callback
+- ID token cannot be parsed successfully
+- Tenant validation fails (for multi-tenant configurations)
+
+This prevents silent authentication failures and ensures consistent user identity across sessions, eliminating issues like admin/owner permission loss after re-login.
+
+### Cookie Security Configuration
+
+Production-grade cookie security with explicit configuration:
+
+| Setting | Production | Development |
+|---------|------------|-------------|
+| `Secure` flag | Required (HTTPS) | Optional with `OBOT_AUTH_INSECURE_COOKIES=true` |
+| `HTTPOnly` | Always enabled | Always enabled |
+| `SameSite` | `Lax` (default) | Configurable via `OBOT_AUTH_PROVIDER_COOKIE_SAMESITE` |
+| Domain | Auto-detected from server URL | Override with `OBOT_AUTH_PROVIDER_COOKIE_DOMAIN` |
+| Path | `/` (default) | Override with `OBOT_AUTH_PROVIDER_COOKIE_PATH` |
+
+**Environment Variables:**
+
+```yaml
+# REQUIRED in production: Server must use HTTPS
+# For local development with HTTP only:
+OBOT_AUTH_INSECURE_COOKIES: "true"  # NOT for production
+
+# Optional: Override cookie configuration
+OBOT_AUTH_PROVIDER_COOKIE_DOMAIN: "example.com"
+OBOT_AUTH_PROVIDER_COOKIE_PATH: "/"
+OBOT_AUTH_PROVIDER_COOKIE_SAMESITE: "Lax"  # Options: Strict, Lax, None
+```
+
+**HTTPS Enforcement:**
+- Server URL must use `https://` scheme in production
+- Application exits on startup if HTTP is detected without `OBOT_AUTH_INSECURE_COOKIES=true`
+- Development environments can opt-out with explicit environment variable
+
+### Token Refresh Error Handling
+
+Automatic session error detection and graceful handling:
+
+**Detected Error Patterns:**
+- `record not found` - Session not in storage
+- `session ticket cookie failed validation` - Cookie decryption failure
+- `refreshing token returned` - Token refresh HTTP errors
+- `REFRESH_TOKEN_ERROR` - OAuth2-proxy refresh error
+- `RESTART_AUTHENTICATION_ERROR` - Auth restart required
+- `invalid_token` - OAuth2 RFC 6749 standard error
+- `failed to refresh token` - Token refresh failure
+
+**Behavior:**
+- Users automatically redirected to login page on session errors
+- No confusing HTTP 500 error pages shown to users
+- Diagnostic logging for troubleshooting
+
+### Group Metadata Validation
+
+Security validation for Azure AD group information:
+
+| Validation | Limit | Purpose |
+|------------|-------|---------|
+| Group name | Required | Ensures valid group identification |
+| Description length | 1000 characters | Prevents storage abuse and display issues |
+
+Invalid group metadata is rejected with clear error messages.
+
 ## Security Considerations
 
 ### Security Requirements

@@ -133,6 +133,10 @@ You can restrict login access to specific Entra users and groups by taking the f
 
 For more details, [see Entra's docs](https://learn.microsoft.com/en-us/entra/identity-platform/howto-restrict-your-app-to-a-set-of-users).
 
+:::tip Security Features
+The Entra ID auth provider includes production-grade security features including fail-fast authentication, HTTPS enforcement with cookie security configuration, automatic token refresh error handling, and group metadata validation. For comprehensive configuration details and advanced security options, see [Microsoft Entra ID Authentication](entra-id-authentication).
+:::
+
 ### Okta (Enterprise Only)
 
 :::note

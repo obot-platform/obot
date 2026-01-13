@@ -281,7 +281,11 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		return nil, false, err
 	}
 
-	if stateResponse.StatusCode == http.StatusInternalServerError && (strings.Contains(string(body), "record not found") || strings.Contains(string(body), "session ticket cookie failed validation")) {
+	// Handle session-related errors that should redirect to login
+	// (instead of returning HTTP 500 to the client)
+	if IsSessionError(stateResponse.StatusCode, string(body)) {
+		log.Warnf("session error detected for provider %s (status %d), redirecting to login: %s",
+			p.name, stateResponse.StatusCode, string(body))
 		return nil, false, ErrInvalidSession
 	}
 

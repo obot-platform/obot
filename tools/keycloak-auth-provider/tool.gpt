@@ -83,6 +83,13 @@ Credential: ../placeholder-credential as keycloak-auth-provider
             "friendlyName": "Group Cache TTL",
             "description": "How long to cache user group memberships. Format: 1h, 30m, etc. Default: 1h. Shorter values mean faster permission propagation but more token parsing.",
             "sensitive": false
+        },
+        {
+            "name": "OBOT_AUTH_INSECURE_COOKIES",
+            "friendlyName": "Allow Insecure Cookies (Development Only)",
+            "description": "Set to 'true' to allow HTTP cookies for local development. NEVER enable in production - exposes session tokens over unencrypted HTTP.",
+            "sensitive": false,
+            "hidden": true
         }
     ]
 }
