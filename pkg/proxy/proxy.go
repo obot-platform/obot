@@ -319,10 +319,10 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 // Important: do not change the order of these checks.
 // We rely on the preferred username from GitHub being the user ID in the sessions table.
 // See pkg/gateway/server/logout_all.go for more details, as well as the GitHub auth provider code.
-// Entra follows the same pattern: ss.User contains the stable Azure OID, while
-// ss.PreferredUsername contains the human-readable UPN (user@domain.com).
+// Entra and Keycloak follow the same pattern: ss.User contains the stable provider ID (Azure OID / Keycloak Subject),
+// while ss.PreferredUsername contains the human-readable username (UPN / preferred_username).
 func getUsername(providerName string, ss serializableState) string {
-	if providerName == "github-auth-provider" || providerName == "entra-auth-provider" {
+	if providerName == "github-auth-provider" || providerName == "entra-auth-provider" || providerName == "keycloak-auth-provider" {
 		if ss.PreferredUsername != "" {
 			return ss.PreferredUsername
 		}

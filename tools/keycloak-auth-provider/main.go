@@ -290,41 +290,46 @@ func getState(p *oauth2proxy.OAuthProxy, allowedGroups []string, groupCacheTTL t
 			return
 		}
 
-		// Extract user info from ID token
-		// Keycloak includes 'sub' (subject) as the user identifier
-		if ss.IDToken != "" {
-			userProfile, err := profile.ParseIDToken(ss.IDToken)
-			if err != nil {
-				fmt.Printf("WARNING: keycloak-auth-provider: failed to parse ID token: %v\n", err)
-			} else {
-				// Set User to Keycloak subject (stable identifier)
-				ss.User = userProfile.Subject
-				// Set PreferredUsername from token
-				if userProfile.PreferredUsername != "" {
-					ss.PreferredUsername = userProfile.PreferredUsername
-				} else if userProfile.Email != "" {
-					ss.PreferredUsername = userProfile.Email
-				}
+		// CRITICAL: ID token parsing is required for reliable user identification
+		// Without it, we cannot guarantee consistent ProviderUserID across sessions
+		if ss.IDToken == "" {
+			http.Error(w, "missing ID token - cannot authenticate user", http.StatusUnauthorized)
+			return
+		}
 
-				// Extract groups from token claims (if Keycloak is configured to include them)
-				userID := ss.User
-				if userID == "" {
-					userID = ss.Email
-				}
+		userProfile, err := profile.ParseIDToken(ss.IDToken)
+		if err != nil {
+			fmt.Printf("ERROR: keycloak-auth-provider: failed to parse ID token: %v\n", err)
+			http.Error(w, fmt.Sprintf("failed to parse ID token: %v", err), http.StatusInternalServerError)
+			return
+		}
 
-				// Check cache first
-				if cachedGroups, ok := groupCache.Get(userID); ok {
-					ss.Groups = cachedGroups
-				} else if len(userProfile.Groups) > 0 {
-					filteredGroups := userProfile.Groups
-					// Apply group filtering if configured
-					if len(allowedGroups) > 0 {
-						filteredGroups = groups.Filter(filteredGroups, allowedGroups)
-					}
-					ss.Groups = filteredGroups
-					groupCache.Add(userID, filteredGroups)
-				}
+		// Set User to Keycloak subject (stable identifier)
+		ss.User = userProfile.Subject
+		// Set PreferredUsername from token
+		if userProfile.PreferredUsername != "" {
+			ss.PreferredUsername = userProfile.PreferredUsername
+		} else if userProfile.Email != "" {
+			ss.PreferredUsername = userProfile.Email
+		}
+
+		// Extract groups from token claims (if Keycloak is configured to include them)
+		userID := ss.User
+		if userID == "" {
+			userID = ss.Email
+		}
+
+		// Check cache first
+		if cachedGroups, ok := groupCache.Get(userID); ok {
+			ss.Groups = cachedGroups
+		} else if len(userProfile.Groups) > 0 {
+			filteredGroups := userProfile.Groups
+			// Apply group filtering if configured
+			if len(allowedGroups) > 0 {
+				filteredGroups = groups.Filter(filteredGroups, allowedGroups)
 			}
+			ss.Groups = filteredGroups
+			groupCache.Add(userID, filteredGroups)
 		}
 
 		if err = json.NewEncoder(w).Encode(ss); err != nil {
