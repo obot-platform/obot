@@ -28,7 +28,7 @@ var log = logger.Package()
 type Options struct {
 	MCPBaseImage            string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/phat:main"`
 	MCPHTTPWebhookBaseImage string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:main"`
-	MCPRemoteShimBaseImage  string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/nanobot-ai/nanobot:v0.0.49"`
+	MCPRemoteShimBaseImage  string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/nanobot-ai/nanobot:v0.0.50"`
 	MCPNamespace            string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
 	MCPClusterDomain        string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
 	DisallowLocalhostMCP    bool     `usage:"Allow MCP containers to run on localhost"`
@@ -261,9 +261,6 @@ func (sm *SessionManager) closeClients(serverName string) {
 // RestartServerDeployment restarts the server in the currently used backend, if the backend supports it.
 // If the backend does not support restarts, then an [ErrNotSupportedByBackend] error is returned.
 func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server ServerConfig) error {
-	if server.Runtime == otypes.RuntimeRemote {
-		return otypes.NewErrBadRequest("cannot restart deployment for remote MCP server")
-	}
 	return sm.backend.restartServer(ctx, server.MCPServerName)
 }
 

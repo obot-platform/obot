@@ -26,7 +26,7 @@ Control which models users can select while chatting:
 
 ## Model Providers
 
-Configure LLM providers and their available models. See [Model Providers](../configuration/model-providers) for setup details.
+Configure LLM providers and their available models. See [Model Providers](/configuration/model-providers) for setup details.
 
 ## Chat Threads, Tasks, and Task Runs
 

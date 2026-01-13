@@ -49,6 +49,7 @@
 
 	let threadDefaultModel = $state<string>();
 	let threadDefaultModelProvider = $state<string>();
+	let hasAttemptedDefaultModelFetch = $state(false);
 
 	let defaultModel = $derived(threadDefaultModel ?? projectDefaultModel);
 	let defaultModelProvider = $derived(threadDefaultModelProvider ?? projectDefaultModelProvider);
@@ -80,14 +81,26 @@
 	});
 
 	// Selected model provider & model for the current thread
-	let threadModel = $derived(
-		threadType?.model ?? threadDefaultModel ?? defaultModel ?? fallbackModel?.id
-	);
+	// Auto-fallback to accessible model if thread's model is inaccessible
+	let threadModel = $derived.by(() => {
+		let modelObj;
+		if (threadType?.model) {
+			modelObj = modelObj = availableModels.find(
+				(m) => m.id === threadType?.model || m.name === threadType?.model
+			);
+		}
+
+		const fallbackModelRef = threadDefaultModel || defaultModel || fallbackModel?.id;
+		if (fallbackModelRef) {
+			modelObj = availableModels.find(
+				(m) => m.id === fallbackModelRef || m.name === fallbackModelRef
+			);
+		}
+
+		return modelObj?.id;
+	});
 	let threadModelProvider = $derived(
-		threadType?.modelProvider ??
-			threadDefaultModelProvider ??
-			defaultModelProvider ??
-			fallbackModel?.provider
+		threadModel ? availableModels.find((m) => m.id === threadModel)?.modelProvider : undefined
 	);
 
 	const isDefaultModelSelected = $derived(
@@ -97,8 +110,19 @@
 			defaultModel === threadModel
 	);
 
+	// Detect when we're using a fallback model (thread's original model is inaccessible)
+	const isUsingFallback = $derived(
+		// Case 1: Thread has explicit model that's inaccessible
+		((threadType?.model &&
+			!availableModels.some((m) => m.id === threadType?.model || m.name === threadType?.model)) ||
+			// Case 2: Thread has no model (system default), default returned empty, we've fetched it
+			(!threadType?.model && hasAttemptedDefaultModelFetch && !threadDefaultModel)) &&
+			!!threadModel // And we have a fallback to use
+	);
+
 	$effect(() => {
 		if (threadId) {
+			hasAttemptedDefaultModelFetch = false;
 			fetchThreadDetails();
 		}
 	});
@@ -119,11 +143,30 @@
 
 	// Update parent about model selection state
 	$effect(() => {
-		const hasModel =
-			!!(threadModel && threadModelProvider) ||
-			!!(defaultModel && defaultModelProvider) ||
-			!!fallbackModel;
-		hasModelSelected = hasModel && availableModels.length > 0;
+		// Since threadModel now only contains accessible models, just check if it exists
+		// Also disable during model updates to ensure PUT completes before message is sent
+		hasModelSelected =
+			!isLoadingModels && !isUpdatingModel && !!threadModel && availableModels.length > 0;
+	});
+
+	// Auto-update thread when using fallback model
+	$effect(() => {
+		if (
+			isUsingFallback &&
+			threadModel &&
+			threadId &&
+			threadType &&
+			!isUpdatingModel &&
+			hasAttemptedDefaultModelFetch &&
+			!isLoadingModels
+		) {
+			// Find the actual model object to ensure we use the ID
+			const modelObj = availableModels.find((m) => m.id === threadModel || m.name === threadModel);
+			if (modelObj) {
+				// Automatically update the thread to use the fallback model ID with empty provider
+				setThreadModel(modelObj.id, '');
+			}
+		}
 	});
 
 	// Function to fetch thread details including model
@@ -155,6 +198,8 @@
 
 			threadDefaultModel = undefined;
 			threadDefaultModelProvider = undefined;
+		} finally {
+			hasAttemptedDefaultModelFetch = true;
 		}
 	}
 
@@ -344,8 +389,9 @@
 	<button
 		class={twMerge(
 			'hover:bg-surface2/50 active:bg-surface2/80 flex h-10 items-center gap-3 rounded-full px-2  py-1 text-xs text-gray-600 md:px-4 lg:px-6',
-			(isDefaultModelSelected || (!threadModel && defaultModel)) &&
-				'text-primary hover:bg-primary/10 active:bg-primary/15 bg-transparent'
+			(isDefaultModelSelected || (!threadType?.model && defaultModel)) &&
+				'text-primary hover:bg-primary/10 active:bg-primary/15 bg-transparent',
+			isUsingFallback && 'text-orange-600'
 		)}
 		onclick={(e) => {
 			e.stopPropagation();
@@ -357,20 +403,21 @@
 		id="thread-model-button"
 		title={isDefaultModelSelected
 			? 'Default model is selected'
-			: threadModel
-				? ''
-				: 'Select model for this chat'}
+			: isUsingFallback
+				? 'Using fallback model. Your original model is no longer accessible.'
+				: threadModel
+					? ''
+					: 'Select model for this chat'}
 		bind:this={modelButtonRef}
 	>
 		<div class="max-w-40 truncate sm:max-w-60 md:max-w-96 lg:max-w-none">
-			{#if threadModelProvider && threadModel}
-				{modelsMap.get(threadModel)?.name || threadModel}
-			{:else if defaultModel}
-				{modelsMap.get(defaultModel)?.name || defaultModel}
-			{:else if fallbackModel}
-				{modelsMap.get(fallbackModel.id)?.name || fallbackModel.id}
+			{#if isLoadingModels}
+				Loading...
+			{:else if threadModel}
+				{@const modelInfo = modelsMap.get(threadModel)}
+				{modelInfo?.name || threadModel}
 			{:else}
-				No Default Model
+				No Model Selected
 			{/if}
 		</div>
 

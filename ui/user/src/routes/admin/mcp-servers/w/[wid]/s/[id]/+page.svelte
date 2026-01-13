@@ -12,7 +12,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let { mcpServer, workspaceId } = $derived(data);
+	let { mcpServer, workspaceId, belongsToUser } = $derived(data);
 	let title = $derived(mcpServer?.manifest?.name ?? 'MCP Server');
 </script>
 
@@ -40,7 +40,7 @@
 				onSubmit={async () => {
 					goto('/admin/mcp-servers');
 				}}
-				readonly={profile.current.isAdminReadonly?.()}
+				readonly={belongsToUser ? false : profile.current.isAdminReadonly?.()}
 			/>
 		{/if}
 	</div>

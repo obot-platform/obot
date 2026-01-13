@@ -240,8 +240,8 @@
 		restarting = true;
 		try {
 			for (const id of Object.keys(selected)) {
-				if (selected[id].manifest.runtime === 'remote' || !selected[id].configured) {
-					// skip remote servers
+				if (!selected[id].configured) {
+					// skip unconfigured servers
 					continue;
 				}
 				if (selected[id].powerUserWorkspaceID) {
@@ -543,7 +543,7 @@
 								{/if}
 
 								{#if d.isMyServer || profile.current?.hasAdminAccess?.()}
-									{#if d.manifest.runtime !== 'remote' && !readonly && isAtLeastPowerUser}
+									{#if !readonly && isAtLeastPowerUser}
 										<button
 											class="menu-button"
 											disabled={restarting}
@@ -622,7 +622,7 @@
 
 			{#snippet tableSelectActions(currentSelected)}
 				{@const restartableCount = Object.values(currentSelected).filter(
-					(s) => s.manifest.runtime !== 'remote' && s.configured
+					(s) => s.configured
 				).length}
 				{@const upgradeableCount = Object.values(currentSelected).filter(
 					(s) => s.needsUpdate && !s.compositeName

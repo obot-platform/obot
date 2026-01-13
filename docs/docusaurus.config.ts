@@ -10,6 +10,7 @@ const config: Config = {
   favicon: "img/favicon.ico",
   url: "https://docs.obot.ai",
   baseUrl: "/",
+  trailingSlash: true,
   organizationName: "obot-platform",
   projectName: "obot",
   onBrokenLinks: "throw",
@@ -19,6 +20,20 @@ const config: Config = {
     defaultLocale: "en",
     locales: ["en"],
   },
+
+  plugins: [
+    [
+      "@docusaurus/plugin-client-redirects",
+      {
+        redirects: [
+          {
+            from: "/concepts/admin/mcp-server-catalogs",
+            to: "/configuration/mcp-server-gitops",
+          },
+        ],
+      },
+    ],
+  ],
 
   presets: [
     [

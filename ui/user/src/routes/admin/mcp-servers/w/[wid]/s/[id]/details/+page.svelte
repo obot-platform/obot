@@ -10,7 +10,7 @@
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
-	let { mcpServer, workspaceId } = $derived(data);
+	let { mcpServer, workspaceId, belongsToUser } = $derived(data);
 	let loading = $state(false);
 	let users = $state<OrgUser[]>([]);
 	let instances = $state<MCPServerInstance[]>([]);
@@ -55,7 +55,7 @@
 						classes={{
 							title: 'text-lg font-semibold'
 						}}
-						readonly={profile.current.isAdminReadonly?.()}
+						readonly={belongsToUser ? false : profile.current.isAdminReadonly?.()}
 					/>
 				{/if}
 			</div>

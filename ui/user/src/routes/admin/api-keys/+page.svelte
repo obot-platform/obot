@@ -29,6 +29,7 @@
 	const allTableData = $derived(
 		allApiKeys.map((key) => ({
 			...key,
+			prefix: `ok1-${key.userId}-${key.id}-*****`,
 			userDisplay: getUserDisplayName(usersMap, String(key.userId)),
 			createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
 			lastUsedAtDisplay: key.lastUsedAt ? formatTimeAgo(key.lastUsedAt).relativeTime : 'Never',
@@ -82,6 +83,7 @@
 				fields={[
 					'userDisplay',
 					'name',
+					'prefix',
 					'description',
 					'serverCount',
 					'createdAtDisplay',
@@ -91,6 +93,7 @@
 				headers={[
 					{ title: 'User', property: 'userDisplay' },
 					{ title: 'Name', property: 'name' },
+					{ title: 'Key', property: 'prefix' },
 					{ title: 'Description', property: 'description' },
 					{ title: 'Servers', property: 'serverCount' },
 					{ title: 'Created', property: 'createdAtDisplay' },

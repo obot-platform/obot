@@ -1,9 +1,6 @@
 <script lang="ts">
-	import Layout from '$lib/components/Layout.svelte';
-	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
-	import McpServerRemoteInfo from '$lib/components/admin/McpServerRemoteInfo.svelte';
-	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		AdminService,
@@ -11,10 +8,12 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services/index.js';
-	import { profile } from '$lib/stores/index.js';
 	import { Info } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
+	import { profile } from '$lib/stores/index.js';
+	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
 
 	let { data } = $props();
 	let { catalogEntry, mcpServerId, workspaceId } = $derived(data);
@@ -52,20 +51,7 @@
 	{/snippet}
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if mcpServerId}
-			{#if catalogEntry?.manifest.runtime === 'remote'}
-				{#if mcpServer}
-					<McpServerRemoteInfo
-						{mcpServerId}
-						name={catalogEntryName}
-						{connectedUsers}
-						entity="workspace"
-						entityId={workspaceId}
-						{catalogEntry}
-						compositeParentName={mcpServer?.compositeName}
-						{mcpServer}
-					/>
-				{/if}
-			{:else if catalogEntry?.manifest.runtime === 'composite'}
+			{#if catalogEntry?.manifest.runtime === 'composite'}
 				<McpServerCompositeInfo
 					{mcpServerId}
 					name={catalogEntryName}
@@ -81,6 +67,7 @@
 					{connectedUsers}
 					readonly={profile.current.isAdminReadonly?.()}
 					{catalogEntry}
+					{mcpServer}
 					compositeParentName={mcpServer?.compositeName}
 				/>
 			{/if}

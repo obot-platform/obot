@@ -110,16 +110,20 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		if err := s.rateLimiter.ApplyLimit(user, rw, req); err != nil {
-			if errors.Is(err, ratelimiter.ErrRateLimitExceeded) {
-				// The user has exceeded their rate limit.
-				http.Error(rw, err.Error(), http.StatusTooManyRequests)
-				return
-			}
+		// Skip rate limiting for static assets (JS chunks, CSS, images) to avoid
+		// hitting limits during page load when many assets are fetched in parallel.
+		if !isStaticAssetPath(req.URL.Path) {
+			if err := s.rateLimiter.ApplyLimit(user, rw, req); err != nil {
+				if errors.Is(err, ratelimiter.ErrRateLimitExceeded) {
+					// The user has exceeded their rate limit.
+					http.Error(rw, err.Error(), http.StatusTooManyRequests)
+					return
+				}
 
-			// There was an error applying the rate limit.
-			// Log it and move on so that a failure to apply rate limits doesn't take down the entire API.
-			log.Warnf("Failed to apply rate limits: %v", err)
+				// There was an error applying the rate limit.
+				// Log it and move on so that a failure to apply rate limits doesn't take down the entire API.
+				log.Warnf("Failed to apply rate limits: %v", err)
+			}
 		}
 
 		authenticated := !slices.Contains(user.GetGroups(), authz.UnauthenticatedGroup)
@@ -203,6 +207,12 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 		}
 	}
+}
+
+// isStaticAssetPath returns true if the path is a static asset that should be
+// exempt from rate limiting. This includes SvelteKit chunks, CSS, and UI images.
+func isStaticAssetPath(path string) bool {
+	return strings.HasPrefix(path, "/_app/") || strings.HasPrefix(path, "/user/images/")
 }
 
 type responseWriter struct {

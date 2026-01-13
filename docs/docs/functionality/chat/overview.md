@@ -65,7 +65,7 @@ Connect to MCP servers through your projects:
 
 Admins and Owners configure which LLM providers and models are available to users. Users select from these configured models while chatting.
 
-See [Model Providers](../../configuration/model-providers) for configuration details.
+See [Model Providers](/configuration/model-providers/) for configuration details.
 
 ## Knowledge (RAG)
 

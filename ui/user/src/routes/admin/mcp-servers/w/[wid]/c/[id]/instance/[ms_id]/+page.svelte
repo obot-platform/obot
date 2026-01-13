@@ -13,7 +13,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let { workspaceId, catalogEntry, mcpServer } = $derived(data);
+	let { workspaceId, catalogEntry, mcpServer, belongsToUser } = $derived(data);
 	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
 
 	function navigateToMcpServers() {
@@ -42,7 +42,7 @@
 				entity="workspace"
 				onCancel={navigateToMcpServers}
 				onSubmit={navigateToMcpServers}
-				readonly={profile.current.isAdminReadonly?.()}
+				readonly={belongsToUser ? false : profile.current.isAdminReadonly?.()}
 			/>
 		{/if}
 	</div>

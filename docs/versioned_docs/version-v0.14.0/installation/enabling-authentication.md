@@ -70,7 +70,7 @@ Once logged in with the bootstrap token:
 3. Select your desired provider (GitHub, Google, Entra, Okta)
 4. Follow the provider-specific configuration steps
 
-For detailed provider configuration, see the [Auth Providers](../configuration/auth-providers) documentation.
+For detailed provider configuration, see the [Auth Providers](/configuration/auth-providers) documentation.
 
 ## Step 4: Set Admin/Owner Users and Restart
 
@@ -137,6 +137,6 @@ After restart:
 
 ## Next Steps
 
-- Review [Auth Providers configuration](../configuration/auth-providers) for detailed provider setup
-- Configure [OAuth settings](../configuration/oauth-configuration) for additional customization
-- Set up proper [access control](../configuration/auth-providers#access-control) with email domain restrictions
+- Review [Auth Providers configuration](/configuration/auth-providers) for detailed provider setup
+- Configure [OAuth settings](../../configuration/oauth-configuration/) for additional customization
+- Set up proper [access control](/configuration/auth-providers#access-control) with email domain restrictions

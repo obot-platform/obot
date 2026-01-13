@@ -12,7 +12,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let { workspaceId, catalogEntry } = $derived(data);
+	let { workspaceId, catalogEntry, belongsToUser } = $derived(data);
 	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
 
 	const hasExistingConfigured = $derived(
@@ -23,6 +23,8 @@
 			)
 		)
 	);
+
+	let readonly = $derived(belongsToUser ? false : profile.current.isAdminReadonly?.());
 </script>
 
 <Layout
@@ -49,7 +51,7 @@
 				onSubmit={async () => {
 					goto('/admin/mcp-servers');
 				}}
-				readonly={profile.current.isAdminReadonly?.()}
+				{readonly}
 				{hasExistingConfigured}
 			/>
 		{/if}

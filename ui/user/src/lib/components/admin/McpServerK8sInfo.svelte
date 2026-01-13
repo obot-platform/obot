@@ -8,6 +8,7 @@
 		Group,
 		type K8sServerDetail,
 		type MCPCatalogEntry,
+		type MCPCatalogServer,
 		type OrgUser,
 		type ServerK8sSettings
 	} from '$lib/services';
@@ -41,6 +42,7 @@
 			title?: string;
 		};
 		catalogEntry?: MCPCatalogEntry;
+		mcpServer?: MCPCatalogServer;
 		readonly?: boolean;
 		compositeParentName?: string;
 	}
@@ -53,6 +55,7 @@
 		title,
 		classes,
 		catalogEntry,
+		mcpServer,
 		compositeParentName,
 		entity = 'catalog',
 		readonly
@@ -235,7 +238,7 @@
 		const details = [
 			{
 				id: 'kubernetes_deployments',
-				label: 'Kubernetes Deployment',
+				label: 'Deployment',
 				value: `${info.namespace}/${info.deploymentName}`
 			},
 			{
@@ -383,6 +386,9 @@
 		{#each k8sInfo as detail (detail.id)}
 			{@render detailRow(detail.label, detail.value, detail.id)}
 		{/each}
+		{#if catalogEntry?.manifest.runtime === 'remote' && mcpServer?.manifest.remoteConfig?.url}
+			{@render configurationRow('URL', mcpServer?.manifest.remoteConfig?.url)}
+		{/if}
 	</div>
 
 	{#if profile.current?.isAdmin?.()}
@@ -417,7 +423,7 @@
 					</div>
 				{:else}
 					<span class="text-on-surface1 text-sm font-light"
-						>No configured environment of file variables set.</span
+						>No configured environment or file variables set.</span
 					>
 				{/if}
 			</div>

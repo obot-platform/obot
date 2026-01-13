@@ -1,16 +1,9 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
-	import { formatTimeAgo } from '$lib/time';
-	import { goto } from '$lib/url';
+	import { twMerge } from 'tailwind-merge';
 	import DotDotDot from '../DotDotDot.svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import Table from '../table/Table.svelte';
-	import ConnectToServer from './ConnectToServer.svelte';
-	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import {
 		LoaderCircle,
 		MessageCircle,
@@ -22,7 +15,15 @@
 		Trash2,
 		Unplug
 	} from 'lucide-svelte';
-	import { twMerge } from 'tailwind-merge';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import ConnectToServer from './ConnectToServer.svelte';
+	import EditExistingDeployment from './EditExistingDeployment.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import Table from '../table/Table.svelte';
+	import { formatTimeAgo } from '$lib/time';
+	import { goto } from '$lib/url';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 
 	type ServerSelectMode = 'connect' | 'rename' | 'edit' | 'disconnect' | 'chat' | 'server-details';
 
@@ -80,6 +81,18 @@
 	let showDisconnectUser = $derived(
 		entry && server && profile.current.isAdmin?.() && server.userID !== profile.current.id
 	);
+	// Look up canConnect from the store if not set on props (e.g., when entry/server loaded directly via API)
+	let canConnect = $derived.by(() => {
+		const entryCanConnect =
+			entry?.canConnect ??
+			mcpServersAndEntries.current.entries.find((e) => e.id === entry?.id)?.canConnect ??
+			true;
+		const serverCanConnect =
+			server?.canConnect ??
+			mcpServersAndEntries.current.servers.find((s) => s.id === server?.id)?.canConnect ??
+			true;
+		return entryCanConnect && serverCanConnect;
+	});
 
 	function refresh() {
 		if (entry) {
@@ -118,7 +131,10 @@
 {#if !belongsToComposite}
 	{#if (entry && !server) || (server && (!server.catalogEntryID || (server.catalogEntryID && server.userID === profile.current.id)))}
 		<button
-			class="button-primary flex w-full items-center gap-1 text-sm md:w-fit"
+			class="button-primary flex w-full items-center gap-1 text-sm disabled:cursor-not-allowed disabled:opacity-50 md:w-fit"
+			use:tooltip={{
+				text: canConnect ? '' : 'See MCP Registries to grant connect access to this server'
+			}}
 			onclick={() => {
 				if (entry && !server && configuredServers.length > 0) {
 					handleShowSelectServerDialog();
@@ -130,7 +146,7 @@
 					});
 				}
 			}}
-			disabled={loading}
+			disabled={loading || !canConnect}
 		>
 			{#if loading}
 				<LoaderCircle class="size-4 animate-spin" />

@@ -1,24 +1,23 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
-	import { beforeNavigate, afterNavigate } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import Layout from '$lib/components/Layout.svelte';
-	import Search from '$lib/components/Search.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
-	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
-	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
+	import Layout from '$lib/components/Layout.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { localState } from '$lib/runes/localState.svelte';
-	import { AdminService, type LaunchServerType } from '$lib/services';
+	import { AdminService, Group, type LaunchServerType } from '$lib/services';
 	import type { MCPCatalog, OrgUser } from '$lib/services/admin/types';
-	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
+	import { onDestroy, onMount } from 'svelte';
+	import { fade, fly, slide } from 'svelte/transition';
 	import { goto } from '$lib/url';
 	import { replaceState } from '$lib/url';
+	import { beforeNavigate, afterNavigate } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
+	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
+	import Search from '$lib/components/Search.svelte';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
@@ -27,18 +26,21 @@
 		setFilterUrlParams,
 		setUrlParam
 	} from '$lib/url';
-	import SourceUrlsView from './SourceUrlsView.svelte';
+	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
 	import { debounce } from 'es-toolkit';
-	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
-	import { onDestroy, onMount } from 'svelte';
-	import { fade, fly, slide } from 'svelte/transition';
+	import { localState } from '$lib/runes/localState.svelte';
+	import SourceUrlsView from './SourceUrlsView.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
 
 	type View = 'registry' | 'deployments' | 'urls';
 
 	let view = $state<View>((page.url.searchParams.get('view') as View) || 'registry');
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 
+	const { data } = $props();
+	const { workspaceId } = $derived(data);
 	const query = $derived(page.url.searchParams.get('query') || '');
 
 	type LocalStorageViewQuery = Record<View, string>;
@@ -117,6 +119,9 @@
 	let syncInterval = $state<ReturnType<typeof setInterval>>();
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let canCreateServer = $derived(
+		profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.POWERUSER)
+	);
 
 	function selectServerType(type: LaunchServerType, updateUrl = true) {
 		selectedServerType = type;
@@ -236,17 +241,17 @@
 		{/if}
 	</div>
 	{#snippet rightNavActions()}
-		{#if !isAdminReadonly}
-			{#if !showServerForm}
-				<button class="button flex items-center gap-1 text-sm" onclick={sync}>
-					{#if syncing}
-						<LoaderCircle class="size-4 animate-spin" /> Syncing...
-					{:else}
-						<RefreshCcw class="size-4" />
-						Sync
-					{/if}
-				</button>
-			{/if}
+		{#if !isAdminReadonly && !showServerForm}
+			<button class="button flex items-center gap-1 text-sm" onclick={sync}>
+				{#if syncing}
+					<LoaderCircle class="size-4 animate-spin" /> Syncing...
+				{:else}
+					<RefreshCcw class="size-4" />
+					Sync
+				{/if}
+			</button>
+		{/if}
+		{#if canCreateServer}
 			{@render addServerButton()}
 		{/if}
 	{/snippet}
@@ -361,23 +366,34 @@
 			Click the button below to get started.
 		</p>
 
-		{@render addServerButton()}
+		{#if canCreateServer}
+			{@render addServerButton()}
+		{/if}
 	</div>
 {/snippet}
 
 {#snippet configureEntryScreen()}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		<McpServerEntryForm
+			entity={profile.current.isAdmin?.() ? 'catalog' : 'workspace'}
 			type={selectedServerType}
-			id={defaultCatalogId}
+			id={profile.current.isAdmin?.() ? defaultCatalogId : (workspaceId ?? '')}
 			onCancel={() => {
 				showServerForm = false;
 			}}
 			onSubmit={async (id, type) => {
-				if (type === 'single' || type === 'remote' || type === 'composite') {
-					goto(resolve(`/admin/mcp-servers/c/${id}?launch=true`));
+				if (profile.current.isAdmin?.()) {
+					if (type === 'single' || type === 'remote' || type === 'composite') {
+						goto(resolve(`/admin/mcp-servers/c/${id}?launch=true`));
+					} else {
+						goto(resolve(`/admin/mcp-servers/s/${id}?launch=true`));
+					}
 				} else {
-					goto(resolve(`/admin/mcp-servers/s/${id}?launch=true`));
+					if (type === 'single' || type === 'remote' || type === 'composite') {
+						goto(resolve(`/admin/mcp-servers/w/${workspaceId}/c/${id}?launch=true`));
+					} else {
+						goto(resolve(`/admin/mcp-servers/w/${workspaceId}/s/${id}?launch=true`));
+					}
 				}
 			}}
 		/>

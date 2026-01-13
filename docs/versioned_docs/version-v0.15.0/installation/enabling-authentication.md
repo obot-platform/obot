@@ -11,7 +11,7 @@ If any MCP servers were created with authentication disabled, they will be delet
 
 ## Step 1: Set Environment Variables
 
-Enabling authentication begins with launching Obot with additional configuration options in the form of environment variables. See the [Docker](docker-deployment) or [Kubernetes](kubernetes-deployment) deployment guides for full setup details.
+Enabling authentication begins with launching Obot with additional configuration options in the form of environment variables. See the [Docker](/installation/docker-deployment/) or [Kubernetes](/installation/kubernetes-deployment/) deployment guides for full setup details.
 
 <Tabs>
   <TabItem value="docker" label="Docker" default>
@@ -63,7 +63,7 @@ Start (or restart) your Obot deployment with the new environment variables. Navi
 2. Click **Configure** on your desired provider (GitHub, Google, Entra, Okta)
 3. Follow the provider-specific configuration steps
 
-For detailed provider configuration, see the [Auth Providers](../configuration/auth-providers) documentation.
+For detailed provider configuration, see the [Auth Providers](/configuration/auth-providers) documentation.
 
 ## Post-Setup
 
@@ -91,4 +91,4 @@ Note that you can always assign the owner or admin role to additional users thro
 
 ## Next Steps
 
-- Review [Auth Providers configuration](../configuration/auth-providers) for detailed provider setup
+- Review [Auth Providers configuration](/configuration/auth-providers) for detailed provider setup

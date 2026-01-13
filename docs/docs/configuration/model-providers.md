@@ -19,7 +19,7 @@ Obot supports a variety of model providers, including:
 The UI will indicate whether each provider has been configured. If a provider is configured you will have the ability to modify or deconfigure it.
 
 :::note
-Our Enterprise release adds support for additional Enterprise-grade model providers. [See here](../enterprise/overview) for more details.
+Our Enterprise release adds support for additional Enterprise-grade model providers. [See here](/enterprise/overview/) for more details.
 :::
 
 #### Configuring and enabling a provider
@@ -56,12 +56,12 @@ The "Set Default Models" feature allows you to configure default models for vari
 - **Image Generation** - For creating images
 - **Vision** - For image analysis and processing
 
-These defaults determine which specific model is used when a [Model Access Policy](../functionality/model-access-policies) grants access to a default model alias (such as "Language Model (Chat)"). When you change a default here, any user with access to that alias automatically gains access to the new model.
+These defaults determine which specific model is used when a [Model Access Policy](../../functionality/model-access-policies/) grants access to a default model alias (such as "Language Model (Chat)"). When you change a default here, any user with access to that alias automatically gains access to the new model.
 
 After selecting the desired defaults, click "Save Changes" to confirm your configurations.
 
 :::note
-Setting a default model here does not automatically grant users access to it. Users must be included in a Model Access Policy that grants access to the corresponding alias. See [Model Access Policies](../functionality/model-access-policies) for details.
+Setting a default model here does not automatically grant users access to it. Users must be included in a Model Access Policy that grants access to the corresponding alias. See [Model Access Policies](../../functionality/model-access-policies/) for details.
 :::
 
 ### Instructions for configuring specific providers
@@ -85,6 +85,10 @@ If the type specified is `llm` or none at all, and the deployment name starts wi
 will automatically treat it as a reasoning model.
 
 ##### Microsoft Entra Authentication
+
+:::important
+At this time, Microsoft Entra authentication is only supported for Azure OpenAI deployments and not for the newer Microsoft Foundry deployments.
+:::
 
 Instead of using an API key, you can set up a Microsoft Entra app registration as a service principal to use Azure OpenAI.
 

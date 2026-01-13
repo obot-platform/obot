@@ -218,7 +218,7 @@
 					{ title: 'User', property: 'userID' },
 					{ title: 'URL', property: 'url' }
 				]}
-				onClickRow={type === 'single' || type === 'composite'
+				onClickRow={type === 'single' || type === 'composite' || type === 'remote'
 					? (d, isCtrlClick) => {
 							setLastVisitedMcpServer();
 
