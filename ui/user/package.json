@@ -83,7 +83,7 @@
 		"d3-time-format": "^4.1.0",
 		"date-fns": "^4.1.0",
 		"es-toolkit": "^1.43.0",
-		"layerchart": "1.0.12",
+		"layerchart": "1.0.13",
 		"tar": "^7.5.2"
 	},
 	"pnpm": {

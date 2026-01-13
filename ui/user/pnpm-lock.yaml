@@ -28,8 +28,8 @@ importers:
         specifier: ^1.43.0
         version: 1.43.0
       layerchart:
-        specifier: 1.0.12
-        version: 1.0.12(svelte@5.46.1)(typescript@5.9.3)
+        specifier: 1.0.13
+        version: 1.0.13(svelte@5.46.1)(typescript@5.9.3)
       tar:
         specifier: ^7.5.2
         version: 7.5.2
@@ -2130,8 +2130,8 @@ packages:
       svelte: 3 - 5 || >=5.0.0-next.120
       typescript: ^5.0.2
 
-  layerchart@1.0.12:
-    resolution: {integrity: sha512-WaYyZ9iX6GhXgvNlY/IYBZ0281XVj0LUhgDZmImJkJufhjk0EKtpudcLsoEbO0p4xYrmr1A/HxgZh6DlTFXigA==}
+  layerchart@1.0.13:
+    resolution: {integrity: sha512-bjcrfyTdHtfYZn7yj26dvA1qUjM+R6+akp2VeBJ4JWKmDGhb5WvT9nMCs52Rb+gSd/omFq5SjZLz49MqlVljZw==}
     peerDependencies:
       svelte: ^3.56.0 || ^4.0.0 || ^5.0.0
 
@@ -2226,9 +2226,6 @@ packages:
   locate-path@6.0.0:
     resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
     engines: {node: '>=10'}
-
-  lodash-es@4.17.21:
-    resolution: {integrity: sha512-mKnC+QJ9pWVzv+C4/U3rRsHapFfHvQFoFB92e52xeyGMcX6/OlIl78je1u8vePzYZSkkogMPJ2yjxxsb89cxyw==}
 
   lodash-es@4.17.22:
     resolution: {integrity: sha512-XEawp1t0gxSi9x01glktRZ5HDy0HXqrM0x5pXQM98EaI0NxO6jVM7omDOxsuEo5UIASAnm2bRp1Jt/e0a2XU8Q==}
@@ -3582,7 +3579,7 @@ snapshots:
       d3-array: 3.2.4
       d3-scale: 4.0.2
       date-fns: 4.1.0
-      lodash-es: 4.17.21
+      lodash-es: 4.17.22
 
   '@layerstack/svelte-stores@1.0.2':
     dependencies:
@@ -3590,7 +3587,7 @@ snapshots:
       d3-array: 3.2.4
       date-fns: 4.1.0
       immer: 10.1.1
-      lodash-es: 4.17.21
+      lodash-es: 4.17.22
       zod: 3.25.76
 
   '@layerstack/tailwind@1.0.1':
@@ -3600,7 +3597,7 @@ snapshots:
       culori: 4.0.2
       d3-array: 3.2.4
       date-fns: 4.1.0
-      lodash-es: 4.17.21
+      lodash-es: 4.17.22
       tailwind-merge: 2.6.0
       tailwindcss: 3.4.19
     transitivePeerDependencies:
@@ -3610,7 +3607,7 @@ snapshots:
     dependencies:
       d3-array: 3.2.4
       date-fns: 4.1.0
-      lodash-es: 4.17.21
+      lodash-es: 4.17.22
 
   '@lezer/common@1.2.3': {}
 
@@ -5324,7 +5321,7 @@ snapshots:
       svelte: 5.46.1
       typescript: 5.9.3
 
-  layerchart@1.0.12(svelte@5.46.1)(typescript@5.9.3):
+  layerchart@1.0.13(svelte@5.46.1)(typescript@5.9.3):
     dependencies:
       '@dagrejs/dagre': 1.1.5
       '@layerstack/svelte-actions': 1.0.1
@@ -5352,7 +5349,7 @@ snapshots:
       d3-time: 3.1.0
       date-fns: 4.1.0
       layercake: 8.4.3(svelte@5.46.1)(typescript@5.9.3)
-      lodash-es: 4.17.21
+      lodash-es: 4.17.22
       svelte: 5.46.1
     transitivePeerDependencies:
       - ts-node
@@ -5423,8 +5420,6 @@ snapshots:
   locate-path@6.0.0:
     dependencies:
       p-locate: 5.0.0
-
-  lodash-es@4.17.21: {}
 
   lodash-es@4.17.22: {}
 
