@@ -73,24 +73,24 @@ func LoadFromEnv() *Config {
 	return config
 }
 
-// RefreshFunc is the function signature for token refresh operations
-type RefreshFunc func(ctx context.Context, tokenID string) error
+// Func is the function signature for token refresh operations
+type Func func(ctx context.Context, tokenID string) error
 
 // Manager manages token refresh strategies
 type Manager struct {
 	config      *Config
-	refreshFunc RefreshFunc
+	refreshFunc Func
 
 	// For background refresh
-	mu              sync.RWMutex
-	tokens          map[string]time.Time // tokenID -> expiryTime
-	backgroundCtx   context.Context
-	backgroundStop  context.CancelFunc
-	backgroundDone  chan struct{}
+	mu             sync.RWMutex
+	tokens         map[string]time.Time // tokenID -> expiryTime
+	backgroundCtx  context.Context
+	backgroundStop context.CancelFunc
+	backgroundDone chan struct{}
 }
 
 // NewManager creates a new refresh strategy manager
-func NewManager(config *Config, refreshFunc RefreshFunc) *Manager {
+func NewManager(config *Config, refreshFunc Func) *Manager {
 	if config == nil {
 		config = DefaultConfig()
 	}

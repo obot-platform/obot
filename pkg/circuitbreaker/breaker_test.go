@@ -348,10 +348,10 @@ func TestExponentialBackoff(t *testing.T) {
 
 	// Check that delays increase exponentially (with some tolerance)
 	expectedDelays := []time.Duration{
-		0,                      // First attempt (no delay)
-		10 * time.Millisecond,  // First retry: 10ms
-		20 * time.Millisecond,  // Second retry: 20ms
-		40 * time.Millisecond,  // Third retry: 40ms
+		0,                     // First attempt (no delay)
+		10 * time.Millisecond, // First retry: 10ms
+		20 * time.Millisecond, // Second retry: 20ms
+		40 * time.Millisecond, // Third retry: 40ms
 	}
 
 	tolerance := 15 * time.Millisecond // Allow 15ms tolerance for timing

@@ -84,7 +84,7 @@ func TestReactiveStrategy(t *testing.T) {
 	}
 
 	refreshCalled := false
-	refreshFunc := func(ctx context.Context, tokenID string) error {
+	refreshFunc := func(_ context.Context, _ string) error {
 		refreshCalled = true
 		return nil
 	}
@@ -131,7 +131,7 @@ func TestProactiveStrategy(t *testing.T) {
 	}
 
 	refreshCalled := false
-	refreshFunc := func(ctx context.Context, tokenID string) error {
+	refreshFunc := func(_ context.Context, _ string) error {
 		refreshCalled = true
 		return nil
 	}
@@ -170,7 +170,7 @@ func TestBackgroundStrategy(t *testing.T) {
 
 	var mu sync.Mutex
 	refreshedTokens := make(map[string]int)
-	refreshFunc := func(ctx context.Context, tokenID string) error {
+	refreshFunc := func(_ context.Context, tokenID string) error {
 		mu.Lock()
 		defer mu.Unlock()
 		refreshedTokens[tokenID]++
@@ -239,7 +239,7 @@ func TestBackgroundStrategyRefreshError(t *testing.T) {
 	refreshErr := errors.New("refresh failed")
 	var mu sync.Mutex
 	refreshAttempts := 0
-	refreshFunc := func(ctx context.Context, tokenID string) error {
+	refreshFunc := func(_ context.Context, _ string) error {
 		mu.Lock()
 		defer mu.Unlock()
 		refreshAttempts++
@@ -278,7 +278,7 @@ func TestRefreshIfNeededWithError(t *testing.T) {
 	}
 
 	expectedErr := errors.New("refresh failed")
-	refreshFunc := func(ctx context.Context, tokenID string) error {
+	refreshFunc := func(_ context.Context, _ string) error {
 		return expectedErr
 	}
 
@@ -300,7 +300,7 @@ func TestManagerStop(t *testing.T) {
 		CheckInterval: 100 * time.Millisecond,
 	}
 
-	refreshFunc := func(ctx context.Context, tokenID string) error {
+	refreshFunc := func(_ context.Context, _ string) error {
 		return nil
 	}
 
@@ -335,7 +335,7 @@ func TestGetters(t *testing.T) {
 		CheckInterval: 2 * time.Minute,
 	}
 
-	refreshFunc := func(ctx context.Context, tokenID string) error {
+	refreshFunc := func(_ context.Context, _ string) error {
 		return nil
 	}
 
@@ -358,7 +358,7 @@ func TestGetters(t *testing.T) {
 }
 
 func TestNilConfig(t *testing.T) {
-	refreshFunc := func(ctx context.Context, tokenID string) error {
+	refreshFunc := func(_ context.Context, _ string) error {
 		return nil
 	}
 
@@ -379,7 +379,7 @@ func TestBackgroundRefreshContextTimeout(t *testing.T) {
 
 	var mu sync.Mutex
 	refreshStarted := make(chan struct{})
-	refreshFunc := func(ctx context.Context, tokenID string) error {
+	refreshFunc := func(ctx context.Context, _ string) error {
 		mu.Lock()
 		close(refreshStarted)
 		mu.Unlock()

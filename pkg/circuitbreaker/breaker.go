@@ -145,7 +145,7 @@ func New(config *Config) *Breaker {
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
 			return counts.ConsecutiveFailures >= config.Threshold
 		},
-		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
+		OnStateChange: func(_ string, _ gobreaker.State, to gobreaker.State) {
 			// Update metrics based on new state
 			var stateValue float64
 			switch to {

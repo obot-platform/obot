@@ -28,14 +28,14 @@ func TestDefaultTimeoutConfig(t *testing.T) {
 
 func TestLoadFromEnv(t *testing.T) {
 	tests := []struct {
-		name              string
-		idleTimeout       string
-		absoluteTimeout   string
-		expectedIdle      time.Duration
-		expectedAbsolute  time.Duration
-		expectedIdleEn    bool
+		name               string
+		idleTimeout        string
+		absoluteTimeout    string
+		expectedIdle       time.Duration
+		expectedAbsolute   time.Duration
+		expectedIdleEn     bool
 		expectedAbsoluteEn bool
-		expectError       bool
+		expectError        bool
 	}{
 		{
 			name:               "defaults",
@@ -88,9 +88,9 @@ func TestLoadFromEnv(t *testing.T) {
 			expectError:        false,
 		},
 		{
-			name:          "invalid idle timeout format",
-			idleTimeout:   "invalid",
-			expectError:   true,
+			name:        "invalid idle timeout format",
+			idleTimeout: "invalid",
+			expectError: true,
 		},
 		{
 			name:            "invalid absolute timeout format",
@@ -224,7 +224,7 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-func TestSessionStateIsExpired(t *testing.T) {
+func TestStateIsExpired(t *testing.T) {
 	config := &TimeoutConfig{
 		IdleTimeout:           5 * time.Minute,
 		AbsoluteTimeout:       1 * time.Hour,
@@ -234,7 +234,7 @@ func TestSessionStateIsExpired(t *testing.T) {
 
 	// Test idle timeout expiry
 	t.Run("idle timeout expired", func(t *testing.T) {
-		state := &SessionState{
+		state := &State{
 			CreatedAt:      time.Now().Add(-10 * time.Minute),
 			LastActivityAt: time.Now().Add(-10 * time.Minute),
 		}
@@ -246,7 +246,7 @@ func TestSessionStateIsExpired(t *testing.T) {
 
 	// Test active session not expired
 	t.Run("active session not expired", func(t *testing.T) {
-		state := &SessionState{
+		state := &State{
 			CreatedAt:      time.Now().Add(-10 * time.Minute),
 			LastActivityAt: time.Now().Add(-2 * time.Minute),
 		}
@@ -258,7 +258,7 @@ func TestSessionStateIsExpired(t *testing.T) {
 
 	// Test absolute timeout expiry
 	t.Run("absolute timeout expired", func(t *testing.T) {
-		state := &SessionState{
+		state := &State{
 			CreatedAt:      time.Now().Add(-2 * time.Hour),
 			LastActivityAt: time.Now().Add(-1 * time.Minute), // Recent activity
 		}
@@ -275,7 +275,7 @@ func TestSessionStateIsExpired(t *testing.T) {
 			EnableAbsoluteTimeout: false,
 		}
 
-		state := &SessionState{
+		state := &State{
 			CreatedAt:      time.Now().Add(-100 * time.Hour),
 			LastActivityAt: time.Now().Add(-100 * time.Hour),
 		}
@@ -286,7 +286,7 @@ func TestSessionStateIsExpired(t *testing.T) {
 	})
 }
 
-func TestSessionStateComputeExpiry(t *testing.T) {
+func TestStateComputeExpiry(t *testing.T) {
 	config := &TimeoutConfig{
 		IdleTimeout:           5 * time.Minute,
 		AbsoluteTimeout:       1 * time.Hour,
@@ -295,7 +295,7 @@ func TestSessionStateComputeExpiry(t *testing.T) {
 	}
 
 	t.Run("idle expiry sooner than absolute", func(t *testing.T) {
-		state := &SessionState{
+		state := &State{
 			CreatedAt:      time.Now(),
 			LastActivityAt: time.Now(),
 		}
@@ -310,7 +310,7 @@ func TestSessionStateComputeExpiry(t *testing.T) {
 	})
 
 	t.Run("absolute expiry sooner than idle", func(t *testing.T) {
-		state := &SessionState{
+		state := &State{
 			CreatedAt:      time.Now().Add(-58 * time.Minute),
 			LastActivityAt: time.Now(), // Recent activity
 		}
@@ -330,7 +330,7 @@ func TestSessionStateComputeExpiry(t *testing.T) {
 			EnableAbsoluteTimeout: false,
 		}
 
-		state := NewSessionState()
+		state := NewState()
 		expiry := state.ComputeExpiry(disabledConfig)
 
 		if !expiry.IsZero() {
@@ -339,7 +339,7 @@ func TestSessionStateComputeExpiry(t *testing.T) {
 	})
 }
 
-func TestSessionStateTimeUntilExpiry(t *testing.T) {
+func TestStateTimeUntilExpiry(t *testing.T) {
 	config := &TimeoutConfig{
 		IdleTimeout:           5 * time.Minute,
 		AbsoluteTimeout:       1 * time.Hour,
@@ -348,7 +348,7 @@ func TestSessionStateTimeUntilExpiry(t *testing.T) {
 	}
 
 	t.Run("time remaining", func(t *testing.T) {
-		state := NewSessionState()
+		state := NewState()
 		remaining := state.TimeUntilExpiry(config)
 
 		// Should have approximately 5 minutes remaining (idle timeout)
@@ -358,7 +358,7 @@ func TestSessionStateTimeUntilExpiry(t *testing.T) {
 	})
 
 	t.Run("already expired", func(t *testing.T) {
-		state := &SessionState{
+		state := &State{
 			CreatedAt:      time.Now().Add(-2 * time.Hour),
 			LastActivityAt: time.Now().Add(-2 * time.Hour),
 		}
@@ -376,7 +376,7 @@ func TestSessionStateTimeUntilExpiry(t *testing.T) {
 			EnableAbsoluteTimeout: false,
 		}
 
-		state := NewSessionState()
+		state := NewState()
 		remaining := state.TimeUntilExpiry(disabledConfig)
 
 		if remaining != 0 {
@@ -385,8 +385,8 @@ func TestSessionStateTimeUntilExpiry(t *testing.T) {
 	})
 }
 
-func TestSessionStateUpdateActivity(t *testing.T) {
-	state := NewSessionState()
+func TestStateUpdateActivity(t *testing.T) {
+	state := NewState()
 	originalActivity := state.LastActivityAt
 
 	time.Sleep(10 * time.Millisecond)
@@ -410,7 +410,7 @@ func TestExpiryReason(t *testing.T) {
 	}
 
 	t.Run("idle timeout reason", func(t *testing.T) {
-		state := &SessionState{
+		state := &State{
 			CreatedAt:      time.Now().Add(-10 * time.Minute),
 			LastActivityAt: time.Now().Add(-10 * time.Minute),
 		}
@@ -422,7 +422,7 @@ func TestExpiryReason(t *testing.T) {
 	})
 
 	t.Run("absolute timeout reason", func(t *testing.T) {
-		state := &SessionState{
+		state := &State{
 			CreatedAt:      time.Now().Add(-2 * time.Hour),
 			LastActivityAt: time.Now(), // Recent activity
 		}
@@ -434,7 +434,7 @@ func TestExpiryReason(t *testing.T) {
 	})
 
 	t.Run("not expired", func(t *testing.T) {
-		state := NewSessionState()
+		state := NewState()
 
 		reason := state.ExpiryReason(config)
 		if reason != "session not expired" {

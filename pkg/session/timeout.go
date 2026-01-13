@@ -97,8 +97,8 @@ func (c *TimeoutConfig) Validate() error {
 	return nil
 }
 
-// SessionState tracks session timing information
-type SessionState struct {
+// State tracks session timing information
+type State struct {
 	// CreatedAt is when the session was initially created
 	CreatedAt time.Time
 
@@ -109,10 +109,10 @@ type SessionState struct {
 	ExpiresAt time.Time
 }
 
-// NewSessionState creates a new session state with current timestamps
-func NewSessionState() *SessionState {
+// NewState creates a new session state with current timestamps
+func NewState() *State {
 	now := time.Now()
-	return &SessionState{
+	return &State{
 		CreatedAt:      now,
 		LastActivityAt: now,
 		ExpiresAt:      now,
@@ -120,12 +120,12 @@ func NewSessionState() *SessionState {
 }
 
 // UpdateActivity updates the last activity timestamp
-func (s *SessionState) UpdateActivity() {
+func (s *State) UpdateActivity() {
 	s.LastActivityAt = time.Now()
 }
 
 // IsExpired checks if the session has expired based on the timeout config
-func (s *SessionState) IsExpired(config *TimeoutConfig) bool {
+func (s *State) IsExpired(config *TimeoutConfig) bool {
 	now := time.Now()
 
 	// Check absolute timeout
@@ -148,7 +148,7 @@ func (s *SessionState) IsExpired(config *TimeoutConfig) bool {
 }
 
 // ComputeExpiry computes when the session will expire based on the timeout config
-func (s *SessionState) ComputeExpiry(config *TimeoutConfig) time.Time {
+func (s *State) ComputeExpiry(config *TimeoutConfig) time.Time {
 	var expiry time.Time
 
 	// Compute absolute expiry
@@ -172,7 +172,7 @@ func (s *SessionState) ComputeExpiry(config *TimeoutConfig) time.Time {
 }
 
 // TimeUntilExpiry returns the duration until the session expires
-func (s *SessionState) TimeUntilExpiry(config *TimeoutConfig) time.Duration {
+func (s *State) TimeUntilExpiry(config *TimeoutConfig) time.Duration {
 	expiry := s.ComputeExpiry(config)
 	if expiry.IsZero() {
 		return 0 // Never expires
@@ -187,7 +187,7 @@ func (s *SessionState) TimeUntilExpiry(config *TimeoutConfig) time.Duration {
 }
 
 // ExpiryReason returns a human-readable reason for session expiry
-func (s *SessionState) ExpiryReason(config *TimeoutConfig) string {
+func (s *State) ExpiryReason(config *TimeoutConfig) string {
 	now := time.Now()
 
 	// Check absolute timeout first (takes precedence in logging)
