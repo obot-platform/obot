@@ -38,121 +38,116 @@ export function formatJsonWithHighlighting(json: unknown): string {
 	}
 }
 
+// Compute Longest Common Subsequence using dynamic programming
+function computeLCS(oldLines: string[], newLines: string[]): number[][] {
+	const m = oldLines.length;
+	const n = newLines.length;
+
+	// Create DP table
+	const dp: number[][] = Array(m + 1)
+		.fill(null)
+		.map(() => Array(n + 1).fill(0));
+
+	for (let i = 1; i <= m; i++) {
+		for (let j = 1; j <= n; j++) {
+			if (oldLines[i - 1] === newLines[j - 1]) {
+				dp[i][j] = dp[i - 1][j - 1] + 1;
+			} else {
+				dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+			}
+		}
+	}
+
+	return dp;
+}
+
+// Backtrack to find the diff operations
+function backtrackDiff(
+	dp: number[][],
+	oldLines: string[],
+	newLines: string[]
+): {
+	type: 'unchanged' | 'removed' | 'added';
+	line: string;
+	oldIndex?: number;
+	newIndex?: number;
+}[] {
+	const result: {
+		type: 'unchanged' | 'removed' | 'added';
+		line: string;
+		oldIndex?: number;
+		newIndex?: number;
+	}[] = [];
+
+	let i = oldLines.length;
+	let j = newLines.length;
+
+	while (i > 0 || j > 0) {
+		if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+			// Lines match - unchanged
+			result.unshift({
+				type: 'unchanged',
+				line: oldLines[i - 1],
+				oldIndex: i - 1,
+				newIndex: j - 1
+			});
+			i--;
+			j--;
+		} else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+			// Line added in new version
+			result.unshift({ type: 'added', line: newLines[j - 1], newIndex: j - 1 });
+			j--;
+		} else if (i > 0) {
+			// Line removed from old version
+			result.unshift({ type: 'removed', line: oldLines[i - 1], oldIndex: i - 1 });
+			i--;
+		}
+	}
+
+	return result;
+}
+
 export function generateJsonDiff(
 	oldJson: unknown,
 	newJson: unknown
-): { oldLines: string[]; newLines: string[]; unifiedLines: string[] } {
+): {
+	oldLines: string[];
+	newLines: string[];
+	unifiedLines: string[];
+	diffOps: {
+		type: 'unchanged' | 'removed' | 'added';
+		line: string;
+		oldIndex?: number;
+		newIndex?: number;
+	}[];
+} {
 	const oldStr = JSON.stringify(oldJson, null, 2);
 	const newStr = JSON.stringify(newJson, null, 2);
 
 	const oldLines = oldStr.split('\n');
 	const newLines = newStr.split('\n');
 
-	const oldLineMap = new Map<string, number[]>();
-	const newLineMap = new Map<string, number[]>();
+	// Compute LCS and get diff operations
+	const dp = computeLCS(oldLines, newLines);
+	const diffOps = backtrackDiff(dp, oldLines, newLines);
 
-	oldLines.forEach((line, index) => {
-		const key = line.trim();
-		if (!oldLineMap.has(key)) {
-			oldLineMap.set(key, []);
+	// Generate unified diff lines
+	const unifiedLines: string[] = diffOps.map((op) => {
+		switch (op.type) {
+			case 'unchanged':
+				return ` ${op.line}`;
+			case 'removed':
+				return `-${op.line}`;
+			case 'added':
+				return `+${op.line}`;
 		}
-		oldLineMap.get(key)!.push(index);
 	});
-
-	newLines.forEach((line, index) => {
-		const key = line.trim();
-		if (!newLineMap.has(key)) {
-			newLineMap.set(key, []);
-		}
-		newLineMap.get(key)!.push(index);
-	});
-
-	const unifiedLines: string[] = [];
-	let oldIndex = 0;
-	let newIndex = 0;
-
-	while (oldIndex < oldLines.length || newIndex < newLines.length) {
-		const oldLine = oldLines[oldIndex] || '';
-		const newLine = newLines[newIndex] || '';
-
-		if (oldLine === newLine) {
-			// Lines match, add as unchanged
-			unifiedLines.push(` ${oldLine}`);
-			oldIndex++;
-			newIndex++;
-		} else {
-			// Lines don't match, look ahead to see if we can find a match
-			let foundMatch = false;
-
-			// Look ahead in new lines for a match with current old line
-			for (let i = newIndex + 1; i < newLines.length; i++) {
-				if (oldLine === newLines[i]) {
-					// Found a match ahead, mark current new lines as added
-					for (let j = newIndex; j < i; j++) {
-						unifiedLines.push(`+${newLines[j]}`);
-					}
-					newIndex = i;
-					foundMatch = true;
-					break;
-				}
-			}
-
-			// Look ahead in old lines for a match with current new line
-			if (!foundMatch) {
-				for (let i = oldIndex + 1; i < oldLines.length; i++) {
-					if (newLine === oldLines[i]) {
-						// Found a match ahead, mark current old lines as removed
-						for (let j = oldIndex; j < i; j++) {
-							unifiedLines.push(`-${oldLines[j]}`);
-						}
-						oldIndex = i;
-						foundMatch = true;
-						break;
-					}
-				}
-			}
-
-			// Check if this line content exists elsewhere in the other version (indicating movement)
-			if (!foundMatch) {
-				const oldLineContent = oldLine.trim();
-				const newLineContent = newLine.trim();
-
-				const oldExistsInNew = oldLineContent && newLineMap.has(oldLineContent);
-				const newExistsInOld = newLineContent && oldLineMap.has(newLineContent);
-
-				if (oldExistsInNew && newExistsInOld) {
-					// Both lines exist in the other version, this suggests content was moved
-					// Mark as unchanged to avoid false removal/addition
-					if (oldLine) {
-						unifiedLines.push(` ${oldLine}`);
-					}
-					if (newLine) {
-						unifiedLines.push(` ${newLine}`);
-					}
-					oldIndex++;
-					newIndex++;
-					foundMatch = true;
-				}
-			}
-
-			// No match found, mark as changed
-			if (!foundMatch) {
-				if (oldLine) {
-					unifiedLines.push(`-${oldLine}`);
-				}
-				if (newLine) {
-					unifiedLines.push(`+${newLine}`);
-				}
-				oldIndex++;
-				newIndex++;
-			}
-		}
-	}
 
 	return {
-		oldLines: oldLines.map((line) => line || ''),
-		newLines: newLines.map((line) => line || ''),
-		unifiedLines
+		oldLines,
+		newLines,
+		unifiedLines,
+		diffOps
 	};
 }
 
@@ -171,94 +166,42 @@ export function formatDiffLine(line: string, type: 'added' | 'removed' | 'unchan
 
 export function formatJsonWithDiffHighlighting(
 	json: unknown,
-	diff: { oldLines: string[]; newLines: string[]; unifiedLines: string[] },
+	diff: {
+		oldLines: string[];
+		newLines: string[];
+		unifiedLines: string[];
+		diffOps: {
+			type: 'unchanged' | 'removed' | 'added';
+			line: string;
+			oldIndex?: number;
+			newIndex?: number;
+		}[];
+	},
 	isOldVersion: boolean
 ): string {
 	try {
-		const formatted = JSON.stringify(json, null, 2);
-		const lines = formatted.split('\n');
-
 		let highlighted = '';
 
-		const oldLines: string[] = diff.oldLines.map((line) => line.trim());
-		const newLines: string[] = diff.newLines.map((line) => line.trim());
-
-		const changes: [changeType: string | undefined, line: string][] = [];
-
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
-
-			const oldLine = oldLines[i] || '';
-			const newLine = newLines[i] || '';
-
-			// Check if this line is different between old and new
-			const isChanged = oldLine !== newLine;
-
-			// Check if this line content exists in the other version (indicating it was moved)
-			const existsInOld = oldLines.at(i) === line;
-			const existsInNew = newLines.at(i) === line;
-
-			// A line is truly removed if it exists in old but not in new
-			const isRemoved = isOldVersion && isChanged && oldLine && !newLine && !existsInNew;
-			if (isRemoved) {
-				changes.push(['removed', line]);
-				continue;
+		// Filter diff operations based on which version we're displaying
+		const relevantOps = diff.diffOps.filter((op) => {
+			if (isOldVersion) {
+				// For old version: show unchanged and removed lines
+				return op.type === 'unchanged' || op.type === 'removed';
+			} else {
+				// For new version: show unchanged and added lines
+				return op.type === 'unchanged' || op.type === 'added';
 			}
+		});
 
-			// A line is truly added if it exists in new but not in old
-			const isAdded = !isOldVersion && isChanged && newLine && !oldLine && !existsInOld;
-			if (isAdded) {
-				changes.push(['added', line]);
-				continue;
-			}
+		for (const op of relevantOps) {
+			const line = op.line;
 
-			// A line is modified if both exist but are different (and not just moved)
-			const isModified = isChanged && oldLine && newLine && oldLine !== newLine;
-			if (isModified) {
-				changes.push(['modified', line]);
-				continue;
-			}
-
-			changes.push([undefined, line]);
-		}
-
-		let i = -1;
-		while (Math.abs(i) <= changes.length) {
-			const oldLine = diff.oldLines.at(i);
-			const newLine = diff.newLines.at(i);
-
-			if (oldLine === undefined && newLine === undefined) {
-				break;
-			}
-
-			const line = changes.at(i);
-			if (line) {
-				if (['}', ']'].includes(line[1]?.trim()) && oldLine === newLine) {
-					line[0] = undefined;
-				}
-			}
-
-			i--;
-		}
-
-		for (let i = 0; i < changes.length; i++) {
-			const index = i;
-			const [changeType, line] = changes[index];
-
-			// A line is truly removed if it exists in old but not in new
-			const isRemoved = changeType === 'removed';
-			// A line is truly added if it exists in new but not in old
-			const isAdded = changeType === 'added';
-			// A line is modified if both exist but are different (and not just moved)
-			const isModified = changeType === 'modified';
-
-			// For old version: highlight removed and modified lines in red
-			// For new version: highlight added and modified lines in green
+			// Determine line styling based on operation type
 			let lineClass = 'text-gray-700 dark:text-gray-300';
 
-			if (isRemoved || (isOldVersion && isModified)) {
+			if (op.type === 'removed') {
 				lineClass = 'bg-red-500/10 text-red-500';
-			} else if (isAdded || (!isOldVersion && isModified)) {
+			} else if (op.type === 'added') {
 				lineClass = 'bg-green-500/10 text-green-500';
 			}
 
