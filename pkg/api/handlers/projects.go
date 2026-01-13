@@ -628,7 +628,7 @@ func (h *ProjectsHandler) CreateProjectThread(req api.Context) error {
 			}
 
 			// if bodyContents.ModelProvider is empty it means that it is set at global level so allowedByProject should be true
-			if bodyContents.ModelProvider != "" {
+			if bodyContents.ModelProvider == "" {
 				allowedByProject = true
 			}
 
@@ -937,10 +937,11 @@ func (h *ProjectsHandler) GetDefaultModelForProject(req api.Context) error {
 		}
 
 		var modelObj v1.Model
-		if err := req.Get(&modelObj, model); err != nil {
+		if err := req.Get(&modelObj, model); kclient.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("failed to get model with id %s: %w", model, err)
 		}
 
+		// If we didn't find the model, the name and modelProvider will be empty
 		model = modelObj.Spec.Manifest.Name
 		modelProvider = modelObj.Spec.Manifest.ModelProvider
 	}

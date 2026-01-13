@@ -348,10 +348,11 @@ func (a *ThreadHandler) GetDefaultModelForThread(req api.Context) error {
 		}
 
 		var modelObj v1.Model
-		if err := req.Get(&modelObj, model); err != nil {
+		if err := req.Get(&modelObj, model); kclient.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("failed to get model with id %s: %w", model, err)
 		}
 
+		// If we didn't find the model, the name and modelProvider will be empty
 		model = modelObj.Spec.Manifest.Name
 		modelProvider = modelObj.Spec.Manifest.ModelProvider
 	}
