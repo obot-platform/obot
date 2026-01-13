@@ -1,6 +1,8 @@
 <script lang="ts">
-	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
+	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
+	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		AdminService,
@@ -8,11 +10,9 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services/index.js';
+	import { profile } from '$lib/stores/index.js';
 	import { Info } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { profile } from '$lib/stores/index.js';
-	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
-	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 
 	let { data } = $props();
 	const duration = PAGE_TRANSITION_DURATION;

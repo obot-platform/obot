@@ -58,6 +58,7 @@ const sidebars = {
       items: [
         "configuration/auth-providers",
         "configuration/entra-id-authentication",
+        "configuration/keycloak-authentication",
         "configuration/model-providers",
         "configuration/workspace-provider",
         "configuration/user-roles",

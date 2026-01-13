@@ -1,23 +1,24 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { beforeNavigate, afterNavigate } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import Search from '$lib/components/Search.svelte';
+	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
+	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
+	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { localState } from '$lib/runes/localState.svelte';
 	import { AdminService, Group, type LaunchServerType } from '$lib/services';
 	import type { MCPCatalog, OrgUser } from '$lib/services/admin/types';
-	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
-	import { onDestroy, onMount } from 'svelte';
-	import { fade, fly, slide } from 'svelte/transition';
+	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { replaceState } from '$lib/url';
-	import { beforeNavigate, afterNavigate } from '$app/navigation';
-	import { browser } from '$app/environment';
-	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
-	import { page } from '$app/state';
-	import { resolve } from '$app/paths';
-	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
-	import Search from '$lib/components/Search.svelte';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
@@ -26,13 +27,12 @@
 		setFilterUrlParams,
 		setUrlParam
 	} from '$lib/url';
-	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
-	import { debounce } from 'es-toolkit';
-	import { localState } from '$lib/runes/localState.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
+	import { debounce } from 'es-toolkit';
+	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
+	import { onDestroy, onMount } from 'svelte';
+	import { fade, fly, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
 
 	type View = 'registry' | 'deployments' | 'urls';
 
