@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/golang-lru/v2/expirable"
 	oauth2proxy "github.com/oauth2-proxy/oauth2-proxy/v7"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/options"
+	sessionsapi "github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/sessions"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/validation"
 	"github.com/obot-platform/obot-entraid/tools/keycloak-auth-provider/pkg/profile"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/database"
@@ -54,6 +55,27 @@ type Options struct {
 	// Admin service account credentials for Keycloak Admin API (optional - uses ClientID/ClientSecret if not provided)
 	AdminClientID     string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_ADMIN_CLIENT_ID" optional:"true"`
 	AdminClientSecret string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_ADMIN_CLIENT_SECRET" optional:"true"`
+}
+
+// sessionManagerAdapter implements state.SessionManager interface
+// This adapter wraps OAuthProxy methods via closures to satisfy the interface
+// without needing to import the OAuthProxy type (which is in package main)
+type sessionManagerAdapter struct {
+	loadSession func(*http.Request) (*sessionsapi.SessionState, error)
+	serveHTTP   func(http.ResponseWriter, *http.Request)
+	cookieOpts  *options.Cookie
+}
+
+func (s *sessionManagerAdapter) LoadCookiedSession(r *http.Request) (*sessionsapi.SessionState, error) {
+	return s.loadSession(r)
+}
+
+func (s *sessionManagerAdapter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.serveHTTP(w, r)
+}
+
+func (s *sessionManagerAdapter) GetCookieOptions() *options.Cookie {
+	return s.cookieOpts
 }
 
 func main() {
@@ -271,6 +293,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create SessionManager adapter for state package
+	// This adapter wraps the OAuthProxy instance to satisfy the state.SessionManager interface
+	// We use a closure-based approach because OAuthProxy is in package main and cannot be imported
+	sessionManager := &sessionManagerAdapter{
+		loadSession: func(r *http.Request) (*sessionsapi.SessionState, error) {
+			return oauthProxy.LoadCookiedSession(r)
+		},
+		serveHTTP: func(w http.ResponseWriter, r *http.Request) {
+			oauthProxy.ServeHTTP(w, r)
+		},
+		cookieOpts: oauthProxy.CookieOptions,
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "9999"
@@ -305,7 +340,7 @@ func main() {
 	})
 
 	// State endpoint - returns auth state with group enrichment from token claims
-	mux.HandleFunc("/obot-get-state", getState(oauthProxy, allowedGroups, groupCacheTTL))
+	mux.HandleFunc("/obot-get-state", getState(sessionManager, allowedGroups, groupCacheTTL))
 
 	// User info endpoint - fetches profile from Keycloak userinfo endpoint
 	mux.HandleFunc("/obot-get-user-info", func(w http.ResponseWriter, r *http.Request) {
@@ -362,13 +397,13 @@ func main() {
 }
 
 // getState returns an HTTP handler that wraps the state.ObotGetState with group enrichment from Keycloak token
-func getState(p *oauth2proxy.OAuthProxy, allowedGroups []string, groupCacheTTL time.Duration) http.HandlerFunc {
+func getState(sm state.SessionManager, allowedGroups []string, groupCacheTTL time.Duration) http.HandlerFunc {
 	// Cache for user groups to avoid repeated token parsing
 	groupCache := expirable.NewLRU[string, []string](5000, nil, groupCacheTTL)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get base state from oauth2-proxy
-		ss, err := getSerializableStateFromRequest(p, r)
+		ss, err := getSerializableStateFromRequest(sm, r)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to get state: %v", err), http.StatusInternalServerError)
 			return
@@ -424,7 +459,7 @@ func getState(p *oauth2proxy.OAuthProxy, allowedGroups []string, groupCacheTTL t
 }
 
 // getSerializableStateFromRequest decodes the request and gets state from oauth2-proxy
-func getSerializableStateFromRequest(p *oauth2proxy.OAuthProxy, r *http.Request) (state.SerializableState, error) {
+func getSerializableStateFromRequest(sm state.SessionManager, r *http.Request) (state.SerializableState, error) {
 	var sr state.SerializableRequest
 	if err := json.NewDecoder(r.Body).Decode(&sr); err != nil {
 		return state.SerializableState{}, fmt.Errorf("failed to decode request body: %v", err)
@@ -436,7 +471,7 @@ func getSerializableStateFromRequest(p *oauth2proxy.OAuthProxy, r *http.Request)
 	}
 	reqObj.Header = sr.Header
 
-	return state.GetSerializableState(p, reqObj)
+	return state.GetSerializableState(sm, reqObj)
 }
 
 // fetchUserProfile fetches user profile from Keycloak's userinfo endpoint
