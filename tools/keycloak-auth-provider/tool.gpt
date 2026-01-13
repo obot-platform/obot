@@ -41,7 +41,7 @@ Credential: ../placeholder-credential as keycloak-auth-provider
         {
             "name": "OBOT_AUTH_PROVIDER_COOKIE_SECRET",
             "friendlyName": "Cookie Secret",
-            "description": "Secret used to encrypt cookies. Must be a base64-encoded string that decodes to 16, 24, or 32 bytes.",
+            "description": "Secret used to encrypt cookies. Must be a base64-encoded string that decodes to at least 32 bytes (256 bits). Generate with: openssl rand -base64 32",
             "sensitive": true,
             "hidden": true
         },
@@ -53,6 +53,13 @@ Credential: ../placeholder-credential as keycloak-auth-provider
         }
     ],
     "optionalEnvVars": [
+        {
+            "name": "OBOT_KEYCLOAK_AUTH_PROVIDER_COOKIE_SECRET",
+            "friendlyName": "Provider-Specific Cookie Secret",
+            "description": "Provider-specific secret to encrypt cookies (overrides OBOT_AUTH_PROVIDER_COOKIE_SECRET). Must be a base64-encoded string that decodes to at least 32 bytes (256 bits). Generate with: openssl rand -base64 32",
+            "sensitive": true,
+            "hidden": true
+        },
         {
             "name": "OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN",
             "friendlyName": "PostgreSQL Connection String (DSN)",

@@ -21,6 +21,7 @@ import (
 	"github.com/obot-platform/tools/auth-providers-common/pkg/env"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/groups"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/ratelimit"
+	"github.com/obot-platform/tools/auth-providers-common/pkg/secrets"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/state"
 	"github.com/sahilm/fuzzy"
 )
@@ -35,7 +36,8 @@ type Options struct {
 	TenantID                 string `env:"OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID"`
 	ObotServerURL            string `env:"OBOT_SERVER_PUBLIC_URL,OBOT_SERVER_URL"`
 	PostgresConnectionDSN    string `env:"OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN" optional:"true"`
-	AuthCookieSecret         string `env:"OBOT_AUTH_PROVIDER_COOKIE_SECRET"`
+	// Cookie secret - provider-specific takes precedence, falls back to shared secret
+	AuthCookieSecret         string `env:"OBOT_ENTRA_AUTH_PROVIDER_COOKIE_SECRET,OBOT_AUTH_PROVIDER_COOKIE_SECRET"`
 	AuthEmailDomains         string `env:"OBOT_AUTH_PROVIDER_EMAIL_DOMAINS" default:"*"`
 	AuthTokenRefreshDuration string `env:"OBOT_AUTH_PROVIDER_TOKEN_REFRESH_DURATION" optional:"true" default:"1h"`
 	AllowedGroups            string `env:"OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_GROUPS" optional:"true"`
@@ -83,6 +85,14 @@ func main() {
 
 	if refreshDuration < 0 {
 		fmt.Printf("ERROR: entra-auth-provider: token refresh duration must be greater than 0\n")
+		os.Exit(1)
+	}
+
+	// Validate cookie secret entropy and format
+	if err := secrets.ValidateCookieSecret(opts.AuthCookieSecret); err != nil {
+		fmt.Printf("ERROR: entra-auth-provider: %v\n", err)
+		fmt.Printf("Generate a valid secret with: openssl rand -base64 32\n")
+		fmt.Printf("Or set OBOT_ENTRA_AUTH_PROVIDER_COOKIE_SECRET for provider-specific secret\n")
 		os.Exit(1)
 	}
 
