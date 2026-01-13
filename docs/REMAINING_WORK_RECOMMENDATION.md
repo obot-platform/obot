@@ -265,7 +265,7 @@ Repeat for next rotation (V2 → V3)
 **Test Scenarios:**
 1. PostgreSQL session storage
 2. Cookie-only fallback
-3. Table prefix isolation (entra_ vs keycloak_)
+3. Table prefix isolation (entra_vs keycloak_)
 4. Session expiry and cleanup
 5. Concurrent session handling
 
@@ -389,7 +389,7 @@ Repeat for next rotation (V2 → V3)
 **Focus:** Production stability
 
 | Day | Task | Hours |
-|-----|------|-------|
+| ----- | ------ | ------- |
 | 1-2 | Circuit breaker implementation | 4 |
 | 3 | Circuit breaker testing | 2 |
 | 4 | Circuit breaker documentation | 2 |
@@ -409,7 +409,7 @@ Repeat for next rotation (V2 → V3)
 **Focus:** Security operations
 
 | Day | Task | Hours |
-|-----|------|-------|
+| ----- | ------ | ------- |
 | 1-3 | Secret rotation implementation | 6 |
 | 4-5 | Rotation testing | 3 |
 | 6-7 | Runbooks and automation | 3 |
@@ -425,7 +425,7 @@ Repeat for next rotation (V2 → V3)
 **Focus:** Long-term quality
 
 | Week | Task | Hours |
-|------|------|-------|
+| ------ | ------ | ------- |
 | 5 | Integration test Phase 1 | 12 |
 | 6 | Integration test Phase 2-3 | 16 |
 | 7 | Grafana dashboards | 8 |
