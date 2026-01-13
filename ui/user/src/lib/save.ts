@@ -44,7 +44,7 @@ export function newFileMonitor(
 export interface SaveMonitor {
 	start(): () => void;
 	save(): Promise<void>;
-	stop(): void;
+	stop(skipSave?: boolean): void;
 }
 
 export function newSaveMonitor<T>(
@@ -56,32 +56,44 @@ export function newSaveMonitor<T>(
 ): SaveMonitor {
 	let saved: string = '';
 	let timer: number;
+	let saving = false;
 
 	async function save() {
+		if (saving) {
+			return;
+		}
+
 		const val = getVal();
 		const beforeSaved = JSON.stringify(val);
 		if (!val || beforeSaved === saved) {
 			return;
 		}
 
-		const newVal = await saveFn(val);
-		const newSaved = JSON.stringify(newVal);
-		const afterSaved = JSON.stringify(getVal());
-		if (beforeSaved !== afterSaved) {
-			return;
+		saving = true;
+		try {
+			const newVal = await saveFn(val);
+			const newSaved = JSON.stringify(newVal);
+			const afterSaved = JSON.stringify(getVal());
+			if (beforeSaved !== afterSaved) {
+				return;
+			}
+			saved = newSaved;
+			commitFn?.(newVal);
+		} finally {
+			saving = false;
 		}
-		saved = newSaved;
-		commitFn?.(newVal);
 	}
 
-	function start(): () => void {
+	function start(): (skipSave?: boolean) => void {
 		saved = JSON.stringify(getVal());
 		timer = setInterval(save, 1000);
-		return () => stop();
+		return (skipSave) => stop(skipSave);
 	}
 
-	function stop() {
-		save();
+	function stop(skipSave?: boolean) {
+		if (!skipSave) {
+			save();
+		}
 		clearInterval(timer);
 	}
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { getLayout, openTask, openTaskRun } from '$lib/context/chatLayout.svelte';
+	import { createNewTask, getLayout, openTask, openTaskRun } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project, type Task } from '$lib/services';
 	import { ChevronRight, Plus, X } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
@@ -35,19 +35,10 @@
 	}
 
 	async function newTask() {
-		const task = await ChatService.createTask(project.assistantID, project.id, {
-			id: '',
-			name: 'New Task',
-			steps: []
-		});
-		if (!layout.tasks) {
-			layout.tasks = [];
-		}
-		layout.tasks.splice(0, 0, task);
 		if (responsive.isMobile) {
 			layout.sidebarOpen = false;
 		}
-		openTask(layout, task.id);
+		createNewTask(layout);
 	}
 
 	async function reload() {

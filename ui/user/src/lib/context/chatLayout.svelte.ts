@@ -1,3 +1,4 @@
+import { TASK_NEW_ID } from '$lib/constants';
 import type { ProjectMCP, Task, TaskRun, Thread } from '$lib/services';
 import type { EditorItem } from '$lib/services/editor/index.svelte';
 import { responsive } from '$lib/stores';
@@ -65,6 +66,22 @@ export function closeAll(layout: Layout) {
 	layout.editProjectMcp = undefined;
 	layout.mcpServer = undefined;
 	layout.chatbotMcpEdit = undefined;
+}
+
+let newTaskCounter = 0;
+
+export function createNewTask(layout: Layout) {
+	newTaskCounter++;
+	const task = {
+		id: `${TASK_NEW_ID}-${newTaskCounter}`,
+		name: 'New Task',
+		steps: [{ id: 'si1' + Math.random().toString(36).substring(6) }]
+	};
+	if (!layout.tasks) {
+		layout.tasks = [];
+	}
+	layout.tasks.push(task);
+	openTask(layout, task.id);
 }
 
 export function openTask(layout: Layout, taskID?: string) {
