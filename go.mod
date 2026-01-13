@@ -47,7 +47,7 @@ require (
 	github.com/onsi/gomega v1.34.2
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/prometheus/client_golang v1.20.5
-	github.com/pterm/pterm v0.12.80
+	github.com/pterm/pterm v0.12.82
 	github.com/rs/cors v1.11.1
 	github.com/sethvargo/go-limiter v1.0.0
 	github.com/spf13/cobra v1.9.1
@@ -144,7 +144,7 @@ require (
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/cloudflare/circl v1.6.1 // indirect
-	github.com/containerd/console v1.0.4 // indirect
+	github.com/containerd/console v1.0.5 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
