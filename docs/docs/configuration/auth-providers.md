@@ -134,7 +134,7 @@ You can restrict login access to specific Entra users and groups by taking the f
 For more details, [see Entra's docs](https://learn.microsoft.com/en-us/entra/identity-platform/howto-restrict-your-app-to-a-set-of-users).
 
 :::tip Security Features
-The Entra ID auth provider includes production-grade security features including fail-fast authentication, HTTPS enforcement with cookie security configuration, automatic token refresh error handling, and group metadata validation. For comprehensive configuration details and advanced security options, see [Microsoft Entra ID Authentication](entra-id-authentication).
+The Entra ID auth provider includes production-grade security features including fail-fast authentication, HTTPS enforcement with cookie security configuration, automatic token refresh error handling, and group metadata validation. For comprehensive configuration details and advanced security options, see [Microsoft Entra ID Authentication](/next/configuration/entra-id-authentication).
 :::
 
 ### Keycloak (Enterprise Only)
@@ -161,7 +161,7 @@ You can configure role-based and group-based access control:
 | Allowed Groups | (Optional) Comma-separated list of group names allowed to authenticate |
 
 :::tip Security Features
-The Keycloak auth provider includes production-grade security features including fail-fast authentication, HTTPS enforcement with cookie security configuration, automatic token refresh error handling, role and group-based access control, and Admin API integration for comprehensive user metadata. For comprehensive configuration details and advanced security options, see [Keycloak Authentication](keycloak-authentication).
+The Keycloak auth provider includes production-grade security features including fail-fast authentication, HTTPS enforcement with cookie security configuration, automatic token refresh error handling, role and group-based access control, and Admin API integration for comprehensive user metadata. For comprehensive configuration details and advanced security options, see [Keycloak Authentication](/next/configuration/keycloak-authentication).
 :::
 
 ### Okta (Enterprise Only)
