@@ -41,6 +41,7 @@ export const load: LayoutLoad = async ({ fetch }) => {
 			email: '',
 			iconURL: '',
 			role: 0,
+			effectiveRole: 0,
 			groups: [],
 			unauthorized: true,
 			username: ''

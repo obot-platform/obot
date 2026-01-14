@@ -127,7 +127,7 @@
 						{profile.current.displayName || 'Anonymous'}
 					</span>
 					<span class="text-on-surface1 text-sm">
-						{getUserRoleLabel(profile.current.role)}
+						{getUserRoleLabel(profile.current.effectiveRole)}
 					</span>
 				</div>
 			</div>

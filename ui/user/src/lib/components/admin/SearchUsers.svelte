@@ -140,7 +140,7 @@
 							{#if 'email' in item}
 								<p>{item.displayName ?? item.email}</p>
 								<p class="text-on-surface1 font-light">
-									{getUserRoleLabel(item.role)}
+									{getUserRoleLabel(item.effectiveRole)}
 								</p>
 							{:else}
 								<p>{item.name}</p>

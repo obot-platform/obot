@@ -7,6 +7,7 @@ const store = $state({
 		email: '',
 		iconURL: '',
 		role: 0,
+		effectiveRole: 0,
 		groups: []
 	} as Profile,
 	initialize
@@ -24,6 +25,7 @@ function initialize(profile?: Profile) {
 			email: '',
 			iconURL: '',
 			role: 0,
+			effectiveRole: 0,
 			groups: [],
 			unauthorized: true,
 			username: ''
