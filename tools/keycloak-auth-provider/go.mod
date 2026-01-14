@@ -10,7 +10,7 @@ replace github.com/oauth2-proxy/oauth2-proxy/v7 => github.com/obot-platform/oaut
 replace github.com/obot-platform/tools/auth-providers-common => ../auth-providers-common
 
 require (
-	github.com/golang-jwt/jwt/v5 v5.2.3
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/oauth2-proxy/oauth2-proxy/v7 v7.8.1
 	github.com/obot-platform/tools/auth-providers-common v0.0.0-20251224150716-751b37797a83
