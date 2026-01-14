@@ -12,8 +12,10 @@ RUN if [ "${BASE_IMAGE}" = "cgr.dev/chainguard/wolfi-base" ]; then \
 FROM base AS bin
 WORKDIR /app
 
-# Copy dependency manifests first (change rarely, maximize cache hits)
+# Copy dependency manifests and local replace dependencies first (rarely change)
 COPY go.mod go.sum ./
+COPY apiclient/go.mod apiclient/go.sum ./apiclient/
+COPY logger/go.mod logger/go.sum ./logger/
 COPY ui/user/package.json ui/user/pnpm-lock.yaml ./ui/user/
 
 # Download main module dependencies (cached unless go.mod changes)
