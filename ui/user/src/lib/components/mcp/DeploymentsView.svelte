@@ -69,9 +69,15 @@
 
 	const SERVER_UPGRADES_AVAILABLE = {
 		NONE: 'Up to date',
-		BOTH: 'Server & Scheduling Updates',
-		SERVER: 'New Server Config Update',
-		K8S: 'Scheduling Update'
+		BOTH: 'Needs Scheduling and Config Update',
+		SERVER: 'Needs Config Update',
+		K8S: 'Needs Scheduling Update'
+	};
+	const SERVER_UPGRADES_AVAILABLE_TOOLTIP = {
+		SERVER:
+			'The configuration for this server’s registry entry has changed and can be applied to this server',
+		K8S: 'The default server scheduling rules have changed and can be applied to this server',
+		BOTH: 'The configuration for this server’s registry entry has changed and can be applied to this server\nThe default server scheduling rules have changed and can be applied to this server.'
 	};
 
 	let {
@@ -186,6 +192,7 @@
 
 				let updateStatus = deployment.deploymentStatus || 'Unknown';
 				let updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
+				let updateStatusTooltip: string | undefined = undefined;
 
 				if (
 					!needsUpdate &&
@@ -198,12 +205,15 @@
 					if (needsUpdate && needsK8sUpdate) {
 						updateStatus = SERVER_UPGRADES_AVAILABLE.BOTH;
 						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER, SERVER_UPGRADES_AVAILABLE.K8S];
+						updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.BOTH;
 					} else if (needsUpdate) {
 						updateStatus = SERVER_UPGRADES_AVAILABLE.SERVER;
 						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER];
+						updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.SERVER;
 					} else if (needsK8sUpdate) {
 						updateStatus = SERVER_UPGRADES_AVAILABLE.K8S;
 						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.K8S];
+						updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.K8S;
 					} else {
 						updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
 						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
@@ -228,7 +238,8 @@
 						(deployment.catalogEntryID && deployment.userID === profile.current.id) ||
 						(powerUserID === profile.current.id && powerUserWorkspaceID === id),
 					updateStatus,
-					updatesAvailable
+					updatesAvailable,
+					updateStatusTooltip
 				};
 			})
 			.filter((d) => !d.disabled && (onlyMyServers ? d.isMyServer : true));
@@ -537,7 +548,11 @@
 				{:else if property === 'created'}
 					{formatTimeAgo(d.created).relativeTime}
 				{:else if property === 'updatesAvailable'}
-					{d.updateStatus || '--'}
+					<div
+						use:tooltip={{ text: d.updateStatusTooltip ?? '', classes: ['whitespace-pre-line'] }}
+					>
+						{d.updateStatus || '--'}
+					</div>
 				{:else}
 					{d[property as keyof typeof d]}
 				{/if}
@@ -668,7 +683,7 @@
 										{:else}
 											<CircleFadingArrowUp class="size-4" />
 										{/if}
-										Update Scheduling Configuration
+										Update Scheduling Config
 									</button>
 								{/if}
 
