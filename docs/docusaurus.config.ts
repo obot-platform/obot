@@ -38,6 +38,10 @@ const config: Config = {
             from: "/installation/general",
             to: "/installation/overview",
           },
+          {
+            from: "/tutorials/knowledge-assistant",
+            to: "/",
+          },
         ],
       },
     ],
