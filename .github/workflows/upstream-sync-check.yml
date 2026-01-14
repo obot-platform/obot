@@ -14,12 +14,12 @@ jobs:
   check-upstream:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: "1.25.5"
           cache: true
@@ -79,7 +79,7 @@ jobs:
 
       - name: Create issue for manual merge
         if: steps.test_merge.outcome == 'failure'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const commits = '${{ steps.check.outputs.commits_behind }}';
@@ -127,7 +127,7 @@ jobs:
 
       - name: Create success notification
         if: steps.check.outputs.commits_behind != '0' && steps.test_merge.outputs.merge_status == 'clean'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const commits = '${{ steps.check.outputs.commits_behind }}';
