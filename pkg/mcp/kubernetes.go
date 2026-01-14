@@ -72,6 +72,11 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 }
 
 func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfig, webhooks []Webhook) error {
+	// Check capacity before deploying (fail-open if capacity can't be determined)
+	if err := k.CheckCapacity(ctx); err != nil {
+		return err
+	}
+
 	// Generate the Kubernetes deployment objects.
 	objs, err := k.k8sObjects(ctx, server, webhooks)
 	if err != nil {
@@ -1118,4 +1123,265 @@ func (k *kubernetesBackend) getK8sSettings(ctx context.Context) (v1.K8sSettingsS
 	}, &settings)
 
 	return settings.Spec, err
+}
+
+// CheckCapacity checks if there's enough capacity to deploy a new MCP server.
+// Returns nil if capacity is available, or ErrInsufficientCapacity if not.
+// Uses fail-open strategy: if no ResourceQuota exists, allows deployment and lets Kubernetes decide.
+// Only ResourceQuota is used for precheck since node capacity checks are naive and don't account
+// for taints, affinity, other namespace workloads, or resource fragmentation.
+func (k *kubernetesBackend) CheckCapacity(ctx context.Context) error {
+	// Get the resource requests from K8s settings (defaults: 400Mi memory, 10m CPU)
+	memoryRequest := resource.MustParse("400Mi")
+	cpuRequest := resource.MustParse("10m")
+	k8sSettings, err := k.getK8sSettings(ctx)
+	if err == nil && k8sSettings.Resources != nil && k8sSettings.Resources.Requests != nil {
+		if mem, ok := k8sSettings.Resources.Requests[corev1.ResourceMemory]; ok {
+			memoryRequest = mem
+		}
+		if cpu, ok := k8sSettings.Resources.Requests[corev1.ResourceCPU]; ok {
+			cpuRequest = cpu
+		}
+	}
+
+	// Only use ResourceQuota for precheck - it's enforced at admission time and accurate
+	if available, err := k.checkResourceQuotaCapacity(ctx, memoryRequest, cpuRequest); err == nil {
+		if !available {
+			return ErrInsufficientCapacity
+		}
+		return nil
+	}
+
+	// No ResourceQuota or can't check - fail open, let Kubernetes decide
+	return nil
+}
+
+// checkResourceQuotaCapacity checks if there's enough capacity based on ResourceQuota.
+// Returns (true, nil) if capacity is available, (false, nil) if not, or (false, error) if quota can't be checked.
+func (k *kubernetesBackend) checkResourceQuotaCapacity(ctx context.Context, memoryRequest, cpuRequest resource.Quantity) (bool, error) {
+	quotas, err := k.clientset.CoreV1().ResourceQuotas(k.mcpNamespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return false, fmt.Errorf("failed to list resource quotas: %w", err)
+	}
+
+	if len(quotas.Items) == 0 {
+		return false, fmt.Errorf("no resource quotas found")
+	}
+
+	// Check if any quota has memory or CPU request limits
+	for _, quota := range quotas.Items {
+		// Check memory
+		memHard, hasMemHard := quota.Status.Hard[corev1.ResourceRequestsMemory]
+		memUsed, hasMemUsed := quota.Status.Used[corev1.ResourceRequestsMemory]
+
+		if hasMemHard && hasMemUsed {
+			available := memHard.DeepCopy()
+			available.Sub(memUsed)
+			if available.Cmp(memoryRequest) < 0 {
+				return false, nil
+			}
+		}
+
+		// Check CPU
+		cpuHard, hasCPUHard := quota.Status.Hard[corev1.ResourceRequestsCPU]
+		cpuUsed, hasCPUUsed := quota.Status.Used[corev1.ResourceRequestsCPU]
+
+		if hasCPUHard && hasCPUUsed {
+			available := cpuHard.DeepCopy()
+			available.Sub(cpuUsed)
+			if available.Cmp(cpuRequest) < 0 {
+				return false, nil
+			}
+		}
+
+		// If we found at least one resource limit, we can make a decision
+		if (hasMemHard && hasMemUsed) || (hasCPUHard && hasCPUUsed) {
+			return true, nil
+		}
+	}
+
+	return false, fmt.Errorf("no memory or CPU quota found")
+}
+
+// GetCapacityInfo returns capacity information for the MCP namespace.
+// Used by the admin capacity endpoint.
+func (k *kubernetesBackend) GetCapacityInfo(ctx context.Context) types.MCPCapacityInfo {
+	// Try ResourceQuota first - this is the only accurate source
+	if info, ok := k.getResourceQuotaCapacity(ctx); ok {
+		return info
+	}
+
+	// Fallback to deployment aggregation only (no limits, just totals)
+	// Node metrics are intentionally not used because they don't account for
+	// taints, affinity, or other scheduling constraints.
+	return k.getDeploymentCapacity(ctx)
+}
+
+func (k *kubernetesBackend) getResourceQuotaCapacity(ctx context.Context) (types.MCPCapacityInfo, bool) {
+	quotas, err := k.clientset.CoreV1().ResourceQuotas(k.mcpNamespace).List(ctx, metav1.ListOptions{})
+	if err != nil || len(quotas.Items) == 0 {
+		return types.MCPCapacityInfo{}, false
+	}
+
+	info := types.MCPCapacityInfo{
+		Source: types.CapacitySourceResourceQuota,
+	}
+
+	// Aggregate limits from all ResourceQuotas
+	var totalCPULimit, totalMemoryLimit resource.Quantity
+	for _, quota := range quotas.Items {
+		if hard, ok := quota.Status.Hard[corev1.ResourceRequestsCPU]; ok {
+			totalCPULimit.Add(hard)
+		}
+		if hard, ok := quota.Status.Hard[corev1.ResourceRequestsMemory]; ok {
+			totalMemoryLimit.Add(hard)
+		}
+	}
+	info.CPULimit = formatCPU(totalCPULimit)
+	info.MemoryLimit = formatMemory(totalMemoryLimit)
+
+	// Calculate requested resources directly from deployments for immediate updates
+	// ResourceQuota.Status.Used updates asynchronously and can lag behind actual state
+	deployments, err := k.clientset.AppsV1().Deployments(k.mcpNamespace).List(ctx, metav1.ListOptions{})
+	if err == nil {
+		var totalCPU, totalMemory resource.Quantity
+		for _, deployment := range deployments.Items {
+			replicas := int64(1)
+			if deployment.Spec.Replicas != nil {
+				replicas = int64(*deployment.Spec.Replicas)
+			}
+			for _, container := range deployment.Spec.Template.Spec.Containers {
+				if cpu, ok := container.Resources.Requests[corev1.ResourceCPU]; ok {
+					scaled := cpu.DeepCopy()
+					scaled.SetMilli(scaled.MilliValue() * replicas)
+					totalCPU.Add(scaled)
+				}
+				if mem, ok := container.Resources.Requests[corev1.ResourceMemory]; ok {
+					scaled := mem.DeepCopy()
+					scaled.Set(scaled.Value() * replicas)
+					totalMemory.Add(scaled)
+				}
+			}
+		}
+		info.CPURequested = formatCPU(totalCPU)
+		info.MemoryRequested = formatMemory(totalMemory)
+		info.ActiveDeployments = len(deployments.Items)
+	} else {
+		// Fallback to ResourceQuota status if deployment list fails
+		var totalCPUUsed, totalMemoryUsed resource.Quantity
+		for _, quota := range quotas.Items {
+			if used, ok := quota.Status.Used[corev1.ResourceRequestsCPU]; ok {
+				totalCPUUsed.Add(used)
+			}
+			if used, ok := quota.Status.Used[corev1.ResourceRequestsMemory]; ok {
+				totalMemoryUsed.Add(used)
+			}
+		}
+		info.CPURequested = formatCPU(totalCPUUsed)
+		info.MemoryRequested = formatMemory(totalMemoryUsed)
+		info.ActiveDeployments = k.countActiveDeployments(ctx)
+	}
+
+	return info, true
+}
+
+func (k *kubernetesBackend) getDeploymentCapacity(ctx context.Context) types.MCPCapacityInfo {
+	info := types.MCPCapacityInfo{
+		Source: types.CapacitySourceDeployments,
+	}
+
+	deployments, err := k.clientset.AppsV1().Deployments(k.mcpNamespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		info.Error = "failed to list deployments"
+		return info
+	}
+
+	var totalCPU, totalMemory resource.Quantity
+	for _, deployment := range deployments.Items {
+		replicas := int64(1)
+		if deployment.Spec.Replicas != nil {
+			replicas = int64(*deployment.Spec.Replicas)
+		}
+		for _, container := range deployment.Spec.Template.Spec.Containers {
+			if cpu, ok := container.Resources.Requests[corev1.ResourceCPU]; ok {
+				scaled := cpu.DeepCopy()
+				scaled.SetMilli(scaled.MilliValue() * replicas)
+				totalCPU.Add(scaled)
+			}
+			if mem, ok := container.Resources.Requests[corev1.ResourceMemory]; ok {
+				scaled := mem.DeepCopy()
+				scaled.Set(scaled.Value() * replicas)
+				totalMemory.Add(scaled)
+			}
+		}
+	}
+
+	info.CPURequested = formatCPU(totalCPU)
+	info.MemoryRequested = formatMemory(totalMemory)
+	info.ActiveDeployments = len(deployments.Items)
+
+	return info
+}
+
+func (k *kubernetesBackend) countActiveDeployments(ctx context.Context) int {
+	deployments, err := k.clientset.AppsV1().Deployments(k.mcpNamespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return 0
+	}
+	return len(deployments.Items)
+}
+
+// formatCPU formats a CPU quantity in a human-readable format.
+// Returns empty string for zero values.
+func formatCPU(q resource.Quantity) string {
+	if q.IsZero() {
+		return ""
+	}
+	// CPU is typically in millicores, convert to cores if >= 1 core
+	millis := q.MilliValue()
+	if millis >= 1000 {
+		cores := float64(millis) / 1000
+		if cores == float64(int64(cores)) {
+			return fmt.Sprintf("%d", int64(cores))
+		}
+		return fmt.Sprintf("%.1f", cores)
+	}
+	return fmt.Sprintf("%dm", millis)
+}
+
+// formatMemory formats a memory quantity in a human-readable format.
+// Returns empty string for zero values.
+func formatMemory(q resource.Quantity) string {
+	if q.IsZero() {
+		return ""
+	}
+	bytes := q.Value()
+
+	const (
+		ki = 1024
+		mi = ki * 1024
+		gi = mi * 1024
+		ti = gi * 1024
+	)
+
+	switch {
+	case bytes >= ti:
+		return fmt.Sprintf("%.1fTi", float64(bytes)/float64(ti))
+	case bytes >= gi:
+		val := float64(bytes) / float64(gi)
+		if val == float64(int64(val)) {
+			return fmt.Sprintf("%dGi", int64(val))
+		}
+		return fmt.Sprintf("%.1fGi", val)
+	case bytes >= mi:
+		val := float64(bytes) / float64(mi)
+		if val == float64(int64(val)) {
+			return fmt.Sprintf("%dMi", int64(val))
+		}
+		return fmt.Sprintf("%.1fMi", val)
+	case bytes >= ki:
+		return fmt.Sprintf("%dKi", bytes/ki)
+	default:
+		return fmt.Sprintf("%d", bytes)
+	}
 }

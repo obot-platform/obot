@@ -550,6 +550,9 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 				if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 					return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("No response from component MCP server %s, check configuration for errors", component.Name))
 				}
+				if errors.Is(err, mcp.ErrInsufficientCapacity) {
+					return types.NewErrHTTP(http.StatusServiceUnavailable, "Insufficient capacity to deploy MCP server. Please contact your administrator.")
+				}
 				if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
 					return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 				}
@@ -573,6 +576,9 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		}
+		if errors.Is(err, mcp.ErrInsufficientCapacity) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "Insufficient capacity to deploy MCP server. Please contact your administrator.")
 		}
 		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())

@@ -47,6 +47,7 @@
 	import ConnectToServer from './ConnectToServer.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
+	import CapacityBanner from './CapacityBanner.svelte';
 
 	interface Props {
 		usersMap?: Map<string, OrgUser>;
@@ -191,6 +192,7 @@
 
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
+	let capacityBanner = $state<ReturnType<typeof CapacityBanner>>();
 
 	onMount(() => {
 		reload(true);
@@ -204,6 +206,10 @@
 				await AdminService.listAllCatalogDeployedSingleRemoteServers(id);
 			deployedWorkspaceCatalogEntryServers =
 				await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
+			// Refresh capacity banner when server list changes
+			if (!isInitialLoad) {
+				capacityBanner?.refresh();
+			}
 		} else if (!isInitialLoad && entity === 'workspace') {
 			mcpServersAndEntries.refreshAll();
 		}
@@ -310,6 +316,11 @@
 				throw error;
 			}
 		}
+
+		// Immediately refresh capacity banner for admin users after any server deletion
+		if (entity === 'catalog' && profile.current.hasAdminAccess?.()) {
+			capacityBanner?.refresh();
+		}
 	}
 
 	async function handleBulkDelete() {
@@ -358,6 +369,9 @@
 </script>
 
 <div class="flex flex-col gap-2">
+	{#if entity === 'catalog' && profile.current.hasAdminAccess?.()}
+		<CapacityBanner bind:this={capacityBanner} />
+	{/if}
 	{#if loading || mcpServersAndEntries.current.loading}
 		<div class="my-2 flex items-center justify-center">
 			<LoaderCircle class="size-6 animate-spin" />

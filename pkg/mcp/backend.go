@@ -47,6 +47,7 @@ var (
 	ErrImagePullFailed        = errors.New("failed to pull container image")
 	ErrPodSchedulingFailed    = errors.New("pod could not be scheduled")
 	ErrPodConfigurationFailed = errors.New("pod configuration is invalid")
+	ErrInsufficientCapacity   = errors.New("insufficient cluster capacity to deploy MCP server")
 )
 
 func ensureServerReady(ctx context.Context, url string, server ServerConfig) error {

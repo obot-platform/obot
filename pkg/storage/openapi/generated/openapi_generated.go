@@ -86,6 +86,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPAuditLog":                                    schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPAuditLogList":                                schema_obot_platform_obot_apiclient_types_MCPAuditLogList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPAuditLogResponse":                            schema_obot_platform_obot_apiclient_types_MCPAuditLogResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPCapacityInfo":                                schema_obot_platform_obot_apiclient_types_MCPCapacityInfo(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPCatalog":                                     schema_obot_platform_obot_apiclient_types_MCPCatalog(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPCatalogList":                                 schema_obot_platform_obot_apiclient_types_MCPCatalogList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPCatalogManifest":                             schema_obot_platform_obot_apiclient_types_MCPCatalogManifest(ref),
@@ -93,6 +94,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPHeader":                                      schema_obot_platform_obot_apiclient_types_MCPHeader(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPPromptReadStats":                             schema_obot_platform_obot_apiclient_types_MCPPromptReadStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPResourceReadStats":                           schema_obot_platform_obot_apiclient_types_MCPResourceReadStats(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPResourceRequests":                            schema_obot_platform_obot_apiclient_types_MCPResourceRequests(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPSelector":                                    schema_obot_platform_obot_apiclient_types_MCPSelector(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServer":                                      schema_obot_platform_obot_apiclient_types_MCPServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntry":                          schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref),
@@ -3944,6 +3946,71 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLogResponse(ref common.Re
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_MCPCapacityInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPCapacityInfo represents MCP namespace capacity information",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source indicates where the capacity data comes from (graceful degradation)",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"cpuRequested": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CPURequested is the total CPU requested by MCP deployments",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"cpuLimit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CPULimit is the CPU limit from ResourceQuota",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"memoryRequested": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MemoryRequested is the total memory requested by MCP deployments",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"memoryLimit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MemoryLimit is the memory limit from ResourceQuota",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"activeDeployments": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ActiveDeployments is the number of active MCP server deployments",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Error message if capacity info couldn't be fully retrieved",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"source", "activeDeployments"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_MCPCatalog(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -4243,6 +4310,31 @@ func schema_obot_platform_obot_apiclient_types_MCPResourceReadStats(ref common.R
 					},
 				},
 				Required: []string{"resourceURI", "readCount"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPResourceRequests(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPResourceRequests represents the resource requests for an MCP server deployment",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cpu": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"memory": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
 			},
 		},
 	}
