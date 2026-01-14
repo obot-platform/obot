@@ -64,13 +64,15 @@
 	<div class="flex flex-col gap-4">
 		<div class="flex items-center justify-between">
 			<p class="text-muted text-sm">View and manage all API keys across all users.</p>
-			<button
-				class="button-primary flex items-center gap-2"
-				onclick={() => (showCreateDialog = true)}
-			>
-				<Plus class="size-4" />
-				Create API Key
-			</button>
+			{#if !isAdminReadonly}
+				<button
+					class="button-primary flex items-center gap-2"
+					onclick={() => (showCreateDialog = true)}
+				>
+					<Plus class="size-4" />
+					Create API Key
+				</button>
+			{/if}
 		</div>
 
 		{#if allApiKeys.length === 0}

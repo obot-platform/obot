@@ -134,6 +134,8 @@ var (
 		types.GroupAdmin: adminAndOwnerRules,
 		types.GroupOwner: adminAndOwnerRules,
 		types.GroupAuditor: {
+			"GET /api/admin-api-keys",
+			"GET /api/admin-api-keys/{id}",
 			"GET /api/mcp-audit-logs",
 			"GET /api/mcp-audit-logs/filter-options/{filter}",
 			"GET /api/mcp-audit-logs/detail/{audit_log_id}",
