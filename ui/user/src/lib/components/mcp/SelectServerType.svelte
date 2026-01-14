@@ -73,7 +73,7 @@
 				</span>
 			</div>
 		</button>
-		{#if entity === 'catalog'}
+		{#if entity === 'catalog' && profile.current?.groups.includes(Group.ADMIN)}
 			<button
 				class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group bg-background flex cursor-pointer items-center gap-4 rounded-md border px-2 py-4 text-left transition-colors duration-300"
 				onclick={() => onSelectServerType('composite')}
