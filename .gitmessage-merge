@@ -1,0 +1,62 @@
+# Upstream Merge Commit Message Template
+#
+# Usage: git config commit.template .gitmessage-merge
+# Then when committing a merge: git commit (this template will appear)
+#
+# Replace placeholders with actual values:
+# - ${UPSTREAM_VERSION}: e.g., v0.15.2
+# - ${COMMITS_BEHIND}: number from git rev-list --count HEAD..upstream/main
+# - ${COMMITS_AHEAD}: number from git rev-list --count upstream/main..HEAD
+# - List specific conflicts resolved
+# - Check all verification items
+
+chore: merge upstream obot-platform/obot main (${UPSTREAM_VERSION})
+
+Upstream changes: ${COMMITS_BEHIND} commits
+Fork changes preserved: ${COMMITS_AHEAD} commits
+
+Conflicts resolved:
+- .github/workflows/: kept fork version (custom GHCR publishing)
+- tools/: kept fork version (custom auth providers)
+- Dockerfile: kept fork version (registry merge logic)
+- SECURITY.md: kept fork version (custom auth provider details)
+- chart/values.yaml: manual merge (both sides updated)
+- [Add other conflicts here]
+
+Verified:
+✅ Custom auth providers intact
+✅ Tool registry merged correctly
+✅ Docker build successful
+✅ Go tests passing
+✅ Linting passed
+✅ Verification script passed
+
+Notable upstream changes:
+- [Summarize key upstream features/fixes if known]
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+# Lines starting with '#' will be ignored
+#
+# Quick reference for merge verification:
+#
+# 1. Check divergence:
+#    MERGE_BASE=$(git merge-base HEAD upstream/main)
+#    git rev-list --count HEAD..upstream/main    # Commits behind
+#    git rev-list --count upstream/main..HEAD    # Commits ahead
+#
+# 2. Test merge:
+#    git merge --no-commit --no-ff upstream/main
+#
+# 3. Verify custom files:
+#    ./scripts/verify-custom-files.sh
+#
+# 4. Build and test:
+#    make build && make test && make lint
+#
+# 5. Commit or abort:
+#    git commit  # (this template)
+#    # OR
+#    git merge --abort

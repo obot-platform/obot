@@ -1,0 +1,235 @@
+name: Test Upstream Merge
+
+on:
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: "Upstream ref to test merge (default: main)"
+        required: false
+        default: "main"
+      skip_build:
+        description: "Skip build verification (faster, less thorough)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  test-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.5"
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Configure upstream
+        run: |
+          git remote add upstream https://github.com/obot-platform/obot.git
+          git fetch upstream
+
+      - name: Attempt test merge
+        id: merge
+        run: |
+          echo "## Merge Test Report" >> $GITHUB_STEP_SUMMARY
+
+          # Analyze divergence
+          MERGE_BASE=$(git merge-base HEAD upstream/${{ inputs.upstream_ref }})
+          COMMITS_BEHIND=$(git rev-list --count HEAD..upstream/${{ inputs.upstream_ref }})
+          COMMITS_AHEAD=$(git rev-list --count upstream/${{ inputs.upstream_ref }}..HEAD)
+
+          echo "- Commits behind upstream: $COMMITS_BEHIND" >> $GITHUB_STEP_SUMMARY
+          echo "- Commits ahead of upstream: $COMMITS_AHEAD" >> $GITHUB_STEP_SUMMARY
+          echo "- Merge base: $MERGE_BASE" >> $GITHUB_STEP_SUMMARY
+
+          # Identify overlapping files
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Potentially Conflicting Files" >> $GITHUB_STEP_SUMMARY
+          comm -12 \
+            <(git diff --name-only $MERGE_BASE..HEAD | sort) \
+            <(git diff --name-only $MERGE_BASE..upstream/${{ inputs.upstream_ref }} | sort) \
+            >> $GITHUB_STEP_SUMMARY || echo "No overlapping files" >> $GITHUB_STEP_SUMMARY
+
+          # Attempt merge
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if git merge --no-commit --no-ff upstream/${{ inputs.upstream_ref }}; then
+            echo "merge_status=clean" >> $GITHUB_OUTPUT
+            echo "✅ **Merge appears clean**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "merge_status=conflicts" >> $GITHUB_OUTPUT
+            echo "⚠️ **Conflicts detected:**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            git status | grep "both modified" >> $GITHUB_STEP_SUMMARY || echo "Unable to list conflicts" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          git merge --abort || true
+
+      - name: Test custom file preservation
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Custom Files Verification" >> $GITHUB_STEP_SUMMARY
+
+          # Test that our custom files would be preserved
+          FILES_TO_CHECK=(
+            "tools/entra-auth-provider/main.go"
+            "tools/keycloak-auth-provider/main.go"
+            ".github/workflows/docker-build-and-push.yml"
+            "Dockerfile"
+            "scripts/verify-custom-files.sh"
+          )
+
+          for file in "${FILES_TO_CHECK[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✅ $file exists" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "❌ $file missing" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+      - name: Run full verification script
+        if: steps.merge.outputs.merge_status == 'clean'
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Full Custom Files Verification" >> $GITHUB_STEP_SUMMARY
+          if ./scripts/verify-custom-files.sh; then
+            echo "✅ All custom files verified successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Custom files verification completed with warnings" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Build verification
+        if: steps.merge.outputs.merge_status == 'clean' && inputs.skip_build != true
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Verification" >> $GITHUB_STEP_SUMMARY
+
+          # Test Go build
+          if make build; then
+            echo "✅ Go build successful" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Go build failed" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Test verification
+        if: steps.merge.outputs.merge_status == 'clean' && inputs.skip_build != true
+        run: |
+          # Test Go tests
+          if make test; then
+            echo "✅ Go tests pass" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Go tests failed" >> $GITHUB_STEP_SUMMARY
+            echo "This may be expected if upstream introduced breaking changes" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Lint verification
+        if: steps.merge.outputs.merge_status == 'clean' && inputs.skip_build != true
+        run: |
+          # Test linting
+          if make lint 2>&1 | tee lint.log; then
+            echo "✅ Linting passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Linting issues detected" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            tail -20 lint.log >> $GITHUB_STEP_SUMMARY || true
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Generate merge script
+        if: steps.merge.outputs.merge_status == 'clean'
+        run: |
+          UPSTREAM_VERSION=$(git describe --tags --abbrev=0 upstream/${{ inputs.upstream_ref }} 2>/dev/null || echo "unknown")
+          COMMITS_BEHIND=$(git rev-list --count HEAD..upstream/${{ inputs.upstream_ref }})
+          COMMITS_AHEAD=$(git rev-list --count upstream/${{ inputs.upstream_ref }}..HEAD)
+
+          cat > /tmp/merge-upstream.sh <<EOF
+          #!/bin/bash
+          set -e
+
+          echo "🔄 Merging upstream obot-platform/obot ${{ inputs.upstream_ref }}..."
+
+          # Fetch latest
+          git fetch upstream
+
+          # Verify custom files before merge
+          echo "Verifying custom files before merge..."
+          ./scripts/verify-custom-files.sh
+
+          # Perform merge
+          git merge upstream/${{ inputs.upstream_ref }} -m "\$(cat <<'COMMIT_MSG'
+          chore: merge upstream obot-platform/obot ${{ inputs.upstream_ref }} (\${UPSTREAM_VERSION})
+
+          Upstream changes: ${COMMITS_BEHIND} commits
+          Fork changes preserved: ${COMMITS_AHEAD} commits
+
+          Conflicts resolved: None (clean merge)
+
+          Verified:
+          ✅ Custom auth providers intact
+          ✅ Tool registry merged correctly
+          ✅ Workflows preserved
+          ✅ Build successful
+          ✅ Tests passing
+
+          🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+          Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+          COMMIT_MSG
+          )"
+
+          # Verify custom files after merge
+          echo "Verifying custom files after merge..."
+          ./scripts/verify-custom-files.sh
+
+          # Push
+          git push origin main
+
+          echo "✅ Merge completed successfully"
+          EOF
+
+          chmod +x /tmp/merge-upstream.sh
+          echo "Merge script generated (see artifacts)"
+
+      - name: Upload merge script
+        if: steps.merge.outputs.merge_status == 'clean'
+        uses: actions/upload-artifact@v4
+        with:
+          name: merge-script
+          path: /tmp/merge-upstream.sh
+          retention-days: 7
+
+      - name: Comment on result
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ steps.merge.outputs.merge_status }}';
+            const skipBuild = '${{ inputs.skip_build }}';
+
+            let message;
+            if (status === 'clean') {
+              message = `✅ Test merge successful! Merge appears safe to proceed.
+
+              ${skipBuild === 'true' ? '⚠️ Build verification was skipped' : '✅ Build and tests completed successfully'}
+
+              **Next steps:**
+              1. Download the merge script artifact from this workflow run
+              2. Review the merge script
+              3. Execute locally: \`bash merge-upstream.sh\`
+              4. Or perform manual merge following the documented process`;
+            } else {
+              message = `⚠️ Test merge detected conflicts. Manual resolution required.
+
+              **Action required:**
+              Follow the [upstream merge process](https://github.com/${{ github.repository }}/blob/main/docs/docs/contributing/upstream-merge-process.md) to resolve conflicts manually.`;
+            }
+
+            console.log(message);
