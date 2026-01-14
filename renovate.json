@@ -238,13 +238,6 @@
         "/^sigs\\.k8s\\.io//"
       ],
       "enabled": false
-    },
-    {
-      "description": "Block cloud.google.com/go/storage updates until OpenTelemetry monorepo updates to v1.39.0+. Storage v1.59.0 has transitive dependencies on OpenTelemetry v1.39.0 which conflicts with current v1.35.0. The conflict causes go mod tidy failures due to missing internal test package (go.opentelemetry.io/otel/sdk/internal/internaltest). Update OpenTelemetry first (Renovate PRs for otel monorepo + contrib), then re-enable storage updates. See: PR #48 artifact failure, OpenTelemetry Issue #3846, gRPC Issue #7963",
-      "matchPackageNames": [
-        "cloud.google.com/go/storage"
-      ],
-      "enabled": false
     }
   ]
 }
