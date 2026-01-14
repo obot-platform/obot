@@ -15,11 +15,8 @@ WORKDIR /app
 # Copy dependency manifests first (change rarely, maximize cache hits)
 COPY go.mod go.sum ./
 COPY ui/user/package.json ui/user/pnpm-lock.yaml ./ui/user/
-COPY tools/entra-auth-provider/go.mod tools/entra-auth-provider/go.sum ./tools/entra-auth-provider/
-COPY tools/keycloak-auth-provider/go.mod tools/keycloak-auth-provider/go.sum ./tools/keycloak-auth-provider/
-COPY tools/auth-providers-common/go.mod tools/auth-providers-common/go.sum ./tools/auth-providers-common/
 
-# Download dependencies (cached unless manifests change - major optimization)
+# Download main module dependencies (cached unless go.mod changes)
 RUN --mount=type=cache,target=/root/go/pkg/mod \
   go mod download
 
@@ -27,7 +24,7 @@ RUN --mount=type=cache,target=/root/go/pkg/mod \
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
   cd ui/user && pnpm install --frozen-lockfile
 
-# Now copy source code (changes frequently)
+# Copy source code including auth provider modules (needed for replace directives)
 COPY . .
 
 # Build with cached dependencies (faster rebuilds)
