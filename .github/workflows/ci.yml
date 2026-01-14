@@ -71,8 +71,11 @@ jobs:
         uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           path: ~/.cache/golangci-lint
-          key: golangci-lint-${{ runner.os }}-${{ hashFiles('.golangci.yml', '.golangci.yaml', '.golangci.toml', '.golangci.json') }}
+          # Scope cache by branch for better isolation and cache hit rates (free tier)
+          key: golangci-lint-${{ runner.os }}-${{ github.ref_name }}-${{ hashFiles('.golangci.yml', '.golangci.yaml', '.golangci.toml', '.golangci.json') }}
           restore-keys: |
+            golangci-lint-${{ runner.os }}-${{ github.ref_name }}-
+            golangci-lint-${{ runner.os }}-main-
             golangci-lint-${{ runner.os }}-
 
       - name: Build
@@ -212,14 +215,25 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
+      - name: Pre-fetch base images in parallel
+        run: |
+          # Pull base images concurrently to reduce sequential wait time (saves 3-4 min)
+          docker pull ghcr.io/obot-platform/tools:latest &
+          docker pull ghcr.io/obot-platform/tools/providers:latest &
+          docker pull cgr.dev/chainguard/wolfi-base:latest &
+          wait
+          echo "Base images pre-fetched successfully"
+
       - name: Build Docker image
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
           push: false
+          load: true  # Load image to local Docker daemon
           platforms: linux/amd64
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max  # Persist cache even without push (PR builds)
+          outputs: type=docker  # Output to Docker daemon for local use
 
   # Summary job to aggregate results for branch protection
   summary:

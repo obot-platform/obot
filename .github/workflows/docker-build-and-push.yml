@@ -42,6 +42,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
 
+      - name: Pre-fetch base images in parallel
+        run: |
+          # Pull base images concurrently to reduce sequential wait time (saves 3-4 min)
+          docker pull ghcr.io/obot-platform/tools:latest &
+          docker pull ghcr.io/obot-platform/tools/providers:latest &
+          docker pull cgr.dev/chainguard/wolfi-base:latest &
+          wait
+          echo "Base images pre-fetched successfully"
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:

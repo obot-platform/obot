@@ -11,7 +11,26 @@ RUN if [ "${BASE_IMAGE}" = "cgr.dev/chainguard/wolfi-base" ]; then \
 
 FROM base AS bin
 WORKDIR /app
+
+# Copy dependency manifests first (change rarely, maximize cache hits)
+COPY go.mod go.sum ./
+COPY ui/user/package.json ui/user/pnpm-lock.yaml ./ui/user/
+COPY tools/entra-auth-provider/go.mod tools/entra-auth-provider/go.sum ./tools/entra-auth-provider/
+COPY tools/keycloak-auth-provider/go.mod tools/keycloak-auth-provider/go.sum ./tools/keycloak-auth-provider/
+COPY tools/auth-providers-common/go.mod tools/auth-providers-common/go.sum ./tools/auth-providers-common/
+
+# Download dependencies (cached unless manifests change - major optimization)
+RUN --mount=type=cache,target=/root/go/pkg/mod \
+  go mod download
+
+# Install UI dependencies (cached unless package files change)
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+  cd ui/user && pnpm install --frozen-lockfile
+
+# Now copy source code (changes frequently)
 COPY . .
+
+# Build with cached dependencies (faster rebuilds)
 # hadolint ignore=DL3003
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
   --mount=type=cache,target=/root/.cache/go-build \
