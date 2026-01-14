@@ -23,8 +23,10 @@ RUN --mount=type=cache,target=/root/go/pkg/mod \
   go mod download
 
 # Install UI dependencies (cached unless package files change)
+WORKDIR /app/ui/user
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
-  cd ui/user && pnpm install --frozen-lockfile
+  pnpm install --frozen-lockfile
+WORKDIR /app
 
 # Copy source code including auth provider modules (needed for replace directives)
 COPY . .
