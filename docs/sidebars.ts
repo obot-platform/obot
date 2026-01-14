@@ -85,6 +85,7 @@ const sidebars = {
           items: [
             "operations/secret-rotation",
             "operations/auth-provider-testing",
+            "operations/caching-strategy",
           ],
         },
       ],
