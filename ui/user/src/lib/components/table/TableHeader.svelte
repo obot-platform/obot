@@ -1,7 +1,7 @@
 <script lang="ts">
 	import popover from '$lib/actions/popover.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { ArrowDown, ArrowUp, Funnel } from 'lucide-svelte';
+	import { ArrowDown, ArrowUp, CircleHelp, Funnel } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Select from '../Select.svelte';
 
@@ -14,6 +14,7 @@
 		filterOptions?: (string | number)[];
 		headerClass?: string;
 		headerTitle?: string;
+		headerTooltip?: string;
 		order?: 'asc' | 'desc';
 		sortable?: boolean;
 		style?: string;
@@ -29,6 +30,7 @@
 		filterOptions,
 		headerClass,
 		headerTitle,
+		headerTooltip,
 		order,
 		sortable,
 		style,
@@ -69,6 +71,11 @@
 				onclick={() => toggle()}
 			>
 				{headerTitle ?? property}
+				{#if headerTooltip}
+					<div use:tooltip={{ text: headerTooltip, classes: ['w-64', 'break-normal', 'z-[60]'] }}>
+						<CircleHelp class="text-on-surface1 size-3.5" />
+					</div>
+				{/if}
 				<div
 					class={twMerge(
 						'flex items-center gap-1 px-2 py-0.5',
@@ -82,7 +89,14 @@
 				</div>
 			</button>
 		{:else}
-			{headerTitle ?? property}
+			<span class="flex items-center gap-1">
+				{headerTitle ?? property}
+				{#if headerTooltip}
+					<div use:tooltip={{ text: headerTooltip, classes: ['w-64', 'break-normal', 'z-[60]'] }}>
+						<CircleHelp class="text-on-surface1 size-3.5" />
+					</div>
+				{/if}
+			</span>
 		{/if}
 
 		{#if sortable}

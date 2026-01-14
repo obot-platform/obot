@@ -136,7 +136,13 @@
 					onClearAllFilters={clearUrlParams}
 					sortable={['name', 'email', 'role', 'effectiveRole', 'lastActiveDay']}
 					headers={[
-						{ title: 'Effective Role', property: 'effectiveRole' },
+						{ title: 'Assigned Role', property: 'role' },
+						{
+							title: 'Actual Role',
+							property: 'effectiveRole',
+							tooltip:
+								"The user's highest permission level, based on their assigned role and any roles inherited from groups."
+						},
 						{ title: 'Last Active', property: 'lastActiveDay' }
 					]}
 					{initSort}
