@@ -391,9 +391,17 @@ config:
   OBOT_ENTRA_AUTH_PROVIDER_LOG_LEVEL: "debug"
 ```
 
+## See Also
+
+- [Authentication Provider Testing](../operations/auth-provider-testing.md) - Testing and validation procedures
+- [Local Development Guide](../contributing/local-development.md) - Running auth providers locally
+- [Cookie Secret Rotation](../operations/secret-rotation.md) - Rotating authentication secrets
+- [Keycloak Authentication](./keycloak-authentication.md) - Alternative OIDC provider
+
 ## References
 
 - [Microsoft Entra ID OAuth 2.0 Authorization Code Flow](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow)
 - [OAuth2-Proxy Microsoft Entra ID Provider](https://oauth2-proxy.github.io/oauth2-proxy/configuration/providers/ms_entra_id/)
 - [Microsoft Graph API - User](https://learn.microsoft.com/en-us/graph/api/user-get)
 - [Azure Workload Identity](https://learn.microsoft.com/en-us/entra/workload-id/workload-identity-federation)
+- [Entra ID Provider Source Code](https://github.com/jrmatherly/obot-entraid/tree/main/tools/entra-auth-provider) - Package-level documentation

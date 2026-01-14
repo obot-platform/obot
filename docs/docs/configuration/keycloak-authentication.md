@@ -448,6 +448,13 @@ curl "https://keycloak.example.com/admin/realms/obot/users/<user-id>/groups" \
   -H "Authorization: Bearer <access-token>"
 ```
 
+## See Also
+
+- [Authentication Provider Testing](../operations/auth-provider-testing.md) - Testing and validation procedures
+- [Local Development Guide](../contributing/local-development.md) - Running auth providers locally
+- [Cookie Secret Rotation](../operations/secret-rotation.md) - Rotating authentication secrets
+- [Entra ID Authentication](./entra-id-authentication.md) - Alternative Microsoft identity provider
+
 ## References
 
 - [Keycloak Documentation](https://www.keycloak.org/documentation)
@@ -455,3 +462,4 @@ curl "https://keycloak.example.com/admin/realms/obot/users/<user-id>/groups" \
 - [Keycloak Admin REST API](https://www.keycloak.org/docs-api/latest/rest-api/index.html)
 - [OAuth2-Proxy Keycloak-OIDC Provider](https://oauth2-proxy.github.io/oauth2-proxy/configuration/providers/keycloak_oidc/)
 - [Service Accounts in Keycloak](https://www.keycloak.org/docs/latest/server_admin/#_service_accounts)
+- [Keycloak Provider Source Code](https://github.com/jrmatherly/obot-entraid/tree/main/tools/keycloak-auth-provider) - Package-level documentation

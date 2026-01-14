@@ -170,6 +170,8 @@ When merging upstream, ensure these customizations remain:
 |------|-------------|
 | `ui/user/src/lib/components/navbar/Profile.svelte` | Profile picture handling |
 | `ui/user/src/routes/admin/auth-providers/+page.svelte` | Auth provider UI |
+| `ui/user/src/routes/terms-of-service/+page.svelte` | Terms of Service with fork GitHub URL |
+| `ui/user/src/routes/privacy-policy/+page.svelte` | Privacy Policy with fork GitHub URL |
 
 ## Quick Reference Commands
 

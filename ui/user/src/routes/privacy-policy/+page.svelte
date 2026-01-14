@@ -90,7 +90,7 @@
 		{/if}
 	</a>
 	<a
-		href="https://github.com/obot-platform/obot"
+		href="https://github.com/jrmatherly/obot-entraid"
 		class="icon-button"
 		rel="external"
 		target="_blank"

@@ -79,6 +79,14 @@ const sidebars = {
             "configuration/encryption-providers/custom-provider",
           ],
         },
+        {
+          type: "category",
+          label: "Operations",
+          items: [
+            "operations/secret-rotation",
+            "operations/auth-provider-testing",
+          ],
+        },
       ],
     },
     "enterprise/overview",
@@ -87,6 +95,8 @@ const sidebars = {
       label: "Contributing",
       items: [
         "contributing/upstream-merge-process",
+        "contributing/documentation-versioning",
+        "contributing/local-development",
       ],
     },
     "faq",

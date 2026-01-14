@@ -147,7 +147,7 @@ These require full test infrastructure (mock OAuth providers, test containers) a
 **Test Scenarios:**
 1. **PostgreSQL Session Storage** - Sessions persist to database
 2. **Cookie-Only Fallback** - Graceful degradation if PostgreSQL unavailable
-3. **Table Prefix Isolation** - Separate keycloak_ and entra_ sessions
+3. **Table Prefix Isolation** - Separate keycloak_and entra_ sessions
 4. **Session Expiry** - Sessions expire after configured duration
 
 **Test File:** `tests/integration/session_storage_test.go` (to be created)

@@ -1,5 +1,7 @@
 # Obot
 
+This project is a fork of [obot-platform/obot](https://github.com/obot-platform/obot) with custom authentication providers for Microsoft Entra ID and Keycloak.
+
 Obot is an open-source platform that provides everything an organization needs to implement MCP technologies. It enables you to host MCP servers for internal and external users, set up MCP registries, manage and monitor MCP usage, and build feature-rich agents and chatbots that leverage MCP servers.
 
 ## Getting Started
@@ -10,7 +12,7 @@ To run Obot locally, start it with Docker:
 docker run -d --name obot -p 8080:8080 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -e OPENAI_API_KEY=<API KEY> \
-  ghcr.io/obot-platform/obot:latest
+  ghcr.io/jrmatherly/obot-entraid:latest
 ```
 
 Open [http://localhost:8080](http://localhost:8080) in your browser to access the Obot UI.
@@ -82,10 +84,21 @@ A chat client built to work directly with MCP:
 
 Documentation is available at [https://docs.obot.ai](https://docs.obot.ai).
 
-## Community
+## Contributing
 
-* Documentation: [https://docs.obot.ai](https://docs.obot.ai)
-* Discord: [https://discord.com/invite/9sSf4UyAMC](https://discord.com/invite/9sSf4UyAMC)
+This is a fork of [obot-platform/obot](https://github.com/obot-platform/obot) with custom authentication providers for Microsoft Entra ID and Keycloak.
+
+**Quick Start:**
+* 📖 [Contributing Guide](CONTRIBUTING.md) - How to contribute to this fork
+* 🔀 [Fork Workflow Analysis](docs/docs/contributing/fork-workflow-analysis-2026.md) - Upstream merge strategy
+* 👥 [Contributor Guide](docs/docs/contributing/contributor-guide.md) - Detailed development workflow
+* 📝 [Communication Templates](docs/docs/contributing/communication-templates.md) - Notification templates
+
+**Custom Authentication Providers:**
+* 🔐 **Entra ID** - Microsoft Entra (Azure AD) authentication with profile pictures
+* 🔐 **Keycloak** - OpenID Connect authentication
+
+See [tools/README.md](tools/README.md) for authentication provider documentation.
 
 ## License
 
