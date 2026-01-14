@@ -5,7 +5,7 @@ go 1.25.5
 require (
 	github.com/gptscript-ai/go-gptscript v0.9.8
 	github.com/modelcontextprotocol/go-sdk v0.2.0
-	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32
+	github.com/obot-platform/obot/logger v0.0.0-20260113205558-6d1a7813b244
 	github.com/stretchr/testify v1.10.0
 )
 
