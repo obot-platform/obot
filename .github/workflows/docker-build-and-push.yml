@@ -120,6 +120,6 @@ jobs:
           output: "trivy-results.sarif"
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@db2c8fe24a75c0f28f87ed1a6fe918a5ccf7b1e6 # v4.31.10
+        uses: github/codeql-action/upload-sarif@cdefb33c0f6224e58673d9004f47f7cb3e328b89 # v4.31.10
         with:
           sarif_file: trivy-results.sarif
