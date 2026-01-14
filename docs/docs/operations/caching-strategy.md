@@ -88,15 +88,16 @@ wait
 
 ### 4. Dockerfile Layer Ordering
 
-**Location**: `Dockerfile:15-41`
+**Location**: `Dockerfile:15-28`
 
-**Strategy**: Copy dependency manifests before source code
+**Strategy**: Copy dependency manifests and local modules before source code
 
 ```dockerfile
-# Copy manifests (change rarely)
+# Copy manifests and local replace dependencies (change rarely)
 COPY go.mod go.sum ./
+COPY apiclient/go.mod apiclient/go.sum ./apiclient/
+COPY logger/go.mod logger/go.sum ./logger/
 COPY ui/user/package.json ui/user/pnpm-lock.yaml ./ui/user/
-COPY tools/*/go.mod tools/*/go.sum ./tools/*/
 
 # Download deps (cached layer)
 RUN go mod download
@@ -109,12 +110,23 @@ COPY . .
 RUN make all
 ```
 
+**Key Detail**: Must include `apiclient/` and `logger/` directories because main `go.mod` has replace directives:
+```go
+replace (
+    github.com/obot-platform/obot/apiclient => ./apiclient
+    github.com/obot-platform/obot/logger => ./logger
+)
+```
+
 **Benefits**:
 - Dependency layers cached separately from source
 - Source changes don't invalidate dependency cache
 - 60% faster rebuilds when only code changes
+- Local modules properly resolved during go mod download
 
 **Impact**: 30-50% improvement on incremental builds
+
+**Note**: Auth provider modules (tools/*) are NOT copied early because they also have replace directives. Since they're small (~50-100 MB), including them in the build layer has minimal impact.
 
 ## Cache Monitoring
 
