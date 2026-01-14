@@ -233,7 +233,7 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 	server.JWKSEndpoint = localhostURLRegexp.ReplaceAllString(server.JWKSEndpoint, d.hostBaseURLWithPort)
 
 	for i, component := range server.Components {
-		component.URL = strings.Replace(component.URL, "http://localhost", d.hostBaseURL, 1)
+		component.URL = localhostURLRegexp.ReplaceAllString(component.URL, d.hostBaseURLWithPort)
 		server.Components[i] = component
 	}
 
