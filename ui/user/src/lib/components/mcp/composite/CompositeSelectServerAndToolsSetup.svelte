@@ -366,6 +366,10 @@
 	class="md:w-sm"
 	onClose={() => {
 		listeningOauthVisibility = false;
+		if (!ready) {
+			resetConfigureTool();
+			onCancel?.();
+		}
 	}}
 >
 	{#if configuringEntry}
@@ -436,10 +440,15 @@
 	{configuringEntry}
 	{tools}
 	onCancel={() => {
+		const hadConfiguringEntry = !!configuringEntry;
 		resetConfigureTool();
-		if (configuringEntry) {
+		if (hadConfiguringEntry) {
 			onCancel?.();
 		}
+	}}
+	onClose={() => {
+		resetConfigureTool();
+		onCancel?.();
 	}}
 	onSuccess={() => {
 		if (!componentConfig || !configuringEntry) return;
