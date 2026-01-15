@@ -12,6 +12,7 @@ jobs:
         id: check-member
         uses: actions/github-script@v8
         with:
+          github-token: ${{ secrets.MEMBERSHIP_CHECK_GITHUB_TOKEN }}
           script: |
             const org = context.repo.owner;
             const username = context.payload.issue.user.login;
