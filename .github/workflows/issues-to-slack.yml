@@ -46,5 +46,5 @@ jobs:
                   type: "mrkdwn"
                   text: |
                     *New Community Issue Opened*
-                    [${{ github.event.issue.title }}](${{ github.event.issue.html_url }})
+                    <${{ github.event.issue.html_url }}|${{ github.event.issue.title }}>
                     Opened by: ${{ github.event.issue.user.login }}
