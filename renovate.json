@@ -11,207 +11,135 @@
   "dependencyDashboardTitle": "Renovate Dashboard :robot:",
   "branchPrefix": "renovate/",
   "timezone": "America/New_York",
-  "postUpdateOptions": [
-    "gomodTidy"
-  ],
+  "postUpdateOptions": ["gomodTidy"],
   "rebaseWhen": "conflicted",
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
-  "schedule": [
-    "after 10pm",
-    "before 6am"
-  ],
+  "schedule": ["after 10pm", "before 6am"],
   "osvVulnerabilityAlerts": true,
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": [
-      "before 4am on monday"
-    ],
+    "schedule": ["before 4am on monday"],
     "automerge": true,
     "automergeType": "branch"
   },
   "vulnerabilityAlerts": {
     "enabled": true,
-    "labels": [
-      "security",
-      "priority/high"
-    ],
+    "labels": ["security", "priority/high"],
     "automerge": true,
-    "schedule": [
-      "at any time"
-    ]
+    "schedule": ["at any time"]
   },
   "packageRules": [
     {
       "description": "Group gptscript-ai packages",
       "groupName": "gptscript packages",
-      "matchPackageNames": [
-        "/^github.com/gptscript-ai//"
-      ]
+      "matchPackageNames": ["/^github.com/gptscript-ai//"]
     },
     {
       "description": "Group golang.org/x packages",
       "groupName": "golang.org/x packages",
-      "matchPackageNames": [
-        "/^golang.org/x//"
-      ]
+      "matchPackageNames": ["/^golang.org/x//"]
     },
     {
       "description": "Group obot-platform packages",
       "groupName": "obot-platform packages",
-      "matchPackageNames": [
-        "/^github.com/obot-platform//"
-      ]
+      "matchPackageNames": ["/^github.com/obot-platform//"]
     },
     {
       "description": "Group all k8s.io packages together (must update in lockstep)",
       "groupName": "kubernetes packages",
-      "matchPackageNames": [
-        "/^k8s.io//",
-        "/^sigs.k8s.io//"
-      ]
+      "matchPackageNames": ["/^k8s.io//", "/^sigs.k8s.io//"]
     },
     {
       "description": "Disable automerge for k8s digest updates (require manual review)",
-      "matchPackageNames": [
-        "/^k8s.io//",
-        "/^sigs.k8s.io//"
-      ],
+      "matchPackageNames": ["/^k8s.io//", "/^sigs.k8s.io//"],
       "matchUpdateTypes": ["digest"],
       "automerge": false
     },
     {
       "description": "Group Svelte ecosystem packages",
       "groupName": "svelte packages",
-      "matchPackageNames": [
-        "/^@sveltejs//",
-        "/^svelte/"
-      ]
+      "matchPackageNames": ["/^@sveltejs//", "/^svelte/"]
     },
     {
       "description": "Group Tailwind CSS packages",
       "groupName": "tailwind packages",
-      "matchPackageNames": [
-        "/^tailwindcss/",
-        "/^@tailwindcss//"
-      ]
+      "matchPackageNames": ["/^tailwindcss/", "/^@tailwindcss//"]
     },
     {
       "description": "Group AWS SDK v2 packages",
       "groupName": "aws-sdk packages",
-      "matchPackageNames": [
-        "/^github.com/aws/aws-sdk-go-v2//"
-      ]
+      "matchPackageNames": ["/^github.com/aws/aws-sdk-go-v2//"]
     },
     {
       "description": "Restrict Helm to v3.x (Helm 4 not yet production ready)",
-      "matchPackageNames": [
-        "azure/setup-helm",
-        "/helm/"
-      ],
+      "matchPackageNames": ["azure/setup-helm", "/helm/"],
       "allowedVersions": "<4.0.0"
     },
     {
       "description": "Auto-merge GitHub Actions (grouped)",
-      "matchManagers": [
-        "github-actions"
-      ],
+      "matchManagers": ["github-actions"],
       "groupName": "github-actions",
       "groupSlug": "github-actions",
-      "matchUpdateTypes": [
-        "minor",
-        "patch",
-        "digest"
-      ],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
       "automerge": true,
       "automergeType": "branch",
       "minimumReleaseAge": "3 days"
     },
     {
       "description": "Auto-merge Go patch updates",
-      "matchManagers": [
-        "gomod"
-      ],
-      "matchUpdateTypes": [
-        "patch",
-        "digest"
-      ],
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["patch", "digest"],
       "automerge": true,
       "automergeType": "pr",
       "minimumReleaseAge": "3 days"
     },
     {
       "description": "Auto-merge npm patch updates",
-      "matchManagers": [
-        "npm"
-      ],
-      "matchUpdateTypes": [
-        "patch"
-      ],
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["patch"],
       "automerge": true,
       "automergeType": "pr",
       "minimumReleaseAge": "3 days"
     },
     {
-      "matchUpdateTypes": [
-        "major"
-      ],
+      "matchUpdateTypes": ["major"],
       "semanticCommitType": "feat",
       "commitMessagePrefix": "{{semanticCommitType}}({{semanticCommitScope}})!:",
       "commitMessageExtra": "( {{currentVersion}} → {{newVersion}} )",
-      "labels": [
-        "type/major"
-      ]
+      "labels": ["type/major"]
     },
     {
-      "matchUpdateTypes": [
-        "minor"
-      ],
+      "matchUpdateTypes": ["minor"],
       "semanticCommitType": "feat",
       "commitMessageExtra": "( {{currentVersion}} → {{newVersion}} )",
-      "labels": [
-        "type/minor"
-      ]
+      "labels": ["type/minor"]
     },
     {
-      "matchUpdateTypes": [
-        "patch"
-      ],
+      "matchUpdateTypes": ["patch"],
       "semanticCommitType": "fix",
       "commitMessageExtra": "( {{currentVersion}} → {{newVersion}} )",
-      "labels": [
-        "type/patch"
-      ]
+      "labels": ["type/patch"]
     },
     {
-      "matchUpdateTypes": [
-        "digest"
-      ],
+      "matchUpdateTypes": ["digest"],
       "semanticCommitType": "chore",
       "commitMessageExtra": "( {{currentDigestShort}} → {{newDigestShort}} )",
-      "labels": [
-        "type/digest"
-      ]
+      "labels": ["type/digest"]
     },
     {
-      "matchManagers": [
-        "github-actions"
-      ],
+      "matchManagers": ["github-actions"],
       "semanticCommitType": "ci",
       "semanticCommitScope": "github-action",
       "commitMessageTopic": "action {{depName}}"
     },
     {
-      "matchManagers": [
-        "gomod"
-      ],
+      "matchManagers": ["gomod"],
       "semanticCommitScope": "go",
       "commitMessageTopic": "module {{depName}}"
     },
     {
-      "matchManagers": [
-        "npm"
-      ],
+      "matchManagers": ["npm"],
       "semanticCommitScope": "npm",
       "commitMessageTopic": "package {{depName}}"
     },
@@ -228,14 +156,6 @@
       "matchPackageNames": [
         "github.com/obot-platform/oauth2-proxy/v7",
         "github.com/oauth2-proxy/oauth2-proxy/v7"
-      ],
-      "enabled": false
-    },
-    {
-      "description": "Block Kubernetes package updates until upstream nah framework supports K8s v0.35.0+ API. The K8s client-go v0.35.0 requires implementation of Apply() method in client.WithWatch interface. The nah framework (github.com/obot-platform/nah@v0.0.0-20250418220644-1b9278409317) has not been updated to support this new API requirement. Blocking at v0.31.1 (sigs.k8s.io/controller-runtime v0.19.0) until upstream resolves. See: PR #47 revert (commit bf0f0ace), build error: 'cannot use &client{…} as client.WithWatch value'",
-      "matchPackageNames": [
-        "/^k8s\\.io//",
-        "/^sigs\\.k8s\\.io//"
       ],
       "enabled": false
     }
