@@ -155,6 +155,7 @@ export interface Profile {
 	email: string;
 	iconURL: string;
 	role: number;
+	effectiveRole: number;
 	groups: string[];
 	loaded?: boolean;
 	hasAdminAccess?: () => boolean;

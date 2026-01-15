@@ -146,6 +146,7 @@ export interface OrgUser {
 	email: string;
 	explicitRole: boolean;
 	role: number;
+	effectiveRole: number;
 	groups: string[];
 	iconURL: string;
 	id: string;

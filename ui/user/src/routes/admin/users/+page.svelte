@@ -38,6 +38,7 @@
 				...user,
 				name: getUserDisplayName(user),
 				role: getUserRoleLabel(user.role).split(','),
+				effectiveRole: getUserRoleLabel(user.effectiveRole).split(','),
 				roleId: user.role & ~Role.AUDITOR,
 				auditor: user.role & Role.AUDITOR ? true : false
 			}))
@@ -128,13 +129,22 @@
 				/>
 				<Table
 					data={tableData}
-					fields={['name', 'email', 'role', 'lastActiveDay']}
-					filterable={['name', 'email', 'role']}
+					fields={['name', 'email', 'role', 'effectiveRole', 'lastActiveDay']}
+					filterable={['name', 'email', 'role', 'effectiveRole']}
 					filters={urlFilters}
 					onFilter={setFilterUrlParams}
 					onClearAllFilters={clearUrlParams}
-					sortable={['name', 'email', 'role', 'lastActiveDay']}
-					headers={[{ title: 'Last Active', property: 'lastActiveDay' }]}
+					sortable={['name', 'email', 'role', 'effectiveRole', 'lastActiveDay']}
+					headers={[
+						{ title: 'Assigned Role', property: 'role' },
+						{
+							title: 'Actual Role',
+							property: 'effectiveRole',
+							tooltip:
+								"The user's highest permission level, based on their assigned role and any roles inherited from groups."
+						},
+						{ title: 'Last Active', property: 'lastActiveDay' }
+					]}
 					{initSort}
 					onSort={setSortUrlParams}
 				>
@@ -149,6 +159,10 @@
 										<ShieldAlert class="size-5" />
 									</div>
 								{/if}
+							</div>
+						{:else if property === 'effectiveRole'}
+							<div class="flex items-center gap-1">
+								{d.effectiveRole}
 							</div>
 						{:else if property === 'lastActiveDay'}
 							{d.lastActiveDay ? formatTimeAgo(d.lastActiveDay, 'day').relativeTime : '-'}

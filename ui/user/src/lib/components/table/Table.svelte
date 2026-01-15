@@ -22,7 +22,7 @@
 			root?: string;
 			thead?: string;
 		};
-		headers?: { title: string; property: string }[];
+		headers?: { title: string; property: string; tooltip?: string }[];
 		headerClasses?: { property: string; class: string }[];
 		fields: string[];
 		data: T[];
@@ -634,13 +634,16 @@
 
 			{#each fields as property (property)}
 				{@const headerClass = headerClasses?.find((hc) => hc.property === property)?.class}
-				{@const headerTitle = headers?.find((h) => h.property === property)?.title}
+				{@const headerConfig = headers?.find((h) => h.property === property)}
+				{@const headerTitle = headerConfig?.title}
+				{@const headerTooltip = headerConfig?.tooltip}
 				<TableHeader
 					sortable={sortableFields.has(property)}
 					filterable={filterableFields.has(property)}
 					filterOptions={filterValues[property] ? Array.from(filterValues[property]) : []}
 					{headerClass}
 					{headerTitle}
+					{headerTooltip}
 					{property}
 					onFilter={handleFilter}
 					onSort={handleSort}

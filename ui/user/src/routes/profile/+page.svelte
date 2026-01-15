@@ -73,7 +73,7 @@
 					<div class="flex flex-row py-3">
 						<div class="w-1/2 max-w-[150px]">Role:</div>
 						<div class="w-1/2 break-words">
-							{getUserRoleLabel(profile.current.role)}
+							{getUserRoleLabel(profile.current.effectiveRole)}
 						</div>
 					</div>
 					<hr />
