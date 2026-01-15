@@ -142,6 +142,7 @@ var (
 			"GET /api/mcp-audit-logs/{mcp_id}",
 			"GET /api/mcp-stats",
 			"GET /api/mcp-stats/{mcp_id}",
+			"GET /api/mcp-capacity",
 			"GET /api/threads",
 			"GET /api/threads/",
 			"GET /api/runs",
