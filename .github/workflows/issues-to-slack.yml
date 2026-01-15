@@ -1,0 +1,54 @@
+name: Post Community Issues to Slack
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  notify-slack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if author is org member
+        id: check-member
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const org = context.repo.owner;
+            const username = context.payload.issue.user.login;
+
+            try {
+              await github.rest.orgs.checkMembershipForUser({
+                org: org,
+                username: username
+              });
+              // If no error, user is a member
+              return 'member';
+            } catch (error) {
+              if (error.status === 404) {
+                // User is not a member
+                return 'not-member';
+              }
+              throw error;
+            }
+          result-encoding: string
+
+      - name: Post to Slack
+        if: steps.check-member.outputs.result == 'not-member'
+        uses: slackapi/slack-github-action@v2
+        with:
+          payload: |
+            {
+              "text": "New community issue opened",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*<${{ github.event.issue.html_url }}|${{ github.event.issue.title }}>*\\nOpened by: ${{ github.event.issue.user.login }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.COMMUNITY_ISSUES_SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
