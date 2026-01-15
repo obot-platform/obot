@@ -8,10 +8,12 @@
 		SquareMinus
 	} from 'lucide-svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';
 	import TableHeader from './TableHeader.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
+	import TableColumnFilter from './TableColumnFilter.svelte';
 
 	export type InitSort = { property: string; order: 'asc' | 'desc' };
 	export type InitSortFn = (property: string, order: 'asc' | 'desc') => void;
@@ -120,6 +122,22 @@
 	let headerScrollRef: HTMLDivElement | null = $state(null);
 	let bodyScrollRef: HTMLDivElement | null = $state(null);
 	let columnWidths = $state<number[]>([]);
+
+	let autoHiddenFieldIndices = new SvelteSet<number>();
+	let userHiddenFieldIndices = new SvelteSet<number>();
+
+	// User preferences take priority over auto-hidden from resizing
+	let hiddenFieldIndices = $derived(userHiddenFieldIndices ?? autoHiddenFieldIndices);
+	let visibleFields = $derived(fields.filter((_, index) => !hiddenFieldIndices.has(index)));
+
+	function handleColumnVisibilityChange(hiddenIndices: Set<number>) {
+		userHiddenFieldIndices.clear();
+		hiddenIndices.forEach((i) => userHiddenFieldIndices.add(i));
+	}
+
+	function handleColumnVisibilityReset() {
+		userHiddenFieldIndices.clear();
+	}
 
 	let tableData = $derived.by(() => {
 		let updatedTableData = data;
@@ -267,77 +285,155 @@
 		});
 	}
 
+	function getTableCells(): HTMLTableCellElement[] | null {
+		const firstRow = dataTableRef?.querySelector('tbody tr:not([data-section-header])');
+		const cells = firstRow?.querySelectorAll('td') ?? dataTableRef?.querySelectorAll('tr th');
+		return cells ? (Array.from(cells) as HTMLTableCellElement[]) : null;
+	}
+
+	function measureCellWidth(cell: HTMLTableCellElement): number {
+		const contentDiv = cell.querySelector('div');
+		return contentDiv ? contentDiv.scrollWidth : cell.getBoundingClientRect().width;
+	}
+
+	function calculateFieldPadding(fieldIndex: number): number {
+		const property = fields[fieldIndex];
+		let padding = 32; // base cell padding
+
+		if (filterableFields.has(property)) {
+			padding += 12; // filter icon and gap
+		}
+
+		if (sortableFields.has(property)) {
+			padding += 20; // sort icon and gap
+		}
+
+		return padding;
+	}
+
+	function measureNaturalWidths(cells: HTMLTableCellElement[]): number[] {
+		const naturalWidths: number[] = [];
+
+		cells.forEach((cell, index) => {
+			let width = measureCellWidth(cell);
+
+			// Add padding for field columns (not select or actions)
+			if (index > 0 && index <= fields.length) {
+				width += calculateFieldPadding(index - 1);
+			}
+
+			naturalWidths.push(width);
+		});
+
+		return naturalWidths;
+	}
+
+	function getAvailableWidth(): number {
+		const parentContainer = dataTableRef?.closest('.default-scrollbar-thin') as HTMLElement;
+		return parentContainer ? parentContainer.clientWidth : 0;
+	}
+
+	function determineHiddenColumns(
+		constrainedWidths: number[],
+		availableWidth: number
+	): SvelteSet<number> {
+		let totalWidth = constrainedWidths.reduce((sum, w) => sum + w, 0);
+
+		if (totalWidth <= availableWidth || availableWidth === 0) {
+			return new SvelteSet();
+		}
+
+		const newHiddenIndices = new SvelteSet<number>();
+		// to exclude actions from being hidden
+		const selectColOffset = tableSelectActions ? 1 : 0;
+		for (let i = fields.length - 1; i >= 1 && totalWidth > availableWidth; i--) {
+			const colIndex = selectColOffset + i;
+			newHiddenIndices.add(i);
+			totalWidth -= constrainedWidths[colIndex] || 0;
+		}
+
+		return newHiddenIndices;
+	}
+
+	function buildVisibleNaturalWidths(
+		naturalWidths: number[],
+		hiddenIndices: Set<number>
+	): number[] {
+		const visibleNaturalWidths: number[] = [];
+		const selectColOffset = tableSelectActions ? 1 : 0;
+
+		if (tableSelectActions) {
+			visibleNaturalWidths.push(naturalWidths[0]);
+		}
+
+		fields.forEach((_, i) => {
+			if (!hiddenIndices.has(i)) {
+				visibleNaturalWidths.push(naturalWidths[selectColOffset + i]);
+			}
+		});
+
+		if (actions) {
+			visibleNaturalWidths.push(naturalWidths[naturalWidths.length - 1]);
+		}
+
+		return visibleNaturalWidths;
+	}
+
 	function measureColumnWidths() {
 		if (!dataTableRef) return;
 
-		// temp clear columnWidths to measure natural content width
 		const previousWidths = columnWidths;
+		const previousAutoHidden = new Set(autoHiddenFieldIndices);
 		columnWidths = [];
+		autoHiddenFieldIndices.clear();
 
 		requestAnimationFrame(() => {
-			const firstRow = dataTableRef?.querySelector('tbody tr:not([data-section-header])');
+			const cells = getTableCells();
 
-			if (!firstRow && previousWidths.length) {
+			if (!cells?.length && previousWidths.length) {
 				columnWidths = previousWidths;
+				previousAutoHidden.forEach((i) => autoHiddenFieldIndices.add(i));
 				return;
 			}
 
-			const cells =
-				firstRow?.querySelectorAll('td') ?? dataTableRef?.querySelectorAll('tr th') ?? [];
+			if (!cells) return;
 
-			const naturalWidths: number[] = [];
+			const naturalWidths = measureNaturalWidths(cells);
+			const availableWidth = getAvailableWidth();
 
-			cells.forEach((cell, index) => {
-				const contentDiv = cell.querySelector('div');
-				let width: number;
+			let constrainedWidths = calculateConstrainedWidths(naturalWidths, availableWidth);
+			const newHiddenIndices = determineHiddenColumns(constrainedWidths, availableWidth);
 
-				if (contentDiv) {
-					width = contentDiv.scrollWidth;
-				} else {
-					width = cell.getBoundingClientRect().width;
-				}
+			if (newHiddenIndices.size > 0) {
+				newHiddenIndices.forEach((i) => autoHiddenFieldIndices.add(i));
+				const effectiveHidden = userHiddenFieldIndices ?? newHiddenIndices;
+				const visibleNaturalWidths = buildVisibleNaturalWidths(naturalWidths, effectiveHidden);
+				constrainedWidths = calculateConstrainedWidths(visibleNaturalWidths, availableWidth);
+			}
 
-				// accounting for header icons and cell padding
-				if (index > 0 && index <= fields.length) {
-					const fieldIndex = index - 1;
-					const property = fields[fieldIndex];
-
-					width += 32; // cell padding
-
-					// 12px for filter icon and gap
-					if (filterableFields.has(property)) {
-						width += 12;
-					}
-
-					// 20px for sort icon (sort + gap)
-					if (sortableFields.has(property)) {
-						width += 20;
-					}
-				}
-
-				naturalWidths.push(width);
-			});
-
-			// Get parent container width
-			const parentContainer = dataTableRef?.closest('.default-scrollbar-thin') as HTMLElement;
-			const availableWidth = parentContainer ? parentContainer.clientWidth : 0;
-
-			// Apply width constraints
-			columnWidths = calculateConstrainedWidths(naturalWidths, availableWidth);
+			columnWidths = constrainedWidths;
 		});
 	}
 
 	onMount(() => {
-		// Find the closest scrollable container
-		const scrollableElement = dataTableRef?.closest('[class*="overflow-y-auto"]') as HTMLElement;
+		const parentContainer = dataTableRef?.closest('.default-scrollbar-thin') as HTMLElement;
+		if (!parentContainer) return;
 
-		if (scrollableElement && tableSelectActions) {
-			window.addEventListener('resize', measureColumnWidths);
+		let resizeTimeout: ReturnType<typeof setTimeout> | undefined;
+		const debouncedMeasure = () => {
+			clearTimeout(resizeTimeout);
+			resizeTimeout = setTimeout(() => {
+				measureColumnWidths();
+			}, 100);
+		};
 
-			return () => {
-				window.removeEventListener('resize', measureColumnWidths);
-			};
-		}
+		const resizeObserver = new ResizeObserver(debouncedMeasure);
+		resizeObserver.observe(parentContainer);
+
+		return () => {
+			clearTimeout(resizeTimeout);
+			resizeObserver.disconnect();
+		};
 	});
 
 	onMount(() => {
@@ -402,7 +498,7 @@
 						{#if columnWidths.length > 0}
 							<colgroup>
 								<col style="width: {columnWidths[0] || 57}px;" />
-								{#each fields as fieldName, index (fieldName)}
+								{#each visibleFields as fieldName, index (fieldName)}
 									<col
 										style="width: {columnWidths[index + 1]
 											? columnWidths[index + 1] + 'px'
@@ -422,7 +518,7 @@
 	{/if}
 	<div
 		class={twMerge(
-			'dark:bg-surface2 default-scrollbar-thin bg-background relative overflow-hidden overflow-x-auto rounded-md shadow-sm',
+			'dark:bg-surface2 default-scrollbar-thin bg-background relative overflow-hidden rounded-md shadow-sm',
 			classes?.root
 		)}
 		bind:this={bodyScrollRef}
@@ -437,7 +533,7 @@
 					{#if tableSelectActions}
 						<col style="width: {columnWidths[0] || 57}px;" />
 					{/if}
-					{#each fields as fieldName, index (fieldName)}
+					{#each visibleFields as fieldName, index (fieldName)}
 						<col
 							style="width: {columnWidths[tableSelectActions ? index + 1 : index]
 								? columnWidths[tableSelectActions ? index + 1 : index] + 'px'
@@ -461,7 +557,9 @@
 								{#if sectionB.length > 0}
 									<tr class="bg-surface3" data-section-header>
 										<th
-											colspan={fields.length + (tableSelectActions ? 1 : 0) + (actions ? 1 : 0)}
+											colspan={visibleFields.length +
+												(tableSelectActions ? 1 : 0) +
+												(actions ? 1 : 0)}
 											class="px-4 py-2 text-left text-xs font-semibold uppercase"
 										>
 											{sectionPrimaryTitle}
@@ -476,7 +574,9 @@
 								{#if sectionA.length > 0}
 									<tr class="bg-surface3" data-section-header>
 										<th
-											colspan={fields.length + (tableSelectActions ? 1 : 0) + (actions ? 1 : 0)}
+											colspan={visibleFields.length +
+												(tableSelectActions ? 1 : 0) +
+												(actions ? 1 : 0)}
 											class="px-4 py-2 text-left text-xs font-semibold uppercase"
 										>
 											{sectionSecondaryTitle}
@@ -632,7 +732,7 @@
 				</th>
 			{/if}
 
-			{#each fields as property (property)}
+			{#each visibleFields as property (property)}
 				{@const headerClass = headerClasses?.find((hc) => hc.property === property)?.class}
 				{@const headerConfig = headers?.find((h) => h.property === property)}
 				{@const headerTitle = headerConfig?.title}
@@ -660,7 +760,18 @@
 						'text-md text-on-surface1 float-right w-auto px-4 py-2 text-left font-medium',
 						actionHeaderClass
 					)}
-				></th>
+				>
+					{#if hiddenFieldIndices.size > 0 || userHiddenFieldIndices !== null}
+						<TableColumnFilter
+							{fields}
+							{hiddenFieldIndices}
+							{disablePortal}
+							onVisibilityChange={handleColumnVisibilityChange}
+							onReset={handleColumnVisibilityReset}
+							showReset={userHiddenFieldIndices !== null}
+						/>
+					{/if}
+				</th>
 			{/if}
 		</tr>
 	</thead>
@@ -709,7 +820,7 @@
 				</td>
 			{/if}
 		{/if}
-		{#each fields as fieldName (fieldName)}
+		{#each visibleFields as fieldName (fieldName)}
 			<td class="overflow-hidden text-sm font-light">
 				<div class="flex h-full min-h-12 w-full items-center px-4 py-2">
 					{#if onRenderColumn}
@@ -728,7 +839,7 @@
 	</tr>
 	{#if onRenderSubrowContent}
 		<tr>
-			<td colspan={fields.length + (actions ? 1 : 0)}>
+			<td colspan={visibleFields.length + (tableSelectActions ? 1 : 0) + (actions ? 1 : 0)}>
 				{@render onRenderSubrowContent(d)}
 			</td>
 		</tr>

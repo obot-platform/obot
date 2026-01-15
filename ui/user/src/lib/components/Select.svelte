@@ -17,7 +17,9 @@
 		};
 		position?: 'top' | 'bottom';
 		placeholder?: string;
+		clearAllLabel?: string;
 		onClear?: (option?: T, value?: string | number) => void;
+		onClearAll?: () => void;
 		buttonStartContent?: Snippet;
 		onKeyDown?: (event: KeyboardEvent, params?: { query?: string; results?: T[] }) => void;
 		searchable?: boolean;
@@ -46,7 +48,9 @@
 		classes,
 		position = 'bottom',
 		placeholder,
+		clearAllLabel,
 		onClear,
+		onClearAll,
 		buttonStartContent,
 		onKeyDown,
 		searchable
@@ -200,6 +204,21 @@
 							</div>
 						</div>
 					{/each}
+					{#if onClearAll}
+						<button
+							class={twMerge(
+								'bg-surface3/50 dark:bg-surface2 hover:bg-surface3 dark:hover:bg-surface3 inline-flex rounded-sm px-1 text-sm transition-colors duration-300',
+								classes?.buttonContent
+							)}
+							onclick={(ev) => {
+								ev.preventDefault();
+								ev.stopImmediatePropagation();
+								onClearAll?.();
+							}}
+						>
+							{clearAllLabel || 'Clear All'}
+						</button>
+					{/if}
 				</div>
 			{/if}
 
