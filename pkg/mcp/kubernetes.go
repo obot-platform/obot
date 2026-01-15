@@ -133,7 +133,7 @@ func (k *kubernetesBackend) getServerDetails(ctx context.Context, id string) (ty
 	var deployment appsv1.Deployment
 	if err := k.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: k.mcpNamespace}, &deployment); err != nil {
 		if apierrors.IsNotFound(err) {
-			return types.MCPServerDetails{}, fmt.Errorf("mcp server %s is not running", id)
+			return types.MCPServerDetails{}, ErrServerNotRunning
 		}
 
 		return types.MCPServerDetails{}, fmt.Errorf("failed to get deployment %s: %w", id, err)
