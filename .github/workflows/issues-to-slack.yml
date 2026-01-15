@@ -36,6 +36,8 @@ jobs:
         if: steps.check-member.outputs.result == 'not-member'
         uses: slackapi/slack-github-action@v2
         with:
+          webhook: ${{ secrets.COMMUNITY_ISSUES_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
           payload: |
             {
               "text": "New community issue opened",
@@ -49,6 +51,3 @@ jobs:
                 }
               ]
             }
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.COMMUNITY_ISSUES_SLACK_WEBHOOK_URL }}
-          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
