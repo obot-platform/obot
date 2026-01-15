@@ -130,7 +130,9 @@
 		<a
 			href={resolve(`/o/${p.id}`)}
 			class="flex min-h-14 w-full items-center gap-2 p-2"
-			onclick={() => (loading = true)}
+			onclick={() => {
+				if (!isActive) loading = true;
+			}}
 		>
 			<div class="flex grow flex-col">
 				<span class="text-on-background text-sm font-semibold"
