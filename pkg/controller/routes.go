@@ -11,7 +11,6 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cronjob"
-	"github.com/obot-platform/obot/pkg/controller/handlers/k8ssettings"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgefile"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgeset"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesource"
@@ -317,9 +316,6 @@ func (c *Controller) setupRoutes() {
 
 	// ScheduledAuditLogExport
 	root.Type(&v1.ScheduledAuditLogExport{}).HandlerFunc(scheduledAuditLogExportHandler.ScheduleExports)
-
-	// K8sSettings
-	root.Type(&v1.K8sSettings{}).HandlerFunc(k8ssettings.UpdateAllServerK8sSettingsDrift)
 
 	c.toolRefHandler = toolRef
 	c.mcpCatalogHandler = mcpCatalog
