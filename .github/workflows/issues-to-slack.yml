@@ -16,24 +16,28 @@ jobs:
             const org = context.repo.owner;
             const username = context.payload.issue.user.login;
 
+            console.log(`Checking if ${username} is a member of ${org}`);
+
             try {
-              await github.rest.orgs.checkMembershipForUser({
+              const response = await github.rest.orgs.checkMembershipForUser({
                 org: org,
                 username: username
               });
-              // If no error, user is a member
-              return 'member';
+              console.log(`User ${username} is an org member (status: ${response.status})`);
+              core.setOutput('is-member', 'true');
             } catch (error) {
               if (error.status === 404) {
-                // User is not a member
-                return 'not-member';
+                console.log(`User ${username} is NOT an org member`);
+                core.setOutput('is-member', 'false');
+              } else {
+                console.log(`Error checking membership: ${error.message}`);
+                // On error, assume not a member to send notification
+                core.setOutput('is-member', 'false');
               }
-              throw error;
             }
-          result-encoding: string
 
       - name: Post to Slack
-        if: steps.check-member.outputs.result == 'not-member'
+        if: steps.check-member.outputs.is-member == 'false'
         uses: slackapi/slack-github-action@v2
         with:
           webhook: ${{ secrets.COMMUNITY_ISSUES_SLACK_WEBHOOK_URL }}
