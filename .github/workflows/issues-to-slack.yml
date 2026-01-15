@@ -39,15 +39,12 @@ jobs:
           webhook: ${{ secrets.COMMUNITY_ISSUES_SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
           payload: |
-            {
-              "text": "New community issue opened",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*<${{ github.event.issue.html_url }}|${{ github.event.issue.title }}>*\\nOpened by: ${{ github.event.issue.user.login }}"
-                  }
-                }
-              ]
-            }
+            text: "New community issue opened"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: |
+                    *New Community Issue Opened*
+                    [${{ github.event.issue.title }}](${{ github.event.issue.html_url }})
+                    Opened by: ${{ github.event.issue.user.login }}
