@@ -6,15 +6,21 @@ The Model Providers page allows administrators to configure and manage various A
 
 Obot supports a variety of model providers, including:
 
+**Community**
 - OpenAI
 - Anthropic
 - xAI
-- Ollama
+- [Ollama](#ollama)
 - Voyage AI
 - Groq
 - vLLM
 - DeepSeek
 - Google
+
+**Enterprise**
+- [Azure OpenAI / Microsoft Foundry](#azure-openai-enterprise-only)
+- Amazon Bedrock
+- Google Vertex (Gemini models)
 
 The UI will indicate whether each provider has been configured. If a provider is configured you will have the ability to modify or deconfigure it.
 
@@ -100,3 +106,17 @@ After you have created your Entra app registration, you need to go to your Azure
 It needs to have the `Cognitive Services OpenAI User` role.
 
 See the [Microsoft docs](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/role-based-access-control?view=foundry-classic#add-role-assignment-to-an-azure-openai-resource) for more details.
+
+#### Ollama
+
+[Ollama](https://ollama.ai/) allows you to run LLMs locally. Two configuration steps are required to use it with Obot:
+
+1. **Expose Ollama to the network** - By default, Ollama only binds to `127.0.0.1:11434`. Since Obot runs in a container, `localhost` addresses resolve to Obot's container, not your host. Set `OLLAMA_HOST=0.0.0.0` before starting Ollama, then use your host's IP address in the endpoint URL.
+
+2. **Use the OpenAI-compatible endpoint** - The endpoint must include the `/v1/` path:
+   ```
+   http://<your-host-ip>:11434/v1/
+   ```
+   Using `http://<host>:11434/` without `/v1/` will result in validation errors.
+
+See [Ollama's FAQ](https://docs.ollama.com/faq) for platform-specific instructions on setting `OLLAMA_HOST`.
