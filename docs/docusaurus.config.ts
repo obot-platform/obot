@@ -35,6 +35,18 @@ const config: Config = {
             from: "/concepts/admin/mcp-server-catalogs",
             to: "/configuration/mcp-server-gitops",
           },
+          {
+            from: "/concepts/mcp-gateway/overview",
+            to: "/concepts/mcp-gateway",
+          },
+          {
+            from: "/installation/general",
+            to: "/installation/overview",
+          },
+          {
+            from: "/tutorials/knowledge-assistant",
+            to: "/",
+          },
         ],
       },
     ],

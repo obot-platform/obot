@@ -775,3 +775,21 @@ export type GroupRoleAssignment = {
 export type GroupRoleAssignmentList = {
 	items: GroupRoleAssignment[];
 };
+
+// MCP Capacity types
+export type CapacitySource = 'resourceQuota' | 'deployments';
+
+export interface MCPCapacityInfo {
+	source: CapacitySource;
+	cpuRequested?: string;
+	cpuLimit?: string;
+	memoryRequested?: string;
+	memoryLimit?: string;
+	activeDeployments: number;
+	error?: string;
+}
+
+export interface MCPResourceRequests {
+	cpu?: string;
+	memory?: string;
+}

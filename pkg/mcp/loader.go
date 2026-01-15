@@ -351,3 +351,12 @@ func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServe
 
 	return ConvertTools(tools.Tools, []string{"*"}, nil)
 }
+
+// GetCapacityInfo returns capacity information for the MCP namespace.
+// Only available when using the Kubernetes backend.
+func (sm *SessionManager) GetCapacityInfo(ctx context.Context) (otypes.MCPCapacityInfo, error) {
+	if k8sBackend, ok := sm.backend.(*kubernetesBackend); ok {
+		return k8sBackend.GetCapacityInfo(ctx), nil
+	}
+	return otypes.MCPCapacityInfo{}, &ErrNotSupportedByBackend{Feature: "capacity info", Backend: "docker"}
+}

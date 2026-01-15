@@ -623,6 +623,10 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/k8s-settings", k8sSettingsHandler.Get)
 	mux.HandleFunc("PUT /api/k8s-settings", k8sSettingsHandler.Update)
 
+	// MCP Capacity (admin only)
+	mcpCapacityHandler := handlers.NewMCPCapacityHandler(services.MCPLoader)
+	mux.HandleFunc("GET /api/mcp-capacity", mcpCapacityHandler.GetCapacity)
+
 	// EULA
 	eulaHandler := handlers.NewEulaHandler()
 	mux.HandleFunc("GET /api/eula", eulaHandler.Get)
