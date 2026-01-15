@@ -143,6 +143,8 @@ type MCPServerStatus struct {
 	// This field is only populated for servers running in Kubernetes runtime.
 	// For Docker, local, or remote runtimes, this field is omitted entirely.
 	K8sSettingsHash string `json:"k8sSettingsHash,omitempty"`
+	// NeedsK8sUpdate indicates whether this server needs redeployment with new K8s settings
+	NeedsK8sUpdate bool `json:"needsK8sUpdate,omitempty"`
 	// AuditLogTokenHash is the hash of the token used to submit audit logs.
 	AuditLogTokenHash string `json:"auditLogTokenHash,omitempty"`
 	// ObservedCompositeManifestHash is the hash of the server's manifest the last time all component servers were updated to match the composite server.

@@ -448,6 +448,7 @@ export interface ProjectMCP {
 	icon?: string;
 	configured?: boolean;
 	needsUpdate?: boolean;
+	needsK8sUpdate?: boolean;
 	needsURL?: boolean;
 	runtime?: Runtime;
 }
@@ -756,6 +757,7 @@ export interface MCPCatalogServer {
 	mcpServerInstanceUserCount?: number;
 	manifest: MCPServer;
 	needsUpdate?: boolean;
+	needsK8sUpdate?: boolean;
 	needsURL?: boolean;
 	toolPreviewsLastGenerated?: string;
 	lastUpdated?: string;

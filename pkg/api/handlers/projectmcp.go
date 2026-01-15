@@ -51,9 +51,10 @@ func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.M
 		Runtime:                  mcpServer.Spec.Manifest.Runtime,
 
 		// Default values to show to the user for shared servers:
-		Configured:  true,
-		NeedsURL:    false,
-		NeedsUpdate: false,
+		Configured:     true,
+		NeedsURL:       false,
+		NeedsUpdate:    false,
+		NeedsK8sUpdate: false,
 	}
 	pmcp.Alias = mcpServer.Spec.Alias
 
@@ -66,6 +67,7 @@ func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.M
 		pmcp.Configured = convertedServer.Configured
 		pmcp.NeedsURL = convertedServer.NeedsURL
 		pmcp.NeedsUpdate = convertedServer.NeedsUpdate
+		pmcp.NeedsK8sUpdate = convertedServer.NeedsK8sUpdate
 	}
 
 	return pmcp

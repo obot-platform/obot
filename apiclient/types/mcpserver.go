@@ -235,6 +235,9 @@ type MCPServer struct {
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
 
+	// NeedsK8sUpdate indicates whether this server needs redeployment with new K8s settings
+	NeedsK8sUpdate bool `json:"needsK8sUpdate,omitempty"`
+
 	// NeedsURL indicates whether the server's URL needs to be updated to match the catalog entry.
 	NeedsURL bool `json:"needsURL,omitempty"`
 
@@ -313,9 +316,10 @@ type ProjectMCPServer struct {
 	Runtime     Runtime `json:"runtime,omitempty"`
 
 	// The following status fields are always copied from the MCPServer that this points to.
-	Configured  bool `json:"configured"`
-	NeedsURL    bool `json:"needsURL"`
-	NeedsUpdate bool `json:"needsUpdate"`
+	Configured     bool `json:"configured"`
+	NeedsURL       bool `json:"needsURL"`
+	NeedsUpdate    bool `json:"needsUpdate"`
+	NeedsK8sUpdate bool `json:"needsK8sUpdate"`
 }
 
 type ProjectMCPServerList List[ProjectMCPServer]

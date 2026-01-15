@@ -618,7 +618,13 @@
 {/snippet}
 
 {#snippet header(hidden?: boolean)}
-	<thead class={twMerge('dark:bg-surface1 bg-surface2', hidden && 'hidden', classes?.thead)}>
+	<thead
+		class={twMerge(
+			'dark:bg-surface1 bg-surface2 border-surface2 border-b',
+			hidden && 'hidden',
+			classes?.thead
+		)}
+	>
 		<tr>
 			{#if tableSelectActions}
 				<th class="w-4 p-2">
@@ -660,7 +666,7 @@
 {#snippet row(d: T)}
 	<tr
 		class={twMerge(
-			'border-surface2 dark:border-surface2 border-t shadow-xs transition-colors duration-300',
+			'border-surface2 dark:border-surface2 border-b shadow-xs transition-colors duration-300 last:border-b-0',
 			onClickRow && ' hover:bg-surface1 dark:hover:bg-surface3 cursor-pointer',
 			setRowClasses?.(d)
 		)}
