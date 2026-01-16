@@ -6,7 +6,7 @@
 	import { ApiKeysService } from '$lib/services';
 	import type { APIKey } from '$lib/services/api-keys/types';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
-	import { Plus, ReceiptText, Trash2 } from 'lucide-svelte';
+	import { Info, KeyRound, Plus, ReceiptText, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import CreateApiKeyDialog from './CreateApiKeyDialog.svelte';
 	import ApiKeyRevealDialog from './ApiKeyRevealDialog.svelte';
@@ -56,32 +56,34 @@
 
 <Layout title="API Keys">
 	<div class="flex flex-col gap-4">
-		<div class="flex items-center justify-between">
+		{#if apiKeys.length === 0}
+			<div class="mt-26 flex w-md flex-col items-center gap-4 self-center text-center">
+				<KeyRound class="text-on-surface1 size-24 opacity-50" />
+				<h4 class="text-on-surface1 text-lg font-semibold">No API keys</h4>
+				<p class="text-on-surface1 text-sm font-light">
+					Looks like you don't have any API keys yet! <br />
+					Click the "Create API Key" button above to get started.
+				</p>
+
+				<div class="notification-info mt-8">
+					<div class="flex flex-col gap-2">
+						<div class="flex items-center gap-2">
+							<Info class="size-4 flex-shrink-0" />
+							<p class="text-sm font-semibold">What are these for?</p>
+						</div>
+						<p class="text-left text-sm font-light">
+							API keys allow programmatic access to MCP servers. Each key can only access the
+							servers you specify.
+						</p>
+					</div>
+				</div>
+			</div>
+		{:else}
 			<p class="text-muted text-sm">
 				API keys allow programmatic access to MCP servers. Each key can only access the servers you
 				specify.
 			</p>
-			<button
-				class="button-primary flex items-center gap-2"
-				onclick={() => (showCreateDialog = true)}
-			>
-				<Plus class="size-4" />
-				Create API Key
-			</button>
-		</div>
 
-		{#if apiKeys.length === 0}
-			<div class="flex flex-col items-center justify-center gap-4 py-16 text-center">
-				<p class="text-muted">No API keys yet.</p>
-				<button
-					class="button-primary flex items-center gap-2"
-					onclick={() => (showCreateDialog = true)}
-				>
-					<Plus class="size-4" />
-					Create your first API key
-				</button>
-			</div>
-		{:else}
 			<Table
 				data={tableData}
 				fields={[
@@ -130,6 +132,16 @@
 			</Table>
 		{/if}
 	</div>
+
+	{#snippet rightNavActions()}
+		<button
+			class="button-primary flex items-center gap-2"
+			onclick={() => (showCreateDialog = true)}
+		>
+			<Plus class="size-4" />
+			Create API Key
+		</button>
+	{/snippet}
 </Layout>
 
 <Confirm

@@ -9,7 +9,7 @@
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import { profile } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
-	import { Plus, ReceiptText, Trash2 } from 'lucide-svelte';
+	import { KeyRound, Plus, ReceiptText, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import ApiKeyRevealDialog from '../../keys/ApiKeyRevealDialog.svelte';
 	import CreateApiKeyDialog from '../../keys/CreateApiKeyDialog.svelte';
@@ -65,24 +65,17 @@
 
 <Layout title="API Keys">
 	<div class="flex flex-col gap-4">
-		<div class="flex items-center justify-between">
-			<p class="text-muted text-sm">View and manage all API keys across all users.</p>
-			{#if !isAdminReadonly}
-				<button
-					class="button-primary flex items-center gap-2"
-					onclick={() => (showCreateDialog = true)}
-				>
-					<Plus class="size-4" />
-					Create API Key
-				</button>
-			{/if}
-		</div>
-
 		{#if allApiKeys.length === 0}
-			<div class="flex flex-col items-center justify-center gap-4 py-16 text-center">
-				<p class="text-muted">No API keys exist in the system.</p>
+			<div class="mt-26 flex w-md flex-col items-center gap-4 self-center text-center">
+				<KeyRound class="text-on-surface1 size-24 opacity-50" />
+				<h4 class="text-on-surface1 text-lg font-semibold">No API keys</h4>
+				<p class="text-on-surface1 text-sm font-light">
+					Looks like there aren't any API keys in the system yet. <br />
+					Click the "Create API Key" button above to get started.
+				</p>
 			</div>
 		{:else}
+			<p class="text-muted text-sm">View and manage all API keys across all users.</p>
 			<Table
 				data={allTableData}
 				fields={[
@@ -142,6 +135,18 @@
 			</Table>
 		{/if}
 	</div>
+
+	{#snippet rightNavActions()}
+		{#if !profile.current.isAdminReadonly?.()}
+			<button
+				class="button-primary flex items-center gap-2"
+				onclick={() => (showCreateDialog = true)}
+			>
+				<Plus class="size-4" />
+				Create API Key
+			</button>
+		{/if}
+	{/snippet}
 </Layout>
 
 <Confirm
