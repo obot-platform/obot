@@ -9,10 +9,12 @@
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import { profile } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
-	import { Plus, Trash2 } from 'lucide-svelte';
+	import { Plus, ReceiptText, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import ApiKeyRevealDialog from '../../keys/ApiKeyRevealDialog.svelte';
 	import CreateApiKeyDialog from '../../keys/CreateApiKeyDialog.svelte';
+	import ApiKeyDetailsDialog from '$lib/components/api-keys/ApiKeyDetailsDialog.svelte';
+	import ServerCountBadge from '$lib/components/api-keys/ServerCountBadge.svelte';
 
 	let { data } = $props();
 	let allApiKeys = $state<APIKey[]>(untrack(() => data.allApiKeys));
@@ -23,6 +25,7 @@
 	let loading = $state(false);
 	let showCreateDialog = $state(false);
 	let createdKeyValue = $state<string>();
+	let detailsKey = $state<(typeof allTableData)[number]>();
 
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
 
@@ -34,7 +37,7 @@
 			createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
 			lastUsedAtDisplay: key.lastUsedAt ? formatTimeAgo(key.lastUsedAt).relativeTime : 'Never',
 			expiresAtDisplay: key.expiresAt ? formatTimeUntil(key.expiresAt).relativeTime : 'Never',
-			serverCount: key.mcpServerIds?.length ?? 0
+			mcpServerIds: key.mcpServerIds ?? []
 		}))
 	);
 
@@ -87,7 +90,7 @@
 					'name',
 					'prefix',
 					'description',
-					'serverCount',
+					'mcpServerIds',
 					'createdAtDisplay',
 					'lastUsedAtDisplay',
 					'expiresAtDisplay'
@@ -97,7 +100,7 @@
 					{ title: 'Name', property: 'name' },
 					{ title: 'Key', property: 'prefix' },
 					{ title: 'Description', property: 'description' },
-					{ title: 'Servers', property: 'serverCount' },
+					{ title: 'Servers', property: 'mcpServerIds' },
 					{ title: 'Created', property: 'createdAtDisplay' },
 					{ title: 'Last Used', property: 'lastUsedAtDisplay' },
 					{ title: 'Expires', property: 'expiresAtDisplay' }
@@ -114,25 +117,27 @@
 				{#snippet onRenderColumn(property, d)}
 					{#if property === 'description'}
 						<span class="text-muted">{d.description || '-'}</span>
-					{:else if property === 'serverCount'}
-						<span class="pill-rounded bg-surface3">
-							{d.serverCount} server{d.serverCount === 1 ? '' : 's'}
-						</span>
+					{:else if property === 'mcpServerIds'}
+						<ServerCountBadge mcpServerIds={d.mcpServerIds} {mcpServers} />
 					{:else}
 						{d[property as keyof typeof d]}
 					{/if}
 				{/snippet}
 				{#snippet actions(d)}
-					{#if !isAdminReadonly}
-						<DotDotDot>
-							<div class="default-dialog flex min-w-max flex-col p-2">
+					<DotDotDot>
+						<div class="default-dialog flex min-w-max flex-col p-2">
+							<button class="menu-button" onclick={() => (detailsKey = d)}>
+								<ReceiptText class="size-4" />
+								Details
+							</button>
+							{#if !isAdminReadonly}
 								<button class="menu-button text-red-500" onclick={() => (deletingKey = d)}>
 									<Trash2 class="size-4" />
 									Delete
 								</button>
-							</div>
-						</DotDotDot>
-					{/if}
+							{/if}
+						</div>
+					</DotDotDot>
 				{/snippet}
 			</Table>
 		{/if}
@@ -150,3 +155,11 @@
 <CreateApiKeyDialog bind:show={showCreateDialog} {mcpServers} onCreate={handleCreate} />
 
 <ApiKeyRevealDialog keyValue={createdKeyValue} onClose={() => (createdKeyValue = undefined)} />
+
+<ApiKeyDetailsDialog
+	apiKey={detailsKey}
+	{mcpServers}
+	onClose={() => (detailsKey = undefined)}
+	onDelete={(key) => (deletingKey = key)}
+	hideDelete={isAdminReadonly}
+/>

@@ -38,13 +38,18 @@
 		}
 	} as MCPCatalogServer;
 
+	function getServerDisplayName(server: MCPCatalogServer): string {
+		return server.alias || server.manifest.name || '';
+	}
+
 	let filteredServers = $derived.by(() => {
+		const searchLower = search.toLowerCase();
 		const servers = search
-			? mcpServers.filter((s) => s.manifest.name?.toLowerCase().includes(search.toLowerCase()))
+			? mcpServers.filter((s) => getServerDisplayName(s).toLowerCase().includes(searchLower))
 			: mcpServers;
 
 		// Include "All MCP Servers" option if it matches the search or there's no search
-		const allServersMatches = !search || 'all mcp servers'.includes(search.toLowerCase());
+		const allServersMatches = !search || 'all mcp servers'.includes(searchLower);
 
 		return allServersMatches ? [allServersOption, ...servers] : servers;
 	});
@@ -193,13 +198,17 @@
 								<div class="flex w-full items-center gap-3 overflow-hidden">
 									<div class="flex-shrink-0">
 										{#if server.manifest.icon}
-											<img src={server.manifest.icon} alt={server.manifest.name} class="size-6" />
+											<img
+												src={server.manifest.icon}
+												alt={getServerDisplayName(server)}
+												class="size-6"
+											/>
 										{:else}
 											<Server class="text-on-surface1 size-6" />
 										{/if}
 									</div>
 									<div class="flex min-w-0 grow flex-col">
-										<p class="truncate text-sm">{server.manifest.name}</p>
+										<p class="truncate text-sm">{getServerDisplayName(server)}</p>
 										{#if server.manifest.description}
 											<span class="text-on-surface1 line-clamp-1 text-xs">
 												{@html stripMarkdownToText(server.manifest.description)}
