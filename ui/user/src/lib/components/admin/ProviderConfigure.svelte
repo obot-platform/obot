@@ -26,6 +26,22 @@
 	const isAzureOpernAIProvider = $derived(
 		provider && provider.id === 'azure-openai-model-provider'
 	);
+
+	const collections = $derived.by(() => {
+		if (isAzureOpernAIProvider)
+			return [
+				{
+					id: 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY',
+					name: 'API Key Authentication'
+				},
+				{
+					id: 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT',
+					name: 'MS Entra Authentication'
+				}
+			];
+		return [];
+	});
+
 	const requiredConfigurationPairs = $derived.by(() => {
 		if (!isAzureOpernAIProvider) return [];
 
@@ -50,16 +66,64 @@
 		return [];
 	});
 
-	const requiredConfigurationParameters = $derived(
-		provider?.requiredConfigurationParameters?.filter(
-			(p) => !p.hidden && !filterOutParams.includes(p.name)
-		) ?? []
-	);
-	const optionalConfigurationParameters = $derived(
-		provider?.optionalConfigurationParameters?.filter(
-			(p) => !p.hidden && !filterOutParams.includes(p.name)
-		) ?? []
-	);
+	const requiredConfigurationParameters = $derived.by(() => {
+		if (isAzureOpernAIProvider) {
+			const allParams = [
+				...(provider?.requiredConfigurationParameters ?? []),
+				...(provider?.optionalConfigurationParameters ?? [])
+			];
+
+			const asObject = allParams.reduce(
+				(acc, val) => {
+					acc[val.name] = val;
+					return acc;
+				},
+				{} as Record<string, ProviderParameter>
+			);
+
+			if (selectedCollection === 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY') {
+				const requiredParamsIds = [
+					'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY',
+					'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT',
+					'OBOT_AZURE_OPENAI_MODEL_PROVIDER_DEPLOYMENTS'
+				];
+				return requiredParamsIds.map((id) => asObject?.[id]).filter(Boolean) as ProviderParameter[];
+			}
+
+			const requiredParamsIds = [
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_ID',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_SECRET',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_TENANT_ID',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_SUBSCRIPTION_ID',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_RESOURCE_GROUP'
+			];
+
+			return requiredParamsIds.map((id) => asObject?.[id]).filter(Boolean) as ProviderParameter[];
+		}
+
+		return (provider?.requiredConfigurationParameters
+			?.filter((p) => !p.hidden && !filterOutParams.includes(p.name))
+			.filter(Boolean) ?? []) as ProviderParameter[];
+	});
+
+	const optionalConfigurationParameters = $derived.by(() => {
+		if (isAzureOpernAIProvider) {
+			const allParams = [
+				...(provider?.requiredConfigurationParameters ?? []),
+				...(provider?.optionalConfigurationParameters ?? [])
+			];
+			const keys = new Set(requiredConfigurationParameters.map((p) => p.name));
+
+			return (allParams?.filter((p) => !p.hidden && !keys.has(p.name)).filter(Boolean) ??
+				[]) as ProviderParameter[];
+		}
+
+		return (provider?.optionalConfigurationParameters?.filter((p) => !p.hidden).filter(Boolean) ??
+			[]) as ProviderParameter[];
+	});
+
+	let selectedCollection: string | undefined = $state('OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY');
 
 	const selectedParameterPair: Record<string, ProviderParameter | undefined> = $state({});
 	const defaultSelectedParameterPair = $derived.by(() => {
@@ -219,87 +283,31 @@
 
 			{#if requiredConfigurationParameters.length > 0 || requiredConfigurationPairs.length > 0}
 				<div class="flex flex-col gap-4">
-					<h4 class="text-lg font-semibold">Required Configuration</h4>
-					{#if requiredConfigurationPairs.length > 0}
-						<ul class="flex flex-col gap-4">
-							{#each requiredConfigurationPairs as pair, i (i)}
-								{@const selectedParameter = readonlySelectedParameterPair[i + '']}
-								{@const hasError =
-									selectedParameter && !form[selectedParameter.name]?.length && showRequired}
-
-								<li class="flex flex-col gap-2">
-									<div class="flex gap-1">
-										{#each pair as parameter (parameter.name)}
-											{@const isSelected = selectedParameter?.name === parameter.name}
-											<button
-												class={twMerge(
-													'bg-surface1 hover:bg-surface2 text-gray rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
-													isSelected &&
-														'bg-primary hover:bg-primary/90 active:bg-primary text-white shadow-sm',
-													isSelected &&
-														hasError &&
-														'bg-red-500 text-white hover:bg-red-600/90 active:bg-red-600'
-												)}
-												type="button"
-												onclick={() => {
-													// Clear errors when switching
-													showRequired = false;
-													selectedParameterPair[i + ''] = parameter;
-												}}>{parameter.friendlyName}</button
-											>
-										{/each}
-									</div>
-
-									{#if selectedParameter && typeof form[selectedParameter.name] === 'string'}
-										<div class="flex flex-col gap-1">
-											{#if selectedParameter.description}
-												<span class="text-gray text-xs">{selectedParameter.description}</span>
-											{/if}
-											{#if selectedParameter.sensitive}
-												<SensitiveInput
-													error={hasError}
-													name={selectedParameter.name}
-													bind:value={form[selectedParameter.name]}
-													disabled={readonly}
-													textarea={selectedParameter.multiline}
-													growable={selectedParameter.multiline}
-												/>
-											{:else if multipValuesInputs.has(selectedParameter.name)}
-												<MultiValueInput
-													bind:value={form[selectedParameter.name]}
-													id={selectedParameter.name}
-													labels={selectedParameter.name === 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
-														? { '*': 'All domains' }
-														: {}}
-													class="text-input-filled"
-													placeholder={`Hit "Enter" to insert`.toString()}
-													disabled={readonly}
-												/>
-											{:else if selectedParameter.multiline}
-												<textarea
-													id={selectedParameter.name}
-													bind:value={form[selectedParameter.name]}
-													class:error={hasError}
-													class="text-input-filled min-h-[120px] resize-y"
-													disabled={readonly}
-													rows="5"
-												></textarea>
-											{:else}
-												<input
-													type="text"
-													id={selectedParameter.name}
-													bind:value={form[selectedParameter.name]}
-													class:error={hasError}
-													class="text-input-filled"
-													disabled={readonly}
-												/>
-											{/if}
-										</div>
-									{/if}
+					{#if collections.length > 0}
+						<ul class="flex gap-2">
+							{#each collections as item, i (i)}
+								{@const isSelected = selectedCollection === item.id}
+	
+								<li>
+									<button
+										class={twMerge(
+											'bg-surface1 hover:bg-surface2 text-gray rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
+											isSelected &&
+												'bg-primary hover:bg-primary/90 active:bg-primary text-white shadow-sm'
+										)}
+										type="button"
+										onclick={() => {
+											// Clear errors when switching
+											showRequired = false;
+											selectedCollection = item.id;
+										}}>{item.name}</button
+									>
 								</li>
 							{/each}
 						</ul>
 					{/if}
+
+					<h4 class="text-lg font-semibold">Required Configuration</h4>
 
 					<ul class="flex flex-col gap-4">
 						{#each requiredConfigurationParameters as parameter (parameter.name)}
