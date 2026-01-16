@@ -350,7 +350,7 @@ func (d *dockerBackend) getServerDetails(ctx context.Context, id string) (otypes
 		return otypes.MCPServerDetails{}, fmt.Errorf("failed to get container: %w", err)
 	}
 	if container == nil {
-		return otypes.MCPServerDetails{}, fmt.Errorf("mcp server %s is not running", id)
+		return otypes.MCPServerDetails{}, ErrServerNotRunning
 	}
 
 	// Get container events for the last 24 hours
