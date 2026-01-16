@@ -21,6 +21,7 @@ import (
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/logutil"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
@@ -138,11 +139,11 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 	var entries []types.MCPServerCatalogEntryManifest
 
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
-		if isGitHubURL(sourceURL) {
+		if isGitURL(sourceURL) {
 			var err error
-			entries, err = readGitHubCatalog(sourceURL)
+			entries, err = readGitCatalog(sourceURL)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read GitHub catalog %s: %w", sourceURL, err)
+				return nil, fmt.Errorf("failed to read Git catalog %s: %w", logutil.SanitizeURL(sourceURL), err)
 			}
 		} else {
 			// If it wasn't a GitHub repo, treat it as a raw file.
