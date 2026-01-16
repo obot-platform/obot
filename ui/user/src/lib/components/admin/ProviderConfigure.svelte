@@ -38,7 +38,7 @@
 					},
 					{
 						id: 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT',
-						name: 'MS Entra'
+						name: 'Microsoft Entra'
 					}
 				]
 			};
