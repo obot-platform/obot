@@ -87,7 +87,7 @@
 	});
 
 	const optionalConfigurationParameters = $derived.by(() => {
-		const optionalParams = provider?.optionalConfigurationParameters?.filter((p) => !p.hidden);
+		const optionalParams = (provider?.optionalConfigurationParameters?.filter((p) => !p.hidden) ?? []) as ProviderParameter[];
 
 		if (isAzureOpernAIProvider) {
 			const allParams = [
@@ -100,7 +100,7 @@
 				[]) as ProviderParameter[];
 		}
 
-		return (optionalParams?.filter((p) => !p.hidden) ?? []) as ProviderParameter[];
+		return optionalParams;
 	});
 
 	function onOpen() {
