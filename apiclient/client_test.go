@@ -21,10 +21,10 @@ func TestNewClientFromEnv(t *testing.T) {
 			expectedURL: "http://localhost:8080/api",
 		},
 		{
-			name:        "Custom URL without /api suffix (bug: duplicates URL)",
+			name:        "Custom URL without /api suffix",
 			serverURL:   "http://example.com:9090",
 			token:       "test-token",
-			expectedURL: "http://example.com:9090http://example.com:9090/api",
+			expectedURL: "http://example.com:9090/api",
 		},
 		{
 			name:        "Custom URL with /api suffix",
@@ -33,22 +33,22 @@ func TestNewClientFromEnv(t *testing.T) {
 			expectedURL: "http://example.com:9090/api",
 		},
 		{
-			name:        "Custom URL with trailing slash (bug: duplicates URL)",
+			name:        "Custom URL with trailing slash",
 			serverURL:   "http://example.com/",
 			token:       "",
-			expectedURL: "http://example.com/http://example.com/api",
+			expectedURL: "http://example.com/api",
 		},
 		{
-			name:        "Custom URL with trailing slash and /api (bug: adds duplicate /api)",
+			name:        "Custom URL with trailing slash and /api",
 			serverURL:   "http://example.com/api/",
 			token:       "",
-			expectedURL: "http://example.com/api/http://example.com/api/api",
+			expectedURL: "http://example.com/api",
 		},
 		{
-			name:        "HTTPS URL (bug: duplicates URL)",
+			name:        "HTTPS URL",
 			serverURL:   "https://secure.example.com",
 			token:       "secure-token",
-			expectedURL: "https://secure.example.comhttps://secure.example.com/api",
+			expectedURL: "https://secure.example.com/api",
 		},
 	}
 

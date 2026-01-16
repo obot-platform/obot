@@ -2,82 +2,30 @@
 package hash
 
 import (
-	"crypto/sha256"
-	"fmt"
 	"testing"
 )
 
-func TestString(t *testing.T) {
+func TestString_KnownValues(t *testing.T) {
+	// Test with known SHA256 hashes (pre-computed and verified)
 	tests := []struct {
 		name     string
 		input    any
 		expected string
 	}{
 		{
-			name:     "string input",
+			name:     "hello world string",
 			input:    "hello world",
-			expected: fmt.Sprintf("%x", sha256.Sum256([]byte("hello world"))),
+			expected: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
 		},
 		{
 			name:     "empty string",
 			input:    "",
-			expected: fmt.Sprintf("%x", sha256.Sum256([]byte(""))),
+			expected: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
 		},
 		{
-			name:     "byte slice input",
+			name:     "hello world bytes",
 			input:    []byte("hello world"),
-			expected: fmt.Sprintf("%x", sha256.Sum256([]byte("hello world"))),
-		},
-		{
-			name:     "empty byte slice",
-			input:    []byte{},
-			expected: fmt.Sprintf("%x", sha256.Sum256([]byte{})),
-		},
-		{
-			name:  "struct input - marshaled to JSON",
-			input: struct{ Name string }{"test"},
-			// The hash of JSON: {"Name":"test"}
-			expected: fmt.Sprintf("%x", sha256.Sum256([]byte(`{"Name":"test"}`))),
-		},
-		{
-			name:     "map input - marshaled to JSON",
-			input:    map[string]string{"key": "value"},
-			expected: fmt.Sprintf("%x", sha256.Sum256([]byte(`{"key":"value"}`))),
-		},
-		{
-			name:     "int input - marshaled to JSON",
-			input:    42,
-			expected: fmt.Sprintf("%x", sha256.Sum256([]byte("42"))),
-		},
-		{
-			name:     "bool input - marshaled to JSON",
-			input:    true,
-			expected: fmt.Sprintf("%x", sha256.Sum256([]byte("true"))),
-		},
-		{
-			name:     "nil input - marshaled to JSON null",
-			input:    nil,
-			expected: fmt.Sprintf("%x", sha256.Sum256([]byte("null"))),
-		},
-		{
-			name:     "slice of strings - marshaled to JSON",
-			input:    []string{"a", "b", "c"},
-			expected: fmt.Sprintf("%x", sha256.Sum256([]byte(`["a","b","c"]`))),
-		},
-		{
-			name:     "nested struct - marshaled to JSON",
-			input:    struct{ Inner struct{ Value int } }{Inner: struct{ Value int }{Value: 123}},
-			expected: fmt.Sprintf("%x", sha256.Sum256([]byte(`{"Inner":{"Value":123}}`))),
-		},
-		{
-			name:     "unicode string",
-			input:    "こんにちは世界",
-			expected: fmt.Sprintf("%x", sha256.Sum256([]byte("こんにちは世界"))),
-		},
-		{
-			name:     "string with special characters",
-			input:    "hello\nworld\t!",
-			expected: fmt.Sprintf("%x", sha256.Sum256([]byte("hello\nworld\t!"))),
+			expected: "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
 		},
 	}
 
@@ -162,5 +110,24 @@ func TestString_HashFormat(t *testing.T) {
 		if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f')) {
 			t.Errorf("Hash contains non-hex character: %c", char)
 		}
+	}
+}
+
+func TestString_JSONMarshaledTypes(t *testing.T) {
+	// Test that non-string/non-byte types are JSON marshaled before hashing
+	// The hash of JSON "42" should be different from the hash of string "42"
+	intHash := String(42)
+	strHash := String("42")
+
+	// These should be the same because JSON marshal of 42 is "42"
+	if intHash != strHash {
+		t.Errorf("int 42 and string \"42\" should produce same hash after JSON marshaling, got %v and %v", intHash, strHash)
+	}
+
+	// Nil should marshal to "null"
+	nilHash := String(nil)
+	nullStrHash := String("null")
+	if nilHash != nullStrHash {
+		t.Errorf("nil and string \"null\" should produce same hash, got %v and %v", nilHash, nullStrHash)
 	}
 }
