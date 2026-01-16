@@ -9,7 +9,7 @@
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import { profile } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
-	import { Info, KeyRound, Plus, ReceiptText, Trash2 } from 'lucide-svelte';
+	import { KeyRound, Plus, ReceiptText, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import ApiKeyRevealDialog from '../../keys/ApiKeyRevealDialog.svelte';
 	import CreateApiKeyDialog from '../../keys/CreateApiKeyDialog.svelte';
