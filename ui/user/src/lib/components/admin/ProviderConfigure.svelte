@@ -87,7 +87,8 @@
 	});
 
 	const optionalConfigurationParameters = $derived.by(() => {
-		const optionalParams = (provider?.optionalConfigurationParameters?.filter((p) => !p.hidden) ?? []) as ProviderParameter[];
+		const optionalParams = (provider?.optionalConfigurationParameters?.filter((p) => !p.hidden) ??
+			[]) as ProviderParameter[];
 
 		if (isAzureOpernAIProvider) {
 			const allParams = [
