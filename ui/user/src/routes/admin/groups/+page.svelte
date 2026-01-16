@@ -195,7 +195,10 @@
 
 	{#snippet rightNavActions()}
 		{#if !isAdminReadonly}
-			<button class="button-primary w-full sm:w-auto" onclick={() => (showAddAssignment = true)}>
+			<button
+				class="button-primary w-full text-sm sm:w-auto"
+				onclick={() => (showAddAssignment = true)}
+			>
 				Add Assignment
 			</button>
 		{/if}
