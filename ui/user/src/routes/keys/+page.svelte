@@ -79,6 +79,11 @@
 				</div>
 			</div>
 		{:else}
+			<p class="text-muted text-sm">
+				API keys allow programmatic access to MCP servers. Each key can only access the servers you
+				specify.
+			</p>
+
 			<Table
 				data={tableData}
 				fields={[
