@@ -201,7 +201,10 @@
 				) {
 					updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
 					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
-				} else if (deployment.deploymentStatus?.toLocaleLowerCase().includes('available')) {
+				} else if (
+					deployment.deploymentStatus?.toLocaleLowerCase().includes('available') ||
+					version.current.engine !== 'kubernetes'
+				) {
 					if (needsUpdate && needsK8sUpdate) {
 						updateStatus = SERVER_UPGRADES_AVAILABLE.BOTH;
 						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER, SERVER_UPGRADES_AVAILABLE.K8S];
