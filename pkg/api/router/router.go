@@ -61,7 +61,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	memories := handlers.NewMemoryHandler()
 	workflows := handlers.NewWorkflowHandler()
 	images := handlers.NewImageHandler(services.GeminiClient)
-	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL)
+	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.MCPRuntimeBackend, services.ServerURL)
 	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL, services.InternalServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
 	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.WebhookHelper, services.OAuthServerConfig.ScopesSupported)

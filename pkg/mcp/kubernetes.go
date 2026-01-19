@@ -958,7 +958,10 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 
 func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error {
 	var deployment appsv1.Deployment
-	if err := k.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: k.mcpNamespace}, &deployment); err != nil {
+	if err := k.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: k.mcpNamespace}, &deployment); apierrors.IsNotFound(err) {
+		// If the deployment isn't found, then just return and it will be created when needed.
+		return nil
+	} else if err != nil {
 		return fmt.Errorf("failed to get deployment %s: %w", id, err)
 	}
 
