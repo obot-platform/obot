@@ -193,30 +193,25 @@
 					deployment.needsK8sUpdate &&
 					!deployment.compositeName;
 
-				let updateStatus = deployment.deploymentStatus || 'Unknown';
+				let updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
 				let updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
 				let updateStatusTooltip: string | undefined = undefined;
 
-				if (doesSupportK8sUpdates) {
-					if (needsUpdate && needsK8sUpdate) {
-						updateStatus = SERVER_UPGRADES_AVAILABLE.BOTH;
-						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER, SERVER_UPGRADES_AVAILABLE.K8S];
-						updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.BOTH;
-					} else if (needsUpdate) {
-						updateStatus = SERVER_UPGRADES_AVAILABLE.SERVER;
-						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER];
-						updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.SERVER;
-					} else if (needsK8sUpdate) {
-						updateStatus = SERVER_UPGRADES_AVAILABLE.K8S;
-						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.K8S];
-						updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.K8S;
-					} else {
-						updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
-						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
-					}
+				if (needsUpdate && needsK8sUpdate && doesSupportK8sUpdates) {
+					updateStatus = SERVER_UPGRADES_AVAILABLE.BOTH;
+					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER, SERVER_UPGRADES_AVAILABLE.K8S];
+					updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.BOTH;
+				} else if (needsUpdate) {
+					updateStatus = SERVER_UPGRADES_AVAILABLE.SERVER;
+					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER];
+					updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.SERVER;
+				} else if (needsK8sUpdate && doesSupportK8sUpdates) {
+					updateStatus = SERVER_UPGRADES_AVAILABLE.K8S;
+					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.K8S];
+					updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.K8S;
 				} else {
-					updateStatus = '';
-					updatesAvailable = [];
+					updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
+					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
 				}
 
 				return {
@@ -480,18 +475,12 @@
 			bind:this={tableRef}
 			data={tableData}
 			fields={entity === 'workspace'
-				? [
-						'displayName',
-						'type',
-						'deploymentStatus',
-						...(doesSupportK8sUpdates ? ['updatesAvailable'] : []),
-						'created'
-					]
+				? ['displayName', 'type', 'deploymentStatus', 'updatesAvailable', 'created']
 				: [
 						'displayName',
 						'type',
-						'deploymentStatus',
-						...(doesSupportK8sUpdates ? ['updatesAvailable'] : []),
+						...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
+						'updatesAvailable',
 						'userName',
 						'registry',
 						'created'
@@ -500,7 +489,8 @@
 				'displayName',
 				'type',
 				'deploymentStatus',
-				...(doesSupportK8sUpdates ? ['updatesAvailable'] : []),
+				...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
+				'updatesAvailable',
 				'userName',
 				'registry'
 			].filter(Boolean) as string[]}
@@ -509,7 +499,7 @@
 				{ title: 'Name', property: 'displayName' },
 				{ title: 'User', property: 'userName' },
 				{ title: 'Health', property: 'deploymentStatus' },
-				...(doesSupportK8sUpdates ? [{ title: 'Update Status', property: 'updatesAvailable' }] : [])
+				{ title: 'Update Status', property: 'updatesAvailable' }
 			]}
 			onClickRow={(d, isCtrlClick) => {
 				setLastVisitedMcpServer(d);
