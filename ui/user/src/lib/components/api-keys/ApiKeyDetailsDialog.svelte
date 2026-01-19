@@ -132,8 +132,8 @@
 				<button
 					class="button-destructive flex items-center gap-2"
 					onclick={() => {
-						handleClose();
 						onDelete(apiKey);
+						handleClose();
 					}}
 				>
 					<Trash2 class="size-4" />
