@@ -477,7 +477,7 @@
 					<button
 						class="button text-sm"
 						onclick={() => {
-							goto('/admin/model-access');
+							goto('/admin/model-access-policies');
 						}}
 					>
 						Cancel
