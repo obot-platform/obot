@@ -885,7 +885,11 @@ export async function getK8sSettingsStatus(
 }
 
 export async function redeployWithK8sSettings(mcpServerId: string, opts?: { fetch?: Fetcher }) {
-	const response = await doPost(`/mcp-servers/${mcpServerId}/redeploy-with-k8s-settings`, {}, opts);
+	const response = await doPost(
+		`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/servers/${mcpServerId}/redeploy-with-k8s-settings`,
+		{},
+		opts
+	);
 	return response;
 }
 
