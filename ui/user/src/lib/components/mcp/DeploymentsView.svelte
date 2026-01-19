@@ -268,6 +268,8 @@
 				await AdminService.listAllCatalogDeployedSingleRemoteServers(id);
 			deployedWorkspaceCatalogEntryServers =
 				await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
+			// Refresh multi-user servers too
+			mcpServersAndEntries.refreshAll();
 			// Refresh capacity banner when server list changes
 			if (!isInitialLoad) {
 				capacityBanner?.refresh();
@@ -371,7 +373,7 @@
 					: ChatService.redeployWorkspaceK8sServerWithK8sSettings(workspaceId, mcpServerId)
 				: catalogEntryId
 					? AdminService.redeployMCPCatalogServerWithK8sSettings(catalogEntryId, mcpServerId)
-					: AdminService.redeployWithK8sSettings(mcpServerId));
+					: AdminService.redeployWithK8sSettings(mcpServerId, server.mcpCatalogID));
 		} catch (err) {
 			updating[server.id] = {
 				inProgress: false,
