@@ -95,6 +95,9 @@
 		noDataContent,
 		onlyMyServers
 	}: Props = $props();
+
+	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
+
 	let loading = $state(false);
 
 	let diffDialog = $state<ReturnType<typeof DiffDialog>>();
@@ -194,17 +197,7 @@
 				let updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
 				let updateStatusTooltip: string | undefined = undefined;
 
-				if (
-					!needsUpdate &&
-					!needsK8sUpdate &&
-					deployment.deploymentStatus?.toLocaleLowerCase().includes('unavailable')
-				) {
-					updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
-					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
-				} else if (
-					deployment.deploymentStatus?.toLocaleLowerCase().includes('available') ||
-					version.current.engine !== 'kubernetes'
-				) {
+				if (doesSupportK8sUpdates) {
 					if (needsUpdate && needsK8sUpdate) {
 						updateStatus = SERVER_UPGRADES_AVAILABLE.BOTH;
 						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER, SERVER_UPGRADES_AVAILABLE.K8S];
@@ -221,6 +214,9 @@
 						updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
 						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
 					}
+				} else {
+					updateStatus = '';
+					updatesAvailable = [];
 				}
 
 				return {
@@ -484,14 +480,36 @@
 			bind:this={tableRef}
 			data={tableData}
 			fields={entity === 'workspace'
-				? ['displayName', 'type', 'updatesAvailable', 'created']
-				: ['displayName', 'type', 'updatesAvailable', 'userName', 'registry', 'created']}
-			filterable={['displayName', 'type', 'updatesAvailable', 'userName', 'registry']}
+				? [
+						'displayName',
+						'type',
+						'deploymentStatus',
+						...(doesSupportK8sUpdates ? ['updatesAvailable'] : []),
+						'created'
+					]
+				: [
+						'displayName',
+						'type',
+						'deploymentStatus',
+						...(doesSupportK8sUpdates ? ['updatesAvailable'] : []),
+						'userName',
+						'registry',
+						'created'
+					]}
+			filterable={[
+				'displayName',
+				'type',
+				'deploymentStatus',
+				...(doesSupportK8sUpdates ? ['updatesAvailable'] : []),
+				'userName',
+				'registry'
+			].filter(Boolean) as string[]}
 			{filters}
 			headers={[
 				{ title: 'Name', property: 'displayName' },
 				{ title: 'User', property: 'userName' },
-				{ title: 'Status', property: 'updatesAvailable' }
+				{ title: 'Health', property: 'deploymentStatus' },
+				...(doesSupportK8sUpdates ? [{ title: 'Update Status', property: 'updatesAvailable' }] : [])
 			]}
 			onClickRow={(d, isCtrlClick) => {
 				setLastVisitedMcpServer(d);
