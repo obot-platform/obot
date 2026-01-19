@@ -57,8 +57,9 @@ const config: Config = {
           routeBasePath: "/", // Serve the docs at the site's root
 
           // Versioning configuration
-          lastVersion: "v0.15.0",
+          lastVersion: "v0.16.0",
           versions: {
+            "v0.15.0": { label: "v0.15.0", banner: "none", path: "v0.15.0" },
             "v0.14.0": { label: "v0.14.0", banner: "none", path: "v0.14.0" },
             "v0.13.0": { label: "v0.13.0", banner: "none", path: "v0.13.0" },
           },
