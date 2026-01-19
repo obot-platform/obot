@@ -103,7 +103,7 @@
 				// Fetch the updated model providers and available models
 				modelProviders = await AdminService.listModelProviders();
 				adminConfigStore.updateModelProviders(modelProviders);
-				adminModels.items = await AdminService.listModels();
+				adminModels.items = await AdminService.listModels({ all: true });
 
 				providerConfigure?.close();
 				if (!isAlreadyConfigured) {
