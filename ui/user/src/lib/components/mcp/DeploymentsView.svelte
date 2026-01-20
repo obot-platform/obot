@@ -995,7 +995,9 @@
 	{#snippet note()}
 		<p class="mb-8 text-sm font-light">
 			{#if showK8sUpgradeConfirm?.type === 'multi'}
-				The selected servers ({Object.keys(selected).length})
+				The selected servers ({Object.values(selected).filter(
+					(s) => s.needsK8sUpdate && !s.compositeName
+				).length})
 			{:else}
 				The <span class="font-medium"
 					>{showK8sUpgradeConfirm?.server.compositeName ??
