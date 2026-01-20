@@ -159,7 +159,6 @@
 				{#if selected.entry}
 					<McpServerActions
 						entry={selected.entry}
-						server={selected.server}
 						onConnect={setupProjectMcp}
 						skipConnectDialog
 						connectOnly
