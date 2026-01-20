@@ -124,19 +124,20 @@
 	let columnWidths = $state<number[]>([]);
 
 	let autoHiddenFieldIndices = new SvelteSet<number>();
-	let userHiddenFieldIndices = new SvelteSet<number>();
+	let userHiddenFieldIndices = $state<SvelteSet<number> | null>(null);
 
 	// User preferences take priority over auto-hidden from resizing
 	let hiddenFieldIndices = $derived(userHiddenFieldIndices ?? autoHiddenFieldIndices);
 	let visibleFields = $derived(fields.filter((_, index) => !hiddenFieldIndices.has(index)));
 
 	function handleColumnVisibilityChange(hiddenIndices: Set<number>) {
-		userHiddenFieldIndices.clear();
-		hiddenIndices.forEach((i) => userHiddenFieldIndices.add(i));
+		const newSet = new SvelteSet<number>();
+		hiddenIndices.forEach((i) => newSet.add(i));
+		userHiddenFieldIndices = newSet;
 	}
 
 	function handleColumnVisibilityReset() {
-		userHiddenFieldIndices.clear();
+		userHiddenFieldIndices = null;
 	}
 
 	let tableData = $derived.by(() => {
