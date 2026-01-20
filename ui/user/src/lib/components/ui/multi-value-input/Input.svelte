@@ -99,7 +99,7 @@
 	{/if}
 
 	<input
-		class="grow bg-inherit focus:ring-0 focus:outline-none"
+		class="grow bg-transparent text-current placeholder:text-current placeholder:opacity-50 focus:ring-0 focus:outline-none"
 		{placeholder}
 		bind:this={input}
 		bind:value={text}

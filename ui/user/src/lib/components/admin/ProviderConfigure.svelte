@@ -23,58 +23,85 @@
 	let form = $state<Record<string, string>>({});
 	let showRequired = $state(false);
 
-	const isAzureOpernAIProvider = $derived(
-		provider && provider.id === 'azure-openai-model-provider'
-	);
-	const requiredConfigurationPairs = $derived.by(() => {
-		if (!isAzureOpernAIProvider) return [];
+	const isAzureOpenAIProvider = $derived(provider && provider.id === 'azure-openai-model-provider');
 
-		const endpoint = provider?.requiredConfigurationParameters?.find(
-			(p) => p.name === 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT'
-		);
-		const apiKey = provider?.optionalConfigurationParameters?.find(
-			(p) => p.name === 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY'
-		);
-
-		type Pair = NonNullable<typeof apiKey>;
-
-		return [[endpoint, apiKey].filter(Boolean) as Pair[]];
+	const collection = $derived.by(() => {
+		if (isAzureOpenAIProvider)
+			return {
+				title: 'Authentication Method',
+				items: [
+					{
+						id: 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY',
+						name: 'API Key'
+					},
+					{
+						id: 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT',
+						name: 'Microsoft Entra'
+					}
+				]
+			};
+		return undefined;
 	});
+	let selectedCollection: string | undefined = $state('OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY');
 
-	const filterOutParams = $derived.by(() => {
-		if (isAzureOpernAIProvider)
-			return [
-				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY',
-				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT'
+	const requiredConfigurationParameters = $derived.by(() => {
+		if (isAzureOpenAIProvider) {
+			const allParams = [
+				...(provider?.requiredConfigurationParameters ?? []),
+				...(provider?.optionalConfigurationParameters ?? [])
 			];
-		return [];
+
+			const asObject = allParams.reduce(
+				(acc, val) => {
+					acc[val.name] = val;
+					return acc;
+				},
+				{} as Record<string, ProviderParameter>
+			);
+
+			if (selectedCollection === 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY') {
+				const requiredParamsIds = [
+					'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY',
+					'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT',
+					'OBOT_AZURE_OPENAI_MODEL_PROVIDER_DEPLOYMENTS'
+				];
+				return requiredParamsIds.map((id) => asObject?.[id]).filter(Boolean) as ProviderParameter[];
+			}
+
+			const requiredParamsIds = [
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_ID',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_SECRET',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_TENANT_ID',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_SUBSCRIPTION_ID',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_RESOURCE_GROUP'
+			];
+
+			return requiredParamsIds.map((id) => asObject?.[id]).filter(Boolean) as ProviderParameter[];
+		}
+
+		return (provider?.requiredConfigurationParameters?.filter((p) => !p.hidden) ??
+			[]) as ProviderParameter[];
 	});
 
-	const requiredConfigurationParameters = $derived(
-		provider?.requiredConfigurationParameters?.filter(
-			(p) => !p.hidden && !filterOutParams.includes(p.name)
-		) ?? []
-	);
-	const optionalConfigurationParameters = $derived(
-		provider?.optionalConfigurationParameters?.filter(
-			(p) => !p.hidden && !filterOutParams.includes(p.name)
-		) ?? []
-	);
+	const optionalConfigurationParameters = $derived.by(() => {
+		const optionalParams = (provider?.optionalConfigurationParameters?.filter((p) => !p.hidden) ??
+			[]) as ProviderParameter[];
 
-	const selectedParameterPair: Record<string, ProviderParameter | undefined> = $state({});
-	const defaultSelectedParameterPair = $derived.by(() => {
-		return requiredConfigurationPairs.reduce(
-			(acc, pair, i) => {
-				acc[i] = pair[0];
-				return acc;
-			},
-			{} as Record<string, ProviderParameter | undefined>
-		);
-	});
+		if (isAzureOpenAIProvider) {
+			// Only show the API version parameter as optional
 
-	const readonlySelectedParameterPair = $derived({
-		...defaultSelectedParameterPair,
-		...selectedParameterPair
+			const allParams = [
+				...(provider?.requiredConfigurationParameters ?? []),
+				...(provider?.optionalConfigurationParameters ?? [])
+			];
+
+			return allParams.filter(
+				(param) => param.name === 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_VERSION'
+			) as ProviderParameter[];
+		}
+
+		return optionalParams;
 	});
 
 	function onOpen() {
@@ -107,6 +134,12 @@
 		showRequired = false;
 	}
 
+	function reset() {
+		showRequired = false;
+		form = {};
+		onOpen();
+	}
+
 	export function open() {
 		dialog?.open();
 	}
@@ -122,15 +155,6 @@
 			(p) => !form[p.name].length
 		);
 
-		// Check required pairs fields; at least one in each pair must be filled; the selected one should be filled
-		for (let index = 0; index < requiredConfigurationPairs.length; index++) {
-			const selectedParameter = readonlySelectedParameterPair[index + ''];
-
-			if (selectedParameter && !form[selectedParameter.name].length) {
-				requiredFieldsNotFilled.push(selectedParameter);
-			}
-		}
-
 		if (requiredFieldsNotFilled.length > 0) {
 			showRequired = true;
 			return;
@@ -139,14 +163,7 @@
 		// Convert multiline values to single line with literal \n
 		const processedForm = { ...form };
 
-		const selectedPairs = Object.values(readonlySelectedParameterPair).filter(
-			Boolean
-		) as ProviderParameter[];
-		const allParams = [
-			...selectedPairs,
-			...requiredConfigurationParameters,
-			...optionalConfigurationParameters
-		];
+		const allParams = [...requiredConfigurationParameters, ...optionalConfigurationParameters];
 
 		for (const param of allParams) {
 			if (param.multiline && processedForm[param.name]) {
@@ -217,89 +234,35 @@
 				{@render note()}
 			{/if}
 
-			{#if requiredConfigurationParameters.length > 0 || requiredConfigurationPairs.length > 0}
+			{#if requiredConfigurationParameters.length > 0}
 				<div class="flex flex-col gap-4">
-					<h4 class="text-lg font-semibold">Required Configuration</h4>
-					{#if requiredConfigurationPairs.length > 0}
-						<ul class="flex flex-col gap-4">
-							{#each requiredConfigurationPairs as pair, i (i)}
-								{@const selectedParameter = readonlySelectedParameterPair[i + '']}
-								{@const hasError =
-									selectedParameter && !form[selectedParameter.name]?.length && showRequired}
-
-								<li class="flex flex-col gap-2">
-									<div class="flex gap-1">
-										{#each pair as parameter (parameter.name)}
-											{@const isSelected = selectedParameter?.name === parameter.name}
-											<button
-												class={twMerge(
-													'bg-surface1 hover:bg-surface2 text-gray rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
-													isSelected &&
-														'bg-primary hover:bg-primary/90 active:bg-primary text-white shadow-sm',
-													isSelected &&
-														hasError &&
-														'bg-red-500 text-white hover:bg-red-600/90 active:bg-red-600'
-												)}
-												type="button"
-												onclick={() => {
-													// Clear errors when switching
-													showRequired = false;
-													selectedParameterPair[i + ''] = parameter;
-												}}>{parameter.friendlyName}</button
-											>
-										{/each}
-									</div>
-
-									{#if selectedParameter && typeof form[selectedParameter.name] === 'string'}
-										<div class="flex flex-col gap-1">
-											{#if selectedParameter.description}
-												<span class="text-gray text-xs">{selectedParameter.description}</span>
-											{/if}
-											{#if selectedParameter.sensitive}
-												<SensitiveInput
-													error={hasError}
-													name={selectedParameter.name}
-													bind:value={form[selectedParameter.name]}
-													disabled={readonly}
-													textarea={selectedParameter.multiline}
-													growable={selectedParameter.multiline}
-												/>
-											{:else if multipValuesInputs.has(selectedParameter.name)}
-												<MultiValueInput
-													bind:value={form[selectedParameter.name]}
-													id={selectedParameter.name}
-													labels={selectedParameter.name === 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
-														? { '*': 'All domains' }
-														: {}}
-													class="text-input-filled"
-													placeholder={`Hit "Enter" to insert`.toString()}
-													disabled={readonly}
-												/>
-											{:else if selectedParameter.multiline}
-												<textarea
-													id={selectedParameter.name}
-													bind:value={form[selectedParameter.name]}
-													class:error={hasError}
-													class="text-input-filled min-h-[120px] resize-y"
-													disabled={readonly}
-													rows="5"
-												></textarea>
-											{:else}
-												<input
-													type="text"
-													id={selectedParameter.name}
-													bind:value={form[selectedParameter.name]}
-													class:error={hasError}
-													class="text-input-filled"
-													disabled={readonly}
-												/>
-											{/if}
-										</div>
-									{/if}
-								</li>
-							{/each}
-						</ul>
+					{#if collection}
+						<div class="mb-4 flex flex-col gap-2">
+							<h4 class="text-lg font-semibold">{collection.title}</h4>
+							<ul class="flex gap-2">
+								{#each collection.items as item, i (i)}
+									{@const isSelected = selectedCollection === item.id}
+									<li>
+										<button
+											class={twMerge(
+												'bg-surface1 hover:bg-surface2 text-gray rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
+												isSelected &&
+													'bg-primary hover:bg-primary/90 active:bg-primary text-white shadow-sm'
+											)}
+											type="button"
+											onclick={() => {
+												selectedCollection = item.id;
+												// Reset form values
+												reset();
+											}}>{item.name}</button
+										>
+									</li>
+								{/each}
+							</ul>
+						</div>
 					{/if}
+
+					<h4 class="text-lg font-semibold">Required Configuration</h4>
 
 					<ul class="flex flex-col gap-4">
 						{#each requiredConfigurationParameters as parameter (parameter.name)}
@@ -328,7 +291,7 @@
 											labels={parameter.name === 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
 												? { '*': 'All domains' }
 												: {}}
-											class="text-input-filled"
+											class={['text-input-filled', error && 'error'].filter(Boolean).join(' ')}
 											placeholder={`Hit "Enter" to insert`.toString()}
 											disabled={readonly}
 										/>
