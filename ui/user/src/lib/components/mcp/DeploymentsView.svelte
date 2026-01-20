@@ -475,7 +475,13 @@
 			bind:this={tableRef}
 			data={tableData}
 			fields={entity === 'workspace'
-				? ['displayName', 'type', 'deploymentStatus', 'updatesAvailable', 'created']
+				? [
+						'displayName',
+						'type',
+						...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
+						'updatesAvailable',
+						'created'
+					]
 				: [
 						'displayName',
 						'type',
@@ -489,7 +495,6 @@
 				'displayName',
 				'type',
 				'deploymentStatus',
-				...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
 				'updatesAvailable',
 				'userName',
 				'registry'
