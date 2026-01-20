@@ -4650,6 +4650,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 							Format: "",
 						},
 					},
+					"oauthCredentialConfigured": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "manifest"},
 			},
