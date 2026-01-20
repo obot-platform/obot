@@ -530,7 +530,6 @@
 				const matchingServers = mcpServersAndEntries.current.userConfiguredServers.filter(
 					(s) => s.catalogEntryID === d.id
 				);
-				console.log({ matchingServers });
 				if (isCreateFirst || matchingServers.length === 1) {
 					connectToServerDialog?.open({
 						entry: d,
