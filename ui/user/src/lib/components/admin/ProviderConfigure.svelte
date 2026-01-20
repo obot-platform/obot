@@ -293,13 +293,7 @@
 											labels={parameter.name === 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
 												? { '*': 'All domains' }
 												: {}}
-											class={[
-												'text-input-filled',
-												error &&
-													'border border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus-within:ring-1'
-											]
-												.filter(Boolean)
-												.join(' ')}
+											class={['text-input-filled', error && 'error'].filter(Boolean).join(' ')}
 											placeholder={`Hit "Enter" to insert`.toString()}
 											disabled={readonly}
 										/>
@@ -318,7 +312,7 @@
 											id={parameter.name}
 											bind:value={form[parameter.name]}
 											class:error
-											class={['text-input-filled', error && 'ring-red-500 focus:ring-1']}
+											class="text-input-filled"
 											disabled={readonly}
 										/>
 									{/if}
