@@ -37,7 +37,7 @@
 	let userMap = $derived(new Map(users.map((u) => [u.id, u])));
 
 	let urlFilters = $derived(getTableUrlParamsFilters());
-	let initSort = $derived(getTableUrlParamsSort());
+	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
 	let query = $state(page.url.searchParams.get('query') || '');
 
 	let loading = $state(true);

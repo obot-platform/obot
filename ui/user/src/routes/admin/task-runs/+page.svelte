@@ -41,7 +41,7 @@
 
 	let query = $state(page.url.searchParams.get('query') || '');
 	let urlFilters = $derived(getTableUrlParamsFilters());
-	let initSort = $derived(getTableUrlParamsSort());
+	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
 
 	let loading = $state(true);
 	let filteredThreads = $derived(threads.filter((thread) => !thread.project && !thread.systemTask));

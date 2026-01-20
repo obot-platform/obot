@@ -7,7 +7,7 @@
 		SquareCheck,
 		SquareMinus
 	} from 'lucide-svelte';
-	import { onMount, untrack, type Snippet } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';
 	import TableHeader from './TableHeader.svelte';
@@ -84,11 +84,10 @@
 
 	let sortableFields = $derived(new Set(sortable));
 	let filterableFields = $derived(new Set(filterable));
-	let sortedBy = $state<{ property: string; order: 'asc' | 'desc' } | undefined>(
-		untrack(() =>
-			initSort ? initSort : sortable?.[0] ? { property: sortable[0], order: 'asc' } : undefined
-		)
+	let sortedBy = $derived<{ property: string; order: 'asc' | 'desc' } | undefined>(
+		initSort ?? (sortable?.[0] ? { property: sortable[0], order: 'asc' } : undefined)
 	);
+
 	let filteredBy = $derived<Record<string, (string | number)[]> | undefined>(filters);
 	let filterValues = $derived.by(() => {
 		if (!filterable) return {};
@@ -227,6 +226,8 @@
 		} else {
 			sortedBy.order = sortedBy.order === 'asc' ? 'desc' : 'asc';
 		}
+
+		sortedBy = { ...sortedBy };
 
 		onSort?.(property, sortedBy.order);
 	}

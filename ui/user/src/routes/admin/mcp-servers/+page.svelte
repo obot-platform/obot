@@ -33,6 +33,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
+	import type { InitSort } from '$lib/components/table/Table.svelte';
 
 	type View = 'registry' | 'deployments' | 'urls';
 
@@ -51,7 +52,17 @@
 
 	let users = $state<OrgUser[]>([]);
 	let urlFilters = $state(getTableUrlParamsFilters());
-	let initSort = $derived(getTableUrlParamsSort());
+	let initSort = $derived.by(() => {
+		const defValue =
+			view === 'deployments'
+				? ({
+						property: 'created',
+						order: 'desc'
+					} as InitSort)
+				: undefined;
+
+		return getTableUrlParamsSort(defValue);
+	});
 
 	onMount(async () => {
 		users = await AdminService.listUsersIncludeDeleted();
@@ -203,7 +214,6 @@
 		setUrlParam(newUrl, 'query', savedQuery || null);
 
 		urlFilters = getTableUrlParamsFilters();
-		initSort = getTableUrlParamsSort();
 
 		navigateWithState(newUrl);
 	}

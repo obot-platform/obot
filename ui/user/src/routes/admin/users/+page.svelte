@@ -30,7 +30,7 @@
 	let users = $state<OrgUser[]>(untrack(() => data.users));
 	let query = $state('');
 	let urlFilters = $derived(getTableUrlParamsFilters());
-	let initSort = $derived(getTableUrlParamsSort());
+	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
 
 	const tableData = $derived(
 		users
