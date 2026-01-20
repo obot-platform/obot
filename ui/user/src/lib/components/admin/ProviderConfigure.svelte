@@ -23,12 +23,12 @@
 	let form = $state<Record<string, string>>({});
 	let showRequired = $state(false);
 
-	const isAzureOpernAIProvider = $derived(
+	const isAzureOpenAIProvider = $derived(
 		provider && provider.id === 'azure-openai-model-provider'
 	);
 
 	const collection = $derived.by(() => {
-		if (isAzureOpernAIProvider)
+		if (isAzureOpenAIProvider)
 			return {
 				title: 'Authentication Method',
 				items: [
@@ -47,7 +47,7 @@
 	let selectedCollection: string | undefined = $state('OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY');
 
 	const requiredConfigurationParameters = $derived.by(() => {
-		if (isAzureOpernAIProvider) {
+		if (isAzureOpenAIProvider) {
 			const allParams = [
 				...(provider?.requiredConfigurationParameters ?? []),
 				...(provider?.optionalConfigurationParameters ?? [])
@@ -90,7 +90,7 @@
 		const optionalParams = (provider?.optionalConfigurationParameters?.filter((p) => !p.hidden) ??
 			[]) as ProviderParameter[];
 
-		if (isAzureOpernAIProvider) {
+		if (isAzureOpenAIProvider) {
 			// Only show the API version parameter as optional
 
 			const allParams = [
