@@ -868,7 +868,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 	for attempt := range maxRetries {
 		// Wait for the deployment to be updated.
 		_, err := wait.For(ctx, k.client, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}}, func(dep *appsv1.Deployment) (bool, error) {
-			return dep.Generation == dep.Status.ObservedGeneration && dep.Status.Replicas == 1 && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1, nil
+			return dep.Generation == dep.Status.ObservedGeneration && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1, nil
 		}, wait.Option{Timeout: time.Minute})
 		if err == nil {
 			// Deployment is ready, now ensure the server is ready
@@ -878,9 +878,8 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 
 			// Now get the pod name that is currently running
 			var (
-				pods            corev1.PodList
-				runningPodCount int
-				podName         string
+				pods    corev1.PodList
+				podName string
 			)
 			if err = k.client.List(ctx, &pods, &kclient.ListOptions{
 				Namespace: k.mcpNamespace,
@@ -891,22 +890,18 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 				return "", fmt.Errorf("failed to list MCP pods: %w", err)
 			}
 
+			var newestCreatedTime metav1.Time
 			for _, p := range pods.Items {
-				if p.DeletionTimestamp.IsZero() && p.Status.Phase == corev1.PodRunning {
+				if p.DeletionTimestamp.IsZero() && p.CreationTimestamp.After(newestCreatedTime.Time) && p.Status.Phase == corev1.PodRunning {
 					podName = p.Name
-					runningPodCount++
 				}
 			}
 
-			// runningPodCount should always equal 1, if the deployment is ready, as it is by this point in the code.
-			// However, we will check just to make sure, and retry if it isn't.
-			if runningPodCount == 1 {
+			if podName != "" {
 				return podName, nil
-			} else if runningPodCount > 1 {
-				lastErr = fmt.Errorf("more than one running pod found")
-			} else {
-				lastErr = fmt.Errorf("no pods found")
 			}
+
+			lastErr = fmt.Errorf("no pods found")
 			continue
 		}
 
