@@ -296,7 +296,10 @@
 	}
 
 	async function handleK8sBulkUpdate(selections: typeof selected) {
-		return Promise.all(Object.values(selections).map((server) => updateK8sSettings(server)));
+		const serversToUpdate = Object.values(selections).filter(
+			(server) => server.needsK8sUpdate && !server.compositeName
+		);
+		return Promise.all(serversToUpdate.map((server) => updateK8sSettings(server)));
 	}
 
 	async function handleBulkRestart() {
