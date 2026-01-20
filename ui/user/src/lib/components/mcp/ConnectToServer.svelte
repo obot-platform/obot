@@ -633,17 +633,17 @@
 		{/if}
 
 		{#if entry}
-			<p class="text-on-surface1 flex items-center justify-end gap-2 text-sm font-light">
+			<p class="text-on-surface1 flex items-center justify-end gap-1 text-sm font-light">
 				Need to set up a different instance?
 				<button
-					class="button-primary button-small hover:bg-primary px-3 py-1"
+					class="button-small button-primary hover:bg-primary"
 					onclick={() => {
 						server = undefined;
 						initCatalogEntry();
 						connectDialog?.close();
 					}}
 				>
-					<Plus class="size-3" /> Connect New Server
+					<Plus class="size-3" /> Connect to New Server
 				</button>
 			</p>
 		{/if}

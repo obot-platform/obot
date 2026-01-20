@@ -168,8 +168,15 @@
 							selectedConfiguredServers = mcpServersAndEntries.current.userConfiguredServers.filter(
 								(server) => server.catalogEntryID === d.data.id
 							);
-							selectedEntry = d.data;
-							selectServerDialog?.open();
+							if (selectedConfiguredServers.length === 1) {
+								onConnect?.({
+									entry: d.data,
+									server: selectedConfiguredServers[0]
+								});
+							} else {
+								selectedEntry = d.data;
+								selectServerDialog?.open();
+							}
 						} else {
 							const entry =
 								'isCatalogEntry' in d.data
@@ -238,14 +245,4 @@
 			</button>
 		{/snippet}
 	</Table>
-	<p class="my-4 self-center text-center text-sm font-semibold">OR</p>
-	<button
-		class="button-primary"
-		onclick={() => {
-			selectServerDialog?.close();
-			onConnect?.({
-				entry: selectedEntry
-			});
-		}}>Connect New Server</button
-	>
 </ResponsiveDialog>

@@ -137,7 +137,14 @@
 			}}
 			onclick={() => {
 				if (entry && !server && configuredServers.length > 0) {
-					handleShowSelectServerDialog();
+					if (configuredServers.length === 1) {
+						connectToServerDialog?.open({
+							entry,
+							server: configuredServers[0]
+						});
+					} else {
+						handleShowSelectServerDialog();
+					}
 				} else {
 					connectToServerDialog?.open({
 						entry,
@@ -480,18 +487,6 @@
 				</button>
 			{/snippet}
 		</Table>
-		{#if selectServerMode === 'connect'}
-			<p class="my-4 self-center text-center text-sm font-semibold">OR</p>
-			<button
-				class="button-primary"
-				onclick={() => {
-					selectServerDialog?.close();
-					connectToServerDialog?.open({
-						entry
-					});
-				}}>Connect New Server</button
-			>
-		{/if}
 	</ResponsiveDialog>
 
 	<ResponsiveDialog bind:this={launchDialog} animate="slide" class="md:max-w-sm">
