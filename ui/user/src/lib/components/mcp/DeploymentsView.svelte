@@ -95,6 +95,9 @@
 		noDataContent,
 		onlyMyServers
 	}: Props = $props();
+
+	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
+
 	let loading = $state(false);
 
 	let diffDialog = $state<ReturnType<typeof DiffDialog>>();
@@ -190,37 +193,25 @@
 					deployment.needsK8sUpdate &&
 					!deployment.compositeName;
 
-				let updateStatus = deployment.deploymentStatus || 'Unknown';
+				let updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
 				let updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
 				let updateStatusTooltip: string | undefined = undefined;
 
-				if (
-					!needsUpdate &&
-					!needsK8sUpdate &&
-					deployment.deploymentStatus?.toLocaleLowerCase().includes('unavailable')
-				) {
+				if (needsUpdate && needsK8sUpdate && doesSupportK8sUpdates) {
+					updateStatus = SERVER_UPGRADES_AVAILABLE.BOTH;
+					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER, SERVER_UPGRADES_AVAILABLE.K8S];
+					updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.BOTH;
+				} else if (needsUpdate) {
+					updateStatus = SERVER_UPGRADES_AVAILABLE.SERVER;
+					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER];
+					updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.SERVER;
+				} else if (needsK8sUpdate && doesSupportK8sUpdates) {
+					updateStatus = SERVER_UPGRADES_AVAILABLE.K8S;
+					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.K8S];
+					updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.K8S;
+				} else {
 					updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
 					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
-				} else if (
-					deployment.deploymentStatus?.toLocaleLowerCase().includes('available') ||
-					version.current.engine !== 'kubernetes'
-				) {
-					if (needsUpdate && needsK8sUpdate) {
-						updateStatus = SERVER_UPGRADES_AVAILABLE.BOTH;
-						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER, SERVER_UPGRADES_AVAILABLE.K8S];
-						updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.BOTH;
-					} else if (needsUpdate) {
-						updateStatus = SERVER_UPGRADES_AVAILABLE.SERVER;
-						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER];
-						updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.SERVER;
-					} else if (needsK8sUpdate) {
-						updateStatus = SERVER_UPGRADES_AVAILABLE.K8S;
-						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.K8S];
-						updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.K8S;
-					} else {
-						updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
-						updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
-					}
 				}
 
 				return {
@@ -484,14 +475,36 @@
 			bind:this={tableRef}
 			data={tableData}
 			fields={entity === 'workspace'
-				? ['displayName', 'type', 'updatesAvailable', 'created']
-				: ['displayName', 'type', 'updatesAvailable', 'userName', 'registry', 'created']}
-			filterable={['displayName', 'type', 'updatesAvailable', 'userName', 'registry']}
+				? [
+						'displayName',
+						'type',
+						...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
+						'updatesAvailable',
+						'created'
+					]
+				: [
+						'displayName',
+						'type',
+						...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
+						'updatesAvailable',
+						'userName',
+						'registry',
+						'created'
+					]}
+			filterable={[
+				'displayName',
+				'type',
+				'deploymentStatus',
+				'updatesAvailable',
+				'userName',
+				'registry'
+			].filter(Boolean) as string[]}
 			{filters}
 			headers={[
 				{ title: 'Name', property: 'displayName' },
 				{ title: 'User', property: 'userName' },
-				{ title: 'Status', property: 'updatesAvailable' }
+				{ title: 'Health', property: 'deploymentStatus' },
+				{ title: 'Update Status', property: 'updatesAvailable' }
 			]}
 			onClickRow={(d, isCtrlClick) => {
 				setLastVisitedMcpServer(d);
