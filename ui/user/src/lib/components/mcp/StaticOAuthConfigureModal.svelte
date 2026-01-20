@@ -103,11 +103,21 @@
 
 		loading = true;
 		try {
-			await onSave({
-				clientID: form.clientID.trim(),
-				clientSecret: form.clientSecret.trim(),
-				authorizationServerURL: form.authorizationServerURL.trim() || undefined
-			});
+			if (oauthStatus?.configured) {
+				// Update mode: Only send authorization server URL
+				await onSave({
+					clientID: '',
+					clientSecret: '',
+					authorizationServerURL: form.authorizationServerURL.trim() || undefined
+				});
+			} else {
+				// Initial setup: Send all fields
+				await onSave({
+					clientID: form.clientID.trim(),
+					clientSecret: form.clientSecret.trim(),
+					authorizationServerURL: form.authorizationServerURL.trim() || undefined
+				});
+			}
 			dialog?.close();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to save OAuth credentials';
