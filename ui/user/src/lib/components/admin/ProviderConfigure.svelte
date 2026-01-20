@@ -23,9 +23,7 @@
 	let form = $state<Record<string, string>>({});
 	let showRequired = $state(false);
 
-	const isAzureOpenAIProvider = $derived(
-		provider && provider.id === 'azure-openai-model-provider'
-	);
+	const isAzureOpenAIProvider = $derived(provider && provider.id === 'azure-openai-model-provider');
 
 	const collection = $derived.by(() => {
 		if (isAzureOpenAIProvider)
