@@ -633,10 +633,10 @@
 		{/if}
 
 		{#if entry}
-			<p class="text-on-surface1 flex items-center justify-end gap-1 text-sm font-light">
+			<p class="text-on-surface1 flex items-center justify-end gap-2 text-sm font-light">
 				Need to set up a different instance?
 				<button
-					class="button-small button-primary hover:bg-primary"
+					class="button-small button-primary hover:bg-primary px-3 text-xs"
 					onclick={() => {
 						server = undefined;
 						initCatalogEntry();
