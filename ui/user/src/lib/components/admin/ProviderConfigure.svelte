@@ -91,14 +91,16 @@
 			[]) as ProviderParameter[];
 
 		if (isAzureOpernAIProvider) {
+			// Only show the API version parameter as optional
+
 			const allParams = [
 				...(provider?.requiredConfigurationParameters ?? []),
-				...(optionalParams ?? [])
+				...(provider?.optionalConfigurationParameters ?? [])
 			];
-			const keys = new Set(requiredConfigurationParameters.map((p) => p.name));
 
-			return (allParams?.filter((p) => !p.hidden && !keys.has(p.name)) ??
-				[]) as ProviderParameter[];
+			return allParams.filter(
+				(param) => param.name === 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_VERSION'
+			) as ProviderParameter[];
 		}
 
 		return optionalParams;
