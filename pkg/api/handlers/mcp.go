@@ -3043,6 +3043,9 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 		server.Status.NeedsK8sUpdate = false
 	}
 
+	// We are assuming the redeployment will succeed, so we can clear the flag here.
+	server.Status.NeedsK8sUpdate = false
+
 	// Get credential for server
 	var credCtxs []string
 	if server.Spec.MCPCatalogID != "" {

@@ -29,6 +29,7 @@
 	import { page } from '$app/state';
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import { resolve } from '$app/paths';
+	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 
 	interface Props {
 		id?: string;
@@ -268,7 +269,10 @@
 					: ChatService.redeployWorkspaceK8sServerWithK8sSettings(entityId, mcpServerId)
 				: catalogEntry?.id
 					? AdminService.redeployMCPCatalogServerWithK8sSettings(catalogEntry.id, mcpServerId)
-					: AdminService.redeployWithK8sSettings(mcpServerId));
+					: AdminService.redeployWithK8sSettings(
+							mcpServerId,
+							mcpServer?.mcpCatalogID ?? DEFAULT_MCP_CATALOG_ID
+						));
 			listK8sSettingsStatus = getK8sSettingsStatus();
 		} catch (err) {
 			console.error('Failed to update Kubernetes settings:', err);
