@@ -55,7 +55,6 @@
 		noChat
 	}: Props = $props();
 
-	let prevTaskId = $state(untrack(() => task.id));
 	const readOnly = untrack(() => !!inputRunID || readonly);
 	let runID = $state(untrack(() => inputRunID));
 	let thread: Thread | undefined = $state<Thread>();
