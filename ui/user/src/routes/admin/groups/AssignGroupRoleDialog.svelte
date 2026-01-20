@@ -111,7 +111,7 @@
 		bind:this={dialog}
 		onClose={handleClose}
 		class="flex max-h-[90svh] w-full max-w-[94svw] flex-col overflow-visible md:max-w-xl"
-		classes={{ content: 'p-4', header: 'mb-4' }}
+		classes={{ content: 'p-4 overflow-y-auto overflow-x-hidden flex-1', header: 'mb-4' }}
 	>
 		{#snippet titleContent()}
 			<div class="flex w-full flex-col gap-3">
