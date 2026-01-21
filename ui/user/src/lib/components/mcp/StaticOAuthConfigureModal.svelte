@@ -244,7 +244,7 @@
 					error={showRequired && !oauthStatus?.configured && !form.clientSecret}
 					placeholder={oauthStatus?.configured ? '••••••••' : 'your-client-secret'}
 					readonly={oauthStatus?.configured}
-					classes={oauthStatus?.configured ? 'opacity-60' : ''}
+					classes={{ input: oauthStatus?.configured ? 'opacity-60' : '' }}
 				/>
 				{#if oauthStatus?.configured}
 					<span class="text-gray text-xs">Read-only (clear credentials to change)</span>

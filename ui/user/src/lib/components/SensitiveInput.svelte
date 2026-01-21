@@ -14,7 +14,10 @@
 		readonly?: boolean;
 		growable?: boolean;
 		class?: string;
-		classes?: string;
+		classes?: {
+			wrapper?: string;
+			input?: string;
+		};
 		hideReveal?: boolean;
 		placeholder?: string;
 		onkeydown?: (ev: KeyboardEvent) => void;
@@ -142,7 +145,7 @@
 					class={twMerge(
 						'text-input-filled base flex w-full flex-1 flex-col overflow-x-hidden overflow-y-auto font-mono',
 						klass,
-						classes,
+						classes?.wrapper,
 						error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1',
 						disabled && 'opacity-50',
 						!showSensitive ? 'hide' : ''
@@ -216,7 +219,7 @@
 					class={twMerge(
 						'text-input-filled base flex min-h-full w-full flex-1 flex-col overflow-hidden rounded font-mono [box-shadow:none]',
 						klass,
-						classes,
+						classes?.wrapper,
 						error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1',
 						!showSensitive ? 'hide' : ''
 					)}
@@ -262,7 +265,7 @@
 			class={twMerge(
 				'text-input-filled w-full pr-10',
 				klass,
-				classes,
+				classes?.input,
 				error &&
 					'border-red-500 bg-red-500/20 [color:var(--color-red-500)] ring-red-500 focus:ring-1'
 			)}
