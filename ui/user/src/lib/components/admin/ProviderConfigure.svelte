@@ -328,9 +328,7 @@
 						{#each optionalConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
 								<li class="flex flex-col gap-1">
-									<label for={parameter.name} class:text-red-500={error}
-										>{parameter.friendlyName}</label
-									>
+									<label for={parameter.name}>{parameter.friendlyName}</label>
 									{#if parameter.description}
 										<span class="text-gray text-xs">{parameter.description}</span>
 									{/if}
