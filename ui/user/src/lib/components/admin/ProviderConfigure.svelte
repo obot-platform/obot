@@ -42,7 +42,33 @@
 			};
 		return undefined;
 	});
-	let selectedCollection: string | undefined = $state('OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY');
+	let defaultSelectedCollection = $derived.by(() => {
+		if (isAzureOpenAIProvider) {
+			if (values?.['OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY']) {
+				return 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY';
+			}
+
+			const hasMicrosoftEntraValues = [
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_ID',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_CLIENT_SECRET',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_TENANT_ID',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_SUBSCRIPTION_ID',
+				'OBOT_AZURE_OPENAI_MODEL_PROVIDER_RESOURCE_GROUP'
+			].some((param) => Boolean(values?.[param]));
+
+			if (hasMicrosoftEntraValues) {
+				return 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_ENDPOINT';
+			}
+
+			return undefined;
+		}
+		return undefined;
+	});
+	let selectedCollection: string | undefined = $derived(
+		defaultSelectedCollection ??
+			(isAzureOpenAIProvider ? 'OBOT_AZURE_OPENAI_MODEL_PROVIDER_API_KEY' : undefined)
+	);
 
 	const requiredConfigurationParameters = $derived.by(() => {
 		if (isAzureOpenAIProvider) {
@@ -137,7 +163,26 @@
 	function reset() {
 		showRequired = false;
 		form = {};
-		onOpen();
+
+		if (isAzureOpenAIProvider) {
+			// Check if the selected collection is the same as the default one
+			if (defaultSelectedCollection === selectedCollection) {
+				// Reset to initial values
+				onOpen();
+				return;
+			} else {
+				// Clear form values
+				for (const param of requiredConfigurationParameters ?? []) {
+					form[param.name] = '';
+				}
+
+				for (const param of optionalConfigurationParameters ?? []) {
+					form[param.name] = '';
+				}
+			}
+		} else {
+			onOpen();
+		}
 	}
 
 	export function open() {
