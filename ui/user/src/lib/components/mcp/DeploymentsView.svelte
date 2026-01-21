@@ -258,20 +258,17 @@
 		if (hasProgressing) {
 			await reload(false);
 		}
-
-		// Always schedule next poll regardless of server state
-		pollingInterval = window.setTimeout(() => checkAndPoll(), POLL_INTERVAL_MS);
 	}
 
 	onMount(async () => {
 		await reload(true);
 		// Start checking for progressing servers
-		checkAndPoll();
+		pollingInterval = setInterval(() => checkAndPoll(), POLL_INTERVAL_MS);
 	});
 
 	onDestroy(() => {
 		if (pollingInterval) {
-			window.clearTimeout(pollingInterval);
+			clearInterval(pollingInterval);
 		}
 	});
 
