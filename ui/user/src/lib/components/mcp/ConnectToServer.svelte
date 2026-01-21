@@ -38,9 +38,11 @@
 		}) => void;
 		onClose?: () => void;
 		skipConnectDialog?: boolean;
+		hideActions?: boolean;
 	}
 
-	let { userConfiguredServers, onConnect, onClose, skipConnectDialog }: Props = $props();
+	let { userConfiguredServers, onConnect, onClose, skipConnectDialog, hideActions }: Props =
+		$props();
 
 	let server = $state<MCPCatalogServer>();
 	let entry = $state<MCPCatalogEntry>();
@@ -618,21 +620,23 @@
 					/>
 				</div>
 			</div>
-			<div class="w-32">
-				<button
-					class="button-primary flex h-fit w-full grow items-center justify-center gap-2 text-sm"
-					onclick={() => handleSetupChat(server!, instance)}
-				>
-					Chat <ExternalLink class="size-4" />
-				</button>
-			</div>
+			{#if !hideActions}
+				<div class="w-32">
+					<button
+						class="button-primary flex h-fit w-full grow items-center justify-center gap-2 text-sm"
+						onclick={() => handleSetupChat(server!, instance)}
+					>
+						Chat <ExternalLink class="size-4" />
+					</button>
+				</div>
+			{/if}
 		</div>
 
 		{#if url}
 			<HowToConnect servers={[{ url, name }]} />
 		{/if}
 
-		{#if entry}
+		{#if entry && !hideActions}
 			<p class="text-on-surface1 flex items-center justify-end gap-2 text-sm font-light">
 				Need to set up a different instance?
 				<button

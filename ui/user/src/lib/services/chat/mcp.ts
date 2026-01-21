@@ -1,5 +1,5 @@
 import type { CompositeLaunchFormData } from '$lib/components/mcp/CatalogConfigureForm.svelte';
-import { profile } from '$lib/stores';
+import { mcpServersAndEntries, profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
 import {
 	ChatService,
@@ -11,7 +11,8 @@ import {
 	type MCPServerInstance,
 	type MCPSubField,
 	type OrgUser,
-	type Project
+	type Project,
+	type ProjectMCP
 } from '..';
 
 export interface MCPServerInfo extends MCPServer {
@@ -368,3 +369,15 @@ export function getServerUrl(d: MCPCatalogServer) {
 	}
 	return url;
 }
+
+export const findServerAndEntryForProjectMcp = (mcpServer: ProjectMCP) => {
+	const server = mcpServersAndEntries.current.userConfiguredServers.find(
+		(s) => s.id === mcpServer.mcpID
+	) || mcpServersAndEntries.current.servers.find((s) => s.id === mcpServer.mcpID);
+	const entry = server?.catalogEntryID
+		? mcpServersAndEntries.current.entries.find(
+				(e) => e.id === server?.catalogEntryID
+			)
+		: undefined;
+	return { server, entry };
+};

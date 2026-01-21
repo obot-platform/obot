@@ -6,20 +6,26 @@
 	import Thread from '$lib/components/Thread.svelte';
 	import { type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
-	import { responsive } from '$lib/stores';
-	import { getLayout, isSomethingSelected } from '$lib/context/chatLayout.svelte';
-	import { GripVertical, SidebarOpen } from 'lucide-svelte';
+	import { mcpServersAndEntries, responsive } from '$lib/stores';
+	import {
+		closeSidebarConfig,
+		getLayout,
+		isSomethingSelected
+	} from '$lib/context/chatLayout.svelte';
+	import { ChevronLeft, GripVertical, SidebarOpen } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import { columnResize } from '$lib/actions/resize';
 	import { X } from 'lucide-svelte';
-	import type { Assistant, CreateProjectForm } from '$lib/services';
+	import type { Assistant, CreateProjectForm, ProjectMCP } from '$lib/services';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import SidebarConfig from './chat/ChatSidebarConfig.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import McpServerRequirements from './chat/McpServerRequirements.svelte';
 	import BetaLogo from './navbar/BetaLogo.svelte';
+	import McpServerActions from './mcp/McpServerActions.svelte';
+	import { findServerAndEntryForProjectMcp } from '$lib/services/chat/mcp';
 
 	interface Props {
 		assistant?: Assistant;
@@ -118,6 +124,14 @@
 							<div class="ml-2">
 								{@render openSidebar()}
 							</div>
+						{/if}
+						{#if layout.sidebarConfig && layout.mcpServer && !responsive.isMobile && layout.sidebarOpen}
+							{@render projectMcpHeader(layout.mcpServer)}
+						{/if}
+					{/snippet}
+					{#snippet rightContent()}
+						{#if layout.sidebarConfig && layout.mcpServer && !responsive.isMobile && layout.sidebarOpen}
+							{@render projectMcpConnect(layout.mcpServer)}
 						{/if}
 					{/snippet}
 				</Navbar>
@@ -232,4 +246,27 @@
 	<button class="icon-button" onclick={() => (layout.sidebarOpen = true)}>
 		<SidebarOpen class="size-6" />
 	</button>
+{/snippet}
+
+{#snippet projectMcpHeader(mcpServer: ProjectMCP)}
+	<button
+		class="icon-button mr-2 flex-shrink-0"
+		onclick={() => {
+			closeSidebarConfig(layout);
+		}}
+	>
+		<ChevronLeft class="size-6" />
+	</button>
+	<h1 class="text-xl font-semibold">
+		{mcpServer.alias || mcpServer.name || 'MCP Server'}
+	</h1>
+{/snippet}
+
+{#snippet projectMcpConnect(mcpServer: ProjectMCP)}
+	{@const { server, entry } = findServerAndEntryForProjectMcp(mcpServer)}
+	{#if server}
+		<div class="flex shrink-0 items-center gap-2">
+			<McpServerActions {entry} {server} isProjectMcp />
+		</div>
+	{/if}
 {/snippet}

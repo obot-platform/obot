@@ -541,7 +541,7 @@
 						<ConfigureBanner />
 					{/if}
 					{#if !layout.sidebarOpen || hideSidebar}
-						<div class="flex w-full items-center justify-between gap-2">
+						<div class="flex w-full items-center justify-between gap-2 pb-4">
 							{@render layoutHeaderContent()}
 							<div class="flex flex-shrink-0 items-center gap-2">
 								{#if rightNavActions}
