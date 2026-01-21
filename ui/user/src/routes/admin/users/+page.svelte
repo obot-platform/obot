@@ -129,12 +129,12 @@
 				/>
 				<Table
 					data={tableData}
-					fields={['name', 'email', 'role', 'effectiveRole', 'lastActiveDay']}
+					fields={['name', 'email', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
 					filterable={['name', 'email', 'role', 'effectiveRole']}
 					filters={urlFilters}
 					onFilter={setFilterUrlParams}
 					onClearAllFilters={clearUrlParams}
-					sortable={['name', 'email', 'role', 'effectiveRole', 'lastActiveDay']}
+					sortable={['name', 'email', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
 					headers={[
 						{ title: 'Assigned Role', property: 'role' },
 						{
@@ -164,8 +164,8 @@
 							<div class="flex items-center gap-1">
 								{d.effectiveRole}
 							</div>
-						{:else if property === 'lastActiveDay'}
-							{d.lastActiveDay ? formatTimeAgo(d.lastActiveDay, 'day').relativeTime : '-'}
+						{:else if property === 'lastActiveDay' || property === 'created'}
+							{d[property as keyof typeof d] ? formatTimeAgo(d[property], 'day').relativeTime : '-'}
 						{:else}
 							{d[property as keyof typeof d]}
 						{/if}
