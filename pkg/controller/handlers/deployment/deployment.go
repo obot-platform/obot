@@ -143,15 +143,40 @@ func (h *Handler) CleanupOldIDs(req router.Request, _ router.Response) error {
 
 // getDeploymentStatus determines the overall deployment status based on conditions
 func getDeploymentStatus(deployment *appsv1.Deployment) string {
-	for _, condition := range deployment.Status.Conditions {
+	var availableCondition, progressingCondition *appsv1.DeploymentCondition
+
+	// Collect both conditions
+	for i := range deployment.Status.Conditions {
+		condition := &deployment.Status.Conditions[i]
 		switch condition.Type {
 		case appsv1.DeploymentAvailable:
-			switch condition.Status {
-			case corev1.ConditionTrue:
-				return "Available"
-			case corev1.ConditionFalse:
-				return "Unavailable"
-			}
+			availableCondition = condition
+		case appsv1.DeploymentProgressing:
+			progressingCondition = condition
+		}
+	}
+
+	if progressingCondition != nil && progressingCondition.Status == corev1.ConditionFalse {
+		if progressingCondition.Reason == "ProgressDeadlineExceeded" {
+			// Rollout is stuck (after deadline)
+			return "Needs Attention"
+		}
+		// Other failures (FailedCreate, FailedPlacement, etc.)
+		return "Progressing"
+	}
+
+	if deployment.Status.UnavailableReplicas > 0 &&
+		deployment.Status.UpdatedReplicas > 0 &&
+		deployment.Generation == deployment.Status.ObservedGeneration {
+		return "Progressing"
+	}
+
+	if availableCondition != nil {
+		switch availableCondition.Status {
+		case corev1.ConditionTrue:
+			return "Available"
+		case corev1.ConditionFalse:
+			return "Unavailable"
 		}
 	}
 
