@@ -43,7 +43,7 @@
 		ServerCog,
 		Trash2
 	} from 'lucide-svelte';
-	import { onMount, type Snippet } from 'svelte';
+	import { onDestroy, onMount, type Snippet } from 'svelte';
 	import ConnectToServer from './ConnectToServer.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
@@ -247,12 +247,36 @@
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
 	let capacityBanner = $state<ReturnType<typeof CapacityBanner>>();
 
-	onMount(() => {
-		reload(true);
+	let pollingInterval: number;
+	const POLL_INTERVAL_MS = 10000; // 10 seconds
+
+	async function checkAndPoll() {
+		// Check if there are any servers with Progressing status
+		const hasProgressing = tableData.some((row) => row.deploymentStatus === 'Progressing');
+
+		// Only reload if there are progressing servers
+		if (hasProgressing) {
+			await reload(false);
+		}
+	}
+
+	onMount(async () => {
+		await reload(true);
+		// Start checking for progressing servers
+		pollingInterval = setInterval(() => checkAndPoll(), POLL_INTERVAL_MS);
+	});
+
+	onDestroy(() => {
+		if (pollingInterval) {
+			clearInterval(pollingInterval);
+		}
 	});
 
 	async function reload(isInitialLoad: boolean = false) {
-		loading = true;
+		// Only show loading spinner on initial load, not during background polling
+		if (isInitialLoad) {
+			loading = true;
+		}
 
 		if (entity === 'catalog' && profile.current.hasAdminAccess?.() && id) {
 			deployedCatalogEntryServers =
@@ -269,7 +293,9 @@
 			mcpServersAndEntries.refreshAll();
 		}
 
-		loading = false;
+		if (isInitialLoad) {
+			loading = false;
+		}
 	}
 
 	async function handleBulkUpdate() {
@@ -469,13 +495,7 @@
 	{#if entity === 'catalog' && profile.current.hasAdminAccess?.()}
 		<CapacityBanner bind:this={capacityBanner} />
 	{/if}
-	{#if loading || mcpServersAndEntries.current.loading}
-		<div class="my-2 flex items-center justify-center">
-			<LoaderCircle class="size-6 animate-spin" />
-		</div>
-	{:else if serversData.length === 0}
-		{@render noDataContent?.()}
-	{:else}
+	{#if tableData.length > 0}
 		<Table
 			bind:this={tableRef}
 			data={tableData}
@@ -887,6 +907,12 @@
 				</div>
 			{/snippet}
 		</Table>
+	{:else if loading || mcpServersAndEntries.current.loading}
+		<div class="my-2 flex items-center justify-center">
+			<LoaderCircle class="size-6 animate-spin" />
+		</div>
+	{:else}
+		{@render noDataContent?.()}
 	{/if}
 </div>
 
