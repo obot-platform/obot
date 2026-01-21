@@ -100,7 +100,6 @@
 
 		// Check if this server is already added to the project
 		const existingMcp = projectMCPs.items.find((mcp) => mcp.mcpID === mcpId && !mcp.deleted);
-		console.log({ existingMcp });
 		if (existingMcp) {
 			// Server is already added, no-op
 			closeCatalogDialog();
