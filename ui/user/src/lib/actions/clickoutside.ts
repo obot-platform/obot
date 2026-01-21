@@ -20,8 +20,16 @@ export function clickOutside(
 
 	function checkDialogClickOutside(event: MouseEvent) {
 		if (!(element as HTMLDialogElement).open) return;
-		if (!(event.target as HTMLElement)?.contains(element)) return;
 		if (isTextSelected()) return;
+
+		const rect = element.getBoundingClientRect();
+		const isInsideDialog =
+			event.clientX >= rect.left &&
+			event.clientX <= rect.right &&
+			event.clientY >= rect.top &&
+			event.clientY <= rect.bottom;
+
+		if (isInsideDialog) return;
 		onClickOutside(event);
 	}
 
