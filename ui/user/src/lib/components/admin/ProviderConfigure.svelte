@@ -160,16 +160,25 @@
 			return;
 		}
 
-		// Convert multiline values to single line with literal \n
-		const processedForm = { ...form };
-
 		const allParams = [...requiredConfigurationParameters, ...optionalConfigurationParameters];
 
-		for (const param of allParams) {
-			if (param.multiline && processedForm[param.name]) {
-				processedForm[param.name] = processedForm[param.name].replace(/\n/g, '\\n');
-			}
-		}
+		// Dynamically remove non necessary parameters for Azure OpenAI provider
+		// For Azure OpenAI the server does not expect both authentication methods to be sent
+		const processedForm = allParams
+			.filter((param) => form[param.name].trim())
+			.reduce(
+				(acc, param) => {
+					if (param.multiline) {
+						// Convert multiline values to single line with literal \n
+						acc[param.name] = form[param.name].replace(/\n/g, '\\n');
+					} else {
+						acc[param.name] = form[param.name];
+					}
+
+					return acc;
+				},
+				{} as Record<string, string>
+			);
 
 		onConfigure(processedForm);
 	}
