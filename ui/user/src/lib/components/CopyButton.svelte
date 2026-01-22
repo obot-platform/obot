@@ -30,6 +30,7 @@
 	const COPIED_TEXT = 'Copied!';
 
 	function fallbackCopy(textToCopy: string): boolean {
+		const activeElement = document.activeElement;
 		const textArea = document.createElement('textarea');
 		textArea.value = textToCopy;
 
@@ -48,6 +49,7 @@
 			return false;
 		} finally {
 			document.body.removeChild(textArea);
+			(document.activeElement as HTMLElement)?.focus?.();
 		}
 	}
 
