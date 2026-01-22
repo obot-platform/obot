@@ -6,7 +6,7 @@
 	import Thread from '$lib/components/Thread.svelte';
 	import { type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
-	import { mcpServersAndEntries, responsive } from '$lib/stores';
+	import { responsive } from '$lib/stores';
 	import {
 		closeSidebarConfig,
 		getLayout,

@@ -6,7 +6,7 @@
 	import McpServerInfoAndTools from '../mcp/McpServerInfoAndTools.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { mcpServersAndEntries, responsive } from '$lib/stores';
+	import { responsive } from '$lib/stores';
 	import EditExistingDeployment from '../mcp/EditExistingDeployment.svelte';
 	import McpServerActions from '../mcp/McpServerActions.svelte';
 	import { findServerAndEntryForProjectMcp } from '$lib/services/chat/mcp';
