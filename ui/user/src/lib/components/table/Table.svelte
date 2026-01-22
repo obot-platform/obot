@@ -763,16 +763,15 @@
 						actionHeaderClass
 					)}
 				>
-					{#if hiddenFieldIndices.size > 0 || userHiddenFieldIndices !== null}
-						<TableColumnFilter
-							{fields}
-							{hiddenFieldIndices}
-							{disablePortal}
-							onVisibilityChange={handleColumnVisibilityChange}
-							onReset={handleColumnVisibilityReset}
-							showReset={userHiddenFieldIndices !== null}
-						/>
-					{/if}
+					<TableColumnFilter
+						{fields}
+						{headers}
+						{hiddenFieldIndices}
+						{disablePortal}
+						onVisibilityChange={handleColumnVisibilityChange}
+						onReset={handleColumnVisibilityReset}
+						showReset={userHiddenFieldIndices !== null}
+					/>
 				</th>
 			{/if}
 		</tr>
