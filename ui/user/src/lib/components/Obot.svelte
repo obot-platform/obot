@@ -137,18 +137,16 @@
 					{#if layout.sidebarConfig}
 						<SidebarConfig bind:project bind:currentThreadID {assistant} />
 					{:else if layout.editTaskID && layout.tasks}
-						{#each layout.tasks as task, i (task.id)}
+						{#each layout.tasks as task, i (i)}
 							{#if task.id === layout.editTaskID}
-								{#key layout.editTaskID}
-									<Task
-										{project}
-										bind:task={layout.tasks[i]}
-										onDelete={() => {
-											layout.editTaskID = undefined;
-											layout.tasks?.splice(i, 1);
-										}}
-									/>
-								{/key}
+								<Task
+									{project}
+									bind:task={layout.tasks[i]}
+									onDelete={() => {
+										layout.editTaskID = undefined;
+										layout.tasks?.splice(i, 1);
+									}}
+								/>
 							{/if}
 						{/each}
 					{:else if layout.displayTaskRun}

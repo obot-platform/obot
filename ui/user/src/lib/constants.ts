@@ -86,3 +86,5 @@ export const MCP_PUBLISHER_ALL_OPTION = {
 	label: 'Everything in My Registry',
 	description: 'Include all MCP servers I have created in my registry'
 };
+
+export const TASK_NEW_ID = 'new-task';

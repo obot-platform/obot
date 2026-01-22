@@ -30,6 +30,8 @@
 	import ChatInput from '../messages/Input.svelte';
 	import Input from './Input.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
+	import { TASK_NEW_ID } from '$lib/constants';
 
 	interface Props {
 		task: Task;
@@ -74,6 +76,7 @@
 
 	let taskRun: Task | undefined = $state(undefined);
 	let taskRunData: TaskRun | undefined = $state(undefined);
+	const layout = getLayout();
 
 	$effect(() => {
 		// Load task run data only in readonly mode; so that we can get the correct steps & loop steps related to the current task
@@ -112,11 +115,31 @@
 		}
 	});
 
-	/**************************************************************************************************/
+	let creatingTask = false;
+
+	function isNewTask(taskId: string): boolean {
+		return taskId.startsWith(TASK_NEW_ID);
+	}
 
 	const saver = newSaveMonitor(
 		() => task,
 		async (t: Task) => {
+			if (isNewTask(task.id)) {
+				if (creatingTask) {
+					// Creation in progress, skip this save - it will be retried on the next interval
+					return t;
+				}
+				creatingTask = true;
+				try {
+					const result = await ChatService.createTask(project.assistantID, project.id, t);
+					task = { ...task, id: result.id };
+					layout.editTaskID = result.id;
+					return result;
+				} catch (e) {
+					creatingTask = false;
+					throw e;
+				}
+			}
 			return await ChatService.saveTask(project.assistantID, project.id, t);
 		},
 		(t) => {
@@ -124,14 +147,6 @@
 			onChanged?.(t);
 		}
 	);
-
-	$effect(() => {
-		if (task.id && task.steps.length === 0 && !readOnly) {
-			task.steps.push({
-				id: 'si1' + Math.random().toString(36).substring(6)
-			});
-		}
-	});
 
 	$effect(resetThread);
 
@@ -141,9 +156,13 @@
 		if (readOnly) {
 			return;
 		}
-		toDelete = false;
-		await ChatService.deleteTask(project.assistantID, project.id, task.id);
+
+		if (!isNewTask(task.id)) {
+			await ChatService.deleteTask(project.assistantID, project.id, task.id);
+		}
+
 		onDelete?.();
+		toDelete = false;
 	}
 
 	function setupObserver() {
@@ -175,7 +194,7 @@
 	});
 
 	onMount(async () => {
-		if (!skipFetchOnMount) {
+		if (!skipFetchOnMount && !isNewTask(task.id)) {
 			task = await ChatService.getTask(project.assistantID, project.id, task.id);
 		}
 		if (!readOnly) {
@@ -390,30 +409,31 @@
 					{#if !responsive.isMobile}
 						<div
 							bind:this={taskHeaderActionDiv}
-							class="flex h-full flex-col items-end justify-center gap-4 md:justify-between"
+							class="flex h-full items-center justify-center gap-4 md:justify-between"
 						>
+							{@render mainActions()}
 							{#if !readOnly}
-								<button class="button-destructive p-4" onclick={() => (toDelete = true)}>
+								<button
+									in:slide={{ axis: 'x', duration: 150 }}
+									class="button-destructive p-3"
+									onclick={() => (toDelete = true)}
+								>
 									<Trash2 class="size-4" />
 								</button>
 							{/if}
-							{@render mainActions()}
 						</div>
 					{/if}
 				</div>
 				{#if responsive.isMobile}
 					<div bind:this={taskHeaderActionDiv} class="flex w-full justify-between px-4">
+						<div class="flex">
+							{@render mainActions()}
+						</div>
 						{#if !readOnly}
 							<button class="button-destructive p-4" onclick={() => (toDelete = true)}>
 								<Trash2 class="size-4" />
 							</button>
-						{:else}
-							<!-- placeholder -->
-							<div class="size-4"></div>
 						{/if}
-						<div class="flex">
-							{@render mainActions()}
-						</div>
 					</div>
 				{/if}
 			</div>
