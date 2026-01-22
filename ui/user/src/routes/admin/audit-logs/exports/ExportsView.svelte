@@ -163,8 +163,7 @@
 			sortable={['name', 'state', 'storageProvider', 'sizeDisplay', 'created']}
 			noDataMessage="No exports found."
 			classes={{
-				root: 'rounded-none rounded-b-md shadow-none',
-				thead: 'top-31'
+				root: 'rounded-none rounded-b-md shadow-none'
 			}}
 			onClickRow={handleRowClick}
 			initSort={{ property: 'created', order: 'desc' }}
