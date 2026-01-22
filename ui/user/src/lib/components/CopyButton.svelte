@@ -29,16 +29,53 @@
 	let buttonTextToShow = $state(untrack(() => buttonText));
 	const COPIED_TEXT = 'Copied!';
 
-	function copy() {
-		if (!text) return;
-		if (!navigator.clipboard) return;
+	function fallbackCopy(textToCopy: string): boolean {
+		const previousActiveElement = document.activeElement;
+		const textArea = document.createElement('textarea');
+		textArea.value = textToCopy;
 
-		navigator.clipboard.writeText(text);
-		message = COPIED_TEXT;
-		buttonTextToShow = COPIED_TEXT;
-		setTimeout(() => {
-			message = tooltipText;
-		}, 750);
+		textArea.style.position = 'fixed';
+		textArea.style.left = '-9999px';
+		textArea.style.top = '0';
+		document.body.appendChild(textArea);
+
+		textArea.focus();
+		textArea.select();
+
+		try {
+			// is deprecated but still works for those without navigator.clipboard context
+			return document.execCommand('copy');
+		} catch {
+			return false;
+		} finally {
+			document.body.removeChild(textArea);
+			(previousActiveElement as HTMLElement)?.focus?.();
+		}
+	}
+
+	async function copy() {
+		if (!text) return;
+
+		let success = false;
+
+		if (navigator.clipboard) {
+			try {
+				await navigator.clipboard.writeText(text);
+				success = true;
+			} catch {
+				success = fallbackCopy(text);
+			}
+		} else {
+			success = fallbackCopy(text);
+		}
+
+		if (success) {
+			message = COPIED_TEXT;
+			buttonTextToShow = COPIED_TEXT;
+			setTimeout(() => {
+				message = tooltipText;
+			}, 750);
+		}
 	}
 </script>
 
