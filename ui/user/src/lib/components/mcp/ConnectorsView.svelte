@@ -527,9 +527,13 @@
 			e.stopPropagation();
 
 			if ('isCatalogEntry' in d) {
-				if (isCreateFirst) {
+				const matchingServers = mcpServersAndEntries.current.userConfiguredServers.filter(
+					(s) => s.catalogEntryID === d.id
+				);
+				if (isCreateFirst || matchingServers.length === 1) {
 					connectToServerDialog?.open({
-						entry: d
+						entry: d,
+						server: matchingServers[0]
 					});
 				} else {
 					handleShowSelectServerDialog(d);
@@ -758,20 +762,6 @@
 			</button>
 		{/snippet}
 	</Table>
-	{#if selectServerMode === 'connect'}
-		<p class="my-4 self-center text-center text-sm font-semibold">OR</p>
-		<button
-			class="button-primary"
-			onclick={() => {
-				selectServerDialog?.close();
-				connectToServerDialog?.open({
-					entry: selectedEntry
-				});
-			}}
-		>
-			Connect New Server
-		</button>
-	{/if}
 </ResponsiveDialog>
 
 <EditExistingDeployment

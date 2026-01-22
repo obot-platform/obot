@@ -158,7 +158,6 @@
 				{#if selected.entry}
 					<McpServerActions
 						entry={selected.entry}
-						server={selected.server}
 						onConnect={setupProjectMcp}
 						skipConnectDialog
 						connectOnly
@@ -215,7 +214,11 @@
 			onSelect={(data) => (selected = data)}
 			onConnect={(data) => {
 				catalogDialog?.close();
-				connectToServerDialog?.open(data);
+				if (data.server && data.entry) {
+					setupProjectMcp(data);
+				} else {
+					connectToServerDialog?.open(data);
+				}
 			}}
 		/>
 	</div>

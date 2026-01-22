@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ExternalLink, Server } from 'lucide-svelte';
+	import { ExternalLink, Plus, Server } from 'lucide-svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import CopyButton from '../CopyButton.svelte';
 	import HowToConnect from './HowToConnect.svelte';
@@ -488,6 +488,18 @@
 		}
 	}
 
+	function initCatalogEntry() {
+		if (!entry) return;
+		if (hasEditableConfiguration(entry) && entry.manifest?.runtime === 'composite') {
+			initCompositeForm(entry);
+		} else if (hasEditableConfiguration(entry)) {
+			initConfigureForm(entry);
+			configDialog?.open();
+		} else {
+			handleLaunch();
+		}
+	}
+
 	export function open({
 		server: initServer,
 		entry: initEntry,
@@ -505,14 +517,7 @@
 			handleConnect();
 		} else {
 			if (initEntry && !initServer) {
-				if (hasEditableConfiguration(initEntry) && initEntry.manifest?.runtime === 'composite') {
-					initCompositeForm(initEntry);
-				} else if (hasEditableConfiguration(initEntry)) {
-					initConfigureForm(initEntry);
-					configDialog?.open();
-				} else {
-					handleLaunch();
-				}
+				initCatalogEntry();
 			} else {
 				handleLaunch();
 			}
@@ -625,6 +630,22 @@
 
 		{#if url}
 			<HowToConnect servers={[{ url, name }]} />
+		{/if}
+
+		{#if entry}
+			<p class="text-on-surface1 flex items-center justify-end gap-2 text-sm font-light">
+				Need to set up a different instance?
+				<button
+					class="button-small button-primary hover:bg-primary px-3 text-xs"
+					onclick={() => {
+						server = undefined;
+						initCatalogEntry();
+						connectDialog?.close();
+					}}
+				>
+					<Plus class="size-3" /> Connect to New Server
+				</button>
+			</p>
 		{/if}
 	{/if}
 </ResponsiveDialog>
