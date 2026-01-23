@@ -252,12 +252,6 @@
 		searchQuery = '';
 	}
 
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			close();
-		}
-	}
-
 	onMount(() => {
 		fetchProjectResources();
 	});

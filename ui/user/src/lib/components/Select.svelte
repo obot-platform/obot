@@ -206,20 +206,20 @@
 				{#if !readonly}
 					{@render searchInput()}
 				{/if}
-		{:else}
-			{#if buttonStartContent}
-				{@render buttonStartContent()}
+			{:else}
+				{#if buttonStartContent}
+					{@render buttonStartContent()}
+				{/if}
+				{#if !searchable}
+					<div class="min-w-0 flex-1 items-center gap-2 truncate">
+						{selectedOptions[0]?.label ?? ''}
+					</div>
+				{:else if !readonly}
+					{@render searchInput()}
+				{/if}
 			{/if}
-			{#if !searchable}
-				<div class="min-w-0 flex-1 items-center gap-2 truncate">
-					{selectedOptions[0]?.label ?? ''}
-				</div>
-			{:else if !readonly}
-				{@render searchInput()}
-			{/if}
-		{/if}
 
-		<ChevronDown class="size-5 shrink-0 self-start" />
+			<ChevronDown class="size-5 shrink-0 self-start" />
 		</div>
 
 		{#if onClear && !multiple}

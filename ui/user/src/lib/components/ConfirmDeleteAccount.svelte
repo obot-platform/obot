@@ -10,14 +10,7 @@
 		oncancel: () => void;
 	}
 
-	let {
-		show = false,
-		msg = '',
-		username = '',
-		buttonText = 'Delete',
-		onsuccess,
-		oncancel
-	}: Props = $props();
+	let { show = false, username = '', onsuccess, oncancel }: Props = $props();
 
 	let dialog: HTMLDialogElement | undefined = $state();
 

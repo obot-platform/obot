@@ -20,7 +20,7 @@
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { responsive } from '$lib/stores';
 	import { Download, Image, Plus } from 'lucide-svelte';
-	import { FileText, Trash2, Upload, X } from 'lucide-svelte/icons';
+	import { FileText, Trash2, Upload } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
 	import CollapsePane from './CollapsePane.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';

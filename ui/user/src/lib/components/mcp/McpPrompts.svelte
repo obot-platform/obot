@@ -2,7 +2,7 @@
 	import { ChatService, type MCPServerPrompt, type Project, type ProjectMCP } from '$lib/services';
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { LoaderCircle, MessageSquarePlus, X } from 'lucide-svelte';
+	import { LoaderCircle, MessageSquarePlus } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	interface Props {
@@ -205,8 +205,8 @@
 	role="listbox"
 	tabindex={0}
 	popover
-	id={`mcp-prompts-popover`}
-	style={`--anchor-v: top; --anchor-h: span-left; position-anchor: --input-anchor; width: anchor-size(width);`}
+	id="mcp-prompts-popover"
+	style="--anchor-v: top; --anchor-h: span-left; position-anchor: --input-anchor; width: anchor-size(width);"
 >
 	{@render content()}
 </div>
