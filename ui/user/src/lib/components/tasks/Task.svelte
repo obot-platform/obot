@@ -501,7 +501,7 @@
 
 		<ResponsiveDialog bind:this={inputDialog} title="Run Task" class="max-w-full md:max-w-md">
 			<div class="flex grow flex-col gap-4 p-4 md:p-0">
-				<div class="flex w-full">
+				<div class="mt-4 flex w-full md:mt-0">
 					<Input bind:input {task} />
 				</div>
 				<div class="flex grow"></div>
