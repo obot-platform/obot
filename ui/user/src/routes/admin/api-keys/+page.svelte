@@ -175,7 +175,7 @@
 </Layout>
 
 <Confirm
-	msg={`Are you sure you want to delete API key "${deletingKey?.name}"? This action cannot be undone.`}
+	msg={`Delete API key "${deletingKey?.name}"?`}
 	show={Boolean(deletingKey)}
 	{loading}
 	onsuccess={handleDeleteAnyKey}

@@ -253,7 +253,7 @@
 {/snippet}
 
 <Confirm
-	msg="Are you sure you want to delete this rule?"
+	msg={`Delete ${ruleToDelete?.displayName || 'this rule'}?`}
 	show={Boolean(ruleToDelete)}
 	onsuccess={async () => {
 		if (!ruleToDelete) return;

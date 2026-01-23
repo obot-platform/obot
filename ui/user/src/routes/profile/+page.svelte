@@ -155,10 +155,8 @@
 />
 
 <ConfirmDeleteAccount
-	msg="Are you sure you want to delete your account?"
 	username={profile.current.username}
 	show={!!toDelete}
-	buttonText="Delete my account"
 	onsuccess={deleteAccount}
 	oncancel={() => (toDelete = false)}
 />

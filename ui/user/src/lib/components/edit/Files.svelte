@@ -227,7 +227,7 @@
 			onLoad={loadFiles}
 			classes={{
 				button: primary ? 'button-icon-primary' : '',
-				dialog: responsive.isMobile
+				menu: responsive.isMobile
 					? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full'
 					: ''
 			}}
@@ -306,7 +306,7 @@
 
 <Confirm
 	show={fileToDelete !== undefined}
-	msg={`Are you sure you want to delete ${fileToDelete}?`}
+	msg={`Delete ${fileToDelete}?`}
 	onsuccess={deleteFile}
 	oncancel={() => (fileToDelete = undefined)}
 />

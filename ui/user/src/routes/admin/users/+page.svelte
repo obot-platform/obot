@@ -203,7 +203,7 @@
 </Layout>
 
 <Confirm
-	msg={`Are you sure you want to delete user ${deletingUser?.email}?`}
+	msg={`Delete user ${deletingUser?.email}?`}
 	show={Boolean(deletingUser)}
 	onsuccess={async () => {
 		if (!deletingUser) return;
@@ -336,6 +336,8 @@
 		confirmHandoffToUser = undefined;
 	}}
 	oncancel={() => (confirmHandoffToUser = undefined)}
+	type="info"
+	title="Confirm Handoff"
 >
 	{#snippet msgContent()}
 		<div class="flex items-center justify-center gap-2">
@@ -356,6 +358,9 @@
 </Confirm>
 
 <Confirm
+	type="info"
+	title="Confirm Auditor Role"
+	msg={`Grant ${confirmAuditorAdditionToUser?.email || confirmAuditorAdditionToUser?.name} the Auditor role?`}
 	{loading}
 	show={Boolean(confirmAuditorAdditionToUser)}
 	onsuccess={async () => {
@@ -368,13 +373,8 @@
 	}}
 	oncancel={() => (confirmAuditorAdditionToUser = undefined)}
 >
-	{#snippet msgContent()}
-		<div class="flex items-center justify-center gap-2">
-			<h3 class="text-xl font-semibold">Confirm Auditor Role</h3>
-		</div>
-	{/snippet}
 	{#snippet note()}
-		<div class="mt-4 mb-8 flex flex-col gap-4">
+		<div class="flex flex-col gap-4">
 			<p class="text-left">
 				{#if confirmAuditorAdditionToUser && auditorReadonlyAdminRoles.includes(confirmAuditorAdditionToUser.roleId)}
 					Basic user auditors will have read-only access to the admin system and can see additional

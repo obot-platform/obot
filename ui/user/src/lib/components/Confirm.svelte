@@ -19,6 +19,8 @@
 			iconContainer?: string;
 		};
 		title?: string;
+		type?: 'delete' | 'info';
+		disabled?: boolean;
 	}
 
 	let {
@@ -30,7 +32,9 @@
 		note = 'This action is permanent and cannot be undone. Are you sure you wish to continue?',
 		msgContent,
 		classes,
-		title = 'Confirm Delete'
+		title = 'Confirm Delete',
+		type = 'delete',
+		disabled
 	}: Props = $props();
 
 	let dialog = $state<HTMLDialogElement>();
@@ -57,15 +61,29 @@
 			{#if msgContent}
 				{@render msgContent()}
 			{:else}
-				<div class={twMerge('rounded-full bg-red-500/10 p-2', classes?.iconContainer)}>
-					<CircleAlert class={twMerge('size-10 text-red-500', classes?.icon)} />
+				<div
+					class={twMerge(
+						'rounded-full p-2',
+						type === 'delete' ? 'bg-red-500/10' : 'bg-primary/10',
+						classes?.iconContainer
+					)}
+				>
+					<CircleAlert
+						class={twMerge(
+							'size-8',
+							type === 'delete' ? 'text-red-500' : 'text-primary',
+							classes?.icon
+						)}
+					/>
 				</div>
 				<p class="text-center text-base font-medium">{msg}</p>
 			{/if}
 			{#if typeof note === 'string'}
 				<p class="text-on-surface1 mb-4 text-sm font-light">{note}</p>
 			{:else if note}
-				{@render note()}
+				<div class="mb-4 self-center text-center font-light">
+					{@render note()}
+				</div>
 			{/if}
 			<div
 				class="flex w-full flex-col items-center justify-center gap-2 md:flex-row md:justify-end"
@@ -73,8 +91,12 @@
 				<button
 					onclick={onsuccess}
 					type="button"
-					class={twMerge('button-destructive w-full justify-center p-3', classes?.confirm)}
-					disabled={loading}
+					class={twMerge(
+						'w-full justify-center p-3',
+						type === 'delete' ? 'button-destructive' : 'button-primary',
+						classes?.confirm
+					)}
+					disabled={loading || disabled}
 				>
 					{#if loading}
 						<LoaderCircle class="size-4 animate-spin" />

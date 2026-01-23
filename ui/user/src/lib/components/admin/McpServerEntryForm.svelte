@@ -934,7 +934,7 @@
 	{/if}
 {/snippet}
 <Confirm
-	msg="Are you sure you want to delete this server?"
+	msg={`Delete ${entry?.manifest?.name || 'this server'}?`}
 	show={deleteServer}
 	onsuccess={async () => {
 		if (!id || !entry) return;
@@ -975,8 +975,8 @@
 
 <Confirm
 	msg={deleteResourceFromRule?.resourceId === '*'
-		? 'Are you sure you want to remove Everything from this rule?'
-		: 'Are you sure you want to remove this MCP server from this rule?'}
+		? 'Remove Everything from this rule?'
+		: 'Remove this MCP server from this rule?'}
 	show={Boolean(deleteResourceFromRule)}
 	onsuccess={async () => {
 		if (!deleteResourceFromRule) {
