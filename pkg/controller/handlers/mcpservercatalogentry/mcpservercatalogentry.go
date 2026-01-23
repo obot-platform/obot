@@ -30,7 +30,7 @@ func NewHandler(gClient *gptscript.GPTScript) *Handler {
 }
 
 // EnsureUserCount ensures that the user count for an MCP server catalog entry is up to date.
-func (h *Handler) EnsureUserCount(req router.Request, _ router.Response) error {
+func (*Handler) EnsureUserCount(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
 	var mcpServers v1.MCPServerList
@@ -203,8 +203,7 @@ func (h *Handler) CleanupUnusedOAuthCredentials(req router.Request, _ router.Res
 	_, err := h.gClient.RevealCredential(req.Ctx, []string{credName}, "oauth")
 	if err != nil {
 		// If credential doesn't exist, nothing to clean up
-		var notFoundErr gptscript.ErrNotFound
-		if errors.As(err, &notFoundErr) {
+		if errors.As(err, &gptscript.ErrNotFound{}) {
 			return nil
 		}
 		// Some other error occurred
@@ -213,8 +212,7 @@ func (h *Handler) CleanupUnusedOAuthCredentials(req router.Request, _ router.Res
 
 	// Credential exists, delete it
 	if err := h.gClient.DeleteCredential(req.Ctx, credName, "oauth"); err != nil {
-		var notFoundErr gptscript.ErrNotFound
-		if errors.As(err, &notFoundErr) {
+		if errors.As(err, &gptscript.ErrNotFound{}) {
 			// Already deleted, that's fine
 			return nil
 		}
@@ -253,14 +251,10 @@ func (h *Handler) EnsureOAuthCredentialStatus(req router.Request, _ router.Respo
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
 	// Clear sync annotation if present
-	if entry.Annotations != nil && entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation] == "true" {
+	if _, exists := entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation]; exists {
 		delete(entry.Annotations, v1.MCPServerCatalogEntrySyncAnnotation)
 		if err := req.Client.Update(req.Ctx, entry); err != nil {
 			return fmt.Errorf("failed to clear sync annotation: %w", err)
-		}
-		// Re-fetch entry to get updated resource version
-		if err := req.Client.Get(req.Ctx, kclient.ObjectKeyFromObject(entry), entry); err != nil {
-			return fmt.Errorf("failed to re-fetch entry: %w", err)
 		}
 	}
 
@@ -282,7 +276,13 @@ func (h *Handler) EnsureOAuthCredentialStatus(req router.Request, _ router.Respo
 	// Check if credentials exist
 	credName := system.MCPOAuthCredentialName(entry.Name)
 	_, err := h.gClient.RevealCredential(req.Ctx, []string{credName}, "oauth")
-	configured := err == nil
+
+	var configured bool
+	if err == nil {
+		configured = true
+	} else if !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to check credential status: %w", err)
+	}
 
 	if entry.Status.OAuthCredentialConfigured != configured {
 		entry.Status.OAuthCredentialConfigured = configured
@@ -308,8 +308,7 @@ func (h *Handler) RemoveOAuthCredentials(req router.Request, _ router.Response) 
 
 	// Delete the OAuth credential if it exists
 	if err := h.gClient.DeleteCredential(req.Ctx, credName, "oauth"); err != nil {
-		var notFoundErr gptscript.ErrNotFound
-		if errors.As(err, &notFoundErr) {
+		if errors.As(err, &gptscript.ErrNotFound{}) {
 			// Already deleted or never existed, that's fine
 			return nil
 		}

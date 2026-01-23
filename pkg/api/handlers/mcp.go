@@ -133,9 +133,9 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 		if hasAccess {
 			// Hide entries that require OAuth credentials that haven't been configured (non-admins only).
 			// Workspace owners can always see their own entries (they need to configure the OAuth credentials).
-			if !req.UserIsAdmin() && entryRequiresUnconfiguredOAuth(entry) {
+			if !req.UserIsAdmin() && entryRequiresStaticOAuthCreds(entry) {
 				// Check if this is a workspace entry owned by the current user
-				if entry.Spec.PowerUserWorkspaceID == "" || entry.Spec.PowerUserWorkspaceID != system.GetPowerUserWorkspaceID(req.User.GetUID()) {
+				if entry.Spec.PowerUserWorkspaceID != system.GetPowerUserWorkspaceID(req.User.GetUID()) {
 					// Either the entry is not in a workspace, or it's in a workspace not owned by the user. Omit it.
 					continue
 				}
@@ -1596,7 +1596,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		}
 
 		// Block server creation if OAuth is required but not configured
-		if entryRequiresUnconfiguredOAuth(catalogEntry) {
+		if entryRequiresStaticOAuthCreds(catalogEntry) {
 			return types.NewErrBadRequest("catalog entry requires OAuth configuration by an administrator before it can be used")
 		}
 

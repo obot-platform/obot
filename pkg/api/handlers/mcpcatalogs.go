@@ -208,7 +208,7 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 
 		if hasAccess {
 			// Hide catalog entries that require OAuth credentials that haven't been configured (non-admins only).
-			if !req.UserIsAdmin() && workspaceID == "" && entryRequiresUnconfiguredOAuth(entry) {
+			if !req.UserIsAdmin() && workspaceID == "" && entryRequiresStaticOAuthCreds(entry) {
 				continue
 			}
 			entries = append(entries, ConvertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, powerUserID))
@@ -1662,9 +1662,9 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	return req.Write(ConvertMCPServerCatalogEntry(entry))
 }
 
-// entryRequiresUnconfiguredOAuth checks if a catalog entry requires OAuth credentials
+// entryRequiresStaticOAuthCreds checks if a catalog entry requires OAuth credentials
 // that haven't been configured yet. Returns true if the entry should be hidden from non-admin users.
-func entryRequiresUnconfiguredOAuth(entry v1.MCPServerCatalogEntry) bool {
+func entryRequiresStaticOAuthCreds(entry v1.MCPServerCatalogEntry) bool {
 	// Check if the entry requires static OAuth
 	if entry.Spec.Manifest.RemoteConfig == nil || !entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired {
 		return false
@@ -1845,14 +1845,6 @@ func (h *MCPCatalogHandler) SetOAuthCredentials(req api.Context) error {
 		return err
 	}
 
-	// Delete existing credential if present
-	if err := req.GPTClient.DeleteCredential(req.Context(), credName, "oauth"); err != nil {
-		var notFound gptscript.ErrNotFound
-		if !errors.As(err, &notFound) {
-			return fmt.Errorf("failed to delete existing OAuth credential: %w", err)
-		}
-	}
-
 	// Store new credential
 	cred := gptscript.Credential{
 		Context:  credName,
@@ -1870,7 +1862,7 @@ func (h *MCPCatalogHandler) SetOAuthCredentials(req api.Context) error {
 
 	// Trigger reconciliation to update the status
 	if entry.Annotations == nil {
-		entry.Annotations = make(map[string]string)
+		entry.Annotations = make(map[string]string, 1)
 	}
 	entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation] = "true"
 	if err := req.Update(entry); err != nil {
@@ -1907,7 +1899,7 @@ func (h *MCPCatalogHandler) DeleteOAuthCredentials(req api.Context) error {
 
 	// Trigger reconciliation to update the status
 	if entry.Annotations == nil {
-		entry.Annotations = make(map[string]string)
+		entry.Annotations = make(map[string]string, 1)
 	}
 	entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation] = "true"
 	if err := req.Update(entry); err != nil {
