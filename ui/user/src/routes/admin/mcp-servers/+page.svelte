@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/actions/clickoutside';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
