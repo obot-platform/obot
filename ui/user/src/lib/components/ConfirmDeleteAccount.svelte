@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/actions/clickoutside';
-	import { CircleAlert, X } from 'lucide-svelte/icons';
 	import Confirm from './Confirm.svelte';
 
 	interface Props {

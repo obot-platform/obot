@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { mcpServersAndEntries, responsive } from '$lib/stores';
+	import { mcpServersAndEntries } from '$lib/stores';
 	import { ChevronLeft, X } from 'lucide-svelte';
 	import {
 		type MCPCatalogEntry,
