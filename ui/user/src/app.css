@@ -868,7 +868,6 @@
 	.dropdown-menu[popover]:not(:popover-open) {
 		transform-origin: top;
 		display: none;
-		scale: 95%;
 	}
 	.dropdown-menu[popover]:popover-open {
 		position-area: var(--anchor-v, bottom) var(--anchor-h, span-right);
