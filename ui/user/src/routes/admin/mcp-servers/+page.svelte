@@ -243,8 +243,6 @@
 		persistQueryToLocalStorage(view, value);
 		navigateWithState(newUrl);
 	};
-
-	$inspect(page.url);
 </script>
 
 <Layout
