@@ -427,28 +427,26 @@
 				<Plus class="size-4" /> Add MCP Server
 			</span>
 		{/snippet}
-		<div class="default-dialog flex min-w-max flex-col p-2">
-			<button
-				class="menu-button"
-				onclick={() => {
-					selectServerTypeDialog?.open();
-				}}
-			>
-				Add server
-			</button>
-			<button
-				class="menu-button"
-				onclick={() => {
-					editingSource = {
-						index: -1,
-						value: ''
-					};
-					sourceDialog?.showModal();
-				}}
-			>
-				Add server(s) from Git
-			</button>
-		</div>
+		<button
+			class="menu-button"
+			onclick={() => {
+				selectServerTypeDialog?.open();
+			}}
+		>
+			Add server
+		</button>
+		<button
+			class="menu-button"
+			onclick={() => {
+				editingSource = {
+					index: -1,
+					value: ''
+				};
+				sourceDialog?.showModal();
+			}}
+		>
+			Add server(s) from Git
+		</button>
 	</DotDotDot>
 {/snippet}
 

@@ -26,7 +26,7 @@
 </script>
 
 <Confirm {show} {onsuccess} {oncancel} {loading}>
-	{#snippet title()}
+	{#snippet msgContent()}
 		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
 			{#if names.length === 1}
 				Delete {names[0]}?

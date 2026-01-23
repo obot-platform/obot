@@ -271,7 +271,7 @@
 	}}
 	oncancel={() => (confirmDeconfigureAuthProvider = undefined)}
 >
-	{#snippet title()}
+	{#snippet msgContent()}
 		<div class="mb-5 flex items-center gap-2">
 			<img
 				src={darkMode.isDark && confirmDeconfigureAuthProvider?.iconDark

@@ -384,27 +384,25 @@
 					<DotDotDot
 						class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
 					>
-						<div class="default-dialog flex min-w-max flex-col p-2">
-							<button class="menu-button" onclick={() => toggleThreadPin(thread.id)}>
-								{#if isThreadPinned(thread.id)}
-									<PinOff class="h-4 w-4" /> Unpin
-								{:else}
-									<Pin class="h-4 w-4" /> Pin
-								{/if}
-							</button>
-							<button
-								class="menu-button"
-								onclick={() => {
-									selectThread(thread.id);
-									startEditName();
-								}}
-							>
-								<Pen class="h-4 w-4" /> Rename
-							</button>
-							<button class="menu-button" onclick={() => deleteThread(thread.id)}>
-								<Trash2 class="h-4 w-4" /> Delete
-							</button>
-						</div>
+						<button class="menu-button" onclick={() => toggleThreadPin(thread.id)}>
+							{#if isThreadPinned(thread.id)}
+								<PinOff class="h-4 w-4" /> Unpin
+							{:else}
+								<Pin class="h-4 w-4" /> Pin
+							{/if}
+						</button>
+						<button
+							class="menu-button"
+							onclick={() => {
+								selectThread(thread.id);
+								startEditName();
+							}}
+						>
+							<Pen class="h-4 w-4" /> Rename
+						</button>
+						<button class="menu-button" onclick={() => deleteThread(thread.id)}>
+							<Trash2 class="h-4 w-4" /> Delete
+						</button>
 					</DotDotDot>
 				{/if}
 			</li>

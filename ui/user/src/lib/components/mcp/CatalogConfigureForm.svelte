@@ -629,7 +629,7 @@
 	}}
 	oncancel={() => (showConfirmClose = false)}
 >
-	{#snippet title()}
+	{#snippet msgContent()}
 		<h3 class="text-on-background mb-5 text-lg font-semibold break-words">
 			Are you sure you want to exit?
 		</h3>

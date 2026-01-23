@@ -126,7 +126,7 @@
 </script>
 
 <div class="colors-background flex min-h-screen items-center justify-center p-4">
-	<div class="default-dialog w-full max-w-lg p-6">
+	<div class="popover w-full max-w-lg p-6">
 		<div class="mb-6 flex items-center gap-3">
 			<div class="bg-surface1 flex-shrink-0 rounded-md p-2">
 				{#if compositeServer?.manifest?.icon}

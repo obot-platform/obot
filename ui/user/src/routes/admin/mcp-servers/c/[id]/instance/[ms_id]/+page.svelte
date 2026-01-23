@@ -229,7 +229,7 @@
 		confirm: 'bg-primary hover:bg-primary/50 transition-colors duration-200'
 	}}
 >
-	{#snippet title()}
+	{#snippet msgContent()}
 		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
 			Upgrade Composite Catalog Entry?

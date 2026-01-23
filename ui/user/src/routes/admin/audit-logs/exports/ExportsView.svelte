@@ -243,7 +243,7 @@
 	oncancel={() => (showDeleteConfirm = undefined)}
 	loading={deleting}
 >
-	{#snippet title()}
+	{#snippet msgContent()}
 		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
 			{`Delete ${showDeleteConfirm?.type === 'single' ? 'export' : 'selected exports'}?`}

@@ -232,61 +232,59 @@
 					{/snippet}
 
 					{#snippet children({ toggle })}
-						<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
-							{#if !readonly}
-								{#if d.enabled}
-									<button
-										class="menu-button"
-										disabled={toggleAction?.id === d.id}
-										onclick={async (e) => {
-											e.stopPropagation();
-											await handleUpdateScheduledExport(d.id, { enabled: false });
-
-											toggle(false);
-										}}
-									>
-										{#if toggleAction?.id === d.id && toggleAction.action === 'pause'}
-											<LoaderCircle class="size-4 animate-spin" />
-										{:else}
-											<PauseCircle class="size-4" />
-										{/if}
-										Pause Schedule
-									</button>
-								{:else}
-									<button
-										class="menu-button-primary"
-										disabled={toggleAction?.id === d.id}
-										onclick={async (e) => {
-											e.stopPropagation();
-											await handleUpdateScheduledExport(d.id, { enabled: true });
-											toggle(false);
-										}}
-									>
-										{#if toggleAction?.id === d.id && toggleAction.action === 'resume'}
-											<LoaderCircle class="size-4 animate-spin" />
-										{:else}
-											<PlayCircle class="size-4" />
-										{/if}
-										Resume Schedule
-									</button>
-								{/if}
+						{#if !readonly}
+							{#if d.enabled}
 								<button
-									class="menu-button-destructive"
-									onclick={(e) => {
+									class="menu-button"
+									disabled={toggleAction?.id === d.id}
+									onclick={async (e) => {
 										e.stopPropagation();
-										showDeleteConfirm = {
-											type: 'single',
-											export: d,
-											onsuccess: () => {
-												toggle(false);
-											}
-										};
+										await handleUpdateScheduledExport(d.id, { enabled: false });
+
+										toggle(false);
 									}}
 								>
-									<Trash2 class="size-4" /> Delete
+									{#if toggleAction?.id === d.id && toggleAction.action === 'pause'}
+										<LoaderCircle class="size-4 animate-spin" />
+									{:else}
+										<PauseCircle class="size-4" />
+									{/if}
+									Pause Schedule
+								</button>
+							{:else}
+								<button
+									class="menu-button-primary"
+									disabled={toggleAction?.id === d.id}
+									onclick={async (e) => {
+										e.stopPropagation();
+										await handleUpdateScheduledExport(d.id, { enabled: true });
+										toggle(false);
+									}}
+								>
+									{#if toggleAction?.id === d.id && toggleAction.action === 'resume'}
+										<LoaderCircle class="size-4 animate-spin" />
+									{:else}
+										<PlayCircle class="size-4" />
+									{/if}
+									Resume Schedule
 								</button>
 							{/if}
-						</div>
+							<button
+								class="menu-button-destructive"
+								onclick={(e) => {
+									e.stopPropagation();
+									showDeleteConfirm = {
+										type: 'single',
+										export: d,
+										onsuccess: () => {
+											toggle(false);
+										}
+									};
+								}}
+							>
+								<Trash2 class="size-4" /> Delete
+							</button>
+						{/if}
 					{/snippet}
 				</DotDotDot>
 			{/snippet}
@@ -372,7 +370,7 @@
 	oncancel={() => (showDeleteConfirm = undefined)}
 	loading={deleting}
 >
-	{#snippet title()}
+	{#snippet msgContent()}
 		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
 			{`Delete ${showDeleteConfirm?.type === 'single' ? 'scheduled export' : 'selected scheduled exports'}?`}

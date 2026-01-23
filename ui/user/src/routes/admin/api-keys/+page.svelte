@@ -151,18 +151,16 @@
 					{/snippet}
 					{#snippet actions(d)}
 						<DotDotDot>
-							<div class="default-dialog flex min-w-max flex-col p-2">
-								<button class="menu-button" onclick={() => (detailsKey = d)}>
-									<ReceiptText class="size-4" />
-									Details
+							<button class="menu-button" onclick={() => (detailsKey = d)}>
+								<ReceiptText class="size-4" />
+								Details
+							</button>
+							{#if !isAdminReadonly}
+								<button class="menu-button text-red-500" onclick={() => (deletingKey = d)}>
+									<Trash2 class="size-4" />
+									Delete
 								</button>
-								{#if !isAdminReadonly}
-									<button class="menu-button text-red-500" onclick={() => (deletingKey = d)}>
-										<Trash2 class="size-4" />
-										Delete
-									</button>
-								{/if}
-							</div>
+							{/if}
 						</DotDotDot>
 					{/snippet}
 				</Table>
