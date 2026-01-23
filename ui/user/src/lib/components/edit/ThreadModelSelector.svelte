@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick, untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { ChevronDown } from 'lucide-svelte';
 	import type { ModelProvider, Model, Thread as ThreadType } from '$lib/services/chat/types';
 	import type { Project } from '$lib/services';
