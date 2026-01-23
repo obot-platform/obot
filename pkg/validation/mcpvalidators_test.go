@@ -1027,6 +1027,52 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 			},
 			expectedError: nil,
 		},
+		{
+			name: "remote component with static OAuth not allowed in catalog",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+								RemoteConfig: &types.RemoteCatalogConfig{
+									FixedURL:            "https://example.com/mcp",
+									StaticOAuthRequired: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0]",
+				Message: "remote component with static OAuth cannot be included in a composite server",
+			},
+		},
+		{
+			name: "remote component without static OAuth is allowed in catalog",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+								RemoteConfig: &types.RemoteCatalogConfig{
+									FixedURL:            "https://example.com/mcp",
+									StaticOAuthRequired: false,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1153,6 +1199,125 @@ func TestValidateToolOverrides(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateToolOverrides(tt.overrides)
+			require.Equal(t, tt.expectedError, err)
+		})
+	}
+}
+
+func TestCompositeValidator_ValidateConfig_StaticOAuth(t *testing.T) {
+	validator := CompositeValidator{}
+
+	tests := []struct {
+		name          string
+		manifest      types.MCPServerManifest
+		expectedError error
+	}{
+		{
+			name: "remote component with static OAuth not allowed",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{
+					ComponentServers: []types.ComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerManifest{
+								Runtime: types.RuntimeRemote,
+								RemoteConfig: &types.RemoteRuntimeConfig{
+									URL:                 "https://example.com/mcp",
+									StaticOAuthRequired: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0]",
+				Message: "remote component with static OAuth cannot be included in a composite server",
+			},
+		},
+		{
+			name: "remote component without static OAuth is allowed",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{
+					ComponentServers: []types.ComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerManifest{
+								Runtime: types.RuntimeRemote,
+								RemoteConfig: &types.RemoteRuntimeConfig{
+									URL:                 "https://example.com/mcp",
+									StaticOAuthRequired: false,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			name: "non-remote component in composite is allowed",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{
+					ComponentServers: []types.ComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerManifest{
+								Runtime: types.RuntimeUVX,
+								UVXConfig: &types.UVXRuntimeConfig{
+									Package: "mcp-server-test",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			name: "mixed components with one having static OAuth not allowed",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{
+					ComponentServers: []types.ComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerManifest{
+								Runtime: types.RuntimeRemote,
+								RemoteConfig: &types.RemoteRuntimeConfig{
+									URL:                 "https://example.com/mcp",
+									StaticOAuthRequired: false,
+								},
+							},
+						},
+						{
+							CatalogEntryID: "entry-2",
+							Manifest: types.MCPServerManifest{
+								Runtime: types.RuntimeRemote,
+								RemoteConfig: &types.RemoteRuntimeConfig{
+									URL:                 "https://oauth.example.com/mcp",
+									StaticOAuthRequired: true,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[1]",
+				Message: "remote component with static OAuth cannot be included in a composite server",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateConfig(tt.manifest)
 			require.Equal(t, tt.expectedError, err)
 		})
 	}

@@ -1430,6 +1430,28 @@ func serverManifestFromCatalogEntryManifest(
 				inputComponent = inputComponents[entryComponent.ComponentID()]
 				userURL        string
 			)
+
+			// Check if the component has gained static OAuth.
+			// If so, reject the update - static OAuth components cannot be part of composites.
+			entryHasStaticOAuth := entryComponent.Manifest.Runtime == types.RuntimeRemote &&
+				entryComponent.Manifest.RemoteConfig != nil &&
+				entryComponent.Manifest.RemoteConfig.StaticOAuthRequired
+			inputHasStaticOAuth := inputComponent.Manifest.Runtime == types.RuntimeRemote &&
+				inputComponent.Manifest.RemoteConfig != nil &&
+				inputComponent.Manifest.RemoteConfig.StaticOAuthRequired
+
+			if entryHasStaticOAuth && !inputHasStaticOAuth {
+				// The component has gained static OAuth - reject the update.
+				componentID := entryComponent.CatalogEntryID
+				if componentID == "" {
+					componentID = entryComponent.MCPServerID
+				}
+				return types.MCPServerManifest{}, types.NewErrBadRequest(
+					"cannot update composite server: component %s has been updated to require static OAuth, which is not allowed in composite servers",
+					componentID,
+				)
+			}
+
 			if entryComponent.Manifest.Runtime == types.RuntimeRemote &&
 				entryComponent.Manifest.RemoteConfig != nil &&
 				entryComponent.Manifest.RemoteConfig.Hostname != "" &&

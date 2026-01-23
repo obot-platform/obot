@@ -1546,6 +1546,13 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 				return types.NewErrBadRequest("component entry %s does not belong to workspace %s", component.CatalogEntryID, workspaceID)
 			}
 
+			// Reject remote entries with static OAuth from being included in composites
+			if entry.Spec.Manifest.Runtime == types.RuntimeRemote &&
+				entry.Spec.Manifest.RemoteConfig != nil &&
+				entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired {
+				return types.NewErrBadRequest("remote catalog entry %s with static OAuth cannot be included in a composite server", component.CatalogEntryID)
+			}
+
 			// Populate the manifest
 			component.Manifest = entry.Spec.Manifest
 			// Keep this component

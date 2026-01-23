@@ -467,6 +467,17 @@ func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) err
 			}
 		}
 
+		// Prevent remote components with static OAuth from being included in composites
+		if component.Manifest.Runtime == types.RuntimeRemote &&
+			component.Manifest.RemoteConfig != nil &&
+			component.Manifest.RemoteConfig.StaticOAuthRequired {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
+				Message: "remote component with static OAuth cannot be included in a composite server",
+			}
+		}
+
 		// Validate tool overrides
 		if err := validateToolOverrides(component.ToolOverrides); err != nil {
 			return errors.Join(types.RuntimeValidationError{
@@ -539,6 +550,17 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 				Runtime: types.RuntimeComposite,
 				Field:   fmt.Sprintf("compositeConfig.componentServers[%d].manifest.runtime", i),
 				Message: "runtime cannot be composite",
+			}
+		}
+
+		// Prevent remote components with static OAuth from being included in composites
+		if component.Manifest.Runtime == types.RuntimeRemote &&
+			component.Manifest.RemoteConfig != nil &&
+			component.Manifest.RemoteConfig.StaticOAuthRequired {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
+				Message: "remote component with static OAuth cannot be included in a composite server",
 			}
 		}
 
