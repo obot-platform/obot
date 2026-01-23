@@ -95,7 +95,7 @@
 				if (page.url.searchParams.has('new')) {
 					const cleanUrl = new URL(page.url);
 					cleanUrl.searchParams.delete('new');
-					goto(cleanUrl);
+					goto(cleanUrl, { replaceState: true });
 				}
 
 				return;
@@ -111,7 +111,7 @@
 				if (page.url.searchParams.has('new')) {
 					const cleanUrl = new URL(page.url);
 					cleanUrl.searchParams.delete('new');
-					goto(cleanUrl);
+					goto(cleanUrl, { replaceState: true });
 				}
 			}
 		}
