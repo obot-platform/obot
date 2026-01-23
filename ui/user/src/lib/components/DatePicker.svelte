@@ -155,7 +155,7 @@
 	</button>
 
 	{#if open}
-		<div class="default-dialog absolute top-full z-50 mt-1 flex flex-col p-4">
+		<div class="popover absolute top-full z-50 mt-1 flex flex-col p-4">
 			<CalendarGrid
 				bind:currentDate
 				{minDate}

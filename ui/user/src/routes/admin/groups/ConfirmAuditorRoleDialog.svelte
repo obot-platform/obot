@@ -25,7 +25,7 @@
 	}}
 	{oncancel}
 >
-	{#snippet title()}
+	{#snippet msgContent()}
 		<div class="flex items-center gap-2">
 			<h3 class="text-xl font-semibold">Confirm Auditor Role for Group</h3>
 		</div>

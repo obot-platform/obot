@@ -68,7 +68,7 @@
 			fixed: responsive.isMobile ? true : false,
 			disablePortal: true
 		}}
-		class="default-dialog bg-surface1 dark:bg-background top-16 left-0 z-40 flex h-[calc(100vh-64px)] w-screen flex-col px-4 md:top-auto md:left-auto md:h-auto md:w-[350px] md:py-6"
+		class="popover bg-surface1 dark:bg-background top-16 left-0 z-40 flex h-[calc(100vh-64px)] w-screen flex-col px-4 md:top-auto md:left-auto md:h-auto md:w-[350px] md:py-6"
 	>
 		{@render content()}
 	</div>

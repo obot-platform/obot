@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/actions/clickoutside';
 	import { CircleAlert, LoaderCircle, X } from 'lucide-svelte/icons';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
+	import ResponsiveDialog from './ResponsiveDialog.svelte';
 
 	interface Props {
 		show: boolean;
@@ -10,12 +10,15 @@
 		onsuccess: () => void;
 		oncancel: () => void;
 		loading?: boolean;
-		note?: Snippet;
-		title?: Snippet;
+		note?: Snippet | string;
+		msgContent?: Snippet;
 		classes?: {
 			confirm?: string;
 			dialog?: string;
+			icon?: string;
+			iconContainer?: string;
 		};
+		title?: string;
 	}
 
 	let {
@@ -24,12 +27,13 @@
 		onsuccess,
 		oncancel,
 		loading,
-		note,
-		title,
-		classes
+		note = 'This action is permanent and cannot be undone. Are you sure you wish to continue?',
+		msgContent,
+		classes,
+		title = 'Confirm Delete'
 	}: Props = $props();
 
-	let dialog: HTMLDialogElement | undefined = $state();
+	let dialog = $state<HTMLDialogElement>();
 
 	$effect(() => {
 		if (show) {
@@ -41,34 +45,35 @@
 	});
 </script>
 
-<dialog
-	bind:this={dialog}
-	use:clickOutside={() => oncancel()}
-	class={twMerge('dark:bg-surface1 bg-background max-h-full w-full max-w-md', classes?.dialog)}
->
-	<div class="relative">
-		<button type="button" onclick={oncancel} class="icon-button absolute end-2.5 top-3 ms-auto">
-			<X class="h-5 w-5" />
-			<span class="sr-only">Close modal</span>
-		</button>
-		<div class="p-4 text-center md:p-8">
-			{#if title}
-				{@render title()}
+<dialog bind:this={dialog} class="dialog">
+	<div class="dialog-container w-[calc(100dvw-2rem)] md:w-md">
+		<div class="dialog-title p-4 pb-0">
+			{title}
+			<button type="button" onclick={oncancel}>
+				<X class="size-5" />
+			</button>
+		</div>
+		<div class="flex flex-col items-center justify-center gap-4 p-4 pt-0">
+			{#if msgContent}
+				{@render msgContent()}
 			{:else}
-				<CircleAlert class="text-on-background mx-auto mb-4 h-12 w-12" />
-				<h3 class="text-on-background mb-5 text-lg font-normal break-words">{msg}</h3>
+				<div class={twMerge('rounded-full bg-red-500/10 p-2', classes?.iconContainer)}>
+					<CircleAlert class={twMerge('size-10 text-red-500', classes?.icon)} />
+				</div>
+				<p class="text-center text-base font-medium">{msg}</p>
 			{/if}
-			{#if note}
+			{#if typeof note === 'string'}
+				<p class="text-on-surface1 mb-4 text-sm font-light">{note}</p>
+			{:else if note}
 				{@render note()}
 			{/if}
-			<div class="flex items-center justify-center gap-2">
+			<div
+				class="flex w-full flex-col items-center justify-center gap-2 md:flex-row md:justify-end"
+			>
 				<button
 					onclick={onsuccess}
 					type="button"
-					class={twMerge(
-						'inline-flex min-h-10 items-center rounded-3xl bg-red-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-red-800',
-						classes?.confirm
-					)}
+					class={twMerge('button-destructive w-full justify-center p-3', classes?.confirm)}
 					disabled={loading}
 				>
 					{#if loading}
@@ -77,8 +82,12 @@
 						Yes, I'm sure
 					{/if}
 				</button>
-				<button onclick={oncancel} type="button" class="button ms-3">No, cancel</button>
+				<button onclick={oncancel} type="button" class="button w-full justify-center">Cancel</button
+				>
 			</div>
 		</div>
 	</div>
+	<form class="dialog-backdrop">
+		<button type="button" onclick={oncancel}>close</button>
+	</form>
 </dialog>

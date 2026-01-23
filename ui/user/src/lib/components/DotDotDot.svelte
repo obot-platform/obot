@@ -17,6 +17,9 @@
 		onClick?: () => void;
 		disablePortal?: boolean;
 		el?: Element;
+		classes?: {
+			menu?: string;
+		};
 	}
 
 	let {
@@ -27,7 +30,8 @@
 		icon,
 		onClick,
 		disablePortal,
-		el
+		el,
+		classes
 	}: Props = $props();
 
 	const { tooltip, ref, toggle } = popover({
@@ -67,5 +71,7 @@
 	}}
 	class={twMerge(responsive.isMobile ? 'bottom-0 left-0 w-full' : '', classes?.menu)}
 >
-	{@render children({ toggle })}
+	<div class={twMerge('dropdown-menu flex min-w-max flex-col p-2', classes?.menu)}>
+		{@render children({ toggle })}
+	</div>
 </div>

@@ -173,28 +173,26 @@
 					{#snippet actions(d)}
 						{#if !isAdminReadonly}
 							<DotDotDot>
-								<div class="default-dialog flex min-w-max flex-col p-2">
-									<button
-										class="menu-button"
-										disabled={!profile.current.groups.includes(Group.OWNER) &&
-											(d.groups.includes(Group.OWNER) || d.explicitRole)}
-										onclick={() => {
-											updatingRole = d;
-											updateRoleDialog?.showModal();
-										}}
-									>
-										Update Role
-									</button>
-									<button
-										class="menu-button text-red-500"
-										disabled={d.explicitRole ||
-											(d.groups.includes(Group.OWNER) &&
-												!profile.current.groups.includes(Group.OWNER))}
-										onclick={() => (deletingUser = d)}
-									>
-										Delete User
-									</button>
-								</div>
+								<button
+									class="menu-button"
+									disabled={!profile.current.groups.includes(Group.OWNER) &&
+										(d.groups.includes(Group.OWNER) || d.explicitRole)}
+									onclick={() => {
+										updatingRole = d;
+										updateRoleDialog?.showModal();
+									}}
+								>
+									Update Role
+								</button>
+								<button
+									class="menu-button text-red-500"
+									disabled={d.explicitRole ||
+										(d.groups.includes(Group.OWNER) &&
+											!profile.current.groups.includes(Group.OWNER))}
+									onclick={() => (deletingUser = d)}
+								>
+									Delete User
+								</button>
 							</DotDotDot>
 						{/if}
 					{/snippet}
@@ -339,7 +337,7 @@
 	}}
 	oncancel={() => (confirmHandoffToUser = undefined)}
 >
-	{#snippet title()}
+	{#snippet msgContent()}
 		<div class="flex items-center justify-center gap-2">
 			<Handshake class="size-6" />
 			<h3 class="text-xl font-semibold">Confirm Handoff</h3>
@@ -370,7 +368,7 @@
 	}}
 	oncancel={() => (confirmAuditorAdditionToUser = undefined)}
 >
-	{#snippet title()}
+	{#snippet msgContent()}
 		<div class="flex items-center justify-center gap-2">
 			<h3 class="text-xl font-semibold">Confirm Auditor Role</h3>
 		</div>

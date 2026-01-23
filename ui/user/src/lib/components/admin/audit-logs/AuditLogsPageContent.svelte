@@ -531,14 +531,12 @@
 						<Plus class="size-4" /> Create Export
 					</span>
 				{/snippet}
-				<div class="default-dialog flex min-w-max flex-col p-2">
-					<button class="menu-button" onclick={() => handleExportRequest('export')}>
-						Create One-time Export
-					</button>
-					<button class="menu-button" onclick={() => handleExportRequest('scheduled')}>
-						Create Export Schedule
-					</button>
-				</div>
+				<button class="menu-button" onclick={() => handleExportRequest('export')}>
+					Create One-time Export
+				</button>
+				<button class="menu-button" onclick={() => handleExportRequest('scheduled')}>
+					Create Export Schedule
+				</button>
 			</DotDotDot>
 
 			<button

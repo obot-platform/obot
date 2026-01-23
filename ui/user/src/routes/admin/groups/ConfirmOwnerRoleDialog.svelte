@@ -21,7 +21,7 @@
 	}}
 	{oncancel}
 >
-	{#snippet title()}
+	{#snippet msgContent()}
 		<div class="flex items-center gap-2">
 			<h3 class="text-xl font-semibold">Confirm Owner Role Assignment</h3>
 		</div>

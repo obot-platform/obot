@@ -244,7 +244,7 @@
 			title=""
 			classes={{
 				button: 'button-icon-primary',
-				dialog: responsive.isMobile
+				menu: responsive.isMobile
 					? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full py-2 px-0'
 					: 'py-2 px-0'
 			}}
@@ -264,7 +264,7 @@
 {:else if variant === 'popover'}
 	<div
 		bind:this={ref}
-		class="default-dialog absolute bottom-full left-0 z-10 w-full -translate-y-1 py-2"
+		class="popover absolute bottom-full left-0 z-10 w-full -translate-y-1 py-2"
 		use:clickOutside={handleClickOutside}
 		onmouseenter={() => (isHovering = true)}
 		onmouseleave={() => (isHovering = false)}

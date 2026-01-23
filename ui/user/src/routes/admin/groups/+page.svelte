@@ -164,26 +164,24 @@
 						{#snippet actions(d)}
 							{#if !isAdminReadonly}
 								<DotDotDot>
-									<div class="default-dialog flex min-w-max flex-col p-2">
+									<button
+										class="menu-button"
+										disabled={!profile.current.groups.includes(Group.OWNER) &&
+											d.roleId === Role.OWNER}
+										onclick={() => (updatingRole = d)}
+									>
+										{d.assignment ? 'Update Role' : 'Assign Role'}
+									</button>
+									{#if d.assignment}
 										<button
-											class="menu-button"
+											class="menu-button text-red-500"
 											disabled={!profile.current.groups.includes(Group.OWNER) &&
 												d.roleId === Role.OWNER}
-											onclick={() => (updatingRole = d)}
+											onclick={() => (deletingGroup = d)}
 										>
-											{d.assignment ? 'Update Role' : 'Assign Role'}
+											Remove Role Assignment
 										</button>
-										{#if d.assignment}
-											<button
-												class="menu-button text-red-500"
-												disabled={!profile.current.groups.includes(Group.OWNER) &&
-													d.roleId === Role.OWNER}
-												onclick={() => (deletingGroup = d)}
-											>
-												Remove Role Assignment
-											</button>
-										{/if}
-									</div>
+									{/if}
 								</DotDotDot>
 							{/if}
 						{/snippet}

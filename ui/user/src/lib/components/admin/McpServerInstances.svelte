@@ -291,44 +291,41 @@
 								{#snippet icon()}
 									<Ellipsis class="size-4" />
 								{/snippet}
-
-								<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
-									<button
-										class="menu-button"
-										onclick={(e) => {
-											e.stopPropagation();
-											diffServer = d;
-											diffDialog?.open();
-										}}
-									>
-										<GitCompare class="size-4" /> View Diff
-									</button>
-									<button
-										class="menu-button bg-primary/10 text-primary hover:bg-primary/20"
-										disabled={updating[d.id]?.inProgress || !!d.compositeName}
-										onclick={async (e) => {
-											e.stopPropagation();
-											showConfirm = {
-												type: 'single',
-												server: d
-											};
-										}}
-										use:tooltip={d.compositeName
-											? {
-													text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
-													classes: ['w-md'],
-													disablePortal: true
-												}
-											: undefined}
-									>
-										{#if updating[d.id]?.inProgress}
-											<LoaderCircle class="size-4 animate-spin" />
-										{:else}
-											<CircleFadingArrowUp class="size-4" />
-										{/if}
-										Update Server
-									</button>
-								</div>
+								<button
+									class="menu-button"
+									onclick={(e) => {
+										e.stopPropagation();
+										diffServer = d;
+										diffDialog?.open();
+									}}
+								>
+									<GitCompare class="size-4" /> View Diff
+								</button>
+								<button
+									class="menu-button bg-primary/10 text-primary hover:bg-primary/20"
+									disabled={updating[d.id]?.inProgress || !!d.compositeName}
+									onclick={async (e) => {
+										e.stopPropagation();
+										showConfirm = {
+											type: 'single',
+											server: d
+										};
+									}}
+									use:tooltip={d.compositeName
+										? {
+												text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
+												classes: ['w-md'],
+												disablePortal: true
+											}
+										: undefined}
+								>
+									{#if updating[d.id]?.inProgress}
+										<LoaderCircle class="size-4 animate-spin" />
+									{:else}
+										<CircleFadingArrowUp class="size-4" />
+									{/if}
+									Update Server
+								</button>
 							</DotDotDot>
 							<button
 								class="icon-button hover:bg-black/50"
@@ -428,7 +425,7 @@
 		confirm: 'bg-primary hover:bg-primary/50 transition-colors duration-200'
 	}}
 >
-	{#snippet title()}
+	{#snippet msgContent()}
 		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
 			{`Update ${showConfirm?.type === 'single' ? showConfirm.server.id : 'selected server(s)'}?`}

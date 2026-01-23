@@ -283,17 +283,15 @@
 						{/if}
 						{#if editingMemoryId !== memory.id}
 							<DotDotDot class="hover:text-on-background text-on-surface1  p-0">
-								<div class="default-dialog flex min-w-max flex-col p-2">
-									<button class="menu-button" onclick={() => startEdit(memory, true)}>
-										<Pencil class="size-4" /> Edit
-									</button>
-									<button
-										class="menu-button text-red-500"
-										onclick={() => (deleteMemoryId = memory.id)}
-									>
-										<Trash2 class="size-4" /> Delete
-									</button>
-								</div>
+								<button class="menu-button" onclick={() => startEdit(memory, true)}>
+									<Pencil class="size-4" /> Edit
+								</button>
+								<button
+									class="menu-button text-red-500"
+									onclick={() => (deleteMemoryId = memory.id)}
+								>
+									<Trash2 class="size-4" /> Delete
+								</button>
 							</DotDotDot>
 						{/if}
 					</div>
@@ -365,14 +363,14 @@
 {/snippet}
 
 <Confirm
-	msg="Are you sure you want to delete all memories?"
+	msg="Delete all memories?"
 	show={toDeleteAll}
 	onsuccess={deleteAll}
 	oncancel={() => (toDeleteAll = false)}
 />
 
 <Confirm
-	msg="Are you sure you want to delete this memory?"
+	msg={`Delete ${deleteMemoryId}?`}
 	show={!!deleteMemoryId}
 	onsuccess={() => {
 		if (deleteMemoryId) {
