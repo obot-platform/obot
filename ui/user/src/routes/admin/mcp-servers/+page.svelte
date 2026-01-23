@@ -27,7 +27,6 @@
 		setUrlParam
 	} from '$lib/url';
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
-	import { debounce } from 'es-toolkit';
 	import { localState } from '$lib/runes/localState.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
 	import { twMerge } from 'tailwind-merge';
