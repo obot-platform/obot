@@ -6,10 +6,9 @@
 	import { AdminService, Group, type LaunchServerType } from '$lib/services';
 	import type { MCPCatalog, OrgUser } from '$lib/services/admin/types';
 	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
-	import { onDestroy, onMount, tick } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { goto } from '$lib/url';
-	import { replaceState } from '$lib/url';
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
@@ -282,7 +281,7 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<div class="bg-surface1 dark:bg-background sticky left-0 top-16 z-20 w-full py-1">
+		<div class="bg-surface1 dark:bg-background sticky top-16 left-0 z-20 w-full py-1">
 			<div class="mb-2">
 				<Search
 					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
@@ -377,7 +376,7 @@
 {/snippet}
 
 {#snippet displayNoData()}
-	<div class="w-md my-12 flex flex-col items-center gap-4 self-center text-center">
+	<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 		<Server class="text-on-surface1 size-24 opacity-25" />
 		<h4 class="text-on-surface1 text-lg font-semibold">No created MCP servers</h4>
 		<p class="text-on-surface1 text-sm font-light">
@@ -477,7 +476,7 @@
 					<AlertTriangle class="size-6 flex-shrink-0 self-start" />
 					<p class="my-0.5 flex flex-col text-sm font-semibold">Error adding source URL:</p>
 				</div>
-				<span class="font-sm break-all font-light">{sourceError}</span>
+				<span class="font-sm font-light break-all">{sourceError}</span>
 			</div>
 		{/if}
 
