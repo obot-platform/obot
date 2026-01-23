@@ -150,8 +150,8 @@
 					{#if d.connected}
 						<div class="pill-primary bg-primary">Connected</div>
 					{:else if 'isCatalogEntry' in d.data && d.data.manifest?.runtime === 'remote' && d.data.manifest?.remoteConfig?.staticOAuthRequired && !d.data.oauthCredentialConfigured}
-						<div class=" bg-yellow-500/20 text-yellow-500 dark:text-yellow-400">
-							OAuth Configuration Required
+						<div class="bg-yellow-500/20 text-yellow-500 dark:text-yellow-400">
+							Requires OAuth Config
 						</div>
 					{/if}
 				{:else if property === 'type'}

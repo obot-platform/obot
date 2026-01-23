@@ -376,7 +376,9 @@
 					{#if d.connected}
 						<div class="pill-primary bg-primary">Connected</div>
 					{:else if catalogEntry?.manifest?.runtime === 'remote' && catalogEntry.manifest?.remoteConfig?.staticOAuthRequired && !catalogEntry.oauthCredentialConfigured}
-						<div class="bg-yellow-500/20 text-yellow-500">Requires OAuth Config</div>
+						<div class="bg-yellow-500/20 text-yellow-500 dark:text-yellow-400">
+							Requires OAuth Config
+						</div>
 					{/if}
 				{:else if property === 'type'}
 					{getServerTypeLabelByType(d.type)}
