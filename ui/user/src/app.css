@@ -875,6 +875,51 @@
 		display: inline-block;
 	}
 
+	.drawer[popover] {
+		position: fixed;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		left: auto;
+		z-index: 40;
+		margin: 0;
+		height: 100dvh;
+		width: auto;
+		max-width: none;
+		border-radius: 0;
+		border-width: 0;
+		outline: none;
+		background-color: var(--background);
+		box-shadow: var(--shadow-lg);
+		transition:
+			transform 0.2s ease-out,
+			opacity 0.2s ease-out,
+			overlay 0.2s ease-out allow-discrete,
+			display 0.2s ease-out allow-discrete;
+
+		.dark & {
+			background-color: var(--surface1);
+			border-color: var(--surface1);
+		}
+	}
+
+	.drawer[popover]:popover-open {
+		transform: translateX(0);
+		opacity: 1;
+	}
+
+	.drawer[popover]:not(:popover-open) {
+		transform: translateX(100%);
+		opacity: 0;
+	}
+
+	@starting-style {
+		.drawer[popover]:popover-open {
+			transform: translateX(100%);
+			opacity: 0;
+		}
+	}
+
 	.colors-background {
 		background-color: var(--background);
 		color: var(--on-background);

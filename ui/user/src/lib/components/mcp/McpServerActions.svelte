@@ -212,13 +212,11 @@
 	<div class:hidden={loading || !hasActions}>
 		<DotDotDot
 			class="icon-button hover:bg-surface1 dark:hover:bg-surface2 hover:text-primary flex-shrink-0"
-			classes={{ menu: 'z-60' }}
 			disablePortal={connectOnly}
+			classes={{ menu: 'z-60 min-w-48 p-0' }}
 		>
 			{#snippet children({ toggle })}
-				<div class="default-dialog flex min-w-48 flex-col">
-					{@render serverActions(toggle)}
-				</div>
+				{@render serverActions(toggle)}
 			{/snippet}
 		</DotDotDot>
 	</div>
