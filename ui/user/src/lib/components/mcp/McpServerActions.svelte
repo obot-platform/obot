@@ -66,6 +66,7 @@
 	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
 	let oauthConfigPromptHandled = $state(false);
 	let isInitialOAuthConfig = $state(false);
+	let oauthConfiguredOverride = $state<boolean | undefined>(undefined);
 
 	let disconnecting = $state(false);
 
@@ -106,37 +107,16 @@
 		return entryCanConnect && serverCanConnect;
 	});
 
-	let oauthConfigured = $state<boolean | undefined>(undefined);
 	let requiresStaticOAuth = $derived(
 		entry?.manifest?.runtime === 'remote' && entry?.manifest?.remoteConfig?.staticOAuthRequired
 	);
-
-	async function checkOAuthConfigured() {
-		if (!entry || !requiresStaticOAuth) {
-			oauthConfigured = true;
-			return;
-		}
-
-		try {
-			const status = entry.powerUserWorkspaceID
-				? await ChatService.getWorkspaceMCPCatalogEntryOAuthCredentials(
-						entry.powerUserWorkspaceID,
-						entry.id
-					)
-				: await AdminService.getMCPCatalogEntryOAuthCredentials('default', entry.id);
-			oauthConfigured = status.configured;
-		} catch {
-			oauthConfigured = false;
-		}
-	}
-
-	$effect(() => {
-		if (requiresStaticOAuth) {
-			checkOAuthConfigured();
-		} else {
-			oauthConfigured = true;
-		}
-	});
+	// Use entry's oauthCredentialConfigured status (from backend controller) by default,
+	// with an override for when we update credentials locally
+	let oauthConfigured = $derived(
+		oauthConfiguredOverride !== undefined
+			? oauthConfiguredOverride
+			: !requiresStaticOAuth || entry?.oauthCredentialConfigured
+	);
 
 	function refresh() {
 		if (entry) {
@@ -612,7 +592,7 @@
 			} else {
 				await AdminService.setMCPCatalogEntryOAuthCredentials('default', entry.id, credentials);
 			}
-			oauthConfigured = true;
+			oauthConfiguredOverride = true;
 
 			// Show the connect dialog if this was part of the initial creation flow
 			if (isInitialOAuthConfig) {

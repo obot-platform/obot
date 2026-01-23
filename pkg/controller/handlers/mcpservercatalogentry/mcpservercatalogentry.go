@@ -233,16 +233,17 @@ func (h *Handler) propagateOAuthCredentialStatus(req router.Request, entryName s
 		return fmt.Errorf("failed to list MCP servers: %w", err)
 	}
 
+	var errs []error
 	for i := range mcpServers.Items {
 		server := &mcpServers.Items[i]
 		if server.Status.OAuthCredentialConfigured != configured {
 			server.Status.OAuthCredentialConfigured = configured
 			if err := req.Client.Status().Update(req.Ctx, server); err != nil {
-				return fmt.Errorf("failed to update MCP server %s status: %w", server.Name, err)
+				errs = append(errs, fmt.Errorf("failed to update MCP server %s status: %w", server.Name, err))
 			}
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // EnsureOAuthCredentialStatus updates the OAuthCredentialConfigured status field

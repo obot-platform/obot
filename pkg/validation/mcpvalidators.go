@@ -487,12 +487,7 @@ func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) err
 			}, err)
 		}
 
-		// Use whichever ID is set for duplicate checking
-		componentID := component.CatalogEntryID
-		if componentID == "" {
-			componentID = component.MCPServerID
-		}
-
+		componentID := component.ComponentID()
 		if _, ok := componentServerIDs[componentID]; ok {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
@@ -573,12 +568,7 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 			}, err)
 		}
 
-		// Use whichever ID is set for duplicate checking
-		componentID := component.CatalogEntryID
-		if componentID == "" {
-			componentID = component.MCPServerID
-		}
-
+		componentID := component.ComponentID()
 		if _, ok := componentServerIDs[componentID]; ok {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,

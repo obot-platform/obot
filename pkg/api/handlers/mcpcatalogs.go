@@ -208,7 +208,7 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 
 		if hasAccess {
 			// Hide catalog entries that require OAuth credentials that haven't been configured (non-admins only).
-			if !req.UserIsAdmin() && workspaceID == "" && entryRequiresStaticOAuthCreds(entry) {
+			if !req.UserIsAdmin() && entryRequiresStaticOAuthCreds(entry) {
 				continue
 			}
 			entries = append(entries, ConvertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, powerUserID))
@@ -1830,12 +1830,15 @@ func (h *MCPCatalogHandler) SetOAuthCredentials(req api.Context) error {
 		}
 	} else {
 		// Initial setup mode: All fields are required
-		if credReq.ClientID == "" || credReq.ClientSecret == "" {
+		// Trim whitespace before validation
+		trimmedClientID := strings.TrimSpace(credReq.ClientID)
+		trimmedClientSecret := strings.TrimSpace(credReq.ClientSecret)
+		if trimmedClientID == "" || trimmedClientSecret == "" {
 			return types.NewErrBadRequest("clientID and clientSecret are required")
 		}
 
-		clientID = credReq.ClientID
-		clientSecret = credReq.ClientSecret
+		clientID = trimmedClientID
+		clientSecret = trimmedClientSecret
 
 		// Determine the effective authorization server URL
 		authServerURL = credReq.AuthorizationServerURL
