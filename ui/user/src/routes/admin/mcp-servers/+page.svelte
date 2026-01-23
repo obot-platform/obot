@@ -9,7 +9,6 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { goto } from '$lib/url';
-	import { replaceState } from '$lib/url';
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
@@ -27,7 +26,6 @@
 		setUrlParam
 	} from '$lib/url';
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
-	import { debounce } from 'es-toolkit';
 	import { localState } from '$lib/runes/localState.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -92,11 +90,14 @@
 
 			if (comingFromDetailPage) {
 				showServerForm = false;
+
+				// Prevent infinite navigation
 				if (page.url.searchParams.has('new')) {
 					const cleanUrl = new URL(page.url);
 					cleanUrl.searchParams.delete('new');
-					replaceState(cleanUrl, {});
+					goto(cleanUrl, { replaceState: true });
 				}
+
 				return;
 			}
 
@@ -105,6 +106,13 @@
 				selectServerType(createNewType, false);
 			} else {
 				showServerForm = false;
+
+				// Prevent infinite navigation
+				if (page.url.searchParams.has('new')) {
+					const cleanUrl = new URL(page.url);
+					cleanUrl.searchParams.delete('new');
+					goto(cleanUrl, { replaceState: true });
+				}
 			}
 		}
 	});
@@ -226,14 +234,14 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 
-	const updateSearchQuery = debounce((value: string) => {
+	const updateSearchQuery = (value: string) => {
 		const newUrl = new URL(page.url);
 
 		setUrlParam(newUrl, 'query', value || null);
 
 		persistQueryToLocalStorage(view, value);
 		navigateWithState(newUrl);
-	}, 100);
+	};
 </script>
 
 <Layout
