@@ -106,6 +106,7 @@
 	</div>
 
 	<Select
+		id={`filter-${filter.property}`}
 		class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 		classes={{
 			root: 'w-full',
@@ -120,5 +121,6 @@
 		}
 		multiple
 		{onSelect}
+		position="top"
 	/>
 </div>

@@ -241,9 +241,10 @@
 		bind:this={popover}
 		popover
 		id={`${id}-popover`}
-		style={`position-anchor: --${id}-anchor; width: anchor-size(width);`}
+		style={`position-anchor: --${id}-anchor; width: anchor-size(width); position-area: ${position}; position-try-fallbacks: flip-block;`}
 		class={twMerge(
-			'default-scrollbar-thin dropdown-menu max-h-[300px] overflow-y-auto rounded-t-none rounded-b-sm'
+			'default-scrollbar-thin dropdown-menu max-h-[300px] overflow-y-auto',
+			position === 'top' ? 'rounded-t-sm rounded-b-none' : 'rounded-t-none rounded-b-sm'
 		)}
 	>
 		{#if availableOptions.length === 0}
