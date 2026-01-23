@@ -118,6 +118,7 @@
 
 	let selected = $state<Record<string, T>>({});
 	let dataTableRef: HTMLTableElement | null = $state(null);
+	let headerTableRef: HTMLTableSectionElement | null = $state(null);
 	let headerScrollRef: HTMLDivElement | null = $state(null);
 	let bodyScrollRef: HTMLDivElement | null = $state(null);
 	let wrapperRef: HTMLDivElement | null = $state(null);
@@ -139,6 +140,7 @@
 
 	function handleColumnVisibilityReset() {
 		userHiddenFieldIndices = null;
+		measureColumnWidths();
 	}
 
 	let tableData = $derived.by(() => {
@@ -289,15 +291,21 @@
 		});
 	}
 
+	// If there is no data, measure using the header cells instead of the first row's cells
 	function getTableCells(): HTMLTableCellElement[] | null {
-		const firstRow = dataTableRef?.querySelector('tbody tr:not([data-section-header])');
-		const cells = firstRow?.querySelectorAll('td') ?? dataTableRef?.querySelectorAll('tr th');
+		let firstRow = dataTableRef?.querySelector('tbody tr:not([data-section-header])');
+		const cells = firstRow
+			? (firstRow?.querySelectorAll('td') ?? dataTableRef?.querySelectorAll('tr th'))
+			: headerTableRef?.querySelectorAll('th');
 		return cells ? (Array.from(cells) as HTMLTableCellElement[]) : null;
 	}
 
 	function measureCellWidth(cell: HTMLTableCellElement): number {
-		const contentDiv = cell.querySelector('div');
-		return contentDiv ? contentDiv.scrollWidth : cell.getBoundingClientRect().width;
+		if (cell.tagName === 'TD') {
+			const contentDiv = cell.querySelector('div');
+			return contentDiv ? contentDiv.scrollWidth : cell.scrollWidth;
+		}
+		return cell.scrollWidth;
 	}
 
 	function calculateFieldPadding(fieldIndex: number): number {
@@ -317,13 +325,24 @@
 
 	function measureNaturalWidths(cells: HTMLTableCellElement[]): number[] {
 		const naturalWidths: number[] = [];
+		const isHeaderCells = cells[0]?.tagName === 'TH';
+		const selectColOffset = tableSelectActions ? 1 : 0;
+		const actionsOffset = actions ? 1 : 0;
 
 		cells.forEach((cell, index) => {
 			let width = measureCellWidth(cell);
 
-			// Add padding for field columns (not select or actions)
-			if (index > 0 && index <= fields.length) {
-				width += calculateFieldPadding(index - 1);
+			const isFieldColumn =
+				index >= selectColOffset &&
+				index < cells.length - actionsOffset &&
+				index < selectColOffset + fields.length;
+			if (isFieldColumn) {
+				const fieldIndex = index - selectColOffset;
+				if (isHeaderCells) {
+					width += 32; // base cell padding only for headers
+				} else {
+					width += calculateFieldPadding(fieldIndex);
+				}
 			}
 
 			naturalWidths.push(width);
@@ -533,7 +552,7 @@
 	}
 
 	$effect(() => {
-		if (dataTableRef && tableSelectActions) {
+		if (tableData.length && dataTableRef && headerTableRef) {
 			// Use a small delay to ensure the table is fully rendered
 			setTimeout(() => {
 				measureColumnWidths();
@@ -561,7 +580,10 @@
 			</div>
 		{:else}
 			<div class="default-scrollbar-thin w-full overflow-x-auto" bind:this={headerScrollRef}>
-				<table class="w-full border-collapse" style="table-layout: fixed; width: 100%;">
+				<table
+					class="w-full border-collapse"
+					style={columnWidths.length > 0 ? 'table-layout: fixed; width: 100%;' : ''}
+				>
 					{#if columnWidths.length > 0}
 						<colgroup>
 							{#if tableSelectActions}
@@ -791,6 +813,7 @@
 			hidden && 'hidden',
 			classes?.thead
 		)}
+		bind:this={headerTableRef}
 	>
 		<tr>
 			{#if tableSelectActions}
