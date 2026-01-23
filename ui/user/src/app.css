@@ -844,7 +844,8 @@
 		}
 	}
 
-	.dropdown-menu, .popover {
+	.dropdown-menu,
+	.popover {
 		border-radius: var(--radius-xl);
 		border-width: 1px;
 		border-color: var(--surface3);
@@ -1406,4 +1407,3 @@ html {
 	scrollbar-color: var(--color-surface3) #f1f1f100;
 	scrollbar-width: auto;
 }
-
