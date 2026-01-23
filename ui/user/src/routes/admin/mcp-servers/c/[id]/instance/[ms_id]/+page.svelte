@@ -7,7 +7,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
-	import { CircleFadingArrowUp, CircleAlert, Info, GitCompare } from 'lucide-svelte';
+	import { CircleFadingArrowUp, Info, GitCompare } from 'lucide-svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';

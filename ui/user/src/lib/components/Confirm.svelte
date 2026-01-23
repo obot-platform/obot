@@ -2,7 +2,6 @@
 	import { CircleAlert, LoaderCircle, X } from 'lucide-svelte/icons';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
-	import ResponsiveDialog from './ResponsiveDialog.svelte';
 
 	interface Props {
 		show: boolean;

@@ -2,7 +2,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { createNewTask, getLayout, openTask, openTaskRun } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project, type Task } from '$lib/services';
-	import { ChevronRight, Plus, X } from 'lucide-svelte/icons';
+	import { Plus } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
 	import { responsive } from '$lib/stores';
 	import TaskItem from '$lib/components/edit/TaskItem.svelte';

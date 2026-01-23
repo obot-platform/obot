@@ -10,7 +10,7 @@
 	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
 	import { formatTimeAgo } from '$lib/time.js';
-	import { Handshake, Info, LoaderCircle, ShieldAlert, X } from 'lucide-svelte';
+	import { Handshake, Info, LoaderCircle, ShieldAlert } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 	import { getUserRoleLabel } from '$lib/utils';
 	import Search from '$lib/components/Search.svelte';
