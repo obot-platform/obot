@@ -1442,13 +1442,9 @@ func serverManifestFromCatalogEntryManifest(
 
 			if entryHasStaticOAuth && !inputHasStaticOAuth {
 				// The component has gained static OAuth - reject the update.
-				componentID := entryComponent.CatalogEntryID
-				if componentID == "" {
-					componentID = entryComponent.MCPServerID
-				}
 				return types.MCPServerManifest{}, types.NewErrBadRequest(
 					"cannot update composite server: component %s has been updated to require static OAuth, which is not allowed in composite servers",
-					componentID,
+					entryComponent.ComponentID(),
 				)
 			}
 
