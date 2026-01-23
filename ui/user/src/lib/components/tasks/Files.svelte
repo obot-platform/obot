@@ -130,7 +130,7 @@
 
 <Confirm
 	show={fileToDelete !== undefined}
-	msg={`Are you sure you want to delete ${fileToDelete}?`}
+	msg={`Delete ${fileToDelete}?`}
 	onsuccess={deleteFile}
 	oncancel={() => (fileToDelete = undefined)}
 />

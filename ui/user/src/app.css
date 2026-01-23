@@ -781,13 +781,14 @@
 		font-size: 0.875rem;
 		color: var(--on-background);
 		box-shadow: var(--shadow-lg);
+		grid-row-start: 1;
+		grid-column-start: 1;
+		overscroll-behavior: contain;
+		overflow-y: auto;
+
 		.dark & {
 			background-color: var(--surface2);
 		}
-		overscroll-behavior: contain;
-		grid-row-start: 1;
-		grid-column-start: 1;
-		overflow-y: auto;
 
 		&.mobile {
 			border-radius: unset;
@@ -812,10 +813,7 @@
 	}
 
 	.dialog-close-btn {
-		position: absolute;
-		top: -0.25rem;
-		right: -0.25rem;
-
+		position: relative;
 		.mobile & {
 			position: absolute;
 			top: 50%;

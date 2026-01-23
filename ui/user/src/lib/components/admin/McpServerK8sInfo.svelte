@@ -608,16 +608,24 @@
 
 <Confirm
 	show={showRestartConfirm}
-	msg="Are you sure you want to restart this deployment? This will cause a brief service interruption."
+	msg={`Restart ${title || name}?`}
 	onsuccess={handleRestart}
 	oncancel={() => (showRestartConfirm = false)}
 	loading={restarting}
-/>
-
+>
+	{#snippet note()}
+		Are you sure you want to restart this deployment? This will cause a brief service interruption.
+	{/snippet}
+</Confirm>
 <Confirm
 	show={showUpdateK8sSettingsConfirm}
-	msg="Are you sure you want to redeploy the server with the latest Kubernetes? This will cause a brief service interruption."
+	msg={`Redeploy ${title || name}?`}
 	onsuccess={handleRedeployWithK8sSettings}
 	oncancel={() => (showUpdateK8sSettingsConfirm = false)}
 	loading={updatingK8sSettings}
-/>
+>
+	{#snippet note()}
+		Are you sure you want to redeploy this server with the latest Kubernetes settings? This will
+		cause a brief service interruption.
+	{/snippet}
+</Confirm>

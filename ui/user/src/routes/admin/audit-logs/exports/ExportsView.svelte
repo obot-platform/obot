@@ -224,9 +224,7 @@
 </div>
 
 <Confirm
-	msg={showDeleteConfirm?.type === 'single'
-		? 'Are you sure you want to delete this export?'
-		: 'Are you sure you want to delete the selected exports?'}
+	msg={showDeleteConfirm?.type === 'single' ? 'Delete this export?' : 'Delete selected exports?'}
 	show={!!showDeleteConfirm}
 	onsuccess={async () => {
 		if (!showDeleteConfirm) return;
@@ -244,13 +242,13 @@
 	loading={deleting}
 >
 	{#snippet msgContent()}
-		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
+		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
 			{`Delete ${showDeleteConfirm?.type === 'single' ? 'export' : 'selected exports'}?`}
 		</h4>
 	{/snippet}
 	{#snippet note()}
-		<div class="mb-8 text-sm font-light">
+		<div class="text-sm font-light">
 			{#if showDeleteConfirm?.type === 'single'}
 				This export and its associated files will be permanently deleted.
 			{:else}

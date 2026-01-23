@@ -349,8 +349,8 @@
 
 <Confirm
 	msg={showDeleteConfirm?.type === 'single'
-		? 'Are you sure you want to delete this scheduled export?'
-		: 'Are you sure you want to delete the selected scheduled exports?'}
+		? 'Delete this scheduled export?'
+		: 'Delete selected scheduled exports?'}
 	show={!!showDeleteConfirm}
 	onsuccess={async () => {
 		if (!showDeleteConfirm) return;
@@ -371,13 +371,13 @@
 	loading={deleting}
 >
 	{#snippet msgContent()}
-		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
+		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
 			{`Delete ${showDeleteConfirm?.type === 'single' ? 'scheduled export' : 'selected scheduled exports'}?`}
 		</h4>
 	{/snippet}
 	{#snippet note()}
-		<div class="mb-8 text-sm font-light">
+		<div class="text-sm font-light">
 			{#if showDeleteConfirm?.type === 'single'}
 				This scheduled export will be permanently deleted and will no longer run.
 			{:else}

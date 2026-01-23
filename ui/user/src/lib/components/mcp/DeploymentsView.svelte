@@ -966,19 +966,17 @@
 		showUpgradeConfirm = undefined;
 	}}
 	oncancel={() => (showUpgradeConfirm = undefined)}
-	classes={{
-		confirm: 'bg-primary hover:bg-primary/50 transition-colors duration-200'
-	}}
 	loading={Object.values(updating).some((u) => u.inProgress)}
+	type="info"
 >
 	{#snippet msgContent()}
-		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
+		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
 			{`Update ${showUpgradeConfirm?.type === 'single' ? showUpgradeConfirm.server.id : 'selected server(s)'}?`}
 		</h4>
 	{/snippet}
 	{#snippet note()}
-		<p class="mb-8 text-sm font-light">
+		<p class="text-sm font-light">
 			If this update introduces new required configuration parameters, users will have to supply
 			them before they can use {showUpgradeConfirm?.type === 'multi'
 				? 'these servers'
@@ -1007,19 +1005,17 @@
 		showK8sUpgradeConfirm = undefined;
 	}}
 	oncancel={() => (showK8sUpgradeConfirm = undefined)}
-	classes={{
-		confirm: 'bg-primary hover:bg-primary/50 transition-colors duration-200'
-	}}
 	loading={Object.values(updating).some((u) => u.inProgress)}
+	type="info"
 >
 	{#snippet msgContent()}
-		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
+		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
 			Update Kubernetes Settings
 		</h4>
 	{/snippet}
 	{#snippet note()}
-		<p class="mb-8 text-sm font-light">
+		<p class="text-sm font-light">
 			{#if showK8sUpgradeConfirm?.type === 'multi'}
 				The selected servers ({Object.values(selected).filter(
 					(s) => s.needsK8sUpdate && !s.compositeName

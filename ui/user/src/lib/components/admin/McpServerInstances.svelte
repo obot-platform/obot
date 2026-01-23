@@ -11,7 +11,6 @@
 	} from '$lib/services';
 
 	import {
-		CircleAlert,
 		CircleFadingArrowUp,
 		Ellipsis,
 		GitCompare,
@@ -424,17 +423,12 @@
 	classes={{
 		confirm: 'bg-primary hover:bg-primary/50 transition-colors duration-200'
 	}}
+	msg={`Update ${showConfirm?.type === 'single' ? showConfirm.server.id : 'selected server(s)'}?`}
+	type="info"
+	title="Confirm Update"
 >
-	{#snippet msgContent()}
-		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
-			<CircleAlert class="size-5" />
-			{`Update ${showConfirm?.type === 'single' ? showConfirm.server.id : 'selected server(s)'}?`}
-		</h4>
-	{/snippet}
 	{#snippet note()}
-		<p class="mb-8 text-sm font-light">
-			If this update introduces new required configuration parameters, users will have to supply
-			them before they can use {showConfirm?.type === 'multi' ? 'these servers' : 'this server'} again.
-		</p>
+		If this update introduces new required configuration parameters, users will have to supply them
+		before they can use {showConfirm?.type === 'multi' ? 'these servers' : 'this server'} again.
 	{/snippet}
 </Confirm>

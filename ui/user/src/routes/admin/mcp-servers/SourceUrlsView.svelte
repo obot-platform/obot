@@ -118,8 +118,8 @@
 
 <Confirm
 	msg={deletingSource?.type === 'single'
-		? 'Are you sure you want to delete this Git Source URL?'
-		: 'Are you sure you want to delete the selected Git Source URLs?'}
+		? 'Delete this Git Source URL?'
+		: 'Delete selected Git Source URLs?'}
 	show={Boolean(deletingSource)}
 	onsuccess={async () => {
 		if (!deletingSource || !catalog) {

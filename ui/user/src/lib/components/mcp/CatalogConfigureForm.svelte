@@ -628,6 +628,7 @@
 		isOpen = false;
 	}}
 	oncancel={() => (showConfirmClose = false)}
+	type="info"
 >
 	{#snippet msgContent()}
 		<h3 class="text-on-background mb-5 text-lg font-semibold break-words">

@@ -204,7 +204,8 @@
 </Layout>
 
 <Confirm
-	msg={`Are you sure you want to remove the role assignment for group "${deletingGroup?.name}"?`}
+	title="Confirm Role Removal"
+	msg={`Remove role assignment for group "${deletingGroup?.name}"?`}
 	show={Boolean(deletingGroup)}
 	onsuccess={async () => {
 		if (!deletingGroup) return;
@@ -219,7 +220,12 @@
 		deletingGroup = undefined;
 	}}
 	oncancel={() => (deletingGroup = undefined)}
-/>
+>
+	{#snippet note()}
+		Related permissions tied to the role will no longer be available. Are you sure you wish to
+		continue?
+	{/snippet}
+</Confirm>
 
 <AddGroupAssignmentDialog
 	bind:open={showAddAssignment}

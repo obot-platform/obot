@@ -190,7 +190,7 @@
 </div>
 
 <Confirm
-	msg="Are you sure you want to delete your MCP server configuration?"
+	msg={`Delete ${toDelete?.alias || toDelete?.name || 'this MCP server'}?`}
 	show={!!toDelete}
 	onsuccess={handleRemoveMcp}
 	oncancel={() => (toDelete = undefined)}

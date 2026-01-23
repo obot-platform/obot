@@ -147,7 +147,7 @@
 
 <Confirm
 	show={taskToDelete !== undefined}
-	msg={`Are you sure you want to delete ${taskToDelete?.name}?`}
+	msg={`Delete ${taskToDelete?.name}?`}
 	onsuccess={deleteTask}
 	oncancel={() => (taskToDelete = undefined)}
 />
