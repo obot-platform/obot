@@ -38,14 +38,26 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 	];
 
 	const fadeIn = [{ opacity: 0 }, { opacity: 1 }];
-
 	const fadeOut = [{ opacity: 1 }, { opacity: 0 }];
+
+	// Backdrop animations (always fade)
+	const backdropFadeIn = [{ opacity: 0 }, { opacity: 1 }];
+	const backdropFadeOut = [{ opacity: 1 }, { opacity: 0 }];
 
 	const getAnimationOptions = (animationType: AnimationType): KeyframeAnimationOptions => ({
 		duration: 200,
 		easing: animationType === 'slide' || animationType === 'drawer' ? 'ease-out' : 'ease-in-out',
 		fill: 'forwards' as const
 	});
+
+	const backdropAnimationOptions: KeyframeAnimationOptions = {
+		duration: 200,
+		easing: 'ease-in-out',
+		fill: 'forwards' as const
+	};
+
+	const getContentElement = () => node.querySelector('.dialog-container') as HTMLElement | null;
+	const getBackdropElement = () => node.querySelector('.dialog-backdrop') as HTMLElement | null;
 
 	const originalClose = node.close;
 
@@ -54,19 +66,26 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 		if (node.hasAttribute('closing')) return;
 		node.setAttribute('closing', '');
 
-		if (!type) {
+		const content = getContentElement();
+		const backdrop = getBackdropElement();
+
+		if (!type || !content) {
 			originalClose.call(node);
 			node.removeAttribute('closing');
 			return;
 		}
 
-		const dialogAnimation = node.animate(
+		// Animate content (slide/fade/drawer)
+		const contentAnimation = content.animate(
 			type === 'drawer' ? drawerOut : type === 'slide' ? slideOut : fadeOut,
 			getAnimationOptions(type)
 		);
 
-		// Wait for animation to complete
-		dialogAnimation.addEventListener(
+		// Animate backdrop (always fade)
+		backdrop?.animate(backdropFadeOut, backdropAnimationOptions);
+
+		// Wait for content animation to complete
+		contentAnimation.addEventListener(
 			'finish',
 			() => {
 				originalClose.call(node);
@@ -82,10 +101,17 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 				if (node.hasAttribute('open')) {
 					if (!type) return;
 
-					node.animate(
+					const content = getContentElement();
+					const backdrop = getBackdropElement();
+
+					// Animate content (slide/fade/drawer)
+					content?.animate(
 						type === 'drawer' ? drawerIn : type === 'slide' ? slideIn : fadeIn,
 						getAnimationOptions(type)
 					);
+
+					// Animate backdrop (always fade)
+					backdrop?.animate(backdropFadeIn, backdropAnimationOptions);
 				}
 			}
 		});
@@ -96,16 +122,9 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 		attributeFilter: ['open']
 	});
 
-	// Adds backdrop animation styles
+	// Adds drawer positioning styles
 	const style = document.createElement('style');
 	style.textContent = `
-		dialog::backdrop {
-			background-color: rgba(0, 0, 0, 0.5);
-			transition: opacity 200ms ease-in-out;
-		}
-		dialog[closing]::backdrop {
-			opacity: 0;
-		}
 		dialog[data-drawer="true"] {
 			position: fixed !important;
 			top: 0 !important;
@@ -132,7 +151,11 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 			}
 
 			if (node.hasAttribute('open') && newType) {
-				node.animate(newType === 'slide' ? slideIn : fadeIn, getAnimationOptions(newType));
+				const content = getContentElement();
+				content?.animate(
+					newType === 'drawer' ? drawerIn : newType === 'slide' ? slideIn : fadeIn,
+					getAnimationOptions(newType)
+				);
 			}
 		},
 		destroy() {
