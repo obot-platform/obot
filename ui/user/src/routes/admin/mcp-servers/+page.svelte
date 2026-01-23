@@ -226,14 +226,16 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 
-	const updateSearchQuery = debounce((value: string) => {
+	const updateSearchQuery = (value: string) => {
 		const newUrl = new URL(page.url);
 
 		setUrlParam(newUrl, 'query', value || null);
+		// Remove the 'new' parameter to prevent reopening the create form
+		setUrlParam(newUrl, 'new', null);
 
 		persistQueryToLocalStorage(view, value);
 		navigateWithState(newUrl);
-	}, 100);
+	};
 </script>
 
 <Layout
