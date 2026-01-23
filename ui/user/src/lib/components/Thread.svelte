@@ -31,10 +31,9 @@
 	import ThreadModelSelector from '$lib/components/edit/ThreadModelSelector.svelte';
 	import McpPrompts from './mcp/McpPrompts.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
-	import { clickOutside } from '$lib/actions/clickoutside';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { browser } from '$app/environment';
 	import { goto } from '$lib/url';
+	import ResponsiveDialog from './ResponsiveDialog.svelte';
 
 	interface Props {
 		id?: string;
@@ -78,7 +77,7 @@
 	let hasModelSelected = $state(false);
 
 	let centerInput = $derived(!createProject && (!id || isNew));
-	let imagePreviewDialog = $state<HTMLDialogElement>();
+	let imagePreviewDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let imagePreviewSrc = $state<string>();
 
 	$effect(() => {
@@ -556,7 +555,7 @@
 						onSendCredentialsCancel={() => thread?.abort()}
 						onPreviewImage={(imgSrc) => {
 							imagePreviewSrc = imgSrc;
-							imagePreviewDialog?.showModal();
+							imagePreviewDialog?.open();
 						}}
 						compactFilePreview={!!layout.fileEditorOpen || i !== lastMessageWithFile}
 					/>
@@ -694,33 +693,11 @@
 	</div>
 </div>
 
-<dialog
-	bind:this={imagePreviewDialog}
-	use:clickOutside={() => {
-		imagePreviewDialog?.close();
-		imagePreviewSrc = undefined;
-	}}
->
-	<div
-		class="default-scrollbar-thin relative flex max-h-[95vh] w-full flex-col overflow-y-auto p-4"
-	>
-		<div class="sticky top-0 left-0 z-10 w-full">
-			<button
-				class="icon-button absolute top-0 right-0"
-				onclick={() => {
-					imagePreviewDialog?.close();
-					imagePreviewSrc = undefined;
-				}}
-				use:tooltip={'Close Preview'}
-			>
-				<X class="size-6" />
-			</button>
-		</div>
-		{#if imagePreviewSrc}
-			<img src={imagePreviewSrc} class="mx-auto max-w-full rounded-xl" alt="preview" />
-		{/if}
-	</div>
-</dialog>
+<ResponsiveDialog bind:this={imagePreviewDialog}>
+	{#if imagePreviewSrc}
+		<img src={imagePreviewSrc} class="mx-auto max-w-full rounded-xl" alt="preview" />
+	{/if}
+</ResponsiveDialog>
 
 <style lang="postcss">
 	.bottom-fade-bar {

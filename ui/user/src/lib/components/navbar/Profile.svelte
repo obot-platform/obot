@@ -101,7 +101,7 @@
 	slide={responsive.isMobile ? 'left' : undefined}
 	fixed={responsive.isMobile}
 	classes={{
-		dialog: twMerge(
+		menu: twMerge(
 			'p-0 md:w-fit overflow-hidden',
 			responsive.isMobile &&
 				'rounded-none h-[calc(100vh-64px)] left-0 top-[64px] !rounded-none w-full h-full'

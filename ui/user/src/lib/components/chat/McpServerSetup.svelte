@@ -19,6 +19,7 @@
 	import McpServerEntryForm from '../admin/McpServerEntryForm.svelte';
 	import ConnectToServer from '../mcp/ConnectToServer.svelte';
 	import ChatConnectorsView from './ChatConnectorsView.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 
 	interface Props {
 		project: Project;
@@ -34,7 +35,7 @@
 		server?: MCPCatalogServer;
 	}>();
 
-	let catalogDialog = $state<HTMLDialogElement>();
+	let catalogDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 
 	let hasExistingConfigured = $derived(
@@ -117,18 +118,17 @@
 	}
 
 	export async function open() {
-		catalogDialog?.showModal();
+		catalogDialog?.open();
 		mcpServersAndEntries.refreshAll();
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<dialog
+<ResponsiveDialog
 	bind:this={catalogDialog}
-	use:clickOutside={() => closeCatalogDialog()}
-	class="default-dialog max-w-(calc(100svw - 2em)) h-full w-(--breakpoint-xl) p-0"
-	class:mobile-screen-dialog={responsive.isMobile}
+	class="h-full w-(--breakpoint-xl) max-w-[calc(100svw-2em)] p-0"
+	classes={{ content: 'p-0' }}
 >
 	<div class="default-scrollbar-thin relative mx-auto h-full min-h-0 w-full overflow-y-auto">
 		<div class="relative flex h-full w-full max-w-(--breakpoint-2xl) flex-col">
@@ -139,7 +139,7 @@
 			{/if}
 		</div>
 	</div>
-</dialog>
+</ResponsiveDialog>
 
 {#snippet selectedContent()}
 	{#if selected}

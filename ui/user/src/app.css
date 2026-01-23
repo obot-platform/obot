@@ -814,6 +814,24 @@
 
 	.dialog-close-btn {
 		position: relative;
+		padding: 0.625rem;
+		transition-property: all;
+		transition-duration: 200ms;
+		color: var(--color-gray-500);
+		border-radius: 9999px;
+
+		&:hover {
+			background-color: var(--surface3);
+		}
+
+		&:focus {
+			outline: none;
+		}
+
+		.dark & {
+			color: var(--color-gray-400);
+		}
+
 		.mobile & {
 			position: absolute;
 			top: 50%;
@@ -823,25 +841,6 @@
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			border-radius: 9999px;
-			/* rounded-full */
-			padding: 0.625rem;
-			/* p-2.5 */
-			transition-property: all;
-			transition-duration: 200ms;
-			color: var(--color-gray-500);
-
-			&:hover {
-				background-color: var(--surface3);
-			}
-
-			&:focus {
-				outline: none;
-			}
-
-			.dark & {
-				color: var(--color-gray-400);
-			}
 		}
 	}
 
@@ -853,9 +852,27 @@
 		font-size: 0.875rem;
 		color: var(--on-background);
 		box-shadow: var(--shadow-lg);
+		grid-row-start: 1;
+		grid-column-start: 1;
+		overscroll-behavior: contain;
+		overflow-y: auto;
+
 		.dark & {
 			background-color: var(--surface2);
 		}
+	}
+
+	.dropdown-menu[popover] {
+		position: fixed;
+	}
+	.dropdown-menu[popover]:not(:popover-open) {
+		transform-origin: top;
+		display: none;
+		scale: 95%;
+	}
+	.dropdown-menu[popover]:popover-open {
+		position-area: var(--anchor-v, bottom) var(--anchor-h, span-right);
+		display: inline-block;
 	}
 
 	.colors-background {
