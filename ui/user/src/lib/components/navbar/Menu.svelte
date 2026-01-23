@@ -90,7 +90,7 @@
 <div
 	use:tooltip={{ slide, fixed }}
 	class={twMerge(
-		'dropdown-menu z-40 flex w-screen flex-col divide-y divide-gray-200 md:w-64 dark:divide-gray-700',
+		'dropdown-menu z-40 flex w-screen min-w-fit flex-col divide-y divide-gray-200 p-4 md:w-96 dark:divide-gray-700',
 		classes?.menu
 	)}
 >

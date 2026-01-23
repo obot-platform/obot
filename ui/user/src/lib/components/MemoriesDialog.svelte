@@ -17,6 +17,8 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import DotDotDot from './DotDotDot.svelte';
 	import { autoHeight } from '$lib/actions/textarea';
+	import ResponsiveDialog from './ResponsiveDialog.svelte';
+	import Table from './table/Table.svelte';
 
 	interface Props {
 		project?: Project;
@@ -24,7 +26,7 @@
 	}
 
 	let { project = $bindable(), showPreview }: Props = $props();
-	let dialog = $state<HTMLDialogElement>();
+	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let memories = $state<Memory[]>([]);
 	let loading = $state(false);
 	let error = $state<string | null>(null);
@@ -40,12 +42,8 @@
 			project = projectToUse;
 		}
 
-		dialog?.showModal();
+		dialog?.open();
 		loadMemories();
-	}
-
-	function closeDialog() {
-		dialog?.close();
 	}
 
 	async function loadMemories() {
@@ -161,7 +159,7 @@
 	}
 
 	export async function viewAllMemories() {
-		dialog?.showModal();
+		dialog?.open();
 	}
 
 	export function refresh() {
@@ -175,21 +173,11 @@
 	</div>
 {/if}
 
-<dialog
-	bind:this={dialog}
-	use:clickOutside={() => dialog?.close()}
-	class="bg-surface1 border-surface3 max-h-[90vh] min-h-[300px] w-2/3 max-w-[900px] min-w-[600px] overflow-visible rounded-lg border p-5"
->
-	<div class="flex h-full max-h-[calc(90vh-40px)] flex-col">
-		<button class="absolute top-0 right-0 p-3" onclick={closeDialog}>
-			<X class="icon-default" />
-		</button>
-		<h1 class="text-text1 text-xl font-semibold">Memories</h1>
-		<div class="flex w-full flex-col gap-4">
-			{@render content()}
-		</div>
+<ResponsiveDialog title="Memories" bind:this={dialog}>
+	<div class="flex w-full flex-col gap-4 p-4 md:p-0">
+		{@render content()}
 	</div>
-</dialog>
+</ResponsiveDialog>
 
 {#snippet content(preview = false)}
 	{#if error}
@@ -221,34 +209,30 @@
 			</p>
 		{:else if !preview}
 			<div class="overflow-auto">
-				<table class="w-full text-left">
-					<thead class="bg-surface1 sticky top-0 z-10">
-						<tr class="border-surface3 border-b">
-							<th class="text-text1 py-2 text-sm font-medium whitespace-nowrap">Created</th>
-							<th class="text-text1 w-full py-2 text-sm font-medium">Content</th>
-							<th class="text-text1 py-2 text-sm font-medium"></th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each memories as memory (memory.id)}
-							<tr class="border-surface3 group hover:bg-surface2 border-b">
-								<td class="text-text2 py-3 pr-4 text-xs whitespace-nowrap"
-									>{formatDate(memory.createdAt)}</td
-								>
-								<td
-									class="text-text1 max-w-[450px] py-3 pr-4 text-sm break-words break-all hyphens-auto"
-								>
-									{@render memoryContent(memory, preview)}
-								</td>
-								<td class="py-3 whitespace-nowrap">
-									<div class="flex gap-2">
-										{@render options(memory, preview)}
-									</div>
-								</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
+				<Table
+					fields={['createdAt', 'content']}
+					headers={[
+						{
+							title: 'Created',
+							property: 'createdAt'
+						}
+					]}
+					data={memories}
+					classes={{
+						root: 'bg-surface1 dark:bg-background'
+					}}
+				>
+					{#snippet onRenderColumn(field, memory)}
+						{#if field === 'createdAt'}
+							{formatDate(memory.createdAt)}
+						{:else}
+							{@render memoryContent(memory, true)}
+						{/if}
+					{/snippet}
+					{#snippet actions(memory)}
+						{@render options(memory, preview)}
+					{/snippet}
+				</Table>
 			</div>
 		{:else}
 			<div class="flex w-full flex-col gap-4">

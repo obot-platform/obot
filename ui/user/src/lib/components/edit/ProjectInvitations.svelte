@@ -12,9 +12,8 @@
 	import { formatTimeAgo } from '$lib/time';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { clickOutside } from '$lib/actions/clickoutside';
-	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { twMerge } from 'tailwind-merge';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 
 	interface Props {
 		project: Project;
@@ -33,7 +32,7 @@
 			: ''
 	);
 	let deleteInvitationCode = $state('');
-	let invitationDialog = $state<HTMLDialogElement>();
+	let invitationDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let members = $state<ProjectMember[]>([]);
 	let toDelete = $state('');
 
@@ -44,7 +43,7 @@
 		try {
 			invitation = await ChatService.createProjectInvitation(project.assistantID, project.id);
 			await loadInvitations();
-			invitationDialog?.showModal();
+			invitationDialog?.open();
 		} catch (error) {
 			console.error('Error creating invitation:', error);
 		} finally {
@@ -249,15 +248,9 @@
 	oncancel={() => (toDelete = '')}
 />
 
-<dialog
-	use:dialogAnimation={{ type: 'fade' }}
-	bind:this={invitationDialog}
-	use:clickOutside={() => invitationDialog?.close()}
-	class="default-dialog relative w-lg p-4 py-8"
-	class:mobile-screen-dialog={responsive.isMobile}
->
+<ResponsiveDialog bind:this={invitationDialog} class="relative p-4 py-8 md:w-lg" animate="fade">
 	<button
-		class="icon-button absolute top-2 right-2 z-40 float-right self-end"
+		class="icon-button relative top-2 right-2 z-40 float-right self-end md:absolute"
 		onclick={() => invitationDialog?.close()}
 		use:tooltip={{ disablePortal: true, text: 'Close Project Catalog' }}
 	>
@@ -278,7 +271,7 @@
 		/>
 		<span class="text-on-surface1 line-clamp-1 text-xs break-all">{invitationUrl}</span>
 	</div>
-</dialog>
+</ResponsiveDialog>
 
 <Confirm
 	msg="Delete this invitation?"

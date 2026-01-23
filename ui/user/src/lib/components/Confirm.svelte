@@ -57,7 +57,7 @@
 				<X class="size-5" />
 			</button>
 		</div>
-		<div class="flex flex-col items-center justify-center gap-4 p-4 pt-0">
+		<div class="flex flex-col items-center justify-center gap-2 p-4 pt-0">
 			{#if msgContent}
 				{@render msgContent()}
 			{:else}
@@ -78,13 +78,15 @@
 				</div>
 				<p class="text-center text-base font-medium">{msg}</p>
 			{/if}
-			{#if typeof note === 'string'}
-				<p class="text-on-surface1 mb-4 text-sm font-light">{note}</p>
-			{:else if note}
-				<div class="mb-4 self-center text-center font-light">
+
+			<div class="mb-4 self-center text-center font-light">
+				{#if typeof note === 'string'}
+					<p>{note}</p>
+				{:else if note}
 					{@render note()}
-				</div>
-			{/if}
+				{/if}
+			</div>
+
 			<div
 				class="flex w-full flex-col items-center justify-center gap-2 md:flex-row md:justify-end"
 			>
