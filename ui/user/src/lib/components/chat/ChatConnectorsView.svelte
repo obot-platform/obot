@@ -114,6 +114,7 @@
 			noDataMessage="No catalog servers added."
 			setRowClasses={(d) => ('needsUpdate' in d && d.needsUpdate ? 'bg-primary/10' : '')}
 			disablePortal
+			initSort={{ property: 'connected', order: 'desc' }}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{@const server =

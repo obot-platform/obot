@@ -12,9 +12,13 @@
 	import { KeyRound, Plus, ReceiptText, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import ApiKeyRevealDialog from '../../keys/ApiKeyRevealDialog.svelte';
-	import CreateApiKeyDialog from '../../keys/CreateApiKeyDialog.svelte';
+	import CreateApiKeyForm from '../../keys/CreateApiKeyForm.svelte';
 	import ApiKeyDetailsDialog from '$lib/components/api-keys/ApiKeyDetailsDialog.svelte';
 	import ServerCountBadge from '$lib/components/api-keys/ServerCountBadge.svelte';
+	import { fly } from 'svelte/transition';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { page } from '$app/state';
+	import { goto } from '$lib/url';
 
 	let { data } = $props();
 	let allApiKeys = $state<APIKey[]>(untrack(() => data.allApiKeys));
@@ -23,7 +27,7 @@
 
 	let deletingKey = $state<APIKey>();
 	let loading = $state(false);
-	let showCreateDialog = $state(false);
+	let showCreateNew = $derived(page.url.searchParams.has('new'));
 	let createdKeyValue = $state<string>();
 	let detailsKey = $state<(typeof allTableData)[number]>();
 
@@ -57,91 +61,115 @@
 	async function handleCreate(newKey: APIKey & { key: string }) {
 		allApiKeys = [newKey, ...allApiKeys];
 		createdKeyValue = newKey.key;
-		showCreateDialog = false;
+		hideCreateForm();
+	}
+
+	function showCreateForm() {
+		const url = new URL(page.url);
+		url.searchParams.set('new', 'true');
+		goto(url);
+	}
+
+	function hideCreateForm() {
+		const url = new URL(page.url);
+		url.searchParams.delete('new');
+		goto(url, { replaceState: true });
 	}
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<Layout title="API Keys">
-	<div class="flex flex-col gap-4">
-		{#if allApiKeys.length === 0}
-			<div class="mt-26 flex w-md flex-col items-center gap-4 self-center text-center">
-				<KeyRound class="text-on-surface1 size-24 opacity-50" />
-				<h4 class="text-on-surface1 text-lg font-semibold">No API keys</h4>
-				<p class="text-on-surface1 text-sm font-light">
-					Looks like there aren't any API keys in the system yet. <br />
-					Click the "Create API Key" button above to get started.
-				</p>
-			</div>
-		{:else}
-			<p class="text-muted text-sm">View and manage all API keys across all users.</p>
-			<Table
-				data={allTableData}
-				fields={[
-					'userDisplay',
-					'name',
-					'prefix',
-					'description',
-					'mcpServerIds',
-					'createdAtDisplay',
-					'lastUsedAtDisplay',
-					'expiresAtDisplay'
-				]}
-				headers={[
-					{ title: 'User', property: 'userDisplay' },
-					{ title: 'Name', property: 'name' },
-					{ title: 'Key', property: 'prefix' },
-					{ title: 'Description', property: 'description' },
-					{ title: 'Servers', property: 'mcpServerIds' },
-					{ title: 'Created', property: 'createdAtDisplay' },
-					{ title: 'Last Used', property: 'lastUsedAtDisplay' },
-					{ title: 'Expires', property: 'expiresAtDisplay' }
-				]}
-				filterable={['userDisplay', 'name']}
-				sortable={[
-					'userDisplay',
-					'name',
-					'createdAtDisplay',
-					'lastUsedAtDisplay',
-					'expiresAtDisplay'
-				]}
-			>
-				{#snippet onRenderColumn(property, d)}
-					{#if property === 'description'}
-						<span class="text-muted">{d.description || '-'}</span>
-					{:else if property === 'mcpServerIds'}
-						<ServerCountBadge mcpServerIds={d.mcpServerIds} {mcpServers} />
-					{:else}
-						{d[property as keyof typeof d]}
-					{/if}
-				{/snippet}
-				{#snippet actions(d)}
-					<DotDotDot>
-						<div class="default-dialog flex min-w-max flex-col p-2">
-							<button class="menu-button" onclick={() => (detailsKey = d)}>
-								<ReceiptText class="size-4" />
-								Details
-							</button>
-							{#if !isAdminReadonly}
-								<button class="menu-button text-red-500" onclick={() => (deletingKey = d)}>
-									<Trash2 class="size-4" />
-									Delete
+<Layout title={showCreateNew ? 'Create API Key' : 'API Keys'} showBackButton={showCreateNew}>
+	{#if showCreateNew}
+		<div
+			class="h-full w-full"
+			in:fly={{ x: 100, delay: duration, duration }}
+			out:fly={{ x: -100, duration }}
+		>
+			<CreateApiKeyForm
+				onCreate={handleCreate}
+				onCancel={() => (showCreateNew = false)}
+				{mcpServers}
+			/>
+		</div>
+	{:else}
+		<div class="flex flex-col gap-4">
+			{#if allApiKeys.length === 0}
+				<div class="mt-26 flex w-md flex-col items-center gap-4 self-center text-center">
+					<KeyRound class="text-on-surface1 size-24 opacity-50" />
+					<h4 class="text-on-surface1 text-lg font-semibold">No API keys</h4>
+					<p class="text-on-surface1 text-sm font-light">
+						Looks like there aren't any API keys in the system yet. <br />
+						Click the "Create API Key" button above to get started.
+					</p>
+				</div>
+			{:else}
+				<p class="text-muted text-sm">View and manage all API keys across all users.</p>
+				<Table
+					data={allTableData}
+					fields={[
+						'userDisplay',
+						'name',
+						'prefix',
+						'description',
+						'mcpServerIds',
+						'createdAtDisplay',
+						'lastUsedAtDisplay',
+						'expiresAtDisplay'
+					]}
+					headers={[
+						{ title: 'User', property: 'userDisplay' },
+						{ title: 'Name', property: 'name' },
+						{ title: 'Key', property: 'prefix' },
+						{ title: 'Description', property: 'description' },
+						{ title: 'Servers', property: 'mcpServerIds' },
+						{ title: 'Created', property: 'createdAtDisplay' },
+						{ title: 'Last Used', property: 'lastUsedAtDisplay' },
+						{ title: 'Expires', property: 'expiresAtDisplay' }
+					]}
+					filterable={['userDisplay', 'name']}
+					sortable={[
+						'userDisplay',
+						'name',
+						'createdAtDisplay',
+						'lastUsedAtDisplay',
+						'expiresAtDisplay'
+					]}
+				>
+					{#snippet onRenderColumn(property, d)}
+						{#if property === 'description'}
+							<span class="text-muted">{d.description || '-'}</span>
+						{:else if property === 'mcpServerIds'}
+							<ServerCountBadge mcpServerIds={d.mcpServerIds} {mcpServers} />
+						{:else}
+							{d[property as keyof typeof d]}
+						{/if}
+					{/snippet}
+					{#snippet actions(d)}
+						<DotDotDot>
+							<div class="default-dialog flex min-w-max flex-col p-2">
+								<button class="menu-button" onclick={() => (detailsKey = d)}>
+									<ReceiptText class="size-4" />
+									Details
 								</button>
-							{/if}
-						</div>
-					</DotDotDot>
-				{/snippet}
-			</Table>
-		{/if}
-	</div>
+								{#if !isAdminReadonly}
+									<button class="menu-button text-red-500" onclick={() => (deletingKey = d)}>
+										<Trash2 class="size-4" />
+										Delete
+									</button>
+								{/if}
+							</div>
+						</DotDotDot>
+					{/snippet}
+				</Table>
+			{/if}
+		</div>
+	{/if}
 
 	{#snippet rightNavActions()}
-		{#if !profile.current.isAdminReadonly?.()}
-			<button
-				class="button-primary flex items-center gap-2"
-				onclick={() => (showCreateDialog = true)}
-			>
+		{#if !showCreateNew && !profile.current.isAdminReadonly?.()}
+			<button class="button-primary flex items-center gap-2" onclick={showCreateForm}>
 				<Plus class="size-4" />
 				Create API Key
 			</button>
@@ -157,8 +185,6 @@
 	oncancel={() => (deletingKey = undefined)}
 />
 
-<CreateApiKeyDialog bind:show={showCreateDialog} {mcpServers} onCreate={handleCreate} />
-
 <ApiKeyRevealDialog keyValue={createdKeyValue} onClose={() => (createdKeyValue = undefined)} />
 
 <ApiKeyDetailsDialog
@@ -168,3 +194,7 @@
 	onDelete={(key) => (deletingKey = key)}
 	hideDelete={isAdminReadonly}
 />
+
+<svelte:head>
+	<title>Obot | API Keys</title>
+</svelte:head>
