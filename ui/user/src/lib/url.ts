@@ -50,9 +50,9 @@ export function getTableUrlParamsFilters() {
 export function getTableUrlParamsSort(defaultSort?: InitSort) {
 	return page.url.searchParams.get('sort')
 		? {
-			property: page.url.searchParams.get('sort')!,
-			order: (page.url.searchParams.get('sortDirection') as 'asc' | 'desc') || 'asc'
-		}
+				property: page.url.searchParams.get('sort')!,
+				order: (page.url.searchParams.get('sortDirection') as 'asc' | 'desc') || 'asc'
+			}
 		: defaultSort;
 }
 
