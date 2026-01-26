@@ -11,11 +11,13 @@ type Task struct {
 type TaskList List[Task]
 
 type TaskManifest struct {
-	Name        string        `json:"name"`
-	Description string        `json:"description"`
-	Steps       []TaskStep    `json:"steps"`
-	Schedule    *Schedule     `json:"schedule"`
-	OnDemand    *TaskOnDemand `json:"onDemand"`
+	Name          string        `json:"name"`
+	Description   string        `json:"description"`
+	Steps         []TaskStep    `json:"steps"`
+	Schedule      *Schedule     `json:"schedule"`
+	OnDemand      *TaskOnDemand `json:"onDemand"`
+	Model         string        `json:"model,omitempty"`
+	ModelProvider string        `json:"modelProvider,omitempty"`
 }
 
 type TaskOnDemand struct {

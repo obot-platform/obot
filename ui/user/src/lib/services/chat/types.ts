@@ -479,6 +479,8 @@ export interface Task {
 	alias?: string;
 	managed?: boolean;
 	projectID?: string;
+	model?: string;
+	modelProvider?: string;
 }
 
 export interface OnDemand {

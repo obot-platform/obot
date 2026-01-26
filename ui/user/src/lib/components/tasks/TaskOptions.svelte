@@ -2,6 +2,7 @@
 	import { type Task } from '$lib/services';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
 	import Trigger from './Trigger.svelte';
+	import TaskModelSelector from './TaskModelSelector.svelte';
 
 	interface Props {
 		task?: Task;
@@ -82,6 +83,13 @@
 
 		{#if task}
 			<Trigger bind:task {readOnly} />
+		{/if}
+
+		<!-- Model Selection -->
+		{#if task}
+			<div class="border-surface3 mt-4 border-t pt-4">
+				<TaskModelSelector bind:task {readOnly} />
+			</div>
 		{/if}
 	</div>
 {/if}

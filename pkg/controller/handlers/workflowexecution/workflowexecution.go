@@ -220,6 +220,10 @@ func (h *Handler) newThread(ctx context.Context, c kclient.Client, wf *v1.Workfl
 				},
 			},
 			SystemTools: []string{system.WorkflowTool, system.TasksWorkflowTool},
+			Manifest: types.ThreadManifest{
+				Model:         wf.Spec.Manifest.Model,
+				ModelProvider: wf.Spec.Manifest.ModelProvider,
+			},
 		},
 	}
 
