@@ -144,7 +144,7 @@
 	</div>
 
 	<div class="mt-4 flex flex-col gap-2">
-		<p class="input-label">MCP Servers</p>
+		<p class="text-lg font-semibold">MCP Servers</p>
 		<p class="input-description">Select which MCP servers this API key can access</p>
 		{#if serverError}
 			<p class="text-xs text-red-600 dark:text-red-400">Select at least one server</p>
