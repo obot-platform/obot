@@ -222,9 +222,12 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 			existingUser.Username = updatedUser.Username
 		}
 
-		// Anyone can update their timezone
 		if updatedUser.Timezone != "" {
 			existingUser.Timezone = updatedUser.Timezone
+		}
+
+		if updatedUser.AutonomousToolUseEnabled != nil {
+			existingUser.AutonomousToolUseEnabled = updatedUser.AutonomousToolUseEnabled
 		}
 
 		// Only admins can change user roles.

@@ -229,6 +229,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.TokenUsage":                                     schema_obot_platform_obot_apiclient_types_TokenUsage(ref),
 		"github.com/obot-platform/obot/apiclient/types.TokenUsageList":                                 schema_obot_platform_obot_apiclient_types_TokenUsageList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolCall":                                       schema_obot_platform_obot_apiclient_types_ToolCall(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolConfirm":                                    schema_obot_platform_obot_apiclient_types_ToolConfirm(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolConfirmResponse":                            schema_obot_platform_obot_apiclient_types_ToolConfirmResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolInfo":                                       schema_obot_platform_obot_apiclient_types_ToolInfo(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolInput":                                      schema_obot_platform_obot_apiclient_types_ToolInput(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolManifest":                                   schema_obot_platform_obot_apiclient_types_ToolManifest(ref),
@@ -7354,8 +7356,14 @@ func schema_obot_platform_obot_apiclient_types_Progress(ref common.ReferenceCall
 					},
 					"toolCall": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ToolCall indicates the LLM is currently calling a tool.",
+							Description: "ToolCall indicates the LLM is currently calling a tool",
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.ToolCall"),
+						},
+					},
+					"toolConfirm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ToolConfirm indicates the LLM is attempting to call a tool that requires user approval",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.ToolConfirm"),
 						},
 					},
 					"waitingOnModel": {
@@ -7398,7 +7406,7 @@ func schema_obot_platform_obot_apiclient_types_Progress(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Prompt", "github.com/obot-platform/obot/apiclient/types.Step", "github.com/obot-platform/obot/apiclient/types.StepTemplateInvoke", "github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.ToolCall", "github.com/obot-platform/obot/apiclient/types.ToolInput"},
+			"github.com/obot-platform/obot/apiclient/types.Prompt", "github.com/obot-platform/obot/apiclient/types.Step", "github.com/obot-platform/obot/apiclient/types.StepTemplateInvoke", "github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.ToolCall", "github.com/obot-platform/obot/apiclient/types.ToolConfirm", "github.com/obot-platform/obot/apiclient/types.ToolInput"},
 	}
 }
 
@@ -10974,6 +10982,87 @@ func schema_obot_platform_obot_apiclient_types_ToolCall(ref common.ReferenceCall
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_ToolConfirm(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ToolConfirm is sent when a tool call needs user approval",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the ID of the tool call to confirm.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"toolName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ToolName is the name of the tool to be called.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Description is the description of the tool.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"input": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Input is the input the tool will be called with.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"id", "toolName"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ToolConfirmResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ToolConfirmResponse is sent by the client to approve or deny a tool call.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the ID of the tool call to approve.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"decision": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Decision indicates if the tool call should be denied, approved, or approved for the duration of the thread.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"toolName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ToolName is the name of a tool to pre-approve for the duration of the thread. Set to the wildcard (\"*\") to pre-approve ALL tools. This field is ignored when Decision is not ToolConfirmDecisionApproveThread.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"id", "decision"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_ToolInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -11498,6 +11587,12 @@ func schema_obot_platform_obot_apiclient_types_User(ref common.ReferenceCallback
 					"originalUsername": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"autonomousToolUseEnabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
@@ -18805,6 +18900,21 @@ func schema_storage_apis_obotobotai_v1_ThreadSpec(ref common.ReferenceCallback) 
 							Description: "UpgradeApproved indicates whether the user has approved an upgrade from the source thread.\n\nWhen this field is true, and an upgrade is available, the thread and its associated resources will be updated to match the latest revision of the source thread.",
 							Type:        []string{"boolean"},
 							Format:      "",
+						},
+					},
+					"approvedTools": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ApprovedTools is a list of tool names that are auto-approved in this thread. When a tool call matches a name in this list, it will be auto-approved. Use \"*\" as a wildcard to auto-approve all tools.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 				},

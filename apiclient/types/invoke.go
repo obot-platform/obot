@@ -57,8 +57,10 @@ type Progress struct {
 	Step *Step `json:"step,omitempty"`
 	// ToolInput indicates the LLM is currently generating tool arguments which can sometime take a while
 	ToolInput *ToolInput `json:"toolInput,omitempty"`
-	// ToolCall indicates the LLM is currently calling a tool.
+	// ToolCall indicates the LLM is currently calling a tool
 	ToolCall *ToolCall `json:"toolCall,omitempty"`
+	// ToolConfirm indicates the LLM is attempting to call a tool that requires user approval
+	ToolConfirm *ToolConfirm `json:"toolConfirm,omitempty"`
 	// WaitingOnModel indicates we are waiting for the model to start responding with content
 	WaitingOnModel bool `json:"waitingOnModel,omitempty"`
 	// Error indicates that an error occurred
@@ -127,4 +129,46 @@ type ToolCall struct {
 	Input       string            `json:"input,omitempty"`
 	Output      string            `json:"output,omitempty"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
+}
+
+// ToolConfirm is sent when a tool call needs user approval
+type ToolConfirm struct {
+	// ID is the ID of the tool call to confirm.
+	ID string `json:"id"`
+
+	// ToolName is the name of the tool to be called.
+	ToolName string `json:"toolName"`
+
+	// Description is the description of the tool.
+	Description string `json:"description,omitempty"`
+
+	// Input is the input the tool will be called with.
+	Input string `json:"input,omitempty"`
+}
+
+type ToolConfirmDecision string
+
+const (
+	// ToolConfirmDecisionDeny indicates that the tool call has been denied.
+	ToolConfirmDecisionDeny = "deny"
+
+	// ToolConfirmDecisionApprove indicates the tool call has been approved.
+	ToolConfirmDecisionApprove = "approve"
+
+	// ToolConfirmDecisionApproveThread indicates that the tool call has been approved for the duration of the thread.
+	ToolConfirmDecisionApproveThread = "approve_thread"
+)
+
+// ToolConfirmResponse is sent by the client to approve or deny a tool call.
+type ToolConfirmResponse struct {
+	// ID is the ID of the tool call to approve.
+	ID string `json:"id"`
+
+	// Decision indicates if the tool call should be denied, approved, or approved for the duration of the thread.
+	Decision ToolConfirmDecision `json:"decision"`
+
+	// ToolName is the name of a tool to pre-approve for the duration of the thread.
+	// Set to the wildcard ("*") to pre-approve ALL tools.
+	// This field is ignored when Decision is not ToolConfirmDecisionApproveThread.
+	ToolName string `json:"toolName,omitempty"`
 }

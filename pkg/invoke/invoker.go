@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -37,32 +38,36 @@ import (
 )
 
 var (
-	log              = logger.Package()
-	ephemeralCounter atomic.Int32
+	errToolConfirmTimeout = errors.New("timeout waiting for user to confirm tool call")
+	log                   = logger.Package()
+	ephemeralCounter      atomic.Int32
 )
 
 const (
 	ephemeralRunPrefix = "ephemeral-run"
 	runOutputMaxLength = 2000
+	toolConfirmTimeout = 5 * time.Minute
 )
 
 type Invoker struct {
-	uncached          kclient.WithWatch
-	gatewayClient     *client.Client
-	tokenService      *persistent.TokenService
-	events            *events.Emitter
-	serverURL         string
-	internalServerURL string
+	uncached                 kclient.WithWatch
+	gatewayClient            *client.Client
+	tokenService             *persistent.TokenService
+	events                   *events.Emitter
+	serverURL                string
+	internalServerURL        string
+	autonomousToolUseEnabled bool
 }
 
-func NewInvoker(c kclient.WithWatch, gatewayClient *client.Client, serverURL string, serverPort int, tokenService *persistent.TokenService, events *events.Emitter) *Invoker {
+func NewInvoker(c kclient.WithWatch, gatewayClient *client.Client, serverURL string, serverPort int, tokenService *persistent.TokenService, events *events.Emitter, autonomousToolUseEnabled bool) *Invoker {
 	return &Invoker{
-		uncached:          c,
-		gatewayClient:     gatewayClient,
-		tokenService:      tokenService,
-		events:            events,
-		serverURL:         serverURL,
-		internalServerURL: fmt.Sprintf("http://localhost:%d", serverPort),
+		uncached:                 c,
+		gatewayClient:            gatewayClient,
+		tokenService:             tokenService,
+		events:                   events,
+		serverURL:                serverURL,
+		internalServerURL:        fmt.Sprintf("http://localhost:%d", serverPort),
+		autonomousToolUseEnabled: autonomousToolUseEnabled,
 	}
 }
 
@@ -626,14 +631,20 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		return fmt.Errorf("failed to get chat state: %w", err)
 	}
 
-	// For runs that are not from a user, ensure the token has the basic and authenticated groups.
-	userGroups := []string{types.GroupBasic, types.GroupAuthenticated}
-	var userID, userName, userEmail, userTimezone string
+	var (
+		userAutonomousToolUseEnabled              *bool
+		userID, userName, userEmail, userTimezone string
+		// For runs that are not from a user, ensure the token has the basic and authenticated groups.
+		userGroups = []string{types.GroupBasic, types.GroupAuthenticated}
+	)
 	if thread.Spec.UserID != "" && thread.Spec.UserID != "anonymous" && thread.Spec.UserID != "nobody" {
 		u, err := i.gatewayClient.UserByID(ctx, thread.Spec.UserID)
 		if err != nil {
 			return fmt.Errorf("failed to get user: %w", err)
 		}
+
+		// Capture account-level override for enabling autonomous tool use
+		userAutonomousToolUseEnabled = u.AutonomousToolUseEnabled
 
 		userID, userName, userEmail, userTimezone = thread.Spec.UserID, u.Username, u.Email, u.Timezone
 
@@ -682,6 +693,18 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		return fmt.Errorf("failed to resolve model provider: %w", err)
 	}
 
+	// Disable tool call confirmation when any of the following hold:
+	// 1. We're invoking a system task or a workflow
+	// 2. This is a workflow execution
+	// 3. Autonomous tool use has been enabled globally (OBOT_SERVER_ENABLE_AUTONOMOUS_TOOL_USE = true)
+	// 4. Autonomous tool use has been enabled at the user's account-level
+	// 5. The user has pre-approved all tool calls (ApprovedTools contains the wildcard operator "*")
+	autonomousToolUseEnabled := thread.Spec.SystemTask ||
+		thread.Spec.WorkflowName != "" ||
+		i.autonomousToolUseEnabled ||
+		(userAutonomousToolUseEnabled != nil && *userAutonomousToolUseEnabled) ||
+		slices.Contains(thread.Spec.ApprovedTools, "*")
+
 	options := gptscript.Options{
 		GlobalOptions: gptscript.GlobalOptions{
 			Env: append(run.Spec.Env,
@@ -718,6 +741,7 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		IncludeEvents:      true,
 		ForceSequential:    true,
 		Prompt:             true,
+		Confirm:            !autonomousToolUseEnabled,
 	}
 
 	if len(run.Spec.Tool) == 0 {
@@ -1142,6 +1166,49 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 
 			if frame.Call != nil {
 				switch frame.Call.Type {
+				case gptscript.EventTypeCallConfirm:
+					var (
+						callID   = frame.Call.ID
+						toolName = frame.Call.Tool.Name
+					)
+
+					// Auto-confirm pre-approved tools.
+					if frame.Call.ToolCategory != gptscript.NoCategory ||
+						slices.Contains(thread.Spec.ApprovedTools, toolName) {
+						if err := gptClient.Confirm(runCtx, gptscript.AuthResponse{
+							ID:     callID,
+							Accept: true,
+						}); err != nil {
+							return err
+						}
+						break
+					}
+
+					// Emit tool confirm to frontend
+					toolConfirm := &types.ToolConfirm{
+						ID:          callID,
+						ToolName:    toolName,
+						Description: frame.Call.Tool.Description,
+						Input:       frame.Call.Input,
+					}
+					i.events.SubmitProgress(run, types.Progress{
+						RunID:       run.Name,
+						Time:        types.NewTime(time.Now()),
+						ToolConfirm: toolConfirm,
+					})
+
+					// Set up timeout for approval response (similar to prompt timeout)
+					timeoutCtx, timeoutCancel := context.WithCancel(ctx)
+					abortTimeout = timeoutCancel
+					go func() {
+						defer timeoutCancel()
+						select {
+						case <-timeoutCtx.Done():
+						case <-time.After(toolConfirmTimeout):
+							cancelRun(errToolConfirmTimeout)
+						}
+					}()
+
 				case gptscript.EventTypeCallFinish:
 					abortTimeout()
 					fallthrough

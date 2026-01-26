@@ -44,7 +44,8 @@ export const load: LayoutLoad = async ({ fetch }) => {
 			effectiveRole: 0,
 			groups: [],
 			unauthorized: true,
-			username: ''
+			username: '',
+			autonomousToolUseEnabled: false
 		};
 	}
 

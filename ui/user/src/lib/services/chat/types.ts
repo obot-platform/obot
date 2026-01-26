@@ -13,6 +13,7 @@ export interface Progress {
 	toolInput?: ToolInput;
 	toolCall?: ToolCall;
 	workflowCall?: WorkflowCall;
+	toolConfirm?: ToolConfirm;
 	waitingOnModel?: boolean;
 	error?: string;
 	threadID?: string;
@@ -66,6 +67,21 @@ type ToolCall = {
 	metadata?: { [key: string]: string };
 };
 
+export type ToolConfirm = {
+	id: string;
+	toolName: string;
+	description?: string;
+	input?: string;
+};
+
+export type ToolConfirmDecision = 'deny' | 'approve' | 'approve_thread';
+
+export type ToolConfirmResponse = {
+	id: string;
+	decision: ToolConfirmDecision;
+	toolName?: string;
+};
+
 type WorkflowCall = {
 	name?: string;
 	description?: string;
@@ -86,6 +102,7 @@ export interface Message {
 	icon?: string;
 	tool?: boolean;
 	toolCall?: ToolCall;
+	toolConfirm?: ToolConfirm;
 	username?: string;
 	toolInput?: boolean;
 	sourceName: string;
@@ -148,6 +165,7 @@ export interface Version {
 	enterprise?: boolean;
 	upgradeAvailable?: boolean;
 	engine?: 'docker' | 'kubernetes' | 'local';
+	autonomousToolUseEnabled?: boolean;
 }
 
 export interface Profile {
@@ -168,6 +186,7 @@ export interface Profile {
 	expired?: boolean;
 	created?: string;
 	displayName?: string;
+	autonomousToolUseEnabled: boolean;
 }
 
 export interface Files {
