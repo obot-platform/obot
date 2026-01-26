@@ -194,3 +194,7 @@
 	onDelete={(key) => (deletingKey = key)}
 	hideDelete={isAdminReadonly}
 />
+
+<svelte:head>
+	<title>Obot | API Keys</title>
+</svelte:head>

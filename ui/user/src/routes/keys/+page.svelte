@@ -190,3 +190,7 @@
 	onClose={() => (detailsKey = undefined)}
 	onDelete={(key) => (deletingKey = key)}
 />
+
+<svelte:head>
+	<title>Obot | My API Keys</title>
+</svelte:head>
