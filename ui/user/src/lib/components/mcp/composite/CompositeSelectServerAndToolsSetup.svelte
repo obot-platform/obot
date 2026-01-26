@@ -327,8 +327,8 @@
 	class="bg-surface1 md:w-md"
 >
 	<p class="text-on-surface1 text-sm font-light">
-		By default, the tools for <i>{configuringEntry?.manifest?.name ?? 'MCP Server'}</i> are enabled by
-		default. Would you like to further modify any tool availability or details?
+		All <i>{configuringEntry?.manifest?.name ?? 'MCP Server'}</i> tools are enabled by default. Would
+		you like to modify the available tools?
 	</p>
 	<p class="text-on-surface1 mt-2 mb-6 text-sm font-light">
 		You can also choose to skip and make these changes at a later time.
