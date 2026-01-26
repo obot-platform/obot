@@ -36,6 +36,7 @@
 		onConnect?: ({ server, entry }: { server?: MCPCatalogServer; entry?: MCPCatalogEntry }) => void;
 		promptInitialLaunch?: boolean;
 		connectOnly?: boolean;
+		isProjectMcp?: boolean;
 	}
 
 	let {
@@ -45,7 +46,8 @@
 		skipConnectDialog,
 		onConnect,
 		promptInitialLaunch,
-		connectOnly
+		connectOnly,
+		isProjectMcp
 	}: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
@@ -200,6 +202,7 @@
 			refresh();
 		}}
 		{skipConnectDialog}
+		hideActions={isProjectMcp}
 	/>
 
 	<EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
@@ -338,27 +341,31 @@
 
 {#snippet serverActions(toggle: (value: boolean) => void)}
 	{#if server && server.userID === profile.current.id}
-		<div class="bg-surface1 flex flex-col gap-1 rounded-t-xl p-2">
-			<button
-				class="menu-button"
-				onclick={async () => {
-					connectToServerDialog?.handleSetupChat(server, instance);
-				}}
-			>
-				<MessageCircle class="size-4" /> Chat
-			</button>
-			{#if entry}
+		<div class="flex flex-col gap-1 p-2 {!isProjectMcp && 'bg-surface1 rounded-t-xl'}">
+			{#if !isProjectMcp}
 				<button
 					class="menu-button"
-					onclick={() => {
-						editExistingDialog?.rename({
-							server,
-							entry
-						});
+					onclick={async () => {
+						connectToServerDialog?.handleSetupChat(server, instance);
 					}}
 				>
-					<PencilLine class="size-4" /> Rename
+					<MessageCircle class="size-4" /> Chat
 				</button>
+			{/if}
+			{#if entry}
+				{#if !isProjectMcp}
+					<button
+						class="menu-button"
+						onclick={() => {
+							editExistingDialog?.rename({
+								server,
+								entry
+							});
+						}}
+					>
+						<PencilLine class="size-4" /> Rename
+					</button>
+				{/if}
 				{#if canConfigure}
 					<button
 						class={twMerge(
@@ -408,7 +415,7 @@
 						<Unplug class="size-4" />
 					{/if} Disconnect
 				</button>
-			{:else if entry && server}
+			{:else if entry && server && !isProjectMcp}
 				<button
 					class="menu-button"
 					disabled={disconnecting}

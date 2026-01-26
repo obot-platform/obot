@@ -131,7 +131,7 @@
 
 <div class="flex h-full w-full flex-col gap-4">
 	<div class="flex grow flex-col gap-2">
-		<div class="flex w-full items-center gap-2">
+		<div class="flex w-full items-center gap-2 px-4">
 			<div class="flex gap-2 py-1 text-sm font-light">
 				{#each tabs as tab (tab.view)}
 					<button
@@ -152,7 +152,7 @@
 		</div>
 
 		{#if selected === 'overview' && entry}
-			<div class="pb-8">
+			<div class="px-4 pb-8">
 				<McpServerInfo
 					{entry}
 					{parent}
@@ -195,7 +195,13 @@
 				</McpServerInfo>
 			</div>
 		{:else if selected === 'tools' && entry}
-			<McpServerTools {entry} {onAuthenticate} {project} {onProjectToolsUpdate} />
+			<McpServerTools
+				{entry}
+				{onAuthenticate}
+				{project}
+				{onProjectToolsUpdate}
+				classes={{ root: 'px-4' }}
+			/>
 		{/if}
 	</div>
 </div>

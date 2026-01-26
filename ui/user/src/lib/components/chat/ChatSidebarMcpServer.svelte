@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { closeAll, closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project, type ProjectMCP } from '$lib/services';
-	import { Pencil, Server, Trash2, X } from 'lucide-svelte';
+	import { ChevronLeft, Server, Trash2 } from 'lucide-svelte';
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import McpServerInfoAndTools from '../mcp/McpServerInfoAndTools.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { mcpServersAndEntries } from '$lib/stores';
+	import { responsive } from '$lib/stores';
 	import EditExistingDeployment from '../mcp/EditExistingDeployment.svelte';
-	import { hasEditableConfiguration } from '$lib/services/chat/mcp';
+	import McpServerActions from '../mcp/McpServerActions.svelte';
+	import { findServerAndEntryForProjectMcp } from '$lib/services/chat/mcp';
 
 	interface Props {
 		mcpServer: ProjectMCP;
@@ -22,16 +23,8 @@
 	let showDeleteConfirm = $state(false);
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
 
-	let matchingConfiguredServer = $derived(
-		mcpServersAndEntries.current.userConfiguredServers.find((s) => s.id === mcpServer.mcpID) ||
-			mcpServersAndEntries.current.servers.find((s) => s.id === mcpServer.mcpID)
-	);
-	let matchingEntry = $derived(
-		matchingConfiguredServer?.catalogEntryID
-			? mcpServersAndEntries.current.entries.find(
-					(e) => e.id === matchingConfiguredServer?.catalogEntryID
-				)
-			: undefined
+	let { server: matchingConfiguredServer, entry: matchingEntry } = $derived(
+		findServerAndEntryForProjectMcp(mcpServer)
 	);
 
 	async function handleRemoveMcp() {
@@ -49,9 +42,23 @@
 	}
 </script>
 
-<div class="bg-surface1 dark:bg-background flex h-fit w-full justify-center">
-	<div class="h-fit w-full px-4 py-4 md:max-w-[1200px] md:px-8">
-		<div class="mb-4 flex items-center gap-2">
+<div class="bg-surface1 dark:bg-background flex w-full justify-center">
+	<div class="w-full md:max-w-[1200px]">
+		{#if !layout.sidebarOpen || responsive.isMobile}
+			<div class="flex w-full items-center justify-between gap-2 px-4 pt-4">
+				<div class="flex flex-shrink-0 items-center gap-2">
+					<button class="icon-button" onclick={() => closeSidebarConfig(layout)}>
+						<ChevronLeft class="size-6" />
+					</button>
+					<h1 class="text-xl font-semibold capitalize">{mcpServer.alias || mcpServer.name}</h1>
+				</div>
+				<div class="flex flex-shrink-0 items-center gap-2">
+					<McpServerActions entry={matchingEntry} server={matchingConfiguredServer} isProjectMcp />
+				</div>
+			</div>
+		{/if}
+
+		<div class="mb-4 flex items-center gap-2 px-4 pt-4">
 			{#if mcpServer.icon}
 				<img
 					src={mcpServer.icon}
@@ -65,29 +72,12 @@
 				{mcpServer.alias || mcpServer.name}
 			</h1>
 			<div class="flex grow justify-end gap-2">
-				{#if matchingConfiguredServer && matchingEntry && hasEditableConfiguration(matchingEntry)}
-					<button
-						class="button-icon size-12"
-						use:tooltip={'Edit Configuration'}
-						onclick={() => {
-							editExistingDialog?.edit({
-								entry: matchingEntry,
-								server: matchingConfiguredServer
-							});
-						}}
-					>
-						<Pencil class="size-4" />
-					</button>
-				{/if}
 				<button
 					class="button-destructive"
 					use:tooltip={'Delete'}
 					onclick={() => (showDeleteConfirm = true)}
 				>
 					<Trash2 class="size-4" />
-				</button>
-				<button class="icon-button size-12" onclick={() => closeSidebarConfig(layout)}>
-					<X class="size-6" />
 				</button>
 			</div>
 		</div>
