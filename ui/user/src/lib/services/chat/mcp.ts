@@ -371,11 +371,24 @@ export function getServerUrl(d: MCPCatalogServer) {
 }
 
 export const findServerAndEntryForProjectMcp = (mcpServer: ProjectMCP) => {
-	const server =
-		mcpServersAndEntries.current.userConfiguredServers.find((s) => s.id === mcpServer.mcpID) ||
-		mcpServersAndEntries.current.servers.find((s) => s.id === mcpServer.mcpID);
-	const entry = server?.catalogEntryID
-		? mcpServersAndEntries.current.entries.find((e) => e.id === server?.catalogEntryID)
+	if (mcpServer.mcpID.startsWith('msi')) {
+		// multi-user server instance
+		const instance = mcpServersAndEntries.current.userInstances.find(
+			(i) => i.id === mcpServer.mcpID
+		);
+		const server = instance?.mcpServerID
+			? mcpServersAndEntries.current.servers.find((s) => s.id === instance.mcpServerID)
+			: undefined;
+		return { server, entry: undefined };
+	}
+
+	const userConfiguredServer = mcpServersAndEntries.current.userConfiguredServers.find(
+		(s) => s.id === mcpServer.mcpID
+	);
+	const entry = userConfiguredServer?.catalogEntryID
+		? mcpServersAndEntries.current.entries.find(
+				(e) => e.id === userConfiguredServer?.catalogEntryID
+			)
 		: undefined;
-	return { server, entry };
+	return { server: userConfiguredServer, entry };
 };

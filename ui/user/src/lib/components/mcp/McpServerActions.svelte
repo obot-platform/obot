@@ -9,7 +9,6 @@
 		MessageCircle,
 		PencilLine,
 		ReceiptText,
-		SatelliteDish,
 		Server,
 		ServerCog,
 		StepForward,
@@ -80,7 +79,12 @@
 	);
 	let belongsToComposite = $derived(Boolean(server && server.compositeName));
 	let showServerDetails = $derived(entry && !server && configuredServers.length > 0);
-	let hasActions = $derived((entry && server) || showServerDetails || (server && instance));
+	let hasActions = $derived.by(() => {
+		if (isProjectMcp) {
+			return server && entry && hasEditableConfiguration(entry);
+		}
+		return Boolean((entry && server) || showServerDetails || (server && instance));
+	});
 	let showDisconnectUser = $derived(
 		entry && server && profile.current.isAdmin?.() && server.userID !== profile.current.id
 	);
@@ -169,26 +173,12 @@
 	{#if !loading && hasActions}
 		<DotDotDot
 			class="icon-button hover:bg-surface1 dark:hover:bg-surface2 hover:text-primary flex-shrink-0"
+			classes={{ menu: 'z-60' }}
 			disablePortal={connectOnly}
 		>
 			{#snippet children({ toggle })}
 				<div class="default-dialog flex min-w-48 flex-col">
-					{#if connectOnly && entry}
-						<button
-							class="menu-button"
-							onclick={async () => {
-								connectToServerDialog?.open({
-									entry,
-									server: undefined
-								});
-								toggle(false);
-							}}
-						>
-							<SatelliteDish class="size-4" /> Connect New Server
-						</button>
-					{:else}
-						{@render serverActions(toggle)}
-					{/if}
+					{@render serverActions(toggle)}
 				</div>
 			{/snippet}
 		</DotDotDot>
@@ -342,7 +332,7 @@
 {#snippet serverActions(toggle: (value: boolean) => void)}
 	{#if server && server.userID === profile.current.id}
 		<div class="flex flex-col gap-1 p-2 {!isProjectMcp && 'bg-surface1 rounded-t-xl'}">
-			{#if !isProjectMcp}
+			{#if !isProjectMcp && !connectOnly}
 				<button
 					class="menu-button"
 					onclick={async () => {
@@ -456,18 +446,20 @@
 			My Connection(s)
 		</div>
 		<div class="bg-surface1 flex flex-col gap-1 p-2">
-			<button
-				class="menu-button"
-				onclick={() => {
-					if (configuredServers.length === 1) {
-						connectToServerDialog?.handleSetupChat(configuredServers[0]);
-					} else {
-						handleShowSelectServerDialog('chat');
-					}
-				}}
-			>
-				<MessageCircle class="size-4" /> Chat
-			</button>
+			{#if !connectOnly}
+				<button
+					class="menu-button"
+					onclick={() => {
+						if (configuredServers.length === 1) {
+							connectToServerDialog?.handleSetupChat(configuredServers[0]);
+						} else {
+							handleShowSelectServerDialog('chat');
+						}
+					}}
+				>
+					<MessageCircle class="size-4" /> Chat
+				</button>
+			{/if}
 			{#if entry}
 				<button
 					class="menu-button"
