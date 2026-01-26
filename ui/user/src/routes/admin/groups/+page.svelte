@@ -73,6 +73,7 @@
 	let updatingRole = $state<TableItem>();
 	let deletingGroup = $state<TableItem>();
 	let showAddAssignment = $state(false);
+	let showAssignGroupRoleDialog = $state(false);
 	let confirmAuditorAdditionToGroup = $state<GroupAssignment>();
 	let confirmOwnerGroupAssignment = $state<GroupAssignment>();
 	let loading = $state(false);
@@ -168,7 +169,10 @@
 										class="menu-button"
 										disabled={!profile.current.groups.includes(Group.OWNER) &&
 											d.roleId === Role.OWNER}
-										onclick={() => (updatingRole = d)}
+										onclick={() => {
+											updatingRole = d;
+											showAssignGroupRoleDialog = true;
+										}}
 									>
 										{d.assignment ? 'Update Role' : 'Assign Role'}
 									</button>
@@ -228,7 +232,7 @@
 </Confirm>
 
 <AddGroupAssignmentDialog
-	bind:open={showAddAssignment}
+	open={showAddAssignment}
 	{groups}
 	{groupRoleMap}
 	{loading}
@@ -243,6 +247,7 @@
 />
 
 <AssignGroupRoleDialog
+	open={showAssignGroupRoleDialog}
 	groupAssignment={updatingRole
 		? {
 				group: { id: updatingRole.id, name: updatingRole.name, iconURL: updatingRole.iconURL },
@@ -250,7 +255,9 @@
 			}
 		: undefined}
 	{loading}
-	onClose={() => (updatingRole = undefined)}
+	onClose={() => {
+		showAssignGroupRoleDialog = false;
+	}}
 	onConfirm={updateGroupRole}
 	onOwnerConfirm={(groupAssignment) => {
 		confirmOwnerGroupAssignment = groupAssignment;
@@ -278,7 +285,15 @@
 		confirmAuditorAdditionToGroup = undefined;
 		updatingRole = undefined;
 	}}
-	oncancel={() => (confirmAuditorAdditionToGroup = undefined)}
+	oncancel={() => {
+		// return to previous dialog
+		confirmAuditorAdditionToGroup = undefined;
+		if (updatingRole) {
+			showAssignGroupRoleDialog = true;
+		} else {
+			showAddAssignment = true;
+		}
+	}}
 />
 
 <ConfirmOwnerRoleDialog
