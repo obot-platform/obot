@@ -4,10 +4,14 @@
 	import { popover } from '$lib/actions';
 	import type { Placement } from '@floating-ui/dom';
 	import { responsive } from '$lib/stores';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		children: Snippet<[{ toggle: (newOpenValue?: boolean) => void }]>;
 		class?: string;
+		classes?: {
+			menu?: string;
+		};
 		placement?: Placement;
 		icon?: Snippet;
 		onClick?: () => void;
@@ -18,6 +22,7 @@
 	let {
 		children,
 		class: clazz = 'icon-button',
+		classes,
 		placement = 'right-start',
 		icon,
 		onClick,
@@ -60,7 +65,7 @@
 		e.preventDefault();
 		toggle();
 	}}
-	class={responsive.isMobile ? 'bottom-0 left-0 w-full' : ''}
+	class={twMerge(responsive.isMobile ? 'bottom-0 left-0 w-full' : '', classes?.menu)}
 >
 	{@render children({ toggle })}
 </div>
