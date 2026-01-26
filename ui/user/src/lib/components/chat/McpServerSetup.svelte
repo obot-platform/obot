@@ -126,11 +126,11 @@
 
 <ResponsiveDialog
 	bind:this={catalogDialog}
-	class="h-full w-(--breakpoint-xl) max-w-[calc(100svw-2em)] p-0"
+	class="h-full w-(--breakpoint-xl) max-w-[calc(100svw-2em)] p-0 md:max-w-(--breakpoint-2xl)"
 	classes={{ content: 'p-0' }}
 >
 	<div class="default-scrollbar-thin relative mx-auto h-full min-h-0 w-full overflow-y-auto">
-		<div class="relative flex h-full w-full max-w-(--breakpoint-2xl) flex-col">
+		<div class="relative flex h-full w-full flex-col">
 			{#if selected}
 				{@render selectedContent()}
 			{:else}
