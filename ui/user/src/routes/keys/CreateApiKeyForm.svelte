@@ -102,7 +102,12 @@
 	>
 		<div class="flex flex-col gap-6">
 			<div class="flex flex-col gap-2">
-				<label for="api-key-name" class="input-label">Name</label>
+				<label for="api-key-name" class="input-label">
+					Name
+					{#if nameError}
+						<span class="text-xs text-red-600 dark:text-red-400">Name is required</span>
+					{/if}
+				</label>
 				<input
 					id="api-key-name"
 					type="text"
@@ -113,9 +118,6 @@
 						nameError && 'border-red-500 focus:border-red-500 focus:ring-red-500'
 					)}
 				/>
-				{#if nameError}
-					<p class="text-xs text-red-600 dark:text-red-400">Name is required</p>
-				{/if}
 			</div>
 
 			<div class="flex flex-col gap-2">
@@ -144,11 +146,20 @@
 	</div>
 
 	<div class="mt-4 flex flex-col gap-2">
-		<p class="text-lg font-semibold">MCP Servers</p>
-		<p class="input-description">Select which MCP servers this API key can access</p>
-		{#if serverError}
-			<p class="text-xs text-red-600 dark:text-red-400">Select at least one server</p>
-		{/if}
+		<p>
+			<span class="text-lg font-semibold">MCP Servers</span>
+			{#if serverError}
+				<span class="text-xs text-red-600 dark:text-red-400">Select at least one server</span>
+			{/if}
+		</p>
+		<p class="input-description">
+			Select which MCP servers this API key can access
+			{#if selectedServerIds.size > 0}
+				<span class="italic">
+					({#if selectedServerIds.has('*')}All Selected{:else}{selectedServerIds.size} Selected{/if})
+				</span>
+			{/if}
+		</p>
 
 		<Search
 			class="text-input-filled"
@@ -207,16 +218,6 @@
 				{/each}
 			{/if}
 		</div>
-
-		<p class="input-description">
-			{#if selectedServerIds.size > 0}
-				{#if selectedServerIds.has('*')}
-					All servers selected
-				{:else}
-					{selectedServerIds.size} server{selectedServerIds.size === 1 ? '' : 's'} selected
-				{/if}
-			{/if}
-		</p>
 	</div>
 
 	<div class="flex grow"></div>
