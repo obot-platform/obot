@@ -145,7 +145,9 @@
 	}
 </script>
 
-<div class="dark:border-surface3 h-dvh w-screen border-l border-transparent md:w-lg lg:w-xl">
+<div
+	class="dark:border-surface3 text-on-background h-dvh w-screen border-l border-transparent md:w-lg lg:w-xl"
+>
 	<div class="relative w-full text-center">
 		<h4 class="p-4 text-xl font-semibold">Filters</h4>
 		<button class="icon-button absolute top-1/2 right-4 -translate-y-1/2" onclick={onClose}>
