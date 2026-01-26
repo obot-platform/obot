@@ -29,13 +29,11 @@
 	{:else if layout.sidebarConfig === 'invitations'}
 		<ProjectInvitations {project} />
 	{:else if (layout.sidebarConfig === 'mcp-server-tools' && layout.mcpServer) || (layout.sidebarConfig === 'mcp-server' && layout.mcpServer)}
-		{#key layout.mcpServer.id}
-			<ChatSidebarMcpServer
-				mcpServer={layout.mcpServer}
-				{project}
-				view={layout.sidebarConfig === 'mcp-server-tools' ? 'tools' : 'overview'}
-			/>
-		{/key}
+		<ChatSidebarMcpServer
+			mcpServer={layout.mcpServer}
+			{project}
+			view={layout.sidebarConfig === 'mcp-server-tools' ? 'tools' : 'overview'}
+		/>
 	{:else if layout.sidebarConfig === 'template'}
 		<TemplateConfig assistantID={project.assistantID} projectID={project.id} />
 	{:else if layout.sidebarConfig === 'model-providers'}
