@@ -10,7 +10,7 @@ import type {
 	MCPCatalogServerManifest,
 	ServerK8sSettings
 } from '../admin/types';
-import { baseURL, doDelete, doGet, doPost, doPut, type Fetcher } from '../http';
+import { baseURL, doDelete, doGet, doPatch, doPost, doPut, type Fetcher } from '../http';
 import {
 	type Assistant,
 	type AssistantIcons,
@@ -76,6 +76,13 @@ export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 
 export async function deleteProfile() {
 	return doDelete(`/me`);
+}
+
+export async function patchProfile(
+	profile: Partial<Profile>,
+	opts?: { dontLogErrors?: boolean }
+): Promise<Profile> {
+	return (await doPatch('/me', profile, opts)) as Profile;
 }
 
 export async function getVersion(opts?: { fetch?: Fetcher }): Promise<Version> {
@@ -761,6 +768,18 @@ export async function deleteTaskRun(
 
 export async function sendCredentials(id: string, credentials: Record<string, string>) {
 	return await doPost('/prompt', { id, response: credentials });
+}
+
+export async function sendToolApproval(
+	assistantID: string,
+	projectID: string,
+	threadID: string,
+	response: { id: string; decision: string; threadApprovedTools?: string }
+) {
+	return await doPost(
+		`/assistants/${assistantID}/projects/${projectID}/threads/${threadID}/confirm`,
+		response
+	);
 }
 
 export async function listAuthProviders(opts?: { fetch?: Fetcher }): Promise<AuthProvider[]> {

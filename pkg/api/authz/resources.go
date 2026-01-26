@@ -125,6 +125,7 @@ var apiResources = map[string][]string{
 		"PUT    /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}",
 		"POST 	/api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/abort",
 		"GET    /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/events",
+		"POST 	/api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/confirm",
 		"DELETE /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/file/{file...}",
 		"GET    /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/file/{file...}",
 		"POST   /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/file/{file...}",
@@ -216,7 +217,7 @@ var apiResources = map[string][]string{
 		"GET    /api/threads/{thread_id}/tasks/{task_id}/runs/{run_id}",
 		"GET    /api/threads/{thread_id}/workflows",
 		"GET    /api/threads/{thread_id}/workflows/{workflow_id}/executions",
-		//
+
 		"GET    /api/tool-references",
 		"GET    /api/tool-references/{id}",
 		"GET    /{ui}/projects/{id}",

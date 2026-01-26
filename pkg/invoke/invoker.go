@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -37,32 +38,36 @@ import (
 )
 
 var (
-	log              = logger.Package()
-	ephemeralCounter atomic.Int32
+	errToolConfirmTimeout = errors.New("timeout waiting for user to confirm tool call")
+	log                   = logger.Package()
+	ephemeralCounter      atomic.Int32
 )
 
 const (
 	ephemeralRunPrefix = "ephemeral-run"
 	runOutputMaxLength = 2000
+	toolConfirmTimeout = 5 * time.Minute
 )
 
 type Invoker struct {
-	uncached          kclient.WithWatch
-	gatewayClient     *client.Client
-	tokenService      *persistent.TokenService
-	events            *events.Emitter
-	serverURL         string
-	internalServerURL string
+	uncached               kclient.WithWatch
+	gatewayClient          *client.Client
+	tokenService           *persistent.TokenService
+	events                 *events.Emitter
+	serverURL              string
+	internalServerURL      string
+	disableChatToolConfirm bool
 }
 
-func NewInvoker(c kclient.WithWatch, gatewayClient *client.Client, serverURL string, serverPort int, tokenService *persistent.TokenService, events *events.Emitter) *Invoker {
+func NewInvoker(c kclient.WithWatch, gatewayClient *client.Client, serverURL string, serverPort int, tokenService *persistent.TokenService, events *events.Emitter, disableChatToolConfirm bool) *Invoker {
 	return &Invoker{
-		uncached:          c,
-		gatewayClient:     gatewayClient,
-		tokenService:      tokenService,
-		events:            events,
-		serverURL:         serverURL,
-		internalServerURL: fmt.Sprintf("http://localhost:%d", serverPort),
+		uncached:               c,
+		gatewayClient:          gatewayClient,
+		tokenService:           tokenService,
+		events:                 events,
+		serverURL:              serverURL,
+		internalServerURL:      fmt.Sprintf("http://localhost:%d", serverPort),
+		disableChatToolConfirm: disableChatToolConfirm,
 	}
 }
 
@@ -627,13 +632,19 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 	}
 
 	// For runs that are not from a user, ensure the token has the basic and authenticated groups.
-	userGroups := []string{types.GroupBasic, types.GroupAuthenticated}
-	var userID, userName, userEmail, userTimezone string
+	var (
+		userDisableChatToolConfirm                *bool
+		userID, userName, userEmail, userTimezone string
+		userGroups                                = []string{types.GroupBasic, types.GroupAuthenticated}
+	)
 	if thread.Spec.UserID != "" && thread.Spec.UserID != "anonymous" && thread.Spec.UserID != "nobody" {
 		u, err := i.gatewayClient.UserByID(ctx, thread.Spec.UserID)
 		if err != nil {
 			return fmt.Errorf("failed to get user: %w", err)
 		}
+
+		// Capture account-level override for disabling tool confirmation
+		userDisableChatToolConfirm = u.DisableChatToolConfirm
 
 		userID, userName, userEmail, userTimezone = thread.Spec.UserID, u.Username, u.Email, u.Timezone
 
@@ -682,6 +693,17 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		return fmt.Errorf("failed to resolve model provider: %w", err)
 	}
 
+	// Disable tool call confirmation when any of the following hold:
+	// 1. We're invoking a system task or a workflow
+	// 2. Confirmation has been disabled globally (OBOT_SERVER_DISABLE_CHAT_TOOL_CONFIRM = true)
+	// 3. Confirmation has been disabled at the account-level for the user
+	// 4. The user has pre-approved all tool calls (ApprovedTools contains the wildcard operator "*")
+	disableChatToolConfirm := thread.Spec.SystemTask ||
+		thread.Spec.WorkflowName != "" ||
+		i.disableChatToolConfirm ||
+		(userDisableChatToolConfirm != nil && *userDisableChatToolConfirm) ||
+		slices.Contains(thread.Spec.ApprovedTools, "*")
+
 	options := gptscript.Options{
 		GlobalOptions: gptscript.GlobalOptions{
 			Env: append(run.Spec.Env,
@@ -718,6 +740,7 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		IncludeEvents:      true,
 		ForceSequential:    true,
 		Prompt:             true,
+		Confirm:            !disableChatToolConfirm,
 	}
 
 	if len(run.Spec.Tool) == 0 {
@@ -1142,6 +1165,51 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 
 			if frame.Call != nil {
 				switch frame.Call.Type {
+				case gptscript.EventTypeCallConfirm:
+					var (
+						callID   = frame.Call.ID
+						toolName = frame.Call.Tool.Name
+					)
+
+					// Auto-confirm pre-approved tools
+					if frame.Call.ToolCategory != gptscript.NoCategory ||
+						slices.Contains(thread.Spec.ApprovedTools, toolName) {
+						if err := gptClient.Confirm(runCtx, gptscript.AuthResponse{
+							ID:     callID,
+							Accept: true,
+						}); err != nil {
+							return err
+						}
+						break
+					}
+
+					// Emit tool confirm to frontend
+					now := types.NewTime(time.Now())
+					toolConfirm := &types.ToolConfirm{
+						ID:          callID,
+						ToolName:    toolName,
+						Description: frame.Call.Tool.Description,
+						Input:       frame.Call.Input,
+						Time:        now,
+					}
+					i.events.SubmitProgress(run, types.Progress{
+						RunID:       run.Name,
+						Time:        now,
+						ToolConfirm: toolConfirm,
+					})
+
+					// Set up timeout for approval response (similar to prompt timeout)
+					timeoutCtx, timeoutCancel := context.WithCancel(ctx)
+					abortTimeout = timeoutCancel
+					go func() {
+						defer timeoutCancel()
+						select {
+						case <-timeoutCtx.Done():
+						case <-time.After(timeout):
+							cancelRun(errToolConfirmTimeout)
+						}
+					}()
+
 				case gptscript.EventTypeCallFinish:
 					abortTimeout()
 					fallthrough

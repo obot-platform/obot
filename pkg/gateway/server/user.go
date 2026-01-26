@@ -171,13 +171,19 @@ func (s *Server) getUser(apiContext api.Context) error {
 func (s *Server) updateUser(apiContext api.Context) error {
 	userID := apiContext.PathValue("user_id")
 	if userID == "" {
-		return types2.NewErrHTTP(http.StatusBadRequest, "user_id path parameter is required")
+		// This is a request to /api/me
+		userID = apiContext.User.GetUID()
 	}
 
 	user := new(types.User)
 	if err := apiContext.Read(user); err != nil {
 		return types2.NewErrHTTP(http.StatusBadRequest, "invalid user request body")
 	}
+
+	// if isUpdateMe && user.ID apiContext.UserID() {
+	// 	// Reject attempts to update other users with /api/me
+	// 	return types2.NewErrHTTP(http.StatusBadRequest, "user id must match request body")
+	// }
 
 	if user.Timezone != "" {
 		if _, err := time.LoadLocation(user.Timezone); err != nil {

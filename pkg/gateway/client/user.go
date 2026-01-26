@@ -222,9 +222,12 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 			existingUser.Username = updatedUser.Username
 		}
 
-		// Anyone can update their timezone
 		if updatedUser.Timezone != "" {
 			existingUser.Timezone = updatedUser.Timezone
+		}
+
+		if updatedUser.DisableChatToolConfirm != nil {
+			existingUser.DisableChatToolConfirm = updatedUser.DisableChatToolConfirm
 		}
 
 		// Only admins can change user roles.
