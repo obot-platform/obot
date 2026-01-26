@@ -7,6 +7,7 @@
 	interface Props {
 		disablePortal?: boolean;
 		fields: string[];
+		headers?: { title: string; property: string }[];
 		hiddenFieldIndices: Set<number>;
 		onVisibilityChange?: (hiddenIndices: Set<number>) => void;
 		onReset?: () => void;
@@ -16,11 +17,18 @@
 	let {
 		disablePortal = false,
 		fields,
+		headers,
 		hiddenFieldIndices,
 		onReset,
 		onVisibilityChange,
 		showReset
 	}: Props = $props();
+
+	function getFieldLabel(field: string): string {
+		const header = headers?.find((h) => h.property === field);
+		if (header?.title) return header.title;
+		return field.charAt(0).toUpperCase() + field.slice(1);
+	}
 
 	const {
 		tooltip: tooltipRef,
@@ -57,7 +65,7 @@
 			root: 'flex grow'
 		}}
 		options={fields.map((f) => ({
-			label: f,
+			label: getFieldLabel(f),
 			id: f
 		}))}
 		onClear={(_option, value) => {

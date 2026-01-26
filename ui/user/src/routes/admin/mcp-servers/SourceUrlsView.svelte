@@ -50,8 +50,7 @@
 				return '';
 			}}
 			classes={{
-				root: 'rounded-none rounded-b-md shadow-none',
-				thead: 'top-31'
+				root: 'rounded-none rounded-b-md shadow-none'
 			}}
 		>
 			{#snippet actions(d)}

@@ -335,9 +335,6 @@
 					onClearAllFilters={handleClearAllFilters}
 					onSort={setSortUrlParams}
 					{initSort}
-					classes={{
-						tableHeader: 'top-31'
-					}}
 					onConnect={({ instance }) => {
 						if (instance) {
 							mcpServersAndEntries.refreshUserInstances();

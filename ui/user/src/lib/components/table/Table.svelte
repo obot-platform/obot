@@ -118,9 +118,12 @@
 
 	let selected = $state<Record<string, T>>({});
 	let dataTableRef: HTMLTableElement | null = $state(null);
+	let headerTableRef: HTMLTableSectionElement | null = $state(null);
 	let headerScrollRef: HTMLDivElement | null = $state(null);
 	let bodyScrollRef: HTMLDivElement | null = $state(null);
+	let wrapperRef: HTMLDivElement | null = $state(null);
 	let columnWidths = $state<number[]>([]);
+	let stickyTop = $state(0);
 
 	let autoHiddenFieldIndices = new SvelteSet<number>();
 	let userHiddenFieldIndices = $state<SvelteSet<number> | null>(null);
@@ -137,6 +140,7 @@
 
 	function handleColumnVisibilityReset() {
 		userHiddenFieldIndices = null;
+		measureColumnWidths();
 	}
 
 	let tableData = $derived.by(() => {
@@ -287,15 +291,21 @@
 		});
 	}
 
+	// If there is no data, measure using the header cells instead of the first row's cells
 	function getTableCells(): HTMLTableCellElement[] | null {
-		const firstRow = dataTableRef?.querySelector('tbody tr:not([data-section-header])');
-		const cells = firstRow?.querySelectorAll('td') ?? dataTableRef?.querySelectorAll('tr th');
+		let firstRow = dataTableRef?.querySelector('tbody tr:not([data-section-header])');
+		const cells = firstRow
+			? (firstRow?.querySelectorAll('td') ?? dataTableRef?.querySelectorAll('tr th'))
+			: headerTableRef?.querySelectorAll('th');
 		return cells ? (Array.from(cells) as HTMLTableCellElement[]) : null;
 	}
 
 	function measureCellWidth(cell: HTMLTableCellElement): number {
-		const contentDiv = cell.querySelector('div');
-		return contentDiv ? contentDiv.scrollWidth : cell.getBoundingClientRect().width;
+		if (cell.tagName === 'TD') {
+			const contentDiv = cell.querySelector('div');
+			return contentDiv ? contentDiv.scrollWidth : cell.scrollWidth;
+		}
+		return cell.scrollWidth;
 	}
 
 	function calculateFieldPadding(fieldIndex: number): number {
@@ -315,13 +325,24 @@
 
 	function measureNaturalWidths(cells: HTMLTableCellElement[]): number[] {
 		const naturalWidths: number[] = [];
+		const isHeaderCells = cells[0]?.tagName === 'TH';
+		const selectColOffset = tableSelectActions ? 1 : 0;
+		const actionsOffset = actions ? 1 : 0;
 
 		cells.forEach((cell, index) => {
 			let width = measureCellWidth(cell);
 
-			// Add padding for field columns (not select or actions)
-			if (index > 0 && index <= fields.length) {
-				width += calculateFieldPadding(index - 1);
+			const isFieldColumn =
+				index >= selectColOffset &&
+				index < cells.length - actionsOffset &&
+				index < selectColOffset + fields.length;
+			if (isFieldColumn) {
+				const fieldIndex = index - selectColOffset;
+				if (isHeaderCells) {
+					width += 32; // base cell padding only for headers
+				} else {
+					width += calculateFieldPadding(fieldIndex);
+				}
 			}
 
 			naturalWidths.push(width);
@@ -453,6 +474,72 @@
 		};
 	});
 
+	// Calculate sticky offset based on sticky elements above the table
+	onMount(() => {
+		if (!wrapperRef) return;
+		stickyTop = calculateStickyTop(wrapperRef);
+	});
+
+	function findScrollContainer(element: HTMLElement): HTMLElement | null {
+		let parent: HTMLElement | null = element.parentElement;
+		while (parent) {
+			const style = getComputedStyle(parent);
+			if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+				return parent;
+			}
+			parent = parent.parentElement;
+		}
+		return null;
+	}
+
+	function calculateStickyTop(wrapper: HTMLElement): number {
+		const scrollContainer = findScrollContainer(wrapper);
+		if (!scrollContainer) return 0;
+
+		let maxStickyBottom = 0;
+
+		// Traverse from wrapper up to scroll container, checking for sticky siblings
+		let current: HTMLElement | null = wrapper;
+
+		while (current && current !== scrollContainer) {
+			const parent: HTMLElement | null = current.parentElement;
+			if (!parent) break;
+
+			// Check all siblings that come before current element
+			for (const sibling of parent.children) {
+				if (sibling === current) break;
+
+				// Check if the sibling itself is sticky
+				const siblingStyle = getComputedStyle(sibling);
+				if (siblingStyle.position === 'sticky') {
+					const top = parseFloat(siblingStyle.top) || 0;
+					if (top >= 0 && top < 200) {
+						maxStickyBottom = Math.max(
+							maxStickyBottom,
+							top + (sibling as HTMLElement).offsetHeight
+						);
+					}
+				}
+
+				// Also check for sticky descendants within the sibling
+				const stickyDescendants = sibling.querySelectorAll('*');
+				for (const desc of stickyDescendants) {
+					const descStyle = getComputedStyle(desc);
+					if (descStyle.position === 'sticky') {
+						const top = parseFloat(descStyle.top) || 0;
+						if (top >= 0 && top < 200) {
+							maxStickyBottom = Math.max(maxStickyBottom, top + (desc as HTMLElement).offsetHeight);
+						}
+					}
+				}
+			}
+
+			current = parent;
+		}
+
+		return maxStickyBottom;
+	}
+
 	let isScrolling = false;
 
 	function syncScroll(source: HTMLDivElement, target: HTMLDivElement) {
@@ -465,7 +552,7 @@
 	}
 
 	$effect(() => {
-		if (dataTableRef && tableSelectActions) {
+		if (tableData.length && dataTableRef && headerTableRef) {
 			// Use a small delay to ensure the table is fully rendered
 			setTimeout(() => {
 				measureColumnWidths();
@@ -474,50 +561,51 @@
 	});
 </script>
 
-<div>
-	{#if tableSelectActions}
-		<div
-			class={twMerge(
-				'dark:bg-surface1 bg-surface2 sticky top-0 left-0 z-40 w-full',
-				classes?.thead
-			)}
-		>
-			{#if Object.keys(selected).length > 0}
-				<div class="flex w-full items-center">
-					<div class="flex-shrink-0 p-2">
-						{@render selectAll()}
-					</div>
-					<div class="text-on-surface1 px-4 py-2 text-left text-sm font-semibold">
-						{Object.keys(selected).length} of {totalSelectable} selected
-					</div>
-					<div class="flex grow items-center justify-end">
-						{@render tableSelectActions(selected)}
-					</div>
+<div bind:this={wrapperRef}>
+	<div
+		class={twMerge('dark:bg-surface1 bg-surface2 sticky left-0 z-40 w-full', classes?.thead)}
+		style="top: {stickyTop}px;"
+	>
+		{#if tableSelectActions && Object.keys(selected).length > 0}
+			<div class="flex w-full items-center">
+				<div class="flex-shrink-0 p-2">
+					{@render selectAll()}
 				</div>
-			{:else}
-				<div class="default-scrollbar-thin w-full overflow-x-auto" bind:this={headerScrollRef}>
-					<table class="w-full border-collapse" style="table-layout: fixed; width: 100%;">
-						{#if columnWidths.length > 0}
-							<colgroup>
+				<div class="text-on-surface1 px-4 py-2 text-left text-sm font-semibold">
+					{Object.keys(selected).length} of {totalSelectable} selected
+				</div>
+				<div class="flex grow items-center justify-end">
+					{@render tableSelectActions(selected)}
+				</div>
+			</div>
+		{:else}
+			<div class="default-scrollbar-thin w-full overflow-x-auto" bind:this={headerScrollRef}>
+				<table
+					class="w-full border-collapse"
+					style={columnWidths.length > 0 ? 'table-layout: fixed; width: 100%;' : ''}
+				>
+					{#if columnWidths.length > 0}
+						<colgroup>
+							{#if tableSelectActions}
 								<col style="width: {columnWidths[0] || 57}px;" />
-								{#each visibleFields as fieldName, index (fieldName)}
-									<col
-										style="width: {columnWidths[index + 1]
-											? columnWidths[index + 1] + 'px'
-											: 'auto'};"
-									/>
-								{/each}
-								{#if actions}
-									<col style="width: {columnWidths[columnWidths.length - 1] || 80}px;" />
-								{/if}
-							</colgroup>
-						{/if}
-						{@render header()}
-					</table>
-				</div>
-			{/if}
-		</div>
-	{/if}
+							{/if}
+							{#each visibleFields as fieldName, index (fieldName)}
+								<col
+									style="width: {columnWidths[tableSelectActions ? index + 1 : index]
+										? columnWidths[tableSelectActions ? index + 1 : index] + 'px'
+										: 'auto'};"
+								/>
+							{/each}
+							{#if actions}
+								<col style="width: {columnWidths[columnWidths.length - 1] || 80}px;" />
+							{/if}
+						</colgroup>
+					{/if}
+					{@render header()}
+				</table>
+			</div>
+		{/if}
+	</div>
 	<div
 		class={twMerge(
 			'dark:bg-surface2 default-scrollbar-thin bg-background relative overflow-hidden rounded-md shadow-sm',
@@ -547,7 +635,6 @@
 					{/if}
 				</colgroup>
 			{/if}
-			{@render header(Boolean(tableSelectActions))}
 			{#if tableData.length > 0}
 				<tbody>
 					{#if sectionedBy}
@@ -726,6 +813,7 @@
 			hidden && 'hidden',
 			classes?.thead
 		)}
+		bind:this={headerTableRef}
 	>
 		<tr>
 			{#if tableSelectActions}
@@ -763,16 +851,15 @@
 						actionHeaderClass
 					)}
 				>
-					{#if hiddenFieldIndices.size > 0 || userHiddenFieldIndices !== null}
-						<TableColumnFilter
-							{fields}
-							{hiddenFieldIndices}
-							{disablePortal}
-							onVisibilityChange={handleColumnVisibilityChange}
-							onReset={handleColumnVisibilityReset}
-							showReset={userHiddenFieldIndices !== null}
-						/>
-					{/if}
+					<TableColumnFilter
+						{fields}
+						{headers}
+						{hiddenFieldIndices}
+						{disablePortal}
+						onVisibilityChange={handleColumnVisibilityChange}
+						onReset={handleColumnVisibilityReset}
+						showReset={userHiddenFieldIndices !== null}
+					/>
 				</th>
 			{/if}
 		</tr>

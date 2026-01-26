@@ -202,8 +202,7 @@
 			sortable={['displayName', 'scheduleDisplay', 'lastRun']}
 			noDataMessage="No export schedules found."
 			classes={{
-				root: 'rounded-none rounded-b-md shadow-none',
-				thead: 'top-31'
+				root: 'rounded-none rounded-b-md shadow-none'
 			}}
 			onClickRow={handleRowClick}
 			initSort={{ property: 'lastRunAt', order: 'desc' }}

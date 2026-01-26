@@ -546,7 +546,7 @@
 			noDataMessage="No catalog servers added."
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none',
-				thead: classes?.tableHeader || 'top-31'
+				thead: classes?.tableHeader
 			}}
 			sectionedBy="isMyServer"
 			sectionPrimaryTitle="My Deployments"
