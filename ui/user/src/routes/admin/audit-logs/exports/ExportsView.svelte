@@ -224,7 +224,6 @@
 </div>
 
 <Confirm
-	msg={showDeleteConfirm?.type === 'single' ? 'Delete this export?' : 'Delete selected exports?'}
 	show={!!showDeleteConfirm}
 	onsuccess={async () => {
 		if (!showDeleteConfirm) return;

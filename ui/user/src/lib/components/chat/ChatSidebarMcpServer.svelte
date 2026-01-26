@@ -108,6 +108,7 @@
 	show={showDeleteConfirm}
 	onsuccess={handleRemoveMcp}
 	oncancel={() => (showDeleteConfirm = false)}
+	note="Are you sure you want to delete your MCP server configuration? This will not delete the original MCP server and can be reconnected at a later time."
 />
 
 <EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refreshProjectMcps} />
