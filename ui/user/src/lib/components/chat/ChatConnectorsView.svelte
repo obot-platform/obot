@@ -96,9 +96,8 @@
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none'
 			}}
-			fields={['name', 'connected', 'created']}
-			filterable={['name', 'type', 'registry']}
-			headers={[{ title: 'Status', property: 'connected' }]}
+			fields={['name', 'status', 'created']}
+			filterable={['name', 'type', 'registry', 'status']}
 			onClickRow={(d) => {
 				onSelect?.({
 					entry:
@@ -110,7 +109,7 @@
 					server: 'isCatalogEntry' in d.data ? undefined : d.data
 				});
 			}}
-			sortable={['name', 'type', 'users', 'created', 'registry', 'connected']}
+			sortable={['name', 'type', 'users', 'created', 'registry', 'status']}
 			noDataMessage="No catalog servers added."
 			setRowClasses={(d) => ('needsUpdate' in d && d.needsUpdate ? 'bg-primary/10' : '')}
 			disablePortal
@@ -147,12 +146,14 @@
 							{/if}
 						</p>
 					</div>
-				{:else if property === 'connected'}
-					{#if d.connected}
-						<div class="pill-primary bg-primary">Connected</div>
-					{:else if 'isCatalogEntry' in d.data && d.data.manifest?.runtime === 'remote' && d.data.manifest?.remoteConfig?.staticOAuthRequired && !d.data.oauthCredentialConfigured}
-						<div class="bg-yellow-500/20 text-yellow-500 dark:text-yellow-400">
-							Requires OAuth Config
+				{:else if property === 'status'}
+					{#if d.status}
+						<div
+							class={d.status === 'Requires OAuth Config'
+								? 'pill-warning'
+								: 'pill-primary bg-primary'}
+						>
+							{d.status}
 						</div>
 					{/if}
 				{:else if property === 'type'}

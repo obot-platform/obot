@@ -6,7 +6,8 @@
 		ChatService,
 		Group,
 		MCPCompositeDeletionDependencyError,
-		type LaunchServerType
+		type LaunchServerType,
+		type MCPServerOAuthCredentialStatus
 	} from '$lib/services';
 	import type { AccessControlRule, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import { twMerge } from 'tailwind-merge';
@@ -22,6 +23,7 @@
 		ListFilter,
 		LoaderCircle,
 		Server,
+		Settings,
 		Trash2,
 		Users,
 		Wrench
@@ -49,6 +51,7 @@
 	import OverflowContainer from '../OverflowContainer.svelte';
 	import { getServerTypeLabel, getUserRegistry } from '$lib/services/chat/mcp';
 	import { resolve } from '$app/paths';
+	import StaticOAuthConfigureModal from '../mcp/StaticOAuthConfigureModal.svelte';
 
 	interface Props {
 		id?: string;
@@ -109,6 +112,9 @@
 	let oauthURLs = $state<Record<string, string>>();
 	let authenticatedComponents = $state<Set<string>>(new Set());
 
+	let staticOauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
+	let staticOauthStatus = $state<MCPServerOAuthCredentialStatus>();
+
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
 	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
 	let saving = $state(false);
@@ -124,6 +130,13 @@
 			entry.toolPreviewsLastGenerated &&
 			entry.lastUpdated &&
 			new Date(entry.toolPreviewsLastGenerated) < new Date(entry.lastUpdated)
+	);
+	let requiresStaticOauth = $derived(
+		entry &&
+			'isCatalogEntry' in entry &&
+			entry.manifest?.runtime === 'remote' &&
+			entry.manifest?.remoteConfig?.staticOAuthRequired &&
+			!entry.oauthCredentialConfigured
 	);
 
 	const tabs = $derived.by(() => {
@@ -472,6 +485,19 @@
 			handleLaunchTemporaryInstance(true);
 		}
 	}
+
+	async function handleConfigureOAuth() {
+		if (!entry || !id) return;
+		try {
+			staticOauthStatus =
+				entity === 'workspace'
+					? await ChatService.getWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id)
+					: await AdminService.getMCPCatalogEntryOAuthCredentials(id, entry.id);
+		} catch {
+			staticOauthStatus = { configured: false };
+		}
+		staticOauthConfigModal?.open();
+	}
 </script>
 
 <div
@@ -518,6 +544,27 @@
 			{/if}
 		</div>
 	{/if}
+
+	{#if requiresStaticOauth}
+		<div class="flex items-center gap-3 rounded-lg border border-yellow-500 bg-yellow-500/10 p-4">
+			<Info class="size-5 flex-shrink-0 text-yellow-500" />
+			<div class="flex-1">
+				<p class="text-sm font-medium">Requires Oauth Config</p>
+				<p class="text-muted-foreground mt-1 text-xs">
+					This MCP server is missing static client ID and secret credentials. Click the button to
+					get started.
+				</p>
+			</div>
+			<button
+				class="button flex items-center gap-1.5 text-sm font-normal"
+				onclick={handleConfigureOAuth}
+			>
+				<Settings class="size-4" />
+				Configure OAuth Credentials
+			</button>
+		</div>
+	{/if}
+
 	<div class="flex grow flex-col gap-2">
 		<OverflowContainer
 			class="scrollbar-none flex min-h-fit w-full items-center gap-2 overflow-x-auto"
@@ -670,6 +717,7 @@
 			{onCancel}
 			{onSubmit}
 			hideTitle={Boolean(entry)}
+			onConfigureOAuth={handleConfigureOAuth}
 		>
 			{#snippet readonlyMessage()}
 				{#if entry && 'sourceURL' in entry && !!entry.sourceURL}
@@ -1026,6 +1074,30 @@
 		</div>
 	{/if}
 </ResponsiveDialog>
+
+<StaticOAuthConfigureModal
+	bind:this={staticOauthConfigModal}
+	defaultAuthorizationServerURL={entry && 'isCatalogEntry' in entry
+		? entry?.manifest?.remoteConfig?.authorizationServerURL
+		: undefined}
+	oauthStatus={staticOauthStatus}
+	onSave={async (credentials) => {
+		if (!entry || !id) return;
+		if (entity === 'workspace') {
+			await ChatService.setWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id, credentials);
+		} else {
+			await AdminService.setMCPCatalogEntryOAuthCredentials(id, entry.id, credentials);
+		}
+	}}
+	onDelete={async () => {
+		if (!entry || !id) return;
+		if (entity === 'workspace') {
+			await ChatService.deleteWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id);
+		} else {
+			await AdminService.deleteMCPCatalogEntryOAuthCredentials(id, entry.id);
+		}
+	}}
+/>
 
 {#snippet errorSnippet()}
 	<div class="notification-error flex items-center gap-2">
