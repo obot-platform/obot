@@ -22,7 +22,7 @@
 		hasEditableConfiguration,
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
-	import { darkMode, mcpServersAndEntries, profile } from '$lib/stores';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
