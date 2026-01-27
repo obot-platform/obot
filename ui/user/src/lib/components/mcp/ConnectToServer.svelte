@@ -25,7 +25,7 @@
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import { resolve } from '$app/paths';
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		userConfiguredServers: MCPCatalogServer[];
