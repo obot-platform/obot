@@ -75,7 +75,7 @@
 	let name = $derived(server?.alias || server?.manifest.name || '');
 	let openStatusHash = $state<string>();
 
-	function _onClose() {
+	function handleOnClose() {
 		// generate new hash to force re-render next time opened
 		openStatusHash = Math.random().toString(36);
 		onClose?.();
@@ -593,7 +593,7 @@
 	}
 </script>
 
-<ResponsiveDialog bind:this={connectDialog} animate="slide" onClose={_onClose}>
+<ResponsiveDialog bind:this={connectDialog} animate="slide" onClose={handleOnClose}>
 	{#snippet titleContent()}
 		{#if server}
 			{@const icon = server.manifest.icon ?? ''}
