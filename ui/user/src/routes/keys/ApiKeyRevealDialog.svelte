@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
-	import { AlertTriangle, KeyRound } from 'lucide-svelte';
+	import { AlertTriangle, KeyRound, ExternalLink } from 'lucide-svelte';
 
 	interface Props {
 		keyValue?: string;
@@ -56,6 +56,19 @@
 					<CopyButton text={keyValue} buttonText="Copy" />
 				</div>
 			</div>
+
+			<p class="text-muted text-sm">
+				Learn how to use this API key in the
+				<a
+					href="https://docs.obot.ai/functionality/api-keys/#using-an-api-key"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="text-link inline-flex items-center gap-1"
+				>
+					documentation
+					<ExternalLink class="size-3" />
+				</a>
+			</p>
 		</div>
 
 		<div class="mt-6 flex justify-end">
