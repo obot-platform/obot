@@ -48,6 +48,16 @@ API keys only grant access to:
 
 They cannot be used to access other Obot API endpoints.
 
+### Testing an API Key
+
+To test an API key, you can use the `/api/me` endpoint:
+
+```bash
+curl -H "Authorization: Bearer <key>" <obot host>/api/me
+```
+
+If the key is valid, you should receive a response with your user information.
+
 ## Managing API Keys
 
 ### Viewing Your Keys
