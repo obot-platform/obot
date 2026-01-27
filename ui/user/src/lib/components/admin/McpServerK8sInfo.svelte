@@ -560,7 +560,7 @@
 				{#if id === 'status' && !readonly}
 					<button
 						onclick={() => (showRestartConfirm = true)}
-						class="bg-primary/50 hover:bg-primary/10 flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+						class="button-primary flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
 						disabled={restarting}
 					>
 						<RotateCcw class="size-3" />
