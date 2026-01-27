@@ -163,6 +163,11 @@
 				let aValue = a[sortedBy!.property as keyof T];
 				let bValue = b[sortedBy!.property as keyof T];
 
+				// Handle undefined/null values - treat as largest value (end for asc, beginning for desc)
+				if (aValue == null && bValue == null) return 0;
+				if (aValue == null) return sortedBy!.order === 'asc' ? 1 : -1;
+				if (bValue == null) return sortedBy!.order === 'asc' ? -1 : 1;
+
 				if (sortedBy?.property === 'created') {
 					const aDate = new Date(aValue as string);
 					const bDate = new Date(bValue as string);
