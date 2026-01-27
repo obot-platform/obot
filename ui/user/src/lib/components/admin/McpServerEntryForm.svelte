@@ -84,7 +84,8 @@
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	let belongsToUser = $derived(
 		(entity === 'workspace' && entry?.powerUserWorkspaceID && entry.powerUserWorkspaceID === id) ||
-			profile.current?.hasAdminAccess?.()
+			profile.current?.hasAdminAccess?.() ||
+			server?.userID === profile.current?.id
 	);
 
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
@@ -168,7 +169,8 @@
 							: []),
 						{ label: 'Tools', view: 'tools' },
 						...(belongsToUser ? [{ label: 'Logs', view: 'logs' }] : []),
-						...(belongsToUser ? [{ label: 'Audit Logs', view: 'audit-logs' }] : [])
+						...(belongsToUser ? [{ label: 'Audit Logs', view: 'audit-logs' }] : []),
+						...(belongsToUser ? [{ label: 'Usage', view: 'usage' }] : [])
 					];
 		return limitViews
 			? availableTabs.filter((tab) => limitViews.includes(tab.view))
@@ -827,7 +829,7 @@
 
 {#snippet usageView()}
 	{#if entry}
-		{@const isMultiUserServer = !!page.url.pathname.match(/\/mcp-servers\/s.*$/)?.[0]}
+		{@const isMultiUserServer = 'catalogEntryID' in entry ? !entry.catalogEntryID : false}
 		{@const isSingleUserServer =
 			!isMultiUserServer && ['npx', 'uvx', 'containerized'].includes(entry.manifest.runtime)}
 		{@const isRemoteServer = !isMultiUserServer && entry.manifest.runtime === 'remote'}
@@ -837,7 +839,7 @@
 
 		<div class="mt-4 flex min-h-full flex-col gap-8 pb-8">
 			<UsageGraphs
-				mcpId={isMultiUserServer ? entryId : null}
+				mcpId={isMultiUserServer ? entryId : server ? server.id : null}
 				mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer ? entryId : null}
 				{mcpServerDisplayName}
 			/>
