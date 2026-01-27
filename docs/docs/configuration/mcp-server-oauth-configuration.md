@@ -115,6 +115,7 @@ This example demonstrates configuring the GitHub remote MCP server.
 
 1. Click **Configure OAuth Credentials**
 2. Enter:
+   - **Authorization Server URL**: Pre-filled from the previous step (`https://github.com/login/oauth`)
    - **Client ID**: Your GitHub OAuth app client ID
    - **Client Secret**: Your GitHub OAuth app client secret
 3. Click **Save**
