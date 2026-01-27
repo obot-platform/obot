@@ -66,6 +66,7 @@ require (
 	google.golang.org/genai v1.0.0
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/postgres v1.6.0
+	gorm.io/driver/sqlite v1.4.3
 	gorm.io/gorm v1.30.1
 	k8s.io/api v0.31.1
 	k8s.io/apimachinery v0.31.1
@@ -77,6 +78,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.19.0
 	sigs.k8s.io/yaml v1.6.0
 )
+
+require github.com/mattn/go-sqlite3 v1.14.15 // indirect
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect

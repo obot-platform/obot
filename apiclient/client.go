@@ -30,8 +30,11 @@ func NewClientFromEnv() *Client {
 	url := os.Getenv("OBOT_SERVER_URL")
 	if url == "" {
 		url = "http://localhost:8080/api"
-	} else if !strings.HasSuffix(url, "/api") {
-		url += strings.TrimSuffix(url, "/") + "/api"
+	} else {
+		url = strings.TrimSuffix(url, "/")
+		if !strings.HasSuffix(url, "/api") {
+			url += "/api"
+		}
 	}
 	token := os.Getenv("OBOT_TOKEN")
 	return &Client{
