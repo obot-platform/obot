@@ -213,6 +213,12 @@ mcpNamespace:
   # mcpNamespace.annotation - Annotations to add to the mcp server namespace. Includes ArgoCD sync wave by default.
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
+  # mcpNamespace.networkPolicy -- Network policy configuration for the MCP namespace
+  networkPolicy:
+    # mcpNamespace.networkPolicy.enabled -- Enable network policy to restrict egress traffic from MCP servers. When enabled, MCP pods can only communicate with DNS, the Obot service, and public IP ranges. Default is true.
+    enabled: true
+    # mcpNamespace.networkPolicy.dnsNamespace -- The namespace where DNS pods are running. Default is kube-system.
+    dnsNamespace: kube-system
 
 # mcpServerDefaults -- Default Kubernetes configuration for all deployed MCP server pods
 mcpServerDefaults:
