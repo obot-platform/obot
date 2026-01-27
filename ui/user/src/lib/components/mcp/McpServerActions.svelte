@@ -156,11 +156,6 @@
 					handleShowSelectServerDialog();
 				}
 			} else {
-				console.log({
-					entry,
-					server,
-					instance
-				});
 				connectToServerDialog?.open({
 					entry,
 					server,
