@@ -17,7 +17,7 @@ metadata:
   name: {{ .name }}
   namespace: {{ include "obot.config.mcpNamespace" $ }}
   labels:
-    {{- include "obot.labels" . | nindent 4 }}
+    {{- include "obot.labels" $ | nindent 4 }}
 type: kubernetes.io/dockerconfigjson
 data:
   .dockerconfigjson: {{ printf "{\"auths\":{\"%s\":{\"username\":\"%s\",\"password\":\"%s\",\"email\":\"%s\",\"auth\":\"%s\"}}}" .registry .username .password .email (printf "%s:%s" .username .password | b64enc) | b64enc }}
