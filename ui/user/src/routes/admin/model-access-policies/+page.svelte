@@ -9,7 +9,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import ModelAccessPolicyForm from '$lib/components/admin/ModelAccessPolicyForm.svelte';
-	import { onMount, untrack } from 'svelte';
+	import { untrack } from 'svelte';
 	import { AdminService } from '$lib/services/index.js';
 	import { openUrl } from '$lib/utils.js';
 	import { profile } from '$lib/stores/index.js';
