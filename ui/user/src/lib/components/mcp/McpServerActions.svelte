@@ -213,7 +213,7 @@
 		<DotDotDot
 			class="icon-button hover:bg-surface1 dark:hover:bg-surface2 hover:text-primary flex-shrink-0"
 			disablePortal={connectOnly}
-			classes={{ menu: 'z-60 min-w-48 p-0' }}
+			classes={{ menu: 'min-w-48 p-0', popover: 'z-60' }}
 		>
 			{#snippet children({ toggle })}
 				{@render serverActions(toggle)}
