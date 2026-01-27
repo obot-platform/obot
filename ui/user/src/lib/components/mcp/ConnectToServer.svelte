@@ -615,9 +615,11 @@
 			<div class="mb-4 flex grow flex-col gap-1">
 				<label for="connectURL" class="font-light">Connection URL</label>
 				<div class="mock-input-btn flex w-full items-center justify-between gap-2 shadow-inner">
-					<p>
-						{url}
-					</p>
+					<div class="relative flex h-5 flex-1 overflow-hidden">
+						<p class="absolute inset-0 truncate whitespace-nowrap">
+							{url}
+						</p>
+					</div>
 					{#key openStatusHash}
 						<CopyButton
 							showTextLeft
