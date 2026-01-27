@@ -215,10 +215,26 @@ mcpNamespace:
     argocd.argoproj.io/sync-wave: "-1"
   # mcpNamespace.networkPolicy -- Network policy configuration for the MCP namespace
   networkPolicy:
-    # mcpNamespace.networkPolicy.enabled -- Enable network policy to restrict egress traffic from MCP servers. When enabled, MCP pods can only communicate with DNS, the Obot service, and public IP ranges. Default is false.
-    enabled: false
-    # mcpNamespace.networkPolicy.dnsNamespace -- The namespace where DNS pods are running. Default is kube-system.
+    # mcpNamespace.networkPolicy.enabled -- Enable network policy to restrict traffic to/from MCP servers. Default is true, and is recommended for production deployments.
+    enabled: true
+    # mcpNamespace.networkPolicy.dnsNamespace -- The namespace where DNS pods are running. Default is kube-system. Adjust if your cluster uses a different namespace for DNS services.
     dnsNamespace: kube-system
+  # mcpNamespace.podSecurity -- Pod Security Admission configuration for the MCP namespace
+  podSecurity:
+    # mcpNamespace.podSecurity.enabled -- Enable Pod Security Admission labels on the MCP namespace. Default is true.
+    enabled: true
+    # mcpNamespace.podSecurity.enforce -- Pod Security Standards level to enforce (privileged, baseline, or restricted). Default is restricted.
+    enforce: restricted
+    # mcpNamespace.podSecurity.enforceVersion -- Kubernetes version for the enforce policy. Default is latest.
+    enforceVersion: latest
+    # mcpNamespace.podSecurity.audit -- Pod Security Standards level to audit (privileged, baseline, or restricted). Default is restricted.
+    audit: restricted
+    # mcpNamespace.podSecurity.auditVersion -- Kubernetes version for the audit policy. Default is latest.
+    auditVersion: latest
+    # mcpNamespace.podSecurity.warn -- Pod Security Standards level to warn about (privileged, baseline, or restricted). Default is restricted.
+    warn: restricted
+    # mcpNamespace.podSecurity.warnVersion -- Kubernetes version for the warn policy. Default is latest.
+    warnVersion: latest
 
 # mcpServerDefaults -- Default Kubernetes configuration for all deployed MCP server pods
 mcpServerDefaults:

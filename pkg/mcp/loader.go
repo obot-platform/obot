@@ -47,6 +47,15 @@ type Options struct {
 	// Audit log configuration
 	MCPAuditLogPersistIntervalSeconds int `usage:"The interval in seconds to persist MCP audit logs to the database" default:"5"`
 	MCPAuditLogsPersistBatchSize      int `usage:"The number of MCP audit logs to persist in a single batch" default:"1000"`
+
+	// Pod Security Admission configuration for MCP namespace
+	MCPPodSecurityEnabled        bool   `usage:"Enable Pod Security Admission labels on the MCP namespace" default:"true" env:"OBOT_SERVER_MCPPOD_SECURITY_ENABLED"`
+	MCPPodSecurityEnforce        string `usage:"Pod Security Standards level to enforce (privileged, baseline, or restricted)" default:"restricted" env:"OBOT_SERVER_MCPPOD_SECURITY_ENFORCE"`
+	MCPPodSecurityEnforceVersion string `usage:"Kubernetes version for the enforce policy" default:"latest" env:"OBOT_SERVER_MCPPOD_SECURITY_ENFORCE_VERSION"`
+	MCPPodSecurityAudit          string `usage:"Pod Security Standards level to audit (privileged, baseline, or restricted)" default:"restricted" env:"OBOT_SERVER_MCPPOD_SECURITY_AUDIT"`
+	MCPPodSecurityAuditVersion   string `usage:"Kubernetes version for the audit policy" default:"latest" env:"OBOT_SERVER_MCPPOD_SECURITY_AUDIT_VERSION"`
+	MCPPodSecurityWarn           string `usage:"Pod Security Standards level to warn about (privileged, baseline, or restricted)" default:"restricted" env:"OBOT_SERVER_MCPPOD_SECURITY_WARN"`
+	MCPPodSecurityWarnVersion    string `usage:"Kubernetes version for the warn policy" default:"latest" env:"OBOT_SERVER_MCPPOD_SECURITY_WARN_VERSION"`
 }
 
 type SessionManager struct {
@@ -98,11 +107,26 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 			return nil, err
 		}
 
-		if err = kclient.IgnoreAlreadyExists(client.Create(ctx, &corev1.Namespace{
+		namespace := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: opts.MCPNamespace,
 			},
-		})); err != nil {
+		}
+
+		// Add Pod Security Admission labels if enabled
+		if opts.MCPPodSecurityEnabled {
+			if namespace.Labels == nil {
+				namespace.Labels = make(map[string]string)
+			}
+			namespace.Labels["pod-security.kubernetes.io/enforce"] = opts.MCPPodSecurityEnforce
+			namespace.Labels["pod-security.kubernetes.io/enforce-version"] = opts.MCPPodSecurityEnforceVersion
+			namespace.Labels["pod-security.kubernetes.io/audit"] = opts.MCPPodSecurityAudit
+			namespace.Labels["pod-security.kubernetes.io/audit-version"] = opts.MCPPodSecurityAuditVersion
+			namespace.Labels["pod-security.kubernetes.io/warn"] = opts.MCPPodSecurityWarn
+			namespace.Labels["pod-security.kubernetes.io/warn-version"] = opts.MCPPodSecurityWarnVersion
+		}
+
+		if err = kclient.IgnoreAlreadyExists(client.Create(ctx, namespace)); err != nil {
 			log.Warnf("failed to create MCP namespace, namespace must exist for MCP deployments to work: %v", err)
 		}
 

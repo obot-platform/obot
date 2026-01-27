@@ -34,7 +34,11 @@ unchangeable, but some of it can be modified. These are the configuration parame
 
 - Replicas: 1
 - ImagePullPolicy: `Always`
-- SecurityContext: `allowPrivilegeEscalation` is false, `runAsNonRoot` is true, `runAsUser` is 1000, and `runAsGroup` is 1000
+- SecurityContext: Hardened security settings at both pod and container levels (see [Pod Security Admission](#pod-security-admission) section for details)
+  - All capabilities are dropped
+  - Privilege escalation is disabled
+  - Runs as non-root user (UID 1000)
+  - Seccomp profile set to RuntimeDefault
 - Environment: sourced from a SecretRef containing the configuration values provided by the user, if any
 - Volumes and Volume Mounts: any configuration values from the user that were provided as files, will be mounted from Secrets in this way
 
@@ -58,11 +62,134 @@ Deployments as desired.
 
 Obot creates one ClusterIP service for each Deployment to expose its MCP server on port 80.
 
-:::note
-Obot does not create any NetworkPolicies. You can set up your own NetworkPolicies to restrict incoming traffic to the
-MCP server Deployments, so that only the main Obot Deployment can connect to them.
-We recommend allowing all egress traffic out of the MCP server Deployments.
+### Network Policy
+
+Obot provides an optional NetworkPolicy to restrict network traffic from MCP server pods for enhanced security. When enabled, this policy limits what MCP servers can access on the network.
+
+#### Configuration
+
+The NetworkPolicy is enabled by default and can be disabled via Helm values:
+
+```yaml
+mcpNamespace:
+  networkPolicy:
+    enabled: false
+```
+
+#### Security Model
+
+When enabled, the NetworkPolicy implements the following restrictions:
+
+**Ingress (Incoming Traffic)**
+- MCP server pods can **only** receive connections from Obot pods in the main Obot namespace
+- All other incoming traffic is blocked
+
+**Egress (Outgoing Traffic)**
+MCP server pods can communicate with:
+1. **DNS resolution** - UDP/TCP port 53 in the configured DNS namespace (default: `kube-system`)
+2. **Obot service** - TCP port 8080 to the main Obot service for callbacks and communication
+3. **Public internet** - All public IP addresses for external API calls and services
+
+MCP server pods are **blocked** from accessing:
+- Private IP ranges: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`
+- Loopback addresses: `127.0.0.0/8`
+- Link-local addresses: `169.254.0.0/16`
+- Multicast ranges: `224.0.0.0/4`
+- Reserved ranges: `240.0.0.0/4`
+
+:::tip Security Best Practice
+Enabling the NetworkPolicy is recommended for production deployments to prevent MCP servers from accessing internal cluster resources or private network services. This helps contain potential security issues if an MCP server is compromised or misconfigured.
 :::
+
+:::warning Impact on Internal Services
+If your MCP servers need to access internal Kubernetes services or private network resources, you will need to either disable the NetworkPolicy or create additional NetworkPolicy rules to allow specific traffic.
+:::
+
+### Pod Security Admission
+
+Obot supports Pod Security Admission (PSA) configuration for the MCP namespace to enforce Kubernetes Pod Security Standards. PSA provides a way to enforce security policies on pods at the namespace level.
+
+#### Configuration
+
+PSA is configured via Helm values with sensible defaults:
+
+```yaml
+mcpNamespace:
+  podSecurity:
+    # Enable or disable PSA labels on the MCP namespace
+    enabled: true
+    # Enforcement level: privileged, baseline, or restricted
+    enforce: restricted
+    enforceVersion: latest
+    # Audit level: logs policy violations without blocking
+    audit: restricted
+    auditVersion: latest
+    # Warning level: shows warnings for policy violations
+    warn: restricted
+    warnVersion: latest
+```
+
+To disable Pod Security Admission entirely (not recommended), set `enabled: false`:
+
+```yaml
+mcpNamespace:
+  podSecurity:
+    enabled: false
+```
+
+#### Pod Security Standards Levels
+
+Kubernetes defines three Pod Security Standards levels:
+
+- **privileged**: Unrestricted policy, providing the widest possible level of permissions
+- **baseline**: Minimally restrictive policy which prevents known privilege escalations. Allows the default (minimally specified) Pod configuration.
+- **restricted** (default): Heavily restricted policy, following current Pod hardening best practices
+
+#### How PSA Works in Obot
+
+The PSA configuration is applied as labels on the MCP namespace:
+- `pod-security.kubernetes.io/enforce`: Blocks pod creation if it violates the policy
+- `pod-security.kubernetes.io/audit`: Logs violations to the audit log without blocking
+- `pod-security.kubernetes.io/warn`: Returns a warning message to the user for violations
+
+:::tip Security-First Default
+Obot uses the **restricted** policy by default, providing the highest level of pod security. This policy follows current Pod hardening best practices and is recommended for production environments. If you need more permissive settings for specific use cases, you can configure the policy to **baseline** or **privileged**.
+:::
+
+:::info MCP Pod Security Context
+Obot automatically configures MCP pods with secure defaults that comply with the restricted policy:
+
+**Pod-level SecurityContext:**
+- `runAsNonRoot: true`
+- `runAsUser: 1000`
+- `runAsGroup: 1000`
+- `fsGroup: 1000`
+- `seccompProfile.type: RuntimeDefault`
+
+**Container-level SecurityContext:**
+- `allowPrivilegeEscalation: false`
+- `runAsNonRoot: true`
+- `runAsUser: 1000`
+- `runAsGroup: 1000`
+- `capabilities.drop: ["ALL"]`
+- `seccompProfile.type: RuntimeDefault`
+
+These settings ensure all MCP pods are hardened against common security vulnerabilities and comply with the Kubernetes restricted Pod Security Standard.
+:::
+
+#### Environment Variable Configuration
+
+PSA can also be configured via environment variables:
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `OBOT_SERVER_MCPPOD_SECURITY_ENABLED` | Enable Pod Security Admission labels on MCP namespace | `true` |
+| `OBOT_SERVER_MCPPOD_SECURITY_ENFORCE` | Pod Security Standards level to enforce | `restricted` |
+| `OBOT_SERVER_MCPPOD_SECURITY_ENFORCE_VERSION` | Kubernetes version for enforce policy | `latest` |
+| `OBOT_SERVER_MCPPOD_SECURITY_AUDIT` | Pod Security Standards level to audit | `restricted` |
+| `OBOT_SERVER_MCPPOD_SECURITY_AUDIT_VERSION` | Kubernetes version for audit policy | `latest` |
+| `OBOT_SERVER_MCPPOD_SECURITY_WARN` | Pod Security Standards level to warn about | `restricted` |
+| `OBOT_SERVER_MCPPOD_SECURITY_WARN_VERSION` | Kubernetes version for warn policy | `latest` |
 
 ### Secrets
 

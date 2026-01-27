@@ -41,5 +41,12 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_SERVICE_NAME` | The Kubernetes service name for the obot server. Automatically set by the helm chart when using kubernetes backend. Used to construct the internal service FQDN for token exchange endpoints. | - |
 | `OBOT_SERVER_SERVICE_NAMESPACE` | The Kubernetes namespace where the obot server runs. Automatically set by the helm chart when using kubernetes backend. Used to construct the internal service FQDN for token exchange endpoints. | - |
 | `OBOT_SERVER_DISALLOW_LOCALHOST_MCP` | Disallow MCP servers that try to connect to localhost. | `false` |
+| `OBOT_SERVER_MCPPOD_SECURITY_ENABLED` | Enable Pod Security Admission labels on the MCP namespace. Only applies when using kubernetes backend. | `true` |
+| `OBOT_SERVER_MCPPOD_SECURITY_ENFORCE` | Pod Security Standards level to enforce for MCP namespace (privileged, baseline, or restricted). Only applies when using kubernetes backend. | `restricted` |
+| `OBOT_SERVER_MCPPOD_SECURITY_ENFORCE_VERSION` | Kubernetes version for the PSA enforce policy. Only applies when using kubernetes backend. | `latest` |
+| `OBOT_SERVER_MCPPOD_SECURITY_AUDIT` | Pod Security Standards level to audit for MCP namespace (privileged, baseline, or restricted). Only applies when using kubernetes backend. | `restricted` |
+| `OBOT_SERVER_MCPPOD_SECURITY_AUDIT_VERSION` | Kubernetes version for the PSA audit policy. Only applies when using kubernetes backend. | `latest` |
+| `OBOT_SERVER_MCPPOD_SECURITY_WARN` | Pod Security Standards level to warn about for MCP namespace (privileged, baseline, or restricted). Only applies when using kubernetes backend. | `restricted` |
+| `OBOT_SERVER_MCPPOD_SECURITY_WARN_VERSION` | Kubernetes version for the PSA warn policy. Only applies when using kubernetes backend. | `latest` |
 | `OBOT_SERVER_UPDATE_CHECK_INTERVAL_MINS` | The interval in minutes to check for Obot server updates. Set to 0 to disable. (Deprecated, will be removed in v0.14.0) | `1440` minutes (1 day) |
 | `OBOT_SERVER_DISABLE_UPDATE_CHECK` | Disable the Obot server update check. (v0.14.0+) | `false ` |

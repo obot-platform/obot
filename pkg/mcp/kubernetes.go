@@ -462,6 +462,12 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				RunAsNonRoot:             &[]bool{true}[0],
 				RunAsUser:                &[]int64{1000}[0],
 				RunAsGroup:               &[]int64{1000}[0],
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				},
+				SeccompProfile: &corev1.SeccompProfile{
+					Type: corev1.SeccompProfileTypeRuntimeDefault,
+				},
 			},
 			Env: env,
 		})
@@ -542,6 +548,12 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				RunAsNonRoot:             &[]bool{true}[0],
 				RunAsUser:                &[]int64{1000}[0],
 				RunAsGroup:               &[]int64{1000}[0],
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				},
+				SeccompProfile: &corev1.SeccompProfile{
+					Type: corev1.SeccompProfileTypeRuntimeDefault,
+				},
 			},
 			Args: []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", port), "/run/nanobot.yaml"},
 			VolumeMounts: []corev1.VolumeMount{
@@ -622,6 +634,12 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			RunAsNonRoot:             &[]bool{true}[0],
 			RunAsUser:                &[]int64{1000}[0],
 			RunAsGroup:               &[]int64{1000}[0],
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
 		},
 		Command: command,
 		Args:    args,
@@ -668,6 +686,15 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				Spec: corev1.PodSpec{
 					Affinity:    k8sSettings.Affinity,
 					Tolerations: k8sSettings.Tolerations,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: &[]bool{true}[0],
+						RunAsUser:    &[]int64{1000}[0],
+						RunAsGroup:   &[]int64{1000}[0],
+						FSGroup:      &[]int64{1000}[0],
+						SeccompProfile: &corev1.SeccompProfile{
+							Type: corev1.SeccompProfileTypeRuntimeDefault,
+						},
+					},
 					Volumes: []corev1.Volume{
 						{
 							Name: "files",
