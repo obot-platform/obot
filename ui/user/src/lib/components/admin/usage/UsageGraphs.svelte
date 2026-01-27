@@ -492,14 +492,6 @@
 		return display;
 	}
 
-	afterNavigate(() => {
-		AdminService.listUsersIncludeDeleted().then((userData) => {
-			for (const user of userData) {
-				usersMap.set(user.id, user);
-			}
-		});
-	});
-
 	async function updateGraphs() {
 		const stats = await listUsageStats;
 		const data: Record<string, Record<string, string | number>[]> = {};

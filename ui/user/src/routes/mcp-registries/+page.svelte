@@ -4,8 +4,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { goto, replaceState } from '$lib/url';
-	import { afterNavigate } from '$app/navigation';
+	import { goto, replaceState, setUrlParam } from '$lib/url';
 	import { type AccessControlRule } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
@@ -26,19 +25,12 @@
 	initMcpServerAndEntries();
 
 	const mcpServersAndEntries = getPoweruserWorkspace();
-	let showCreateRule = $state(false);
+	let showCreateRule = $derived(page.url.searchParams.has('new'));
 	let ruleToDelete = $state<AccessControlRule>();
 
-	onMount(() => {
-		const url = new URL(window.location.href);
-		const queryParams = new URLSearchParams(url.search);
-		if (queryParams.get('new')) {
-			showCreateRule = true;
-		}
-	});
-
 	async function navigateToCreated(rule: AccessControlRule) {
-		showCreateRule = false;
+		setUrlParam(page.url, 'new', null);
+		replaceState(page.url, {});
 		goto(`/mcp-registries/${rule.id}`, { replaceState: false });
 	}
 
@@ -50,25 +42,6 @@
 	onMount(async () => {
 		if (workspaceId) {
 			fetchMcpServerAndEntries(workspaceId);
-		}
-	});
-
-	afterNavigate(({ from }) => {
-		const comingFromRegistryPage = from?.url?.pathname.startsWith('/mcp-registries/');
-		if (comingFromRegistryPage) {
-			showCreateRule = false;
-			if (page.url.searchParams.has('new')) {
-				const cleanUrl = new URL(page.url);
-				cleanUrl.searchParams.delete('new');
-				replaceState(cleanUrl, {});
-			}
-			return;
-		} else {
-			if (page.url.searchParams.has('new')) {
-				showCreateRule = true;
-			} else {
-				showCreateRule = false;
-			}
 		}
 	});
 

@@ -8,8 +8,8 @@
 	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
-	import { goto } from '$lib/url';
-	import { beforeNavigate, afterNavigate } from '$app/navigation';
+	import { goto, replaceState } from '$lib/url';
+	import { beforeNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
@@ -81,42 +81,6 @@
 		clearUrlParams();
 	}
 
-	afterNavigate(({ from }) => {
-		if (browser) {
-			// If coming back from a detail page, don't show form - user just created a server
-			const comingFromDetailPage =
-				from?.url?.pathname.startsWith('/admin/mcp-servers/c/') ||
-				from?.url?.pathname.startsWith('/admin/mcp-servers/s/');
-
-			if (comingFromDetailPage) {
-				showServerForm = false;
-
-				// Prevent infinite navigation
-				if (page.url.searchParams.has('new')) {
-					const cleanUrl = new URL(page.url);
-					cleanUrl.searchParams.delete('new');
-					goto(cleanUrl, { replaceState: true });
-				}
-
-				return;
-			}
-
-			const createNewType = page.url.searchParams.get('new') as LaunchServerType;
-			if (createNewType) {
-				selectServerType(createNewType, false);
-			} else {
-				showServerForm = false;
-
-				// Prevent infinite navigation
-				if (page.url.searchParams.has('new')) {
-					const cleanUrl = new URL(page.url);
-					cleanUrl.searchParams.delete('new');
-					goto(cleanUrl, { replaceState: true });
-				}
-			}
-		}
-	});
-
 	beforeNavigate(({ to }) => {
 		if (browser && !to?.url.pathname.startsWith('/admin/mcp-servers')) {
 			clearQueryFromLocalStorage();
@@ -129,9 +93,10 @@
 	let editingSource = $state<{ index: number; value: string }>();
 	let sourceDialog = $state<HTMLDialogElement>();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-	let selectedServerType = $state<LaunchServerType>();
 
-	let showServerForm = $state(false);
+	let selectedServerType = $derived(page.url.searchParams.get('new') as LaunchServerType);
+	let showServerForm = $derived(page.url.searchParams.has('new'));
+
 	let saving = $state(false);
 	let syncing = $state(false);
 	let sourceError = $state<string>();
@@ -142,13 +107,9 @@
 		profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.POWERUSER)
 	);
 
-	function selectServerType(type: LaunchServerType, updateUrl = true) {
-		selectedServerType = type;
+	function selectServerType(type: LaunchServerType) {
 		selectServerTypeDialog?.close();
-		if (updateUrl) {
-			goto(resolve(`/admin/mcp-servers?new=${type}`), { replaceState: showServerForm });
-		}
-		showServerForm = true;
+		goto(resolve(`/admin/mcp-servers?new=${type}`), { replaceState: true });
 	}
 
 	function closeSourceDialog() {
@@ -397,6 +358,8 @@
 				showServerForm = false;
 			}}
 			onSubmit={async (id, type) => {
+				setUrlParam(page.url, 'new', null);
+				replaceState(page.url, {});
 				if (profile.current.isAdmin?.()) {
 					if (type === 'single' || type === 'remote' || type === 'composite') {
 						goto(resolve(`/admin/mcp-servers/c/${id}?launch=true`));
