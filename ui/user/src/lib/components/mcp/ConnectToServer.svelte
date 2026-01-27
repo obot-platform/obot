@@ -234,6 +234,21 @@
 		}
 	}
 
+	async function verifyOauthOrConnect() {
+		oauthURL = await getOauthURL();
+		launchProgress = 100;
+
+		setTimeout(() => {
+			launchState = undefined;
+			launchProgress = 0;
+			if (oauthURL) {
+				oauthDialog?.showModal();
+			} else {
+				handleConnect();
+			}
+		}, 1000);
+	}
+
 	async function handleLaunchCatalogEntry() {
 		if (!entry) return;
 
@@ -286,18 +301,7 @@
 				}
 
 				if (!launchError) {
-					oauthURL = await getOauthURL();
-					launchProgress = 100;
-
-					setTimeout(() => {
-						launchState = undefined;
-						launchProgress = 0;
-						if (oauthURL) {
-							oauthDialog?.showModal();
-						} else {
-							handleConnect();
-						}
-					}, 1000);
+					verifyOauthOrConnect();
 				}
 			} catch (err) {
 				launchError = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -395,20 +399,7 @@
 			}
 
 			if (!launchError) {
-				oauthURL = await getOauthURL();
-				launchProgress = 100;
-
-				if (oauthURL) {
-					oauthDialog?.showModal();
-				} else {
-					handleConnect();
-				}
-
-				setTimeout(() => {
-					launchState = undefined;
-					launchProgress = 0;
-					handleConnect();
-				}, 1000);
+				verifyOauthOrConnect();
 			}
 		} catch (err) {
 			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
