@@ -658,7 +658,7 @@
 							{/if}
 							<div class="flex flex-col gap-1 p-2">
 								{#if d.needsUpdate && (d.isMyServer || profile.current?.hasAdminAccess?.())}
-									{#if !readonly && isAtLeastPowerUser}
+									{#if !readonly && (d.isMyServer || isAtLeastPowerUser)}
 										<button
 											class="menu-button-primary"
 											disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -706,7 +706,7 @@
 									</button>
 								{/if}
 
-								{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser && d.needsK8sUpdate}
+								{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && (d.isMyServer || isAtLeastPowerUser) && d.needsK8sUpdate}
 									<button
 										class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
