@@ -13,6 +13,7 @@
 		id?: string;
 		data?: unknown;
 		children?: Snippet;
+		hidePointerBorder?: boolean;
 	};
 
 	const draggableContext = getDraggableContext();
@@ -28,7 +29,8 @@
 		index = 0,
 		id = (Date.now() * Math.random() + index).toString(16),
 		data,
-		children
+		children,
+		hidePointerBorder
 	}: Props = $props();
 
 	let isPointerDown = $state(false);
@@ -40,6 +42,38 @@
 	let isActive = $derived(
 		draggableContext.state.sourceItemId && draggableContext.state.sourceItemId === id
 	);
+
+	// Calculate if this item should shift up or down during drag
+	let shiftDirection = $derived.by(() => {
+		const { sourceItemId, sourceItemIndex, targetItemIndex } = draggableContext.state;
+
+		// No dragging happening or this is the dragged item
+		if (!sourceItemId || isActive) return 0;
+
+		// Get current item's index
+		const currentIndex = draggableContext.methods.getItemIndex(id);
+		if (currentIndex === -1) return 0;
+
+		// No valid target yet
+		if (targetItemIndex === -1) return 0;
+
+		// Moving DOWN (source is above target)
+		if (sourceItemIndex < targetItemIndex) {
+			// Items between source and target (inclusive) should shift UP
+			if (currentIndex > sourceItemIndex && currentIndex <= targetItemIndex) {
+				return -1; // shift up
+			}
+		}
+		// Moving UP (source is below target)
+		else if (sourceItemIndex > targetItemIndex) {
+			// Items between target and source (inclusive) should shift DOWN
+			if (currentIndex >= targetItemIndex && currentIndex < sourceItemIndex) {
+				return 1; // shift down
+			}
+		}
+
+		return 0;
+	});
 
 	let top: number | undefined = $state();
 
@@ -125,6 +159,8 @@
 
 		pageY = ev.pageY;
 
+		// Report this item's height before setting as source
+		draggableContext.methods.setSourceItemHeight(rootElement.offsetHeight);
 		draggableContext.methods.setSourceItem(id);
 
 		isPointerDown = true;
@@ -153,39 +189,24 @@
 	class={twMerge(
 		'draggable-element relative min-w-full touch-none',
 		isActive && 'pointer-events-none z-10 cursor-move',
+		shiftDirection !== 0 && !isActive && 'transition-transform duration-200 ease-out',
 		rootClass
 	)}
 	data-id={id}
 	style:top={`${top ?? 0}px`}
-	style:transform={isPointerDown ? `translateY(${dy}px)` : ''}
-	onpointerenter={(ev) => {
-		ev.preventDefault();
-		if (!draggableContext.state.sourceItemId) return;
-		if (isActive) {
-			ev.stopPropagation();
-			return;
-		}
-
-		isDragOver = true;
-
-		draggableContext.methods.setTargetItem(id);
-	}}
-	onpointerleave={(ev) => {
-		ev.preventDefault();
-		if (!draggableContext.state.sourceItemId) return;
-		if (isActive) return;
-
-		if (draggableContext.state.targetItemId === id) {
-			draggableContext.methods.setTargetItem(undefined);
-		}
-	}}
+	style:transform={isPointerDown
+		? `translateY(${dy + draggableContext.state.scrollDelta}px)`
+		: shiftDirection !== 0
+			? `translateY(${shiftDirection * (draggableContext.state.sourceItemHeight + draggableContext.state.gap)}px)`
+			: ''}
 >
 	<div
 		bind:this={containerElement}
 		class={twMerge(
 			'draggable-inner-element relative isolate z-[1] flex justify-start gap-2 rounded-sm border border-transparent transition-colors duration-200',
-			isPointerEntered && 'border-primary bg-primary/5',
-			!isActive && isDragOver && 'bg-surface2 pointer-events-none',
+			isPointerEntered && !hidePointerBorder && 'border-primary bg-primary/5',
+			!isActive && isDragOver && 'pointer-events-none',
+			!isActive && isDragOver && !hidePointerBorder && 'bg-surface2',
 			klass
 		)}
 	>

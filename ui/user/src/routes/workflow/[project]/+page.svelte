@@ -1,0 +1,571 @@
+<script lang="ts">
+	import Navbar from '$lib/components/Navbar.svelte';
+	import { responsive } from '$lib/stores';
+	import {
+		GripVertical,
+		MessageCircleMore,
+		MessageCircleOff,
+		OctagonAlert,
+		Play,
+		Settings,
+		SidebarClose,
+		SidebarOpen,
+		X
+	} from 'lucide-svelte';
+	import { fade, fly, slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
+	import { columnResize } from '$lib/actions/resize';
+	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
+	import Projects from '$lib/components/navbar/Projects.svelte';
+	import { scrollFocus } from '$lib/actions/scrollFocus.svelte.js';
+	import { initProjectMCPs } from '$lib/context/projectMcps.svelte.js';
+	import { getLayout, initLayout } from '$lib/context/chatLayout.svelte.js';
+	import McpServers from '$lib/components/edit/McpServers.svelte';
+	import Runs from './Runs.svelte';
+	import WorkflowTasks from './WorkflowTasks.svelte';
+	import { tick } from 'svelte';
+	import Run from './Run.svelte';
+	import WorkflowArguments from './WorkflowArguments.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import ChatInput from '$lib/components/messages/Input.svelte';
+
+	let { data } = $props();
+	initProjectMCPs(data.mcps ?? []);
+	initLayout({
+		items: [],
+		sidebarOpen: !responsive.isMobile
+	});
+
+	let workflowContainer = $state<HTMLDivElement>();
+	let project = $state(data.project);
+	let workflow = $state({
+		name: 'Onboarding Workflow',
+		description: 'This workflow is used to onboard new users to the platform.',
+		prompt:
+			'You are an assistant responsible for onboarding members to the CNCF without breaking the rules.\n\nRules:\n* You can read from Salesforce.\n* Never add a new record to Salesforce.\n* Follow the Action you are told.',
+		arguments: [
+			{
+				id: '1',
+				name: 'CompanyName',
+				displayLabel: 'Company Name',
+				description: 'The name of the company to onboard. Example: Obot',
+				visible: true
+			}
+		],
+		tasks: [
+			{
+				id: '1',
+				name: 'Add Member to Google Sheet',
+				description: 'This task will add the member to the google sheet',
+				content: `
+1. Get the account record for $CompanyName in Salesforce. You also need to get all related Contacts including roles and emails. Search all opportunities, look for the most recent closed won opportunity for membership level. Get the documents. Documents may be stored as classic Attachments (in the Attachment object, linked by ParentId) or as Salesforce Files (in ContentDocument, linked to the Account via ContentDocumentLink and LinkedEntityId). Notes or special instructions are typically found in the Account’s Description field. To review everything created for a company, look for these related records and fields using the Account’s Id.
+
+2. Get the Demo Workflow LF Google Sheet. Read the first few rows to understand the sheet and formats used in each column.
+
+3. Follow the formatting and style, add a new row to the google sheet for the member $CompanyName based on the information we got previously in Salesforce. The join date should be the closed won date.
+				`
+			},
+			{
+				id: '2',
+				name: 'Add New Member Contacts to Google Groups',
+				description:
+					'This will add the contacts of our new members to the appropriate Google Groups',
+				content:
+					'1. Get the account record for \$CompanyName in Salesforce. You also need to get all related Contacts including roles and emails.'
+			},
+
+			{
+				name: 'Add member contacts to Slack',
+				description: '',
+				content: `
+1. Get the account record for \$CompanyName in Salesforce. You also need to get all related Contacts including roles and emails.
+
+2. List all channels including private ones.
+
+3. Search for the marketing contacts in the slack workspace to see if they are members. If they are in the workspace add them to the private marketing channel.
+
+4. Search for the business owner contacts in the slack workspace to see if they are members. If they are in the workspace, add them to the private business-owners channel.
+
+5. Search for the technical contacts in the slack workspace to see if they are members. If they are members of the workspace, add them to the private technical-leads channel.
+
+6. Report back who is a member of slack already.`,
+				id: '3'
+			},
+			{
+				name: 'Add Logo to site',
+				description: 'Create a github PR to add the logo to the site',
+				content: `
+1. Get the account record for \$CompanyName in Salesforce. Search all opportunities, look for the most recent closed won opportunity for membership level. Get the documents. Documents may be stored as classic Attachments (in the Attachment object, linked by ParentId) or as Salesforce Files (in ContentDocument, linked to the Account via ContentDocumentLink and LinkedEntityId). To review everything created for a company, look for these related records and fields using the Account’s Id.
+
+2. Create a branch in the repo cloudnautique/obot-mcpserver-examples called add-\$CompanyName-logo.
+
+3. Create a file in the workspace called logo.txt and write a story about a robot in markdown.
+
+4. Add the file to the assets/img directory called \$CompanyName-logo.txt, and create a PR back into the main branch.
+				`,
+				id: '4'
+			},
+			{
+				name: 'Send Welcome Email',
+				description: 'Used to send welcome email when the org has been onboarded.',
+				content: `
+1. Get the account record for \$CompanyName in Salesforce. You also need to get the contacts and their email addresses. Also get the most recent opportunity to determine the membership.
+
+2. Using gmail tools, create a draft email using the business owner contact, account, and opportunity info.
+
+\`\`\` Markdown
+# CNCF Onboarding Completion 
+
+**Subject:** Welcome to the Cloud Native Computing Foundation (CNCF)!
+
+---
+
+Dear {{FirstName}} {{LastName}},
+
+Congratulations, and welcome to the **Cloud Native Computing Foundation (CNCF)** community!
+
+We’re pleased to let you know that all onboarding steps for **{{CompanyName}}** have been successfully completed. Your organization is now fully set up as a {{membership level}} member and ready to take advantage of CNCF programs, resources, and community benefits.
+
+Congrats!
+Dir. CNCF Onboarding Agent
+\`\`\`
+
+Send the drafted email.
+				`,
+				id: '5'
+			}
+		]
+	});
+
+	let workflowRunOpen = $state(false);
+	let selectedRun = $state<
+		| {
+				id: string;
+				created: string;
+		  }
+		| undefined
+	>(undefined);
+
+	let runContainer = $state<HTMLDivElement>();
+	let navContainer = $state<HTMLDivElement>();
+	let workflowNameContainer = $state<HTMLDivElement>();
+	let notifications = $state<
+		{
+			id: string;
+			type: 'argument_addition' | 'argument_deletion';
+			name: string;
+		}[]
+	>([]);
+	let showChat = $state(false);
+
+	let runDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+
+	let titleVisible = $state(false);
+
+	let observer: IntersectionObserver;
+	function setupObserver() {
+		// Always disconnect existing observer before setting up new one
+		observer?.disconnect();
+
+		observer = new IntersectionObserver(
+			([entry]) => {
+				titleVisible = entry.isIntersecting;
+			},
+			{ threshold: 0 }
+		);
+
+		if (workflowNameContainer) {
+			observer.observe(workflowNameContainer);
+		}
+	}
+
+	$effect(() => {
+		if (workflowNameContainer) {
+			setupObserver();
+		}
+		return () => observer.disconnect();
+	});
+
+	const layout = getLayout();
+
+	function handleVariableAddition(variable: string) {
+		const id = crypto.randomUUID();
+
+		workflow.arguments.push({
+			id,
+			name: variable,
+			displayLabel: '',
+			description: '',
+			visible: false
+		});
+
+		notifications.push({
+			id,
+			type: 'argument_addition',
+			name: variable
+		});
+
+		setTimeout(() => {
+			notifications = notifications.filter((n) => n.id !== id);
+		}, 5000);
+	}
+
+	function handleVariableDeletion(variable: string) {
+		if (variable.length === 0) return;
+		const match = workflow.arguments.find((arg) => arg.name === variable);
+		if (match && match.visible) {
+			notifications.push({
+				id: match.id,
+				type: 'argument_deletion',
+				name: match.name
+			});
+		}
+	}
+</script>
+
+<div class="bg-surface1 dark:bg-background relative flex h-dvh flex-col overflow-hidden">
+	<div class="relative flex h-full">
+		{#if layout.sidebarOpen}
+			<div
+				class="bg-surface1 w-screen min-w-screen flex-shrink-0 md:w-1/6 md:min-w-[250px]"
+				transition:slide={{ axis: 'x' }}
+				bind:this={navContainer}
+			>
+				<div
+					class="border-surface2 dark:bg-gray-990 bg-background relative flex size-full flex-col border-r"
+				>
+					<div
+						class="flex h-16 w-full flex-shrink-0 items-center justify-between px-2 md:justify-start"
+					>
+						<BetaLogo workflow />
+						{#if responsive.isMobile}
+							{@render closeSidebar()}
+						{/if}
+					</div>
+					<div class="default-scrollbar-thin flex w-full grow flex-col gap-4" use:scrollFocus>
+						{#if project}
+							<Projects
+								{project}
+								onCreateProject={() => {
+									//TODO:
+								}}
+							/>
+						{/if}
+						<div class="mb-2 flex flex-col gap-8 px-4">
+							<!-- todo -->
+							{#if project}
+								<Runs
+									{project}
+									onSelectRun={(run) => {
+										workflowRunOpen = true;
+										selectedRun = run;
+									}}
+									selected={selectedRun?.id}
+								/>
+								<McpServers {project} />
+							{/if}
+						</div>
+					</div>
+
+					<div class="flex w-full items-center justify-between gap-2 px-2 py-2">
+						<button class="icon-button flex-shrink-0">
+							<Settings class="text-on-surface1 size-6" />
+						</button>
+						{#if !responsive.isMobile}
+							{@render closeSidebar()}
+						{/if}
+					</div>
+				</div>
+			</div>
+			{#if !responsive.isMobile}
+				<div
+					role="none"
+					class="relative -ml-3 h-full w-3 cursor-col-resize"
+					use:columnResize={{ column: navContainer }}
+				></div>
+			{/if}
+		{/if}
+
+		<main
+			id="main-content"
+			class="bg-surface1 dark:bg-background flex min-h-dvh max-w-full grow flex-col overflow-hidden"
+			class:hidden={layout.sidebarOpen && responsive.isMobile}
+		>
+			<div class="w-full">
+				<Navbar workflow class="bg-surface1 dark:bg-background">
+					{#snippet leftContent()}
+						{#if !layout.sidebarOpen}
+							<BetaLogo workflow />
+						{/if}
+						{#if !layout.sidebarOpen && responsive.isMobile}
+							<div class="ml-2">
+								{@render openSidebar()}
+							</div>
+						{/if}
+						{#if layout.sidebarOpen && !titleVisible && !workflowRunOpen}
+							<h1 in:fade={{ duration: 200 }} class="pl-4 text-xl font-semibold">
+								{workflow.name}
+							</h1>
+						{/if}
+					{/snippet}
+					{#snippet centerContent()}
+						<div class="flex w-full justify-end px-2">
+							<button
+								class="button-primary flex w-48 flex-shrink-0 items-center justify-center gap-2 text-sm"
+								onclick={() => runDialog?.open()}
+							>
+								Run <Play class="size-4" />
+							</button>
+						</div>
+					{/snippet}
+				</Navbar>
+			</div>
+
+			{#if !layout.sidebarOpen && !responsive.isMobile}
+				<div class="absolute bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
+					{@render openSidebar()}
+				</div>
+			{/if}
+
+			<div
+				class="default-scrollbar-thin relative h-[calc(100%-64px)] max-w-full overflow-y-auto"
+				bind:this={workflowContainer}
+			>
+				<div class="mx-auto min-h-full w-full pb-4 md:max-w-[1200px]">
+					<div class="mb-4 flex w-full flex-col gap-1 pl-22" bind:this={workflowNameContainer}>
+						<input
+							class="ghost-input text-2xl font-semibold"
+							bind:value={workflow.name}
+							placeholder="Workflow title"
+						/>
+						<input
+							class="ghost-input"
+							bind:value={workflow.description}
+							placeholder="Description (optional)"
+						/>
+					</div>
+
+					{#if workflow.arguments.length > 0}
+						<div class="mb-6">
+							<WorkflowArguments
+								bind:args={workflow.arguments}
+								onDelete={(arg) => {
+									workflow.arguments = workflow.arguments.filter((a) => a.id !== arg.id);
+								}}
+							/>
+						</div>
+					{/if}
+
+					<WorkflowTasks
+						bind:tasks={workflow.tasks}
+						onVariableAddition={handleVariableAddition}
+						onVariableDeletion={handleVariableDeletion}
+						onDelete={(task) => {
+							workflow.tasks = workflow.tasks.filter((t) => t.id !== task.id);
+						}}
+					/>
+				</div>
+
+				<div class="sticky bottom-0 left-0 z-50 w-full pb-4">
+					<div
+						class={twMerge(
+							'flex w-full justify-end',
+							workflowRunOpen ? 'pr-0' : 'pr-9',
+							showChat ? 'pb-2' : 'pb-4'
+						)}
+					>
+						<button
+							class="button-icon bg-primary text-white transition-all hover:scale-110"
+							onclick={() => (showChat = !showChat)}
+							use:tooltip={'Toggle chat'}
+						>
+							{#if showChat}
+								<MessageCircleOff class="size-6" />
+							{:else}
+								<MessageCircleMore class="size-6" />
+							{/if}
+						</button>
+					</div>
+					{#if showChat}
+						<div
+							class={twMerge(
+								'workflow-run border-surface1 dark:border-surface3 bg-background dark:bg-surface2 ml-auto w-full rounded-2xl border p-2 shadow-xs',
+								workflowRunOpen ? 'mr-0 max-w-[420px]' : 'mr-4 md:max-w-[750px]'
+							)}
+							in:slide={{ axis: 'y' }}
+						>
+							<ChatInput
+								classes={{
+									root: 'mt-0'
+								}}
+								onSubmit={async (i) => {
+									//	await thread?.invoke(i);
+								}}
+								placeholder="What can I help with?"
+							/>
+							<p class="text-on-surface1 mt-2 pl-1 text-xs font-medium">Here's some suggestions:</p>
+							<div class="mt-2 flex flex-wrap gap-2 pl-1 text-xs font-light">
+								<button
+									class="bg-surface1/75 border-surface3 hover:bg-surface2 rounded-md border p-2 transition-all"
+								>
+									Improve a task
+								</button>
+								<button
+									class="bg-surface1/75 border-surface3 hover:bg-surface2 rounded-md border p-2 transition-all"
+								>
+									Upload a document and automatically convert it to new tasks
+								</button>
+								<button
+									class="bg-surface1/75 border-surface3 hover:bg-surface2 rounded-md border p-2 transition-all"
+								>
+									Get output from a previous task
+								</button>
+							</div>
+						</div>
+					{/if}
+				</div>
+			</div>
+		</main>
+
+		<div
+			bind:this={runContainer}
+			class={twMerge(
+				'bg-background dark:bg-surface1 absolute right-0 z-30 float-right flex w-full flex-shrink-0 translate-x-full transform transition-transform duration-300 md:w-2/5 md:max-w-4xl md:min-w-[540px]',
+				workflowRunOpen && 'relative w-full translate-x-0',
+				!workflowRunOpen && 'w-0'
+			)}
+		>
+			{#if workflowRunOpen && runContainer}
+				<div
+					use:columnResize={{ column: runContainer, direction: 'right' }}
+					class="bg-surface1 dark:bg-background relative h-full w-8 cursor-grab"
+					transition:slide={{ axis: 'x' }}
+				>
+					<div class="text-on-surface1 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+						<GripVertical class="text-surface3 size-3" />
+					</div>
+				</div>
+			{/if}
+			<button class="icon-button absolute top-2 right-2" onclick={() => (workflowRunOpen = false)}>
+				<X class="size-6" />
+			</button>
+			<div class="w-[calc(100%-24px)]">
+				{#key selectedRun?.id}
+					<Run
+						name={workflow.name}
+						args={workflow.arguments}
+						values={{
+							CompanyName: 'Obot'
+						}}
+						run={selectedRun}
+					/>
+				{/key}
+			</div>
+		</div>
+	</div>
+</div>
+
+{#snippet closeSidebar()}
+	<button class="icon-button" onclick={() => (layout.sidebarOpen = false)}>
+		<SidebarClose class="size-6" />
+	</button>
+{/snippet}
+
+<!-- <McpServerRequirements assistantId={assistant?.id || ''} projectId={project.id} /> -->
+
+{#snippet openSidebar()}
+	<button class="icon-button" onclick={() => (layout.sidebarOpen = true)}>
+		<SidebarOpen class="size-6" />
+	</button>
+{/snippet}
+
+<svelte:head>
+	<title>Obot | Workflow</title>
+</svelte:head>
+
+<div class="fixed right-0 bottom-0 z-100 m-4">
+	{#each notifications as notification (notification.id)}
+		<div
+			class="bg-background dark:bg-surface1 border-surface3 mb-1 max-w-sm rounded-md border p-2"
+			transition:fly={{ x: 100, duration: 150 }}
+		>
+			<div class="flex w-full items-center justify-between gap-2">
+				<OctagonAlert class="text-primary mx-2 size-6" />
+				<div class="flex flex-col gap-0.5">
+					<span class="bg-primary/10 text-primary w-fit rounded-md px-1 py-0.5 text-sm font-medium"
+						>${notification.name}</span
+					>
+					{#if notification.type === 'argument_addition'}
+						<p class="flex-shrink-0 text-sm font-light">Add argument details to workflow?</p>
+						<button
+							class="button-primary w-full px-2 py-1 text-xs"
+							onclick={async () => {
+								workflow.arguments = workflow.arguments.map((arg) =>
+									arg.id === notification.id ? { ...arg, visible: true } : arg
+								);
+
+								await tick();
+								const matchingArgument = document.querySelector(`#description-${notification.id}`);
+								if (matchingArgument) {
+									workflowContainer?.scrollTo({
+										top: matchingArgument.getBoundingClientRect().top + 64,
+										behavior: 'smooth'
+									});
+								}
+
+								notifications = notifications.filter((n) => n.id !== notification.id);
+							}}
+						>
+							Yes
+						</button>
+					{:else}
+						<p class="flex-shrink-0 text-sm font-light">
+							Remove existing argument details from workflow?
+						</p>
+						<button
+							class="button w-full px-2 py-1 text-xs"
+							onclick={() => {
+								workflow.arguments = workflow.arguments.filter(
+									(arg) => arg.name !== notification.name
+								);
+								notifications = notifications.filter((n) => n.id !== notification.id);
+							}}
+						>
+							Yes
+						</button>
+					{/if}
+				</div>
+				<button
+					class="icon-button"
+					onclick={() => {
+						notifications = notifications.filter((n) => n.id !== notification.id);
+					}}
+				>
+					<X class="size-3" />
+				</button>
+			</div>
+		</div>
+	{/each}
+</div>
+
+<ResponsiveDialog bind:this={runDialog} title="Run Workflow" animate="slide" class="max-w-md">
+	<div class="flex w-full flex-col gap-4">
+		<div class="flex w-full flex-col gap-2">
+			{#each workflow.arguments as argument (argument.id)}
+				<label for="description-{argument.id}" class="flex-1 text-sm font-medium capitalize"
+					>{argument.displayLabel}</label
+				>
+				<input
+					id="description-{argument.id}"
+					class="text-input-filled"
+					placeholder={argument.description}
+				/>
+			{/each}
+		</div>
+		<button
+			class="button-primary flex items-center justify-center gap-2"
+			onclick={() => runDialog?.close()}>Run <Play class="size-4" /></button
+		>
+	</div>
+</ResponsiveDialog>
