@@ -101,7 +101,6 @@
 					</div>
 				{:else}
 					<div class="flex flex-col gap-2">
-						<h4 class="text-lg font-semibold">Model Access Policies</h4>
 						{@render modelAccessPolicyTable()}
 					</div>
 				{/if}
