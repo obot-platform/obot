@@ -10088,6 +10088,18 @@ func schema_obot_platform_obot_apiclient_types_TaskManifest(ref common.Reference
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.TaskOnDemand"),
 						},
 					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"modelProvider": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"name", "description", "steps", "schedule", "onDemand"},
 			},
@@ -12060,6 +12072,18 @@ func schema_obot_platform_obot_apiclient_types_WorkflowManifest(ref common.Refer
 						},
 					},
 					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"modelProvider": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
