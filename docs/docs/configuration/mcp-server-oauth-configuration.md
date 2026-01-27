@@ -105,8 +105,8 @@ This example demonstrates configuring the GitHub remote MCP server.
 3. Enter the server details:
    - **Name**: GitHub MCP
    - **Description**: Access GitHub repositories and features
-4. Click **Advanced Configuration**
-5. Enter the URL: `https://api.githubcopilot.com/mcp`
+4. Enter the URL: `https://api.githubcopilot.com/mcp`
+5. Click **Advanced Configuration**
 6. Toggle **Static OAuth** to enabled
 7. Enter the Authorization Server URL: `https://github.com/login/oauth`
 8. Click **Save**
