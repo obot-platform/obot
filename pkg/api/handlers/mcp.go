@@ -2867,24 +2867,30 @@ func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 	}
 
 	if !req.UserIsAdmin() {
-		workspaceID := req.PathValue("workspace_id")
-		if workspaceID == "" {
-			return types.NewErrNotFound("MCP server %s not found", server.Name)
-		} else if server.Spec.PowerUserWorkspaceID != "" && workspaceID != server.Spec.PowerUserWorkspaceID {
-			return types.NewErrNotFound("MCP server %s not found", server.Name)
-		} else if server.Spec.PowerUserWorkspaceID == "" {
-			if server.Spec.MCPServerCatalogEntryName == "" {
+		// Allow users to restart servers they own
+		if server.Spec.UserID == req.User.GetUID() {
+			// User owns this server, allow restart
+		} else {
+			// Check workspace permissions for power users
+			workspaceID := req.PathValue("workspace_id")
+			if workspaceID == "" {
 				return types.NewErrNotFound("MCP server %s not found", server.Name)
-			}
-
-			// In this case, the server should correspond to a workspace catalog entry.
-			var entry v1.MCPServerCatalogEntry
-			if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
-				return fmt.Errorf("failed to get MCP server catalog entry: %v", err)
-			}
-
-			if entry.Spec.PowerUserWorkspaceID != workspaceID {
+			} else if server.Spec.PowerUserWorkspaceID != "" && workspaceID != server.Spec.PowerUserWorkspaceID {
 				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			} else if server.Spec.PowerUserWorkspaceID == "" {
+				if server.Spec.MCPServerCatalogEntryName == "" {
+					return types.NewErrNotFound("MCP server %s not found", server.Name)
+				}
+
+				// In this case, the server should correspond to a workspace catalog entry.
+				var entry v1.MCPServerCatalogEntry
+				if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
+					return fmt.Errorf("failed to get MCP server catalog entry: %v", err)
+				}
+
+				if entry.Spec.PowerUserWorkspaceID != workspaceID {
+					return types.NewErrNotFound("MCP server %s not found", server.Name)
+				}
 			}
 		}
 	}

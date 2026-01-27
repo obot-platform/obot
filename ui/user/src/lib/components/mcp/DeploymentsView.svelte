@@ -729,7 +729,7 @@
 								{/if}
 
 								{#if d.isMyServer || profile.current?.hasAdminAccess?.()}
-									{#if !readonly && isAtLeastPowerUser}
+									{#if !readonly && (d.isMyServer || isAtLeastPowerUser)}
 										<button
 											class="menu-button"
 											disabled={restarting}
