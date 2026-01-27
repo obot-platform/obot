@@ -3404,13 +3404,17 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	}
 
 	if !req.UserIsAdmin() {
-		workspaceID := req.PathValue("workspace_id")
-		if workspaceID == "" {
-			return types.NewErrNotFound("MCP server %s not found", server.Name)
-		}
+		// Allow if user owns the server
+		if server.Spec.UserID != req.User.GetUID() {
+			// If not the owner, check workspace-based access
+			workspaceID := req.PathValue("workspace_id")
+			if workspaceID == "" {
+				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			}
 
-		if entry.Spec.PowerUserWorkspaceID != workspaceID {
-			return types.NewErrNotFound("MCP server %s not found", server.Name)
+			if entry.Spec.PowerUserWorkspaceID != workspaceID {
+				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			}
 		}
 	}
 
