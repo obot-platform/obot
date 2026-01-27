@@ -16,6 +16,9 @@ importers:
       '@codemirror/lang-markdown':
         specifier: ^6.3.3
         version: 6.3.3
+      '@oddbird/popover-polyfill':
+        specifier: ^0.6.1
+        version: 0.6.1
       d3:
         specifier: ^7.9.0
         version: 7.9.0
@@ -791,6 +794,9 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@oddbird/popover-polyfill@0.6.1':
+    resolution: {integrity: sha512-Papau51NPG+NajXvoEHCNT1CBJv4WIyvIGfH5gpJPLL8MZJt/4giC0jJ/mNZRtJmdzRuXWpUFB6QxkJa1RvMAQ==}
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -3947,6 +3953,8 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.19.1
+
+  '@oddbird/popover-polyfill@0.6.1': {}
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
