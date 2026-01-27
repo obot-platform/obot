@@ -18,7 +18,7 @@
 	import { fly } from 'svelte/transition';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { page } from '$app/state';
-	import { goto } from '$lib/url';
+	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
 
 	let { data } = $props();
 	let allApiKeys = $state<APIKey[]>(untrack(() => data.allApiKeys));
@@ -30,6 +30,7 @@
 	let showCreateNew = $derived(page.url.searchParams.has('new'));
 	let createdKeyValue = $state<string>();
 	let detailsKey = $state<(typeof allTableData)[number]>();
+	let initSort = $derived(getTableUrlParamsSort({ property: 'createdAt', order: 'desc' }));
 
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
 
@@ -114,9 +115,9 @@
 						'prefix',
 						'description',
 						'mcpServerIds',
-						'createdAtDisplay',
-						'lastUsedAtDisplay',
-						'expiresAtDisplay'
+						'createdAt',
+						'lastUsedAt',
+						'expiresAt'
 					]}
 					headers={[
 						{ title: 'User', property: 'userDisplay' },
@@ -124,24 +125,26 @@
 						{ title: 'Key', property: 'prefix' },
 						{ title: 'Description', property: 'description' },
 						{ title: 'Servers', property: 'mcpServerIds' },
-						{ title: 'Created', property: 'createdAtDisplay' },
-						{ title: 'Last Used', property: 'lastUsedAtDisplay' },
-						{ title: 'Expires', property: 'expiresAtDisplay' }
+						{ title: 'Created', property: 'createdAt' },
+						{ title: 'Last Used', property: 'lastUsedAt' },
+						{ title: 'Expires', property: 'expiresAt' }
 					]}
 					filterable={['userDisplay', 'name']}
-					sortable={[
-						'userDisplay',
-						'name',
-						'createdAtDisplay',
-						'lastUsedAtDisplay',
-						'expiresAtDisplay'
-					]}
+					sortable={['userDisplay', 'name', 'createdAt', 'lastUsedAt', 'expiresAt']}
+					{initSort}
+					onSort={setSortUrlParams}
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'description'}
 							<span class="text-muted">{d.description || '-'}</span>
 						{:else if property === 'mcpServerIds'}
 							<ServerCountBadge mcpServerIds={d.mcpServerIds} {mcpServers} />
+						{:else if property === 'createdAt'}
+							{d.createdAtDisplay}
+						{:else if property === 'lastUsedAt'}
+							{d.lastUsedAtDisplay}
+						{:else if property === 'expiresAt'}
+							{d.expiresAtDisplay}
 						{:else}
 							{d[property as keyof typeof d]}
 						{/if}
