@@ -137,6 +137,7 @@ if __name__ == "__main__":
 [LangChain MCP Adapters](https://github.com/langchain-ai/langchain-mcp-adapters) enable connecting LangChain agents to MCP servers. Configure the `MultiServerMCPClient` with HTTP transport and authorization headers:
 
 ```python
+from os import getenv
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain.agents import create_agent
 
