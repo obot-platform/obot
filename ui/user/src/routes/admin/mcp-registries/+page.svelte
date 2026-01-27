@@ -4,21 +4,28 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { goto, replaceState } from '$lib/url';
-	import { afterNavigate, invalidate } from '$app/navigation';
-	import { type AccessControlRule, type OrgUser } from '$lib/services/admin/types';
+	import { goto, replaceState, setUrlParam } from '$lib/url';
+	import { invalidate } from '$app/navigation';
+	import { Group, type AccessControlRule, type OrgUser } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import { onMount } from 'svelte';
 	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { getUserDisplayName, openUrl } from '$lib/utils.js';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 	import { page } from '$app/state';
+	import {
+		getPoweruserWorkspace,
+		initMcpServerAndEntries as initPowerUserServerAndEntries
+	} from '$lib/context/poweruserWorkspace.svelte.js';
 
 	let { data } = $props();
+	initPowerUserServerAndEntries();
+
+	let workspaceId = $derived(data.workspaceId);
 	let accessControlRules = $derived(data.accessControlRules);
-	let showCreateRule = $state(false);
+	let showCreateRule = $derived(page.url.searchParams.has('new'));
 	let ruleToDelete = $state<AccessControlRule>();
 
 	let users = $state<OrgUser[]>([]);
@@ -26,6 +33,10 @@
 
 	let validAccessControlRules = $derived(
 		accessControlRules.filter((rule) => (rule.powerUserID ? usersMap.has(rule.powerUserID) : true))
+	);
+
+	let canCreateRegistry = $derived(
+		profile.current.isAdmin?.() || profile.current.groups.includes(Group.POWERUSER)
 	);
 
 	function convertToTableData(rule: AccessControlRule, registry: 'user' | 'global' = 'global') {
@@ -72,38 +83,14 @@
 			.map((d) => convertToTableData(d, 'user'))
 	);
 
-	let isReadonly = $derived(profile.current.isAdminReadonly?.());
-
-	onMount(() => {
-		const url = new URL(window.location.href);
-		const queryParams = new URLSearchParams(url.search);
-		if (queryParams.get('new')) {
-			showCreateRule = true;
-		}
-	});
-
-	afterNavigate(({ from }) => {
-		const comingFromRegistryPage = from?.url?.pathname.startsWith('/admin/mcp-registries/');
-		if (comingFromRegistryPage) {
-			showCreateRule = false;
-			if (page.url.searchParams.has('new')) {
-				const cleanUrl = new URL(page.url);
-				cleanUrl.searchParams.delete('new');
-				replaceState(cleanUrl, {});
-			}
-			return;
-		} else {
-			if (page.url.searchParams.has('new')) {
-				showCreateRule = true;
-			} else {
-				showCreateRule = false;
-			}
-		}
-	});
-
 	async function navigateToCreated(rule: AccessControlRule) {
-		showCreateRule = false;
-		goto(`/admin/mcp-registries/${rule.id}`, { replaceState: false });
+		setUrlParam(page.url, 'new', null);
+		replaceState(page.url, {});
+		if (workspaceId) {
+			goto(`/admin/mcp-registries/w/${workspaceId}/r/${rule.id}`);
+		} else {
+			goto(`/admin/mcp-registries/${rule.id}`);
+		}
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -145,7 +132,7 @@
 						<h4 class="text-on-surface1 text-lg font-semibold">No created MCP registries</h4>
 						<p class="text-on-surface1 text-sm font-light">
 							Looks like you don't have any registries created yet. <br />
-							{#if !isReadonly}
+							{#if canCreateRegistry}
 								Click the button below to get started.
 							{/if}
 						</p>
@@ -203,7 +190,7 @@
 		sortable={['displayName', 'serversCount', 'owner']}
 	>
 		{#snippet actions(d)}
-			{#if !isReadonly}
+			{#if canCreateRegistry && (d.powerUserWorkspaceID === workspaceId || profile.current.isAdmin?.())}
 				<button
 					class="icon-button hover:text-red-500"
 					onclick={(e) => {
@@ -227,7 +214,7 @@
 {/snippet}
 
 {#snippet addRuleButton()}
-	{#if !profile.current.isAdminReadonly?.()}
+	{#if canCreateRegistry}
 		<button
 			class="button-primary flex items-center gap-1 text-sm"
 			onclick={() => {
@@ -245,10 +232,20 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<AccessControlRuleForm
-			onCreate={navigateToCreated}
-			mcpEntriesContextFn={() => mcpServersAndEntries.current}
-		/>
+		{#if profile.current.isAdmin?.()}
+			<AccessControlRuleForm
+				onCreate={navigateToCreated}
+				mcpEntriesContextFn={() => mcpServersAndEntries.current}
+			/>
+		{:else}
+			<AccessControlRuleForm
+				onCreate={navigateToCreated}
+				entity="workspace"
+				id={workspaceId}
+				mcpEntriesContextFn={getPoweruserWorkspace}
+				all={MCP_PUBLISHER_ALL_OPTION}
+			/>
+		{/if}
 	</div>
 {/snippet}
 

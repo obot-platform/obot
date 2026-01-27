@@ -13,7 +13,7 @@
 	import { Plus, Server } from 'lucide-svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { goto, replaceState } from '$lib/url';
-	import { beforeNavigate, afterNavigate } from '$app/navigation';
+	import { beforeNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import Search from '$lib/components/Search.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
@@ -45,32 +45,6 @@
 	let workspaceId = $derived(data.workspace?.id);
 	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 
-	afterNavigate(({ from }) => {
-		if (browser) {
-			// If coming back from a detail page, don't show form - user just created a server
-			const comingFromDetailPage =
-				from?.url?.pathname.startsWith('/mcp-servers/c/') ||
-				from?.url?.pathname.startsWith('/mcp-servers/s/');
-
-			if (comingFromDetailPage) {
-				showServerForm = false;
-				if (page.url.searchParams.has('new')) {
-					const cleanUrl = new URL(page.url);
-					cleanUrl.searchParams.delete('new');
-					replaceState(cleanUrl, {});
-				}
-				return;
-			}
-
-			const createNewType = page.url.searchParams.get('new') as 'single' | 'multi' | 'remote';
-			if (createNewType) {
-				selectServerType(createNewType, false);
-			} else {
-				showServerForm = false;
-			}
-		}
-	});
-
 	beforeNavigate(({ to }) => {
 		if (browser && !to?.url.pathname.startsWith('/mcp-servers')) {
 			clearQueryFromLocalStorage();
@@ -78,10 +52,10 @@
 	});
 
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-	let selectedServerType = $state<LaunchServerType>();
+	let selectedServerType = $derived(page.url.searchParams.get('new') as LaunchServerType);
+	let showServerForm = $derived(page.url.searchParams.has('new'));
 
 	let users = $state<OrgUser[]>([]);
-	let showServerForm = $state(false);
 	let deletingEntry = $state<MCPCatalogEntry>();
 	let deletingServer = $state<MCPCatalogServer>();
 
@@ -94,13 +68,9 @@
 		users = await AdminService.listUsers();
 	});
 
-	function selectServerType(type: LaunchServerType, updateUrl = true) {
-		selectedServerType = type;
+	function selectServerType(type: LaunchServerType) {
 		selectServerTypeDialog?.close();
-		showServerForm = true;
-		if (updateUrl) {
-			goto(`/mcp-servers?new=${type}`, { replaceState: false });
-		}
+		goto(`/mcp-servers?new=${type}`);
 	}
 
 	function handleFilter(property: string, values: string[]) {
@@ -233,6 +203,8 @@
 				showServerForm = false;
 			}}
 			onSubmit={async (id, type) => {
+				setUrlParam(page.url, 'new', null);
+				replaceState(page.url, {});
 				if (type === 'single' || type === 'remote') {
 					goto(`/mcp-servers/c/${id}?launch=true`);
 				} else {
