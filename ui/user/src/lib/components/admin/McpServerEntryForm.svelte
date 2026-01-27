@@ -35,6 +35,7 @@
 	import { onMount } from 'svelte';
 	import UsageGraphs from './usage/UsageGraphs.svelte';
 	import McpServerInstances from './McpServerInstances.svelte';
+	import McpServerK8sInfo from './McpServerK8sInfo.svelte';
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import { page } from '$app/state';
@@ -166,6 +167,7 @@
 							? [{ label: 'Server Details', view: 'server-instances' }]
 							: []),
 						{ label: 'Tools', view: 'tools' },
+						...(belongsToUser ? [{ label: 'Logs', view: 'logs' }] : []),
 						...(belongsToUser ? [{ label: 'Audit Logs', view: 'audit-logs' }] : [])
 					];
 		return limitViews
@@ -699,6 +701,19 @@
 				entry={entry && 'isCatalogEntry' in entry && server ? server : entry}
 				{users}
 				{type}
+			/>
+		{:else if selected === 'logs' && server}
+			<McpServerK8sInfo
+				{id}
+				{entity}
+				mcpServerId={server.id}
+				name={server.manifest.name || 'Unknown'}
+				connectedUsers={users.filter((u) =>
+					server.status.instances?.some((inst) => inst.userID === u.id)
+				)}
+				catalogEntry={entry && 'isCatalogEntry' in entry ? entry : undefined}
+				mcpServer={server}
+				{readonly}
 			/>
 		{:else if selected === 'filters'}
 			{@render filtersView()}
