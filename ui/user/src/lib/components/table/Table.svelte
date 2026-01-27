@@ -14,6 +14,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 	import TableColumnFilter from './TableColumnFilter.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 
 	export type InitSort = { property: string; order: 'asc' | 'desc' };
 	export type InitSortFn = (property: string, order: 'asc' | 'desc') => void;
@@ -447,6 +448,9 @@
 			clearTimeout(resizeTimeout);
 			resizeTimeout = setTimeout(() => {
 				measureColumnWidths();
+				if (wrapperRef) {
+					stickyTop = calculateStickyTop(wrapperRef);
+				}
 			}, 100);
 		};
 
@@ -477,7 +481,11 @@
 	// Calculate sticky offset based on sticky elements above the table
 	onMount(() => {
 		if (!wrapperRef) return;
-		stickyTop = calculateStickyTop(wrapperRef);
+		setTimeout(() => {
+			if (wrapperRef) {
+				stickyTop = calculateStickyTop(wrapperRef);
+			}
+		}, PAGE_TRANSITION_DURATION + 50);
 	});
 
 	function findScrollContainer(element: HTMLElement): HTMLElement | null {
