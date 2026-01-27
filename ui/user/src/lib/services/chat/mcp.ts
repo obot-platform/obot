@@ -143,6 +143,7 @@ function convertEntriesToTableData(
 		.filter((entry) => !entry.deleted)
 		.map((entry) => {
 			const registry = getUserRegistry(entry, usersMap);
+			const connected = userConfiguredServersMap?.has(entry.id);
 			return {
 				id: entry.id,
 				name: entry.manifest?.name ?? '',
@@ -159,7 +160,12 @@ function convertEntriesToTableData(
 				created: entry.created,
 				registry,
 				needsUpdate: entry.needsUpdate,
-				connected: userConfiguredServersMap?.has(entry.id)
+				connected,
+				status: connected
+					? 'Connected'
+					: entry.manifest?.remoteConfig?.staticOAuthRequired && !entry.oauthCredentialConfigured
+						? 'Requires OAuth Config'
+						: ''
 			};
 		});
 }
@@ -181,6 +187,7 @@ function convertServersToTableData(
 		.filter((server) => !server.catalogEntryID && !server.deleted)
 		.map((server) => {
 			const registry = getUserRegistry(server, usersMap);
+			const connected = instancesMap?.has(server.id);
 			return {
 				id: server.id,
 				name: server.manifest.name ?? '',
@@ -192,7 +199,8 @@ function convertServersToTableData(
 				editable: true,
 				created: server.created,
 				registry,
-				connected: instancesMap?.has(server.id)
+				connected,
+				status: connected ? 'Connected' : ''
 			};
 		});
 }

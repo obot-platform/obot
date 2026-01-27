@@ -8,7 +8,9 @@ import type {
 	MCPCatalogEntry,
 	MCPCatalogEntryServerManifest,
 	MCPCatalogServerManifest,
-	ServerK8sSettings
+	ServerK8sSettings,
+	MCPServerOAuthCredentialRequest,
+	MCPServerOAuthCredentialStatus
 } from '../admin/types';
 import { baseURL, doDelete, doGet, doPost, doPut, type Fetcher } from '../http';
 import {
@@ -2162,4 +2164,41 @@ export async function redeployWorkspaceCatalogEntryServerWithK8sSettings(
 		opts
 	);
 	return response;
+}
+
+// GET /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials
+export async function getWorkspaceMCPCatalogEntryOAuthCredentials(
+	workspaceID: string,
+	entryID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerOAuthCredentialStatus> {
+	const response = (await doGet(`/workspaces/${workspaceID}/entries/${entryID}/oauth-credentials`, {
+		...opts,
+		dontLogErrors: true
+	})) as MCPServerOAuthCredentialStatus;
+	return response;
+}
+
+// POST /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials
+export async function setWorkspaceMCPCatalogEntryOAuthCredentials(
+	workspaceID: string,
+	entryID: string,
+	credentials: MCPServerOAuthCredentialRequest,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerOAuthCredentialStatus> {
+	const response = (await doPost(
+		`/workspaces/${workspaceID}/entries/${entryID}/oauth-credentials`,
+		credentials,
+		opts
+	)) as MCPServerOAuthCredentialStatus;
+	return response;
+}
+
+// DELETE /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials
+export async function deleteWorkspaceMCPCatalogEntryOAuthCredentials(
+	workspaceID: string,
+	entryID: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/workspaces/${workspaceID}/entries/${entryID}/oauth-credentials`, opts);
 }

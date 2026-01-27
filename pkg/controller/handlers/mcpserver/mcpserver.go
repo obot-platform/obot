@@ -609,3 +609,51 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 
 	return nil
 }
+
+// SyncOAuthCredentialStatus syncs the OAuthCredentialConfigured status from the catalog entry.
+// This replaces the push-based propagation logic with a pull-based approach where each MCP server
+// is responsible for syncing its own status from its parent catalog entry.
+func (h *Handler) SyncOAuthCredentialStatus(req router.Request, _ router.Response) error {
+	server := req.Object.(*v1.MCPServer)
+
+	// Only relevant for servers created from catalog entries
+	if server.Spec.MCPServerCatalogEntryName == "" {
+		return clearOAuthStatusIfSet(req, server)
+	}
+
+	// Look up the catalog entry
+	var catalogEntry v1.MCPServerCatalogEntry
+	if err := req.Get(&catalogEntry, server.Namespace, server.Spec.MCPServerCatalogEntryName); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Catalog entry deleted, this server itself will soon be cleaned up
+			return nil
+		}
+		return fmt.Errorf("failed to get catalog entry: %w", err)
+	}
+
+	// Check if catalog entry requires static OAuth
+	requiresStaticOAuth := catalogEntry.Spec.Manifest.Runtime == types.RuntimeRemote &&
+		catalogEntry.Spec.Manifest.RemoteConfig != nil &&
+		catalogEntry.Spec.Manifest.RemoteConfig.StaticOAuthRequired
+
+	if !requiresStaticOAuth {
+		return clearOAuthStatusIfSet(req, server)
+	}
+
+	// Sync status from catalog entry
+	if server.Status.OAuthCredentialConfigured != catalogEntry.Status.OAuthCredentialConfigured {
+		server.Status.OAuthCredentialConfigured = catalogEntry.Status.OAuthCredentialConfigured
+		return req.Client.Status().Update(req.Ctx, server)
+	}
+
+	return nil
+}
+
+// clearOAuthStatusIfSet clears the OAuthCredentialConfigured status if it is currently set.
+func clearOAuthStatusIfSet(req router.Request, server *v1.MCPServer) error {
+	if server.Status.OAuthCredentialConfigured {
+		server.Status.OAuthCredentialConfigured = false
+		return req.Client.Status().Update(req.Ctx, server)
+	}
+	return nil
+}

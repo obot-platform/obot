@@ -38,6 +38,7 @@
 		SatelliteDish,
 		Server,
 		ServerCog,
+		Settings,
 		StepForward,
 		Trash2,
 		TriangleAlert,
@@ -51,6 +52,8 @@
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
+	import type { MCPServerOAuthCredentialStatus } from '$lib/services/admin/types';
 
 	type Item = ReturnType<typeof convertEntriesAndServersToTableData>[number];
 	type ServerSelectMode = 'connect' | 'rename' | 'edit' | 'disconnect' | 'chat' | 'server-details';
@@ -105,6 +108,10 @@
 	let selectedEntry = $state<MCPCatalogEntry>();
 	let selectServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selectServerMode = $state<ServerSelectMode>('connect');
+
+	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
+	let oauthConfigEntry = $state<MCPCatalogEntry>();
+	let oauthStatus = $state<MCPServerOAuthCredentialStatus>();
 
 	let instancesMap = $derived(
 		new Map(
@@ -186,6 +193,59 @@
 		selectServerDialog?.open();
 		selectServerMode = mode;
 	}
+
+	async function handleConfigureOAuth(entry: MCPCatalogEntry) {
+		oauthConfigEntry = entry;
+		try {
+			const catalogId = entry.powerUserWorkspaceID ? undefined : 'default';
+			oauthStatus = entry.powerUserWorkspaceID
+				? await ChatService.getWorkspaceMCPCatalogEntryOAuthCredentials(
+						entry.powerUserWorkspaceID,
+						entry.id
+					)
+				: await AdminService.getMCPCatalogEntryOAuthCredentials(catalogId!, entry.id);
+		} catch {
+			oauthStatus = { configured: false };
+		}
+		oauthConfigModal?.open();
+	}
+
+	async function handleSaveOAuth(credentials: {
+		clientID: string;
+		clientSecret: string;
+		authorizationServerURL?: string;
+	}) {
+		if (!oauthConfigEntry) return;
+		if (oauthConfigEntry.powerUserWorkspaceID) {
+			await ChatService.setWorkspaceMCPCatalogEntryOAuthCredentials(
+				oauthConfigEntry.powerUserWorkspaceID,
+				oauthConfigEntry.id,
+				credentials
+			);
+		} else {
+			await AdminService.setMCPCatalogEntryOAuthCredentials(
+				'default',
+				oauthConfigEntry.id,
+				credentials
+			);
+		}
+		// Refresh the table to update status
+		mcpServersAndEntries.refreshAll();
+	}
+
+	async function handleDeleteOAuth() {
+		if (!oauthConfigEntry) return;
+		if (oauthConfigEntry.powerUserWorkspaceID) {
+			await ChatService.deleteWorkspaceMCPCatalogEntryOAuthCredentials(
+				oauthConfigEntry.powerUserWorkspaceID,
+				oauthConfigEntry.id
+			);
+		} else {
+			await AdminService.deleteMCPCatalogEntryOAuthCredentials('default', oauthConfigEntry.id);
+		}
+		// Refresh the table to update status
+		mcpServersAndEntries.refreshAll();
+	}
 </script>
 
 <div class="flex flex-col gap-2">
@@ -211,10 +271,9 @@
 		<Table
 			data={filteredTableData}
 			fields={profile.current.hasAdminAccess?.()
-				? ['name', 'connected', 'type', 'users', 'created', 'registry']
-				: ['name', 'connected', 'created', 'registry']}
-			headers={[{ title: 'Status', property: 'connected' }]}
-			filterable={['name', 'type', 'registry']}
+				? ['name', 'status', 'type', 'users', 'created', 'registry']
+				: ['name', 'status', 'created', 'registry']}
+			filterable={['name', 'type', 'registry', 'status']}
 			{filters}
 			onClickRow={(d, isCtrlClick) => {
 				let url = '';
@@ -258,7 +317,7 @@
 			{onFilter}
 			{onClearAllFilters}
 			{onSort}
-			sortable={['name', 'connected', 'type', 'users', 'created', 'registry']}
+			sortable={['name', 'status', 'type', 'users', 'created', 'registry']}
 			noDataMessage="No catalog servers added."
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none',
@@ -275,8 +334,11 @@
 			}}
 		>
 			{#snippet onRenderColumn(property, d)}
-				{@const matchingServers =
-					'isCatalogEntry' in d.data ? getConfiguredServersForCatalogEntry(d.data) : []}
+				{@const isCatalogEntry = 'isCatalogEntry' in d.data}
+				{@const catalogEntry = isCatalogEntry ? (d.data as MCPCatalogEntry) : undefined}
+				{@const matchingServers = catalogEntry
+					? getConfiguredServersForCatalogEntry(catalogEntry)
+					: []}
 				{#if property === 'name'}
 					<div class="flex flex-shrink-0 items-center gap-2">
 						<div class="icon">
@@ -288,7 +350,7 @@
 						</div>
 						<p class="flex items-center gap-2">
 							{d.name}
-							{#if 'isCatalogEntry' in d.data && d.data.needsUpdate}
+							{#if catalogEntry?.needsUpdate}
 								<span
 									use:tooltip={{
 										classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
@@ -309,9 +371,15 @@
 							{/if}
 						</p>
 					</div>
-				{:else if property === 'connected'}
-					{#if d.connected}
-						<div class="pill-primary bg-primary">Connected</div>
+				{:else if property === 'status'}
+					{#if d.status}
+						<div
+							class={d.status === 'Requires OAuth Config'
+								? 'pill-warning'
+								: 'pill-primary bg-primary'}
+						>
+							{d.status}
+						</div>
 					{/if}
 				{:else if property === 'type'}
 					{getServerTypeLabelByType(d.type)}
@@ -322,18 +390,25 @@
 				{/if}
 			{/snippet}
 			{#snippet actions(d)}
+				{@const isCatalogEntry = 'isCatalogEntry' in d.data}
+				{@const catalogEntry = isCatalogEntry ? (d.data as MCPCatalogEntry) : undefined}
 				{@const auditLogUrl = getAuditLogsUrl(d)}
 				{@const belongsToUser =
 					(entity === 'workspace' && id && d.data.powerUserWorkspaceID === id) ||
 					('catalogEntryID' in d.data && d.data.userID === profile.current.id)}
 				{@const canDelete =
 					d.editable && !readonly && (belongsToUser || profile.current?.hasAdminAccess?.())}
-				{@const matchingServers =
-					'isCatalogEntry' in d.data ? getConfiguredServersForCatalogEntry(d.data) : []}
+				{@const matchingServers = catalogEntry
+					? getConfiguredServersForCatalogEntry(catalogEntry)
+					: []}
 				{@const matchingInstance =
 					d.connected && d.type === 'multi' ? instancesMap.get(d.data.id) : undefined}
-				{@const hasConnectedOptions =
-					'isCatalogEntry' in d.data ? matchingServers.length > 0 : !!matchingInstance}
+				{@const hasConnectedOptions = isCatalogEntry
+					? matchingServers.length > 0
+					: !!matchingInstance}
+				{@const requiresOAuth =
+					catalogEntry?.manifest?.runtime === 'remote' &&
+					catalogEntry.manifest?.remoteConfig?.staticOAuthRequired}
 				<DotDotDot class="icon-button hover:dark:bg-background/50">
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
@@ -348,19 +423,24 @@
 									My Connection(s)
 								</div>
 								<div class="bg-surface1 flex flex-col gap-1 p-2">
-									{@render connectToServerAction(d.data, toggle)}
+									{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
+										{@render connectToServerAction(d.data, toggle)}
+									{/if}
 									<button
 										class="menu-button hover:bg-surface3"
 										onclick={async (e) => {
 											e.stopPropagation();
-											if ('isCatalogEntry' in d.data) {
+											if (catalogEntry) {
 												if (matchingServers.length === 1) {
 													connectToServerDialog?.handleSetupChat(matchingServers[0]);
 												} else {
-													handleShowSelectServerDialog(d.data as MCPCatalogEntry, 'chat');
+													handleShowSelectServerDialog(catalogEntry, 'chat');
 												}
 											} else {
-												connectToServerDialog?.handleSetupChat(d.data, instancesMap.get(d.id));
+												connectToServerDialog?.handleSetupChat(
+													d.data as MCPCatalogServer,
+													instancesMap.get(d.id)
+												);
 											}
 											toggle(false);
 										}}
@@ -368,22 +448,24 @@
 										<MessageCircle class="size-4" /> Chat
 									</button>
 
-									{#if 'isCatalogEntry' in d.data}
-										{@render editCatalogEntryAction(d.data, matchingServers)}
-										{@render renameCatalogEntryAction(d.data, matchingServers)}
+									{#if catalogEntry}
+										{@render editCatalogEntryAction(catalogEntry, matchingServers)}
+										{@render renameCatalogEntryAction(catalogEntry, matchingServers)}
 									{/if}
 
-									{#if matchingServers.length > 0}
+									{#if matchingServers.length > 0 && catalogEntry}
 										<button
 											class="menu-button hover:bg-surface3"
 											onclick={async (e) => {
 												e.stopPropagation();
 												if (matchingServers.length === 1) {
 													goto(
-														resolve(`/mcp-servers/c/${d.data.id}/instance/${matchingServers[0].id}`)
+														resolve(
+															`/mcp-servers/c/${catalogEntry.id}/instance/${matchingServers[0].id}`
+														)
 													);
 												} else {
-													handleShowSelectServerDialog(d.data as MCPCatalogEntry, 'server-details');
+													handleShowSelectServerDialog(catalogEntry, 'server-details');
 												}
 												toggle(false);
 											}}
@@ -392,7 +474,7 @@
 										</button>
 									{/if}
 
-									{#if matchingServers.length > 0 && 'isCatalogEntry' in d.data}
+									{#if matchingServers.length > 0 && catalogEntry}
 										<button
 											class="menu-button hover:bg-surface3"
 											onclick={async (e) => {
@@ -402,7 +484,7 @@
 													await ChatService.deleteSingleOrRemoteMcpServer(matchingServers[0].id);
 													mcpServersAndEntries.refreshUserConfiguredServers();
 												} else {
-													handleShowSelectServerDialog(d.data as MCPCatalogEntry, 'disconnect');
+													handleShowSelectServerDialog(catalogEntry, 'disconnect');
 												}
 
 												toggle(false);
@@ -427,7 +509,21 @@
 							{/if}
 							<div class="flex flex-col gap-1 p-2">
 								{#if !hasConnectedOptions}
-									{@render connectToServerAction(d.data, toggle, true)}
+									{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
+										{@render connectToServerAction(d.data, toggle, true)}
+									{/if}
+								{/if}
+								{#if requiresOAuth && catalogEntry}
+									<button
+										class="menu-button hover:bg-surface3"
+										onclick={async (e) => {
+											e.stopPropagation();
+											await handleConfigureOAuth(catalogEntry);
+											toggle(false);
+										}}
+									>
+										<Settings class="size-4" /> Configure OAuth
+									</button>
 								{/if}
 								{#if auditLogUrl && (belongsToUser || profile.current?.hasAdminAccess?.())}
 									<button
@@ -447,10 +543,10 @@
 										class="menu-button-destructive"
 										onclick={(e) => {
 											e.stopPropagation();
-											if ('isCatalogEntry' in d.data) {
-												deletingEntry = d.data;
+											if (catalogEntry) {
+												deletingEntry = catalogEntry;
 											} else {
-												deletingServer = d.data;
+												deletingServer = d.data as MCPCatalogServer;
 											}
 											toggle(false);
 										}}
@@ -769,4 +865,12 @@
 	onUpdateConfigure={() => {
 		mcpServersAndEntries.refreshUserConfiguredServers();
 	}}
+/>
+
+<StaticOAuthConfigureModal
+	bind:this={oauthConfigModal}
+	defaultAuthorizationServerURL={oauthConfigEntry?.manifest?.remoteConfig?.authorizationServerURL}
+	{oauthStatus}
+	onSave={handleSaveOAuth}
+	onDelete={handleDeleteOAuth}
 />

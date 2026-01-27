@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
+	import {
+		ChatService,
+		AdminService,
+		type MCPCatalogEntry,
+		type MCPCatalogServer
+	} from '$lib/services';
 	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
 	import { twMerge } from 'tailwind-merge';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -19,6 +24,7 @@
 	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
 	import Table from '../table/Table.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
@@ -34,6 +40,7 @@
 		skipConnectDialog?: boolean;
 		onConnect?: ({ server, entry }: { server?: MCPCatalogServer; entry?: MCPCatalogEntry }) => void;
 		promptInitialLaunch?: boolean;
+		promptOAuthConfig?: boolean;
 		connectOnly?: boolean;
 		isProjectMcp?: boolean;
 	}
@@ -45,8 +52,9 @@
 		skipConnectDialog,
 		onConnect,
 		promptInitialLaunch,
-		connectOnly,
-		isProjectMcp
+		isProjectMcp,
+		promptOAuthConfig,
+		connectOnly
 	}: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
@@ -54,6 +62,11 @@
 	let selectServerMode = $state<ServerSelectMode>('connect');
 	let launchDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let launchPromptHandled = $state(false);
+
+	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
+	let oauthConfigPromptHandled = $state(false);
+	let isInitialOAuthConfig = $state(false);
+	let oauthConfiguredOverride = $state<boolean | undefined>(undefined);
 
 	let disconnecting = $state(false);
 
@@ -99,6 +112,17 @@
 		return entryCanConnect && serverCanConnect;
 	});
 
+	let requiresStaticOAuth = $derived(
+		entry?.manifest?.runtime === 'remote' && entry?.manifest?.remoteConfig?.staticOAuthRequired
+	);
+	// Use entry's oauthCredentialConfigured status (from backend controller) by default,
+	// with an override for when we update credentials locally
+	let oauthConfigured = $derived(
+		oauthConfiguredOverride !== undefined
+			? oauthConfiguredOverride
+			: !requiresStaticOAuth || entry?.oauthCredentialConfigured
+	);
+
 	function refresh() {
 		if (entry) {
 			mcpServersAndEntries.refreshUserConfiguredServers();
@@ -123,6 +147,19 @@
 			// clear out the launch param
 			const url = new URL(page.url);
 			url.searchParams.delete('launch');
+			goto(url, { replaceState: true });
+		}
+	});
+
+	$effect(() => {
+		if (promptOAuthConfig && !oauthConfigPromptHandled) {
+			oauthConfigPromptHandled = true;
+			isInitialOAuthConfig = true;
+			oauthConfigModal?.open();
+
+			// clear out the configure-oauth param
+			const url = new URL(page.url);
+			url.searchParams.delete('configure-oauth');
 			goto(url, { replaceState: true });
 		}
 	});
@@ -163,7 +200,7 @@
 				});
 			}
 		}}
-		disabled={loading || !canConnect}
+		disabled={loading || !canConnect || (requiresStaticOAuth && oauthConfigured === false)}
 	>
 		{#if loading}
 			<LoaderCircle class="size-4 animate-spin" />
@@ -557,3 +594,27 @@
 		</div>
 	{/if}
 {/snippet}
+
+<StaticOAuthConfigureModal
+	bind:this={oauthConfigModal}
+	defaultAuthorizationServerURL={entry?.manifest?.remoteConfig?.authorizationServerURL}
+	onSave={async (credentials) => {
+		if (!entry) return;
+		if (entry.powerUserWorkspaceID) {
+			await ChatService.setWorkspaceMCPCatalogEntryOAuthCredentials(
+				entry.powerUserWorkspaceID,
+				entry.id,
+				credentials
+			);
+		} else {
+			await AdminService.setMCPCatalogEntryOAuthCredentials('default', entry.id, credentials);
+		}
+		oauthConfiguredOverride = true;
+
+		// Show the connect dialog if this was part of the initial creation flow
+		if (isInitialOAuthConfig) {
+			isInitialOAuthConfig = false;
+			launchDialog?.open();
+		}
+	}}
+/>

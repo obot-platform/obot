@@ -3,7 +3,7 @@
 		RemoteCatalogConfigAdmin,
 		RemoteRuntimeConfigAdmin
 	} from '$lib/services/admin/types';
-	import { Plus, Trash2, Info } from 'lucide-svelte';
+	import { Plus, Trash2, Info, Settings } from 'lucide-svelte';
 	import Select from '../Select.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -16,8 +16,17 @@
 		readonly?: boolean;
 		showRequired?: Record<string, boolean>;
 		onFieldChange?: (field: string) => void;
+		isNewEntry?: boolean;
+		onConfigureOAuth?: () => void;
 	}
-	let { config = $bindable(), readonly, showRequired, onFieldChange }: Props = $props();
+	let {
+		config = $bindable(),
+		readonly,
+		showRequired,
+		onFieldChange,
+		isNewEntry,
+		onConfigureOAuth
+	}: Props = $props();
 
 	// For catalog entries, we show advanced config if hostname, urlTemplate, or headers exist
 	// For servers, we always show the URL field (no advanced toggle needed)
@@ -25,7 +34,8 @@
 		Boolean(
 			(config as RemoteCatalogConfigAdmin).hostname ||
 				(config as RemoteCatalogConfigAdmin).urlTemplate ||
-				(config.headers && config.headers.length > 0)
+				(config.headers && config.headers.length > 0) ||
+				(config as RemoteCatalogConfigAdmin).staticOAuthRequired
 		)
 	);
 
@@ -361,6 +371,95 @@
 			{/if}
 		</div>
 	</div>
+	<!-- Static OAuth Configuration -->
+	{#if config}
+		{@const remoteConfig = config as RemoteCatalogConfigAdmin}
+		<div
+			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+		>
+			<div class="flex justify-between">
+				<button
+					type="button"
+					class="flex grow cursor-pointer flex-col gap-1 text-left"
+					disabled={readonly}
+					onclick={() => {
+						if (readonly) return;
+						const newValue = !remoteConfig.staticOAuthRequired;
+						remoteConfig.staticOAuthRequired = newValue;
+						if (!newValue) {
+							remoteConfig.authorizationServerURL = undefined;
+						}
+					}}
+				>
+					<div class="flex items-center gap-1">
+						<h4
+							class={twMerge(
+								'text-sm font-semibold',
+								!remoteConfig.staticOAuthRequired && 'opacity-50'
+							)}
+						>
+							Static OAuth
+						</h4>
+					</div>
+					<p class="text-on-surface1 text-xs font-light">
+						Enable this if the remote MCP server requires OAuth authentication with a static client
+						ID and secret.
+					</p>
+				</button>
+				<div class="flex self-start">
+					<Toggle
+						classes={{ label: 'text-sm text-inherit' }}
+						disabled={readonly}
+						label={remoteConfig.staticOAuthRequired
+							? 'Disable Static OAuth'
+							: 'Enable Static OAuth'}
+						checked={!!remoteConfig.staticOAuthRequired}
+						onChange={(checked) => {
+							remoteConfig.staticOAuthRequired = checked;
+							if (!checked) {
+								remoteConfig.authorizationServerURL = undefined;
+							}
+						}}
+					/>
+				</div>
+			</div>
+
+			{#if remoteConfig.staticOAuthRequired}
+				<div in:slide={{ axis: 'y' }} class="flex flex-col gap-4">
+					{#if isNewEntry}
+						<div class="notification-info p-3 text-sm font-light">
+							<div class="flex items-start gap-3">
+								<Info class="mt-0.5 size-5 flex-shrink-0" />
+								<p>You can provide OAuth credentials after saving.</p>
+							</div>
+						</div>
+					{:else if onConfigureOAuth}
+						<button
+							class="button flex w-fit items-center gap-2 text-sm"
+							onclick={onConfigureOAuth}
+							disabled={readonly}
+							type="button"
+						>
+							<Settings class="size-4" />
+							Configure OAuth Credentials
+						</button>
+					{/if}
+					<div class="flex flex-col gap-1">
+						<label for="authServerURL" class="text-sm font-light">
+							Default Authorization Server URL (Optional)
+						</label>
+						<input
+							id="authServerURL"
+							class="text-input-filled dark:bg-background"
+							bind:value={remoteConfig.authorizationServerURL}
+							disabled={readonly}
+							placeholder="https://auth.example.com"
+						/>
+					</div>
+				</div>
+			{/if}
+		</div>
+	{/if}
 {/if}
 
 <button

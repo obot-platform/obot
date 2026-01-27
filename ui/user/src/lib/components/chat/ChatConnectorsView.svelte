@@ -96,9 +96,8 @@
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none'
 			}}
-			fields={['name', 'connected', 'created']}
-			filterable={['name', 'type', 'registry']}
-			headers={[{ title: 'Status', property: 'connected' }]}
+			fields={['name', 'status', 'created']}
+			filterable={['name', 'type', 'registry', 'status']}
 			onClickRow={(d) => {
 				onSelect?.({
 					entry:
@@ -110,7 +109,7 @@
 					server: 'isCatalogEntry' in d.data ? undefined : d.data
 				});
 			}}
-			sortable={['name', 'type', 'users', 'created', 'registry', 'connected']}
+			sortable={['name', 'type', 'users', 'created', 'registry', 'status']}
 			noDataMessage="No catalog servers added."
 			setRowClasses={(d) => ('needsUpdate' in d && d.needsUpdate ? 'bg-primary/10' : '')}
 			disablePortal
@@ -147,9 +146,15 @@
 							{/if}
 						</p>
 					</div>
-				{:else if property === 'connected'}
-					{#if d.connected}
-						<div class="pill-primary bg-primary">Connected</div>
+				{:else if property === 'status'}
+					{#if d.status}
+						<div
+							class={d.status === 'Requires OAuth Config'
+								? 'pill-warning'
+								: 'pill-primary bg-primary'}
+						>
+							{d.status}
+						</div>
 					{/if}
 				{:else if property === 'type'}
 					{getServerTypeLabelByType(d.type)}
@@ -160,8 +165,18 @@
 				{/if}
 			{/snippet}
 			{#snippet actions(d)}
+				{@const requiresOAuthConfig =
+					'isCatalogEntry' in d.data &&
+					d.data.manifest?.runtime === 'remote' &&
+					d.data.manifest?.remoteConfig?.staticOAuthRequired &&
+					!d.data.oauthCredentialConfigured}
 				<button
-					class="icon-button hover:dark:bg-background/50"
+					class="icon-button hover:dark:bg-background/50 disabled:cursor-not-allowed disabled:opacity-50"
+					disabled={requiresOAuthConfig}
+					use:tooltip={{
+						text: requiresOAuthConfig ? 'OAuth configuration required' : '',
+						disablePortal: true
+					}}
 					onclick={(e) => {
 						e.stopPropagation();
 

@@ -1116,6 +1116,15 @@
 		line-height: 1rem;
 	}
 
+	.pill-warning {
+		border-radius: var(--radius-sm);
+		background-color: color-mix(in oklab, var(--color-yellow-500) 10%, transparent);
+		color: var(--color-yellow-500);
+		padding: 0.125rem 0.25rem;
+		font-size: 11px;
+		line-height: 1rem;
+	}
+
 	.icon {
 		display: flex;
 		align-items: center;

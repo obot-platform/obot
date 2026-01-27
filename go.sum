@@ -541,8 +541,8 @@ github.com/muesli/termenv v0.16.0 h1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc
 github.com/muesli/termenv v0.16.0/go.mod h1:ZRfOIKPFDYQoDFF4Olj7/QJbW60Ol/kL1pU3VfY/Cnk=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
-github.com/nanobot-ai/nanobot v0.0.47 h1:S2iNJYzOWuJsne1pl8hsfVlESOvROMMibw759P1T7bQ=
-github.com/nanobot-ai/nanobot v0.0.47/go.mod h1:4e8Nx3KqzSaWm2EYz1vSrRQ6PvpFXltZCQ5X9oFI/t4=
+github.com/nanobot-ai/nanobot v0.0.50 h1:/oSURa4ojZt8Cl9nglC0lix14mIvCokUzxRsSNYaHLA=
+github.com/nanobot-ai/nanobot v0.0.50/go.mod h1:NpPH1BU9s7//eQv5SJEKDohthMk2cFuN87fBY+oPKes=
 github.com/ncruces/go-strftime v0.1.9 h1:bY0MQC28UADQmHmaF5dgpLmImcShSi2kHU9XLdhx/f4=
 github.com/ncruces/go-strftime v0.1.9/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
 github.com/nightlyone/lockfile v1.0.0 h1:RHep2cFKK4PonZJDdEl4GmkabuhbsRMgk/k3uAmxBiA=
@@ -557,8 +557,8 @@ github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 h1:bQx3WeLcUWy+RletI
 github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90/go.mod h1:y5+oSEHCPT/DGrS++Wc/479ERge0zTFxaF8PbGKcg2o=
 github.com/obot-platform/kinm v0.0.0-20250905213846-3c65d6845f83 h1:f38gPMZxtqsvmusPBUgU8ZNmGsEU/lw4qpCruiStmu8=
 github.com/obot-platform/kinm v0.0.0-20250905213846-3c65d6845f83/go.mod h1:uIt/q4bSrRWxjnX9wGn9i+LfBvN04g0b/c4h5imPCOI=
-github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20251219153209-05acb93b2b5c h1:kSoTjmtlQU9+Gfsuh11hzG4F6L04+Ixs7YwNT0xG6Mk=
-github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20251219153209-05acb93b2b5c/go.mod h1:8I+MeGRPsv42hk7/MCSqWHvz4p7xvIR0CIh1GG3vtXM=
+github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260106135339-3745d9b14a30 h1:PbvvLXjoUHQGpQ4ZzV9Aj8n8y0evpZljPlpDu96lFC4=
+github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260106135339-3745d9b14a30/go.mod h1:8I+MeGRPsv42hk7/MCSqWHvz4p7xvIR0CIh1GG3vtXM=
 github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317 h1:yUEiybfv/VpPf4Ct73cIBIDi++V0x5vzFH79pAXWgL0=
 github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317/go.mod h1:AUP8EhWbz+tBQn1QMYcBY8EPFN8LFNZvKhOxpt4hafA=
 github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77 h1:3bMMZ1f+GPXFQ1uNaYbO/uECWvSfqEA+ZEXn1rFAT88=

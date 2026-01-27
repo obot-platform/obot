@@ -79,6 +79,9 @@ type MCPServerCatalogEntryStatus struct {
 	ManifestHash string `json:"manifestHash,omitempty"`
 	// NeedsUpdate indicates whether this composite catalog entry's component snapshots have drifted from their sources.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
+	// OAuthCredentialConfigured indicates whether OAuth credentials have been configured for this remote catalog entry.
+	// Only relevant when Runtime is "remote" and RemoteConfig.StaticOAuthRequired is true.
+	OAuthCredentialConfigured bool `json:"oauthCredentialConfigured,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

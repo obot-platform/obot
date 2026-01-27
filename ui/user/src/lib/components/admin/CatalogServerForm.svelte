@@ -32,6 +32,7 @@
 		onSubmit?: (id: string, type: LaunchServerType, message?: string) => void;
 		hideTitle?: boolean;
 		readonlyMessage?: Snippet;
+		onConfigureOAuth?: () => void;
 	}
 
 	function getType(entry?: MCPCatalogEntry | MCPCatalogServer) {
@@ -57,7 +58,8 @@
 		type: newType = 'single',
 		onCancel,
 		onSubmit,
-		readonlyMessage
+		readonlyMessage,
+		onConfigureOAuth
 	}: Props = $props();
 	let type = $derived(getType(entry) ?? newType);
 
@@ -392,7 +394,10 @@
 						fixedURL: baseData.remoteConfig.fixedURL?.trim() || undefined,
 						hostname: baseData.remoteConfig.hostname?.trim() || undefined,
 						urlTemplate: baseData.remoteConfig.urlTemplate?.trim() || undefined,
-						headers: baseData.remoteConfig.headers || []
+						headers: baseData.remoteConfig.headers || [],
+						staticOAuthRequired: baseData.remoteConfig.staticOAuthRequired,
+						authorizationServerURL:
+							baseData.remoteConfig.authorizationServerURL?.trim() || undefined
 					};
 				}
 				break;
@@ -563,6 +568,14 @@
 			};
 			const entryResponse = await handleFns[type]?.(id);
 			savedEntry = entryResponse;
+
+			// Check if OAuth config is needed - redirect to detail page first, then show modal there
+			if (!entry && type === 'remote' && formData.remoteConfig?.staticOAuthRequired) {
+				loading = false;
+				onSubmit?.(entryResponse.id, type, 'requires-oauth-config');
+				return;
+			}
+
 			if (isAtLeastPowerUserPlus) {
 				const existingRules =
 					entity === 'workspace'
@@ -688,6 +701,8 @@
 		{readonly}
 		{showRequired}
 		onFieldChange={updateRequired}
+		isNewEntry={!entry}
+		{onConfigureOAuth}
 	/>
 {:else if formData.runtime === 'composite' && formData.compositeConfig}
 	<CompositeRuntimeForm

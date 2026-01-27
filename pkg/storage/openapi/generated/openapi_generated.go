@@ -107,6 +107,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPServerList":                                  schema_obot_platform_obot_apiclient_types_MCPServerList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerManifest":                              schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerNeedingK8sUpdate":                      schema_obot_platform_obot_apiclient_types_MCPServerNeedingK8sUpdate(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerOAuthCredentialRequest":                schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerOAuthCredentialStatus":                 schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerTool":                                  schema_obot_platform_obot_apiclient_types_MCPServerTool(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServersNeedingK8sUpdateList":                 schema_obot_platform_obot_apiclient_types_MCPServersNeedingK8sUpdateList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStats":                               schema_obot_platform_obot_apiclient_types_MCPToolCallStats(ref),
@@ -4439,6 +4441,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							},
 						},
 					},
+					"missingOAuthCredentials": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"catalogEntryID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -4637,6 +4645,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 						},
 					},
 					"needsUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"oauthCredentialConfigured": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
@@ -5248,6 +5262,76 @@ func schema_obot_platform_obot_apiclient_types_MCPServerNeedingK8sUpdate(ref com
 					},
 				},
 				Required: []string{"mcpServerId"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServerOAuthCredentialRequest represents a request to set OAuth credentials for an MCP server",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"clientID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"clientSecret": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"authorizationServerURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"clientID", "clientSecret"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServerOAuthCredentialStatus represents the status of OAuth credentials for an MCP server",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"configured": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configured is true if OAuth credentials have been set",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"clientID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClientID is the configured client ID (never includes secret)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"authorizationServerURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthorizationServerURL is the authorization server URL from the server config",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"configured"},
 			},
 		},
 	}
@@ -8801,6 +8885,20 @@ func schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref common.Re
 							},
 						},
 					},
+					"authorizationServerURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"staticOAuthRequired": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Default OAuth authorization server URL",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -8857,6 +8955,20 @@ func schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref common.Re
 									},
 								},
 							},
+						},
+					},
+					"authorizationServerURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"staticOAuthRequired": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OAuth authorization server URL (indicates static OAuth required)",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},
@@ -14718,6 +14830,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryStatus(ref common.Re
 							Format:      "",
 						},
 					},
+					"oauthCredentialConfigured": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OAuthCredentialConfigured indicates whether OAuth credentials have been configured for this remote catalog entry. Only relevant when Runtime is \"remote\" and RemoteConfig.StaticOAuthRequired is true.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -15130,6 +15249,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 						SchemaProps: spec.SchemaProps{
 							Description: "ObservedCompositeManifestHash is the hash of the server's manifest the last time all component servers were updated to match the composite server. This field is only populated for composite MCP servers.",
 							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"oauthCredentialConfigured": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OAuthCredentialConfigured indicates whether OAuth credentials have been configured for this server's catalog entry. Only relevant for remote servers that require static OAuth.",
+							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},

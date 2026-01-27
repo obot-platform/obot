@@ -243,6 +243,9 @@ var apiResources = map[string][]string{
 		"GET    /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/logs",
 		"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/restart",
 		"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/trigger-update",
+		"GET    /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials",
+		"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials",
+		"DELETE /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials",
 	},
 	types.GroupPowerUserPlus: {
 		"GET    /api/workspaces/{workspace_id}/servers",
