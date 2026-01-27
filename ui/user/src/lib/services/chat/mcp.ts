@@ -142,6 +142,7 @@ function convertEntriesToTableData(
 		.filter((entry) => !entry.deleted)
 		.map((entry) => {
 			const registry = getUserRegistry(entry, usersMap);
+			const connected = userConfiguredServersMap?.has(entry.id);
 			return {
 				id: entry.id,
 				name: entry.manifest?.name ?? '',
@@ -158,7 +159,8 @@ function convertEntriesToTableData(
 				created: entry.created,
 				registry,
 				needsUpdate: entry.needsUpdate,
-				connected: userConfiguredServersMap?.has(entry.id)
+				connected,
+				status: connected ? 'Connected' : entry.manifest?.remoteConfig?.staticOAuthRequired && !entry.oauthCredentialConfigured ? 'Requires OAuth Config' : '',
 			};
 		});
 }
@@ -180,6 +182,7 @@ function convertServersToTableData(
 		.filter((server) => !server.catalogEntryID && !server.deleted)
 		.map((server) => {
 			const registry = getUserRegistry(server, usersMap);
+			const connected = instancesMap?.has(server.id);
 			return {
 				id: server.id,
 				name: server.manifest.name ?? '',
@@ -191,7 +194,8 @@ function convertServersToTableData(
 				editable: true,
 				created: server.created,
 				registry,
-				connected: instancesMap?.has(server.id)
+				connected,
+				status: connected ? 'Connected' : '',
 			};
 		});
 }
@@ -330,17 +334,17 @@ export async function convertCompositeInfoToLaunchFormData(
 			envs: isMultiUser
 				? []
 				: (m.env ?? []).map((e) => ({
-						...(e as unknown as Record<string, unknown>),
-						key: e.key,
-						value: init?.config?.[e.key] ?? ''
-					})),
+					...(e as unknown as Record<string, unknown>),
+					key: e.key,
+					value: init?.config?.[e.key] ?? ''
+				})),
 			headers: isMultiUser
 				? []
 				: (m.remoteConfig?.headers ?? []).map((h) => ({
-						...(h as unknown as Record<string, unknown>),
-						key: h.key,
-						value: init?.config?.[h.key] ?? ''
-					}))
+					...(h as unknown as Record<string, unknown>),
+					key: h.key,
+					value: init?.config?.[h.key] ?? ''
+				}))
 		};
 	}
 	return { componentConfigs } as CompositeLaunchFormData;

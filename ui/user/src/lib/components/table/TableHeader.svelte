@@ -127,7 +127,7 @@
 				classes={{
 					root: 'flex grow'
 				}}
-				options={filterOptions?.map((option) => ({
+				options={filterOptions?.filter(Boolean).map((option) => ({
 					label: option.toString(),
 					id: option.toString()
 				})) ?? []}

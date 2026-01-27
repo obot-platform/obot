@@ -22,7 +22,7 @@
 		hasEditableConfiguration,
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { darkMode, mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
@@ -271,10 +271,9 @@
 		<Table
 			data={filteredTableData}
 			fields={profile.current.hasAdminAccess?.()
-				? ['name', 'connected', 'type', 'users', 'created', 'registry']
-				: ['name', 'connected', 'created', 'registry']}
-			headers={[{ title: 'Status', property: 'connected' }]}
-			filterable={['name', 'type', 'registry']}
+				? ['name', 'status', 'type', 'users', 'created', 'registry']
+				: ['name', 'status', 'created', 'registry']}
+			filterable={['name', 'type', 'registry', 'status']}
 			{filters}
 			onClickRow={(d, isCtrlClick) => {
 				let url = '';
@@ -318,7 +317,7 @@
 			{onFilter}
 			{onClearAllFilters}
 			{onSort}
-			sortable={['name', 'connected', 'type', 'users', 'created', 'registry']}
+			sortable={['name', 'status', 'type', 'users', 'created', 'registry']}
 			noDataMessage="No catalog servers added."
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none',
@@ -372,12 +371,14 @@
 							{/if}
 						</p>
 					</div>
-				{:else if property === 'connected'}
-					{#if d.connected}
-						<div class="pill-primary bg-primary">Connected</div>
-					{:else if catalogEntry?.manifest?.runtime === 'remote' && catalogEntry.manifest?.remoteConfig?.staticOAuthRequired && !catalogEntry.oauthCredentialConfigured}
-						<div class="bg-yellow-500/20 text-yellow-500 dark:text-yellow-400">
-							Requires OAuth Config
+				{:else if property === 'status'}
+					{#if d.status}
+						<div
+							class={d.status === 'Requires OAuth Config'
+								? 'pill-warning'
+								: 'pill-primary bg-primary'}
+						>
+							{d.status}
 						</div>
 					{/if}
 				{:else if property === 'type'}

@@ -4,7 +4,6 @@
 		type RuntimeFormData,
 		type MCPCatalogEntryServerManifest,
 		type MCPCatalogServerManifest,
-		type MCPServerOAuthCredentialStatus,
 		Group
 	} from '$lib/services/admin/types';
 	import type { LaunchServerType, Runtime } from '$lib/services/chat/types';
@@ -15,7 +14,6 @@
 	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
-	import StaticOAuthConfigureModal from '../mcp/StaticOAuthConfigureModal.svelte';
 	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import MarkdownInput from '../MarkdownInput.svelte';
@@ -34,6 +32,7 @@
 		onSubmit?: (id: string, type: LaunchServerType, message?: string) => void;
 		hideTitle?: boolean;
 		readonlyMessage?: Snippet;
+		onConfigureOAuth?: () => void;
 	}
 
 	function getType(entry?: MCPCatalogEntry | MCPCatalogServer) {
@@ -59,33 +58,19 @@
 		type: newType = 'single',
 		onCancel,
 		onSubmit,
-		readonlyMessage
+		readonlyMessage,
+		onConfigureOAuth
 	}: Props = $props();
 	let type = $derived(getType(entry) ?? newType);
 
 	let savedEntry = $state<MCPCatalogEntry | MCPCatalogServer>();
 	let selectRulesDialog = $state<ReturnType<typeof SelectMcpAccessControlRules>>();
-	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
-	let oauthStatus = $state<MCPServerOAuthCredentialStatus>();
 	let showRequired = $state<Record<string, boolean>>({});
 	let loading = $state(false);
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
 
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
-
-	async function handleConfigureOAuth() {
-		if (!entry || !id) return;
-		try {
-			oauthStatus =
-				entity === 'workspace'
-					? await ChatService.getWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id)
-					: await AdminService.getMCPCatalogEntryOAuthCredentials(id, entry.id);
-		} catch {
-			oauthStatus = { configured: false };
-		}
-		oauthConfigModal?.open();
-	}
 
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): RuntimeFormData {
 		if (!item) {
@@ -717,7 +702,7 @@
 		{showRequired}
 		onFieldChange={updateRequired}
 		isNewEntry={!entry}
-		onConfigureOAuth={handleConfigureOAuth}
+		{onConfigureOAuth}
 	/>
 {:else if formData.runtime === 'composite' && formData.compositeConfig}
 	<CompositeRuntimeForm
@@ -953,27 +938,3 @@
 	{entity}
 	{id}
 />
-
-{#if entry && type === 'remote' && formData.remoteConfig?.staticOAuthRequired}
-	<StaticOAuthConfigureModal
-		bind:this={oauthConfigModal}
-		defaultAuthorizationServerURL={formData.remoteConfig.authorizationServerURL}
-		{oauthStatus}
-		onSave={async (credentials) => {
-			if (!entry || !id) return;
-			if (entity === 'workspace') {
-				await ChatService.setWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id, credentials);
-			} else {
-				await AdminService.setMCPCatalogEntryOAuthCredentials(id, entry.id, credentials);
-			}
-		}}
-		onDelete={async () => {
-			if (!entry || !id) return;
-			if (entity === 'workspace') {
-				await ChatService.deleteWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id);
-			} else {
-				await AdminService.deleteMCPCatalogEntryOAuthCredentials(id, entry.id);
-			}
-		}}
-	/>
-{/if}

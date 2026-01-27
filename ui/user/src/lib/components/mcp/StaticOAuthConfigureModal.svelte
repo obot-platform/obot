@@ -258,7 +258,10 @@
 			<button
 				type="button"
 				class="button-destructive flex items-center gap-1"
-				onclick={() => (showDeleteConfirm = true)}
+				onclick={() => {
+					dialog?.close();
+					showDeleteConfirm = true;
+				}}
 				disabled={loading}
 			>
 				<Trash2 class="size-4" />
@@ -290,6 +293,9 @@
 	show={showDeleteConfirm}
 	msg="Are you sure you want to clear the OAuth credentials? Users will not be able to connect to this server until new credentials are configured."
 	onsuccess={handleDelete}
-	oncancel={() => (showDeleteConfirm = false)}
+	oncancel={() => {
+		showDeleteConfirm = false;
+		dialog?.open();
+	}}
 	{loading}
 />
