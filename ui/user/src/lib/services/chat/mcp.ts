@@ -161,7 +161,11 @@ function convertEntriesToTableData(
 				registry,
 				needsUpdate: entry.needsUpdate,
 				connected,
-				status: connected ? 'Connected' : entry.manifest?.remoteConfig?.staticOAuthRequired && !entry.oauthCredentialConfigured ? 'Requires OAuth Config' : '',
+				status: connected
+					? 'Connected'
+					: entry.manifest?.remoteConfig?.staticOAuthRequired && !entry.oauthCredentialConfigured
+						? 'Requires OAuth Config'
+						: ''
 			};
 		});
 }
@@ -196,7 +200,7 @@ function convertServersToTableData(
 				created: server.created,
 				registry,
 				connected,
-				status: connected ? 'Connected' : '',
+				status: connected ? 'Connected' : ''
 			};
 		});
 }
@@ -335,17 +339,17 @@ export async function convertCompositeInfoToLaunchFormData(
 			envs: isMultiUser
 				? []
 				: (m.env ?? []).map((e) => ({
-					...(e as unknown as Record<string, unknown>),
-					key: e.key,
-					value: init?.config?.[e.key] ?? ''
-				})),
+						...(e as unknown as Record<string, unknown>),
+						key: e.key,
+						value: init?.config?.[e.key] ?? ''
+					})),
 			headers: isMultiUser
 				? []
 				: (m.remoteConfig?.headers ?? []).map((h) => ({
-					...(h as unknown as Record<string, unknown>),
-					key: h.key,
-					value: init?.config?.[h.key] ?? ''
-				}))
+						...(h as unknown as Record<string, unknown>),
+						key: h.key,
+						value: init?.config?.[h.key] ?? ''
+					}))
 		};
 	}
 	return { componentConfigs } as CompositeLaunchFormData;
