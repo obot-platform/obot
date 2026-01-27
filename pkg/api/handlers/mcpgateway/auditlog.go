@@ -147,6 +147,65 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		opts.MCPID = []string{pathMcpID}
 	}
 
+	// Apply server ownership filtering for Basic users (non-admin, non-power users)
+	if !req.UserIsAdmin() && !req.UserIsPowerUser() && !req.UserIsAuditor() {
+		// Get all servers owned by this user
+		var serverList v1.MCPServerList
+		if err := req.List(&serverList); err != nil {
+			return fmt.Errorf("failed to list servers: %w", err)
+		}
+
+		// Extract server IDs for servers owned by the user
+		var ownedServerIDs []string
+		for _, server := range serverList.Items {
+			if server.Spec.UserID == req.User.GetUID() {
+				ownedServerIDs = append(ownedServerIDs, server.Name)
+			}
+		}
+
+		// If the user doesn't own any servers, return empty results
+		if len(ownedServerIDs) == 0 {
+			return req.Write(types.MCPAuditLogResponse{
+				MCPAuditLogList: types.MCPAuditLogList{
+					Items: []types.MCPAuditLog{},
+				},
+				Total:  0,
+				Limit:  opts.Limit,
+				Offset: opts.Offset,
+			})
+		}
+
+		// Filter audit logs to only include owned servers
+		// If a specific mcp_id was requested, ensure it's in the owned list
+		if len(opts.MCPID) > 0 {
+			// Check if requested mcp_id is owned by user
+			requestedOwned := make([]string, 0)
+			for _, mcpID := range opts.MCPID {
+				for _, ownedID := range ownedServerIDs {
+					if mcpID == ownedID {
+						requestedOwned = append(requestedOwned, mcpID)
+						break
+					}
+				}
+			}
+			if len(requestedOwned) == 0 {
+				// Requested server not owned by user, return empty
+				return req.Write(types.MCPAuditLogResponse{
+					MCPAuditLogList: types.MCPAuditLogList{
+						Items: []types.MCPAuditLog{},
+					},
+					Total:  0,
+					Limit:  opts.Limit,
+					Offset: opts.Offset,
+				})
+			}
+			opts.MCPID = requestedOwned
+		} else {
+			// No specific mcp_id requested, filter to all owned servers
+			opts.MCPID = ownedServerIDs
+		}
+	}
+
 	// Parse processing time range
 	if processingTimeMin := query.Get("processing_time_min"); processingTimeMin != "" {
 		if minVal, err := strconv.ParseInt(processingTimeMin, 10, 64); err == nil && minVal >= 0 {
@@ -226,8 +285,38 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 		return types.NewErrBadRequest("invalid audit log id: %v", err)
 	}
 
-	// Get the audit log with full details if user is auditor
-	log, err := req.GatewayClient.GetMCPAuditLog(req.Context(), uint(auditLogID), req.UserIsAuditor())
+	// Determine if full payload should be included
+	includeFullPayload := req.UserIsAuditor()
+
+	// If not auditor, check server ownership and type
+	if !includeFullPayload && !req.UserIsAdmin() {
+		// Get the audit log metadata to find the server ID
+		logMeta, err := req.GatewayClient.GetMCPAuditLog(req.Context(), uint(auditLogID), false)
+		if err != nil {
+			return err
+		}
+
+		// Get the server to check ownership and type
+		if logMeta.MCPID != "" {
+			var server v1.MCPServer
+			if err := req.Get(&server, logMeta.MCPID); err == nil {
+				// Check if user owns this server
+				if server.Spec.UserID == req.User.GetUID() {
+					// User owns the server - check if it's single-user or multi-user
+					// Single-user servers have no MCPCatalogID and no PowerUserWorkspaceID
+					isSingleUser := server.Spec.MCPCatalogID == "" && server.Spec.PowerUserWorkspaceID == ""
+					if isSingleUser {
+						// Single-user server owned by user: full payload access
+						includeFullPayload = true
+					}
+					// Multi-user server created by user: metadata only (includeFullPayload stays false)
+				}
+			}
+		}
+	}
+
+	// Get the audit log with appropriate detail level
+	log, err := req.GatewayClient.GetMCPAuditLog(req.Context(), uint(auditLogID), includeFullPayload)
 	if err != nil {
 		return err
 	}
@@ -355,6 +444,59 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 	// Apply workspace filtering for Power Users (same logic as audit logs)
 	if req.UserIsPowerUser() && !req.UserIsAdmin() {
 		opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
+	}
+
+	// Apply server ownership filtering for Basic users (same logic as audit logs)
+	if !req.UserIsAdmin() && !req.UserIsPowerUser() && !req.UserIsAuditor() {
+		// Get all servers owned by this user
+		var serverList v1.MCPServerList
+		if err := req.List(&serverList); err != nil {
+			return fmt.Errorf("failed to list servers: %w", err)
+		}
+
+		// Extract server IDs for servers owned by the user
+		var ownedServerIDs []string
+		for _, server := range serverList.Items {
+			if server.Spec.UserID == req.User.GetUID() {
+				ownedServerIDs = append(ownedServerIDs, server.Name)
+			}
+		}
+
+		// If the user doesn't own any servers, return empty stats
+		if len(ownedServerIDs) == 0 {
+			return req.Write(types.MCPUsageStats{
+				TimeStart:   *types.NewTime(time.Now()),
+				TimeEnd:     *types.NewTime(time.Now()),
+				TotalCalls:  0,
+				UniqueUsers: 0,
+				Items:       []types.MCPUsageStatItem{},
+			})
+		}
+
+		// Filter usage stats to only include owned servers
+		// If a specific mcp_id was requested, ensure it's in the owned list
+		if opts.MCPID != "" {
+			isOwned := false
+			for _, ownedID := range ownedServerIDs {
+				if opts.MCPID == ownedID {
+					isOwned = true
+					break
+				}
+			}
+			if !isOwned {
+				// Requested server not owned by user, return empty stats
+				return req.Write(types.MCPUsageStats{
+					TimeStart:   *types.NewTime(time.Now()),
+					TimeEnd:     *types.NewTime(time.Now()),
+					TotalCalls:  0,
+					UniqueUsers: 0,
+					Items:       []types.MCPUsageStatItem{},
+				})
+			}
+		}
+		// Note: For multi-server stats queries, the gateway will filter based on PowerUserWorkspaceID
+		// or the owned server IDs. Since we can't set multiple MCPIDs in the current API,
+		// we rely on the workspace ID filtering in the gateway for now.
 	}
 
 	var (

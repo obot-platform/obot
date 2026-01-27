@@ -292,6 +292,14 @@ var (
 			"GET /api/api-keys",
 			"GET /api/api-keys/{id}",
 			"DELETE /api/api-keys/{id}",
+
+			// Audit logs and usage for servers owned by the user
+			"GET /api/mcp-audit-logs",
+			"GET /api/mcp-audit-logs/filter-options/{filter}",
+			"GET /api/mcp-audit-logs/detail/{audit_log_id}",
+			"GET /api/mcp-audit-logs/{mcp_id}",
+			"GET /api/mcp-stats",
+			"GET /api/mcp-stats/{mcp_id}",
 		},
 
 		// API key users have restricted access - they can only access MCP-connect routes and /api/me
