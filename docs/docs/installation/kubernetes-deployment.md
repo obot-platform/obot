@@ -98,6 +98,45 @@ For detailed cloud-specific deployment instructions:
 - [Amazon Elastic Kubernetes Service (EKS)](/installation/reference-architectures/aws-eks/)
 - [Azure Kubernetes Service (AKS)](/installation/reference-architectures/azure-aks/)
 
+## Security Configuration
+
+### Network Policy for MCP Servers
+
+For production deployments, ensure the NetworkPolicy is enabled to restrict network access from MCP server pods:
+
+```yaml
+mcpNamespace:
+  networkPolicy:
+    enabled: true # This is already enabled by default
+    dnsNamespace: kube-system  # Adjust if your DNS is in a different namespace
+```
+
+When enabled, this policy:
+- Restricts MCP servers to only communicate with Obot, DNS, and public internet
+- Blocks access to private IP ranges and internal cluster resources
+- Prevents potential lateral movement if an MCP server is compromised
+
+For details, see [MCP Deployments in Kubernetes - Network Policy](/configuration/mcp-deployments-in-kubernetes/#network-policy).
+
+### Pod Security Admission for MCP Servers
+
+Obot applies Pod Security Standards to the MCP namespace using Pod Security Admission (PSA). The default configuration uses the **restricted** policy level for maximum security:
+
+```yaml
+mcpNamespace:
+  podSecurity:
+    enforce: restricted  # Can be: privileged, baseline, or restricted
+    enforceVersion: latest
+    audit: restricted
+    auditVersion: latest
+    warn: restricted
+    warnVersion: latest
+```
+
+The restricted policy follows current Pod hardening best practices and provides the highest level of security. If you need more permissive settings, you can change to **baseline** or **privileged** levels.
+
+For details, see [MCP Deployments in Kubernetes - Pod Security Admission](/configuration/mcp-deployments-in-kubernetes/#pod-security-admission).
+
 ## Next Steps
 
 1. **Configure Authentication**: Set up [auth providers](/configuration/auth-providers/)

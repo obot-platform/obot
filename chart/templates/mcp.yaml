@@ -9,6 +9,14 @@ metadata:
   {{- end }}
   labels:
     {{- include "obot.labels" . | nindent 4 }}
+    {{- if .Values.mcpNamespace.podSecurity.enabled }}
+    pod-security.kubernetes.io/enforce: {{ .Values.mcpNamespace.podSecurity.enforce }}
+    pod-security.kubernetes.io/enforce-version: {{ .Values.mcpNamespace.podSecurity.enforceVersion | quote }}
+    pod-security.kubernetes.io/audit: {{ .Values.mcpNamespace.podSecurity.audit }}
+    pod-security.kubernetes.io/audit-version: {{ .Values.mcpNamespace.podSecurity.auditVersion | quote }}
+    pod-security.kubernetes.io/warn: {{ .Values.mcpNamespace.podSecurity.warn }}
+    pod-security.kubernetes.io/warn-version: {{ .Values.mcpNamespace.podSecurity.warnVersion | quote }}
+    {{- end }}
 {{- range .Values.mcpImagePullSecrets }}
 ---
 apiVersion: v1
