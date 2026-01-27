@@ -14,8 +14,9 @@ image:
   # image.pullPolicy -- Kubernetes image pullPolicy to use for Obot
   pullPolicy: IfNotPresent
 
-# imagePullSecrets -- Configures kubernetes secrets to use for pulling private images. Expects a list of objects. This will be used to pull the obot server image.
-# For pulling private MCP server images, see mcpImagePullSecrets below
+# imagePullSecrets -- Kubernetes secrets used to pull the Obot server image.
+# For private MCP server images, see mcpImagePullSecrets below.
+# Expects a list of secret objects
 # `imagePullSecrets:[{"name": "fooBar"}]`
 imagePullSecrets: []
 
