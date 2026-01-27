@@ -11,11 +11,12 @@
 	import CreateApiKeyForm from './CreateApiKeyForm.svelte';
 	import ApiKeyRevealDialog from './ApiKeyRevealDialog.svelte';
 	import ApiKeyDetailsDialog from '$lib/components/api-keys/ApiKeyDetailsDialog.svelte';
-	import ServerCountBadge from '$lib/components/api-keys/ServerCountBadge.svelte';
+	import ServerCountBadge from '$lib/components/api-keys/ServersLabel.svelte';
 	import { fly } from 'svelte/transition';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { page } from '$app/state';
 	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
+	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
 
 	let { data } = $props();
 	let apiKeys = $state<APIKey[]>(untrack(() => data.apiKeys));
@@ -143,13 +144,15 @@
 						{#if property === 'description'}
 							<span class="text-muted">{d.description || '-'}</span>
 						{:else if property === 'mcpServerIds'}
-							<ServerCountBadge mcpServerIds={d.mcpServerIds} {mcpServers} />
+							<ServersLabel mcpServerIds={d.mcpServerIds} {mcpServers} />
 						{:else if property === 'createdAt'}
 							{d.createdAtDisplay}
 						{:else if property === 'lastUsedAt'}
 							{d.lastUsedAtDisplay}
 						{:else if property === 'expiresAt'}
 							{d.expiresAtDisplay}
+						{:else if property === 'prefix'}
+							<span class="truncate whitespace-nowrap">{d.prefix}</span>
 						{:else}
 							{d[property as keyof typeof d]}
 						{/if}

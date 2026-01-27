@@ -5,6 +5,7 @@
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import { Server, Trash2 } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		apiKey?: APIKey & { prefix: string };
@@ -39,7 +40,7 @@
 			const server = serverMap.get(id);
 			return {
 				id,
-				name: server?.alias || server?.manifest.name || 'Deleted Server',
+				name: server?.alias || server?.manifest.name || '(Deleted Server)',
 				description: server?.manifest.description,
 				icon: server?.manifest.icon,
 				exists: !!server
@@ -102,7 +103,12 @@
 						class="bg-surface1 default-scrollbar-thin mt-2 flex max-h-48 flex-col overflow-y-auto rounded-lg"
 					>
 						{#each resolvedServers as server (server.id)}
-							<div class="flex w-full items-center gap-3 px-3 py-2.5">
+							<div
+								class={twMerge(
+									'flex w-full items-center gap-3 px-3 py-2.5',
+									!server.exists && 'bg-yellow-500/10'
+								)}
+							>
 								<div class="flex-shrink-0">
 									{#if server.icon}
 										<img src={server.icon} alt={server.name} class="size-6" />
@@ -111,7 +117,12 @@
 									{/if}
 								</div>
 								<div class="flex min-w-0 grow flex-col">
-									<p class="truncate text-sm" class:text-muted={!server.exists}>
+									<p
+										class={twMerge(
+											'truncate text-sm',
+											!server.exists && 'text-on-surface1 font-light italic'
+										)}
+									>
 										{server.name}
 									</p>
 									{#if server.description}
