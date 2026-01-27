@@ -3,21 +3,21 @@
 	import Search from '$lib/components/Search.svelte';
 	import { ApiKeysService } from '$lib/services';
 	import type { APIKeyCreateResponse } from '$lib/services/api-keys/types';
-	import type { MCPCatalogServer } from '$lib/services/chat/types';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { Check, LoaderCircle, Server } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';
 	import { fly } from 'svelte/transition';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { mcpServersAndEntries } from '$lib/stores';
+	import type { MCPCatalogServer } from '$lib/services/chat/types';
 
 	interface Props {
-		mcpServers: MCPCatalogServer[];
 		onCreate: (key: APIKeyCreateResponse) => void;
 		onCancel: () => void;
 	}
 
-	let { mcpServers, onCreate, onCancel }: Props = $props();
+	let { onCreate, onCancel }: Props = $props();
 
 	let name = $state('');
 	let description = $state('');
@@ -26,6 +26,17 @@
 	let search = $state('');
 	let loading = $state(false);
 	let showValidation = $state(false);
+
+	let mcpServers = $derived.by(() => {
+		const { userConfiguredServers, servers } = mcpServersAndEntries.current;
+		const serverMap = new Map<string, MCPCatalogServer>();
+		for (const server of [...userConfiguredServers, ...servers]) {
+			if (!server.deleted) {
+				serverMap.set(server.id, server);
+			}
+		}
+		return Array.from(serverMap.values());
+	});
 
 	let nameError = $derived(showValidation && !name.trim());
 	let serverError = $derived(showValidation && selectedServerIds.size === 0);

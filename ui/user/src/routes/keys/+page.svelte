@@ -10,16 +10,15 @@
 	import { untrack } from 'svelte';
 	import CreateApiKeyForm from './CreateApiKeyForm.svelte';
 	import ApiKeyRevealDialog from './ApiKeyRevealDialog.svelte';
-	import ApiKeyDetailsDialog from '$lib/components/api-keys/ApiKeyDetailsDialog.svelte';
 	import { fly } from 'svelte/transition';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { page } from '$app/state';
 	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
 	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
+	import { openUrl } from '$lib/utils';
 
 	let { data } = $props();
 	let apiKeys = $state<APIKey[]>(untrack(() => data.apiKeys));
-	let mcpServers = $state(untrack(() => data.mcpServers));
 
 	let deletingKey = $state<APIKey>();
 	let loading = $state(false);
@@ -44,7 +43,7 @@
 		if (!keyToDelete) return;
 		loading = true;
 		try {
-			await ApiKeysService.deleteApiKey(keyToDelete.id);
+			await ApiKeysService.deleteApiKey(keyToDelete.id.toString());
 			apiKeys = apiKeys.filter((k) => k.id !== keyToDelete.id);
 		} finally {
 			loading = false;
@@ -80,7 +79,7 @@
 			in:fly={{ x: 100, delay: duration, duration }}
 			out:fly={{ x: -100, duration }}
 		>
-			<CreateApiKeyForm onCreate={handleCreate} onCancel={hideCreateForm} {mcpServers} />
+			<CreateApiKeyForm onCreate={handleCreate} onCancel={hideCreateForm} />
 		</div>
 	{:else}
 		<div class="flex flex-col gap-4">
@@ -138,12 +137,16 @@
 					sortable={['name', 'createdAt', 'lastUsedAt', 'expiresAt']}
 					{initSort}
 					onSort={setSortUrlParams}
+					onClickRow={(d, isCtrlClick) => {
+						const url = `/keys/${d.id}`;
+						openUrl(url, isCtrlClick);
+					}}
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'description'}
 							<span class="text-muted">{d.description || '-'}</span>
 						{:else if property === 'mcpServerIds'}
-							<ServersLabel mcpServerIds={d.mcpServerIds} {mcpServers} />
+							<ServersLabel mcpServerIds={d.mcpServerIds} />
 						{:else if property === 'createdAt'}
 							{d.createdAtDisplay}
 						{:else if property === 'lastUsedAt'}
@@ -157,18 +160,9 @@
 						{/if}
 					{/snippet}
 					{#snippet actions(d)}
-						<DotDotDot>
-							<div class="default-dialog flex min-w-max flex-col p-2">
-								<button class="menu-button" onclick={() => (detailsKey = d)}>
-									<ReceiptText class="size-4" />
-									Details
-								</button>
-								<button class="menu-button text-red-500" onclick={() => (deletingKey = d)}>
-									<Trash2 class="size-4" />
-									Delete
-								</button>
-							</div>
-						</DotDotDot>
+						<button class="icon-button" onclick={() => (deletingKey = d)}>
+							<Trash2 class="size-4" />
+						</button>
 					{/snippet}
 				</Table>
 			{/if}
@@ -194,13 +188,6 @@
 />
 
 <ApiKeyRevealDialog keyValue={createdKeyValue} onClose={() => (createdKeyValue = undefined)} />
-
-<ApiKeyDetailsDialog
-	apiKey={detailsKey}
-	{mcpServers}
-	onClose={() => (detailsKey = undefined)}
-	onDelete={(key) => (deletingKey = key)}
-/>
 
 <svelte:head>
 	<title>Obot | My API Keys</title>

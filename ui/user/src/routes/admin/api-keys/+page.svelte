@@ -23,7 +23,6 @@
 	let { data } = $props();
 	let allApiKeys = $state<APIKey[]>(untrack(() => data.allApiKeys));
 	let users = $state<OrgUser[]>(untrack(() => data.users));
-	let mcpServers = $state(untrack(() => data.mcpServers));
 
 	let deletingKey = $state<APIKey>();
 	let loading = $state(false);
@@ -88,11 +87,7 @@
 			in:fly={{ x: 100, delay: duration, duration }}
 			out:fly={{ x: -100, duration }}
 		>
-			<CreateApiKeyForm
-				onCreate={handleCreate}
-				onCancel={() => (showCreateNew = false)}
-				{mcpServers}
-			/>
+			<CreateApiKeyForm onCreate={handleCreate} onCancel={() => (showCreateNew = false)} />
 		</div>
 	{:else}
 		<div class="flex flex-col gap-4">
@@ -138,7 +133,7 @@
 						{#if property === 'description'}
 							<span class="text-muted">{d.description || '-'}</span>
 						{:else if property === 'mcpServerIds'}
-							<ServersLabel mcpServerIds={d.mcpServerIds} {mcpServers} />
+							<ServersLabel mcpServerIds={d.mcpServerIds} />
 						{:else if property === 'createdAt'}
 							{d.createdAtDisplay}
 						{:else if property === 'lastUsedAt'}
@@ -191,14 +186,6 @@
 />
 
 <ApiKeyRevealDialog keyValue={createdKeyValue} onClose={() => (createdKeyValue = undefined)} />
-
-<ApiKeyDetailsDialog
-	apiKey={detailsKey}
-	{mcpServers}
-	onClose={() => (detailsKey = undefined)}
-	onDelete={(key) => (deletingKey = key)}
-	hideDelete={isAdminReadonly}
-/>
 
 <svelte:head>
 	<title>Obot | API Keys</title>
