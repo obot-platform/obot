@@ -50,10 +50,8 @@
 	}: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
-
 	let selectServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selectServerMode = $state<ServerSelectMode>('connect');
-
 	let launchDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let launchPromptHandled = $state(false);
 
@@ -135,42 +133,46 @@
 	}
 </script>
 
-{#if !belongsToComposite}
-	{#if (entry && !server) || (server && (!server.catalogEntryID || (server.catalogEntryID && server.userID === profile.current.id)))}
-		<button
-			class="button-primary flex w-full items-center gap-1 text-sm disabled:cursor-not-allowed disabled:opacity-50 md:w-fit"
-			use:tooltip={{
-				text: canConnect ? '' : 'See MCP Registries to grant connect access to this server'
-			}}
-			onclick={() => {
-				if (entry && !server && configuredServers.length > 0) {
-					if (configuredServers.length === 1) {
-						connectToServerDialog?.open({
-							entry,
-							server: configuredServers[0]
-						});
-					} else {
-						handleShowSelectServerDialog();
-					}
-				} else {
+<!-- Use class:hidden to avoid Svelte 5 production build with conditional DOM cleanup -->
+<div class="contents" class:hidden={belongsToComposite}>
+	<button
+		class="button-primary flex w-full items-center gap-1 text-sm disabled:cursor-not-allowed disabled:opacity-50 md:w-fit"
+		class:hidden={!(
+			(entry && !server) ||
+			(server &&
+				(!server.catalogEntryID || (server.catalogEntryID && server.userID === profile.current.id)))
+		)}
+		use:tooltip={{
+			text: canConnect ? '' : 'See MCP Registries to grant connect access to this server'
+		}}
+		onclick={() => {
+			if (entry && !server && configuredServers.length > 0) {
+				if (configuredServers.length === 1) {
 					connectToServerDialog?.open({
 						entry,
-						server,
-						instance
+						server: configuredServers[0]
 					});
+				} else {
+					handleShowSelectServerDialog();
 				}
-			}}
-			disabled={loading || !canConnect}
-		>
-			{#if loading}
-				<LoaderCircle class="size-4 animate-spin" />
-			{:else}
-				Connect To Server
-			{/if}
-		</button>
-	{/if}
+			} else {
+				connectToServerDialog?.open({
+					entry,
+					server,
+					instance
+				});
+			}
+		}}
+		disabled={loading || !canConnect}
+	>
+		{#if loading}
+			<LoaderCircle class="size-4 animate-spin" />
+		{:else}
+			Connect To Server
+		{/if}
+	</button>
 
-	{#if !loading && hasActions}
+	<div class:hidden={loading || !hasActions}>
 		<DotDotDot
 			class="icon-button hover:bg-surface1 dark:hover:bg-surface2 hover:text-primary flex-shrink-0"
 			classes={{ menu: 'z-60' }}
@@ -182,152 +184,152 @@
 				</div>
 			{/snippet}
 		</DotDotDot>
-	{/if}
+	</div>
+</div>
 
-	<ConnectToServer
-		bind:this={connectToServerDialog}
-		userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
-		onConnect={(data) => {
-			onConnect?.(data);
-			refresh();
-		}}
-		{skipConnectDialog}
-		hideActions={isProjectMcp}
-	/>
+<ConnectToServer
+	bind:this={connectToServerDialog}
+	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
+	onConnect={(data) => {
+		onConnect?.(data);
+		refresh();
+	}}
+	{skipConnectDialog}
+	hideActions={isProjectMcp}
+/>
 
-	<EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
+<EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
 
-	<ResponsiveDialog
-		class="bg-surface1 dark:bg-background"
-		bind:this={selectServerDialog}
-		title="Select Your Server"
-	>
-		<Table
-			data={configuredServers || []}
-			fields={['name', 'created']}
-			onClickRow={(d) => {
-				selectServerDialog?.close();
-				switch (selectServerMode) {
-					case 'chat': {
-						connectToServerDialog?.handleSetupChat(d);
-						break;
-					}
-					case 'server-details': {
-						if (profile.current?.hasAdminAccess?.()) {
-							goto(
-								resolve(
-									entry?.powerUserWorkspaceID
-										? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}`
-										: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`
-								),
-								{ replaceState: true }
-							);
-						} else {
-							goto(resolve(`/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`));
-						}
-						break;
-					}
-					case 'rename': {
-						editExistingDialog?.rename({
-							server: d,
-							entry
-						});
-						break;
-					}
-					case 'edit': {
-						editExistingDialog?.edit({
-							server: d,
-							entry
-						});
-						break;
-					}
-					case 'disconnect': {
-						ChatService.deleteSingleOrRemoteMcpServer(d.id);
-						mcpServersAndEntries.refreshUserConfiguredServers();
-						break;
-					}
-					default:
-						connectToServerDialog?.open({
-							entry,
-							server: d
-						});
-						break;
+<ResponsiveDialog
+	class="bg-surface1 dark:bg-background"
+	bind:this={selectServerDialog}
+	title="Select Your Server"
+>
+	<Table
+		data={configuredServers || []}
+		fields={['name', 'created']}
+		onClickRow={(d) => {
+			selectServerDialog?.close();
+			switch (selectServerMode) {
+				case 'chat': {
+					connectToServerDialog?.handleSetupChat(d);
+					break;
 				}
-			}}
-		>
-			{#snippet onRenderColumn(property, d)}
-				{#if property === 'name'}
-					<div class="flex flex-shrink-0 items-center gap-2">
-						<div class="icon">
-							{#if d.manifest.icon}
-								<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
-							{:else}
-								<Server class="size-6" />
-							{/if}
-						</div>
-						<p class="flex items-center gap-2">
-							{d.alias || d.manifest.name}
-						</p>
+				case 'server-details': {
+					if (profile.current?.hasAdminAccess?.()) {
+						goto(
+							resolve(
+								entry?.powerUserWorkspaceID
+									? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}`
+									: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`
+							),
+							{ replaceState: true }
+						);
+					} else {
+						goto(resolve(`/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`));
+					}
+					break;
+				}
+				case 'rename': {
+					editExistingDialog?.rename({
+						server: d,
+						entry
+					});
+					break;
+				}
+				case 'edit': {
+					editExistingDialog?.edit({
+						server: d,
+						entry
+					});
+					break;
+				}
+				case 'disconnect': {
+					ChatService.deleteSingleOrRemoteMcpServer(d.id);
+					mcpServersAndEntries.refreshUserConfiguredServers();
+					break;
+				}
+				default:
+					connectToServerDialog?.open({
+						entry,
+						server: d
+					});
+					break;
+			}
+		}}
+	>
+		{#snippet onRenderColumn(property, d)}
+			{#if property === 'name'}
+				<div class="flex flex-shrink-0 items-center gap-2">
+					<div class="icon">
+						{#if d.manifest.icon}
+							<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
+						{:else}
+							<Server class="size-6" />
+						{/if}
 					</div>
-				{:else if property === 'created'}
-					{formatTimeAgo(d.created).relativeTime}
-				{/if}
-			{/snippet}
-			{#snippet actions()}
-				<button class="icon-button hover:dark:bg-background/50">
-					<StepForward class="size-4" />
-				</button>
-			{/snippet}
-		</Table>
-	</ResponsiveDialog>
-
-	<ResponsiveDialog bind:this={launchDialog} animate="slide" class="md:max-w-sm">
-		{#snippet titleContent()}
-			{#if entry || server}
-				{@const name = entry?.manifest.name ?? server?.manifest.name ?? 'MCP Server'}
-				{@const imageUrl = entry?.manifest.icon || server?.manifest.icon}
-				<div class="icon">
-					{#if imageUrl}
-						<img
-							src={imageUrl}
-							alt={entry?.manifest.name ?? server?.manifest.name ?? 'MCP Server'}
-							class="size-6"
-						/>
-					{:else}
-						<Server class="size-6" />
-					{/if}
+					<p class="flex items-center gap-2">
+						{d.alias || d.manifest.name}
+					</p>
 				</div>
-				{name}
+			{:else if property === 'created'}
+				{formatTimeAgo(d.created).relativeTime}
 			{/if}
 		{/snippet}
-		<div class="flex grow flex-col gap-2 p-4 pt-0 md:p-0">
-			<p class="text-center">
-				{#if entry && entry.manifest.runtime === 'remote'}
-					Your proxy remote server details have been configured.
-				{:else if entry}
-					Your server details have been configured.
+		{#snippet actions()}
+			<button class="icon-button hover:dark:bg-background/50">
+				<StepForward class="size-4" />
+			</button>
+		{/snippet}
+	</Table>
+</ResponsiveDialog>
+
+<ResponsiveDialog bind:this={launchDialog} animate="slide" class="md:max-w-sm">
+	{#snippet titleContent()}
+		{#if entry || server}
+			{@const name = entry?.manifest.name ?? server?.manifest.name ?? 'MCP Server'}
+			{@const imageUrl = entry?.manifest.icon || server?.manifest.icon}
+			<div class="icon">
+				{#if imageUrl}
+					<img
+						src={imageUrl}
+						alt={entry?.manifest.name ?? server?.manifest.name ?? 'MCP Server'}
+						class="size-6"
+					/>
 				{:else}
-					Your server has been configured.
+					<Server class="size-6" />
 				{/if}
-			</p>
-			<p class="mb-2 text-center">Would you like to connect now?</p>
-			<div class="flex grow"></div>
-			<div class="flex flex-col gap-2">
-				<button class="button" onclick={() => launchDialog?.close()}>Skip</button>
-				<button
-					class="button-primary"
-					onclick={() => {
-						launchDialog?.close();
-						connectToServerDialog?.open({
-							entry,
-							server
-						});
-					}}>Connect To Server</button
-				>
 			</div>
+			{name}
+		{/if}
+	{/snippet}
+	<div class="flex grow flex-col gap-2 p-4 pt-0 md:p-0">
+		<p class="text-center">
+			{#if entry && entry.manifest.runtime === 'remote'}
+				Your proxy remote server details have been configured.
+			{:else if entry}
+				Your server details have been configured.
+			{:else}
+				Your server has been configured.
+			{/if}
+		</p>
+		<p class="mb-2 text-center">Would you like to connect now?</p>
+		<div class="flex grow"></div>
+		<div class="flex flex-col gap-2">
+			<button class="button" onclick={() => launchDialog?.close()}>Skip</button>
+			<button
+				class="button-primary"
+				onclick={() => {
+					launchDialog?.close();
+					connectToServerDialog?.open({
+						entry,
+						server
+					});
+				}}>Connect To Server</button
+			>
 		</div>
-	</ResponsiveDialog>
-{/if}
+	</div>
+</ResponsiveDialog>
 
 {#snippet serverActions(toggle: (value: boolean) => void)}
 	{#if server && server.userID === profile.current.id}

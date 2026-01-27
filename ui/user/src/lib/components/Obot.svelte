@@ -84,6 +84,12 @@
 			window.removeEventListener('keydown', handleKeydown);
 		}
 	});
+
+	let navbarMcpServer = $derived(
+		layout.mcpServer
+			? findServerAndEntryForProjectMcp(layout.mcpServer)
+			: { server: undefined, entry: undefined }
+	);
 </script>
 
 <div class="colors-background relative flex h-full flex-col overflow-hidden">
@@ -131,7 +137,13 @@
 					{/snippet}
 					{#snippet rightContent()}
 						{#if layout.sidebarConfig && layout.mcpServer && !responsive.isMobile && layout.sidebarOpen}
-							{@render projectMcpConnect(layout.mcpServer)}
+							<div class="flex shrink-0 items-center gap-2">
+								<McpServerActions
+									entry={navbarMcpServer.entry}
+									server={navbarMcpServer.server}
+									isProjectMcp
+								/>
+							</div>
 						{/if}
 					{/snippet}
 				</Navbar>
@@ -258,13 +270,4 @@
 	<h1 class="text-xl font-semibold">
 		{mcpServer.alias || mcpServer.name || 'MCP Server'}
 	</h1>
-{/snippet}
-
-{#snippet projectMcpConnect(mcpServer: ProjectMCP)}
-	{@const { server, entry } = findServerAndEntryForProjectMcp(mcpServer)}
-	{#if server}
-		<div class="flex shrink-0 items-center gap-2">
-			<McpServerActions {entry} {server} isProjectMcp />
-		</div>
-	{/if}
 {/snippet}

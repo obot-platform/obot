@@ -75,12 +75,12 @@
 	let name = $derived(server?.alias || server?.manifest.name || '');
 
 	function handleConnect() {
-		if (onConnect) {
-			onConnect({ server, entry, instance });
-		}
-
 		if (!skipConnectDialog) {
 			connectDialog?.open();
+		}
+
+		if (onConnect) {
+			onConnect({ server, entry, instance });
 		}
 	}
 
