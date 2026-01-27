@@ -114,7 +114,6 @@
 		} else if (draftRoleId === Role.OWNER) {
 			// Changing to owner role - show owner confirmation
 			onOwnerConfirm(result);
-			return;
 		} else {
 			onConfirm(result);
 			resetForm();
@@ -125,6 +124,10 @@
 	const updateSearch = debounce((value: string) => {
 		searchQuery = value;
 	}, 100);
+
+	export function clear() {
+		resetForm();
+	}
 </script>
 
 {#snippet groupList()}
