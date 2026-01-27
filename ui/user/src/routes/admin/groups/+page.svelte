@@ -78,6 +78,7 @@
 	let confirmOwnerGroupAssignment = $state<GroupAssignment>();
 	let loading = $state(false);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let addGroupAssignmentDialog = $state<ReturnType<typeof AddGroupAssignmentDialog>>();
 
 	async function updateGroupRole(data: GroupAssignment) {
 		const { assignment } = data;
@@ -199,7 +200,10 @@
 		{#if !isAdminReadonly}
 			<button
 				class="button-primary w-full text-sm sm:w-auto"
-				onclick={() => (showAddAssignment = true)}
+				onclick={() => {
+					showAddAssignment = true;
+					addGroupAssignmentDialog?.clear();
+				}}
 			>
 				Add Assignment
 			</button>
@@ -232,6 +236,7 @@
 </Confirm>
 
 <AddGroupAssignmentDialog
+	bind:this={addGroupAssignmentDialog}
 	open={showAddAssignment}
 	{groups}
 	{groupRoleMap}
@@ -304,7 +309,14 @@
 		confirmOwnerGroupAssignment = undefined;
 		confirmAuditorAdditionToGroup = undefined;
 	}}
-	oncancel={() => (confirmOwnerGroupAssignment = undefined)}
+	oncancel={() => {
+		confirmOwnerGroupAssignment = undefined;
+		if (updatingRole) {
+			showAssignGroupRoleDialog = true;
+		} else {
+			showAddAssignment = true;
+		}
+	}}
 />
 
 <svelte:head>
