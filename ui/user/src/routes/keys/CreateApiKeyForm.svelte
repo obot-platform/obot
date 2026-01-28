@@ -11,6 +11,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import type { MCPCatalogServer } from '$lib/services/chat/types';
+	import { compileAvailableMcpServers } from '$lib/services/chat/mcp';
 
 	interface Props {
 		onCreate: (key: APIKeyCreateResponse) => void;
@@ -27,16 +28,12 @@
 	let loading = $state(false);
 	let showValidation = $state(false);
 
-	let mcpServers = $derived.by(() => {
-		const { userConfiguredServers, servers } = mcpServersAndEntries.current;
-		const serverMap = new Map<string, MCPCatalogServer>();
-		for (const server of [...userConfiguredServers, ...servers]) {
-			if (!server.deleted) {
-				serverMap.set(server.id, server);
-			}
-		}
-		return Array.from(serverMap.values());
-	});
+	let mcpServers = $derived(
+		compileAvailableMcpServers(
+			mcpServersAndEntries.current.servers,
+			mcpServersAndEntries.current.userConfiguredServers
+		)
+	);
 
 	let nameError = $derived(showValidation && !name.trim());
 	let serverError = $derived(showValidation && selectedServerIds.size === 0);

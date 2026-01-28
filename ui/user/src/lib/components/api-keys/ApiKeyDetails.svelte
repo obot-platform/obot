@@ -5,11 +5,11 @@
 	import { Server, Trash2 } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
-	import type { MCPCatalogServer } from '$lib/services/chat/types';
 	import { fly } from 'svelte/transition';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { compileAvailableMcpServers } from '$lib/services/chat/mcp';
 
 	interface Props {
 		apiKey?: APIKey & { prefix: string };
@@ -19,16 +19,12 @@
 	let deletingApiKey = $state(false);
 	let saving = $state(false);
 
-	let mcpServers = $derived.by(() => {
-		const { userConfiguredServers, servers } = mcpServersAndEntries.current;
-		const serverMap = new Map<string, MCPCatalogServer>();
-		for (const server of [...userConfiguredServers, ...servers]) {
-			if (!server.deleted) {
-				serverMap.set(server.id, server);
-			}
-		}
-		return Array.from(serverMap.values());
-	});
+	let mcpServers = $derived(
+		compileAvailableMcpServers(
+			mcpServersAndEntries.current.servers,
+			mcpServersAndEntries.current.userConfiguredServers
+		)
+	);
 
 	let serverMap = $derived(new Map(mcpServers.map((s) => [s.id, s])));
 

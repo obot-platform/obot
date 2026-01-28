@@ -339,17 +339,17 @@ export async function convertCompositeInfoToLaunchFormData(
 			envs: isMultiUser
 				? []
 				: (m.env ?? []).map((e) => ({
-						...(e as unknown as Record<string, unknown>),
-						key: e.key,
-						value: init?.config?.[e.key] ?? ''
-					})),
+					...(e as unknown as Record<string, unknown>),
+					key: e.key,
+					value: init?.config?.[e.key] ?? ''
+				})),
 			headers: isMultiUser
 				? []
 				: (m.remoteConfig?.headers ?? []).map((h) => ({
-						...(h as unknown as Record<string, unknown>),
-						key: h.key,
-						value: init?.config?.[h.key] ?? ''
-					}))
+					...(h as unknown as Record<string, unknown>),
+					key: h.key,
+					value: init?.config?.[h.key] ?? ''
+				}))
 		};
 	}
 	return { componentConfigs } as CompositeLaunchFormData;
@@ -395,8 +395,18 @@ export const findServerAndEntryForProjectMcp = (mcpServer: ProjectMCP) => {
 	);
 	const entry = userConfiguredServer?.catalogEntryID
 		? mcpServersAndEntries.current.entries.find(
-				(e) => e.id === userConfiguredServer?.catalogEntryID
-			)
+			(e) => e.id === userConfiguredServer?.catalogEntryID
+		)
 		: undefined;
 	return { server: userConfiguredServer, entry };
 };
+
+export const compileAvailableMcpServers = (servers: MCPCatalogServer[], userConfiguredServers: MCPCatalogServer[]) => {
+	const serverMap = new Map<string, MCPCatalogServer>();
+	for (const server of [...userConfiguredServers, ...servers]) {
+		if (!server.deleted) {
+			serverMap.set(server.id, server);
+		}
+	}
+	return Array.from(serverMap.values());
+}

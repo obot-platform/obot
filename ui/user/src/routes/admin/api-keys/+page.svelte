@@ -13,7 +13,6 @@
 	import { untrack } from 'svelte';
 	import ApiKeyRevealDialog from '../../keys/ApiKeyRevealDialog.svelte';
 	import CreateApiKeyForm from '../../keys/CreateApiKeyForm.svelte';
-	import ApiKeyDetailsDialog from '$lib/components/api-keys/ApiKeyDetailsDialog.svelte';
 	import { fly } from 'svelte/transition';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { page } from '$app/state';
@@ -28,7 +27,6 @@
 	let loading = $state(false);
 	let showCreateNew = $derived(page.url.searchParams.has('new'));
 	let createdKeyValue = $state<string>();
-	let detailsKey = $state<(typeof allTableData)[number]>();
 	let initSort = $derived(getTableUrlParamsSort({ property: 'createdAt', order: 'desc' }));
 
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
@@ -147,20 +145,16 @@
 						{/if}
 					{/snippet}
 					{#snippet actions(d)}
-						<DotDotDot>
-							<div class="default-dialog flex min-w-max flex-col p-2">
-								<button class="menu-button" onclick={() => (detailsKey = d)}>
-									<ReceiptText class="size-4" />
-									Details
-								</button>
-								{#if !isAdminReadonly}
+						{#if !isAdminReadonly}
+							<DotDotDot>
+								<div class="default-dialog flex min-w-max flex-col p-2">
 									<button class="menu-button text-red-500" onclick={() => (deletingKey = d)}>
 										<Trash2 class="size-4" />
 										Delete
 									</button>
-								{/if}
-							</div>
-						</DotDotDot>
+								</div>
+							</DotDotDot>
+						{/if}
 					{/snippet}
 				</Table>
 			{/if}

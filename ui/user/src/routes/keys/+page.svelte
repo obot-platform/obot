@@ -1,12 +1,11 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { ApiKeysService } from '$lib/services';
 	import type { APIKey } from '$lib/services/api-keys/types';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
-	import { Info, KeyRound, Plus, ReceiptText, Trash2 } from 'lucide-svelte';
+	import { Info, KeyRound, Plus, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import CreateApiKeyForm from './CreateApiKeyForm.svelte';
 	import ApiKeyRevealDialog from './ApiKeyRevealDialog.svelte';
@@ -24,7 +23,6 @@
 	let loading = $state(false);
 	let showCreateNew = $derived(page.url.searchParams.has('new'));
 	let createdKeyValue = $state<string>();
-	let detailsKey = $state<(typeof tableData)[number]>();
 	let initSort = $derived(getTableUrlParamsSort({ property: 'createdAt', order: 'desc' }));
 
 	const tableData = $derived(

@@ -1,24 +1,20 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import type { MCPCatalogServer } from '$lib/services/chat/types';
 	import { TriangleAlert } from 'lucide-svelte';
 	import { mcpServersAndEntries } from '$lib/stores';
+	import { compileAvailableMcpServers } from '$lib/services/chat/mcp';
 
 	interface Props {
 		mcpServerIds: string[];
 	}
 
 	let { mcpServerIds }: Props = $props();
-	let mcpServers = $derived.by(() => {
-		const { userConfiguredServers, servers } = mcpServersAndEntries.current;
-		const serverMap = new Map<string, MCPCatalogServer>();
-		for (const server of [...userConfiguredServers, ...servers]) {
-			if (!server.deleted) {
-				serverMap.set(server.id, server);
-			}
-		}
-		return Array.from(serverMap.values());
-	});
+	let mcpServers = $derived(
+		compileAvailableMcpServers(
+			mcpServersAndEntries.current.servers,
+			mcpServersAndEntries.current.userConfiguredServers
+		)
+	);
 
 	let isAllServers = $derived(mcpServerIds.includes('*'));
 
