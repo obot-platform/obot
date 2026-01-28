@@ -710,9 +710,7 @@
 				{entity}
 				mcpServerId={server.id}
 				name={server.manifest.name || 'Unknown'}
-				connectedUsers={users.filter((u) =>
-					server.status.instances?.some((inst) => inst.userID === u.id)
-				)}
+				connectedUsers={users.filter((u) => u.id === server.userID)}
 				catalogEntry={entry && 'isCatalogEntry' in entry ? entry : undefined}
 				mcpServer={server}
 				{readonly}
