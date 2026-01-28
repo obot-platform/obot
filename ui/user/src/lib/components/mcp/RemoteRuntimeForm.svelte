@@ -384,11 +384,7 @@
 					disabled={readonly}
 					onclick={() => {
 						if (readonly) return;
-						const newValue = !remoteConfig.staticOAuthRequired;
-						remoteConfig.staticOAuthRequired = newValue;
-						if (!newValue) {
-							remoteConfig.authorizationServerURL = undefined;
-						}
+						remoteConfig.staticOAuthRequired = !remoteConfig.staticOAuthRequired;
 					}}
 				>
 					<div class="flex items-center gap-1">
@@ -416,9 +412,6 @@
 						checked={!!remoteConfig.staticOAuthRequired}
 						onChange={(checked) => {
 							remoteConfig.staticOAuthRequired = checked;
-							if (!checked) {
-								remoteConfig.authorizationServerURL = undefined;
-							}
 						}}
 					/>
 				</div>
@@ -444,18 +437,6 @@
 							Configure OAuth Credentials
 						</button>
 					{/if}
-					<div class="flex flex-col gap-1">
-						<label for="authServerURL" class="text-sm font-light">
-							Default Authorization Server URL (Optional)
-						</label>
-						<input
-							id="authServerURL"
-							class="text-input-filled dark:bg-background"
-							bind:value={remoteConfig.authorizationServerURL}
-							disabled={readonly}
-							placeholder="https://auth.example.com"
-						/>
-					</div>
 				</div>
 			{/if}
 		</div>

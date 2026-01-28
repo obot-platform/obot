@@ -42,23 +42,21 @@ type ContainerizedRuntimeConfig struct {
 
 // RemoteRuntimeConfig represents configuration for remote runtime (External MCP servers)
 type RemoteRuntimeConfig struct {
-	URL                    string      `json:"url"`                              // Required: Full URL to remote MCP server
-	IsTemplate             bool        `json:"isTemplate"`                       // Optional: Whether the URL is a template
-	URLTemplate            string      `json:"urlTemplate,omitempty"`            // URL template for user URLs
-	Hostname               string      `json:"hostname,omitempty"`               // Optional: Hostname constraint the URL conforms to
-	Headers                []MCPHeader `json:"headers,omitempty"`                // Optional
-	AuthorizationServerURL string      `json:"authorizationServerURL,omitempty"` // OAuth authorization server URL (indicates static OAuth required)
-	StaticOAuthRequired    bool        `json:"staticOAuthRequired,omitempty"`    // Indicates static OAuth is required
+	URL                 string      `json:"url"`                           // Required: Full URL to remote MCP server
+	IsTemplate          bool        `json:"isTemplate"`                    // Optional: Whether the URL is a template
+	URLTemplate         string      `json:"urlTemplate,omitempty"`         // URL template for user URLs
+	Hostname            string      `json:"hostname,omitempty"`            // Optional: Hostname constraint the URL conforms to
+	Headers             []MCPHeader `json:"headers,omitempty"`             // Optional
+	StaticOAuthRequired bool        `json:"staticOAuthRequired,omitempty"` // Indicates static OAuth is required
 }
 
 // RemoteCatalogConfig represents template configuration for remote servers in catalog entries
 type RemoteCatalogConfig struct {
-	FixedURL               string      `json:"fixedURL,omitempty"`               // Fixed URL for all instances
-	URLTemplate            string      `json:"urlTemplate,omitempty"`            // URL template for user URLs
-	Hostname               string      `json:"hostname,omitempty"`               // Required hostname for user URLs
-	Headers                []MCPHeader `json:"headers,omitempty"`                // Optional
-	AuthorizationServerURL string      `json:"authorizationServerURL,omitempty"` // Default OAuth authorization server URL
-	StaticOAuthRequired    bool        `json:"staticOAuthRequired,omitempty"`    // Indicates static OAuth configuration is required
+	FixedURL            string      `json:"fixedURL,omitempty"`            // Fixed URL for all instances
+	URLTemplate         string      `json:"urlTemplate,omitempty"`         // URL template for user URLs
+	Hostname            string      `json:"hostname,omitempty"`            // Required hostname for user URLs
+	Headers             []MCPHeader `json:"headers,omitempty"`             // Optional
+	StaticOAuthRequired bool        `json:"staticOAuthRequired,omitempty"` // Indicates static OAuth configuration is required
 }
 
 // CompositeCatalogConfig represents configuration for composite servers in catalog entries.
@@ -475,9 +473,8 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 
-		// Copy headers and authorization server URL from catalog entry
+		// Copy headers and static OAuth flag from catalog entry
 		remoteConfig.Headers = catalogEntry.RemoteConfig.Headers
-		remoteConfig.AuthorizationServerURL = catalogEntry.RemoteConfig.AuthorizationServerURL
 		remoteConfig.StaticOAuthRequired = catalogEntry.RemoteConfig.StaticOAuthRequired
 		serverManifest.RemoteConfig = remoteConfig
 	default:
@@ -550,9 +547,8 @@ func ValidateURLHostname(u string, hostname string) error {
 
 // MCPServerOAuthCredentialRequest represents a request to set OAuth credentials for an MCP server
 type MCPServerOAuthCredentialRequest struct {
-	ClientID               string `json:"clientID"`
-	ClientSecret           string `json:"clientSecret"`
-	AuthorizationServerURL string `json:"authorizationServerURL,omitempty"` // Optional, required if catalog entry has no default
+	ClientID     string `json:"clientID"`
+	ClientSecret string `json:"clientSecret"`
 }
 
 // MCPServerOAuthCredentialStatus represents the status of OAuth credentials for an MCP server
@@ -561,6 +557,4 @@ type MCPServerOAuthCredentialStatus struct {
 	Configured bool `json:"configured"`
 	// ClientID is the configured client ID (never includes secret)
 	ClientID string `json:"clientID,omitempty"`
-	// AuthorizationServerURL is the authorization server URL from the server config
-	AuthorizationServerURL string `json:"authorizationServerURL,omitempty"`
 }

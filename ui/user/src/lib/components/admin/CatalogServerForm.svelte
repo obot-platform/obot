@@ -395,9 +395,7 @@
 						hostname: baseData.remoteConfig.hostname?.trim() || undefined,
 						urlTemplate: baseData.remoteConfig.urlTemplate?.trim() || undefined,
 						headers: baseData.remoteConfig.headers || [],
-						staticOAuthRequired: baseData.remoteConfig.staticOAuthRequired,
-						authorizationServerURL:
-							baseData.remoteConfig.authorizationServerURL?.trim() || undefined
+						staticOAuthRequired: baseData.remoteConfig.staticOAuthRequired
 					};
 				}
 				break;

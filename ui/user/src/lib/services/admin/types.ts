@@ -37,7 +37,6 @@ export interface RemoteCatalogConfigAdmin {
 	urlTemplate?: string;
 	hostname?: string;
 	headers?: MCPCatalogEntryFieldManifest[];
-	authorizationServerURL?: string;
 	staticOAuthRequired?: boolean;
 }
 
@@ -791,11 +790,9 @@ export interface MCPResourceRequests {
 export interface MCPServerOAuthCredentialRequest {
 	clientID: string;
 	clientSecret: string;
-	authorizationServerURL?: string; // Optional, uses catalog entry default if omitted
 }
 
 export interface MCPServerOAuthCredentialStatus {
 	configured: boolean;
 	clientID?: string;
-	authorizationServerURL?: string;
 }

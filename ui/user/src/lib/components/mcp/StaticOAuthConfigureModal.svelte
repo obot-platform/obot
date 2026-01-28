@@ -6,28 +6,15 @@
 	import Confirm from '../Confirm.svelte';
 
 	interface Props {
-		defaultAuthorizationServerURL?: string;
 		oauthStatus?: MCPServerOAuthCredentialStatus;
-		onSave: (credentials: {
-			clientID: string;
-			clientSecret: string;
-			authorizationServerURL?: string;
-		}) => Promise<void>;
+		onSave: (credentials: { clientID: string; clientSecret: string }) => Promise<void>;
 		onDelete?: () => Promise<void>;
 		onSkip?: () => void;
 		onCancel?: () => void;
 		showSkip?: boolean;
 	}
 
-	let {
-		defaultAuthorizationServerURL,
-		oauthStatus,
-		onSave,
-		onDelete,
-		onSkip,
-		onCancel,
-		showSkip = false
-	}: Props = $props();
+	let { oauthStatus, onSave, onDelete, onSkip, onCancel, showSkip = false }: Props = $props();
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let loading = $state(false);
@@ -37,23 +24,20 @@
 
 	let form = $state({
 		clientID: '',
-		clientSecret: '',
-		authorizationServerURL: ''
+		clientSecret: ''
 	});
 
 	function onOpen() {
 		form = {
 			clientID: oauthStatus?.clientID ?? '',
-			clientSecret: '',
-			authorizationServerURL:
-				oauthStatus?.authorizationServerURL ?? defaultAuthorizationServerURL ?? ''
+			clientSecret: ''
 		};
 		showRequired = false;
 		error = undefined;
 	}
 
 	function onClose() {
-		form = { clientID: '', clientSecret: '', authorizationServerURL: '' };
+		form = { clientID: '', clientSecret: '' };
 		showRequired = false;
 		error = undefined;
 	}
@@ -70,54 +54,28 @@
 		showRequired = false;
 		error = undefined;
 
+		// Credentials cannot be updated once configured - must delete and recreate
 		if (oauthStatus?.configured) {
-			// Update mode: Only authorization server URL can be changed
-			// Auth server URL required if no default
-			if (!form.authorizationServerURL.trim() && !defaultAuthorizationServerURL) {
-				showRequired = true;
-				return;
-			}
-		} else {
-			// Initial setup: Validate all required fields
-			if (!form.clientID.trim()) {
-				showRequired = true;
-				return;
-			}
-			if (!form.clientSecret.trim()) {
-				showRequired = true;
-				return;
-			}
-			// Auth server URL required if no default
-			if (!form.authorizationServerURL.trim() && !defaultAuthorizationServerURL) {
-				showRequired = true;
-				return;
-			}
+			error = 'Credentials already configured. Clear credentials first to change them.';
+			return;
 		}
 
-		// Validate HTTPS for authorization server URL
-		const urlToValidate = form.authorizationServerURL.trim() || defaultAuthorizationServerURL;
-		if (urlToValidate && !urlToValidate.startsWith('https://')) {
-			error = 'Authorization Server URL must use HTTPS';
+		// Initial setup: Validate all required fields
+		if (!form.clientID.trim()) {
+			showRequired = true;
+			return;
+		}
+		if (!form.clientSecret.trim()) {
+			showRequired = true;
 			return;
 		}
 
 		loading = true;
 		try {
-			if (oauthStatus?.configured) {
-				// Update mode: Only send authorization server URL
-				await onSave({
-					clientID: '',
-					clientSecret: '',
-					authorizationServerURL: form.authorizationServerURL.trim() || undefined
-				});
-			} else {
-				// Initial setup: Send all fields
-				await onSave({
-					clientID: form.clientID.trim(),
-					clientSecret: form.clientSecret.trim(),
-					authorizationServerURL: form.authorizationServerURL.trim() || undefined
-				});
-			}
+			await onSave({
+				clientID: form.clientID.trim(),
+				clientSecret: form.clientSecret.trim()
+			});
 			dialog?.close();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to save OAuth credentials';
@@ -174,8 +132,8 @@
 
 		{#if oauthStatus?.configured}
 			<p class="text-on-surface1 text-sm font-light">
-				Update the authorization server URL for this OAuth configuration. To change the client ID or
-				secret, clear the credentials and re-enter all values.
+				OAuth credentials are configured. To change the client ID or secret, clear the credentials
+				and re-enter all values.
 			</p>
 		{:else}
 			<p class="text-on-surface1 text-sm font-light">
@@ -186,34 +144,7 @@
 
 		<div class="flex flex-col gap-4">
 			<div class="flex flex-col gap-1">
-				<label
-					for="authorizationServerURL"
-					class:text-red-500={showRequired &&
-						!form.authorizationServerURL &&
-						!defaultAuthorizationServerURL}
-				>
-					Authorization Server URL {#if defaultAuthorizationServerURL}(Optional - has default){/if}
-				</label>
-				{#if defaultAuthorizationServerURL}
-					<span class="text-gray text-xs">Default: {defaultAuthorizationServerURL}</span>
-				{/if}
-				<input
-					type="url"
-					id="authorizationServerURL"
-					bind:value={form.authorizationServerURL}
-					class="text-input-filled"
-					class:error={showRequired &&
-						!form.authorizationServerURL &&
-						!defaultAuthorizationServerURL}
-					placeholder={defaultAuthorizationServerURL || 'https://auth.example.com'}
-				/>
-			</div>
-
-			<div class="flex flex-col gap-1">
-				<label
-					for="clientID"
-					class:text-red-500={showRequired && !oauthStatus?.configured && !form.clientID}
-				>
+				<label for="clientID" class:text-red-500={showRequired && !form.clientID}>
 					Client ID
 				</label>
 				<input
@@ -221,34 +152,25 @@
 					id="clientID"
 					bind:value={form.clientID}
 					class="text-input-filled"
-					class:error={showRequired && !oauthStatus?.configured && !form.clientID}
+					class:error={showRequired && !form.clientID}
 					class:opacity-60={oauthStatus?.configured}
 					placeholder="your-client-id"
 					readonly={oauthStatus?.configured}
 				/>
-				{#if oauthStatus?.configured}
-					<span class="text-gray text-xs">Read-only (clear credentials to change)</span>
-				{/if}
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<label
-					for="clientSecret"
-					class:text-red-500={showRequired && !oauthStatus?.configured && !form.clientSecret}
-				>
+				<label for="clientSecret" class:text-red-500={showRequired && !form.clientSecret}>
 					Client Secret
 				</label>
 				<SensitiveInput
 					name="clientSecret"
 					bind:value={form.clientSecret}
-					error={showRequired && !oauthStatus?.configured && !form.clientSecret}
+					error={showRequired && !form.clientSecret}
 					placeholder={oauthStatus?.configured ? '••••••••' : 'your-client-secret'}
 					readonly={oauthStatus?.configured}
 					classes={{ input: oauthStatus?.configured ? 'opacity-60' : '' }}
 				/>
-				{#if oauthStatus?.configured}
-					<span class="text-gray text-xs">Read-only (clear credentials to change)</span>
-				{/if}
 			</div>
 		</div>
 	</form>
@@ -271,21 +193,25 @@
 			<div></div>
 		{/if}
 
-		<div class="flex gap-2">
-			{#if showSkip}
-				<button type="button" class="button" onclick={handleSkip} disabled={loading}> Skip </button>
-			{/if}
-			<button type="button" class="button" onclick={handleCancel} disabled={loading}>
-				Cancel
-			</button>
-			<button type="button" class="button-primary" onclick={handleSave} disabled={loading}>
-				{#if loading}
-					<LoaderCircle class="size-4 animate-spin" />
-				{:else}
-					Save
+		{#if !oauthStatus?.configured}
+			<div class="flex gap-2">
+				{#if showSkip}
+					<button type="button" class="button" onclick={handleSkip} disabled={loading}>
+						Skip
+					</button>
 				{/if}
-			</button>
-		</div>
+				<button type="button" class="button" onclick={handleCancel} disabled={loading}>
+					Cancel
+				</button>
+				<button type="button" class="button-primary" onclick={handleSave} disabled={loading}>
+					{#if loading}
+						<LoaderCircle class="size-4 animate-spin" />
+					{:else}
+						Save
+					{/if}
+				</button>
+			</div>
+		{/if}
 	</div>
 </ResponsiveDialog>
 

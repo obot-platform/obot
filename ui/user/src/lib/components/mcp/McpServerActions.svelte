@@ -597,7 +597,6 @@
 
 <StaticOAuthConfigureModal
 	bind:this={oauthConfigModal}
-	defaultAuthorizationServerURL={entry?.manifest?.remoteConfig?.authorizationServerURL}
 	onSave={async (credentials) => {
 		if (!entry) return;
 		if (entry.powerUserWorkspaceID) {
