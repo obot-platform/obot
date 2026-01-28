@@ -33,21 +33,39 @@
 			})
 			.filter((name): name is string => name !== null);
 	});
+
+	type DisplayItem = { name: string; deleted: boolean };
+	let displayItems = $derived.by((): DisplayItem[] => {
+		if (isAllServers) return [];
+		const items: DisplayItem[] = resolvedServers.map((name) => ({ name, deleted: false }));
+		for (let i = 0; i < deletedServersCount; i++) {
+			items.push({ name: 'Deleted', deleted: true });
+		}
+		return items;
+	});
 </script>
 
+{#snippet serverName(item: DisplayItem)}
+	{#if item.deleted}<i class="text-on-surface1 font-light italic">({item.name})</i
+		>{:else}{item.name}{/if}
+{/snippet}
+
 <div class="">
-	{#if !isAllServers}
-		{#if resolvedServers.length === 1}
-			{resolvedServers[0]}
-		{:else if resolvedServers.length === 2}
-			{resolvedServers[0]} & {resolvedServers[1]}
-		{:else if resolvedServers.length === 3}
-			{resolvedServers[0]}, {resolvedServers[1]}, & {resolvedServers[2]}
-		{:else if resolvedServers.length > 3}
-			{resolvedServers[0]}, {resolvedServers[1]}, & {resolvedServers.length - 2} more
-		{/if}
+	{#if isAllServers}
+		All MCP Servers
+	{:else if displayItems.length === 1}
+		{@render serverName(displayItems[0])}
+	{:else if displayItems.length === 2}
+		{@render serverName(displayItems[0])} & {@render serverName(displayItems[1])}
+	{:else if displayItems.length === 3}
+		{@render serverName(displayItems[0])}, {@render serverName(displayItems[1])}, & {@render serverName(
+			displayItems[2]
+		)}
+	{:else if displayItems.length > 3}
+		{@render serverName(displayItems[0])}, {@render serverName(displayItems[1])}, & {displayItems.length -
+			2} more
 	{/if}
-	{#if deletedServersCount > 0}
+	{#if displayItems.length > 3 && deletedServersCount > 0}
 		<span
 			class="inline-block"
 			use:tooltip={`Includes ${deletedServersCount} deleted server${deletedServersCount === 1 ? '' : 's'}.`}

@@ -38,7 +38,7 @@
 			const server = serverMap.get(id);
 			return {
 				id,
-				name: server?.alias || server?.manifest.name || '(Deleted Server)',
+				name: server?.alias || server?.manifest.name || '(Deleted)',
 				description: server?.manifest.description,
 				icon: server?.manifest.icon,
 				exists: !!server
@@ -149,13 +149,13 @@
 					<span class="text-lg font-semibold">Authorized Servers</span>
 				</p>
 
-				{#if resolvedServers.length > 0}
+				{#if resolvedServers.length > 0 || isAllServers}
 					<Table
 						data={isAllServers
 							? [
 									{
-										id: 'all-my-servers',
-										name: 'All My Servers',
+										id: 'all-mcp-servers',
+										name: 'All MCP Servers',
 										description: '',
 										icon: '',
 										exists: true
@@ -170,7 +170,7 @@
 								<div
 									class={twMerge(
 										'flex w-full items-center gap-3 px-4 py-3',
-										!d.exists && 'bg-yellow-500/10'
+										!d.exists && 'bg-yellow-500/5'
 									)}
 								>
 									<div class="flex-shrink-0">
