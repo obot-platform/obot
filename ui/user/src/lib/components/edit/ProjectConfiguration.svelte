@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project } from '$lib/services';
-	import { LoaderCircle, X, AlertCircle, CircleFadingArrowUp } from 'lucide-svelte';
+	import { LoaderCircle, X, AlertCircle, CircleFadingArrowUp, AlertTriangle } from 'lucide-svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import Memories from '$lib/components/edit/Memories.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import { goto } from '$lib/url';
 	import { hasTool } from '$lib/tools';
-	import { AlertTriangle } from 'lucide-svelte';
 	import ProjectConfigurationKnowledge from './ProjectConfigurationKnowledge.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { autoHeight } from '$lib/actions/textarea';
@@ -227,8 +226,10 @@
 				<Memories {project} />
 			{/if}
 
+			<!-- Danger Zone -->
 			<div class="mb-8 flex flex-col gap-2">
 				<h2 class="text-xl font-semibold">Danger Zone</h2>
+
 				<div class="rounded-md border border-red-500 p-4">
 					<div class="flex items-center justify-between gap-4">
 						<div class="flex flex-col">

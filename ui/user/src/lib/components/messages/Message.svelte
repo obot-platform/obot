@@ -546,10 +546,11 @@
 {/snippet}
 
 {#snippet toolContent()}
-	{#if msg.toolCall?.input && showToolInputDetails}
+	{@const input = msg.toolCall?.input}
+	{#if input && showToolInputDetails}
 		{@const parsedInput = (() => {
 			try {
-				return JSON.parse(msg.toolCall.input);
+				return JSON.parse(input);
 			} catch {
 				return null;
 			}
@@ -559,7 +560,7 @@
 			class="mb-4 flex w-full flex-col justify-start gap-4"
 		>
 			{#if parsedInput}
-				{@render toolDetails(msg.toolCall.input, 'Input')}
+				{@render toolDetails(input, 'Input')}
 			{/if}
 			{#if msg.toolCall?.output}
 				<button

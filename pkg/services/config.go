@@ -104,6 +104,7 @@ type Config struct {
 	RetentionPolicyHours       int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
 	DefaultMCPCatalogPath      string   `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
 	DisableUpdateCheck         bool     `usage:"Disable Obot server update checks"`
+	DisableChatToolConfirm     bool     `usage:"Disable tool call confirmation in chat - auto-approves all tool calls globally" default:"false" env:"OBOT_SERVER_DISABLE_CHAT_TOOL_CONFIRM"`
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
@@ -179,9 +180,10 @@ type Services struct {
 	// Parsed settings from Helm for k8s to pass to controller
 	K8sSettingsFromHelm *v1.K8sSettingsSpec
 
-	DisableUpdateCheck bool
-	MCPRuntimeBackend  string
-	RegistryNoAuth     bool
+	DisableUpdateCheck     bool
+	MCPRuntimeBackend      string
+	RegistryNoAuth         bool
+	DisableChatToolConfirm bool
 }
 
 const (
@@ -477,6 +479,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.HTTPListenPort,
 		persistentTokenServer,
 		events,
+		config.DisableChatToolConfirm,
 	)
 	providerDispatcher := dispatcher.New(invoker, storageClient, credOnlyGPTscriptClient, gatewayClient, postgresDSN)
 
@@ -826,6 +829,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPServerNamespace:      config.MCPNamespace,
 		K8sSettingsFromHelm:     helmK8sSettings,
 		DisableUpdateCheck:      config.DisableUpdateCheck,
+		DisableChatToolConfirm:  config.DisableChatToolConfirm,
 		MCPRuntimeBackend:       config.MCPRuntimeBackend,
 		RegistryNoAuth:          registryNoAuth,
 	}, nil

@@ -363,6 +363,27 @@ function toMessages(progresses: Progress[], opts?: AdditionalOptions): Messages 
 			} catch (_) {
 				// ignore error
 			}
+		} else if (progress.toolConfirm) {
+			const confirm = progress.toolConfirm;
+			// Find the existing toolCall message by contentID and attach toolConfirm in-place
+			const toolMsg = messages.findLast((m) => m.contentID === confirm.id && confirm.id);
+
+			if (toolMsg) {
+				// Attach toolConfirm to the existing message (keeps it in original position)
+				toolMsg.toolConfirm = confirm;
+			} else {
+				// Fallback: If no existing message found, create new one
+				// (This shouldn't happen if toolCall always arrives before toolConfirm)
+				messages.push({
+					runID: progress.runID || '',
+					time: progress.time ? new Date(progress.time) : new Date(),
+					sourceName: confirm.toolName || 'Tool Call',
+					sourceDescription: confirm.description,
+					message: [],
+					toolConfirm: confirm,
+					contentID: confirm.id
+				});
+			}
 		}
 
 		if (lastStepID && messages.length > 0) {
