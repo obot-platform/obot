@@ -3,6 +3,7 @@ package mcpgateway
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -149,18 +150,18 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 
 	// Apply server ownership filtering for Basic users (non-admin, non-power users)
 	if !req.UserIsAdmin() && !req.UserIsPowerUser() && !req.UserIsAuditor() {
-		// Get all servers owned by this user
+		// Get all servers owned by this user using a field selector
 		var serverList v1.MCPServerList
-		if err := req.List(&serverList); err != nil {
+		if err := req.List(&serverList, &kclient.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector("spec.userID", req.User.GetUID()),
+		}); err != nil {
 			return fmt.Errorf("failed to list servers: %w", err)
 		}
 
 		// Extract server IDs for servers owned by the user
-		var ownedServerIDs []string
+		ownedServerIDs := make([]string, 0, len(serverList.Items))
 		for _, server := range serverList.Items {
-			if server.Spec.UserID == req.User.GetUID() {
-				ownedServerIDs = append(ownedServerIDs, server.Name)
-			}
+			ownedServerIDs = append(ownedServerIDs, server.Name)
 		}
 
 		// If the user doesn't own any servers, return empty results
@@ -179,13 +180,10 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		// If a specific mcp_id was requested, ensure it's in the owned list
 		if len(opts.MCPID) > 0 {
 			// Check if requested mcp_id is owned by user
-			requestedOwned := make([]string, 0)
+			requestedOwned := make([]string, 0, len(opts.MCPID))
 			for _, mcpID := range opts.MCPID {
-				for _, ownedID := range ownedServerIDs {
-					if mcpID == ownedID {
-						requestedOwned = append(requestedOwned, mcpID)
-						break
-					}
+				if slices.Contains(ownedServerIDs, mcpID) {
+					requestedOwned = append(requestedOwned, mcpID)
 				}
 			}
 			if len(requestedOwned) == 0 {
@@ -448,18 +446,18 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 
 	// Apply server ownership filtering for Basic users (same logic as audit logs)
 	if !req.UserIsAdmin() && !req.UserIsPowerUser() && !req.UserIsAuditor() {
-		// Get all servers owned by this user
+		// Get all servers owned by this user using a field selector
 		var serverList v1.MCPServerList
-		if err := req.List(&serverList); err != nil {
+		if err := req.List(&serverList, &kclient.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector("spec.userID", req.User.GetUID()),
+		}); err != nil {
 			return fmt.Errorf("failed to list servers: %w", err)
 		}
 
 		// Extract server IDs for servers owned by the user
-		var ownedServerIDs []string
+		ownedServerIDs := make([]string, 0, len(serverList.Items))
 		for _, server := range serverList.Items {
-			if server.Spec.UserID == req.User.GetUID() {
-				ownedServerIDs = append(ownedServerIDs, server.Name)
-			}
+			ownedServerIDs = append(ownedServerIDs, server.Name)
 		}
 
 		// If the user doesn't own any servers, return empty stats
@@ -475,24 +473,15 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 
 		// Filter usage stats to only include owned servers
 		// If a specific mcp_id was requested, ensure it's in the owned list
-		if opts.MCPID != "" {
-			isOwned := false
-			for _, ownedID := range ownedServerIDs {
-				if opts.MCPID == ownedID {
-					isOwned = true
-					break
-				}
-			}
-			if !isOwned {
-				// Requested server not owned by user, return empty stats
-				return req.Write(types.MCPUsageStats{
-					TimeStart:   *types.NewTime(time.Now()),
-					TimeEnd:     *types.NewTime(time.Now()),
-					TotalCalls:  0,
-					UniqueUsers: 0,
-					Items:       []types.MCPUsageStatItem{},
-				})
-			}
+		if opts.MCPID != "" && !slices.Contains(ownedServerIDs, opts.MCPID) {
+			// Requested server not owned by user, return empty stats
+			return req.Write(types.MCPUsageStats{
+				TimeStart:   *types.NewTime(time.Now()),
+				TimeEnd:     *types.NewTime(time.Now()),
+				TotalCalls:  0,
+				UniqueUsers: 0,
+				Items:       []types.MCPUsageStatItem{},
+			})
 		}
 		// Note: For multi-server stats queries, the gateway will filter based on PowerUserWorkspaceID
 		// or the owned server IDs. Since we can't set multiple MCPIDs in the current API,
