@@ -18,6 +18,7 @@
 	import { page } from '$app/state';
 	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
 	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
+	import { openUrl } from '$lib/utils';
 
 	let { data } = $props();
 	let allApiKeys = $state<APIKey[]>(untrack(() => data.allApiKeys));
@@ -48,7 +49,7 @@
 		if (!keyToDelete) return;
 		loading = true;
 		try {
-			await ApiKeysService.deleteAnyApiKey(keyToDelete.id);
+			await ApiKeysService.deleteAnyApiKey(keyToDelete.id.toString());
 			allApiKeys = allApiKeys.filter((k) => k.id !== keyToDelete.id);
 		} finally {
 			loading = false;
@@ -126,6 +127,10 @@
 					sortable={['userDisplay', 'name', 'createdAt', 'lastUsedAt', 'expiresAt']}
 					{initSort}
 					onSort={setSortUrlParams}
+					onClickRow={(d, isCtrlClick) => {
+						const url = `/admin/api-keys/${d.id}`;
+						openUrl(url, isCtrlClick);
+					}}
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'description'}

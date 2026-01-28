@@ -7,7 +7,7 @@ export const load: PageLoad = async ({ params, parent, fetch }) => {
     const { id } = params;
     let apiKey;
     try {
-        apiKey = await ApiKeysService.getApiKey(id, { fetch });
+        apiKey = await ApiKeysService.getAnyApiKey(id, { fetch });
     } catch (err) {
         handleRouteError(err, `/admin/api-keys/${id}`, profile);
     }

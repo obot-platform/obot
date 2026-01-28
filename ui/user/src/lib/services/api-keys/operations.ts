@@ -34,11 +34,11 @@ export async function listAllApiKeys(opts?: { fetch?: Fetcher }): Promise<APIKey
 	return response.items ?? [];
 }
 
-export async function getAnyApiKey(id: number, opts?: { fetch?: Fetcher }): Promise<APIKey> {
+export async function getAnyApiKey(id: string, opts?: { fetch?: Fetcher }): Promise<APIKey> {
 	const response = (await doGet(`/admin-api-keys/${id}`, opts)) as APIKey;
 	return response;
 }
 
-export async function deleteAnyApiKey(id: number): Promise<void> {
+export async function deleteAnyApiKey(id: string): Promise<void> {
 	await doDelete(`/admin-api-keys/${id}`);
 }

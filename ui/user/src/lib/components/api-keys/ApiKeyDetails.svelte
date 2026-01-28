@@ -10,12 +10,14 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { compileAvailableMcpServers } from '$lib/services/chat/mcp';
+	import Confirm from '../Confirm.svelte';
 
 	interface Props {
 		apiKey?: APIKey & { prefix: string };
+		onDelete: () => void;
 	}
 
-	let { apiKey }: Props = $props();
+	let { apiKey, onDelete }: Props = $props();
 	let deletingApiKey = $state(false);
 	let saving = $state(false);
 
@@ -204,3 +206,10 @@
 		</div>
 	</div>
 {/if}
+
+<Confirm
+	msg="Are you sure you want to delete this API key?"
+	show={deletingApiKey}
+	onsuccess={onDelete}
+	oncancel={() => (deletingApiKey = false)}
+/>
