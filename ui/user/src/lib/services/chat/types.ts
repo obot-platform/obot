@@ -80,7 +80,7 @@ export type ToolConfirmDecision = 'deny' | 'approve' | 'approve_thread';
 export type ToolConfirmResponse = {
 	id: string;
 	decision: ToolConfirmDecision;
-	threadApprovedTools?: string;
+	toolName?: string;
 };
 
 type WorkflowCall = {

@@ -774,7 +774,7 @@ export async function sendToolApproval(
 	assistantID: string,
 	projectID: string,
 	threadID: string,
-	response: { id: string; decision: string; threadApprovedTools?: string }
+	response: { id: string; decision: string; toolName?: string }
 ) {
 	return await doPost(
 		`/assistants/${assistantID}/projects/${projectID}/threads/${threadID}/confirm`,

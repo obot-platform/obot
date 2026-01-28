@@ -15,8 +15,6 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import PageLoading from '$lib/components/PageLoading.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
-	import { profile, version } from '$lib/stores';
 
 	interface Props {
 		project: Project;
@@ -28,15 +26,6 @@
 	let deleting = $state(false);
 	let saving = $state(false);
 	let upgradeLoading = $state(false);
-	let savingPreferences = $state(false);
-	let disableChatToolConfirm = $state(profile.current?.disableChatToolConfirm ?? false);
-
-	// Sync with profile store when it updates
-	$effect(() => {
-		if (profile.current) {
-			disableChatToolConfirm = profile.current.disableChatToolConfirm;
-		}
-	});
 
 	const projectTools = getProjectTools();
 	const layout = getLayout();
@@ -74,22 +63,6 @@
 		} catch (error) {
 			console.error('Failed to upgrade project from template:', error);
 			upgradeLoading = false;
-		}
-	}
-
-	async function handleDisableConfirmToggle(checked: boolean) {
-		savingPreferences = true;
-		try {
-			const updatedProfile = await ChatService.patchProfile({
-				disableChatToolConfirm: checked
-			});
-			disableChatToolConfirm = updatedProfile.disableChatToolConfirm;
-			profile.initialize(updatedProfile);
-		} catch (err) {
-			console.error('Failed to update tool confirmation setting:', err);
-			disableChatToolConfirm = !checked;
-		} finally {
-			savingPreferences = false;
 		}
 	}
 
@@ -258,26 +231,6 @@
 				<h2 class="text-xl font-semibold">Danger Zone</h2>
 
 				<div class="rounded-md border border-red-500 p-4">
-					{#if !version.current.disableChatToolConfirm}
-						<div class="flex items-center justify-between gap-4">
-							<div class="flex flex-col gap-1">
-								<p class="font-semibold">Disable Tool Authorization</p>
-								<span class="text-sm font-light">
-									Allow agents to execute available tools autonomously without explicit user
-									approval. Applies to all projects.
-								</span>
-							</div>
-							<Toggle
-								label=""
-								checked={disableChatToolConfirm}
-								disabled={savingPreferences}
-								onChange={handleDisableConfirmToggle}
-							/>
-						</div>
-
-						<div class="border-surface3 my-4 border-t"></div>
-					{/if}
-
 					<div class="flex items-center justify-between gap-4">
 						<div class="flex flex-col">
 							<p class="font-semibold">Delete Project</p>

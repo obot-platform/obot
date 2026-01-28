@@ -2,6 +2,7 @@
 	import { stickToBottom, type StickToBottomControls } from '$lib/actions/div.svelte';
 	import Input from '$lib/components/messages/Input.svelte';
 	import Message from '$lib/components/messages/Message.svelte';
+	import ToolApprovalBar from '$lib/components/messages/ToolApprovalBar.svelte';
 	import { Thread } from '$lib/services/chat/thread.svelte';
 	import {
 		ChatService,
@@ -79,6 +80,37 @@
 	let centerInput = $derived(!createProject && (!id || isNew));
 	let imagePreviewDialog = $state<HTMLDialogElement>();
 	let imagePreviewSrc = $state<string>();
+
+	// Tool approval state
+	let pendingApprovals = $derived.by(() => {
+		const approvals: {
+			id: string;
+			toolName: string;
+			description?: string;
+			input?: string;
+			time?: Date;
+			icon?: string;
+			sourceName: string;
+			done: boolean;
+		}[] = [];
+		for (const msg of messages.messages) {
+			if (msg.toolConfirm) {
+				approvals.push({
+					id: msg.toolConfirm.id,
+					toolName: msg.toolConfirm.toolName,
+					description: msg.toolConfirm.description,
+					input: msg.toolConfirm.input,
+					time: msg.time,
+					icon: msg.icon,
+					sourceName: msg.sourceName,
+					done: msg.done ?? false
+				});
+			}
+		}
+		return approvals;
+	});
+
+	let activePendingApprovals = $derived(pendingApprovals.filter((a) => !a.done));
 
 	$effect(() => {
 		if (threadContainer) {
@@ -568,10 +600,13 @@
 
 		<div
 			class={twMerge(
-				'bg-background sticky z-30 flex w-full justify-center pb-2 transition-transform duration-300',
+				'bg-background sticky z-30 flex w-full flex-col items-center pb-2 transition-transform duration-300',
 				centerInput ? 'absolute top-1/2 -translate-y-[50%]' : 'bottom-0 -translate-y-[0%]'
 			)}
 		>
+			{#if !centerInput && activePendingApprovals.length > 0 && id}
+				<ToolApprovalBar pendingApprovals={activePendingApprovals} {project} currentThreadID={id} />
+			{/if}
 			<div class="w-full max-w-[1000px]">
 				{#if centerInput && assistant?.introductionMessage}
 					<div class="milkdown-content mb-5 max-w-full px-5" in:fade>

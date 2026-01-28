@@ -10982,7 +10982,7 @@ func schema_obot_platform_obot_apiclient_types_ToolConfirmResponse(ref common.Re
 							Format:      "",
 						},
 					},
-					"threadApprovedTools": {
+					"toolName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ToolName is the name of a tool to pre-approve for the duration of the thread. Set to the wildcard (\"*\") to pre-approve ALL tools. This field may only be set when Decision is ToolConfirmDecisionApproveThread.",
 							Type:        []string{"string"},

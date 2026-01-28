@@ -38,7 +38,6 @@
 	import { twMerge } from 'tailwind-merge';
 	import { isTextFile } from '$lib/utils';
 	import { profile } from '$lib/stores';
-	import popover from '$lib/actions/popover.svelte';
 
 	interface Props {
 		msg: Message;
@@ -101,22 +100,6 @@
 
 	let promptCredentials = $state<Record<string, string>>({});
 	let credentialsSubmitted = $state(false);
-	let toolConfirmSubmitted = $state(false);
-	const confirmDropdown = popover({ placement: 'top-end' });
-
-	async function handleToolApproval(
-		decision: 'deny' | 'approve' | 'approve_thread',
-		threadApprovedTools?: string
-	) {
-		if (msg.toolConfirm?.id && currentThreadID) {
-			await ChatService.sendToolApproval(project.assistantID, project.id, currentThreadID, {
-				id: msg.toolConfirm.id,
-				decision,
-				threadApprovedTools
-			});
-			toolConfirmSubmitted = true;
-		}
-	}
 
 	let shouldAnimate = $derived(!msg.done && !msg.toolCall && !msg.promptId && !msg.sent);
 	let cursor = new Tween(0);
@@ -388,11 +371,11 @@
 		{#if msg.time}
 			<span class="text-gray text-sm">{formatTime(msg.time)}</span>
 		{/if}
-		{#if (!msg.done || animating) && (!msg.toolConfirm || toolConfirmSubmitted)}
+		{#if !msg.done || animating}
 			<Loading class="size-4" />
 		{/if}
 
-		{#if (msg.toolCall?.input || msg.toolCall?.output || msg.toolConfirm) && !msg.file}
+		{#if (msg.toolCall?.input || msg.toolCall?.output) && !msg.file}
 			<div class="flex items-center gap-2">
 				<button
 					class="text-gray cursor-pointer text-xs underline"
@@ -410,54 +393,6 @@
 						<Brain class="h-3 w-3" />
 						Memories
 					</button>
-				{/if}
-
-				{#if msg.toolConfirm && !toolConfirmSubmitted}
-					<button
-						class="text-on-surface1 hover:text-on-background hover:bg-surface1 rounded px-2 py-0.5 text-xs transition-colors"
-						onclick={() => handleToolApproval('deny')}
-					>
-						Deny
-					</button>
-					<button
-						use:confirmDropdown.ref
-						class="text-primary hover:bg-primary/10 rounded px-2 py-0.5 text-xs font-medium transition-colors"
-						onclick={() => confirmDropdown.toggle()}
-					>
-						Approve
-					</button>
-					<div
-						use:confirmDropdown.tooltip
-						class="bg-background flex min-w-[180px] flex-col rounded-lg border border-gray-300 py-1 shadow-lg dark:border-gray-700"
-					>
-						<button
-							class="hover:bg-surface1 px-3 py-1.5 text-left text-xs transition-colors"
-							onclick={() => {
-								handleToolApproval('approve');
-								confirmDropdown.toggle(false);
-							}}
-						>
-							This request
-						</button>
-						<button
-							class="hover:bg-surface1 px-3 py-1.5 text-left text-xs transition-colors"
-							onclick={() => {
-								handleToolApproval('approve_thread', msg.toolConfirm?.toolName);
-								confirmDropdown.toggle(false);
-							}}
-						>
-							All {msg.toolConfirm?.toolName} requests
-						</button>
-						<button
-							class="hover:bg-surface1 px-3 py-1.5 text-left text-xs transition-colors"
-							onclick={() => {
-								handleToolApproval('approve_thread', '*');
-								confirmDropdown.toggle(false);
-							}}
-						>
-							All requests
-						</button>
-					</div>
 				{/if}
 			</div>
 		{/if}
