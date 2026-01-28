@@ -18,7 +18,7 @@
 			<ApiKeyDetails
 				apiKey={{ ...apiKey, prefix: `ok1-${apiKey.userId}-${apiKey.id}-*****` }}
 				onDelete={async () => {
-					await ApiKeysService.deleteAnyApiKey(apiKey.id);
+					await ApiKeysService.deleteAnyApiKey(apiKey.id.toString());
 					goto('/keys', { replaceState: true });
 				}}
 			/>
