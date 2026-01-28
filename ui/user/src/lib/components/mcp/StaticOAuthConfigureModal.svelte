@@ -157,9 +157,6 @@
 					placeholder="your-client-id"
 					readonly={oauthStatus?.configured}
 				/>
-				{#if oauthStatus?.configured}
-					<span class="text-gray text-xs">Read-only (clear credentials to change)</span>
-				{/if}
 			</div>
 
 			<div class="flex flex-col gap-1">
@@ -174,9 +171,6 @@
 					readonly={oauthStatus?.configured}
 					classes={{ input: oauthStatus?.configured ? 'opacity-60' : '' }}
 				/>
-				{#if oauthStatus?.configured}
-					<span class="text-gray text-xs">Read-only (clear credentials to change)</span>
-				{/if}
 			</div>
 		</div>
 	</form>
@@ -199,21 +193,25 @@
 			<div></div>
 		{/if}
 
-		<div class="flex gap-2">
-			{#if showSkip}
-				<button type="button" class="button" onclick={handleSkip} disabled={loading}> Skip </button>
-			{/if}
-			<button type="button" class="button" onclick={handleCancel} disabled={loading}>
-				Cancel
-			</button>
-			<button type="button" class="button-primary" onclick={handleSave} disabled={loading}>
-				{#if loading}
-					<LoaderCircle class="size-4 animate-spin" />
-				{:else}
-					Save
+		{#if !oauthStatus?.configured}
+			<div class="flex gap-2">
+				{#if showSkip}
+					<button type="button" class="button" onclick={handleSkip} disabled={loading}>
+						Skip
+					</button>
 				{/if}
-			</button>
-		</div>
+				<button type="button" class="button" onclick={handleCancel} disabled={loading}>
+					Cancel
+				</button>
+				<button type="button" class="button-primary" onclick={handleSave} disabled={loading}>
+					{#if loading}
+						<LoaderCircle class="size-4 animate-spin" />
+					{:else}
+						Save
+					{/if}
+				</button>
+			</div>
+		{/if}
 	</div>
 </ResponsiveDialog>
 
