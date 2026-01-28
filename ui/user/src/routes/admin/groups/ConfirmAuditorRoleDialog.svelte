@@ -17,6 +17,7 @@
 </script>
 
 <Confirm
+	title="Confirm Auditor Role"
 	{loading}
 	show={Boolean(groupAssignment)}
 	onsuccess={async () => {
@@ -24,12 +25,9 @@
 		onsuccess(groupAssignment);
 	}}
 	{oncancel}
+	type="info"
+	msg={`Grant ${groupAssignment?.group.name} the Auditor role?`}
 >
-	{#snippet title()}
-		<div class="flex items-center gap-2">
-			<h3 class="text-xl font-semibold">Confirm Auditor Role for Group</h3>
-		</div>
-	{/snippet}
 	{#snippet note()}
 		<div class="mt-4 mb-8 flex flex-col gap-4 text-center">
 			<p>

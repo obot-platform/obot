@@ -73,10 +73,12 @@
 	let updatingRole = $state<TableItem>();
 	let deletingGroup = $state<TableItem>();
 	let showAddAssignment = $state(false);
+	let showAssignGroupRoleDialog = $state(false);
 	let confirmAuditorAdditionToGroup = $state<GroupAssignment>();
 	let confirmOwnerGroupAssignment = $state<GroupAssignment>();
 	let loading = $state(false);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let addGroupAssignmentDialog = $state<ReturnType<typeof AddGroupAssignmentDialog>>();
 
 	async function updateGroupRole(data: GroupAssignment) {
 		const { assignment } = data;
@@ -164,26 +166,27 @@
 						{#snippet actions(d)}
 							{#if !isAdminReadonly}
 								<DotDotDot>
-									<div class="default-dialog flex min-w-max flex-col p-2">
+									<button
+										class="menu-button"
+										disabled={!profile.current.groups.includes(Group.OWNER) &&
+											d.roleId === Role.OWNER}
+										onclick={() => {
+											updatingRole = d;
+											showAssignGroupRoleDialog = true;
+										}}
+									>
+										{d.assignment ? 'Update Role' : 'Assign Role'}
+									</button>
+									{#if d.assignment}
 										<button
-											class="menu-button"
+											class="menu-button text-red-500"
 											disabled={!profile.current.groups.includes(Group.OWNER) &&
 												d.roleId === Role.OWNER}
-											onclick={() => (updatingRole = d)}
+											onclick={() => (deletingGroup = d)}
 										>
-											{d.assignment ? 'Update Role' : 'Assign Role'}
+											Remove Role Assignment
 										</button>
-										{#if d.assignment}
-											<button
-												class="menu-button text-red-500"
-												disabled={!profile.current.groups.includes(Group.OWNER) &&
-													d.roleId === Role.OWNER}
-												onclick={() => (deletingGroup = d)}
-											>
-												Remove Role Assignment
-											</button>
-										{/if}
-									</div>
+									{/if}
 								</DotDotDot>
 							{/if}
 						{/snippet}
@@ -197,7 +200,10 @@
 		{#if !isAdminReadonly}
 			<button
 				class="button-primary w-full text-sm sm:w-auto"
-				onclick={() => (showAddAssignment = true)}
+				onclick={() => {
+					showAddAssignment = true;
+					addGroupAssignmentDialog?.clear();
+				}}
 			>
 				Add Assignment
 			</button>
@@ -206,7 +212,8 @@
 </Layout>
 
 <Confirm
-	msg={`Are you sure you want to remove the role assignment for group "${deletingGroup?.name}"?`}
+	title="Confirm Role Removal"
+	msg={`Remove role assignment for group "${deletingGroup?.name}"?`}
 	show={Boolean(deletingGroup)}
 	onsuccess={async () => {
 		if (!deletingGroup) return;
@@ -221,10 +228,16 @@
 		deletingGroup = undefined;
 	}}
 	oncancel={() => (deletingGroup = undefined)}
-/>
+>
+	{#snippet note()}
+		Related permissions tied to the role will no longer be available. Are you sure you wish to
+		continue?
+	{/snippet}
+</Confirm>
 
 <AddGroupAssignmentDialog
-	bind:open={showAddAssignment}
+	bind:this={addGroupAssignmentDialog}
+	open={showAddAssignment}
 	{groups}
 	{groupRoleMap}
 	{loading}
@@ -239,6 +252,7 @@
 />
 
 <AssignGroupRoleDialog
+	open={showAssignGroupRoleDialog}
 	groupAssignment={updatingRole
 		? {
 				group: { id: updatingRole.id, name: updatingRole.name, iconURL: updatingRole.iconURL },
@@ -246,7 +260,9 @@
 			}
 		: undefined}
 	{loading}
-	onClose={() => (updatingRole = undefined)}
+	onClose={() => {
+		showAssignGroupRoleDialog = false;
+	}}
 	onConfirm={updateGroupRole}
 	onOwnerConfirm={(groupAssignment) => {
 		confirmOwnerGroupAssignment = groupAssignment;
@@ -274,7 +290,15 @@
 		confirmAuditorAdditionToGroup = undefined;
 		updatingRole = undefined;
 	}}
-	oncancel={() => (confirmAuditorAdditionToGroup = undefined)}
+	oncancel={() => {
+		// return to previous dialog
+		confirmAuditorAdditionToGroup = undefined;
+		if (updatingRole) {
+			showAssignGroupRoleDialog = true;
+		} else {
+			showAddAssignment = true;
+		}
+	}}
 />
 
 <ConfirmOwnerRoleDialog
@@ -285,7 +309,14 @@
 		confirmOwnerGroupAssignment = undefined;
 		confirmAuditorAdditionToGroup = undefined;
 	}}
-	oncancel={() => (confirmOwnerGroupAssignment = undefined)}
+	oncancel={() => {
+		confirmOwnerGroupAssignment = undefined;
+		if (updatingRole) {
+			showAssignGroupRoleDialog = true;
+		} else {
+			showAddAssignment = true;
+		}
+	}}
 />
 
 <svelte:head>

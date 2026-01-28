@@ -161,9 +161,9 @@
 	{#if inputPopover}
 		{@render inputPopover(value)}
 	{/if}
-
 	<div
-		class=" focus-within:ring-primary bg-surface1 mt-4 flex h-fit max-h-[80svh] rounded-2xl focus-within:shadow-md focus-within:ring-1"
+		class="focus-within:ring-primary bg-surface1 mt-4 flex h-fit max-h-[80svh] rounded-2xl focus-within:shadow-md focus-within:ring-1"
+		style="anchor-name: --input-anchor"
 	>
 		<div class="flex min-h-full w-full flex-col" {id}>
 			<label for="chat" class="sr-only">Your messages</label>

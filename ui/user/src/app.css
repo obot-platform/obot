@@ -119,31 +119,6 @@
 		color: var(--on-background);
 	}
 
-	dialog {
-		border-radius: 0.75rem;
-		/* rounded-xl */
-		border-width: 1px;
-		border-color: var(--surface3);
-		margin: auto;
-		background-color: white;
-		font-size: 0.875rem;
-		/* text-sm */
-		color: black;
-		box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-		/* shadow-lg */
-		margin: auto;
-
-		.dark & {
-			background-color: var(--surface2);
-			color: white;
-		}
-	}
-
-	dialog::backdrop {
-		background-color: black;
-		opacity: 0.6;
-	}
-
 	textarea,
 	input {
 		accent-color: var(--color-primary);
@@ -748,67 +723,102 @@
 		scrollbar-width: none;
 	}
 
-	.default-dialog {
-		border-radius: 0.75rem;
-		border-width: 1px;
-		border-color: var(--surface3);
-		background-color: white;
+	.dialog {
+		pointer-events: none;
+		visibility: hidden;
+		width: 100%;
+		height: 100%;
+		max-height: none;
+		max-width: none;
+		overscroll-behavior: contain;
+		z-index: 9999;
+		scrollbar-gutter: auto;
 		font-size: 0.875rem;
-		color: black;
-		box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+		place-items: center;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		position: fixed;
+		inset: 0;
+		overflow: clip;
+		opacity: 0;
+		background-color: rgba(0, 0, 0, 0.6);
 
-		.dark & {
-			background-color: var(--surface2);
-			color: white;
+		&[open] {
+			pointer-events: auto;
+			visibility: visible;
+			opacity: 1;
 		}
 	}
 
-	.default-dialog-title {
+	.dialog-title {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
 		gap: 0.5rem;
 		font-size: 1.25rem;
 		font-weight: 600;
-	}
-
-	.default-dialog-mobile-title {
-		border-color: var(--surface3);
-		width: 100%;
-		border-bottom-width: 1px;
-		position: relative;
-		min-height: 3.5rem;
 		margin-bottom: 1rem;
-		padding: 0.5rem 0;
-		text-align: center;
-		justify-content: center;
+		position: relative;
+
+		&.mobile {
+			border-color: var(--surface3);
+			width: 100%;
+			border-bottom-width: 1px;
+			min-height: 3.5rem;
+			padding: 0.5rem 0;
+			text-align: center;
+			justify-content: center;
+			margin-bottom: 0;
+		}
 	}
 
-	.mobile-screen-dialog {
-		border-radius: unset;
-		height: 100%;
-		width: 100%;
-		max-width: 100vw;
-		max-height: 100vh;
-		padding: 0 1rem 1rem 1rem;
+	.dialog-container {
+		border-radius: var(--radius-xl);
+		border-width: 1px;
+		border-color: var(--surface3);
+		background-color: var(--background);
+		font-size: 0.875rem;
+		color: var(--on-background);
+		box-shadow: var(--shadow-lg);
+		grid-row-start: 1;
+		grid-column-start: 1;
+		overscroll-behavior: contain;
+		overflow-y: auto;
+
+		.dark & {
+			background-color: var(--surface2);
+		}
+
+		&.mobile {
+			border-radius: unset;
+			height: 100%;
+			width: 100%;
+			max-width: 100vw;
+			max-height: 100vh;
+			padding: 0 1rem 1rem 1rem;
+		}
 	}
 
-	.mobile-header-button {
-		position: absolute;
-		top: 50%;
-		transform: translateY(-50%);
-		right: 0;
+	.dialog-backdrop {
+		z-index: -1;
+		grid-row-start: 1;
+		grid-column-start: 1;
+		place-self: stretch stretch;
+		display: grid;
 
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: 9999px;
-		/* rounded-full */
+		& > button {
+			cursor: pointer;
+		}
+	}
+
+	.dialog-close-btn {
+		position: relative;
 		padding: 0.625rem;
-		/* p-2.5 */
 		transition-property: all;
 		transition-duration: 200ms;
 		color: var(--color-gray-500);
+		border-radius: 9999px;
 
 		&:hover {
 			background-color: var(--surface3);
@@ -820,6 +830,93 @@
 
 		.dark & {
 			color: var(--color-gray-400);
+		}
+
+		.mobile & {
+			position: absolute;
+			top: 50%;
+			transform: translateY(-50%);
+			right: 0.5rem;
+
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+	}
+
+	.dropdown-menu,
+	.popover {
+		border-radius: var(--radius-xl);
+		border-width: 1px;
+		border-color: var(--surface3);
+		background-color: var(--background);
+		font-size: 0.875rem;
+		color: var(--on-background);
+		box-shadow: var(--shadow-lg);
+		grid-row-start: 1;
+		grid-column-start: 1;
+		overscroll-behavior: contain;
+		overflow-y: auto;
+
+		.dark & {
+			background-color: var(--surface2);
+		}
+	}
+
+	.dropdown-menu[popover] {
+		position: fixed;
+	}
+	.dropdown-menu[popover]:not(:popover-open) {
+		transform-origin: top;
+		display: none;
+	}
+	.dropdown-menu[popover]:popover-open {
+		position-area: var(--anchor-v, bottom) var(--anchor-h, span-right);
+		display: inline-block;
+	}
+
+	.drawer[popover] {
+		position: fixed;
+		top: 0;
+		right: 0;
+		bottom: 0;
+		left: auto;
+		z-index: 40;
+		margin: 0;
+		height: 100dvh;
+		width: auto;
+		max-width: none;
+		border-radius: 0;
+		border-width: 0;
+		outline: none;
+		background-color: var(--background);
+		box-shadow: var(--shadow-lg);
+		transition:
+			transform 0.2s ease-out,
+			opacity 0.2s ease-out,
+			overlay 0.2s ease-out allow-discrete,
+			display 0.2s ease-out allow-discrete;
+
+		.dark & {
+			background-color: var(--surface1);
+			border-color: var(--surface1);
+		}
+	}
+
+	.drawer[popover]:popover-open {
+		transform: translateX(0);
+		opacity: 1;
+	}
+
+	.drawer[popover]:not(:popover-open) {
+		transform: translateX(100%);
+		opacity: 0;
+	}
+
+	@starting-style {
+		.drawer[popover]:popover-open {
+			transform: translateX(100%);
+			opacity: 0;
 		}
 	}
 

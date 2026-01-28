@@ -216,7 +216,7 @@
 {/snippet}
 
 <Confirm
-	msg="Are you sure you want to delete this filter?"
+	msg={`Delete ${filterToDelete?.name || 'this filter'}?`}
 	show={!!filterToDelete}
 	onsuccess={async () => {
 		if (!filterToDelete) return;

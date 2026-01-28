@@ -24,7 +24,7 @@
 	}
 
 	let {
-		id,
+		id = 'date-picker',
 		disabled,
 		value = $bindable(null),
 		onChange,
@@ -37,7 +37,7 @@
 	}: Props = $props();
 
 	let currentDate = $state(new Date());
-	let open = $state(false);
+	let popover = $state<HTMLDivElement>();
 
 	function formatDate(date: Date): string {
 		if (!date) return '';
@@ -61,7 +61,7 @@
 	function handleDateClick(date: Date) {
 		value = endOfDay(date);
 		onChange(value);
-		open = false;
+		popover?.hidePopover();
 	}
 
 	function handleClear(e: MouseEvent) {
@@ -72,8 +72,8 @@
 
 	function handleToggle() {
 		if (disabled) return;
-		open = !open;
-		if (open && value) {
+		popover?.togglePopover();
+		if (popover?.matches(':popover-open') && value) {
 			currentDate = new Date(value.getFullYear(), value.getMonth(), 1);
 		}
 	}
@@ -100,23 +100,9 @@
 
 		return twMerge(baseClasses, 'hover:bg-surface3 cursor-pointer');
 	}
-
-	function handleClickOutside(e: MouseEvent) {
-		const target = e.target as HTMLElement;
-		if (!target.closest('.date-picker-container')) {
-			open = false;
-		}
-	}
-
-	$effect(() => {
-		if (open) {
-			document.addEventListener('click', handleClickOutside, true);
-			return () => document.removeEventListener('click', handleClickOutside, true);
-		}
-	});
 </script>
 
-<div class="date-picker-container relative">
+<div class="date-picker-container">
 	<button
 		{id}
 		{disabled}
@@ -127,6 +113,7 @@
 			klass
 		)}
 		onclick={handleToggle}
+		style={`anchor-name: --${id}-anchor`}
 	>
 		<span class="flex grow items-center gap-2 truncate">
 			<Calendar class="text-on-surface1 size-4 flex-shrink-0" />
@@ -154,8 +141,14 @@
 		{/if}
 	</button>
 
-	{#if open}
-		<div class="default-dialog absolute top-full z-50 mt-1 flex flex-col p-4">
+	<div
+		bind:this={popover}
+		class="dropdown-menu z-50 mt-1 p-4"
+		popover
+		id={`${id}-popover`}
+		style={`position-anchor: --${id}-anchor; width: anchor-size(width); position-area: bottom; position-try-fallbacks: flip-block;`}
+	>
+		<div class="flex flex-col">
 			<CalendarGrid
 				bind:currentDate
 				{minDate}
@@ -171,7 +164,7 @@
 							onclick={() => {
 								value = null;
 								onChange(null);
-								open = false;
+								popover?.hidePopover();
 							}}
 						>
 							Clear
@@ -180,5 +173,5 @@
 				{/if}
 			</CalendarGrid>
 		</div>
-	{/if}
+	</div>
 </div>

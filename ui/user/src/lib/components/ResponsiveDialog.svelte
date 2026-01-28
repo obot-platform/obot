@@ -4,7 +4,6 @@
 	 * then, on mobile, a header and separator with a chevron for the return button. It takes up
 	 * the whole screen on mobile and a customizable max width on desktop. (default is 2xl)
 	 */
-	import { clickOutside } from '$lib/actions/clickoutside';
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { responsive } from '$lib/stores';
 	import { ChevronRight, X } from 'lucide-svelte';
@@ -17,6 +16,7 @@
 			header?: string;
 			content?: string;
 			title?: string;
+			closeBtn?: string;
 		};
 		onClickOutside?: () => void;
 		onClose?: () => void;
@@ -57,16 +57,7 @@
 
 <dialog
 	bind:this={dialog}
-	class={twMerge('w-full max-w-2xl font-normal', klass, 'p-0')}
-	class:mobile-screen-dialog={responsive.isMobile}
-	use:clickOutside={() => {
-		if (disableClickOutside) return;
-		if (onClickOutside) {
-			onClickOutside();
-		} else {
-			close();
-		}
-	}}
+	class="dialog"
 	use:dialogAnimation={{ type: animate }}
 	onclose={() => {
 		// Handle native dialog close (e.g., Escape key)
@@ -75,41 +66,67 @@
 >
 	<div
 		class={twMerge(
-			'flex h-full w-full flex-col',
-			!responsive.isMobile && 'p-4',
-			classes?.content ?? 'max-h-dvh min-h-fit'
+			'dialog-container w-full max-w-2xl font-normal',
+			responsive.isMobile && 'mobile',
+			klass,
+			'p-0'
 		)}
 	>
-		<div class="mb-4 flex flex-col gap-4">
-			<h3
-				class={twMerge('default-dialog-title', classes?.header)}
-				class:default-dialog-mobile-title={responsive.isMobile}
-			>
-				<span class={twMerge('flex items-center gap-2', classes?.title ?? '')}>
-					{#if titleContent}
-						{@render titleContent()}
-					{:else if title}
-						{title}
-					{/if}
-				</span>
-				{#if !hideClose}
-					<button
-						class:mobile-header-button={responsive.isMobile}
-						onclick={(e) => {
-							e.preventDefault();
-							close();
-						}}
-						class="icon-button"
-					>
-						{#if responsive.isMobile && animate === 'slide'}
-							<ChevronRight class="size-6" />
-						{:else}
-							<X class="size-5" />
+		<div
+			class={twMerge(
+				'flex h-full w-full flex-col',
+				!responsive.isMobile && 'p-4',
+				classes?.content ?? 'max-h-dvh min-h-fit'
+			)}
+		>
+			{#if titleContent || title}
+				<div class="flex flex-col gap-4">
+					<h3 class={twMerge('dialog-title', responsive.isMobile && 'mobile', classes?.header)}>
+						<span class={twMerge('flex items-center gap-2', classes?.title ?? '')}>
+							{#if titleContent}
+								{@render titleContent()}
+							{:else if title}
+								{title}
+							{/if}
+						</span>
+						{#if !hideClose}
+							<button
+								class={twMerge(
+									'icon-button dialog-close-btn',
+									responsive.isMobile && 'mobile',
+									classes?.closeBtn
+								)}
+								onclick={(e) => {
+									e.preventDefault();
+									close();
+								}}
+							>
+								{#if responsive.isMobile && animate === 'slide'}
+									<ChevronRight class="size-6" />
+								{:else}
+									<X class="size-5" />
+								{/if}
+							</button>
 						{/if}
-					</button>
-				{/if}
-			</h3>
+					</h3>
+				</div>
+			{/if}
+			{@render children()}
 		</div>
-		{@render children()}
 	</div>
+	<form class="dialog-backdrop">
+		<button
+			type="button"
+			onclick={() => {
+				if (disableClickOutside) return;
+				if (onClickOutside) {
+					onClickOutside();
+				} else {
+					close();
+				}
+			}}
+		>
+			close
+		</button>
+	</form>
 </dialog>

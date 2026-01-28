@@ -27,8 +27,6 @@
 </script>
 
 <script lang="ts" generics="T extends { id: string | number; label: string }">
-	import { clickOutside } from '$lib/actions/clickoutside';
-	import { computePosition, flip as flipMiddleware } from '@floating-ui/dom';
 	import { ChevronDown, X, Check } from 'lucide-svelte';
 	import { type Snippet } from 'svelte';
 	import { flip } from 'svelte/animate';
@@ -36,7 +34,7 @@
 	import { twMerge } from 'tailwind-merge';
 
 	let {
-		id,
+		id = 'select',
 		disabled,
 		readonly,
 		options,
@@ -79,7 +77,6 @@
 
 	let input = $state<HTMLInputElement>();
 	let optionHighlightIndex = $state(-1);
-	let popoverPlacement = $state<{ x: number; y: number }>();
 
 	let availableOptions = $derived(
 		options.filter((option) => option.label.toLowerCase().includes(query?.toLowerCase() ?? ''))
@@ -92,25 +89,9 @@
 			.filter(Boolean) as T[]
 	);
 
-	let ref = $state<HTMLDivElement>();
-	let popover = $state<HTMLDialogElement>();
-
-	async function showPopover() {
-		if (!ref || !popover) return;
-		popover?.show();
-		const { x, y } = await computePosition(ref, popover, {
-			placement: position === 'top' ? 'top-start' : 'bottom-start',
-			middleware: [flipMiddleware()]
-		});
-		popoverPlacement = { x, y };
-	}
+	let popover = $state<HTMLDivElement>();
 
 	function onInput(e: Event) {
-		if (!popover?.open) {
-			showPopover();
-			input?.focus();
-		}
-
 		optionHighlightIndex = -1;
 		query = (e.target as HTMLInputElement).value;
 	}
@@ -131,34 +112,33 @@
 
 		query = '';
 		onSelect?.(option, selected);
-		popover?.close();
+		popover?.hidePopover();
 	}
 </script>
 
 <div class={twMerge(classes?.root, (readonly || disabled) && 'pointer-events-none')}>
-	<div bind:this={ref} class="relative flex w-full items-center">
+	<div class="relative flex w-full items-center">
 		<div
 			{id}
+			role="combobox"
+			aria-haspopup="listbox"
+			aria-expanded={popover?.matches(':popover-open') ?? false}
+			aria-controls={`${id}-popover`}
 			class={twMerge(
-				'dark:bg-surface1 text-md bg-background flex min-h-10 w-full grow resize-none items-center gap-2 rounded-lg px-2 py-2 text-left shadow-sm',
+				'dark:bg-surface1 text-md bg-background flex min-h-10 w-full grow cursor-pointer resize-none items-center gap-2 rounded-lg px-2 py-2 text-left shadow-sm',
 				disabled && 'pointer-events-none cursor-default opacity-50',
 				multiple && 'flex-wrap',
 				klass
 			)}
-			onclick={() => {
-				if (!popover?.open) {
-					showPopover();
-					input?.focus();
-				}
-			}}
+			style={`anchor-name: --${id}-anchor;`}
+			tabindex={readonly || disabled ? -1 : 0}
+			onclick={() => popover?.togglePopover()}
 			onkeydown={(e) => {
-				if (e.key === 'Enter') {
-					showPopover();
-					input?.focus();
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					popover?.togglePopover();
 				}
 			}}
-			role="button"
-			tabindex={readonly || disabled ? null : 0}
 		>
 			{#if multiple}
 				<div class="flex flex-wrap items-center justify-start gap-2 whitespace-break-spaces">
@@ -231,7 +211,7 @@
 					{@render buttonStartContent()}
 				{/if}
 				{#if !searchable}
-					<div class="w-full items-center gap-2 truncate">
+					<div class="min-w-0 flex-1 items-center gap-2 truncate">
 						{selectedOptions[0]?.label ?? ''}
 					</div>
 				{:else if !readonly}
@@ -239,7 +219,7 @@
 				{/if}
 			{/if}
 
-			<ChevronDown class="ml-auto size-5 flex-shrink-0 self-start" />
+			<ChevronDown class="size-5 shrink-0 self-start" />
 		</div>
 
 		{#if onClear && !multiple}
@@ -257,19 +237,15 @@
 		{/if}
 	</div>
 
-	<dialog
-		use:clickOutside={[
-			() => {
-				popover?.close();
-				optionHighlightIndex = -1;
-			},
-			true
-		]}
+	<div
 		bind:this={popover}
+		popover
+		id={`${id}-popover`}
+		style={`position-anchor: --${id}-anchor; width: anchor-size(width); position-area: ${position}; position-try-fallbacks: flip-block;`}
 		class={twMerge(
-			'default-scrollbar-thin fixed top-auto right-auto bottom-auto left-auto z-10 max-h-[300px] overflow-y-auto rounded-sm'
+			'default-scrollbar-thin dropdown-menu max-h-[300px] overflow-y-auto',
+			position === 'top' ? 'rounded-t-sm rounded-b-none' : 'rounded-t-none rounded-b-sm'
 		)}
-		style={`top: ${popoverPlacement?.y ?? 0}px; left: ${popoverPlacement?.x ?? 0}px; width: ${ref?.clientWidth}px`}
 	>
 		{#if availableOptions.length === 0}
 			<div class="text-on-surface1 px-4 py-2 font-light">No options available</div>
@@ -302,12 +278,12 @@
 				</button>
 			{/each}
 		{/if}
-	</dialog>
+	</div>
 </div>
 
 {#snippet searchInput()}
 	<input
-		class="grow bg-inherit focus:ring-0 focus:outline-none"
+		class="min-w-0 flex-1 bg-inherit focus:ring-0 focus:outline-none"
 		{placeholder}
 		bind:this={input}
 		bind:value={query}
@@ -321,7 +297,7 @@
 				return;
 			}
 
-			if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && popover?.open) {
+			if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && popover?.matches(':popover-open')) {
 				e.preventDefault();
 				e.stopPropagation();
 

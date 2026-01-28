@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick, untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { ChevronDown } from 'lucide-svelte';
 	import type { ModelProvider, Model, Thread as ThreadType } from '$lib/services/chat/types';
 	import type { Project } from '$lib/services';
@@ -36,7 +36,6 @@
 		hasModelSelected = $bindable(false)
 	}: Props = $props();
 
-	let showModelSelector = $state(false);
 	let threadType = $state<ThreadType | null>(null);
 	let isUpdatingModel = $state(false);
 	let modelSelectorRef = $state<HTMLDivElement>();
@@ -217,9 +216,7 @@
 
 			// Fetch newly created thread details
 			await fetchThreadDetails();
-
-			// Close dropdown
-			showModelSelector = false;
+			modelSelectorRef?.hidePopover();
 
 			return;
 		}
@@ -263,7 +260,7 @@
 					}
 
 					// Close dropdown
-					showModelSelector = false;
+					modelSelectorRef?.hidePopover();
 
 					// Notify parent that model changed
 					if (onModelChanged) {
@@ -293,27 +290,6 @@
 			isUpdatingModel = false;
 		}
 	}
-
-	onMount(() => {
-		// Close model selector when clicking outside
-		const handleClickOutside = (event: MouseEvent) => {
-			if (
-				showModelSelector &&
-				modelSelectorRef &&
-				modelButtonRef &&
-				!modelSelectorRef.contains(event.target as Node) &&
-				!modelButtonRef.contains(event.target as Node)
-			) {
-				showModelSelector = false;
-			}
-		};
-
-		window.addEventListener('click', handleClickOutside);
-
-		return () => {
-			window.removeEventListener('click', handleClickOutside);
-		};
-	});
 
 	$effect(() => {
 		loadModelProviders();
@@ -395,11 +371,10 @@
 		)}
 		onclick={(e) => {
 			e.stopPropagation();
-			showModelSelector = !showModelSelector;
+			modelSelectorRef?.togglePopover();
 		}}
-		onkeydown={(e) => e.key === 'Escape' && (showModelSelector = false)}
 		aria-haspopup="listbox"
-		aria-expanded={showModelSelector}
+		aria-expanded={modelSelectorRef?.matches(':popover-open') ?? false}
 		id="thread-model-button"
 		title={isDefaultModelSelected
 			? 'Default model is selected'
@@ -409,6 +384,7 @@
 					? ''
 					: 'Select model for this chat'}
 		bind:this={modelButtonRef}
+		style="anchor-name: --thread-model-selector-anchor"
 	>
 		<div class="max-w-40 truncate sm:max-w-60 md:max-w-96 lg:max-w-none">
 			{#if isLoadingModels}
@@ -424,134 +400,121 @@
 		<ChevronDown class="h-4 w-4" />
 	</button>
 
-	{#if showModelSelector}
-		<div
-			role="listbox"
-			tabindex="-1"
-			aria-labelledby="thread-model-button"
-			class="available-models-popover default-scrollbar-thin border-surface1 dark:bg-surface2 bg-background absolute right-0 bottom-full z-10 mb-1 max-h-60 w-max max-w-sm overflow-hidden overflow-y-auto rounded-md border px-2 shadow-lg md:max-w-md lg:max-w-lg"
-			onclick={(e) => e.stopPropagation()}
-			onkeydown={(e) => {
-				if (e.key === 'Escape') {
-					showModelSelector = false;
-					document.getElementById('thread-model-button')?.focus();
-				}
-			}}
-			bind:this={modelSelectorRef}
-			use:scrollIntoSelectedModel={{
-				providerId: threadModelProvider,
-				modelId: threadModel
-			}}
-		>
-			{#if isLoadingModels}
-				<div class="flex justify-center p-4">
-					<div
-						class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-						aria-hidden="true"
-					></div>
-					<span class="sr-only">Loading models...</span>
-				</div>
-			{:else if modelsError}
-				<div class="text-on-surface1 p-4 text-sm">
-					{modelsError}
-				</div>
-			{:else if availableModels.length === 0}
-				<div class="text-on-surface1 p-4 text-sm">No Model Available</div>
-			{:else}
-				<div class="flex flex-col">
-					{#each (() => {
-						// Group available models by provider
-						const modelsByProvider = new Map<string, Model[]>();
+	<div
+		role="listbox"
+		tabindex="-1"
+		aria-labelledby="thread-model-button"
+		class="dropdown-menu min-w-40 p-2"
+		popover
+		id="thread-model-selector-popover"
+		style="position-anchor: --thread-model-selector-anchor; position-area: bottom; position-try-fallbacks: flip-block;"
+		bind:this={modelSelectorRef}
+		use:scrollIntoSelectedModel={{
+			providerId: threadModelProvider,
+			modelId: threadModel
+		}}
+	>
+		{#if isLoadingModels}
+			<div class="flex justify-center p-4">
+				<div
+					class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+					aria-hidden="true"
+				></div>
+				<span class="sr-only">Loading models...</span>
+			</div>
+		{:else if modelsError}
+			<div class="text-on-surface1 p-4 text-sm">
+				{modelsError}
+			</div>
+		{:else if availableModels.length === 0}
+			<div class="text-on-surface1 p-4 text-sm">No Model Available</div>
+		{:else}
+			<div class="flex flex-col">
+				{#each (() => {
+					// Group available models by provider
+					const modelsByProvider = new Map<string, Model[]>();
 
-						availableModels.forEach((model) => {
-							const providerId = model.modelProvider;
-							if (!modelsByProvider.has(providerId)) {
-								modelsByProvider.set(providerId, []);
-							}
-							modelsByProvider.get(providerId)!.push(model);
-						});
+					availableModels.forEach((model) => {
+						const providerId = model.modelProvider;
+						if (!modelsByProvider.has(providerId)) {
+							modelsByProvider.set(providerId, []);
+						}
+						modelsByProvider.get(providerId)!.push(model);
+					});
 
-						return Array.from(modelsByProvider.entries());
-					})() as [providerId, models] (providerId)}
-						{#if models.length > 0}
-							{@const provider = modelProvidersMap.get(providerId)}
-							<div class="border-surface1 flex flex-col border-b py-2 last:border-transparent">
-								<div class="mb-2 flex gap-1 text-xs">
-									{#if provider?.icon || provider?.iconDark}
-										<img
-											src={darkMode.isDark && provider.iconDark ? provider.iconDark : provider.icon}
-											alt={provider.name}
-											class={twMerge(
-												'size-4',
-												darkMode.isDark && !provider.iconDark ? 'dark:invert' : ''
-											)}
-										/>
-									{/if}
-									<div>{provider?.name ?? ''}</div>
-								</div>
-								<div class="provider-models flex flex-col gap-1">
-									{#each models as model (model.id)}
-										{@const isModelSelected =
-											threadModelProvider === providerId &&
-											(threadModel === model.id || threadModel === model.name)}
-
-										{@const isDefaultModel =
-											defaultModelProvider === providerId &&
-											(defaultModel === model.name || defaultModel === model.id)}
-
-										<button
-											role="option"
-											aria-selected={isModelSelected}
-											class={twMerge(
-												'hover:bg-surface1/70 active:bg-surface1/80 focus:bg-surface1/70 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors duration-200 focus:outline-none',
-												isModelSelected &&
-													'text-primary bg-primary/10 hover:bg-primary/15 active:bg-primary/20'
-											)}
-											onclick={() => {
-												if (isDefaultModel) {
-													setThreadModel('', '');
-												} else {
-													setThreadModel(model.id, '');
-												}
-											}}
-											tabindex="0"
-											data-provider={providerId}
-											data-model={model.id}
-										>
-											<div>{model.name || model.id}</div>
-
-											{#if isDefaultModel}
-												<Logo class={twMerge(' size-4', !isModelSelected && 'grayscale-100')} />
-											{/if}
-
-											{#if isModelSelected}
-												<div class="text-primary ml-auto text-xs">✓</div>
-											{/if}
-										</button>
-									{/each}
-								</div>
+					return Array.from(modelsByProvider.entries());
+				})() as [providerId, models] (providerId)}
+					{#if models.length > 0}
+						{@const provider = modelProvidersMap.get(providerId)}
+						<div class="border-surface1 flex flex-col border-b py-2 last:border-transparent">
+							<div class="mb-2 flex gap-1 text-xs">
+								{#if provider?.icon || provider?.iconDark}
+									<img
+										src={darkMode.isDark && provider.iconDark ? provider.iconDark : provider.icon}
+										alt={provider.name}
+										class={twMerge(
+											'size-4',
+											darkMode.isDark && !provider.iconDark ? 'dark:invert' : ''
+										)}
+									/>
+								{/if}
+								<div>{provider?.name ?? ''}</div>
 							</div>
-						{/if}
-					{/each}
-				</div>
-			{/if}
+							<div class="provider-models flex flex-col gap-1">
+								{#each models as model (model.id)}
+									{@const isModelSelected =
+										threadModelProvider === providerId &&
+										(threadModel === model.id || threadModel === model.name)}
 
-			{#if isUpdatingModel}
-				<div class="flex justify-center p-2">
-					<div
-						class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-						aria-hidden="true"
-					></div>
-					<span class="sr-only">Loading...</span>
-				</div>
-			{/if}
-		</div>
-	{/if}
+									{@const isDefaultModel =
+										defaultModelProvider === providerId &&
+										(defaultModel === model.name || defaultModel === model.id)}
+
+									<button
+										role="option"
+										aria-selected={isModelSelected}
+										class={twMerge(
+											'hover:bg-surface1/70 active:bg-surface1/80 focus:bg-surface1/70 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors duration-200 focus:outline-none',
+											isModelSelected &&
+												'text-primary bg-primary/10 hover:bg-primary/15 active:bg-primary/20'
+										)}
+										onclick={() => {
+											if (isDefaultModel) {
+												setThreadModel('', '');
+											} else {
+												setThreadModel(model.id, '');
+											}
+										}}
+										tabindex="0"
+										data-provider={providerId}
+										data-model={model.id}
+									>
+										<div>{model.name || model.id}</div>
+
+										{#if isDefaultModel}
+											<Logo class={twMerge(' size-4', !isModelSelected && 'grayscale-100')} />
+										{/if}
+
+										{#if isModelSelected}
+											<div class="text-primary ml-auto text-xs">✓</div>
+										{/if}
+									</button>
+								{/each}
+							</div>
+						</div>
+					{/if}
+				{/each}
+			</div>
+		{/if}
+
+		{#if isUpdatingModel}
+			<div class="flex justify-center p-2">
+				<div
+					class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+					aria-hidden="true"
+				></div>
+				<span class="sr-only">Loading...</span>
+			</div>
+		{/if}
+	</div>
 </div>
-
-<style>
-	.available-models-popover {
-		display: grid;
-		grid-template-columns: minmax(fit-content, auto);
-	}
-</style>

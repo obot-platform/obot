@@ -164,24 +164,22 @@
 					<DotDotDot
 						class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
 					>
-						<div class="default-dialog flex min-w-max flex-col p-2">
-							{#if matchingEntry && matchingConfiguredServer && hasEditableConfiguration(matchingEntry)}
-								<button
-									class="menu-button"
-									onclick={() => {
-										editExistingDialog?.edit({
-											server: matchingConfiguredServer,
-											entry: matchingEntry
-										});
-									}}
-								>
-									<Pencil class="h-4 w-4" /> Edit Configuration
-								</button>
-							{/if}
-							<button class="menu-button" onclick={() => (toDelete = mcpServer)}>
-								<Trash2 class="h-4 w-4" /> Delete
+						{#if matchingEntry && matchingConfiguredServer && hasEditableConfiguration(matchingEntry)}
+							<button
+								class="menu-button"
+								onclick={() => {
+									editExistingDialog?.edit({
+										server: matchingConfiguredServer,
+										entry: matchingEntry
+									});
+								}}
+							>
+								<Pencil class="h-4 w-4" /> Edit Configuration
 							</button>
-						</div>
+						{/if}
+						<button class="menu-button" onclick={() => (toDelete = mcpServer)}>
+							<Trash2 class="h-4 w-4" /> Delete
+						</button>
 					</DotDotDot>
 				</div>
 			{/each}
@@ -192,11 +190,12 @@
 </div>
 
 <Confirm
-	msg="Are you sure you want to delete your MCP server configuration?"
+	msg={`Delete ${toDelete?.alias || toDelete?.name || 'this MCP server'}?`}
 	show={!!toDelete}
 	onsuccess={handleRemoveMcp}
 	oncancel={() => (toDelete = undefined)}
 	{loading}
+	note="Are you sure you want to delete your MCP server configuration? This will not delete the original MCP server and can be reconnected at a later time."
 />
 
 <EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refreshMcpList} />

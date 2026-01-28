@@ -113,8 +113,7 @@
 					slide="left"
 					fixed
 					classes={{
-						dialog:
-							'rounded-none h-[calc(100vh-64px)] p-4 left-0 top-[64px] w-full h-full px-4 divide-transparent dark:divide-transparent'
+						menu: 'rounded-none h-[calc(100vh-64px)] p-4 left-0 top-[64px] w-full h-full px-4 divide-transparent dark:divide-transparent'
 					}}
 					title=""
 				>

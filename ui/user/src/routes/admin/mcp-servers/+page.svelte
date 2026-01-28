@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/actions/clickoutside';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -427,107 +426,110 @@
 				<Plus class="size-4" /> Add MCP Server
 			</span>
 		{/snippet}
-		<div class="default-dialog flex min-w-max flex-col p-2">
-			<button
-				class="menu-button"
-				onclick={() => {
-					selectServerTypeDialog?.open();
-				}}
-			>
-				Add server
-			</button>
-			<button
-				class="menu-button"
-				onclick={() => {
-					editingSource = {
-						index: -1,
-						value: ''
-					};
-					sourceDialog?.showModal();
-				}}
-			>
-				Add server(s) from Git
-			</button>
-		</div>
+		<button
+			class="menu-button"
+			onclick={() => {
+				selectServerTypeDialog?.open();
+			}}
+		>
+			Add server
+		</button>
+		<button
+			class="menu-button"
+			onclick={() => {
+				editingSource = {
+					index: -1,
+					value: ''
+				};
+				sourceDialog?.showModal();
+			}}
+		>
+			Add server(s) from Git
+		</button>
 	</DotDotDot>
 {/snippet}
 
-<dialog
-	bind:this={sourceDialog}
-	use:clickOutside={() => closeSourceDialog()}
-	class="w-full max-w-md p-4"
->
-	{#if editingSource}
-		<h3 class="default-dialog-title">
-			{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
-			<button onclick={() => closeSourceDialog()} class="icon-button">
-				<X class="size-5" />
-			</button>
-		</h3>
+<dialog bind:this={sourceDialog} class="dialog">
+	<div class="dialog-container w-full max-w-md p-4">
+		{#if editingSource}
+			<h3 class="dialog-title">
+				{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
+				<button onclick={() => closeSourceDialog()} class="icon-button dialog-close-btn">
+					<X class="size-5" />
+				</button>
+			</h3>
 
-		<div class="my-4 flex flex-col gap-1">
-			<label for="catalog-source-name" class="flex-1 text-sm font-light capitalize"
-				>Source URL
-			</label>
-			<input id="catalog-source-name" bind:value={editingSource.value} class="text-input-filled" />
-		</div>
-
-		{#if sourceError}
-			<div class="mb-4 flex flex-col gap-2 text-red-500 dark:text-red-400">
-				<div class="flex items-center gap-2">
-					<AlertTriangle class="size-6 flex-shrink-0 self-start" />
-					<p class="my-0.5 flex flex-col text-sm font-semibold">Error adding source URL:</p>
-				</div>
-				<span class="font-sm font-light break-all">{sourceError}</span>
+			<div class="my-4 flex flex-col gap-1">
+				<label for="catalog-source-name" class="flex-1 text-sm font-light capitalize"
+					>Source URL
+				</label>
+				<input
+					id="catalog-source-name"
+					bind:value={editingSource.value}
+					class="text-input-filled"
+				/>
 			</div>
-		{/if}
 
-		<div class="flex w-full justify-end gap-2">
-			<button class="button" disabled={saving} onclick={() => closeSourceDialog()}>Cancel</button>
-			<button
-				class="button-primary"
-				disabled={saving}
-				onclick={async () => {
-					if (!editingSource || !defaultCatalog) {
-						return;
-					}
+			{#if sourceError}
+				<div class="mb-4 flex flex-col gap-2 text-red-500 dark:text-red-400">
+					<div class="flex items-center gap-2">
+						<AlertTriangle class="size-6 flex-shrink-0 self-start" />
+						<p class="my-0.5 flex flex-col text-sm font-semibold">Error adding source URL:</p>
+					</div>
+					<span class="font-sm font-light break-all">{sourceError}</span>
+				</div>
+			{/if}
 
-					saving = true;
-					sourceError = undefined;
-
-					try {
-						const updatingCatalog = { ...defaultCatalog };
-
-						if (editingSource.index === -1) {
-							updatingCatalog.sourceURLs = [
-								...(updatingCatalog.sourceURLs ?? []),
-								editingSource.value
-							];
-						} else {
-							updatingCatalog.sourceURLs[editingSource.index] = editingSource.value;
+			<div class="flex w-full justify-end gap-2">
+				<button class="button" disabled={saving} onclick={() => closeSourceDialog()}>Cancel</button>
+				<button
+					class="button-primary"
+					disabled={saving}
+					onclick={async () => {
+						if (!editingSource || !defaultCatalog) {
+							return;
 						}
 
-						const response = await AdminService.updateMCPCatalog(
-							defaultCatalogId,
-							updatingCatalog,
-							{
-								dontLogErrors: true
+						saving = true;
+						sourceError = undefined;
+
+						try {
+							const updatingCatalog = { ...defaultCatalog };
+
+							if (editingSource.index === -1) {
+								updatingCatalog.sourceURLs = [
+									...(updatingCatalog.sourceURLs ?? []),
+									editingSource.value
+								];
+							} else {
+								updatingCatalog.sourceURLs[editingSource.index] = editingSource.value;
 							}
-						);
-						defaultCatalog = response;
-						await sync();
-						closeSourceDialog();
-					} catch (error) {
-						sourceError = error instanceof Error ? error.message : 'An unexpected error occurred';
-					} finally {
-						saving = false;
-					}
-				}}
-			>
-				Add
-			</button>
-		</div>
-	{/if}
+
+							const response = await AdminService.updateMCPCatalog(
+								defaultCatalogId,
+								updatingCatalog,
+								{
+									dontLogErrors: true
+								}
+							);
+							defaultCatalog = response;
+							await sync();
+							closeSourceDialog();
+						} catch (error) {
+							sourceError = error instanceof Error ? error.message : 'An unexpected error occurred';
+						} finally {
+							saving = false;
+						}
+					}}
+				>
+					Add
+				</button>
+			</div>
+		{/if}
+	</div>
+	<form class="dialog-backdrop">
+		<button type="button" onclick={() => sourceDialog?.close()}>close</button>
+	</form>
 </dialog>
 
 <SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={selectServerType} />

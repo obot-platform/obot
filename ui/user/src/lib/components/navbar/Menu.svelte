@@ -7,7 +7,7 @@
 
 	interface Props {
 		classes?: {
-			dialog?: string;
+			menu?: string;
 			button?: string;
 		};
 		onLoad?: () => void | Promise<void>;
@@ -90,8 +90,8 @@
 <div
 	use:tooltip={{ slide, fixed }}
 	class={twMerge(
-		'default-dialog z-40 flex w-screen flex-col divide-y divide-gray-200 p-6 md:w-96 dark:divide-gray-700',
-		classes?.dialog
+		'dropdown-menu z-40 flex w-screen min-w-fit flex-col divide-y divide-gray-200 p-4 md:w-96 dark:divide-gray-700',
+		classes?.menu
 	)}
 >
 	{#if header || description || title}

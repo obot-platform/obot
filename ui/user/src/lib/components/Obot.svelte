@@ -18,7 +18,6 @@
 	import { columnResize } from '$lib/actions/resize';
 	import { X } from 'lucide-svelte';
 	import type { Assistant, CreateProjectForm, ProjectMCP } from '$lib/services';
-	import { clickOutside } from '$lib/actions/clickoutside';
 	import SidebarConfig from './chat/ChatSidebarConfig.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
@@ -200,16 +199,14 @@
 				{/if}
 			</div>
 
-			<dialog
-				bind:this={shortcutsDialog}
-				class="default-dialog"
-				use:clickOutside={() => shortcutsDialog?.close()}
-			>
-				<div class="p-6">
-					<button class="absolute top-0 right-0 p-3" onclick={() => shortcutsDialog?.close()}>
-						<X class="icon-default" />
-					</button>
-					<h3 class="mb-4 text-lg font-semibold">Keyboard Shortcuts</h3>
+			<dialog bind:this={shortcutsDialog} class="dialog">
+				<div class="dialog-container p-4">
+					<div class="dialog-title">
+						<h3 class="text-lg font-semibold">Keyboard Shortcuts</h3>
+						<button class="dialog-close-btn" onclick={() => shortcutsDialog?.close()}>
+							<X class="icon-default" />
+						</button>
+					</div>
 					<div class="space-y-4">
 						<div class="grid grid-cols-2 gap-2">
 							<div class="font-medium">Ctrl + E</div>
@@ -223,6 +220,9 @@
 						</div>
 					</div>
 				</div>
+				<form class="dialog-backdrop">
+					<button type="button" onclick={() => shortcutsDialog?.close()}>close</button>
+				</form>
 			</dialog>
 		</main>
 

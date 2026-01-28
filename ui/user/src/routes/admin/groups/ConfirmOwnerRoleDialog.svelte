@@ -20,13 +20,10 @@
 		onsuccess(groupAssignment);
 	}}
 	{oncancel}
+	type="info"
+	title="Confirm Owner Role Assignment"
+	msg={`Assign the Owner role to ${groupAssignment?.group.name}?`}
 >
-	{#snippet title()}
-		<div class="flex items-center gap-2">
-			<h3 class="text-xl font-semibold">Confirm Owner Role Assignment</h3>
-		</div>
-	{/snippet}
-
 	{#snippet note()}
 		<div class="mt-4 mb-8 flex flex-col gap-4">
 			<p class="text-left text-yellow-500">

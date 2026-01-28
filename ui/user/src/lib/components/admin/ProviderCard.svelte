@@ -48,15 +48,13 @@
 					{@render configuredActions(provider)}
 				{/if}
 				<DotDotDot>
-					<div class="default-dialog flex min-w-max flex-col p-2">
-						<button
-							disabled={readonly}
-							class="menu-button text-red-500"
-							onclick={() => onDeconfigure()}
-						>
-							Deconfigure Provider
-						</button>
-					</div>
+					<button
+						disabled={readonly}
+						class="menu-button text-red-500"
+						onclick={() => onDeconfigure()}
+					>
+						Deconfigure Provider
+					</button>
 				</DotDotDot>
 			{/if}
 		</div>

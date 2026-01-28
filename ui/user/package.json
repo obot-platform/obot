@@ -79,6 +79,7 @@
 	"type": "module",
 	"dependencies": {
 		"@codemirror/lang-markdown": "^6.3.3",
+		"@oddbird/popover-polyfill": "^0.6.1",
 		"d3": "^7.9.0",
 		"d3-time-format": "^4.1.0",
 		"date-fns": "^4.1.0",

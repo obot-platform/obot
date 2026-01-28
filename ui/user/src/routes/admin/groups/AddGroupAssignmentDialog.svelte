@@ -30,7 +30,7 @@
 	}
 
 	let {
-		open = $bindable(),
+		open,
 		groups,
 		groupRoleMap,
 		loading = false,
@@ -62,13 +62,13 @@
 
 	$effect(() => {
 		if (open) {
-			resetForm();
 			dialog?.open();
+		} else {
+			dialog?.close();
 		}
 	});
 
 	function handleClose() {
-		open = false;
 		onClose();
 	}
 
@@ -111,21 +111,23 @@
 		// Auditor changed - show auditor confirmation only if they didn't have it before
 		if (draftHaveAuditorPrivilege && !hadAuditorBefore && draftRoleId !== 0) {
 			onAuditorConfirm(result);
-			return;
-		}
-
-		// Changing to owner role - show owner confirmation
-		if (draftRoleId === Role.OWNER) {
+		} else if (draftRoleId === Role.OWNER) {
+			// Changing to owner role - show owner confirmation
 			onOwnerConfirm(result);
-			return;
+		} else {
+			onConfirm(result);
+			resetForm();
 		}
-
-		onConfirm(result);
+		handleClose();
 	}
 
 	const updateSearch = debounce((value: string) => {
 		searchQuery = value;
 	}, 100);
+
+	export function clear() {
+		resetForm();
+	}
 </script>
 
 {#snippet groupList()}

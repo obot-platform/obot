@@ -20,8 +20,6 @@
 		ChatService
 	} from '$lib/services';
 	import { type PaginatedResponse } from '$lib/services/admin/operations';
-	import { clickOutside } from '$lib/actions/clickoutside';
-	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import AuditLogDetails from '$lib/components/admin/audit-logs/AuditLogDetails.svelte';
 	import AuditLogsTable from './AuditLogs.svelte';
 	import AuditLogsTimeline from './AuditLogsTimeline.svelte';
@@ -76,7 +74,7 @@
 	let showLoadingSpinner = $state(true);
 	let showFilters = $state(false);
 	let selectedAuditLog = $state<AuditLog & { user: string }>();
-	let rightSidebar = $state<HTMLDialogElement>();
+	let rightSidebar = $state<HTMLDivElement>();
 	let showFilterConfirmDialog = $state(false);
 	let pendingExportType = $state<'export' | 'scheduled' | null>(null);
 
@@ -370,11 +368,9 @@
 	}
 
 	function handleRightSidebarClose() {
-		rightSidebar?.close();
-		setTimeout(() => {
-			showFilters = false;
-			selectedAuditLog = undefined;
-		}, 300);
+		rightSidebar?.hidePopover();
+		showFilters = false;
+		selectedAuditLog = undefined;
 	}
 
 	function handleDateChange({ start, end }: DateRange) {
@@ -514,7 +510,7 @@
 					onclick={() => {
 						showFilters = true;
 						selectedAuditLog = undefined;
-						rightSidebar?.show();
+						rightSidebar?.showPopover();
 					}}
 				>
 					<Funnel class="size-4" />
@@ -531,14 +527,12 @@
 						<Plus class="size-4" /> Create Export
 					</span>
 				{/snippet}
-				<div class="default-dialog flex min-w-max flex-col p-2">
-					<button class="menu-button" onclick={() => handleExportRequest('export')}>
-						Create One-time Export
-					</button>
-					<button class="menu-button" onclick={() => handleExportRequest('scheduled')}>
-						Create Export Schedule
-					</button>
-				</div>
+				<button class="menu-button" onclick={() => handleExportRequest('export')}>
+					Create One-time Export
+				</button>
+				<button class="menu-button" onclick={() => handleExportRequest('scheduled')}>
+					Create Export Schedule
+				</button>
 			</DotDotDot>
 
 			<button
@@ -613,7 +607,7 @@
 		data={remoteAuditLogs}
 		onSelectRow={async (d: AuditLog & { user: string }) => {
 			showFilters = false;
-			rightSidebar?.show();
+			rightSidebar?.showPopover();
 			// Fetch full audit log details with request/response bodies
 			try {
 				const fullDetails = await AdminService.getAuditLog(d.id);
@@ -639,12 +633,7 @@
 	</div>
 {/if}
 
-<dialog
-	bind:this={rightSidebar}
-	use:clickOutside={[handleRightSidebarClose, true]}
-	use:dialogAnimation={{ type: 'drawer' }}
-	class="dark:border-surface1 dark:bg-surface1 bg-background fixed! top-0! right-0! bottom-0! left-auto! z-40 h-dvh w-auto max-w-none rounded-none border-0 shadow-lg outline-none!"
->
+<div bind:this={rightSidebar} popover class="drawer">
 	{#if selectedAuditLog}
 		<AuditLogDetails onClose={handleRightSidebarClose} auditLog={selectedAuditLog} />
 	{/if}
@@ -684,7 +673,7 @@
 			}}
 		/>
 	{/if}
-</dialog>
+</div>
 
 {#snippet filters()}
 	{@const entries = Object.entries(pillsSearchParamFilters) as [keyof AuditLogURLFilters, string][]}

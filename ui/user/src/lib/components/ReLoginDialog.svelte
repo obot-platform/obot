@@ -14,19 +14,12 @@
 	}
 </script>
 
-<dialog
-	bind:this={dialog}
-	class="bg-background dark:bg-surface2 rounded-lg p-6 shadow-lg"
-	onclose={() => {
-		// Prevent closing by clicking outside
-		dialog.showModal();
-	}}
->
-	<div class="flex flex-col items-center gap-4">
-		<h2 class="text-xl font-semibold">Session Expired</h2>
-		<p class="text-on-surface1 text-center">
-			Your session has expired. Please log in again to continue.
-		</p>
-		<button onclick={handleLogin} class="button-primary w-full"> Log In </button>
+<dialog bind:this={dialog} class="dialog">
+	<div class="dialog-container p-4">
+		<div class="flex flex-col items-center gap-4">
+			<h2 class="text-xl font-semibold">Session Expired</h2>
+			<p class="text-center">Your session has expired. Please log in again to continue.</p>
+			<button onclick={handleLogin} class="button-primary w-full"> Log In </button>
+		</div>
 	</div>
 </dialog>

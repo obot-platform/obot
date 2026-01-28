@@ -2,12 +2,9 @@
 	import { ChatService, type MCPServerPrompt, type Project, type ProjectMCP } from '$lib/services';
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { ChevronRight, LoaderCircle, MessageSquarePlus, X } from 'lucide-svelte';
-	import { responsive } from '$lib/stores';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { LoaderCircle, MessageSquarePlus } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { onMount } from 'svelte';
-	import { clickOutside } from '$lib/actions/clickoutside';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	interface Props {
 		project: Project;
 		variant: 'button' | 'popover' | 'messages';
@@ -28,19 +25,18 @@
 		variant,
 		filterText,
 		onSelect,
-		onClickOutside,
 		limit = $bindable(0),
 		selectedIndex = $bindable(0)
 	}: Props = $props();
 	let menu = $state<ReturnType<typeof Menu>>();
-	let ref = $state<HTMLDivElement>();
+	let popover = $state<HTMLDivElement>();
 	let loading = $state(false);
 	let mcpPromptSets = $state<PromptSet[]>([]);
 	let isHovering = $state(false);
 
 	let params = $state<Record<string, string>>({});
 	let selectedPrompt = $state<{ prompt: MCPServerPrompt; mcp: ProjectMCP }>();
-	let argsDialog = $state<HTMLDialogElement>();
+	let argsDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
 	let hasPrompts = $derived(mcpPromptSets.some((mcpPromptSet) => mcpPromptSet.prompts.length > 0));
 
@@ -72,10 +68,10 @@
 
 	$effect(() => {
 		if (filterText && filterText.startsWith('/')) {
-			ref?.classList.remove('hidden');
+			popover?.showPopover();
 			fetchPrompts();
 		} else {
-			ref?.classList.add('hidden');
+			popover?.hidePopover();
 		}
 	});
 
@@ -87,12 +83,6 @@
 		if (indexMatchedPrompt) {
 			handleClick(indexMatchedPrompt.prompt, indexMatchedPrompt.mcp);
 		}
-	}
-
-	function handleClickOutside() {
-		if (ref?.classList.contains('hidden')) return; // already hidden
-		ref?.classList.add('hidden');
-		onClickOutside?.();
 	}
 
 	async function fetchPrompts() {
@@ -120,28 +110,16 @@
 		if (variant === 'button') {
 			menu?.toggle(false);
 		} else {
-			ref?.classList.add('hidden');
+			popover?.hidePopover();
 		}
 
 		if (prompt.arguments) {
-			argsDialog?.showModal();
+			argsDialog?.open();
 			selectedPrompt = { prompt, mcp };
 		} else {
 			onSelect?.(prompt, mcp);
 		}
 	}
-
-	function handleCloseArgsDialog() {
-		selectedPrompt = undefined;
-		params = {};
-		argsDialog?.close();
-	}
-
-	onMount(() => {
-		if (variant === 'messages') {
-			fetchPrompts();
-		}
-	});
 </script>
 
 {#snippet content()}
@@ -175,129 +153,65 @@
 					{mcpPromptSet.mcp.name}
 				</div>
 
-				{#if variant === 'messages'}
-					<div class="flex flex-wrap gap-4 px-5">
-						{#each mcpPromptSet.prompts as prompt (prompt.name)}
-							<button
-								class="border-surface3 hover:bg-surface2 w-fit max-w-full rounded-xl border bg-transparent p-4 text-left text-sm font-light transition-all duration-300 md:max-w-72"
-								onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
-							>
-								<p class="mb-1 flex items-center gap-1.5 text-xs">
+				<div
+					class="dark:border-surface3 flex flex-col border-0 bg-gray-50 p-2 shadow-inner dark:bg-gray-950"
+				>
+					{#each mcpPromptSet.prompts as prompt (prompt.name)}
+						<button
+							class={twMerge(
+								'menu-button flex h-full w-full items-center gap-2 border-0 text-left',
+								indexMatchedPrompt?.prompt.name === prompt.name &&
+									indexMatchedPrompt?.mcp.id === mcpPromptSet.mcp.id &&
+									!isHovering &&
+									'bg-surface2 dark:bg-surface3 hover:bg-surface2 dark:hover:bg-surface3'
+							)}
+							onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
+						>
+							<div class="flex-shrink-0 rounded-sm">
+								{#if mcpPromptSet.mcp.icon}
+									<img src={mcpPromptSet.mcp.icon} alt={mcpPromptSet.mcp.name} class="size-6" />
+								{:else}
+									<MessageSquarePlus class="text-on-surface1 size-5" />
+								{/if}
+							</div>
+							<div class="flex flex-col">
+								<p class="text-xs font-light">
 									{prompt.name}
-								</p>
-								<span class="text-on-surface1 line-clamp-3 text-xs font-light">
-									{prompt.description}
-								</span>
-							</button>
-						{/each}
-					</div>
-				{:else}
-					<div
-						class="dark:border-surface3 flex flex-col border-0 bg-gray-50 p-2 shadow-inner dark:bg-gray-950"
-					>
-						{#each mcpPromptSet.prompts as prompt (prompt.name)}
-							<button
-								class={twMerge(
-									'menu-button flex h-full w-full items-center gap-2 border-0 text-left',
-									indexMatchedPrompt?.prompt.name === prompt.name &&
-										indexMatchedPrompt?.mcp.id === mcpPromptSet.mcp.id &&
-										!isHovering &&
-										'bg-surface2 dark:bg-surface3 hover:bg-surface2 dark:hover:bg-surface3'
-								)}
-								onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
-							>
-								<div class="flex-shrink-0 rounded-sm">
-									{#if mcpPromptSet.mcp.icon}
-										<img src={mcpPromptSet.mcp.icon} alt={mcpPromptSet.mcp.name} class="size-6" />
-									{:else}
-										<MessageSquarePlus class="text-on-surface1 size-5" />
+									{#if variant === 'popover' && prompt.arguments}
+										{#each prompt.arguments as argument (argument.name)}
+											<span class="text-on-surface1 text-xs">
+												[{argument.name}]
+											</span>
+										{/each}
 									{/if}
-								</div>
-								<div class="flex flex-col">
-									<p class="text-xs font-light">
-										{prompt.name}
-										{#if variant === 'popover' && prompt.arguments}
-											{#each prompt.arguments as argument (argument.name)}
-												<span class="text-on-surface1 text-xs">
-													[{argument.name}]
-												</span>
-											{/each}
-										{/if}
-									</p>
-									<p class="text-on-surface1 text-xs font-light">
-										{prompt.description}
-									</p>
-								</div>
-							</button>
-						{/each}
-					</div>
-				{/if}
+								</p>
+								<p class="text-on-surface1 text-xs font-light">
+									{prompt.description}
+								</p>
+							</div>
+						</button>
+					{/each}
+				</div>
 			{/if}
 		{/each}
 	{/if}
 {/snippet}
 
-{#if variant === 'button'}
-	<div use:tooltip={'Add Prompt'}>
-		<Menu
-			bind:this={menu}
-			title=""
-			classes={{
-				button: 'button-icon-primary',
-				dialog: responsive.isMobile
-					? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full py-2 px-0'
-					: 'py-2 px-0'
-			}}
-			onLoad={fetchPrompts}
-			slide={responsive.isMobile ? 'up' : undefined}
-			fixed={responsive.isMobile}
-			placement="top-start"
-		>
-			{#snippet body()}
-				{@render content()}
-			{/snippet}
-			{#snippet icon()}
-				<MessageSquarePlus class="size-5" />
-			{/snippet}
-		</Menu>
-	</div>
-{:else if variant === 'popover'}
-	<div
-		bind:this={ref}
-		class="default-dialog absolute bottom-full left-0 z-10 w-full -translate-y-1 py-2"
-		use:clickOutside={handleClickOutside}
-		onmouseenter={() => (isHovering = true)}
-		onmouseleave={() => (isHovering = false)}
-		role="listbox"
-		tabindex={0}
-	>
-		{@render content()}
-	</div>
-{:else if variant === 'messages'}
-	<div>
-		{@render content()}
-	</div>
-{/if}
-
-<dialog
-	bind:this={argsDialog}
-	class={twMerge('p-4 md:w-md', responsive.isMobile && 'mobile-screen-dialog')}
-	use:clickOutside={handleCloseArgsDialog}
+<div
+	bind:this={popover}
+	class="dropdown-menu default-scrollbar-thin max-h-[300px] overflow-y-auto py-2"
+	onmouseenter={() => (isHovering = true)}
+	onmouseleave={() => (isHovering = false)}
+	role="listbox"
+	tabindex={0}
+	popover
+	id="mcp-prompts-popover"
+	style="--anchor-v: top; --anchor-h: span-left; position-anchor: --input-anchor; width: anchor-size(width);"
 >
-	<h3 class="default-dialog-title" class:default-dialog-mobile-title={responsive.isMobile}>
-		Prompt Arguments
-		<button
-			class:mobile-header-button={responsive.isMobile}
-			onclick={handleCloseArgsDialog}
-			class="icon-button"
-		>
-			{#if responsive.isMobile}
-				<ChevronRight class="size-6" />
-			{:else}
-				<X class="size-5" />
-			{/if}
-		</button>
-	</h3>
+	{@render content()}
+</div>
+
+<ResponsiveDialog bind:this={argsDialog} title="Prompt Arguments" class="p-4 md:w-md">
 	{#if selectedPrompt?.prompt.arguments}
 		{#each selectedPrompt.prompt.arguments as argument (argument.name)}
 			<div class="my-4 flex flex-col gap-1">
@@ -315,6 +229,7 @@
 			</div>
 		{/each}
 	{/if}
+	<div class="flex grow"></div>
 	<div class="flex justify-end">
 		<button
 			class="button-primary"
@@ -330,4 +245,4 @@
 			Submit
 		</button>
 	</div>
-</dialog>
+</ResponsiveDialog>

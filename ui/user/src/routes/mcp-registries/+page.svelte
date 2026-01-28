@@ -180,7 +180,7 @@
 {/snippet}
 
 <Confirm
-	msg="Are you sure you want to delete this MCP registry?"
+	msg={`Delete ${ruleToDelete?.displayName || 'this MCP registry'}?`}
 	show={Boolean(ruleToDelete)}
 	onsuccess={async () => {
 		if (!ruleToDelete || !workspaceId) return;

@@ -532,7 +532,7 @@
 />
 
 <Confirm
-	msg="Are you sure you want to delete this filter?"
+	msg={`Delete ${initialFilter?.name || 'this filter'}?`}
 	show={deletingFilter}
 	onsuccess={async () => {
 		if (!initialFilter) return;
