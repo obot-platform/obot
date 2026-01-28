@@ -409,12 +409,7 @@
 				{@const requiresOAuth =
 					catalogEntry?.manifest?.runtime === 'remote' &&
 					catalogEntry.manifest?.remoteConfig?.staticOAuthRequired}
-				<DotDotDot
-					class="icon-button hover:dark:bg-background/50"
-					classes={{
-						menu: 'p-0'
-					}}
-				>
+				<DotDotDot class="icon-button hover:dark:bg-background/50" classes={{ menu: 'p-0' }}>
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
 					{/snippet}
@@ -425,27 +420,6 @@
 								class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
 							>
 								My Connection(s)
-							</div>
-							<div class="bg-surface1 flex flex-col gap-1 p-2">
-								{@render connectToServerAction(d.data, toggle)}
-								<button
-									class="menu-button hover:bg-surface3"
-									onclick={async (e) => {
-										e.stopPropagation();
-										if ('isCatalogEntry' in d.data) {
-											if (matchingServers.length === 1) {
-												connectToServerDialog?.handleSetupChat(matchingServers[0]);
-											} else {
-												handleShowSelectServerDialog(d.data as MCPCatalogEntry, 'chat');
-											}
-										} else {
-											connectToServerDialog?.handleSetupChat(d.data, instancesMap.get(d.id));
-										}
-										toggle(false);
-									}}
-								>
-									My Connection(s)
-								</button>
 							</div>
 							<div class="bg-surface1 flex flex-col gap-1 p-2">
 								{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
@@ -563,63 +537,15 @@
 									<Captions class="size-4" /> View Audit Logs
 								</button>
 							{/if}
-
-							{#if matchingServers.length > 0 && 'isCatalogEntry' in d.data}
-								<button
-									class="menu-button hover:bg-surface3"
-									onclick={async (e) => {
-										e.stopPropagation();
-										if (catalogEntry) {
-											deletingEntry = catalogEntry;
-										} else {
-											deletingServer = d.data as MCPCatalogServer;
-										}
-
-										toggle(false);
-									}}
-								>
-									<Unplug class="size-4" /> Disconnect
-								</button>
-							{:else if matchingInstance}
-								<button
-									class="menu-button hover:bg-surface3"
-									onclick={async (e) => {
-										e.stopPropagation();
-										await ChatService.deleteMcpServerInstance(matchingInstance.id);
-										mcpServersAndEntries.refreshUserInstances();
-										toggle(false);
-									}}
-								>
-									<Unplug class="size-4" /> Disconnect
-								</button>
-							{/if}
-						</div>
-						<div class="flex flex-col gap-1 p-2">
-							{#if !hasConnectedOptions}
-								{@render connectToServerAction(d.data, toggle, true)}
-							{/if}
-							{#if auditLogUrl && (belongsToUser || profile.current?.hasAdminAccess?.())}
-								<button
-									onclick={(e) => {
-										e.stopPropagation();
-										const isCtrlClick = e.ctrlKey || e.metaKey;
-										setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
-										openUrl(auditLogUrl, isCtrlClick);
-									}}
-									class="menu-button"
-								>
-									<Captions class="size-4" /> View Audit Logs
-								</button>
-							{/if}
 							{#if canDelete}
 								<button
 									class="menu-button-destructive"
 									onclick={(e) => {
 										e.stopPropagation();
-										if ('isCatalogEntry' in d.data) {
-											deletingEntry = d.data;
+										if (catalogEntry) {
+											deletingEntry = catalogEntry;
 										} else {
-											deletingServer = d.data;
+											deletingServer = d.data as MCPCatalogServer;
 										}
 										toggle(false);
 									}}
