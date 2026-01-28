@@ -144,7 +144,7 @@
 						{:else if property === 'expiresAt'}
 							{d.expiresAtDisplay}
 						{:else if property === 'prefix'}
-							<span class="truncate whitespace-nowrap">{d.prefix}</span>
+							<span class="whitespace-nowrap">{d.prefix}</span>
 						{:else}
 							{d[property as keyof typeof d]}
 						{/if}
