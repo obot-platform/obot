@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestReadGitHubCatalog(t *testing.T) {
+func TestReadGitCatalog(t *testing.T) {
 	tests := []struct {
 		name       string
 		catalog    string
@@ -26,13 +26,19 @@ func TestReadGitHubCatalog(t *testing.T) {
 			numEntries: 3,
 		},
 		{
+			name:       "valid github url with .git suffix",
+			catalog:    "https://github.com/obot-platform/test-mcp-catalog.git",
+			wantErr:    false,
+			numEntries: 3,
+		},
+		{
 			name:       "invalid protocol",
 			catalog:    "http://github.com/obot-platform/test-mcp-catalog",
 			wantErr:    true,
 			numEntries: 0,
 		},
 		{
-			name:       "invalid url format",
+			name:       "invalid github url format",
 			catalog:    "github.com/invalid",
 			wantErr:    true,
 			numEntries: 0,
@@ -41,7 +47,7 @@ func TestReadGitHubCatalog(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entries, err := readGitHubCatalog(tt.catalog)
+			entries, err := readGitCatalog(tt.catalog)
 			if tt.wantErr {
 				assert.Error(t, err)
 				return

@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/logutil"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -1454,14 +1455,29 @@ func (h *MCPCatalogHandler) ListCategoriesForCatalog(req api.Context) error {
 }
 
 func convertMCPCatalog(catalog v1.MCPCatalog) types.MCPCatalog {
+	// Sanitize URLs to mask credentials before returning to API
+	sanitizedURLs := make([]string, len(catalog.Spec.SourceURLs))
+	for i, u := range catalog.Spec.SourceURLs {
+		sanitizedURLs[i] = logutil.SanitizeURL(u)
+	}
+
+	// Sanitize sync error keys (they contain URLs that may have credentials)
+	var sanitizedErrors map[string]string
+	if len(catalog.Status.SyncErrors) > 0 {
+		sanitizedErrors = make(map[string]string, len(catalog.Status.SyncErrors))
+		for u, errMsg := range catalog.Status.SyncErrors {
+			sanitizedErrors[logutil.SanitizeURL(u)] = errMsg
+		}
+	}
+
 	return types.MCPCatalog{
 		Metadata: MetadataFrom(&catalog),
 		MCPCatalogManifest: types.MCPCatalogManifest{
 			DisplayName: catalog.Spec.DisplayName,
-			SourceURLs:  catalog.Spec.SourceURLs,
+			SourceURLs:  sanitizedURLs,
 		},
 		LastSynced: *types.NewTime(catalog.Status.LastSyncTime.Time),
-		SyncErrors: catalog.Status.SyncErrors,
+		SyncErrors: sanitizedErrors,
 		IsSyncing:  catalog.Status.IsSyncing || catalog.Annotations[v1.MCPCatalogSyncAnnotation] == "true",
 	}
 }
