@@ -3225,14 +3225,11 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 
 	// If this is a single-user MCP server that belongs to the user, then let them access the logs.
 	// Also allow if this is a multi-user server in a PowerUser workspace that the user created.
+	// Multi-user catalog servers (MCPCatalogID set) are excluded since they serve multiple users.
 	userOwnsServer := server.Spec.UserID == req.User.GetUID()
-	isMultiUserWorkspaceServer := server.Spec.PowerUserWorkspaceID != ""
 	isMultiUserCatalogServer := server.Spec.MCPCatalogID != ""
 
-	// Allow access if:
-	// 1. User owns the server AND it's single-user (no workspace/catalog)
-	// 2. User owns the server AND it's a multi-user workspace server (they created it)
-	allowAccess := userOwnsServer && (!isMultiUserWorkspaceServer || (isMultiUserWorkspaceServer && !isMultiUserCatalogServer))
+	allowAccess := userOwnsServer && !isMultiUserCatalogServer
 
 	if !allowAccess {
 		// If the user doesn't own the server and is not an admin or auditor, check if they have access to the workspace.

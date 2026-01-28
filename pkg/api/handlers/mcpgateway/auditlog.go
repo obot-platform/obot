@@ -26,6 +26,94 @@ func NewAuditLogHandler() *AuditLogHandler {
 	return &AuditLogHandler{}
 }
 
+// Authorization levels for audit log access, from highest to lowest privilege.
+// Each level determines what audit logs a user can see and what details are included.
+type auditLogAuthLevel int
+
+const (
+	// authLevelAdmin can see all audit logs with full details.
+	authLevelAdmin auditLogAuthLevel = iota
+	// authLevelAuditor can see all audit logs with full details.
+	authLevelAuditor
+	// authLevelPowerUser can see audit logs scoped to their workspace.
+	authLevelPowerUser
+	// authLevelBasicUser can only see audit logs for single-user servers they own.
+	authLevelBasicUser
+)
+
+// getAuthLevel determines the user's authorization level for audit log access.
+func getAuthLevel(req api.Context) auditLogAuthLevel {
+	switch {
+	case req.UserIsAdmin():
+		return authLevelAdmin
+	case req.UserIsAuditor():
+		return authLevelAuditor
+	case req.UserIsPowerUser():
+		return authLevelPowerUser
+	default:
+		return authLevelBasicUser
+	}
+}
+
+// getOwnedSingleUserServerIDs returns the IDs of single-user MCP servers owned by the user.
+// Single-user servers are identified by having no MCPCatalogID set.
+// Returns an empty slice if the user owns no single-user servers.
+func getOwnedSingleUserServerIDs(req api.Context) ([]string, error) {
+	var serverList v1.MCPServerList
+	if err := req.List(&serverList, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.userID", req.User.GetUID()),
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list servers: %w", err)
+	}
+
+	// Filter to only single-user servers (no MCPCatalogID means not multi-user)
+	serverIDs := make([]string, 0, len(serverList.Items))
+	for _, server := range serverList.Items {
+		if server.Spec.MCPCatalogID == "" {
+			serverIDs = append(serverIDs, server.Name)
+		}
+	}
+	return serverIDs, nil
+}
+
+// filterToOwnedServers filters the requested MCP IDs to only include servers the user owns.
+// If requestedIDs is empty, returns all owned server IDs.
+// If requestedIDs is non-empty, returns the intersection with owned server IDs.
+func filterToOwnedServers(requestedIDs, ownedServerIDs []string) []string {
+	if len(requestedIDs) == 0 {
+		return ownedServerIDs
+	}
+
+	filtered := make([]string, 0, len(requestedIDs))
+	for _, id := range requestedIDs {
+		if slices.Contains(ownedServerIDs, id) {
+			filtered = append(filtered, id)
+		}
+	}
+	return filtered
+}
+
+// emptyAuditLogResponse returns an empty audit log response with the given pagination.
+func emptyAuditLogResponse(limit, offset int) types.MCPAuditLogResponse {
+	return types.MCPAuditLogResponse{
+		MCPAuditLogList: types.MCPAuditLogList{Items: []types.MCPAuditLog{}},
+		Total:           0,
+		Limit:           limit,
+		Offset:          offset,
+	}
+}
+
+// emptyUsageStatsResponse returns an empty usage stats response.
+func emptyUsageStatsResponse() types.MCPUsageStats {
+	return types.MCPUsageStats{
+		TimeStart:   *types.NewTime(time.Now()),
+		TimeEnd:     *types.NewTime(time.Now()),
+		TotalCalls:  0,
+		UniqueUsers: 0,
+		Items:       []types.MCPUsageStatItem{},
+	}
+}
+
 // parseMultiValueParam parses query parameters that can have multiple values
 // Supports both comma-separated values in single parameter and repeated parameters
 func parseMultiValueParam(queryValues map[string][]string, key string) []string {
@@ -116,14 +204,11 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	query := req.URL.Query()
 
-	// Parse query parameters with support for multiple values
+	// Parse query parameters with support for multiple values.
+	// Any filters here must also be available in ListAuditLogFilterOptions.
 	opts := gateway.MCPAuditLogOptions{
-		// Always exclude request/response bodies from list responses for performance
-		WithRequestAndResponse: false,
-		// Default limit is 100.
-		Limit: 100,
-		// Any of these filters that can be passed via query parameter need to be available in the "filter options" API.
-		// In order for that to be the case, the map in the GetAuditLogFilterOptions method should be updated.
+		WithRequestAndResponse:    false, // Exclude bodies from list responses for performance
+		Limit:                     100,   // Default limit
 		UserID:                    parseMultiValueParam(query, "user_id"),
 		MCPID:                     parseMultiValueParam(query, "mcp_id"),
 		MCPServerDisplayName:      parseMultiValueParam(query, "mcp_server_display_name"),
@@ -138,69 +223,35 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		Query:                     strings.TrimSpace(query.Get("query")),
 	}
 
-	// Apply workspace filtering for Power Users
-	if req.UserIsPowerUser() && !req.UserIsAdmin() {
-		opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
-	}
-
-	// Handle path parameter for mcp_id (takes precedence over query parameter)
+	// Path parameter takes precedence over query parameter
 	if pathMcpID := req.PathValue("mcp_id"); pathMcpID != "" {
 		opts.MCPID = []string{pathMcpID}
 	}
 
-	// Apply server ownership filtering for Basic users (non-admin, non-power users)
-	if !req.UserIsAdmin() && !req.UserIsPowerUser() && !req.UserIsAuditor() {
-		// Get all servers owned by this user using a field selector
-		var serverList v1.MCPServerList
-		if err := req.List(&serverList, &kclient.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector("spec.userID", req.User.GetUID()),
-		}); err != nil {
-			return fmt.Errorf("failed to list servers: %w", err)
-		}
+	// Apply authorization-based filtering
+	authLevel := getAuthLevel(req)
+	switch authLevel {
+	case authLevelAdmin, authLevelAuditor:
+		// Full access - no filtering needed
 
-		// Extract server IDs for servers owned by the user
-		ownedServerIDs := make([]string, 0, len(serverList.Items))
-		for _, server := range serverList.Items {
-			ownedServerIDs = append(ownedServerIDs, server.Name)
-		}
+	case authLevelPowerUser:
+		// Scope to their workspace
+		opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
 
-		// If the user doesn't own any servers, return empty results
+	case authLevelBasicUser:
+		// Basic users can only see audit logs for their own single-user servers
+		ownedServerIDs, err := getOwnedSingleUserServerIDs(req)
+		if err != nil {
+			return err
+		}
 		if len(ownedServerIDs) == 0 {
-			return req.Write(types.MCPAuditLogResponse{
-				MCPAuditLogList: types.MCPAuditLogList{
-					Items: []types.MCPAuditLog{},
-				},
-				Total:  0,
-				Limit:  opts.Limit,
-				Offset: opts.Offset,
-			})
+			return req.Write(emptyAuditLogResponse(opts.Limit, opts.Offset))
 		}
 
-		// Filter audit logs to only include owned servers
-		// If a specific mcp_id was requested, ensure it's in the owned list
-		if len(opts.MCPID) > 0 {
-			// Check if requested mcp_id is owned by user
-			requestedOwned := make([]string, 0, len(opts.MCPID))
-			for _, mcpID := range opts.MCPID {
-				if slices.Contains(ownedServerIDs, mcpID) {
-					requestedOwned = append(requestedOwned, mcpID)
-				}
-			}
-			if len(requestedOwned) == 0 {
-				// Requested server not owned by user, return empty
-				return req.Write(types.MCPAuditLogResponse{
-					MCPAuditLogList: types.MCPAuditLogList{
-						Items: []types.MCPAuditLog{},
-					},
-					Total:  0,
-					Limit:  opts.Limit,
-					Offset: opts.Offset,
-				})
-			}
-			opts.MCPID = requestedOwned
-		} else {
-			// No specific mcp_id requested, filter to all owned servers
-			opts.MCPID = ownedServerIDs
+		// Filter to only owned servers
+		opts.MCPID = filterToOwnedServers(opts.MCPID, ownedServerIDs)
+		if len(opts.MCPID) == 0 {
+			return req.Write(emptyAuditLogResponse(opts.Limit, opts.Offset))
 		}
 	}
 
@@ -271,58 +322,61 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 
 // GetAuditLog handles GET /api/mcp-audit-logs/detail/{audit_log_id}
 func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
-	// Parse ID from path
 	id := req.PathValue("audit_log_id")
 	if id == "" {
 		return types.NewErrBadRequest("missing audit log id")
 	}
 
-	// Convert ID to uint
 	var auditLogID uint64
 	if _, err := fmt.Sscanf(id, "%d", &auditLogID); err != nil {
 		return types.NewErrBadRequest("invalid audit log id: %v", err)
 	}
 
-	// Determine if full payload should be included
-	includeFullPayload := req.UserIsAuditor()
+	// Determine access level and whether to include full payload
+	authLevel := getAuthLevel(req)
+	includeFullPayload := authLevel == authLevelAdmin || authLevel == authLevelAuditor
 
-	// If not auditor, check server ownership and type
-	if !includeFullPayload && !req.UserIsAdmin() {
-		// Get the audit log metadata to find the server ID
+	// For non-privileged users, verify access to this specific audit log
+	if authLevel == authLevelPowerUser || authLevel == authLevelBasicUser {
 		logMeta, err := req.GatewayClient.GetMCPAuditLog(req.Context(), uint(auditLogID), false)
 		if err != nil {
 			return err
 		}
 
-		// Get the server to check ownership and type
 		if logMeta.MCPID != "" {
 			var server v1.MCPServer
 			if err := req.Get(&server, logMeta.MCPID); err == nil {
-				// Check if user owns this server
-				if server.Spec.UserID == req.User.GetUID() {
-					// User owns the server - check if it's single-user or multi-user
-					// Single-user servers have no MCPCatalogID and no PowerUserWorkspaceID
-					isSingleUser := server.Spec.MCPCatalogID == "" && server.Spec.PowerUserWorkspaceID == ""
-					if isSingleUser {
-						// Single-user server owned by user: full payload access
+				userOwnsServer := server.Spec.UserID == req.User.GetUID()
+				isSingleUserServer := server.Spec.MCPCatalogID == ""
+
+				switch authLevel {
+				case authLevelPowerUser:
+					// Power users can access logs for servers in their workspace
+					// Full payload only for single-user servers they own
+					if userOwnsServer && isSingleUserServer {
 						includeFullPayload = true
 					}
-					// Multi-user server created by user: metadata only (includeFullPayload stays false)
+
+				case authLevelBasicUser:
+					// Basic users can only access single-user servers they own
+					if !userOwnsServer || !isSingleUserServer {
+						return types.NewErrNotFound("audit log not found")
+					}
+					includeFullPayload = true
 				}
+			} else if authLevel == authLevelBasicUser {
+				// Server not found - basic users are denied
+				return types.NewErrNotFound("audit log not found")
 			}
 		}
 	}
 
-	// Get the audit log with appropriate detail level
 	log, err := req.GatewayClient.GetMCPAuditLog(req.Context(), uint(auditLogID), includeFullPayload)
 	if err != nil {
 		return err
 	}
 
-	// Convert to API type
-	result := gatewaytypes.ConvertMCPAuditLog(*log)
-
-	return req.Write(result)
+	return req.Write(gatewaytypes.ConvertMCPAuditLog(*log))
 }
 
 // filterOptions represent the values that a user can use to filter audit logs.
@@ -347,6 +401,7 @@ var defaultFilterOptions = map[string][]string{
 	"call_type": {"prompts/list", "resources/read", "tools/list", "tools/call", "prompts/get", "resources/list"},
 }
 
+// ListAuditLogFilterOptions handles GET /api/mcp-audit-logs/filter-options/{filter}
 func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 	filter := req.PathValue("filter")
 	if filter == "" {
@@ -354,7 +409,6 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 	}
 
 	query := req.URL.Query()
-	// Parse field filters (same as ListAuditLogs, excluding sorting)
 	opts := gateway.MCPAuditLogOptions{
 		UserID:                    parseMultiValueParam(query, "user_id"),
 		MCPID:                     parseMultiValueParam(query, "mcp_id"),
@@ -369,9 +423,30 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 		ClientIP:                  parseMultiValueParam(query, "client_ip"),
 	}
 
-	// Apply workspace filtering for Power Users
-	if req.UserIsPowerUser() && !req.UserIsAdmin() {
+	// Apply authorization-based filtering (same as ListAuditLogs)
+	authLevel := getAuthLevel(req)
+	switch authLevel {
+	case authLevelAdmin, authLevelAuditor:
+		// Full access - no filtering needed
+
+	case authLevelPowerUser:
+		// Scope to their workspace
 		opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
+
+	case authLevelBasicUser:
+		// Basic users can only see filter options for their own single-user servers
+		ownedServerIDs, err := getOwnedSingleUserServerIDs(req)
+		if err != nil {
+			return err
+		}
+		if len(ownedServerIDs) == 0 {
+			return req.Write(map[string]any{"options": []string{}})
+		}
+
+		opts.MCPID = filterToOwnedServers(opts.MCPID, ownedServerIDs)
+		if len(opts.MCPID) == 0 {
+			return req.Write(map[string]any{"options": []string{}})
+		}
 	}
 
 	// Parse time range
@@ -422,11 +497,15 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 	query := req.URL.Query()
 
-	var mcpServerDisplayNames, mcpServerCatalogEntryNames, userIDs []string
+	// Parse MCP ID from path or query
 	mcpID := req.PathValue("mcp_id")
 	if mcpID == "" {
 		mcpID = query.Get("mcp_id")
-		// Only look at these query parameters if the MCP ID is not provided.
+	}
+
+	// Additional filters only apply when no specific MCP ID is provided
+	var mcpServerDisplayNames, mcpServerCatalogEntryNames, userIDs []string
+	if mcpID == "" {
 		mcpServerDisplayNames = parseMultiValueParam(query, "mcp_server_display_names")
 		mcpServerCatalogEntryNames = parseMultiValueParam(query, "mcp_server_catalog_entry_names")
 		userIDs = parseMultiValueParam(query, "user_ids")
@@ -439,53 +518,36 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 		UserIDs:                    userIDs,
 	}
 
-	// Apply workspace filtering for Power Users (same logic as audit logs)
-	if req.UserIsPowerUser() && !req.UserIsAdmin() {
+	// Apply authorization-based filtering
+	authLevel := getAuthLevel(req)
+	switch authLevel {
+	case authLevelAdmin, authLevelAuditor:
+		// Full access - no filtering needed
+
+	case authLevelPowerUser:
+		// Scope to their workspace
 		opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
-	}
 
-	// Apply server ownership filtering for Basic users (same logic as audit logs)
-	if !req.UserIsAdmin() && !req.UserIsPowerUser() && !req.UserIsAuditor() {
-		// Get all servers owned by this user using a field selector
-		var serverList v1.MCPServerList
-		if err := req.List(&serverList, &kclient.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector("spec.userID", req.User.GetUID()),
-		}); err != nil {
-			return fmt.Errorf("failed to list servers: %w", err)
+	case authLevelBasicUser:
+		// Basic users can only see usage stats for their own single-user servers
+		ownedServerIDs, err := getOwnedSingleUserServerIDs(req)
+		if err != nil {
+			return err
 		}
-
-		// Extract server IDs for servers owned by the user
-		ownedServerIDs := make([]string, 0, len(serverList.Items))
-		for _, server := range serverList.Items {
-			ownedServerIDs = append(ownedServerIDs, server.Name)
-		}
-
-		// If the user doesn't own any servers, return empty stats
 		if len(ownedServerIDs) == 0 {
-			return req.Write(types.MCPUsageStats{
-				TimeStart:   *types.NewTime(time.Now()),
-				TimeEnd:     *types.NewTime(time.Now()),
-				TotalCalls:  0,
-				UniqueUsers: 0,
-				Items:       []types.MCPUsageStatItem{},
-			})
+			return req.Write(emptyUsageStatsResponse())
 		}
 
-		// Filter usage stats to only include owned servers
-		// If a specific mcp_id was requested, ensure it's in the owned list
-		if opts.MCPID != "" && !slices.Contains(ownedServerIDs, opts.MCPID) {
-			// Requested server not owned by user, return empty stats
-			return req.Write(types.MCPUsageStats{
-				TimeStart:   *types.NewTime(time.Now()),
-				TimeEnd:     *types.NewTime(time.Now()),
-				TotalCalls:  0,
-				UniqueUsers: 0,
-				Items:       []types.MCPUsageStatItem{},
-			})
+		// If a specific server was requested, verify ownership
+		if opts.MCPID != "" {
+			if !slices.Contains(ownedServerIDs, opts.MCPID) {
+				return req.Write(emptyUsageStatsResponse())
+			}
+		} else {
+			// For aggregate queries, constrain to user's own activity only
+			// This prevents seeing other users' activity on shared servers
+			opts.UserIDs = []string{req.User.GetUID()}
 		}
-		// Note: For multi-server stats queries, the gateway will filter based on PowerUserWorkspaceID
-		// or the owned server IDs. Since we can't set multiple MCPIDs in the current API,
-		// we rely on the workspace ID filtering in the gateway for now.
 	}
 
 	var (
