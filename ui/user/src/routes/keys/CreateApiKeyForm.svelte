@@ -108,9 +108,7 @@
 	out:fly={{ x: 100, duration }}
 	in:fly={{ x: 100, delay: duration }}
 >
-	<div
-		class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
-	>
+	<div class="paper p-4">
 		<div class="flex flex-col gap-6">
 			<div class="flex flex-col gap-2">
 				<label for="api-key-name" class="input-label">
@@ -156,7 +154,7 @@
 		</div>
 	</div>
 
-	<div class="mt-4 flex flex-col gap-2">
+	<div class="paper flex flex-col gap-2 p-4">
 		<p>
 			<span class="text-lg font-semibold">MCP Servers</span>
 			{#if serverError}
