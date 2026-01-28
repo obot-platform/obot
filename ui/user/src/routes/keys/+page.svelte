@@ -1,31 +1,28 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { ApiKeysService } from '$lib/services';
 	import type { APIKey } from '$lib/services/api-keys/types';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
-	import { Info, KeyRound, Plus, ReceiptText, Trash2 } from 'lucide-svelte';
+	import { Info, KeyRound, Plus, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import CreateApiKeyForm from './CreateApiKeyForm.svelte';
 	import ApiKeyRevealDialog from './ApiKeyRevealDialog.svelte';
-	import ApiKeyDetailsDialog from '$lib/components/api-keys/ApiKeyDetailsDialog.svelte';
-	import ServerCountBadge from '$lib/components/api-keys/ServerCountBadge.svelte';
 	import { fly } from 'svelte/transition';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { page } from '$app/state';
 	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
+	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
+	import { openUrl } from '$lib/utils';
 
 	let { data } = $props();
 	let apiKeys = $state<APIKey[]>(untrack(() => data.apiKeys));
-	let mcpServers = $state(untrack(() => data.mcpServers));
 
 	let deletingKey = $state<APIKey>();
 	let loading = $state(false);
 	let showCreateNew = $derived(page.url.searchParams.has('new'));
 	let createdKeyValue = $state<string>();
-	let detailsKey = $state<(typeof tableData)[number]>();
 	let initSort = $derived(getTableUrlParamsSort({ property: 'createdAt', order: 'desc' }));
 
 	const tableData = $derived(
@@ -44,7 +41,7 @@
 		if (!keyToDelete) return;
 		loading = true;
 		try {
-			await ApiKeysService.deleteApiKey(keyToDelete.id);
+			await ApiKeysService.deleteApiKey(keyToDelete.id.toString());
 			apiKeys = apiKeys.filter((k) => k.id !== keyToDelete.id);
 		} finally {
 			loading = false;
@@ -80,7 +77,7 @@
 			in:fly={{ x: 100, delay: duration, duration }}
 			out:fly={{ x: -100, duration }}
 		>
-			<CreateApiKeyForm onCreate={handleCreate} onCancel={hideCreateForm} {mcpServers} />
+			<CreateApiKeyForm onCreate={handleCreate} onCancel={hideCreateForm} />
 		</div>
 	{:else}
 		<div class="flex flex-col gap-4">
@@ -138,35 +135,32 @@
 					sortable={['name', 'createdAt', 'lastUsedAt', 'expiresAt']}
 					{initSort}
 					onSort={setSortUrlParams}
+					onClickRow={(d, isCtrlClick) => {
+						const url = `/keys/${d.id}`;
+						openUrl(url, isCtrlClick);
+					}}
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'description'}
 							<span class="text-muted">{d.description || '-'}</span>
 						{:else if property === 'mcpServerIds'}
-							<ServerCountBadge mcpServerIds={d.mcpServerIds} {mcpServers} />
+							<ServersLabel mcpServerIds={d.mcpServerIds} />
 						{:else if property === 'createdAt'}
 							{d.createdAtDisplay}
 						{:else if property === 'lastUsedAt'}
 							{d.lastUsedAtDisplay}
 						{:else if property === 'expiresAt'}
 							{d.expiresAtDisplay}
+						{:else if property === 'prefix'}
+							<span class="whitespace-nowrap">{d.prefix}</span>
 						{:else}
 							{d[property as keyof typeof d]}
 						{/if}
 					{/snippet}
 					{#snippet actions(d)}
-						<DotDotDot>
-							<div class="default-dialog flex min-w-max flex-col p-2">
-								<button class="menu-button" onclick={() => (detailsKey = d)}>
-									<ReceiptText class="size-4" />
-									Details
-								</button>
-								<button class="menu-button text-red-500" onclick={() => (deletingKey = d)}>
-									<Trash2 class="size-4" />
-									Delete
-								</button>
-							</div>
-						</DotDotDot>
+						<button class="icon-button" onclick={() => (deletingKey = d)}>
+							<Trash2 class="size-4" />
+						</button>
 					{/snippet}
 				</Table>
 			{/if}
@@ -192,13 +186,6 @@
 />
 
 <ApiKeyRevealDialog keyValue={createdKeyValue} onClose={() => (createdKeyValue = undefined)} />
-
-<ApiKeyDetailsDialog
-	apiKey={detailsKey}
-	{mcpServers}
-	onClose={() => (detailsKey = undefined)}
-	onDelete={(key) => (deletingKey = key)}
-/>
 
 <svelte:head>
 	<title>Obot | My API Keys</title>

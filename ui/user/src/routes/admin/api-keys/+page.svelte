@@ -9,27 +9,25 @@
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import { profile } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
-	import { KeyRound, Plus, ReceiptText, Trash2 } from 'lucide-svelte';
+	import { KeyRound, Plus, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import ApiKeyRevealDialog from '../../keys/ApiKeyRevealDialog.svelte';
 	import CreateApiKeyForm from '../../keys/CreateApiKeyForm.svelte';
-	import ApiKeyDetailsDialog from '$lib/components/api-keys/ApiKeyDetailsDialog.svelte';
-	import ServerCountBadge from '$lib/components/api-keys/ServerCountBadge.svelte';
 	import { fly } from 'svelte/transition';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { page } from '$app/state';
 	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
+	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
+	import { openUrl } from '$lib/utils';
 
 	let { data } = $props();
 	let allApiKeys = $state<APIKey[]>(untrack(() => data.allApiKeys));
 	let users = $state<OrgUser[]>(untrack(() => data.users));
-	let mcpServers = $state(untrack(() => data.mcpServers));
 
 	let deletingKey = $state<APIKey>();
 	let loading = $state(false);
 	let showCreateNew = $derived(page.url.searchParams.has('new'));
 	let createdKeyValue = $state<string>();
-	let detailsKey = $state<(typeof allTableData)[number]>();
 	let initSort = $derived(getTableUrlParamsSort({ property: 'createdAt', order: 'desc' }));
 
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
@@ -51,7 +49,7 @@
 		if (!keyToDelete) return;
 		loading = true;
 		try {
-			await ApiKeysService.deleteAnyApiKey(keyToDelete.id);
+			await ApiKeysService.deleteAnyApiKey(keyToDelete.id.toString());
 			allApiKeys = allApiKeys.filter((k) => k.id !== keyToDelete.id);
 		} finally {
 			loading = false;
@@ -88,11 +86,7 @@
 			in:fly={{ x: 100, delay: duration, duration }}
 			out:fly={{ x: -100, duration }}
 		>
-			<CreateApiKeyForm
-				onCreate={handleCreate}
-				onCancel={() => (showCreateNew = false)}
-				{mcpServers}
-			/>
+			<CreateApiKeyForm onCreate={handleCreate} onCancel={() => (showCreateNew = false)} />
 		</div>
 	{:else}
 		<div class="flex flex-col gap-4">
@@ -133,37 +127,39 @@
 					sortable={['userDisplay', 'name', 'createdAt', 'lastUsedAt', 'expiresAt']}
 					{initSort}
 					onSort={setSortUrlParams}
+					onClickRow={(d, isCtrlClick) => {
+						const url = `/admin/api-keys/${d.id}`;
+						openUrl(url, isCtrlClick);
+					}}
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'description'}
 							<span class="text-muted">{d.description || '-'}</span>
 						{:else if property === 'mcpServerIds'}
-							<ServerCountBadge mcpServerIds={d.mcpServerIds} {mcpServers} />
+							<ServersLabel mcpServerIds={d.mcpServerIds} />
 						{:else if property === 'createdAt'}
 							{d.createdAtDisplay}
 						{:else if property === 'lastUsedAt'}
 							{d.lastUsedAtDisplay}
 						{:else if property === 'expiresAt'}
 							{d.expiresAtDisplay}
+						{:else if property === 'prefix'}
+							<span class="whitespace-nowrap">{d.prefix}</span>
 						{:else}
 							{d[property as keyof typeof d]}
 						{/if}
 					{/snippet}
 					{#snippet actions(d)}
-						<DotDotDot>
-							<div class="default-dialog flex min-w-max flex-col p-2">
-								<button class="menu-button" onclick={() => (detailsKey = d)}>
-									<ReceiptText class="size-4" />
-									Details
-								</button>
-								{#if !isAdminReadonly}
+						{#if !isAdminReadonly}
+							<DotDotDot>
+								<div class="default-dialog flex min-w-max flex-col p-2">
 									<button class="menu-button text-red-500" onclick={() => (deletingKey = d)}>
 										<Trash2 class="size-4" />
 										Delete
 									</button>
-								{/if}
-							</div>
-						</DotDotDot>
+								</div>
+							</DotDotDot>
+						{/if}
 					{/snippet}
 				</Table>
 			{/if}
@@ -189,14 +185,6 @@
 />
 
 <ApiKeyRevealDialog keyValue={createdKeyValue} onClose={() => (createdKeyValue = undefined)} />
-
-<ApiKeyDetailsDialog
-	apiKey={detailsKey}
-	{mcpServers}
-	onClose={() => (detailsKey = undefined)}
-	onDelete={(key) => (deletingKey = key)}
-	hideDelete={isAdminReadonly}
-/>
 
 <svelte:head>
 	<title>Obot | API Keys</title>

@@ -400,3 +400,16 @@ export const findServerAndEntryForProjectMcp = (mcpServer: ProjectMCP) => {
 		: undefined;
 	return { server: userConfiguredServer, entry };
 };
+
+export const compileAvailableMcpServers = (
+	servers: MCPCatalogServer[],
+	userConfiguredServers: MCPCatalogServer[]
+) => {
+	const serverMap = new Map<string, MCPCatalogServer>();
+	for (const server of [...userConfiguredServers, ...servers]) {
+		if (!server.deleted) {
+			serverMap.set(server.id, server);
+		}
+	}
+	return Array.from(serverMap.values());
+};
