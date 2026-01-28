@@ -79,6 +79,13 @@
 			.map((name) => name.toLowerCase())
 	);
 	let name = $derived(server?.alias || server?.manifest.name || '');
+	let openStatusHash = $state<string>();
+
+	function handleOnClose() {
+		// generate new hash to force re-render next time opened
+		openStatusHash = Math.random().toString(36);
+		onClose?.();
+	}
 
 	function handleConnect() {
 		if (!skipConnectDialog) {
@@ -627,7 +634,7 @@
 	});
 </script>
 
-<ResponsiveDialog bind:this={connectDialog} animate="slide" {onClose}>
+<ResponsiveDialog bind:this={connectDialog} animate="slide" onClose={handleOnClose}>
 	{#snippet titleContent()}
 		{#if server}
 			{@const icon = server.manifest.icon ?? ''}
@@ -649,16 +656,21 @@
 			<div class="mb-4 flex grow flex-col gap-1">
 				<label for="connectURL" class="font-light">Connection URL</label>
 				<div class="mock-input-btn flex w-full items-center justify-between gap-2 shadow-inner">
-					<p>
-						{url}
-					</p>
-					<CopyButton
-						showTextLeft
-						text={url}
-						classes={{
-							button: 'flex-shrink-0 flex items-center gap-1 text-xs font-light hover:text-blue-500'
-						}}
-					/>
+					<div class="relative flex h-5 flex-1 overflow-hidden">
+						<p class="absolute inset-0 truncate whitespace-nowrap">
+							{url}
+						</p>
+					</div>
+					{#key openStatusHash}
+						<CopyButton
+							showTextLeft
+							text={url}
+							classes={{
+								button:
+									'flex-shrink-0 flex items-center gap-1 text-xs font-light hover:text-blue-500'
+							}}
+						/>
+					{/key}
 				</div>
 			</div>
 			{#if !hideActions}
