@@ -58,6 +58,107 @@ curl -H "Authorization: Bearer <key>" <obot host>/api/me
 
 If the key is valid, you should receive a response with your user information.
 
+### Configuring MCP Clients
+
+Once you have an API key, you can configure various MCP clients to connect to your Obot MCP servers. The MCP endpoint URL follows this pattern:
+
+```
+https://<obot-host>/mcp-connect/<server-name>/mcp
+```
+
+Where `<server-name>` is the name of the MCP server you want to connect to.
+
+#### VS Code
+
+Configure your `.vscode/mcp.json` file to connect to Obot MCP servers using HTTP transport with Bearer token authentication:
+
+```json
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "obot-api-key",
+      "description": "Obot API Key",
+      "password": true
+    }
+  ],
+  "servers": {
+    "my-obot-server": {
+      "type": "http",
+      "url": "<connection URL>",
+      "headers": {
+        "Authorization": "Bearer ${input:obot-api-key}"
+      }
+    }
+  }
+}
+```
+
+VS Code will prompt you to enter your API key when connecting. To configure servers globally across all workspaces, add the configuration to your user settings instead.
+
+#### Agno
+
+[Agno](https://www.agno.com/) is a Python agent framework that supports MCP integration. Use `StreamableHTTPClientParams` to configure authorization headers:
+
+```python
+from agno.agent import Agent
+from agno.models.openai import OpenAIChat
+from agno.tools.mcp import MCPTools
+from agno.tools.mcp.params import StreamableHTTPClientParams
+from os import getenv
+
+# Configure the MCP server connection with authorization
+server_params = StreamableHTTPClientParams(
+    url="<connection URL>",
+    headers={
+        "Authorization": f"Bearer {getenv('OBOT_API_KEY')}",
+    },
+)
+
+async def main():
+    async with MCPTools(
+        transport="streamable-http",
+        server_params=server_params
+    ) as mcp_tools:
+        agent = Agent(
+            model=OpenAIChat(id="gpt-4o"),
+            tools=[mcp_tools],
+            markdown=True,
+        )
+        await agent.aprint_response("Your prompt here", stream=True)
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+```
+
+#### LangChain
+
+[LangChain MCP Adapters](https://github.com/langchain-ai/langchain-mcp-adapters) enable connecting LangChain agents to MCP servers. Configure the `MultiServerMCPClient` with HTTP transport and authorization headers:
+
+```python
+from os import getenv
+from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain.agents import create_agent
+
+# Configure the MCP client with authorization
+client = MultiServerMCPClient(
+    {
+        "obot-server": {
+            "transport": "http",
+            "url": "<connection URL>",
+            "headers": {
+                "Authorization": f"Bearer {getenv('OBOT_API_KEY')}",
+            },
+        }
+    }
+)
+
+tools = await client.get_tools()
+agent = create_agent("openai:gpt-4.1", tools)
+response = await agent.ainvoke({"messages": "your message here"})
+```
+
 ## Managing API Keys
 
 ### Viewing Your Keys
