@@ -5288,12 +5288,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialRequest(r
 							Format:  "",
 						},
 					},
-					"authorizationServerURL": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 				},
 				Required: []string{"clientID", "clientSecret"},
 			},
@@ -5319,13 +5313,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialStatus(re
 					"clientID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ClientID is the configured client ID (never includes secret)",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"authorizationServerURL": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AuthorizationServerURL is the authorization server URL from the server config",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -8885,16 +8872,9 @@ func schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref common.Re
 							},
 						},
 					},
-					"authorizationServerURL": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Optional",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"staticOAuthRequired": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Default OAuth authorization server URL",
+							Description: "Optional",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -8957,16 +8937,9 @@ func schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref common.Re
 							},
 						},
 					},
-					"authorizationServerURL": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Optional",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"staticOAuthRequired": {
 						SchemaProps: spec.SchemaProps{
-							Description: "OAuth authorization server URL (indicates static OAuth required)",
+							Description: "Optional",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

@@ -869,7 +869,6 @@
 
 <StaticOAuthConfigureModal
 	bind:this={oauthConfigModal}
-	defaultAuthorizationServerURL={oauthConfigEntry?.manifest?.remoteConfig?.authorizationServerURL}
 	{oauthStatus}
 	onSave={handleSaveOAuth}
 	onDelete={handleDeleteOAuth}

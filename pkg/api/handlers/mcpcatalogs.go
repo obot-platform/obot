@@ -291,11 +291,6 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		}
 	}
 
-	// Auto-set StaticOAuthRequired if AuthorizationServerURL is provided
-	if manifest.RemoteConfig != nil && manifest.RemoteConfig.AuthorizationServerURL != "" {
-		manifest.RemoteConfig.StaticOAuthRequired = true
-	}
-
 	if err := validation.ValidateCatalogEntryManifest(manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
@@ -366,11 +361,6 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	var manifest types.MCPServerCatalogEntryManifest
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
-	}
-
-	// Auto-set StaticOAuthRequired if AuthorizationServerURL is provided
-	if manifest.RemoteConfig != nil && manifest.RemoteConfig.AuthorizationServerURL != "" {
-		manifest.RemoteConfig.StaticOAuthRequired = true
 	}
 
 	if err := validation.ValidateCatalogEntryManifest(manifest); err != nil {
@@ -1681,28 +1671,6 @@ func entryRequiresStaticOAuthCreds(entry v1.MCPServerCatalogEntry) bool {
 	return !entry.Status.OAuthCredentialConfigured
 }
 
-// validateAuthorizationServerURL validates that the URL is a valid HTTPS URL.
-func validateAuthorizationServerURL(rawURL string) error {
-	if rawURL == "" {
-		return nil
-	}
-
-	parsedURL, err := url.Parse(rawURL)
-	if err != nil {
-		return types.NewErrBadRequest("invalid authorization server URL format: %v", err)
-	}
-
-	if parsedURL.Scheme != "https" {
-		return types.NewErrBadRequest("authorization server URL must use HTTPS scheme")
-	}
-
-	if parsedURL.Host == "" {
-		return types.NewErrBadRequest("authorization server URL must have a host")
-	}
-
-	return nil
-}
-
 // verifyOAuthCredentialAccess verifies that:
 // 1. The scope (catalog or workspace) exists
 // 2. The entry exists and belongs to that scope
@@ -1760,26 +1728,14 @@ func (h *MCPCatalogHandler) GetOAuthCredentials(req api.Context) error {
 	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credName}, "oauth")
 	configured := err == nil
 
-	var (
-		clientID      string
-		authServerURL string
-	)
+	var clientID string
 	if configured {
 		clientID = cred.Env["CLIENT_ID"]
-		// Use the stored authorization server URL if present
-		if url := cred.Env["AUTHORIZATION_SERVER_URL"]; url != "" {
-			authServerURL = url
-		}
-	}
-	// Fall back to catalog entry default if no override was stored
-	if authServerURL == "" {
-		authServerURL = entry.Spec.Manifest.RemoteConfig.AuthorizationServerURL
 	}
 
 	return req.Write(types.MCPServerOAuthCredentialStatus{
-		Configured:             configured,
-		ClientID:               clientID,
-		AuthorizationServerURL: authServerURL,
+		Configured: configured,
+		ClientID:   clientID,
 	})
 }
 
@@ -1803,57 +1759,26 @@ func (h *MCPCatalogHandler) SetOAuthCredentials(req api.Context) error {
 
 	// Check if credentials already exist
 	credName := system.MCPOAuthCredentialName(entry.Name)
-	existingCred, err := req.GPTClient.RevealCredential(req.Context(), []string{credName}, "oauth")
+	_, err = req.GPTClient.RevealCredential(req.Context(), []string{credName}, "oauth")
 	credentialsExist := err == nil
 
-	var clientID, clientSecret, authServerURL string
+	var clientID, clientSecret string
 
 	if credentialsExist {
-		// Update mode: Only authorization server URL can be updated
-		// Return error if client tries to update credentials
-		if credReq.ClientID != "" || credReq.ClientSecret != "" {
-			return types.NewErrBadRequest("cannot update clientID or clientSecret; delete and recreate credentials to change them")
-		}
-
-		// Preserve existing client ID and secret
-		clientID = existingCred.Env["CLIENT_ID"]
-		clientSecret = existingCred.Env["CLIENT_SECRET"]
-
-		// Determine the authorization server URL
-		authServerURL = credReq.AuthorizationServerURL
-		if authServerURL == "" {
-			// If not provided in request, keep existing value or use entry default
-			authServerURL = existingCred.Env["AUTHORIZATION_SERVER_URL"]
-			if authServerURL == "" {
-				authServerURL = entry.Spec.Manifest.RemoteConfig.AuthorizationServerURL
-			}
-		}
-	} else {
-		// Initial setup mode: All fields are required
-		// Trim whitespace before validation
-		trimmedClientID := strings.TrimSpace(credReq.ClientID)
-		trimmedClientSecret := strings.TrimSpace(credReq.ClientSecret)
-		if trimmedClientID == "" || trimmedClientSecret == "" {
-			return types.NewErrBadRequest("clientID and clientSecret are required")
-		}
-
-		clientID = trimmedClientID
-		clientSecret = trimmedClientSecret
-
-		// Determine the effective authorization server URL
-		authServerURL = credReq.AuthorizationServerURL
-		if authServerURL == "" {
-			authServerURL = entry.Spec.Manifest.RemoteConfig.AuthorizationServerURL
-		}
-		if authServerURL == "" {
-			return types.NewErrBadRequest("authorizationServerURL is required because the catalog entry does not have a default")
-		}
+		// Credentials already exist - must delete and recreate to change them
+		return types.NewErrBadRequest("credentials already exist; delete and recreate credentials to change them")
 	}
 
-	// Validate the authorization server URL
-	if err := validateAuthorizationServerURL(authServerURL); err != nil {
-		return err
+	// Initial setup mode: All fields are required
+	// Trim whitespace before validation
+	trimmedClientID := strings.TrimSpace(credReq.ClientID)
+	trimmedClientSecret := strings.TrimSpace(credReq.ClientSecret)
+	if trimmedClientID == "" || trimmedClientSecret == "" {
+		return types.NewErrBadRequest("clientID and clientSecret are required")
 	}
+
+	clientID = trimmedClientID
+	clientSecret = trimmedClientSecret
 
 	// Store new credential
 	cred := gptscript.Credential{
@@ -1861,9 +1786,8 @@ func (h *MCPCatalogHandler) SetOAuthCredentials(req api.Context) error {
 		ToolName: "oauth",
 		Type:     gptscript.CredentialTypeTool,
 		Env: map[string]string{
-			"CLIENT_ID":                clientID,
-			"CLIENT_SECRET":            clientSecret,
-			"AUTHORIZATION_SERVER_URL": authServerURL,
+			"CLIENT_ID":     clientID,
+			"CLIENT_SECRET": clientSecret,
 		},
 	}
 	if err := req.GPTClient.CreateCredential(req.Context(), cred); err != nil {
@@ -1880,9 +1804,8 @@ func (h *MCPCatalogHandler) SetOAuthCredentials(req api.Context) error {
 	}
 
 	return req.Write(types.MCPServerOAuthCredentialStatus{
-		Configured:             true,
-		ClientID:               clientID,
-		AuthorizationServerURL: authServerURL,
+		Configured: true,
+		ClientID:   clientID,
 	})
 }
 

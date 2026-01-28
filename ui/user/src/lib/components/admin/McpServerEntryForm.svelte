@@ -1077,9 +1077,6 @@
 
 <StaticOAuthConfigureModal
 	bind:this={staticOauthConfigModal}
-	defaultAuthorizationServerURL={entry && 'isCatalogEntry' in entry
-		? entry?.manifest?.remoteConfig?.authorizationServerURL
-		: undefined}
 	oauthStatus={staticOauthStatus}
 	onSave={async (credentials) => {
 		if (!entry || !id) return;
