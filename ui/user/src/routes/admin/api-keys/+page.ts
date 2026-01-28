@@ -14,7 +14,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 		const [keys, allKeys, userList] = await Promise.all([
 			ApiKeysService.listApiKeys({ fetch }),
 			ApiKeysService.listAllApiKeys({ fetch }),
-			AdminService.listUsers({ fetch }),
+			AdminService.listUsers({ fetch })
 		]);
 
 		myApiKeys = keys;

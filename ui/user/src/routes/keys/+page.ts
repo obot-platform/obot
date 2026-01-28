@@ -8,9 +8,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 	let apiKeys: APIKey[] = [];
 
 	try {
-		const [keys] = await Promise.all([
-			ApiKeysService.listApiKeys({ fetch }),
-		]);
+		const [keys] = await Promise.all([ApiKeysService.listApiKeys({ fetch })]);
 
 		apiKeys = keys;
 	} catch (err) {
