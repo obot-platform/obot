@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ExternalLink, Plus, Server } from 'lucide-svelte';
+	import { ExternalLink, Plus, Server, X } from 'lucide-svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import CopyButton from '../CopyButton.svelte';
 	import HowToConnect from './HowToConnect.svelte';
@@ -24,6 +24,8 @@
 	} from './CatalogConfigureForm.svelte';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import { resolve } from '$app/paths';
+	import { dialogAnimation } from '$lib/actions/dialogAnimation';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		userConfiguredServers: MCPCatalogServer[];
@@ -65,6 +67,10 @@
 	let launchState = $state<'relaunching' | 'launching' | undefined>();
 	let error = $state<string>();
 	let saving = $state(false);
+
+	let oauthDialog = $state<HTMLDialogElement>();
+	let oauthURL = $state<string>('');
+	let oauthVerifying = $state(false);
 
 	let existingServerNames = $derived(
 		userConfiguredServers
@@ -208,6 +214,41 @@
 		return { timeout1, timeout2, timeout3 };
 	}
 
+	async function getOauthURL() {
+		if (!server) return '';
+		const oauthURL = await ChatService.getMcpServerOauthURL(server.id);
+		return oauthURL || '';
+	}
+
+	async function handleOauthVisibilityChange() {
+		if (!oauthURL && !oauthVerifying) return;
+		if (document.visibilityState === 'visible') {
+			oauthURL = await getOauthURL();
+			if (!oauthURL) {
+				document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
+				oauthDialog?.close();
+				handleConnect();
+			} else {
+				oauthVerifying = false;
+			}
+		}
+	}
+
+	async function verifyOauthOrConnect() {
+		oauthURL = await getOauthURL();
+		launchProgress = 100;
+
+		setTimeout(() => {
+			launchState = undefined;
+			launchProgress = 0;
+			if (oauthURL) {
+				oauthDialog?.showModal();
+			} else {
+				handleConnect();
+			}
+		}, 1000);
+	}
+
 	async function handleLaunchCatalogEntry() {
 		if (!entry) return;
 
@@ -257,16 +298,10 @@
 				if (!launchResponse.success) {
 					launchError = launchResponse.message;
 					listLaunchLogs(configuredResponse.id);
-				} else {
-					launchProgress = 100;
 				}
 
 				if (!launchError) {
-					setTimeout(() => {
-						launchState = undefined;
-						launchProgress = 0;
-						handleConnect();
-					}, 1000);
+					verifyOauthOrConnect();
 				}
 			} catch (err) {
 				launchError = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -361,16 +396,10 @@
 			const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(created.id);
 			if (!launchResponse.success) {
 				launchError = launchResponse.message;
-			} else {
-				launchProgress = 100;
 			}
 
 			if (!launchError) {
-				setTimeout(() => {
-					launchState = undefined;
-					launchProgress = 0;
-					handleConnect();
-				}, 1000);
+				verifyOauthOrConnect();
 			}
 		} catch (err) {
 			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -386,7 +415,12 @@
 		try {
 			const response = await ChatService.createMcpServerInstance(server.id);
 			instance = response;
-			handleConnect();
+			oauthURL = await getOauthURL();
+			if (oauthURL) {
+				oauthDialog?.showModal();
+			} else {
+				handleConnect();
+			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'An unknown error occurred';
 		}
@@ -584,6 +618,13 @@
 			goto(resolve(`/o/${project?.id}`));
 		}, 1000);
 	}
+
+	onMount(() => {
+		document.addEventListener('visibilitychange', handleOauthVisibilityChange);
+		return () => {
+			document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
+		};
+	});
 </script>
 
 <ResponsiveDialog bind:this={connectDialog} animate="slide" {onClose}>
@@ -732,3 +773,62 @@
 		</div>
 	{/snippet}
 </PageLoading>
+
+<dialog bind:this={oauthDialog} class="md:w-sm" use:dialogAnimation={{ type: 'slide' }}>
+	<div class="flex flex-col gap-4 p-4">
+		{#if oauthURL}
+			<div class="absolute top-2 right-2">
+				<button
+					class="icon-button"
+					onclick={() => {
+						oauthDialog?.close();
+						oauthURL = '';
+						handleConnect();
+					}}
+				>
+					<X class="size-4" />
+				</button>
+			</div>
+			<div class="flex items-center gap-2">
+				<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+					{#if server?.manifest.icon}
+						<img
+							src={server?.manifest.icon}
+							alt={server.alias || server?.manifest.name}
+							class="size-6"
+						/>
+					{:else}
+						<Server class="size-6" />
+					{/if}
+				</div>
+				<h3 class="text-lg leading-5.5 font-semibold">
+					{server?.alias || server?.manifest.name}
+				</h3>
+			</div>
+
+			<p>
+				In order to use {server?.alias || server?.manifest.name}, authentication with the MCP server
+				is required.
+			</p>
+
+			<p>Click the link below to authenticate.</p>
+
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
+			<a
+				href={oauthURL}
+				rel="external"
+				target="_blank"
+				class="button-primary text-center text-sm outline-none"
+				onclick={() => {
+					oauthVerifying = true;
+				}}
+			>
+				{#if oauthVerifying}
+					Authenticating...
+				{:else}
+					Authenticate
+				{/if}
+			</a>
+		{/if}
+	</div>
+</dialog>
