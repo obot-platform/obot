@@ -104,6 +104,12 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 		settings.Spec.Resources = nil
 	}
 
+	if input.RuntimeClassName != "" {
+		settings.Spec.RuntimeClassName = &input.RuntimeClassName
+	} else {
+		settings.Spec.RuntimeClassName = nil
+	}
+
 	if err := req.Storage.Update(req.Context(), &settings); err != nil {
 		return err
 	}
@@ -144,6 +150,10 @@ func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {
 			return types.K8sSettings{}, err
 		}
 		result.Resources = string(resourcesYAML)
+	}
+
+	if settings.Spec.RuntimeClassName != nil {
+		result.RuntimeClassName = *settings.Spec.RuntimeClassName
 	}
 
 	return result, nil

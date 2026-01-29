@@ -36,9 +36,10 @@ type Options struct {
 	MCPImagePullSecrets     []string `usage:"The name of the image pull secret to use for pulling MCP images"`
 
 	// Kubernetes settings from Helm
-	MCPK8sSettingsAffinity    string `usage:"Affinity rules for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_AFFINITY"`
-	MCPK8sSettingsTolerations string `usage:"Tolerations for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_TOLERATIONS"`
-	MCPK8sSettingsResources   string `usage:"Resource requests/limits for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_RESOURCES"`
+	MCPK8sSettingsAffinity         string `usage:"Affinity rules for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_AFFINITY"`
+	MCPK8sSettingsTolerations      string `usage:"Tolerations for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_TOLERATIONS"`
+	MCPK8sSettingsResources        string `usage:"Resource requests/limits for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_RESOURCES"`
+	MCPK8sSettingsRuntimeClassName string `usage:"RuntimeClass name for MCP server pods (e.g., gvisor, kata)" env:"OBOT_SERVER_MCPK8S_SETTINGS_RUNTIMECLASSNAME"`
 
 	// Obot service configuration for constructing internal service FQDN
 	ServiceName      string `usage:"The Kubernetes service name for the obot server" env:"OBOT_SERVER_SERVICE_NAME"`

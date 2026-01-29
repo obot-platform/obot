@@ -286,6 +286,10 @@ mcpServerDefaults:
   #     memory: "1Gi"
   #     cpu: "500m"
 
+  # mcpServerDefaults.runtimeClassName -- RuntimeClass name for MCP server pods
+  # This allows running MCP servers with specific container runtimes (e.g., gVisor, Kata)
+  runtimeClassName: ""
+
 # nodeSelector -- Configure node selector for pod assignment
 nodeSelector: {}
 

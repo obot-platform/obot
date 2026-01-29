@@ -28,6 +28,11 @@ type K8sSettingsSpec struct {
 	// +k8s:openapi-gen=false
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 
+	// RuntimeClassName specifies the RuntimeClass for MCP server pods
+	// This allows running MCP servers with specific container runtimes (e.g., gVisor, Kata)
+	// +k8s:openapi-gen=false
+	RuntimeClassName *string `json:"runtimeClassName,omitempty"`
+
 	// SetViaHelm indicates if these settings came from Helm (cannot be updated via API)
 	SetViaHelm bool `json:"setViaHelm,omitempty"`
 }
