@@ -52,7 +52,6 @@
 	import { getServerTypeLabel, getUserRegistry } from '$lib/services/chat/mcp';
 	import { resolve } from '$app/paths';
 	import StaticOAuthConfigureModal from '../mcp/StaticOAuthConfigureModal.svelte';
-	import McpServerLogs from '../mcp/McpServerLogs.svelte';
 
 	interface Props {
 		id?: string;
@@ -85,14 +84,6 @@
 	let belongsToUser = $derived(
 		(entity === 'workspace' && entry?.powerUserWorkspaceID && entry.powerUserWorkspaceID === id) ||
 			profile.current?.hasAdminAccess?.()
-	);
-	// Check if the current user owns this server (MCPCatalogServer with userID matching, no catalog/workspace)
-	let userOwnsServer = $derived(
-		entry &&
-			'userID' in entry &&
-			entry.userID === profile.current?.id &&
-			!entry.mcpCatalogID &&
-			!entry.powerUserWorkspaceID
 	);
 
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
@@ -157,7 +148,6 @@
 							? [{ label: 'Server Details', view: 'server-instances' }]
 							: []),
 						{ label: 'Tools', view: 'tools' },
-						...(userOwnsServer ? [{ label: 'Logs', view: 'logs' }] : []),
 						...(belongsToUser
 							? [
 									{ label: 'Configuration', view: 'configuration' },
@@ -176,7 +166,6 @@
 							? [{ label: 'Server Details', view: 'server-instances' }]
 							: []),
 						{ label: 'Tools', view: 'tools' },
-						...(userOwnsServer ? [{ label: 'Logs', view: 'logs' }] : []),
 						...(belongsToUser ? [{ label: 'Audit Logs', view: 'audit-logs' }] : [])
 					];
 		return limitViews
@@ -713,8 +702,6 @@
 			/>
 		{:else if selected === 'filters'}
 			{@render filtersView()}
-		{:else if selected === 'logs'}
-			<McpServerLogs mcpServerId={entry?.id ?? ''} name={entry?.manifest?.name} />
 		{/if}
 	</div>
 </div>
