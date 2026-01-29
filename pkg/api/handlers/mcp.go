@@ -3388,13 +3388,19 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	}
 
 	if !req.UserIsAdmin() {
-		workspaceID := req.PathValue("workspace_id")
-		if workspaceID == "" {
-			return types.NewErrNotFound("MCP server %s not found", server.Name)
-		}
+		// Allow users to upgrade their own single-user servers.
+		// (We already verified this is a single-user server at the check above.)
+		userOwnsServer := server.Spec.UserID == req.User.GetUID()
+		if !userOwnsServer {
+			// Workspace-based authorization for power user workspace entries
+			workspaceID := req.PathValue("workspace_id")
+			if workspaceID == "" {
+				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			}
 
-		if entry.Spec.PowerUserWorkspaceID != workspaceID {
-			return types.NewErrNotFound("MCP server %s not found", server.Name)
+			if entry.Spec.PowerUserWorkspaceID != workspaceID {
+				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			}
 		}
 	}
 
