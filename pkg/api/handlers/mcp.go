@@ -2867,24 +2867,32 @@ func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 	}
 
 	if !req.UserIsAdmin() {
-		workspaceID := req.PathValue("workspace_id")
-		if workspaceID == "" {
-			return types.NewErrNotFound("MCP server %s not found", server.Name)
-		} else if server.Spec.PowerUserWorkspaceID != "" && workspaceID != server.Spec.PowerUserWorkspaceID {
-			return types.NewErrNotFound("MCP server %s not found", server.Name)
-		} else if server.Spec.PowerUserWorkspaceID == "" {
-			if server.Spec.MCPServerCatalogEntryName == "" {
-				return types.NewErrNotFound("MCP server %s not found", server.Name)
-			}
+		// Allow users to restart their own single-user servers.
+		userOwnsServer := server.Spec.UserID == req.User.GetUID() &&
+			server.Spec.MCPCatalogID == "" &&
+			server.Spec.PowerUserWorkspaceID == ""
 
-			// In this case, the server should correspond to a workspace catalog entry.
-			var entry v1.MCPServerCatalogEntry
-			if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
-				return fmt.Errorf("failed to get MCP server catalog entry: %v", err)
-			}
-
-			if entry.Spec.PowerUserWorkspaceID != workspaceID {
+		if !userOwnsServer {
+			// Fall back to workspace-based authorization
+			workspaceID := req.PathValue("workspace_id")
+			if workspaceID == "" {
 				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			} else if server.Spec.PowerUserWorkspaceID != "" && workspaceID != server.Spec.PowerUserWorkspaceID {
+				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			} else if server.Spec.PowerUserWorkspaceID == "" {
+				if server.Spec.MCPServerCatalogEntryName == "" {
+					return types.NewErrNotFound("MCP server %s not found", server.Name)
+				}
+
+				// In this case, the server should correspond to a workspace catalog entry.
+				var entry v1.MCPServerCatalogEntry
+				if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
+					return fmt.Errorf("failed to get MCP server catalog entry: %v", err)
+				}
+
+				if entry.Spec.PowerUserWorkspaceID != workspaceID {
+					return types.NewErrNotFound("MCP server %s not found", server.Name)
+				}
 			}
 		}
 	}
@@ -3388,13 +3396,19 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	}
 
 	if !req.UserIsAdmin() {
-		workspaceID := req.PathValue("workspace_id")
-		if workspaceID == "" {
-			return types.NewErrNotFound("MCP server %s not found", server.Name)
-		}
+		// Allow users to upgrade their own single-user servers.
+		// (We already verified this is a single-user server at the check above.)
+		userOwnsServer := server.Spec.UserID == req.User.GetUID()
+		if !userOwnsServer {
+			// Workspace-based authorization for power user workspace entries
+			workspaceID := req.PathValue("workspace_id")
+			if workspaceID == "" {
+				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			}
 
-		if entry.Spec.PowerUserWorkspaceID != workspaceID {
-			return types.NewErrNotFound("MCP server %s not found", server.Name)
+			if entry.Spec.PowerUserWorkspaceID != workspaceID {
+				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			}
 		}
 	}
 

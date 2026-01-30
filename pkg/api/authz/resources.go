@@ -174,6 +174,8 @@ var apiResources = map[string][]string{
 		"POST   /api/mcp-servers/{mcpserver_id}/configure",
 		"POST   /api/mcp-servers/{mcpserver_id}/deconfigure",
 		"POST   /api/mcp-servers/{mcpserver_id}/reveal",
+		"POST   /api/mcp-servers/{mcpserver_id}/restart",
+		"POST   /api/mcp-servers/{mcpserver_id}/trigger-update",
 		"GET    /api/mcp-servers/{mcpserver_id}/tools",
 		"GET    /api/mcp-servers/{mcpserver_id}/resources",
 		"GET    /api/mcp-servers/{mcpserver_id}/resources/{resource_uri}",
