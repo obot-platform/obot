@@ -664,6 +664,7 @@ export interface K8sSettings {
 	affinity?: string;
 	tolerations?: string;
 	resources?: string;
+	runtimeClassName?: string;
 	setViaHelm?: boolean;
 }
 
@@ -671,6 +672,7 @@ export interface K8sSettingsManifest {
 	affinity?: string;
 	tolerations?: string;
 	resources?: string;
+	runtimeClassName?: string;
 }
 
 export interface ServerK8sSettings {

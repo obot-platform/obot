@@ -20,6 +20,7 @@
 			setViaHelm: data.k8sSettings?.setViaHelm ?? false,
 			affinity: data.k8sSettings?.affinity ?? '',
 			tolerations: data.k8sSettings?.tolerations ?? '',
+			runtimeClassName: data.k8sSettings?.runtimeClassName ?? '',
 			...data.k8sSettings
 		}))
 	);
@@ -313,6 +314,43 @@
 								placeholder="example: 1Gi"
 							/>
 						</div>
+					</div>
+				</div>
+				<div class="paper mt-1">
+					<div>
+						{@render headerContent('Runtime Class')}
+						<p class="text-sm">
+							Specify a <a
+								href="https://kubernetes.io/docs/concepts/containers/runtime-class/"
+								class="text-link"
+								rel="external"
+								target="_blank">RuntimeClass</a
+							>
+							for MCP server pods. RuntimeClass allows you to select a specific container runtime configuration
+							for enhanced security isolation. Container runtimes like
+							<a href="https://gvisor.dev/" class="text-link" rel="external" target="_blank"
+								>gVisor</a
+							>
+							or
+							<a href="https://katacontainers.io/" class="text-link" rel="external" target="_blank"
+								>Kata Containers</a
+							> provide stronger isolation by adding an additional security boundary between the container
+							and the host kernel.
+						</p>
+					</div>
+					<div class="flex flex-col gap-1">
+						<label class="input-label" for="runtime-class-name">RuntimeClass Name</label>
+						<input
+							type="text"
+							id="runtime-class-name"
+							bind:value={k8sSettings.runtimeClassName}
+							class="text-input-filled dark:bg-background"
+							disabled={readonly}
+							placeholder="example: gvisor"
+						/>
+						<p class="text-xs font-light text-gray-500">
+							Leave empty to use the cluster's default container runtime.
+						</p>
 					</div>
 				</div>
 

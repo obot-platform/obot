@@ -49,6 +49,7 @@ The values that are configurable, and how to change them, follow.
 - Affinity and Tolerations: can be set using the `.mcpServerDefaults.affinity` and `.mcpServerDefaults.tolerations` in Helm, or via the admin UI if not set in Helm values
 - Resources: the default value is a memory request of `400Mi` with no memory limit or CPU requests/limits. This can be set in Helm using the `.mcpServerDefaults.resources` value, or via the Admin UI if not set in Helm values.
 - Image: the default value is `ghcr.io/obot-platform/mcp-images/phat:main` and it can be changed by setting the Helm value `.config.OBOT_SERVER_MCPBASE_IMAGE`.
+- RuntimeClassName: can be set using `.mcpServerDefaults.runtimeClassName` in Helm, or via the admin UI if not set in Helm values. See [RuntimeClass](#runtimeclass) for details.
 
 #### A note on Affinity, Tolerations, and Resources
 
@@ -57,6 +58,75 @@ It cannot be customized for individual MCP server Deployments.
 When this configuration value changes, it will only affect new Deployments (or restarted existing Deployments)
 from that point forward. The admin can use the UI to manually apply this configuration change to existing MCP server
 Deployments as desired.
+
+### RuntimeClass
+
+Obot supports configuring a [RuntimeClass](https://kubernetes.io/docs/concepts/containers/runtime-class/) for MCP server pods. RuntimeClass allows you to select a specific container runtime configuration for enhanced security isolation.
+
+#### Why Use RuntimeClass?
+
+Container runtimes like [gVisor](https://gvisor.dev/) and [Kata Containers](https://katacontainers.io/) provide stronger isolation than the default container runtime by adding an additional security boundary between the container and the host kernel:
+
+- **gVisor** intercepts application system calls and implements them in a user-space kernel, reducing the attack surface exposed to the host.
+- **Kata Containers** runs containers inside lightweight virtual machines, providing hardware-level isolation.
+
+Since MCP servers can run third-party code, using a sandboxed runtime can help protect your cluster from potential vulnerabilities or malicious behavior in MCP server containers.
+
+#### Prerequisites
+
+Before configuring RuntimeClass in Obot, you must:
+
+1. **Install a container runtime** that supports sandboxing (e.g., gVisor or Kata Containers) on your Kubernetes nodes
+2. **Create a RuntimeClass resource** in your cluster that references your runtime handler
+
+For detailed instructions on setting up RuntimeClass in Kubernetes, see the [Kubernetes RuntimeClass documentation](https://kubernetes.io/docs/concepts/containers/runtime-class/).
+
+Example RuntimeClass for gVisor:
+
+```yaml
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: gvisor
+handler: runsc
+```
+
+#### Configuration
+
+Once your RuntimeClass is set up in Kubernetes, configure Obot to use it for MCP server pods.
+
+**Via Helm values:**
+
+```yaml
+mcpServerDefaults:
+  runtimeClassName: "gvisor"
+```
+
+**Via environment variable:**
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `OBOT_SERVER_MCPK8S_SETTINGS_RUNTIMECLASSNAME` | RuntimeClass name for MCP server pods | (empty) |
+
+**Via Admin UI:**
+
+If not set in Helm values, administrators can configure the RuntimeClass through the Obot admin UI under Kubernetes settings.
+
+:::tip Security Best Practice
+Using a sandboxed container runtime like gVisor or Kata Containers is recommended for production deployments where MCP servers may run untrusted or third-party code. This provides defense-in-depth by adding an extra layer of isolation between MCP server containers and your cluster infrastructure.
+:::
+
+:::warning Performance Considerations
+Sandboxed runtimes may have performance overhead compared to the default container runtime. Test your MCP server workloads with your chosen runtime to ensure acceptable performance before deploying to production.
+:::
+
+:::warning Security Considerations
+Sandboxed runtimes may have different security profiles and compatability matrixes with the hardware you are running. Check the documentation for your runtime to ensure it meets your needs.
+:::
+
+:::info Node Availability
+Not all nodes in your cluster may support the configured RuntimeClass. Ensure that nodes with the required runtime are available and consider using node affinity or tolerations to schedule MCP server pods on appropriate nodes.
+:::
 
 ### Service
 
