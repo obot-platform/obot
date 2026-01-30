@@ -572,7 +572,7 @@
 />
 
 <Confirm
-	msg="Are you sure you want to delete this rule?"
+	msg={`Delete ${accessControlRule.displayName}?`}
 	show={deletingRule}
 	onsuccess={async () => {
 		if (!accessControlRule.id || !id) return;

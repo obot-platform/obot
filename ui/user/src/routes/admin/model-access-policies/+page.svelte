@@ -186,7 +186,7 @@
 {/snippet}
 
 <Confirm
-	msg="Are you sure you want to delete this policy?"
+	msg={`Delete ${policyToDelete?.displayName || 'this policy'}?`}
 	show={Boolean(policyToDelete)}
 	onsuccess={async () => {
 		if (!policyToDelete) return;

@@ -409,152 +409,150 @@
 				{@const requiresOAuth =
 					catalogEntry?.manifest?.runtime === 'remote' &&
 					catalogEntry.manifest?.remoteConfig?.staticOAuthRequired}
-				<DotDotDot class="icon-button hover:dark:bg-background/50">
+				<DotDotDot class="icon-button hover:dark:bg-background/50" classes={{ menu: 'p-0' }}>
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
 					{/snippet}
 
 					{#snippet children({ toggle })}
-						<div class="default-dialog flex min-w-max flex-col">
-							{#if hasConnectedOptions}
-								<div
-									class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+						{#if hasConnectedOptions}
+							<div
+								class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+							>
+								My Connection(s)
+							</div>
+							<div class="bg-surface1 flex flex-col gap-1 p-2">
+								{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
+									{@render connectToServerAction(d.data, toggle)}
+								{/if}
+								<button
+									class="menu-button hover:bg-surface3"
+									onclick={async (e) => {
+										e.stopPropagation();
+										if (catalogEntry) {
+											if (matchingServers.length === 1) {
+												connectToServerDialog?.handleSetupChat(matchingServers[0]);
+											} else {
+												handleShowSelectServerDialog(catalogEntry, 'chat');
+											}
+										} else {
+											connectToServerDialog?.handleSetupChat(
+												d.data as MCPCatalogServer,
+												instancesMap.get(d.id)
+											);
+										}
+										toggle(false);
+									}}
 								>
-									My Connection(s)
-								</div>
-								<div class="bg-surface1 flex flex-col gap-1 p-2">
-									{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
-										{@render connectToServerAction(d.data, toggle)}
-									{/if}
+									<MessageCircle class="size-4" /> Chat
+								</button>
+
+								{#if catalogEntry}
+									{@render editCatalogEntryAction(catalogEntry, matchingServers)}
+									{@render renameCatalogEntryAction(catalogEntry, matchingServers)}
+								{/if}
+
+								{#if matchingServers.length > 0 && catalogEntry}
 									<button
 										class="menu-button hover:bg-surface3"
 										onclick={async (e) => {
 											e.stopPropagation();
-											if (catalogEntry) {
-												if (matchingServers.length === 1) {
-													connectToServerDialog?.handleSetupChat(matchingServers[0]);
-												} else {
-													handleShowSelectServerDialog(catalogEntry, 'chat');
-												}
-											} else {
-												connectToServerDialog?.handleSetupChat(
-													d.data as MCPCatalogServer,
-													instancesMap.get(d.id)
+											if (matchingServers.length === 1) {
+												goto(
+													resolve(
+														`/mcp-servers/c/${catalogEntry.id}/instance/${matchingServers[0].id}`
+													)
 												);
+											} else {
+												handleShowSelectServerDialog(catalogEntry, 'server-details');
 											}
 											toggle(false);
 										}}
 									>
-										<MessageCircle class="size-4" /> Chat
+										<ReceiptText class="size-4" /> Server Details
 									</button>
-
-									{#if catalogEntry}
-										{@render editCatalogEntryAction(catalogEntry, matchingServers)}
-										{@render renameCatalogEntryAction(catalogEntry, matchingServers)}
-									{/if}
-
-									{#if matchingServers.length > 0 && catalogEntry}
-										<button
-											class="menu-button hover:bg-surface3"
-											onclick={async (e) => {
-												e.stopPropagation();
-												if (matchingServers.length === 1) {
-													goto(
-														resolve(
-															`/mcp-servers/c/${catalogEntry.id}/instance/${matchingServers[0].id}`
-														)
-													);
-												} else {
-													handleShowSelectServerDialog(catalogEntry, 'server-details');
-												}
-												toggle(false);
-											}}
-										>
-											<ReceiptText class="size-4" /> Server Details
-										</button>
-									{/if}
-
-									{#if matchingServers.length > 0 && catalogEntry}
-										<button
-											class="menu-button hover:bg-surface3"
-											onclick={async (e) => {
-												e.stopPropagation();
-
-												if (matchingServers.length === 1) {
-													await ChatService.deleteSingleOrRemoteMcpServer(matchingServers[0].id);
-													mcpServersAndEntries.refreshUserConfiguredServers();
-												} else {
-													handleShowSelectServerDialog(catalogEntry, 'disconnect');
-												}
-
-												toggle(false);
-											}}
-										>
-											<Unplug class="size-4" /> Disconnect
-										</button>
-									{:else if matchingInstance}
-										<button
-											class="menu-button hover:bg-surface3"
-											onclick={async (e) => {
-												e.stopPropagation();
-												await ChatService.deleteMcpServerInstance(matchingInstance.id);
-												mcpServersAndEntries.refreshUserInstances();
-												toggle(false);
-											}}
-										>
-											<Unplug class="size-4" /> Disconnect
-										</button>
-									{/if}
-								</div>
-							{/if}
-							<div class="flex flex-col gap-1 p-2">
-								{#if !hasConnectedOptions}
-									{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
-										{@render connectToServerAction(d.data, toggle, true)}
-									{/if}
 								{/if}
-								{#if requiresOAuth && catalogEntry}
+
+								{#if matchingServers.length > 0 && catalogEntry}
 									<button
 										class="menu-button hover:bg-surface3"
 										onclick={async (e) => {
 											e.stopPropagation();
-											await handleConfigureOAuth(catalogEntry);
-											toggle(false);
-										}}
-									>
-										<Settings class="size-4" /> Configure OAuth
-									</button>
-								{/if}
-								{#if auditLogUrl && (belongsToUser || profile.current?.hasAdminAccess?.())}
-									<button
-										onclick={(e) => {
-											e.stopPropagation();
-											const isCtrlClick = e.ctrlKey || e.metaKey;
-											setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
-											openUrl(auditLogUrl, isCtrlClick);
-										}}
-										class="menu-button"
-									>
-										<Captions class="size-4" /> View Audit Logs
-									</button>
-								{/if}
-								{#if canDelete}
-									<button
-										class="menu-button-destructive"
-										onclick={(e) => {
-											e.stopPropagation();
-											if (catalogEntry) {
-												deletingEntry = catalogEntry;
+
+											if (matchingServers.length === 1) {
+												await ChatService.deleteSingleOrRemoteMcpServer(matchingServers[0].id);
+												mcpServersAndEntries.refreshUserConfiguredServers();
 											} else {
-												deletingServer = d.data as MCPCatalogServer;
+												handleShowSelectServerDialog(catalogEntry, 'disconnect');
 											}
+
 											toggle(false);
 										}}
 									>
-										<Trash2 class="size-4" /> Delete Entry
+										<Unplug class="size-4" /> Disconnect
+									</button>
+								{:else if matchingInstance}
+									<button
+										class="menu-button hover:bg-surface3"
+										onclick={async (e) => {
+											e.stopPropagation();
+											await ChatService.deleteMcpServerInstance(matchingInstance.id);
+											mcpServersAndEntries.refreshUserInstances();
+											toggle(false);
+										}}
+									>
+										<Unplug class="size-4" /> Disconnect
 									</button>
 								{/if}
 							</div>
+						{/if}
+						<div class="flex flex-col gap-1 p-2">
+							{#if !hasConnectedOptions}
+								{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
+									{@render connectToServerAction(d.data, toggle, true)}
+								{/if}
+							{/if}
+							{#if requiresOAuth && catalogEntry}
+								<button
+									class="menu-button hover:bg-surface3"
+									onclick={async (e) => {
+										e.stopPropagation();
+										await handleConfigureOAuth(catalogEntry);
+										toggle(false);
+									}}
+								>
+									<Settings class="size-4" /> Configure OAuth
+								</button>
+							{/if}
+							{#if auditLogUrl && (belongsToUser || profile.current?.hasAdminAccess?.())}
+								<button
+									onclick={(e) => {
+										e.stopPropagation();
+										const isCtrlClick = e.ctrlKey || e.metaKey;
+										setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+										openUrl(auditLogUrl, isCtrlClick);
+									}}
+									class="menu-button"
+								>
+									<Captions class="size-4" /> View Audit Logs
+								</button>
+							{/if}
+							{#if canDelete}
+								<button
+									class="menu-button-destructive"
+									onclick={(e) => {
+										e.stopPropagation();
+										if (catalogEntry) {
+											deletingEntry = catalogEntry;
+										} else {
+											deletingServer = d.data as MCPCatalogServer;
+										}
+										toggle(false);
+									}}
+								>
+									<Trash2 class="size-4" /> Delete Entry
+								</button>
+							{/if}
 						</div>
 					{/snippet}
 				</DotDotDot>

@@ -1,9 +1,7 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/actions/clickoutside';
 	import { overflowToolTip } from '$lib/actions/overflow';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import FileEditors from '$lib/components/editor/FileEditors.svelte';
 	import Error from '$lib/components/Error.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import McpResources from '$lib/components/mcp/McpResources.svelte';
@@ -22,7 +20,7 @@
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { responsive } from '$lib/stores';
 	import { Download, Image, Plus } from 'lucide-svelte';
-	import { FileText, Trash2, Upload, X } from 'lucide-svelte/icons';
+	import { FileText, Trash2, Upload } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
 	import CollapsePane from './CollapsePane.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
@@ -68,7 +66,6 @@
 	let fileToDelete = $state<string | undefined>();
 	let fileList = $state<FileList>();
 	let items = $state<EditorItem[]>([]);
-	let editorDialog = $state<HTMLDialogElement>();
 	let apiOpts = $derived(thread ? { threadID: currentThreadID } : {});
 	let uploadInProgress = $state<Promise<Files>>();
 	let menu = $state<ReturnType<typeof Menu>>();
@@ -138,9 +135,6 @@
 			await EditorService.load(layout.items, project, file.name, apiOpts);
 			layout.fileEditorOpen = true;
 			menu?.toggle(false);
-		} else {
-			await EditorService.load(items, project, file.name, apiOpts);
-			editorDialog?.showModal();
 		}
 	}
 
@@ -202,7 +196,7 @@
 	{#if thread}
 		<div class="flex items-center justify-end gap-4">
 			<McpResources {project} bind:threadID={currentThreadID} bind:currentThreadFiles={files} />
-			<label class="button mt-3 -mr-3 -mb-3 flex items-center justify-end gap-1 text-sm">
+			<label class="button mt-3 flex items-center justify-end gap-1 text-sm">
 				{#await uploadInProgress}
 					<Loading class="size-4" />
 				{:catch error}
@@ -227,7 +221,7 @@
 			onLoad={loadFiles}
 			classes={{
 				button: primary ? 'button-icon-primary' : '',
-				dialog: responsive.isMobile
+				menu: responsive.isMobile
 					? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full'
 					: ''
 			}}
@@ -278,35 +272,9 @@
 	{@render menuBody()}
 {/if}
 
-<dialog
-	bind:this={editorDialog}
-	class="relative h-full max-h-dvh w-full max-w-dvw rounded-none md:w-4/5 md:rounded-xl"
-	use:clickOutside={() => editorDialog?.close()}
->
-	<button
-		class="button-icon-primary absolute top-1 right-1 z-10"
-		onclick={async () => {
-			await fileMonitor.save();
-			editorDialog?.close();
-		}}
-	>
-		<X class="size-6 md:size-8" />
-	</button>
-	<div class="flex h-full flex-col p-5">
-		{#each items as item (item.id)}
-			{#if item.selected}
-				<h2 class="ml-2 pr-12 text-base font-semibold break-words md:text-xl">{item.name}</h2>
-			{/if}
-		{/each}
-		<div class="h-full overflow-y-auto">
-			<FileEditors onFileChanged={fileMonitor.onFileChange} bind:items />
-		</div>
-	</div>
-</dialog>
-
 <Confirm
 	show={fileToDelete !== undefined}
-	msg={`Are you sure you want to delete ${fileToDelete}?`}
+	msg={`Delete ${fileToDelete}?`}
 	onsuccess={deleteFile}
 	oncancel={() => (fileToDelete = undefined)}
 />

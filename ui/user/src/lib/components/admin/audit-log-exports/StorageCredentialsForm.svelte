@@ -669,7 +669,7 @@
 
 <Confirm
 	show={showDeleteConfirm}
-	msg="Are you sure you want to delete the storage credentials? This action cannot be undone."
+	msg={`Delete ${existingCredentials?.provider || 'these credentials'}?`}
 	onsuccess={handleDeleteCredentials}
 	oncancel={() => (showDeleteConfirm = false)}
 	loading={deleting}

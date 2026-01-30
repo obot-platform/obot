@@ -8,14 +8,7 @@
 		type TaskStep,
 		type TaskRun
 	} from '$lib/services';
-	import {
-		ChevronRight,
-		MessageCircle,
-		MessageCircleOff,
-		Trash2,
-		TriangleAlert,
-		X
-	} from 'lucide-svelte/icons';
+	import { MessageCircle, MessageCircleOff, Trash2, TriangleAlert } from 'lucide-svelte/icons';
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import Steps from '$lib/components/tasks/Steps.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -29,9 +22,9 @@
 	import { twMerge } from 'tailwind-merge';
 	import ChatInput from '../messages/Input.svelte';
 	import Input from './Input.svelte';
-	import { clickOutside } from '$lib/actions/clickoutside';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import { TASK_NEW_ID } from '$lib/constants';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 
 	interface Props {
 		task: Task;
@@ -65,7 +58,7 @@
 	let error = $state('');
 	let pending = $derived(thread?.pending ?? false);
 	// let running = $derived(allMessages.inProgress);
-	let inputDialog = $state<HTMLDialogElement>();
+	let inputDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
 	let showChat = $state(false);
 	let showAllOutput = $state(true);
@@ -271,7 +264,7 @@
 		}
 
 		if (task.onDemand) {
-			inputDialog?.showModal();
+			inputDialog?.open();
 			return;
 		}
 
@@ -501,37 +494,18 @@
 
 		<Confirm
 			show={toDelete}
-			msg="Are you sure you want to delete this task?"
+			msg={`Delete ${task.name}?`}
 			onsuccess={deleteTask}
 			oncancel={() => (toDelete = false)}
 		/>
 
-		<dialog
-			bind:this={inputDialog}
-			use:clickOutside={() => inputDialog?.close()}
-			class="max-w-full md:min-w-md"
-			class:p-4={!responsive.isMobile}
-			class:mobile-screen-dialog={responsive.isMobile}
-		>
-			<div class="flex h-full w-full flex-col justify-between gap-4">
-				<h3 class="default-dialog-title" class:default-dialog-mobile-title={responsive.isMobile}>
-					Run Task
-					<button
-						class:mobile-header-button={responsive.isMobile}
-						onclick={() => inputDialog?.close()}
-						class="icon-button"
-					>
-						{#if responsive.isMobile}
-							<ChevronRight class="size-6" />
-						{:else}
-							<X class="size-5" />
-						{/if}
-					</button>
-				</h3>
-				<div class="flex w-full grow">
+		<ResponsiveDialog bind:this={inputDialog} title="Run Task" class="max-w-full md:max-w-md">
+			<div class="flex grow flex-col gap-4 p-4 md:p-0">
+				<div class="mt-4 flex w-full md:mt-0">
 					<Input bind:input {task} />
 				</div>
-				<div class="mt-4 flex w-full flex-col justify-between gap-4 md:flex-row md:justify-end">
+				<div class="flex grow"></div>
+				<div class="flex w-full flex-col justify-between gap-4 md:flex-row md:justify-end">
 					<button
 						class="button-primary w-full md:w-fit"
 						onclick={() => {
@@ -541,7 +515,7 @@
 					>
 				</div>
 			</div>
-		</dialog>
+		</ResponsiveDialog>
 	</div>
 </div>
 

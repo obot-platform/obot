@@ -232,7 +232,7 @@
 	{#key isSmallScreen}
 		<div
 			class={twMerge(
-				'default-dialog flex flex-col p-4',
+				'popover flex flex-col p-4',
 				isSmallScreen && 'w-full max-w-sm',
 				!isSmallScreen && 'max-w-xs',
 				classes?.calendar

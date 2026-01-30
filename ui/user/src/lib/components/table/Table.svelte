@@ -779,42 +779,39 @@
 				{#snippet icon()}
 					<ChevronDown class="size-4" />
 				{/snippet}
-
-				<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
-					<button
-						class="menu-button"
-						onclick={() => {
-							sortedBy = {
-								property: 'selectable',
-								order: 'asc'
+				<button
+					class="menu-button"
+					onclick={() => {
+						sortedBy = {
+							property: 'selectable',
+							order: 'asc'
+						};
+						onSort?.('selectable', 'asc');
+					}}
+				>
+					Sort By Selectable Items
+				</button>
+				<button
+					class="menu-button"
+					onclick={async () => {
+						if (filteredBy?.['selectable']) {
+							delete filteredBy['selectable'];
+							filteredBy = { ...filteredBy };
+						} else {
+							filteredBy = {
+								...filteredBy,
+								selectable: ['true']
 							};
-							onSort?.('selectable', 'asc');
-						}}
-					>
-						Sort By Selectable Items
-					</button>
-					<button
-						class="menu-button"
-						onclick={async () => {
-							if (filteredBy?.['selectable']) {
-								delete filteredBy['selectable'];
-								filteredBy = { ...filteredBy };
-							} else {
-								filteredBy = {
-									...filteredBy,
-									selectable: ['true']
-								};
-							}
-							onFilter?.('selectable', ['true']);
-						}}
-					>
-						{#if filteredBy?.['selectable']}
-							Show All Items
-						{:else}
-							Show Only Selectable Items
-						{/if}
-					</button>
-				</div>
+						}
+						onFilter?.('selectable', ['true']);
+					}}
+				>
+					{#if filteredBy?.['selectable']}
+						Show All Items
+					{:else}
+						Show Only Selectable Items
+					{/if}
+				</button>
 			</DotDotDot>
 		{/if}
 	</div>

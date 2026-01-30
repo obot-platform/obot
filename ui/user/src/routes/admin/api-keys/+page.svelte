@@ -152,12 +152,10 @@
 					{#snippet actions(d)}
 						{#if !isAdminReadonly}
 							<DotDotDot>
-								<div class="default-dialog flex min-w-max flex-col p-2">
-									<button class="menu-button text-red-500" onclick={() => (deletingKey = d)}>
-										<Trash2 class="size-4" />
-										Delete
-									</button>
-								</div>
+								<button class="menu-button text-red-500" onclick={() => (deletingKey = d)}>
+									<Trash2 class="size-4" />
+									Delete
+								</button>
 							</DotDotDot>
 						{/if}
 					{/snippet}
@@ -177,7 +175,7 @@
 </Layout>
 
 <Confirm
-	msg={`Are you sure you want to delete API key "${deletingKey?.name}"? This action cannot be undone.`}
+	msg={`Delete API key "${deletingKey?.name}"?`}
 	show={Boolean(deletingKey)}
 	{loading}
 	onsuccess={handleDeleteAnyKey}

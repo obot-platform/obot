@@ -11,6 +11,7 @@
 		class?: string;
 		classes?: {
 			menu?: string;
+			popover?: string;
 		};
 		placement?: Placement;
 		icon?: Snippet;
@@ -65,7 +66,9 @@
 		e.preventDefault();
 		toggle();
 	}}
-	class={twMerge(responsive.isMobile ? 'bottom-0 left-0 w-full' : '', classes?.menu)}
+	class={twMerge(responsive.isMobile ? 'bottom-0 left-0 w-full' : '', classes?.popover)}
 >
-	{@render children({ toggle })}
+	<div class={twMerge('dropdown-menu flex min-w-max flex-col p-2', classes?.menu)}>
+		{@render children({ toggle })}
+	</div>
 </div>

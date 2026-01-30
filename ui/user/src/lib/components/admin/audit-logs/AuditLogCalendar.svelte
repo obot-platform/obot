@@ -158,7 +158,7 @@
 		onkeydown={undefined}
 	>
 		{#key isSmallScreen}
-			<div class="default-dialog flex w-full max-w-sm flex-col py-2 md:max-w-fit" use:tooltipAction>
+			<div class="popover flex w-full max-w-sm flex-col py-2 md:max-w-fit" use:tooltipAction>
 				<div class="mb-6 px-4 text-center text-lg font-medium md:hidden md:text-start">
 					<div>Select Export Time Range</div>
 				</div>

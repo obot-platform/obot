@@ -258,7 +258,7 @@
 </div>
 
 <Confirm
-	msg="Are you sure you want to delete this project?"
+	msg={`Delete ${project.name || 'this project'}?`}
 	show={confirmDelete}
 	onsuccess={handleDeleteProject}
 	oncancel={() => (confirmDelete = false)}

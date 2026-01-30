@@ -270,9 +270,10 @@
 		}
 	}}
 	oncancel={() => (confirmDeconfigureAuthProvider = undefined)}
+	title="Confirm Deconfiguration"
 >
-	{#snippet title()}
-		<div class="mb-5 flex items-center gap-2">
+	{#snippet msgContent()}
+		<div class="flex items-center gap-2">
 			<img
 				src={darkMode.isDark && confirmDeconfigureAuthProvider?.iconDark
 					? confirmDeconfigureAuthProvider.iconDark
@@ -287,7 +288,7 @@
 		</div>
 	{/snippet}
 	{#snippet note()}
-		<div class="mb-5 flex flex-col gap-2 text-left">
+		<div class="flex flex-col gap-2 text-left">
 			<p class="text-sm font-light">
 				Deconfiguring this auth provider will sign out all users who are using it and reset it to
 				its unconfigured state. You will need to set up the auth provider once again to use it.

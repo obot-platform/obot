@@ -15,6 +15,7 @@
 		onConfirm: (groupAssignment: GroupAssignment) => void;
 		onAuditorConfirm: (groupAssignment: GroupAssignment) => void;
 		onOwnerConfirm: (groupAssignment: GroupAssignment) => void;
+		open?: boolean;
 	}
 
 	// Helper functions to work with roles
@@ -32,6 +33,7 @@
 
 	let {
 		groupAssignment = $bindable(),
+		open,
 		loading = false,
 		onClose,
 		onConfirm,
@@ -62,8 +64,14 @@
 			const role = groupAssignment.assignment.role || 0;
 			draftRoleId = getRoleId(role);
 			draftHaveAuditorPrivilege = hasAuditorFlag(role);
+		}
+	});
 
+	$effect(() => {
+		if (open) {
 			dialog?.open();
+		} else {
+			dialog?.close();
 		}
 	});
 
@@ -83,44 +91,35 @@
 			}
 		};
 
-		// Only description changed - update directly
-		if (!hasRoleChanged && !hasAuditorChanged) {
-			onConfirm(result);
-			return;
-		}
-
-		// Auditor changed - show auditor confirmation
-		if (hasAuditorChanged && draftHaveAuditorPrivilege && draftRoleId !== 0) {
-			onAuditorConfirm(result);
-			return;
-		}
-
-		// Changing to owner role - show owner confirmation
 		const currentRoleId = getRoleId(groupAssignment.assignment.role || 0);
-		if (draftRoleId === Role.OWNER && currentRoleId !== Role.OWNER) {
+		if (hasAuditorChanged && draftHaveAuditorPrivilege && draftRoleId !== 0) {
+			// Auditor changed - show auditor confirmation
+			onAuditorConfirm(result);
+		} else if (draftRoleId === Role.OWNER && currentRoleId !== Role.OWNER) {
+			// Changing to owner role - show owner confirmation
 			onOwnerConfirm(result);
-			return;
+		} else {
+			onConfirm(result);
 		}
-
-		onConfirm(result);
+		onClose();
 	}
 </script>
 
-{#if groupAssignment}
-	<ResponsiveDialog
-		bind:this={dialog}
-		onClose={handleClose}
-		class="flex max-h-[90svh] w-full max-w-[94svw] flex-col overflow-visible md:max-w-xl"
-		classes={{ content: 'p-4 overflow-y-auto overflow-x-hidden flex-1', header: 'mb-4' }}
-	>
-		{#snippet titleContent()}
-			<div class="flex w-full flex-col gap-3">
-				<span class="block text-center text-lg font-semibold md:text-start md:text-xl">
-					{groupAssignment.assignment.role ? 'Update' : 'Assign'} Group Role
-				</span>
-			</div>
-		{/snippet}
+<ResponsiveDialog
+	bind:this={dialog}
+	onClose={handleClose}
+	class="flex max-h-[90svh] w-full max-w-[94svw] flex-col overflow-visible md:max-w-xl"
+	classes={{ content: 'p-4 overflow-y-auto overflow-x-hidden flex-1', header: 'mb-4' }}
+>
+	{#snippet titleContent()}
+		<div class="flex w-full flex-col gap-3">
+			<span class="block text-center text-lg font-semibold md:text-start md:text-xl">
+				{groupAssignment?.assignment.role ? 'Update' : 'Assign'} Group Role
+			</span>
+		</div>
+	{/snippet}
 
+	{#if groupAssignment}
 		{#if groupAssignment.assignment.role}
 			<div class="dark:bg-surface1 mb-8 flex flex-col gap-1 rounded-lg bg-gray-50 p-3">
 				<div class="flex items-center gap-2">
@@ -162,5 +161,5 @@
 				{/if}
 			</button>
 		</div>
-	</ResponsiveDialog>
-{/if}
+	{/if}
+</ResponsiveDialog>

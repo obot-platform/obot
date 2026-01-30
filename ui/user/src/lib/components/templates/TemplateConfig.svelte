@@ -420,7 +420,7 @@
 
 		{#if template}
 			<Confirm
-				msg={`Are you sure you want to delete this Project Share: ${template.projectSnapshot.name || 'Unnamed Project Snapshot'}?`}
+				msg={`Delete Project Share: ${template.projectSnapshot.name || 'Unnamed Project Snapshot'}?`}
 				show={toDelete}
 				onsuccess={handleDeleteTemplate}
 				oncancel={() => (toDelete = false)}

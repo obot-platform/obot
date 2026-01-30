@@ -10,8 +10,6 @@
 	import StatBar from '../StatBar.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import HorizontalBarGraph from '../../graph/HorizontalBarGraph.svelte';
-	import { clickOutside } from '$lib/actions/clickoutside';
-	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { afterNavigate } from '$app/navigation';
 	import { goto } from '$lib/url';
@@ -206,7 +204,7 @@
 	let graphData = $derived<Record<string, Record<string, string | number>[]>>({});
 	let graphTotals = $derived<Record<string, number>>({});
 	let showFilters = $state(false);
-	let rightSidebar = $state<HTMLDialogElement>();
+	let rightSidebar = $state<HTMLDivElement>();
 
 	const usersMap = new SvelteMap<string, OrgUser>([]);
 	const usersAsArray = $derived(usersMap.values().toArray());
@@ -520,10 +518,8 @@
 	}
 
 	function handleRightSidebarClose() {
-		rightSidebar?.close();
-		setTimeout(() => {
-			showFilters = false;
-		}, 300);
+		rightSidebar?.hidePopover();
+		showFilters = false;
 	}
 
 	function hasData(graphConfigs: GraphConfig[]) {
@@ -624,7 +620,7 @@
 					class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button bg-background flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent shadow-sm"
 					onclick={() => {
 						showFilters = true;
-						rightSidebar?.show();
+						rightSidebar?.showPopover();
 					}}
 				>
 					<Funnel class="size-4" />
@@ -718,12 +714,7 @@
 	{/if}
 </div>
 
-<dialog
-	bind:this={rightSidebar}
-	use:clickOutside={[handleRightSidebarClose, true]}
-	use:dialogAnimation={{ type: 'drawer' }}
-	class="dark:border-surface1 dark:bg-surface1 bg-background fixed! top-0! right-0! bottom-0! left-auto! z-40 h-screen w-auto max-w-none rounded-none border-0 shadow-lg outline-none!"
->
+<div bind:this={rightSidebar} popover class="drawer">
 	{#if showFilters}
 		<FiltersDrawer
 			onClose={handleRightSidebarClose}
@@ -738,7 +729,7 @@
 			}}
 		/>
 	{/if}
-</dialog>
+</div>
 
 {#snippet filtersPill()}
 	{@const entries = Object.entries(pillsSearchParamFilters)}

@@ -121,7 +121,7 @@
 	</span>
 
 	{#if filterable}
-		<div use:tooltipRef={{ disablePortal }} class="default-dialog w-xs rounded-xs">
+		<div use:tooltipRef={{ disablePortal }} class="popover w-xs rounded-xs">
 			<Select
 				class="rounded-xs border border-transparent shadow-inner"
 				classes={{

@@ -7,9 +7,15 @@
 	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
 	import type { PageData } from './$types';
 	import { page } from '$app/state';
+	import { apply, isSupported } from '@oddbird/popover-polyfill/fn';
 	interface Props {
 		children?: import('svelte').Snippet;
 		data: PageData;
+	}
+
+	// native popover api polyfill
+	if (!isSupported()) {
+		apply();
 	}
 
 	let { children, data }: Props = $props();

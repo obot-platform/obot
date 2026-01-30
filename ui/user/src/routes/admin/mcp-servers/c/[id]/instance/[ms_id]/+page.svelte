@@ -7,7 +7,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
-	import { CircleFadingArrowUp, CircleAlert, Info, GitCompare } from 'lucide-svelte';
+	import { CircleFadingArrowUp, Info, GitCompare } from 'lucide-svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
@@ -225,64 +225,56 @@
 	onsuccess={confirmUpgrade}
 	oncancel={() => (showUpgradeConfirm = false)}
 	loading={upgrading}
-	classes={{
-		confirm: 'bg-primary hover:bg-primary/50 transition-colors duration-200'
-	}}
+	type="info"
+	msg="Upgrade Composite Catalog Entry?"
+	title="Confirm Upgrade"
 >
-	{#snippet title()}
-		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
-			<CircleAlert class="size-5" />
-			Upgrade Composite Catalog Entry?
-		</h4>
-	{/snippet}
 	{#snippet note()}
-		<div class="mb-8">
-			<p class="mb-4 text-sm font-light">
-				The configuration for one or more component servers has changed. Would you like to update
-				this server to match the latest configuration?
-			</p>
-			{#if componentDiffs.length > 0}
-				<div class="max-h-96 space-y-4 overflow-y-auto text-sm">
-					<p class="mb-2 font-medium">Components with updates ({componentDiffs.length}):</p>
-					{#each componentDiffs as diff (diff.id)}
-						<div class="border-border/50 bg-secondary/20 rounded border p-3">
-							<div class="flex items-start justify-between">
-								<div class="flex-1">
-									<p class="mb-2 font-medium">
-										{diff.name}
-										{#if !diff.newManifest}
-											<span
-												class="ml-2 rounded bg-red-500/10 px-2 py-0.5 text-xs font-normal text-red-500"
-											>
-												Removed
-											</span>
-										{/if}
-									</p>
-								</div>
-								{#if diff.newManifest}
-									<button
-										type="button"
-										class="text-primary hover:bg-primary/10 flex items-center gap-1.5 rounded px-3 py-1.5 text-xs"
-										onclick={() => {
-											selectedDiff = {
-												id: diff.id,
-												name: diff.name,
-												oldManifest: diff.oldManifest,
-												newManifest: diff.newManifest
-											};
-											diffDialog?.open();
-										}}
-									>
-										<GitCompare class="size-3.5" />
-										View Diff
-									</button>
-								{/if}
+		<p class="text-sm font-light">
+			The configuration for one or more component servers has changed. Would you like to update this
+			server to match the latest configuration?
+		</p>
+		{#if componentDiffs.length > 0}
+			<div class="max-h-96 space-y-4 overflow-y-auto text-sm">
+				<p class="mb-2 font-medium">Components with updates ({componentDiffs.length}):</p>
+				{#each componentDiffs as diff (diff.id)}
+					<div class="border-border/50 bg-secondary/20 rounded border p-3">
+						<div class="flex items-start justify-between">
+							<div class="flex-1">
+								<p class="mb-2 font-medium">
+									{diff.name}
+									{#if !diff.newManifest}
+										<span
+											class="ml-2 rounded bg-red-500/10 px-2 py-0.5 text-xs font-normal text-red-500"
+										>
+											Removed
+										</span>
+									{/if}
+								</p>
 							</div>
+							{#if diff.newManifest}
+								<button
+									type="button"
+									class="text-primary hover:bg-primary/10 flex items-center gap-1.5 rounded px-3 py-1.5 text-xs"
+									onclick={() => {
+										selectedDiff = {
+											id: diff.id,
+											name: diff.name,
+											oldManifest: diff.oldManifest,
+											newManifest: diff.newManifest
+										};
+										diffDialog?.open();
+									}}
+								>
+									<GitCompare class="size-3.5" />
+									View Diff
+								</button>
+							{/if}
 						</div>
-					{/each}
-				</div>
-			{/if}
-		</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
 	{/snippet}
 </Confirm>
 

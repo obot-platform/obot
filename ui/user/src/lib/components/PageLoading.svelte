@@ -4,7 +4,6 @@
 	import { fade } from 'svelte/transition';
 	import { onDestroy } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { clickOutside } from '$lib/actions/clickoutside';
 
 	interface Props {
 		show: boolean;
@@ -88,7 +87,6 @@
 					'dark:bg-surface2 dark:border-surface3 bg-background relative flex w-full flex-col items-center gap-4 rounded-lg p-4 dark:border',
 					errorClasses?.root
 				)}
-				use:clickOutside={() => onClose?.()}
 			>
 				<button class="icon-button absolute top-2 right-2 self-end" onclick={() => onClose?.()}
 					><X class="size-5" /></button

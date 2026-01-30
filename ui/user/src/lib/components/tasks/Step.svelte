@@ -534,21 +534,27 @@
 <!-- REFACTOR: Move out to the Steps.svelte component; having one dialog shared with many steps is better than each steps has its own dialog-->
 <Confirm
 	show={toDelete !== undefined}
-	msg="Are you sure you want to delete this step?"
+	msg="Delete this step?"
 	onsuccess={() => onDelete?.()}
 	oncancel={() => (toDelete = undefined)}
 />
 
 <Confirm
 	show={isConvertToRegularDialogShown}
-	msg="Making this a regular step will delete all loop step, are you sure you want to continue?"
+	msg="Are you sure you want to convert this step to a regular step?"
+	title="Confirm Conversion"
 	onsuccess={makeRegularStep}
 	oncancel={() => (isConvertToRegularDialogShown = false)}
-/>
+	type="info"
+>
+	{#snippet note()}
+		Making this a regular step will delete all loop step, are you sure you want to continue?
+	{/snippet}
+</Confirm>
 
 <Confirm
 	show={isLoopStepDeleteDialogShown}
-	msg="Are you sure you want to delete this loop step?"
+	msg="Delete this loop step?"
 	onsuccess={() => {
 		deleteLoopStep(loopStepToDeleteIndex);
 		loopStepToDeleteIndex = undefined;

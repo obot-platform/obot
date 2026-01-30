@@ -572,7 +572,7 @@
 />
 
 <Confirm
-	msg="Are you sure you want to delete this policy?"
+	msg={`Delete ${modelAccessPolicy.displayName || 'this policy'}?`}
 	show={deletingPolicy}
 	onsuccess={async () => {
 		if (!modelAccessPolicy.id) return;

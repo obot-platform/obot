@@ -603,204 +603,202 @@
 				{@const isComposite = !!d.compositeName}
 				{@const auditLogsUrl = getAuditLogsUrl(d)}
 
-				<DotDotDot class="icon-button hover:dark:bg-background/50">
+				<DotDotDot class="icon-button hover:dark:bg-background/50" classes={{ menu: 'p-0' }}>
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
 					{/snippet}
 
 					{#snippet children({ toggle })}
 						{@const isAtLeastPowerUser = profile.current.groups.includes(Group.POWERUSER)}
-						<div class="default-dialog flex min-w-max flex-col">
-							{#if !isComposite && d.isMyServer}
-								<div
-									class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+						{#if !isComposite && d.isMyServer}
+							<div
+								class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+							>
+								My Connection
+							</div>
+							<div
+								class={twMerge('flex flex-col gap-1 p-2', d.isMyServer ? 'bg-surface1' : 'pb-0')}
+							>
+								<button
+									class="menu-button"
+									onclick={async (e) => {
+										e.stopPropagation();
+										const entry = d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined;
+										connectToServerDialog?.open({
+											entry,
+											server: d,
+											instance: instancesMap.get(d.id)
+										});
+										toggle(false);
+									}}
 								>
-									My Connection
-								</div>
-								<div
-									class={twMerge('flex flex-col gap-1 p-2', d.isMyServer ? 'bg-surface1' : 'pb-0')}
+									<SatelliteDish class="size-4" /> Connect To Server
+								</button>
+								<button
+									class="menu-button"
+									onclick={async (e) => {
+										e.stopPropagation();
+										if (d) {
+											connectToServerDialog?.handleSetupChat(d, instancesMap.get(d.id));
+										}
+										toggle(false);
+									}}
 								>
-									<button
-										class="menu-button"
-										onclick={async (e) => {
-											e.stopPropagation();
-											const entry = d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined;
-											connectToServerDialog?.open({
-												entry,
-												server: d,
-												instance: instancesMap.get(d.id)
-											});
-											toggle(false);
-										}}
-									>
-										<SatelliteDish class="size-4" /> Connect To Server
-									</button>
-									<button
-										class="menu-button"
-										onclick={async (e) => {
-											e.stopPropagation();
-											if (d) {
-												connectToServerDialog?.handleSetupChat(d, instancesMap.get(d.id));
-											}
-											toggle(false);
-										}}
-									>
-										<MessageCircle class="size-4" /> Chat
-									</button>
+									<MessageCircle class="size-4" /> Chat
+								</button>
 
-									{#if d.isMyServer}
-										{@render editConfigAction(d)}
-										{#if d.catalogEntryID}
-											{@render renameAction(d)}
-										{/if}
+								{#if d.isMyServer}
+									{@render editConfigAction(d)}
+									{#if d.catalogEntryID}
+										{@render renameAction(d)}
 									{/if}
-								</div>
-							{/if}
-							<div class="flex flex-col gap-1 p-2">
-								{#if d.needsUpdate && (d.isMyServer || profile.current?.hasAdminAccess?.())}
-									{#if !readonly && isAtLeastPowerUser}
-										<button
-											class="menu-button-primary"
-											disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
-											onclick={(e) => {
-												e.stopPropagation();
-												if (!d) return;
-												showUpgradeConfirm = {
-													type: 'single',
-													server: d,
-													onConfirm: async () => {
-														reload();
-													}
-												};
-											}}
-											use:tooltip={d.compositeName
-												? {
-														text: 'This is a component of a composite server and cannot be updated independently; update the composite MCP server instead',
-														classes: ['w-md'],
-														disablePortal: true
-													}
-												: undefined}
-										>
-											{#if updating[d.id]?.inProgress}
-												<LoaderCircle class="size-4 animate-spin" />
-											{:else}
-												<CircleFadingArrowUp class="size-4" />
-											{/if}
-											Update Server
-										</button>
-									{/if}
-
+								{/if}
+							</div>
+						{/if}
+						<div class="flex flex-col gap-1 p-2">
+							{#if d.needsUpdate && (d.isMyServer || profile.current?.hasAdminAccess?.())}
+								{#if !readonly && isAtLeastPowerUser}
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
 										onclick={(e) => {
 											e.stopPropagation();
-											if (!d.catalogEntryID) return;
-
-											existingServer = d;
-											updatedServer = entriesMap[d.catalogEntryID];
-											diffDialog?.open();
-										}}
-									>
-										<GitCompare class="size-4" /> View Diff
-									</button>
-								{/if}
-
-								{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser && d.needsK8sUpdate}
-									<button
-										class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
-										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
-										onclick={(e) => {
-											e.stopPropagation();
 											if (!d) return;
-											showK8sUpgradeConfirm = {
+											showUpgradeConfirm = {
 												type: 'single',
-												server: d
+												server: d,
+												onConfirm: async () => {
+													reload();
+												}
 											};
 										}}
+										use:tooltip={d.compositeName
+											? {
+													text: 'This is a component of a composite server and cannot be updated independently; update the composite MCP server instead',
+													classes: ['w-md'],
+													disablePortal: true
+												}
+											: undefined}
 									>
 										{#if updating[d.id]?.inProgress}
 											<LoaderCircle class="size-4 animate-spin" />
 										{:else}
 											<CircleFadingArrowUp class="size-4" />
 										{/if}
-										Update Scheduling Config
+										Update Server
 									</button>
 								{/if}
 
-								{#if d.isMyServer || profile.current?.hasAdminAccess?.()}
-									{#if !readonly && isAtLeastPowerUser}
-										<button
-											class="menu-button"
-											disabled={restarting}
-											onclick={async (e) => {
-												e.stopPropagation();
-												restarting = true;
-												if (d.powerUserWorkspaceID) {
-													await ChatService.restartWorkspaceK8sServerDeployment(
-														d.powerUserWorkspaceID,
-														d.id
-													);
-												} else {
-													await AdminService.restartK8sDeployment(d.id);
-												}
+								<button
+									class="menu-button-primary"
+									disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
+									onclick={(e) => {
+										e.stopPropagation();
+										if (!d.catalogEntryID) return;
 
-												await delay(1000);
+										existingServer = d;
+										updatedServer = entriesMap[d.catalogEntryID];
+										diffDialog?.open();
+									}}
+								>
+									<GitCompare class="size-4" /> View Diff
+								</button>
+							{/if}
 
-												toggle((restarting = false));
-											}}
-										>
-											{#if restarting}
-												<LoaderCircle class="size-4 animate-spin" /> Restarting...
-											{:else}
-												<Power class="size-4" />
-												Restart Server
-											{/if}
-										</button>
+							{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser && d.needsK8sUpdate}
+								<button
+									class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
+									disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
+									onclick={(e) => {
+										e.stopPropagation();
+										if (!d) return;
+										showK8sUpgradeConfirm = {
+											type: 'single',
+											server: d
+										};
+									}}
+								>
+									{#if updating[d.id]?.inProgress}
+										<LoaderCircle class="size-4 animate-spin" />
+									{:else}
+										<CircleFadingArrowUp class="size-4" />
 									{/if}
+									Update Scheduling Config
+								</button>
+							{/if}
+
+							{#if d.isMyServer || profile.current?.hasAdminAccess?.()}
+								{#if !readonly && isAtLeastPowerUser}
 									<button
-										onclick={(e) => {
+										class="menu-button"
+										disabled={restarting}
+										onclick={async (e) => {
 											e.stopPropagation();
-											const isCtrlClick = e.ctrlKey || e.metaKey;
-											setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
-											openUrl(auditLogsUrl, isCtrlClick);
+											restarting = true;
+											if (d.powerUserWorkspaceID) {
+												await ChatService.restartWorkspaceK8sServerDeployment(
+													d.powerUserWorkspaceID,
+													d.id
+												);
+											} else {
+												await AdminService.restartK8sDeployment(d.id);
+											}
+
+											await delay(1000);
+
+											toggle((restarting = false));
 										}}
-										class="menu-button text-left"
 									>
-										<Captions class="size-4" />
-										{#if isComposite}
-											View Parent Server <br /> Audit Logs
+										{#if restarting}
+											<LoaderCircle class="size-4 animate-spin" /> Restarting...
 										{:else}
-											View Audit Logs
+											<Power class="size-4" />
+											Restart Server
 										{/if}
 									</button>
-
-									{#if !readonly}
-										<button
-											class="menu-button-destructive"
-											onclick={async (e) => {
-												e.stopPropagation();
-												showDeleteConfirm = {
-													type: 'single',
-													server: d
-												};
-
-												toggle(false);
-											}}
-											use:tooltip={d.compositeName
-												? {
-														text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
-														classes: ['w-md'],
-														disablePortal: true
-													}
-												: undefined}
-											disabled={!!d.compositeName}
-										>
-											<Trash2 class="size-4" /> Delete Server
-										</button>
-									{/if}
 								{/if}
-							</div>
+								<button
+									onclick={(e) => {
+										e.stopPropagation();
+										const isCtrlClick = e.ctrlKey || e.metaKey;
+										setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+										openUrl(auditLogsUrl, isCtrlClick);
+									}}
+									class="menu-button text-left"
+								>
+									<Captions class="size-4" />
+									{#if isComposite}
+										View Parent Server <br /> Audit Logs
+									{:else}
+										View Audit Logs
+									{/if}
+								</button>
+
+								{#if !readonly}
+									<button
+										class="menu-button-destructive"
+										onclick={async (e) => {
+											e.stopPropagation();
+											showDeleteConfirm = {
+												type: 'single',
+												server: d
+											};
+
+											toggle(false);
+										}}
+										use:tooltip={d.compositeName
+											? {
+													text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
+													classes: ['w-md'],
+													disablePortal: true
+												}
+											: undefined}
+										disabled={!!d.compositeName}
+									>
+										<Trash2 class="size-4" /> Delete Server
+									</button>
+								{/if}
+							{/if}
 						</div>
 					{/snippet}
 				</DotDotDot>
@@ -968,19 +966,17 @@
 		showUpgradeConfirm = undefined;
 	}}
 	oncancel={() => (showUpgradeConfirm = undefined)}
-	classes={{
-		confirm: 'bg-primary hover:bg-primary/50 transition-colors duration-200'
-	}}
 	loading={Object.values(updating).some((u) => u.inProgress)}
+	type="info"
 >
-	{#snippet title()}
-		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
+	{#snippet msgContent()}
+		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
 			{`Update ${showUpgradeConfirm?.type === 'single' ? showUpgradeConfirm.server.id : 'selected server(s)'}?`}
 		</h4>
 	{/snippet}
 	{#snippet note()}
-		<p class="mb-8 text-sm font-light">
+		<p class="text-sm font-light">
 			If this update introduces new required configuration parameters, users will have to supply
 			them before they can use {showUpgradeConfirm?.type === 'multi'
 				? 'these servers'
@@ -1009,19 +1005,17 @@
 		showK8sUpgradeConfirm = undefined;
 	}}
 	oncancel={() => (showK8sUpgradeConfirm = undefined)}
-	classes={{
-		confirm: 'bg-primary hover:bg-primary/50 transition-colors duration-200'
-	}}
 	loading={Object.values(updating).some((u) => u.inProgress)}
+	type="info"
 >
-	{#snippet title()}
-		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
+	{#snippet msgContent()}
+		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
 			Update Kubernetes Settings
 		</h4>
 	{/snippet}
 	{#snippet note()}
-		<p class="mb-8 text-sm font-light">
+		<p class="text-sm font-light">
 			{#if showK8sUpgradeConfirm?.type === 'multi'}
 				The selected servers ({Object.values(selected).filter(
 					(s) => s.needsK8sUpdate && !s.compositeName

@@ -2,14 +2,14 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { createNewTask, getLayout, openTask, openTaskRun } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project, type Task } from '$lib/services';
-	import { ChevronRight, Plus, X } from 'lucide-svelte/icons';
+	import { Plus } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
 	import { responsive } from '$lib/stores';
 	import TaskItem from '$lib/components/edit/TaskItem.svelte';
 	import Input from '$lib/components/tasks/Input.svelte';
-	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { fade } from 'svelte/transition';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 
 	interface Props {
 		project: Project;
@@ -18,7 +18,7 @@
 
 	let { currentThreadID = $bindable(), project }: Props = $props();
 	const layout = getLayout();
-	let inputDialog = $state<HTMLDialogElement>();
+	let inputDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let waitingTask = $state<Task>();
 	let waitingTaskInput = $state('');
 
@@ -50,7 +50,7 @@
 
 		if (task.onDemand && !waitingTaskInput) {
 			waitingTask = task;
-			inputDialog?.showModal();
+			inputDialog?.open();
 		} else {
 			const response = await ChatService.runTask(project.assistantID, project.id, task.id, {
 				input: waitingTaskInput ?? ''
@@ -108,46 +108,25 @@
 	{/if}
 </div>
 
-<dialog
-	bind:this={inputDialog}
-	use:clickOutside={() => inputDialog?.close()}
-	class="max-w-full md:min-w-md"
-	class:p-4={!responsive.isMobile}
-	class:mobile-screen-dialog={responsive.isMobile}
->
-	<div class="flex h-full w-full flex-col justify-between gap-4">
-		<h3 class="default-dialog-title" class:default-dialog-mobile-title={responsive.isMobile}>
-			Run Task
-			<button
-				class:mobile-header-button={responsive.isMobile}
-				onclick={() => inputDialog?.close()}
-				class="icon-button"
-			>
-				{#if responsive.isMobile}
-					<ChevronRight class="size-6" />
-				{:else}
-					<X class="size-5" />
-				{/if}
-			</button>
-		</h3>
-		<div class="flex w-full grow">
-			<Input bind:input={waitingTaskInput} task={waitingTask} />
-		</div>
-		<div class="mt-4 flex w-full flex-col justify-between gap-4 md:flex-row md:justify-end">
-			<button
-				class="button-primary w-full md:w-fit"
-				onclick={() => {
-					runTask(waitingTask);
-					inputDialog?.close();
-				}}>Run</button
-			>
-		</div>
+<ResponsiveDialog bind:this={inputDialog} title="Run Task" class="max-w-full md:min-w-md">
+	<div class="mt-4 flex w-full md:mt-0">
+		<Input bind:input={waitingTaskInput} task={waitingTask} />
 	</div>
-</dialog>
+	<div class="flex grow"></div>
+	<div class="mt-4 flex w-full flex-col justify-between gap-4 md:flex-row md:justify-end">
+		<button
+			class="button-primary w-full md:w-fit"
+			onclick={() => {
+				runTask(waitingTask);
+				inputDialog?.close();
+			}}>Run</button
+		>
+	</div>
+</ResponsiveDialog>
 
 <Confirm
 	show={taskToDelete !== undefined}
-	msg={`Are you sure you want to delete ${taskToDelete?.name}?`}
+	msg={`Delete ${taskToDelete?.name}?`}
 	onsuccess={deleteTask}
 	oncancel={() => (taskToDelete = undefined)}
 />

@@ -25,16 +25,13 @@
 	let plural = $derived(entityPlural ? entityPlural : entity + '(s)');
 </script>
 
-<Confirm {show} {onsuccess} {oncancel} {loading}>
-	{#snippet title()}
-		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
-			{#if names.length === 1}
-				Delete {names[0]}?
-			{:else}
-				Delete selected {plural}?
-			{/if}
-		</h4>
-	{/snippet}
+<Confirm
+	{show}
+	{onsuccess}
+	{oncancel}
+	{loading}
+	msg={names.length === 1 ? `Delete ${names[0]}?` : `Delete selected ${plural}?`}
+>
 	{#snippet note()}
 		{#if names.length > 1}
 			<p class="text-sm font-light">
@@ -47,13 +44,13 @@
 			</ul>
 		{/if}
 
-		<p class="mb-8 text-sm font-light">
+		<p class="mb-4 text-sm font-light">
 			Are you sure you want to delete {names.length === 1 ? 'this ' + entity : plural}?
 			{names.length === 1 ? 'It' : 'They'} will be permanently deleted and cannot be recovered.
 		</p>
 
 		{#if additionalNote}
-			<p class="mb-8 text-sm font-light">
+			<p class="text-sm font-light">
 				{additionalNote}
 			</p>
 		{/if}

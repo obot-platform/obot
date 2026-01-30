@@ -10,7 +10,7 @@
 	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
 	import { formatTimeAgo } from '$lib/time.js';
-	import { Handshake, Info, LoaderCircle, ShieldAlert, X } from 'lucide-svelte';
+	import { Handshake, Info, LoaderCircle, ShieldAlert } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 	import { getUserRoleLabel } from '$lib/utils';
 	import Search from '$lib/components/Search.svelte';
@@ -25,6 +25,7 @@
 		setFilterUrlParams
 	} from '$lib/url.js';
 	import { untrack } from 'svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 
 	let { data } = $props();
 	let users = $state<OrgUser[]>(untrack(() => data.users));
@@ -51,7 +52,7 @@
 
 	type TableItem = (typeof tableData)[0];
 
-	let updateRoleDialog = $state<HTMLDialogElement>();
+	let updateRoleDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let updatingRole = $state<TableItem>();
 	let deletingUser = $state<TableItem>();
 	let confirmHandoffToUser = $state<TableItem>();
@@ -173,28 +174,26 @@
 					{#snippet actions(d)}
 						{#if !isAdminReadonly}
 							<DotDotDot>
-								<div class="default-dialog flex min-w-max flex-col p-2">
-									<button
-										class="menu-button"
-										disabled={!profile.current.groups.includes(Group.OWNER) &&
-											(d.groups.includes(Group.OWNER) || d.explicitRole)}
-										onclick={() => {
-											updatingRole = d;
-											updateRoleDialog?.showModal();
-										}}
-									>
-										Update Role
-									</button>
-									<button
-										class="menu-button text-red-500"
-										disabled={d.explicitRole ||
-											(d.groups.includes(Group.OWNER) &&
-												!profile.current.groups.includes(Group.OWNER))}
-										onclick={() => (deletingUser = d)}
-									>
-										Delete User
-									</button>
-								</div>
+								<button
+									class="menu-button"
+									disabled={!profile.current.groups.includes(Group.OWNER) &&
+										(d.groups.includes(Group.OWNER) || d.explicitRole)}
+									onclick={() => {
+										updatingRole = d;
+										updateRoleDialog?.open();
+									}}
+								>
+									Update Role
+								</button>
+								<button
+									class="menu-button text-red-500"
+									disabled={d.explicitRole ||
+										(d.groups.includes(Group.OWNER) &&
+											!profile.current.groups.includes(Group.OWNER))}
+									onclick={() => (deletingUser = d)}
+								>
+									Delete User
+								</button>
 							</DotDotDot>
 						{/if}
 					{/snippet}
@@ -205,7 +204,7 @@
 </Layout>
 
 <Confirm
-	msg={`Are you sure you want to delete user ${deletingUser?.email}?`}
+	msg={`Delete user ${deletingUser?.email}?`}
 	show={Boolean(deletingUser)}
 	onsuccess={async () => {
 		if (!deletingUser) return;
@@ -218,7 +217,11 @@
 	oncancel={() => (deletingUser = undefined)}
 />
 
-<dialog bind:this={updateRoleDialog} class="w-full max-w-xl overflow-visible p-4">
+<ResponsiveDialog
+	bind:this={updateRoleDialog}
+	class="w-full overflow-visible p-4 md:max-w-xl"
+	title={`Update ${updatingRole?.name}'s Role`}
+>
 	{#if updatingRole}
 		{@const roleDescriptionMap = userRoleOptions.reduce(
 			(acc, role) => {
@@ -227,12 +230,6 @@
 			},
 			{} as Record<number, string>
 		)}
-		<h3 class="default-dialog-title">
-			Update User Role
-			<button onclick={() => closeUpdateRoleDialog()} class="icon-button">
-				<X class="size-5" />
-			</button>
-		</h3>
 		<div class="m-4 flex flex-col gap-2 text-sm font-light">
 			{#if updatingRole.explicitRole}
 				<div class="notification-info mb-2 p-3 text-sm font-light">
@@ -286,7 +283,8 @@
 				</label>
 			{/if}
 		</div>
-		<div class="mt-4 flex justify-end gap-2">
+		<div class="flex grow"></div>
+		<div class="mt-4 flex flex-col justify-end gap-2 p-4 md:flex-row md:p-0">
 			<button class="button" onclick={() => closeUpdateRoleDialog()}>Cancel</button>
 			<button
 				class="button-primary"
@@ -319,7 +317,7 @@
 			</button>
 		</div>
 	{/if}
-</dialog>
+</ResponsiveDialog>
 
 <Confirm
 	show={Boolean(confirmHandoffToUser)}
@@ -338,8 +336,10 @@
 		confirmHandoffToUser = undefined;
 	}}
 	oncancel={() => (confirmHandoffToUser = undefined)}
+	type="info"
+	title="Confirm Handoff"
 >
-	{#snippet title()}
+	{#snippet msgContent()}
 		<div class="flex items-center justify-center gap-2">
 			<Handshake class="size-6" />
 			<h3 class="text-xl font-semibold">Confirm Handoff</h3>
@@ -358,6 +358,9 @@
 </Confirm>
 
 <Confirm
+	type="info"
+	title="Confirm Auditor Role"
+	msg={`Grant ${confirmAuditorAdditionToUser?.email || confirmAuditorAdditionToUser?.name} the Auditor role?`}
 	{loading}
 	show={Boolean(confirmAuditorAdditionToUser)}
 	onsuccess={async () => {
@@ -370,13 +373,8 @@
 	}}
 	oncancel={() => (confirmAuditorAdditionToUser = undefined)}
 >
-	{#snippet title()}
-		<div class="flex items-center justify-center gap-2">
-			<h3 class="text-xl font-semibold">Confirm Auditor Role</h3>
-		</div>
-	{/snippet}
 	{#snippet note()}
-		<div class="mt-4 mb-8 flex flex-col gap-4">
+		<div class="flex flex-col gap-4">
 			<p class="text-left">
 				{#if confirmAuditorAdditionToUser && auditorReadonlyAdminRoles.includes(confirmAuditorAdditionToUser.roleId)}
 					Basic user auditors will have read-only access to the admin system and can see additional
