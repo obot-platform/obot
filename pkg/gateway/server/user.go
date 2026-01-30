@@ -171,7 +171,8 @@ func (s *Server) getUser(apiContext api.Context) error {
 func (s *Server) updateUser(apiContext api.Context) error {
 	userID := apiContext.PathValue("user_id")
 	if userID == "" {
-		return types2.NewErrHTTP(http.StatusBadRequest, "user_id path parameter is required")
+		// This is a request to /api/me
+		userID = apiContext.User.GetUID()
 	}
 
 	user := new(types.User)

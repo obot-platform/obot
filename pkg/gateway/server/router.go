@@ -27,6 +27,7 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	// All the routes served by the API will start with `/api`
 	mux.HandleFunc("GET /api/me", wrap(s.getCurrentUser))
 	mux.HandleFunc("DELETE /api/me", wrap(s.deleteUser))
+	mux.HandleFunc("PATCH /api/me", wrap(s.updateUser))
 	mux.HandleFunc("POST /api/logout-all", wrap(s.logoutAll))
 	mux.HandleFunc("GET /api/users", wrap(s.getUsers))
 	mux.HandleFunc("GET /api/groups", wrap(s.listAuthGroups))

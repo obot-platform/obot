@@ -283,6 +283,7 @@ var (
 			"/api/oauth/redirect/{namespace}/{name}",
 			"GET /api/me",
 			"DELETE /api/me",
+			"PATCH /api/me",
 			"POST /api/logout-all",
 			"GET /api/version",
 			"GET /api/setup/oauth-complete",

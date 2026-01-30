@@ -26,7 +26,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		services.MCPRuntimeBackend,
 		services.SupportDocker,
 		services.AuthEnabled,
-		services.DisableUpdateCheck)
+		services.DisableUpdateCheck,
+		services.AutonomousToolUseEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +54,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN)
 	fileScannerProviders := handlers.NewFileScannerProviderHandler(services.ProviderDispatcher, services.Invoker)
 	prompt := handlers.NewPromptHandler()
+	confirm := handlers.NewConfirmHandler()
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.MCPLoader, services.Invoker, services.ModelAccessPolicyHelper)
 	projectShare := handlers.NewProjectShareHandler()
@@ -126,6 +128,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/assistants/{id}/projects/{project_id}/threads/{thread_id}/abort", assistants.Abort)
 	mux.HandleFunc("GET /api/assistants/{id}/projects/{project_id}/threads/{thread_id}/events", assistants.Events)
 	mux.HandleFunc("POST /api/assistants/{id}/projects/{project_id}/threads/{thread_id}/invoke", assistants.Invoke)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}/confirm", confirm.Confirm)
 
 	// Project tools
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/tools", assistants.SetTools)

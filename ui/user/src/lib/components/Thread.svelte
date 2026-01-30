@@ -2,6 +2,7 @@
 	import { stickToBottom, type StickToBottomControls } from '$lib/actions/div.svelte';
 	import Input from '$lib/components/messages/Input.svelte';
 	import Message from '$lib/components/messages/Message.svelte';
+	import ToolConfirmBar from '$lib/components/messages/ToolConfirmBar.svelte';
 	import { Thread } from '$lib/services/chat/thread.svelte';
 	import {
 		ChatService,
@@ -568,10 +569,14 @@
 
 		<div
 			class={twMerge(
-				'bg-background sticky z-30 flex w-full justify-center pb-2 transition-transform duration-300',
+				'bg-background sticky z-30 flex w-full flex-col items-center pb-2 transition-transform duration-300',
 				centerInput ? 'absolute top-1/2 -translate-y-[50%]' : 'bottom-0 -translate-y-[0%]'
 			)}
 		>
+			{#if !centerInput && messages.messages.length > 0 && id}
+				<ToolConfirmBar messages={messages.messages} {project} currentThreadID={id} />
+			{/if}
+
 			<div class="w-full max-w-[1000px]">
 				{#if centerInput && assistant?.introductionMessage}
 					<div class="milkdown-content mb-5 max-w-full px-5" in:fade>

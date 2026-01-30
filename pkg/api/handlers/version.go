@@ -40,13 +40,14 @@ func sessionStoreFromPostgresDSN(postgresDSN string) SessionStore {
 }
 
 type VersionHandler struct {
-	gptscriptVersion string
-	emailDomain      string
-	supportDocker    bool
-	authEnabled      bool
-	sessionStore     SessionStore
-	enterprise       bool
-	engine           string
+	gptscriptVersion         string
+	emailDomain              string
+	supportDocker            bool
+	authEnabled              bool
+	sessionStore             SessionStore
+	enterprise               bool
+	engine                   string
+	autonomousToolUseEnabled bool
 
 	upgradeServerURL string
 	upgradeAvailable bool
@@ -54,21 +55,22 @@ type VersionHandler struct {
 	upgradeLock      sync.RWMutex
 }
 
-func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, supportDocker, authEnabled, disableUpdateCheck bool) (*VersionHandler, error) {
+func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, supportDocker, authEnabled, disableUpdateCheck, autonomousToolUseEnabled bool) (*VersionHandler, error) {
 	upgradeServerBaseURL := defaultUpgradeServerBaseURL
 	if os.Getenv("OBOT_UPGRADE_SERVER_URL") != "" {
 		upgradeServerBaseURL = os.Getenv("OBOT_UPGRADE_SERVER_URL")
 	}
 
 	v := &VersionHandler{
-		emailDomain:      emailDomain,
-		gptscriptVersion: getGPTScriptVersion(),
-		supportDocker:    supportDocker,
-		authEnabled:      authEnabled,
-		sessionStore:     sessionStoreFromPostgresDSN(postgresDSN),
-		enterprise:       os.Getenv("OBOT_ENTERPRISE") == "true",
-		upgradeServerURL: fmt.Sprintf("%s/check-upgrade", upgradeServerBaseURL),
-		engine:           engine,
+		emailDomain:              emailDomain,
+		gptscriptVersion:         getGPTScriptVersion(),
+		supportDocker:            supportDocker,
+		authEnabled:              authEnabled,
+		sessionStore:             sessionStoreFromPostgresDSN(postgresDSN),
+		enterprise:               os.Getenv("OBOT_ENTERPRISE") == "true",
+		upgradeServerURL:         fmt.Sprintf("%s/check-upgrade", upgradeServerBaseURL),
+		engine:                   engine,
+		autonomousToolUseEnabled: autonomousToolUseEnabled,
 	}
 
 	currentVersion, _, _ := strings.Cut(version.Get().String(), "+")
@@ -127,6 +129,7 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 	values["sessionStore"] = v.sessionStore
 	values["enterprise"] = v.enterprise
 	values["engine"] = v.engine
+	values["autonomousToolUseEnabled"] = v.autonomousToolUseEnabled
 	v.upgradeLock.RLock()
 	values["upgradeAvailable"] = v.upgradeAvailable
 	values["latestVersion"] = v.latestVersion

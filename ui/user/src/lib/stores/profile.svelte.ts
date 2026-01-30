@@ -8,7 +8,8 @@ const store = $state({
 		iconURL: '',
 		role: 0,
 		effectiveRole: 0,
-		groups: []
+		groups: [],
+		autonomousToolUseEnabled: false
 	} as Profile,
 	initialize
 });
@@ -28,7 +29,8 @@ function initialize(profile?: Profile) {
 			effectiveRole: 0,
 			groups: [],
 			unauthorized: true,
-			username: ''
+			username: '',
+			autonomousToolUseEnabled: false
 		};
 	}
 }

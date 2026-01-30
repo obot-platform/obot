@@ -363,6 +363,15 @@ function toMessages(progresses: Progress[], opts?: AdditionalOptions): Messages 
 			} catch (_) {
 				// ignore error
 			}
+		} else if (progress.toolConfirm) {
+			const confirm = progress.toolConfirm;
+			// Find the existing toolCall message by contentID and attach toolConfirm in-place
+			const toolMsg = messages.findLast((m) => m.contentID === confirm.id);
+
+			if (toolMsg) {
+				// Attach toolConfirm to the existing message (keeps it in original position)
+				toolMsg.toolConfirm = confirm;
+			}
 		}
 
 		if (lastStepID && messages.length > 0) {

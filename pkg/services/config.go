@@ -104,6 +104,7 @@ type Config struct {
 	RetentionPolicyHours       int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
 	DefaultMCPCatalogPath      string   `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
 	DisableUpdateCheck         bool     `usage:"Disable Obot server update checks"`
+	EnableAutonomousToolUse    bool     `usage:"Allow all chat sessions to use tools without requesting user approval" default:"false" env:"OBOT_SERVER_ENABLE_AUTONOMOUS_TOOL_USE"`
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
@@ -179,9 +180,10 @@ type Services struct {
 	// Parsed settings from Helm for k8s to pass to controller
 	K8sSettingsFromHelm *v1.K8sSettingsSpec
 
-	DisableUpdateCheck bool
-	MCPRuntimeBackend  string
-	RegistryNoAuth     bool
+	DisableUpdateCheck       bool
+	MCPRuntimeBackend        string
+	RegistryNoAuth           bool
+	AutonomousToolUseEnabled bool
 }
 
 const (
@@ -477,6 +479,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.HTTPListenPort,
 		persistentTokenServer,
 		events,
+		config.EnableAutonomousToolUse,
 	)
 	providerDispatcher := dispatcher.New(invoker, storageClient, credOnlyGPTscriptClient, gatewayClient, postgresDSN)
 
@@ -819,15 +822,16 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
 			UserInfoEndpoint:                  fmt.Sprintf("%s/oauth/userinfo", config.Hostname),
 		},
-		AccessControlRuleHelper: acrHelper,
-		ModelAccessPolicyHelper: mapHelper,
-		WebhookHelper:           webhookHelper,
-		LocalK8sConfig:          localK8sConfig,
-		MCPServerNamespace:      config.MCPNamespace,
-		K8sSettingsFromHelm:     helmK8sSettings,
-		DisableUpdateCheck:      config.DisableUpdateCheck,
-		MCPRuntimeBackend:       config.MCPRuntimeBackend,
-		RegistryNoAuth:          registryNoAuth,
+		AccessControlRuleHelper:  acrHelper,
+		ModelAccessPolicyHelper:  mapHelper,
+		WebhookHelper:            webhookHelper,
+		LocalK8sConfig:           localK8sConfig,
+		MCPServerNamespace:       config.MCPNamespace,
+		K8sSettingsFromHelm:      helmK8sSettings,
+		DisableUpdateCheck:       config.DisableUpdateCheck,
+		AutonomousToolUseEnabled: config.EnableAutonomousToolUse,
+		MCPRuntimeBackend:        config.MCPRuntimeBackend,
+		RegistryNoAuth:           registryNoAuth,
 	}, nil
 }
 

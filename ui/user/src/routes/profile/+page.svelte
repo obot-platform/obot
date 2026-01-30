@@ -8,9 +8,19 @@
 	import { success } from '$lib/stores/success';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
 
 	let toDelete = $state(false);
 	let toRevoke = $state(false);
+	let savingPreferences = $state(false);
+	let autonomousToolUseEnabled = $state(profile.current?.autonomousToolUseEnabled ?? false);
+
+	// Sync with profile store when it updates
+	$effect(() => {
+		if (profile.current) {
+			autonomousToolUseEnabled = profile.current.autonomousToolUseEnabled;
+		}
+	});
 
 	async function logoutAll() {
 		try {
@@ -39,6 +49,22 @@
 			errors.items.push(new Error('Failed to delete account'));
 		} finally {
 			toDelete = false;
+		}
+	}
+
+	async function handleAutonomousToolUseToggle(checked: boolean) {
+		savingPreferences = true;
+		try {
+			const updatedProfile = await ChatService.patchProfile({
+				autonomousToolUseEnabled: checked
+			});
+			autonomousToolUseEnabled = updatedProfile.autonomousToolUseEnabled;
+			profile.initialize(updatedProfile);
+		} catch (err) {
+			console.error('Failed to update autonomous tool use setting:', err);
+			autonomousToolUseEnabled = !checked;
+		} finally {
+			savingPreferences = false;
 		}
 	}
 </script>
@@ -77,6 +103,24 @@
 						</div>
 					</div>
 					<hr />
+					{#if !version.current.autonomousToolUseEnabled}
+						<div class="flex flex-row items-center justify-between py-3">
+							<div class="flex flex-col gap-1">
+								<p>Allow Autonomous Tool Use</p>
+								<span class="text-sm font-light opacity-70">
+									When enabled, chat sessions can run tools automatically without asking for
+									approval.
+								</span>
+							</div>
+							<Toggle
+								label=""
+								checked={autonomousToolUseEnabled}
+								disabled={savingPreferences}
+								onChange={handleAutonomousToolUseToggle}
+							/>
+						</div>
+						<hr />
+					{/if}
 					<div class="mt-2 flex flex-col gap-4 py-3">
 						{#if version.current.sessionStore === 'db'}
 							<button

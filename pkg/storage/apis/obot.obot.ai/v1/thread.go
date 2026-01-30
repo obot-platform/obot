@@ -249,6 +249,11 @@ type ThreadSpec struct {
 	// When this field is true, and an upgrade is available, the thread and its associated resources
 	// will be updated to match the latest revision of the source thread.
 	UpgradeApproved bool `json:"upgradeApproved,omitempty"`
+
+	// ApprovedTools is a list of tool names that are auto-approved in this thread.
+	// When a tool call matches a name in this list, it will be auto-approved.
+	// Use "*" as a wildcard to auto-approve all tools.
+	ApprovedTools []string `json:"approvedTools,omitempty"`
 }
 
 func (in *Thread) DeleteRefs() []Ref {
