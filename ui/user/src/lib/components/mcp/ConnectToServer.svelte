@@ -76,7 +76,6 @@
 	let copyButtonController = $state<ReturnType<typeof CopyButton>>();
 
 	function handleOnClose() {
-		// generate new hash to force re-render next time opened
 		copyButtonController?.clearLabel();
 		onClose?.();
 	}
