@@ -24,6 +24,7 @@
 		classes?: {
 			root?: string;
 			thead?: string;
+			row?: string;
 		};
 		headers?: { title: string; property: string; tooltip?: string }[];
 		headerClasses?: { property: string; class: string }[];
@@ -924,7 +925,7 @@
 		{/if}
 		{#each visibleFields as fieldName (fieldName)}
 			<td class="overflow-hidden text-sm font-light">
-				<div class="flex h-full min-h-12 w-full items-center px-4 py-2">
+				<div class={twMerge('flex h-full min-h-12 w-full items-center px-4 py-2', classes?.row)}>
 					{#if onRenderColumn}
 						{@render onRenderColumn(fieldName, d)}
 					{:else}

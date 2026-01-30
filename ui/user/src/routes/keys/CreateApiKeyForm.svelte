@@ -3,21 +3,22 @@
 	import Search from '$lib/components/Search.svelte';
 	import { ApiKeysService } from '$lib/services';
 	import type { APIKeyCreateResponse } from '$lib/services/api-keys/types';
-	import type { MCPCatalogServer } from '$lib/services/chat/types';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { Check, LoaderCircle, Server } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';
 	import { fly } from 'svelte/transition';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { mcpServersAndEntries } from '$lib/stores';
+	import type { MCPCatalogServer } from '$lib/services/chat/types';
+	import { compileAvailableMcpServers } from '$lib/services/chat/mcp';
 
 	interface Props {
-		mcpServers: MCPCatalogServer[];
 		onCreate: (key: APIKeyCreateResponse) => void;
 		onCancel: () => void;
 	}
 
-	let { mcpServers, onCreate, onCancel }: Props = $props();
+	let { onCreate, onCancel }: Props = $props();
 
 	let name = $state('');
 	let description = $state('');
@@ -26,6 +27,13 @@
 	let search = $state('');
 	let loading = $state(false);
 	let showValidation = $state(false);
+
+	let mcpServers = $derived(
+		compileAvailableMcpServers(
+			mcpServersAndEntries.current.servers,
+			mcpServersAndEntries.current.userConfiguredServers
+		)
+	);
 
 	let nameError = $derived(showValidation && !name.trim());
 	let serverError = $derived(showValidation && selectedServerIds.size === 0);
@@ -97,9 +105,7 @@
 	out:fly={{ x: 100, duration }}
 	in:fly={{ x: 100, delay: duration }}
 >
-	<div
-		class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
-	>
+	<div class="paper p-4">
 		<div class="flex flex-col gap-6">
 			<div class="flex flex-col gap-2">
 				<label for="api-key-name" class="input-label">
@@ -145,7 +151,7 @@
 		</div>
 	</div>
 
-	<div class="mt-4 flex flex-col gap-2">
+	<div class="paper flex flex-col gap-2 p-4">
 		<p>
 			<span class="text-lg font-semibold">MCP Servers</span>
 			{#if serverError}
