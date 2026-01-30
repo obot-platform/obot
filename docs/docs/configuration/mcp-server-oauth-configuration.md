@@ -97,7 +97,7 @@ This example demonstrates configuring the GitHub remote MCP server.
 4. Enter the URL: `https://api.githubcopilot.com/mcp`
 5. Click **Advanced Configuration**
 6. Toggle **Static OAuth** to enabled
-8. Click **Save**
+7. Click **Save**
 
 ### Add OAuth credentials
 
