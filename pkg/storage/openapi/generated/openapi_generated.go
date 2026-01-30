@@ -11058,7 +11058,7 @@ func schema_obot_platform_obot_apiclient_types_ToolConfirmResponse(ref common.Re
 					},
 					"toolName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ToolName is the name of a tool to pre-approve for the duration of the thread. Set to the wildcard (\"*\") to pre-approve ALL tools. This field is ignored when Decision is not ToolConfirmDecisionApproveThread.",
+							Description: "ToolName is the name of a tool to pre-approve for the duration of the thread. The wildcard \"*\" will allow all tools. A trailing wildcard will allow all tools with the matching prefix; e.g. \"Everything Server ->*\". This field is ignored when Decision is not ToolConfirmDecisionApproveThread.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -18926,7 +18926,7 @@ func schema_storage_apis_obotobotai_v1_ThreadSpec(ref common.ReferenceCallback) 
 					},
 					"approvedTools": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ApprovedTools is a list of tool names that are auto-approved in this thread. When a tool call matches a name in this list, it will be auto-approved. Use \"*\" as a wildcard to auto-approve all tools.",
+							Description: "ApprovedTools is a list of tool names that are auto-approved in this thread. The wildcard \"*\" will allow all tools. A trailing wildcard will allow all tools with the matching prefix; e.g. \"Everything Server ->*\".",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
