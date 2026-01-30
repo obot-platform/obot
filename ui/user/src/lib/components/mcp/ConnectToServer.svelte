@@ -79,6 +79,12 @@
 			.map((name) => name.toLowerCase())
 	);
 	let name = $derived(server?.alias || server?.manifest.name || '');
+	let copyButtonController = $state<ReturnType<typeof CopyButton>>();
+
+	function handleOnClose() {
+		copyButtonController?.clearButtonText();
+		onClose?.();
+	}
 
 	function handleConnect() {
 		if (!skipConnectDialog) {
@@ -627,7 +633,7 @@
 	});
 </script>
 
-<ResponsiveDialog bind:this={connectDialog} animate="slide" {onClose}>
+<ResponsiveDialog bind:this={connectDialog} animate="slide" onClose={handleOnClose}>
 	{#snippet titleContent()}
 		{#if server}
 			{@const icon = server.manifest.icon ?? ''}
@@ -649,10 +655,13 @@
 			<div class="mb-4 flex grow flex-col gap-1">
 				<label for="connectURL" class="font-light">Connection URL</label>
 				<div class="mock-input-btn flex w-full items-center justify-between gap-2 shadow-inner">
-					<p>
-						{url}
-					</p>
+					<div class="relative flex h-5 flex-1 overflow-hidden">
+						<p class="absolute inset-0 truncate">
+							{url}
+						</p>
+					</div>
 					<CopyButton
+						bind:this={copyButtonController}
 						showTextLeft
 						text={url}
 						classes={{

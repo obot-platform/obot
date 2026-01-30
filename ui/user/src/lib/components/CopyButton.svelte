@@ -77,6 +77,10 @@
 			}, 750);
 		}
 	}
+
+	export function clearButtonText() {
+		buttonTextToShow = buttonText;
+	}
 </script>
 
 {#if text}
