@@ -77,6 +77,10 @@
 			}, 750);
 		}
 	}
+
+	export function clearLabel() {
+		buttonTextToShow = '';
+	}
 </script>
 
 {#if text}

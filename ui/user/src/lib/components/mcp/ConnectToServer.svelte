@@ -73,11 +73,11 @@
 			.map((name) => name.toLowerCase())
 	);
 	let name = $derived(server?.alias || server?.manifest.name || '');
-	let openStatusHash = $state<string>();
+	let copyButtonController = $state<ReturnType<typeof CopyButton>>();
 
 	function handleOnClose() {
 		// generate new hash to force re-render next time opened
-		openStatusHash = Math.random().toString(36);
+		copyButtonController?.clearLabel();
 		onClose?.();
 	}
 
@@ -620,16 +620,14 @@
 							{url}
 						</p>
 					</div>
-					{#key openStatusHash}
-						<CopyButton
-							showTextLeft
-							text={url}
-							classes={{
-								button:
-									'flex-shrink-0 flex items-center gap-1 text-xs font-light hover:text-blue-500'
-							}}
-						/>
-					{/key}
+					<CopyButton
+						bind:this={copyButtonController}
+						showTextLeft
+						text={url}
+						classes={{
+							button: 'flex-shrink-0 flex items-center gap-1 text-xs font-light hover:text-blue-500'
+						}}
+					/>
 				</div>
 			</div>
 			{#if !hideActions}
