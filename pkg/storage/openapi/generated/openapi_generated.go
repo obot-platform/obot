@@ -3184,6 +3184,13 @@ func schema_obot_platform_obot_apiclient_types_K8sSettings(ref common.ReferenceC
 							Format:      "",
 						},
 					},
+					"runtimeClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RuntimeClassName specifies the RuntimeClass for MCP server pods This allows running MCP servers with specific container runtimes (e.g., gVisor, Kata)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"setViaHelm": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SetViaHelm indicates settings are from Helm (cannot be updated via API)",

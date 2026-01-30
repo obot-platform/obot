@@ -248,7 +248,8 @@ func unmarshalJSONStrict(data []byte, v any) error {
 func parseK8sSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
 	if (opts.MCPK8sSettingsAffinity == "" || opts.MCPK8sSettingsAffinity == "{}") &&
 		(opts.MCPK8sSettingsTolerations == "" || opts.MCPK8sSettingsTolerations == "[]") &&
-		(opts.MCPK8sSettingsResources == "" || opts.MCPK8sSettingsResources == "{}") {
+		(opts.MCPK8sSettingsResources == "" || opts.MCPK8sSettingsResources == "{}") &&
+		opts.MCPK8sSettingsRuntimeClassName == "" {
 		return nil, nil
 	}
 
@@ -276,6 +277,10 @@ func parseK8sSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
 			return nil, fmt.Errorf("failed to parse resources from Helm: %w", err)
 		}
 		spec.Resources = &resources
+	}
+
+	if opts.MCPK8sSettingsRuntimeClassName != "" {
+		spec.RuntimeClassName = &opts.MCPK8sSettingsRuntimeClassName
 	}
 
 	return spec, nil

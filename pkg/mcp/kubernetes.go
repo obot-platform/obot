@@ -684,8 +684,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					},
 				},
 				Spec: corev1.PodSpec{
-					Affinity:    k8sSettings.Affinity,
-					Tolerations: k8sSettings.Tolerations,
+					Affinity:         k8sSettings.Affinity,
+					Tolerations:      k8sSettings.Tolerations,
+					RuntimeClassName: k8sSettings.RuntimeClassName,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsNonRoot: &[]bool{true}[0],
 						RunAsUser:    &[]int64{1000}[0],
@@ -1064,6 +1065,15 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 		}
 	}
 
+	// Add runtimeClassName if present
+	if k8sSettings.RuntimeClassName != nil && *k8sSettings.RuntimeClassName != "" {
+		templateSpec["runtimeClassName"] = *k8sSettings.RuntimeClassName
+	} else {
+		// Use $patch: delete to remove any existing runtimeClassName
+		// Note: For scalar fields, we set to nil to remove them in strategic merge patch
+		templateSpec["runtimeClassName"] = nil
+	}
+
 	// Add resources to the container
 	if k8sSettings.Resources != nil {
 		// Use $patch: replace to completely replace the resources field
@@ -1132,6 +1142,11 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
 	if settings.Resources != nil {
 		resourcesJSON, _ := json.Marshal(settings.Resources)
 		buf.Write(resourcesJSON)
+	}
+
+	// Hash runtimeClassName
+	if settings.RuntimeClassName != nil && *settings.RuntimeClassName != "" {
+		buf.WriteString(*settings.RuntimeClassName)
 	}
 
 	if buf.Len() == 0 {
