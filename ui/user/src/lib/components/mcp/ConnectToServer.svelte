@@ -615,7 +615,7 @@
 				<label for="connectURL" class="font-light">Connection URL</label>
 				<div class="mock-input-btn flex w-full items-center justify-between gap-2 shadow-inner">
 					<div class="relative flex h-5 flex-1 overflow-hidden">
-						<p class="absolute inset-0 truncate whitespace-nowrap">
+						<p class="absolute inset-0 truncate">
 							{url}
 						</p>
 					</div>
