@@ -117,4 +117,4 @@ Once an administrator configures the OAuth credentials, the server becomes visib
 
 ## Limitations
 
-- **Composite servers**: Remote servers with static OAuth cannot be included as components in composite servers
+- **Composite servers**: Remote servers with static OAuth cannot be included as components in composite servers. This will be addressed in a future release.
