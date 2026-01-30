@@ -76,7 +76,7 @@
 	let copyButtonController = $state<ReturnType<typeof CopyButton>>();
 
 	function handleOnClose() {
-		copyButtonController?.clearLabel();
+		copyButtonController?.clearButtonText();
 		onClose?.();
 	}
 

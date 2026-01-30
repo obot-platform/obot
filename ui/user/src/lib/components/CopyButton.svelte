@@ -78,7 +78,7 @@
 		}
 	}
 
-	export function clearLabel() {
+	export function clearButtonText() {
 		buttonTextToShow = buttonText;
 	}
 </script>
