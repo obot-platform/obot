@@ -325,8 +325,9 @@
 								class="text-link"
 								rel="external"
 								target="_blank">RuntimeClass</a
-							> for MCP server pods. RuntimeClass allows you to select a specific container runtime
-							configuration for enhanced security isolation. Container runtimes like
+							>
+							for MCP server pods. RuntimeClass allows you to select a specific container runtime configuration
+							for enhanced security isolation. Container runtimes like
 							<a href="https://gvisor.dev/" class="text-link" rel="external" target="_blank"
 								>gVisor</a
 							>
