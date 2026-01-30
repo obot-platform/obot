@@ -289,7 +289,9 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 			isInWorkspace = log.PowerUserWorkspaceID == workspaceID
 		}
 
-		if !isOwnServer && !isInWorkspace {
+		// Admins can see all logs.
+		// For non-admins, it needs to be in the workspace or be their own server to be viewable.
+		if !req.UserIsAdmin() && !isOwnServer && !isInWorkspace {
 			return types.NewErrForbidden("you do not have access to this audit log")
 		}
 
