@@ -6,29 +6,31 @@ import (
 
 // MCPAuditLog represents an audit log entry for MCP API calls
 type MCPAuditLog struct {
-	ID                        uint            `json:"id"`
-	CreatedAt                 Time            `json:"createdAt"`
-	UserID                    string          `json:"userID"`
-	MCPID                     string          `json:"mcpID"`
-	APIKey                    string          `json:"apiKey,omitempty"`
-	PowerUserWorkspaceID      string          `json:"powerUserWorkspaceID,omitempty"`
-	MCPServerDisplayName      string          `json:"mcpServerDisplayName"`
-	MCPServerCatalogEntryName string          `json:"mcpServerCatalogEntryName"`
-	ClientInfo                ClientInfo      `json:"client"`
-	ClientIP                  string          `json:"clientIP"`
-	CallType                  string          `json:"callType"`
-	CallIdentifier            string          `json:"callIdentifier,omitempty"`
-	RequestBody               json.RawMessage `json:"requestBody,omitempty"`
-	ResponseBody              json.RawMessage `json:"responseBody,omitempty"`
-	ResponseStatus            int             `json:"responseStatus"`
-	WebhookStatuses           []WebhookStatus `json:"webhookStatuses,omitempty"`
-	Error                     string          `json:"error,omitempty"`
-	ProcessingTimeMs          int64           `json:"processingTimeMs"`
-	SessionID                 string          `json:"sessionID,omitempty"`
-	RequestID                 string          `json:"requestID,omitempty"`
-	UserAgent                 string          `json:"userAgent,omitempty"`
-	RequestHeaders            json.RawMessage `json:"requestHeaders,omitempty"`
-	ResponseHeaders           json.RawMessage `json:"responseHeaders,omitempty"`
+	ID                   uint   `json:"id"`
+	CreatedAt            Time   `json:"createdAt"`
+	UserID               string `json:"userID"`
+	MCPID                string `json:"mcpID"`
+	APIKey               string `json:"apiKey,omitempty"`
+	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
+	// MCPServerCatalogEntryWorkspaceID represents the ID of the PowerUserWorkspace that contains the catalog entry from which the server was created, if there is one.
+	MCPServerCatalogEntryWorkspaceID string          `json:"mcpServerCatalogEntryWorkspaceID,omitempty"`
+	MCPServerDisplayName             string          `json:"mcpServerDisplayName"`
+	MCPServerCatalogEntryName        string          `json:"mcpServerCatalogEntryName"`
+	ClientInfo                       ClientInfo      `json:"client"`
+	ClientIP                         string          `json:"clientIP"`
+	CallType                         string          `json:"callType"`
+	CallIdentifier                   string          `json:"callIdentifier,omitempty"`
+	RequestBody                      json.RawMessage `json:"requestBody,omitempty"`
+	ResponseBody                     json.RawMessage `json:"responseBody,omitempty"`
+	ResponseStatus                   int             `json:"responseStatus"`
+	WebhookStatuses                  []WebhookStatus `json:"webhookStatuses,omitempty"`
+	Error                            string          `json:"error,omitempty"`
+	ProcessingTimeMs                 int64           `json:"processingTimeMs"`
+	SessionID                        string          `json:"sessionID,omitempty"`
+	RequestID                        string          `json:"requestID,omitempty"`
+	UserAgent                        string          `json:"userAgent,omitempty"`
+	RequestHeaders                   json.RawMessage `json:"requestHeaders,omitempty"`
+	ResponseHeaders                  json.RawMessage `json:"responseHeaders,omitempty"`
 }
 
 type MCPAuditLogResponse struct {

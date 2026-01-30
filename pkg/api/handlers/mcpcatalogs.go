@@ -1396,7 +1396,7 @@ func tempServerAndConfig(ctx context.Context, gptClient *gptscript.GPTScript, cl
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create OAuth client: %w", err)
 	}
 
-	serverConfig, missingFields, err := mcp.ServerToServerConfig(tempMCPServer, tempMCPServer.ValidConnectURLs(baseURL), baseURL, "temp", "temp", catalogName, config, tokenExchangeEnv)
+	serverConfig, missingFields, err := mcp.ServerToServerConfig(tempMCPServer, tempMCPServer.ValidConnectURLs(baseURL), baseURL, "temp", "temp", catalogName, "", config, tokenExchangeEnv)
 	if err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create server config: %w", err)
 	}

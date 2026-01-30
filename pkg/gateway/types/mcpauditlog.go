@@ -16,8 +16,9 @@ type MCPAuditLog struct {
 	APIKey                    string                                `json:"apiKey,omitempty"`
 	UserID                    string                                `json:"userID" gorm:"index"`
 	MCPID                     string                                `json:"mcpID" gorm:"index"`
-	PowerUserWorkspaceID      string                                `json:"powerUserWorkspaceID,omitempty" gorm:"index"`
-	MCPServerDisplayName      string                                `json:"mcpServerDisplayName" gorm:"index"`
+	PowerUserWorkspaceID             string                                `json:"powerUserWorkspaceID,omitempty" gorm:"index"`
+	MCPServerCatalogEntryWorkspaceID string                                `json:"mcpServerCatalogEntryWorkspaceID,omitempty" gorm:"index"`
+	MCPServerDisplayName             string                                `json:"mcpServerDisplayName" gorm:"index"`
 	MCPServerCatalogEntryName string                                `json:"mcpServerCatalogEntryName" gorm:"index"`
 	ClientName                string                                `json:"clientName" gorm:"index"`
 	ClientVersion             string                                `json:"clientVersion" gorm:"index"`
@@ -111,14 +112,15 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 		}
 	}
 	return types2.MCPAuditLog{
-		ID:                        a.ID,
-		CreatedAt:                 *types2.NewTime(a.CreatedAt),
-		UserID:                    a.UserID,
-		MCPID:                     a.MCPID,
-		APIKey:                    a.APIKey,
-		PowerUserWorkspaceID:      a.PowerUserWorkspaceID,
-		MCPServerDisplayName:      a.MCPServerDisplayName,
-		MCPServerCatalogEntryName: a.MCPServerCatalogEntryName,
+		ID:                               a.ID,
+		CreatedAt:                        *types2.NewTime(a.CreatedAt),
+		UserID:                           a.UserID,
+		MCPID:                            a.MCPID,
+		APIKey:                           a.APIKey,
+		PowerUserWorkspaceID:             a.PowerUserWorkspaceID,
+		MCPServerCatalogEntryWorkspaceID: a.MCPServerCatalogEntryWorkspaceID,
+		MCPServerDisplayName:             a.MCPServerDisplayName,
+		MCPServerCatalogEntryName:        a.MCPServerCatalogEntryName,
 		ClientInfo: types2.ClientInfo{
 			Name:    a.ClientName,
 			Version: a.ClientVersion,

@@ -170,14 +170,18 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 	if len(opts.UserID) > 0 {
 		db = db.Where("user_id IN (?)", opts.UserID)
 	}
-	// Apply scope filtering (union of workspace servers OR own servers)
-	if len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 {
+	// Apply scope filtering (union of workspace servers OR catalog entry workspace servers OR own servers)
+	if len(opts.PowerUserWorkspaceID) > 0 || len(opts.MCPServerCatalogEntryWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 {
 		var conditions []string
 		var args []any
 
 		if len(opts.PowerUserWorkspaceID) > 0 {
 			conditions = append(conditions, "power_user_workspace_id IN (?)")
 			args = append(args, opts.PowerUserWorkspaceID)
+		}
+		if len(opts.MCPServerCatalogEntryWorkspaceID) > 0 {
+			conditions = append(conditions, "mcp_server_catalog_entry_workspace_id IN (?)")
+			args = append(args, opts.MCPServerCatalogEntryWorkspaceID)
 		}
 		if len(opts.OwnServerMCPIDs) > 0 {
 			conditions = append(conditions, "mcp_id IN (?)")
@@ -359,8 +363,8 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 	if len(opts.ClientIP) > 0 {
 		db = db.Where("client_ip IN (?)", opts.ClientIP)
 	}
-	// Apply scope filtering (union of workspace servers OR own servers)
-	if len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 {
+	// Apply scope filtering (union of workspace servers OR catalog entry workspace servers OR own servers)
+	if len(opts.PowerUserWorkspaceID) > 0 || len(opts.MCPServerCatalogEntryWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 {
 		var (
 			conditions []string
 			args       []any
@@ -369,6 +373,10 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 		if len(opts.PowerUserWorkspaceID) > 0 {
 			conditions = append(conditions, "power_user_workspace_id IN (?)")
 			args = append(args, opts.PowerUserWorkspaceID)
+		}
+		if len(opts.MCPServerCatalogEntryWorkspaceID) > 0 {
+			conditions = append(conditions, "mcp_server_catalog_entry_workspace_id IN (?)")
+			args = append(args, opts.MCPServerCatalogEntryWorkspaceID)
 		}
 		if len(opts.OwnServerMCPIDs) > 0 {
 			conditions = append(conditions, "mcp_id IN (?)")
@@ -411,14 +419,18 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 		if opts.MCPID != "" {
 			tx = tx.Where("mcp_id = ?", opts.MCPID)
 		}
-		// Apply scope filtering (union of workspace servers OR own servers)
-		if len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 {
+		// Apply scope filtering (union of workspace servers OR catalog entry workspace servers OR own servers)
+		if len(opts.PowerUserWorkspaceID) > 0 || len(opts.MCPServerCatalogEntryWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 {
 			var conditions []string
 			var args []any
 
 			if len(opts.PowerUserWorkspaceID) > 0 {
 				conditions = append(conditions, "power_user_workspace_id IN (?)")
 				args = append(args, opts.PowerUserWorkspaceID)
+			}
+			if len(opts.MCPServerCatalogEntryWorkspaceID) > 0 {
+				conditions = append(conditions, "mcp_server_catalog_entry_workspace_id IN (?)")
+				args = append(args, opts.MCPServerCatalogEntryWorkspaceID)
 			}
 			if len(opts.OwnServerMCPIDs) > 0 {
 				conditions = append(conditions, "mcp_id IN (?)")
@@ -537,41 +549,43 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 // MCPAuditLogOptions represents options for querying MCP audit logs
 type MCPAuditLogOptions struct {
-	WithRequestAndResponse    bool
-	PowerUserWorkspaceID      []string // Support filtering by workspace ID(s)
-	OwnServerMCPIDs           []string // MCPIDs for user's own servers (union with PowerUserWorkspaceID)
-	UserID                    []string
-	MCPID                     []string
-	MCPServerDisplayName      []string
-	MCPServerCatalogEntryName []string
-	CallType                  []string
-	CallIdentifier            []string
-	SessionID                 []string
-	ClientName                []string
-	ClientVersion             []string
-	ResponseStatus            []string
-	ClientIP                  []string
-	ProcessingTimeMin         int64
-	ProcessingTimeMax         int64
-	Query                     string // Search term for text search across multiple fields
-	StartTime                 time.Time
-	EndTime                   time.Time
-	Limit                     int
-	Offset                    int
-	SortBy                    string // Field to sort by (e.g., "created_at", "user_id", "call_type")
-	SortOrder                 string // Sort order: "asc" or "desc"
+	WithRequestAndResponse           bool
+	PowerUserWorkspaceID             []string // Support filtering by workspace ID(s)
+	MCPServerCatalogEntryWorkspaceID []string // PowerUserWorkspace ID(s) of catalog entries that servers were created from
+	OwnServerMCPIDs                  []string // MCPIDs for user's own servers (union with PowerUserWorkspaceID)
+	UserID                           []string
+	MCPID                            []string
+	MCPServerDisplayName             []string
+	MCPServerCatalogEntryName        []string
+	CallType                         []string
+	CallIdentifier                   []string
+	SessionID                        []string
+	ClientName                       []string
+	ClientVersion                    []string
+	ResponseStatus                   []string
+	ClientIP                         []string
+	ProcessingTimeMin                int64
+	ProcessingTimeMax                int64
+	Query                            string // Search term for text search across multiple fields
+	StartTime                        time.Time
+	EndTime                          time.Time
+	Limit                            int
+	Offset                           int
+	SortBy                           string // Field to sort by (e.g., "created_at", "user_id", "call_type")
+	SortOrder                        string // Sort order: "asc" or "desc"
 }
 
 // MCPUsageStatsOptions represents options for querying MCP usage statistics
 type MCPUsageStatsOptions struct {
-	MCPID                      string
-	PowerUserWorkspaceID       []string // Workspace filtering support (same as audit logs)
-	OwnServerMCPIDs            []string // MCPIDs for user's own servers (union with PowerUserWorkspaceID)
-	UserIDs                    []string
-	MCPServerDisplayNames      []string
-	MCPServerCatalogEntryNames []string
-	StartTime                  time.Time
-	EndTime                    time.Time
+	MCPID                            string
+	PowerUserWorkspaceID             []string // Workspace filtering support (same as audit logs)
+	MCPServerCatalogEntryWorkspaceID []string // PowerUserWorkspace ID(s) of catalog entries that servers were created from
+	OwnServerMCPIDs                  []string // MCPIDs for user's own servers (union with PowerUserWorkspaceID)
+	UserIDs                          []string
+	MCPServerDisplayNames            []string
+	MCPServerCatalogEntryNames       []string
+	StartTime                        time.Time
+	EndTime                          time.Time
 }
 
 func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog) error {
