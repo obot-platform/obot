@@ -37,8 +37,7 @@ Before configuring Obot, you need to register an OAuth application with the serv
 ### Step 3: Enable static OAuth
 
 1. In the advanced configuration section, toggle **Static OAuth** to enabled
-2. (Optional) Enter the **Default Authorization Server URL** if you know which authorization server URL you will use. This URL can be overridden when you configure the client ID and client secret later.
-3. Click **Save** to create or update the remote MCP server
+2. Click **Save** to create or update the remote MCP server
 
 ### Step 4: Configure OAuth credentials
 
@@ -46,7 +45,6 @@ After saving the remote MCP server with static OAuth enabled:
 
 1. Click **Configure OAuth Credentials** in the Static OAuth section
 2. Enter the following information:
-   - **Authorization Server URL**: The OAuth authorization endpoint (e.g., `https://github.com/login/oauth`)
    - **Client ID**: The client ID from your registered OAuth application
    - **Client Secret**: The client secret from your registered OAuth application
 3. Click **Save**
@@ -59,26 +57,17 @@ Once configured, the MCP server becomes available to users.
 
 The remote MCP server shows whether OAuth credentials are configured. When viewing a remote MCP server with static OAuth:
 
-- If credentials are configured, you'll see the Client ID and Authorization Server URL
+- If credentials are configured, you'll see the Client ID
 - The Client Secret is never displayed after initial configuration
-
-### Updating the authorization server URL
-
-You can update the Authorization Server URL without clearing credentials:
-
-1. Open the remote MCP server
-2. Click **Configure OAuth Credentials**
-3. Update the **Authorization Server URL** field
-4. Click **Save**
 
 ### Changing client credentials
 
-Client ID and Client Secret cannot be modified after initial configuration. To change them:
+To change the Client ID and Client Secret:
 
 1. Click **Configure OAuth Credentials**
 2. Click **Clear Credentials**
 3. Confirm the deletion
-4. Re-enter all OAuth credentials with the new values
+4. Re-enter OAuth credentials with the new values
 
 Clearing credentials temporarily makes the MCP server unavailable to users until new credentials are configured.
 
@@ -108,7 +97,6 @@ This example demonstrates configuring the GitHub remote MCP server.
 4. Enter the URL: `https://api.githubcopilot.com/mcp`
 5. Click **Advanced Configuration**
 6. Toggle **Static OAuth** to enabled
-7. Enter the Authorization Server URL: `https://github.com/login/oauth`
 8. Click **Save**
 
 ### Add OAuth credentials
