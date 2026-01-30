@@ -79,7 +79,7 @@
 	}
 
 	export function clearLabel() {
-		buttonTextToShow = '';
+		buttonTextToShow = buttonText;
 	}
 </script>
 
