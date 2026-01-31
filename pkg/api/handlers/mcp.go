@@ -28,6 +28,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	ktypes "k8s.io/apimachinery/pkg/types"
 	kwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -1734,6 +1735,12 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return err
 	}
 
+	// Wait for the server's deployment status to change after the update before returning.
+	existing, err = m.waitForDeploymentStatus(req, existing, false)
+	if err != nil {
+		log.Warnf("failed to wait for mcp server %s deployment status to change: %v", existing.Name, err)
+	}
+
 	slug, err := SlugForMCPServer(req.Context(), req.Storage, existing, req.User.GetUID(), catalogID, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
@@ -1875,6 +1882,12 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 	slug, err := SlugForMCPServer(req.Context(), req.Storage, mcpServer, req.User.GetUID(), catalogID, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
+	}
+
+	// Kick the server and wait for the deployment status to clear
+	mcpServer, err = m.waitForDeploymentStatus(req, mcpServer, true)
+	if err != nil {
+		log.Warnf("failed to wait for mcp server %s deployment status to change: %v", mcpServer.Name, err)
 	}
 
 	return req.Write(ConvertMCPServer(mcpServer, envVars, m.serverURL, slug))
@@ -3481,6 +3494,11 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		return err
 	}
 
+	// Wait for the server's deployment status to change after the update before returning.
+	if _, err := m.waitForDeploymentStatus(req, server, false); err != nil {
+		log.Warnf("failed to wait for mcp server %s deployment status to change: %v", server.Name, err)
+	}
+
 	return nil
 }
 
@@ -3562,6 +3580,33 @@ func (*MCPHandler) waitForCompositeReady(req api.Context, compositeServer v1.MCP
 	)
 	if err != nil {
 		return compositeServer, err
+	}
+
+	return *latest, nil
+}
+
+// waitForDeploymentStatus waits up to 10 seconds for the server's deployment status to be cleared or change.
+// If kick is true, a no-op patch is issued to trigger a status sync before waiting.
+func (*MCPHandler) waitForDeploymentStatus(req api.Context, server v1.MCPServer, kick bool) (v1.MCPServer, error) {
+	if kick {
+		if err := req.Storage.Patch(req.Context(), &server, kclient.RawPatch(ktypes.MergePatchType, []byte(`{}`))); err != nil {
+			return server, err
+		}
+	}
+
+	latest, err := wait.For(
+		req.Context(),
+		req.Storage,
+		&server,
+		func(cs *v1.MCPServer) (bool, error) {
+			return cs.Status.DeploymentStatus == "" || cs.Status.DeploymentStatus != server.Status.DeploymentStatus, nil
+		},
+		wait.Option{
+			Timeout: 10 * time.Second,
+		},
+	)
+	if err != nil {
+		return server, err
 	}
 
 	return *latest, nil

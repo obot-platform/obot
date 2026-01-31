@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
+	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -24,16 +25,20 @@ import (
 )
 
 type Handler struct {
-	gptClient         *gptscript.GPTScript
-	mcpSessionManager *mcp.SessionManager
-	baseURL           string
+	gptClient              *gptscript.GPTScript
+	mcpSessionManager      *mcp.SessionManager
+	baseURL                string
+	k8sClient              kclient.Client
+	mcpDeploymentNamespace string
 }
 
-func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, baseURL string) *Handler {
+func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, baseURL string, k8sClient kclient.Client, mcpDeploymentNamespace string) *Handler {
 	return &Handler{
-		gptClient:         gptClient,
-		mcpSessionManager: mcpSessionManager,
-		baseURL:           baseURL,
+		gptClient:              gptClient,
+		mcpSessionManager:      mcpSessionManager,
+		baseURL:                baseURL,
+		k8sClient:              k8sClient,
+		mcpDeploymentNamespace: mcpDeploymentNamespace,
 	}
 }
 
@@ -656,4 +661,59 @@ func clearOAuthStatusIfSet(req router.Request, server *v1.MCPServer) error {
 		return req.Client.Status().Update(req.Ctx, server)
 	}
 	return nil
+}
+
+// CleanupDeploymentStatus ensures deployment status is cleared when the
+// corresponding Kubernetes deployment doesn't exist. This prevents stale status
+// from showing in the UI after deployments are deleted (e.g., during upgrades).
+// Only runs when K8s backend is active.
+func (h *Handler) CleanupDeploymentStatus(req router.Request, _ router.Response) error {
+	// Skip if not using K8s backend
+	if h.k8sClient == nil {
+		return nil
+	}
+
+	mcpServer := req.Object.(*v1.MCPServer)
+
+	// Check if server has any deployment status to clear
+	hasDeploymentStatus := mcpServer.Status.DeploymentStatus != "" ||
+		mcpServer.Status.DeploymentAvailableReplicas != nil ||
+		mcpServer.Status.DeploymentReadyReplicas != nil ||
+		mcpServer.Status.DeploymentReplicas != nil ||
+		len(mcpServer.Status.DeploymentConditions) > 0
+
+	if !hasDeploymentStatus {
+		// No status to clear, nothing to do
+		return nil
+	}
+
+	// Check if deployment exists in the K8s cluster
+	var deployment appsv1.Deployment
+	err := h.k8sClient.Get(req.Ctx, kclient.ObjectKey{
+		Name:      mcpServer.Name,
+		Namespace: h.mcpDeploymentNamespace,
+	}, &deployment)
+
+	if err == nil {
+		// Deployment exists, status is valid - nothing to do
+		return nil
+	}
+
+	if !apierrors.IsNotFound(err) {
+		// Some other error occurred - don't clear status, could be transient
+		return fmt.Errorf("failed to check deployment existence: %w", err)
+	}
+
+	// Clear deployment status
+	mcpServer.Status.DeploymentStatus = ""
+	mcpServer.Status.DeploymentAvailableReplicas = nil
+	mcpServer.Status.DeploymentReadyReplicas = nil
+	mcpServer.Status.DeploymentReplicas = nil
+	mcpServer.Status.DeploymentConditions = nil
+
+	// Clean up k8s settings status
+	mcpServer.Status.K8sSettingsHash = ""
+	mcpServer.Status.NeedsK8sUpdate = false
+
+	return req.Client.Status().Update(req.Ctx, mcpServer)
 }
