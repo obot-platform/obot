@@ -170,8 +170,21 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 	if len(opts.UserID) > 0 {
 		db = db.Where("user_id IN (?)", opts.UserID)
 	}
-	if len(opts.PowerUserWorkspaceID) > 0 {
-		db = db.Where("power_user_workspace_id IN (?)", opts.PowerUserWorkspaceID)
+	// Apply scope filtering (union of workspace servers OR own servers)
+	if len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 {
+		var conditions []string
+		var args []any
+
+		if len(opts.PowerUserWorkspaceID) > 0 {
+			conditions = append(conditions, "power_user_workspace_id IN (?)")
+			args = append(args, opts.PowerUserWorkspaceID)
+		}
+		if len(opts.OwnServerMCPIDs) > 0 {
+			conditions = append(conditions, "mcp_id IN (?)")
+			args = append(args, opts.OwnServerMCPIDs)
+		}
+
+		db = db.Where(strings.Join(conditions, " OR "), args...)
 	}
 	if len(opts.MCPID) > 0 {
 		db = db.Where("mcp_id IN (?)", opts.MCPID)
@@ -346,8 +359,23 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 	if len(opts.ClientIP) > 0 {
 		db = db.Where("client_ip IN (?)", opts.ClientIP)
 	}
-	if len(opts.PowerUserWorkspaceID) > 0 {
-		db = db.Where("power_user_workspace_id IN (?)", opts.PowerUserWorkspaceID)
+	// Apply scope filtering (union of workspace servers OR own servers)
+	if len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 {
+		var (
+			conditions []string
+			args       []any
+		)
+
+		if len(opts.PowerUserWorkspaceID) > 0 {
+			conditions = append(conditions, "power_user_workspace_id IN (?)")
+			args = append(args, opts.PowerUserWorkspaceID)
+		}
+		if len(opts.OwnServerMCPIDs) > 0 {
+			conditions = append(conditions, "mcp_id IN (?)")
+			args = append(args, opts.OwnServerMCPIDs)
+		}
+
+		db = db.Where(strings.Join(conditions, " OR "), args...)
 	}
 	if !opts.StartTime.IsZero() {
 		db = db.Where("created_at >= ?", opts.StartTime.Local())
@@ -383,8 +411,21 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 		if opts.MCPID != "" {
 			tx = tx.Where("mcp_id = ?", opts.MCPID)
 		}
-		if len(opts.PowerUserWorkspaceID) > 0 {
-			tx = tx.Where("power_user_workspace_id IN (?)", opts.PowerUserWorkspaceID)
+		// Apply scope filtering (union of workspace servers OR own servers)
+		if len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 {
+			var conditions []string
+			var args []any
+
+			if len(opts.PowerUserWorkspaceID) > 0 {
+				conditions = append(conditions, "power_user_workspace_id IN (?)")
+				args = append(args, opts.PowerUserWorkspaceID)
+			}
+			if len(opts.OwnServerMCPIDs) > 0 {
+				conditions = append(conditions, "mcp_id IN (?)")
+				args = append(args, opts.OwnServerMCPIDs)
+			}
+
+			tx = tx.Where(strings.Join(conditions, " OR "), args...)
 		}
 		if len(opts.UserIDs) > 0 {
 			tx = tx.Where("user_id IN (?)", opts.UserIDs)
@@ -498,6 +539,7 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 type MCPAuditLogOptions struct {
 	WithRequestAndResponse    bool
 	PowerUserWorkspaceID      []string // Support filtering by workspace ID(s)
+	OwnServerMCPIDs           []string // MCPIDs for user's own servers (union with PowerUserWorkspaceID)
 	UserID                    []string
 	MCPID                     []string
 	MCPServerDisplayName      []string
@@ -524,6 +566,7 @@ type MCPAuditLogOptions struct {
 type MCPUsageStatsOptions struct {
 	MCPID                      string
 	PowerUserWorkspaceID       []string // Workspace filtering support (same as audit logs)
+	OwnServerMCPIDs            []string // MCPIDs for user's own servers (union with PowerUserWorkspaceID)
 	UserIDs                    []string
 	MCPServerDisplayNames      []string
 	MCPServerCatalogEntryNames []string

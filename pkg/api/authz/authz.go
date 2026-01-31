@@ -258,6 +258,14 @@ var (
 			"GET /api/all-mcps/entries/{entry_id}",
 			"GET /api/all-mcps/servers",
 			"GET /api/all-mcps/servers/{mcp_server_id}",
+
+			// Audit log access for own servers (filtered in handler)
+			"GET /api/mcp-audit-logs",
+			"GET /api/mcp-audit-logs/filter-options/{filter}",
+			"GET /api/mcp-audit-logs/detail/{audit_log_id}",
+			"GET /api/mcp-audit-logs/{mcp_id}",
+			"GET /api/mcp-stats",
+			"GET /api/mcp-stats/{mcp_id}",
 		},
 
 		types.GroupPowerUserPlus: {
