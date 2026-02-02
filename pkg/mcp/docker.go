@@ -606,7 +606,6 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		AuditLogEndpoint:          server.AuditLogEndpoint,
 		AuditLogToken:             server.AuditLogToken,
 		AuditLogMetadata:          server.AuditLogMetadata,
-		ContainerPort:             containerPort,
 		ContainerPath:             server.ContainerPath,
 	}, nil
 }
