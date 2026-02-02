@@ -286,6 +286,7 @@
 	<div class="dialog-backdrop">
 		<button
 			type="button"
+			aria-label="Close dialog"
 			onclick={() => {
 				versionDialog?.close();
 			}}>close</button

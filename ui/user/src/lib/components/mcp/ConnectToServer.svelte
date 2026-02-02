@@ -842,6 +842,6 @@
 		</div>
 	</div>
 	<div class="dialog-backdrop">
-		<button type="button" onclick={handleOauthClose}>close</button>
+		<button type="button" aria-label="Close dialog" onclick={handleOauthClose}>close</button>
 	</div>
 </dialog>

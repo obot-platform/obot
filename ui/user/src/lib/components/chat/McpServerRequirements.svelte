@@ -329,7 +329,7 @@
 				</a>
 			</div>
 			<div class="dialog-backdrop">
-				<button type="button" onclick={dismissCurrent}>close</button>
+				<button type="button" aria-label="Close dialog" onclick={dismissCurrent}>close</button>
 			</div>
 		</dialog>
 	{:else if requirements[0]?.type === 'config'}
