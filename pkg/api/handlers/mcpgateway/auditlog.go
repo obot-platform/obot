@@ -3,6 +3,7 @@ package mcpgateway
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,6 +24,28 @@ type AuditLogHandler struct{}
 
 func NewAuditLogHandler() *AuditLogHandler {
 	return &AuditLogHandler{}
+}
+
+// getOwnServerMCPIDs returns the MCP server IDs for servers that the user owns directly
+// (not through a workspace or catalog). These are servers where:
+// - Spec.UserID == user's ID
+// - Spec.MCPCatalogID == ""
+// - Spec.PowerUserWorkspaceID == ""
+func getOwnServerMCPIDs(req api.Context) ([]string, error) {
+	var mcpServers v1.MCPServerList
+	if err := req.List(&mcpServers, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.userID", req.User.GetUID()),
+	}); err != nil {
+		return nil, err
+	}
+
+	var mcpIDs []string
+	for _, server := range mcpServers.Items {
+		if server.Spec.MCPCatalogID == "" && server.Spec.PowerUserWorkspaceID == "" {
+			mcpIDs = append(mcpIDs, server.Name)
+		}
+	}
+	return mcpIDs, nil
 }
 
 // parseMultiValueParam parses query parameters that can have multiple values
@@ -137,9 +160,28 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		Query:                     strings.TrimSpace(query.Get("query")),
 	}
 
-	// Apply workspace filtering for Power Users
-	if req.UserIsPowerUser() && !req.UserIsAdmin() {
-		opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
+	// Apply scope filtering based on user role
+	if !req.UserIsAdmin() && !req.UserIsAuditor() {
+		ownServerMCPIDs, err := getOwnServerMCPIDs(req)
+		if err != nil {
+			return fmt.Errorf("failed to get own server MCPIDs: %w", err)
+		}
+		opts.OwnServerMCPIDs = ownServerMCPIDs
+
+		// PowerUsers also see workspace servers (union)
+		if req.UserIsPowerUser() {
+			opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
+		}
+
+		// Return empty if no access scope
+		if len(opts.OwnServerMCPIDs) == 0 && len(opts.PowerUserWorkspaceID) == 0 {
+			return req.Write(types.MCPAuditLogResponse{
+				MCPAuditLogList: types.MCPAuditLogList{Items: []types.MCPAuditLog{}},
+				Total:           0,
+				Limit:           opts.Limit,
+				Offset:          opts.Offset,
+			})
+		}
 	}
 
 	// Handle path parameter for mcp_id (takes precedence over query parameter)
@@ -226,10 +268,43 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 		return types.NewErrBadRequest("invalid audit log id: %v", err)
 	}
 
-	// Get the audit log with full details if user is auditor
-	log, err := req.GatewayClient.GetMCPAuditLog(req.Context(), uint(auditLogID), req.UserIsAuditor())
+	// Fetch metadata first to check authorization
+	log, err := req.GatewayClient.GetMCPAuditLog(req.Context(), uint(auditLogID), false)
 	if err != nil {
 		return err
+	}
+
+	canAccessFullPayload := req.UserIsAuditor()
+	if !req.UserIsAuditor() {
+		ownServerMCPIDs, err := getOwnServerMCPIDs(req)
+		if err != nil {
+			return fmt.Errorf("failed to get own server MCPIDs: %w", err)
+		}
+
+		isOwnServer := slices.Contains(ownServerMCPIDs, log.MCPID)
+
+		isInWorkspace := false
+		if req.UserIsPowerUser() {
+			workspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
+			isInWorkspace = log.PowerUserWorkspaceID == workspaceID
+		}
+
+		// Admins can see all logs.
+		// For non-admins, it needs to be in the workspace or be their own server to be viewable.
+		if !req.UserIsAdmin() && !isOwnServer && !isInWorkspace {
+			return types.NewErrForbidden("you do not have access to this audit log")
+		}
+
+		// Full payload only for OWN servers (not workspace servers)
+		canAccessFullPayload = isOwnServer
+	}
+
+	// Re-fetch with full payload if authorized
+	if canAccessFullPayload {
+		log, err = req.GatewayClient.GetMCPAuditLog(req.Context(), uint(auditLogID), true)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Convert to API type
@@ -282,9 +357,25 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 		ClientIP:                  parseMultiValueParam(query, "client_ip"),
 	}
 
-	// Apply workspace filtering for Power Users
-	if req.UserIsPowerUser() && !req.UserIsAdmin() {
-		opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
+	// Apply scope filtering based on user role
+	if !req.UserIsAdmin() && !req.UserIsAuditor() {
+		ownServerMCPIDs, err := getOwnServerMCPIDs(req)
+		if err != nil {
+			return fmt.Errorf("failed to get own server MCPIDs: %w", err)
+		}
+		opts.OwnServerMCPIDs = ownServerMCPIDs
+
+		// PowerUsers also see workspace servers (union)
+		if req.UserIsPowerUser() {
+			opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
+		}
+
+		// Return empty if no access scope
+		if len(opts.OwnServerMCPIDs) == 0 && len(opts.PowerUserWorkspaceID) == 0 {
+			return req.Write(map[string]any{
+				"options": []string{},
+			})
+		}
 	}
 
 	// Parse time range
@@ -352,9 +443,27 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 		UserIDs:                    userIDs,
 	}
 
-	// Apply workspace filtering for Power Users (same logic as audit logs)
-	if req.UserIsPowerUser() && !req.UserIsAdmin() {
-		opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
+	// Apply scope filtering based on user role (same logic as audit logs)
+	if !req.UserIsAdmin() && !req.UserIsAuditor() {
+		ownServerMCPIDs, err := getOwnServerMCPIDs(req)
+		if err != nil {
+			return fmt.Errorf("failed to get own server MCPIDs: %w", err)
+		}
+		opts.OwnServerMCPIDs = ownServerMCPIDs
+
+		// PowerUsers also see workspace servers (union)
+		if req.UserIsPowerUser() {
+			opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
+		}
+
+		// Return empty if no access scope
+		if len(opts.OwnServerMCPIDs) == 0 && len(opts.PowerUserWorkspaceID) == 0 {
+			return req.Write(types.MCPUsageStats{
+				TimeStart: *types.NewTime(time.Now().Add(-24 * time.Hour)),
+				TimeEnd:   *types.NewTime(time.Now()),
+				Items:     []types.MCPUsageStatItem{},
+			})
+		}
 	}
 
 	var (
