@@ -17584,6 +17584,21 @@ func schema_storage_apis_obotobotai_v1_RunSpec(ref common.ReferenceCallback) com
 							Format: "",
 						},
 					},
+					"callDecisions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: false,
+										Type:    []string{"boolean"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"input"},
 			},
