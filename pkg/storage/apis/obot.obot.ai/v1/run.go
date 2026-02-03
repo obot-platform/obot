@@ -25,6 +25,7 @@ const (
 	OAuthClientFinalizer           = "obot.obot.ai/oauth-client"
 	AccessControlRuleFinalizer     = "obot.obot.ai/access-control-rule"
 	SystemMCPServerFinalizer       = "obot.obot.ai/system-mcp-server"
+	NanobotAgentFinalizer          = "obot.obot.ai/nanobot-agent"
 
 	ModelProviderSyncAnnotation         = "obot.ai/model-provider-sync"
 	WorkflowSyncAnnotation              = "obot.ai/workflow-sync"

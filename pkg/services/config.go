@@ -182,6 +182,7 @@ type Services struct {
 
 	DisableUpdateCheck       bool
 	MCPRuntimeBackend        string
+	MCPRemoteShimBaseImage   string
 	RegistryNoAuth           bool
 	AutonomousToolUseEnabled bool
 	NanobotIntegration       bool
@@ -839,6 +840,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DisableUpdateCheck:       config.DisableUpdateCheck,
 		AutonomousToolUseEnabled: config.EnableAutonomousToolUse,
 		MCPRuntimeBackend:        config.MCPRuntimeBackend,
+		MCPRemoteShimBaseImage:   config.MCPRemoteShimBaseImage,
 		RegistryNoAuth:           registryNoAuth,
 		NanobotIntegration:       config.NanobotIntegration,
 	}, nil

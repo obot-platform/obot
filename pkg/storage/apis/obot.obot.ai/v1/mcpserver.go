@@ -75,6 +75,7 @@ func (in *MCPServer) DeleteRefs() []Ref {
 		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogID},
 		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
 		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
+		{ObjType: &NanobotAgent{}, Name: in.Spec.NanobotAgentID},
 	}
 	if in.Spec.CompositeName == "" {
 		// Only garbage collect an MCP server when the catalog entry is deleted if it's not a component of a composite MCP server.
@@ -120,6 +121,8 @@ type MCPServerSpec struct {
 	Template bool `json:"template,omitempty"`
 	// CompositeName is the name of the composite server that this MCP server is a component of, if there is one.
 	CompositeName string `json:"compositeName,omitempty"`
+	// NanobotAgentID is the name of the NanobotAgent that created this MCP server, if there is one.
+	NanobotAgentID string `json:"nanobotAgentID,omitempty"`
 }
 
 type MCPServerStatus struct {

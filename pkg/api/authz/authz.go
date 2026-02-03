@@ -129,6 +129,9 @@ var (
 		"GET /api/admin-api-keys",
 		"GET /api/admin-api-keys/{id}",
 		"DELETE /api/admin-api-keys/{id}",
+
+		"/api/projectsv2",
+		"/api/projectsv2/",
 	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,
@@ -270,6 +273,9 @@ var (
 			"GET /api/mcp-audit-logs/{mcp_id}",
 			"GET /api/mcp-stats",
 			"GET /api/mcp-stats/{mcp_id}",
+
+			// Allow basic users to create ProjectV2 resources
+			"POST /api/projectsv2",
 		},
 
 		types.GroupPowerUserPlus: {

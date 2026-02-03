@@ -97,7 +97,7 @@ func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfi
 func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
 	// Transform component URLs to use internal service FQDN
 	for i, component := range server.Components {
-		component.URL = k.replaceHostWithServiceFQDN(component.URL)
+		component.URL = k.transformObotHostname(component.URL)
 		server.Components[i] = component
 	}
 
@@ -259,19 +259,19 @@ func (k *kubernetesBackend) transformConfig(ctx context.Context, serverConfig Se
 	return &ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/%s", serverConfig.MCPServerName, k.mcpNamespace, k.mcpClusterDomain, strings.TrimPrefix(serverConfig.ContainerPath, "/")), MCPServerName: pods.Items[0].Name}, nil
 }
 
-// replaceHostWithServiceFQDN replaces the host and port in a URL with the internal service FQDN.
-func (k *kubernetesBackend) replaceHostWithServiceFQDN(urlStr string) string {
-	if k.serviceFQDN == "" || urlStr == "" {
-		return urlStr
+// transformObotHostname replaces the host and port in a URL with the internal service FQDN.
+func (k *kubernetesBackend) transformObotHostname(url string) string {
+	if k.serviceFQDN == "" || url == "" {
+		return url
 	}
 
 	// Parse the URL to extract the path
-	idx := strings.Index(urlStr, "://")
+	idx := strings.Index(url, "://")
 	if idx == -1 {
-		return urlStr
+		return url
 	}
 
-	rest := urlStr[idx+3:]
+	rest := url[idx+3:]
 
 	// Find where the path starts (after host:port)
 	pathIdx := strings.Index(rest, "/")
@@ -381,21 +381,21 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	// JWT environment variables
 	secretEnvStringData["NANOBOT_RUN_OAUTH_SCOPES"] = "profile"
 	secretEnvStringData["NANOBOT_RUN_TRUSTED_ISSUER"] = server.Issuer
-	secretEnvStringData["NANOBOT_RUN_OAUTH_JWKSURL"] = k.replaceHostWithServiceFQDN(server.JWKSEndpoint)
+	secretEnvStringData["NANOBOT_RUN_OAUTH_JWKSURL"] = k.transformObotHostname(server.JWKSEndpoint)
 	secretEnvStringData["NANOBOT_RUN_TRUSTED_AUDIENCES"] = strings.Join(server.Audiences, ",")
 	secretEnvStringData["NANOBOT_RUN_OAUTH_CLIENT_ID"] = server.TokenExchangeClientID
 	secretEnvStringData["NANOBOT_RUN_OAUTH_CLIENT_SECRET"] = server.TokenExchangeClientSecret
-	secretEnvStringData["NANOBOT_RUN_OAUTH_TOKEN_URL"] = k.replaceHostWithServiceFQDN(server.TokenExchangeEndpoint)
-	secretEnvStringData["NANOBOT_RUN_OAUTH_AUTHORIZE_URL"] = k.replaceHostWithServiceFQDN(server.AuthorizeEndpoint)
+	secretEnvStringData["NANOBOT_RUN_OAUTH_TOKEN_URL"] = k.transformObotHostname(server.TokenExchangeEndpoint)
+	secretEnvStringData["NANOBOT_RUN_OAUTH_AUTHORIZE_URL"] = k.transformObotHostname(server.AuthorizeEndpoint)
 	secretEnvStringData["NANOBOT_DISABLE_HEALTH_CHECKER"] = strconv.FormatBool(server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeComposite)
 	// Audit log variables
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_TOKEN"] = server.AuditLogToken
-	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_SEND_URL"] = k.replaceHostWithServiceFQDN(server.AuditLogEndpoint)
+	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_SEND_URL"] = k.transformObotHostname(server.AuditLogEndpoint)
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE"] = strconv.Itoa(k.auditLogsBatchSize)
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS"] = strconv.Itoa(k.auditLogsFlushIntervalSeconds)
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_METADATA"] = server.AuditLogMetadata
 	// API key authentication webhook URL
-	secretEnvStringData["NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL"] = k.replaceHostWithServiceFQDN(server.Issuer + "/api/api-keys/auth")
+	secretEnvStringData["NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL"] = k.transformObotHostname(server.Issuer + "/api/api-keys/auth")
 	secretEnvStringData["NANOBOT_RUN_MCPSERVER_ID"] = strings.TrimSuffix(server.MCPServerName, "-shim")
 
 	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvStringData) + hash.Digest(secretVolumeStringData) + hash.Digest(webhooks))

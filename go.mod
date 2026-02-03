@@ -37,7 +37,7 @@ require (
 	github.com/moby/moby/api v1.52.0-alpha.1
 	github.com/moby/moby/client v0.1.0-alpha.0
 	github.com/modelcontextprotocol/go-sdk v1.2.0
-	github.com/nanobot-ai/nanobot v0.0.52
+	github.com/nanobot-ai/nanobot v0.0.54
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037
 	github.com/obot-platform/kinm v0.0.0-20250905213846-3c65d6845f83
 	github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317
@@ -51,7 +51,11 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0
+	go.opentelemetry.io/contrib/samplers/probability/consistent v0.29.0
 	go.opentelemetry.io/otel v1.35.0
+	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.11.0
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.35.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.27.0
 	go.opentelemetry.io/otel/log v0.11.0
 	go.opentelemetry.io/otel/sdk v1.35.0
 	go.opentelemetry.io/otel/sdk/log v0.11.0
@@ -76,15 +80,6 @@ require (
 	k8s.io/kube-openapi v0.0.0-20241009091222-67ed5848f094
 	sigs.k8s.io/controller-runtime v0.19.0
 	sigs.k8s.io/yaml v1.6.0
-)
-
-require (
-	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260106135339-3745d9b14a30 // indirect
-	github.com/pterm/pterm v0.12.80 // indirect
-	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	golang.org/x/text v0.33.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 require (
@@ -157,6 +152,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dop251/goja v0.0.0-20250630131328-58d95d85e994 // indirect
 	github.com/dsnet/compress v0.0.2-0.20230904184137-39efe44ab707 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.8.2 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
@@ -216,7 +212,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
-	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
+	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -238,6 +234,7 @@ require (
 	github.com/nwaples/rardecode/v2 v2.2.1 // indirect
 	github.com/nxadm/tail v1.4.11 // indirect
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
+	github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260106135339-3745d9b14a30 // indirect
 	github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77 // indirect
 	github.com/onsi/ginkgo/v2 v2.20.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
@@ -252,9 +249,10 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.60.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/pterm/pterm v0.12.80 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
+	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/sorairolake/lzip-go v0.3.8 // indirect
@@ -274,7 +272,8 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	github.com/yuin/goldmark v1.7.8 // indirect
+	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
+	github.com/yuin/goldmark v1.7.13 // indirect
 	github.com/yuin/goldmark-emoji v1.0.4 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.14 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.14 // indirect
@@ -282,11 +281,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.54.0 // indirect
-	go.opentelemetry.io/contrib/samplers/probability/consistent v0.29.0
-	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.11.0
-	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.35.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.33.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.27.0
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
@@ -296,6 +291,7 @@ require (
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/text v0.33.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	golang.org/x/tools v0.40.0 // indirect
 	google.golang.org/genproto v0.0.0-20240903143218-8af14fe29dc1 // indirect
@@ -308,6 +304,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.6.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kms v0.31.1 // indirect

@@ -49,6 +49,8 @@ const (
 	ScheduledAuditLogExportPrefix = "sael1"
 	SystemMCPServerPrefix         = "sms1"
 	ModelAccessPolicyPrefix       = "map1"
+	NanobotAgentPrefix            = "nba1"
+	ProjectV2Prefix               = "pv21"
 )
 
 func IsThreadID(id string) bool {
