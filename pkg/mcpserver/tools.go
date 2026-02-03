@@ -157,18 +157,23 @@ func (s *Server) handleListMCPServers(ctx context.Context, _ *mcp.ServerSession,
 		MultiUserServers: make([]serverInfo, 0, len(servers)),
 	}
 
-	for i, entry := range entries {
-		if i >= limit {
+	// Apply the limit to the combined total of catalog entries and multi-user servers.
+	remaining := limit
+
+	for _, entry := range entries {
+		if remaining == 0 {
 			break
 		}
 		result.CatalogEntries = append(result.CatalogEntries, catalogEntryToServerInfo(entry))
+		remaining--
 	}
 
-	for i, server := range servers {
-		if i >= limit {
+	for _, server := range servers {
+		if remaining == 0 {
 			break
 		}
 		result.MultiUserServers = append(result.MultiUserServers, serverToServerInfo(server))
+		remaining--
 	}
 
 	result.TotalCount = len(result.CatalogEntries) + len(result.MultiUserServers)
