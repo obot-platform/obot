@@ -145,13 +145,15 @@ func (s *Server) handleListMCPServers(ctx context.Context, _ *mcp.ServerSession,
 	// List catalog entries
 	entries, err := s.lister.ListCatalogEntries(ctx, userInfo, isAdmin)
 	if err != nil {
-		return errorResult(fmt.Sprintf("failed to list catalog entries: %v", err)), nil
+		log.Errorf("failed to list catalog entries: %v", err)
+		return errorResult("failed to list catalog entries"), nil
 	}
 
 	// List multi-user servers
 	servers, err := s.lister.ListServers(ctx, userInfo, isAdmin)
 	if err != nil {
-		return errorResult(fmt.Sprintf("failed to list servers: %v", err)), nil
+		log.Errorf("failed to list servers: %v", err)
+		return errorResult("failed to list servers"), nil
 	}
 
 	// Convert to response format
@@ -219,7 +221,8 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, _ *mcp.ServerSessio
 	// List and search catalog entries
 	entries, err := s.lister.ListCatalogEntries(ctx, userInfo, isAdmin)
 	if err != nil {
-		return errorResult(fmt.Sprintf("failed to list catalog entries: %v", err)), nil
+		log.Errorf("failed to list catalog entries: %v", err)
+		return errorResult("failed to list catalog entries"), nil
 	}
 
 	// Apply keyword search
@@ -228,7 +231,8 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, _ *mcp.ServerSessio
 	// List and search multi-user servers
 	servers, err := s.lister.ListServers(ctx, userInfo, isAdmin)
 	if err != nil {
-		return errorResult(fmt.Sprintf("failed to list servers: %v", err)), nil
+		log.Errorf("failed to list servers: %v", err)
+		return errorResult("failed to list servers"), nil
 	}
 
 	// Apply keyword search
@@ -299,7 +303,8 @@ func (s *Server) getCatalogEntryConnection(ctx context.Context, userInfo *mcpUse
 
 	entry, err := s.lister.GetCatalogEntry(ctx, userInfo, serverID, isAdmin)
 	if err != nil {
-		return errorResult(fmt.Sprintf("failed to get catalog entry: %v", err)), nil
+		log.Errorf("failed to get catalog entry %s: %v", serverID, err)
+		return errorResult("failed to get catalog entry"), nil
 	}
 
 	result := connectionResult{}
@@ -328,7 +333,8 @@ func (s *Server) getMultiUserServerConnection(ctx context.Context, userInfo *mcp
 
 	server, err := s.lister.GetServer(ctx, userInfo, serverID, isAdmin)
 	if err != nil {
-		return errorResult(fmt.Sprintf("failed to get server: %v", err)), nil
+		log.Errorf("failed to get server %s: %v", serverID, err)
+		return errorResult("failed to get server"), nil
 	}
 
 	result := connectionResult{}
