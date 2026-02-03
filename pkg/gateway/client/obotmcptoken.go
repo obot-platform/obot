@@ -133,18 +133,3 @@ func ParseObotMCPToken(token string) (prefix string, userID uint, tokenID uint, 
 	}
 	return prefix, userID, tokenID, secret, nil
 }
-
-// UpdateObotMCPTokenLastUsed updates the last used timestamp for an MCP token
-// if more than a minute has elapsed since the previous timestamp.
-func (c *Client) UpdateObotMCPTokenLastUsed(ctx context.Context, token *types.ObotMCPToken) error {
-	now := time.Now()
-	if token.LastUsedAt != nil && now.Sub(*token.LastUsedAt) <= time.Minute {
-		return nil
-	}
-
-	result := c.db.WithContext(ctx).Model(&types.ObotMCPToken{}).Where("id = ?", token.ID).Update("last_used_at", now)
-	if result.Error != nil {
-		return fmt.Errorf("failed to update MCP token last used time: %w", result.Error)
-	}
-	return nil
-}

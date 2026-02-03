@@ -127,6 +127,9 @@ func (s *Server) handleListMCPServers(ctx context.Context, _ *mcp.ServerSession,
 	if v, ok := args["limit"].(float64); ok && v > 0 {
 		limit = int(v)
 	}
+	if limit > 1000 {
+		limit = 1000
+	}
 
 	// Create a user.Info wrapper for ACR checks
 	effectiveRole := effectiveRoleFromContext(ctx)
@@ -197,6 +200,9 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, _ *mcp.ServerSessio
 	limit := 20
 	if v, ok := args["limit"].(float64); ok && v > 0 {
 		limit = int(v)
+	}
+	if limit > 1000 {
+		limit = 1000
 	}
 
 	// Create a user.Info wrapper for ACR checks
