@@ -70,3 +70,7 @@ func (t *tokenStore) GetTokenConfig(ctx context.Context, mcpURL string) (*oauth2
 func (t *tokenStore) SetTokenConfig(ctx context.Context, mcpURL string, config *oauth2.Config, token *oauth2.Token) error {
 	return t.gatewayClient.ReplaceMCPOAuthToken(ctx, t.userID, t.mcpID, mcpURL, "", "", "", config, token)
 }
+
+func (t *tokenStore) DeleteTokenConfig(ctx context.Context, mcpURL string) error {
+	return t.gatewayClient.DeleteMCPOAuthTokenForURL(ctx, t.userID, t.mcpID, mcpURL)
+}

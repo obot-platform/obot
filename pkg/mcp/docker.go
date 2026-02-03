@@ -725,7 +725,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		})
 
 		// Use nanobot command
-		cmd = []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "/run/nanobot.yaml"}
+		cmd = []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "--config", "/run/nanobot.yaml"}
 
 		// Set nanobot environment variables
 		env = append(env, "NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true")
