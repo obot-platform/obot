@@ -140,13 +140,13 @@ func (s *Server) handleListMCPServers(ctx context.Context, _ *mcp.ServerSession,
 	isAdmin := effectiveRole.HasRole(types.RoleAdmin)
 
 	// List catalog entries
-	entries, err := s.lister.ListCatalogEntries(ctx, userInfo, listing.ListEntriesOptions{IsAdmin: isAdmin})
+	entries, err := s.lister.ListCatalogEntries(ctx, userInfo, isAdmin)
 	if err != nil {
 		return errorResult(fmt.Sprintf("failed to list catalog entries: %v", err)), nil
 	}
 
 	// List multi-user servers
-	servers, err := s.lister.ListServers(ctx, userInfo, listing.ListServersOptions{IsAdmin: isAdmin})
+	servers, err := s.lister.ListServers(ctx, userInfo, isAdmin)
 	if err != nil {
 		return errorResult(fmt.Sprintf("failed to list servers: %v", err)), nil
 	}
@@ -211,7 +211,7 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, _ *mcp.ServerSessio
 	isAdmin := effectiveRole.HasRole(types.RoleAdmin)
 
 	// List and search catalog entries
-	entries, err := s.lister.ListCatalogEntries(ctx, userInfo, listing.ListEntriesOptions{IsAdmin: isAdmin})
+	entries, err := s.lister.ListCatalogEntries(ctx, userInfo, isAdmin)
 	if err != nil {
 		return errorResult(fmt.Sprintf("failed to list catalog entries: %v", err)), nil
 	}
@@ -220,7 +220,7 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, _ *mcp.ServerSessio
 	entries = listing.SearchCatalogEntries(entries, query)
 
 	// List and search multi-user servers
-	servers, err := s.lister.ListServers(ctx, userInfo, listing.ListServersOptions{IsAdmin: isAdmin})
+	servers, err := s.lister.ListServers(ctx, userInfo, isAdmin)
 	if err != nil {
 		return errorResult(fmt.Sprintf("failed to list servers: %v", err)), nil
 	}
@@ -234,23 +234,23 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, _ *mcp.ServerSessio
 		MultiUserServers: make([]serverInfo, 0, len(servers)),
 	}
 
-	// Apply limit to the combined total of catalog entries and multi-user servers
-	count := 0
+	// Apply the limit to the combined total of catalog entries and multi-user servers.
+	remaining := limit
 
 	for _, entry := range entries {
-		if count >= limit {
+		if remaining == 0 {
 			break
 		}
 		result.CatalogEntries = append(result.CatalogEntries, catalogEntryToServerInfo(entry))
-		count++
+		remaining--
 	}
 
 	for _, server := range servers {
-		if count >= limit {
+		if remaining == 0 {
 			break
 		}
 		result.MultiUserServers = append(result.MultiUserServers, serverToServerInfo(server))
-		count++
+		remaining--
 	}
 
 	result.TotalCount = len(result.CatalogEntries) + len(result.MultiUserServers)
@@ -288,7 +288,10 @@ func (s *Server) handleGetMCPServerConnection(ctx context.Context, _ *mcp.Server
 }
 
 func (s *Server) getCatalogEntryConnection(ctx context.Context, userInfo *mcpUserInfo, serverID string) (*mcp.CallToolResultFor[any], error) {
-	entry, err := s.lister.GetCatalogEntry(ctx, userInfo, serverID)
+	effectiveRole := effectiveRoleFromContext(ctx)
+	isAdmin := effectiveRole.HasRole(types.RoleAdmin)
+
+	entry, err := s.lister.GetCatalogEntry(ctx, userInfo, serverID, isAdmin)
 	if err != nil {
 		return errorResult(fmt.Sprintf("failed to get catalog entry: %v", err)), nil
 	}
@@ -314,7 +317,10 @@ func (s *Server) getCatalogEntryConnection(ctx context.Context, userInfo *mcpUse
 }
 
 func (s *Server) getMultiUserServerConnection(ctx context.Context, userInfo *mcpUserInfo, serverID string) (*mcp.CallToolResultFor[any], error) {
-	server, err := s.lister.GetServer(ctx, userInfo, serverID)
+	effectiveRole := effectiveRoleFromContext(ctx)
+	isAdmin := effectiveRole.HasRole(types.RoleAdmin)
+
+	server, err := s.lister.GetServer(ctx, userInfo, serverID, isAdmin)
 	if err != nil {
 		return errorResult(fmt.Sprintf("failed to get server: %v", err)), nil
 	}

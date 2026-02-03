@@ -25,20 +25,15 @@ func NewLister(storageClient kclient.Client, acrHelper *accesscontrolrule.Helper
 	}
 }
 
-// ListEntriesOptions controls how catalog entries are listed.
-type ListEntriesOptions struct {
-	IsAdmin bool // If true, bypass ACR filtering
-}
-
 // ListCatalogEntries returns all catalog entries the user has access to.
-func (l *Lister) ListCatalogEntries(ctx context.Context, user kuser.Info, opts ListEntriesOptions) ([]v1.MCPServerCatalogEntry, error) {
+func (l *Lister) ListCatalogEntries(ctx context.Context, user kuser.Info, isAdmin bool) ([]v1.MCPServerCatalogEntry, error) {
 	var list v1.MCPServerCatalogEntryList
 	if err := l.storageClient.List(ctx, &list, kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		return nil, err
 	}
 
 	// Admin bypass
-	if opts.IsAdmin {
+	if isAdmin {
 		return list.Items, nil
 	}
 
@@ -58,15 +53,14 @@ func (l *Lister) ListCatalogEntries(ctx context.Context, user kuser.Info, opts L
 }
 
 // GetCatalogEntry returns a single catalog entry if the user has access.
-func (l *Lister) GetCatalogEntry(ctx context.Context, user kuser.Info, id string) (*v1.MCPServerCatalogEntry, error) {
+func (l *Lister) GetCatalogEntry(ctx context.Context, user kuser.Info, id string, isAdmin bool) (*v1.MCPServerCatalogEntry, error) {
 	var entry v1.MCPServerCatalogEntry
 	if err := l.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: id}, &entry); err != nil {
 		return nil, err
 	}
 
-	// Check if entry is from default catalog or workspace
-	if entry.Spec.MCPCatalogName != system.DefaultCatalog && entry.Spec.PowerUserWorkspaceID == "" {
-		return nil, types.NewErrNotFound("MCP catalog entry not found")
+	if isAdmin {
+		return &entry, nil
 	}
 
 	hasAccess, err := l.userHasAccessToCatalogEntry(ctx, user, entry)
@@ -80,21 +74,16 @@ func (l *Lister) GetCatalogEntry(ctx context.Context, user kuser.Info, id string
 	return &entry, nil
 }
 
-// ListServersOptions controls how MCP servers are listed.
-type ListServersOptions struct {
-	IsAdmin bool // If true, bypass ACR filtering
-}
-
 // ListServers returns all multi-user MCP servers the user has access to.
 // This returns servers that are scoped to catalogs or workspaces (multi-user servers).
-func (l *Lister) ListServers(ctx context.Context, user kuser.Info, opts ListServersOptions) ([]v1.MCPServer, error) {
+func (l *Lister) ListServers(ctx context.Context, user kuser.Info, isAdmin bool) ([]v1.MCPServer, error) {
 	var list v1.MCPServerList
 	if err := l.storageClient.List(ctx, &list, kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		return nil, err
 	}
 
 	// Admin bypass
-	if opts.IsAdmin {
+	if isAdmin {
 		var servers []v1.MCPServer
 		for _, server := range list.Items {
 			// Only include multi-user servers (those with catalog or workspace IDs)
@@ -133,7 +122,7 @@ func (l *Lister) ListServers(ctx context.Context, user kuser.Info, opts ListServ
 }
 
 // GetServer returns a single MCP server if the user has access.
-func (l *Lister) GetServer(ctx context.Context, user kuser.Info, id string) (*v1.MCPServer, error) {
+func (l *Lister) GetServer(ctx context.Context, user kuser.Info, id string, isAdmin bool) (*v1.MCPServer, error) {
 	var server v1.MCPServer
 	if err := l.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: id}, &server); err != nil {
 		return nil, err
@@ -142,6 +131,10 @@ func (l *Lister) GetServer(ctx context.Context, user kuser.Info, id string) (*v1
 	// Check if server is from default catalog or workspace
 	if server.Spec.MCPCatalogID != system.DefaultCatalog && server.Spec.PowerUserWorkspaceID == "" {
 		return nil, types.NewErrNotFound("MCP server not found")
+	}
+
+	if isAdmin {
+		return &server, nil
 	}
 
 	hasAccess, err := l.userHasAccessToServer(user, server)
