@@ -97,6 +97,7 @@ func (db *DB) AutoMigrate() (err error) {
 		types.TempSetupUser{},
 		types.Property{},
 		types.APIKey{},
+		types.ObotMCPToken{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)
 	}

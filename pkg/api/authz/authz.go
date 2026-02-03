@@ -301,6 +301,12 @@ var (
 			"GET /api/api-keys",
 			"GET /api/api-keys/{id}",
 			"DELETE /api/api-keys/{id}",
+
+			// MCP token management for user's own tokens
+			"POST /api/mcp-tokens",
+			"GET /api/mcp-tokens",
+			"GET /api/mcp-tokens/{id}",
+			"DELETE /api/mcp-tokens/{id}",
 		},
 
 		// API key users have restricted access - they can only access MCP-connect routes and /api/me

@@ -78,6 +78,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r.WithContext(ctx))
 }
 
+// Mux returns the underlying ServeMux for registering handlers that bypass the standard auth chain.
+func (s *Server) Mux() *http.ServeMux {
+	return s.mux
+}
+
 func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, req *http.Request) {
 		ctx, span := tracer.Start(req.Context(), req.Pattern)
