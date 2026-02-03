@@ -92,12 +92,22 @@
 
 	function warningTooltip(mcp: (typeof projectMCPs.items)[0]) {
 		if (mcp.needsURL) return 'Configuration Required';
+		if (mcp.missingOAuthCredentials) return 'Admin Configuration Required';
 		if (typeof mcp.configured === 'boolean' && mcp.configured === false)
 			return 'Configuration Required';
 		if (typeof mcp.authenticated === 'boolean' && mcp.authenticated === false)
 			return 'Authentication Required';
 		if (mcp.oauthURL) return 'Authentication Required';
 		return 'Configuration Required';
+	}
+
+	// Check if the MCP server has user-editable configuration (not just admin OAuth)
+	function hasUserEditableConfig(mcp: (typeof projectMCPs.items)[0]) {
+		// If the only issue is missing OAuth credentials, users can't edit that
+		if (mcp.missingOAuthCredentials && mcp.configured === false && !mcp.needsURL) {
+			return false;
+		}
+		return true;
 	}
 
 	async function handleRemoveMcp() {
@@ -164,7 +174,7 @@
 					<DotDotDot
 						class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
 					>
-						{#if matchingEntry && matchingConfiguredServer && hasEditableConfiguration(matchingEntry)}
+						{#if matchingEntry && matchingConfiguredServer && hasEditableConfiguration(matchingEntry) && hasUserEditableConfig(mcpServer)}
 							<button
 								class="menu-button"
 								onclick={() => {

@@ -159,7 +159,30 @@
 					descriptionPlaceholder="Add a description for this MCP server in the Configuration tab"
 				>
 					{#snippet preContent()}
-						{#if 'configured' in entry && typeof entry.configured === 'boolean' && entry.configured === false}
+						{@const hasMissingOAuth =
+							'missingOAuthCredentials' in entry && entry.missingOAuthCredentials === true}
+						{@const hasUserConfigurableIssue =
+							'configured' in entry &&
+							typeof entry.configured === 'boolean' &&
+							entry.configured === false &&
+							!hasMissingOAuth}
+						{#if hasMissingOAuth}
+							<div class="notification-alert mb-4 flex gap-2">
+								<div class="flex grow flex-col gap-2">
+									<div class="flex items-center gap-2">
+										<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+										<p class="my-0.5 flex flex-col text-sm font-semibold">
+											Admin Configuration Required
+										</p>
+									</div>
+									<span class="text-sm font-light">
+										This MCP server requires OAuth credentials to be configured by an administrator.
+										Please contact your administrator to set up the OAuth credentials for this
+										server.
+									</span>
+								</div>
+							</div>
+						{:else if hasUserConfigurableIssue}
 							<div class="notification-alert mb-4 flex gap-2">
 								<div class="flex grow flex-col gap-2">
 									<div class="flex items-center gap-2">

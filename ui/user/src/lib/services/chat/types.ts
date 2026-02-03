@@ -471,6 +471,7 @@ export interface ProjectMCP {
 	needsK8sUpdate?: boolean;
 	needsURL?: boolean;
 	runtime?: Runtime;
+	missingOAuthCredentials?: boolean;
 }
 
 export interface Credential {
@@ -769,6 +770,7 @@ export interface MCPCatalogServer {
 	catalogEntryID: string;
 	missingRequiredEnvVars: string[];
 	missingRequiredHeaders: string[];
+	missingOAuthCredentials?: boolean;
 	mcpCatalogID: string;
 	created: string;
 	deleted?: string;

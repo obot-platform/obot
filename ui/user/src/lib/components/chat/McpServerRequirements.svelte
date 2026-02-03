@@ -30,13 +30,33 @@
 
 	type Requirement =
 		| { type: 'oauth'; id: string; name: string; icon?: string; oauthURL: string }
-		| { type: 'config'; id: string; mcpID: string };
+		| { type: 'config'; id: string; mcpID: string }
+		| { type: 'admin-oauth'; id: string; name: string; icon?: string };
 
 	type OauthRequirement = Extract<Requirement, { type: 'oauth' }>;
+	type AdminOauthRequirement = Extract<Requirement, { type: 'admin-oauth' }>;
 	let requirements = $derived([
+		// Config requirements: servers that need user-configurable settings (but NOT if only missing admin OAuth)
 		...projectMcps.items
-			.filter((m) => (m.configured === false || m.needsURL) && !closed.has(m.id!))
+			.filter(
+				(m) =>
+					((m.configured === false && !m.missingOAuthCredentials) || m.needsURL) &&
+					!closed.has(m.id!)
+			)
 			.map((m) => ({ type: 'config', id: m.id!, mcpID: m.mcpID! }) as Requirement),
+		// Admin OAuth requirements: servers that only need admin to configure static OAuth credentials
+		...projectMcps.items
+			.filter((m) => m.missingOAuthCredentials && !closed.has(m.id!))
+			.map(
+				(m) =>
+					({
+						type: 'admin-oauth',
+						id: m.id!,
+						name: m.name!,
+						icon: m.icon
+					}) as Requirement
+			),
+		// Standard OAuth requirements: servers that need user to authenticate
 		...projectMcps.items
 			.filter((m) => !m.authenticated && m.oauthURL && !closed.has(m.id!))
 			.map(
@@ -91,6 +111,8 @@
 		return { server, parent };
 	}
 
+	let adminOauthDialog = $state<HTMLDialogElement>();
+
 	$effect(() => {
 		if (isInMcp) return;
 		if (currentOauthId) {
@@ -104,7 +126,7 @@
 			}
 		}
 
-		if (oauthDialog?.open || currentConfigReq) return;
+		if (oauthDialog?.open || adminOauthDialog?.open || currentConfigReq) return;
 		if (requirements.length === 0) return;
 
 		const req = requirements[0];
@@ -112,6 +134,12 @@
 		if (req.type === 'oauth') {
 			if (!oauthDialog?.open) {
 				oauthDialog?.showModal();
+			}
+			return;
+		}
+		if (req.type === 'admin-oauth') {
+			if (!adminOauthDialog?.open) {
+				adminOauthDialog?.showModal();
 			}
 			return;
 		}
@@ -161,7 +189,11 @@
 				currentOauthId = null;
 			}
 		}
+		if (req.type === 'admin-oauth') {
+			closed.add(req.id);
+		}
 		if (oauthDialog?.open) oauthDialog.close();
+		if (adminOauthDialog?.open) adminOauthDialog.close();
 	}
 
 	async function openConfigForRequirement(req: Requirement & { type: 'config' }) {
@@ -327,6 +359,42 @@
 						Authenticate
 					{/if}
 				</a>
+			</div>
+			<form class="dialog-backdrop">
+				<button type="button" aria-label="Close dialog" onclick={dismissCurrent}>close</button>
+			</form>
+		</dialog>
+	{:else if requirements[0]?.type === 'admin-oauth'}
+		{@const adminOauth = requirements[0] as AdminOauthRequirement}
+		<dialog bind:this={adminOauthDialog} class="dialog" use:dialogAnimation={{ type: 'fade' }}>
+			<div class="dialog-container relative flex w-full flex-col gap-4 p-4 md:w-sm">
+				<div class="absolute top-2 right-2">
+					<button class="icon-button" onclick={dismissCurrent}>
+						<X class="size-4" />
+					</button>
+				</div>
+				<div class="flex items-center gap-2">
+					<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+						{#if adminOauth.icon}
+							<img src={adminOauth.icon} alt={adminOauth.name} class="size-6" />
+						{:else}
+							<Server class="size-6" />
+						{/if}
+					</div>
+					<h3 class="text-lg leading-5.5 font-semibold">
+						{adminOauth.name}
+					</h3>
+				</div>
+
+				<p>
+					<strong>{adminOauth.name}</strong> requires OAuth credentials to be configured by an administrator.
+				</p>
+
+				<p class="text-on-surface1">
+					Please contact your administrator to set up the OAuth credentials for this MCP server.
+				</p>
+
+				<button class="button" onclick={dismissCurrent}> Dismiss </button>
 			</div>
 			<form class="dialog-backdrop">
 				<button type="button" aria-label="Close dialog" onclick={dismissCurrent}>close</button>
