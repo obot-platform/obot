@@ -625,6 +625,12 @@
 		}, 1000);
 	}
 
+	function handleOauthClose() {
+		oauthDialog?.close();
+		oauthURL = '';
+		handleConnect();
+	}
+
 	onMount(() => {
 		document.addEventListener('visibilitychange', handleOauthVisibilityChange);
 		return () => {
@@ -783,61 +789,59 @@
 	{/snippet}
 </PageLoading>
 
-<dialog bind:this={oauthDialog} class="md:w-sm" use:dialogAnimation={{ type: 'slide' }}>
-	<div class="flex flex-col gap-4 p-4">
-		{#if oauthURL}
-			<div class="absolute top-2 right-2">
-				<button
-					class="icon-button"
+<dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'slide' }}>
+	<div class="dialog-container md:w-sm">
+		<div class="flex flex-col gap-4 p-4">
+			{#if oauthURL}
+				<div class="absolute top-2 right-2">
+					<button class="icon-button" onclick={handleOauthClose}>
+						<X class="size-4" />
+					</button>
+				</div>
+				<div class="flex items-center gap-2">
+					<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+						{#if server?.manifest.icon}
+							<img
+								src={server?.manifest.icon}
+								alt={server.alias || server?.manifest.name}
+								class="size-6"
+							/>
+						{:else}
+							<Server class="size-6" />
+						{/if}
+					</div>
+					<h3 class="text-lg leading-5.5 font-semibold">
+						{server?.alias || server?.manifest.name}
+					</h3>
+				</div>
+
+				<p>
+					In order to use {server?.alias || server?.manifest.name}, authentication with the MCP
+					server is required.
+				</p>
+
+				<p>Click the link below to authenticate.</p>
+
+				<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
+				<a
+					href={oauthURL}
+					rel="external"
+					target="_blank"
+					class="button-primary text-center text-sm outline-none"
 					onclick={() => {
-						oauthDialog?.close();
-						oauthURL = '';
-						handleConnect();
+						oauthVerifying = true;
 					}}
 				>
-					<X class="size-4" />
-				</button>
-			</div>
-			<div class="flex items-center gap-2">
-				<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-					{#if server?.manifest.icon}
-						<img
-							src={server?.manifest.icon}
-							alt={server.alias || server?.manifest.name}
-							class="size-6"
-						/>
+					{#if oauthVerifying}
+						Authenticating...
 					{:else}
-						<Server class="size-6" />
+						Authenticate
 					{/if}
-				</div>
-				<h3 class="text-lg leading-5.5 font-semibold">
-					{server?.alias || server?.manifest.name}
-				</h3>
-			</div>
-
-			<p>
-				In order to use {server?.alias || server?.manifest.name}, authentication with the MCP server
-				is required.
-			</p>
-
-			<p>Click the link below to authenticate.</p>
-
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
-			<a
-				href={oauthURL}
-				rel="external"
-				target="_blank"
-				class="button-primary text-center text-sm outline-none"
-				onclick={() => {
-					oauthVerifying = true;
-				}}
-			>
-				{#if oauthVerifying}
-					Authenticating...
-				{:else}
-					Authenticate
-				{/if}
-			</a>
-		{/if}
+				</a>
+			{/if}
+		</div>
 	</div>
+	<form class="dialog-backdrop">
+		<button type="button" aria-label="Close dialog" onclick={handleOauthClose}>close</button>
+	</form>
 </dialog>

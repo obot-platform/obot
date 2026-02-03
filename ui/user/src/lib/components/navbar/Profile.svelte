@@ -250,37 +250,48 @@
 	{/snippet}
 </Menu>
 
-<dialog bind:this={versionDialog} class="z-50 max-w-lg min-w-sm p-4">
-	<div class="absolute top-2 right-2">
+<dialog bind:this={versionDialog} class="dialog">
+	<div class="dialog-container relative z-50 max-w-lg min-w-sm p-4">
+		<div class="absolute top-2 right-2">
+			<button
+				onclick={() => {
+					versionDialog?.close();
+				}}
+				class="icon-button"
+			>
+				<X class="size-4" />
+			</button>
+		</div>
+		<h4 class="mb-4 text-base font-semibold">Version Information</h4>
+		<div class="flex flex-col gap-1 text-xs">
+			{#each Object.entries(version.current) as [key, value] (key)}
+				{@const canDisplay = typeof value === 'string' && value && key !== 'sessionStore'}
+				{@const link = getLink(key, value)}
+				{#if canDisplay}
+					<div class="flex justify-between gap-8">
+						<span class="font-semibold">{key.replace('github.com/', '')}:</span>
+						{#if link}
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external version link -->
+							<a href={link} target="_blank" rel="external">
+								{value}
+							</a>
+						{:else}
+							<span>{value}</span>
+						{/if}
+					</div>
+				{/if}
+			{/each}
+		</div>
+	</div>
+	<form class="dialog-backdrop">
 		<button
+			type="button"
+			aria-label="Close dialog"
 			onclick={() => {
 				versionDialog?.close();
-			}}
-			class="icon-button"
+			}}>close</button
 		>
-			<X class="size-4" />
-		</button>
-	</div>
-	<h4 class="mb-4 text-base font-semibold">Version Information</h4>
-	<div class="flex flex-col gap-1 text-xs">
-		{#each Object.entries(version.current) as [key, value] (key)}
-			{@const canDisplay = typeof value === 'string' && value && key !== 'sessionStore'}
-			{@const link = getLink(key, value)}
-			{#if canDisplay}
-				<div class="flex justify-between gap-8">
-					<span class="font-semibold">{key.replace('github.com/', '')}:</span>
-					{#if link}
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external version link -->
-						<a href={link} target="_blank" rel="external">
-							{value}
-						</a>
-					{:else}
-						<span>{value}</span>
-					{/if}
-				</div>
-			{/if}
-		{/each}
-	</div>
+	</form>
 </dialog>
 
 <PageLoading show={loadingChat} text="Loading chat..." />

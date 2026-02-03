@@ -284,53 +284,53 @@
 {#key requirements[0]?.id}
 	{#if requirements[0]?.type === 'oauth'}
 		{@const oauth = requirements[0] as OauthRequirement}
-		<dialog
-			bind:this={oauthDialog}
-			class="flex w-full flex-col gap-4 p-4 md:w-sm"
-			use:dialogAnimation={{ type: 'fade' }}
-		>
-			<div class="absolute top-2 right-2">
-				<button class="icon-button" onclick={dismissCurrent}>
-					<X class="size-4" />
-				</button>
-			</div>
-			<div class="flex items-center gap-2">
-				<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-					{#if oauth.icon}
-						<img src={oauth.icon} alt={oauth.name} class="size-6" />
-					{:else}
-						<Server class="size-6" />
-					{/if}
+		<dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'fade' }}>
+			<div class="dialog-container relative flex w-full flex-col gap-4 p-4 md:w-sm">
+				<div class="absolute top-2 right-2">
+					<button class="icon-button" onclick={dismissCurrent}>
+						<X class="size-4" />
+					</button>
 				</div>
-				<h3 class="text-lg leading-5.5 font-semibold">
-					{oauth.name}
-				</h3>
+				<div class="flex items-center gap-2">
+					<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+						{#if oauth.icon}
+							<img src={oauth.icon} alt={oauth.name} class="size-6" />
+						{:else}
+							<Server class="size-6" />
+						{/if}
+					</div>
+					<h3 class="text-lg leading-5.5 font-semibold">
+						{oauth.name}
+					</h3>
+				</div>
+
+				<p>
+					In order to use {oauth.name}, authentication with the MCP server is required.
+				</p>
+
+				<p>Click the link below to authenticate.</p>
+
+				<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
+				<a
+					href={oauth.oauthURL}
+					rel="external"
+					target="_blank"
+					class="button-primary text-center text-sm outline-none"
+					onclick={() => {
+						if (currentOauthId) return;
+						currentOauthId = oauth.id;
+					}}
+				>
+					{#if currentOauthId === oauth.id}
+						Authenticating...
+					{:else}
+						Authenticate
+					{/if}
+				</a>
 			</div>
-
-			<p>
-				In order to use {oauth.name}, authentication with the MCP server is required.
-			</p>
-
-			<p>Click the link below to authenticate.</p>
-
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
-			<a
-				href={oauth.oauthURL}
-				rel="external"
-				target="_blank"
-				class="button-primary text-center text-sm outline-none"
-				onclick={() => {
-					if (currentOauthId) return;
-					currentOauthId = oauth.id;
-				}}
-			>
-				{#if currentOauthId === oauth.id}
-					Authenticating...
-				{:else}
-					Authenticate
-				{/if}
-			</a>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
+			<form class="dialog-backdrop">
+				<button type="button" aria-label="Close dialog" onclick={dismissCurrent}>close</button>
+			</form>
 		</dialog>
 	{:else if requirements[0]?.type === 'config'}
 		<CatalogConfigureForm
