@@ -111,7 +111,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		user, err := s.gatewayClient.UserByID(r.Context(), strconv.FormatUint(uint64(mcpToken.UserID), 10))
 		if err != nil {
 			log.Errorf("Failed to get user for MCP token: %v", err)
-			http.Error(w, "user not found", http.StatusUnauthorized)
+			http.Error(w, "invalid or expired token", http.StatusUnauthorized)
 			return
 		}
 
