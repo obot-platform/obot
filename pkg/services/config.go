@@ -246,10 +246,18 @@ func unmarshalJSONStrict(data []byte, v any) error {
 }
 
 func parseK8sSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
-	if (opts.MCPK8sSettingsAffinity == "" || opts.MCPK8sSettingsAffinity == "{}") &&
-		(opts.MCPK8sSettingsTolerations == "" || opts.MCPK8sSettingsTolerations == "[]") &&
-		(opts.MCPK8sSettingsResources == "" || opts.MCPK8sSettingsResources == "{}") &&
-		opts.MCPK8sSettingsRuntimeClassName == "" {
+	hasPodSettings := (opts.MCPK8sSettingsAffinity != "" && opts.MCPK8sSettingsAffinity != "{}") ||
+		(opts.MCPK8sSettingsTolerations != "" && opts.MCPK8sSettingsTolerations != "[]") ||
+		(opts.MCPK8sSettingsResources != "" && opts.MCPK8sSettingsResources != "{}") ||
+		opts.MCPK8sSettingsRuntimeClassName != ""
+
+	// PSA settings are always included if any PSA option is set (even defaults)
+	hasPSASettings := opts.MCPPodSecurityEnabled ||
+		opts.MCPPodSecurityEnforce != "" ||
+		opts.MCPPodSecurityAudit != "" ||
+		opts.MCPPodSecurityWarn != ""
+
+	if !hasPodSettings && !hasPSASettings {
 		return nil, nil
 	}
 
@@ -281,6 +289,19 @@ func parseK8sSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
 
 	if opts.MCPK8sSettingsRuntimeClassName != "" {
 		spec.RuntimeClassName = &opts.MCPK8sSettingsRuntimeClassName
+	}
+
+	// Parse PSA settings from Helm options
+	if hasPSASettings {
+		spec.PodSecurityAdmission = &v1.PodSecurityAdmissionSettings{
+			Enabled:        opts.MCPPodSecurityEnabled,
+			Enforce:        opts.MCPPodSecurityEnforce,
+			EnforceVersion: opts.MCPPodSecurityEnforceVersion,
+			Audit:          opts.MCPPodSecurityAudit,
+			AuditVersion:   opts.MCPPodSecurityAuditVersion,
+			Warn:           opts.MCPPodSecurityWarn,
+			WarnVersion:    opts.MCPPodSecurityWarnVersion,
+		}
 	}
 
 	return spec, nil

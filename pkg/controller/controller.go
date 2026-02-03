@@ -189,6 +189,7 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, helmSettings 
 			k8sSettings.Spec.Tolerations = helmSettings.Tolerations
 			k8sSettings.Spec.Resources = helmSettings.Resources
 			k8sSettings.Spec.RuntimeClassName = helmSettings.RuntimeClassName
+			k8sSettings.Spec.PodSecurityAdmission = helmSettings.PodSecurityAdmission
 		}
 
 		return client.Create(ctx, &k8sSettings)
@@ -203,6 +204,7 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, helmSettings 
 		k8sSettings.Spec.Tolerations = helmSettings.Tolerations
 		k8sSettings.Spec.Resources = helmSettings.Resources
 		k8sSettings.Spec.RuntimeClassName = helmSettings.RuntimeClassName
+		k8sSettings.Spec.PodSecurityAdmission = helmSettings.PodSecurityAdmission
 		return client.Update(ctx, &k8sSettings)
 	} else if k8sSettings.Spec.SetViaHelm {
 		// Clear the settings if they were set by Helm, but are now blank.

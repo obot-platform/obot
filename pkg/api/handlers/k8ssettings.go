@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -12,6 +13,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
+
+// validPSALevels contains the valid Pod Security Admission levels
+var validPSALevels = []string{"privileged", "baseline", "restricted"}
 
 type K8sSettingsHandler struct{}
 
@@ -110,6 +114,28 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 		settings.Spec.RuntimeClassName = nil
 	}
 
+	// PodSecurityAdmission settings are managed at initialization time (e.g. via Helm)
+	// and are read-only via this API. Reject attempts to change them so that the
+	// behavior of this endpoint matches the actual enforcement behavior in the cluster.
+	if input.PodSecurityAdmission != nil {
+		if settings.Spec.PodSecurityAdmission == nil {
+			return fmt.Errorf("PodSecurityAdmission settings are managed by the system and cannot be set via this API")
+		}
+
+		current := settings.Spec.PodSecurityAdmission
+		desired := input.PodSecurityAdmission
+
+		if desired.Enabled != current.Enabled ||
+			desired.Enforce != current.Enforce ||
+			desired.EnforceVersion != current.EnforceVersion ||
+			desired.Audit != current.Audit ||
+			desired.AuditVersion != current.AuditVersion ||
+			desired.Warn != current.Warn ||
+			desired.WarnVersion != current.WarnVersion {
+			return fmt.Errorf("PodSecurityAdmission settings are read-only after initialization and cannot be modified via this API")
+		}
+	}
+
 	if err := req.Storage.Update(req.Context(), &settings); err != nil {
 		return err
 	}
@@ -156,5 +182,48 @@ func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {
 		result.RuntimeClassName = *settings.Spec.RuntimeClassName
 	}
 
+	// Convert PSA settings
+	if settings.Spec.PodSecurityAdmission != nil {
+		result.PodSecurityAdmission = &types.PodSecurityAdmissionSettings{
+			Enabled:        settings.Spec.PodSecurityAdmission.Enabled,
+			Enforce:        settings.Spec.PodSecurityAdmission.Enforce,
+			EnforceVersion: settings.Spec.PodSecurityAdmission.EnforceVersion,
+			Audit:          settings.Spec.PodSecurityAdmission.Audit,
+			AuditVersion:   settings.Spec.PodSecurityAdmission.AuditVersion,
+			Warn:           settings.Spec.PodSecurityAdmission.Warn,
+			WarnVersion:    settings.Spec.PodSecurityAdmission.WarnVersion,
+		}
+	}
+
 	return result, nil
+}
+
+// validatePodSecurityAdmissionSettings validates the PSA settings fields
+func validatePodSecurityAdmissionSettings(psa *types.PodSecurityAdmissionSettings) error {
+	if psa == nil {
+		return nil
+	}
+
+	var errs []error
+
+	// Validate Enforce level (required when PSA is enabled)
+	if psa.Enforce != "" && !slices.Contains(validPSALevels, psa.Enforce) {
+		errs = append(errs, fmt.Errorf("invalid enforce level %q: must be one of %v", psa.Enforce, validPSALevels))
+	}
+
+	// Validate Audit level (optional)
+	if psa.Audit != "" && !slices.Contains(validPSALevels, psa.Audit) {
+		errs = append(errs, fmt.Errorf("invalid audit level %q: must be one of %v", psa.Audit, validPSALevels))
+	}
+
+	// Validate Warn level (optional)
+	if psa.Warn != "" && !slices.Contains(validPSALevels, psa.Warn) {
+		errs = append(errs, fmt.Errorf("invalid warn level %q: must be one of %v", psa.Warn, validPSALevels))
+	}
+
+	if len(errs) > 0 {
+		return types.NewErrBadRequest("%v", errors.Join(errs...))
+	}
+
+	return nil
 }

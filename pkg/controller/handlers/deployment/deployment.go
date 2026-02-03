@@ -99,7 +99,7 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 		mcpServer.Spec.Manifest.Runtime == types.RuntimeUVX ||
 		mcpServer.Spec.Manifest.Runtime == types.RuntimeNPX
 
-	if isK8sRuntime {
+	if isK8sRuntime && !mcpServer.Status.NeedsK8sUpdate {
 		// Get current K8s settings to compare
 		var k8sSettings v1.K8sSettings
 		if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{
@@ -108,15 +108,22 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 		}, &k8sSettings); err == nil {
 			currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
 
-			// Only SET to true if drift detected, never clear it
-			// The flag gets cleared by the RedeployWithK8sSettings API endpoint after successful redeploy
-			hasHash := k8sSettingsHash != ""
-			hasDrift := k8sSettingsHash != currentHash
-			flagNotSet := !mcpServer.Status.NeedsK8sUpdate
+			// If the deployment's hash matches the current K8sSettings hash,
+			// the deployment is up-to-date (or being updated) and we shouldn't
+			// set NeedsK8sUpdate even if we see stale PSA data due to race conditions
+			hashesMatch := k8sSettingsHash != "" && k8sSettingsHash == currentHash
 
-			if hasHash && hasDrift && flagNotSet {
-				mcpServer.Status.NeedsK8sUpdate = true
-				needsUpdate = true
+			if !hashesMatch {
+				// Check if deployment needs PSA compliance updates
+				// This catches deployments created before PSA security context was added
+				if mcp.DeploymentNeedsPSAUpdate(deployment) {
+					mcpServer.Status.NeedsK8sUpdate = true
+					needsUpdate = true
+				} else if k8sSettingsHash != "" && k8sSettingsHash != currentHash {
+					// K8s settings hash drift detected
+					mcpServer.Status.NeedsK8sUpdate = true
+					needsUpdate = true
+				}
 			}
 		}
 	}

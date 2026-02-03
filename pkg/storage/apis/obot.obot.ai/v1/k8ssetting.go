@@ -33,8 +33,35 @@ type K8sSettingsSpec struct {
 	// +k8s:openapi-gen=false
 	RuntimeClassName *string `json:"runtimeClassName,omitempty"`
 
+	// PodSecurityAdmission contains Pod Security Admission settings for the MCP namespace
+	PodSecurityAdmission *PodSecurityAdmissionSettings `json:"podSecurityAdmission,omitempty"`
+
 	// SetViaHelm indicates if these settings came from Helm (cannot be updated via API)
 	SetViaHelm bool `json:"setViaHelm,omitempty"`
+}
+
+// PodSecurityAdmissionSettings contains Pod Security Admission configuration
+type PodSecurityAdmissionSettings struct {
+	// Enabled indicates whether PSA labels should be applied to the MCP namespace
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Enforce is the Pod Security Standards level to enforce (privileged, baseline, or restricted)
+	Enforce string `json:"enforce,omitempty"`
+
+	// EnforceVersion is the Kubernetes version for the enforce policy (e.g., "latest", "v1.28")
+	EnforceVersion string `json:"enforceVersion,omitempty"`
+
+	// Audit is the Pod Security Standards level to audit (privileged, baseline, or restricted)
+	Audit string `json:"audit,omitempty"`
+
+	// AuditVersion is the Kubernetes version for the audit policy
+	AuditVersion string `json:"auditVersion,omitempty"`
+
+	// Warn is the Pod Security Standards level to warn about (privileged, baseline, or restricted)
+	Warn string `json:"warn,omitempty"`
+
+	// WarnVersion is the Kubernetes version for the warn policy
+	WarnVersion string `json:"warnVersion,omitempty"`
 }
 
 type K8sSettingsStatus struct{}
