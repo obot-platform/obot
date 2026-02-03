@@ -115,25 +115,15 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 	}
 
 	// PodSecurityAdmission settings are managed at initialization time (e.g. via Helm)
-	// and are read-only via this API. Reject attempts to change them so that the
-	// behavior of this endpoint matches the actual enforcement behavior in the cluster.
+	// and are read-only via this API.
+	//
+	// To keep this behavior while allowing clients to submit broader update payloads
+	// (for example, round-tripping settings they previously read), we ignore any
+	// PodSecurityAdmission values provided in the request instead of rejecting the
+	// entire update. The stored PodSecurityAdmission settings, if any, remain
+	// unchanged and continue to be enforced by the system.
 	if input.PodSecurityAdmission != nil {
-		if settings.Spec.PodSecurityAdmission == nil {
-			return fmt.Errorf("PodSecurityAdmission settings are managed by the system and cannot be set via this API")
-		}
-
-		current := settings.Spec.PodSecurityAdmission
-		desired := input.PodSecurityAdmission
-
-		if desired.Enabled != current.Enabled ||
-			desired.Enforce != current.Enforce ||
-			desired.EnforceVersion != current.EnforceVersion ||
-			desired.Audit != current.Audit ||
-			desired.AuditVersion != current.AuditVersion ||
-			desired.Warn != current.Warn ||
-			desired.WarnVersion != current.WarnVersion {
-			return fmt.Errorf("PodSecurityAdmission settings are read-only after initialization and cannot be modified via this API")
-		}
+		// No-op: do not modify settings.Spec.PodSecurityAdmission based on input.
 	}
 
 	if err := req.Storage.Update(req.Context(), &settings); err != nil {
