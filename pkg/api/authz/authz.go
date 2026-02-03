@@ -235,6 +235,10 @@ var (
 			// API Key authentication webhook (called by nanobot shim)
 			// This endpoint validates the API key passed in the header
 			"POST /api/api-keys/auth",
+
+			// Integrated MCP server - authentication is handled in the HTTP handler
+			"/mcp",
+			"/mcp/",
 		},
 
 		types.GroupBasic: {

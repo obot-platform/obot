@@ -72,13 +72,11 @@ func (c *Client) GetObotMCPToken(ctx context.Context, userID uint, tokenID uint)
 }
 
 // DeleteObotMCPToken removes an MCP token.
+// This operation is idempotent - deleting a non-existent token is not an error.
 func (c *Client) DeleteObotMCPToken(ctx context.Context, userID uint, tokenID uint) error {
 	result := c.db.WithContext(ctx).Where("id = ?", tokenID).Where("user_id = ?", userID).Delete(&types.ObotMCPToken{})
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete MCP token: %w", result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
 	}
 	return nil
 }

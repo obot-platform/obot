@@ -51,10 +51,7 @@ const (
 
 // userFromContext returns the user from the context.
 func userFromContext(ctx context.Context) *types.User {
-	user, ok := ctx.Value(userContextKey).(*types.User)
-	if !ok {
-		return nil
-	}
+	user, _ := ctx.Value(userContextKey).(*types.User)
 	return user
 }
 

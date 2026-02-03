@@ -748,7 +748,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	// Prompt
 	mux.HandleFunc("POST /api/prompt", prompt.Prompt)
 
-	// Integrated MCP Server - bypasses standard auth, uses its own MCP token auth
+	// Integrated MCP Server - uses its own MCP token auth (allowed via authz anyGroup rules)
 	// Only enabled when Nanobot integration is enabled
 	if services.NanobotIntegration {
 		// Create shared lister for MCP server discovery
@@ -760,9 +760,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 			mcpLister,
 			services.ServerURL,
 		)
-		// Register directly on the underlying mux to bypass Wrap() auth
-		services.APIServer.Mux().Handle("/mcp", integratedMCP.Handler())
-		services.APIServer.Mux().Handle("/mcp/", integratedMCP.Handler())
+		mux.HTTPHandle("/mcp", integratedMCP.Handler())
+		mux.HTTPHandle("/mcp/", integratedMCP.Handler())
 	}
 
 	// Catch all 404 for API

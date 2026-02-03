@@ -26,9 +26,17 @@ func NewLister(storageClient kclient.Client, acrHelper *accesscontrolrule.Helper
 }
 
 // ListCatalogEntries returns all catalog entries the user has access to.
-func (l *Lister) ListCatalogEntries(ctx context.Context, user kuser.Info, isAdmin bool) ([]v1.MCPServerCatalogEntry, error) {
+// If limit > 0, only that many entries will be returned.
+func (l *Lister) ListCatalogEntries(ctx context.Context, user kuser.Info, isAdmin bool, limit int) ([]v1.MCPServerCatalogEntry, error) {
+	listOpts := []kclient.ListOption{kclient.InNamespace(system.DefaultNamespace)}
+
+	// For admins, we can apply the limit directly to the query
+	if isAdmin && limit > 0 {
+		listOpts = append(listOpts, kclient.Limit(int64(limit)))
+	}
+
 	var list v1.MCPServerCatalogEntryList
-	if err := l.storageClient.List(ctx, &list, kclient.InNamespace(system.DefaultNamespace)); err != nil {
+	if err := l.storageClient.List(ctx, &list, listOpts...); err != nil {
 		return nil, err
 	}
 
@@ -46,6 +54,10 @@ func (l *Lister) ListCatalogEntries(ctx context.Context, user kuser.Info, isAdmi
 		}
 		if hasAccess {
 			entries = append(entries, entry)
+			// Stop early if we've reached the limit
+			if limit > 0 && len(entries) >= limit {
+				break
+			}
 		}
 	}
 
@@ -76,7 +88,8 @@ func (l *Lister) GetCatalogEntry(ctx context.Context, user kuser.Info, id string
 
 // ListServers returns all multi-user MCP servers the user has access to.
 // This returns servers that are scoped to catalogs or workspaces (multi-user servers).
-func (l *Lister) ListServers(ctx context.Context, user kuser.Info, isAdmin bool) ([]v1.MCPServer, error) {
+// If limit > 0, only that many servers will be returned.
+func (l *Lister) ListServers(ctx context.Context, user kuser.Info, isAdmin bool, limit int) ([]v1.MCPServer, error) {
 	var list v1.MCPServerList
 	if err := l.storageClient.List(ctx, &list, kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		return nil, err
@@ -92,6 +105,10 @@ func (l *Lister) ListServers(ctx context.Context, user kuser.Info, isAdmin bool)
 					continue
 				}
 				servers = append(servers, server)
+				// Stop early if we've reached the limit
+				if limit > 0 && len(servers) >= limit {
+					break
+				}
 			}
 		}
 		return servers, nil
@@ -115,6 +132,10 @@ func (l *Lister) ListServers(ctx context.Context, user kuser.Info, isAdmin bool)
 		}
 		if hasAccess {
 			servers = append(servers, server)
+			// Stop early if we've reached the limit
+			if limit > 0 && len(servers) >= limit {
+				break
+			}
 		}
 	}
 
