@@ -1184,6 +1184,9 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 						break
 					}
 
+					// Watch for the call decision to be set on the run and submit to GPTScript
+					go i.watchRunCallDecision(runCtx, gptClient, c, run, callID)
+
 					// Emit tool confirm to frontend
 					toolConfirm := &types.ToolConfirm{
 						ID:          callID,
@@ -1239,6 +1242,30 @@ func (i *Invoker) watchThreadAbort(ctx context.Context, gptClient *gptscript.GPT
 	}, wait.Option{
 		Timeout: 11 * time.Minute,
 	})
+}
+
+func (i *Invoker) watchRunCallDecision(
+	ctx context.Context,
+	gptClient *gptscript.GPTScript,
+	c kclient.WithWatch,
+	run *v1.Run,
+	callID string,
+) {
+	if _, err := wait.For(ctx, c, run, func(run *v1.Run) (bool, error) {
+		accept, ok := run.Spec.CallDecisions[callID]
+		if !ok {
+			// Decision hasn't been made yet
+			return false, nil
+		}
+
+		return true, gptClient.Confirm(ctx, gptscript.AuthResponse{
+			ID:     callID,
+			Accept: accept,
+		})
+	}); err != nil && ctx.Err() == nil {
+		// Context isn't done (not abort/deadline), log the error
+		log.Warnf("failed to watch run decision for call %s in run %s: %v", callID, run.Name, err)
+	}
 }
 
 func timeoutAfter(ctx context.Context, cancel func(err error), d time.Duration) {

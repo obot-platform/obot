@@ -102,6 +102,7 @@ type RunSpec struct {
 	Timeout               metav1.Duration         `json:"timeout,omitempty"`
 	ExternalCallResults   []ExternalCallResult    `json:"externalCallResults,omitempty"`
 	Username              string                  `json:"username,omitempty"`
+	CallDecisions         map[string]bool         `json:"callDecisions,omitempty"`
 }
 
 type ExternalCallResult struct {
