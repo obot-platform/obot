@@ -251,8 +251,8 @@ type ThreadSpec struct {
 	UpgradeApproved bool `json:"upgradeApproved,omitempty"`
 
 	// ApprovedTools is a list of tool names that are auto-approved in this thread.
-	// When a tool call matches a name in this list, it will be auto-approved.
-	// Use "*" as a wildcard to auto-approve all tools.
+	// The wildcard "*" will allow all tools.
+	// A trailing wildcard will allow all tools with the matching prefix; e.g. "Everything Server ->*".
 	ApprovedTools []string `json:"approvedTools,omitempty"`
 }
 

@@ -39,7 +39,7 @@ func (c *ConfirmHandler) Confirm(req api.Context) error {
 		approved = false
 	case types.ToolConfirmDecisionApprove:
 	case types.ToolConfirmDecisionApproveThread:
-		// User is pre-approving a tool (or all tools with "*")
+		// User is pre-approving a tool (or all tools matching a wildcard suffix "*")
 		toolName = confirm.ToolName
 		if toolName == "" {
 			return types.NewErrBadRequest("tool name must be set for thread approval")

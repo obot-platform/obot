@@ -38,15 +38,13 @@ import (
 )
 
 var (
-	errToolConfirmTimeout = errors.New("timeout waiting for user to confirm tool call")
-	log                   = logger.Package()
-	ephemeralCounter      atomic.Int32
+	log              = logger.Package()
+	ephemeralCounter atomic.Int32
 )
 
 const (
 	ephemeralRunPrefix = "ephemeral-run"
 	runOutputMaxLength = 2000
-	toolConfirmTimeout = 5 * time.Minute
 )
 
 type Invoker struct {
@@ -1078,9 +1076,10 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		timeout = run.Spec.Timeout.Duration
 	}
 	go timeoutAfter(runCtx, cancelRun, timeout)
+
 	if !isEphemeral(run) {
 		// Don't watch thread abort for ephemeral runs
-		go i.watchThreadAbort(runCtx, gptClient, c, thread, cancelRun, runResp)
+		go i.watchThreadAbort(runCtx, c, thread, cancelRun)
 	}
 
 	var (
@@ -1170,11 +1169,19 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 					var (
 						callID   = frame.Call.ID
 						toolName = frame.Call.Tool.Name
+						latest   v1.Thread
 					)
 
+					// Fetch the latest approved tools in case they've changed since the run was started.
+					// This can happen when there are multiple tools awaiting approval, and the user approves
+					// with an "allow all X" option.
+					if c.Get(ctx, router.Key(thread.Namespace, thread.Name), &latest) != nil {
+						log.Warnf("Using stale approved tools for thread %s", thread.Name)
+						latest = *thread.DeepCopy()
+					}
+
 					// Auto-confirm pre-approved tools.
-					if frame.Call.ToolCategory != gptscript.NoCategory ||
-						slices.Contains(thread.Spec.ApprovedTools, toolName) {
+					if frame.Call.ToolCategory != gptscript.NoCategory || isApprovedTool(toolName, latest.Spec.ApprovedTools) {
 						if err := gptClient.Confirm(runCtx, gptscript.AuthResponse{
 							ID:     callID,
 							Accept: true,
@@ -1199,19 +1206,6 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 						Time:        types.NewTime(time.Now()),
 						ToolConfirm: toolConfirm,
 					})
-
-					// Set up timeout for approval response (similar to prompt timeout)
-					timeoutCtx, timeoutCancel := context.WithCancel(ctx)
-					abortTimeout = timeoutCancel
-					go func() {
-						defer timeoutCancel()
-						select {
-						case <-timeoutCtx.Done():
-						case <-time.After(toolConfirmTimeout):
-							cancelRun(errToolConfirmTimeout)
-						}
-					}()
-
 				case gptscript.EventTypeCallFinish:
 					abortTimeout()
 					fallthrough
@@ -1223,19 +1217,13 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 	}
 }
 
-func (i *Invoker) watchThreadAbort(ctx context.Context, gptClient *gptscript.GPTScript, c kclient.WithWatch, thread *v1.Thread, cancel context.CancelCauseFunc, run *gptscript.Run) {
+func (i *Invoker) watchThreadAbort(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, cancelRun context.CancelCauseFunc) {
 	_, _ = wait.For(ctx, c, thread, func(thread *v1.Thread) (bool, error) {
 		if thread.Spec.Abort {
-			// we should abort aggressive in the task so that the next step in task won't continue
-			if thread.Spec.WorkflowExecutionName != "" {
-				cancel(fmt.Errorf("thread was aborted, cancelling run"))
-				return true, nil
-			}
-			if err := gptClient.AbortRun(ctx, run); err != nil {
-				return false, err
-			}
-			// cancel the context after 30 seconds in case the abort doesn't work
-			go timeoutAfter(ctx, cancel, 30*time.Second)
+			// Abort aggressively so that:
+			// 1. If this is a task, the next step doesn't run
+			// 2. If this a chat thread, unconfirmed tool calls don't block abort and are removed from the chat history
+			cancelRun(fmt.Errorf("thread was aborted, cancelling run"))
 			return true, nil
 		}
 		return false, nil
@@ -1274,4 +1262,29 @@ func timeoutAfter(ctx context.Context, cancel func(err error), d time.Duration) 
 	case <-time.After(d):
 		cancel(fmt.Errorf("run exceeded maximum time of %v", d))
 	}
+}
+
+// isApprovedTool returns true IFF a tool has been approved for use in the set of approved tools.
+// It returns true when toolName matches a pattern in the approvedTools list.
+func isApprovedTool(toolName string, approvedTools []string) bool {
+	if toolName == "" {
+		return false
+	}
+
+	for _, approved := range approvedTools {
+		if prefix, hasWildcard := strings.CutSuffix(approved, "*"); hasWildcard {
+			if strings.HasPrefix(toolName, prefix) {
+				// Trailing wildcard - match tools with the prefix
+				// If prefix is empty (approved == "*"), this matches all tools
+				return true
+			}
+			continue
+		}
+
+		// No wildcard, exact match required
+		if toolName == approved {
+			return true
+		}
+	}
+	return false
 }

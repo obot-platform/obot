@@ -168,7 +168,8 @@ type ToolConfirmResponse struct {
 	Decision ToolConfirmDecision `json:"decision"`
 
 	// ToolName is the name of a tool to pre-approve for the duration of the thread.
-	// Set to the wildcard ("*") to pre-approve ALL tools.
+	// The wildcard "*" will allow all tools.
+	// A trailing wildcard will allow all tools with the matching prefix; e.g. "Everything Server ->*".
 	// This field is ignored when Decision is not ToolConfirmDecisionApproveThread.
 	ToolName string `json:"toolName,omitempty"`
 }
