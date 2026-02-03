@@ -841,7 +841,7 @@
 			{/if}
 		</div>
 	</div>
-	<div class="dialog-backdrop">
+	<form class="dialog-backdrop">
 		<button type="button" aria-label="Close dialog" onclick={handleOauthClose}>close</button>
-	</div>
+	</form>
 </dialog>

@@ -283,7 +283,7 @@
 			{/each}
 		</div>
 	</div>
-	<div class="dialog-backdrop">
+	<form class="dialog-backdrop">
 		<button
 			type="button"
 			aria-label="Close dialog"
@@ -291,7 +291,7 @@
 				versionDialog?.close();
 			}}>close</button
 		>
-	</div>
+	</form>
 </dialog>
 
 <PageLoading show={loadingChat} text="Loading chat..." />

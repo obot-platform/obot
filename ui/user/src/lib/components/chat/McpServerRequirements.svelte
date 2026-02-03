@@ -328,9 +328,9 @@
 					{/if}
 				</a>
 			</div>
-			<div class="dialog-backdrop">
+			<form class="dialog-backdrop">
 				<button type="button" aria-label="Close dialog" onclick={dismissCurrent}>close</button>
-			</div>
+			</form>
 		</dialog>
 	{:else if requirements[0]?.type === 'config'}
 		<CatalogConfigureForm
