@@ -29,7 +29,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		services.SupportDocker,
 		services.AuthEnabled,
 		services.DisableUpdateCheck,
-		services.AutonomousToolUseEnabled)
+		services.AutonomousToolUseEnabled,
+		services.NanobotIntegration)
 	if err != nil {
 		return nil, err
 	}
