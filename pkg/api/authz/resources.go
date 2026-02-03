@@ -230,6 +230,15 @@ var apiResources = map[string][]string{
 		"GET    /api/users/{user_id}/total-token-usage",
 		"GET    /api/users/{user_id}/remaining-token-usage",
 		"GET    /api/workspaces",
+		"GET    /api/projectsv2/{project_v2_id}",
+		"PUT    /api/projectsv2/{project_v2_id}",
+		"DELETE /api/projectsv2/{project_v2_id}",
+		"POST   /api/projectsv2/{project_id}/agents",
+		"GET    /api/projectsv2/{project_id}/agents",
+		"GET    /api/projectsv2/{project_id}/agents/{nanobot_agent_id}",
+		"PUT    /api/projectsv2/{project_id}/agents/{nanobot_agent_id}",
+		"DELETE /api/projectsv2/{project_id}/agents/{nanobot_agent_id}",
+		"POST   /api/projectsv2/{project_id}/agents/{nanobot_agent_id}/launch",
 	},
 	types.GroupPowerUser: {
 		"GET    /api/workspaces/{workspace_id}",
@@ -292,6 +301,8 @@ type Resources struct {
 	PendingAuthorizationID string
 	ToolID                 string
 	WorkspaceID            string
+	NanobotAgentID         string
+	ProjectV2ID            string
 	Authorizated           ResourcesAuthorized
 }
 
@@ -307,6 +318,8 @@ type ResourcesAuthorized struct {
 	Workflow           *v1.Workflow
 	Tool               *v1.Tool
 	PowerUserWorkspace *v1.PowerUserWorkspace
+	NanobotAgent       *v1.NanobotAgent
+	ProjectV2          *v1.ProjectV2
 }
 
 func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user.Info) (bool, error) {
@@ -326,6 +339,13 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		TemplateID:             vars("template_public_id"),
 		ToolID:                 vars("tool_id"),
 		WorkspaceID:            vars("workspace_id"),
+		NanobotAgentID:         vars("nanobot_agent_id"),
+		ProjectV2ID:            vars("project_v2_id"),
+	}
+
+	// For nested routes, project_id might be used instead of project_v2_id
+	if resources.ProjectV2ID == "" {
+		resources.ProjectV2ID = vars("project_id")
 	}
 
 	if !a.checkUser(user, vars("user_id")) {
@@ -385,6 +405,14 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 	}
 
 	if ok, err := a.checkTools(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkProjectV2(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkNanobotAgent(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 

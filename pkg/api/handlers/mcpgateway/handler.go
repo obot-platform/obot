@@ -63,6 +63,17 @@ func (h *Handler) Proxy(req api.Context) error {
 			r.URL.Scheme = u.Scheme
 			r.URL.Host = u.Host
 			r.Host = u.Host
+			r.URL.Path = u.Path
+			// Merge query parameters from the incoming request and the upstream URL.
+			// Preserve all values; if a key exists in both, both values will be present.
+			upstreamQuery := u.Query()
+			origQuery := r.URL.Query()
+			for k, vs := range origQuery {
+				for _, v := range vs {
+					upstreamQuery.Add(k, v)
+				}
+			}
+			r.URL.RawQuery = upstreamQuery.Encode()
 		},
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 

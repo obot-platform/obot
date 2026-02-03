@@ -115,6 +115,10 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&SystemMCPServerList{},
 		&ModelAccessPolicy{},
 		&ModelAccessPolicyList{},
+		&NanobotAgent{},
+		&NanobotAgentList{},
+		&ProjectV2{},
+		&ProjectV2List{},
 	); err != nil {
 		return err
 	}

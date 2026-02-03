@@ -127,6 +127,10 @@ func detectCurrentLocalIP() (string, error) {
 	return ip, nil
 }
 
+func (d *dockerBackend) transformObotHostname(url string) string {
+	return localhostURLRegexp.ReplaceAllString(url, d.hostBaseURLWithPort)
+}
+
 // cleanupContainersWithOldID removes containers with old ID and no config hash label.
 // This is a migration for simplifying the container names and updating existing containers
 // when configuration changes instead of possibly orphaning them.
@@ -228,12 +232,12 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 }
 
 func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfig, mcpServerName string, containerEnv bool, webhooks []Webhook) (ServerConfig, error) {
-	server.TokenExchangeEndpoint = localhostURLRegexp.ReplaceAllString(server.TokenExchangeEndpoint, d.hostBaseURLWithPort)
-	server.AuditLogEndpoint = localhostURLRegexp.ReplaceAllString(server.AuditLogEndpoint, d.hostBaseURLWithPort)
-	server.JWKSEndpoint = localhostURLRegexp.ReplaceAllString(server.JWKSEndpoint, d.hostBaseURLWithPort)
+	server.TokenExchangeEndpoint = d.transformObotHostname(server.TokenExchangeEndpoint)
+	server.AuditLogEndpoint = d.transformObotHostname(server.AuditLogEndpoint)
+	server.JWKSEndpoint = d.transformObotHostname(server.JWKSEndpoint)
 
 	for i, component := range server.Components {
-		component.URL = localhostURLRegexp.ReplaceAllString(component.URL, d.hostBaseURLWithPort)
+		component.URL = d.transformObotHostname(component.URL)
 		server.Components[i] = component
 	}
 
@@ -686,7 +690,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			// Set nanobot environment variables
 			env = []string{
 				"NANOBOT_RUN_TRUSTED_ISSUER=" + server.Issuer,
-				"NANOBOT_RUN_OAUTH_JWKSURL=" + localhostURLRegexp.ReplaceAllString(server.JWKSEndpoint, d.hostBaseURLWithPort),
+				"NANOBOT_RUN_OAUTH_JWKSURL=" + d.transformObotHostname(server.JWKSEndpoint),
 				"NANOBOT_RUN_TRUSTED_AUDIENCES=" + strings.Join(server.Audiences, ","),
 				"NANOBOT_RUN_OAUTH_CLIENT_ID=" + server.TokenExchangeClientID,
 				"NANOBOT_RUN_OAUTH_CLIENT_SECRET=" + server.TokenExchangeClientSecret,
@@ -695,7 +699,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 				"NANOBOT_RUN_OAUTH_SCOPES=profile",
 				"NANOBOT_RUN_FORCE_FETCH_TOOL_LIST=true",
 				"NANOBOT_DISABLE_HEALTH_CHECKER=true",
-				"NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL=" + localhostURLRegexp.ReplaceAllString(server.Issuer+"/api/api-keys/auth", d.hostBaseURLWithPort),
+				"NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL=" + d.transformObotHostname(server.Issuer+"/api/api-keys/auth"),
 				"NANOBOT_RUN_MCPSERVER_ID=" + strings.TrimSuffix(server.MCPServerName, "-shim"),
 			}
 

@@ -30,6 +30,7 @@ type backend interface {
 	getServerDetails(ctx context.Context, id string) (types.MCPServerDetails, error)
 	restartServer(ctx context.Context, id string) error
 	shutdownServer(ctx context.Context, id string) error
+	transformObotHostname(url string) string
 }
 
 type ErrNotSupportedByBackend struct {

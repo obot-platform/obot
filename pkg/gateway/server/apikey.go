@@ -156,9 +156,6 @@ func (s *Server) deleteAPIKey(apiContext api.Context) error {
 	}
 
 	if err := apiContext.GatewayClient.DeleteAPIKey(apiContext.Context(), userID, uint(keyID)); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types2.NewErrNotFound("API key not found")
-		}
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to delete API key: %v", err))
 	}
 
@@ -203,9 +200,6 @@ func (s *Server) deleteAnyAPIKey(apiContext api.Context) error {
 	}
 
 	if err := apiContext.GatewayClient.DeleteAPIKeyByID(apiContext.Context(), uint(keyID)); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types2.NewErrNotFound("API key not found")
-		}
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to delete API key: %v", err))
 	}
 

@@ -82,9 +82,6 @@ func (c *Client) DeleteAPIKey(ctx context.Context, userID uint, keyID uint) erro
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete API key: %w", result.Error)
 	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
 	return nil
 }
 

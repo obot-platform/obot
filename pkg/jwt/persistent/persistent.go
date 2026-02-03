@@ -44,7 +44,8 @@ func NewTokenService(serverURL string, gatewayClient *client.Client, credOnlyGPT
 type TokenType string
 
 const (
-	TokenTypeRun TokenType = "run"
+	TokenTypeRun      TokenType = "run"
+	TokenTypeWorkflow TokenType = "workflow"
 )
 
 // EnsureJWK ensures that the JWK is created and stored in the GPTScript client. It should only be called in a controller post-start hook which only allows one to be run at a time.
@@ -168,7 +169,10 @@ type TokenContext struct {
 func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
 	token := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
 	if token == "" {
-		return nil, false, nil
+		token = req.Header.Get("X-API-Key")
+		if token == "" {
+			return nil, false, nil
+		}
 	}
 
 	tokenContext, err := t.DecodeToken(req.Context(), token)
