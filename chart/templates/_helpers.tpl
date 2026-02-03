@@ -91,3 +91,25 @@ Generate comma-separated list of MCP image pull secret names
 {{- end -}}
 {{- join "," $secrets -}}
 {{- end -}}
+
+{{/*
+Validate PSA level value. Valid values are: privileged, baseline, restricted
+Usage: {{ include "obot.validatePSALevel" (dict "value" .Values.mcpNamespace.podSecurity.enforce "field" "mcpNamespace.podSecurity.enforce") }}
+*/}}
+{{- define "obot.validatePSALevel" -}}
+{{- $validLevels := list "privileged" "baseline" "restricted" -}}
+{{- if not (has .value $validLevels) -}}
+{{- fail (printf "Invalid PSA level %q for %s: must be one of [privileged, baseline, restricted]" .value .field) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Validate all PSA level values in mcpNamespace.podSecurity
+*/}}
+{{- define "obot.validatePodSecurityLevels" -}}
+{{- if .Values.mcpNamespace.podSecurity.enabled -}}
+{{- include "obot.validatePSALevel" (dict "value" .Values.mcpNamespace.podSecurity.enforce "field" "mcpNamespace.podSecurity.enforce") -}}
+{{- include "obot.validatePSALevel" (dict "value" .Values.mcpNamespace.podSecurity.audit "field" "mcpNamespace.podSecurity.audit") -}}
+{{- include "obot.validatePSALevel" (dict "value" .Values.mcpNamespace.podSecurity.warn "field" "mcpNamespace.podSecurity.warn") -}}
+{{- end -}}
+{{- end -}}
