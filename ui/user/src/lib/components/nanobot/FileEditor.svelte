@@ -1,0 +1,102 @@
+<script lang="ts">
+	import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
+	import type { ResourceContents } from '$lib/services/nanobot/types';
+	import { X } from 'lucide-svelte';
+	import { fly } from 'svelte/transition';
+	import MarkdownEditor from './MarkdownEditor.svelte';
+
+	interface Props {
+		filename: string;
+		chat: ChatService;
+		onClose: () => void;
+	}
+
+	let { filename, chat, onClose }: Props = $props();
+
+	let resource = $state<ResourceContents | null>(null);
+	let loading = $state(true);
+	let error = $state<string | null>(null);
+
+	$effect(() => {
+		// Reset state when filename changes
+		resource = null;
+		loading = true;
+		error = null;
+
+		// Initial fetch of the resource
+		const match = chat.resources.find((r) => r.name === filename);
+		if (!match) {
+			loading = false;
+			return;
+		}
+
+		chat
+			.readResource(match.uri)
+			.then((result) => {
+				if (result.contents?.length) {
+					resource = result.contents[0];
+				}
+				loading = false;
+			})
+			.catch((e) => {
+				error = e instanceof Error ? e.message : String(e);
+				loading = false;
+			});
+
+		// Subscribe to live updates
+		const cleanup = chat.watchResource(match.uri, (updatedResource) => {
+			console.debug('[FileEditor] Resource updated:', match.uri);
+			resource = updatedResource;
+		});
+
+		// Cleanup subscription when component unmounts or filename changes
+		return cleanup;
+	});
+
+	// Derive the content to display
+	let content = $derived(resource?.text ?? '');
+	let mimeType = $derived(resource?.mimeType ?? 'text/plain');
+</script>
+
+<div class="h-dvh min-w-[500px] overflow-hidden" in:fly={{ x: 100, duration: 300 }}>
+	<div class="bg-base-200 flex h-full w-full flex-col">
+		<div class="border-base-300 flex items-center gap-2 border-b px-4 py-2">
+			<div class="flex grow items-center justify-between">
+				<span class="truncate text-sm font-medium">{filename}</span>
+				{#if mimeType}
+					<span class="text-base-content/60 text-xs">{mimeType}</span>
+				{/if}
+			</div>
+			<button class="btn btn-sm btn-square tooltip tooltip-left" data-tip="Close" onclick={onClose}>
+				<X class="size-4" />
+			</button>
+		</div>
+
+		<div class="flex-1 overflow-auto p-4 pt-0">
+			{#if loading}
+				<div class="flex h-full items-center justify-center">
+					<span class="loading loading-spinner loading-md"></span>
+				</div>
+			{:else if error}
+				<div class="alert alert-error">
+					<span>Failed to load resource: {error}</span>
+				</div>
+			{:else if resource?.blob}
+				<!-- Binary content - show as image if possible -->
+				{#if mimeType.startsWith('image/')}
+					<img
+						src="data:{mimeType};base64,{resource.blob}"
+						alt={filename}
+						class="h-auto max-w-full"
+					/>
+				{:else}
+					<div class="text-base-content/60">Binary content ({mimeType})</div>
+				{/if}
+			{:else if content}
+				<MarkdownEditor value={content} />
+			{:else}
+				<div class="text-base-content/60 italic">The contents of this file are empty.</div>
+			{/if}
+		</div>
+	</div>
+</div>

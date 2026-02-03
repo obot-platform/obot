@@ -1,5 +1,6 @@
 import { BOOTSTRAP_USER_ID } from '$lib/constants';
 import { Group } from '$lib/services/admin/types';
+import { PUBLIC_NANOBOT_ENABLED } from '$env/static/public'
 import type {
 	AccessControlRule,
 	AccessControlRuleManifest,
@@ -89,7 +90,11 @@ export async function patchProfile(
 }
 
 export async function getVersion(opts?: { fetch?: Fetcher }): Promise<Version> {
-	return (await doGet('/version', opts)) as Version;
+	const version = (await doGet('/version', opts)) as Version;
+	if (PUBLIC_NANOBOT_ENABLED) {
+		version.nanobotEnabled = true;
+	}
+	return version;
 }
 
 export async function getAssistant(id: string, opts?: { fetch?: Fetcher }): Promise<Assistant> {
@@ -716,7 +721,7 @@ export function newMessageEventSource(
 	const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
 	return new EventSource(
 		baseURL +
-			`/assistants/${assistantID}/projects/${projectID}/threads/${opts?.threadID}/events${queryString}`
+		`/assistants/${assistantID}/projects/${projectID}/threads/${opts?.threadID}/events${queryString}`
 	);
 }
 
@@ -1807,8 +1812,8 @@ export async function getWorkspaceMCPCatalogEntryToolPreviewsOauth(
 			}
 		)) as
 			| {
-					oauthURL: string;
-			  }
+				oauthURL: string;
+			}
 			| Record<string, string>;
 
 		// Check if response has oauthURL property (single server response)

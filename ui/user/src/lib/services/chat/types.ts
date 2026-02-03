@@ -166,6 +166,7 @@ export interface Version {
 	upgradeAvailable?: boolean;
 	engine?: 'docker' | 'kubernetes' | 'local';
 	autonomousToolUseEnabled?: boolean;
+	nanobotEnabled?: boolean;
 }
 
 export interface Profile {
@@ -910,13 +911,13 @@ export interface CallFrame {
 	toolName: string;
 	parentID?: string;
 	type:
-		| RunEventType.CallStart
-		| RunEventType.CallChat
-		| RunEventType.CallConfirm
-		| RunEventType.CallContinue
-		| RunEventType.CallSubCalls
-		| RunEventType.CallProgress
-		| RunEventType.CallFinish;
+	| RunEventType.CallStart
+	| RunEventType.CallChat
+	| RunEventType.CallConfirm
+	| RunEventType.CallContinue
+	| RunEventType.CallSubCalls
+	| RunEventType.CallProgress
+	| RunEventType.CallFinish;
 	start: string;
 	end: string;
 	input: string | Record<string, string>;

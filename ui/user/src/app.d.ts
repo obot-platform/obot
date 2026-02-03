@@ -10,4 +10,6 @@ declare global {
 	}
 }
 
+declare module '@mcp-ui/client/ui-resource-renderer.wc.js';
+
 export {};

@@ -570,6 +570,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/system-mcp-servers/{id}/tools", systemMCPServers.GetTools)
 
 	// MCP Gateway Endpoints
+	// The first pattern handles the root path, the second handles all sub-paths
 	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.Proxy)
 	mux.HandleFunc("/mcp-connect/{mcp_id}/{rest...}", mcpGateway.Proxy)
 
