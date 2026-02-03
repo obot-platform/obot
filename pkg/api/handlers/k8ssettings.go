@@ -3,7 +3,6 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -13,9 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
-
-// validPSALevels contains the valid Pod Security Admission levels
-var validPSALevels = []string{"privileged", "baseline", "restricted"}
 
 type K8sSettingsHandler struct{}
 
@@ -122,9 +118,7 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 	// PodSecurityAdmission values provided in the request instead of rejecting the
 	// entire update. The stored PodSecurityAdmission settings, if any, remain
 	// unchanged and continue to be enforced by the system.
-	if input.PodSecurityAdmission != nil {
-		// No-op: do not modify settings.Spec.PodSecurityAdmission based on input.
-	}
+	// Note: input.PodSecurityAdmission is intentionally not processed here.
 
 	if err := req.Storage.Update(req.Context(), &settings); err != nil {
 		return err
@@ -186,34 +180,4 @@ func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {
 	}
 
 	return result, nil
-}
-
-// validatePodSecurityAdmissionSettings validates the PSA settings fields
-func validatePodSecurityAdmissionSettings(psa *types.PodSecurityAdmissionSettings) error {
-	if psa == nil {
-		return nil
-	}
-
-	var errs []error
-
-	// Validate Enforce level (required when PSA is enabled)
-	if psa.Enforce != "" && !slices.Contains(validPSALevels, psa.Enforce) {
-		errs = append(errs, fmt.Errorf("invalid enforce level %q: must be one of %v", psa.Enforce, validPSALevels))
-	}
-
-	// Validate Audit level (optional)
-	if psa.Audit != "" && !slices.Contains(validPSALevels, psa.Audit) {
-		errs = append(errs, fmt.Errorf("invalid audit level %q: must be one of %v", psa.Audit, validPSALevels))
-	}
-
-	// Validate Warn level (optional)
-	if psa.Warn != "" && !slices.Contains(validPSALevels, psa.Warn) {
-		errs = append(errs, fmt.Errorf("invalid warn level %q: must be one of %v", psa.Warn, validPSALevels))
-	}
-
-	if len(errs) > 0 {
-		return types.NewErrBadRequest("%v", errors.Join(errs...))
-	}
-
-	return nil
 }

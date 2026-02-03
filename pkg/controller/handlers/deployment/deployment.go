@@ -109,21 +109,22 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 			currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
 
 			// If the deployment's hash matches the current K8sSettings hash,
-			// the deployment is up-to-date (or being updated) with respect to
-			// K8sSettings. However, PSA compliance is determined by the actual
-			// security contexts on the Deployment and must be checked
-			// independently of the hash.
+			// the deployment is up-to-date (or being updated) and we shouldn't
+			// set NeedsK8sUpdate even if we see stale PSA data due to race conditions
 			hashesMatch := k8sSettingsHash != "" && k8sSettingsHash == currentHash
 
-			// Check if deployment needs PSA compliance updates
-			// This catches deployments created before PSA security context was added
-			if mcp.DeploymentNeedsPSAUpdate(deployment) {
-				mcpServer.Status.NeedsK8sUpdate = true
-				needsUpdate = true
-			} else if k8sSettingsHash != "" && k8sSettingsHash != currentHash {
-				// K8s settings hash drift detected
-				mcpServer.Status.NeedsK8sUpdate = true
-				needsUpdate = true
+			if !hashesMatch {
+				// Check if deployment needs PSA compliance updates
+				// This catches deployments created before PSA security context was added
+				psaLevel := mcp.GetPSAEnforceLevelFromSpec(k8sSettings.Spec)
+				if mcp.DeploymentNeedsPSAUpdate(deployment, psaLevel) {
+					mcpServer.Status.NeedsK8sUpdate = true
+					needsUpdate = true
+				} else if k8sSettingsHash != "" && k8sSettingsHash != currentHash {
+					// K8s settings hash drift detected
+					mcpServer.Status.NeedsK8sUpdate = true
+					needsUpdate = true
+				}
 			}
 		}
 	}

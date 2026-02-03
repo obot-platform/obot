@@ -412,7 +412,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings)
 
 	// Get PSA enforce level for security context decisions
-	psaLevel := getPSAEnforceLevel(k8sSettings)
+	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
 
 	webhookSecretStringData := make(map[string]string, len(webhooks))
 	containers := make([]corev1.Container, 0, len(webhooks)+2)
@@ -1037,7 +1037,7 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 	}
 
 	// Get PSA enforce level for security context decisions
-	psaLevel := getPSAEnforceLevel(k8sSettings)
+	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
 
 	// Add pod-level security context based on PSA level
 	podSecurityContextPatch := getPodSecurityContextPatch(psaLevel)
@@ -1093,47 +1093,6 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 			"$patch": "delete",
 		}
 	}
-<<<<<<< HEAD
-	containerPatches = append(containerPatches, mcpContainerPatch)
-
-	// Check if deployment has a shim container and patch it too
-	for _, container := range deployment.Spec.Template.Spec.Containers {
-		if strings.HasSuffix(container.Name, "-shim") {
-			shimPatch := map[string]any{
-				"name": container.Name,
-			}
-			if containerSecurityContextPatch != nil {
-				shimPatch["securityContext"] = containerSecurityContextPatch
-			} else {
-				shimPatch["securityContext"] = map[string]any{
-					"$patch": "delete",
-				}
-			}
-			containerPatches = append(containerPatches, shimPatch)
-			break
-		}
-	}
-
-	// Patch webhook containers (any container that's not "mcp" and not a shim)
-	for _, container := range deployment.Spec.Template.Spec.Containers {
-		if container.Name != "mcp" && !strings.HasSuffix(container.Name, "-shim") {
-			webhookPatch := map[string]any{
-				"name": container.Name,
-			}
-			if containerSecurityContextPatch != nil {
-				webhookPatch["securityContext"] = containerSecurityContextPatch
-			} else {
-				webhookPatch["securityContext"] = map[string]any{
-					"$patch": "delete",
-				}
-			}
-			containerPatches = append(containerPatches, webhookPatch)
-		}
-	}
-
-	templateSpec["containers"] = containerPatches
-||||||| parent of ed1f718a (fix: expose update in ui and handle state)
-=======
 	containerPatches = append(containerPatches, mcpContainerPatch)
 
 	// Patch shim and webhook containers (any container that's not "mcp")
@@ -1156,7 +1115,6 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 	}
 
 	templateSpec["containers"] = containerPatches
->>>>>>> ed1f718a (fix: expose update in ui and handle state)
 
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
@@ -1183,8 +1141,8 @@ const (
 	PSARestricted PSAEnforceLevel = "restricted"
 )
 
-// getPSAEnforceLevel extracts the PSA enforce level from K8sSettingsSpec
-func getPSAEnforceLevel(settings v1.K8sSettingsSpec) PSAEnforceLevel {
+// GetPSAEnforceLevelFromSpec extracts the PSA enforce level from K8sSettingsSpec
+func GetPSAEnforceLevelFromSpec(settings v1.K8sSettingsSpec) PSAEnforceLevel {
 	if settings.PodSecurityAdmission == nil || !settings.PodSecurityAdmission.Enabled {
 		return PSARestricted // Default to restricted when PSA is not configured
 	}
@@ -1367,38 +1325,53 @@ func (k *kubernetesBackend) getK8sSettings(ctx context.Context) (v1.K8sSettingsS
 	return settings.Spec, err
 }
 
-<<<<<<< HEAD
-// DeploymentNeedsPSAUpdate checks if a deployment needs to be updated to be PSA compliant.
-// This checks for the required security context settings on all containers for the "restricted" PSA level.
-func DeploymentNeedsPSAUpdate(deployment *appsv1.Deployment) bool {
+// DeploymentNeedsPSAUpdate checks if a deployment needs to be updated to be PSA compliant
+// based on the given PSA enforce level. For "privileged" level, no update is needed.
+// For "baseline" level, checks for basic privilege escalation restrictions.
+// For "restricted" level, checks for full security context requirements.
+func DeploymentNeedsPSAUpdate(deployment *appsv1.Deployment, level PSAEnforceLevel) bool {
 	if deployment == nil {
+		return false
+	}
+
+	// Privileged PSA level has no requirements
+	if level == PSAPrivileged {
 		return false
 	}
 
 	// Check pod-level security context
 	podSC := deployment.Spec.Template.Spec.SecurityContext
-	if podSC == nil {
-		return true
-	}
 
-	// Check runAsNonRoot (must be true for restricted PSA)
-	if podSC.RunAsNonRoot == nil || !*podSC.RunAsNonRoot {
-		return true
-	}
+	// For restricted level, need full pod security context
+	if level == PSARestricted {
+		if podSC == nil {
+			return true
+		}
 
-	// Check runAsUser (must be > 0 for restricted PSA, i.e., non-root)
-	if podSC.RunAsUser == nil || *podSC.RunAsUser == 0 {
-		return true
-	}
+		// Check runAsNonRoot (must be true for restricted PSA)
+		if podSC.RunAsNonRoot == nil || !*podSC.RunAsNonRoot {
+			return true
+		}
 
-	// Check seccompProfile (must be RuntimeDefault or Localhost for restricted PSA)
-	if podSC.SeccompProfile == nil || podSC.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
-		return true
+		// Check runAsUser (must be > 0 for restricted PSA, i.e., non-root)
+		if podSC.RunAsUser == nil || *podSC.RunAsUser == 0 {
+			return true
+		}
+
+		// Check runAsGroup (must be set for restricted PSA)
+		if podSC.RunAsGroup == nil || *podSC.RunAsGroup == 0 {
+			return true
+		}
+
+		// Check seccompProfile (must be RuntimeDefault or Localhost for restricted PSA)
+		if podSC.SeccompProfile == nil || podSC.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
+			return true
+		}
 	}
 
 	// Check each container's security context
 	for _, container := range deployment.Spec.Template.Spec.Containers {
-		if containerNeedsPSAUpdate(&container) {
+		if containerNeedsPSAUpdate(&container, level) {
 			return true
 		}
 	}
@@ -1406,31 +1379,28 @@ func DeploymentNeedsPSAUpdate(deployment *appsv1.Deployment) bool {
 	return false
 }
 
-// containerNeedsPSAUpdate checks if a container needs PSA compliance updates for the "restricted" level
-func containerNeedsPSAUpdate(container *corev1.Container) bool {
+// containerNeedsPSAUpdate checks if a container needs PSA compliance updates based on the given level.
+// For "privileged" level, no update is needed.
+// For "baseline" level, checks allowPrivilegeEscalation and capabilities.drop ALL.
+// For "restricted" level, checks all security context requirements.
+func containerNeedsPSAUpdate(container *corev1.Container, level PSAEnforceLevel) bool {
+	// Privileged PSA level has no requirements
+	if level == PSAPrivileged {
+		return false
+	}
+
 	sc := container.SecurityContext
 	if sc == nil {
 		return true
 	}
 
-	// Check allowPrivilegeEscalation (must be false for restricted PSA)
+	// Both baseline and restricted require these checks
+	// Check allowPrivilegeEscalation (must be false)
 	if sc.AllowPrivilegeEscalation == nil || *sc.AllowPrivilegeEscalation {
 		return true
 	}
 
-	// Check runAsNonRoot (must be true for restricted PSA)
-	// This can be set at pod level or container level; we check container level here
-	if sc.RunAsNonRoot == nil || !*sc.RunAsNonRoot {
-		return true
-	}
-
-	// Check runAsUser (must be > 0 for restricted PSA, i.e., non-root)
-	// This can be set at pod level or container level; we check container level here
-	if sc.RunAsUser == nil || *sc.RunAsUser == 0 {
-		return true
-	}
-
-	// Check capabilities.drop contains ALL (required for restricted PSA)
+	// Check capabilities.drop contains ALL (required for baseline and restricted PSA)
 	if sc.Capabilities == nil {
 		return true
 	}
@@ -1445,52 +1415,25 @@ func containerNeedsPSAUpdate(container *corev1.Container) bool {
 		return true
 	}
 
-	// Check seccompProfile (must be RuntimeDefault or Localhost for restricted PSA)
-	if sc.SeccompProfile == nil || sc.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
-		return true
-	}
+	// Restricted level has additional requirements
+	if level == PSARestricted {
+		// Check runAsNonRoot (must be true for restricted PSA)
+		if sc.RunAsNonRoot == nil || !*sc.RunAsNonRoot {
+			return true
+		}
 
-	return false
-}
+		// Check runAsUser (must be > 0 for restricted PSA, i.e., non-root)
+		if sc.RunAsUser == nil || *sc.RunAsUser == 0 {
+			return true
+		}
 
-||||||| parent of ed1f718a (fix: expose update in ui and handle state)
-=======
-// DeploymentNeedsPSAUpdate checks if a deployment needs to be updated to be PSA compliant.
-// This checks for the required security context settings on all containers for the "restricted" PSA level.
-func DeploymentNeedsPSAUpdate(deployment *appsv1.Deployment) bool {
-	if deployment == nil {
-		return false
-	}
+		// Check runAsGroup (must be set for restricted PSA)
+		if sc.RunAsGroup == nil || *sc.RunAsGroup == 0 {
+			return true
+		}
 
-	// Check pod-level security context
-	podSC := deployment.Spec.Template.Spec.SecurityContext
-	if podSC == nil {
-		return true
-	}
-
-	// Check runAsNonRoot (must be true for restricted PSA)
-	if podSC.RunAsNonRoot == nil || !*podSC.RunAsNonRoot {
-		return true
-	}
-
-	// Check runAsUser (must be > 0 for restricted PSA, i.e., non-root)
-	if podSC.RunAsUser == nil || *podSC.RunAsUser == 0 {
-		return true
-	}
-
-	// Check runAsGroup (must be set for restricted PSA)
-	if podSC.RunAsGroup == nil || *podSC.RunAsGroup == 0 {
-		return true
-	}
-
-	// Check seccompProfile (must be RuntimeDefault or Localhost for restricted PSA)
-	if podSC.SeccompProfile == nil || podSC.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
-		return true
-	}
-
-	// Check each container's security context
-	for _, container := range deployment.Spec.Template.Spec.Containers {
-		if containerNeedsPSAUpdate(&container) {
+		// Check seccompProfile (must be RuntimeDefault or Localhost for restricted PSA)
+		if sc.SeccompProfile == nil || sc.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
 			return true
 		}
 	}
@@ -1498,60 +1441,6 @@ func DeploymentNeedsPSAUpdate(deployment *appsv1.Deployment) bool {
 	return false
 }
 
-// containerNeedsPSAUpdate checks if a container needs PSA compliance updates for the "restricted" level
-func containerNeedsPSAUpdate(container *corev1.Container) bool {
-	sc := container.SecurityContext
-	if sc == nil {
-		return true
-	}
-
-	// Check allowPrivilegeEscalation (must be false for restricted PSA)
-	if sc.AllowPrivilegeEscalation == nil || *sc.AllowPrivilegeEscalation {
-		return true
-	}
-
-	// Check runAsNonRoot (must be true for restricted PSA)
-	// This can be set at pod level or container level; we check container level here
-	if sc.RunAsNonRoot == nil || !*sc.RunAsNonRoot {
-		return true
-	}
-
-	// Check runAsUser (must be > 0 for restricted PSA, i.e., non-root)
-	// This can be set at pod level or container level; we check container level here
-	if sc.RunAsUser == nil || *sc.RunAsUser == 0 {
-		return true
-	}
-
-	// Check runAsGroup (must be set for restricted PSA)
-	// This can be set at pod level or container level; we check container level here
-	if sc.RunAsGroup == nil || *sc.RunAsGroup == 0 {
-		return true
-	}
-
-	// Check capabilities.drop contains ALL (required for restricted PSA)
-	if sc.Capabilities == nil {
-		return true
-	}
-	hasDropAll := false
-	for _, cap := range sc.Capabilities.Drop {
-		if cap == "ALL" {
-			hasDropAll = true
-			break
-		}
-	}
-	if !hasDropAll {
-		return true
-	}
-
-	// Check seccompProfile (must be RuntimeDefault or Localhost for restricted PSA)
-	if sc.SeccompProfile == nil || sc.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
-		return true
-	}
-
-	return false
-}
-
->>>>>>> ed1f718a (fix: expose update in ui and handle state)
 // CheckCapacity checks if there's enough capacity to deploy a new MCP server.
 // Returns nil if capacity is available, or ErrInsufficientCapacity if not.
 // Uses fail-open strategy: if no ResourceQuota exists, allows deployment and lets Kubernetes decide.
