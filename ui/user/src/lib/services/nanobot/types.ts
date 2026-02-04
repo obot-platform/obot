@@ -396,3 +396,39 @@ export interface InitializationResult {
 }
 
 export const UIPath = '/mcp?ui';
+
+export interface ProjectV2 {
+    displayName: string;
+    id: string;
+}
+
+export interface ProjectV2CreateRequest {
+    displayName: string;
+}
+
+export interface ProjectV2UpdateRequest {
+    displayName: string;
+}
+
+export interface ProjectV2Agent {
+    id: string;
+    connectURL: string;
+    created: string;
+    projectV2ID: string;
+    userID: string;
+    displayName?: string;
+    description?: string;
+    defaultAgent?: string;
+}
+
+export interface ProjectV2AgentCreateRequest {
+    displayName?: string;
+    description?: string;
+    defaultAgent?: string;
+}
+
+export interface ProjectV2AgentUpdateRequest {
+    displayName?: string;
+    description?: string;
+    defaultAgent?: string;
+}

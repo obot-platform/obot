@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import type { Chat } from '$lib/services/nanobot/types';
-	import { resolve } from '$app/paths';
 	import { Check, Edit, MoreVertical, Trash2, X } from 'lucide-svelte';
 
 	interface Props {
@@ -18,8 +18,10 @@
 	let editTitle = $state('');
 
 	function navigateToThread(threadId: string) {
-		goto(resolve(`/nanobot?id=${threadId}`));
 		onThreadClick?.();
+		const url = new URL(page.url);
+		url.searchParams.set('tid', threadId);
+		goto(url.toString());
 	}
 
 	function formatTime(timestamp: string): string {
@@ -96,7 +98,10 @@
 					<!-- Thread title area (clickable) -->
 					<button
 						class="flex-1 truncate p-3 text-left transition-colors focus:outline-none"
-						onclick={() => navigateToThread(thread.id)}
+						onclick={() => {
+							if (editingThreadId === thread.id) return;
+							navigateToThread(thread.id);
+						}}
 					>
 						<div class="flex items-center justify-between gap-2">
 							<div class="flex min-w-0 flex-1 items-center gap-2">

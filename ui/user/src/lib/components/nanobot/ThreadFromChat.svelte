@@ -13,10 +13,6 @@
 
 	let selectedFile = $state('');
 	let drawerInput = $state<HTMLInputElement | null>(null);
-
-	$effect(() => {
-		console.log({ agent: chat.agent });
-	});
 </script>
 
 {#key chat.chatId}

@@ -54,13 +54,7 @@
 	<div class="flex h-full flex-col">
 		<!-- Threads section (takes up ~40% of available space) -->
 		<div class="flex-shrink-0">
-			<Threads
-				{threads}
-				onRename={handleRenameThread}
-				onDelete={handleDeleteThread}
-				{isLoading}
-				onThreadClick={() => {}}
-			/>
+			<Threads {threads} onRename={handleRenameThread} onDelete={handleDeleteThread} {isLoading} />
 		</div>
 	</div>
 </div>

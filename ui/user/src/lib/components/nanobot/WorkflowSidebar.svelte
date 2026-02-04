@@ -52,10 +52,6 @@
 			todoCleanup?.();
 		};
 	});
-
-	$effect(() => {
-		console.log({ chat });
-	});
 </script>
 
 {#if chat.chatId}
