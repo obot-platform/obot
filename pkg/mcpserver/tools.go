@@ -363,12 +363,17 @@ func (s *Server) getCatalogEntryConnection(ctx context.Context, userInfo *mcpUse
 	// Check if this entry requires configuration
 	needsConfig := listing.RequiresConfiguration(entry.Spec.Manifest)
 	needsURL := listing.RequiresURLConfiguration(entry.Spec.Manifest)
+	isComposite := entry.Spec.Manifest.Runtime == types.RuntimeComposite
 
-	if needsConfig || needsURL {
+	if needsConfig || needsURL || isComposite {
 		result.Status = "requires_configuration"
 		result.NeedsURL = needsURL
 		result.ConfigureURL = fmt.Sprintf("%s/mcp-servers/c/%s", s.serverURL, serverID)
-		result.Message = "This server requires configuration before it can be used. Please visit the configuration URL to set it up."
+		if isComposite {
+			result.Message = "This is a composite server. Please visit the configuration URL to select which tools to enable."
+		} else {
+			result.Message = "This server requires configuration before it can be used. Please visit the configuration URL to set it up."
+		}
 	} else {
 		result.Status = "ready"
 		result.ConnectURL = system.MCPConnectURL(s.serverURL, serverID)
