@@ -48,6 +48,7 @@ type VersionHandler struct {
 	enterprise               bool
 	engine                   string
 	autonomousToolUseEnabled bool
+	nanobotIntegration       bool
 
 	upgradeServerURL string
 	upgradeAvailable bool
@@ -55,7 +56,7 @@ type VersionHandler struct {
 	upgradeLock      sync.RWMutex
 }
 
-func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, supportDocker, authEnabled, disableUpdateCheck, autonomousToolUseEnabled bool) (*VersionHandler, error) {
+func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, supportDocker, authEnabled, disableUpdateCheck, autonomousToolUseEnabled, nanobotIntegration bool) (*VersionHandler, error) {
 	upgradeServerBaseURL := defaultUpgradeServerBaseURL
 	if os.Getenv("OBOT_UPGRADE_SERVER_URL") != "" {
 		upgradeServerBaseURL = os.Getenv("OBOT_UPGRADE_SERVER_URL")
@@ -71,6 +72,7 @@ func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailD
 		upgradeServerURL:         fmt.Sprintf("%s/check-upgrade", upgradeServerBaseURL),
 		engine:                   engine,
 		autonomousToolUseEnabled: autonomousToolUseEnabled,
+		nanobotIntegration:       nanobotIntegration,
 	}
 
 	currentVersion, _, _ := strings.Cut(version.Get().String(), "+")
@@ -130,6 +132,7 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 	values["enterprise"] = v.enterprise
 	values["engine"] = v.engine
 	values["autonomousToolUseEnabled"] = v.autonomousToolUseEnabled
+	values["nanobotIntegration"] = v.nanobotIntegration
 	v.upgradeLock.RLock()
 	values["upgradeAvailable"] = v.upgradeAvailable
 	values["latestVersion"] = v.latestVersion

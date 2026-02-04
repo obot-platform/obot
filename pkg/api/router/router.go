@@ -10,6 +10,8 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/registry"
 	"github.com/obot-platform/obot/pkg/api/handlers/setup"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
+	"github.com/obot-platform/obot/pkg/mcp/listing"
+	"github.com/obot-platform/obot/pkg/mcpserver"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/ui"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -27,7 +29,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		services.SupportDocker,
 		services.AuthEnabled,
 		services.DisableUpdateCheck,
-		services.AutonomousToolUseEnabled)
+		services.AutonomousToolUseEnabled,
+		services.NanobotIntegration)
 	if err != nil {
 		return nil, err
 	}
@@ -744,6 +747,22 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 
 	// Prompt
 	mux.HandleFunc("POST /api/prompt", prompt.Prompt)
+
+	// Integrated MCP Server - uses its own MCP token auth (allowed via authz anyGroup rules)
+	// Only enabled when Nanobot integration is enabled
+	if services.NanobotIntegration {
+		// Create shared lister for MCP server discovery
+		mcpLister := listing.NewLister(services.StorageClient, services.AccessControlRuleHelper)
+
+		integratedMCP := mcpserver.NewServer(
+			services.GatewayClient,
+			services.StorageClient,
+			mcpLister,
+			services.ServerURL,
+		)
+		mux.HTTPHandle("/mcp", integratedMCP.Handler())
+		mux.HTTPHandle("/mcp/", integratedMCP.Handler())
+	}
 
 	// Catch all 404 for API
 	mux.HTTPHandle("/api/", http.NotFoundHandler())

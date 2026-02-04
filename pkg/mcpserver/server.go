@@ -1,0 +1,53 @@
+package mcpserver
+
+import (
+	"net/http"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/mcp/listing"
+	"github.com/obot-platform/obot/pkg/storage"
+)
+
+// Server is the integrated MCP server that exposes Obot MCP server discovery tools.
+type Server struct {
+	mcpServer     *mcp.Server
+	gatewayClient *gclient.Client
+	storageClient storage.Client
+	lister        *listing.Lister
+	serverURL     string
+}
+
+// NewServer creates a new integrated MCP server.
+func NewServer(gatewayClient *gclient.Client, storageClient storage.Client, lister *listing.Lister, serverURL string) *Server {
+	s := &Server{
+		gatewayClient: gatewayClient,
+		storageClient: storageClient,
+		lister:        lister,
+		serverURL:     serverURL,
+	}
+
+	// Create the MCP server with implementation info
+	mcpServer := mcp.NewServer(&mcp.Implementation{
+		Name:    "obot-mcp-server",
+		Version: "0.1.0",
+	}, &mcp.ServerOptions{})
+
+	s.mcpServer = mcpServer
+
+	// Register tools
+	s.registerTools()
+
+	return s
+}
+
+// Handler returns an http.Handler for the MCP server with authentication middleware.
+func (s *Server) Handler() http.Handler {
+	// Create the streamable HTTP handler
+	httpHandler := mcp.NewStreamableHTTPHandler(func(_ *http.Request) *mcp.Server {
+		return s.mcpServer
+	}, nil)
+
+	// Wrap with authentication middleware
+	return s.authMiddleware(httpHandler)
+}

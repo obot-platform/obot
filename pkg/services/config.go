@@ -184,6 +184,7 @@ type Services struct {
 	MCPRuntimeBackend        string
 	RegistryNoAuth           bool
 	AutonomousToolUseEnabled bool
+	NanobotIntegration       bool
 }
 
 const (
@@ -660,7 +661,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, gserver.Options(config.GatewayConfig))
+	gatewayOpts := gserver.Options(config.GatewayConfig)
+	gatewayOpts.NanobotIntegration = config.NanobotIntegration
+	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, gatewayOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -837,6 +840,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		AutonomousToolUseEnabled: config.EnableAutonomousToolUse,
 		MCPRuntimeBackend:        config.MCPRuntimeBackend,
 		RegistryNoAuth:           registryNoAuth,
+		NanobotIntegration:       config.NanobotIntegration,
 	}, nil
 }
 

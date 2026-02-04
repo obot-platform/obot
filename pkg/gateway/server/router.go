@@ -100,4 +100,13 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	// API Key authentication webhook (called by nanobot shim)
 	// This endpoint is unauthenticated - it validates the API key passed in the header
 	mux.HandleFunc("POST /api/api-keys/auth", wrap(s.authenticateAPIKey))
+
+	// MCP Tokens for integrated MCP server access - user's own tokens
+	// Only enabled when Nanobot integration is enabled
+	if s.nanobotIntegration {
+		mux.HandleFunc("POST /api/mcp-tokens", wrap(s.createObotMCPToken))
+		mux.HandleFunc("GET /api/mcp-tokens", wrap(s.listObotMCPTokens))
+		mux.HandleFunc("GET /api/mcp-tokens/{id}", wrap(s.getObotMCPToken))
+		mux.HandleFunc("DELETE /api/mcp-tokens/{id}", wrap(s.deleteObotMCPToken))
+	}
 }

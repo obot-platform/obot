@@ -15,8 +15,9 @@ type Options struct {
 	UIHostname   string `name:"ui-hostname" env:"OBOT_SERVER_UI_HOSTNAME"`
 	GatewayDebug bool
 
-	DailyUserPromptTokenLimit     int `usage:"The maximum number of daily user prompt/input token to allow, <= 0 disables the limit" default:"10000000"`     // default is 10 million
-	DailyUserCompletionTokenLimit int `usage:"The maximum number of daily user completion/output tokens to allow, <= 0 disables the limit" default:"100000"` // default is 100 thousand
+	DailyUserPromptTokenLimit     int  `usage:"The maximum number of daily user prompt/input token to allow, <= 0 disables the limit" default:"10000000"`     // default is 10 million
+	DailyUserCompletionTokenLimit int  `usage:"The maximum number of daily user completion/output tokens to allow, <= 0 disables the limit" default:"100000"` // default is 100 thousand
+	NanobotIntegration            bool `usage:"Enable Nanobot integration" default:"false"`
 }
 
 type Server struct {
@@ -28,6 +29,7 @@ type Server struct {
 	mapHelper                          *modelaccesspolicy.Helper
 	dailyUserTokenPromptTokenLimit     int
 	dailyUserTokenCompletionTokenLimit int
+	nanobotIntegration                 bool
 }
 
 func New(ctx context.Context, db *db.DB, tokenService *persistent.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, acrHelper *accesscontrolrule.Helper, mapHelper *modelaccesspolicy.Helper, opts Options) (*Server, error) {
@@ -41,6 +43,7 @@ func New(ctx context.Context, db *db.DB, tokenService *persistent.TokenService, 
 		mapHelper:                          mapHelper,
 		dailyUserTokenPromptTokenLimit:     opts.DailyUserPromptTokenLimit,
 		dailyUserTokenCompletionTokenLimit: opts.DailyUserCompletionTokenLimit,
+		nanobotIntegration:                 opts.NanobotIntegration,
 	}
 
 	go s.autoCleanupTokens(ctx)
