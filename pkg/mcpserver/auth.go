@@ -57,19 +57,13 @@ func userFromContext(ctx context.Context) *types.User {
 
 // groupIDsFromContext returns the auth provider group IDs from the context.
 func groupIDsFromContext(ctx context.Context) []string {
-	groupIDs, ok := ctx.Value(groupIDsContextKey).([]string)
-	if !ok {
-		return nil
-	}
+	groupIDs, _ := ctx.Value(groupIDsContextKey).([]string)
 	return groupIDs
 }
 
 // effectiveRoleFromContext returns the effective role from the context.
 func effectiveRoleFromContext(ctx context.Context) types2.Role {
-	role, ok := ctx.Value(effectiveRoleContextKey).(types2.Role)
-	if !ok {
-		return types2.RoleUnknown
-	}
+	role, _ := ctx.Value(effectiveRoleContextKey).(types2.Role)
 	return role
 }
 
