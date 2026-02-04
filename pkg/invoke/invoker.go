@@ -33,6 +33,7 @@ import (
 	"github.com/obot-platform/obot/pkg/wait"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ktypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -1167,21 +1168,21 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 				switch frame.Call.Type {
 				case gptscript.EventTypeCallConfirm:
 					var (
-						callID   = frame.Call.ID
-						toolName = frame.Call.Tool.Name
-						latest   v1.Thread
+						callID       = frame.Call.ID
+						toolName     = frame.Call.Tool.Name
+						latestThread v1.Thread
 					)
 
 					// Fetch the latest approved tools in case they've changed since the run was started.
 					// This can happen when there are multiple tools awaiting approval, and the user approves
 					// with an "allow all X" option.
-					if c.Get(ctx, router.Key(thread.Namespace, thread.Name), &latest) != nil {
+					if c.Get(ctx, router.Key(thread.Namespace, thread.Name), &latestThread) != nil {
 						log.Warnf("Using stale approved tools for thread %s", thread.Name)
-						latest = *thread.DeepCopy()
+						latestThread = *thread.DeepCopy()
 					}
 
 					// Auto-confirm pre-approved tools.
-					if frame.Call.ToolCategory != gptscript.NoCategory || isApprovedTool(toolName, latest.Spec.ApprovedTools) {
+					if frame.Call.ToolCategory != gptscript.NoCategory || isApprovedTool(toolName, latestThread.Spec.ApprovedTools) {
 						if err := gptClient.Confirm(runCtx, gptscript.AuthResponse{
 							ID:     callID,
 							Accept: true,
@@ -1191,21 +1192,14 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 						break
 					}
 
-					// Watch for the call decision to be set on the run and submit to GPTScript
-					go i.watchRunCallDecision(runCtx, gptClient, c, run, callID)
-
-					// Emit tool confirm to frontend
-					toolConfirm := &types.ToolConfirm{
-						ID:          callID,
-						ToolName:    toolName,
-						Description: frame.Call.Tool.Description,
-						Input:       frame.Call.Input,
+					// Add the requested call decision to the run.
+					// This will cause the event emitter to generate a tool confirm progress event.
+					if err := addRequestedCallDecision(runCtx, c.Status(), run, callID); err != nil {
+						return fmt.Errorf("failed to add pending call decision to run: %w", err)
 					}
-					i.events.SubmitProgress(run, types.Progress{
-						RunID:       run.Name,
-						Time:        types.NewTime(time.Now()),
-						ToolConfirm: toolConfirm,
-					})
+
+					// Watch for the call decision to be set on the run and submit to GPTScript
+					go watchRunCallDecision(runCtx, gptClient, c, run, callID)
 				case gptscript.EventTypeCallFinish:
 					abortTimeout()
 					fallthrough
@@ -1232,7 +1226,9 @@ func (i *Invoker) watchThreadAbort(ctx context.Context, c kclient.WithWatch, thr
 	})
 }
 
-func (i *Invoker) watchRunCallDecision(
+// watchRunCallDecision watches for a user's approval/rejection decision on a tool call and sends it to GPTScript.
+// Blocks until the decision is made in run.Spec.CallDecisions or the context is canceled.
+func watchRunCallDecision(
 	ctx context.Context,
 	gptClient *gptscript.GPTScript,
 	c kclient.WithWatch,
@@ -1250,10 +1246,45 @@ func (i *Invoker) watchRunCallDecision(
 			ID:     callID,
 			Accept: accept,
 		})
+	}, wait.Option{
+		Timeout: 11 * time.Minute,
 	}); err != nil && ctx.Err() == nil {
 		// Context isn't done (not abort/deadline), log the error
 		log.Warnf("failed to watch run decision for call %s in run %s: %v", callID, run.Name, err)
 	}
+}
+
+// addRequestedCallDecision adds a call ID to the set of requested call decisions on a run.
+// This function patches the run's status to avoid resource contention.
+func addRequestedCallDecision(
+	ctx context.Context,
+	c kclient.SubResourceWriter,
+	run *v1.Run,
+	callID string,
+) error {
+	// Add to the set of calls that require approval on the run
+	var (
+		patchPath  = "/status/requestedCallDecisions"
+		patchValue any
+	)
+	if len(run.Status.RequestedCallDecisions) > 0 {
+		// If we already have requested call decisions, append instead of replace
+		patchValue = callID
+		patchPath += "/-"
+	} else {
+		patchValue = []string{callID}
+	}
+	patch := []map[string]any{{
+		"op":    "add",
+		"path":  patchPath,
+		"value": patchValue,
+	}}
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return err
+	}
+
+	return c.Patch(ctx, run, kclient.RawPatch(ktypes.JSONPatchType, patchBytes))
 }
 
 func timeoutAfter(ctx context.Context, cancel func(err error), d time.Duration) {
