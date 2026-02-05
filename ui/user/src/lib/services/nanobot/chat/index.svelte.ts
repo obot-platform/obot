@@ -390,7 +390,7 @@ export class ChatService {
 	uploadingFiles: UploadingFile[];
 
 	private api: ChatAPI;
-	private closer = () => { };
+	private closer = () => {};
 	private history: ChatMessage[] | undefined;
 	private onChatDone: (() => void)[] = [];
 	private subscribed = false;
