@@ -151,7 +151,7 @@ func (s *Server) handleListMCPServers(ctx context.Context, _ *mcp.ServerSession,
 	}
 
 	// List single-user servers owned by this user (needed early for filtering catalog entries)
-	singleUserServers, err := s.lister.ListSingleUserServers(ctx, userInfo.GetUID(), limit)
+	singleUserServers, err := s.lister.ListSingleUserServers(ctx, userInfo.GetUID(), 0)
 	if err != nil {
 		log.Errorf("failed to list single-user servers: %v", err)
 		return errorResult("failed to list single-user servers"), nil
