@@ -462,7 +462,7 @@ func (s *Server) getMCPServerConnection(ctx context.Context, userInfo *mcpUserIn
 	result := connectionResult{}
 
 	// Check deployment status
-	if server.Status.DeploymentStatus != "" && server.Status.DeploymentStatus != "Ready" {
+	if server.Status.DeploymentStatus != "" && server.Status.DeploymentStatus != "Available" {
 		result.Status = "not_ready"
 		result.Message = fmt.Sprintf("Server deployment is not ready. Current status: %s", server.Status.DeploymentStatus)
 		result.DeploymentStatus = server.Status.DeploymentStatus

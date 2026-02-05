@@ -132,7 +132,7 @@ type MCPServerStatus struct {
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
 	// MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server.
 	MCPServerInstanceUserCount *int `json:"mcpInstanceUserCount,omitempty"`
-	// DeploymentStatus indicates the overall status of the MCP server deployment (Ready, Progressing, Failed).
+	// DeploymentStatus indicates the overall status of the MCP server deployment (Available, Progressing, Unavailable, Needs Attention, Unknown).
 	DeploymentStatus string `json:"deploymentStatus,omitempty"`
 	// DeploymentAvailableReplicas is the number of available replicas in the deployment.
 	DeploymentAvailableReplicas *int32 `json:"deploymentAvailableReplicas,omitempty"`
