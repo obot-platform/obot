@@ -1,4 +1,5 @@
 {{- if eq .Values.config.OBOT_SERVER_MCPRUNTIME_BACKEND "kubernetes" }}
+{{- include "obot.validatePodSecurityLevels" . -}}
 apiVersion: v1
 kind: Namespace
 metadata:

@@ -3078,9 +3078,10 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 
 	// Compute current K8s settings hash and check if update is needed
 	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
-	needsUpdate := deployedHash != currentHash
+	hashDrift := deployedHash != currentHash
 
-	if needsUpdate {
+	// Trigger restart if hash drift OR if the server needs K8s update (e.g., PSA compliance)
+	if hashDrift || server.Status.NeedsK8sUpdate {
 		// Trigger restart to force redeployment with new settings
 		if err := m.mcpSessionManager.RestartServerDeployment(req.Context(), serverConfig); err != nil {
 			if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
@@ -3088,13 +3089,16 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 			}
 			return fmt.Errorf("failed to redeploy server: %w", err)
 		}
-
-		// We are assuming the redeployment will succeed, so we can clear the flag here.
-		server.Status.NeedsK8sUpdate = false
 	}
 
-	// We are assuming the redeployment will succeed, so we can clear the flag here.
-	server.Status.NeedsK8sUpdate = false
+	if server.Status.NeedsK8sUpdate {
+		// Clear the NeedsK8sUpdate flag now that the redeployment has been initiated.
+		// We assume the deployment will eventually reconcile successfully.
+		server.Status.NeedsK8sUpdate = false
+		if err := req.Storage.Status().Update(req.Context(), &server); err != nil {
+			return fmt.Errorf("failed to update server status: %w", err)
+		}
+	}
 
 	// Get credential for server
 	var credCtxs []string

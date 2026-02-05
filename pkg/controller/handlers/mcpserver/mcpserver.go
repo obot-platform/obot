@@ -64,6 +64,9 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 }
 
 // DetectK8sSettingsDrift detects when a server needs redeployment with new K8s settings
+// Note: This handler only sets NeedsK8sUpdate based on K8sSettings hash drift.
+// PSA compliance checking is handled separately in the deployment handler since it
+// requires access to the actual Deployment object to inspect container security contexts.
 func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
 
@@ -84,8 +87,8 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 	// Compute current K8s settings hash
 	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
 
-	if needsUpdate := server.Status.K8sSettingsHash != currentHash; needsUpdate != server.Status.NeedsK8sUpdate {
-		server.Status.NeedsK8sUpdate = needsUpdate
+	if server.Status.K8sSettingsHash != currentHash && !server.Status.NeedsK8sUpdate {
+		server.Status.NeedsK8sUpdate = true
 		return req.Client.Status().Update(req.Ctx, server)
 	}
 

@@ -110,6 +110,16 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 		settings.Spec.RuntimeClassName = nil
 	}
 
+	// PodSecurityAdmission settings are managed at initialization time (e.g. via Helm)
+	// and are read-only via this API.
+	//
+	// To keep this behavior while allowing clients to submit broader update payloads
+	// (for example, round-tripping settings they previously read), we ignore any
+	// PodSecurityAdmission values provided in the request instead of rejecting the
+	// entire update. The stored PodSecurityAdmission settings, if any, remain
+	// unchanged and continue to be enforced by the system.
+	// Note: input.PodSecurityAdmission is intentionally not processed here.
+
 	if err := req.Storage.Update(req.Context(), &settings); err != nil {
 		return err
 	}
@@ -154,6 +164,19 @@ func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {
 
 	if settings.Spec.RuntimeClassName != nil {
 		result.RuntimeClassName = *settings.Spec.RuntimeClassName
+	}
+
+	// Convert PSA settings
+	if settings.Spec.PodSecurityAdmission != nil {
+		result.PodSecurityAdmission = &types.PodSecurityAdmissionSettings{
+			Enabled:        settings.Spec.PodSecurityAdmission.Enabled,
+			Enforce:        settings.Spec.PodSecurityAdmission.Enforce,
+			EnforceVersion: settings.Spec.PodSecurityAdmission.EnforceVersion,
+			Audit:          settings.Spec.PodSecurityAdmission.Audit,
+			AuditVersion:   settings.Spec.PodSecurityAdmission.AuditVersion,
+			Warn:           settings.Spec.PodSecurityAdmission.Warn,
+			WarnVersion:    settings.Spec.PodSecurityAdmission.WarnVersion,
+		}
 	}
 
 	return result, nil

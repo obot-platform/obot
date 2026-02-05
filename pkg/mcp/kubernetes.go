@@ -432,6 +432,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	// Add K8s settings hash to annotations
 	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings)
 
+	// Get PSA enforce level for security context decisions
+	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
+
 	webhookSecretStringData := make(map[string]string, len(webhooks))
 	containers := make([]corev1.Container, 0, len(webhooks)+2)
 	// Add a container for each webhook, ensuring that there are no port collisions.
@@ -478,19 +481,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Ports: []corev1.ContainerPort{{
 				ContainerPort: int32(port),
 			}},
-			SecurityContext: &corev1.SecurityContext{
-				AllowPrivilegeEscalation: &[]bool{false}[0],
-				RunAsNonRoot:             &[]bool{true}[0],
-				RunAsUser:                &[]int64{1000}[0],
-				RunAsGroup:               &[]int64{1000}[0],
-				Capabilities: &corev1.Capabilities{
-					Drop: []corev1.Capability{"ALL"},
-				},
-				SeccompProfile: &corev1.SeccompProfile{
-					Type: corev1.SeccompProfileTypeRuntimeDefault,
-				},
-			},
-			Env: env,
+			SecurityContext: getContainerSecurityContext(psaLevel),
+			Env:             env,
 		})
 
 		// Update the URL for this webhook for use inside the "main" container.
@@ -564,19 +556,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				Name:          portName,
 				ContainerPort: int32(port),
 			}},
-			SecurityContext: &corev1.SecurityContext{
-				AllowPrivilegeEscalation: &[]bool{false}[0],
-				RunAsNonRoot:             &[]bool{true}[0],
-				RunAsUser:                &[]int64{1000}[0],
-				RunAsGroup:               &[]int64{1000}[0],
-				Capabilities: &corev1.Capabilities{
-					Drop: []corev1.Capability{"ALL"},
-				},
-				SeccompProfile: &corev1.SeccompProfile{
-					Type: corev1.SeccompProfileTypeRuntimeDefault,
-				},
-			},
-			Args: []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", port), "--exclude-built-in-agents", "--config", "/run/nanobot.yaml"},
+			SecurityContext: getContainerSecurityContext(psaLevel),
+			Args:            []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", port), "--exclude-built-in-agents", "--config", "/run/nanobot.yaml"},
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "run-shim-file",
@@ -650,20 +631,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				},
 			}
 		}(),
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &[]bool{false}[0],
-			RunAsNonRoot:             &[]bool{true}[0],
-			RunAsUser:                &[]int64{1000}[0],
-			RunAsGroup:               &[]int64{1000}[0],
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			},
-		},
-		Command: command,
-		Args:    args,
+		SecurityContext: getContainerSecurityContext(psaLevel),
+		Command:         command,
+		Args:            args,
 		EnvFrom: []corev1.EnvFromSource{{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
@@ -708,15 +678,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					Affinity:         k8sSettings.Affinity,
 					Tolerations:      k8sSettings.Tolerations,
 					RuntimeClassName: k8sSettings.RuntimeClassName,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: &[]bool{true}[0],
-						RunAsUser:    &[]int64{1000}[0],
-						RunAsGroup:   &[]int64{1000}[0],
-						FSGroup:      &[]int64{1000}[0],
-						SeccompProfile: &corev1.SeccompProfile{
-							Type: corev1.SeccompProfileTypeRuntimeDefault,
-						},
-					},
+					SecurityContext:  getPodSecurityContext(psaLevel),
 					Volumes: []corev1.Volume{
 						{
 							Name: "files",
@@ -1107,7 +1069,43 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 		templateSpec["runtimeClassName"] = nil
 	}
 
-	// Add resources to the container
+	// Get PSA enforce level for security context decisions
+	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
+
+	// Add pod-level security context based on PSA level
+	podSecurityContextPatch := getPodSecurityContextPatch(psaLevel)
+	if podSecurityContextPatch != nil {
+		templateSpec["securityContext"] = podSecurityContextPatch
+	} else {
+		// Use $patch: delete to remove any existing security context for privileged mode
+		templateSpec["securityContext"] = map[string]any{
+			"$patch": "delete",
+		}
+	}
+
+	// Get the container security context patch based on PSA level
+	containerSecurityContextPatch := getContainerSecurityContextPatch(psaLevel)
+
+	// Build container patches - we need to patch all possible containers
+	// based on PSA compliance level
+	containerPatches := []map[string]any{}
+
+	// Build the mcp container patch
+	mcpContainerPatch := map[string]any{
+		"name": "mcp",
+	}
+
+	// Apply security context based on PSA level
+	if containerSecurityContextPatch != nil {
+		mcpContainerPatch["securityContext"] = containerSecurityContextPatch
+	} else {
+		// For privileged mode, remove security context
+		mcpContainerPatch["securityContext"] = map[string]any{
+			"$patch": "delete",
+		}
+	}
+
+	// Add resources to the mcp container
 	if k8sSettings.Resources != nil {
 		// Use $patch: replace to completely replace the resources field
 		resourcesMap := map[string]any{
@@ -1121,26 +1119,35 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 		if len(k8sSettings.Resources.Requests) > 0 {
 			resourcesMap["requests"] = k8sSettings.Resources.Requests
 		}
-
-		// Patch the container resources (container name is "mcp")
-		// Using strategic merge patch which can merge containers by name
-		templateSpec["containers"] = []map[string]any{
-			{
-				"name":      "mcp",
-				"resources": resourcesMap,
-			},
-		}
+		mcpContainerPatch["resources"] = resourcesMap
 	} else {
 		// Use $patch: delete to remove any existing resources
-		templateSpec["containers"] = []map[string]any{
-			{
-				"name": "mcp",
-				"resources": map[string]any{
-					"$patch": "delete",
-				},
-			},
+		mcpContainerPatch["resources"] = map[string]any{
+			"$patch": "delete",
 		}
 	}
+	containerPatches = append(containerPatches, mcpContainerPatch)
+
+	// Patch shim and webhook containers (any container that's not "mcp")
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == "mcp" {
+			continue
+		}
+
+		containerPatch := map[string]any{
+			"name": container.Name,
+		}
+		if containerSecurityContextPatch != nil {
+			containerPatch["securityContext"] = containerSecurityContextPatch
+		} else {
+			containerPatch["securityContext"] = map[string]any{
+				"$patch": "delete",
+			}
+		}
+		containerPatches = append(containerPatches, containerPatch)
+	}
+
+	templateSpec["containers"] = containerPatches
 
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
@@ -1153,6 +1160,160 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 	}
 
 	return nil
+}
+
+// PSAEnforceLevel represents the Pod Security Admission enforce level
+type PSAEnforceLevel string
+
+const (
+	// PSAPrivileged allows all pod configurations (no restrictions)
+	PSAPrivileged PSAEnforceLevel = "privileged"
+	// PSABaseline provides minimal restrictions that prevent known privilege escalations
+	PSABaseline PSAEnforceLevel = "baseline"
+	// PSARestricted heavily restricts pod configurations following security best practices
+	PSARestricted PSAEnforceLevel = "restricted"
+)
+
+// GetPSAEnforceLevelFromSpec extracts the PSA enforce level from K8sSettingsSpec
+func GetPSAEnforceLevelFromSpec(settings v1.K8sSettingsSpec) PSAEnforceLevel {
+	if settings.PodSecurityAdmission == nil || !settings.PodSecurityAdmission.Enabled {
+		return PSARestricted // Default to restricted when PSA is not configured
+	}
+
+	switch settings.PodSecurityAdmission.Enforce {
+	case "privileged":
+		return PSAPrivileged
+	case "baseline":
+		return PSABaseline
+	default:
+		return PSARestricted
+	}
+}
+
+// ValidPSALevels contains all valid Pod Security Admission levels
+var ValidPSALevels = []string{"privileged", "baseline", "restricted"}
+
+// ValidatePSALevel checks if a PSA level value is valid
+func ValidatePSALevel(level string) bool {
+	switch level {
+	case "privileged", "baseline", "restricted":
+		return true
+	default:
+		return false
+	}
+}
+
+// getContainerSecurityContext returns the appropriate container security context based on PSA level
+func getContainerSecurityContext(psaLevel PSAEnforceLevel) *corev1.SecurityContext {
+	switch psaLevel {
+	case PSAPrivileged:
+		// Privileged mode: no security context restrictions
+		return nil
+	case PSABaseline:
+		// Baseline mode: minimal restrictions
+		// - Disallow privilege escalation
+		// Note: baseline PSA does NOT require dropping capabilities
+		return &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &[]bool{false}[0],
+		}
+	default: // PSARestricted
+		// Restricted mode: full security context
+		return &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &[]bool{false}[0],
+			RunAsNonRoot:             &[]bool{true}[0],
+			RunAsUser:                &[]int64{1000}[0],
+			RunAsGroup:               &[]int64{1000}[0],
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		}
+	}
+}
+
+// getPodSecurityContext returns the appropriate pod security context based on PSA level
+func getPodSecurityContext(psaLevel PSAEnforceLevel) *corev1.PodSecurityContext {
+	switch psaLevel {
+	case PSAPrivileged:
+		// Privileged mode: no security context restrictions
+		return nil
+	case PSABaseline:
+		// Baseline mode: minimal pod-level restrictions
+		return &corev1.PodSecurityContext{
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		}
+	default: // PSARestricted
+		// Restricted mode: full pod security context
+		return &corev1.PodSecurityContext{
+			RunAsNonRoot: &[]bool{true}[0],
+			RunAsUser:    &[]int64{1000}[0],
+			RunAsGroup:   &[]int64{1000}[0],
+			FSGroup:      &[]int64{1000}[0],
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		}
+	}
+}
+
+// getContainerSecurityContextPatch returns a map for patching container security context based on PSA level
+func getContainerSecurityContextPatch(psaLevel PSAEnforceLevel) map[string]any {
+	switch psaLevel {
+	case PSAPrivileged:
+		// Privileged mode: remove security context
+		return nil
+	case PSABaseline:
+		// Baseline mode: minimal restrictions
+		// Note: baseline PSA does NOT require dropping capabilities
+		return map[string]any{
+			"allowPrivilegeEscalation": false,
+		}
+	default: // PSARestricted
+		// Restricted mode: full security context
+		return map[string]any{
+			"allowPrivilegeEscalation": false,
+			"runAsNonRoot":             true,
+			"runAsUser":                int64(1000),
+			"runAsGroup":               int64(1000),
+			"capabilities": map[string]any{
+				"drop": []string{"ALL"},
+			},
+			"seccompProfile": map[string]any{
+				"type": "RuntimeDefault",
+			},
+		}
+	}
+}
+
+// getPodSecurityContextPatch returns a map for patching pod security context based on PSA level
+func getPodSecurityContextPatch(psaLevel PSAEnforceLevel) map[string]any {
+	switch psaLevel {
+	case PSAPrivileged:
+		// Privileged mode: no security context restrictions
+		return nil
+	case PSABaseline:
+		// Baseline mode: minimal pod-level restrictions
+		return map[string]any{
+			"seccompProfile": map[string]any{
+				"type": "RuntimeDefault",
+			},
+		}
+	default: // PSARestricted
+		// Restricted mode: full pod security context
+		return map[string]any{
+			"runAsNonRoot": true,
+			"runAsUser":    int64(1000),
+			"runAsGroup":   int64(1000),
+			"fsGroup":      int64(1000),
+			"seccompProfile": map[string]any{
+				"type": "RuntimeDefault",
+			},
+		}
+	}
 }
 
 // ComputeK8sSettingsHash computes a hash of K8s settings for change detection
@@ -1182,6 +1343,12 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
 		buf.WriteString(*settings.RuntimeClassName)
 	}
 
+	// Hash Pod Security Admission settings
+	if settings.PodSecurityAdmission != nil {
+		psaJSON, _ := json.Marshal(settings.PodSecurityAdmission)
+		buf.Write(psaJSON)
+	}
+
 	if buf.Len() == 0 {
 		return "none"
 	}
@@ -1197,6 +1364,139 @@ func (k *kubernetesBackend) getK8sSettings(ctx context.Context) (v1.K8sSettingsS
 	}, &settings)
 
 	return settings.Spec, err
+}
+
+// DeploymentNeedsPSAUpdate checks if a deployment needs to be updated to be PSA compliant
+// based on the given PSA enforce level. For "privileged" level, no update is needed.
+// For "baseline" level, checks for basic privilege escalation restrictions.
+// For "restricted" level, checks for full security context requirements.
+func DeploymentNeedsPSAUpdate(deployment *appsv1.Deployment, level PSAEnforceLevel) bool {
+	if deployment == nil {
+		return false
+	}
+
+	// Privileged PSA level has no requirements
+	if level == PSAPrivileged {
+		return false
+	}
+
+	// Check pod-level security context
+	podSC := deployment.Spec.Template.Spec.SecurityContext
+
+	// For restricted level, need full pod security context
+	if level == PSARestricted {
+		if podSC == nil {
+			return true
+		}
+
+		// Check runAsNonRoot (must be true for restricted PSA)
+		if podSC.RunAsNonRoot == nil || !*podSC.RunAsNonRoot {
+			return true
+		}
+
+		// Check runAsUser (must be > 0 for restricted PSA, i.e., non-root)
+		if podSC.RunAsUser == nil || *podSC.RunAsUser == 0 {
+			return true
+		}
+
+		// Check runAsGroup (must be set for restricted PSA)
+		if podSC.RunAsGroup == nil {
+			return true
+		}
+
+		// Check seccompProfile (must be RuntimeDefault or Localhost for restricted PSA)
+		if podSC.SeccompProfile == nil || podSC.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
+			return true
+		}
+	}
+
+	// For baseline level, require a pod-level seccompProfile with an allowed type
+	if level == PSABaseline {
+		if podSC == nil || podSC.SeccompProfile == nil {
+			return true
+		}
+
+		switch podSC.SeccompProfile.Type {
+		case corev1.SeccompProfileTypeRuntimeDefault,
+			corev1.SeccompProfileTypeLocalhost:
+			// allowed
+		default:
+			return true
+		}
+	}
+	// Check each container's security context
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if containerNeedsPSAUpdate(&container, level) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// containerNeedsPSAUpdate checks if a container needs PSA compliance updates based on the given level.
+// For "privileged" level, no update is needed.
+// For "baseline" level, checks allowPrivilegeEscalation.
+// For "restricted" level, checks all security context requirements including capabilities.drop ALL.
+func containerNeedsPSAUpdate(container *corev1.Container, level PSAEnforceLevel) bool {
+	// Privileged PSA level has no requirements
+	if level == PSAPrivileged {
+		return false
+	}
+
+	sc := container.SecurityContext
+	if sc == nil {
+		return true
+	}
+
+	// Both baseline and restricted require this check
+	// Check allowPrivilegeEscalation (must be false)
+	if sc.AllowPrivilegeEscalation == nil || *sc.AllowPrivilegeEscalation {
+		return true
+	}
+
+	// Restricted level has additional requirements
+	if level == PSARestricted {
+		// Check capabilities.drop contains ALL (required for restricted PSA)
+		if sc.Capabilities == nil {
+			return true
+		}
+		hasDropAll := false
+		for _, cap := range sc.Capabilities.Drop {
+			if cap == "ALL" {
+				hasDropAll = true
+				break
+			}
+		}
+		if !hasDropAll {
+			return true
+		}
+		// Check runAsNonRoot (must be true for restricted PSA)
+		if sc.RunAsNonRoot == nil || !*sc.RunAsNonRoot {
+			return true
+		}
+
+		// Check runAsUser (must be > 0 for restricted PSA, i.e., non-root)
+		if sc.RunAsUser == nil || *sc.RunAsUser == 0 {
+			return true
+		}
+
+		// Check runAsGroup (must be set for restricted PSA)
+		if sc.RunAsGroup == nil {
+			return true
+		}
+
+		// Check seccompProfile (must be RuntimeDefault or Localhost for restricted PSA)
+		if sc.SeccompProfile == nil {
+			return true
+		}
+		if sc.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault &&
+			sc.SeccompProfile.Type != corev1.SeccompProfileTypeLocalhost {
+			return true
+		}
+	}
+
+	return false
 }
 
 // CheckCapacity checks if there's enough capacity to deploy a new MCP server.

@@ -150,6 +150,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OnEmail":                                        schema_obot_platform_obot_apiclient_types_OnEmail(ref),
 		"github.com/obot-platform/obot/apiclient/types.OnWebhook":                                      schema_obot_platform_obot_apiclient_types_OnWebhook(ref),
 		"github.com/obot-platform/obot/apiclient/types.OneDriveConfig":                                 schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.PodSecurityAdmissionSettings":                   schema_obot_platform_obot_apiclient_types_PodSecurityAdmissionSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspace":                             schema_obot_platform_obot_apiclient_types_PowerUserWorkspace(ref),
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspaceList":                         schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Progress":                                       schema_obot_platform_obot_apiclient_types_Progress(ref),
@@ -373,6 +374,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenList":                schema_storage_apis_obotobotai_v1_OAuthTokenList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenSpec":                schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenStatus":              schema_storage_apis_obotobotai_v1_OAuthTokenStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PodSecurityAdmissionSettings":  schema_storage_apis_obotobotai_v1_PodSecurityAdmissionSettings(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspace":            schema_storage_apis_obotobotai_v1_PowerUserWorkspace(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceList":        schema_storage_apis_obotobotai_v1_PowerUserWorkspaceList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceSpec":        schema_storage_apis_obotobotai_v1_PowerUserWorkspaceSpec(ref),
@@ -3205,6 +3207,12 @@ func schema_obot_platform_obot_apiclient_types_K8sSettings(ref common.ReferenceC
 							Format:      "",
 						},
 					},
+					"podSecurityAdmission": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PodSecurityAdmission contains Pod Security Admission settings for the MCP namespace",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PodSecurityAdmissionSettings"),
+						},
+					},
 					"setViaHelm": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SetViaHelm indicates settings are from Helm (cannot be updated via API)",
@@ -3222,7 +3230,7 @@ func schema_obot_platform_obot_apiclient_types_K8sSettings(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.PodSecurityAdmissionSettings"},
 	}
 }
 
@@ -7326,6 +7334,68 @@ func schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref common.Referen
 									},
 								},
 							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_PodSecurityAdmissionSettings(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PodSecurityAdmissionSettings contains Pod Security Admission configuration for the MCP namespace. These settings control how Kubernetes Pod Security Standards are enforced on MCP server pods. See https://kubernetes.io/docs/concepts/security/pod-security-standards/ for more details.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enabled indicates whether PSA labels should be applied to the MCP namespace. When enabled, security contexts on MCP server pods will be configured based on the Enforce level.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"enforce": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enforce is the Pod Security Standards level to enforce. Pods that violate this level will be rejected. Valid values: \"privileged\" (no restrictions), \"baseline\" (minimal restrictions), \"restricted\" (heavily restricted). This also controls the security context applied to MCP server containers.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"enforceVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EnforceVersion is the Kubernetes version for the enforce policy (e.g., \"latest\", \"v1.28\"). Defaults to \"latest\" if not specified.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"audit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Audit is the Pod Security Standards level to audit. Violations are recorded in the audit log but not rejected. Valid values: \"privileged\", \"baseline\", \"restricted\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"auditVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuditVersion is the Kubernetes version for the audit policy (e.g., \"latest\", \"v1.28\"). Defaults to \"latest\" if not specified.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"warn": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Warn is the Pod Security Standards level to warn about. Violations trigger a user-facing warning but are not rejected. Valid values: \"privileged\", \"baseline\", \"restricted\".",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"warnVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "WarnVersion is the Kubernetes version for the warn policy (e.g., \"latest\", \"v1.28\"). Defaults to \"latest\" if not specified.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -13879,6 +13949,12 @@ func schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref common.ReferenceCallb
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"podSecurityAdmission": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PodSecurityAdmission contains Pod Security Admission settings for the MCP namespace",
+							Ref:         ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PodSecurityAdmissionSettings"),
+						},
+					},
 					"setViaHelm": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SetViaHelm indicates if these settings came from Helm (cannot be updated via API)",
@@ -13889,6 +13965,8 @@ func schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref common.ReferenceCallb
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PodSecurityAdmissionSettings"},
 	}
 }
 
@@ -17251,6 +17329,68 @@ func schema_storage_apis_obotobotai_v1_OAuthTokenStatus(ref common.ReferenceCall
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_PodSecurityAdmissionSettings(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PodSecurityAdmissionSettings contains Pod Security Admission configuration",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enabled indicates whether PSA labels should be applied to the MCP namespace",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"enforce": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enforce is the Pod Security Standards level to enforce (privileged, baseline, or restricted)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"enforceVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EnforceVersion is the Kubernetes version for the enforce policy (e.g., \"latest\", \"v1.28\")",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"audit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Audit is the Pod Security Standards level to audit (privileged, baseline, or restricted)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"auditVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuditVersion is the Kubernetes version for the audit policy",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"warn": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Warn is the Pod Security Standards level to warn about (privileged, baseline, or restricted)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"warnVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "WarnVersion is the Kubernetes version for the warn policy",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}

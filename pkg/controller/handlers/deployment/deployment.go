@@ -99,24 +99,25 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 		mcpServer.Spec.Manifest.Runtime == types.RuntimeUVX ||
 		mcpServer.Spec.Manifest.Runtime == types.RuntimeNPX
 
-	if isK8sRuntime {
+	if isK8sRuntime && !mcpServer.Status.NeedsK8sUpdate {
 		// Get current K8s settings to compare
 		var k8sSettings v1.K8sSettings
 		if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{
 			Namespace: h.mcpNamespace,
 			Name:      system.K8sSettingsName,
 		}, &k8sSettings); err == nil {
-			currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+			// Only check for updates if the deployment has been annotated with a hash.
+			// Empty hash means the deployment is still being initialized and shouldn't
+			// be flagged for updates yet.
+			if k8sSettingsHash != "" {
+				currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
 
-			// Only SET to true if drift detected, never clear it
-			// The flag gets cleared by the RedeployWithK8sSettings API endpoint after successful redeploy
-			hasHash := k8sSettingsHash != ""
-			hasDrift := k8sSettingsHash != currentHash
-			flagNotSet := !mcpServer.Status.NeedsK8sUpdate
-
-			if hasHash && hasDrift && flagNotSet {
-				mcpServer.Status.NeedsK8sUpdate = true
-				needsUpdate = true
+				// If the deployment's hash doesn't match the current K8sSettings hash,
+				// the deployment needs to be updated with new K8s settings
+				if k8sSettingsHash != currentHash {
+					mcpServer.Status.NeedsK8sUpdate = true
+					needsUpdate = true
+				}
 			}
 		}
 	}

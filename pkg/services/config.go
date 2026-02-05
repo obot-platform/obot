@@ -248,10 +248,31 @@ func unmarshalJSONStrict(data []byte, v any) error {
 }
 
 func parseK8sSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
-	if (opts.MCPK8sSettingsAffinity == "" || opts.MCPK8sSettingsAffinity == "{}") &&
-		(opts.MCPK8sSettingsTolerations == "" || opts.MCPK8sSettingsTolerations == "[]") &&
-		(opts.MCPK8sSettingsResources == "" || opts.MCPK8sSettingsResources == "{}") &&
-		opts.MCPK8sSettingsRuntimeClassName == "" {
+	hasPodSettings := (opts.MCPK8sSettingsAffinity != "" && opts.MCPK8sSettingsAffinity != "{}") ||
+		(opts.MCPK8sSettingsTolerations != "" && opts.MCPK8sSettingsTolerations != "[]") ||
+		(opts.MCPK8sSettingsResources != "" && opts.MCPK8sSettingsResources != "{}") ||
+		opts.MCPK8sSettingsRuntimeClassName != ""
+
+	// PSA settings are always included if any PSA option is set (even defaults)
+	// Validate PSA level values early to fail fast with clear error messages
+	hasPSASettings := opts.MCPPodSecurityEnabled ||
+		opts.MCPPodSecurityEnforce != "" ||
+		opts.MCPPodSecurityAudit != "" ||
+		opts.MCPPodSecurityWarn != ""
+
+	if hasPSASettings {
+		if opts.MCPPodSecurityEnforce != "" && !mcp.ValidatePSALevel(opts.MCPPodSecurityEnforce) {
+			return nil, fmt.Errorf("invalid PSA enforce level %q: must be one of %v", opts.MCPPodSecurityEnforce, mcp.ValidPSALevels)
+		}
+		if opts.MCPPodSecurityAudit != "" && !mcp.ValidatePSALevel(opts.MCPPodSecurityAudit) {
+			return nil, fmt.Errorf("invalid PSA audit level %q: must be one of %v", opts.MCPPodSecurityAudit, mcp.ValidPSALevels)
+		}
+		if opts.MCPPodSecurityWarn != "" && !mcp.ValidatePSALevel(opts.MCPPodSecurityWarn) {
+			return nil, fmt.Errorf("invalid PSA warn level %q: must be one of %v", opts.MCPPodSecurityWarn, mcp.ValidPSALevels)
+		}
+	}
+
+	if !hasPodSettings && !hasPSASettings {
 		return nil, nil
 	}
 
@@ -283,6 +304,19 @@ func parseK8sSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
 
 	if opts.MCPK8sSettingsRuntimeClassName != "" {
 		spec.RuntimeClassName = &opts.MCPK8sSettingsRuntimeClassName
+	}
+
+	// Parse PSA settings from Helm options
+	if hasPSASettings {
+		spec.PodSecurityAdmission = &v1.PodSecurityAdmissionSettings{
+			Enabled:        opts.MCPPodSecurityEnabled,
+			Enforce:        opts.MCPPodSecurityEnforce,
+			EnforceVersion: opts.MCPPodSecurityEnforceVersion,
+			Audit:          opts.MCPPodSecurityAudit,
+			AuditVersion:   opts.MCPPodSecurityAuditVersion,
+			Warn:           opts.MCPPodSecurityWarn,
+			WarnVersion:    opts.MCPPodSecurityWarnVersion,
+		}
 	}
 
 	return spec, nil
