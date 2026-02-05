@@ -147,7 +147,6 @@
 		: 0}px; max-width: {MAX_WIDTH_PERCENT}%;"
 >
 	<!-- Resize handle -->
-	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<div
 		class="hover:bg-base-300/75 absolute top-0 left-0 z-10 h-full w-1 cursor-ew-resize transition-colors {isResizing
 			? 'bg-base-300/75'

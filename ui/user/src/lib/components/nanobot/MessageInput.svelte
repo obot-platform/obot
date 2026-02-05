@@ -142,7 +142,7 @@
 
 	// Auto-resize when message changes
 	$effect(() => {
-		message;
+		void message;
 		if (textareaRef) {
 			autoResize();
 		}
