@@ -214,6 +214,14 @@
 			color: var(--color-gray-400);
 		}
 
+		&[type='radio'] {
+			color-scheme: light;
+		}
+		
+		.dark &[type='radio'] {
+			color-scheme: dark;
+		}
+
 		.dark &::placeholder {
 			color: var(--color-gray-600);
 		}
