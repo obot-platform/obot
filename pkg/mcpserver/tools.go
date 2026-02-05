@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -30,6 +32,11 @@ type listResult struct {
 	MultiUserServers  []serverInfo `json:"multi_user_servers"`
 	SingleUserServers []serverInfo `json:"single_user_servers"`
 	TotalCount        int          `json:"total_count"`
+}
+
+type searchResult struct {
+	Servers    []serverInfo `json:"servers"`
+	TotalCount int          `json:"total_count"`
 }
 
 type connectionResult struct {
@@ -271,18 +278,12 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, req *mcp.CallToolRe
 		return errorResult("failed to list catalog entries"), nil
 	}
 
-	// Apply keyword search
-	entries = listing.SearchCatalogEntries(entries, query)
-
 	// List all multi-user servers (no limit) since we need to search through all of them
 	servers, err := s.lister.ListServers(ctx, userInfo, isAdmin, 0)
 	if err != nil {
 		log.Errorf("failed to list servers: %v", err)
 		return errorResult("failed to list servers"), nil
 	}
-
-	// Apply keyword search
-	servers = listing.SearchServers(servers, query)
 
 	// List all single-user servers (no limit) since we need to search through all of them
 	singleUserServers, err := s.lister.ListSingleUserServers(ctx, userInfo.GetUID(), 0)
@@ -291,26 +292,19 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, req *mcp.CallToolRe
 		return errorResult("failed to list single-user servers"), nil
 	}
 
-	// Apply keyword search
-	singleUserServers = listing.SearchServers(singleUserServers, query)
-
-	// Convert to response format, applying limit after search
-	result := listResult{
-		CatalogEntries:    make([]serverInfo, 0, min(len(entries), limit)),
-		MultiUserServers:  make([]serverInfo, 0, len(servers)),
-		SingleUserServers: make([]serverInfo, 0, len(singleUserServers)),
-	}
-
 	// Build set of catalog entries that have single-user instances
 	instantiated := instantiatedCatalogEntryNames(singleUserServers)
 
-	// Apply the limit to the combined total of catalog entries, multi-user servers, and single-user servers.
-	remaining := limit
+	// Collect all matching servers into a single list with match quality info
+	type scoredServer struct {
+		info        serverInfo
+		matchesName bool // true if query matches name, false if only matches description
+	}
+	var allServers []scoredServer
+	queryLower := strings.ToLower(query)
 
+	// Add matching catalog entries
 	for _, entry := range entries {
-		if remaining == 0 {
-			break
-		}
 		// Filter out catalog entries missing static OAuth credentials
 		if missingStaticOAuthCredentials(entry) {
 			continue
@@ -319,29 +313,67 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, req *mcp.CallToolRe
 		if _, exists := instantiated[entry.Name]; exists {
 			continue
 		}
-		result.CatalogEntries = append(result.CatalogEntries, catalogEntryToServerInfo(entry))
-		remaining--
+		info := catalogEntryToServerInfo(entry)
+		if matchesQuery(info.Name, info.Description, queryLower) {
+			allServers = append(allServers, scoredServer{
+				info:        info,
+				matchesName: strings.Contains(strings.ToLower(info.Name), queryLower),
+			})
+		}
 	}
 
+	// Add matching multi-user servers
 	for _, server := range servers {
-		if remaining == 0 {
-			break
+		info := serverToServerInfo(server)
+		if matchesQuery(info.Name, info.Description, queryLower) {
+			allServers = append(allServers, scoredServer{
+				info:        info,
+				matchesName: strings.Contains(strings.ToLower(info.Name), queryLower),
+			})
 		}
-		result.MultiUserServers = append(result.MultiUserServers, serverToServerInfo(server))
-		remaining--
 	}
 
+	// Add matching single-user servers
 	for _, server := range singleUserServers {
-		if remaining == 0 {
-			break
+		info := singleUserServerToServerInfo(server)
+		if matchesQuery(info.Name, info.Description, queryLower) {
+			allServers = append(allServers, scoredServer{
+				info:        info,
+				matchesName: strings.Contains(strings.ToLower(info.Name), queryLower),
+			})
 		}
-		result.SingleUserServers = append(result.SingleUserServers, singleUserServerToServerInfo(server))
-		remaining--
 	}
 
-	result.TotalCount = len(result.CatalogEntries) + len(result.MultiUserServers) + len(result.SingleUserServers)
+	// Sort by match quality: name matches first, then description-only matches
+	sort.SliceStable(allServers, func(i, j int) bool {
+		// Name matches come before description-only matches
+		if allServers[i].matchesName != allServers[j].matchesName {
+			return allServers[i].matchesName
+		}
+		return false // preserve original order for same match quality
+	})
+
+	// Apply limit
+	if len(allServers) > limit {
+		allServers = allServers[:limit]
+	}
+
+	// Build result
+	result := searchResult{
+		Servers: make([]serverInfo, 0, len(allServers)),
+	}
+	for _, s := range allServers {
+		result.Servers = append(result.Servers, s.info)
+	}
+	result.TotalCount = len(result.Servers)
 
 	return jsonResult(result)
+}
+
+// matchesQuery returns true if the query matches either the name or description (case-insensitive).
+func matchesQuery(name, description, queryLower string) bool {
+	return strings.Contains(strings.ToLower(name), queryLower) ||
+		strings.Contains(strings.ToLower(description), queryLower)
 }
 
 func (s *Server) handleGetMCPServerConnection(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
