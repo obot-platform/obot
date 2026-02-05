@@ -419,7 +419,7 @@ export class ChatService {
 		this.setChatId('');
 	};
 
-	setChatId = async (chatId?: string) => {
+	setChatId = async (chatId?: string, opts?: { preserveLoading?: boolean }) => {
 		if (chatId === this.chatId) {
 			return;
 		}
@@ -429,7 +429,9 @@ export class ChatService {
 		this.resources = [];
 		this.elicitations = [];
 		this.history = undefined;
-		this.isLoading = false;
+		if (!opts?.preserveLoading) {
+			this.isLoading = false;
+		}
 		this.uploadedFiles = [];
 		this.uploadingFiles = [];
 
@@ -564,7 +566,7 @@ export class ChatService {
 
 	newChat = async () => {
 		const thread = await this.api.createThread();
-		await this.setChatId(thread.id);
+		await this.setChatId(thread.id, { preserveLoading: true });
 		this.onThreadCreated?.(thread);
 	};
 
@@ -610,8 +612,6 @@ export class ChatService {
 
 		if (!this.chatId) {
 			await this.newChat();
-			// Restore loading state since setChatId resets it
-			this.isLoading = true;
 		}
 
 		// Determine which tool to call based on selected or current agent
