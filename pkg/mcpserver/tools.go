@@ -19,16 +19,17 @@ type serverInfo struct {
 	Name                  string `json:"name"`
 	Description           string `json:"description"`
 	Runtime               string `json:"runtime"`
-	Type                  string `json:"type"` // "catalog_entry" or "multi_user_server"
+	Type                  string `json:"type"` // "catalog_entry", "multi_user_server", or "single_user_server"
 	RequiresConfiguration bool   `json:"requires_configuration"`
 	NeedsURL              bool   `json:"needs_url,omitempty"`
 	DeploymentStatus      string `json:"deployment_status,omitempty"`
 }
 
 type listResult struct {
-	CatalogEntries   []serverInfo `json:"catalog_entries"`
-	MultiUserServers []serverInfo `json:"multi_user_servers"`
-	TotalCount       int          `json:"total_count"`
+	CatalogEntries    []serverInfo `json:"catalog_entries"`
+	MultiUserServers  []serverInfo `json:"multi_user_servers"`
+	SingleUserServers []serverInfo `json:"single_user_servers"`
+	TotalCount        int          `json:"total_count"`
 }
 
 type connectionResult struct {
@@ -46,7 +47,7 @@ func (s *Server) registerTools() {
 	s.mcpServer.AddTool(
 		&mcp.Tool{
 			Name:        "obot_list_mcp_servers",
-			Description: "List all available MCP servers in Obot that you have access to. Returns both catalog entries (server templates) and multi-user servers (shared instances).",
+			Description: "List all available MCP servers in Obot that you have access to. Returns catalog entries (server templates), multi-user servers (shared instances), and your single-user servers.",
 			InputSchema: listMCPServersSchema(),
 		},
 		s.handleListMCPServers,
@@ -149,10 +150,33 @@ func (s *Server) handleListMCPServers(ctx context.Context, _ *mcp.ServerSession,
 		return errorResult("failed to list catalog entries"), nil
 	}
 
-	// Calculate remaining limit for servers
+	// List single-user servers owned by this user (needed early for filtering catalog entries)
+	singleUserServers, err := s.lister.ListSingleUserServers(ctx, userInfo.GetUID(), 0)
+	if err != nil {
+		log.Errorf("failed to list single-user servers: %v", err)
+		return errorResult("failed to list single-user servers"), nil
+	}
+
+	// Build set of catalog entries that have single-user instances
+	instantiated := instantiatedCatalogEntryNames(singleUserServers)
+
+	// Filter catalog entries before calculating remaining limits so that
+	// filtered-out entries don't consume quota from other server types.
+	var filteredEntries []v1.MCPServerCatalogEntry
+	for _, entry := range entries {
+		if missingStaticOAuthCredentials(entry) {
+			continue
+		}
+		if _, exists := instantiated[entry.Name]; exists {
+			continue
+		}
+		filteredEntries = append(filteredEntries, entry)
+	}
+
+	// Calculate remaining limit for multi-user servers based on filtered entry count
 	remainingLimit := 0
 	if limit > 0 {
-		remainingLimit = limit - len(entries)
+		remainingLimit = limit - len(filteredEntries)
 		if remainingLimit < 0 {
 			remainingLimit = 0
 		}
@@ -165,13 +189,23 @@ func (s *Server) handleListMCPServers(ctx context.Context, _ *mcp.ServerSession,
 		return errorResult("failed to list servers"), nil
 	}
 
-	// Convert to response format
-	result := listResult{
-		CatalogEntries:   make([]serverInfo, 0, len(entries)),
-		MultiUserServers: make([]serverInfo, 0, len(servers)),
+	// Trim single-user servers to the remaining limit
+	singleUserResultLimit := limit - len(filteredEntries) - len(servers)
+	if singleUserResultLimit < 0 {
+		singleUserResultLimit = 0
+	}
+	if singleUserResultLimit < len(singleUserServers) {
+		singleUserServers = singleUserServers[:singleUserResultLimit]
 	}
 
-	for _, entry := range entries {
+	// Convert to response format
+	result := listResult{
+		CatalogEntries:    make([]serverInfo, 0, len(filteredEntries)),
+		MultiUserServers:  make([]serverInfo, 0, len(servers)),
+		SingleUserServers: make([]serverInfo, 0, len(singleUserServers)),
+	}
+
+	for _, entry := range filteredEntries {
 		result.CatalogEntries = append(result.CatalogEntries, catalogEntryToServerInfo(entry))
 	}
 
@@ -179,7 +213,11 @@ func (s *Server) handleListMCPServers(ctx context.Context, _ *mcp.ServerSession,
 		result.MultiUserServers = append(result.MultiUserServers, serverToServerInfo(server))
 	}
 
-	result.TotalCount = len(result.CatalogEntries) + len(result.MultiUserServers)
+	for _, server := range singleUserServers {
+		result.SingleUserServers = append(result.SingleUserServers, singleUserServerToServerInfo(server))
+	}
+
+	result.TotalCount = len(result.CatalogEntries) + len(result.MultiUserServers) + len(result.SingleUserServers)
 
 	return jsonResult(result)
 }
@@ -236,18 +274,40 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, _ *mcp.ServerSessio
 	// Apply keyword search
 	servers = listing.SearchServers(servers, query)
 
-	// Convert to response format, applying limit after search
-	result := listResult{
-		CatalogEntries:   make([]serverInfo, 0, min(len(entries), limit)),
-		MultiUserServers: make([]serverInfo, 0, len(servers)),
+	// List all single-user servers (no limit) since we need to search through all of them
+	singleUserServers, err := s.lister.ListSingleUserServers(ctx, userInfo.GetUID(), 0)
+	if err != nil {
+		log.Errorf("failed to list single-user servers: %v", err)
+		return errorResult("failed to list single-user servers"), nil
 	}
 
-	// Apply the limit to the combined total of catalog entries and multi-user servers.
+	// Apply keyword search
+	singleUserServers = listing.SearchServers(singleUserServers, query)
+
+	// Convert to response format, applying limit after search
+	result := listResult{
+		CatalogEntries:    make([]serverInfo, 0, min(len(entries), limit)),
+		MultiUserServers:  make([]serverInfo, 0, len(servers)),
+		SingleUserServers: make([]serverInfo, 0, len(singleUserServers)),
+	}
+
+	// Build set of catalog entries that have single-user instances
+	instantiated := instantiatedCatalogEntryNames(singleUserServers)
+
+	// Apply the limit to the combined total of catalog entries, multi-user servers, and single-user servers.
 	remaining := limit
 
 	for _, entry := range entries {
 		if remaining == 0 {
 			break
+		}
+		// Filter out catalog entries missing static OAuth credentials
+		if missingStaticOAuthCredentials(entry) {
+			continue
+		}
+		// Filter out catalog entries that have single-user server instances
+		if _, exists := instantiated[entry.Name]; exists {
+			continue
 		}
 		result.CatalogEntries = append(result.CatalogEntries, catalogEntryToServerInfo(entry))
 		remaining--
@@ -261,7 +321,15 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, _ *mcp.ServerSessio
 		remaining--
 	}
 
-	result.TotalCount = len(result.CatalogEntries) + len(result.MultiUserServers)
+	for _, server := range singleUserServers {
+		if remaining == 0 {
+			break
+		}
+		result.SingleUserServers = append(result.SingleUserServers, singleUserServerToServerInfo(server))
+		remaining--
+	}
+
+	result.TotalCount = len(result.CatalogEntries) + len(result.MultiUserServers) + len(result.SingleUserServers)
 
 	return jsonResult(result)
 }
@@ -287,10 +355,10 @@ func (s *Server) handleGetMCPServerConnection(ctx context.Context, _ *mcp.Server
 	}
 
 	// Determine server type based on ID prefix:
-	// - IDs starting with "ms1" are multi-user MCP servers
+	// - IDs starting with "ms1" are MCP servers (both multi-user and single-user)
 	// - All other IDs are catalog entries
 	if system.IsMCPServerID(serverID) {
-		return s.getMultiUserServerConnection(ctx, userInfo, serverID)
+		return s.getMCPServerConnection(ctx, userInfo, serverID)
 	}
 	return s.getCatalogEntryConnection(ctx, userInfo, serverID)
 }
@@ -305,17 +373,26 @@ func (s *Server) getCatalogEntryConnection(ctx context.Context, userInfo *mcpUse
 		return errorResult("failed to get catalog entry"), nil
 	}
 
+	if missingStaticOAuthCredentials(*entry) {
+		return nil, fmt.Errorf("this catalog entry requires an admin to configure it before it can be used")
+	}
+
 	result := connectionResult{}
 
 	// Check if this entry requires configuration
 	needsConfig := listing.RequiresConfiguration(entry.Spec.Manifest)
 	needsURL := listing.RequiresURLConfiguration(entry.Spec.Manifest)
+	isComposite := entry.Spec.Manifest.Runtime == types.RuntimeComposite
 
-	if needsConfig || needsURL {
+	if needsConfig || needsURL || isComposite {
 		result.Status = "requires_configuration"
 		result.NeedsURL = needsURL
 		result.ConfigureURL = fmt.Sprintf("%s/mcp-servers/c/%s", s.serverURL, serverID)
-		result.Message = "This server requires configuration before it can be used. Please visit the configuration URL to set it up."
+		if isComposite {
+			result.Message = "This is a composite server. Please visit the configuration URL to select which tools to enable."
+		} else {
+			result.Message = "This server requires configuration before it can be used. Please visit the configuration URL to set it up."
+		}
 	} else {
 		result.Status = "ready"
 		result.ConnectURL = system.MCPConnectURL(s.serverURL, serverID)
@@ -325,7 +402,7 @@ func (s *Server) getCatalogEntryConnection(ctx context.Context, userInfo *mcpUse
 	return jsonResult(result)
 }
 
-func (s *Server) getMultiUserServerConnection(ctx context.Context, userInfo *mcpUserInfo, serverID string) (*mcp.CallToolResultFor[any], error) {
+func (s *Server) getMCPServerConnection(ctx context.Context, userInfo *mcpUserInfo, serverID string) (*mcp.CallToolResultFor[any], error) {
 	effectiveRole := effectiveRoleFromContext(ctx)
 	isAdmin := effectiveRole.HasRole(types.RoleAdmin)
 
@@ -345,10 +422,8 @@ func (s *Server) getMultiUserServerConnection(ctx context.Context, userInfo *mcp
 		return jsonResult(result)
 	}
 
-	// Multi-user servers don't have a direct connect URL from here
-	// Users need to add them to a project to get a connection
 	result.Status = "ready"
-	result.ConfigureURL = system.MCPConnectURL(s.serverURL, serverID)
+	result.ConnectURL = system.MCPConnectURL(s.serverURL, serverID)
 	result.Message = "Server is ready to use. Connect using the provided URL."
 
 	return jsonResult(result)
@@ -377,6 +452,35 @@ func serverToServerInfo(server v1.MCPServer) serverInfo {
 		Type:             "multi_user_server",
 		DeploymentStatus: server.Status.DeploymentStatus,
 	}
+}
+
+func singleUserServerToServerInfo(server v1.MCPServer) serverInfo {
+	return serverInfo{
+		ID:               server.Name,
+		Name:             server.Spec.Manifest.Name,
+		Description:      server.Spec.Manifest.Description,
+		Runtime:          string(server.Spec.Manifest.Runtime),
+		Type:             "single_user_server",
+		DeploymentStatus: server.Status.DeploymentStatus,
+	}
+}
+
+// missingStaticOAuthCredentials returns true if the catalog entry requires static OAuth client credentials that are not yet configured.
+// Such entries should be filtered out from the integrated MCP server responses since they require admin configuration before they can be used.
+func missingStaticOAuthCredentials(entry v1.MCPServerCatalogEntry) bool {
+	return entry.Spec.Manifest.RemoteConfig != nil && entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired && !entry.Status.OAuthCredentialConfigured
+}
+
+// instantiatedCatalogEntryNames returns a set of catalog entry names that have
+// single-user server instances created from them.
+func instantiatedCatalogEntryNames(singleUserServers []v1.MCPServer) map[string]struct{} {
+	result := make(map[string]struct{})
+	for _, server := range singleUserServers {
+		if server.Spec.MCPServerCatalogEntryName != "" {
+			result[server.Spec.MCPServerCatalogEntryName] = struct{}{}
+		}
+	}
+	return result
 }
 
 func errorResult(msg string) *mcp.CallToolResultFor[any] {

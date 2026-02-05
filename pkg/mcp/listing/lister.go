@@ -142,6 +142,42 @@ func (l *Lister) ListServers(ctx context.Context, user kuser.Info, isAdmin bool,
 	return servers, nil
 }
 
+// ListSingleUserServers returns all single-user MCP servers owned by the specified user.
+// Single-user servers are those where MCPCatalogID and PowerUserWorkspaceID are both empty,
+// and the server belongs to the specified user.
+// If limit > 0, only that many servers will be returned.
+func (l *Lister) ListSingleUserServers(ctx context.Context, userID string, limit int) ([]v1.MCPServer, error) {
+	var list v1.MCPServerList
+	// Use field selector to efficiently filter by userID
+	if err := l.storageClient.List(ctx, &list,
+		kclient.InNamespace(system.DefaultNamespace),
+		kclient.MatchingFields{"spec.userID": userID},
+	); err != nil {
+		return nil, err
+	}
+
+	var servers []v1.MCPServer
+	for _, server := range list.Items {
+		// Only include single-user servers (those without catalog or workspace IDs)
+		if server.Spec.MCPCatalogID != "" || server.Spec.PowerUserWorkspaceID != "" {
+			continue
+		}
+
+		// Skip templates and composite components
+		if server.Spec.Template || server.Spec.CompositeName != "" {
+			continue
+		}
+
+		servers = append(servers, server)
+		// Stop early if we've reached the limit
+		if limit > 0 && len(servers) >= limit {
+			break
+		}
+	}
+
+	return servers, nil
+}
+
 // GetServer returns a single MCP server if the user has access.
 func (l *Lister) GetServer(ctx context.Context, user kuser.Info, id string, isAdmin bool) (*v1.MCPServer, error) {
 	var server v1.MCPServer
@@ -149,7 +185,16 @@ func (l *Lister) GetServer(ctx context.Context, user kuser.Info, id string, isAd
 		return nil, err
 	}
 
-	// Check if server is from default catalog or workspace
+	// Check if this is a single-user server (no catalog or workspace)
+	if server.Spec.MCPCatalogID == "" && server.Spec.PowerUserWorkspaceID == "" {
+		// Single-user server - verify ownership
+		if server.Spec.UserID != user.GetUID() {
+			return nil, types.NewErrNotFound("MCP server not found")
+		}
+		return &server, nil
+	}
+
+	// Check if server is from default catalog or workspace (multi-user server)
 	if server.Spec.MCPCatalogID != system.DefaultCatalog && server.Spec.PowerUserWorkspaceID == "" {
 		return nil, types.NewErrNotFound("MCP server not found")
 	}
