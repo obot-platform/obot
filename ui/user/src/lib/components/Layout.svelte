@@ -2,8 +2,17 @@
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { columnResize } from '$lib/actions/resize';
 	import { profile, responsive, version } from '$lib/stores';
-	import { initLayout, getLayout } from '$lib/context/layout.svelte';
-	import { type Component, type Snippet } from 'svelte';
+	import {
+		initLayout as defaultInitLayout,
+		getLayout as defaultGetLayout,
+		type Layout as LayoutState
+	} from '$lib/context/layout.svelte';
+	import { type Component, type Snippet, untrack } from 'svelte';
+
+	type LayoutContext = {
+		initLayout: () => void;
+		getLayout: () => LayoutState;
+	};
 	import { fade, slide } from 'svelte/transition';
 	import {
 		AlarmClock,
@@ -30,7 +39,8 @@
 		SquareLibrary,
 		UserCog,
 		Users,
-		Group as GroupIcon
+		Group as GroupIcon,
+		BotMessageSquare
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -59,6 +69,8 @@
 			container?: string;
 			childrenContainer?: string;
 			navbar?: string;
+			collapsedSidebarHeaderContent?: string;
+			sidebar?: string;
 		};
 		children: Snippet;
 		onRenderSubContent?: Snippet<[string]>;
@@ -70,6 +82,8 @@
 		title?: string;
 		showBackButton?: boolean;
 		onBackButtonClick?: () => void;
+		overrideSidebarContent?: Snippet;
+		layoutContext?: LayoutContext;
 	}
 
 	const {
@@ -82,7 +96,9 @@
 		rightNavActions,
 		title,
 		showBackButton,
-		onBackButtonClick
+		onBackButtonClick,
+		overrideSidebarContent,
+		layoutContext
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
 	let collapsed = $state<Record<string, boolean>>({});
@@ -207,7 +223,19 @@
 								label: 'Launch Chat',
 								disabled: isBootStrapUser,
 								collapsible: false
-							}
+							},
+							...(version.current.nanobotIntegration
+								? [
+										{
+											id: 'nanobot',
+											href: '/nanobot',
+											icon: BotMessageSquare,
+											disabled: isBootStrapUser,
+											label: 'Launch Nanobot',
+											collapsible: false
+										}
+									]
+								: [])
 						]
 					},
 					{
@@ -322,7 +350,18 @@
 							label: 'Chat',
 							disabled: isBootStrapUser,
 							collapsible: false
-						}
+						},
+						...(version.current.nanobotIntegration
+							? [
+									{
+										id: 'nanobot',
+										href: '/nanobot',
+										icon: BotMessageSquare,
+										label: 'Launch Nanobot',
+										collapsible: false
+									}
+								]
+							: [])
 					]
 				: [
 						{
@@ -366,8 +405,8 @@
 		}
 	});
 
-	initLayout();
-	const layout = getLayout();
+	untrack(() => (layoutContext?.initLayout ?? defaultInitLayout)());
+	const layout = untrack(() => (layoutContext?.getLayout ?? defaultGetLayout)());
 </script>
 
 <div class="flex min-h-dvh flex-col items-center">
@@ -383,96 +422,103 @@
 				</div>
 
 				<div
-					class="text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto px-3 pt-8 pl-2 font-medium"
+					class={twMerge(
+						'text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto px-3 pt-8 pl-2 font-medium',
+						classes?.sidebar
+					)}
 				>
-					<div class="flex flex-col gap-1">
-						{#each navLinks as link (link.id)}
-							<div class="flex">
-								<div class="flex w-full items-center">
-									{#if link.disabled}
-										<div class="sidebar-link disabled">
-											<link.icon class="size-5" />
-											{link.label}
-										</div>
-									{:else if link.href}
-										<a
-											href={resolve(link.href as `/${string}`)}
-											class={twMerge(
-												'sidebar-link',
-												link.href && link.href === pathname && 'bg-surface2'
-											)}
-										>
-											<link.icon class="size-5" />
-											{link.label}
-										</a>
-									{:else}
-										<div class="sidebar-link no-link">
-											<link.icon class="size-5" />
-											{link.label}
-										</div>
-									{/if}
-									{#if !version.current.authEnabled && tooltips[link.href as keyof typeof tooltips]}
-										<InfoTooltip text={tooltips[link.href as keyof typeof tooltips]} />
-									{/if}
-								</div>
-								{#if link.collapsible}
-									<button
-										class="px-2"
-										onclick={() => (collapsed[link.label] = !collapsed[link.label])}
-									>
-										{#if collapsed[link.label]}
-											<ChevronUp class="size-5" />
+					{#if overrideSidebarContent}
+						{@render overrideSidebarContent()}
+					{:else}
+						<div class="flex flex-col gap-1">
+							{#each navLinks as link (link.id)}
+								<div class="flex">
+									<div class="flex w-full items-center">
+										{#if link.disabled}
+											<div class="sidebar-link disabled">
+												<link.icon class="size-5" />
+												{link.label}
+											</div>
+										{:else if link.href}
+											<a
+												href={resolve(link.href as `/${string}`)}
+												class={twMerge(
+													'sidebar-link',
+													link.href && link.href === pathname && 'bg-surface2'
+												)}
+											>
+												<link.icon class="size-5" />
+												{link.label}
+											</a>
 										{:else}
-											<ChevronDown class="size-5" />
+											<div class="sidebar-link no-link">
+												<link.icon class="size-5" />
+												{link.label}
+											</div>
 										{/if}
-									</button>
-								{/if}
-							</div>
-							{#if !collapsed[link.label || '']}
-								<div in:slide={{ axis: 'y' }}>
-									{#if onRenderSubContent}
-										{@render onRenderSubContent(link.label)}
-									{/if}
-									{#if link.items}
-										<div class="flex flex-col px-7 text-sm font-light">
-											{#each link.items as item (item.href)}
-												<div class="relative">
-													<div
-														class={twMerge(
-															'bg-surface3 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
-															item.href === pathname && 'bg-primary'
-														)}
-													></div>
-													{#if item.disabled}
-														<div class="sidebar-link disabled">
-															<item.icon class="size-4" />
-															{item.label}
-														</div>
-													{:else if item.href}
-														<a
-															href={resolve(item.href as `/${string}`)}
-															class={twMerge(
-																'sidebar-link',
-																item.href === pathname && 'bg-surface2'
-															)}
-														>
-															<item.icon class="size-4" />
-															{item.label}
-														</a>
-													{:else}
-														<div class="sidebar-link disabled">
-															<item.icon class="size-4" />
-															{item.label}
-														</div>
-													{/if}
-												</div>
-											{/each}
-										</div>
+										{#if !version.current.authEnabled && tooltips[link.href as keyof typeof tooltips]}
+											<InfoTooltip text={tooltips[link.href as keyof typeof tooltips]} />
+										{/if}
+									</div>
+									{#if link.collapsible}
+										<button
+											class="px-2"
+											onclick={() => (collapsed[link.label] = !collapsed[link.label])}
+										>
+											{#if collapsed[link.label]}
+												<ChevronUp class="size-5" />
+											{:else}
+												<ChevronDown class="size-5" />
+											{/if}
+										</button>
 									{/if}
 								</div>
-							{/if}
-						{/each}
-					</div>
+								{#if !collapsed[link.label || '']}
+									<div in:slide={{ axis: 'y' }}>
+										{#if onRenderSubContent}
+											{@render onRenderSubContent(link.label)}
+										{/if}
+										{#if link.items}
+											<div class="flex flex-col px-7 text-sm font-light">
+												{#each link.items as item (item.href)}
+													<div class="relative">
+														<div
+															class={twMerge(
+																'bg-surface3 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
+																item.href === pathname && 'bg-primary'
+															)}
+														></div>
+														{#if item.disabled}
+															<div class="sidebar-link disabled">
+																<item.icon class="size-4" />
+																{item.label}
+															</div>
+														{:else if item.href}
+															<a
+																href={resolve(item.href as `/${string}`)}
+																class={twMerge(
+																	'sidebar-link',
+																	item.href === pathname && 'bg-surface2'
+																)}
+															>
+																<item.icon class="size-4" />
+																{item.label}
+															</a>
+														{:else}
+															<div class="sidebar-link disabled">
+																<item.icon class="size-4" />
+																{item.label}
+															</div>
+														{/if}
+													</div>
+												{/each}
+											</div>
+										{/if}
+									</div>
+								{/if}
+							{/each}
+						</div>
+					{/if}
 				</div>
 
 				<div class="flex justify-end px-3 py-2">
@@ -541,7 +587,12 @@
 						<ConfigureBanner />
 					{/if}
 					{#if !layout.sidebarOpen || hideSidebar}
-						<div class="flex w-full items-center justify-between gap-2 pb-4">
+						<div
+							class={twMerge(
+								'flex w-full items-center justify-between gap-2 pb-4',
+								classes?.collapsedSidebarHeaderContent
+							)}
+						>
 							{@render layoutHeaderContent()}
 							<div class="flex flex-shrink-0 items-center gap-2">
 								{#if rightNavActions}

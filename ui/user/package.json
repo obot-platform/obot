@@ -50,6 +50,8 @@
 		"@types/d3": "^7.4.3",
 		"@types/d3-time-format": "^4.0.3",
 		"@types/eslint": "^9.6.1",
+		"@types/react": "^18.3.27",
+		"@types/react-dom": "^18.3.7",
 		"@uiw/codemirror-theme-github": "^4.23.8",
 		"@xterm/addon-fit": "^0.10.0",
 		"@xterm/xterm": "^5.5.0",
@@ -79,12 +81,16 @@
 	"type": "module",
 	"dependencies": {
 		"@codemirror/lang-markdown": "^6.3.3",
+		"@mcp-ui/client": "^6.0.0",
 		"@oddbird/popover-polyfill": "^0.6.1",
 		"d3": "^7.9.0",
 		"d3-time-format": "^4.1.0",
+		"daisyui": "^5.5.17",
 		"date-fns": "^4.1.0",
 		"es-toolkit": "^1.37.2",
 		"layerchart": "1.0.12",
+		"react": "^18",
+		"react-dom": "^18",
 		"tar": "^7.5.2"
 	},
 	"pnpm": {

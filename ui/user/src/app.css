@@ -97,6 +97,83 @@
 	--color-primary: var(--primary);
 }
 
+@plugin "daisyui" {
+	themes:
+		nanobotlight --default,
+		nanobotdark --prefersdark;
+}
+
+@plugin "daisyui/theme" {
+	name: 'nanobotlight';
+	default: true;
+	prefersdark: false;
+	color-scheme: light;
+	--color-base-100: hsl(0 0 100);
+	--color-base-200: hsl(0 0 95.5);
+	--color-base-300: hsl(0 0 92.5);
+	--color-base-content: hsl(0 0 0);
+	--color-primary: #4f7ef3;
+	--color-primary-content: hsl(0 0 100);
+	--color-secondary: hsl(0 0 82.5);
+	--color-secondary-content: hsl(0 0 0);
+	--color-accent: #95bcfb;
+	--color-accent-content: hsl(0 0 0);
+	--color-neutral: hsl(0 0 82.5);
+	--color-neutral-content: hsl(0 0 0);
+	--color-info: #4f7ef3;
+	--color-info-content: hsl(0 0 100);
+	--color-success: oklch(72.3% 0.219 149.579);
+	--color-success-content: hsl(0 0 0);
+	--color-warning: oklch(79.5% 0.184 86.047);
+	--color-warning-content: hsl(0 0 100);
+	--color-error: #ef4444;
+	--color-error-content: hsl(0 0 100);
+	--radius-selector: 1rem;
+	--radius-field: 0.25rem;
+	--radius-box: 0.5rem;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 1px;
+	--depth: 0;
+	--noise: 1;
+}
+
+@plugin "daisyui/theme" {
+	name: 'nanobotdark';
+	default: false;
+	prefersdark: true;
+	color-scheme: dark;
+
+	--color-base-100: hsl(0 0 0);
+	--color-base-200: hsl(0 0 5.5);
+	--color-base-300: hsl(0 0 12.5);
+	--color-base-content: hsl(0 0 97.5);
+	--color-primary: #4f7ef3;
+	--color-primary-content: hsl(0 0 97.5);
+	--color-secondary: hsl(0 0 22.5);
+	--color-secondary-content: hsl(0 0 97.5);
+	--color-accent: #203188;
+	--color-accent-content: hsl(0 0 97.5);
+	--color-neutral: hsl(0 0 22.5);
+	--color-neutral-content: hsl(0 0 97.5);
+	--color-info: #4f7ef3;
+	--color-info-content: hsl(0 0 97.5);
+	--color-success: oklch(72.3% 0.219 149.579);
+	--color-success-content: hsl(0 0 97.5);
+	--color-warning: oklch(79.5% 0.184 86.047);
+	--color-warning-content: hsl(0 0 97.5);
+	--color-error: #ef4444;
+	--color-error-content: hsl(0 0 97.5);
+	--radius-selector: 1rem;
+	--radius-field: 0.25rem;
+	--radius-box: 0.5rem;
+	--size-selector: 0.25rem;
+	--size-field: 0.25rem;
+	--border: 1px;
+	--depth: 0;
+	--noise: 1;
+}
+
 /*
   The default border color has changed to `currentColor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
@@ -124,6 +201,7 @@
 		accent-color: var(--color-primary);
 		background-color: var(--background);
 		color: var(--on-background);
+		color-scheme: light;
 
 		&:disabled {
 			color: var(--color-gray-300);
@@ -135,6 +213,10 @@
 
 		&::placeholder {
 			color: var(--color-gray-400);
+		}
+
+		.dark & {
+			color-scheme: dark;
 		}
 
 		.dark &::placeholder {
@@ -1236,7 +1318,160 @@
 	}
 }
 
-.milkdown-content {
+.nanobot .prose,
+.nanobot .milkdown .ProseMirror {
+	& h1 {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: var(--color-primary);
+	}
+
+	& h2 {
+		font-size: 1.25rem;
+		font-weight: 700;
+		color: color-mix(in oklab, var(--color-primary) /* #4f7ef3 */ 75%, transparent);
+	}
+
+	& h3,
+	& h4 {
+		font-size: 1rem;
+		font-weight: 700;
+		color: color-mix(in oklab, var(--color-primary) /* #4f7ef3 */ 50%, transparent);
+	}
+
+	& a {
+		color: var(--color-blue-500);
+		text-decoration: underline;
+
+		&:hover {
+			color: var(--color-blue-600);
+		}
+	}
+
+	& ol {
+		& ::marker {
+			color: var(--color-gray-500);
+		}
+	}
+
+	& ul {
+		& ::marker {
+			color: var(--color-gray-500);
+		}
+	}
+}
+
+.nanobot .milkdown .ProseMirror {
+	& h1 {
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+
+	& h2 {
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+
+	& h3,
+	& h4 {
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+
+	& p {
+		margin-bottom: 0.5rem;
+		font-size: var(--text-md);
+
+		& * {
+			display: inline-block;
+		}
+	}
+
+	& pre {
+		padding: 0.5rem 1rem;
+	}
+
+	& ol {
+		margin: 0;
+		list-style-type: decimal;
+		padding-left: 1rem;
+
+		& li {
+			margin-bottom: 0;
+		}
+
+		& li p {
+			margin-bottom: 0;
+		}
+	}
+
+	& ul {
+		margin: 0;
+		list-style-type: disc;
+		padding-left: 1rem;
+
+		& li {
+			margin-bottom: 0;
+		}
+
+		& li p {
+			margin-bottom: 0;
+		}
+	}
+
+	& img {
+		justify-self: center;
+	}
+
+	& table {
+		border: 1px solid var(--surface3);
+
+		& th {
+			padding: 0.5rem 1rem;
+			border-bottom: 1px solid var(--surface3);
+
+			&:not(:last-child) {
+				border-right: 1px solid var(--surface3);
+			}
+		}
+
+		& td {
+			padding: 0.5rem 1rem;
+
+			&:not(:last-child) {
+				border-right: 1px solid var(--surface3);
+			}
+		}
+
+		& tr:not(:last-child) {
+			border-bottom: 1px solid var(--surface3);
+		}
+	}
+
+	& code {
+		background-color: var(--surface1);
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.25rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--on-surface1);
+
+		.dark & {
+			background-color: var(--surface2);
+			color: var(--on-surface2);
+		}
+	}
+
+	& video,
+	& iframe {
+		width: 100%;
+		aspect-ratio: 16 / 9;
+		object-fit: cover;
+	}
+}
+
+.milkdown-content,
+.nanobot .prose {
 	& h1,
 	& h2,
 	& h3,

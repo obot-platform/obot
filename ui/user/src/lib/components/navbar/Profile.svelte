@@ -75,8 +75,9 @@
 	afterNavigate(() => {
 		inAdminRoute = window.location.pathname.includes('/admin');
 		showChatLink = !window.location.pathname.startsWith('/o') || inAdminRoute;
-		showMcpManagement =
-			window.location.pathname.startsWith('/o') || window.location.pathname.startsWith('/profile');
+		showMcpManagement = ['/o', '/profile', '/nanobot'].some((path) =>
+			window.location.pathname.startsWith(path)
+		);
 	});
 
 	function navigateTo(path: string, asNewTab?: boolean) {
@@ -150,7 +151,7 @@
 		<div class="flex flex-col gap-2 px-2 pb-4">
 			{#if showChatLink}
 				<button
-					class="link"
+					class="dropdown-link"
 					onclick={async (event) => {
 						const asNewTab = event?.ctrlKey || event?.metaKey;
 						loadingChat = true;
@@ -182,29 +183,29 @@
 				<a
 					href={resolve(profile.current.hasAdminAccess?.() ? '/admin/mcp-servers' : '/mcp-servers')}
 					rel="external"
-					class="link"
+					class="dropdown-link"
 				>
 					<LayoutDashboard class="size-4" /> MCP Platform
 				</a>
 			{/if}
 			{#if responsive.isMobile}
-				<a href="https://docs.obot.ai" rel="external" target="_blank" class="link"
+				<a href="https://docs.obot.ai" rel="external" target="_blank" class="dropdown-link"
 					><Book class="size-4" />Docs</a
 				>
 			{/if}
 			{#if profile.current.email && page.url.pathname !== '/profile'}
-				<a href={resolve('/profile')} role="menuitem" class="link"
+				<a href={resolve('/profile')} role="menuitem" class="dropdown-link"
 					><User class="size-4" /> My Account</a
 				>
 			{/if}
-			<a href={resolve('/keys')} role="menuitem" class="link"
+			<a href={resolve('/keys')} role="menuitem" class="dropdown-link"
 				><KeyRound class="size-4" /> API Keys</a
 			>
-			<button class="link" onclick={handleLogout}>
+			<button class="dropdown-link" onclick={handleLogout}>
 				<LogOut class="size-4" /> Log out
 			</button>
 			{#if profile.current.isBootstrapUser?.()}
-				<button class="link" onclick={handleBootstrapLogout}>
+				<button class="dropdown-link" onclick={handleBootstrapLogout}>
 					<LogOut class="size-4" /> Log out
 				</button>
 			{/if}
@@ -297,7 +298,7 @@
 <PageLoading show={loadingChat} text="Loading chat..." />
 
 <style lang="postcss">
-	.link {
+	.dropdown-link {
 		font-size: var(--text-md);
 		display: flex;
 		width: 100%;
@@ -306,7 +307,7 @@
 		border-radius: 0.5rem;
 		padding: 0.5rem;
 	}
-	.link:hover {
+	.dropdown-link:hover {
 		background-color: var(--surface3);
 	}
 
