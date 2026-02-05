@@ -70,6 +70,7 @@
 			childrenContainer?: string;
 			navbar?: string;
 			collapsedSidebarHeaderContent?: string;
+			sidebar?: string;
 		};
 		children: Snippet;
 		onRenderSubContent?: Snippet<[string]>;
@@ -420,7 +421,10 @@
 				</div>
 
 				<div
-					class="text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto px-3 pt-8 pl-2 font-medium"
+					class={twMerge(
+						'text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto px-3 pt-8 pl-2 font-medium',
+						classes?.sidebar
+					)}
 				>
 					{#if overrideSidebarContent}
 						{@render overrideSidebarContent()}

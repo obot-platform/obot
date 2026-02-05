@@ -46,7 +46,8 @@
 	classes={{
 		container: 'px-0 py-0 md:px-0',
 		childrenContainer: 'max-w-full h-[calc(100dvh-4rem)]',
-		collapsedSidebarHeaderContent: 'pb-0'
+		collapsedSidebarHeaderContent: 'pb-0',
+		sidebar: 'pt-0'
 	}}
 	whiteBackground
 >
