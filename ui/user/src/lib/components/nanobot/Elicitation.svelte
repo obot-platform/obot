@@ -91,7 +91,10 @@
 
 	function openOAuthLink() {
 		const url = getOAuthUrl();
-		window.open(url, '_blank');
+		const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+		if (newWindow) {
+			newWindow.opener = null;
+		}
 		handleAccept();
 	}
 

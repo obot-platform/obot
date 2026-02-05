@@ -1064,7 +1064,10 @@
 						class="button-primary text-sm"
 						onclick={() => {
 							markComponentAuthenticated(componentId);
-							window.open(url, '_blank');
+							const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+							if (newWindow) {
+								newWindow.opener = null;
+							}
 						}}
 					>
 						Authenticate
