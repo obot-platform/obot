@@ -24,33 +24,46 @@
 		loading = true;
 		error = null;
 
-		// Initial fetch of the resource
-		const match = chat.resources.find((r) => r.name === filename);
-		if (!match) {
-			loading = false;
-			return;
-		}
+		let cleanup: (() => void) | undefined;
 
-		chat
-			.readResource(match.uri)
-			.then((result) => {
+		const loadResource = async () => {
+			// Try to find resource in current list
+			let match = chat.resources.find((r) => r.name === filename);
+
+			// If not found, refresh the resources list and try again
+			if (!match) {
+				const refreshed = await chat.listResources({ useDefaultSession: true });
+				if (refreshed?.resources) {
+					match = refreshed.resources.find((r) => r.name === filename);
+				}
+			}
+
+			if (!match) {
+				loading = false;
+				return;
+			}
+
+			try {
+				const result = await chat.readResource(match.uri);
 				if (result.contents?.length) {
 					resource = result.contents[0];
 				}
 				loading = false;
-			})
-			.catch((e) => {
+
+				// Subscribe to live updates
+				cleanup = chat.watchResource(match.uri, (updatedResource) => {
+					resource = updatedResource;
+				});
+			} catch (e) {
 				error = e instanceof Error ? e.message : String(e);
 				loading = false;
-			});
+			}
+		};
 
-		// Subscribe to live updates
-		const cleanup = chat.watchResource(match.uri, (updatedResource) => {
-			resource = updatedResource;
-		});
+		loadResource();
 
 		// Cleanup subscription when component unmounts or filename changes
-		return cleanup;
+		return () => cleanup?.();
 	});
 
 	// Derive the content to display
