@@ -301,7 +301,7 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, _ *mcp.ServerSessio
 		if remaining == 0 {
 			break
 		}
-		// Filter out catalog entries with static OAuth credentials configured
+		// Filter out catalog entries missing static OAuth credentials
 		if missingStaticOAuthCredentials(entry) {
 			continue
 		}
