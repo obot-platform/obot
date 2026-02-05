@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/modelcontextprotocol/go-sdk/jsonschema"
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/mcp/listing"
@@ -116,14 +116,19 @@ func getMCPServerConnectionSchema() *jsonschema.Schema {
 	}
 }
 
-func (s *Server) handleListMCPServers(ctx context.Context, _ *mcp.ServerSession, params *mcp.CallToolParamsFor[map[string]any]) (*mcp.CallToolResultFor[any], error) {
+func (s *Server) handleListMCPServers(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	user := userFromContext(ctx)
 	if user == nil {
 		return errorResult("unauthorized: no user in context"), nil
 	}
 
 	// Parse arguments
-	args := params.Arguments
+	var args map[string]any
+	if len(req.Params.Arguments) > 0 {
+		if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
+			return errorResult("invalid arguments: " + err.Error()), nil
+		}
+	}
 	limit := 50
 	if v, ok := args["limit"].(float64); ok && v > 0 {
 		limit = int(v)
@@ -222,14 +227,19 @@ func (s *Server) handleListMCPServers(ctx context.Context, _ *mcp.ServerSession,
 	return jsonResult(result)
 }
 
-func (s *Server) handleSearchMCPServers(ctx context.Context, _ *mcp.ServerSession, params *mcp.CallToolParamsFor[map[string]any]) (*mcp.CallToolResultFor[any], error) {
+func (s *Server) handleSearchMCPServers(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	user := userFromContext(ctx)
 	if user == nil {
 		return errorResult("unauthorized: no user in context"), nil
 	}
 
 	// Parse arguments
-	args := params.Arguments
+	var args map[string]any
+	if len(req.Params.Arguments) > 0 {
+		if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
+			return errorResult("invalid arguments: " + err.Error()), nil
+		}
+	}
 	query, _ := args["query"].(string)
 	if query == "" {
 		return errorResult("query parameter is required"), nil
@@ -334,14 +344,19 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, _ *mcp.ServerSessio
 	return jsonResult(result)
 }
 
-func (s *Server) handleGetMCPServerConnection(ctx context.Context, _ *mcp.ServerSession, params *mcp.CallToolParamsFor[map[string]any]) (*mcp.CallToolResultFor[any], error) {
+func (s *Server) handleGetMCPServerConnection(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	user := userFromContext(ctx)
 	if user == nil {
 		return errorResult("unauthorized: no user in context"), nil
 	}
 
 	// Parse arguments
-	args := params.Arguments
+	var args map[string]any
+	if len(req.Params.Arguments) > 0 {
+		if err := json.Unmarshal(req.Params.Arguments, &args); err != nil {
+			return errorResult("invalid arguments: " + err.Error()), nil
+		}
+	}
 	serverID, _ := args["server_id"].(string)
 
 	if serverID == "" {
@@ -363,7 +378,7 @@ func (s *Server) handleGetMCPServerConnection(ctx context.Context, _ *mcp.Server
 	return s.getCatalogEntryConnection(ctx, userInfo, serverID)
 }
 
-func (s *Server) getCatalogEntryConnection(ctx context.Context, userInfo *mcpUserInfo, serverID string) (*mcp.CallToolResultFor[any], error) {
+func (s *Server) getCatalogEntryConnection(ctx context.Context, userInfo *mcpUserInfo, serverID string) (*mcp.CallToolResult, error) {
 	effectiveRole := effectiveRoleFromContext(ctx)
 	isAdmin := effectiveRole.HasRole(types.RoleAdmin)
 
@@ -402,7 +417,7 @@ func (s *Server) getCatalogEntryConnection(ctx context.Context, userInfo *mcpUse
 	return jsonResult(result)
 }
 
-func (s *Server) getMCPServerConnection(ctx context.Context, userInfo *mcpUserInfo, serverID string) (*mcp.CallToolResultFor[any], error) {
+func (s *Server) getMCPServerConnection(ctx context.Context, userInfo *mcpUserInfo, serverID string) (*mcp.CallToolResult, error) {
 	effectiveRole := effectiveRoleFromContext(ctx)
 	isAdmin := effectiveRole.HasRole(types.RoleAdmin)
 
@@ -483,8 +498,8 @@ func instantiatedCatalogEntryNames(singleUserServers []v1.MCPServer) map[string]
 	return result
 }
 
-func errorResult(msg string) *mcp.CallToolResultFor[any] {
-	return &mcp.CallToolResultFor[any]{
+func errorResult(msg string) *mcp.CallToolResult {
+	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			&mcp.TextContent{Text: msg},
 		},
@@ -492,12 +507,12 @@ func errorResult(msg string) *mcp.CallToolResultFor[any] {
 	}
 }
 
-func jsonResult(v any) (*mcp.CallToolResultFor[any], error) {
+func jsonResult(v any) (*mcp.CallToolResult, error) {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal result: %w", err)
 	}
-	return &mcp.CallToolResultFor[any]{
+	return &mcp.CallToolResult{
 		Content: []mcp.Content{
 			&mcp.TextContent{Text: string(data)},
 		},

@@ -4,8 +4,8 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/modelcontextprotocol/go-sdk/jsonschema"
 )
 
 type Agent struct {

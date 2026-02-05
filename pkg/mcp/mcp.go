@@ -10,7 +10,7 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/types"
-	"github.com/modelcontextprotocol/go-sdk/jsonschema"
+	"github.com/google/jsonschema-go/jsonschema"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
