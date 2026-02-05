@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Agent, Attachment, ChatResult } from '$lib/services/nanobot/types';
 	import { onMount } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onSend?: (message: string, attachments?: Attachment[]) => Promise<ChatResult | void>;
@@ -81,13 +82,11 @@
 	<!-- Starter Messages -->
 	{#if agent}
 		<div
-			class={[
+			class={twMerge(
 				'grid w-full max-w-2xl grid-cols-1 gap-3',
-				{
-					'grid-cols-2': agent.starterMessages?.length === 2,
-					'grid-cols-3': agent.starterMessages?.length ?? 0 > 2
-				}
-			]}
+				agent.starterMessages?.length === 2 && 'grid-cols-2',
+				(agent.starterMessages?.length ?? 0) > 2 && 'grid-cols-3'
+			)}
 		>
 			{#each agent.starterMessages || [] as message (message)}
 				<button
