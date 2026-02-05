@@ -385,6 +385,7 @@ export class ChatService {
 	selectedAgentId: string;
 	elicitations: Elicitation[];
 	isLoading: boolean;
+	isRestoring: boolean;
 	chatId: string;
 	uploadedFiles: UploadedFile[];
 	uploadingFiles: UploadingFile[];
@@ -402,6 +403,7 @@ export class ChatService {
 		this.messages = $state<ChatMessage[]>([]);
 		this.history = $state<ChatMessage[]>();
 		this.isLoading = $state(false);
+		this.isRestoring = $state(false);
 		this.elicitations = $state<Elicitation[]>([]);
 		this.prompts = $state<Prompt[]>([]);
 		this.resources = $state<Resource[]>([]);
@@ -527,6 +529,7 @@ export class ChatService {
 				} else if (event.type == 'history-end') {
 					this.messages = this.history || [];
 					this.history = undefined;
+					this.isRestoring = false;
 				} else if (event.type == 'chat-in-progress') {
 					this.isLoading = true;
 				} else if (event.type == 'chat-done') {
@@ -581,6 +584,7 @@ export class ChatService {
 		this.elicitations = [];
 		this.history = undefined;
 		this.isLoading = false;
+		this.isRestoring = true;
 		this.uploadedFiles = [];
 		this.uploadingFiles = [];
 		this.chatId = chatId;

@@ -36,6 +36,7 @@
 			uploadingFiles={chat.uploadingFiles}
 			uploadedFiles={chat.uploadedFiles}
 			isLoading={chat.isLoading}
+			isRestoring={chat.isRestoring}
 			agent={chat.agent}
 		/>
 	</div>

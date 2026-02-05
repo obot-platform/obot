@@ -34,6 +34,7 @@
 		uploadingFiles?: UploadingFile[];
 		uploadedFiles?: UploadedFile[];
 		isLoading?: boolean;
+		isRestoring?: boolean;
 		agent?: Agent;
 		agents?: Agent[];
 		selectedAgentId?: string;
@@ -59,13 +60,14 @@
 		selectedAgentId = '',
 		onAgentChange,
 		isLoading,
+		isRestoring,
 		emptyStateContent
 	}: Props = $props();
 
 	let messagesContainer: HTMLElement;
 	let showScrollButton = $state(false);
 	let previousLastMessageId = $state<string | null>(null);
-	const hasMessages = $derived(messages && messages.length > 0);
+	const hasMessages = $derived((messages && messages.length > 0) || isRestoring);
 	let selectedPrompt = $state<string | undefined>();
 
 	// Watch for changes to the last message ID and scroll to bottom
@@ -183,7 +185,7 @@
 				{isLoading}
 				{agent}
 				{onFileOpen}
-				hideAgentHeader={!!emptyStateContent}
+				hideAgentHeader={!!emptyStateContent || isRestoring}
 			/>
 		</div>
 	</div>
