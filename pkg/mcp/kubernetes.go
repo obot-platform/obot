@@ -111,6 +111,27 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		return ServerConfig{}, err
 	}
 
+	// For direct access to the real MCP server (when there's a shim), use a different port
+	if server.NanobotAgentName != "" {
+		// Point directly to the mcp container's port
+		fullURL := fmt.Sprintf("%s:8080/%s", u, strings.TrimPrefix(server.ContainerPath, "/"))
+
+		return ServerConfig{
+			URL:                  fullURL,
+			MCPServerName:        server.MCPServerName,
+			Audiences:            server.Audiences,
+			MCPServerNamespace:   server.MCPServerNamespace,
+			MCPServerDisplayName: server.MCPServerDisplayName,
+			Scope:                podName,
+			UserID:               server.UserID,
+			Runtime:              types.RuntimeRemote,
+			Issuer:               server.Issuer,
+			ContainerPort:        server.ContainerPort,
+			ContainerPath:        server.ContainerPath,
+			NanobotAgentName:     server.NanobotAgentName,
+		}, nil
+	}
+
 	fullURL := fmt.Sprintf("%s/%s", u, strings.TrimPrefix(server.ContainerPath, "/"))
 
 	// Use the pod name as the scope, so we get a new session if the pod restarts. MCP sessions aren't persistent on the server side.
@@ -580,8 +601,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			},
 		})
 
-		// Reset the portName so that the service points to the shim.
-		portName = ""
+		// Change the port name for the real MCP container; the shim keeps the http name.
+		portName = "mcp"
 		// Remove the webhooks because those are in the shim.
 		webhooks = nil
 
@@ -776,6 +797,24 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	objs = append(objs, dep)
 
+	// Create service ports - always include the main "http" port
+	servicePorts := []corev1.ServicePort{
+		{
+			Name:       "http",
+			Port:       80,
+			TargetPort: intstr.FromString("http"),
+		},
+	}
+
+	// Add a second port for direct access to the MCP container for nanobot agents
+	if server.NanobotAgentName != "" {
+		servicePorts = append(servicePorts, corev1.ServicePort{
+			Name:       "mcp",
+			Port:       8080,
+			TargetPort: intstr.FromString("mcp"),
+		})
+	}
+
 	objs = append(objs, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        server.MCPServerName,
@@ -783,13 +822,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "http",
-					Port:       80,
-					TargetPort: intstr.FromString("http"),
-				},
-			},
+			Ports: servicePorts,
 			Selector: map[string]string{
 				"app": server.MCPServerName,
 			},

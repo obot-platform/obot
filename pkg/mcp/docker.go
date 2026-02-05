@@ -214,14 +214,20 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	}
 
 	if server.Runtime != otypes.RuntimeRemote {
-		// For non-remote runtimes, we deploy a shim that handles webhooks.
-		server, err = d.ensureDeployment(ctx, server, "", true, nil)
+		// For non-remote runtimes, we deploy the real MCP server first.
+		realServerConfig, err := d.ensureDeployment(ctx, server, "", d.containerEnv || server.NanobotAgentName == "", nil)
 		if err != nil {
 			return ServerConfig{}, err
 		}
 
+		// If this is a server for a nanobot agent, return the config pointing to the real server without deploying the shim.
+		if server.NanobotAgentName != "" {
+			return realServerConfig, nil
+		}
+
 		server.MCPServerName += "-shim"
 	} else {
+		// For remote runtime servers, direct has no effect since there's no shim.
 		server.URL = strings.Replace(server.URL, "http://localhost", d.hostBaseURL, 1)
 	}
 

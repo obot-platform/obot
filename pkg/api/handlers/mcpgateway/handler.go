@@ -7,31 +7,35 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/mcp"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Handler struct {
-	storageClient     kclient.Client
-	mcpSessionManager *mcp.SessionManager
-	webhookHelper     *mcp.WebhookHelper
-	scope             string
+	storageClient             kclient.Client
+	mcpSessionManager         *mcp.SessionManager
+	webhookHelper             *mcp.WebhookHelper
+	nanobotIntegrationEnabled bool
+	scope                     string
 }
 
-func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.WebhookHelper, scopesSupported []string) *Handler {
+func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.WebhookHelper, scopesSupported []string, nanobotIntegrationEnabled bool) *Handler {
 	var scope string
 	if len(scopesSupported) > 0 {
 		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(scopesSupported, " "))
 	}
 	return &Handler{
-		storageClient:     storageClient,
-		mcpSessionManager: mcpSessionManager,
-		webhookHelper:     webhookHelper,
-		scope:             scope,
+		storageClient:             storageClient,
+		mcpSessionManager:         mcpSessionManager,
+		webhookHelper:             webhookHelper,
+		nanobotIntegrationEnabled: nanobotIntegrationEnabled,
+		scope:                     scope,
 	}
 }
 
@@ -41,7 +45,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		return apierrors.NewUnauthorized("user is not authenticated")
 	}
 
-	mcpURL, err := h.ensureServerIsDeployed(req)
+	mcpURL, allowDifferentPaths, err := h.ensureServerIsDeployed(req)
 	if err != nil {
 		return fmt.Errorf("failed to ensure server is deployed: %v", err)
 	}
@@ -60,10 +64,14 @@ func (h *Handler) Proxy(req api.Context) error {
 			}
 			r.Header.Set("X-Forwarded-Proto", scheme)
 
+			r.Host = u.Host
 			r.URL.Scheme = u.Scheme
 			r.URL.Host = u.Host
-			r.Host = u.Host
 			r.URL.Path = u.Path
+			if rest := r.PathValue("rest"); allowDifferentPaths && rest != "" {
+				r.URL.Path = r.PathValue("rest")
+			}
+
 			// Merge query parameters from the incoming request and the upstream URL.
 			// Preserve all values; if a key exists in both, both values will be present.
 			upstreamQuery := u.Query()
@@ -80,15 +88,31 @@ func (h *Handler) Proxy(req api.Context) error {
 	return nil
 }
 
-func (h *Handler) ensureServerIsDeployed(req api.Context) (string, error) {
+func (h *Handler) ensureServerIsDeployed(req api.Context) (string, bool, error) {
 	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, req.PathValue("mcp_id"))
 	if err != nil {
-		return "", fmt.Errorf("failed to get mcp server config: %w", err)
+		return "", false, fmt.Errorf("failed to get mcp server config: %w", err)
 	}
 
 	if mcpServer.Spec.Template {
-		return "", apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
+		return "", false, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}
 
-	return h.mcpSessionManager.LaunchServer(req.Context(), mcpServerConfig)
+	// Add-hoc authorization for nanobot agents
+	if h.nanobotIntegrationEnabled && mcpServerConfig.NanobotAgentName != "" {
+		var agent v1.NanobotAgent
+		if err = req.Get(&agent, mcpServerConfig.NanobotAgentName); err != nil {
+			return "", false, fmt.Errorf("failed to get nanobot agent %q: %w", mcpServerConfig.NanobotAgentName, err)
+		}
+		if agent.Spec.UserID != req.User.GetUID() {
+			return "", false, types.NewErrForbidden("user is not authorized to access nanobot agent %q", mcpServerConfig.NanobotAgentName)
+		}
+	}
+
+	url, err := h.mcpSessionManager.LaunchServer(req.Context(), mcpServerConfig)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to launch mcp server: %w", err)
+	}
+
+	return url, h.nanobotIntegrationEnabled && mcpServerConfig.NanobotAgentName != "", nil
 }
