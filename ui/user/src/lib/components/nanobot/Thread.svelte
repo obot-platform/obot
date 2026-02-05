@@ -16,6 +16,7 @@
 	} from '$lib/services/nanobot/types';
 	import MessageInput from './MessageInput.svelte';
 	import Messages from './Messages.svelte';
+	import AgentHeader from './AgentHeader.svelte';
 	import { parseToolFilePath } from '$lib/services/nanobot/utils';
 	import { ChevronDown } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
@@ -68,6 +69,7 @@
 	let showScrollButton = $state(false);
 	let previousLastMessageId = $state<string | null>(null);
 	const hasMessages = $derived((messages && messages.length > 0) || isRestoring);
+	const showInlineAgentHeader = $derived(!hasMessages && !emptyStateContent && !isLoading);
 	let selectedPrompt = $state<string | undefined>();
 
 	// Watch for changes to the last message ID and scroll to bottom
@@ -185,7 +187,7 @@
 				{isLoading}
 				{agent}
 				{onFileOpen}
-				hideAgentHeader={!!emptyStateContent || isRestoring}
+				hideAgentHeader
 			/>
 		</div>
 	</div>
@@ -206,7 +208,13 @@
 				<ChevronDown class="size-5" />
 			</button>
 		{/if}
-		{#if !hasMessages && emptyStateContent}
+		{#if showInlineAgentHeader}
+			<div class="mx-auto w-full max-w-4xl" out:slide={{ axis: 'y', duration: 300 }}>
+				<div out:fade={{ duration: 200 }}>
+					<AgentHeader {agent} onSend={onSendMessage} />
+				</div>
+			</div>
+		{:else if !hasMessages && !isLoading && emptyStateContent}
 			<div class="mx-auto w-full max-w-4xl" out:slide={{ axis: 'y', duration: 300 }}>
 				<div out:fade={{ duration: 200 }}>
 					{@render emptyStateContent()}
