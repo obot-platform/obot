@@ -32,7 +32,12 @@
 {:else if item.type === 'reasoning'}
 	<MessageItemReasoning {item} />
 {:else if item.type === 'tool'}
-	{#if item.name === 'write'}
+	{@const toolArguments = item.arguments ? JSON.parse(item.arguments) : null}
+	{@const isWorkflowFile =
+		item.name === 'write' &&
+		toolArguments?.file_path?.startsWith('workflows/') &&
+		!toolArguments?.file_path?.startsWith('workflows/.runs/')}
+	{#if isWorkflowFile}
 		<MessageItemWorkflowFile {item} {onFileOpen} />
 	{:else}
 		<MessageItemTool {item} {onSend} />
