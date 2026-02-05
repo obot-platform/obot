@@ -53,6 +53,5 @@ export async function deleteProjectV2Agent(projectId: string, agentId: string): 
 
 export async function launchProjectV2Agent(projectId: string, agentId: string, opts?: { fetch?: Fetcher }): Promise<unknown> {
     const response = (await doPost(`/projectsv2/${projectId}/agents/${agentId}/launch`, {}, opts)) as unknown;
-    console.log({ response });
     return response;
 }
