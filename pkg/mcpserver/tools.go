@@ -423,7 +423,7 @@ func (s *Server) getMCPServerConnection(ctx context.Context, userInfo *mcpUserIn
 	}
 
 	result.Status = "ready"
-	result.ConfigureURL = system.MCPConnectURL(s.serverURL, serverID)
+	result.ConnectURL = system.MCPConnectURL(s.serverURL, serverID)
 	result.Message = "Server is ready to use. Connect using the provided URL."
 
 	return jsonResult(result)
