@@ -14,36 +14,40 @@
 	let drawerInput = $state<HTMLInputElement | null>(null);
 </script>
 
-<Thread
-	messages={chat.messages}
-	prompts={chat.prompts}
-	resources={chat.resources}
-	elicitations={chat.elicitations}
-	agents={chat.agents}
-	selectedAgentId={chat.selectedAgentId}
-	onAgentChange={chat.selectAgent}
-	onElicitationResult={chat.replyToElicitation}
-	onSendMessage={chat.sendMessage}
-	onFileUpload={chat.uploadFile}
-	onFileOpen={(filename) => {
-		onToggleSidebar(false);
-		drawerInput?.click();
-		selectedFile = filename;
-	}}
-	cancelUpload={chat.cancelUpload}
-	uploadingFiles={chat.uploadingFiles}
-	uploadedFiles={chat.uploadedFiles}
-	isLoading={chat.isLoading}
-	agent={chat.agent}
-/>
+<div class="flex h-full w-full">
+	<div class="h-full min-w-0 flex-1">
+		<Thread
+			messages={chat.messages}
+			prompts={chat.prompts}
+			resources={chat.resources}
+			elicitations={chat.elicitations}
+			agents={chat.agents}
+			selectedAgentId={chat.selectedAgentId}
+			onAgentChange={chat.selectAgent}
+			onElicitationResult={chat.replyToElicitation}
+			onSendMessage={chat.sendMessage}
+			onFileUpload={chat.uploadFile}
+			onFileOpen={(filename) => {
+				onToggleSidebar(false);
+				drawerInput?.click();
+				selectedFile = filename;
+			}}
+			cancelUpload={chat.cancelUpload}
+			uploadingFiles={chat.uploadingFiles}
+			uploadedFiles={chat.uploadedFiles}
+			isLoading={chat.isLoading}
+			agent={chat.agent}
+		/>
+	</div>
 
-{#if selectedFile}
-	<FileEditor
-		filename={selectedFile}
-		{chat}
-		onClose={() => {
-			selectedFile = '';
-			onToggleSidebar(true);
-		}}
-	/>
-{/if}
+	{#if selectedFile}
+		<FileEditor
+			filename={selectedFile}
+			{chat}
+			onClose={() => {
+				selectedFile = '';
+				onToggleSidebar(true);
+			}}
+		/>
+	{/if}
+</div>

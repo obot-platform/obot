@@ -2,7 +2,6 @@
 	import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import type { ResourceContents } from '$lib/services/nanobot/types';
 	import { X } from 'lucide-svelte';
-	import { fly } from 'svelte/transition';
 	import MarkdownEditor from './MarkdownEditor.svelte';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 
@@ -17,6 +16,13 @@
 	let resource = $state<ResourceContents | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let mounted = $state(false);
+
+	$effect(() => {
+		requestAnimationFrame(() => {
+			mounted = true;
+		});
+	});
 
 	$effect(() => {
 		// Reset state when filename changes
@@ -71,8 +77,12 @@
 	let mimeType = $derived(resource?.mimeType ?? 'text/plain');
 </script>
 
-<div class="h-[calc(100dvh-4rem)] min-w-[500px] overflow-hidden" in:fly={{ x: 100, duration: 300 }}>
-	<div class="bg-base-200 flex h-full w-full flex-col">
+<div
+	class="h-[calc(100dvh-4rem)] overflow-hidden transition-[max-width,opacity] duration-300 ease-out {mounted
+		? 'max-w-[500px] opacity-100'
+		: 'max-w-0 opacity-0'}"
+>
+	<div class="bg-base-200 flex h-full w-[500px] flex-col">
 		<div class="border-base-300 flex items-center gap-2 border-b px-4 py-2">
 			<div class="flex grow items-center justify-between">
 				<span class="truncate text-sm font-medium">{filename}</span>

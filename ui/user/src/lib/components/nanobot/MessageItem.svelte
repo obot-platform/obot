@@ -17,6 +17,15 @@
 	}
 
 	let { item, role, onSend, onFileOpen }: Props = $props();
+
+	function safeJsonParse(str: string | undefined): Record<string, unknown> | null {
+		if (!str) return null;
+		try {
+			return JSON.parse(str);
+		} catch {
+			return null;
+		}
+	}
 </script>
 
 {#if item.type === 'text'}
@@ -32,11 +41,12 @@
 {:else if item.type === 'reasoning'}
 	<MessageItemReasoning {item} />
 {:else if item.type === 'tool'}
-	{@const toolArguments = item.arguments ? JSON.parse(item.arguments) : null}
+	{@const toolArguments = safeJsonParse(item.arguments)}
+	{@const filePath = typeof toolArguments?.file_path === 'string' ? toolArguments.file_path : ''}
 	{@const isWorkflowFile =
 		item.name === 'write' &&
-		toolArguments?.file_path?.startsWith('workflows/') &&
-		!toolArguments?.file_path?.startsWith('workflows/.runs/')}
+		filePath.startsWith('workflows/') &&
+		!filePath.startsWith('workflows/.runs/')}
 	{#if isWorkflowFile}
 		<MessageItemWorkflowFile {item} {onFileOpen} />
 	{:else}
