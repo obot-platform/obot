@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import type { Chat } from '$lib/services/nanobot/types';
+	import { goto } from '$lib/url';
 	import { Check, Edit, MoreVertical, Trash2, X, Plus } from 'lucide-svelte';
 
 	interface Props {

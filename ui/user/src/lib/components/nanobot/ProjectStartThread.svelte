@@ -7,10 +7,10 @@
 	interface Props {
 		chat: ChatService;
 		onToggleSidebar: (open: boolean) => void;
-		emptyStateContent?: Snippet;
+		initialContent?: Snippet;
 	}
 
-	let { chat, onToggleSidebar, emptyStateContent }: Props = $props();
+	let { chat, onToggleSidebar, initialContent }: Props = $props();
 
 	let selectedFile = $state('');
 	let drawerInput = $state<HTMLInputElement | null>(null);
@@ -40,7 +40,7 @@
 		agent={chat.agent}
 	>
 		{#snippet emptyStateContent()}
-			{@render emptyStateContent?.()}
+			{@render initialContent?.()}
 		{/snippet}
 	</Thread>
 {/key}

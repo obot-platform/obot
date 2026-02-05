@@ -44,7 +44,6 @@
 	async function handleDeleteThread(threadId: string) {
 		try {
 			await chatApi.deleteThread(threadId);
-			const threadToDelete = threads.find((t) => t.id === threadId);
 			threads = threads.filter((t) => t.id !== threadId);
 		} catch (error) {
 			console.error('Failed to delete thread:', error);

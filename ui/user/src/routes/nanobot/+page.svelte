@@ -3,10 +3,10 @@
 	import * as nanobotLayout from '$lib/context/nanobotLayout.svelte';
 	import ProjectSidebar from './ProjectSidebar.svelte';
 	import { MessageCircle, Sparkles } from 'lucide-svelte';
-	import { goto } from '$app/navigation';
 	import { ChatAPI, ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import { untrack } from 'svelte';
 	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
+	import { goto } from '$lib/url';
 
 	let { data } = $props();
 	let projects = $derived(data.projects);
@@ -61,7 +61,7 @@
 						layout.sidebarOpen = open;
 					}}
 				>
-					{#snippet emptyStateContent()}
+					{#snippet initialContent()}
 						<div class="flex flex-col items-center gap-4">
 							<div class="flex flex-col items-center gap-1">
 								<h1 class="w-xs text-center text-3xl font-semibold md:w-full">
