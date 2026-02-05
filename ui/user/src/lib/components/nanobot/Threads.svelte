@@ -82,9 +82,7 @@
 			class="btn btn-square btn-ghost btn-sm tooltip tooltip-left"
 			data-tip="Start New Conversation"
 			onclick={() => {
-				const url = new URL(page.url);
-				url.searchParams.delete('tid');
-				goto(url.toString());
+				goto(`/nanobot/p/${projectId}`);
 			}}
 		>
 			<Plus class="size-4" />
