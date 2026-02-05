@@ -25,18 +25,19 @@ require (
 	github.com/gen2brain/webp v0.5.4
 	github.com/go-git/go-git/v5 v5.16.3
 	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/google/jsonschema-go v0.4.2
 	github.com/google/uuid v1.6.0
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250224164718-139cb4507b1d
 	github.com/gptscript-ai/cmd v0.0.0-20250530150401-bc71fddf8070
 	github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b
-	github.com/gptscript-ai/go-gptscript v0.9.8
-	github.com/gptscript-ai/gptscript v0.9.8
+	github.com/gptscript-ai/go-gptscript v0.9.9-0.20260205140523-98f64d42d2ee
+	github.com/gptscript-ai/gptscript v0.9.9-0.20260205160632-c034f5040d30
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/moby/moby/api v1.52.0-alpha.1
 	github.com/moby/moby/client v0.1.0-alpha.0
-	github.com/modelcontextprotocol/go-sdk v0.2.0
-	github.com/nanobot-ai/nanobot v0.0.51-0.20260202192553-1f789eeec5f3
+	github.com/modelcontextprotocol/go-sdk v1.2.0
+	github.com/nanobot-ai/nanobot v0.0.52
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037
 	github.com/obot-platform/kinm v0.0.0-20250905213846-3c65d6845f83
 	github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317
@@ -79,7 +80,6 @@ require (
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
-	github.com/google/jsonschema-go v0.3.0 // indirect
 	github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260106135339-3745d9b14a30 // indirect
 	github.com/pterm/pterm v0.12.80 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect

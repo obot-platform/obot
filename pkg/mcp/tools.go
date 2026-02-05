@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/modelcontextprotocol/go-sdk/jsonschema"
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/nanobot-ai/nanobot/pkg/mcp"
 	otypes "github.com/obot-platform/obot/apiclient/types"
 )
