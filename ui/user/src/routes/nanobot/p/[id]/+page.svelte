@@ -5,7 +5,7 @@
 	import ThreadFromChat from '$lib/components/nanobot/ThreadFromChat.svelte';
 	import * as nanobotLayout from '$lib/context/nanobotLayout.svelte';
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import { untrack } from 'svelte';
 	import type { Chat } from '$lib/services/nanobot/types';
 
