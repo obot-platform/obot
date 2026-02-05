@@ -13,7 +13,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
     paths-ignore:
       - docs/**
       - chart/**
@@ -62,7 +62,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.8.1
         with:
-          cosign-release: 'v2.4.3'
+          cosign-release: "v2.4.3"
       - name: Check install!
         run: cosign version
 
@@ -105,12 +105,12 @@ jobs:
           password: ${{ secrets.GHCR_TOKEN }}
 
       - name: Run Trivy
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           image-ref: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-          skip-dirs: '**/venv'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+          skip-dirs: "**/venv"
+          format: "sarif"
+          output: "trivy-results.sarif"
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
@@ -159,7 +159,7 @@ jobs:
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.8.1
         with:
-          cosign-release: 'v2.4.3'
+          cosign-release: "v2.4.3"
       - name: Check install!
         run: cosign version
 
@@ -201,12 +201,12 @@ jobs:
           password: ${{ secrets.GHCR_TOKEN }}
 
       - name: Run Trivy
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           image-ref: ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
-          skip-dirs: '**/venv'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+          skip-dirs: "**/venv"
+          format: "sarif"
+          output: "trivy-results.sarif"
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
