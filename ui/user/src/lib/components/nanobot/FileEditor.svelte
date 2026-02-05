@@ -142,13 +142,15 @@
 	class="relative h-[calc(100dvh-4rem)] overflow-hidden transition-[opacity] duration-300 ease-out {mounted
 		? 'opacity-100'
 		: 'opacity-0'}"
-	style="width: {mounted ? widthPercent : 0}%; min-width: {mounted ? MIN_WIDTH_PX : 0}px; max-width: {MAX_WIDTH_PERCENT}%;"
+	style="width: {mounted ? widthPercent : 0}%; min-width: {mounted
+		? MIN_WIDTH_PX
+		: 0}px; max-width: {MAX_WIDTH_PERCENT}%;"
 >
 	<!-- Resize handle -->
 	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 	<div
-		class="absolute left-0 top-0 z-10 h-full w-1 cursor-ew-resize transition-colors hover:bg-primary/50 {isResizing
-			? 'bg-primary/50'
+		class="hover:bg-base-300/75 absolute top-0 left-0 z-10 h-full w-1 cursor-ew-resize transition-colors {isResizing
+			? 'bg-base-300/75'
 			: 'bg-transparent'}"
 		onmousedown={handleResizeStart}
 		onkeydown={handleResizeKeydown}
