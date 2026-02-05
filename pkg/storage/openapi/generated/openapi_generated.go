@@ -17804,6 +17804,20 @@ func schema_storage_apis_obotobotai_v1_RunStatus(ref common.ReferenceCallback) c
 							Ref: ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall"),
 						},
 					},
+					"requestedCallDecisions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"output"},
 			},
