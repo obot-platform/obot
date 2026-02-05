@@ -95,7 +95,10 @@ async function processHtmlFile(
 
   // 2. Add robots meta tag with "noindex,follow" to prevent indexing but allow link following
   // Insert after the opening <head> tag or after existing meta tags
-  if (!updatedContent.includes('name="robots"')) {
+  // Check specifically for a <meta> tag with name="robots" to avoid false positives
+  // Handles: spaces around "=", single/double quotes, attributes in any order
+  const robotsMetaRegex = /<meta\s[^>]*name\s*=\s*["']robots["'][^>]*>/i;
+  if (!robotsMetaRegex.test(updatedContent)) {
     const robotsMeta = '<meta name="robots" content="noindex,follow">';
 
     // Try to insert after the <head> tag (case-insensitive, supports attributes)
