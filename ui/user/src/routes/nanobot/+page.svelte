@@ -11,7 +11,6 @@
 	let { data } = $props();
 	let projects = $derived(data.projects);
 	let chat = $state<ChatService | null>(null);
-	// let projects = $derived(data.projects);
 	let sidebarRef: { refreshThreads: () => Promise<void> } | undefined = $state();
 
 	const layout = nanobotLayout.getLayout();

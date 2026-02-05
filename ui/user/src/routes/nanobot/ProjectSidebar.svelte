@@ -13,7 +13,6 @@
 
 	let threads = $state<Chat[]>([]);
 	let isLoading = $state(true);
-	// const sidebar = getLayout();
 
 	async function refreshThreads() {
 		threads = await chatApi.getThreads();
@@ -37,9 +36,7 @@
 			if (threadIndex !== -1) {
 				threads[threadIndex].title = newTitle;
 			}
-			// notifications.success('Thread Renamed', `Successfully renamed to "${newTitle}"`);
 		} catch (error) {
-			// notifications.error('Rename Failed', 'Unable to rename the thread. Please try again.');
 			console.error('Failed to rename thread:', error);
 		}
 	}
@@ -49,9 +46,7 @@
 			await chatApi.deleteThread(threadId);
 			const threadToDelete = threads.find((t) => t.id === threadId);
 			threads = threads.filter((t) => t.id !== threadId);
-			// notifications.success('Thread Deleted', `Deleted "${threadToDelete?.title || 'thread'}"`);
 		} catch (error) {
-			// notifications.error('Delete Failed', 'Unable to delete the thread. Please try again.');
 			console.error('Failed to delete thread:', error);
 		}
 	}

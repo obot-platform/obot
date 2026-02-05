@@ -441,7 +441,6 @@ export class ChatService {
         }
 
         this.listResources({ useDefaultSession: true }).then((r) => {
-            console.log('Resources:', r);
             if (r && r.resources) {
                 this.resources = r.resources;
             }
@@ -593,7 +592,6 @@ export class ChatService {
 
         // Load resources, prompts, and agents using default session
         this.listResources({ useDefaultSession: true }).then((r) => {
-            console.log('Resources:', r);
             if (r && r.resources) {
                 this.resources = r.resources;
             }
@@ -608,16 +606,16 @@ export class ChatService {
         await this.reloadAgent({ useDefaultSession: true });
     };
 
-	sendMessage = async (message: string, attachments?: Attachment[]) => {
-		if (!message.trim() || this.isLoading) return;
+    sendMessage = async (message: string, attachments?: Attachment[]) => {
+        if (!message.trim() || this.isLoading) return;
 
-		this.isLoading = true;
+        this.isLoading = true;
 
-		if (!this.chatId) {
-			await this.newChat();
-			// Restore loading state since setChatId resets it
-			this.isLoading = true;
-		}
+        if (!this.chatId) {
+            await this.newChat();
+            // Restore loading state since setChatId resets it
+            this.isLoading = true;
+        }
 
         // Determine which tool to call based on selected or current agent
         const effectiveAgentId = this.selectedAgentId || this.agent?.id;

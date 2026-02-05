@@ -26,7 +26,7 @@
 	let singleUIResource = $derived(
 		item.output?.content &&
 			item.output?.content?.filter((i) => {
-				return isUIResource(i) && !i.resource?._meta?.['ai.nanobo.meta/workspace'];
+				return isUIResource(i) && !i.resource?._meta?.['ai.nanobot.meta/workspace'];
 			}).length === 1
 	);
 
