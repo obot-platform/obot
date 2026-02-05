@@ -90,6 +90,10 @@
 				}
 			})
 		);
+
+		return () => {
+			root.unmount();
+		};
 	});
 </script>
 

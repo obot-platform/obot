@@ -1,3 +1,4 @@
+import { errors } from '$lib/stores';
 import { SimpleClient } from '../mcpclient/index.svelte';
 import type {
 	Agent,
@@ -113,11 +114,8 @@ export class ChatAPI {
 
 			return result as T;
 		} catch (error) {
-			// Try to get notification context and show error
 			try {
-				// const notifications = getNotificationContext();
-				// const message = error instanceof Error ? error.message : String(error);
-				// notifications.error('API Error', message);
+				errors.append(error);
 			} catch {
 				// If context is not available (e.g., during SSR), just log
 				console.error('MCP Tool Error:', error);
@@ -392,7 +390,7 @@ export class ChatService {
 	uploadingFiles: UploadingFile[];
 
 	private api: ChatAPI;
-	private closer = () => {};
+	private closer = () => { };
 	private history: ChatMessage[] | undefined;
 	private onChatDone: (() => void)[] = [];
 	private subscribed = false;
