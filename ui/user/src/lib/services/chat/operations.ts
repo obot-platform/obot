@@ -717,7 +717,7 @@ export function newMessageEventSource(
 	const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
 	return new EventSource(
 		baseURL +
-		`/assistants/${assistantID}/projects/${projectID}/threads/${opts?.threadID}/events${queryString}`
+			`/assistants/${assistantID}/projects/${projectID}/threads/${opts?.threadID}/events${queryString}`
 	);
 }
 
@@ -1808,8 +1808,8 @@ export async function getWorkspaceMCPCatalogEntryToolPreviewsOauth(
 			}
 		)) as
 			| {
-				oauthURL: string;
-			}
+					oauthURL: string;
+			  }
 			| Record<string, string>;
 
 		// Check if response has oauthURL property (single server response)

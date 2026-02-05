@@ -1,7 +1,7 @@
 import * as Operations from './operations';
 
 export default {
-    ...Operations
+	...Operations
 };
 
 export type { ProjectV2, ProjectV2CreateRequest } from './types';
