@@ -7,7 +7,7 @@ export const ssr = false;
 
 export const load: PageLoad = async ({ fetch }) => {
     const version = await ChatService.getVersion({ fetch });
-    if (!version.nanobotEnabled) {
+    if (!version.nanobotIntegration) {
         throw redirect(302, '/');
     }
 

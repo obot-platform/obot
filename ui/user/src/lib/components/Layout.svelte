@@ -223,7 +223,7 @@
 								disabled: isBootStrapUser,
 								collapsible: false
 							},
-							...(version.current.nanobotEnabled
+							...(version.current.nanobotIntegration
 								? [
 										{
 											id: 'nanobot',
@@ -349,7 +349,7 @@
 							disabled: isBootStrapUser,
 							collapsible: false
 						},
-						...(version.current.nanobotEnabled
+						...(version.current.nanobotIntegration
 							? [
 									{
 										id: 'nanobot',

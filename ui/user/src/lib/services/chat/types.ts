@@ -166,7 +166,7 @@ export interface Version {
 	upgradeAvailable?: boolean;
 	engine?: 'docker' | 'kubernetes' | 'local';
 	autonomousToolUseEnabled?: boolean;
-	nanobotEnabled?: boolean;
+	nanobotIntegration?: boolean;
 }
 
 export interface Profile {
