@@ -46,7 +46,6 @@
 
 		// Subscribe to live updates
 		const cleanup = chat.watchResource(match.uri, (updatedResource) => {
-			console.debug('[FileEditor] Resource updated:', match.uri);
 			resource = updatedResource;
 		});
 

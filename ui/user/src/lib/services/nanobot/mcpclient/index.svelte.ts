@@ -279,8 +279,6 @@ export class SimpleClient {
             if (e instanceof Error && e.message !== 'Unexpected end of JSON input') {
                 throw e;
             }
-            // Otherwise ignore JSON parse errors
-            console.debug('[SimpleClient] Error parsing JSON in reply:', e);
         }
     }
 

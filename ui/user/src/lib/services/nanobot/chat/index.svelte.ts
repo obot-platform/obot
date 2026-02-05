@@ -544,7 +544,6 @@ export class ChatService {
                         } as Elicitation
                     ];
                 }
-                console.debug('Received event:', event);
             },
             {
                 events: [

@@ -34,14 +34,12 @@
 		// Subscribe to live updates
 		const progressCleanup = hasProgressResource
 			? chat.watchResource(progressUri, (updatedResource) => {
-					console.debug('[WorkflowSidebar] Resource updated:', { progressUri, updatedResource });
 					progress = updatedResource;
 				})
 			: null;
 
 		const todoCleanup = hasTodoResource
 			? chat.watchResource(todoUri, (updatedResource) => {
-					console.debug('[WorkflowSidebar] Resource updated:', { todoUri, updatedResource });
 					todo = updatedResource;
 				})
 			: null;

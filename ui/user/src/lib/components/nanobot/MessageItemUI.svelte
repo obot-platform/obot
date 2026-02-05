@@ -28,15 +28,7 @@
 	let container: HTMLDivElement;
 	const iFrameRef = $state(React.createRef<HTMLIFrameElement>());
 
-	$effect(() => {
-		if (iFrameRef.current) {
-			// iFrameRef.current.classList.add('mx-auto');
-			// console.log('Iframe ref:', iFrameRef.current);
-		}
-	});
-
 	async function onUIAction(e: UIActionResult) {
-		console.log('UI Action', e);
 		switch (e.type) {
 			case 'intent':
 				if (
@@ -46,18 +38,15 @@
 				) {
 					window.open(e.payload.params.url, '_blank');
 				} else {
-					console.log('UI Action:', e);
 					onSend?.(JSON.stringify(e));
 				}
 				break;
 			case 'tool':
-				console.log('UI Action:', e);
 				if (onSend) {
 					const reply = await onSend(JSON.stringify(e));
 					if (reply) {
 						for (const item of reply.message?.items || []) {
 							if (item.type === 'tool' && item.output) {
-								console.log('Tool output:', $state.snapshot(item.output));
 								return $state.snapshot(item.output);
 							}
 						}
@@ -66,7 +55,6 @@
 				break;
 			case 'prompt':
 			case 'notify':
-				console.log('UI Action:', e);
 				onSend?.(JSON.stringify(e));
 				break;
 			case 'link':
