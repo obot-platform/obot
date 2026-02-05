@@ -44,9 +44,7 @@
 			onThreadCreated: handleThreadCreated
 		});
 
-		if (initialPlannerMode) {
-			newChat.selectedAgentId = 'planner';
-		}
+		newChat.selectedAgentId = initialPlannerMode ? 'planner' : 'explorer';
 
 		if (currentThreadId) {
 			newChat.restoreChat(currentThreadId);

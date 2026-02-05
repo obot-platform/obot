@@ -28,6 +28,8 @@
 			onThreadCreated: handleThreadCreated
 		});
 
+		newChat.selectedAgentId = 'explorer';
+
 		untrack(() => {
 			chat = newChat;
 		});
