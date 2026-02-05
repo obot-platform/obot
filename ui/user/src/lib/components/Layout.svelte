@@ -230,6 +230,7 @@
 											id: 'nanobot',
 											href: '/nanobot',
 											icon: BotMessageSquare,
+											disabled: isBootStrapUser,
 											label: 'Launch Nanobot',
 											collapsible: false
 										}

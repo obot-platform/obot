@@ -71,15 +71,6 @@
 			});
 		};
 	});
-
-	// Separate effect to handle component unmount cleanup
-	$effect(() => {
-		return () => {
-			untrack(() => {
-				chat?.close();
-			});
-		};
-	});
 </script>
 
 <Layout

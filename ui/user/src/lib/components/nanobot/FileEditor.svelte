@@ -18,6 +18,66 @@
 	let error = $state<string | null>(null);
 	let mounted = $state(false);
 
+	// Resizable width state
+	let containerRef = $state<HTMLDivElement | null>(null);
+	let widthPercent = $state(50); // Initial width: 50%
+	let isResizing = $state(false);
+
+	const MIN_WIDTH_PX = 500;
+	const MAX_WIDTH_PERCENT = 65;
+	const MIN_WIDTH_PERCENT = 10;
+
+	function handleResizeStart(e: MouseEvent) {
+		e.preventDefault();
+		isResizing = true;
+
+		const startX = e.clientX;
+		const startWidth = widthPercent;
+
+		function onMouseMove(e: MouseEvent) {
+			if (!containerRef?.parentElement) return;
+
+			const parentWidth = containerRef.parentElement.clientWidth;
+			const deltaX = startX - e.clientX;
+			const deltaPercent = (deltaX / parentWidth) * 100;
+			let newPercent = startWidth + deltaPercent;
+
+			// Calculate min percent based on MIN_WIDTH_PX
+			const minPercentFromPx = (MIN_WIDTH_PX / parentWidth) * 100;
+			const effectiveMinPercent = Math.max(MIN_WIDTH_PERCENT, minPercentFromPx);
+
+			// Clamp to min/max
+			newPercent = Math.max(effectiveMinPercent, Math.min(MAX_WIDTH_PERCENT, newPercent));
+			widthPercent = newPercent;
+		}
+
+		function onMouseUp() {
+			isResizing = false;
+			document.removeEventListener('mousemove', onMouseMove);
+			document.removeEventListener('mouseup', onMouseUp);
+		}
+
+		document.addEventListener('mousemove', onMouseMove);
+		document.addEventListener('mouseup', onMouseUp);
+	}
+
+	function handleResizeKeydown(e: KeyboardEvent) {
+		if (!containerRef?.parentElement) return;
+
+		const parentWidth = containerRef.parentElement.clientWidth;
+		const minPercentFromPx = (MIN_WIDTH_PX / parentWidth) * 100;
+		const effectiveMinPercent = Math.max(MIN_WIDTH_PERCENT, minPercentFromPx);
+		const step = 2; // 2% per key press
+
+		if (e.key === 'ArrowLeft') {
+			e.preventDefault();
+			widthPercent = Math.min(MAX_WIDTH_PERCENT, widthPercent + step);
+		} else if (e.key === 'ArrowRight') {
+			e.preventDefault();
+			widthPercent = Math.max(effectiveMinPercent, widthPercent - step);
+		}
+	}
+
 	$effect(() => {
 		requestAnimationFrame(() => {
 			mounted = true;
@@ -78,11 +138,30 @@
 </script>
 
 <div
-	class="h-[calc(100dvh-4rem)] overflow-hidden transition-[max-width,opacity] duration-300 ease-out {mounted
-		? 'max-w-[500px] opacity-100'
-		: 'max-w-0 opacity-0'}"
+	bind:this={containerRef}
+	class="relative h-[calc(100dvh-4rem)] overflow-hidden transition-[opacity] duration-300 ease-out {mounted
+		? 'opacity-100'
+		: 'opacity-0'}"
+	style="width: {mounted ? widthPercent : 0}%; min-width: {mounted ? MIN_WIDTH_PX : 0}px; max-width: {MAX_WIDTH_PERCENT}%;"
 >
-	<div class="bg-base-200 flex h-full w-[500px] flex-col">
+	<!-- Resize handle -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<div
+		class="absolute left-0 top-0 z-10 h-full w-1 cursor-ew-resize transition-colors hover:bg-primary/50 {isResizing
+			? 'bg-primary/50'
+			: 'bg-transparent'}"
+		onmousedown={handleResizeStart}
+		onkeydown={handleResizeKeydown}
+		role="slider"
+		aria-orientation="horizontal"
+		aria-valuenow={widthPercent}
+		aria-valuemin={MIN_WIDTH_PERCENT}
+		aria-valuemax={MAX_WIDTH_PERCENT}
+		aria-label="Resize file editor"
+		tabindex="0"
+	></div>
+
+	<div class="bg-base-200 flex h-full w-full flex-col">
 		<div class="border-base-300 flex items-center gap-2 border-b px-4 py-2">
 			<div class="flex grow items-center justify-between">
 				<span class="truncate text-sm font-medium">{filename}</span>

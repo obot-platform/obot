@@ -134,16 +134,15 @@
 	function autoResize() {
 		if (!textareaRef) return;
 
-		// Reset height to auto to get the correct scrollHeight
-		textareaRef.style.height = 'auto';
+		textareaRef.style.height = '0';
 
-		// Set the height based on scrollHeight, but respect min and max constraints
 		const newHeight = Math.min(Math.max(textareaRef.scrollHeight, 40), 128); // min 40px (2.5rem), max 128px (8rem)
 		textareaRef.style.height = `${newHeight}px`;
 	}
 
 	// Auto-resize when message changes
 	$effect(() => {
+		message;
 		if (textareaRef) {
 			autoResize();
 		}
