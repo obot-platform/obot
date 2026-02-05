@@ -54,6 +54,7 @@ type ServerConfig struct {
 	MCPCatalogName       string `json:"mcpCatalogName"`
 	MCPCatalogEntryName  string `json:"mcpCatalogEntryName"`
 	MCPServerDisplayName string `json:"mcpServerDisplayName"`
+	NanobotAgentName     string `json:"nanobotAgentName"`
 
 	ProjectMCPServer   bool `json:"projectMCPServer"`
 	ComponentMCPServer bool `json:"componentMCPServer"`
@@ -311,6 +312,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		JWKSEndpoint:              fmt.Sprintf("%s/oauth/jwks.json", issuer),
 		AuthorizeEndpoint:         fmt.Sprintf("%s/oauth/authorize", issuer),
 		ComponentMCPServer:        mcpServer.Spec.CompositeName != "",
+		NanobotAgentName:          mcpServer.Spec.NanobotAgentID,
 	}
 
 	if mcpServer.Spec.CompositeName == "" {
