@@ -60,10 +60,7 @@ generate:
 	go generate
 
 test:
-	go test -v -cover $$(go list ./... | grep -v github.com/obot-platform/obot/tests/integration)
-
-test-integration:
-	./tests/integration/setup.sh
+	go test -v -cover ./...
 
 # Runs Go linters and validates that all generated code is committed.
 validate-go-code: tidy generate lint-go no-changes
