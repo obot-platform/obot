@@ -43,10 +43,14 @@ func NewServer(gatewayClient *gclient.Client, storageClient storage.Client, list
 
 // Handler returns an http.Handler for the MCP server with authentication middleware.
 func (s *Server) Handler() http.Handler {
-	// Create the streamable HTTP handler
+	// Create the streamable HTTP handler in stateless mode.
+	// Stateless mode is used because the server does not need to maintain session state
+	// between requests, and it allows the server to be horizontally scaled.
 	httpHandler := mcp.NewStreamableHTTPHandler(func(_ *http.Request) *mcp.Server {
 		return s.mcpServer
-	}, nil)
+	}, &mcp.StreamableHTTPOptions{
+		Stateless: true,
+	})
 
 	// Wrap with authentication middleware
 	return s.authMiddleware(httpHandler)
