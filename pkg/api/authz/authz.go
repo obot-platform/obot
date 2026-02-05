@@ -274,8 +274,9 @@ var (
 			"GET /api/mcp-stats",
 			"GET /api/mcp-stats/{mcp_id}",
 
-			// Allow basic users to create ProjectV2 resources
+			// Allow basic users to create and list ProjectV2 resources
 			"POST /api/projectsv2",
+			"GET /api/projectsv2",
 		},
 
 		types.GroupPowerUserPlus: {
