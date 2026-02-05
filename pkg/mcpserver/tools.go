@@ -150,10 +150,33 @@ func (s *Server) handleListMCPServers(ctx context.Context, _ *mcp.ServerSession,
 		return errorResult("failed to list catalog entries"), nil
 	}
 
-	// Calculate remaining limit for servers
+	// List single-user servers owned by this user (needed early for filtering catalog entries)
+	singleUserServers, err := s.lister.ListSingleUserServers(ctx, userInfo.GetUID(), limit)
+	if err != nil {
+		log.Errorf("failed to list single-user servers: %v", err)
+		return errorResult("failed to list single-user servers"), nil
+	}
+
+	// Build set of catalog entries that have single-user instances
+	instantiated := instantiatedCatalogEntryNames(singleUserServers)
+
+	// Filter catalog entries before calculating remaining limits so that
+	// filtered-out entries don't consume quota from other server types.
+	var filteredEntries []v1.MCPServerCatalogEntry
+	for _, entry := range entries {
+		if missingStaticOAuthCredentials(entry) {
+			continue
+		}
+		if _, exists := instantiated[entry.Name]; exists {
+			continue
+		}
+		filteredEntries = append(filteredEntries, entry)
+	}
+
+	// Calculate remaining limit for multi-user servers based on filtered entry count
 	remainingLimit := 0
 	if limit > 0 {
-		remainingLimit = limit - len(entries)
+		remainingLimit = limit - len(filteredEntries)
 		if remainingLimit < 0 {
 			remainingLimit = 0
 		}
@@ -166,41 +189,23 @@ func (s *Server) handleListMCPServers(ctx context.Context, _ *mcp.ServerSession,
 		return errorResult("failed to list servers"), nil
 	}
 
-	// Calculate remaining limit for single-user servers
-	singleUserLimit := 0
-	if limit > 0 {
-		singleUserLimit = limit - len(entries) - len(servers)
-		if singleUserLimit < 0 {
-			singleUserLimit = 0
-		}
+	// Trim single-user servers to the remaining limit
+	singleUserResultLimit := limit - len(filteredEntries) - len(servers)
+	if singleUserResultLimit < 0 {
+		singleUserResultLimit = 0
 	}
-
-	// List single-user servers owned by this user
-	singleUserServers, err := s.lister.ListSingleUserServers(ctx, userInfo.GetUID(), singleUserLimit)
-	if err != nil {
-		log.Errorf("failed to list single-user servers: %v", err)
-		return errorResult("failed to list single-user servers"), nil
+	if singleUserResultLimit < len(singleUserServers) {
+		singleUserServers = singleUserServers[:singleUserResultLimit]
 	}
 
 	// Convert to response format
 	result := listResult{
-		CatalogEntries:    make([]serverInfo, 0, len(entries)),
+		CatalogEntries:    make([]serverInfo, 0, len(filteredEntries)),
 		MultiUserServers:  make([]serverInfo, 0, len(servers)),
 		SingleUserServers: make([]serverInfo, 0, len(singleUserServers)),
 	}
 
-	// Build set of catalog entries that have single-user instances
-	instantiated := instantiatedCatalogEntryNames(singleUserServers)
-
-	for _, entry := range entries {
-		// Filter out catalog entries with static OAuth credentials configured
-		if missingStaticOAuthCredentials(entry) {
-			continue
-		}
-		// Filter out catalog entries that have single-user server instances
-		if _, exists := instantiated[entry.Name]; exists {
-			continue
-		}
+	for _, entry := range filteredEntries {
 		result.CatalogEntries = append(result.CatalogEntries, catalogEntryToServerInfo(entry))
 	}
 
