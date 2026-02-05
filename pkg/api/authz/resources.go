@@ -230,15 +230,15 @@ var apiResources = map[string][]string{
 		"GET    /api/users/{user_id}/total-token-usage",
 		"GET    /api/users/{user_id}/remaining-token-usage",
 		"GET    /api/workspaces",
-		"GET    /api/projectsv2/{project_v2_id}",
-		"PUT    /api/projectsv2/{project_v2_id}",
-		"DELETE /api/projectsv2/{project_v2_id}",
-		"POST   /api/projectsv2/{project_id}/agents",
-		"GET    /api/projectsv2/{project_id}/agents",
-		"GET    /api/projectsv2/{project_id}/agents/{nanobot_agent_id}",
-		"PUT    /api/projectsv2/{project_id}/agents/{nanobot_agent_id}",
-		"DELETE /api/projectsv2/{project_id}/agents/{nanobot_agent_id}",
-		"POST   /api/projectsv2/{project_id}/agents/{nanobot_agent_id}/launch",
+		"GET    /api/projectsv2/{projectv2_id}",
+		"PUT    /api/projectsv2/{projectv2_id}",
+		"DELETE /api/projectsv2/{projectv2_id}",
+		"POST   /api/projectsv2/{projectv2_id}/agents",
+		"GET    /api/projectsv2/{projectv2_id}/agents",
+		"GET    /api/projectsv2/{projectv2_id}/agents/{nanobot_agent_id}",
+		"PUT    /api/projectsv2/{projectv2_id}/agents/{nanobot_agent_id}",
+		"DELETE /api/projectsv2/{projectv2_id}/agents/{nanobot_agent_id}",
+		"POST   /api/projectsv2/{projectv2_id}/agents/{nanobot_agent_id}/launch",
 	},
 	types.GroupPowerUser: {
 		"GET    /api/workspaces/{workspace_id}",
@@ -340,12 +340,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		ToolID:                 vars("tool_id"),
 		WorkspaceID:            vars("workspace_id"),
 		NanobotAgentID:         vars("nanobot_agent_id"),
-		ProjectV2ID:            vars("project_v2_id"),
-	}
-
-	// For nested routes, project_id might be used instead of project_v2_id
-	if resources.ProjectV2ID == "" {
-		resources.ProjectV2ID = vars("project_id")
+		ProjectV2ID:            vars("projectv2_id"),
 	}
 
 	if !a.checkUser(user, vars("user_id")) {
