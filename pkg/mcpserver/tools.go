@@ -189,9 +189,16 @@ func (s *Server) handleListMCPServers(ctx context.Context, _ *mcp.ServerSession,
 		SingleUserServers: make([]serverInfo, 0, len(singleUserServers)),
 	}
 
+	// Build set of catalog entries that have single-user instances
+	instantiated := instantiatedCatalogEntryNames(singleUserServers)
+
 	for _, entry := range entries {
 		// Filter out catalog entries with static OAuth credentials configured
 		if missingStaticOAuthCredentials(entry) {
+			continue
+		}
+		// Filter out catalog entries that have single-user server instances
+		if _, exists := instantiated[entry.Name]; exists {
 			continue
 		}
 		result.CatalogEntries = append(result.CatalogEntries, catalogEntryToServerInfo(entry))
@@ -279,6 +286,9 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, _ *mcp.ServerSessio
 		SingleUserServers: make([]serverInfo, 0, len(singleUserServers)),
 	}
 
+	// Build set of catalog entries that have single-user instances
+	instantiated := instantiatedCatalogEntryNames(singleUserServers)
+
 	// Apply the limit to the combined total of catalog entries, multi-user servers, and single-user servers.
 	remaining := limit
 
@@ -288,6 +298,10 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, _ *mcp.ServerSessio
 		}
 		// Filter out catalog entries with static OAuth credentials configured
 		if missingStaticOAuthCredentials(entry) {
+			continue
+		}
+		// Filter out catalog entries that have single-user server instances
+		if _, exists := instantiated[entry.Name]; exists {
 			continue
 		}
 		result.CatalogEntries = append(result.CatalogEntries, catalogEntryToServerInfo(entry))
@@ -450,6 +464,18 @@ func singleUserServerToServerInfo(server v1.MCPServer) serverInfo {
 // Such entries should be filtered out from the integrated MCP server responses since they require admin configuration before they can be used.
 func missingStaticOAuthCredentials(entry v1.MCPServerCatalogEntry) bool {
 	return entry.Spec.Manifest.RemoteConfig != nil && entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired && !entry.Status.OAuthCredentialConfigured
+}
+
+// instantiatedCatalogEntryNames returns a set of catalog entry names that have
+// single-user server instances created from them.
+func instantiatedCatalogEntryNames(singleUserServers []v1.MCPServer) map[string]struct{} {
+	result := make(map[string]struct{})
+	for _, server := range singleUserServers {
+		if server.Spec.MCPServerCatalogEntryName != "" {
+			result[server.Spec.MCPServerCatalogEntryName] = struct{}{}
+		}
+	}
+	return result
 }
 
 func errorResult(msg string) *mcp.CallToolResultFor[any] {
