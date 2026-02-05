@@ -97,7 +97,6 @@
 		const target = e.target as HTMLInputElement;
 		const file = target.files?.[0];
 
-		console.log('File selected:', e, file, onFileUpload);
 		if (!file || !onFileUpload) return;
 
 		const controller = new AbortController();
@@ -106,7 +105,6 @@
 
 		try {
 			await onFileUpload(file, { controller });
-			console.log('File uploaded:', file);
 		} finally {
 			isUploading = false;
 			target.value = '';

@@ -1,6 +1,5 @@
 import { BOOTSTRAP_USER_ID } from '$lib/constants';
 import { Group } from '$lib/services/admin/types';
-import { PUBLIC_NANOBOT_ENABLED } from '$env/static/public'
 import type {
 	AccessControlRule,
 	AccessControlRuleManifest,
@@ -91,9 +90,6 @@ export async function patchProfile(
 
 export async function getVersion(opts?: { fetch?: Fetcher }): Promise<Version> {
 	const version = (await doGet('/version', opts)) as Version;
-	if (PUBLIC_NANOBOT_ENABLED) {
-		version.nanobotEnabled = true;
-	}
 	return version;
 }
 

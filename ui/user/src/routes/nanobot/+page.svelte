@@ -19,7 +19,6 @@
 	const chatApi = $derived(new ChatAPI(data.agent.connectURL));
 
 	function handleThreadCreated() {
-		console.log('handleThreadCreated');
 		sidebarRef?.refreshThreads();
 		layout.sidebarOpen = true;
 	}
@@ -99,68 +98,6 @@
 									</p>
 								</button>
 							</div>
-							<!-- 
-					<div class="w-full">
-						<ul class="list">
-							<li class="flex items-center justify-between p-4 pb-2 text-sm tracking-wide">
-								<span class="text-base-content/50">Most recently created projects</span>
-								<button class="btn btn-primary btn-sm">
-									<Plus class="size-4" /> New Project
-								</button>
-							</li>
-							{#if projects.length > 0}
-								{#each projects as project, index}
-									<li class="list-row">
-										<div class="text-4xl font-thin tabular-nums opacity-30">
-											{String(index + 1).padStart(2, '0')}
-										</div>
-										<div class="py-1">
-											<FolderRoot class="size-8" />
-										</div>
-										<div class="list-col-grow">
-											<div>{project.displayName}</div>
-											<div class="text-xs font-semibold uppercase opacity-60">
-												{formatTimeAgo(project.created).relativeTime}
-											</div>
-										</div>
-										<div>
-											<div class="dropdown dropdown-left">
-												<div tabindex="0" role="button" class="btn btn-square btn-ghost m-1">
-													<MoreVerticalIcon class="size-6" />
-												</div>
-												<ul
-													tabindex="-1"
-													class="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm"
-												>
-													<li>
-														<button class="text-sm">
-															<Edit class="size-4" />
-															Rename
-														</button>
-													</li>
-													<li>
-														<button class="text-sm">
-															<Trash2 class="size-4" />
-															Delete
-														</button>
-													</li>
-												</ul>
-											</div>
-											<button class="btn btn-square btn-ghost">
-												<Play class="size-6" />
-											</button>
-										</div>
-									</li>
-								{/each}
-							{:else}
-								<li class="flex items-center justify-between p-4 pb-2 text-xs tracking-wide">
-									<span class="text-base-content/50 font-light"
-										>No projects yet. Create one to get started.</span
-									>
-								</li>
-							{/if}
-						</ul>
-					</div> -->
 						</div>
 					{/snippet}
 				</ProjectStartThread>

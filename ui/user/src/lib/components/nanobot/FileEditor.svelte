@@ -4,6 +4,7 @@
 	import { X } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import MarkdownEditor from './MarkdownEditor.svelte';
+	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 
 	interface Props {
 		filename: string;
@@ -83,7 +84,7 @@
 				</div>
 			{:else if resource?.blob}
 				<!-- Binary content - show as image if possible -->
-				{#if mimeType.startsWith('image/')}
+				{#if mimeType.startsWith('image/') && isSafeImageMimeType(mimeType)}
 					<img
 						src="data:{mimeType};base64,{resource.blob}"
 						alt={filename}

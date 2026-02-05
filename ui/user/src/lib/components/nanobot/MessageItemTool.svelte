@@ -10,6 +10,7 @@
 	import MessageItemUI from '$lib/components/nanobot/MessageItemUI.svelte';
 	import { isUIResource } from '@mcp-ui/client';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
+	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 
 	// Dynamically import web component only in browser (SSR-safe)
 	onMount(() => {
@@ -186,7 +187,7 @@
 					style={getStyle(contentItem, singleUIResource)}
 				/>
 			{/if}
-			{#if contentItem.type === 'image'}
+			{#if contentItem.type === 'image' && isSafeImageMimeType(contentItem.mimeType)}
 				<img
 					src="data:{contentItem.mimeType};base64,{contentItem.data}"
 					alt="Tool output"

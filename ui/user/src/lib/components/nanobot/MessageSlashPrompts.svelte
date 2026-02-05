@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Prompt } from '$lib/types.js';
+	import type { Prompt } from '$lib/services/nanobot/types';
 
 	interface Props {
 		prompts: Prompt[];
@@ -54,26 +54,26 @@
 
 {#if showSlashCommands}
 	<div
-		class="z-50 max-h-60 w-full overflow-y-auto rounded-lg border border-base-300 bg-base-100 shadow-lg"
+		class="border-base-300 bg-base-100 z-50 max-h-60 w-full overflow-y-auto rounded-lg border shadow-lg"
 		style="top: calc(100% + 0.5rem);"
 	>
 		{#each filteredPrompts as prompt, index (prompt.name)}
 			<button
 				type="button"
-				class="w-full px-4 py-2 text-left transition-colors hover:bg-base-200 {index ===
+				class="hover:bg-base-200 w-full px-4 py-2 text-left transition-colors {index ===
 				selectedCommandIndex
 					? 'bg-primary/10'
 					: ''}"
 				onclick={() => executeSlashCommand(prompt)}
 			>
 				<div class="flex items-center space-x-2">
-					<span class="font-mono text-sm text-primary">/{prompt.name}</span>
+					<span class="text-primary font-mono text-sm">/{prompt.name}</span>
 					{#if prompt.title && prompt.title !== prompt.name}
 						<span class="text-sm font-medium">{prompt.title}</span>
 					{/if}
 				</div>
 				{#if prompt.description}
-					<div class="mt-1 text-xs text-base-content/60">
+					<div class="text-base-content/60 mt-1 text-xs">
 						{prompt.description}
 					</div>
 				{/if}
@@ -81,7 +81,7 @@
 		{/each}
 
 		{#if filteredPrompts.length === 0}
-			<div class="px-4 py-2 text-sm text-base-content/50">
+			<div class="text-base-content/50 px-4 py-2 text-sm">
 				No commands found for "{slashQuery}"
 			</div>
 		{/if}

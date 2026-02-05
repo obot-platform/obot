@@ -18,7 +18,6 @@ export const load: PageLoad = async ({ fetch, params }) => {
     } else {
         agent = agents[0];
     }
-    console.log({ agent });
 
     return {
         projectId: params.id,
