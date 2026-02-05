@@ -396,9 +396,11 @@ export class ChatService {
     private history: ChatMessage[] | undefined;
     private onChatDone: (() => void)[] = [];
     private subscribed = false;
+    private onThreadCreated?: (thread: Chat) => void;
 
-    constructor(opts?: { api?: ChatAPI; chatId?: string }) {
+    constructor(opts?: { api?: ChatAPI; chatId?: string; onThreadCreated?: (thread: Chat) => void }) {
         this.api = opts?.api || defaultChatApi;
+        this.onThreadCreated = opts?.onThreadCreated;
         this.messages = $state<ChatMessage[]>([]);
         this.history = $state<ChatMessage[]>();
         this.isLoading = $state(false);
@@ -459,16 +461,17 @@ export class ChatService {
         const agentsData = await this.api.listAgents({ sessionId });
         if (agentsData.agents?.length > 0) {
             this.agents = agentsData.agents;
-            this.agent = agentsData.agents.find((a) => a.current) || agentsData.agents[0];
 
-            // Only reset selectedAgentId if:
-            // 1. It's not set yet (empty string), OR
-            // 2. The currently selected agent is no longer in the agents list
-            const isSelectedAgentStillAvailable = agentsData.agents.some(
-                (a) => a.id === this.selectedAgentId
-            );
+            const preSelectedAgent = this.selectedAgentId
+                ? agentsData.agents.find((a) => a.id === this.selectedAgentId)
+                : null;
 
-            if (!this.selectedAgentId || !isSelectedAgentStillAvailable) {
+            if (preSelectedAgent) {
+                // Use the pre-selected agent
+                this.agent = preSelectedAgent;
+            } else {
+                // Fall back to current/default agent
+                this.agent = agentsData.agents.find((a) => a.current) || agentsData.agents[0];
                 this.selectedAgentId = this.agent.id || '';
             }
         }
@@ -566,6 +569,7 @@ export class ChatService {
     newChat = async () => {
         const thread = await this.api.createThread();
         await this.setChatId(thread.id);
+        this.onThreadCreated?.(thread);
     };
 
     restoreChat = async (chatId: string) => {
@@ -604,14 +608,16 @@ export class ChatService {
         await this.reloadAgent({ useDefaultSession: true });
     };
 
-    sendMessage = async (message: string, attachments?: Attachment[]) => {
-        if (!message.trim() || this.isLoading) return;
+	sendMessage = async (message: string, attachments?: Attachment[]) => {
+		if (!message.trim() || this.isLoading) return;
 
-        this.isLoading = true;
+		this.isLoading = true;
 
-        if (!this.chatId) {
-            await this.newChat();
-        }
+		if (!this.chatId) {
+			await this.newChat();
+			// Restore loading state since setChatId resets it
+			this.isLoading = true;
+		}
 
         // Determine which tool to call based on selected or current agent
         const effectiveAgentId = this.selectedAgentId || this.agent?.id;

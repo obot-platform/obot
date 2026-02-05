@@ -9,9 +9,17 @@
 		onFileOpen?: (filename: string) => void;
 		isLoading?: boolean;
 		agent?: Agent;
+		hideAgentHeader?: boolean;
 	}
 
-	let { messages, onFileOpen, onSend, isLoading = false, agent }: Props = $props();
+	let {
+		messages,
+		onFileOpen,
+		onSend,
+		isLoading = false,
+		agent,
+		hideAgentHeader = false
+	}: Props = $props();
 	let messageGroups = $derived.by(() => {
 		return messages.reduce((acc, message) => {
 			if (message.role === 'user' || acc.length === 0) {
@@ -43,7 +51,9 @@
 
 <div id="message-groups" class="flex flex-col space-y-4 pt-4">
 	{#if messages.length === 0}
-		<AgentHeader {agent} {onSend} />
+		{#if !hideAgentHeader}
+			<AgentHeader {agent} {onSend} />
+		{/if}
 	{:else}
 		{@const lastIndex = messageGroups.length - 1}
 

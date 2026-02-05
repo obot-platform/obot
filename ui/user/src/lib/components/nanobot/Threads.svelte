@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import type { Chat } from '$lib/services/nanobot/types';
-	import { Check, Edit, MoreVertical, Trash2, X } from 'lucide-svelte';
+	import { Check, Edit, MoreVertical, Trash2, X, Plus } from 'lucide-svelte';
 
 	interface Props {
 		threads: Chat[];
@@ -10,18 +10,24 @@
 		onDelete: (threadId: string) => void;
 		isLoading?: boolean;
 		onThreadClick?: () => void;
+		projectId: string;
 	}
 
-	let { threads, onRename, onDelete, isLoading = false, onThreadClick }: Props = $props();
+	let {
+		threads,
+		onRename,
+		onDelete,
+		isLoading = false,
+		onThreadClick,
+		projectId
+	}: Props = $props();
 
 	let editingThreadId = $state<string | null>(null);
 	let editTitle = $state('');
 
 	function navigateToThread(threadId: string) {
 		onThreadClick?.();
-		const url = new URL(page.url);
-		url.searchParams.set('tid', threadId);
-		goto(url.toString());
+		goto(`/nanobot/p/${projectId}?tid=${threadId}`);
 	}
 
 	function formatTime(timestamp: string): string {
@@ -70,8 +76,19 @@
 
 <div class="flex h-full flex-col">
 	<!-- Header -->
-	<div class="flex-shrink-0 p-2">
+	<div class="flex flex-shrink-0 items-center justify-between gap-2 p-2">
 		<h2 class="text-base-content/60 font-semibold">Conversations</h2>
+		<button
+			class="btn btn-square btn-ghost btn-sm tooltip tooltip-left"
+			data-tip="Start New Conversation"
+			onclick={() => {
+				const url = new URL(page.url);
+				url.searchParams.delete('tid');
+				goto(url.toString());
+			}}
+		>
+			<Plus class="size-4" />
+		</button>
 	</div>
 
 	<!-- Thread list -->

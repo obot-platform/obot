@@ -8,6 +8,9 @@ export interface Layout {
 }
 
 export function initLayout() {
+    if (hasContext(LAYOUT_CONTEXT)) {
+        return;
+    }
     const data = $state<Layout>({
         sidebarOpen: !responsive.isMobile
     });

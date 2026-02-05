@@ -2,22 +2,29 @@
 	import type { Chat } from '$lib/services/nanobot/types';
 	import { onMount } from 'svelte';
 	import Threads from '$lib/components/nanobot/Threads.svelte';
-	import { getLayout } from '$lib/context/nanobotLayout.svelte';
 	import { ChatAPI } from '$lib/services/nanobot/chat/index.svelte';
 
 	interface Props {
 		chatApi: ChatAPI;
+		projectId: string;
 	}
 
-	let { chatApi }: Props = $props();
+	let { chatApi, projectId }: Props = $props();
 
 	let threads = $state<Chat[]>([]);
 	let isLoading = $state(true);
 	// const sidebar = getLayout();
 
+	async function refreshThreads() {
+		threads = await chatApi.getThreads();
+	}
+
+	// Expose refreshThreads for parent components
+	export { refreshThreads };
+
 	onMount(async () => {
 		try {
-			threads = await chatApi.getThreads();
+			await refreshThreads();
 		} finally {
 			isLoading = false;
 		}
@@ -54,7 +61,13 @@
 	<div class="flex h-full flex-col">
 		<!-- Threads section (takes up ~40% of available space) -->
 		<div class="flex-shrink-0">
-			<Threads {threads} onRename={handleRenameThread} onDelete={handleDeleteThread} {isLoading} />
+			<Threads
+				{threads}
+				onRename={handleRenameThread}
+				onDelete={handleDeleteThread}
+				{isLoading}
+				{projectId}
+			/>
 		</div>
 	</div>
 </div>

@@ -305,14 +305,13 @@ export class SimpleClient {
         const queryParams = new URLSearchParams(existingQuery || '');
 
         queryParams.set('method', method);
-        // queryParams.set('ui', 'true');
 
         // If this is a tools/call, add the tool name to the query string
         if (method === 'tools/call' && params && typeof params === 'object' && 'name' in params) {
             queryParams.set('toolcallname', String(params.name));
         }
 
-        const url = `${basePath}/mcp/ui?${queryParams.toString()}`;
+        const url = `${basePath}?${queryParams.toString()}`;
 
         const resp = await this.#fetcher(url, {
             method: 'POST',

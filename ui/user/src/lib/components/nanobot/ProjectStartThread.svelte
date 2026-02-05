@@ -2,13 +2,15 @@
 	import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import Thread from '$lib/components/nanobot/Thread.svelte';
 	import FileEditor from './FileEditor.svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		chat: ChatService;
 		onToggleSidebar: (open: boolean) => void;
+		emptyStateContent?: Snippet;
 	}
 
-	let { chat, onToggleSidebar }: Props = $props();
+	let { chat, onToggleSidebar, emptyStateContent }: Props = $props();
 
 	let selectedFile = $state('');
 	let drawerInput = $state<HTMLInputElement | null>(null);
@@ -36,7 +38,11 @@
 		uploadedFiles={chat.uploadedFiles}
 		isLoading={chat.isLoading}
 		agent={chat.agent}
-	/>
+	>
+		{#snippet emptyStateContent()}
+			{@render emptyStateContent?.()}
+		{/snippet}
+	</Thread>
 {/key}
 
 {#if selectedFile}

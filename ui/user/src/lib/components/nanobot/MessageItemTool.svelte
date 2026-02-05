@@ -82,7 +82,7 @@
 </script>
 
 <div
-	class="text border-base-100 bg-base-100 hover:collapse-arrow hover:border-base-300 collapse mt-3 mb-2 w-full border"
+	class="text border-base-100 bg-base-100 hover:collapse-arrow hover:border-base-300 collapse w-full border"
 >
 	<input type="checkbox" />
 	<div class="collapse-title">

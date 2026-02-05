@@ -400,6 +400,7 @@ export const UIPath = '/mcp?ui';
 export interface ProjectV2 {
     displayName: string;
     id: string;
+    created: string;
 }
 
 export interface ProjectV2CreateRequest {

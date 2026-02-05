@@ -50,3 +50,9 @@ export async function updateProjectV2Agent(projectId: string, agentId: string, r
 export async function deleteProjectV2Agent(projectId: string, agentId: string): Promise<void> {
     await doDelete(`/projectsv2/${projectId}/agents/${agentId}`);
 }
+
+export async function launchProjectV2Agent(projectId: string, agentId: string, opts?: { fetch?: Fetcher }): Promise<unknown> {
+    const response = (await doPost(`/projectsv2/${projectId}/agents/${agentId}/launch`, {}, opts)) as unknown;
+    console.log({ response });
+    return response;
+}

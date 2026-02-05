@@ -17,8 +17,9 @@
 	import MessageInput from './MessageInput.svelte';
 	import Messages from './Messages.svelte';
 	import { parseToolFilePath } from '$lib/services/nanobot/utils';
-	import { getLayout } from '$lib/context/nanobotLayout.svelte';
 	import { ChevronDown } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
+	import { slide, fade } from 'svelte/transition';
 
 	interface Props {
 		messages: ChatMessage[];
@@ -37,6 +38,7 @@
 		agents?: Agent[];
 		selectedAgentId?: string;
 		onAgentChange?: (agentId: string) => void;
+		emptyStateContent?: Snippet;
 	}
 
 	let {
@@ -56,7 +58,8 @@
 		agents = [],
 		selectedAgentId = '',
 		onAgentChange,
-		isLoading
+		isLoading,
+		emptyStateContent
 	}: Props = $props();
 
 	let messagesContainer: HTMLElement;
@@ -64,7 +67,6 @@
 	let previousLastMessageId = $state<string | null>(null);
 	const hasMessages = $derived(messages && messages.length > 0);
 	let selectedPrompt = $state<string | undefined>();
-	const sidebar = getLayout();
 
 	// Watch for changes to the last message ID and scroll to bottom
 	$effect(() => {
@@ -148,7 +150,6 @@
 
 <div
 	class="flex h-[calc(100dvh-4rem)] w-full flex-col transition-transform md:relative peer-[.workspace]:md:w-1/4"
-	class:pt-14={sidebar && sidebar.sidebarOpen}
 >
 	<!-- Messages area - full height scrollable with bottom padding for floating input -->
 	<div class="w-full overflow-y-auto px-4" bind:this={messagesContainer} onscroll={handleScroll}>
@@ -176,7 +177,14 @@
 				</div>
 			{/if}
 
-			<Messages {messages} onSend={onSendMessage} {isLoading} {agent} {onFileOpen} />
+			<Messages
+				{messages}
+				onSend={onSendMessage}
+				{isLoading}
+				{agent}
+				{onFileOpen}
+				hideAgentHeader={!!emptyStateContent}
+			/>
 		</div>
 	</div>
 
@@ -195,6 +203,13 @@
 			>
 				<ChevronDown class="size-5" />
 			</button>
+		{/if}
+		{#if !hasMessages && emptyStateContent}
+			<div class="mx-auto w-full max-w-4xl" out:slide={{ axis: 'y', duration: 300 }}>
+				<div out:fade={{ duration: 200 }}>
+					{@render emptyStateContent()}
+				</div>
+			</div>
 		{/if}
 		<div class="mx-auto w-full max-w-4xl">
 			<MessageInput

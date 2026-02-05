@@ -69,6 +69,7 @@
 			container?: string;
 			childrenContainer?: string;
 			navbar?: string;
+			collapsedSidebarHeaderContent?: string;
 		};
 		children: Snippet;
 		onRenderSubContent?: Snippet<[string]>;
@@ -581,7 +582,12 @@
 						<ConfigureBanner />
 					{/if}
 					{#if !layout.sidebarOpen || hideSidebar}
-						<div class="flex w-full items-center justify-between gap-2 pb-4">
+						<div
+							class={twMerge(
+								'flex w-full items-center justify-between gap-2 pb-4',
+								classes?.collapsedSidebarHeaderContent
+							)}
+						>
 							{@render layoutHeaderContent()}
 							<div class="flex flex-shrink-0 items-center gap-2">
 								{#if rightNavActions}

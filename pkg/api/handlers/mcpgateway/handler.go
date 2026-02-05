@@ -69,7 +69,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			r.URL.Host = u.Host
 			r.URL.Path = u.Path
 			if rest := r.PathValue("rest"); allowDifferentPaths && rest != "" {
-				r.URL.Path = r.PathValue("rest")
+				r.URL.Path = "/" + rest
 			}
 
 			// Merge query parameters from the incoming request and the upstream URL.

@@ -1313,7 +1313,149 @@
 	}
 }
 
-.milkdown-content {
+.nanobot .prose, .nanobot .milkdown .ProseMirror {
+	& h1 {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: var(--color-primary);
+	}
+
+	& h2 {
+		font-size: 1.25rem;
+		font-weight: 700;
+		color: color-mix(in oklab, var(--color-primary) /* #4f7ef3 */ 75%, transparent);
+	}
+
+	& h3, & h4 {
+		font-size: 1rem;
+		font-weight: 700;
+		color: color-mix(in oklab, var(--color-primary) /* #4f7ef3 */ 50%, transparent);
+	}
+	
+	& a {
+		color: var(--color-blue-500);
+		text-decoration: underline;
+
+		&:hover {
+			color: var(--color-blue-600);
+		}
+	}
+
+	& ol {
+		& ::marker {
+			color: var(--color-gray-500);
+		}
+	}
+
+	& ul {
+		& ::marker {
+			color: var(--color-gray-500);
+		}
+	}
+}
+
+.nanobot .milkdown .ProseMirror {
+	& h1 {
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+
+	& h2 {
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+
+	& h3,
+	& h4 {
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+
+	& p {
+		margin-bottom: 0.5rem;
+		font-size: var(--text-md);
+
+		& * {
+			display: inline-block;
+		}
+	}
+
+	& pre {
+		padding: 0.5rem 1rem;
+	}
+
+	& ol {
+		margin: 0;
+		list-style-type: decimal;
+		padding-left: 1rem;
+
+		& li {
+			margin-bottom: 0.5rem;
+		}
+	}
+
+	& ul {
+		margin: 0;
+		list-style-type: disc;
+		padding-left: 1rem;
+
+		& li {
+			margin-bottom: 0.5rem;
+		}
+	}
+
+	& img {
+		justify-self: center;
+	}
+
+	& table {
+		border: 1px solid var(--surface3);
+
+		& th {
+			padding: 0.5rem 1rem;
+			border-bottom: 1px solid var(--surface3);
+
+			&:not(:last-child) {
+				border-right: 1px solid var(--surface3);
+			}
+		}
+
+		& td {
+			padding: 0.5rem 1rem;
+
+			&:not(:last-child) {
+				border-right: 1px solid var(--surface3);
+			}
+		}
+
+		& tr:not(:last-child) {
+			border-bottom: 1px solid var(--surface3);
+		}
+	}
+
+	& code {
+		background-color: var(--surface1);
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.25rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--on-surface1);
+
+		.dark & {
+			background-color: var(--surface2);
+			color: var(--on-surface2);
+		}
+	}
+
+	& video,
+	& iframe {
+		width: 100%;
+		aspect-ratio: 16 / 9;
+		object-fit: cover;
+	}
+}
+
+.milkdown-content, .nanobot .prose {
 	& h1,
 	& h2,
 	& h3,
