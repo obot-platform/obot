@@ -1,0 +1,17 @@
+{
+  "prompts": [
+    "Is Databricks Unity Catalog Functions connected?",
+    "Execute the function get_user_activity from analytics_catalog.user_schema catalog with the following parameters: start_date='2025-10-01', end_date='2025-10-10'.",
+    "Execute the function current_timestamp from system.default catalog with no parameters.",
+    "Execute the function date_add from system.default catalog with the following parameters: start_date='2025-10-01', days=5.",
+    "Run the function get_total_sales from sales_catalog.monthly_reports with the parameter month='September'.",
+    "Execute the function get_user_activity from analytics_catalog.user_schema with the parameters start_date='invalid_date' and end_date='2025-10-10' to test error handling.",
+    "Run the function calculate_sales with an invalid parameter region_code='XYZ' that does not exist in the valid list.",
+    "Execute the function concat from system.default catalog with the following parameters: str1='Hello', str2='World'.",
+    "Execute the function non_existent_function from default.test_schema catalog to test function not found error.",
+    "Execute the function current_date from system.default catalog with invalid parameter test_param='xyz' to test parameter validation.",
+    "SELECT analytics_catalog.user_schema.get_user_activity('2025-10-01', '2025-10-10');",
+    "Run the SQL query: SELECT analytics_catalog.user_schema.get_user_activity('2025-10-01', '2025-10-10');"
+  ],
+  "tools": []
+}

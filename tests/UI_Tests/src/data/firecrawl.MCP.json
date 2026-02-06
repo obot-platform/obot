@@ -1,0 +1,20 @@
+{
+  "prompts": [
+    "Is Firecrawl tool connected?",
+    "Validate the connection to the Firecrawl service.",
+    "Search the web for the official homepage of 'Obot AI'.",
+    "Scrape the main heading (h1) from https://obot.ai/ in markdown format.",
+    "List the first 5 URLs found on https://obot.ai/.",
+    "Crawl https://obot.ai/ with a depth of 0 and a limit of 1 page.",
+    "Extract the page title and the first sentence from https://obot.ai/.",
+    "Check the status of the most recent crawl job."
+  ],
+  "tools": [
+    "firecrawl_search",
+    "firecrawl_scrape",
+    "firecrawl_map",
+    "firecrawl_crawl",
+    "firecrawl_extract",
+    "firecrawl_check_crawl_status"
+  ]
+}
