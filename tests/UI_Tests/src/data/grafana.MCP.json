@@ -1,0 +1,32 @@
+{
+  "prompts": [
+    "List all configured Grafana datasources including type, name, and UID.",
+    "Search Grafana dashboards by name, folder, or tags and return matching dashboard IDs.",
+    "Get high-level summary of a dashboard including panels, tags, and data sources.",
+    "Retrieve a specific property of a dashboard such as title, uid, timezone, or panel definitions.",
+    "Update an existing dashboard by supplying updated JSON model and version number.",
+    "Execute a Prometheus query and return the resulting time-series or instant data points.",
+    "Query Loki logs using a logQL query and return log lines, labels, and timestamps.",
+    "List all Prometheus metric names available in the datasource.",
+    "List all label names for a specific metric in Prometheus.",
+    "List all values for a given label name in Prometheus.",
+    "List all Loki label names available in the logs store.",
+    "List all label values for a specific label name in Loki.",
+    "List available Pyroscope profiles including service, profile type, and time ranges."
+  ],
+  "tools": [
+    "list_datasources",
+    "search_dashboards",
+    "get_dashboard_summary",
+    "get_dashboard_property",
+    "update_dashboard",
+    "query_prometheus",
+    "query_loki_logs",
+    "list_prometheus_metric_names",
+    "list_prometheus_label_names",
+    "list_prometheus_label_values",
+    "list_loki_label_names",
+    "list_loki_label_values",
+    "list_pyroscope_profile"
+  ]
+}

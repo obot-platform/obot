@@ -1,0 +1,9 @@
+export const SHORT_PAUSE = 1000;
+export const MEDIUM_PAUSE = 4000;
+export const LONG_PAUSE = 6000;
+export const SHORT_TIMEOUT = 10000;
+export const ELEMENT_TIMEOUT = 45000;
+export const MEDIUM_STEP_TIMEOUT = 60000;
+export const DEFAULT_STEP_TIMEOUT = 120000;
+export const WAIT_FOR_TIMEOUT = 90000;
+export const WARNING_DISAPPEAR_TIME = 5000;
