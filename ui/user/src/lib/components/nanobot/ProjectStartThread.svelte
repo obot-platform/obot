@@ -1,19 +1,20 @@
 <script lang="ts">
 	import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import Thread from '$lib/components/nanobot/Thread.svelte';
-	import FileEditor from '$lib/components/nanobot/FileEditor.svelte';
 	import { Binoculars, MessageCircle, Sparkles } from 'lucide-svelte';
 	import { AdminService } from '$lib/services';
 	import { errors } from '$lib/stores';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import ToDoList from './ToDoList.svelte';
 
 	interface Props {
 		agentId: string;
 		chat: ChatService;
 		onFileOpen?: (filename: string) => void;
+		hasFileOpen?: boolean;
 	}
 
-	let { agentId, chat, onFileOpen }: Props = $props();
+	let { agentId, chat, onFileOpen, hasFileOpen }: Props = $props();
 
 	let showRestartConfirm = $state(false);
 	let restarting = $state(false);
@@ -114,6 +115,7 @@
 			</Thread>
 		{/key}
 	</div>
+	<ToDoList {chat} open={!hasFileOpen} />
 </div>
 
 <Confirm

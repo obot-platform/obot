@@ -11,6 +11,7 @@
 	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import FileEditor from '$lib/components/nanobot/FileEditor.svelte';
+	import ToDoList from '$lib/components/nanobot/ToDoList.svelte';
 
 	let { data } = $props();
 	let agent = $derived(data.agent);
@@ -120,13 +121,14 @@
 						drawerInput?.click();
 						selectedFile = filename;
 					}}
+					hasFileOpen={!!selectedFile}
 				/>
 			{/key}
 		{/if}
 	</div>
 
 	{#snippet rightSidebar()}
-		{#if selectedFile && chat}
+		{#if chat && selectedFile}
 			<FileEditor
 				filename={selectedFile}
 				{chat}
