@@ -215,14 +215,14 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 
 	if server.Runtime != otypes.RuntimeRemote {
 		// For non-remote runtimes, we deploy the real MCP server first.
-		realServerConfig, err := d.ensureDeployment(ctx, server, "", d.containerEnv || server.NanobotAgentName == "", nil)
+		server, err = d.ensureDeployment(ctx, server, "", d.containerEnv || server.NanobotAgentName == "", nil)
 		if err != nil {
 			return ServerConfig{}, err
 		}
 
 		// If this is a server for a nanobot agent, return the config pointing to the real server without deploying the shim.
 		if server.NanobotAgentName != "" {
-			return realServerConfig, nil
+			return server, nil
 		}
 
 		server.MCPServerName += "-shim"
@@ -617,6 +617,7 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		AuditLogToken:             server.AuditLogToken,
 		AuditLogMetadata:          server.AuditLogMetadata,
 		ContainerPath:             server.ContainerPath,
+		NanobotAgentName:          server.NanobotAgentName,
 	}, nil
 }
 
