@@ -24,17 +24,20 @@
 			return null;
 		}
 	});
+
+	const promptDisplayItem = $derived.by(() => {
+		const promptText = toolCall?.type === 'prompt' ? toolCall.payload?.prompt : undefined;
+		if (message.role !== 'user' || !promptText) return null;
+		return {
+			id: `${message.id}-prompt`,
+			type: 'text' as const,
+			text: promptText
+		};
+	});
 </script>
 
-{#if message.role === 'user' && toolCall?.type === 'prompt' && toolCall.payload?.prompt}
-	<MessageItemText
-		item={{
-			id: crypto.randomUUID(),
-			type: 'text',
-			text: toolCall.payload?.prompt
-		}}
-		role="user"
-	/>
+{#if promptDisplayItem}
+	<MessageItemText item={promptDisplayItem} role="user" />
 {:else if message.role === 'user' && toolCall?.type === 'tool' && toolCall.payload?.toolName}
 	<!-- Don't print anything for tool calls -->
 {:else if message.role === 'user'}

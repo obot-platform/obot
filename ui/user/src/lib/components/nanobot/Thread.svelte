@@ -5,6 +5,7 @@
 		Agent,
 		Attachment,
 		ChatMessage,
+		ChatMessageItem,
 		ChatMessageItemToolCall,
 		ChatResult,
 		ElicitationResult,
@@ -68,29 +69,125 @@
 	}: Props = $props();
 
 	let messagesContainer: HTMLElement;
+	let messagesContentInner = $state<HTMLElement | undefined>(undefined);
 	let showScrollButton = $state(false);
-	let previousLastMessageId = $state<string | null>(null);
+	let wasRestoring = false;
+	let disabledAutoScroll = $state(false);
 	const hasMessages = $derived((messages && messages.length > 0) || isRestoring);
 	const showInlineAgentHeader = $derived(!hasMessages && !emptyStateContent && !isLoading);
 	let selectedPrompt = $state<string | undefined>();
 
-	// Watch for changes to the last message ID and scroll to bottom
+	const selectedPromptData = $derived(
+		selectedPrompt && prompts?.length ? prompts.find((p) => p.name === selectedPrompt) : undefined
+	);
+
+	const SCROLL_THRESHOLD = 10;
+
+	const isNearBottom = () => {
+		if (!messagesContainer) return false;
+		const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
+		return scrollTop + clientHeight >= scrollHeight - SCROLL_THRESHOLD;
+	};
+
+	const getLastTextItem = (items?: ChatMessageItem[]) => {
+		if (!items) return undefined;
+		let lastTextItem: (typeof items)[number] | undefined;
+		if (items && items.length > 0) {
+			for (let i = items.length - 1; i >= 0; i--) {
+				const item = items[i];
+				if (item.type === 'text') {
+					lastTextItem = item;
+					break;
+				}
+			}
+		}
+		return lastTextItem;
+	};
+
+	// Content key that changes when the last message or its content changes (streaming, new items, etc.)
+	const lastMessageContentKey = $derived.by(() => {
+		if (!messages?.length) return '';
+		const last = messages[messages.length - 1];
+		const itemCount = last.items?.length ?? 0;
+		const lastTextItem = getLastTextItem(last.items);
+		const lastTextLen =
+			lastTextItem && lastTextItem.type === 'text' ? (lastTextItem.text?.length ?? 0) : 0;
+		return `${last.id}-${itemCount}-${lastTextLen}`;
+	});
+
+	// keeping track of scroll to bottom
 	$effect(() => {
 		if (!messagesContainer) return;
-
-		// Make this reactive to changes in messages
 		void messages.length;
+		void lastMessageContentKey;
+		const loading = isLoading;
+		if (disabledAutoScroll) return;
+		if (!loading && !isNearBottom()) return;
 
-		const lastDiv = messagesContainer.querySelector('#message-groups > :last-child');
-		const currentLastMessageId = lastDiv?.getAttribute('data-message-id');
+		let raf1: number;
+		let raf2: number | undefined;
+		raf1 = requestAnimationFrame(() => {
+			raf2 = requestAnimationFrame(() => {
+				if (!messagesContainer) return;
+				if (disabledAutoScroll || (!loading && !isNearBottom())) return;
+				messagesContainer.scrollTo({
+					top: messagesContainer.scrollHeight,
+					behavior: loading ? 'auto' : 'smooth'
+				});
+			});
+		});
+		return () => {
+			cancelAnimationFrame(raf1);
+			if (typeof raf2 === 'number') cancelAnimationFrame(raf2);
+		};
+	});
 
-		if (currentLastMessageId && currentLastMessageId !== previousLastMessageId) {
-			// Wait for DOM update, then scroll to bottom
-			setTimeout(() => {
-				scrollToBottom();
-			}, 10);
-			previousLastMessageId = currentLastMessageId;
+	// have scroll at bottom after restoring existing session
+	$effect(() => {
+		const restoring = isRestoring === true;
+		const justFinishedRestoring = wasRestoring && !restoring;
+
+		if (!justFinishedRestoring || !messagesContainer || !messages?.length) {
+			if (!justFinishedRestoring) wasRestoring = restoring;
+			return;
 		}
+		wasRestoring = restoring;
+
+		let raf1: number;
+		let raf2: number | undefined;
+		raf1 = requestAnimationFrame(() => {
+			raf2 = requestAnimationFrame(() => {
+				if (messagesContainer) {
+					messagesContainer.scrollTo({
+						top: messagesContainer.scrollHeight,
+						behavior: 'auto'
+					});
+				}
+			});
+		});
+		return () => {
+			cancelAnimationFrame(raf1);
+			if (typeof raf2 === 'number') cancelAnimationFrame(raf2);
+		};
+	});
+
+	// When the inner content grows (e.g. streaming), keep view pinned to bottom. Observe the
+	// element that actually changes height; the scroll container itself does not resize.
+	$effect(() => {
+		const container = messagesContainer;
+		const inner = messagesContentInner ?? container;
+		if (!container || !inner) return;
+		void lastMessageContentKey;
+
+		const ro = new ResizeObserver(() => {
+			if (!container) return;
+			if (disabledAutoScroll) return;
+			if (isLoading || isNearBottom()) {
+				container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
+			}
+		});
+		ro.observe(inner);
+		return () => ro.disconnect();
 	});
 
 	// Track processed tool call IDs to avoid re-triggering file open (non-reactive object)
@@ -146,12 +243,18 @@
 		if (!messagesContainer) return;
 
 		const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
-		const isNearBottom = scrollTop + clientHeight >= scrollHeight - 10; // 10px threshold
-		showScrollButton = !isNearBottom;
+		const nearBottom = scrollTop + clientHeight >= scrollHeight - SCROLL_THRESHOLD;
+		showScrollButton = !nearBottom;
+		if (nearBottom) {
+			disabledAutoScroll = false;
+		} else if (isLoading) {
+			disabledAutoScroll = true;
+		}
 	}
 
 	function scrollToBottom() {
 		if (messagesContainer) {
+			disabledAutoScroll = false;
 			messagesContainer.scrollTo({
 				top: messagesContainer.scrollHeight,
 				behavior: 'smooth'
@@ -165,26 +268,24 @@
 >
 	<!-- Messages area - full height scrollable with bottom padding for floating input -->
 	<div class="w-full overflow-y-auto px-4" bind:this={messagesContainer} onscroll={handleScroll}>
-		<div class="mx-auto max-w-4xl">
+		<div class="mx-auto max-w-4xl" bind:this={messagesContentInner}>
 			<!-- Prompts section - show when prompts available and no messages -->
 			{#if prompts && prompts.length > 0}
 				<div class="mb-6">
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-						{#each prompts as prompt (prompt.name)}
-							{#if selectedPrompt === prompt.name}
-								<Prompt
-									{prompt}
-									onSend={async (m) => {
-										selectedPrompt = undefined;
-										if (onSendMessage) {
-											return await onSendMessage(m);
-										}
-									}}
-									onCancel={() => (selectedPrompt = undefined)}
-									open
-								/>
-							{/if}
-						{/each}
+						{#if selectedPromptData}
+							<Prompt
+								prompt={selectedPromptData}
+								onSend={async (m) => {
+									selectedPrompt = undefined;
+									if (onSendMessage) {
+										return await onSendMessage(m);
+									}
+								}}
+								onCancel={() => (selectedPrompt = undefined)}
+								open
+							/>
+						{/if}
 					</div>
 				</div>
 			{/if}

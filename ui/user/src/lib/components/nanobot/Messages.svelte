@@ -62,7 +62,7 @@
 
 			<div
 				id={`group-${messageGroup[0]?.id}`}
-				class={isLast ? 'min-h-[calc(100vh-2rem)]' : 'contents'}
+				class={isLast ? 'min-h-[calc(100dvh-4rem)]' : 'contents'}
 				data-message-id={messageGroup[0]?.id}
 			>
 				{#each messageGroup as message, i (`${messageGroup[0]?.id}-${i}`)}
