@@ -184,7 +184,7 @@
 			></textarea>
 
 			<!-- Bottom row: Agent select on left (if multiple agents), buttons on right -->
-			<div class="between flex items-center justify-between">
+			<div class="flex items-center justify-between">
 				<!-- Agent selector -->
 				<div class="flex items-center gap-2">
 					{#if onRestart}
