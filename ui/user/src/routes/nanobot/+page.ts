@@ -18,6 +18,7 @@ export const load: PageLoad = async ({ fetch }) => {
 	}
 
 	let agent: ProjectV2Agent;
+	let isNewAgent = false;
 	const agents = await NanobotService.listProjectV2Agents(projects[0].id, { fetch });
 	if (agents.length === 0) {
 		agent = await NanobotService.createProjectV2Agent(
@@ -25,9 +26,10 @@ export const load: PageLoad = async ({ fetch }) => {
 			{ displayName: 'New Agent' },
 			{ fetch }
 		);
+		isNewAgent = true;
 	} else {
 		agent = agents[0];
 	}
 
-	return { projects, agent };
+	return { projects, agent, isNewAgent };
 };
