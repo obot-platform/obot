@@ -37,7 +37,7 @@ func New(gptClient *gptscript.GPTScript, tokenService *persistent.TokenService, 
 	}
 }
 
-func (h *Handler) CreateMCPServer(req router.Request, _ router.Response) error {
+func (h *Handler) CreateMCPServer(req router.Request, resp router.Response) error {
 	agent := req.Object.(*v1.NanobotAgent)
 
 	mcpServerName := system.MCPServerPrefix + agent.Name
@@ -93,7 +93,7 @@ func (h *Handler) CreateMCPServer(req router.Request, _ router.Response) error {
 		}
 
 		// Ensure credentials are up to date
-		if err := h.ensureCredentials(req.Ctx, agent, mcpServerName); err != nil {
+		if err := h.ensureCredentials(req.Ctx, agent, mcpServerName, resp); err != nil {
 			return fmt.Errorf("failed to ensure credentials: %w", err)
 		}
 		return nil
@@ -202,7 +202,7 @@ func (h *Handler) CreateMCPServer(req router.Request, _ router.Response) error {
 	}
 
 	// Create credentials for the new server
-	if err := h.ensureCredentials(req.Ctx, agent, mcpServerName); err != nil {
+	if err := h.ensureCredentials(req.Ctx, agent, mcpServerName, resp); err != nil {
 		return fmt.Errorf("failed to create credentials: %w", err)
 	}
 
@@ -211,7 +211,7 @@ func (h *Handler) CreateMCPServer(req router.Request, _ router.Response) error {
 
 // ensureCredentials ensures that the MCP server has credentials with API keys that are valid
 // and refreshes them if they expire within 2 hours.
-func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent, mcpServerName string) error {
+func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent, mcpServerName string, resp router.Response) error {
 	credCtx := fmt.Sprintf("%s-%s", agent.Spec.UserID, mcpServerName)
 
 	// Check if credential exists and if the token needs refreshing
@@ -232,8 +232,13 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 				// Token is invalid, needs refresh
 				needsRefresh = true
 			} else {
-				// Check if token expires within 2 hours
-				needsRefresh = needsRefresh || time.Until(tokenCtx.ExpiresAt) < 2*time.Hour
+				if untilRefresh := time.Until(tokenCtx.ExpiresAt) - 2*time.Hour; untilRefresh <= 0 {
+					// If the token expires in the next 2 hours, then refresh it
+					needsRefresh = true
+				} else {
+					// Otherwise, look at the agent again around the time the refresh would be needed.
+					resp.RetryAfter(untilRefresh)
+				}
 			}
 		} else {
 			// No token in credential, needs refresh
