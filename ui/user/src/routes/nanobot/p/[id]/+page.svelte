@@ -109,6 +109,7 @@
 		{#if chat}
 			{#key chat}
 				<ProjectStartThread
+					agentId={agent.id}
 					{chat}
 					onToggleSidebar={(open: boolean) => {
 						layout.sidebarOpen = open;

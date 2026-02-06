@@ -12,12 +12,13 @@
 
 	let { data } = $props();
 	let projects = $derived(data.projects);
+	let agent = $derived(data.agent);
 	let chat = $state<ChatService | null>(null);
 	let sidebarRef: { refreshThreads: () => Promise<void> } | undefined = $state();
 
 	const layout = nanobotLayout.getLayout();
 	layout.sidebarOpen = false;
-	const chatApi = $derived(new ChatAPI(data.agent.connectURL));
+	const chatApi = $derived(new ChatAPI(agent.connectURL));
 
 	function handleThreadCreated(thread: Chat) {
 		const projectId = projects[0].id;
@@ -75,6 +76,7 @@
 		{#if chat}
 			{#key chat.chatId}
 				<ProjectStartThread
+					agentId={agent.id}
 					{chat}
 					onToggleSidebar={(open: boolean) => {
 						layout.sidebarOpen = open;

@@ -41,6 +41,7 @@
 		selectedAgentId?: string;
 		onAgentChange?: (agentId: string) => void;
 		emptyStateContent?: Snippet;
+		onRestart?: () => void;
 	}
 
 	let {
@@ -62,7 +63,8 @@
 		onAgentChange,
 		isLoading,
 		isRestoring,
-		emptyStateContent
+		emptyStateContent,
+		onRestart
 	}: Props = $props();
 
 	let messagesContainer: HTMLElement;
@@ -71,6 +73,9 @@
 	const hasMessages = $derived((messages && messages.length > 0) || isRestoring);
 	const showInlineAgentHeader = $derived(!hasMessages && !emptyStateContent && !isLoading);
 	let selectedPrompt = $state<string | undefined>();
+
+	let showRestartConfirm = $state(false);
+	let restarting = $state(false);
 
 	// Watch for changes to the last message ID and scroll to bottom
 	$effect(() => {
@@ -237,6 +242,7 @@
 				{cancelUpload}
 				{uploadingFiles}
 				{uploadedFiles}
+				{onRestart}
 			/>
 		</div>
 	</div>

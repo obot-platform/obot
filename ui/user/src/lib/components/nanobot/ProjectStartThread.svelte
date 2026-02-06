@@ -2,19 +2,36 @@
 	import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import Thread from '$lib/components/nanobot/Thread.svelte';
 	import FileEditor from '$lib/components/nanobot/FileEditor.svelte';
-	import type { Snippet } from 'svelte';
 	import { Binoculars, MessageCircle, Sparkles } from 'lucide-svelte';
+	import { AdminService } from '$lib/services';
+	import { errors } from '$lib/stores';
+	import Confirm from '$lib/components/Confirm.svelte';
 
 	interface Props {
+		agentId: string;
 		chat: ChatService;
 		onToggleSidebar: (open: boolean) => void;
-		initialContent?: Snippet;
 	}
 
-	let { chat, onToggleSidebar, initialContent }: Props = $props();
+	let { agentId, chat, onToggleSidebar }: Props = $props();
 
 	let selectedFile = $state('');
 	let drawerInput = $state<HTMLInputElement | null>(null);
+	let showRestartConfirm = $state(false);
+	let restarting = $state(false);
+
+	async function handleRestart() {
+		restarting = true;
+		try {
+			await AdminService.restartK8sDeployment(`ms1${agentId}`);
+		} catch (error) {
+			console.error('Failed to restart agent:', error);
+			errors.append(error);
+		} finally {
+			restarting = false;
+			showRestartConfirm = false;
+		}
+	}
 </script>
 
 <div class="flex h-full w-full">
@@ -41,6 +58,9 @@
 				uploadedFiles={chat.uploadedFiles}
 				isLoading={chat.isLoading}
 				agent={chat.agent}
+				onRestart={() => {
+					showRestartConfirm = true;
+				}}
 			>
 				{#snippet emptyStateContent()}
 					<div class="flex flex-col items-center gap-4">
@@ -111,3 +131,18 @@
 		/>
 	{/if}
 </div>
+
+<Confirm
+	show={showRestartConfirm}
+	onsuccess={handleRestart}
+	oncancel={() => (showRestartConfirm = false)}
+	loading={restarting}
+	title="Restart Agent"
+	msg="Are you sure you want to restart this agent?"
+	type="info"
+>
+	{#snippet note()}
+		This will restart the current agent with the latest available version. Are you sure you want to
+		continue?
+	{/snippet}
+</Confirm>

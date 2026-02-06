@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Paperclip, Send } from 'lucide-svelte';
+	import { Paperclip, Power, Send } from 'lucide-svelte';
 	import MessageAttachments from './MessageAttachments.svelte';
 	import MessageResources from './MessageResources.svelte';
 	import type MessageSlashPromptsType from './MessageSlashPrompts.svelte';
@@ -19,6 +19,7 @@
 		onSend?: (message: string, attachments?: Attachment[]) => Promise<ChatResult | void>;
 		onPrompt?: (promptName: string) => void;
 		onFileUpload?: (file: File, opts?: { controller?: AbortController }) => Promise<Attachment>;
+		onRestart?: () => void;
 		cancelUpload?: (fileId: string) => void;
 		uploadingFiles?: UploadingFile[];
 		uploadedFiles?: UploadedFile[];
@@ -48,6 +49,7 @@
 		agents = [],
 		selectedAgentId = '',
 		onAgentChange,
+		onRestart,
 		supportedMimeTypes = [
 			'image/*',
 			'text/plain',
@@ -195,20 +197,31 @@
 					: 'justify-end'}"
 			>
 				<!-- Agent selector -->
-				{#if showAgentDropdown}
-					<select
-						class="select select-ghost select-sm w-48"
-						disabled={disabled || isUploading}
-						value={selectedAgentId}
-						onchange={(e) => onAgentChange?.(e.currentTarget.value)}
-					>
-						{#each agents as agent (agent.id)}
-							<option value={agent.id}>
-								{agent.name}{agent.current ? ' (default)' : ''}
-							</option>
-						{/each}
-					</select>
-				{/if}
+				<div class="flex items-center gap-2">
+					{#if onRestart}
+						<button
+							class="btn btn-ghost btn-circle btn-sm tooltip"
+							data-tip="Restart Agent"
+							onclick={onRestart}
+						>
+							<Power class="size-4" />
+						</button>
+					{/if}
+					{#if showAgentDropdown}
+						<select
+							class="select select-ghost select-sm w-48"
+							disabled={disabled || isUploading}
+							value={selectedAgentId}
+							onchange={(e) => onAgentChange?.(e.currentTarget.value)}
+						>
+							{#each agents as agent (agent.id)}
+								<option value={agent.id}>
+									{agent.name}{agent.current ? ' (default)' : ''}
+								</option>
+							{/each}
+						</select>
+					{/if}
+				</div>
 
 				<MessageAttachments
 					{selectedResources}
