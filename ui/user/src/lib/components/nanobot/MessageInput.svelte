@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Paperclip, Power, Send } from 'lucide-svelte';
+	import { Power, Send } from 'lucide-svelte';
 	import MessageAttachments from './MessageAttachments.svelte';
 	import MessageResources from './MessageResources.svelte';
 	import type MessageSlashPromptsType from './MessageSlashPrompts.svelte';
@@ -89,10 +89,6 @@
 		} else {
 			selectedResources = [...selectedResources, resource];
 		}
-	}
-
-	function handleAttach() {
-		fileInput?.click();
 	}
 
 	async function handleFileSelect(e: Event) {
@@ -188,14 +184,7 @@
 			></textarea>
 
 			<!-- Bottom row: Agent select on left (if multiple agents), buttons on right -->
-			<div
-				class="flex items-center {uploadedFiles.length > 0 ||
-				uploadingFiles.length > 0 ||
-				selectedResources.length > 0 ||
-				showAgentDropdown
-					? 'justify-between'
-					: 'justify-end'}"
-			>
+			<div class="flex items-center justify-between">
 				<!-- Agent selector -->
 				<div class="flex items-center gap-2">
 					{#if onRestart}
@@ -233,21 +222,6 @@
 
 				<!-- Action buttons -->
 				<div class="flex gap-2">
-					<!-- Attach button -->
-					<button
-						type="button"
-						onclick={handleAttach}
-						class="btn btn-ghost btn-sm h-9 w-9 rounded-full p-0"
-						disabled={disabled || isUploading}
-						aria-label="Attach file"
-					>
-						{#if isUploading}
-							<span class="loading loading-xs loading-spinner"></span>
-						{:else}
-							<Paperclip class="h-4 w-4" />
-						{/if}
-					</button>
-
 					<MessageResources
 						{disabled}
 						{resources}

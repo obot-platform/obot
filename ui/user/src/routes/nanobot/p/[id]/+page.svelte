@@ -114,6 +114,7 @@
 			{#key chat}
 				<ProjectStartThread
 					agentId={agent.id}
+					{projectId}
 					{chat}
 					onFileOpen={(filename) => {
 						layout.sidebarOpen = false;

@@ -43,10 +43,7 @@
 {:else if item.type === 'tool'}
 	{@const toolArguments = safeJsonParse(item.arguments)}
 	{@const filePath = typeof toolArguments?.file_path === 'string' ? toolArguments.file_path : ''}
-	{@const isWorkflowFile =
-		item.name === 'write' &&
-		filePath.startsWith('workflows/') &&
-		!filePath.startsWith('workflows/.runs/')}
+	{@const isWorkflowFile = item.name === 'write' && filePath.startsWith('workflows/')}
 	{#if isWorkflowFile}
 		<MessageItemWorkflowFile {item} {onFileOpen} />
 	{:else}

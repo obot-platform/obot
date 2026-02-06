@@ -93,7 +93,7 @@
 					onclick={onsuccess}
 					type="button"
 					class={twMerge(
-						'w-full justify-center p-3',
+						'flex w-full justify-center p-3',
 						type === 'delete' ? 'button-destructive' : 'button-primary',
 						classes?.confirm
 					)}

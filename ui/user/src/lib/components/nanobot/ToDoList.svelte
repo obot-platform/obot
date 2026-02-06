@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
-	import type { ResourceContents } from '$lib/services/nanobot/types';
 	import type { ChatMessageItemToolCall } from '$lib/services/nanobot/types';
 	import { fly } from 'svelte/transition';
 	import { Circle, CheckCircle2, Loader2 } from 'lucide-svelte';
@@ -75,25 +74,6 @@
 		return out;
 	}
 
-	const todoUri = 'todo:///list';
-	let todo = $state<ResourceContents | null>(null);
-	let hasTodoResource = $derived(chat.resources.some((r) => r.uri === todoUri));
-
-	/** Todo list parsed from todo resource (watchResource / readResource) */
-	let todoItemsFromResource = $derived.by((): TodoItem[] => {
-		if (!todo?.text) return [];
-		try {
-			const parsed = JSON.parse(todo.text) as unknown;
-			return Array.isArray(parsed)
-				? (parsed as unknown[])
-						.map((t) => parseTodoItem(t))
-						.filter((t): t is TodoItem => t !== null)
-				: [];
-		} catch {
-			return [];
-		}
-	});
-
 	/** Todo list derived from latest todo_write / todoWrite tool call in messages (works even when server doesn't push resource updates) */
 	let todoItemsFromMessages = $derived.by((): TodoItem[] => {
 		const messages = chat.messages;
@@ -114,28 +94,7 @@
 	});
 
 	/** Prefer resource-based list when non-empty; otherwise use list derived from message tool calls */
-	let todoItems = $derived(
-		todoItemsFromResource.length > 0 ? todoItemsFromResource : todoItemsFromMessages
-	);
-
-	$effect(() => {
-		if (!chat.chatId) return;
-		if (hasTodoResource) {
-			chat.readResource(todoUri).then((result) => {
-				todo = result.contents?.[0] ?? null;
-			});
-		}
-
-		const todoCleanup = hasTodoResource
-			? chat.watchResource(todoUri, (updatedResource) => {
-					todo = updatedResource;
-				})
-			: null;
-
-		return () => {
-			todoCleanup?.();
-		};
-	});
+	let todoItems = $derived(todoItemsFromMessages);
 </script>
 
 {#if chat.chatId && todoItems.length > 0 && !responsive.isMobile && open}

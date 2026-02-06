@@ -2,19 +2,20 @@
 	import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import Thread from '$lib/components/nanobot/Thread.svelte';
 	import { Binoculars, MessageCircle, Sparkles } from 'lucide-svelte';
-	import { AdminService } from '$lib/services';
+	import { AdminService, NanobotService } from '$lib/services';
 	import { errors } from '$lib/stores';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ToDoList from './ToDoList.svelte';
 
 	interface Props {
 		agentId: string;
+		projectId: string;
 		chat: ChatService;
 		onFileOpen?: (filename: string) => void;
 		hasFileOpen?: boolean;
 	}
 
-	let { agentId, chat, onFileOpen, hasFileOpen }: Props = $props();
+	let { agentId, projectId, chat, onFileOpen, hasFileOpen }: Props = $props();
 
 	let showRestartConfirm = $state(false);
 	let restarting = $state(false);
@@ -23,6 +24,8 @@
 		restarting = true;
 		try {
 			await AdminService.restartK8sDeployment(`ms1${agentId}`);
+			await NanobotService.launchProjectV2Agent(projectId, agentId);
+			window.location.reload();
 		} catch (error) {
 			console.error('Failed to restart agent:', error);
 			errors.append(error);
