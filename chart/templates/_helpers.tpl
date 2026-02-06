@@ -113,3 +113,20 @@ Validate all PSA level values in mcpNamespace.podSecurity
 {{- include "obot.validatePSALevel" (dict "value" .Values.mcpNamespace.podSecurity.warn "field" "mcpNamespace.podSecurity.warn") -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Get the MCP base image with tag. If the configured image doesn't contain a tag (no colon after the last slash),
+appends the chart's appVersion as the tag.
+*/}}
+{{- define "obot.config.mcpBaseImage" -}}
+{{- $image := .Values.config.OBOT_SERVER_MCPBASE_IMAGE -}}
+{{- if $image -}}
+{{- $parts := splitList "/" $image -}}
+{{- $lastPart := last $parts -}}
+{{- if contains ":" $lastPart -}}
+{{- $image -}}
+{{- else -}}
+{{- printf "%s:%s" $image .Chart.AppVersion -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
