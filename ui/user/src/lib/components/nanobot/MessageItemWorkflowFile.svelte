@@ -32,8 +32,7 @@
 			data-tip="Open"
 			onclick={() => {
 				if (filename.startsWith('workflows/.runs/')) {
-					const justNameAndExtension = filename ? (filename.split('/').pop() ?? '') : '';
-					onFileOpen?.(`file:///${justNameAndExtension}`);
+					onFileOpen?.(`file:///${filename}`);
 				} else {
 					onFileOpen?.(`workflow:///${name}`);
 				}

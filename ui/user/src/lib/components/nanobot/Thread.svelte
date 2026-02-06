@@ -131,8 +131,7 @@
 								const name = filePath.split('/').pop()?.split('.').shift();
 								onFileOpen?.(`workflow:///${name}`);
 							} else {
-								const justNameAndExtension = filePath ? (filePath.split('/').pop() ?? '') : '';
-								onFileOpen?.(`file:///${justNameAndExtension}`);
+								onFileOpen?.(`file:///${filePath}`);
 							}
 						});
 					}
