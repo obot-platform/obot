@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/nah"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/controller/data"
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/deployment"
@@ -17,6 +18,8 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -25,6 +28,8 @@ import (
 	// Enable logrus logging in nah
 	_ "github.com/obot-platform/nah/pkg/logrus"
 )
+
+var log = logger.Package()
 
 type Controller struct {
 	router                *router.Router
@@ -68,7 +73,7 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure default user role setting: %w", err)
 	}
 
-	if err := ensureK8sSettings(ctx, c.services.StorageClient, c.services.K8sSettingsFromHelm); err != nil {
+	if err := ensureK8sSettings(ctx, c.services.StorageClient, c.services.PodSchedulingSettingsFromHelm, c.services.PSASettingsFromHelm); err != nil {
 		return fmt.Errorf("failed to ensure K8s settings: %w", err)
 	}
 
@@ -113,6 +118,52 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 	if err := c.mcpCatalogHandler.SetUpDefaultMCPCatalog(ctx, client); err != nil {
 		panic(fmt.Errorf("failed to set up default mcp catalog: %w", err))
 	}
+
+	// Re-trigger all MCPServerCatalogEntries after startup to ensure MCPServers
+	// that were reconciled before their catalog entries get notified of any pending updates.
+	// This fixes a race condition where catalog entry changes might not trigger MCPServer
+	// reconciliation if the server hadn't registered its watch yet.
+	go c.retriggerCatalogEntries(ctx, client)
+}
+
+// retriggerCatalogEntries touches all MCPServerCatalogEntries to trigger their handlers,
+// which in turn fires triggers to all MCPServers watching them. This ensures that any
+// MCPServers that missed initial catalog entry change notifications get reconciled.
+func (c *Controller) retriggerCatalogEntries(ctx context.Context, client kclient.Client) {
+	// Wait a short period to allow initial reconciliation of MCPServers to complete.
+	// This gives MCPServers time to register their watches on catalog entries.
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(5 * time.Second):
+	}
+
+	var entries v1.MCPServerCatalogEntryList
+	if err := client.List(ctx, &entries, &kclient.ListOptions{
+		Namespace: system.DefaultNamespace,
+	}); err != nil {
+		log.Errorf("Failed to list MCPServerCatalogEntries for re-trigger: %v", err)
+		return
+	}
+
+	log.Infof("Re-triggering %d MCPServerCatalogEntries to ensure MCPServer watches are established", len(entries.Items))
+
+	for _, entry := range entries.Items {
+		// Touch the entry's metadata to trigger reconciliation.
+		// We use an annotation update to avoid modifying actual data.
+		patch := kclient.MergeFrom(entry.DeepCopy())
+		if entry.Annotations == nil {
+			entry.Annotations = make(map[string]string)
+		}
+		entry.Annotations["obot.ai/startup-retrigger"] = time.Now().Format(time.RFC3339)
+
+		if err := client.Patch(ctx, &entry, patch); err != nil {
+			log.Warnf("Failed to re-trigger MCPServerCatalogEntry %s: %v", entry.Name, err)
+			continue
+		}
+	}
+
+	log.Infof("Completed re-triggering MCPServerCatalogEntries")
 }
 
 func (c *Controller) Start(ctx context.Context) error {
@@ -166,53 +217,142 @@ func ensureDefaultUserRoleSetting(ctx context.Context, client kclient.Client) er
 	return client.Update(ctx, &defaultRoleSetting)
 }
 
-func ensureK8sSettings(ctx context.Context, client kclient.Client, helmSettings *v1.K8sSettingsSpec) error {
+// ensureK8sSettings ensures the K8sSettings resource exists with proper configuration.
+// podSchedulingSettings: affinity, tolerations, resources, runtimeClassName - can be managed via Helm OR UI.
+//
+//	If provided (non-nil), SetViaHelm=true and UI cannot modify these settings.
+//
+// psaSettings: Pod Security Admission settings - always sourced from Helm/environment.
+//
+//	These are always applied regardless of SetViaHelm flag and cannot be modified via UI.
+func ensureK8sSettings(ctx context.Context, client kclient.Client, podSchedulingSettings *v1.K8sSettingsSpec, psaSettings *v1.PodSecurityAdmissionSettings) error {
 	var k8sSettings v1.K8sSettings
 	if err := client.Get(ctx, kclient.ObjectKey{
 		Namespace: system.DefaultNamespace,
 		Name:      system.K8sSettingsName,
 	}, &k8sSettings); apierrors.IsNotFound(err) {
 		// Create default settings
+		// SetViaHelm only applies to pod scheduling settings, not PSA
 		k8sSettings = v1.K8sSettings{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      system.K8sSettingsName,
 				Namespace: system.DefaultNamespace,
 			},
 			Spec: v1.K8sSettingsSpec{
-				SetViaHelm: helmSettings != nil,
+				SetViaHelm: podSchedulingSettings != nil,
 			},
 		}
 
-		// If Helm settings provided, use them
-		if helmSettings != nil {
-			k8sSettings.Spec.Affinity = helmSettings.Affinity
-			k8sSettings.Spec.Tolerations = helmSettings.Tolerations
-			k8sSettings.Spec.Resources = helmSettings.Resources
-			k8sSettings.Spec.RuntimeClassName = helmSettings.RuntimeClassName
-			k8sSettings.Spec.PodSecurityAdmission = helmSettings.PodSecurityAdmission
+		// If pod scheduling settings provided via Helm, use them
+		if podSchedulingSettings != nil {
+			k8sSettings.Spec.Affinity = podSchedulingSettings.Affinity
+			k8sSettings.Spec.Tolerations = podSchedulingSettings.Tolerations
+			k8sSettings.Spec.Resources = podSchedulingSettings.Resources
+			k8sSettings.Spec.RuntimeClassName = podSchedulingSettings.RuntimeClassName
 		}
+
+		// PSA settings are always applied from environment/Helm (independent of SetViaHelm)
+		k8sSettings.Spec.PodSecurityAdmission = psaSettings
 
 		return client.Create(ctx, &k8sSettings)
 	} else if err != nil {
 		return err
 	}
 
-	// If Helm settings provided, update them
-	if helmSettings != nil {
-		k8sSettings.Spec.SetViaHelm = true
-		k8sSettings.Spec.Affinity = helmSettings.Affinity
-		k8sSettings.Spec.Tolerations = helmSettings.Tolerations
-		k8sSettings.Spec.Resources = helmSettings.Resources
-		k8sSettings.Spec.RuntimeClassName = helmSettings.RuntimeClassName
-		k8sSettings.Spec.PodSecurityAdmission = helmSettings.PodSecurityAdmission
-		return client.Update(ctx, &k8sSettings)
+	// Determine if we need to update
+	needsUpdate := false
+
+	// Handle pod scheduling settings from Helm
+	if podSchedulingSettings != nil {
+		// Pod scheduling settings provided via Helm - lock them
+		if !k8sSettings.Spec.SetViaHelm ||
+			!affinityEqual(k8sSettings.Spec.Affinity, podSchedulingSettings.Affinity) ||
+			!tolerationsEqual(k8sSettings.Spec.Tolerations, podSchedulingSettings.Tolerations) ||
+			!resourcesEqual(k8sSettings.Spec.Resources, podSchedulingSettings.Resources) ||
+			!runtimeClassNameEqual(k8sSettings.Spec.RuntimeClassName, podSchedulingSettings.RuntimeClassName) {
+			k8sSettings.Spec.SetViaHelm = true
+			k8sSettings.Spec.Affinity = podSchedulingSettings.Affinity
+			k8sSettings.Spec.Tolerations = podSchedulingSettings.Tolerations
+			k8sSettings.Spec.Resources = podSchedulingSettings.Resources
+			k8sSettings.Spec.RuntimeClassName = podSchedulingSettings.RuntimeClassName
+			needsUpdate = true
+		}
 	} else if k8sSettings.Spec.SetViaHelm {
-		// Clear the settings if they were set by Helm, but are now blank.
-		k8sSettings.Spec = v1.K8sSettingsSpec{}
+		// Pod scheduling settings were previously set via Helm but are now blank
+		// Clear them and allow UI management
+		k8sSettings.Spec.SetViaHelm = false
+		k8sSettings.Spec.Affinity = nil
+		k8sSettings.Spec.Tolerations = nil
+		k8sSettings.Spec.Resources = nil
+		k8sSettings.Spec.RuntimeClassName = nil
+		needsUpdate = true
+	}
+
+	// PSA settings are always sourced from environment/Helm (independent of SetViaHelm)
+	if !psaSettingsEqual(k8sSettings.Spec.PodSecurityAdmission, psaSettings) {
+		k8sSettings.Spec.PodSecurityAdmission = psaSettings
+		needsUpdate = true
+	}
+
+	if needsUpdate {
 		return client.Update(ctx, &k8sSettings)
 	}
 
 	return nil
+}
+
+// Helper functions for comparing settings
+func affinityEqual(a, b *corev1.Affinity) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return equality.Semantic.DeepEqual(a, b)
+}
+
+func tolerationsEqual(a, b []corev1.Toleration) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	return equality.Semantic.DeepEqual(a, b)
+}
+
+func resourcesEqual(a, b *corev1.ResourceRequirements) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return equality.Semantic.DeepEqual(a, b)
+}
+
+func runtimeClassNameEqual(a, b *string) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
+}
+
+func psaSettingsEqual(a, b *v1.PodSecurityAdmissionSettings) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.Enabled == b.Enabled &&
+		a.Enforce == b.Enforce &&
+		a.EnforceVersion == b.EnforceVersion &&
+		a.Audit == b.Audit &&
+		a.AuditVersion == b.AuditVersion &&
+		a.Warn == b.Warn &&
+		a.WarnVersion == b.WarnVersion
 }
 
 func ensureAppPreferences(ctx context.Context, client kclient.Client) error {
