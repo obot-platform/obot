@@ -2,11 +2,13 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import * as nanobotLayout from '$lib/context/nanobotLayout.svelte';
 	import ProjectSidebar from './ProjectSidebar.svelte';
-	import { MessageCircle, Sparkles } from 'lucide-svelte';
 	import { ChatAPI, ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import { untrack } from 'svelte';
 	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
+	import type { Chat } from '$lib/services/nanobot/types';
 	import { goto } from '$lib/url';
+	import { get } from 'svelte/store';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 
 	let { data } = $props();
 	let projects = $derived(data.projects);
@@ -17,7 +19,17 @@
 	layout.sidebarOpen = false;
 	const chatApi = $derived(new ChatAPI(data.agent.connectURL));
 
-	function handleThreadCreated() {
+	function handleThreadCreated(thread: Chat) {
+		const projectId = projects[0].id;
+		if (chat) {
+			nanobotChat.set({ projectId, threadId: thread.id, chat });
+		}
+		goto(`/nanobot/p/${projectId}?tid=${thread.id}`, {
+			replaceState: true,
+			noScroll: true,
+			keepFocus: true
+		});
+
 		sidebarRef?.refreshThreads();
 		layout.sidebarOpen = true;
 	}
@@ -35,6 +47,10 @@
 		});
 
 		return () => {
+			const storedChat = get(nanobotChat);
+			if (storedChat?.chat === newChat) {
+				return;
+			}
 			newChat.close();
 		};
 	});
@@ -63,46 +79,7 @@
 					onToggleSidebar={(open: boolean) => {
 						layout.sidebarOpen = open;
 					}}
-				>
-					{#snippet initialContent()}
-						<div class="flex flex-col items-center gap-4">
-							<div class="flex flex-col items-center gap-1">
-								<h1 class="w-xs text-center text-3xl font-semibold md:w-full">
-									What would you like to work on?
-								</h1>
-								<p class="text-base-content/50 text-md text-center font-light">
-									Choose an entry point or pick up where you left off.
-								</p>
-							</div>
-							<div class="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2">
-								<button
-									class="bg-base-200 dark:border-base-300 rounded-field col-span-1 h-full p-4 text-left shadow-sm"
-									onclick={() => {
-										goto('/nanobot/p?planner=true');
-									}}
-								>
-									<Sparkles class="mb-4 size-5" />
-									<h3 class="text-lg font-semibold">Create a workflow</h3>
-									<p class="text-base-content/50 text-sm font-light">
-										Design an AI agent workflow through conversation
-									</p>
-								</button>
-								<button
-									class="bg-base-200 dark:border-base-300 rounded-field col-span-1 h-full p-4 text-left shadow-sm"
-									onclick={() => {
-										goto('/nanobot/p');
-									}}
-								>
-									<MessageCircle class="mb-4 size-5" />
-									<h3 class="text-lg font-semibold">Just explore</h3>
-									<p class="text-base-content/50 min-h-[2lh] text-sm font-light">
-										Chat and see where it goes
-									</p>
-								</button>
-							</div>
-						</div>
-					{/snippet}
-				</ProjectStartThread>
+				/>
 			{/key}
 		{/if}
 	</div>

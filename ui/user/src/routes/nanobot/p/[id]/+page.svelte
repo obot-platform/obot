@@ -2,12 +2,14 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import ProjectSidebar from '../../ProjectSidebar.svelte';
 	import { ChatAPI, ChatService } from '$lib/services/nanobot/chat/index.svelte';
-	import ThreadFromChat from '$lib/components/nanobot/ThreadFromChat.svelte';
 	import * as nanobotLayout from '$lib/context/nanobotLayout.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$lib/url';
+	import { get } from 'svelte/store';
 	import { untrack } from 'svelte';
 	import type { Chat } from '$lib/services/nanobot/types';
+	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 
 	let { data } = $props();
 	let agent = $derived(data.agent);
@@ -37,11 +39,26 @@
 
 	$effect(() => {
 		const currentThreadId = threadId;
+		const currentProjectId = projectId;
 
 		const shouldSkip = untrack(
 			() => prevThreadId !== undefined && currentThreadId === prevThreadId
 		);
 		if (shouldSkip) return;
+
+		const storedChat = get(nanobotChat);
+		if (
+			storedChat &&
+			storedChat.projectId === currentProjectId &&
+			storedChat.threadId === currentThreadId
+		) {
+			nanobotChat.set(null);
+			untrack(() => {
+				prevThreadId = currentThreadId;
+				chat = storedChat.chat;
+			});
+			return () => {};
+		}
 
 		untrack(() => {
 			prevThreadId = currentThreadId;
@@ -91,7 +108,7 @@
 	<div class="flex w-full grow">
 		{#if chat}
 			{#key chat}
-				<ThreadFromChat
+				<ProjectStartThread
 					{chat}
 					onToggleSidebar={(open: boolean) => {
 						layout.sidebarOpen = open;

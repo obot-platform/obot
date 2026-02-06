@@ -81,7 +81,7 @@
 			class="btn btn-square btn-ghost btn-sm tooltip tooltip-left"
 			data-tip="Start New Conversation"
 			onclick={() => {
-				goto(`/nanobot/p/${projectId}`);
+				goto(`/nanobot`);
 			}}
 		>
 			<Plus class="size-4" />
