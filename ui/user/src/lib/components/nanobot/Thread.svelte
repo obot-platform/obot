@@ -41,6 +41,7 @@
 		selectedAgentId?: string;
 		onAgentChange?: (agentId: string) => void;
 		emptyStateContent?: Snippet;
+		onRestart?: () => void;
 	}
 
 	let {
@@ -62,7 +63,8 @@
 		onAgentChange,
 		isLoading,
 		isRestoring,
-		emptyStateContent
+		emptyStateContent,
+		onRestart
 	}: Props = $props();
 
 	let messagesContainer: HTMLElement;
@@ -237,6 +239,7 @@
 				{cancelUpload}
 				{uploadingFiles}
 				{uploadedFiles}
+				{onRestart}
 			/>
 		</div>
 	</div>

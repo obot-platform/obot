@@ -82,7 +82,8 @@
 		title?: string;
 		showBackButton?: boolean;
 		onBackButtonClick?: () => void;
-		overrideSidebarContent?: Snippet;
+		overrideLeftSidebarContent?: Snippet;
+		rightSidebar?: Snippet;
 		layoutContext?: LayoutContext;
 	}
 
@@ -97,7 +98,8 @@
 		title,
 		showBackButton,
 		onBackButtonClick,
-		overrideSidebarContent,
+		overrideLeftSidebarContent,
+		rightSidebar,
 		layoutContext
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
@@ -427,8 +429,8 @@
 						classes?.sidebar
 					)}
 				>
-					{#if overrideSidebarContent}
-						{@render overrideSidebarContent()}
+					{#if overrideLeftSidebarContent}
+						{@render overrideLeftSidebarContent()}
 					{:else}
 						<div class="flex flex-col gap-1">
 							{#each navLinks as link (link.id)}
@@ -542,7 +544,7 @@
 
 		<Render
 			class={twMerge(
-				'default-scrollbar-thin relative flex h-svh w-full grow flex-col overflow-y-auto',
+				'default-scrollbar-thin relative flex h-svh w-full min-w-0 grow flex-col overflow-y-auto',
 				whiteBackground ? 'bg-background' : 'bg-surface1 dark:bg-background'
 			)}
 			component={main?.component}
@@ -605,6 +607,10 @@
 				</div>
 			</div>
 		</Render>
+
+		{#if rightSidebar}
+			{@render rightSidebar()}
+		{/if}
 	</div>
 
 	{#if !layout.sidebarOpen && !hideSidebar}

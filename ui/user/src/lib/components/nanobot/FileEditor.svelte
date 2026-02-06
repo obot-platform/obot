@@ -18,37 +18,41 @@
 	let error = $state<string | null>(null);
 	let mounted = $state(false);
 
-	// Resizable width state
-	let containerRef = $state<HTMLDivElement | null>(null);
-	let widthPercent = $state(50); // Initial width: 50%
+	let widthDvw = $state(50);
 	let isResizing = $state(false);
 
 	const MIN_WIDTH_PX = 500;
-	const MAX_WIDTH_PERCENT = 65;
-	const MIN_WIDTH_PERCENT = 10;
+	const MAX_DVW = 75;
+	const MIN_DVW = 10;
+
+	function getViewportWidth(): number {
+		return typeof window !== 'undefined' && window.visualViewport
+			? window.visualViewport.width
+			: typeof document !== 'undefined'
+				? document.documentElement.clientWidth
+				: 1024;
+	}
+
+	function getMinDvw(): number {
+		const vw = getViewportWidth();
+		const minDvwFromPx = (MIN_WIDTH_PX / vw) * 100;
+		return Math.max(MIN_DVW, minDvwFromPx);
+	}
 
 	function handleResizeStart(e: MouseEvent) {
 		e.preventDefault();
 		isResizing = true;
 
 		const startX = e.clientX;
-		const startWidth = widthPercent;
+		const startDvw = widthDvw;
 
 		function onMouseMove(e: MouseEvent) {
-			if (!containerRef?.parentElement) return;
-
-			const parentWidth = containerRef.parentElement.clientWidth;
+			const vw = getViewportWidth();
 			const deltaX = startX - e.clientX;
-			const deltaPercent = (deltaX / parentWidth) * 100;
-			let newPercent = startWidth + deltaPercent;
-
-			// Calculate min percent based on MIN_WIDTH_PX
-			const minPercentFromPx = (MIN_WIDTH_PX / parentWidth) * 100;
-			const effectiveMinPercent = Math.max(MIN_WIDTH_PERCENT, minPercentFromPx);
-
-			// Clamp to min/max
-			newPercent = Math.max(effectiveMinPercent, Math.min(MAX_WIDTH_PERCENT, newPercent));
-			widthPercent = newPercent;
+			const deltaDvw = (deltaX / vw) * 100;
+			let newDvw = startDvw + deltaDvw;
+			newDvw = Math.max(getMinDvw(), Math.min(MAX_DVW, newDvw));
+			widthDvw = newDvw;
 		}
 
 		function onMouseUp() {
@@ -62,19 +66,15 @@
 	}
 
 	function handleResizeKeydown(e: KeyboardEvent) {
-		if (!containerRef?.parentElement) return;
-
-		const parentWidth = containerRef.parentElement.clientWidth;
-		const minPercentFromPx = (MIN_WIDTH_PX / parentWidth) * 100;
-		const effectiveMinPercent = Math.max(MIN_WIDTH_PERCENT, minPercentFromPx);
-		const step = 2; // 2% per key press
+		const step = 2;
+		const minDvw = getMinDvw();
 
 		if (e.key === 'ArrowLeft') {
 			e.preventDefault();
-			widthPercent = Math.min(MAX_WIDTH_PERCENT, widthPercent + step);
+			widthDvw = Math.min(MAX_DVW, widthDvw + step);
 		} else if (e.key === 'ArrowRight') {
 			e.preventDefault();
-			widthPercent = Math.max(effectiveMinPercent, widthPercent - step);
+			widthDvw = Math.max(minDvw, widthDvw - step);
 		}
 	}
 
@@ -138,13 +138,12 @@
 </script>
 
 <div
-	bind:this={containerRef}
-	class="relative h-[calc(100dvh-4rem)] overflow-hidden transition-[opacity] duration-300 ease-out {mounted
+	class="relative h-dvh shrink-0 overflow-hidden transition-[opacity] duration-300 ease-out {mounted
 		? 'opacity-100'
 		: 'opacity-0'}"
-	style="width: {mounted ? widthPercent : 0}%; min-width: {mounted
+	style="width: {mounted ? widthDvw : 0}dvw; min-width: {mounted
 		? MIN_WIDTH_PX
-		: 0}px; max-width: {MAX_WIDTH_PERCENT}%;"
+		: 0}px; max-width: {MAX_DVW}dvw;"
 >
 	<!-- Resize handle -->
 	<div
@@ -155,9 +154,9 @@
 		onkeydown={handleResizeKeydown}
 		role="slider"
 		aria-orientation="horizontal"
-		aria-valuenow={widthPercent}
-		aria-valuemin={MIN_WIDTH_PERCENT}
-		aria-valuemax={MAX_WIDTH_PERCENT}
+		aria-valuenow={widthDvw}
+		aria-valuemin={MIN_DVW}
+		aria-valuemax={MAX_DVW}
 		aria-label="Resize file editor"
 		tabindex="0"
 	></div>

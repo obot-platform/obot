@@ -2,12 +2,15 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import ProjectSidebar from '../../ProjectSidebar.svelte';
 	import { ChatAPI, ChatService } from '$lib/services/nanobot/chat/index.svelte';
-	import ThreadFromChat from '$lib/components/nanobot/ThreadFromChat.svelte';
 	import * as nanobotLayout from '$lib/context/nanobotLayout.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$lib/url';
+	import { get } from 'svelte/store';
 	import { untrack } from 'svelte';
 	import type { Chat } from '$lib/services/nanobot/types';
+	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import FileEditor from '$lib/components/nanobot/FileEditor.svelte';
 
 	let { data } = $props();
 	let agent = $derived(data.agent);
@@ -20,6 +23,9 @@
 	let prevThreadId: string | null | undefined = undefined; // undefined = not yet initialized
 	let sidebarRef: { refreshThreads: () => Promise<void> } | undefined = $state();
 	let initialPlannerMode = $derived(page.url.searchParams.get('planner') === 'true');
+
+	let selectedFile = $state('');
+	let drawerInput = $state<HTMLInputElement | null>(null);
 
 	// Get layout reference during component initialization (required for Svelte context API)
 	const layout = nanobotLayout.getLayout();
@@ -37,11 +43,26 @@
 
 	$effect(() => {
 		const currentThreadId = threadId;
+		const currentProjectId = projectId;
 
 		const shouldSkip = untrack(
 			() => prevThreadId !== undefined && currentThreadId === prevThreadId
 		);
 		if (shouldSkip) return;
+
+		const storedChat = get(nanobotChat);
+		if (
+			storedChat &&
+			storedChat.projectId === currentProjectId &&
+			storedChat.threadId === currentThreadId
+		) {
+			nanobotChat.set(null);
+			untrack(() => {
+				prevThreadId = currentThreadId;
+				chat = storedChat.chat;
+			});
+			return () => {};
+		}
 
 		untrack(() => {
 			prevThreadId = currentThreadId;
@@ -84,22 +105,39 @@
 	}}
 	whiteBackground
 >
-	{#snippet overrideSidebarContent()}
+	{#snippet overrideLeftSidebarContent()}
 		<ProjectSidebar {chatApi} {projectId} bind:this={sidebarRef} />
 	{/snippet}
 
 	<div class="flex w-full grow">
 		{#if chat}
 			{#key chat}
-				<ThreadFromChat
+				<ProjectStartThread
+					agentId={agent.id}
 					{chat}
-					onToggleSidebar={(open: boolean) => {
-						layout.sidebarOpen = open;
+					onFileOpen={(filename) => {
+						layout.sidebarOpen = false;
+						drawerInput?.click();
+						selectedFile = filename;
 					}}
+					hasFileOpen={!!selectedFile}
 				/>
 			{/key}
 		{/if}
 	</div>
+
+	{#snippet rightSidebar()}
+		{#if chat && selectedFile}
+			<FileEditor
+				filename={selectedFile}
+				{chat}
+				onClose={() => {
+					selectedFile = '';
+					layout.sidebarOpen = true;
+				}}
+			/>
+		{/if}
+	{/snippet}
 </Layout>
 
 <svelte:head>
