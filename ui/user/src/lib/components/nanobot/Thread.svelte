@@ -74,9 +74,6 @@
 	const showInlineAgentHeader = $derived(!hasMessages && !emptyStateContent && !isLoading);
 	let selectedPrompt = $state<string | undefined>();
 
-	let showRestartConfirm = $state(false);
-	let restarting = $state(false);
-
 	// Watch for changes to the last message ID and scroll to bottom
 	$effect(() => {
 		if (!messagesContainer) return;

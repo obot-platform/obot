@@ -68,20 +68,14 @@
 	}}
 	whiteBackground
 >
-	{#snippet overrideSidebarContent()}
+	{#snippet overrideLeftSidebarContent()}
 		<ProjectSidebar {chatApi} projectId={projects[0].id} bind:this={sidebarRef} />
 	{/snippet}
 
 	<div class="flex w-full grow">
 		{#if chat}
 			{#key chat.chatId}
-				<ProjectStartThread
-					agentId={agent.id}
-					{chat}
-					onToggleSidebar={(open: boolean) => {
-						layout.sidebarOpen = open;
-					}}
-				/>
+				<ProjectStartThread agentId={agent.id} {chat} />
 			{/key}
 		{/if}
 	</div>

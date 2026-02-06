@@ -10,13 +10,11 @@
 	interface Props {
 		agentId: string;
 		chat: ChatService;
-		onToggleSidebar: (open: boolean) => void;
+		onFileOpen?: (filename: string) => void;
 	}
 
-	let { agentId, chat, onToggleSidebar }: Props = $props();
+	let { agentId, chat, onFileOpen }: Props = $props();
 
-	let selectedFile = $state('');
-	let drawerInput = $state<HTMLInputElement | null>(null);
 	let showRestartConfirm = $state(false);
 	let restarting = $state(false);
 
@@ -48,19 +46,16 @@
 				onElicitationResult={chat.replyToElicitation}
 				onSendMessage={chat.sendMessage}
 				onFileUpload={chat.uploadFile}
-				onFileOpen={(filename) => {
-					onToggleSidebar(false);
-					drawerInput?.click();
-					selectedFile = filename;
-				}}
 				cancelUpload={chat.cancelUpload}
 				uploadingFiles={chat.uploadingFiles}
 				uploadedFiles={chat.uploadedFiles}
 				isLoading={chat.isLoading}
+				isRestoring={chat.isRestoring}
 				agent={chat.agent}
 				onRestart={() => {
 					showRestartConfirm = true;
 				}}
+				{onFileOpen}
 			>
 				{#snippet emptyStateContent()}
 					<div class="flex flex-col items-center gap-4">
@@ -119,17 +114,6 @@
 			</Thread>
 		{/key}
 	</div>
-
-	{#if selectedFile}
-		<FileEditor
-			filename={selectedFile}
-			{chat}
-			onClose={() => {
-				selectedFile = '';
-				onToggleSidebar(true);
-			}}
-		/>
-	{/if}
 </div>
 
 <Confirm

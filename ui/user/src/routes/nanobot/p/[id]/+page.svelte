@@ -10,6 +10,7 @@
 	import type { Chat } from '$lib/services/nanobot/types';
 	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import FileEditor from '$lib/components/nanobot/FileEditor.svelte';
 
 	let { data } = $props();
 	let agent = $derived(data.agent);
@@ -22,6 +23,9 @@
 	let prevThreadId: string | null | undefined = undefined; // undefined = not yet initialized
 	let sidebarRef: { refreshThreads: () => Promise<void> } | undefined = $state();
 	let initialPlannerMode = $derived(page.url.searchParams.get('planner') === 'true');
+
+	let selectedFile = $state('');
+	let drawerInput = $state<HTMLInputElement | null>(null);
 
 	// Get layout reference during component initialization (required for Svelte context API)
 	const layout = nanobotLayout.getLayout();
@@ -101,7 +105,7 @@
 	}}
 	whiteBackground
 >
-	{#snippet overrideSidebarContent()}
+	{#snippet overrideLeftSidebarContent()}
 		<ProjectSidebar {chatApi} {projectId} bind:this={sidebarRef} />
 	{/snippet}
 
@@ -111,13 +115,28 @@
 				<ProjectStartThread
 					agentId={agent.id}
 					{chat}
-					onToggleSidebar={(open: boolean) => {
-						layout.sidebarOpen = open;
+					onFileOpen={(filename) => {
+						layout.sidebarOpen = false;
+						drawerInput?.click();
+						selectedFile = filename;
 					}}
 				/>
 			{/key}
 		{/if}
 	</div>
+
+	{#snippet rightSidebar()}
+		{#if selectedFile && chat}
+			<FileEditor
+				filename={selectedFile}
+				{chat}
+				onClose={() => {
+					selectedFile = '';
+					layout.sidebarOpen = true;
+				}}
+			/>
+		{/if}
+	{/snippet}
 </Layout>
 
 <svelte:head>
