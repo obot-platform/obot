@@ -126,7 +126,13 @@
 
 						// Defer side effects to avoid issues during render
 						queueMicrotask(() => {
-							onFileOpen?.(parseToolFilePath(toolCall));
+							const filePath = parseToolFilePath(toolCall);
+							if (filePath.startsWith('workflows/.runs/')) {
+								const justNameAndExtension = filePath ? (filePath.split('/').pop() ?? '') : '';
+								onFileOpen?.(`file:///${justNameAndExtension}`);
+							} else {
+								onFileOpen?.(`workflow:///${name}`);
+							}
 						});
 					}
 				} catch {
