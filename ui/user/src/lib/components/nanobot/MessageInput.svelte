@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Paperclip, Power, Send } from 'lucide-svelte';
+	import { Power, Send } from 'lucide-svelte';
 	import MessageAttachments from './MessageAttachments.svelte';
 	import MessageResources from './MessageResources.svelte';
 	import type MessageSlashPromptsType from './MessageSlashPrompts.svelte';
@@ -89,10 +89,6 @@
 		} else {
 			selectedResources = [...selectedResources, resource];
 		}
-	}
-
-	function handleAttach() {
-		fileInput?.click();
 	}
 
 	async function handleFileSelect(e: Event) {
