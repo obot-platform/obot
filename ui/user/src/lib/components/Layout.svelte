@@ -544,7 +544,7 @@
 
 		<Render
 			class={twMerge(
-				'default-scrollbar-thin relative flex min-w-0 h-svh w-full grow flex-col overflow-y-auto',
+				'default-scrollbar-thin relative flex h-svh w-full min-w-0 grow flex-col overflow-y-auto',
 				whiteBackground ? 'bg-background' : 'bg-surface1 dark:bg-background'
 			)}
 			component={main?.component}

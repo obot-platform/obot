@@ -1,5 +1,5 @@
-import { writable } from 'svelte/store';
 import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
+import { writable } from 'svelte/store';
 
 export interface NanobotChat {
 	projectId: string;
