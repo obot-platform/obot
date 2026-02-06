@@ -21,6 +21,7 @@ on:
 
 jobs:
   pin-phat:
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
       - name: Log in to GitHub Container Registry
@@ -34,7 +35,6 @@ jobs:
         uses: imjasonh/setup-crane@v0.5
 
       - name: Copy main phat image to stable tag
-        if: ${{ github.ref_type == 'tag' }}
         run: |
           crane tag ghcr.io/obot-platform/mcp-images/phat:main ${{ github.ref_name }}
 
