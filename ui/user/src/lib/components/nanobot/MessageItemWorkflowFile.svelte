@@ -10,7 +10,7 @@
 	let { item, onFileOpen }: Props = $props();
 
 	const pending = $derived(item.hasMore);
-	const filename = $derived(item.arguments ? parseToolFilePath(item) : item.name);
+	const filename = $derived(item.arguments ? (parseToolFilePath(item) ?? '') : (item.name ?? ''));
 	const name = $derived(filename ? filename.split('/').pop()?.split('.').shift() : null);
 </script>
 
