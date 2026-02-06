@@ -23,6 +23,7 @@
 		restarting = true;
 		try {
 			await AdminService.restartK8sDeployment(`ms1${agentId}`);
+			window.location.reload();
 		} catch (error) {
 			console.error('Failed to restart agent:', error);
 			errors.append(error);

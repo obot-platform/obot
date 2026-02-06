@@ -13,6 +13,7 @@
 
 	let { filename, chat, onClose }: Props = $props();
 
+	const name = $derived(filename.split('/').pop()?.split('.').shift() || '');
 	let resource = $state<ResourceContents | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
@@ -93,31 +94,15 @@
 		let cleanup: (() => void) | undefined;
 
 		const loadResource = async () => {
-			// Try to find resource in current list
-			let match = chat.resources.find((r) => r.name === filename);
-
-			// If not found, refresh the resources list and try again
-			if (!match) {
-				const refreshed = await chat.listResources({ useDefaultSession: true });
-				if (refreshed?.resources) {
-					match = refreshed.resources.find((r) => r.name === filename);
-				}
-			}
-
-			if (!match) {
-				loading = false;
-				return;
-			}
-
 			try {
-				const result = await chat.readResource(match.uri);
+				const result = await chat.readResource(filename);
 				if (result.contents?.length) {
 					resource = result.contents[0];
 				}
 				loading = false;
 
 				// Subscribe to live updates
-				cleanup = chat.watchResource(match.uri, (updatedResource) => {
+				cleanup = chat.watchResource(filename, (updatedResource) => {
 					resource = updatedResource;
 				});
 			} catch (e) {
@@ -164,7 +149,7 @@
 	<div class="bg-base-200 flex h-full w-full flex-col">
 		<div class="border-base-300 flex items-center gap-2 border-b px-4 py-2">
 			<div class="flex grow items-center justify-between">
-				<span class="truncate text-sm font-medium">{filename}</span>
+				<span class="truncate text-sm font-medium">{name}</span>
 				{#if mimeType}
 					<span class="text-base-content/60 text-xs">{mimeType}</span>
 				{/if}

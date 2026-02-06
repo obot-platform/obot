@@ -4,8 +4,7 @@ export function parseToolFilePath(item: ChatMessageItemToolCall) {
 	if (!item.arguments) return null;
 	try {
 		const parsed = JSON.parse(item.arguments);
-		const filePath = parsed.file_path;
-		return filePath ? filePath.split('/').pop().split('.').shift() : null;
+		return parsed.file_path;
 	} catch {
 		return null;
 	}

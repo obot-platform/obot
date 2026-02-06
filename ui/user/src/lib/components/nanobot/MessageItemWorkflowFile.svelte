@@ -10,7 +10,8 @@
 	let { item, onFileOpen }: Props = $props();
 
 	const pending = $derived(item.hasMore);
-	const name = $derived(item.arguments ? parseToolFilePath(item) : item.name);
+	const filename = $derived(item.arguments ? parseToolFilePath(item) : item.name);
+	const name = $derived(filename ? filename.split('/').pop()?.split('.').shift() : null);
 </script>
 
 <div
@@ -26,7 +27,18 @@
 				<span class="text-sm">{name}</span>
 			{/if}
 		</div>
-		<button class="btn btn-sm tooltip" data-tip="Open" onclick={() => onFileOpen?.(name)}>
+		<button
+			class="btn btn-sm tooltip"
+			data-tip="Open"
+			onclick={() => {
+				if (filename.startsWith('workflows/.runs/')) {
+					const justNameAndExtension = filename ? (filename.split('/').pop() ?? '') : '';
+					onFileOpen?.(`file:///${justNameAndExtension}`);
+				} else {
+					onFileOpen?.(`workflow:///${name}`);
+				}
+			}}
+		>
 			<FolderIcon class="size-4" />
 		</button>
 	</div>
