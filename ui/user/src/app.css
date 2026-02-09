@@ -867,6 +867,7 @@
 		grid-column-start: 1;
 		overscroll-behavior: contain;
 		overflow-y: auto;
+		max-height: 100dvh;
 
 		.dark & {
 			background-color: var(--surface2);
