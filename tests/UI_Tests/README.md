@@ -1,6 +1,6 @@
 
 # WebdriverIO Automation Project
-This project uses **WebdriverIO** and **JavaScript** to automate the testing of **Obot.ai**, an AI-driven chatbot platform. The automation suite includes tests for logging into the platform, creating and editing AI agents, managing tasks, and using tools like file uploads, task management, and message handling.
+This project uses **WebdriverIO** and **TypeScript** to automate the testing of **Obot.ai**, an AI-driven chatbot platform. The automation suite includes tests for logging into the platform, creating and editing AI agents, managing tasks, and using tools like file uploads, task management, and message handling.
 
 ## Table of Contents
 - [Prerequisites](#prerequisites)
@@ -11,7 +11,7 @@ This project uses **WebdriverIO** and **JavaScript** to automate the testing of 
 ## Prerequisites
 Before running the tests, make sure you have the following installed:
 
-- [Node.js](https://nodejs.org/en/) (Version 14.x or higher)
+- [Node.js](https://nodejs.org/en/) (Version 22.x or higher)
 - [npm](https://www.npmjs.com/) (Node package manager)
 - Web browser (e.g., Chrome, etc.)
 - **ChromeDriver** for WebDriver support in respective browsers.
