@@ -17,7 +17,7 @@ Feature: Create and Run On Demand tasks on Obot
     And User clicks on "Run" button to run the On Demand task
     And User inputs arguments for the On Demand task
     And User clicks on "Run" button in Run Task dialog
-    Then Vaidate Task results for the On Demand task
+    Then Validate Task results for the On Demand task
 
     When User clicks on "Toggle Chat" button to open Obot chat panel
     Then Obot chat panel should be opened successfully
