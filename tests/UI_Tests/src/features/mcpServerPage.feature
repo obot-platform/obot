@@ -5,7 +5,7 @@ Feature: Manage <ServerName> MCP Server configuration on Obot
         When User navigates to the Obot main login page
 
     @regression
-    Scenario: Update config, rename, verify details and disconnect MCP server "<ServerName>" on Obot
+    Scenario Outline: Update config, rename, verify details and disconnect MCP server "<ServerName>" on Obot
         When User searches for MCP server "<ConnectionName>"
         And User performs "Connect To Server" action on MCP server "<ConnectionName>"
         And User connects to the "<ConnectionName>" MCP server
@@ -37,6 +37,6 @@ Feature: Manage <ServerName> MCP Server configuration on Obot
         Examples:
             | ServerName                       | ConnectionName                     | PromptName       | ReportName       | ConnectionNameUpdated        |
             | test-antv_charts                 | AntV Charts                        | AntV Charts      | AntV Charts      | AntV Charts Updated          |
-            # | test-aws                         | AWS API                            | AWS API          | AWS API          | AWS API Updated            |
-            # | test-brave_search                | Brave Search                       | Brave Search     | Brave Search     | Brave Search Updated       |
-            # | test-git lab                     | GitLab                             | GitLab           | GitLab           | GitLab Updated            |
+            | test-aws                         | AWS API                            | AWS API          | AWS API          | AWS API Updated            |
+            | test-brave_search                | Brave Search                       | Brave Search     | Brave Search     | Brave Search Updated       |
+            | test-git lab                     | GitLab                             | GitLab           | GitLab           | GitLab Updated            |

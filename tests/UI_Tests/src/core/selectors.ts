@@ -259,7 +259,7 @@ const Selectors = {
         },
         chromaCloud: {
             tenentID: `//input[@id="CHROMA_TENANT"]`,
-            DBName: `input[@id="CHROMA_DATABASE"]`,
+            DBName: `//input[@id="CHROMA_DATABASE"]`,
             APIKey: `//input[@id="Chroma Cloud API Key"]`
         },
         fireCrawl: {

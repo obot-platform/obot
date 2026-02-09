@@ -104,7 +104,7 @@ When(/^User clicks on "Run" button in Run Task dialog$/, async() => {
     await browser.pause(LONG_PAUSE);
 });
 
-Then(/^Vaidate Task results for the On Demand task$/, async() => {
+Then(/^Validate Task results for the On Demand task$/, async() => {
   const expectedResults = ['15', '225'];
 
   // Wait for results to appear

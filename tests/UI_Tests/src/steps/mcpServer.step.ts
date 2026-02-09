@@ -176,7 +176,7 @@ Then(/^User connects to the "(.*)" MCP server$/, async (mcpServer: string) => {
       break;
 
     case "exa search":
-      await slowInputFilling(Selectors.MCP.exa.apiKeyInput, process.env.TAVILY_API_KEY);
+      await slowInputFilling(Selectors.MCP.exa.apiKeyInput, process.env.EXA_API_KEY);
       break;
 
     case "pagerduty":

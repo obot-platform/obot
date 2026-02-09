@@ -1,5 +1,5 @@
 {
-  "name": "Obot Acceptance UI Tests",
+  "name": "obot-acceptance-ui-tests",
   "version": "1.0.0",
   "description": "WebDriverIO - Cucumber and Webdriverio automation test suite",
   "scripts": {
