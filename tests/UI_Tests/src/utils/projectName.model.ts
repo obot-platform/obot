@@ -8,5 +8,3 @@ export function generateProjectName(): string {
   const randomNumber = faker.number.int({ min: 100000, max: 999999 });
   return `Automation-Obot-MCP-${randomNumber}`;
 }
-
-console.log(generateProjectName());

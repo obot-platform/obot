@@ -142,7 +142,7 @@ export function aggregateToolResponses(promptResults: any[]) {
         report[promptKey].tools[tool] = { responses: []};
       }
 
-      if (reply) report[promptKey].tools[tool].responses.push(reply);
+      report[promptKey].tools[tool].responses.push(reply);
     }
   }
 
