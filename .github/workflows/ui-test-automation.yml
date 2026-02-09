@@ -81,6 +81,10 @@ jobs:
             echo "Not ready yet... retry #$i"
             sleep 5
           done
+          if ! curl -sf http://localhost:8080/api/me | grep -q '"username":"nobody"'; then
+            echo "OBOT did not become ready after 12 attempts. Failing job."
+            exit 1
+          fi
 
       - name: Install dependencies
         run: |
@@ -91,6 +95,7 @@ jobs:
         env: ${{ secrets }}
         run: |
           cd tests/UI_Tests
+          export OBOT_URL=http://localhost:8080
           npm run wdio:smoke
 
       - name: Upload allure results (Smoke)
@@ -200,6 +205,10 @@ jobs:
             echo "Not ready yet... retry #$i"
             sleep 5
           done
+          if ! curl -sf http://localhost:8080/api/me | grep -q '"username":"nobody"'; then
+            echo "OBOT did not become ready after 12 attempts. Failing job."
+            exit 1
+          fi
 
       - name: Install dependencies
         run: |
@@ -210,6 +219,7 @@ jobs:
         env: ${{ secrets }}
         run: |
           cd tests/UI_Tests
+          export OBOT_URL=http://localhost:8080
           npm run wdio:regression
 
       - name: Upload allure results (Regression)
@@ -319,6 +329,10 @@ jobs:
             echo "Not ready yet... retry #$i"
             sleep 5
           done
+          if ! curl -sf http://localhost:8080/api/me | grep -q '"username":"nobody"'; then
+            echo "OBOT did not become ready after 12 attempts. Failing job."
+            exit 1
+          fi
 
       - name: Install dependencies
         run: |

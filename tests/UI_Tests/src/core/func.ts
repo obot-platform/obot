@@ -121,7 +121,7 @@ export async function formFill(formElements: IFormActionElements[]) {
 
 export async function generateRandomAlphanumericString(length) {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = ' ';
+  let result = '';
   const charactersLength = characters.length;
   for (let i = 0; i < length; i++) {
     result += characters.charAt(Math.floor(Math.random() * charactersLength));
@@ -183,7 +183,7 @@ export async function isElementDisplayed(locatorString: string, timeout = SHORT_
 }
 
 export async function clearTextUsingBackspace(element: WebdriverIO.Element) {
-  let text = await element.getText();
+  const text = await element.getText();
   if (text.length === 0) {
     await element.getValue();
   }
