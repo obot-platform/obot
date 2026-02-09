@@ -20,6 +20,24 @@ on:
       - .github/workflows/**
 
 jobs:
+  pin-phat:
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Setup crane
+        uses: imjasonh/setup-crane@v0.5
+
+      - name: Copy main phat image to stable tag
+        run: |
+          crane tag ghcr.io/obot-platform/mcp-images/phat:main ${{ github.ref_name }}
+
   oss-build:
     runs-on: depot-ubuntu-22.04
 
@@ -78,7 +96,7 @@ jobs:
           cosign sign --yes ${images}
 
       - name: Setup crane
-        uses: imjasonh/setup-crane@v0.4
+        uses: imjasonh/setup-crane@v0.5
 
       - name: Copy OSS image to latest tag
         if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-') }}
@@ -175,7 +193,7 @@ jobs:
           cosign sign --yes ${images}
 
       - name: Setup crane
-        uses: imjasonh/setup-crane@v0.4
+        uses: imjasonh/setup-crane@v0.5
 
       - name: Copy Enterprise image to latest tag
         if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-') }}

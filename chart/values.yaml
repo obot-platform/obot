@@ -134,8 +134,8 @@ config:
   # config.OBOT_SERVER_AUDIT_LOGS_USE_PATH_STYLE -- Whether to use path style for S3
   OBOT_SERVER_AUDIT_LOGS_USE_PATH_STYLE: false
 
-  # config.OBOT_SERVER_MCPBASE_IMAGE -- Deploy MCP servers in the cluster using this base image. OBOT_SERVER_MCPNAMESPACE is automatically added to the secret if config.OBOT_SERVER_MCPBASE_IMAGE is set.
-  OBOT_SERVER_MCPBASE_IMAGE: "ghcr.io/obot-platform/mcp-images/phat:main"
+  # config.OBOT_SERVER_MCPBASE_IMAGE -- Deploy MCP servers in the cluster using this base image. OBOT_SERVER_MCPNAMESPACE is automatically added to the secret if config.OBOT_SERVER_MCPBASE_IMAGE is set. If no tag is specified, the chart's appVersion will be used unless it starts with '0.0.0', in which case the 'main' tag will be used.
+  OBOT_SERVER_MCPBASE_IMAGE: "ghcr.io/obot-platform/mcp-images/phat"
   # config.OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE -- Deploy MCP remote shim servers in the cluster using this base image.
   OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE: "ghcr.io/nanobot-ai/nanobot:v0.0.55"
   # config.OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE -- Deploy MCP HTTP webhook servers in the cluster using this base image.

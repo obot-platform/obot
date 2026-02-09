@@ -31,7 +31,7 @@ spec:
       {{- if eq .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER "custom" }}
       initContainers:
         - name: encryptionsetup
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.image.repository }}:{{ include "obot.imageTag" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: OBOT_SERVER_ENCRYPTION_KEY
@@ -67,7 +67,7 @@ spec:
       {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.image.repository }}:{{ include "obot.imageTag" . }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           volumeMounts:
             {{- if eq .Values.config.OBOT_SERVER_ENCRYPTION_PROVIDER "custom" }}
