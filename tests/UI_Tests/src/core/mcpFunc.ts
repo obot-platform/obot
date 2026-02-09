@@ -109,11 +109,6 @@ export async function sendPromptValidateAndCollect(promptText: string, toolList:
   };
 }
 
-function maxStatus(s1: string, s2: string): string {
-  const priority = { 'Failure': 3, 'Success': 2, 'Unknown': 1 };
-  return (priority[s1] || 0) > (priority[s2] || 0) ? s1 : s2;
-}
-
 export function aggregateToolResponses(promptResults: any[]) {
   const report: Record<string, {
     promptText: string,

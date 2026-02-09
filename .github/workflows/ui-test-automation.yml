@@ -329,6 +329,7 @@ jobs:
         env: ${{ secrets }}
         run: |
           cd tests/UI_Tests
+          export OBOT_URL=http://localhost:8080
           npm run wdio:full
 
       - name: Upload allure results (Full)
