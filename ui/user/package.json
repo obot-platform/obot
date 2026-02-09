@@ -88,7 +88,7 @@
 		"daisyui": "^5.5.17",
 		"date-fns": "^4.1.0",
 		"es-toolkit": "^1.37.2",
-		"layerchart": "1.0.12",
+		"layerchart": "1.0.13",
 		"react": "^18",
 		"react-dom": "^18",
 		"tar": "^7.5.2"

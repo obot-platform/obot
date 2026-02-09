@@ -49,7 +49,10 @@ import type {
 	GroupRoleAssignmentList,
 	MCPCapacityInfo,
 	MCPServerOAuthCredentialRequest,
-	MCPServerOAuthCredentialStatus
+	MCPServerOAuthCredentialStatus,
+	TokenUsageTimeRange,
+	TotalTokenUsage,
+	TokenUsage
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -246,7 +249,7 @@ export async function deleteMCPCatalogServer(catalogID: string, serverID: string
 				if (body.dependencies && body.dependencies.length > 0) {
 					throw new MCPCompositeDeletionDependencyError(
 						body.message ??
-							'All dependencies on this MCP server must be removed before it can be deleted',
+						'All dependencies on this MCP server must be removed before it can be deleted',
 						body.dependencies
 					);
 				}
@@ -416,8 +419,8 @@ export async function getMcpCatalogToolPreviewsOauth(
 			dontLogErrors: true
 		})) as
 			| {
-					oauthURL: string;
-			  }
+				oauthURL: string;
+			}
 			| Record<string, string>;
 
 		// Check if response has oauthURL property (single server response)
@@ -1121,8 +1124,8 @@ export async function configureStorageCredentials(
 export async function deleteStorageCredentials(
 	opts?:
 		| {
-				signal?: AbortSignal | undefined;
-		  }
+			signal?: AbortSignal | undefined;
+		}
 		| undefined
 ) {
 	const response = await doDelete('/storage-credentials', opts);
@@ -1295,4 +1298,62 @@ export async function deleteMCPCatalogEntryOAuthCredentials(
 	opts?: { signal?: AbortSignal }
 ): Promise<void> {
 	await doDelete(`/mcp-catalogs/${catalogID}/entries/${entryID}/oauth-credentials`, opts);
+}
+
+export async function listTotalTokenUsage(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/total-token-usage', opts));
+	return response as TotalTokenUsage;
+}
+
+function formatTokenUsageDate(d: Date | string): string {
+	return typeof d === 'string' ? d : d.toISOString();
+}
+
+function tokenUsageQueryString(timeRange: TokenUsageTimeRange): string {
+	const parts = [
+		`start=${encodeURIComponent(formatTokenUsageDate(timeRange.start))}`,
+		`end=${encodeURIComponent(formatTokenUsageDate(timeRange.end))}`
+	];
+	if (timeRange.includePersonalToken === true) {
+		parts.push('include-personal-token=true');
+	}
+	return parts.join('&');
+}
+
+/** Returns token usage for all users in the time range as a flat list. Does not include personal token. */
+export async function listTokenUsage(
+	timeRange: TokenUsageTimeRange,
+	opts?: { fetch?: Fetcher }
+): Promise<TokenUsage[]> {
+	const queryString =
+		`start=${encodeURIComponent(formatTokenUsageDate(timeRange.start))}` +
+		`&end=${encodeURIComponent(formatTokenUsageDate(timeRange.end))}`;
+	const response = await doGet(`/token-usage?${queryString}`, opts);
+	return unwrapTokenUsageList(response);
+}
+
+export async function listRemainingTokenUsageForUser(userId: string, opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(`/users/${userId}/remaining-token-usage`, opts));
+	return response;
+}
+
+export async function listTotalTokenUsageForUser(userId: string, opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(`/users/${userId}/total-token-usage`, opts));
+	return response;
+}
+
+export async function listTokenUsageForUser(
+	userId: string,
+	timeRange: TokenUsageTimeRange,
+	opts?: { fetch?: Fetcher }
+): Promise<TokenUsage[]> {
+	const queryString = tokenUsageQueryString(timeRange);
+	const response = await doGet(`/users/${userId}/token-usage?${queryString}`, opts);
+	return unwrapTokenUsageList(response);
+}
+
+function unwrapTokenUsageList(response: unknown): TokenUsage[] {
+	if (Array.isArray(response)) return response;
+	const list = response as { items?: TokenUsage[] };
+	return list?.items ?? [];
 }

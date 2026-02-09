@@ -24,7 +24,7 @@
 			}
 		},
 		{
-			label: 'Last 6 Hour',
+			label: 'Last 6 Hours',
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
 				start = subHours(end, 6);
