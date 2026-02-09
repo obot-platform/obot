@@ -23,6 +23,10 @@
 	}
 
 	let { item, onSend }: Props = $props();
+	let expanded = $state(false);
+
+	const parsedInput = $derived.by(() => parseToolInput(item.arguments ?? ''));
+
 	let singleUIResource = $derived(
 		item.output?.content &&
 			item.output?.content?.filter((i) => {
@@ -80,12 +84,31 @@
 		}
 		return { success: false, data: output };
 	}
+
+	const outputDisplay = $derived.by(() => {
+		if (!expanded || !item.output) return null;
+		const out = item.output;
+		const structuredHtml =
+			out.structuredContent != null
+				? parseToolOutput(JSON.stringify(out.structuredContent)).data
+				: null;
+		const contentItemsHtml =
+			out.content?.map((contentItem) => {
+				if (contentItem.type === 'text' && 'text' in contentItem) {
+					const parsed = parseToolOutput(contentItem.text ?? '');
+					if (parsed.success) return parsed.data;
+					if (contentItem.text) return toHTMLFromMarkdown(contentItem.text);
+				}
+				return parseToolOutput(JSON.stringify(contentItem)).data;
+			}) ?? [];
+		return { isError: out.isError, structuredHtml, contentItemsHtml };
+	});
 </script>
 
 <div
 	class="text border-base-100 bg-base-100 hover:collapse-arrow hover:border-base-300 collapse w-full border"
 >
-	<input type="checkbox" />
+	<input type="checkbox" bind:checked={expanded} />
 	<div class="collapse-title">
 		<div class="flex items-center gap-2">
 			{#if item.output}
@@ -101,7 +124,7 @@
 			{#if item.arguments}
 				<div class="grid">
 					<div class="text-base-content/70 mb-1 text-xs font-medium">Input:</div>
-					{#if parseToolInput(item.arguments).success}
+					{#if parsedInput.success}
 						<div class="bg-base-200 overflow-x-auto rounded p-3">
 							<table class="table-zebra table-xs table w-full">
 								<thead>
@@ -111,7 +134,7 @@
 									</tr>
 								</thead>
 								<tbody>
-									{#each Object.entries(parseToolInput(item.arguments).data) as [key, value] (key)}
+									{#each Object.entries(parsedInput.data) as [key, value] (key)}
 										<tr>
 											<td class="font-mono text-xs">{key}</td>
 											<td class="font-mono text-xs break-all">
@@ -119,7 +142,7 @@
 											</td>
 										</tr>
 									{/each}
-									{#if Object.keys(parseToolInput(item.arguments).data).length === 0}
+									{#if Object.keys(parsedInput.data).length === 0}
 										<tr>
 											<td class="font-mono text-xs">No arguments</td>
 										</tr>
@@ -134,39 +157,33 @@
 					{/if}
 				</div>
 			{/if}
-			{#if item.output}
-				<div class="flex flex-col">
-					<div class="text-base-content/70 mb-1 text-xs font-medium">Output:</div>
-					{#if item.output.isError}
-						<div class="alert alert-error">
-							<span>Tool execution failed</span>
-						</div>
-					{/if}
-					{#if item.output.structuredContent}
-						<div
-							class="prose border-success/20 bg-success/10 prose-invert overflow-x-auto rounded border p-3"
-						>
-							{@html parseToolOutput(JSON.stringify(item.output.structuredContent)).data}
-						</div>
-					{/if}
-					{#if item.output.content}
-						<!-- Render tool output content items -->
-						{#each item.output.content as contentItem, i (i)}
+			{#if expanded && item.output}
+				{#if outputDisplay}
+					<div class="flex flex-col">
+						<div class="text-base-content/70 mb-1 text-xs font-medium">Output:</div>
+						{#if outputDisplay.isError}
+							<div class="alert alert-error">
+								<span>Tool execution failed</span>
+							</div>
+						{/if}
+						{#if outputDisplay.structuredHtml}
 							<div
 								class="prose border-success/20 bg-success/10 prose-invert overflow-x-auto rounded border p-3"
 							>
-								{#if contentItem.type === 'text' && 'text' in contentItem && parseToolOutput(contentItem.text).success}
-									<!-- JSON Syntax Highlighted Display -->
-									{@html parseToolOutput(contentItem.text).data}
-								{:else if contentItem.type === 'text' && 'text' in contentItem && contentItem.text}
-									{@html toHTMLFromMarkdown(contentItem.text)}
-								{:else}
-									{@html parseToolOutput(JSON.stringify(contentItem)).data}
-								{/if}
+								{@html outputDisplay.structuredHtml}
+							</div>
+						{/if}
+						{#each outputDisplay.contentItemsHtml as html, idx (idx)}
+							<div
+								class="prose border-success/20 bg-success/10 prose-invert overflow-x-auto rounded border p-3"
+							>
+								{@html html}
 							</div>
 						{/each}
-					{/if}
-				</div>
+					</div>
+				{/if}
+			{:else if item.output}
+				<!-- Already has output but collapsed: show nothing here (lazy) -->
 			{:else}
 				<div class="text-base-content/50 flex items-center gap-2 text-xs italic">
 					<span class="loading loading-xs loading-spinner"></span>

@@ -12,6 +12,16 @@
 
 	let selectedFile = $state('');
 	let drawerInput = $state<HTMLInputElement | null>(null);
+
+	const onFileOpenRef = $state.raw({ current: (_filename: string) => {} });
+	const handleFileOpen = $state.raw((filename: string) => onFileOpenRef.current(filename));
+	$effect(() => {
+		onFileOpenRef.current = (filename: string) => {
+			onToggleSidebar(false);
+			drawerInput?.click();
+			selectedFile = filename;
+		};
+	});
 </script>
 
 <div class="flex h-full w-full">
@@ -27,11 +37,7 @@
 			onElicitationResult={chat.replyToElicitation}
 			onSendMessage={chat.sendMessage}
 			onFileUpload={chat.uploadFile}
-			onFileOpen={(filename) => {
-				onToggleSidebar(false);
-				drawerInput?.click();
-				selectedFile = filename;
-			}}
+			onFileOpen={handleFileOpen}
 			cancelUpload={chat.cancelUpload}
 			uploadingFiles={chat.uploadingFiles}
 			uploadedFiles={chat.uploadedFiles}

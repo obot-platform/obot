@@ -626,10 +626,30 @@ export class ChatService {
 		}
 		const toolName = `chat-with-${effectiveAgentId}`;
 
+		const requestId = crypto.randomUUID();
+		const optimisticUserMessage: ChatMessage = {
+			id: requestId,
+			role: 'user',
+			created: now(),
+			items: [
+				{
+					id: requestId + '_0',
+					type: 'text',
+					text: message
+				}
+			]
+		};
+		this.messages = appendMessage(this.messages, optimisticUserMessage);
+
+		if (!this.subscribed && this.chatId) {
+			this.subscribed = true;
+			this.subscribe(this.chatId);
+		}
+
 		try {
 			const response = await this.api.sendMessage(
 				{
-					id: crypto.randomUUID(),
+					id: requestId,
 					threadId: this.chatId,
 					message: message,
 					attachments: [...this.uploadedFiles, ...(attachments || [])]
@@ -637,11 +657,6 @@ export class ChatService {
 				toolName
 			);
 			this.uploadedFiles = [];
-
-			if (!this.subscribed && this.chatId) {
-				this.subscribed = true;
-				this.subscribe(this.chatId);
-			}
 
 			this.messages = appendMessage(this.messages, response.message);
 			return new Promise<ChatResult | void>((resolve) => {
