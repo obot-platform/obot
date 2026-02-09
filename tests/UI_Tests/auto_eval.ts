@@ -1,6 +1,5 @@
 import fs from "fs";
 import path from "path";
-import { glob } from "glob";
 import OpenAI from "openai";
 
 // --- Evaluation Configuration ---
@@ -99,10 +98,10 @@ async function enhanceReportWithEval(
   inputKey: string,
   outputKey: string
 ): Promise<ReportData> {
-  for (const [promptId, promptData] of Object.entries(originalData)) {
+  for (const promptData of Object.values(originalData)) {
     const promptText = promptData.promptText;
 
-    for (const [toolName, toolData] of Object.entries(promptData.tools)) {
+    for (const toolData of Object.values(promptData.tools)) {
       const assistantResponse = (toolData.responses || []).join(" ");
       const gradingPrompt = createGradingPrompt(
         promptTemplate,
@@ -135,7 +134,7 @@ async function main(): Promise<void> {
   .readdirSync(reportsFolder)
   .filter((file) => file.endsWith(".json"))
   .map((file) => path.join(reportsFolder, file));
-  console.log(jsonFiles)
+  console.log(jsonFiles);
 
   console.log(`Found ${jsonFiles.length} report files to process...`);
 

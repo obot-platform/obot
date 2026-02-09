@@ -154,7 +154,7 @@ Then(/^User connects to the "(.*)" MCP server$/, async (mcpServer: string) => {
       break;
 
     case "chroma cloud":
-      await slowInputFilling(Selectors.MCP.chromaCloud.tenentID, process.env.CHROMA_TENENT_ID);
+      await slowInputFilling(Selectors.MCP.chromaCloud.tenentID, process.env.CHROMA_TENANT_ID);
       await slowInputFilling(Selectors.MCP.chromaCloud.DBName, process.env.CHROMA_DB_NAME || "obot-test");
       await slowInputFilling(Selectors.MCP.chromaCloud.APIKey, process.env.CHROMA_API_KEY);
       break;

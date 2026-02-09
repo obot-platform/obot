@@ -185,7 +185,7 @@ export async function isElementDisplayed(locatorString: string, timeout = SHORT_
 export async function clearTextUsingBackspace(element: WebdriverIO.Element) {
   let text = await element.getText();
   if (text.length === 0) {
-    text = await element.getValue();
+    await element.getValue();
   }
   await element.click();
   await browser.pause(SHORT_PAUSE / 2);

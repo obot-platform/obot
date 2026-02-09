@@ -37,7 +37,6 @@ When(/^User adds an arguments to the On Demand task$/, async() => {
     // add arguments
     for (let i = 0; i < data.length; i++) {
         await clickToElement('//button[normalize-space()="Argument"]');
-        const arg = data[i];
         const rows = await $$('//tbody//tr[contains(@class,"group")]');
         const nameInput = await rows[i].$('input[placeholder="Enter Name"]');
         const descInput = await rows[i].$('textarea[placeholder="Add a good description"]');
