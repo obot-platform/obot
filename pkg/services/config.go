@@ -109,6 +109,7 @@ type Config struct {
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
 	EnableRegistryAuth      bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
+	NanobotIntegration      bool   `usage:"Enable Nanobot integration" default:"false"`
 
 	GeminiConfig
 	GatewayConfig
@@ -715,7 +716,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	gatewayOpts := gserver.Options(config.GatewayConfig)
-	gatewayOpts.NanobotIntegration = config.NanobotIntegration
 	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, gatewayOpts)
 	if err != nil {
 		return nil, err
