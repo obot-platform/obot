@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -976,15 +977,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 }
 
 func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error {
-	var deployment appsv1.Deployment
-	if err := k.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: k.mcpNamespace}, &deployment); apierrors.IsNotFound(err) {
-		// If the deployment isn't found, then just return and it will be created when needed.
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to get deployment %s: %w", id, err)
-	}
-
-	// Fetch K8s settings
+	// Fetch K8s settings once at the start
 	k8sSettings, err := k.getK8sSettings(ctx)
 	if err != nil {
 		// Log error but continue with defaults
@@ -995,23 +988,86 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 	// Compute K8s settings hash
 	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings)
 
-	// Build the patch with restart annotation and k8s settings hash
-	podAnnotations := map[string]string{
-		"kubectl.kubernetes.io/restartedAt": time.Now().Format(time.RFC3339),
-		"obot.ai/k8s-settings-hash":         k8sSettingsHash,
+	// Get PSA enforce level for security context decisions
+	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
+
+	// Retry patching up to 3 times to handle cases where:
+	// 1. Strategic merge patch doesn't fully apply all changes (especially when combining resources and PSA settings)
+	// 2. Conflict errors (409) occur due to concurrent updates by controllers
+	const maxPatchRetries = 3
+	for attempt := range maxPatchRetries {
+		// Always re-fetch the deployment to get the latest state
+		var deployment appsv1.Deployment
+		if err := k.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: k.mcpNamespace}, &deployment); apierrors.IsNotFound(err) {
+			// If the deployment isn't found, then just return and it will be created when needed.
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("failed to get deployment %s: %w", id, err)
+		}
+
+		// Check if deployment already matches the desired state
+		if k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel) {
+			olog.Debugf("deployment %s matches desired K8s settings after %d patch attempt(s)", id, attempt)
+			// Settings match, now apply the hash to mark reconciliation complete
+			if err := k.patchDeploymentHash(ctx, &deployment, k8sSettingsHash); err != nil {
+				if apierrors.IsConflict(err) {
+					olog.Debugf("conflict patching hash for deployment %s on attempt %d, retrying", id, attempt+1)
+					continue
+				}
+				return err
+			}
+			return nil
+		}
+
+		// Build and apply the patch (without hash - hash is applied only after verification)
+		if err := k.patchDeploymentWithK8sSettings(ctx, &deployment, k8sSettings, psaLevel); err != nil {
+			if apierrors.IsConflict(err) {
+				olog.Debugf("conflict patching deployment %s on attempt %d, retrying", id, attempt+1)
+				continue
+			}
+			return err
+		}
+
+		// Re-fetch to verify the patch was applied correctly
+		if err := k.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: k.mcpNamespace}, &deployment); err != nil {
+			return fmt.Errorf("failed to get deployment %s after patch: %w", id, err)
+		}
+
+		// Verify the patch was applied correctly (check settings, not hash)
+		if k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel) {
+			olog.Debugf("deployment %s patched successfully with K8s settings on attempt %d", id, attempt+1)
+			// Settings match, now apply the hash to mark reconciliation complete
+			if err := k.patchDeploymentHash(ctx, &deployment, k8sSettingsHash); err != nil {
+				if apierrors.IsConflict(err) {
+					olog.Debugf("conflict patching hash for deployment %s on attempt %d, retrying", id, attempt+1)
+					continue
+				}
+				return err
+			}
+			return nil
+		}
+
+		olog.Debugf("deployment %s K8s settings patch incomplete on attempt %d, retrying", id, attempt+1)
 	}
 
-	// Update the deployment metadata annotation as well
-	deploymentAnnotations := map[string]string{
-		"obot.ai/k8s-settings-hash": k8sSettingsHash,
+	// After max retries, settings still don't match. Don't update the hash so that
+	// NeedsK8sUpdate flag remains set and another reconciliation will be triggered.
+	olog.Warnf("deployment %s failed to fully reconcile K8s settings after %d attempts, hash not updated", id, maxPatchRetries)
+	return fmt.Errorf("failed to fully apply K8s settings to deployment %s after %d attempts", id, maxPatchRetries)
+}
+
+// patchDeploymentWithK8sSettings applies the K8s settings patch to the deployment
+// Note: This does NOT update the hash annotation - that's done separately via patchDeploymentHash
+// after verification passes, ensuring the hash only reflects successfully applied settings.
+func (k *kubernetesBackend) patchDeploymentWithK8sSettings(ctx context.Context, deployment *appsv1.Deployment, k8sSettings v1.K8sSettingsSpec, psaLevel PSAEnforceLevel) error {
+	// Build the patch with restart annotation (but not the hash - that comes after verification)
+	podAnnotations := map[string]string{
+		"kubectl.kubernetes.io/restartedAt": time.Now().Format(time.RFC3339),
 	}
 
 	// Build the patch structure
 	templateSpec := make(map[string]any)
 	patch := map[string]any{
-		"metadata": map[string]any{
-			"annotations": deploymentAnnotations,
-		},
 		"spec": map[string]any{
 			"template": map[string]any{
 				"metadata": map[string]any{
@@ -1068,9 +1124,6 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 		// Note: For scalar fields, we set to nil to remove them in strategic merge patch
 		templateSpec["runtimeClassName"] = nil
 	}
-
-	// Get PSA enforce level for security context decisions
-	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
 
 	// Add pod-level security context based on PSA level
 	podSecurityContextPatch := getPodSecurityContextPatch(psaLevel)
@@ -1155,11 +1208,166 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 	}
 
 	// Use StrategicMergePatchType to merge containers by name without requiring all fields
-	if err := k.client.Patch(ctx, &deployment, kclient.RawPatch(ktypes.StrategicMergePatchType, patchBytes)); err != nil {
-		return fmt.Errorf("failed to patch deployment %s: %w", id, err)
+	if err := k.client.Patch(ctx, deployment, kclient.RawPatch(ktypes.StrategicMergePatchType, patchBytes)); err != nil {
+		return fmt.Errorf("failed to patch deployment %s: %w", deployment.Name, err)
 	}
 
 	return nil
+}
+
+// deploymentSettingsMatch verifies that a deployment has the expected K8s settings applied
+// This checks the actual settings (PSA, resources, runtimeClassName, affinity, tolerations) but NOT the hash annotation.
+// The hash is applied separately after settings are verified to ensure it reflects actual state.
+func (k *kubernetesBackend) deploymentSettingsMatch(deployment *appsv1.Deployment, k8sSettings v1.K8sSettingsSpec, psaLevel PSAEnforceLevel) bool {
+	// Check PSA compliance (uses existing comprehensive check)
+	if DeploymentNeedsPSAUpdate(deployment, psaLevel) {
+		return false
+	}
+
+	// Check resources on the mcp container
+	mcpFound := false
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == "mcp" {
+			mcpFound = true
+			if !resourcesMatch(container.Resources, k8sSettings.Resources) {
+				return false
+			}
+			break
+		}
+	}
+	// If resources are configured but no mcp container exists, settings can't match
+	if !mcpFound && k8sSettings.Resources != nil {
+		return false
+	}
+
+	// Check runtimeClassName
+	if !runtimeClassNameMatches(deployment.Spec.Template.Spec.RuntimeClassName, k8sSettings.RuntimeClassName) {
+		return false
+	}
+
+	// Check affinity
+	if !affinityMatches(deployment.Spec.Template.Spec.Affinity, k8sSettings.Affinity) {
+		return false
+	}
+
+	// Check tolerations
+	if !tolerationsMatch(deployment.Spec.Template.Spec.Tolerations, k8sSettings.Tolerations) {
+		return false
+	}
+
+	return true
+}
+
+// patchDeploymentHash applies only the K8s settings hash annotation to the deployment.
+// This should be called after verifying that the actual settings have been applied.
+func (k *kubernetesBackend) patchDeploymentHash(ctx context.Context, deployment *appsv1.Deployment, k8sSettingsHash string) error {
+	patch := map[string]any{
+		"metadata": map[string]any{
+			"annotations": map[string]string{
+				"obot.ai/k8s-settings-hash": k8sSettingsHash,
+			},
+		},
+		"spec": map[string]any{
+			"template": map[string]any{
+				"metadata": map[string]any{
+					"annotations": map[string]string{
+						"obot.ai/k8s-settings-hash": k8sSettingsHash,
+					},
+				},
+			},
+		},
+	}
+
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return fmt.Errorf("failed to marshal hash patch: %w", err)
+	}
+
+	if err := k.client.Patch(ctx, deployment, kclient.RawPatch(ktypes.StrategicMergePatchType, patchBytes)); err != nil {
+		return fmt.Errorf("failed to patch deployment %s with hash: %w", deployment.Name, err)
+	}
+
+	return nil
+}
+
+// resourcesMatch checks if the container's resources match the desired settings.
+// It performs a full bidirectional comparison: desired keys must exist in actual with
+// equal values, and actual must not contain extra keys beyond what desired specifies.
+func resourcesMatch(actual corev1.ResourceRequirements, desired *corev1.ResourceRequirements) bool {
+	if desired == nil {
+		// If no desired resources, actual must also be empty.
+		// If actual still has resources, the delete patch didn't fully apply.
+		return len(actual.Limits) == 0 && len(actual.Requests) == 0
+	}
+
+	// Check limits: lengths must match and all desired values must be present and equal
+	if len(actual.Limits) != len(desired.Limits) {
+		return false
+	}
+	for resourceName, desiredQty := range desired.Limits {
+		actualQty, exists := actual.Limits[resourceName]
+		if !exists || !actualQty.Equal(desiredQty) {
+			return false
+		}
+	}
+
+	// Check requests: lengths must match and all desired values must be present and equal
+	if len(actual.Requests) != len(desired.Requests) {
+		return false
+	}
+	for resourceName, desiredQty := range desired.Requests {
+		actualQty, exists := actual.Requests[resourceName]
+		if !exists || !actualQty.Equal(desiredQty) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// runtimeClassNameMatches checks if the runtime class names match
+func runtimeClassNameMatches(actual *string, desired *string) bool {
+	actualVal := ""
+	if actual != nil {
+		actualVal = *actual
+	}
+
+	desiredVal := ""
+	if desired != nil {
+		desiredVal = *desired
+	}
+
+	return actualVal == desiredVal
+}
+
+// affinityMatches checks if the deployment's affinity matches the desired settings
+func affinityMatches(actual *corev1.Affinity, desired *corev1.Affinity) bool {
+	if desired == nil && actual == nil {
+		return true
+	}
+	if desired == nil {
+		// No desired affinity, but deployment has one - not a match
+		return actual == nil
+	}
+	if actual == nil {
+		// Desired affinity set, but deployment doesn't have one
+		return false
+	}
+	return reflect.DeepEqual(actual, desired)
+}
+
+// tolerationsMatch checks if the deployment's tolerations match the desired settings
+func tolerationsMatch(actual []corev1.Toleration, desired []corev1.Toleration) bool {
+	if len(desired) == 0 && len(actual) == 0 {
+		return true
+	}
+	if len(desired) == 0 {
+		return len(actual) == 0
+	}
+	if len(actual) != len(desired) {
+		return false
+	}
+	return reflect.DeepEqual(actual, desired)
 }
 
 // PSAEnforceLevel represents the Pod Security Admission enforce level

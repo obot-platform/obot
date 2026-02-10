@@ -87,38 +87,52 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 		needsUpdate = true
 	}
 
-	// Update K8s settings hash if it changed
-	// Note: k8sSettingsHash will be empty string for non-K8s runtimes or if annotation is missing
-	if mcpServer.Status.K8sSettingsHash != k8sSettingsHash {
-		mcpServer.Status.K8sSettingsHash = k8sSettingsHash
-		needsUpdate = true
-	}
-
 	// Manage NeedsK8sUpdate flag for K8s-compatible runtimes
 	isK8sRuntime := mcpServer.Spec.Manifest.Runtime == types.RuntimeContainerized ||
 		mcpServer.Spec.Manifest.Runtime == types.RuntimeUVX ||
 		mcpServer.Spec.Manifest.Runtime == types.RuntimeNPX
 
-	if isK8sRuntime && !mcpServer.Status.NeedsK8sUpdate {
+	if isK8sRuntime {
 		// Get current K8s settings to compare
 		var k8sSettings v1.K8sSettings
 		if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{
 			Namespace: h.mcpNamespace,
 			Name:      system.K8sSettingsName,
 		}, &k8sSettings); err == nil {
-			// Only check for updates if the deployment has been annotated with a hash.
-			// Empty hash means the deployment is still being initialized and shouldn't
-			// be flagged for updates yet.
-			if k8sSettingsHash != "" {
-				currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+			currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
 
-				// If the deployment's hash doesn't match the current K8sSettings hash,
-				// the deployment needs to be updated with new K8s settings
-				if k8sSettingsHash != currentHash {
+			// Update K8sSettingsHash from deployment only if:
+			// 1. The MCPServer has no hash yet (empty), OR
+			// 2. The deployment's hash matches the current K8sSettings (deployment is up-to-date)
+			// This prevents overwriting a hash that was set by the API handler during a redeploy
+			// before the deployment has been updated.
+			if k8sSettingsHash != "" {
+				if mcpServer.Status.K8sSettingsHash == "" || k8sSettingsHash == currentHash {
+					if mcpServer.Status.K8sSettingsHash != k8sSettingsHash {
+						mcpServer.Status.K8sSettingsHash = k8sSettingsHash
+						needsUpdate = true
+					}
+				}
+			}
+
+			// Only set NeedsK8sUpdate if:
+			// 1. It's not already set
+			// 2. The deployment has a hash (not initializing)
+			// 3. The deployment's hash doesn't match current K8sSettings
+			// 4. The MCPServer's expected hash also doesn't match current K8sSettings
+			//    (if MCPServer already expects the current hash, a redeploy is pending)
+			if !mcpServer.Status.NeedsK8sUpdate {
+				if k8sSettingsHash != currentHash && mcpServer.Status.K8sSettingsHash != currentHash {
 					mcpServer.Status.NeedsK8sUpdate = true
 					needsUpdate = true
 				}
 			}
+		}
+	} else {
+		// For non-K8s runtimes, just sync the hash from the deployment annotation
+		if mcpServer.Status.K8sSettingsHash != k8sSettingsHash {
+			mcpServer.Status.K8sSettingsHash = k8sSettingsHash
+			needsUpdate = true
 		}
 	}
 

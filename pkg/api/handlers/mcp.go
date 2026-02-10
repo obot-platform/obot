@@ -3091,10 +3091,13 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 		}
 	}
 
-	if server.Status.NeedsK8sUpdate {
+	if server.Status.NeedsK8sUpdate || hashDrift {
 		// Clear the NeedsK8sUpdate flag now that the redeployment has been initiated.
-		// We assume the deployment will eventually reconcile successfully.
+		// Also update the K8sSettingsHash to the current expected hash so that the
+		// deployment handler won't re-set NeedsK8sUpdate when it observes the old
+		// deployment before the new one is created.
 		server.Status.NeedsK8sUpdate = false
+		server.Status.K8sSettingsHash = currentHash
 		if err := req.Storage.Status().Update(req.Context(), &server); err != nil {
 			return fmt.Errorf("failed to update server status: %w", err)
 		}

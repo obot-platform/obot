@@ -9,7 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func TestParseK8sSettingsFromHelm(t *testing.T) {
+func TestParsePodSchedulingSettingsFromHelm(t *testing.T) {
 	tests := []struct {
 		name           string
 		opts           mcp.Options
@@ -84,9 +84,10 @@ func TestParseK8sSettingsFromHelm(t *testing.T) {
 		{
 			name: "all valid fields combined",
 			opts: mcp.Options{
-				MCPK8sSettingsAffinity:    `{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"disktype","operator":"In","values":["ssd"]}]}]}}}`,
-				MCPK8sSettingsTolerations: `[{"key":"key1","operator":"Equal","value":"value1","effect":"NoSchedule"}]`,
-				MCPK8sSettingsResources:   `{"limits":{"cpu":"2","memory":"4Gi"}}`,
+				MCPK8sSettingsAffinity:         `{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"disktype","operator":"In","values":["ssd"]}]}]}}}`,
+				MCPK8sSettingsTolerations:      `[{"key":"key1","operator":"Equal","value":"value1","effect":"NoSchedule"}]`,
+				MCPK8sSettingsResources:        `{"limits":{"cpu":"2","memory":"4Gi"}}`,
+				MCPK8sSettingsRuntimeClassName: "gvisor",
 			},
 			expectError: false,
 			validateResult: func(t *testing.T, spec *v1.K8sSettingsSpec) {
@@ -99,6 +100,9 @@ func TestParseK8sSettingsFromHelm(t *testing.T) {
 				}
 				if spec.Resources == nil {
 					t.Error("expected resources to be set")
+				}
+				if spec.RuntimeClassName == nil || *spec.RuntimeClassName != "gvisor" {
+					t.Error("expected runtimeClassName to be 'gvisor'")
 				}
 			},
 		},
@@ -176,7 +180,7 @@ func TestParseK8sSettingsFromHelm(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := parseK8sSettingsFromHelm(tt.opts)
+			result, err := parsePodSchedulingSettingsFromHelm(tt.opts)
 
 			// Check error expectation
 			if tt.expectError {
@@ -214,5 +218,180 @@ func TestParseK8sSettingsFromHelm(t *testing.T) {
 				tt.validateResult(t, result)
 			}
 		})
+	}
+}
+
+func TestParsePSASettingsFromHelm(t *testing.T) {
+	tests := []struct {
+		name           string
+		opts           mcp.Options
+		expectError    bool
+		errorContains  string
+		expectNil      bool
+		validateResult func(t *testing.T, psa *v1.PodSecurityAdmissionSettings)
+	}{
+		{
+			name:      "no PSA settings",
+			opts:      mcp.Options{},
+			expectNil: true,
+		},
+		{
+			name: "PSA enabled with defaults",
+			opts: mcp.Options{
+				MCPPodSecurityEnabled:        true,
+				MCPPodSecurityEnforce:        "restricted",
+				MCPPodSecurityEnforceVersion: "latest",
+				MCPPodSecurityAudit:          "restricted",
+				MCPPodSecurityAuditVersion:   "latest",
+				MCPPodSecurityWarn:           "restricted",
+				MCPPodSecurityWarnVersion:    "latest",
+			},
+			expectError: false,
+			validateResult: func(t *testing.T, psa *v1.PodSecurityAdmissionSettings) {
+				t.Helper()
+				if !psa.Enabled {
+					t.Error("expected PSA to be enabled")
+				}
+				if psa.Enforce != "restricted" {
+					t.Errorf("expected enforce 'restricted', got '%s'", psa.Enforce)
+				}
+			},
+		},
+		{
+			name: "PSA with baseline level",
+			opts: mcp.Options{
+				MCPPodSecurityEnabled:        true,
+				MCPPodSecurityEnforce:        "baseline",
+				MCPPodSecurityEnforceVersion: "v1.28",
+				MCPPodSecurityAudit:          "baseline",
+				MCPPodSecurityAuditVersion:   "v1.28",
+				MCPPodSecurityWarn:           "baseline",
+				MCPPodSecurityWarnVersion:    "v1.28",
+			},
+			expectError: false,
+			validateResult: func(t *testing.T, psa *v1.PodSecurityAdmissionSettings) {
+				t.Helper()
+				if psa.Enforce != "baseline" {
+					t.Errorf("expected enforce 'baseline', got '%s'", psa.Enforce)
+				}
+				if psa.EnforceVersion != "v1.28" {
+					t.Errorf("expected enforce version 'v1.28', got '%s'", psa.EnforceVersion)
+				}
+			},
+		},
+		{
+			name: "PSA with privileged level",
+			opts: mcp.Options{
+				MCPPodSecurityEnabled: true,
+				MCPPodSecurityEnforce: "privileged",
+			},
+			expectError: false,
+			validateResult: func(t *testing.T, psa *v1.PodSecurityAdmissionSettings) {
+				t.Helper()
+				if psa.Enforce != "privileged" {
+					t.Errorf("expected enforce 'privileged', got '%s'", psa.Enforce)
+				}
+			},
+		},
+		{
+			name: "invalid PSA enforce level",
+			opts: mcp.Options{
+				MCPPodSecurityEnabled: true,
+				MCPPodSecurityEnforce: "invalid-level",
+			},
+			expectError:   true,
+			errorContains: "invalid PSA enforce level",
+		},
+		{
+			name: "invalid PSA audit level",
+			opts: mcp.Options{
+				MCPPodSecurityEnabled: true,
+				MCPPodSecurityAudit:   "invalid-level",
+			},
+			expectError:   true,
+			errorContains: "invalid PSA audit level",
+		},
+		{
+			name: "invalid PSA warn level",
+			opts: mcp.Options{
+				MCPPodSecurityEnabled: true,
+				MCPPodSecurityWarn:    "invalid-level",
+			},
+			expectError:   true,
+			errorContains: "invalid PSA warn level",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parsePSASettingsFromHelm(tt.opts)
+
+			// Check error expectation
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+					return
+				}
+				if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
+					t.Errorf("expected error to contain '%s', got: %v", tt.errorContains, err)
+				}
+				return
+			}
+
+			// Check for unexpected error
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			// Check nil expectation
+			if tt.expectNil {
+				if result != nil {
+					t.Errorf("expected nil result, got: %+v", result)
+				}
+				return
+			}
+
+			// Validate result
+			if result == nil {
+				t.Error("expected non-nil result")
+				return
+			}
+
+			if tt.validateResult != nil {
+				tt.validateResult(t, result)
+			}
+		})
+	}
+}
+
+// TestPSASettingsIndependentOfPodScheduling verifies that PSA settings don't affect
+// whether pod scheduling settings are considered "set via Helm"
+func TestPSASettingsIndependentOfPodScheduling(t *testing.T) {
+	// When only PSA settings are provided (with defaults), pod scheduling should be nil
+	opts := mcp.Options{
+		MCPPodSecurityEnabled:        true,
+		MCPPodSecurityEnforce:        "restricted",
+		MCPPodSecurityEnforceVersion: "latest",
+		MCPPodSecurityAudit:          "restricted",
+		MCPPodSecurityAuditVersion:   "latest",
+		MCPPodSecurityWarn:           "restricted",
+		MCPPodSecurityWarnVersion:    "latest",
+	}
+
+	podScheduling, err := parsePodSchedulingSettingsFromHelm(opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if podScheduling != nil {
+		t.Error("expected pod scheduling settings to be nil when only PSA is set")
+	}
+
+	psaSettings, err := parsePSASettingsFromHelm(opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if psaSettings == nil {
+		t.Error("expected PSA settings to be non-nil")
 	}
 }
