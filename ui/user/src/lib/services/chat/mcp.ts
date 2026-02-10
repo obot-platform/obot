@@ -110,7 +110,7 @@ export function requiresUserUpdate(server?: MCPCatalogServer) {
 }
 
 function isMCPCatalogServer(server: MCPCatalogServer | ProjectMCP): server is MCPCatalogServer {
-	return 'missingRequiredEnvVars' in server;
+	return 'catalogEntryID' in server;
 }
 
 /**
