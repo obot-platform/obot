@@ -110,6 +110,7 @@ type Config struct {
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
 	EnableRegistryAuth      bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 	NanobotIntegration      bool   `usage:"Enable Nanobot integration" default:"false"`
+	MCPServerImage          string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:main" env:"OBOT_MCP_SERVER_IMAGE"`
 
 	GeminiConfig
 	GatewayConfig
@@ -192,6 +193,7 @@ type Services struct {
 	RegistryNoAuth           bool
 	AutonomousToolUseEnabled bool
 	NanobotIntegration       bool
+	MCPServerImage           string
 }
 
 const (
@@ -896,6 +898,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPRemoteShimBaseImage:        config.MCPRemoteShimBaseImage,
 		RegistryNoAuth:                registryNoAuth,
 		NanobotIntegration:            config.NanobotIntegration,
+		MCPServerImage:                config.MCPServerImage,
 	}, nil
 }
 

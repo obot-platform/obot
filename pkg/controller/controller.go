@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"log/slog"
+
 	"github.com/obot-platform/nah"
 	"github.com/obot-platform/nah/pkg/router"
+
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/controller/data"
@@ -90,7 +93,84 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure admin workspaces: %w", err)
 	}
 
+	if c.services.NanobotIntegration {
+		if err := c.ensureObotMCPServer(ctx); err != nil {
+			return fmt.Errorf("failed to ensure obot MCP server: %w", err)
+		}
+	}
+
 	return nil
+}
+
+func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
+	internalURL := c.services.MCPLoader.TransformObotHostname(c.services.ServerURL)
+	image := c.services.MCPServerImage
+
+	var existing v1.SystemMCPServer
+	err := c.services.StorageClient.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      system.ObotMCPServerName,
+	}, &existing)
+	if err == nil {
+		// Update if image or OBOT_URL changed
+		var needsUpdate bool
+
+		if existing.Spec.Manifest.ContainerizedConfig != nil && existing.Spec.Manifest.ContainerizedConfig.Image != image {
+			existing.Spec.Manifest.ContainerizedConfig.Image = image
+			needsUpdate = true
+		}
+
+		// Check OBOT_URL env var
+		for i, env := range existing.Spec.Manifest.Env {
+			if env.Name == "OBOT_URL" && env.Value != internalURL {
+				existing.Spec.Manifest.Env[i].Value = internalURL
+				needsUpdate = true
+			}
+		}
+
+		if needsUpdate {
+			slog.Info("Updating obot MCP server", "image", image)
+			return c.services.StorageClient.Update(ctx, &existing)
+		}
+		return nil
+	}
+	if !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	// Create the SystemMCPServer
+	slog.Info("Creating obot MCP server", "image", image)
+	server := &v1.SystemMCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      system.ObotMCPServerName,
+			Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.SystemMCPServerSpec{
+			Manifest: types.SystemMCPServerManifest{
+				Name:             "Obot MCP Server",
+				ShortDescription: "MCP server for discovering and searching available MCP servers",
+				Enabled:          true,
+				Runtime:          types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image: image,
+					Port:  8080,
+					Path:  "/mcp",
+				},
+				Env: []types.MCPEnv{
+					{
+						MCPHeader: types.MCPHeader{
+							Name:     "OBOT_URL",
+							Key:      "OBOT_URL",
+							Required: true,
+							Value:    internalURL,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return c.services.StorageClient.Create(ctx, server)
 }
 
 func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {

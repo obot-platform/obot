@@ -20,22 +20,24 @@ import (
 )
 
 type Handler struct {
-	gptClient     *gptscript.GPTScript
-	tokenService  *persistent.TokenService
-	gatewayClient *client.Client
-	nanobotImage  string
-	serverURL     string
+	gptClient      *gptscript.GPTScript
+	tokenService   *persistent.TokenService
+	gatewayClient  *client.Client
+	nanobotImage   string
+	serverURL      string
+	mcpServerImage string
 }
 
-func New(gptClient *gptscript.GPTScript, tokenService *persistent.TokenService, gatewayClient *client.Client, nanobotImage, serverURL string, mcpSessionManager *mcp.SessionManager) *Handler {
+func New(gptClient *gptscript.GPTScript, tokenService *persistent.TokenService, gatewayClient *client.Client, nanobotImage, serverURL string, mcpSessionManager *mcp.SessionManager, mcpServerImage string) *Handler {
 	return &Handler{
 		gptClient:     gptClient,
 		tokenService:  tokenService,
 		gatewayClient: gatewayClient,
 		// For now, this is hardcoded to the main tag, but we will switch this out before release.
 		// TODO(thedadams): Change this to the nanobotImage prior to release.
-		nanobotImage: "ghcr.io/nanobot-ai/nanobot:main",
-		serverURL:    mcpSessionManager.TransformObotHostname(serverURL),
+		nanobotImage:   "ghcr.io/nanobot-ai/nanobot:main",
+		serverURL:      mcpSessionManager.TransformObotHostname(serverURL),
+		mcpServerImage: mcpServerImage,
 	}
 }
 
@@ -303,16 +305,15 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 		ToolName: mcpServerName,
 		Type:     gptscript.CredentialTypeTool,
 		Env: map[string]string{
-			"OBOT_URL":                     h.serverURL,
-			"ANTHROPIC_BASE_URL":           fmt.Sprintf("%s/api/llm-proxy/anthropic", h.serverURL),
-			"OPENAI_BASE_URL":              fmt.Sprintf("%s/api/llm-proxy/openai", h.serverURL),
-			"ANTHROPIC_API_KEY":            token,
-			"OPENAI_API_KEY":               token,
-			"MCP_API_KEY":                  apiKeyResp.Key,
-			"MCP_API_KEY_ID":               strconv.FormatUint(uint64(apiKeyResp.ID), 10),
-			"MCP_SERVER_SEARCH_URL":        fmt.Sprintf("%s/mcp?internal=true", h.serverURL),
-			"MCP_SERVER_SEARCH_API_KEY":    mcpTokenResp.Token,
-			"MCP_SERVER_SEARCH_API_KEY_ID": strconv.FormatUint(uint64(mcpTokenResp.ID), 10),
+			"OBOT_URL":                  h.serverURL,
+			"ANTHROPIC_BASE_URL":        fmt.Sprintf("%s/api/llm-proxy/anthropic", h.serverURL),
+			"OPENAI_BASE_URL":           fmt.Sprintf("%s/api/llm-proxy/openai", h.serverURL),
+			"ANTHROPIC_API_KEY":         token,
+			"OPENAI_API_KEY":            token,
+			"MCP_API_KEY":               apiKeyResp.Key,
+			"MCP_API_KEY_ID":            strconv.FormatUint(uint64(apiKeyResp.ID), 10),
+			"MCP_SERVER_SEARCH_URL":     system.MCPConnectURL(h.serverURL, system.ObotMCPServerName),
+			"MCP_SERVER_SEARCH_API_KEY": token,
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)

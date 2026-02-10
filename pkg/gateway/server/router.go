@@ -100,5 +100,4 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	// API Key authentication webhook (called by nanobot shim)
 	// This endpoint is unauthenticated - it validates the API key passed in the header
 	mux.HandleFunc("POST /api/api-keys/auth", wrap(s.authenticateAPIKey))
-
 }
