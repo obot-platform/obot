@@ -1005,8 +1005,8 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 			return fmt.Errorf("failed to get deployment %s: %w", id, err)
 		}
 
-		// Check if deployment already matches the desired state (after first attempt)
-		if attempt > 0 && k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel) {
+		// Check if deployment already matches the desired state
+		if k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel) {
 			olog.Debugf("deployment %s matches desired K8s settings after %d patch attempt(s)", id, attempt)
 			// Settings match, now apply the hash to mark reconciliation complete
 			if err := k.patchDeploymentHash(ctx, &deployment, k8sSettingsHash); err != nil {
@@ -1224,14 +1224,20 @@ func (k *kubernetesBackend) deploymentSettingsMatch(deployment *appsv1.Deploymen
 		return false
 	}
 
-	// Check resources on the mcp container (if it exists - some deployments like remote servers only have a shim)
+	// Check resources on the mcp container
+	mcpFound := false
 	for _, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name == "mcp" {
+			mcpFound = true
 			if !resourcesMatch(container.Resources, k8sSettings.Resources) {
 				return false
 			}
 			break
 		}
+	}
+	// If resources are configured but no mcp container exists, settings can't match
+	if !mcpFound && k8sSettings.Resources != nil {
+		return false
 	}
 
 	// Check runtimeClassName
