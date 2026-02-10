@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
+	import {
+		getProjectMCPs,
+		validateOauthProjectMcps,
+		type ProjectMcpItem
+	} from '$lib/context/projectMcps.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { Server, X, AlertTriangle } from 'lucide-svelte';
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
@@ -38,17 +42,27 @@
 	type OauthRequirement = Extract<Requirement, { type: 'oauth' }>;
 	type AdminOauthRequirement = Extract<Requirement, { type: 'admin-oauth' }>;
 
-	// Track previous configured state to detect changes and clear closed set
-	let previousConfiguredStates = $state<Map<string, boolean | undefined>>(new Map());
+	type RequirementKey = 'config' | 'oauth' | 'admin-oauth' | null;
+
+	function getRequirementKey(mcp: ProjectMcpItem): RequirementKey {
+		if (requiresUserConfiguration(mcp)) return 'config';
+		if (!mcp.authenticated && mcp.oauthURL) return 'oauth';
+		if (requiresAdminOAuthConfig(mcp) && !requiresUserConfiguration(mcp)) return 'admin-oauth';
+		return null;
+	}
+
+	// Track previous requirement key to detect changes and clear closed set
+	let previousRequirementKeys = $state<Map<string, RequirementKey>>(new Map());
 
 	$effect(() => {
 		for (const mcp of projectMcps.items) {
-			const prevConfigured = previousConfiguredStates.get(mcp.id!);
-			// If configured status changed (e.g., from true to false), clear from closed
-			if (prevConfigured !== undefined && prevConfigured !== mcp.configured) {
+			const prevKey = previousRequirementKeys.get(mcp.id!);
+			const currentKey = getRequirementKey(mcp);
+			// If the requirement type changed, clear from closed so new prompts appear
+			if (prevKey !== undefined && prevKey !== currentKey) {
 				closed.delete(mcp.id!);
 			}
-			previousConfiguredStates.set(mcp.id!, mcp.configured);
+			previousRequirementKeys.set(mcp.id!, currentKey);
 		}
 	});
 	let requirements = $derived([
