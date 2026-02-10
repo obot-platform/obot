@@ -11,9 +11,7 @@ type MCPAuditLog struct {
 	UserID               string `json:"userID"`
 	MCPID                string `json:"mcpID"`
 	APIKey               string `json:"apiKey,omitempty"`
-	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
-	// MCPServerCatalogEntryWorkspaceID represents the ID of the PowerUserWorkspace that contains the catalog entry from which the server was created, if there is one.
-	MCPServerCatalogEntryWorkspaceID string          `json:"mcpServerCatalogEntryWorkspaceID,omitempty"`
+	PowerUserWorkspaceID string          `json:"powerUserWorkspaceID,omitempty"`
 	MCPServerDisplayName             string          `json:"mcpServerDisplayName"`
 	MCPServerCatalogEntryName        string          `json:"mcpServerCatalogEntryName"`
 	ClientInfo                       ClientInfo      `json:"client"`

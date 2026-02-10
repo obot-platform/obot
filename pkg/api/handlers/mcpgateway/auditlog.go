@@ -124,10 +124,7 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 		if auditLog.PowerUserWorkspaceID == "" {
 			auditLog.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
 		}
-		if auditLog.MCPServerCatalogEntryWorkspaceID == "" {
-			auditLog.MCPServerCatalogEntryWorkspaceID = auditLog.Metadata["mcpServerCatalogEntryWorkspaceID"]
-		}
-		if auditLog.MCPServerDisplayName == "" {
+			if auditLog.MCPServerDisplayName == "" {
 			auditLog.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
 		}
 
@@ -171,15 +168,14 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		}
 		opts.OwnServerMCPIDs = ownServerMCPIDs
 
-		// PowerUsers also see workspace servers and servers from workspace catalog entries (union)
+		// PowerUsers also see workspace servers
 		if req.UserIsPowerUser() {
 			workspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
 			opts.PowerUserWorkspaceID = []string{workspaceID}
-			opts.MCPServerCatalogEntryWorkspaceID = []string{workspaceID}
 		}
 
 		// Return empty if no access scope
-		if len(opts.OwnServerMCPIDs) == 0 && len(opts.PowerUserWorkspaceID) == 0 && len(opts.MCPServerCatalogEntryWorkspaceID) == 0 {
+		if len(opts.OwnServerMCPIDs) == 0 && len(opts.PowerUserWorkspaceID) == 0 {
 			return req.Write(types.MCPAuditLogResponse{
 				MCPAuditLogList: types.MCPAuditLogList{Items: []types.MCPAuditLog{}},
 				Total:           0,
@@ -291,8 +287,7 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 		isInWorkspace := false
 		if req.UserIsPowerUser() {
 			workspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
-			isInWorkspace = log.PowerUserWorkspaceID == workspaceID ||
-				log.MCPServerCatalogEntryWorkspaceID == workspaceID
+			isInWorkspace = log.PowerUserWorkspaceID == workspaceID
 		}
 
 		// Admins can see all logs.
@@ -371,15 +366,14 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 		}
 		opts.OwnServerMCPIDs = ownServerMCPIDs
 
-		// PowerUsers also see workspace servers and servers from workspace catalog entries (union)
+		// PowerUsers also see workspace servers
 		if req.UserIsPowerUser() {
 			workspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
 			opts.PowerUserWorkspaceID = []string{workspaceID}
-			opts.MCPServerCatalogEntryWorkspaceID = []string{workspaceID}
 		}
 
 		// Return empty if no access scope
-		if len(opts.OwnServerMCPIDs) == 0 && len(opts.PowerUserWorkspaceID) == 0 && len(opts.MCPServerCatalogEntryWorkspaceID) == 0 {
+		if len(opts.OwnServerMCPIDs) == 0 && len(opts.PowerUserWorkspaceID) == 0 {
 			return req.Write(map[string]any{
 				"options": []string{},
 			})
@@ -459,15 +453,14 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 		}
 		opts.OwnServerMCPIDs = ownServerMCPIDs
 
-		// PowerUsers also see workspace servers and servers from workspace catalog entries (union)
+		// PowerUsers also see workspace servers
 		if req.UserIsPowerUser() {
 			workspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
 			opts.PowerUserWorkspaceID = []string{workspaceID}
-			opts.MCPServerCatalogEntryWorkspaceID = []string{workspaceID}
 		}
 
 		// Return empty if no access scope
-		if len(opts.OwnServerMCPIDs) == 0 && len(opts.PowerUserWorkspaceID) == 0 && len(opts.MCPServerCatalogEntryWorkspaceID) == 0 {
+		if len(opts.OwnServerMCPIDs) == 0 && len(opts.PowerUserWorkspaceID) == 0 {
 			return req.Write(types.MCPUsageStats{
 				TimeStart: *types.NewTime(time.Now().Add(-24 * time.Hour)),
 				TimeEnd:   *types.NewTime(time.Now()),

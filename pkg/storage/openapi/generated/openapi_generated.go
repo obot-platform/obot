@@ -3755,13 +3755,6 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 							Format: "",
 						},
 					},
-					"mcpServerCatalogEntryWorkspaceID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MCPServerCatalogEntryWorkspaceID represents the ID of the PowerUserWorkspace that contains the catalog entry from which the server was created, if there is one.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"mcpServerDisplayName": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
