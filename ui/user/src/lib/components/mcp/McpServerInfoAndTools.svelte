@@ -18,7 +18,9 @@
 	import {
 		convertCompositeInfoToLaunchFormData,
 		convertCompositeLaunchFormDataToPayload,
-		convertEnvHeadersToRecord
+		convertEnvHeadersToRecord,
+		requiresUserConfiguration,
+		requiresAdminOAuthConfig
 	} from '$lib/services/chat/mcp';
 
 	interface Props {
@@ -160,31 +162,46 @@
 				>
 					{#snippet preContent()}
 						{#if 'configured' in entry && typeof entry.configured === 'boolean' && entry.configured === false}
+							{@const isAdminOAuthOnly =
+								requiresAdminOAuthConfig(entry) && !requiresUserConfiguration(entry)}
 							<div class="notification-alert mb-4 flex gap-2">
 								<div class="flex grow flex-col gap-2">
 									<div class="flex items-center gap-2">
 										<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
-										<p class="my-0.5 flex flex-col text-sm font-semibold">Update Required</p>
+										<p class="my-0.5 flex flex-col text-sm font-semibold">
+											{#if isAdminOAuthOnly}
+												Admin Configuration Required
+											{:else}
+												Update Required
+											{/if}
+										</p>
 									</div>
 									<span class="text-sm font-light break-all">
-										Due to a recent update in the server, an update on this MCP server's
-										configuration is required to continue using this server.
+										{#if isAdminOAuthOnly}
+											This MCP server requires OAuth credentials to be configured by an
+											administrator.
+										{:else}
+											Due to a recent update in the server, an update on this MCP server's
+											configuration is required to continue using this server.
+										{/if}
 									</span>
 								</div>
-								<div class="flex flex-shrink-0 items-center">
-									<button
-										class="button-primary text-sm"
-										onclick={() => {
-											if (onEditConfiguration) {
-												onEditConfiguration();
-											} else {
-												handleInitConfigureForm();
-											}
-										}}
-									>
-										Edit Configuration
-									</button>
-								</div>
+								{#if !isAdminOAuthOnly}
+									<div class="flex flex-shrink-0 items-center">
+										<button
+											class="button-primary text-sm"
+											onclick={() => {
+												if (onEditConfiguration) {
+													onEditConfiguration();
+												} else {
+													handleInitConfigureForm();
+												}
+											}}
+										>
+											Edit Configuration
+										</button>
+									</div>
+								{/if}
 							</div>
 						{:else if project}
 							<div class="mb-4 w-full">

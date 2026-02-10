@@ -9,6 +9,7 @@ export type ProjectMcpItem = ProjectMCP & {
 	authenticated?: boolean;
 	configured?: boolean;
 	needsURL?: boolean;
+	missingOAuthCredentials?: boolean;
 };
 
 export interface ProjectMCPContext {
