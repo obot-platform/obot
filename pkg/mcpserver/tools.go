@@ -138,10 +138,7 @@ func (s *Server) handleListMCPServers(ctx context.Context, req *mcp.CallToolRequ
 	}
 	limit := 50
 	if v, ok := args["limit"].(float64); ok && v > 0 {
-		limit = int(v)
-	}
-	if limit > 1000 {
-		limit = 1000
+		limit = min(int(v), 1000)
 	}
 
 	// Create a user.Info wrapper for ACR checks
@@ -186,12 +183,9 @@ func (s *Server) handleListMCPServers(ctx context.Context, req *mcp.CallToolRequ
 	}
 
 	// Calculate remaining limit for multi-user servers based on filtered entry count
-	remainingLimit := 0
+	var remainingLimit int
 	if limit > 0 {
-		remainingLimit = limit - len(filteredEntries)
-		if remainingLimit < 0 {
-			remainingLimit = 0
-		}
+		remainingLimit = max(limit-len(filteredEntries), 0)
 	}
 
 	// List multi-user servers with remaining limit
@@ -202,10 +196,8 @@ func (s *Server) handleListMCPServers(ctx context.Context, req *mcp.CallToolRequ
 	}
 
 	// Trim single-user servers to the remaining limit
-	singleUserResultLimit := limit - len(filteredEntries) - len(servers)
-	if singleUserResultLimit < 0 {
-		singleUserResultLimit = 0
-	}
+	singleUserResultLimit := max(limit-len(filteredEntries)-len(servers), 0)
+
 	if singleUserResultLimit < len(singleUserServers) {
 		singleUserServers = singleUserServers[:singleUserResultLimit]
 	}
@@ -254,10 +246,7 @@ func (s *Server) handleSearchMCPServers(ctx context.Context, req *mcp.CallToolRe
 
 	limit := 20
 	if v, ok := args["limit"].(float64); ok && v > 0 {
-		limit = int(v)
-	}
-	if limit > 1000 {
-		limit = 1000
+		limit = min(int(v), 1000)
 	}
 
 	// Create a user.Info wrapper for ACR checks
@@ -431,9 +420,16 @@ func (s *Server) getCatalogEntryConnection(ctx context.Context, userInfo *mcpUse
 	needsURL := listing.RequiresURLConfiguration(entry.Spec.Manifest)
 	isComposite := entry.Spec.Manifest.Runtime == types.RuntimeComposite
 
+	serverURL := s.serverURL
+	if isInternalContext(ctx) {
+		serverURL = s.internalServerURL
+	}
+
 	if needsConfig || needsURL || isComposite {
 		result.Status = "requires_configuration"
 		result.NeedsURL = needsURL
+
+		// The ConfigureURL should always be the "public" server URL so the user can visit it in the UI.
 		result.ConfigureURL = fmt.Sprintf("%s/mcp-servers/c/%s", s.serverURL, serverID)
 		if isComposite {
 			result.Message = "This is a composite server. Please visit the configuration URL to select which tools to enable."
@@ -442,7 +438,7 @@ func (s *Server) getCatalogEntryConnection(ctx context.Context, userInfo *mcpUse
 		}
 	} else {
 		result.Status = "ready"
-		result.ConnectURL = system.MCPConnectURL(s.serverURL, serverID)
+		result.ConnectURL = system.MCPConnectURL(serverURL, serverID)
 		result.Message = "Server is ready to use. Connect using the provided URL."
 	}
 
@@ -469,8 +465,12 @@ func (s *Server) getMCPServerConnection(ctx context.Context, userInfo *mcpUserIn
 		return jsonResult(result)
 	}
 
+	serverURL := s.serverURL
+	if isInternalContext(ctx) {
+		serverURL = s.internalServerURL
+	}
 	result.Status = "ready"
-	result.ConnectURL = system.MCPConnectURL(s.serverURL, serverID)
+	result.ConnectURL = system.MCPConnectURL(serverURL, serverID)
 	result.Message = "Server is ready to use. Connect using the provided URL."
 
 	return jsonResult(result)
