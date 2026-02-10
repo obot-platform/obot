@@ -995,7 +995,7 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 	// 1. Strategic merge patch doesn't fully apply all changes (especially when combining resources and PSA settings)
 	// 2. Conflict errors (409) occur due to concurrent updates by controllers
 	const maxPatchRetries = 3
-	for attempt := 0; attempt < maxPatchRetries; attempt++ {
+	for attempt := range maxPatchRetries {
 		// Always re-fetch the deployment to get the latest state
 		var deployment appsv1.Deployment
 		if err := k.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: k.mcpNamespace}, &deployment); apierrors.IsNotFound(err) {
