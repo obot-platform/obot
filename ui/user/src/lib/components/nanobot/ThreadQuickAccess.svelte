@@ -10,7 +10,8 @@
 		Folder,
 		ChevronUp,
 		ChevronDown,
-		ChevronRight
+		ChevronRight,
+		FolderOpen
 	} from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -285,7 +286,11 @@
 											{/if}
 										</span>
 										<div class="bg-base-200 rounded-md p-1">
-											<Folder class="text-primary/80 size-4" />
+											{#if isFolderOpen(path)}
+												<FolderOpen class="text-primary/80 size-4" />
+											{:else}
+												<Folder class="text-primary/80 size-4" />
+											{/if}
 										</div>
 										<span class="font-medium break-all">{node.name}</span>
 									</button>
