@@ -292,13 +292,13 @@
 												<Folder class="text-primary/80 size-4" />
 											{/if}
 										</div>
-										<span class="font-medium break-all">{node.name}</span>
+										<span class="font-normal break-all">{node.name}</span>
 									</button>
 								{:else}
 									<button
 										class={twMerge(
 											'btn btn-ghost flex w-full items-center justify-start gap-2 rounded-none text-left',
-											selectedFile === node.uri ? 'bg-primary/10' : ''
+											selectedFile === node.uri ? 'bg-base-300' : ''
 										)}
 										style="padding-left: {depth * 0.65}rem;"
 										onclick={() => onFileOpen?.(node.uri)}
@@ -307,7 +307,7 @@
 										<div class="bg-base-200 rounded-md p-1">
 											<File class="size-4" />
 										</div>
-										<span class="break-all">{node.name}</span>
+										<span class="font-normal break-all">{node.name}</span>
 									</button>
 								{/if}
 							</li>
