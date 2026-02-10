@@ -2,15 +2,26 @@
 	import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import type { ChatMessageItemToolCall } from '$lib/services/nanobot/types';
 	import { fly } from 'svelte/transition';
-	import { Circle, CheckCircle2, Loader2, File, ChevronUp, ChevronDown } from 'lucide-svelte';
+	import {
+		Circle,
+		CheckCircle2,
+		Loader2,
+		File,
+		Folder,
+		ChevronUp,
+		ChevronDown,
+		ChevronRight
+	} from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		chat: ChatService;
 		onFileOpen?: (filename: string) => void;
+		selectedFile?: string;
 	}
 
-	let { chat, onFileOpen }: Props = $props();
+	let { chat, onFileOpen, selectedFile }: Props = $props();
 
 	/** Todo item shape from todo:///list resource or todo_write tool (application/json) */
 	interface TodoItem {
@@ -101,6 +112,87 @@
 	let resourceFiles = $derived(
 		chat.resources ? chat.resources.filter((r) => r.uri.startsWith('file:///')) : []
 	);
+
+	type FileTreeNode =
+		| { type: 'folder'; name: string; children: FileTreeNode[] }
+		| { type: 'file'; name: string; uri: string };
+
+	function buildFileTreeSimple(files: { uri: string; name?: string }[]): FileTreeNode[] {
+		const root: Extract<FileTreeNode, { type: 'folder' }> = {
+			type: 'folder',
+			name: '',
+			children: []
+		};
+		function ensurePath(segments: string[]): Extract<FileTreeNode, { type: 'folder' }> {
+			let current = root;
+			for (const seg of segments) {
+				let found = current.children.find((c) => c.type === 'folder' && c.name === seg) as
+					| Extract<FileTreeNode, { type: 'folder' }>
+					| undefined;
+				if (!found) {
+					found = { type: 'folder', name: seg, children: [] };
+					current.children.push(found);
+				}
+				current = found;
+			}
+			return current;
+		}
+		for (const f of files) {
+			const path = f.uri.replace(/^file:\/\/+/, '');
+			const segments = path.split('/').filter(Boolean);
+			if (segments.length === 0) continue;
+			const fileName = segments.pop()!;
+			const parent = ensurePath(segments);
+			parent.children.push({ type: 'file', name: fileName, uri: f.uri });
+		}
+		// Sort: folders first then files, both alphabetically
+		function sortNodes(nodes: FileTreeNode[]): void {
+			nodes.sort((a, b) => {
+				if (a.type === 'folder' && b.type === 'file') return -1;
+				if (a.type === 'file' && b.type === 'folder') return 1;
+				return (a.name || '').localeCompare(b.name || '');
+			});
+			for (const n of nodes) {
+				if (n.type === 'folder') sortNodes(n.children);
+			}
+		}
+		sortNodes(root.children);
+		return root.children;
+	}
+
+	let fileTree = $derived(buildFileTreeSimple(resourceFiles));
+
+	type FlatNode = { depth: number; path: string; node: FileTreeNode };
+	function flattenTree(
+		nodes: FileTreeNode[],
+		depth: number,
+		pathPrefix: string,
+		isOpen: (path: string) => boolean
+	): FlatNode[] {
+		const out: FlatNode[] = [];
+		for (const n of nodes) {
+			const path = pathPrefix ? `${pathPrefix}/${n.name}` : n.name;
+			out.push({ depth, path, node: n });
+			if (n.type === 'folder' && isOpen(path)) {
+				out.push(...flattenTree(n.children, depth + 1, path, isOpen));
+			}
+		}
+		return out;
+	}
+
+	let folderOpen = $state<Record<string, boolean>>({});
+	function toggleFolder(path: string) {
+		folderOpen[path] = !(folderOpen[path] ?? true);
+		folderOpen = { ...folderOpen };
+	}
+	function isFolderOpen(path: string): boolean {
+		return folderOpen[path] ?? true;
+	}
+
+	let flatFileList = $derived.by(() => {
+		const open = folderOpen;
+		return flattenTree(fileTree, 0, '', (path) => open[path] ?? true);
+	});
 </script>
 
 <div
@@ -175,24 +267,48 @@
 			</h4>
 			{#if showFiles}
 				<ul class="flex flex-col" in:slide={{ axis: 'y' }}>
-					{#if resourceFiles.length > 0}
-						{#each resourceFiles as resourceFile (resourceFile.uri)}
-							<li class="flex items-start gap-2 text-sm font-light">
-								<button
-									class="btn btn-ghost w-full justify-start rounded-none text-left"
-									onclick={() => {
-										onFileOpen?.(resourceFile.uri);
-									}}
-								>
-									<div class="bg-base-200 rounded-md p-1">
-										<File class="size-4" />
-									</div>
-									<span class="break-all">{resourceFile.name}</span>
-								</button>
+					{#if flatFileList.length > 0}
+						{#each flatFileList as { depth, path, node } (node.type === 'file' ? node.uri : `folder:${path}`)}
+							<li class="w-full text-sm font-light">
+								{#if node.type === 'folder'}
+									<button
+										class="btn btn-ghost flex w-full items-center justify-start gap-2 rounded-none text-left"
+										style="padding-left: {depth * 0.75}rem;"
+										onclick={() => toggleFolder(path)}
+										aria-expanded={isFolderOpen(path)}
+									>
+										<span class="flex shrink-0 pl-2">
+											{#if isFolderOpen(path)}
+												<ChevronDown class="text-base-content/60 size-4" />
+											{:else}
+												<ChevronRight class="text-base-content/60 size-4" />
+											{/if}
+										</span>
+										<div class="bg-base-200 rounded-md p-1">
+											<Folder class="text-primary/80 size-4" />
+										</div>
+										<span class="font-medium break-all">{node.name}</span>
+									</button>
+								{:else}
+									<button
+										class={twMerge(
+											'btn btn-ghost flex w-full items-center justify-start gap-2 rounded-none text-left',
+											selectedFile === node.uri ? 'bg-primary/10' : ''
+										)}
+										style="padding-left: {depth * 0.65}rem;"
+										onclick={() => onFileOpen?.(node.uri)}
+									>
+										<span class="w-[14px] shrink-0" aria-hidden="true"></span>
+										<div class="bg-base-200 rounded-md p-1">
+											<File class="size-4" />
+										</div>
+										<span class="break-all">{node.name}</span>
+									</button>
+								{/if}
 							</li>
 						{/each}
 					{:else}
-						<li class="text-base-content/50 flex items-start gap-2 text-xs font-light italic">
+						<li class="text-base-content/50 flex items-start gap-2 px-4 text-xs font-light italic">
 							<span>No files found.</span>
 						</li>
 					{/if}

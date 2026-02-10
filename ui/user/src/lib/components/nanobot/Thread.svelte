@@ -6,6 +6,7 @@
 		Attachment,
 		ChatMessage,
 		ChatMessageItem,
+		ChatMessageItemToolCall,
 		ChatResult,
 		ElicitationResult,
 		Elicitation as ElicitationType,
@@ -41,6 +42,7 @@
 		onAgentChange?: (agentId: string) => void;
 		emptyStateContent?: Snippet;
 		onRestart?: () => void;
+		onRefreshResources?: () => void;
 		suppressEmptyState?: boolean;
 	}
 
@@ -65,6 +67,7 @@
 		isRestoring,
 		emptyStateContent,
 		onRestart,
+		onRefreshResources,
 		suppressEmptyState
 	}: Props = $props();
 
@@ -189,6 +192,49 @@
 		});
 		ro.observe(inner);
 		return () => ro.disconnect();
+	});
+
+	// Track processed tool call IDs to avoid re-triggering file open (non-reactive object)
+	const processedWriteToolCalls: Record<string, boolean> = {};
+
+	// Watch for "write" tool calls with file_path argument while loading
+	$effect(() => {
+		if (!isLoading || !messages || messages.length === 0) return;
+
+		// Find all tool calls in the messages
+		for (const message of messages) {
+			if (message.role !== 'assistant' || !message.items) continue;
+
+			for (const item of message.items) {
+				if (item.type !== 'tool') continue;
+
+				const toolCall = item as ChatMessageItemToolCall;
+				if (toolCall.name !== 'write' || !toolCall.arguments) continue;
+
+				// Wait until the tool call is complete (hasMore is false/undefined)
+				if (toolCall.hasMore) continue;
+
+				// Skip if we've already processed this tool call
+				const toolCallId = toolCall.callID || item.id;
+				if (processedWriteToolCalls[toolCallId]) continue;
+
+				// Parse arguments to get file_path
+				try {
+					const args = JSON.parse(toolCall.arguments);
+					if (args.file_path) {
+						// Mark as processed (mutate directly, not reactive)
+						processedWriteToolCalls[toolCallId] = true;
+
+						// Defer side effects to avoid issues during render
+						queueMicrotask(() => {
+							onRefreshResources?.();
+						});
+					}
+				} catch {
+					// Ignore JSON parse errors
+				}
+			}
+		}
 	});
 
 	function handleScroll() {

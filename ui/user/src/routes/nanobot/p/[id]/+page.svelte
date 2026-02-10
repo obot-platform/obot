@@ -136,6 +136,7 @@
 			{/if}
 			<ThreadQuickAccess
 				{chat}
+				{selectedFile}
 				onFileOpen={(filename) => {
 					selectedFile = filename;
 				}}

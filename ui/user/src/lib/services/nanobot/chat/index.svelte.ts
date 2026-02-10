@@ -499,6 +499,13 @@ export class ChatService {
 		)) as Prompts;
 	};
 
+	refreshResources = async () => {
+		const response = await this.listResources({ useDefaultSession: true });
+		if (response && response.resources) {
+			this.resources = response.resources;
+		}
+	};
+
 	listResources = async (opts?: { useDefaultSession?: boolean }) => {
 		const sessionId = opts?.useDefaultSession ? undefined : this.chatId;
 		return (await this.api.exchange(

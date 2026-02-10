@@ -58,6 +58,9 @@
 				onRestart={() => {
 					showRestartConfirm = true;
 				}}
+				onRefreshResources={() => {
+					chat.refreshResources();
+				}}
 				{onFileOpen}
 				{suppressEmptyState}
 			>
