@@ -124,7 +124,7 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 		if auditLog.PowerUserWorkspaceID == "" {
 			auditLog.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
 		}
-			if auditLog.MCPServerDisplayName == "" {
+		if auditLog.MCPServerDisplayName == "" {
 			auditLog.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
 		}
 

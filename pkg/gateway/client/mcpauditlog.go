@@ -537,41 +537,41 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 // MCPAuditLogOptions represents options for querying MCP audit logs
 type MCPAuditLogOptions struct {
-	WithRequestAndResponse bool
-	PowerUserWorkspaceID   []string // Support filtering by workspace ID(s)
-	OwnServerMCPIDs        []string // MCPIDs for user's own servers (union with PowerUserWorkspaceID)
-	UserID                           []string
-	MCPID                            []string
-	MCPServerDisplayName             []string
-	MCPServerCatalogEntryName        []string
-	CallType                         []string
-	CallIdentifier                   []string
-	SessionID                        []string
-	ClientName                       []string
-	ClientVersion                    []string
-	ResponseStatus                   []string
-	ClientIP                         []string
-	ProcessingTimeMin                int64
-	ProcessingTimeMax                int64
-	Query                            string // Search term for text search across multiple fields
-	StartTime                        time.Time
-	EndTime                          time.Time
-	Limit                            int
-	Offset                           int
-	SortBy                           string // Field to sort by (e.g., "created_at", "user_id", "call_type")
-	SortOrder                        string // Sort order: "asc" or "desc"
+	WithRequestAndResponse    bool
+	PowerUserWorkspaceID      []string // Support filtering by workspace ID(s)
+	OwnServerMCPIDs           []string // MCPIDs for user's own servers (union with PowerUserWorkspaceID)
+	UserID                    []string
+	MCPID                     []string
+	MCPServerDisplayName      []string
+	MCPServerCatalogEntryName []string
+	CallType                  []string
+	CallIdentifier            []string
+	SessionID                 []string
+	ClientName                []string
+	ClientVersion             []string
+	ResponseStatus            []string
+	ClientIP                  []string
+	ProcessingTimeMin         int64
+	ProcessingTimeMax         int64
+	Query                     string // Search term for text search across multiple fields
+	StartTime                 time.Time
+	EndTime                   time.Time
+	Limit                     int
+	Offset                    int
+	SortBy                    string // Field to sort by (e.g., "created_at", "user_id", "call_type")
+	SortOrder                 string // Sort order: "asc" or "desc"
 }
 
 // MCPUsageStatsOptions represents options for querying MCP usage statistics
 type MCPUsageStatsOptions struct {
-	MCPID                string
-	PowerUserWorkspaceID []string // Workspace filtering support (same as audit logs)
-	OwnServerMCPIDs      []string // MCPIDs for user's own servers (union with PowerUserWorkspaceID)
-	UserIDs                          []string
-	MCPServerDisplayNames            []string
-	MCPServerCatalogEntryNames       []string
-	StartTime                        time.Time
-	EndTime                          time.Time
+	MCPID                      string
+	PowerUserWorkspaceID       []string // Workspace filtering support (same as audit logs)
+	OwnServerMCPIDs            []string // MCPIDs for user's own servers (union with PowerUserWorkspaceID)
+	UserIDs                    []string
+	MCPServerDisplayNames      []string
+	MCPServerCatalogEntryNames []string
+	StartTime                  time.Time
+	EndTime                    time.Time
 }
 
 func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog) error {

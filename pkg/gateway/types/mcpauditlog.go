@@ -11,26 +11,26 @@ import (
 
 // MCPAuditLog represents an audit log entry for MCP API calls
 type MCPAuditLog struct {
-	ID                               uint                                  `json:"id" gorm:"primaryKey"`
-	CreatedAt                        time.Time                             `json:"createdAt" gorm:"index"`
-	APIKey                           string                                `json:"apiKey,omitempty"`
-	UserID                           string                                `json:"userID" gorm:"index"`
-	MCPID                            string                                `json:"mcpID" gorm:"index"`
-	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty" gorm:"index"`
-	MCPServerDisplayName             string                                `json:"mcpServerDisplayName" gorm:"index"`
-	MCPServerCatalogEntryName        string                                `json:"mcpServerCatalogEntryName" gorm:"index"`
-	ClientName                       string                                `json:"clientName" gorm:"index"`
-	ClientVersion                    string                                `json:"clientVersion" gorm:"index"`
-	ClientIP                         string                                `json:"clientIP" gorm:"index"`
-	CallType                         string                                `json:"callType" gorm:"index"`
-	CallIdentifier                   string                                `json:"callIdentifier,omitempty" gorm:"index"`
-	RequestBody                      json.RawMessage                       `json:"requestBody,omitempty"`
-	ResponseBody                     json.RawMessage                       `json:"responseBody,omitempty"`
-	ResponseStatus                   int                                   `json:"responseStatus" gorm:"index"`
-	Error                            string                                `json:"error,omitempty"`
-	ProcessingTimeMs                 int64                                 `json:"processingTimeMs" gorm:"index"`
-	SessionID                        string                                `json:"sessionID,omitempty" gorm:"index"`
-	WebhookStatuses                  datatypes.JSONSlice[MCPWebhookStatus] `json:"webhookStatuses,omitempty"`
+	ID                        uint                                  `json:"id" gorm:"primaryKey"`
+	CreatedAt                 time.Time                             `json:"createdAt" gorm:"index"`
+	APIKey                    string                                `json:"apiKey,omitempty"`
+	UserID                    string                                `json:"userID" gorm:"index"`
+	MCPID                     string                                `json:"mcpID" gorm:"index"`
+	PowerUserWorkspaceID      string                                `json:"powerUserWorkspaceID,omitempty" gorm:"index"`
+	MCPServerDisplayName      string                                `json:"mcpServerDisplayName" gorm:"index"`
+	MCPServerCatalogEntryName string                                `json:"mcpServerCatalogEntryName" gorm:"index"`
+	ClientName                string                                `json:"clientName" gorm:"index"`
+	ClientVersion             string                                `json:"clientVersion" gorm:"index"`
+	ClientIP                  string                                `json:"clientIP" gorm:"index"`
+	CallType                  string                                `json:"callType" gorm:"index"`
+	CallIdentifier            string                                `json:"callIdentifier,omitempty" gorm:"index"`
+	RequestBody               json.RawMessage                       `json:"requestBody,omitempty"`
+	ResponseBody              json.RawMessage                       `json:"responseBody,omitempty"`
+	ResponseStatus            int                                   `json:"responseStatus" gorm:"index"`
+	Error                     string                                `json:"error,omitempty"`
+	ProcessingTimeMs          int64                                 `json:"processingTimeMs" gorm:"index"`
+	SessionID                 string                                `json:"sessionID,omitempty" gorm:"index"`
+	WebhookStatuses           datatypes.JSONSlice[MCPWebhookStatus] `json:"webhookStatuses,omitempty"`
 
 	// Additional metadata
 	RequestID       string          `json:"requestID,omitempty" gorm:"index"`
@@ -111,14 +111,14 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 		}
 	}
 	return types2.MCPAuditLog{
-		ID:                               a.ID,
-		CreatedAt:                        *types2.NewTime(a.CreatedAt),
-		UserID:                           a.UserID,
-		MCPID:                            a.MCPID,
-		APIKey:               a.APIKey,
-		PowerUserWorkspaceID: a.PowerUserWorkspaceID,
-		MCPServerDisplayName:             a.MCPServerDisplayName,
-		MCPServerCatalogEntryName:        a.MCPServerCatalogEntryName,
+		ID:                        a.ID,
+		CreatedAt:                 *types2.NewTime(a.CreatedAt),
+		UserID:                    a.UserID,
+		MCPID:                     a.MCPID,
+		APIKey:                    a.APIKey,
+		PowerUserWorkspaceID:      a.PowerUserWorkspaceID,
+		MCPServerDisplayName:      a.MCPServerDisplayName,
+		MCPServerCatalogEntryName: a.MCPServerCatalogEntryName,
 		ClientInfo: types2.ClientInfo{
 			Name:    a.ClientName,
 			Version: a.ClientVersion,
