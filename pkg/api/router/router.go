@@ -761,6 +761,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 			services.StorageClient,
 			mcpLister,
 			services.ServerURL,
+			services.MCPLoader,
 		)
 		mux.HTTPHandle("/mcp", integratedMCP.Handler())
 		mux.HTTPHandle("/mcp/", integratedMCP.Handler())
