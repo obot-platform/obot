@@ -6,7 +6,6 @@
 		Attachment,
 		ChatMessage,
 		ChatMessageItem,
-		ChatMessageItemToolCall,
 		ChatResult,
 		ElicitationResult,
 		Elicitation as ElicitationType,
@@ -18,7 +17,6 @@
 	import MessageInput from './MessageInput.svelte';
 	import Messages from './Messages.svelte';
 	import AgentHeader from './AgentHeader.svelte';
-	import { parseToolFilePath } from '$lib/services/nanobot/utils';
 	import { ChevronDown } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
@@ -43,6 +41,7 @@
 		onAgentChange?: (agentId: string) => void;
 		emptyStateContent?: Snippet;
 		onRestart?: () => void;
+		suppressEmptyState?: boolean;
 	}
 
 	let {
@@ -65,7 +64,8 @@
 		isLoading,
 		isRestoring,
 		emptyStateContent,
-		onRestart
+		onRestart,
+		suppressEmptyState
 	}: Props = $props();
 
 	let messagesContainer: HTMLElement;
@@ -74,6 +74,7 @@
 	let wasRestoring = false;
 	let disabledAutoScroll = $state(false);
 	const hasMessages = $derived((messages && messages.length > 0) || isRestoring);
+	const pinInputToBottom = $derived(hasMessages || !!suppressEmptyState);
 	const showInlineAgentHeader = $derived(!hasMessages && !emptyStateContent && !isLoading);
 	let selectedPrompt = $state<string | undefined>();
 
@@ -190,55 +191,6 @@
 		return () => ro.disconnect();
 	});
 
-	// Track processed tool call IDs to avoid re-triggering file open (non-reactive object)
-	const processedWriteToolCalls: Record<string, boolean> = {};
-
-	// Watch for "write" tool calls with file_path argument while loading
-	$effect(() => {
-		if (!isLoading || !messages || messages.length === 0) return;
-
-		// Find all tool calls in the messages
-		for (const message of messages) {
-			if (message.role !== 'assistant' || !message.items) continue;
-
-			for (const item of message.items) {
-				if (item.type !== 'tool') continue;
-
-				const toolCall = item as ChatMessageItemToolCall;
-				if (toolCall.name !== 'write' || !toolCall.arguments) continue;
-
-				// Wait until the tool call is complete (hasMore is false/undefined)
-				if (toolCall.hasMore) continue;
-
-				// Skip if we've already processed this tool call
-				const toolCallId = toolCall.callID || item.id;
-				if (processedWriteToolCalls[toolCallId]) continue;
-
-				// Parse arguments to get file_path
-				try {
-					const args = JSON.parse(toolCall.arguments);
-					if (args.file_path) {
-						// Mark as processed (mutate directly, not reactive)
-						processedWriteToolCalls[toolCallId] = true;
-
-						// Defer side effects to avoid issues during render
-						queueMicrotask(() => {
-							const filePath = parseToolFilePath(toolCall);
-							if (filePath.startsWith('workflows/') && !filePath.startsWith('workflows/.runs/')) {
-								const name = filePath.split('/').pop()?.split('.').shift();
-								onFileOpen?.(`workflow:///${name}`);
-							} else {
-								onFileOpen?.(`file:///${filePath}`);
-							}
-						});
-					}
-				} catch {
-					// Ignore JSON parse errors
-				}
-			}
-		}
-	});
-
 	function handleScroll() {
 		if (!messagesContainer) return;
 
@@ -301,9 +253,9 @@
 		</div>
 	</div>
 
-	<!-- Message input - centered when no messages, bottom when messages exist -->
+	<!-- Message input - centered when no messages, bottom when messages exist or when empty state is suppressed -->
 	<div
-		class="absolute right-0 bottom-0 left-0 flex flex-col transition-all duration-500 ease-in-out {hasMessages
+		class="absolute right-0 bottom-0 left-0 flex flex-col transition-all duration-500 ease-in-out {pinInputToBottom
 			? 'bg-base-100/80 backdrop-blur-sm'
 			: 'md:-translate-y-1/2 [@media(min-height:900px)]:md:top-1/2 [@media(min-height:900px)]:md:bottom-auto'}"
 	>
@@ -323,7 +275,7 @@
 					<AgentHeader {agent} onSend={onSendMessage} />
 				</div>
 			</div>
-		{:else if !hasMessages && !isLoading && emptyStateContent}
+		{:else if !hasMessages && !isLoading && emptyStateContent && !suppressEmptyState}
 			<div class="mx-auto w-full max-w-4xl" out:slide={{ axis: 'y', duration: 300 }}>
 				<div out:fade={{ duration: 200 }}>
 					{@render emptyStateContent()}

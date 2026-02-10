@@ -31,12 +31,9 @@
 			class="btn btn-sm tooltip"
 			data-tip="Open"
 			onclick={() => {
-				if (filename.startsWith('workflows/.runs/')) {
-					onFileOpen?.(`file:///${filename}`);
-				} else {
-					onFileOpen?.(`workflow:///${name}`);
-				}
+				onFileOpen?.(`file:///${filename}`);
 			}}
+			disabled={pending}
 		>
 			<FolderIcon class="size-4" />
 		</button>

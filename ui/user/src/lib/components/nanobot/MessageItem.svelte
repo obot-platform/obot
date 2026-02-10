@@ -7,7 +7,7 @@
 	import MessageItemResource from './MessageItemResource.svelte';
 	import MessageItemReasoning from './MessageItemReasoning.svelte';
 	import MessageItemTool from './MessageItemTool.svelte';
-	import MessageItemWorkflowFile from './MessageItemWorkflowFile.svelte';
+	import MessageItemFile from './MessageItemFile.svelte';
 
 	interface Props {
 		item: ChatMessageItem;
@@ -17,15 +17,6 @@
 	}
 
 	let { item, role, onSend, onFileOpen }: Props = $props();
-
-	function safeJsonParse(str: string | undefined): Record<string, unknown> | null {
-		if (!str) return null;
-		try {
-			return JSON.parse(str);
-		} catch {
-			return null;
-		}
-	}
 </script>
 
 {#if item.type === 'text'}
@@ -41,11 +32,9 @@
 {:else if item.type === 'reasoning'}
 	<MessageItemReasoning {item} />
 {:else if item.type === 'tool'}
-	{@const toolArguments = safeJsonParse(item.arguments)}
-	{@const filePath = typeof toolArguments?.file_path === 'string' ? toolArguments.file_path : ''}
-	{@const isWorkflowFile = item.name === 'write' && filePath.startsWith('workflows/')}
-	{#if isWorkflowFile}
-		<MessageItemWorkflowFile {item} {onFileOpen} />
+	{@const isWrittenFile = item.name === 'write'}
+	{#if isWrittenFile}
+		<MessageItemFile {item} {onFileOpen} />
 	{:else}
 		<MessageItemTool {item} {onSend} />
 	{/if}

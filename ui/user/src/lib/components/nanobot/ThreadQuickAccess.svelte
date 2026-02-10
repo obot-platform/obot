@@ -2,15 +2,15 @@
 	import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import type { ChatMessageItemToolCall } from '$lib/services/nanobot/types';
 	import { fly } from 'svelte/transition';
-	import { Circle, CheckCircle2, Loader2 } from 'lucide-svelte';
-	import { responsive } from '$lib/stores';
+	import { Circle, CheckCircle2, Loader2, File, ChevronUp, ChevronDown } from 'lucide-svelte';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		chat: ChatService;
-		open: boolean;
+		onFileOpen?: (filename: string) => void;
 	}
 
-	let { chat, open }: Props = $props();
+	let { chat, onFileOpen }: Props = $props();
 
 	/** Todo item shape from todo:///list resource or todo_write tool (application/json) */
 	interface TodoItem {
@@ -93,22 +93,41 @@
 		return latest;
 	});
 
+	let showTodoList = $state(true);
+	let showFiles = $state(true);
+
 	/** Prefer resource-based list when non-empty; otherwise use list derived from message tool calls */
 	let todoItems = $derived(todoItemsFromMessages);
+	let resourceFiles = $derived(
+		chat.resources ? chat.resources.filter((r) => r.uri.startsWith('file:///')) : []
+	);
 </script>
 
-{#if chat.chatId && todoItems.length > 0 && !responsive.isMobile && open}
-	<div
-		class="h-[calc(100dvh-4rem)] w-sm min-w-sm overflow-hidden"
-		in:fly={{ x: 100, duration: 150 }}
-	>
-		<div class="bg-base-100 flex h-full w-full flex-col">
-			<div class="flex-1 overflow-auto p-4 pt-0">
-				<div
-					class="rounded-selector bg-base-200 dark:border-base-300 flex flex-col gap-2 border border-transparent p-4"
+<div
+	class="h-[calc(100dvh-4rem)] w-sm min-w-sm overflow-hidden overflow-y-auto"
+	in:fly={{ x: 100, duration: 150 }}
+>
+	<div class="bg-base-100 flex h-full w-full flex-col gap-4 p-4">
+		<div
+			class="rounded-selector bg-base-200 dark:border-base-300 flex flex-col gap-2 border border-transparent p-4"
+		>
+			<h4 class="flex w-full items-center justify-between gap-2 text-sm font-semibold">
+				To Do List
+				<button
+					class="btn btn-ghost btn-xs tooltip tooltip-left"
+					data-tip={showTodoList ? 'Hide To Do List' : 'Show To Do List'}
+					onclick={() => (showTodoList = !showTodoList)}
 				>
-					<h4 class="text-sm font-semibold">To Do List</h4>
-					<ul class="flex flex-col gap-1.5">
+					{#if showTodoList}
+						<ChevronUp class="size-4" />
+					{:else}
+						<ChevronDown class="size-4" />
+					{/if}
+				</button>
+			</h4>
+			{#if showTodoList}
+				<ul class="flex flex-col gap-1.5" in:slide={{ axis: 'y' }}>
+					{#if todoItems.length > 0}
 						{#each todoItems as item, i (i)}
 							<li class="flex items-start gap-2 text-sm font-light">
 								{#if item.status === 'completed' || item.status === 'cancelled'}
@@ -126,9 +145,59 @@
 								</span>
 							</li>
 						{/each}
-					</ul>
-				</div>
-			</div>
+					{:else}
+						<li class="text-base-content/50 flex items-start gap-2 text-xs font-light italic">
+							<span
+								>Running to-dos for longer tasks will display here. You do not currently have any
+								running to-dos.</span
+							>
+						</li>
+					{/if}
+				</ul>
+			{/if}
+		</div>
+		<div
+			class="rounded-selector bg-base-200 dark:border-base-300 flex flex-col gap-2 border border-transparent py-4"
+		>
+			<h4 class="flex w-full justify-between gap-2 px-4 text-sm font-semibold">
+				Files
+				<button
+					class="btn btn-ghost btn-xs tooltip tooltip-left"
+					data-tip={showFiles ? 'Hide Files' : 'Show Files'}
+					onclick={() => (showFiles = !showFiles)}
+				>
+					{#if showFiles}
+						<ChevronUp class="size-4" />
+					{:else}
+						<ChevronDown class="size-4" />
+					{/if}
+				</button>
+			</h4>
+			{#if showFiles}
+				<ul class="flex flex-col" in:slide={{ axis: 'y' }}>
+					{#if resourceFiles.length > 0}
+						{#each resourceFiles as resourceFile (resourceFile.uri)}
+							<li class="flex items-start gap-2 text-sm font-light">
+								<button
+									class="btn btn-ghost w-full justify-start rounded-none text-left"
+									onclick={() => {
+										onFileOpen?.(resourceFile.uri);
+									}}
+								>
+									<div class="bg-base-200 rounded-md p-1">
+										<File class="size-4" />
+									</div>
+									<span class="break-all">{resourceFile.name}</span>
+								</button>
+							</li>
+						{/each}
+					{:else}
+						<li class="text-base-content/50 flex items-start gap-2 text-xs font-light italic">
+							<span>No files found.</span>
+						</li>
+					{/if}
+				</ul>
+			{/if}
 		</div>
 	</div>
-{/if}
+</div>

@@ -54,7 +54,6 @@
 		});
 
 		sidebarRef?.refreshThreads();
-		layout.sidebarOpen = true;
 	}
 
 	$effect(() => {
@@ -86,9 +85,11 @@
 		container: 'px-0 py-0 md:px-0',
 		childrenContainer: 'max-w-full h-[calc(100dvh-4rem)]',
 		collapsedSidebarHeaderContent: 'pb-0',
-		sidebar: 'pt-0'
+		sidebar: 'pt-0',
+		sidebarRoot: 'bg-base-200'
 	}}
 	whiteBackground
+	disableResize
 >
 	{#snippet overrideLeftSidebarContent()}
 		<ProjectSidebar {chatApi} projectId={projects[0].id} bind:this={sidebarRef} />
