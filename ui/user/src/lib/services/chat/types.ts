@@ -472,6 +472,7 @@ export interface ProjectMCP {
 	needsK8sUpdate?: boolean;
 	needsURL?: boolean;
 	runtime?: Runtime;
+	missingOAuthCredentials?: boolean;
 }
 
 export interface Credential {

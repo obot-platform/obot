@@ -1,7 +1,11 @@
 <script lang="ts">
-	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
+	import {
+		getProjectMCPs,
+		validateOauthProjectMcps,
+		type ProjectMcpItem
+	} from '$lib/context/projectMcps.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { Server, X } from 'lucide-svelte';
+	import { Server, X, AlertTriangle } from 'lucide-svelte';
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { onMount, tick } from 'svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
@@ -13,7 +17,9 @@
 	import {
 		convertCompositeInfoToLaunchFormData,
 		convertCompositeLaunchFormDataToPayload,
-		convertEnvHeadersToRecord
+		convertEnvHeadersToRecord,
+		requiresUserConfiguration,
+		requiresAdminOAuthConfig
 	} from '$lib/services/chat/mcp';
 
 	interface Props {
@@ -30,13 +36,42 @@
 
 	type Requirement =
 		| { type: 'oauth'; id: string; name: string; icon?: string; oauthURL: string }
-		| { type: 'config'; id: string; mcpID: string };
+		| { type: 'config'; id: string; mcpID: string }
+		| { type: 'admin-oauth'; id: string; name: string; icon?: string };
 
 	type OauthRequirement = Extract<Requirement, { type: 'oauth' }>;
+	type AdminOauthRequirement = Extract<Requirement, { type: 'admin-oauth' }>;
+
+	type RequirementKey = 'config' | 'oauth' | 'admin-oauth' | null;
+
+	function getRequirementKey(mcp: ProjectMcpItem): RequirementKey {
+		if (requiresUserConfiguration(mcp)) return 'config';
+		if (!mcp.authenticated && mcp.oauthURL) return 'oauth';
+		if (requiresAdminOAuthConfig(mcp) && !requiresUserConfiguration(mcp)) return 'admin-oauth';
+		return null;
+	}
+
+	// Track previous requirement key to detect changes and clear closed set
+	let previousRequirementKeys = $state<Map<string, RequirementKey>>(new Map());
+
+	$effect(() => {
+		for (const mcp of projectMcps.items) {
+			const prevKey = previousRequirementKeys.get(mcp.id!);
+			const currentKey = getRequirementKey(mcp);
+			// If the requirement type changed, clear from closed so new prompts appear
+			if (prevKey !== undefined && prevKey !== currentKey) {
+				closed.delete(mcp.id!);
+			}
+			previousRequirementKeys.set(mcp.id!, currentKey);
+		}
+	});
 	let requirements = $derived([
+		// User configuration requirements (env vars, headers, URL - NOT OAuth-only)
 		...projectMcps.items
-			.filter((m) => (m.configured === false || m.needsURL) && !closed.has(m.id!))
+			.filter((m) => requiresUserConfiguration(m) && !closed.has(m.id!))
 			.map((m) => ({ type: 'config', id: m.id!, mcpID: m.mcpID! }) as Requirement),
+
+		// User OAuth requirements (per-user authentication via OAuth flow)
 		...projectMcps.items
 			.filter((m) => !m.authenticated && m.oauthURL && !closed.has(m.id!))
 			.map(
@@ -47,6 +82,23 @@
 						name: m.name!,
 						icon: m.icon,
 						oauthURL: m.oauthURL!
+					}) as Requirement
+			),
+
+		// Admin OAuth requirements (show AFTER user config is done)
+		...projectMcps.items
+			.filter((m) => {
+				if (closed.has(m.id!)) return false;
+				// Only show when there are no user config issues remaining
+				return requiresAdminOAuthConfig(m) && !requiresUserConfiguration(m);
+			})
+			.map(
+				(m) =>
+					({
+						type: 'admin-oauth',
+						id: m.id!,
+						name: m.name!,
+						icon: m.icon
 					}) as Requirement
 			)
 	]);
@@ -109,7 +161,7 @@
 
 		const req = requirements[0];
 		if (!req) return;
-		if (req.type === 'oauth') {
+		if (req.type === 'oauth' || req.type === 'admin-oauth') {
 			if (!oauthDialog?.open) {
 				oauthDialog?.showModal();
 			}
@@ -154,7 +206,7 @@
 	function dismissCurrent() {
 		const req = requirements[0];
 		if (!req) return;
-		if (req.type === 'oauth') {
+		if (req.type === 'oauth' || req.type === 'admin-oauth') {
 			closed.add(req.id);
 			if (currentOauthId === req.id) {
 				authenticating.delete(currentOauthId);
@@ -243,8 +295,6 @@
 					configureForm as CompositeLaunchFormData
 				);
 				await ChatService.configureCompositeMcpServer(server.id, payload);
-				configDialog?.close();
-				currentConfigReq = null;
 				try {
 					const refreshed = await ChatService.listProjectMCPs(assistantId, projectId);
 					projectMcps.items = await validateOauthProjectMcps(
@@ -256,11 +306,11 @@
 				} catch {
 					// ignore refresh errors
 				}
+				currentConfigReq = null;
+				configDialog?.close();
 			} else {
 				const secretValues = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
 				await ChatService.configureSingleOrRemoteMcpServer(server.id, secretValues);
-				configDialog?.close();
-				currentConfigReq = null;
 				try {
 					const refreshed = await ChatService.listProjectMCPs(assistantId, projectId);
 					projectMcps.items = await validateOauthProjectMcps(
@@ -272,6 +322,8 @@
 				} catch {
 					// ignore refresh errors
 				}
+				currentConfigReq = null;
+				configDialog?.close();
 			}
 		} catch (error) {
 			configError = error instanceof Error ? error.message : 'Unknown error';
@@ -327,6 +379,45 @@
 						Authenticate
 					{/if}
 				</a>
+			</div>
+			<form class="dialog-backdrop">
+				<button type="button" aria-label="Close dialog" onclick={dismissCurrent}>close</button>
+			</form>
+		</dialog>
+	{:else if requirements[0]?.type === 'admin-oauth'}
+		{@const adminOauth = requirements[0] as AdminOauthRequirement}
+		<dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'fade' }}>
+			<div class="dialog-container relative flex w-full flex-col gap-4 p-4 md:w-sm">
+				<div class="absolute top-2 right-2">
+					<button class="icon-button" onclick={dismissCurrent}>
+						<X class="size-4" />
+					</button>
+				</div>
+				<div class="flex items-center gap-2">
+					<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+						{#if adminOauth.icon}
+							<img src={adminOauth.icon} alt={adminOauth.name} class="size-6" />
+						{:else}
+							<Server class="size-6" />
+						{/if}
+					</div>
+					<h3 class="text-lg leading-5.5 font-semibold">
+						{adminOauth.name}
+					</h3>
+				</div>
+
+				<div class="notification-warning flex items-start gap-2 p-3">
+					<AlertTriangle class="size-5 flex-shrink-0 text-yellow-500" />
+					<p class="text-sm">
+						This MCP server requires OAuth credentials to be configured by an administrator.
+					</p>
+				</div>
+
+				<p class="text-sm font-light">
+					Please contact your administrator to configure the OAuth credentials for this server.
+				</p>
+
+				<button class="button" onclick={dismissCurrent}> Dismiss </button>
 			</div>
 			<form class="dialog-backdrop">
 				<button type="button" aria-label="Close dialog" onclick={dismissCurrent}>close</button>

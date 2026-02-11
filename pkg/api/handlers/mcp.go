@@ -3443,8 +3443,9 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		if entry.Spec.Manifest.RemoteConfig.FixedURL != "" {
 			// Use the fixed URL from catalog entry
 			server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-				URL:     entry.Spec.Manifest.RemoteConfig.FixedURL,
-				Headers: entry.Spec.Manifest.RemoteConfig.Headers,
+				URL:                 entry.Spec.Manifest.RemoteConfig.FixedURL,
+				Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
+				StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 			}
 		} else if entry.Spec.Manifest.RemoteConfig.Hostname != "" {
 			// Check if the server's current URL matches the new hostname requirement
@@ -3458,20 +3459,23 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 				}
 
 				server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-					Headers:  entry.Spec.Manifest.RemoteConfig.Headers,
-					Hostname: entry.Spec.Manifest.RemoteConfig.Hostname,
+					Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
+					Hostname:            entry.Spec.Manifest.RemoteConfig.Hostname,
+					StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 				}
 			} else {
 				// No current URL, needs one
 				server.Spec.NeedsURL = true
 				server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-					Headers: entry.Spec.Manifest.RemoteConfig.Headers,
+					Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
+					StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 				}
 			}
 		} else if entry.Spec.Manifest.RemoteConfig.URLTemplate != "" {
 			server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-				Headers:     entry.Spec.Manifest.RemoteConfig.Headers,
-				URLTemplate: entry.Spec.Manifest.RemoteConfig.URLTemplate,
+				Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
+				URLTemplate:         entry.Spec.Manifest.RemoteConfig.URLTemplate,
+				StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 			}
 		}
 	} else {

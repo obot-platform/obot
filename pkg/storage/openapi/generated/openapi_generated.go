@@ -7954,6 +7954,12 @@ func schema_obot_platform_obot_apiclient_types_ProjectMCPServer(ref common.Refer
 							Format:  "",
 						},
 					},
+					"missingOAuthCredentials": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "ProjectMCPServerManifest", "name", "description", "icon", "userID", "configured", "needsURL", "needsUpdate", "needsK8sUpdate"},
 			},

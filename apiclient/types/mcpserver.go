@@ -320,10 +320,11 @@ type ProjectMCPServer struct {
 	Runtime     Runtime `json:"runtime,omitempty"`
 
 	// The following status fields are always copied from the MCPServer that this points to.
-	Configured     bool `json:"configured"`
-	NeedsURL       bool `json:"needsURL"`
-	NeedsUpdate    bool `json:"needsUpdate"`
-	NeedsK8sUpdate bool `json:"needsK8sUpdate"`
+	Configured              bool `json:"configured"`
+	NeedsURL                bool `json:"needsURL"`
+	NeedsUpdate             bool `json:"needsUpdate"`
+	NeedsK8sUpdate          bool `json:"needsK8sUpdate"`
+	MissingOAuthCredentials bool `json:"missingOAuthCredentials,omitempty"`
 }
 
 type ProjectMCPServerList List[ProjectMCPServer]

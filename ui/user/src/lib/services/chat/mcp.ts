@@ -109,6 +109,44 @@ export function requiresUserUpdate(server?: MCPCatalogServer) {
 	return typeof server?.configured === 'boolean' ? server?.configured === false : false;
 }
 
+function isMCPCatalogServer(server: MCPCatalogServer | ProjectMCP): server is MCPCatalogServer {
+	return 'catalogEntryID' in server;
+}
+
+/**
+ * Returns true if the server needs user configuration (env vars, headers, URL)
+ * but NOT if the only issue is missing admin OAuth credentials.
+ */
+export function requiresUserConfiguration(server?: MCPCatalogServer | ProjectMCP): boolean {
+	if (!server) return false;
+
+	// If server has missingOAuthCredentials flag, check if there are OTHER issues
+	if ('missingOAuthCredentials' in server && server.missingOAuthCredentials) {
+		// Check if there are user-configurable issues besides OAuth
+		if (isMCPCatalogServer(server)) {
+			return (
+				(server.missingRequiredEnvVars?.length ?? 0) > 0 ||
+				(server.missingRequiredHeaders?.length ?? 0) > 0 ||
+				server.needsURL === true
+			);
+		}
+		// ProjectMCP - only needsURL is relevant for user config
+		return server.needsURL === true;
+	}
+
+	// No OAuth issue, use standard logic
+	if (server.needsURL) return true;
+	return typeof server.configured === 'boolean' ? !server.configured : false;
+}
+
+/**
+ * Returns true if the server is missing admin-configured OAuth credentials.
+ */
+export function requiresAdminOAuthConfig(server?: MCPCatalogServer | ProjectMCP): boolean {
+	if (!server) return false;
+	return 'missingOAuthCredentials' in server && server.missingOAuthCredentials === true;
+}
+
 export function getUserRegistry(
 	entity: MCPCatalogEntry | MCPCatalogServer | AccessControlRule,
 	usersMap?: Map<string, OrgUser>

@@ -68,6 +68,7 @@ func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.M
 		pmcp.NeedsURL = convertedServer.NeedsURL
 		pmcp.NeedsUpdate = convertedServer.NeedsUpdate
 		pmcp.NeedsK8sUpdate = convertedServer.NeedsK8sUpdate
+		pmcp.MissingOAuthCredentials = convertedServer.MissingOAuthCredentials
 	}
 
 	return pmcp

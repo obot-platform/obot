@@ -10,7 +10,11 @@
 	import DotDotDot from '../DotDotDot.svelte';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import EditExistingDeployment from '../mcp/EditExistingDeployment.svelte';
-	import { hasEditableConfiguration } from '$lib/services/chat/mcp';
+	import {
+		hasEditableConfiguration,
+		requiresUserConfiguration,
+		requiresAdminOAuthConfig
+	} from '$lib/services/chat/mcp';
 
 	interface Props {
 		project: Project;
@@ -75,27 +79,23 @@
 	}
 
 	function shouldShowWarning(mcp: (typeof projectMCPs.items)[0]) {
-		if (mcp.needsURL) {
-			return true;
-		}
-
-		if (typeof mcp.configured === 'boolean' && mcp.configured === false) {
-			return true;
-		}
-
-		if (typeof mcp.authenticated === 'boolean') {
-			return !mcp.authenticated;
-		}
-
+		if (requiresUserConfiguration(mcp)) return true;
+		if (requiresAdminOAuthConfig(mcp)) return true;
+		if (typeof mcp.authenticated === 'boolean') return !mcp.authenticated;
 		return !!mcp.oauthURL;
 	}
 
 	function warningTooltip(mcp: (typeof projectMCPs.items)[0]) {
-		if (mcp.needsURL) return 'Configuration Required';
-		if (typeof mcp.configured === 'boolean' && mcp.configured === false)
-			return 'Configuration Required';
-		if (typeof mcp.authenticated === 'boolean' && mcp.authenticated === false)
+		// Admin OAuth issue (and no user config issues)
+		if (requiresAdminOAuthConfig(mcp) && !requiresUserConfiguration(mcp)) {
+			return 'Requires Admin Configuration';
+		}
+		// User config issues
+		if (requiresUserConfiguration(mcp)) return 'Configuration Required';
+		// User OAuth authentication
+		if (typeof mcp.authenticated === 'boolean' && !mcp.authenticated) {
 			return 'Authentication Required';
+		}
 		if (mcp.oauthURL) return 'Authentication Required';
 		return 'Configuration Required';
 	}
