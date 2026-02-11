@@ -55,6 +55,7 @@ type ServerConfig struct {
 	MCPCatalogEntryName  string `json:"mcpCatalogEntryName"`
 	MCPServerDisplayName string `json:"mcpServerDisplayName"`
 	NanobotAgentName     string `json:"nanobotAgentName"`
+	SkipShim             bool   `json:"skipShim"`
 
 	ProjectMCPServer   bool `json:"projectMCPServer"`
 	ComponentMCPServer bool `json:"componentMCPServer"`
@@ -471,6 +472,7 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, credEnv map[str
 		MCPServerDisplayName: displayName,
 		Runtime:              systemServer.Spec.Manifest.Runtime,
 		Scope:                fmt.Sprintf("%s-system", systemServer.Name),
+		SkipShim:             true,
 	}
 
 	var missingRequiredNames []string

@@ -113,7 +113,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 	}
 
 	// For direct access to the real MCP server (when there's a shim), use a different port
-	if server.NanobotAgentName != "" {
+	if server.NanobotAgentName != "" || server.SkipShim {
 		// Point directly to the mcp container's port
 		fullURL := fmt.Sprintf("%s:8080/%s", u, strings.TrimPrefix(server.ContainerPath, "/"))
 
@@ -130,6 +130,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 			ContainerPort:        server.ContainerPort,
 			ContainerPath:        server.ContainerPath,
 			NanobotAgentName:     server.NanobotAgentName,
+			SkipShim:             server.SkipShim,
 		}, nil
 	}
 
@@ -500,7 +501,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		StringData: webhookSecretStringData,
 	})
 
-	if server.Runtime != types.RuntimeRemote {
+	if server.Runtime != types.RuntimeRemote && !server.SkipShim {
 		// If this is anything other than a remote runtime, then we need to add a special shim container.
 		// The remote runtime will just be the shim and is deployed as the "real" container.
 		nanobotFileString, err := constructNanobotYAMLForServer(server.MCPServerDisplayName+" Shim", fmt.Sprintf("http://localhost:%d/%s", port, strings.TrimPrefix(server.ContainerPath, "/")), "", nil, nil, nil, webhooks)
@@ -769,8 +770,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		},
 	}
 
-	// Add a second port for direct access to the MCP container for nanobot agents
-	if server.NanobotAgentName != "" {
+	// Add a second port for direct access to the MCP container for nanobot agents or when the shim is skipped
+	if server.NanobotAgentName != "" || server.SkipShim {
 		servicePorts = append(servicePorts, corev1.ServicePort{
 			Name:       "mcp",
 			Port:       8080,

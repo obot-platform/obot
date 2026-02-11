@@ -171,6 +171,7 @@ func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig, _
 
 func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
 	serverName := server.MCPServerName
+	skipShim := server.SkipShim
 	// Copy the webhooks so we can change the URL without that affecting the original slice.
 	transformedWebhooks := slices.Clone(webhooks)
 
@@ -215,13 +216,13 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 
 	if server.Runtime != otypes.RuntimeRemote {
 		// For non-remote runtimes, we deploy the real MCP server first.
-		server, err = d.ensureDeployment(ctx, server, "", d.containerEnv || server.NanobotAgentName == "", nil)
+		server, err = d.ensureDeployment(ctx, server, "", d.containerEnv || (server.NanobotAgentName == "" && !skipShim), nil)
 		if err != nil {
 			return ServerConfig{}, err
 		}
 
-		// If this is a server for a nanobot agent, return the config pointing to the real server without deploying the shim.
-		if server.NanobotAgentName != "" {
+		// If this is a server for a nanobot agent or skip shim, return the config pointing to the real server without deploying the shim.
+		if server.NanobotAgentName != "" || skipShim {
 			return server, nil
 		}
 
@@ -319,7 +320,7 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 
 func (d *dockerBackend) transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error) {
 	containerName := serverConfig.MCPServerName
-	if serverConfig.Runtime == otypes.RuntimeContainerized {
+	if serverConfig.Runtime == otypes.RuntimeContainerized && !serverConfig.SkipShim {
 		// For containerized runtimes, we want to communicate with the shim.
 		containerName += "-shim"
 	}
