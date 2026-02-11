@@ -1,4 +1,3 @@
-import { responsive } from '$lib/stores';
 import { getContext, hasContext, setContext } from 'svelte';
 
 export const LAYOUT_CONTEXT = 'nanobot-layout';
@@ -12,7 +11,7 @@ export function initLayout() {
 		return;
 	}
 	const data = $state<Layout>({
-		sidebarOpen: !responsive.isMobile
+		sidebarOpen: false
 	});
 	setContext(LAYOUT_CONTEXT, data);
 }

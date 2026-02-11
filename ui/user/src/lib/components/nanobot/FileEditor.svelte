@@ -8,10 +8,11 @@
 	interface Props {
 		filename: string;
 		chat: ChatService;
-		onClose: () => void;
+		open?: boolean;
+		onClose?: () => void;
 	}
 
-	let { filename, chat, onClose }: Props = $props();
+	let { filename, chat, open, onClose }: Props = $props();
 
 	const name = $derived(filename.split('/').pop()?.split('.').shift() || '');
 	let resource = $state<ResourceContents | null>(null);
@@ -23,7 +24,7 @@
 	let isResizing = $state(false);
 
 	const MIN_WIDTH_PX = 500;
-	const MAX_DVW = 75;
+	const MAX_DVW = 50;
 	const MIN_DVW = 10;
 
 	function getViewportWidth(): number {
@@ -80,6 +81,7 @@
 	}
 
 	$effect(() => {
+		if (!open) return;
 		requestAnimationFrame(() => {
 			mounted = true;
 		});
@@ -120,13 +122,15 @@
 	// Derive the content to display
 	let content = $derived(resource?.text ?? '');
 	let mimeType = $derived(resource?.mimeType ?? 'text/plain');
+
+	const visible = $derived(mounted && open);
 </script>
 
 <div
-	class="relative h-dvh shrink-0 overflow-hidden transition-[opacity] duration-300 ease-out {mounted
+	class="relative h-dvh shrink-0 overflow-hidden transition-[opacity,width,min-width] duration-300 ease-out {visible
 		? 'opacity-100'
 		: 'opacity-0'}"
-	style="width: {mounted ? widthDvw : 0}dvw; min-width: {mounted
+	style="width: {visible ? widthDvw : 0}dvw; min-width: {visible
 		? MIN_WIDTH_PX
 		: 0}px; max-width: {MAX_DVW}dvw;"
 >
@@ -149,14 +153,24 @@
 	<div class="bg-base-200 flex h-full w-full flex-col">
 		<div class="border-base-300 flex items-center gap-2 border-b px-4 py-2">
 			<div class="flex grow items-center justify-between">
-				<span class="truncate text-sm font-medium">{name}</span>
-				{#if mimeType}
-					<span class="text-base-content/60 text-xs">{mimeType}</span>
+				{#if loading}
+					<span class="loading loading-spinner loading-xs"></span>
+				{:else}
+					<span class="truncate text-sm font-medium">{name}</span>
+					{#if mimeType}
+						<span class="text-base-content/60 text-xs">{mimeType}</span>
+					{/if}
 				{/if}
 			</div>
-			<button class="btn btn-sm btn-square tooltip tooltip-left" data-tip="Close" onclick={onClose}>
-				<X class="size-4" />
-			</button>
+			{#if onClose}
+				<button
+					class="btn btn-sm btn-square tooltip tooltip-left"
+					data-tip="Close"
+					onclick={onClose}
+				>
+					<X class="size-4" />
+				</button>
+			{/if}
 		</div>
 
 		<div class="flex-1 overflow-auto p-4 pt-0">

@@ -71,6 +71,7 @@
 			navbar?: string;
 			collapsedSidebarHeaderContent?: string;
 			sidebar?: string;
+			sidebarRoot?: string;
 		};
 		children: Snippet;
 		onRenderSubContent?: Snippet<[string]>;
@@ -85,6 +86,7 @@
 		overrideLeftSidebarContent?: Snippet;
 		rightSidebar?: Snippet;
 		layoutContext?: LayoutContext;
+		disableResize?: boolean;
 	}
 
 	const {
@@ -100,7 +102,8 @@
 		onBackButtonClick,
 		overrideLeftSidebarContent,
 		rightSidebar,
-		layoutContext
+		layoutContext,
+		disableResize
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
 	let collapsed = $state<Record<string, boolean>>({});
@@ -415,7 +418,10 @@
 	<div class="relative flex w-full grow">
 		{#if layout.sidebarOpen && !hideSidebar}
 			<div
-				class="bg-background flex max-h-dvh w-full min-w-dvw flex-shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[300px]"
+				class={twMerge(
+					'bg-background flex max-h-dvh w-full min-w-dvw flex-shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[300px]',
+					classes?.sidebarRoot
+				)}
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
@@ -533,7 +539,7 @@
 					</button>
 				</div>
 			</div>
-			{#if !responsive.isMobile}
+			{#if !responsive.isMobile && !disableResize}
 				<div
 					role="none"
 					class="h-inherit border-r-surface2 dark:border-r-surface2 relative -ml-3 w-3 cursor-col-resize border-r"

@@ -18,7 +18,6 @@
 	import MessageInput from './MessageInput.svelte';
 	import Messages from './Messages.svelte';
 	import AgentHeader from './AgentHeader.svelte';
-	import { parseToolFilePath } from '$lib/services/nanobot/utils';
 	import { ChevronDown } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
@@ -43,6 +42,8 @@
 		onAgentChange?: (agentId: string) => void;
 		emptyStateContent?: Snippet;
 		onRestart?: () => void;
+		onRefreshResources?: () => void;
+		suppressEmptyState?: boolean;
 	}
 
 	let {
@@ -65,7 +66,9 @@
 		isLoading,
 		isRestoring,
 		emptyStateContent,
-		onRestart
+		onRestart,
+		onRefreshResources,
+		suppressEmptyState
 	}: Props = $props();
 
 	let messagesContainer: HTMLElement;
@@ -74,6 +77,7 @@
 	let wasRestoring = false;
 	let disabledAutoScroll = $state(false);
 	const hasMessages = $derived((messages && messages.length > 0) || isRestoring);
+	const pinInputToBottom = $derived(hasMessages || !!suppressEmptyState);
 	const showInlineAgentHeader = $derived(!hasMessages && !emptyStateContent && !isLoading);
 	let selectedPrompt = $state<string | undefined>();
 
@@ -223,13 +227,7 @@
 
 						// Defer side effects to avoid issues during render
 						queueMicrotask(() => {
-							const filePath = parseToolFilePath(toolCall);
-							if (filePath.startsWith('workflows/') && !filePath.startsWith('workflows/.runs/')) {
-								const name = filePath.split('/').pop()?.split('.').shift();
-								onFileOpen?.(`workflow:///${name}`);
-							} else {
-								onFileOpen?.(`file:///${filePath}`);
-							}
+							onRefreshResources?.();
 						});
 					}
 				} catch {
@@ -301,9 +299,9 @@
 		</div>
 	</div>
 
-	<!-- Message input - centered when no messages, bottom when messages exist -->
+	<!-- Message input - centered when no messages, bottom when messages exist or when empty state is suppressed -->
 	<div
-		class="absolute right-0 bottom-0 left-0 flex flex-col transition-all duration-500 ease-in-out {hasMessages
+		class="absolute right-0 bottom-0 left-0 flex flex-col transition-all duration-500 ease-in-out {pinInputToBottom
 			? 'bg-base-100/80 backdrop-blur-sm'
 			: 'md:-translate-y-1/2 [@media(min-height:900px)]:md:top-1/2 [@media(min-height:900px)]:md:bottom-auto'}"
 	>
@@ -323,7 +321,7 @@
 					<AgentHeader {agent} onSend={onSendMessage} />
 				</div>
 			</div>
-		{:else if !hasMessages && !isLoading && emptyStateContent}
+		{:else if !hasMessages && !isLoading && emptyStateContent && !suppressEmptyState}
 			<div class="mx-auto w-full max-w-4xl" out:slide={{ axis: 'y', duration: 300 }}>
 				<div out:fade={{ duration: 200 }}>
 					{@render emptyStateContent()}

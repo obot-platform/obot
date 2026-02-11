@@ -2,6 +2,7 @@
 	import type { Chat } from '$lib/services/nanobot/types';
 	import { goto } from '$lib/url';
 	import { Check, Edit, MoreVertical, Trash2, X, Plus } from 'lucide-svelte';
+	import { page } from '$app/state';
 
 	interface Props {
 		threads: Chat[];
@@ -23,6 +24,7 @@
 
 	let editingThreadId = $state<string | null>(null);
 	let editTitle = $state('');
+	let selectedThreadId = $derived(page.url.searchParams.get('tid'));
 
 	function navigateToThread(threadId: string) {
 		onThreadClick?.();
@@ -73,9 +75,9 @@
 	}
 </script>
 
-<div class="flex h-full flex-col">
+<div class="flex h-full w-full flex-col">
 	<!-- Header -->
-	<div class="flex flex-shrink-0 items-center justify-between gap-2 p-2">
+	<div class="flex flex-shrink-0 items-center justify-between gap-2 pr-2 pl-3">
 		<h2 class="text-base-content/60 font-semibold">Conversations</h2>
 		<button
 			class="btn btn-square btn-ghost btn-sm tooltip tooltip-left"
@@ -108,7 +110,10 @@
 			{/each}
 		{:else}
 			{#each threads as thread (thread.id)}
-				<div class="group border-base-200 hover:bg-base-100 flex items-center border-b">
+				<div
+					class="group border-base-200 dark:hover:bg-base-100/25 hover:bg-base-100/65 flex items-center border-b"
+					class:bg-base-100={selectedThreadId === thread.id}
+				>
 					<!-- Thread title area (clickable) -->
 					<button
 						class="flex-1 truncate p-3 text-left transition-colors focus:outline-none"
@@ -162,7 +167,9 @@
 
 					{#if editingThreadId !== thread.id}
 						<!-- Dropdown menu - only show on hover -->
-						<div class="dropdown dropdown-end opacity-0 transition-opacity group-hover:opacity-100">
+						<div
+							class="dropdown dropdown-end mr-2 opacity-0 transition-opacity group-hover:opacity-100"
+						>
 							<div tabindex="0" role="button" class="btn btn-square btn-ghost btn-sm">
 								<MoreVertical class="h-4 w-4" />
 							</div>
