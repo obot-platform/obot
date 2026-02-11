@@ -590,7 +590,7 @@
 									handleSelectionChange(tab.view);
 								}}
 								class={twMerge(
-									'w-48 flex-shrink-0 rounded-md border border-transparent px-4 py-2 text-center transition-colors duration-300',
+									'min-w-fit flex-1 rounded-md border border-transparent px-3 py-2 text-center whitespace-nowrap transition-colors duration-300',
 									selected === tab.view &&
 										'dark:bg-surface1 dark:border-surface3 bg-background shadow-sm',
 									selected !== tab.view && 'hover:bg-surface3'
