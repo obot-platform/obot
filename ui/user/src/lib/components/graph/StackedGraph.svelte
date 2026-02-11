@@ -2,8 +2,9 @@
 	import { darkMode } from '$lib/stores';
 	import { BarChart, Bars, Legend } from 'layerchart';
 	import type { ComponentProps } from 'svelte';
-	import { cubicInOut } from 'svelte/easing';
 	import { tick } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
+	import { cubicInOut } from 'svelte/easing';
 
 	// fix for axis lines being rendered in front of bars
 	function moveMarksAboveAxis(node: SVGGElement) {
@@ -125,7 +126,7 @@
 
 	let primaryColorCss = $state<string | null>(null);
 	$effect(() => {
-		darkMode.isDark;
+		void darkMode.isDark;
 		const el = typeof document !== 'undefined' ? document.documentElement : null;
 		if (!el) return;
 		primaryColorCss = getComputedStyle(el).getPropertyValue('--color-primary').trim() || null;
@@ -142,7 +143,7 @@
 
 	const effectiveSeries = $derived.by(() => {
 		if (series != null && series.length > 0) return series;
-		const keys = new Set<string>();
+		const keys = new SvelteSet<string>();
 		for (const row of data as Record<string, unknown>[]) {
 			for (const key of Object.keys(row)) {
 				if (key !== 'bucket') keys.add(key);

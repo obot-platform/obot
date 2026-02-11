@@ -156,14 +156,6 @@
 								collapsible: false
 							},
 							{
-								id: 'tokens',
-								href: '/admin/token-usage',
-								icon: Coins,
-								label: 'Token Usage',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
 								id: 'filters',
 								href: '/admin/filters',
 								icon: Funnel,
@@ -222,6 +214,14 @@
 								href: '/admin/model-providers',
 								icon: Boxes,
 								label: 'Model Providers',
+								collapsible: false
+							},
+							{
+								id: 'tokens',
+								href: '/admin/token-usage',
+								icon: Coins,
+								label: 'Token Usage',
+								disabled: isBootStrapUser,
 								collapsible: false
 							},
 							{

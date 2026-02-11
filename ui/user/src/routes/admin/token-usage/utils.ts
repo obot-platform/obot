@@ -24,8 +24,8 @@ const MAX_MINUTE_BUCKETS = 24;
 const MAX_HOUR_BUCKETS = 24;
 type TokenTotals = { prompt: number; completion: number };
 
-const PROMPT_SUFFIX = '_prompt_tokens';
-const COMPLETION_SUFFIX = '_completion_tokens';
+const PROMPT_SUFFIX = '_input_tokens';
+const COMPLETION_SUFFIX = '_output_tokens';
 
 export function getBucketKind(rangeStart: Date, rangeEnd: Date): BucketKind {
     const hours = differenceInHours(rangeEnd, rangeStart);
@@ -176,7 +176,7 @@ export function aggregateByBucketDefault(
     data: TokenUsage[],
     getBucketKey: (row: TokenUsage) => string,
     getBucketLabel: (bucketKey: string) => string
-): { bucket: string; prompt_tokens: number; completion_tokens: number }[] {
+): { bucket: string; input_tokens: number; output_tokens: number }[] {
     const bucketToTokens = new Map<string, TokenTotals>();
     for (const row of data) {
         const bucketKey = getBucketKey(row);
@@ -193,8 +193,8 @@ export function aggregateByBucketDefault(
         const totals = bucketToTokens.get(bucketKey)!;
         return {
             bucket: getBucketLabel(bucketKey),
-            prompt_tokens: totals.prompt,
-            completion_tokens: totals.completion
+            input_tokens: totals.prompt,
+            output_tokens: totals.completion
         };
     });
 }
@@ -204,7 +204,7 @@ export function aggregateByBucketDefaultInRange(
     data: TokenUsage[],
     rangeStart: Date,
     rangeEnd: Date
-): { bucket: string; prompt_tokens: number; completion_tokens: number }[] {
+): { bucket: string; input_tokens: number; output_tokens: number }[] {
     const kind = getBucketKind(rangeStart, rangeEnd);
     const bucketsInRange = getBucketsInRange(rangeStart, rangeEnd, kind);
     const bucketToTokens = new Map<string, TokenTotals>();
@@ -222,8 +222,8 @@ export function aggregateByBucketDefaultInRange(
         const totals = bucketToTokens.get(bucketKey) ?? { prompt: 0, completion: 0 };
         return {
             bucket: label,
-            prompt_tokens: totals.prompt,
-            completion_tokens: totals.completion
+            input_tokens: totals.prompt,
+            output_tokens: totals.completion
         };
     });
 }
@@ -260,8 +260,8 @@ export function aggregateByBucketGrouped(
         for (const k of groupKeys) {
             const displayLabel = keyToDisplayLabel(k);
             const groupTotals = totals[k] ?? { prompt: 0, completion: 0 };
-            row[`${displayLabel}_prompt_tokens`] = groupTotals.prompt;
-            row[`${displayLabel}_completion_tokens`] = groupTotals.completion;
+            row[`${displayLabel}_input_tokens`] = groupTotals.prompt;
+            row[`${displayLabel}_output_tokens`] = groupTotals.completion;
         }
         return row;
     });
@@ -300,8 +300,8 @@ export function aggregateByBucketGroupedInRange(
         for (const k of groupKeys) {
             const displayLabel = keyToDisplayLabel(k);
             const groupTotals = totals[k] ?? { prompt: 0, completion: 0 };
-            row[`${displayLabel}_prompt_tokens`] = groupTotals.prompt;
-            row[`${displayLabel}_completion_tokens`] = groupTotals.completion;
+            row[`${displayLabel}_input_tokens`] = groupTotals.prompt;
+            row[`${displayLabel}_output_tokens`] = groupTotals.completion;
         }
         return row;
     });

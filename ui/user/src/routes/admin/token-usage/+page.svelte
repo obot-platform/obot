@@ -4,7 +4,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { subDays } from 'date-fns';
-	import { Coins } from 'lucide-svelte';
+	import { Coins, LoaderCircle } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 	import Select from '$lib/components/Select.svelte';
 	import { getUserDisplayName } from '$lib/utils';
@@ -16,22 +16,20 @@
 		type TotalTokenUsage
 	} from '$lib/services';
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import StackedGraph from '$lib/components/graph/StackedGraph.svelte';
 	import { errors } from '$lib/stores';
 	import { buildPaletteFromPrimary, hslToHex, parseColorToHsl } from '$lib/colors';
 	import {
-		aggregateByBucketDefault,
 		aggregateByBucketDefaultInRange,
 		aggregateByBucketGroupedInRange,
 		buildStackedSeriesColors,
 		getUserLabels
 	} from './utils';
 	import { twMerge } from 'tailwind-merge';
+	import { goto } from '$lib/url';
 
 	let loadingTableData = $state(true);
-	let loadingTotalTokensData = $state(true);
 	let end = $derived(
 		page.url.searchParams.get('end') ? new Date(page.url.searchParams.get('end')!) : new Date()
 	);
@@ -55,6 +53,7 @@
 		const ids = selectedModelIds.filter((id) => id !== 'all_models');
 		if (ids.length === 0) return null;
 		const modelsMap = new Map(modelsData.map((m) => [m.id, m]));
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const targetModels = new Set<string>();
 		for (const id of ids) {
 			const model = modelsMap.get(id);
@@ -102,12 +101,16 @@
 
 	/** Neutral gray for "other" users/models; re-runs when theme (primary) changes. */
 	const othersColor = $derived.by(() => {
-		primaryColorCss; // depend on theme so this updates when primary does
-		if (typeof document === 'undefined') return '#A9AABC';
-		const gray =
-			getComputedStyle(document.documentElement).getPropertyValue('--color-gray-500').trim() || '';
-		const parsed = gray ? parseColorToHsl(gray) : null;
-		if (parsed) return hslToHex(parsed.h, Math.min(40, parsed.s), parsed.l);
+		if (typeof document === 'undefined') {
+			return '#A9AABC';
+		}
+		if (primaryColorCss) {
+			const gray =
+				getComputedStyle(document.documentElement).getPropertyValue('--color-gray-500').trim() ||
+				'';
+			const parsed = gray ? parseColorToHsl(gray) : null;
+			if (parsed) return hslToHex(parsed.h, Math.min(40, parsed.s), parsed.l);
+		}
 		return '#A9AABC';
 	});
 
@@ -123,9 +126,6 @@
 			})
 			.catch((error) => {
 				errors.append(error);
-			})
-			.finally(() => {
-				loadingTotalTokensData = false;
 			});
 	});
 
@@ -193,7 +193,6 @@
 		buildStackedSeriesColors(byModelData as Record<string, unknown>[], colors, othersColor)
 	);
 
-	/** Per-model prompt tokens over time for the Models subview (full start–end range). */
 	const perModelPromptData = $derived.by(() => {
 		if (!filteredData.length) return [];
 		const uniqueModels = [...new Set(filteredData.map((r) => r.model).filter(Boolean))] as string[];
@@ -204,12 +203,11 @@
 			return {
 				modelKey: model,
 				modelLabel: modelIdToName.get(model) ?? model,
-				data: aggregated.map((row) => ({ bucket: row.bucket, prompt_tokens: row.prompt_tokens }))
+				data: aggregated.map((row) => ({ bucket: row.bucket, input_tokens: row.input_tokens }))
 			};
 		});
 	});
 
-	/** Per-user prompt tokens over time for the Users subview (full start–end range). */
 	const perUserPromptData = $derived.by(() => {
 		if (!filteredData.length) return [];
 		const userKeys = [
@@ -222,7 +220,7 @@
 			return {
 				userKey,
 				userLabel: userKeyToLabel.get(userKey) ?? userKey,
-				data: aggregated.map((row) => ({ bucket: row.bucket, prompt_tokens: row.prompt_tokens }))
+				data: aggregated.map((row) => ({ bucket: row.bucket, input_tokens: row.input_tokens }))
 			};
 		});
 	});
@@ -361,12 +359,17 @@
 				<AuditLogCalendar {start} {end} onChange={handleDateRangeChange} />
 			</div>
 			<div class="paper w-full gap-0">
-				<div class="flex justify-between gap-2">
-					<h4 class="font-semibold">Prompt & Completion Tokens</h4>
+				<div class="mb-1 flex justify-between gap-2">
+					<h4 class="flex items-center gap-2 self-start font-semibold">
+						Prompt & Completion Tokens
+						{#if loadingTableData}
+							<LoaderCircle class="size-4 animate-spin" />
+						{/if}
+					</h4>
 					<Select
 						class="bg-surface2 dark:bg-background dark:border-surface3 w-[50dvw] border border-transparent shadow-inner md:w-64"
 						options={[
-							{ label: 'Group by Default', id: 'group_by_default' },
+							{ label: 'Group by Token Type', id: 'group_by_default' },
 							{ label: 'Group by Users', id: 'group_by_users' },
 							{ label: 'Group by Models', id: 'group_by_models' }
 						]}
@@ -416,7 +419,7 @@
 			{#if selectedSubview === 'models'}
 				{#if perModelPromptData.length > 0}
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						{#each perModelPromptData as { modelLabel, data }}
+						{#each perModelPromptData as { modelLabel, data } (modelLabel)}
 							<div class="paper h- flex min-h-0 flex-col">
 								<h5 class="text-sm font-medium">{modelLabel}</h5>
 								<StackedGraph height={240} {data} />
@@ -429,7 +432,7 @@
 			{:else if selectedSubview === 'users'}
 				{#if perUserPromptData.length > 0}
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						{#each perUserPromptData as { userLabel, data }}
+						{#each perUserPromptData as { userLabel, data } (userLabel)}
 							<div class="paper flex min-h-0 flex-col">
 								<h5 class="text-sm font-medium">{userLabel}</h5>
 								<StackedGraph height={240} {data} />
@@ -446,7 +449,7 @@
 
 {#snippet summary(title: string, value: number)}
 	<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
-		<div class="text-on-surface1 text-xs font-light">{title}</div>
+		<div class="text-on-background text-xs font-light">{title}</div>
 		<div class="text-primary flex items-center gap-1 text-xl font-semibold">
 			{value.toLocaleString()}
 			<Coins class="size-4" />

@@ -50,7 +50,6 @@
 		// Do not use _chat variable anywhere except these assignments
 		messages,
 		prompts,
-		resources,
 		onSendMessage,
 		onFileUpload,
 		onFileOpen,
@@ -332,8 +331,6 @@
 			<MessageInput
 				placeholder={`Type your message...${prompts && prompts.length > 0 ? ' or / for prompts' : ''}`}
 				onSend={onSendMessage}
-				{resources}
-				{messages}
 				{agents}
 				{selectedAgentId}
 				{onAgentChange}
