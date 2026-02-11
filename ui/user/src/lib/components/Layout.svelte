@@ -217,18 +217,18 @@
 								collapsible: false
 							},
 							{
+								id: 'model-access-policies',
+								href: '/admin/model-access-policies',
+								icon: LockKeyhole,
+								label: 'Model Access Policies',
+								collapsible: false
+							},
+							{
 								id: 'tokens',
 								href: '/admin/token-usage',
 								icon: Coins,
 								label: 'Token Usage',
 								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'model-access-policies',
-								href: '/admin/model-access-policies',
-								icon: LockKeyhole,
-								label: 'Model Access Policies',
 								collapsible: false
 							},
 							{
