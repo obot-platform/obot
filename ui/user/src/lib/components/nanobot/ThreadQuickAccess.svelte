@@ -108,7 +108,6 @@
 	let showTodoList = $state(true);
 	let showFiles = $state(true);
 
-	/** Prefer resource-based list when non-empty; otherwise use list derived from message tool calls */
 	let todoItems = $derived(todoItemsFromMessages);
 	let resourceFiles = $derived(
 		chat.resources ? chat.resources.filter((r) => r.uri.startsWith('file:///')) : []

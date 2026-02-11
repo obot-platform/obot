@@ -162,9 +162,15 @@
 					{/if}
 				{/if}
 			</div>
-			<button class="btn btn-sm btn-square tooltip tooltip-left" data-tip="Close" onclick={onClose}>
-				<X class="size-4" />
-			</button>
+			{#if onClose}
+				<button
+					class="btn btn-sm btn-square tooltip tooltip-left"
+					data-tip="Close"
+					onclick={onClose}
+				>
+					<X class="size-4" />
+				</button>
+			{/if}
 		</div>
 
 		<div class="flex-1 overflow-auto p-4 pt-0">
