@@ -391,7 +391,7 @@ export class ChatService {
 	uploadingFiles: UploadingFile[];
 
 	private api: ChatAPI;
-	private closer = () => { };
+	private closer = () => {};
 	private history: ChatMessage[] | undefined;
 	private onChatDone: (() => void)[] = [];
 	private subscribed = false;
@@ -500,13 +500,15 @@ export class ChatService {
 	};
 
 	refreshResources = async () => {
-		this.listResources({ useDefaultSession: true }).then((response) => {
-			if (response && response.resources) {
-				this.resources = response.resources;
-			}
-		}).catch((error) => {
-			errors.append(error);
-		});
+		this.listResources({ useDefaultSession: true })
+			.then((response) => {
+				if (response && response.resources) {
+					this.resources = response.resources;
+				}
+			})
+			.catch((error) => {
+				errors.append(error);
+			});
 	};
 
 	listResources = async (opts?: { useDefaultSession?: boolean }) => {
