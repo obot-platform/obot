@@ -425,7 +425,7 @@
 				<div class="relative z-10 flex items-center">
 					<button
 						class={twMerge(
-							'w-24 border-b-2 px-4 py-2 transition-colors duration-400',
+							'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
 							selectedSubview === 'models' && 'border-primary'
 						)}
 						onclick={() => (selectedSubview = 'models')}
@@ -434,7 +434,7 @@
 					</button>
 					<button
 						class={twMerge(
-							'w-24 border-b-2 px-4 py-2 transition-colors duration-400',
+							'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
 							selectedSubview === 'users' && 'border-primary'
 						)}
 						onclick={() => (selectedSubview = 'users')}
