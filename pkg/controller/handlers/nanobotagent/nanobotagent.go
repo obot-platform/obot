@@ -35,7 +35,7 @@ func New(gptClient *gptscript.GPTScript, tokenService *persistent.TokenService, 
 		gatewayClient: gatewayClient,
 		// For now, this is hardcoded to the main tag, but we will switch this out before release.
 		// TODO(thedadams): Change this to the nanobotImage prior to release.
-		nanobotImage:   "nanobot:local2",
+		nanobotImage:   "nanobot:local6",
 		serverURL:      mcpSessionManager.TransformObotHostname(serverURL),
 		mcpServerImage: mcpServerImage,
 	}
