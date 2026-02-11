@@ -537,8 +537,25 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, credEnv map[str
 
 	// Process environment variables
 	for _, env := range systemServer.Spec.Manifest.Env {
-		val, ok := credEnv[env.Key]
-		if !ok || val == "" {
+		var (
+			val      string
+			hasValue bool
+		)
+
+		// Check for static value first
+		if env.Value != "" {
+			val = env.Value
+			hasValue = true
+		} else {
+			// Fall back to user-configured value from credentials
+			credVal, ok := credEnv[env.Key]
+			if ok && credVal != "" {
+				val = credVal
+				hasValue = true
+			}
+		}
+
+		if !hasValue {
 			if env.Required {
 				missingRequiredNames = append(missingRequiredNames, env.Key)
 			}
@@ -546,7 +563,10 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, credEnv map[str
 		}
 
 		// Apply prefix if specified (e.g., "Bearer ", "sk-")
-		val = applyPrefix(val, env.Prefix)
+		// Only apply to user-supplied values, not static values
+		if env.Value == "" {
+			val = applyPrefix(val, env.Prefix)
+		}
 
 		if !env.File {
 			serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))

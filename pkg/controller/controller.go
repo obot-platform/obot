@@ -153,7 +153,7 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 				Runtime:          types.RuntimeContainerized,
 				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
 					Image: image,
-					Port:  8080,
+					Port:  7999,
 					Path:  "/mcp",
 				},
 				Env: []types.MCPEnv{

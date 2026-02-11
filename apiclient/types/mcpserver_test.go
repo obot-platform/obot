@@ -73,7 +73,7 @@ func TestMapCatalogEntryToServer_Containerized(t *testing.T) {
 		Runtime:     RuntimeContainerized,
 		ContainerizedConfig: &ContainerizedRuntimeConfig{
 			Image: "test/mcp-server:latest",
-			Port:  8080,
+			Port:  7999,
 			Path:  "/mcp",
 		},
 	}
@@ -95,8 +95,8 @@ func TestMapCatalogEntryToServer_Containerized(t *testing.T) {
 		t.Errorf("Expected image 'test/mcp-server:latest', got '%s'", result.ContainerizedConfig.Image)
 	}
 
-	if result.ContainerizedConfig.Port != 8080 {
-		t.Errorf("Expected port 8080, got %d", result.ContainerizedConfig.Port)
+	if result.ContainerizedConfig.Port != 7999 {
+		t.Errorf("Expected port 7999, got %d", result.ContainerizedConfig.Port)
 	}
 
 	if result.ContainerizedConfig.Path != "/mcp" {

@@ -17,11 +17,10 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "valid containerized hook",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
 				Runtime:             types.RuntimeContainerized,
 				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
 					Image: "test:latest",
-					Port:  8080,
+					Port:  7999,
 					Path:  "/mcp",
 				},
 			},
@@ -30,7 +29,6 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "valid remote hook",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
 				Runtime:             types.RuntimeRemote,
 				RemoteConfig: &types.RemoteRuntimeConfig{
 					URL: "https://example.com/mcp",
@@ -39,18 +37,8 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "invalid - unknown server type",
-			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: "unknown",
-				Runtime:             types.RuntimeContainerized,
-			},
-			expectError: true,
-			errorField:  "systemMCPServerType",
-		},
-		{
 			name: "invalid - npx runtime",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
 				Runtime:             types.RuntimeNPX,
 			},
 			expectError: true,
@@ -59,7 +47,6 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "invalid - uvx runtime",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
 				Runtime:             types.RuntimeUVX,
 			},
 			expectError: true,
@@ -68,7 +55,6 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "invalid - composite runtime",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
 				Runtime:             types.RuntimeComposite,
 			},
 			expectError: true,
@@ -77,7 +63,6 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "invalid - missing containerized config",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
 				Runtime:             types.RuntimeContainerized,
 			},
 			expectError: true,
@@ -86,7 +71,6 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "invalid - missing remote URL",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
 				Runtime:             types.RuntimeRemote,
 				RemoteConfig:        &types.RemoteRuntimeConfig{},
 			},
@@ -96,10 +80,9 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "invalid - containerized with no image",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
 				Runtime:             types.RuntimeContainerized,
 				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
-					Port: 8080,
+					Port: 7999,
 					Path: "/mcp",
 				},
 			},
@@ -109,7 +92,6 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "invalid - containerized with invalid port",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
 				Runtime:             types.RuntimeContainerized,
 				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
 					Image: "test:latest",
@@ -123,7 +105,6 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "invalid - containerized with no path",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
 				Runtime:             types.RuntimeContainerized,
 				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
 					Image: "test:latest",

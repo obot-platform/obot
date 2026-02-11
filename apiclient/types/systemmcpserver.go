@@ -1,22 +1,11 @@
 package types
 
-// SystemMCPServerType defines the type/purpose of a system MCP server
-type SystemMCPServerType string
-
-const (
-	// SystemMCPServerTypeHook represents a hook-based system MCP server
-	SystemMCPServerTypeHook SystemMCPServerType = "hook"
-)
-
 type SystemMCPServerManifest struct {
 	Metadata         map[string]string `json:"metadata,omitempty"`
 	Name             string            `json:"name"`
 	ShortDescription string            `json:"shortDescription"`
 	Description      string            `json:"description"`
 	Icon             string            `json:"icon"`
-
-	// SystemMCPServerType defines the type/purpose of this system server
-	SystemMCPServerType SystemMCPServerType `json:"systemMCPServerType"`
 
 	// Enabled controls whether this server should be deployed
 	Enabled bool `json:"enabled"`

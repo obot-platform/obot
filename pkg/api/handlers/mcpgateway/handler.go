@@ -49,7 +49,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		return apierrors.NewUnauthorized("user is not authenticated")
 	}
 
-	mcpURL, allowDifferentPaths, err := h.ensureServerIsDeployed(req)
+	mcpURL, allowDifferentPaths, extraHeaders, err := h.ensureServerIsDeployed(req)
 	if err != nil {
 		return fmt.Errorf("failed to ensure server is deployed: %v", err)
 	}
@@ -90,13 +90,18 @@ func (h *Handler) Proxy(req api.Context) error {
 				}
 			}
 			r.URL.RawQuery = upstreamQuery.Encode()
+
+			// Apply extra headers (e.g., for direct proxy to remote SystemMCPServers).
+			for k, v := range extraHeaders {
+				r.Header.Set(k, v)
+			}
 		},
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil
 }
 
-func (h *Handler) ensureServerIsDeployed(req api.Context) (string, bool, error) {
+func (h *Handler) ensureServerIsDeployed(req api.Context) (string, bool, map[string]string, error) {
 	mcpID := req.PathValue("mcp_id")
 
 	if system.IsSystemMCPServerID(mcpID) {
@@ -105,43 +110,43 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (string, bool, error) 
 
 	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to get mcp server config: %w", err)
+		return "", false, nil, fmt.Errorf("failed to get mcp server config: %w", err)
 	}
 
 	if mcpServer.Spec.Template {
-		return "", false, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
+		return "", false, nil, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}
 
 	// Add-hoc authorization for nanobot agents
 	if h.nanobotIntegrationEnabled && mcpServerConfig.NanobotAgentName != "" {
 		var agent v1.NanobotAgent
 		if err = req.Get(&agent, mcpServerConfig.NanobotAgentName); err != nil {
-			return "", false, fmt.Errorf("failed to get nanobot agent %q: %w", mcpServerConfig.NanobotAgentName, err)
+			return "", false, nil, fmt.Errorf("failed to get nanobot agent %q: %w", mcpServerConfig.NanobotAgentName, err)
 		}
 		if agent.Spec.UserID != req.User.GetUID() {
-			return "", false, types.NewErrForbidden("user is not authorized to access nanobot agent %q", mcpServerConfig.NanobotAgentName)
+			return "", false, nil, types.NewErrForbidden("user is not authorized to access nanobot agent %q", mcpServerConfig.NanobotAgentName)
 		}
 	}
 
 	url, err := h.mcpSessionManager.LaunchServer(req.Context(), mcpServerConfig)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to launch mcp server: %w", err)
+		return "", false, nil, fmt.Errorf("failed to launch mcp server: %w", err)
 	}
 
-	return url, h.nanobotIntegrationEnabled && mcpServerConfig.NanobotAgentName != "", nil
+	return url, h.nanobotIntegrationEnabled && mcpServerConfig.NanobotAgentName != "", nil, nil
 }
 
-func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (string, bool, error) {
+func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (string, bool, map[string]string, error) {
 	var systemServer v1.SystemMCPServer
 	if err := h.storageClient.Get(req.Context(), kclient.ObjectKey{
 		Namespace: req.Namespace(),
 		Name:      mcpID,
 	}, &systemServer); err != nil {
-		return "", false, fmt.Errorf("failed to get system MCP server %q: %w", mcpID, err)
+		return "", false, nil, fmt.Errorf("failed to get system MCP server %q: %w", mcpID, err)
 	}
 
 	if !systemServer.Spec.Manifest.Enabled {
-		return "", false, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "systemmcpserver"}, mcpID)
+		return "", false, nil, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "systemmcpserver"}, mcpID)
 	}
 
 	// Gather credentials (same pattern as systemmcpserver controller handler)
@@ -150,7 +155,7 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 		CredentialContexts: []string{credCtx},
 	})
 	if err != nil {
-		return "", false, fmt.Errorf("failed to list credentials for system server: %w", err)
+		return "", false, nil, fmt.Errorf("failed to list credentials for system server: %w", err)
 	}
 
 	credEnv := make(map[string]string)
@@ -166,13 +171,26 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 
 	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, credEnv)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to convert system server to config: %w", err)
+		return "", false, nil, fmt.Errorf("failed to convert system server to config: %w", err)
+	}
+
+	// For remote system servers, proxy directly to the remote URL without deploying a shim.
+	// The shim requires OAuth/JWT configuration that system servers don't have, and the
+	// API handler already authenticates the user, so the shim's auth layer is unnecessary.
+	if serverConfig.Runtime == types.RuntimeRemote {
+		extraHeaders := make(map[string]string, len(serverConfig.Headers))
+		for _, header := range serverConfig.Headers {
+			if k, v, ok := strings.Cut(header, "="); ok {
+				extraHeaders[k] = v
+			}
+		}
+		return serverConfig.URL, false, extraHeaders, nil
 	}
 
 	mcpURL, err := h.mcpSessionManager.LaunchServer(req.Context(), serverConfig)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to launch system MCP server: %w", err)
+		return "", false, nil, fmt.Errorf("failed to launch system MCP server: %w", err)
 	}
 
-	return mcpURL, false, nil
+	return mcpURL, false, nil, nil
 }
