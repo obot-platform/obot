@@ -249,7 +249,7 @@ export async function deleteMCPCatalogServer(catalogID: string, serverID: string
 				if (body.dependencies && body.dependencies.length > 0) {
 					throw new MCPCompositeDeletionDependencyError(
 						body.message ??
-						'All dependencies on this MCP server must be removed before it can be deleted',
+							'All dependencies on this MCP server must be removed before it can be deleted',
 						body.dependencies
 					);
 				}
@@ -419,8 +419,8 @@ export async function getMcpCatalogToolPreviewsOauth(
 			dontLogErrors: true
 		})) as
 			| {
-				oauthURL: string;
-			}
+					oauthURL: string;
+			  }
 			| Record<string, string>;
 
 		// Check if response has oauthURL property (single server response)
@@ -1124,8 +1124,8 @@ export async function configureStorageCredentials(
 export async function deleteStorageCredentials(
 	opts?:
 		| {
-			signal?: AbortSignal | undefined;
-		}
+				signal?: AbortSignal | undefined;
+		  }
 		| undefined
 ) {
 	const response = await doDelete('/storage-credentials', opts);
@@ -1301,7 +1301,7 @@ export async function deleteMCPCatalogEntryOAuthCredentials(
 }
 
 export async function listTotalTokenUsage(opts?: { fetch?: Fetcher }) {
-	const response = (await doGet('/total-token-usage', opts));
+	const response = await doGet('/total-token-usage', opts);
 	return response as TotalTokenUsage;
 }
 
@@ -1333,12 +1333,12 @@ export async function listTokenUsage(
 }
 
 export async function listRemainingTokenUsageForUser(userId: string, opts?: { fetch?: Fetcher }) {
-	const response = (await doGet(`/users/${userId}/remaining-token-usage`, opts));
+	const response = await doGet(`/users/${userId}/remaining-token-usage`, opts);
 	return response;
 }
 
 export async function listTotalTokenUsageForUser(userId: string, opts?: { fetch?: Fetcher }) {
-	const response = (await doGet(`/users/${userId}/total-token-usage`, opts));
+	const response = await doGet(`/users/${userId}/total-token-usage`, opts);
 	return response;
 }
 
