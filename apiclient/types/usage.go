@@ -13,13 +13,11 @@ type TokenUsage struct {
 
 type TokenUsageList List[TokenUsage]
 
-// TokenUsageByDate is one day's worth of token usage items (same shape as TokenUsage, series not aggregated).
 type TokenUsageByDate struct {
 	Date  string       `json:"date"`
 	Items []TokenUsage `json:"items"`
 }
 
-// TokenUsageSeries is the response for list token usage: series grouped by date, excluding personal token.
 type TokenUsageSeries []TokenUsageByDate
 
 type RemainingTokenUsage struct {
