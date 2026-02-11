@@ -56,7 +56,8 @@ type persistentLogger struct {
 	kickPersist chan struct{}
 	store       store.Store
 	buffer      []byte
-	bufferSize  int
+	spare       []byte // reusable buffer from previous successful persist
+	maxSize     int    // flush trigger threshold (= AuditLogsMaxFileSize)
 }
 
 func New(ctx context.Context, options Options) (Logger, error) {
@@ -88,11 +89,9 @@ func New(ctx context.Context, options Options) (Logger, error) {
 	}
 
 	l := &persistentLogger{
-		lock:        sync.Mutex{},
 		kickPersist: make(chan struct{}),
 		store:       s,
-		bufferSize:  options.AuditLogsMaxFileSize * 2,
-		buffer:      make([]byte, 0, options.AuditLogsMaxFileSize*2),
+		maxSize:     options.AuditLogsMaxFileSize,
 	}
 
 	go l.runPersistenceLoop(ctx, time.Duration(options.AuditLogsMaxFlushInterval)*time.Second)
@@ -109,7 +108,7 @@ func (l *persistentLogger) LogEntry(entry LogEntry) error {
 	defer l.lock.Unlock()
 
 	l.buffer = append(l.buffer, b...)
-	if len(l.buffer) >= cap(l.buffer)/2 {
+	if len(l.buffer) >= l.maxSize {
 		select {
 		case l.kickPersist <- struct{}{}:
 		default:
@@ -154,7 +153,12 @@ func (l *persistentLogger) persist() error {
 	}
 
 	buf := l.buffer
-	l.buffer = make([]byte, 0, l.bufferSize)
+	if l.spare != nil {
+		l.buffer = l.spare[:0]
+	} else {
+		l.buffer = nil
+	}
+	l.spare = nil
 	l.lock.Unlock()
 
 	if err := l.store.Persist(buf); err != nil {
@@ -163,6 +167,10 @@ func (l *persistentLogger) persist() error {
 		l.lock.Unlock()
 		return err
 	}
+
+	l.lock.Lock()
+	l.spare = buf[:0]
+	l.lock.Unlock()
 
 	return nil
 }
