@@ -78,10 +78,7 @@
 	}
 
 	function isOAuthElicitation(): boolean {
-		return (
-			elicitation.mode === 'url' ||
-			Boolean(elicitation._meta?.['ai.nanobot.meta/oauth-url'])
-		);
+		return elicitation.mode === 'url' || Boolean(elicitation._meta?.['ai.nanobot.meta/oauth-url']);
 	}
 
 	function getOAuthUrl(): string {

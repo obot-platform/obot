@@ -10174,14 +10174,6 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 							Format:  "",
 						},
 					},
-					"systemMCPServerType": {
-						SchemaProps: spec.SchemaProps{
-							Description: "SystemMCPServerType defines the type/purpose of this system server",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"enabled": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Enabled controls whether this server should be deployed",
@@ -10223,7 +10215,7 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 						},
 					},
 				},
-				Required: []string{"name", "shortDescription", "description", "icon", "systemMCPServerType", "enabled", "runtime"},
+				Required: []string{"name", "shortDescription", "description", "icon", "enabled", "runtime"},
 			},
 		},
 		Dependencies: []string{
