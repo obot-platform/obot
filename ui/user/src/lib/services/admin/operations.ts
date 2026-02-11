@@ -465,7 +465,10 @@ export async function listUsers(opts?: { fetch?: Fetcher }): Promise<OrgUser[]> 
 	return response.items ?? [];
 }
 
-export async function listUsersIncludeDeleted(opts?: { fetch?: Fetcher }): Promise<OrgUser[]> {
+export async function listUsersIncludeDeleted(opts?: {
+	fetch?: Fetcher;
+	signal?: AbortSignal;
+}): Promise<OrgUser[]> {
 	const response = (await doGet('/users?includeDeleted=true', opts)) as ItemsResponse<OrgUser>;
 	return response.items ?? [];
 }
@@ -1323,7 +1326,7 @@ function tokenUsageQueryString(timeRange: TokenUsageTimeRange): string {
 /** Returns token usage for all users in the time range as a flat list. Does not include personal token. */
 export async function listTokenUsage(
 	timeRange: TokenUsageTimeRange,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<TokenUsage[]> {
 	const queryString = tokenUsageQueryString(timeRange);
 	const response = await doGet(`/token-usage?${queryString}`, opts);

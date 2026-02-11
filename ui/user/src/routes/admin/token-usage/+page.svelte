@@ -129,18 +129,29 @@
 			});
 	});
 
+	let fetchAbortController: AbortController | null = null;
+
 	async function fetchData(start: Date, end: Date) {
+		fetchAbortController?.abort();
+		fetchAbortController = new AbortController();
+		const signal = fetchAbortController.signal;
+
 		loadingTableData = true;
 		const timeRange = { start, end };
-		Promise.all([AdminService.listTokenUsage(timeRange), AdminService.listUsersIncludeDeleted()])
+		Promise.all([
+			AdminService.listTokenUsage(timeRange, { signal }),
+			AdminService.listUsersIncludeDeleted({ signal })
+		])
 			.then(([tokenUsage, users]) => {
+				if (signal.aborted) return;
 				data = tokenUsage;
 				usersData = users;
 			})
 			.finally(() => {
-				loadingTableData = false;
+				if (!signal.aborted) loadingTableData = false;
 			})
 			.catch((error) => {
+				if (error?.name === 'AbortError') return;
 				errors.append(error);
 			});
 	}
