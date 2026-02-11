@@ -199,7 +199,6 @@
 		return uniqueModels.map((model) => {
 			const modelRows = filteredData.filter((r) => r.model === model);
 			const aggregated = aggregateByBucketDefaultInRange(modelRows, start, end);
-			console.log({ aggregated, model, name: modelIdToName.get(model) });
 			return {
 				modelKey: model,
 				modelLabel: modelIdToName.get(model) ?? model,
