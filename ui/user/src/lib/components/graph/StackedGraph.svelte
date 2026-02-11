@@ -5,6 +5,7 @@
 	import { tick } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { cubicInOut } from 'svelte/easing';
+	import { parseColorToHsl } from '$lib/colors';
 
 	// fix for axis lines being rendered in front of bars
 	function moveMarksAboveAxis(node: SVGGElement) {
@@ -28,76 +29,6 @@
 	};
 
 	let { data, series, height = 384, tweened }: Props = $props();
-
-	/** Parse a CSS color string to HSL components (0-360, 0-100, 0-100). */
-	function parseColorToHsl(cssColor: string): { h: number; s: number; l: number } | null {
-		const s = cssColor.trim();
-		const hexMatch = s.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/);
-		if (hexMatch) {
-			let hex = hexMatch[1];
-			if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-			const r = parseInt(hex.slice(0, 2), 16) / 255;
-			const g = parseInt(hex.slice(2, 4), 16) / 255;
-			const b = parseInt(hex.slice(4, 6), 16) / 255;
-			const max = Math.max(r, g, b);
-			const min = Math.min(r, g, b);
-			let h = 0;
-			let s_ = 0;
-			const l = (max + min) / 2;
-			if (max !== min) {
-				const d = max - min;
-				s_ = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-				switch (max) {
-					case r:
-						h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-						break;
-					case g:
-						h = ((b - r) / d + 2) / 6;
-						break;
-					case b:
-						h = ((r - g) / d + 4) / 6;
-						break;
-				}
-			}
-			return { h: h * 360, s: s_ * 100, l: l * 100 };
-		}
-		const rgbMatch = s.match(/^rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-		if (rgbMatch) {
-			const r = parseInt(rgbMatch[1], 10) / 255;
-			const g = parseInt(rgbMatch[2], 10) / 255;
-			const b = parseInt(rgbMatch[3], 10) / 255;
-			const max = Math.max(r, g, b);
-			const min = Math.min(r, g, b);
-			let h = 0;
-			let s_ = 0;
-			const l = (max + min) / 2;
-			if (max !== min) {
-				const d = max - min;
-				s_ = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-				switch (max) {
-					case r:
-						h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-						break;
-					case g:
-						h = ((b - r) / d + 2) / 6;
-						break;
-					case b:
-						h = ((r - g) / d + 4) / 6;
-						break;
-				}
-			}
-			return { h: h * 360, s: s_ * 100, l: l * 100 };
-		}
-		const hslMatch = s.match(/^hsla?\s*\(\s*([\d.]+)\s*[, ]\s*([\d.]+)%?\s*[, ]\s*([\d.]+)%?\s*\)/);
-		if (hslMatch) {
-			return {
-				h: parseFloat(hslMatch[1]) % 360,
-				s: Math.min(100, Math.max(0, parseFloat(hslMatch[2]))),
-				l: Math.min(100, Math.max(0, parseFloat(hslMatch[3])))
-			};
-		}
-		return null;
-	}
 
 	function hslToCss(h: number, s: number, l: number): string {
 		return `hsl(${h.toFixed(1)} ${s.toFixed(1)}% ${l.toFixed(1)}%)`;

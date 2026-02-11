@@ -172,7 +172,9 @@
 		);
 	});
 
-	const modelIdToName = $derived(new Map(modelsData.map((m) => [m.id, m.name])));
+	const targetModelToDisplayName = $derived(
+		new Map(modelsData.map((m) => [m.targetModel, m.displayName || m.name]))
+	);
 
 	const byModelData = $derived.by(() => {
 		if (groupBy !== 'group_by_models') return [];
@@ -181,7 +183,7 @@
 			start,
 			end,
 			(row) => row.model ?? 'Unknown',
-			(k) => modelIdToName.get(k) ?? k
+			(k) => targetModelToDisplayName.get(k) ?? k
 		);
 	});
 
@@ -195,13 +197,22 @@
 
 	const perModelPromptData = $derived.by(() => {
 		if (!filteredData.length) return [];
-		const uniqueModels = [...new Set(filteredData.map((r) => r.model).filter(Boolean))] as string[];
-		return uniqueModels.map((model) => {
-			const modelRows = filteredData.filter((r) => r.model === model);
+		const byModel = new Map<string, typeof filteredData>();
+		for (const r of filteredData) {
+			const model = r.model;
+			if (!model) continue;
+			let rows = byModel.get(model);
+			if (!rows) {
+				rows = [];
+				byModel.set(model, rows);
+			}
+			rows.push(r);
+		}
+		return [...byModel.entries()].map(([model, modelRows]) => {
 			const aggregated = aggregateByBucketDefaultInRange(modelRows, start, end);
 			return {
 				modelKey: model,
-				modelLabel: modelIdToName.get(model) ?? model,
+				modelLabel: targetModelToDisplayName.get(model) ?? model,
 				data: aggregated.map((row) => ({ bucket: row.bucket, input_tokens: row.input_tokens }))
 			};
 		});
@@ -209,12 +220,20 @@
 
 	const perUserPromptData = $derived.by(() => {
 		if (!filteredData.length) return [];
-		const userKeys = [
-			...new Set(filteredData.map((r) => r.userID ?? r.runName ?? 'Unknown'))
-		].sort();
+		const byUser = new Map<string, typeof filteredData>();
+		for (const r of filteredData) {
+			const userKey = r.userID ?? r.runName ?? 'Unknown';
+			let rows = byUser.get(userKey);
+			if (!rows) {
+				rows = [];
+				byUser.set(userKey, rows);
+			}
+			rows.push(r);
+		}
+		const userKeys = [...byUser.keys()].sort();
 		const userKeyToLabel = getUserLabels(usersMap, userKeys);
 		return userKeys.map((userKey) => {
-			const userRows = filteredData.filter((r) => (r.userID ?? r.runName ?? 'Unknown') === userKey);
+			const userRows = byUser.get(userKey)!;
 			const aggregated = aggregateByBucketDefaultInRange(userRows, start, end);
 			return {
 				userKey,
@@ -419,7 +438,7 @@
 				{#if perModelPromptData.length > 0}
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 						{#each perModelPromptData as { modelLabel, data } (modelLabel)}
-							<div class="paper h- flex min-h-0 flex-col">
+							<div class="paper flex min-h-0 flex-col">
 								<h5 class="text-sm font-medium">{modelLabel}</h5>
 								<StackedGraph height={240} {data} />
 							</div>

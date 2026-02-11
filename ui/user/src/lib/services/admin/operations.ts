@@ -249,7 +249,7 @@ export async function deleteMCPCatalogServer(catalogID: string, serverID: string
 				if (body.dependencies && body.dependencies.length > 0) {
 					throw new MCPCompositeDeletionDependencyError(
 						body.message ??
-							'All dependencies on this MCP server must be removed before it can be deleted',
+						'All dependencies on this MCP server must be removed before it can be deleted',
 						body.dependencies
 					);
 				}
@@ -419,8 +419,8 @@ export async function getMcpCatalogToolPreviewsOauth(
 			dontLogErrors: true
 		})) as
 			| {
-					oauthURL: string;
-			  }
+				oauthURL: string;
+			}
 			| Record<string, string>;
 
 		// Check if response has oauthURL property (single server response)
@@ -1124,8 +1124,8 @@ export async function configureStorageCredentials(
 export async function deleteStorageCredentials(
 	opts?:
 		| {
-				signal?: AbortSignal | undefined;
-		  }
+			signal?: AbortSignal | undefined;
+		}
 		| undefined
 ) {
 	const response = await doDelete('/storage-credentials', opts);
@@ -1325,9 +1325,7 @@ export async function listTokenUsage(
 	timeRange: TokenUsageTimeRange,
 	opts?: { fetch?: Fetcher }
 ): Promise<TokenUsage[]> {
-	const queryString =
-		`start=${encodeURIComponent(formatTokenUsageDate(timeRange.start))}` +
-		`&end=${encodeURIComponent(formatTokenUsageDate(timeRange.end))}`;
+	const queryString = tokenUsageQueryString(timeRange);
 	const response = await doGet(`/token-usage?${queryString}`, opts);
 	return unwrapTokenUsageList(response);
 }
