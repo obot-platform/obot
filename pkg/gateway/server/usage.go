@@ -71,7 +71,6 @@ func (s *Server) systemTokenUsageByUser(apiContext api.Context) error {
 		return err
 	}
 
-	// Flat list of token usage for all users in range; personal token is never included.
 	activities, err := apiContext.GatewayClient.TokenUsageSeriesInRange(apiContext.Context(), start, end)
 	if err != nil {
 		return err

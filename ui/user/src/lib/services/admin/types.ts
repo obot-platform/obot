@@ -812,7 +812,6 @@ export interface TokenUsage {
 export interface TokenUsageTimeRange {
 	start: Date | string;
 	end: Date | string;
-	includePersonalToken?: boolean;
 }
 
 export interface TotalTokenUsage {

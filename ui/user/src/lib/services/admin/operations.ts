@@ -1317,9 +1317,6 @@ function tokenUsageQueryString(timeRange: TokenUsageTimeRange): string {
 		`start=${encodeURIComponent(formatTokenUsageDate(timeRange.start))}`,
 		`end=${encodeURIComponent(formatTokenUsageDate(timeRange.end))}`
 	];
-	if (timeRange.includePersonalToken === true) {
-		parts.push('include-personal-token=true');
-	}
 	return parts.join('&');
 }
 

@@ -11187,8 +11187,7 @@ func schema_obot_platform_obot_apiclient_types_TokenUsageByDate(ref common.Refer
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "TokenUsageByDate is one day's worth of token usage items (same shape as TokenUsage, series not aggregated).",
-				Type:        []string{"object"},
+				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
 					"date": {
 						SchemaProps: spec.SchemaProps{

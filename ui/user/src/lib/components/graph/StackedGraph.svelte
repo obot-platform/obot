@@ -135,7 +135,11 @@
 					list: { class: `${chartTextClass} ${chartTooltipListClass}` },
 					item: { class: chartTextClass }
 				},
-				bars: { strokeWidth: 0, tweened: tweened ? { easing: cubicInOut } : false },
+				bars: {
+					strokeWidth: 0,
+					radius: 0,
+					tweened: tweened ? { easing: cubicInOut } : false
+				},
 				highlight: {
 					area: { fill: chartHighlightFill }
 				}

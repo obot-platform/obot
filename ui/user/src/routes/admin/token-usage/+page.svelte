@@ -142,14 +142,10 @@
 
 		loadingTableData = true;
 		const timeRange = { start, end };
-		Promise.all([
-			AdminService.listTokenUsage(timeRange, { signal }),
-			AdminService.listUsersIncludeDeleted({ signal })
-		])
-			.then(([tokenUsage, users]) => {
+		AdminService.listTokenUsage(timeRange, { signal })
+			.then((tokenUsage) => {
 				if (signal.aborted) return;
 				data = tokenUsage;
-				usersData = users;
 			})
 			.finally(() => {
 				if (!signal.aborted) loadingTableData = false;
@@ -212,6 +208,7 @@
 
 	const perModelPromptData = $derived.by(() => {
 		if (!filteredData.length) return [];
+		//eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const byModel = new Map<string, typeof filteredData>();
 		for (const r of filteredData) {
 			const model = r.model;
@@ -235,6 +232,7 @@
 
 	const perUserPromptData = $derived.by(() => {
 		if (!filteredData.length) return [];
+		//eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const byUser = new Map<string, typeof filteredData>();
 		for (const r of filteredData) {
 			const userKey = r.userID ?? r.runName ?? 'Unknown';

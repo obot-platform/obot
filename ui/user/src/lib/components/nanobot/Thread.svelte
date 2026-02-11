@@ -11,7 +11,6 @@
 		ElicitationResult,
 		Elicitation as ElicitationType,
 		Prompt as PromptType,
-		Resource,
 		UploadedFile,
 		UploadingFile
 	} from '$lib/services/nanobot/types';
@@ -25,7 +24,6 @@
 	interface Props {
 		messages: ChatMessage[];
 		prompts: PromptType[];
-		resources: Resource[];
 		elicitations?: ElicitationType[];
 		onElicitationResult?: (elicitation: ElicitationType, result: ElicitationResult) => void;
 		onSendMessage?: (message: string, attachments?: Attachment[]) => Promise<ChatResult | void>;
