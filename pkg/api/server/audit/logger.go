@@ -88,6 +88,10 @@ func New(ctx context.Context, options Options) (Logger, error) {
 		return nil, fmt.Errorf("invalid audit log mode: %s", options.AuditLogsMode)
 	}
 
+	if options.AuditLogsMaxFileSize <= 0 {
+		return nil, fmt.Errorf("audit log max file size must be greater than 0")
+	}
+
 	l := &persistentLogger{
 		kickPersist: make(chan struct{}),
 		store:       s,
@@ -169,7 +173,11 @@ func (l *persistentLogger) persist() error {
 	}
 
 	l.lock.Lock()
-	l.spare = buf[:0]
+	if cap(buf) <= l.maxSize {
+		l.spare = buf[:0]
+	} else {
+		l.spare = nil
+	}
 	l.lock.Unlock()
 
 	return nil
