@@ -30,6 +30,7 @@
 	import { goto } from '$lib/url';
 
 	let loadingTableData = $state(true);
+	let loadingTotalTokensData = $state(true);
 	let end = $derived(
 		page.url.searchParams.get('end') ? new Date(page.url.searchParams.get('end')!) : new Date()
 	);
@@ -126,6 +127,9 @@
 			})
 			.catch((error) => {
 				errors.append(error);
+			})
+			.finally(() => {
+				loadingTotalTokensData = false;
 			});
 	});
 
@@ -480,8 +484,14 @@
 	<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
 		<div class="text-on-background text-xs font-light">{title}</div>
 		<div class="text-primary flex items-center gap-1 text-xl font-semibold">
-			{value.toLocaleString()}
-			<Coins class="size-4" />
+			{#if loadingTotalTokensData}
+				<div class="py-2">
+					<LoaderCircle class="size-4 animate-spin" />
+				</div>
+			{:else}
+				{value.toLocaleString()}
+				<Coins class="size-4" />
+			{/if}
 		</div>
 	</div>
 {/snippet}
