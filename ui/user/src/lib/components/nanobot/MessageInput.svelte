@@ -222,14 +222,6 @@
 
 				<!-- Action buttons -->
 				<div class="flex gap-2">
-					<MessageResources
-						{disabled}
-						{resources}
-						{selectedResources}
-						{toggleResource}
-						{messages}
-					/>
-
 					<!-- Submit button -->
 					<button
 						type="submit"
