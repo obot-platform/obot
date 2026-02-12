@@ -44,6 +44,8 @@ const config: Config = {
   plugins: [
     // Custom plugin to rewrite canonical URLs in versioned docs to point to latest
     "./plugins/canonical-urls.ts",
+    // Custom plugin to inject JSON-LD structured data into built HTML pages
+    "./plugins/structured-data.ts",
     [
       "@docusaurus/plugin-client-redirects",
       {
