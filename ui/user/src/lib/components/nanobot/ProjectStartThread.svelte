@@ -41,7 +41,6 @@
 			<Thread
 				messages={chat.messages}
 				prompts={chat.prompts}
-				resources={chat.resources}
 				elicitations={chat.elicitations}
 				agents={chat.agents}
 				selectedAgentId={chat.selectedAgentId}
