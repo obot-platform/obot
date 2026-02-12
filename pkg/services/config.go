@@ -110,7 +110,7 @@ type Config struct {
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
 	EnableRegistryAuth      bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 	NanobotIntegration      bool   `usage:"Enable Nanobot integration" default:"false"`
-	MCPServerServerImage    string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:main"`
+	MCPServerSearchImage    string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:main"`
 
 	GeminiConfig
 	GatewayConfig
