@@ -27,14 +27,12 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "valid remote hook",
+			name: "invalid - remote runtime",
 			manifest: types.SystemMCPServerManifest{
 				Runtime: types.RuntimeRemote,
-				RemoteConfig: &types.RemoteRuntimeConfig{
-					URL: "https://example.com/mcp",
-				},
 			},
-			expectError: false,
+			expectError: true,
+			errorField:  "runtime",
 		},
 		{
 			name: "invalid - npx runtime",
@@ -67,15 +65,6 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 			},
 			expectError: true,
 			errorField:  "containerizedConfig",
-		},
-		{
-			name: "invalid - missing remote URL",
-			manifest: types.SystemMCPServerManifest{
-				Runtime:      types.RuntimeRemote,
-				RemoteConfig: &types.RemoteRuntimeConfig{},
-			},
-			expectError: true,
-			errorField:  "url",
 		},
 		{
 			name: "invalid - containerized with no image",

@@ -10,12 +10,11 @@ type SystemMCPServerManifest struct {
 	// Enabled controls whether this server should be deployed
 	Enabled bool `json:"enabled"`
 
-	// Runtime configuration (only containerized and remote allowed)
+	// Runtime configuration (only containerized allowed)
 	Runtime Runtime `json:"runtime"`
 
-	// Runtime-specific configurations (only one should be populated)
+	// Runtime-specific configuration
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
-	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
 }

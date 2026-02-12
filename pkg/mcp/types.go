@@ -493,48 +493,6 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, credEnv map[str
 				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
 			}
 		}
-
-	case types.RuntimeRemote:
-		if systemServer.Spec.Manifest.RemoteConfig != nil {
-			serverConfig.URL = expandEnvVars(systemServer.Spec.Manifest.RemoteConfig.URL, credEnv, fileEnvVars)
-
-			// Add headers from remote config
-			serverConfig.Headers = make([]string, 0, len(systemServer.Spec.Manifest.RemoteConfig.Headers))
-			for _, header := range systemServer.Spec.Manifest.RemoteConfig.Headers {
-				var (
-					val      string
-					hasValue bool
-				)
-
-				// Check for static value first
-				if header.Value != "" {
-					val = header.Value
-					hasValue = true
-				} else {
-					// Fall back to user-configured value from credentials
-					credVal, ok := credEnv[header.Key]
-					if ok && credVal != "" {
-						val = credVal
-						hasValue = true
-					}
-				}
-
-				if !hasValue {
-					if header.Required {
-						missingRequiredNames = append(missingRequiredNames, header.Key)
-					}
-					continue
-				}
-
-				// Apply prefix if specified (e.g., "Bearer ", "Token ")
-				// Only apply to user-supplied values, not static values
-				if header.Value == "" {
-					val = applyPrefix(val, header.Prefix)
-				}
-
-				serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
-			}
-		}
 	}
 
 	// Process environment variables

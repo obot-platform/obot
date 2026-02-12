@@ -454,15 +454,6 @@ func convertSystemMCPServer(server v1.SystemMCPServer, credEnv map[string]string
 		}
 	}
 
-	if server.Spec.Manifest.RemoteConfig != nil {
-		for _, header := range server.Spec.Manifest.RemoteConfig.Headers {
-			if header.Required && header.Value == "" && credEnv[header.Key] == "" {
-				result.MissingRequiredHeaders = append(result.MissingRequiredHeaders, header.Key)
-				configured = false
-			}
-		}
-	}
-
 	result.Configured = configured
 	return result
 }
@@ -478,14 +469,6 @@ func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScrip
 	for _, env := range server.Spec.Manifest.Env {
 		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
 			return false
-		}
-	}
-
-	if server.Spec.Manifest.RemoteConfig != nil {
-		for _, header := range server.Spec.Manifest.RemoteConfig.Headers {
-			if header.Required && header.Value == "" && credEnv[header.Key] == "" {
-				return false
-			}
 		}
 	}
 

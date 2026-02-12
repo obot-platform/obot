@@ -154,16 +154,5 @@ func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScrip
 		}
 	}
 
-	if server.Spec.Manifest.RemoteConfig != nil {
-		for _, header := range server.Spec.Manifest.RemoteConfig.Headers {
-			if header.Required && header.Value == "" && credEnv[header.Key] == "" {
-				slog.Info("System MCP server missing required header",
-					"name", server.Name,
-					"headerKey", header.Key)
-				return false
-			}
-		}
-	}
-
 	return true
 }
