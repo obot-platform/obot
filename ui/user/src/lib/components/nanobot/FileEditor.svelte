@@ -5,7 +5,6 @@
 	import MarkdownEditor from './MarkdownEditor.svelte';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 	import { getLayout } from '$lib/context/nanobotLayout.svelte';
-	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		filename: string;
@@ -273,27 +272,20 @@
 		}, 300);
 		return () => clearTimeout(t);
 	});
-
-	function getPanelStyles(): string {
-		if (!visible) return '';
-		const usePx = containerWidth > 0;
-		const widthValue = (usePx ? widthPx : widthDvw) || 0;
-		const widthUnit = usePx ? 'px' : 'dvw';
-		const minWidth = MIN_WIDTH_PX || 0;
-		const maxWidthValue = usePx ? Math.floor(containerWidth * (MAX_DVW_FILL / 100)) : MAX_DVW_FILL;
-		const maxWidthUnit = usePx ? 'px' : 'dvw';
-		return `width: ${widthValue}${widthUnit}; min-width: ${minWidth}px; max-width: ${maxWidthValue}${maxWidthUnit};`;
-	}
 </script>
 
 <div
 	bind:this={rootEl}
-	class={twMerge(
-		'relative h-dvh shrink-0 overflow-hidden duration-300 ease-out',
-		justOpened ? 'transition-[opacity,width,min-width]' : 'transition-opacity',
-		visible ? 'opacity-100' : 'opacity-0'
-	)}
-	style={getPanelStyles()}
+	class="relative h-dvh shrink-0 overflow-hidden {justOpened
+		? 'transition-[opacity,width,min-width]'
+		: 'transition-opacity'} duration-300 ease-out {visible ? 'opacity-100' : 'opacity-0'}"
+	style="width: {visible ? (containerWidth > 0 ? widthPx : widthDvw) : 0}{visible
+		? containerWidth > 0
+			? 'px'
+			: 'dvw'
+		: 'px'}; min-width: {visible ? MIN_WIDTH_PX : 0}px; max-width: {visible && containerWidth > 0
+		? Math.floor(containerWidth * (MAX_DVW_FILL / 100))
+		: MAX_DVW_FILL}{visible && containerWidth > 0 ? 'px' : 'dvw'};"
 >
 	<!-- Resize handle -->
 	<div
