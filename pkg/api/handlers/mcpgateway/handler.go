@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
+	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -181,7 +182,17 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 		}
 	}
 
-	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, credEnv)
+	// Retrieve the token exchange credential
+	var secretsCred map[string]string
+	tokenExchangeCred, err := h.gptClient.RevealCredential(req.Context(), []string{systemServer.Name}, systemmcpserver.SecretInfoToolName(systemServer.Name))
+	if err == nil {
+		secretsCred = tokenExchangeCred.Env
+	}
+
+	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
+	audiences := systemServer.ValidConnectURLs(baseURL)
+
+	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, audiences, baseURL, credEnv, secretsCred)
 	if err != nil {
 		return "", false, nil, fmt.Errorf("failed to convert system server to config: %w", err)
 	}

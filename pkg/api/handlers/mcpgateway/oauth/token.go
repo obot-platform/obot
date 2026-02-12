@@ -529,6 +529,28 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		}
 	} else if system.IsMCPServerInstanceID(mcpID) {
 		return types.NewErrNotFound("no token exchange for %s", resource)
+	} else if system.IsSystemMCPServerID(mcpID) {
+		// Return a new token that represents the user, so that the SystemMCPServer can make API calls to Obot on behalf of the user.
+		now := time.Now()
+		expiresAt := now.Add(12 * time.Hour)
+		token, err := h.tokenService.NewToken(req.Context(), persistent.TokenContext{
+			Audience:   h.baseURL,
+			IssuedAt:   now,
+			ExpiresAt:  expiresAt,
+			UserID:     userID,
+			UserGroups: types.RoleBasic.Groups(),
+			Namespace:  system.DefaultNamespace,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to generate token: %w", err)
+		}
+
+		return req.Write(TokenExchangeResponse{
+			AccessToken:     token,
+			IssuedTokenType: tokenTypeAccessToken,
+			TokenType:       "Bearer",
+			ExpiresIn:       max(int(time.Until(expiresAt).Seconds()), 0),
+		})
 	}
 
 	// Get the token store for this user and MCP

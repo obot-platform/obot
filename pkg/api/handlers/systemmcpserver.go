@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -233,13 +235,8 @@ func (h *SystemMCPServerHandler) Restart(req api.Context) error {
 		return err
 	}
 
-	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
-	if err != nil {
-		return err
-	}
-
 	// Transform to ServerConfig
-	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, credEnv)
+	serverConfig, _, err := systemServerToServerConfig(req, systemServer)
 	if err != nil {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}
@@ -268,13 +265,8 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 		return err
 	}
 
-	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
-	if err != nil {
-		return err
-	}
-
 	// Transform to ServerConfig
-	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, credEnv)
+	serverConfig, _, err := systemServerToServerConfig(req, systemServer)
 	if err != nil {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}
@@ -307,13 +299,8 @@ func (h *SystemMCPServerHandler) GetTools(req api.Context) error {
 		return err
 	}
 
-	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
-	if err != nil {
-		return err
-	}
-
 	// Transform to ServerConfig
-	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, credEnv)
+	serverConfig, _, err := systemServerToServerConfig(req, systemServer)
 	if err != nil {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}
@@ -361,13 +348,8 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 		return err
 	}
 
-	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
-	if err != nil {
-		return err
-	}
-
 	// Transform to ServerConfig
-	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, credEnv)
+	serverConfig, _, err := systemServerToServerConfig(req, systemServer)
 	if err != nil {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}
@@ -473,6 +455,24 @@ func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScrip
 	}
 
 	return true
+}
+
+func systemServerToServerConfig(req api.Context, server v1.SystemMCPServer) (mcp.ServerConfig, []string, error) {
+	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, server)
+	if err != nil {
+		return mcp.ServerConfig{}, nil, err
+	}
+
+	var secretsCred map[string]string
+	tokenExchangeCred, err := req.GPTClient.RevealCredential(req.Context(), []string{server.Name}, systemmcpserver.SecretInfoToolName(server.Name))
+	if err == nil {
+		secretsCred = tokenExchangeCred.Env
+	}
+
+	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
+	audiences := server.ValidConnectURLs(baseURL)
+
+	return mcp.SystemServerToServerConfig(server, audiences, baseURL, credEnv, secretsCred)
 }
 
 func getCredentialsForSystemServer(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) (map[string]string, error) {

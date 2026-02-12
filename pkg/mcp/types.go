@@ -55,10 +55,8 @@ type ServerConfig struct {
 	MCPCatalogEntryName  string `json:"mcpCatalogEntryName"`
 	MCPServerDisplayName string `json:"mcpServerDisplayName"`
 	NanobotAgentName     string `json:"nanobotAgentName"`
-	SkipShim             bool   `json:"skipShim"`
-
-	ProjectMCPServer   bool `json:"projectMCPServer"`
-	ComponentMCPServer bool `json:"componentMCPServer"`
+	ProjectMCPServer     bool   `json:"projectMCPServer"`
+	ComponentMCPServer   bool   `json:"componentMCPServer"`
 
 	Issuer    string   `json:"issuer"`
 	Audiences []string `json:"audiences"`
@@ -452,7 +450,7 @@ func ProjectServerToConfig(projectMCPServer v1.ProjectMCPServer, publicBaseURL, 
 }
 
 // SystemServerToServerConfig converts a v1.SystemMCPServer to a ServerConfig for deployment
-func SystemServerToServerConfig(systemServer v1.SystemMCPServer, credEnv map[string]string) (ServerConfig, []string, error) {
+func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []string, issuer string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
 	fileEnvVars := make(map[string]struct{})
 	for _, env := range systemServer.Spec.Manifest.Env {
 		if env.File {
@@ -466,13 +464,22 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, credEnv map[str
 	}
 
 	serverConfig := ServerConfig{
-		Env:                  make([]string, 0, len(systemServer.Spec.Manifest.Env)),
-		MCPServerNamespace:   systemServer.Namespace,
-		MCPServerName:        systemServer.Name,
-		MCPServerDisplayName: displayName,
-		Runtime:              systemServer.Spec.Manifest.Runtime,
-		Scope:                fmt.Sprintf("%s-system", systemServer.Name),
-		SkipShim:             true,
+		Env:                       make([]string, 0, len(systemServer.Spec.Manifest.Env)),
+		MCPServerNamespace:        systemServer.Namespace,
+		MCPServerName:             systemServer.Name,
+		MCPServerDisplayName:      displayName,
+		Runtime:                   systemServer.Spec.Manifest.Runtime,
+		Scope:                     fmt.Sprintf("%s-system", systemServer.Name),
+		Issuer:                    issuer,
+		Audiences:                 audiences,
+		TokenExchangeClientID:     secretsCred["TOKEN_EXCHANGE_CLIENT_ID"],
+		TokenExchangeClientSecret: secretsCred["TOKEN_EXCHANGE_CLIENT_SECRET"],
+		TokenExchangeEndpoint:     fmt.Sprintf("%s/oauth/token", issuer),
+		JWKSEndpoint:              fmt.Sprintf("%s/oauth/jwks.json", issuer),
+		AuthorizeEndpoint:         fmt.Sprintf("%s/oauth/authorize", issuer),
+		AuditLogEndpoint:          fmt.Sprintf("%s/api/mcp-audit-logs", issuer),
+		AuditLogToken:             secretsCred["AUDIT_LOG_TOKEN"],
+		AuditLogMetadata:          fmt.Sprintf("mcpID=%s,mcpServerDisplayName=%s", systemServer.Name, displayName),
 	}
 
 	var missingRequiredNames []string

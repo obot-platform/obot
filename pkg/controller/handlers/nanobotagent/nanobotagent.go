@@ -311,7 +311,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 			"MCP_API_KEY":               apiKeyResp.Key,
 			"MCP_API_KEY_ID":            strconv.FormatUint(uint64(apiKeyResp.ID), 10),
 			"MCP_SERVER_SEARCH_URL":     system.MCPConnectURL(h.serverURL, system.ObotMCPServerName),
-			"MCP_SERVER_SEARCH_API_KEY": token,
+			"MCP_SERVER_SEARCH_API_KEY": apiKeyResp.Key,
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
