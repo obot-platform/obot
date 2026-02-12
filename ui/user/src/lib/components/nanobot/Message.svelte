@@ -7,6 +7,7 @@
 		ChatResult
 	} from '$lib/services/nanobot/types';
 	import MessageItemText from './MessageItemText.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		message: ChatMessage;
@@ -110,6 +111,9 @@
 				<div class="w-full">
 					{#each itemGroups as group (groupKey(group))}
 						{#if 'toolGroup' in group}
+							{@const isThinking = group.toolGroup.some(
+								(item) => item.type === 'tool' && !item.output
+							)}
 							<div
 								class="hover:collapse-arrow hover:border-base-300 collapse w-full border border-transparent"
 							>
@@ -117,9 +121,11 @@
 								<div
 									class="collapse-title text-base-content/35 min-h-0 py-2 text-xs font-light italic"
 								>
-									{group.toolGroup.some((item) => item.type === 'tool' && !item.output)
-										? 'Thinking...'
-										: `${group.toolGroup.length} tool call${group.toolGroup.length === 1 ? '' : 's'} completed`}
+									{#if isThinking}
+										<span class="skeleton skeleton-text bg-transparent">Thinking...</span>
+									{:else}
+										{`${group.toolGroup.length} tool call${group.toolGroup.length === 1 ? '' : 's'} completed`}
+									{/if}
 								</div>
 								<div class="collapse-content">
 									<div>

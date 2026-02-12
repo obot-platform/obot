@@ -203,17 +203,12 @@
 
 <div
 	class={twMerge(
-		'h-[100dvh] w-16 min-w-16 overflow-hidden overflow-y-auto',
+		'bg-base-100 border-base-300 h-[100dvh] w-16 min-w-16 overflow-hidden overflow-y-auto border-l ',
 		open && 'w-sm min-w-sm',
 		!selectedFile && 'transition-width duration-150'
 	)}
 >
-	<div
-		class={twMerge(
-			'bg-base-100 border-base-300 flex h-full w-full flex-col gap-4 border-l pt-1',
-			open ? 'p-4 pt-1' : 'pt-1 pb-4'
-		)}
-	>
+	<div class={twMerge('flex h-full w-full flex-col gap-4 pt-1', open ? 'p-4 pt-1' : 'pt-1 pb-4')}>
 		<div class={twMerge(open ? 'self-end' : 'w-14 self-center')}>
 			<Profile />
 		</div>
@@ -353,7 +348,12 @@
 		{/if}
 		<div class="flex grow"></div>
 		{#if onToggle}
-			<div class={twMerge('flex flex-shrink-0', open ? 'justify-end' : 'justify-center')}>
+			<div
+				class={twMerge(
+					'sticky right-0 bottom-2 flex flex-shrink-0',
+					open ? 'justify-end' : 'justify-center'
+				)}
+			>
 				<button
 					class="icon-button"
 					onclick={() => onToggle()}
