@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"log/slog"
-
 	"github.com/obot-platform/nah"
 	"github.com/obot-platform/nah/pkg/router"
 
@@ -115,7 +113,14 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 		// Update if image or OBOT_URL changed
 		var needsUpdate bool
 
-		if existing.Spec.Manifest.ContainerizedConfig != nil && existing.Spec.Manifest.ContainerizedConfig.Image != image {
+		if existing.Spec.Manifest.ContainerizedConfig == nil {
+			existing.Spec.Manifest.ContainerizedConfig = &types.ContainerizedRuntimeConfig{
+				Image: image,
+				Port:  8080,
+				Path:  "/mcp",
+			}
+			needsUpdate = true
+		} else if existing.Spec.Manifest.ContainerizedConfig.Image != image {
 			existing.Spec.Manifest.ContainerizedConfig.Image = image
 			needsUpdate = true
 		}
@@ -144,7 +149,7 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 		}
 
 		if needsUpdate {
-			slog.Info("Updating obot MCP server", "image", image)
+			log.Infof("Updating obot MCP server (image=%s)", image)
 			return c.services.StorageClient.Update(ctx, &existing)
 		}
 		return nil
@@ -154,7 +159,7 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 	}
 
 	// Create the SystemMCPServer
-	slog.Info("Creating obot MCP server", "image", image)
+	log.Infof("Creating obot MCP server (image=%s)", image)
 	server := &v1.SystemMCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       system.ObotMCPServerName,

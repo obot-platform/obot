@@ -3,13 +3,15 @@ package systemmcpserver
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
+
+var log = logger.Package()
 
 type Handler struct {
 	gptClient         *gptscript.GPTScript
@@ -27,14 +29,12 @@ func New(gptClient *gptscript.GPTScript, mcpLoader *mcp.SessionManager) *Handler
 func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error {
 	systemServer := req.Object.(*v1.SystemMCPServer)
 
-	slog.Info("EnsureDeployment called for system MCP server",
-		"name", systemServer.Name,
-		"enabled", systemServer.Spec.Manifest.Enabled,
-		"runtime", systemServer.Spec.Manifest.Runtime)
+	log.Infof("EnsureDeployment called for system MCP server %s (enabled=%v, runtime=%s)",
+		systemServer.Name, systemServer.Spec.Manifest.Enabled, systemServer.Spec.Manifest.Runtime)
 
 	// Check if server should be deployed
 	if !systemServer.Spec.Manifest.Enabled {
-		slog.Info("System MCP server is disabled, shutting down any existing deployment", "name", systemServer.Name)
+		log.Infof("System MCP server %s is disabled, shutting down any existing deployment", systemServer.Name)
 		// Server is disabled, ensure any existing deployment is removed
 		err := h.mcpSessionManager.ShutdownServer(req.Ctx, systemServer.Name)
 		if err != nil {
@@ -45,7 +45,7 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 
 	// Check if server is fully configured
 	if !isSystemServerConfigured(req.Ctx, h.gptClient, *systemServer) {
-		slog.Info("System MCP server is not fully configured, shutting down any existing deployment", "name", systemServer.Name)
+		log.Infof("System MCP server %s is not fully configured, shutting down any existing deployment", systemServer.Name)
 		// Server is not fully configured, ensure any existing deployment is removed
 		err := h.mcpSessionManager.ShutdownServer(req.Ctx, systemServer.Name)
 		if err != nil {
@@ -82,17 +82,14 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 	}
 
 	if len(missingRequired) > 0 {
-		slog.Info("System MCP server still has missing required configuration",
-			"name", systemServer.Name,
-			"missingRequired", missingRequired)
+		log.Infof("System MCP server %s still has missing required configuration: %v",
+			systemServer.Name, missingRequired)
 		// Still missing required configuration
 		return nil
 	}
 
-	slog.Info("Launching system MCP server",
-		"name", systemServer.Name,
-		"runtime", serverConfig.Runtime,
-		"image", serverConfig.ContainerImage)
+	log.Infof("Launching system MCP server %s (runtime=%s, image=%s)",
+		systemServer.Name, serverConfig.Runtime, serverConfig.ContainerImage)
 
 	// Deploy the system server via backend
 	// System servers don't use webhooks, so pass nil
@@ -101,7 +98,7 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 		return fmt.Errorf("failed to deploy system MCP server: %w", err)
 	}
 
-	slog.Info("System MCP server launched successfully", "name", systemServer.Name)
+	log.Infof("System MCP server %s launched successfully", systemServer.Name)
 
 	return nil
 }
@@ -128,9 +125,8 @@ func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScrip
 		CredentialContexts: []string{credCtx},
 	})
 	if err != nil {
-		slog.Info("Failed to list credentials for system MCP server configuration check",
-			"name", server.Name,
-			"error", err)
+		log.Infof("Failed to list credentials for system MCP server %s configuration check: %v",
+			server.Name, err)
 		return false
 	}
 
@@ -147,9 +143,8 @@ func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScrip
 
 	for _, env := range server.Spec.Manifest.Env {
 		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
-			slog.Info("System MCP server missing required env var",
-				"name", server.Name,
-				"envKey", env.Key)
+			log.Infof("System MCP server %s missing required env var %s",
+				server.Name, env.Key)
 			return false
 		}
 	}
