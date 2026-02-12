@@ -17,26 +17,21 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Handler struct {
-	storageClient             kclient.Client
-	gptClient                 *gptscript.GPTScript
 	mcpSessionManager         *mcp.SessionManager
 	webhookHelper             *mcp.WebhookHelper
 	nanobotIntegrationEnabled bool
 	scope                     string
 }
 
-func NewHandler(storageClient kclient.Client, gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.WebhookHelper, scopesSupported []string, nanobotIntegrationEnabled bool) *Handler {
+func NewHandler(mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.WebhookHelper, scopesSupported []string, nanobotIntegrationEnabled bool) *Handler {
 	var scope string
 	if len(scopesSupported) > 0 {
 		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(scopesSupported, " "))
 	}
 	return &Handler{
-		storageClient:             storageClient,
-		gptClient:                 gptClient,
 		mcpSessionManager:         mcpSessionManager,
 		webhookHelper:             webhookHelper,
 		nanobotIntegrationEnabled: nanobotIntegrationEnabled,
@@ -50,7 +45,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		return apierrors.NewUnauthorized("user is not authenticated")
 	}
 
-	mcpURL, allowDifferentPaths, extraHeaders, err := h.ensureServerIsDeployed(req)
+	mcpURL, allowDifferentPaths, err := h.ensureServerIsDeployed(req)
 	if err != nil {
 		return fmt.Errorf("failed to ensure server is deployed: %v", err)
 	}
@@ -91,18 +86,13 @@ func (h *Handler) Proxy(req api.Context) error {
 				}
 			}
 			r.URL.RawQuery = upstreamQuery.Encode()
-
-			// Apply extra headers (e.g., for direct proxy to remote SystemMCPServers).
-			for k, v := range extraHeaders {
-				r.Header.Set(k, v)
-			}
 		},
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil
 }
 
-func (h *Handler) ensureServerIsDeployed(req api.Context) (string, bool, map[string]string, error) {
+func (h *Handler) ensureServerIsDeployed(req api.Context) (string, bool, error) {
 	mcpID := req.PathValue("mcp_id")
 
 	if system.IsSystemMCPServerID(mcpID) {
@@ -111,43 +101,40 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (string, bool, map[str
 
 	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID)
 	if err != nil {
-		return "", false, nil, fmt.Errorf("failed to get mcp server config: %w", err)
+		return "", false, fmt.Errorf("failed to get mcp server config: %w", err)
 	}
 
 	if mcpServer.Spec.Template {
-		return "", false, nil, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
+		return "", false, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}
 
 	// Add-hoc authorization for nanobot agents
 	if h.nanobotIntegrationEnabled && mcpServerConfig.NanobotAgentName != "" {
 		var agent v1.NanobotAgent
 		if err = req.Get(&agent, mcpServerConfig.NanobotAgentName); err != nil {
-			return "", false, nil, fmt.Errorf("failed to get nanobot agent %q: %w", mcpServerConfig.NanobotAgentName, err)
+			return "", false, fmt.Errorf("failed to get nanobot agent %q: %w", mcpServerConfig.NanobotAgentName, err)
 		}
 		if agent.Spec.UserID != req.User.GetUID() {
-			return "", false, nil, types.NewErrForbidden("user is not authorized to access nanobot agent %q", mcpServerConfig.NanobotAgentName)
+			return "", false, types.NewErrForbidden("user is not authorized to access nanobot agent %q", mcpServerConfig.NanobotAgentName)
 		}
 	}
 
 	url, err := h.mcpSessionManager.LaunchServer(req.Context(), mcpServerConfig)
 	if err != nil {
-		return "", false, nil, fmt.Errorf("failed to launch mcp server: %w", err)
+		return "", false, fmt.Errorf("failed to launch mcp server: %w", err)
 	}
 
-	return url, h.nanobotIntegrationEnabled && mcpServerConfig.NanobotAgentName != "", nil, nil
+	return url, h.nanobotIntegrationEnabled && mcpServerConfig.NanobotAgentName != "", nil
 }
 
-func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (string, bool, map[string]string, error) {
+func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (string, bool, error) {
 	var systemServer v1.SystemMCPServer
-	if err := h.storageClient.Get(req.Context(), kclient.ObjectKey{
-		Namespace: req.Namespace(),
-		Name:      mcpID,
-	}, &systemServer); err != nil {
-		return "", false, nil, fmt.Errorf("failed to get system MCP server %q: %w", mcpID, err)
+	if err := req.Get(&systemServer, mcpID); err != nil {
+		return "", false, fmt.Errorf("failed to get system MCP server %q: %w", mcpID, err)
 	}
 
 	if !systemServer.Spec.Manifest.Enabled {
-		return "", false, nil, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "systemmcpserver"}, mcpID)
+		return "", false, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "systemmcpserver"}, mcpID)
 	}
 
 	// Only look up credentials if the manifest has env vars without static values.
@@ -164,11 +151,11 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 
 	if needsCredentials {
 		credCtx := systemServer.Name
-		creds, err := h.gptClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+		creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
 			CredentialContexts: []string{credCtx},
 		})
 		if err != nil {
-			return "", false, nil, fmt.Errorf("failed to list credentials for system server: %w", err)
+			return "", false, fmt.Errorf("failed to list credentials for system server: %w", err)
 		}
 
 		secretToolName := systemmcpserver.SecretInfoToolName(systemServer.Name)
@@ -177,7 +164,7 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 			if cred.ToolName == secretToolName {
 				continue
 			}
-			credDetail, err := h.gptClient.RevealCredential(req.Context(), []string{credCtx}, cred.ToolName)
+			credDetail, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, cred.ToolName)
 			if err != nil {
 				continue
 			}
@@ -189,7 +176,7 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 
 	// Retrieve the token exchange credential
 	var secretsCred map[string]string
-	tokenExchangeCred, err := h.gptClient.RevealCredential(req.Context(), []string{systemServer.Name}, systemmcpserver.SecretInfoToolName(systemServer.Name))
+	tokenExchangeCred, err := req.GPTClient.RevealCredential(req.Context(), []string{systemServer.Name}, systemmcpserver.SecretInfoToolName(systemServer.Name))
 	if err == nil {
 		secretsCred = tokenExchangeCred.Env
 	}
@@ -199,13 +186,13 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 
 	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, audiences, baseURL, credEnv, secretsCred)
 	if err != nil {
-		return "", false, nil, fmt.Errorf("failed to convert system server to config: %w", err)
+		return "", false, fmt.Errorf("failed to convert system server to config: %w", err)
 	}
 
 	mcpURL, err := h.mcpSessionManager.LaunchServer(req.Context(), serverConfig)
 	if err != nil {
-		return "", false, nil, fmt.Errorf("failed to launch system MCP server: %w", err)
+		return "", false, fmt.Errorf("failed to launch system MCP server: %w", err)
 	}
 
-	return mcpURL, false, nil, nil
+	return mcpURL, false, nil
 }

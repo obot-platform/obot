@@ -500,6 +500,8 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
 			}
 		}
+	default:
+		return ServerConfig{}, nil, fmt.Errorf("unsupported runtime type: %s", systemServer.Spec.Manifest.Runtime)
 	}
 
 	// Process environment variables

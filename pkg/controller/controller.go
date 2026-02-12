@@ -101,7 +101,7 @@ func (c *Controller) PreStart(ctx context.Context) error {
 
 func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 	internalURL := c.services.MCPLoader.TransformObotHostname(c.services.ServerURL)
-	image := c.services.MCPServerImage
+	image := c.services.MCPServerServerImage
 
 	var existing v1.SystemMCPServer
 	err := c.services.StorageClient.Get(ctx, kclient.ObjectKey{
