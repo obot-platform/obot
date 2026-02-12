@@ -116,7 +116,7 @@
 							<div
 								class="hover:collapse-arrow hover:border-base-300 collapse w-full border border-transparent"
 							>
-								<input type="checkbox" />
+								<input type="checkbox" aria-label="Toggle tool group details" />
 								<div
 									class="collapse-title text-base-content/35 min-h-0 py-2 text-xs font-light italic"
 								>

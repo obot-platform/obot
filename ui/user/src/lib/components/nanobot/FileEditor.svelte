@@ -36,6 +36,7 @@
 	let maxThreadContentWidthSeen = $state(0);
 	let containerWidth = $state(0);
 	let rootEl = $state<HTMLDivElement | null>(null);
+	let recalculateAnimationFrameId = 0;
 
 	let layout = getLayout();
 
@@ -193,14 +194,19 @@
 	$effect(() => {
 		void quickBarAccessOpen;
 		void layout.sidebarOpen;
-		void containerWidth;
-		requestAnimationFrame(() => {
+		if (recalculateAnimationFrameId) cancelAnimationFrame(recalculateAnimationFrameId);
+		recalculateAnimationFrameId = requestAnimationFrame(() => {
 			if (containerWidth > 0) {
 				widthPx = calculateInitialWidthPx();
 			} else {
 				widthDvw = calculateInitialWidthDvw();
 			}
 		});
+		return () => {
+			if (recalculateAnimationFrameId) {
+				cancelAnimationFrame(recalculateAnimationFrameId);
+			}
+		};
 	});
 
 	$effect(() => {
