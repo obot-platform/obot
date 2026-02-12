@@ -42,7 +42,7 @@
 
 	const MIN_WIDTH_PX = 300;
 	const MAX_DVW = 50;
-	const MAX_DVW_FILL = 90; // allow filling remaining space so thread width stays fixed
+	const MAX_DVW_FILL = 90;
 	const MIN_DVW = 10;
 
 	function getViewportWidth(): number {

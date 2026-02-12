@@ -38,7 +38,6 @@
 		}, [] as ChatMessage[][]);
 	});
 
-	/** Merge all consecutive assistant messages in each group into one (concat items). So text + tool1 + tool2 + tool3 live in one message and Message.svelte can show one "N tool calls" collapse. */
 	let displayMessageGroups = $derived.by((): ChatMessage[][] => {
 		return messageGroups.map((group) => {
 			const out: ChatMessage[] = [];
@@ -62,7 +61,6 @@
 					flushAssistant();
 					out.push(msg);
 				} else {
-					// merge all consecutive assistant messages into one
 					if (msg.items?.length) {
 						assistantAccum.push(...msg.items);
 						assistantAccumIds.push(msg.id);

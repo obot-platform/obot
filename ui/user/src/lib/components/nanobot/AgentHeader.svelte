@@ -11,8 +11,6 @@
 	let { onSend, agent }: Props = $props();
 
 	let imgRef = $state<HTMLImageElement>();
-
-	// Use same source of truth as nanobot layout (data-theme), not root data-theme
 	const logoSrc = $derived(darkMode.isDark ? agent?.iconDark || agent?.icon : (agent?.icon ?? ''));
 </script>
 
