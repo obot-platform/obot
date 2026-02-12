@@ -12,8 +12,6 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import FileEditor from '$lib/components/nanobot/FileEditor.svelte';
 	import ThreadQuickAccess from '$lib/components/nanobot/ThreadQuickAccess.svelte';
-	import { SidebarClose, SidebarOpen } from 'lucide-svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	let { data } = $props();
 	let agent = $derived(data.agent);
@@ -107,12 +105,16 @@
 	}}
 	whiteBackground
 	disableResize
+	hideProfileButton
 >
 	{#snippet overrideLeftSidebarContent()}
 		<ProjectSidebar {chatApi} {projectId} bind:this={sidebarRef} />
 	{/snippet}
 
-	<div class="flex w-full grow">
+	<div
+		class="flex w-full min-w-0 grow"
+		style={threadContentWidth > 0 ? `min-width: ${threadContentWidth}px` : ''}
+	>
 		{#if chat}
 			{#key chat}
 				<ProjectStartThread
@@ -144,30 +146,18 @@
 					{quickBarAccessOpen}
 					{threadContentWidth}
 				/>
-				<div class="fixed right-3 bottom-3">
-					<button
-						class="icon-button"
-						onclick={() => (quickBarAccessOpen = !quickBarAccessOpen)}
-						use:tooltip={'Toggle to-do & file list'}
-					>
-						{#if quickBarAccessOpen}
-							<SidebarClose class="size-6" />
-						{:else}
-							<SidebarOpen class="size-6" />
-						{/if}
-					</button>
-				</div>
 			{/if}
-			{#if quickBarAccessOpen}
-				<ThreadQuickAccess
-					{chat}
-					{selectedFile}
-					onFileOpen={(filename) => {
-						quickBarAccessOpen = false;
-						selectedFile = filename;
-					}}
-				/>
-			{/if}
+
+			<ThreadQuickAccess
+				{chat}
+				{selectedFile}
+				onFileOpen={(filename) => {
+					quickBarAccessOpen = false;
+					selectedFile = filename;
+				}}
+				onToggle={() => (quickBarAccessOpen = !quickBarAccessOpen)}
+				open={quickBarAccessOpen}
+			/>
 		{/if}
 	{/snippet}
 </Layout>

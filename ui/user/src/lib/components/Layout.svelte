@@ -89,6 +89,7 @@
 		rightSidebar?: Snippet;
 		layoutContext?: LayoutContext;
 		disableResize?: boolean;
+		hideProfileButton?: boolean;
 	}
 
 	const {
@@ -105,7 +106,8 @@
 		overrideLeftSidebarContent,
 		rightSidebar,
 		layoutContext,
-		disableResize
+		disableResize,
+		hideProfileButton
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
 	let collapsed = $state<Record<string, boolean>>({});
@@ -569,6 +571,7 @@
 		>
 			<Navbar
 				class={twMerge('dark:bg-background sticky top-0 left-0 z-50 w-full', classes?.navbar)}
+				{hideProfileButton}
 			>
 				{#snippet leftContent()}
 					{#if !layout.sidebarOpen || hideSidebar}

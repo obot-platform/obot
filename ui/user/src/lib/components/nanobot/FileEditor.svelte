@@ -126,7 +126,7 @@
 	}
 
 	function getQuickBarWidth(): number {
-		return quickBarAccessOpen ? 384 : 0;
+		return quickBarAccessOpen ? 384 : 64;
 	}
 
 	function calculateRemainingPx(refWidth: number): number {
