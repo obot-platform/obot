@@ -13,9 +13,7 @@
 	let imgRef = $state<HTMLImageElement>();
 
 	// Use same source of truth as nanobot layout (data-theme), not root data-theme
-	const logoSrc = $derived(
-		darkMode.isDark ? agent?.iconDark || agent?.icon : agent?.icon ?? ''
-	);
+	const logoSrc = $derived(darkMode.isDark ? agent?.iconDark || agent?.icon : (agent?.icon ?? ''));
 </script>
 
 <div class="flex flex-col items-center p-8 pt-20">
