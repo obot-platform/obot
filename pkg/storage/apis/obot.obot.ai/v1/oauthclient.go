@@ -6,6 +6,7 @@ import (
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -24,6 +25,14 @@ type OAuthClient struct {
 }
 
 func (o *OAuthClient) DeleteRefs() []Ref {
+	if system.IsSystemMCPServerID(o.Spec.MCPServerName) {
+		return []Ref{
+			{
+				ObjType: &SystemMCPServer{},
+				Name:    o.Spec.MCPServerName,
+			},
+		}
+	}
 	return []Ref{
 		{
 			ObjType: &MCPServer{},

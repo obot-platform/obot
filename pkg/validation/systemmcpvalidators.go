@@ -8,17 +8,6 @@ import (
 
 // ValidateSystemMCPServerManifest validates a SystemMCPServerManifest
 func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) error {
-	// Validate SystemMCPServerType
-	switch manifest.SystemMCPServerType {
-	case types.SystemMCPServerTypeHook:
-		// Valid type
-	default:
-		return types.RuntimeValidationError{
-			Field:   "systemMCPServerType",
-			Message: fmt.Sprintf("invalid SystemMCPServerType: %s (only 'hook' is supported)", manifest.SystemMCPServerType),
-		}
-	}
-
 	// Validate runtime is supported
 	switch manifest.Runtime {
 	case types.RuntimeContainerized:
@@ -32,22 +21,11 @@ func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) err
 		// Reuse existing containerized validator
 		validator := ContainerizedValidator{}
 		return validator.validateContainerizedConfig(*manifest.ContainerizedConfig)
-	case types.RuntimeRemote:
-		if manifest.RemoteConfig == nil {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeRemote,
-				Field:   "remoteConfig",
-				Message: "remote configuration is required for remote runtime",
-			}
-		}
-		// Reuse existing remote validator
-		validator := RemoteValidator{}
-		return validator.validateRemoteConfig(*manifest.RemoteConfig)
 	default:
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
 			Field:   "runtime",
-			Message: fmt.Sprintf("SystemMCPServers only support containerized and remote runtimes, got: %s", manifest.Runtime),
+			Message: fmt.Sprintf("SystemMCPServers only support containerized runtime, got: %s", manifest.Runtime),
 		}
 	}
 }

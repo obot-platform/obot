@@ -17,8 +17,7 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "valid containerized hook",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
-				Runtime:             types.RuntimeContainerized,
+				Runtime: types.RuntimeContainerized,
 				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
 					Image: "test:latest",
 					Port:  8080,
@@ -28,30 +27,17 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "valid remote hook",
+			name: "invalid - remote runtime",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
-				Runtime:             types.RuntimeRemote,
-				RemoteConfig: &types.RemoteRuntimeConfig{
-					URL: "https://example.com/mcp",
-				},
-			},
-			expectError: false,
-		},
-		{
-			name: "invalid - unknown server type",
-			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: "unknown",
-				Runtime:             types.RuntimeContainerized,
+				Runtime: types.RuntimeRemote,
 			},
 			expectError: true,
-			errorField:  "systemMCPServerType",
+			errorField:  "runtime",
 		},
 		{
 			name: "invalid - npx runtime",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
-				Runtime:             types.RuntimeNPX,
+				Runtime: types.RuntimeNPX,
 			},
 			expectError: true,
 			errorField:  "runtime",
@@ -59,8 +45,7 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "invalid - uvx runtime",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
-				Runtime:             types.RuntimeUVX,
+				Runtime: types.RuntimeUVX,
 			},
 			expectError: true,
 			errorField:  "runtime",
@@ -68,8 +53,7 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "invalid - composite runtime",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
-				Runtime:             types.RuntimeComposite,
+				Runtime: types.RuntimeComposite,
 			},
 			expectError: true,
 			errorField:  "runtime",
@@ -77,27 +61,15 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "invalid - missing containerized config",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
-				Runtime:             types.RuntimeContainerized,
+				Runtime: types.RuntimeContainerized,
 			},
 			expectError: true,
 			errorField:  "containerizedConfig",
 		},
 		{
-			name: "invalid - missing remote URL",
-			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
-				Runtime:             types.RuntimeRemote,
-				RemoteConfig:        &types.RemoteRuntimeConfig{},
-			},
-			expectError: true,
-			errorField:  "url",
-		},
-		{
 			name: "invalid - containerized with no image",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
-				Runtime:             types.RuntimeContainerized,
+				Runtime: types.RuntimeContainerized,
 				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
 					Port: 8080,
 					Path: "/mcp",
@@ -109,8 +81,7 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "invalid - containerized with invalid port",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
-				Runtime:             types.RuntimeContainerized,
+				Runtime: types.RuntimeContainerized,
 				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
 					Image: "test:latest",
 					Port:  0,
@@ -123,8 +94,7 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "invalid - containerized with no path",
 			manifest: types.SystemMCPServerManifest{
-				SystemMCPServerType: types.SystemMCPServerTypeHook,
-				Runtime:             types.RuntimeContainerized,
+				Runtime: types.RuntimeContainerized,
 				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
 					Image: "test:latest",
 					Port:  8080,

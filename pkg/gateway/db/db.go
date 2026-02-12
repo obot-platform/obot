@@ -72,6 +72,10 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to remove GitHub groups: %w", err)
 	}
 
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_obot_mcp_tokens", dropObotMCPTokensTable); err != nil {
+		return fmt.Errorf("failed to drop obot_mcp_tokens table: %w", err)
+	}
+
 	if err := tx.AutoMigrate(&GptscriptCredential{}); err != nil {
 		return fmt.Errorf("failed to auto migrate GptscriptCredential: %w", err)
 	}
@@ -97,7 +101,6 @@ func (db *DB) AutoMigrate() (err error) {
 		types.TempSetupUser{},
 		types.Property{},
 		types.APIKey{},
-		types.ObotMCPToken{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)
 	}

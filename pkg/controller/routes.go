@@ -83,7 +83,7 @@ func (c *Controller) setupRoutes() {
 	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
 	oauthclients := oauthclients.NewHandler(c.services.GPTClient)
 	projectMCPServerHandler := projectmcpserver.NewHandler()
-	systemMCPServerHandler := systemmcpserver.New(c.services.GPTClient, c.services.MCPLoader)
+	systemMCPServerHandler := systemmcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
 	nanobotAgentHandler := nanobotagent.New(c.services.GPTClient, c.services.PersistentTokenServer, c.services.GatewayClient, c.services.MCPRemoteShimBaseImage, c.services.ServerURL, c.services.MCPLoader)
 
 	// Runs
@@ -315,6 +315,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ProjectMCPServer{}).HandlerFunc(cleanup.Cleanup)
 
 	// System MCP Servers
+	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureSecretInfo)
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureDeployment)
 	root.Type(&v1.SystemMCPServer{}).FinalizeFunc(v1.SystemMCPServerFinalizer, systemMCPServerHandler.CleanupDeployment)
 

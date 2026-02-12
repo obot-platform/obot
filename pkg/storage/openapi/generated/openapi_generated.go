@@ -10181,14 +10181,6 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 							Format:  "",
 						},
 					},
-					"systemMCPServerType": {
-						SchemaProps: spec.SchemaProps{
-							Description: "SystemMCPServerType defines the type/purpose of this system server",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"enabled": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Enabled controls whether this server should be deployed",
@@ -10199,7 +10191,7 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 					},
 					"runtime": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Runtime configuration (only containerized and remote allowed)",
+							Description: "Runtime configuration (only containerized allowed)",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -10207,13 +10199,8 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 					},
 					"containerizedConfig": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Runtime-specific configurations (only one should be populated)",
+							Description: "Runtime-specific configuration",
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig"),
-						},
-					},
-					"remoteConfig": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig"),
 						},
 					},
 					"env": {
@@ -10230,11 +10217,11 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 						},
 					},
 				},
-				Required: []string{"name", "shortDescription", "description", "icon", "systemMCPServerType", "enabled", "runtime"},
+				Required: []string{"name", "shortDescription", "description", "icon", "enabled", "runtime"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv"},
 	}
 }
 
@@ -18920,6 +18907,13 @@ func schema_storage_apis_obotobotai_v1_SystemMCPServerStatus(ref common.Referenc
 					"k8sSettingsHash": {
 						SchemaProps: spec.SchemaProps{
 							Description: "K8sSettingsHash contains the hash of K8s settings this was deployed with",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"auditLogTokenHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuditLogTokenHash contains the hash of the audit log token",
 							Type:        []string{"string"},
 							Format:      "",
 						},

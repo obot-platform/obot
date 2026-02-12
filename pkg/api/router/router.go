@@ -10,8 +10,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/registry"
 	"github.com/obot-platform/obot/pkg/api/handlers/setup"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
-	"github.com/obot-platform/obot/pkg/mcp/listing"
-	"github.com/obot-platform/obot/pkg/mcpserver"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/ui"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -69,7 +67,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.MCPRuntimeBackend, services.ServerURL)
 	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL, services.InternalServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
-	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.WebhookHelper, services.OAuthServerConfig.ScopesSupported, services.NanobotIntegration)
+	mcpGateway := mcpgateway.NewHandler(services.MCPLoader, services.WebhookHelper, services.OAuthServerConfig.ScopesSupported, services.NanobotIntegration)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GPTClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
@@ -752,20 +750,6 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 
 	// Only enabled when Nanobot integration is enabled
 	if services.NanobotIntegration {
-		// Create shared lister for MCP server discovery
-		mcpLister := listing.NewLister(services.StorageClient, services.AccessControlRuleHelper)
-
-		// Integrated MCP Server - uses its own MCP token auth (allowed via authz anyGroup rules)
-		integratedMCP := mcpserver.NewServer(
-			services.GatewayClient,
-			services.StorageClient,
-			mcpLister,
-			services.ServerURL,
-			services.MCPLoader,
-		)
-		mux.HTTPHandle("/mcp", integratedMCP.Handler())
-		mux.HTTPHandle("/mcp/", integratedMCP.Handler())
-
 		// ProjectV2
 		projectV2 := handlers.NewProjectV2Handler()
 		mux.HandleFunc("POST /api/projectsv2", projectV2.Create)

@@ -284,15 +284,6 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 		}
 	}
 
-	// Delete old MCP token if present
-	if mcpTokenIDStr := cred.Env["MCP_SERVER_SEARCH_API_KEY_ID"]; mcpTokenIDStr != "" {
-		if id, err := strconv.ParseUint(mcpTokenIDStr, 10, 32); err == nil {
-			if err = h.gatewayClient.DeleteObotMCPToken(ctx, gatewayUser.ID, uint(id)); err != nil {
-				return fmt.Errorf("failed to delete old MCP token: %w", err)
-			}
-		}
-	}
-
 	// Create a new API key with 12-hour expiration and access to all servers
 	apiKeyResp, err := h.gatewayClient.CreateAPIKey(
 		ctx,
@@ -306,28 +297,21 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 		return fmt.Errorf("failed to create API key: %w", err)
 	}
 
-	// Create a new MCP token for server search
-	mcpTokenResp, err := h.gatewayClient.CreateObotMCPToken(ctx, gatewayUser.ID)
-	if err != nil {
-		return fmt.Errorf("failed to create MCP token: %w", err)
-	}
-
 	// Create or update the credential with the new token and API key
 	if err := h.gptClient.CreateCredential(ctx, gptscript.Credential{
 		Context:  credCtx,
 		ToolName: mcpServerName,
 		Type:     gptscript.CredentialTypeTool,
 		Env: map[string]string{
-			"OBOT_URL":                     h.serverURL,
-			"ANTHROPIC_BASE_URL":           fmt.Sprintf("%s/api/llm-proxy/anthropic", h.serverURL),
-			"OPENAI_BASE_URL":              fmt.Sprintf("%s/api/llm-proxy/openai", h.serverURL),
-			"ANTHROPIC_API_KEY":            token,
-			"OPENAI_API_KEY":               token,
-			"MCP_API_KEY":                  apiKeyResp.Key,
-			"MCP_API_KEY_ID":               strconv.FormatUint(uint64(apiKeyResp.ID), 10),
-			"MCP_SERVER_SEARCH_URL":        fmt.Sprintf("%s/mcp?internal=true", h.serverURL),
-			"MCP_SERVER_SEARCH_API_KEY":    mcpTokenResp.Token,
-			"MCP_SERVER_SEARCH_API_KEY_ID": strconv.FormatUint(uint64(mcpTokenResp.ID), 10),
+			"OBOT_URL":                  h.serverURL,
+			"ANTHROPIC_BASE_URL":        fmt.Sprintf("%s/api/llm-proxy/anthropic", h.serverURL),
+			"OPENAI_BASE_URL":           fmt.Sprintf("%s/api/llm-proxy/openai", h.serverURL),
+			"ANTHROPIC_API_KEY":         token,
+			"OPENAI_API_KEY":            token,
+			"MCP_API_KEY":               apiKeyResp.Key,
+			"MCP_API_KEY_ID":            strconv.FormatUint(uint64(apiKeyResp.ID), 10),
+			"MCP_SERVER_SEARCH_URL":     system.MCPConnectURL(h.serverURL, system.ObotMCPServerName),
+			"MCP_SERVER_SEARCH_API_KEY": apiKeyResp.Key,
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
@@ -397,25 +381,6 @@ func (h *Handler) deleteTokens(ctx context.Context, agent *v1.NanobotAgent, mcpS
 		// Delete the API key
 		if err := h.gatewayClient.DeleteAPIKey(ctx, gatewayUser.ID, uint(apiKeyID)); err != nil {
 			return fmt.Errorf("failed to delete API key: %w", err)
-		}
-	}
-
-	// Extract and delete the MCP token if present
-	if mcpTokenIDStr := cred.Env["MCP_SERVER_SEARCH_API_KEY_ID"]; mcpTokenIDStr != "" {
-		mcpTokenID, err := strconv.ParseUint(mcpTokenIDStr, 10, 32)
-		if err != nil {
-			return fmt.Errorf("failed to parse MCP token ID: %w", err)
-		}
-
-		// Look up the gateway user to get the uint ID needed for MCP token deletion
-		gatewayUser, err := h.gatewayClient.UserByID(ctx, agent.Spec.UserID)
-		if err != nil {
-			return fmt.Errorf("failed to get user: %w", err)
-		}
-
-		// Delete the MCP token
-		if err := h.gatewayClient.DeleteObotMCPToken(ctx, gatewayUser.ID, uint(mcpTokenID)); err != nil {
-			return fmt.Errorf("failed to delete MCP token: %w", err)
 		}
 	}
 

@@ -51,6 +51,8 @@ const (
 	ModelAccessPolicyPrefix       = "map1"
 	NanobotAgentPrefix            = "nba1"
 	ProjectV2Prefix               = "pv21"
+
+	ObotMCPServerName = SystemMCPServerPrefix + "obot-mcp-server"
 )
 
 func IsThreadID(id string) bool {

@@ -4400,11 +4400,6 @@ func (in *SystemMCPServerManifest) DeepCopyInto(out *SystemMCPServerManifest) {
 		*out = new(ContainerizedRuntimeConfig)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.RemoteConfig != nil {
-		in, out := &in.RemoteConfig, &out.RemoteConfig
-		*out = new(RemoteRuntimeConfig)
-		(*in).DeepCopyInto(*out)
-	}
 	if in.Env != nil {
 		in, out := &in.Env, &out.Env
 		*out = make([]MCPEnv, len(*in))

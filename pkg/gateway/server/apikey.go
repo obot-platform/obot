@@ -282,26 +282,28 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	}
 
 	// Verify user still has access to the server
-	var server v1.MCPServer
-	if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &server); err != nil {
-		return apiContext.Write(apiKeyAuthResponse{
-			Allowed: false,
-			Reason:  "MCP server not found",
-		})
-	}
+	if system.IsMCPServerID(req.MCPID) {
+		var server v1.MCPServer
+		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &server); err != nil {
+			return apiContext.Write(apiKeyAuthResponse{
+				Allowed: false,
+				Reason:  "MCP server not found",
+			})
+		}
 
-	hasAccess, err := s.userHasAccessToMCPServerByUserID(apiContext, &server, apiKey.UserID)
-	if err != nil {
-		return apiContext.Write(apiKeyAuthResponse{
-			Allowed: false,
-			Reason:  fmt.Sprintf("failed to verify access: %v", err),
-		})
-	}
-	if !hasAccess {
-		return apiContext.Write(apiKeyAuthResponse{
-			Allowed: false,
-			Reason:  "user does not have access to this MCP server",
-		})
+		hasAccess, err := s.userHasAccessToMCPServerByUserID(apiContext, &server, apiKey.UserID)
+		if err != nil {
+			return apiContext.Write(apiKeyAuthResponse{
+				Allowed: false,
+				Reason:  fmt.Sprintf("failed to verify access: %v", err),
+			})
+		}
+		if !hasAccess {
+			return apiContext.Write(apiKeyAuthResponse{
+				Allowed: false,
+				Reason:  "user does not have access to this MCP server",
+			})
+		}
 	}
 
 	err = apiContext.Write(apiKeyAuthResponse{
