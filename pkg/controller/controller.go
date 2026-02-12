@@ -7,7 +7,6 @@ import (
 
 	"github.com/obot-platform/nah"
 	"github.com/obot-platform/nah/pkg/router"
-
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/controller/data"
