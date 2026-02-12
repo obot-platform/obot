@@ -114,8 +114,8 @@
 	});
 </script>
 
-<div class="stacked-graph flex min-h-0 flex-col" style="height: {height}px;">
-	<div class="min-w-0 flex-1" style="height: {height}px;">
+<div class="stacked-graph flex min-h-0 min-w-0 flex-col" style="min-height: {height}px;">
+	<div class="min-w-0 shrink-0" style="height: {height}px;">
 		<BarChart
 			{data}
 			x="bucket"
@@ -162,7 +162,7 @@
 			</g>
 		</BarChart>
 	</div>
-	<div class="mt-3 flex-shrink-0">
+	<div class="mt-3 min-w-0 flex-shrink-0">
 		<Legend
 			scale={legendScale}
 			tickFormat={(key) => effectiveSeries.find((s) => s.key === key)?.key ?? key}
