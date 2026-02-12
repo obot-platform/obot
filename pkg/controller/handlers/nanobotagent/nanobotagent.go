@@ -20,24 +20,22 @@ import (
 )
 
 type Handler struct {
-	gptClient      *gptscript.GPTScript
-	tokenService   *persistent.TokenService
-	gatewayClient  *client.Client
-	nanobotImage   string
-	serverURL      string
-	mcpServerImage string
+	gptClient     *gptscript.GPTScript
+	tokenService  *persistent.TokenService
+	gatewayClient *client.Client
+	nanobotImage  string
+	serverURL     string
 }
 
-func New(gptClient *gptscript.GPTScript, tokenService *persistent.TokenService, gatewayClient *client.Client, nanobotImage, serverURL string, mcpSessionManager *mcp.SessionManager, mcpServerImage string) *Handler {
+func New(gptClient *gptscript.GPTScript, tokenService *persistent.TokenService, gatewayClient *client.Client, nanobotImage, serverURL string, mcpSessionManager *mcp.SessionManager) *Handler {
 	return &Handler{
 		gptClient:     gptClient,
 		tokenService:  tokenService,
 		gatewayClient: gatewayClient,
 		// For now, this is hardcoded to the main tag, but we will switch this out before release.
 		// TODO(thedadams): Change this to the nanobotImage prior to release.
-		nanobotImage:   "nanobot:local7",
-		serverURL:      mcpSessionManager.TransformObotHostname(serverURL),
-		mcpServerImage: mcpServerImage,
+		nanobotImage: "nanobot:local7",
+		serverURL:    mcpSessionManager.TransformObotHostname(serverURL),
 	}
 }
 

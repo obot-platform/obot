@@ -66,9 +66,10 @@
 	}
 
 	function validateForm(): boolean {
-		if (!elicitation.requestedSchema?.required) return true;
+		const required = elicitation.requestedSchema?.required;
+		if (!required) return true;
 
-		for (const requiredField of elicitation.requestedSchema.required) {
+		for (const requiredField of required) {
 			const value = formData[requiredField];
 			if (value === undefined || value === '' || value === null) {
 				return false;

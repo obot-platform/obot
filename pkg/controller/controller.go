@@ -121,11 +121,26 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 		}
 
 		// Check OBOT_URL env var
+		foundOBOTURLEntry := false
 		for i, env := range existing.Spec.Manifest.Env {
-			if env.Name == "OBOT_URL" && env.Value != internalURL {
-				existing.Spec.Manifest.Env[i].Value = internalURL
-				needsUpdate = true
+			if env.Key == "OBOT_URL" {
+				foundOBOTURLEntry = true
+				if env.Value != internalURL {
+					existing.Spec.Manifest.Env[i].Value = internalURL
+					needsUpdate = true
+				}
 			}
+		}
+		if !foundOBOTURLEntry {
+			existing.Spec.Manifest.Env = append(existing.Spec.Manifest.Env, types.MCPEnv{
+				MCPHeader: types.MCPHeader{
+					Name:     "OBOT_URL",
+					Key:      "OBOT_URL",
+					Required: true,
+					Value:    internalURL,
+				},
+			})
+			needsUpdate = true
 		}
 
 		if needsUpdate {
@@ -142,8 +157,9 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 	slog.Info("Creating obot MCP server", "image", image)
 	server := &v1.SystemMCPServer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.ObotMCPServerName,
-			Namespace: system.DefaultNamespace,
+			Name:       system.ObotMCPServerName,
+			Namespace:  system.DefaultNamespace,
+			Finalizers: []string{v1.SystemMCPServerFinalizer},
 		},
 		Spec: v1.SystemMCPServerSpec{
 			Manifest: types.SystemMCPServerManifest{

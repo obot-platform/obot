@@ -84,7 +84,7 @@ func (c *Controller) setupRoutes() {
 	oauthclients := oauthclients.NewHandler(c.services.GPTClient)
 	projectMCPServerHandler := projectmcpserver.NewHandler()
 	systemMCPServerHandler := systemmcpserver.New(c.services.GPTClient, c.services.MCPLoader)
-	nanobotAgentHandler := nanobotagent.New(c.services.GPTClient, c.services.PersistentTokenServer, c.services.GatewayClient, c.services.MCPRemoteShimBaseImage, c.services.ServerURL, c.services.MCPLoader, c.services.MCPServerImage)
+	nanobotAgentHandler := nanobotagent.New(c.services.GPTClient, c.services.PersistentTokenServer, c.services.GatewayClient, c.services.MCPRemoteShimBaseImage, c.services.ServerURL, c.services.MCPLoader)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)

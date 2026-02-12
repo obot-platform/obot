@@ -174,19 +174,6 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 		return "", false, nil, fmt.Errorf("failed to convert system server to config: %w", err)
 	}
 
-	// For remote system servers, proxy directly to the remote URL without deploying a shim.
-	// The shim requires OAuth/JWT configuration that system servers don't have, and the
-	// API handler already authenticates the user, so the shim's auth layer is unnecessary.
-	if serverConfig.Runtime == types.RuntimeRemote {
-		extraHeaders := make(map[string]string, len(serverConfig.Headers))
-		for _, header := range serverConfig.Headers {
-			if k, v, ok := strings.Cut(header, "="); ok {
-				extraHeaders[k] = v
-			}
-		}
-		return serverConfig.URL, false, extraHeaders, nil
-	}
-
 	mcpURL, err := h.mcpSessionManager.LaunchServer(req.Context(), serverConfig)
 	if err != nil {
 		return "", false, nil, fmt.Errorf("failed to launch system MCP server: %w", err)
