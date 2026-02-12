@@ -19,7 +19,7 @@
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import StackedGraph from '$lib/components/graph/StackedGraph.svelte';
 	import VirtualizedGrid from './VirtualizedGrid.svelte';
-	import { errors } from '$lib/stores';
+	import { errors, responsive } from '$lib/stores';
 	import { buildPaletteFromPrimary, hslToHex, parseColorToHsl } from '$lib/colors';
 	import {
 		aggregateByBucketDefaultInRange,
@@ -453,14 +453,14 @@
 						Users
 					</button>
 				</div>
-				<div class="bg-surface3 mb-2 h-0.5 w-full shrink-0 -translate-y-0.5"></div>
+				<div class="bg-surface3 h-0.5 w-full shrink-0 -translate-y-0.5"></div>
 
 				{#if graphItems.length > 0}
-					<VirtualizedGrid class="mt-2" data={graphItems} columns={2} rowHeight={340} overscan={2}>
+					<VirtualizedGrid class="my-4" data={graphItems} columns={2} rowHeight={340} overscan={2}>
 						{#snippet children({ item })}
 							<div class="paper flex min-h-0 flex-col">
 								<h5 class="text-sm font-medium">{item.label}</h5>
-								<StackedGraph height={240} data={item.data} />
+								<StackedGraph height={responsive.isMobile ? 210 : 240} data={item.data} />
 							</div>
 						{/snippet}
 					</VirtualizedGrid>

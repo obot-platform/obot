@@ -2,6 +2,7 @@
 	import { tick } from 'svelte';
 	import { throttle } from 'es-toolkit';
 	import { twMerge } from 'tailwind-merge';
+	import { responsive } from '$lib/stores';
 
 	type Props = {
 		class?: string;
@@ -35,7 +36,8 @@
 	let viewportHeight = $state(400);
 	let containerTop = $state(0);
 
-	const totalHeight = $derived(rows.length * rowHeight);
+	const effectiveRowHeight = $derived(responsive.isMobile ? rowHeight * 2 : rowHeight);
+	const totalHeight = $derived(rows.length * effectiveRowHeight);
 
 	function getScrollParent(el: HTMLElement | null): HTMLElement | null {
 		if (!el) return null;
@@ -64,16 +66,16 @@
 	}
 
 	const visibleStartRow = $derived.by(() => {
-		const startPixel = Math.max(0, scrollTop - containerTop - overscan * rowHeight);
-		return Math.max(0, Math.floor(startPixel / rowHeight));
+		const startPixel = Math.max(0, scrollTop - containerTop - overscan * effectiveRowHeight);
+		return Math.max(0, Math.floor(startPixel / effectiveRowHeight));
 	});
 	const visibleEndRow = $derived.by(() => {
-		const endPixel = scrollTop + viewportHeight - containerTop + overscan * rowHeight;
-		return Math.min(rows.length, Math.ceil(endPixel / rowHeight));
+		const endPixel = scrollTop + viewportHeight - containerTop + overscan * effectiveRowHeight;
+		return Math.min(rows.length, Math.ceil(endPixel / effectiveRowHeight));
 	});
 
-	const topPadding = $derived(visibleStartRow * rowHeight);
-	const bottomPadding = $derived(Math.max(0, (rows.length - visibleEndRow) * rowHeight));
+	const topPadding = $derived(visibleStartRow * effectiveRowHeight);
+	const bottomPadding = $derived(Math.max(0, (rows.length - visibleEndRow) * effectiveRowHeight));
 
 	const visibleRowsSlice = $derived(
 		rows.slice(visibleStartRow, visibleEndRow).map((cells, i) => ({
@@ -113,7 +115,7 @@
 		{#each visibleRowsSlice as { rowIndex, cells } (rowIndex)}
 			<div
 				class="grid grid-cols-1 gap-4 md:grid-cols-2"
-				style="height: {rowHeight}px; min-height: {rowHeight}px;"
+				style="height: {effectiveRowHeight}px; min-height: {effectiveRowHeight}px;"
 				role="listitem"
 			>
 				{#each cells as cell, colIndex (rowIndex * columns + colIndex)}
