@@ -248,7 +248,8 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 		}
 	}
 
-	if !needsRefresh && cred.Env["OBOT_URL"] == h.serverURL {
+	searchServerURL := system.MCPConnectURL(h.serverURL, system.ObotMCPServerName)
+	if !needsRefresh && cred.Env["OBOT_URL"] == h.serverURL && cred.Env["MCP_SERVER_SEARCH_URL"] == searchServerURL {
 		// Credentials are up to date
 		return nil
 	}
@@ -310,7 +311,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 			"OPENAI_API_KEY":            token,
 			"MCP_API_KEY":               apiKeyResp.Key,
 			"MCP_API_KEY_ID":            strconv.FormatUint(uint64(apiKeyResp.ID), 10),
-			"MCP_SERVER_SEARCH_URL":     system.MCPConnectURL(h.serverURL, system.ObotMCPServerName),
+			"MCP_SERVER_SEARCH_URL":     searchServerURL,
 			"MCP_SERVER_SEARCH_API_KEY": apiKeyResp.Key,
 		},
 	}); err != nil {
