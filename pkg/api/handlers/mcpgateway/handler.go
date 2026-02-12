@@ -171,7 +171,12 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 			return "", false, nil, fmt.Errorf("failed to list credentials for system server: %w", err)
 		}
 
+		secretToolName := systemmcpserver.SecretInfoToolName(systemServer.Name)
 		for _, cred := range creds {
+			// Skip the secret info credential — those vars go to the shim only, not the MCP server.
+			if cred.ToolName == secretToolName {
+				continue
+			}
 			credDetail, err := h.gptClient.RevealCredential(req.Context(), []string{credCtx}, cred.ToolName)
 			if err != nil {
 				continue

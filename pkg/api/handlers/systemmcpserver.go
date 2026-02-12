@@ -484,8 +484,13 @@ func getCredentialsForSystemServer(ctx context.Context, gptClient *gptscript.GPT
 		return nil, err
 	}
 
+	secretToolName := systemmcpserver.SecretInfoToolName(server.Name)
 	credEnv := make(map[string]string)
 	for _, cred := range creds {
+		// Skip the secret info credential — those vars go to the shim only, not the MCP server.
+		if cred.ToolName == secretToolName {
+			continue
+		}
 		credDetail, err := gptClient.RevealCredential(ctx, []string{credCtx}, cred.ToolName)
 		if err != nil {
 			continue

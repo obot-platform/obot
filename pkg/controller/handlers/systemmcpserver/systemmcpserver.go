@@ -164,8 +164,13 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 		return fmt.Errorf("failed to list credentials: %w", err)
 	}
 
+	secretToolName := secretInfoToolName(systemServer.Name)
 	credEnv := make(map[string]string)
 	for _, cred := range creds {
+		// Skip the secret info credential — those vars go to the shim only, not the MCP server.
+		if cred.ToolName == secretToolName {
+			continue
+		}
 		// Get credential details
 		credDetail, err := h.gptClient.RevealCredential(req.Ctx, []string{credCtx}, cred.ToolName)
 		if err != nil {
@@ -178,7 +183,7 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 
 	// Retrieve the token exchange credential
 	var secretsCred map[string]string
-	tokenExchangeCred, err := h.gptClient.RevealCredential(req.Ctx, []string{systemServer.Name}, secretInfoToolName(systemServer.Name))
+	tokenExchangeCred, err := h.gptClient.RevealCredential(req.Ctx, []string{systemServer.Name}, secretToolName)
 	if err == nil {
 		secretsCred = tokenExchangeCred.Env
 	}
@@ -240,8 +245,12 @@ func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScrip
 		return false
 	}
 
+	secretToolName := secretInfoToolName(server.Name)
 	credEnv := make(map[string]string)
 	for _, cred := range creds {
+		if cred.ToolName == secretToolName {
+			continue
+		}
 		credDetail, err := gptClient.RevealCredential(ctx, []string{credCtx}, cred.ToolName)
 		if err != nil {
 			continue
