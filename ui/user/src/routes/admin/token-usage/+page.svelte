@@ -18,6 +18,7 @@
 	import { onMount } from 'svelte';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import StackedGraph from '$lib/components/graph/StackedGraph.svelte';
+	import VirtualizedGrid from './VirtualizedGrid.svelte';
 	import { errors } from '$lib/stores';
 	import { buildPaletteFromPrimary, hslToHex, parseColorToHsl } from '$lib/colors';
 	import {
@@ -256,6 +257,14 @@
 		});
 	});
 
+	type GraphItem = { label: string; data: { bucket: string; input_tokens: number }[] };
+	const graphItems = $derived.by((): GraphItem[] => {
+		if (selectedSubview === 'models') {
+			return perModelPromptData.map(({ modelLabel, data }) => ({ label: modelLabel, data }));
+		}
+		return perUserPromptData.map(({ userLabel, data }) => ({ label: userLabel, data }));
+	});
+
 	function handleDateRangeChange(range: DateRange) {
 		const currentUrl = new URL(page.url);
 		currentUrl.searchParams.set('start', range.start?.toISOString() ?? '');
@@ -424,7 +433,7 @@
 			</div>
 
 			<div class="relative mt-2 flex flex-col">
-				<div class="relative z-10 flex items-center">
+				<div class="relative z-10 flex shrink-0 items-center">
 					<button
 						class={twMerge(
 							'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
@@ -444,36 +453,21 @@
 						Users
 					</button>
 				</div>
-				<div class="bg-surface3 h-0.5 w-full -translate-y-0.5"></div>
-			</div>
+				<div class="bg-surface3 mb-2 h-0.5 w-full shrink-0 -translate-y-0.5"></div>
 
-			{#if selectedSubview === 'models'}
-				{#if perModelPromptData.length > 0}
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						{#each perModelPromptData as { modelLabel, data } (modelLabel)}
+				{#if graphItems.length > 0}
+					<VirtualizedGrid class="mt-2" data={graphItems} columns={2} rowHeight={340} overscan={2}>
+						{#snippet children({ item })}
 							<div class="paper flex min-h-0 flex-col">
-								<h5 class="text-sm font-medium">{modelLabel}</h5>
-								<StackedGraph height={240} {data} />
+								<h5 class="text-sm font-medium">{item.label}</h5>
+								<StackedGraph height={240} data={item.data} />
 							</div>
-						{/each}
-					</div>
+						{/snippet}
+					</VirtualizedGrid>
 				{:else}
 					<div class="text-on-surface1 mx-auto py-12 text-sm font-light">No data available.</div>
 				{/if}
-			{:else if selectedSubview === 'users'}
-				{#if perUserPromptData.length > 0}
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						{#each perUserPromptData as { userLabel, data } (userLabel)}
-							<div class="paper flex min-h-0 flex-col">
-								<h5 class="text-sm font-medium">{userLabel}</h5>
-								<StackedGraph height={240} {data} />
-							</div>
-						{/each}
-					</div>
-				{:else}
-					<div class="text-on-surface1 mx-auto py-12 text-sm font-light">No data available.</div>
-				{/if}
-			{/if}
+			</div>
 		</div>
 	</div>
 </Layout>

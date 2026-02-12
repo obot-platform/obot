@@ -137,24 +137,38 @@ export function getBucketsInRange(
 	const buckets: BucketInRange[] = [];
 	let cursor = getBucketStart(new Date(rangeStart), kind);
 	const endBucket = getBucketStart(new Date(rangeEnd), kind);
-	const addOne =
-		kind === 'minute'
-			? (d: Date) => addMinutes(d, 1)
-			: kind === '5min'
-				? (d: Date) => addMinutes(d, 5)
-				: kind === '10min'
-					? (d: Date) => addMinutes(d, 10)
-					: kind === 'hour'
-						? (d: Date) => addHours(d, 1)
-						: kind === '2hour'
-							? (d: Date) => addHours(d, 2)
-							: kind === '4hour'
-								? (d: Date) => addHours(d, 4)
-								: kind === 'day'
-									? (d: Date) => addDays(d, 1)
-									: kind === 'week'
-										? (d: Date) => addWeeks(d, 1)
-										: (d: Date) => addMonths(d, 1);
+	let addOne: (d: Date) => Date;
+	switch (kind) {
+		case 'minute':
+			addOne = (d: Date) => addMinutes(d, 1);
+			break;
+		case '5min':
+			addOne = (d: Date) => addMinutes(d, 5);
+			break;
+		case '10min':
+			addOne = (d: Date) => addMinutes(d, 10);
+			break;
+		case 'hour':
+			addOne = (d: Date) => addHours(d, 1);
+			break;
+		case '2hour':
+			addOne = (d: Date) => addHours(d, 2);
+			break;
+		case '4hour':
+			addOne = (d: Date) => addHours(d, 4);
+			break;
+		case 'day':
+			addOne = (d: Date) => addDays(d, 1);
+			break;
+		case 'week':
+			addOne = (d: Date) => addWeeks(d, 1);
+			break;
+		case 'month':
+			addOne = (d: Date) => addMonths(d, 1);
+			break;
+		default:
+			addOne = (d: Date) => addMonths(d, 1);
+	}
 	while (cursor <= endBucket) {
 		buckets.push({
 			bucketKey: cursor.toISOString(),
