@@ -545,7 +545,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		}
 
 		now := time.Now()
-		expiresAt := now.Add(12 * time.Hour)
+		expiresAt := now.Add(time.Hour)
 		token, err := h.tokenService.NewToken(req.Context(), persistent.TokenContext{
 			Audience:   h.baseURL,
 			IssuedAt:   now,
