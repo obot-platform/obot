@@ -10184,7 +10184,7 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 					},
 					"runtime": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Runtime configuration (only containerized and remote allowed)",
+							Description: "Runtime configuration (only containerized allowed)",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -10192,13 +10192,8 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 					},
 					"containerizedConfig": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Runtime-specific configurations (only one should be populated)",
+							Description: "Runtime-specific configuration",
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig"),
-						},
-					},
-					"remoteConfig": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig"),
 						},
 					},
 					"env": {
@@ -10219,7 +10214,7 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv"},
 	}
 }
 
