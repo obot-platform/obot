@@ -5,6 +5,7 @@
 	import MarkdownEditor from './MarkdownEditor.svelte';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 	import { getLayout } from '$lib/context/nanobotLayout.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		filename: string;
@@ -30,7 +31,6 @@
 	let error = $state<string | null>(null);
 	let mounted = $state(false);
 
-	let widthDvw = $state(50);
 	let widthPx = $state(0);
 	let isResizing = $state(false);
 	let maxThreadContentWidthSeen = $state(0);
@@ -43,7 +43,6 @@
 	const MIN_WIDTH_PX = 300;
 	const MAX_DVW = 50;
 	const MAX_DVW_FILL = 90;
-	const MIN_DVW = 10;
 
 	function getViewportWidth(): number {
 		return typeof window !== 'undefined' && window.visualViewport
@@ -53,10 +52,8 @@
 				: 1024;
 	}
 
-	function getMinDvw(): number {
-		const vw = getViewportWidth();
-		const minDvwFromPx = (MIN_WIDTH_PX / vw) * 100;
-		return Math.max(MIN_DVW, minDvwFromPx);
+	function getEffectiveRefWidth(): number {
+		return containerWidth > 0 ? containerWidth : getViewportWidth();
 	}
 
 	function handleResizeStart(e: MouseEvent) {
@@ -64,21 +61,13 @@
 		isResizing = true;
 
 		const startX = e.clientX;
-		const startDvw = widthDvw;
 		const startPx = widthPx;
 
 		function onMouseMove(e: MouseEvent) {
 			const deltaX = startX - e.clientX;
-			if (containerWidth > 0) {
-				const maxPx = Math.floor(containerWidth * (MAX_DVW / 100));
-				widthPx = Math.max(MIN_WIDTH_PX, Math.min(maxPx, startPx + deltaX));
-			} else {
-				const vw = getViewportWidth();
-				const deltaDvw = (deltaX / vw) * 100;
-				let newDvw = startDvw + deltaDvw;
-				newDvw = Math.max(getMinDvw(), Math.min(MAX_DVW, newDvw));
-				widthDvw = newDvw;
-			}
+			const refWidth = getEffectiveRefWidth();
+			const maxPx = Math.floor(refWidth * (MAX_DVW / 100));
+			widthPx = Math.max(MIN_WIDTH_PX, Math.min(maxPx, startPx + deltaX));
 		}
 
 		function onMouseUp() {
@@ -92,25 +81,15 @@
 	}
 
 	function handleResizeKeydown(e: KeyboardEvent) {
-		const step = containerWidth > 0 ? 40 : 2;
-		if (containerWidth > 0) {
-			const maxPx = Math.floor(containerWidth * (MAX_DVW / 100));
-			if (e.key === 'ArrowLeft') {
-				e.preventDefault();
-				widthPx = Math.min(maxPx, widthPx + step);
-			} else if (e.key === 'ArrowRight') {
-				e.preventDefault();
-				widthPx = Math.max(MIN_WIDTH_PX, widthPx - step);
-			}
-		} else {
-			const minDvw = getMinDvw();
-			if (e.key === 'ArrowLeft') {
-				e.preventDefault();
-				widthDvw = Math.min(MAX_DVW, widthDvw + step);
-			} else if (e.key === 'ArrowRight') {
-				e.preventDefault();
-				widthDvw = Math.max(minDvw, widthDvw - step);
-			}
+		const step = 40;
+		const refWidth = getEffectiveRefWidth();
+		const maxPx = Math.floor(refWidth * (MAX_DVW / 100));
+		if (e.key === 'ArrowLeft') {
+			e.preventDefault();
+			widthPx = Math.min(maxPx, widthPx + step);
+		} else if (e.key === 'ArrowRight') {
+			e.preventDefault();
+			widthPx = Math.max(MIN_WIDTH_PX, widthPx - step);
 		}
 	}
 
@@ -136,16 +115,10 @@
 		return refWidth - sidebarWidth - getThreadRefWidth() - quickBarAccessWidth;
 	}
 
-	function calculateInitialWidthDvw(): number {
-		const vw = getViewportWidth();
-		const remainingWidth = calculateRemainingPx(vw);
-		const computedDvw = (remainingWidth / vw) * 100;
-		return Math.max(getMinDvw(), Math.min(MAX_DVW_FILL, computedDvw));
-	}
-
-	function calculateInitialWidthPx(): number {
-		const remaining = calculateRemainingPx(containerWidth);
-		const maxPx = Math.floor(containerWidth * (MAX_DVW_FILL / 100));
+	function calculateInitialWidthPx(refWidth: number): number {
+		if (refWidth <= 0) return MIN_WIDTH_PX;
+		const remaining = calculateRemainingPx(refWidth);
+		const maxPx = Math.floor(refWidth * (MAX_DVW_FILL / 100));
 		return Math.max(MIN_WIDTH_PX, Math.min(maxPx, remaining));
 	}
 
@@ -155,9 +128,7 @@
 		const syncWidth = (w: number) => {
 			containerWidth = w;
 			if (w > 0) {
-				const remaining = w - getSidebarWidth() - getThreadRefWidth() - getQuickBarWidth();
-				const maxPx = Math.floor(w * (MAX_DVW_FILL / 100));
-				widthPx = Math.max(MIN_WIDTH_PX, Math.min(maxPx, remaining));
+				widthPx = calculateInitialWidthPx(w);
 			}
 		};
 		const ro = new ResizeObserver((entries) => {
@@ -183,11 +154,7 @@
 		}
 		requestAnimationFrame(() => {
 			mounted = true;
-			if (containerWidth > 0) {
-				widthPx = calculateInitialWidthPx();
-			} else {
-				widthDvw = calculateInitialWidthDvw();
-			}
+			widthPx = calculateInitialWidthPx(getEffectiveRefWidth());
 		});
 	});
 
@@ -196,11 +163,7 @@
 		void layout.sidebarOpen;
 		if (recalculateAnimationFrameId) cancelAnimationFrame(recalculateAnimationFrameId);
 		recalculateAnimationFrameId = requestAnimationFrame(() => {
-			if (containerWidth > 0) {
-				widthPx = calculateInitialWidthPx();
-			} else {
-				widthDvw = calculateInitialWidthDvw();
-			}
+			widthPx = calculateInitialWidthPx(getEffectiveRefWidth());
 		});
 		return () => {
 			if (recalculateAnimationFrameId) {
@@ -236,8 +199,6 @@
 		};
 
 		loadResource();
-
-		// Cleanup subscription when component unmounts or filename changes
 		return () => cleanup?.();
 	});
 
@@ -248,19 +209,26 @@
 	const visible = $derived(mounted && open);
 	let justOpened = $state(false);
 
-	// Normalized 0–100 slider value for ARIA (reflects active sizing mode)
-	const ariaSliderValue = $derived.by(() => {
-		if (containerWidth > 0) {
-			const maxPx = Math.floor(containerWidth * (MAX_DVW / 100));
-			const range = maxPx - MIN_WIDTH_PX;
-			if (range <= 0) return 0;
-			const pct = ((widthPx - MIN_WIDTH_PX) / range) * 100;
-			return Math.round(Math.max(0, Math.min(100, pct)));
+	function getPanelDimensionsPx(): { width: number; minWidth: number; maxWidth: number } {
+		if (!visible) {
+			return { width: 0, minWidth: 0, maxWidth: 0 };
 		}
-		const minDvw = getMinDvw();
-		const range = MAX_DVW - minDvw;
-		if (range <= 0) return 100;
-		const pct = ((widthDvw - minDvw) / range) * 100;
+		const refWidth = getEffectiveRefWidth();
+		return {
+			width: widthPx,
+			minWidth: MIN_WIDTH_PX,
+			maxWidth: Math.floor(refWidth * (MAX_DVW_FILL / 100))
+		};
+	}
+
+	const panelDimensionsPx = $derived(getPanelDimensionsPx());
+
+	const ariaSliderValue = $derived.by(() => {
+		const refWidth = getEffectiveRefWidth();
+		const maxPx = Math.floor(refWidth * (MAX_DVW / 100));
+		const range = maxPx - MIN_WIDTH_PX;
+		if (range <= 0) return 0;
+		const pct = ((widthPx - MIN_WIDTH_PX) / range) * 100;
 		return Math.round(Math.max(0, Math.min(100, pct)));
 	});
 
@@ -276,16 +244,12 @@
 
 <div
 	bind:this={rootEl}
-	class="relative h-dvh shrink-0 overflow-hidden {justOpened
-		? 'transition-[opacity,width,min-width]'
-		: 'transition-opacity'} duration-300 ease-out {visible ? 'opacity-100' : 'opacity-0'}"
-	style="width: {visible ? (containerWidth > 0 ? widthPx : widthDvw) : 0}{visible
-		? containerWidth > 0
-			? 'px'
-			: 'dvw'
-		: 'px'}; min-width: {visible ? MIN_WIDTH_PX : 0}px; max-width: {visible && containerWidth > 0
-		? Math.floor(containerWidth * (MAX_DVW_FILL / 100))
-		: MAX_DVW_FILL}{visible && containerWidth > 0 ? 'px' : 'dvw'};"
+	class={twMerge(
+		'relative h-dvh shrink-0 overflow-hidden duration-300 ease-out',
+		justOpened ? 'transition-[opacity,width,min-width]' : 'transition-opacity',
+		visible ? 'opacity-100' : 'opacity-0'
+	)}
+	style="width: {panelDimensionsPx.width}px; min-width: {panelDimensionsPx.minWidth}px; max-width: {panelDimensionsPx.maxWidth}px;"
 >
 	<!-- Resize handle -->
 	<div
