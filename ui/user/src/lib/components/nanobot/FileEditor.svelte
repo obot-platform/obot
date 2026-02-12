@@ -4,15 +4,25 @@
 	import { X } from 'lucide-svelte';
 	import MarkdownEditor from './MarkdownEditor.svelte';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
+	import { getLayout } from '$lib/context/nanobotLayout.svelte';
 
 	interface Props {
 		filename: string;
 		chat: ChatService;
 		open?: boolean;
 		onClose?: () => void;
+		quickBarAccessOpen?: boolean;
+		threadContentWidth?: number;
 	}
 
-	let { filename, chat, open, onClose }: Props = $props();
+	let {
+		filename,
+		chat,
+		open,
+		onClose,
+		quickBarAccessOpen,
+		threadContentWidth = 0
+	}: Props = $props();
 
 	const name = $derived(filename.split('/').pop()?.split('.').shift() || '');
 	let resource = $state<ResourceContents | null>(null);
@@ -21,10 +31,17 @@
 	let mounted = $state(false);
 
 	let widthDvw = $state(50);
+	let widthPx = $state(0);
 	let isResizing = $state(false);
+	let maxThreadContentWidthSeen = $state(0);
+	let containerWidth = $state(0);
+	let rootEl = $state<HTMLDivElement | null>(null);
 
-	const MIN_WIDTH_PX = 500;
+	let layout = getLayout();
+
+	const MIN_WIDTH_PX = 300;
 	const MAX_DVW = 50;
+	const MAX_DVW_FILL = 90; // allow filling remaining space so thread width stays fixed
 	const MIN_DVW = 10;
 
 	function getViewportWidth(): number {
@@ -47,14 +64,20 @@
 
 		const startX = e.clientX;
 		const startDvw = widthDvw;
+		const startPx = widthPx;
 
 		function onMouseMove(e: MouseEvent) {
-			const vw = getViewportWidth();
 			const deltaX = startX - e.clientX;
-			const deltaDvw = (deltaX / vw) * 100;
-			let newDvw = startDvw + deltaDvw;
-			newDvw = Math.max(getMinDvw(), Math.min(MAX_DVW, newDvw));
-			widthDvw = newDvw;
+			if (containerWidth > 0) {
+				const maxPx = Math.floor(containerWidth * (MAX_DVW / 100));
+				widthPx = Math.max(MIN_WIDTH_PX, Math.min(maxPx, startPx + deltaX));
+			} else {
+				const vw = getViewportWidth();
+				const deltaDvw = (deltaX / vw) * 100;
+				let newDvw = startDvw + deltaDvw;
+				newDvw = Math.max(getMinDvw(), Math.min(MAX_DVW, newDvw));
+				widthDvw = newDvw;
+			}
 		}
 
 		function onMouseUp() {
@@ -68,22 +91,115 @@
 	}
 
 	function handleResizeKeydown(e: KeyboardEvent) {
-		const step = 2;
-		const minDvw = getMinDvw();
-
-		if (e.key === 'ArrowLeft') {
-			e.preventDefault();
-			widthDvw = Math.min(MAX_DVW, widthDvw + step);
-		} else if (e.key === 'ArrowRight') {
-			e.preventDefault();
-			widthDvw = Math.max(minDvw, widthDvw - step);
+		const step = containerWidth > 0 ? 40 : 2;
+		if (containerWidth > 0) {
+			const maxPx = Math.floor(containerWidth * (MAX_DVW / 100));
+			if (e.key === 'ArrowLeft') {
+				e.preventDefault();
+				widthPx = Math.min(maxPx, widthPx + step);
+			} else if (e.key === 'ArrowRight') {
+				e.preventDefault();
+				widthPx = Math.max(MIN_WIDTH_PX, widthPx - step);
+			}
+		} else {
+			const minDvw = getMinDvw();
+			if (e.key === 'ArrowLeft') {
+				e.preventDefault();
+				widthDvw = Math.min(MAX_DVW, widthDvw + step);
+			} else if (e.key === 'ArrowRight') {
+				e.preventDefault();
+				widthDvw = Math.max(minDvw, widthDvw - step);
+			}
 		}
 	}
 
+	function getThreadRefWidth(): number {
+		return maxThreadContentWidthSeen > 0
+			? maxThreadContentWidthSeen
+			: threadContentWidth > 0
+				? threadContentWidth
+				: 400;
+	}
+
+	function getSidebarWidth(): number {
+		return layout.sidebarOpen ? 300 : 0;
+	}
+
+	function getQuickBarWidth(): number {
+		return quickBarAccessOpen ? 384 : 0;
+	}
+
+	function calculateRemainingPx(refWidth: number): number {
+		const sidebarWidth = getSidebarWidth();
+		const quickBarAccessWidth = getQuickBarWidth();
+		return refWidth - sidebarWidth - getThreadRefWidth() - quickBarAccessWidth;
+	}
+
+	function calculateInitialWidthDvw(): number {
+		const vw = getViewportWidth();
+		const remainingWidth = calculateRemainingPx(vw);
+		const computedDvw = (remainingWidth / vw) * 100;
+		return Math.max(getMinDvw(), Math.min(MAX_DVW_FILL, computedDvw));
+	}
+
+	function calculateInitialWidthPx(): number {
+		const remaining = calculateRemainingPx(containerWidth);
+		const maxPx = Math.floor(containerWidth * (MAX_DVW_FILL / 100));
+		return Math.max(MIN_WIDTH_PX, Math.min(maxPx, remaining));
+	}
+
 	$effect(() => {
-		if (!open) return;
+		if (!open || !rootEl?.parentElement) return;
+		const parent = rootEl.parentElement;
+		const syncWidth = (w: number) => {
+			containerWidth = w;
+			if (w > 0) {
+				const remaining = w - getSidebarWidth() - getThreadRefWidth() - getQuickBarWidth();
+				const maxPx = Math.floor(w * (MAX_DVW_FILL / 100));
+				widthPx = Math.max(MIN_WIDTH_PX, Math.min(maxPx, remaining));
+			}
+		};
+		const ro = new ResizeObserver((entries) => {
+			const entry = entries[0];
+			if (entry) syncWidth(entry.contentRect.width);
+		});
+		ro.observe(parent);
+		syncWidth(parent.clientWidth);
+		return () => ro.disconnect();
+	});
+
+	$effect(() => {
+		const w = threadContentWidth;
+		if (w > 0 && w > maxThreadContentWidthSeen) {
+			maxThreadContentWidthSeen = w;
+		}
+	});
+
+	$effect(() => {
+		if (!open) {
+			maxThreadContentWidthSeen = 0;
+			return;
+		}
 		requestAnimationFrame(() => {
 			mounted = true;
+			if (containerWidth > 0) {
+				widthPx = calculateInitialWidthPx();
+			} else {
+				widthDvw = calculateInitialWidthDvw();
+			}
+		});
+	});
+
+	$effect(() => {
+		void quickBarAccessOpen;
+		void layout.sidebarOpen;
+		void containerWidth;
+		requestAnimationFrame(() => {
+			if (containerWidth > 0) {
+				widthPx = calculateInitialWidthPx();
+			} else {
+				widthDvw = calculateInitialWidthDvw();
+			}
 		});
 	});
 
@@ -124,15 +240,30 @@
 	let mimeType = $derived(resource?.mimeType ?? 'text/plain');
 
 	const visible = $derived(mounted && open);
+	let justOpened = $state(false);
+
+	$effect(() => {
+		if (!visible) return;
+		justOpened = true;
+		const t = setTimeout(() => {
+			justOpened = false;
+		}, 300);
+		return () => clearTimeout(t);
+	});
 </script>
 
 <div
-	class="relative h-dvh shrink-0 overflow-hidden transition-[opacity,width,min-width] duration-300 ease-out {visible
-		? 'opacity-100'
-		: 'opacity-0'}"
-	style="width: {visible ? widthDvw : 0}dvw; min-width: {visible
-		? MIN_WIDTH_PX
-		: 0}px; max-width: {MAX_DVW}dvw;"
+	bind:this={rootEl}
+	class="relative h-dvh shrink-0 overflow-hidden {justOpened
+		? 'transition-[opacity,width,min-width]'
+		: 'transition-opacity'} duration-300 ease-out {visible ? 'opacity-100' : 'opacity-0'}"
+	style="width: {visible ? (containerWidth > 0 ? widthPx : widthDvw) : 0}{visible
+		? containerWidth > 0
+			? 'px'
+			: 'dvw'
+		: 'px'}; min-width: {visible ? MIN_WIDTH_PX : 0}px; max-width: {visible && containerWidth > 0
+		? Math.floor(containerWidth * (MAX_DVW_FILL / 100))
+		: MAX_DVW_FILL}{visible && containerWidth > 0 ? 'px' : 'dvw'};"
 >
 	<!-- Resize handle -->
 	<div

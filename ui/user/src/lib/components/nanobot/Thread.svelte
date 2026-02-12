@@ -29,6 +29,7 @@
 		onSendMessage?: (message: string, attachments?: Attachment[]) => Promise<ChatResult | void>;
 		onFileUpload?: (file: File, opts?: { controller?: AbortController }) => Promise<Attachment>;
 		onFileOpen?: (filename: string) => void;
+		onContentWidthChange?: (width: number) => void;
 		cancelUpload?: (fileId: string) => void;
 		uploadingFiles?: UploadingFile[];
 		uploadedFiles?: UploadedFile[];
@@ -65,7 +66,8 @@
 		emptyStateContent,
 		onRestart,
 		onRefreshResources,
-		suppressEmptyState
+		suppressEmptyState,
+		onContentWidthChange
 	}: Props = $props();
 
 	let messagesContainer: HTMLElement;
@@ -196,6 +198,19 @@
 			}
 		});
 		ro.observe(inner);
+		return () => ro.disconnect();
+	});
+
+	$effect(() => {
+		const inner = messagesContentInner;
+		if (!inner || !onContentWidthChange) return;
+
+		const ro = new ResizeObserver((entries) => {
+			const entry = entries[0];
+			if (entry) onContentWidthChange(entry.contentRect.width);
+		});
+		ro.observe(inner);
+		onContentWidthChange(inner.getBoundingClientRect().width);
 		return () => ro.disconnect();
 	});
 

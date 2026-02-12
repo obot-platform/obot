@@ -12,9 +12,11 @@
 		chat: ChatService;
 		onFileOpen?: (filename: string) => void;
 		suppressEmptyState?: boolean;
+		onThreadContentWidth?: (width: number) => void;
 	}
 
-	let { agentId, projectId, chat, onFileOpen, suppressEmptyState }: Props = $props();
+	let { agentId, projectId, chat, onFileOpen, suppressEmptyState, onThreadContentWidth }: Props =
+		$props();
 
 	let showRestartConfirm = $state(false);
 	let restarting = $state(false);
@@ -62,6 +64,7 @@
 				}}
 				{onFileOpen}
 				{suppressEmptyState}
+				onContentWidthChange={onThreadContentWidth}
 			>
 				{#snippet emptyStateContent()}
 					<div class="flex flex-col items-center gap-4">

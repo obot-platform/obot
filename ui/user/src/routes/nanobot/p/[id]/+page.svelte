@@ -12,6 +12,8 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import FileEditor from '$lib/components/nanobot/FileEditor.svelte';
 	import ThreadQuickAccess from '$lib/components/nanobot/ThreadQuickAccess.svelte';
+	import { SidebarClose, SidebarOpen } from 'lucide-svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	let { data } = $props();
 	let agent = $derived(data.agent);
@@ -19,6 +21,7 @@
 
 	const chatApi = $derived(new ChatAPI(agent.connectURL));
 
+	let quickBarAccessOpen = $state(true);
 	let chat = $state<ChatService | null>(null);
 	let threadId = $derived(page.url.searchParams.get('tid'));
 	let prevThreadId: string | null | undefined = undefined; // undefined = not yet initialized
@@ -26,6 +29,7 @@
 	let initialPlannerMode = $derived(page.url.searchParams.get('planner') === 'true');
 
 	let selectedFile = $state('');
+	let threadContentWidth = $state(0);
 
 	function handleThreadCreated(thread: Chat) {
 		prevThreadId = thread.id;
@@ -116,9 +120,11 @@
 					{projectId}
 					{chat}
 					onFileOpen={(filename) => {
+						quickBarAccessOpen = false;
 						selectedFile = filename;
 					}}
 					suppressEmptyState={!!threadId}
+					onThreadContentWidth={(w) => (threadContentWidth = w)}
 				/>
 			{/key}
 		{/if}
@@ -131,16 +137,37 @@
 					filename={selectedFile}
 					{chat}
 					open={!!selectedFile}
-					onClose={() => (selectedFile = '')}
+					onClose={() => {
+						selectedFile = '';
+						quickBarAccessOpen = true;
+					}}
+					{quickBarAccessOpen}
+					{threadContentWidth}
+				/>
+				<div class="fixed right-3 bottom-3">
+					<button
+						class="icon-button"
+						onclick={() => (quickBarAccessOpen = !quickBarAccessOpen)}
+						use:tooltip={'Toggle to-do & file list'}
+					>
+						{#if quickBarAccessOpen}
+							<SidebarClose class="size-6" />
+						{:else}
+							<SidebarOpen class="size-6" />
+						{/if}
+					</button>
+				</div>
+			{/if}
+			{#if quickBarAccessOpen}
+				<ThreadQuickAccess
+					{chat}
+					{selectedFile}
+					onFileOpen={(filename) => {
+						quickBarAccessOpen = false;
+						selectedFile = filename;
+					}}
 				/>
 			{/if}
-			<ThreadQuickAccess
-				{chat}
-				{selectedFile}
-				onFileOpen={(filename) => {
-					selectedFile = filename;
-				}}
-			/>
 		{/if}
 	{/snippet}
 </Layout>
