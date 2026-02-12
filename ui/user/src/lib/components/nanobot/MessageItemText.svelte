@@ -18,7 +18,6 @@
 	class={[
 		'prose rounded-box text-base-content flex w-full max-w-none flex-col gap-2 p-2',
 		{
-			'mb-3': role === 'assistant',
 			'p-4': role === 'assistant',
 			'bg-base-200': role === 'user',
 			'whitespace-pre-wrap': role === 'user'

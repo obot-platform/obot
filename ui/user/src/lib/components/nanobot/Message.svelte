@@ -1,6 +1,11 @@
 <script lang="ts">
 	import MessageItem from './MessageItem.svelte';
-	import type { Attachment, ChatMessage, ChatResult } from '$lib/services/nanobot/types';
+	import type {
+		Attachment,
+		ChatMessage,
+		ChatMessageItem,
+		ChatResult
+	} from '$lib/services/nanobot/types';
 	import MessageItemText from './MessageItemText.svelte';
 
 	interface Props {
@@ -11,6 +16,40 @@
 	}
 
 	let { message, timestamp, onSend, onFileOpen }: Props = $props();
+
+	function isMessageItemTool(item: ChatMessageItem): boolean {
+		return item.type === 'tool' && item.name !== 'write';
+	}
+
+	/** Groups items so consecutive MessageItemTool items are in one group for collapse. */
+	const itemGroups = $derived.by(
+		(): Array<{ toolGroup: ChatMessageItem[] } | { single: ChatMessageItem }> => {
+			const items = message.items ?? [];
+			if (items.length === 0) return [];
+			const groups: ({ toolGroup: ChatMessageItem[] } | { single: ChatMessageItem })[] = [];
+			let i = 0;
+			while (i < items.length) {
+				if (isMessageItemTool(items[i])) {
+					const run: ChatMessageItem[] = [];
+					while (i < items.length && isMessageItemTool(items[i])) {
+						run.push(items[i]);
+						i++;
+					}
+					groups.push({ toolGroup: run });
+				} else {
+					groups.push({ single: items[i] });
+					i++;
+				}
+			}
+			return groups;
+		}
+	);
+
+	function groupKey(group: { toolGroup: ChatMessageItem[] } | { single: ChatMessageItem }): string {
+		return 'toolGroup' in group
+			? `tool-${group.toolGroup.map((i) => i.id).join('-')}`
+			: `single-${group.single.id}`;
+	}
 
 	const displayTime = $derived(
 		timestamp || (message.created ? new Date(message.created) : new Date())
@@ -44,7 +83,7 @@
 	<div class="group flex w-full justify-end">
 		<div class="max-w-md">
 			<div class="flex flex-col items-end">
-				<div class="rounded-box bg-base-200 p-2">
+				<div class="rounded-box bg-base-200 mt-4 p-2">
 					{#if message.items && message.items.length > 0}
 						{#each message.items as item (item.id)}
 							<MessageItem {item} role={message.role} />
@@ -66,11 +105,35 @@
 	<div class="flex w-full items-start gap-3">
 		<!-- Assistant message content -->
 		<div class="flex min-w-0 flex-1 flex-col items-start">
-			<!-- Render all message items -->
+			<!-- Render all message items (consecutive tool items grouped in one collapse) -->
 			{#if message.items && message.items.length > 0}
-				{#each message.items as item (item.id)}
-					<MessageItem {item} role={message.role} {onSend} {onFileOpen} />
-				{/each}
+				<div class="w-full">
+					{#each itemGroups as group (groupKey(group))}
+						{#if 'toolGroup' in group}
+							<div
+								class="hover:collapse-arrow hover:border-base-300 collapse w-full border border-transparent"
+							>
+								<input type="checkbox" />
+								<div
+									class="collapse-title text-base-content/35 min-h-0 py-2 text-xs font-light italic"
+								>
+									{group.toolGroup.some((item) => item.type === 'tool' && !item.output)
+										? 'Thinking...'
+										: `${group.toolGroup.length} tool call${group.toolGroup.length === 1 ? '' : 's'} completed`}
+								</div>
+								<div class="collapse-content">
+									<div>
+										{#each group.toolGroup as item (item.id)}
+											<MessageItem {item} role={message.role} {onSend} {onFileOpen} />
+										{/each}
+									</div>
+								</div>
+							</div>
+						{:else}
+							<MessageItem item={group.single} role={message.role} {onSend} {onFileOpen} />
+						{/if}
+					{/each}
+				</div>
 			{:else}
 				<!-- Fallback for messages without items -->
 				<div class="prose bg-base-200 prose-invert w-full max-w-full rounded-lg p-3">
