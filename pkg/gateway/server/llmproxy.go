@@ -290,7 +290,7 @@ type responseModifier struct {
 }
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
-	if resp.StatusCode != http.StatusOK || resp.Request.URL.Path != "/v1/chat/completions" {
+	if resp.StatusCode != http.StatusOK || (resp.Request.URL.Path != "/v1/chat/completions" && resp.Request.URL.Path != "/v1/messages" && resp.Request.URL.Path != "/v1/responses") {
 		return nil
 	}
 
@@ -323,6 +323,14 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 		line = rest
 	}
 
+	// Extract token usage from all known locations.
+	// Providers nest usage differently:
+	//   - OpenAI Chat Completions: top-level "usage"
+	//   - Anthropic message_start: "message.usage"
+	//   - Anthropic message_delta: top-level "usage" (cumulative)
+	//   - OpenAI Responses API:    "response.usage"
+	// Use max to handle cumulative token counts (e.g. Anthropic's message_delta
+	// reports cumulative output_tokens, not incremental).
 	usage := gjson.GetBytes(line, "usage")
 	promptTokens := usage.Get("prompt_tokens").Int()
 	promptTokens += usage.Get("input_tokens").Int()
@@ -330,16 +338,41 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 	completionTokens += usage.Get("output_tokens").Int()
 	totalTokens := usage.Get("total_tokens").Int()
 
-	if totalTokens == 0 {
-		totalTokens = promptTokens + completionTokens
+	if msgUsage := gjson.GetBytes(line, "message.usage"); msgUsage.Exists() {
+		promptTokens = max(promptTokens, msgUsage.Get("input_tokens").Int())
+		completionTokens = max(completionTokens, msgUsage.Get("output_tokens").Int())
+	}
+
+	if respUsage := gjson.GetBytes(line, "response.usage"); respUsage.Exists() {
+		promptTokens = max(promptTokens, respUsage.Get("input_tokens").Int())
+		completionTokens = max(completionTokens, respUsage.Get("output_tokens").Int())
+		totalTokens = max(totalTokens, respUsage.Get("total_tokens").Int())
 	}
 
 	if promptTokens > 0 || completionTokens > 0 || totalTokens > 0 {
 		r.lock.Lock()
-		r.promptTokens += int(promptTokens)
-		r.completionTokens += int(completionTokens)
-		r.totalTokens += int(totalTokens)
+		r.promptTokens = max(r.promptTokens, int(promptTokens))
+		r.completionTokens = max(r.completionTokens, int(completionTokens))
+		r.totalTokens = max(r.totalTokens, int(totalTokens))
 		r.lock.Unlock()
+	}
+
+	// Extract model from response if not already set
+	if r.model == "" {
+		responseModel := gjson.GetBytes(line, "model").String()
+		// Anthropic's message_start event nests model under "message.model"
+		if responseModel == "" {
+			responseModel = gjson.GetBytes(line, "message.model").String()
+		}
+		// OpenAI Responses API nests model under "response.model"
+		if responseModel == "" {
+			responseModel = gjson.GetBytes(line, "response.model").String()
+		}
+		if responseModel != "" {
+			r.lock.Lock()
+			r.model = responseModel
+			r.lock.Unlock()
+		}
 	}
 
 	var n int
@@ -353,13 +386,17 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 
 func (r *responseModifier) Close() error {
 	r.lock.Lock()
+	totalTokens := r.totalTokens
+	if totalTokens == 0 {
+		totalTokens = r.promptTokens + r.completionTokens
+	}
 	activity := &types.RunTokenActivity{
 		Name:             r.runID,
 		UserID:           r.userID,
 		Model:            r.model,
 		PromptTokens:     r.promptTokens,
 		CompletionTokens: r.completionTokens,
-		TotalTokens:      r.totalTokens,
+		TotalTokens:      totalTokens,
 		PersonalToken:    r.personalToken,
 	}
 	r.lock.Unlock()
