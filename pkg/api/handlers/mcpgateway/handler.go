@@ -156,7 +156,7 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 	credEnv := make(map[string]string)
 	needsCredentials := false
 	for _, env := range systemServer.Spec.Manifest.Env {
-		if env.Required && env.Value == "" {
+		if env.Value == "" {
 			needsCredentials = true
 			break
 		}

@@ -48,10 +48,11 @@ const (
 	AuditLogExportPrefix          = "ael1"
 	ScheduledAuditLogExportPrefix = "sael1"
 	SystemMCPServerPrefix         = "sms1"
-	ObotMCPServerName             = "sms1obot-mcp-server"
 	ModelAccessPolicyPrefix       = "map1"
 	NanobotAgentPrefix            = "nba1"
 	ProjectV2Prefix               = "pv21"
+
+	ObotMCPServerName = SystemMCPServerPrefix + "obot-mcp-server"
 )
 
 func IsThreadID(id string) bool {
