@@ -193,7 +193,7 @@ type Services struct {
 	RegistryNoAuth           bool
 	AutonomousToolUseEnabled bool
 	NanobotIntegration       bool
-	MCPServerServerImage     string
+	MCPServerSearchImage     string
 }
 
 const (
@@ -898,7 +898,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPRemoteShimBaseImage:        config.MCPRemoteShimBaseImage,
 		RegistryNoAuth:                registryNoAuth,
 		NanobotIntegration:            config.NanobotIntegration,
-		MCPServerServerImage:          config.MCPServerServerImage,
+		MCPServerSearchImage:          config.MCPServerSearchImage,
 	}, nil
 }
 
