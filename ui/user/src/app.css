@@ -1365,11 +1365,16 @@
 		margin-bottom: 1rem;
 	}
 
-	& * + h1, * + h2, * + h3, * + h4 {
+	& * + h1,
+	* + h2,
+	* + h3,
+	* + h4 {
 		margin-top: 0;
 	}
 
-	& * + p, & * + ol, & * + ul {
+	& * + p,
+	& * + ol,
+	& * + ul {
 		margin-top: 0;
 	}
 }
