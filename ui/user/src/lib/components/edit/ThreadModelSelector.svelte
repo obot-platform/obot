@@ -404,7 +404,7 @@
 		role="listbox"
 		tabindex="-1"
 		aria-labelledby="thread-model-button"
-		class="dropdown-menu min-w-40 p-2"
+		class="dropdown-menu max-h-[100vh] min-w-40 overflow-y-auto p-2"
 		popover
 		id="thread-model-selector-popover"
 		style="position-anchor: --thread-model-selector-anchor; position-area: bottom; position-try-fallbacks: flip-block;"

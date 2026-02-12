@@ -38,6 +38,7 @@ type RunTokenActivity struct {
 	CreatedAt        time.Time
 	Name             string
 	UserID           string
+	Model            string
 	PromptTokens     int
 	CompletionTokens int
 	TotalTokens      int
@@ -48,6 +49,7 @@ func ConvertTokenActivity(a RunTokenActivity) types2.TokenUsage {
 	return types2.TokenUsage{
 		UserID:           a.UserID,
 		RunName:          a.Name,
+		Model:            a.Model,
 		Date:             *types2.NewTime(a.CreatedAt),
 		PromptTokens:     a.PromptTokens,
 		CompletionTokens: a.CompletionTokens,

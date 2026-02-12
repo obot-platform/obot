@@ -40,7 +40,8 @@
 		UserCog,
 		Users,
 		Group as GroupIcon,
-		BotMessageSquare
+		BotMessageSquare,
+		Coins
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -72,6 +73,7 @@
 			collapsedSidebarHeaderContent?: string;
 			sidebar?: string;
 			sidebarRoot?: string;
+			noSidebarTitle?: string;
 		};
 		children: Snippet;
 		onRenderSubContent?: Snippet<[string]>;
@@ -219,6 +221,14 @@
 								href: '/admin/model-access-policies',
 								icon: LockKeyhole,
 								label: 'Model Access Policies',
+								collapsible: false
+							},
+							{
+								id: 'tokens',
+								href: '/admin/token-usage',
+								icon: Coins,
+								label: 'Token Usage',
+								disabled: isBootStrapUser,
 								collapsible: false
 							},
 							{
@@ -652,7 +662,14 @@
 		</button>
 	{/if}
 	{#if title}
-		<h1 class="w-full text-xl font-semibold">{title}</h1>
+		<h1
+			class={twMerge(
+				'w-full text-xl font-semibold',
+				!layout.sidebarOpen && classes?.noSidebarTitle
+			)}
+		>
+			{title}
+		</h1>
 	{/if}
 {/snippet}
 

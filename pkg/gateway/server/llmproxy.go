@@ -164,7 +164,7 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 
 	(&httputil.ReverseProxy{
 		Director:       dispatcher.TransformRequest(u, credEnv),
-		ModifyResponse: (&responseModifier{userID: token.UserID, runID: token.RunID, client: req.GatewayClient, personalToken: personalToken}).modifyResponse,
+		ModifyResponse: (&responseModifier{userID: token.UserID, runID: token.RunID, model: model, client: req.GatewayClient, personalToken: personalToken}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil
@@ -279,7 +279,7 @@ func copyBody(r *http.Request) ([]byte, error) {
 }
 
 type responseModifier struct {
-	userID, runID                               string
+	userID, runID, model                        string
 	personalToken                               bool
 	client                                      *client.Client
 	lock                                        sync.Mutex
@@ -356,6 +356,7 @@ func (r *responseModifier) Close() error {
 	activity := &types.RunTokenActivity{
 		Name:             r.runID,
 		UserID:           r.userID,
+		Model:            r.model,
 		PromptTokens:     r.promptTokens,
 		CompletionTokens: r.completionTokens,
 		TotalTokens:      r.totalTokens,
@@ -418,7 +419,8 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		return fmt.Errorf("failed to copy body: %w", err)
 	}
 
-	if targetModel := gjson.GetBytes(body, "model").String(); targetModel != "" {
+	targetModel := gjson.GetBytes(body, "model").String()
+	if targetModel != "" {
 		// Get the models matching the target model and provider.
 		var models v1.ModelList
 		if err := req.List(&models, &kclient.ListOptions{
@@ -473,7 +475,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 
 	(&httputil.ReverseProxy{
 		Director:       dispatcher.TransformRequest(l.u, nil),
-		ModifyResponse: (&responseModifier{userID: req.User.GetUID(), client: req.GatewayClient}).modifyResponse,
+		ModifyResponse: (&responseModifier{userID: req.User.GetUID(), model: targetModel, client: req.GatewayClient}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil

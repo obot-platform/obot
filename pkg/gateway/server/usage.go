@@ -71,15 +71,14 @@ func (s *Server) systemTokenUsageByUser(apiContext api.Context) error {
 		return err
 	}
 
-	activities, err := apiContext.GatewayClient.TokenUsageByUser(apiContext.Context(), start, end, apiContext.Request.URL.Query().Get("include-personal-token") == "true")
+	activities, err := apiContext.GatewayClient.TokenUsageSeriesInRange(apiContext.Context(), start, end)
 	if err != nil {
 		return err
 	}
 
 	convertedActivities := make([]types2.TokenUsage, 0, len(activities))
-	for _, activity := range activities {
-		convertedActivities = append(convertedActivities, types.ConvertTokenActivity(activity))
-		convertedActivities[len(convertedActivities)-1].Date = types2.Time{}
+	for _, a := range activities {
+		convertedActivities = append(convertedActivities, types.ConvertTokenActivity(a))
 	}
 
 	return apiContext.Write(types2.TokenUsageList{Items: convertedActivities})

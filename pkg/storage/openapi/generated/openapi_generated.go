@@ -234,6 +234,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ThreadManifestManagedFields":                    schema_obot_platform_obot_apiclient_types_ThreadManifestManagedFields(ref),
 		"github.com/obot-platform/obot/apiclient/types.Time":                                           schema_obot_platform_obot_apiclient_types_Time(ref),
 		"github.com/obot-platform/obot/apiclient/types.TokenUsage":                                     schema_obot_platform_obot_apiclient_types_TokenUsage(ref),
+		"github.com/obot-platform/obot/apiclient/types.TokenUsageByDate":                               schema_obot_platform_obot_apiclient_types_TokenUsageByDate(ref),
 		"github.com/obot-platform/obot/apiclient/types.TokenUsageList":                                 schema_obot_platform_obot_apiclient_types_TokenUsageList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolCall":                                       schema_obot_platform_obot_apiclient_types_ToolCall(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolConfirm":                                    schema_obot_platform_obot_apiclient_types_ToolConfirm(ref),
@@ -11134,6 +11135,12 @@ func schema_obot_platform_obot_apiclient_types_TokenUsage(ref common.ReferenceCa
 							Format: "",
 						},
 					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"promptTokens": {
 						SchemaProps: spec.SchemaProps{
 							Default: 0,
@@ -11173,6 +11180,41 @@ func schema_obot_platform_obot_apiclient_types_TokenUsage(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_TokenUsageByDate(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"date": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.TokenUsage"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"date", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.TokenUsage"},
 	}
 }
 

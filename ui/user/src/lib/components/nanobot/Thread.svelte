@@ -11,7 +11,6 @@
 		ElicitationResult,
 		Elicitation as ElicitationType,
 		Prompt as PromptType,
-		Resource,
 		UploadedFile,
 		UploadingFile
 	} from '$lib/services/nanobot/types';
@@ -25,7 +24,6 @@
 	interface Props {
 		messages: ChatMessage[];
 		prompts: PromptType[];
-		resources: Resource[];
 		elicitations?: ElicitationType[];
 		onElicitationResult?: (elicitation: ElicitationType, result: ElicitationResult) => void;
 		onSendMessage?: (message: string, attachments?: Attachment[]) => Promise<ChatResult | void>;
@@ -50,7 +48,6 @@
 		// Do not use _chat variable anywhere except these assignments
 		messages,
 		prompts,
-		resources,
 		onSendMessage,
 		onFileUpload,
 		onFileOpen,
@@ -351,8 +348,6 @@
 			<MessageInput
 				placeholder={`Type your message...${prompts && prompts.length > 0 ? ' or / for prompts' : ''}`}
 				onSend={onSendMessage}
-				{resources}
-				{messages}
 				{agents}
 				{selectedAgentId}
 				{onAgentChange}
