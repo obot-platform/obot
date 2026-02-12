@@ -43,6 +43,7 @@
 	const MIN_WIDTH_PX = 300;
 	const MAX_DVW = 50;
 	const MAX_DVW_FILL = 90;
+	const MIN_THREAD_DVW = 55;
 
 	function getViewportWidth(): number {
 		return typeof window !== 'undefined' && window.visualViewport
@@ -66,7 +67,10 @@
 		function onMouseMove(e: MouseEvent) {
 			const deltaX = startX - e.clientX;
 			const refWidth = getEffectiveRefWidth();
-			const maxPx = Math.floor(refWidth * (MAX_DVW / 100));
+			const maxPx = Math.min(
+				Math.floor(refWidth * (MAX_DVW / 100)),
+				getMaxFileEditorWidthPx(refWidth)
+			);
 			widthPx = Math.max(MIN_WIDTH_PX, Math.min(maxPx, startPx + deltaX));
 		}
 
@@ -83,7 +87,10 @@
 	function handleResizeKeydown(e: KeyboardEvent) {
 		const step = 40;
 		const refWidth = getEffectiveRefWidth();
-		const maxPx = Math.floor(refWidth * (MAX_DVW / 100));
+		const maxPx = Math.min(
+			Math.floor(refWidth * (MAX_DVW / 100)),
+			getMaxFileEditorWidthPx(refWidth)
+		);
 		if (e.key === 'ArrowLeft') {
 			e.preventDefault();
 			widthPx = Math.min(maxPx, widthPx + step);
@@ -109,16 +116,26 @@
 		return quickBarAccessOpen ? 384 : 64;
 	}
 
-	function calculateRemainingPx(refWidth: number): number {
+	function getMinThreadWidthPx(refWidth: number): number {
+		return Math.floor(refWidth * (MIN_THREAD_DVW / 100));
+	}
+
+	function getMaxFileEditorWidthPx(refWidth: number): number {
 		const sidebarWidth = getSidebarWidth();
 		const quickBarAccessWidth = getQuickBarWidth();
-		return refWidth - sidebarWidth - getThreadRefWidth() - quickBarAccessWidth;
+		return refWidth - sidebarWidth - getMinThreadWidthPx(refWidth) - quickBarAccessWidth;
+	}
+
+	function calculateRemainingPx(refWidth: number): number {
+		return refWidth - getSidebarWidth() - getThreadRefWidth() - getQuickBarWidth();
 	}
 
 	function calculateInitialWidthPx(refWidth: number): number {
 		if (refWidth <= 0) return MIN_WIDTH_PX;
 		const remaining = calculateRemainingPx(refWidth);
-		const maxPx = Math.floor(refWidth * (MAX_DVW_FILL / 100));
+		const maxByFill = Math.floor(refWidth * (MAX_DVW_FILL / 100));
+		const maxByThread = getMaxFileEditorWidthPx(refWidth);
+		const maxPx = Math.min(maxByFill, maxByThread);
 		return Math.max(MIN_WIDTH_PX, Math.min(maxPx, remaining));
 	}
 
@@ -214,10 +231,12 @@
 			return { width: 0, minWidth: 0, maxWidth: 0 };
 		}
 		const refWidth = getEffectiveRefWidth();
+		const maxByFill = Math.floor(refWidth * (MAX_DVW_FILL / 100));
+		const maxByThread = getMaxFileEditorWidthPx(refWidth);
 		return {
 			width: widthPx,
 			minWidth: MIN_WIDTH_PX,
-			maxWidth: Math.floor(refWidth * (MAX_DVW_FILL / 100))
+			maxWidth: Math.min(maxByFill, maxByThread)
 		};
 	}
 
@@ -225,7 +244,10 @@
 
 	const ariaSliderValue = $derived.by(() => {
 		const refWidth = getEffectiveRefWidth();
-		const maxPx = Math.floor(refWidth * (MAX_DVW / 100));
+		const maxPx = Math.min(
+			Math.floor(refWidth * (MAX_DVW / 100)),
+			getMaxFileEditorWidthPx(refWidth)
+		);
 		const range = maxPx - MIN_WIDTH_PX;
 		if (range <= 0) return 0;
 		const pct = ((widthPx - MIN_WIDTH_PX) / range) * 100;

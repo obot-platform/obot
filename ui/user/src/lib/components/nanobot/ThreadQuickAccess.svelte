@@ -19,6 +19,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import Profile from '../navbar/Profile.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { fly } from 'svelte/transition';
 
 	interface Props {
 		chat: ChatService;
@@ -204,11 +205,15 @@
 <div
 	class={twMerge(
 		'bg-base-100 border-base-300 h-[100dvh] w-16 min-w-16 overflow-hidden overflow-y-auto border-l ',
-		open && 'w-sm min-w-sm',
-		!selectedFile && 'transition-[width] duration-150'
+		open && 'w-sm min-w-sm'
 	)}
 >
-	<div class={twMerge('flex h-full w-full flex-col gap-4 pt-1', open ? 'p-4 pt-1' : 'pt-1 pb-4')}>
+	<div
+		class={twMerge(
+			'flex h-full w-full min-w-0 flex-col gap-4 pt-1',
+			open ? 'p-4 pt-1' : 'pt-1 pb-4'
+		)}
+	>
 		<div class={twMerge(open ? 'self-end' : 'w-14 self-center')}>
 			<Profile />
 		</div>
@@ -216,6 +221,7 @@
 		{#if open}
 			<div
 				class="rounded-selector bg-base-200 dark:border-base-300 flex flex-col gap-2 border border-transparent p-4"
+				in:fly={{ x: 100, duration: 150 }}
 			>
 				<h4 class="flex w-full items-center justify-between gap-2 text-sm font-semibold">
 					To Do List
@@ -267,6 +273,7 @@
 			</div>
 			<div
 				class="rounded-selector bg-base-200 dark:border-base-300 flex flex-col gap-2 border border-transparent py-4"
+				in:fly={{ x: 100, duration: 150 }}
 			>
 				<h4 class="flex w-full justify-between gap-2 px-4 text-sm font-semibold">
 					Files
