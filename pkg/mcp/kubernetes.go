@@ -107,15 +107,26 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 	}
 
 	u := fmt.Sprintf("http://%s.%s.svc.%s", server.MCPServerName, k.mcpNamespace, k.mcpClusterDomain)
-	podName, err := k.updatedMCPPodName(ctx, u, server.MCPServerName, server)
+	healthURL := u
+	if server.SkipShim {
+		// When the shim is skipped, the service exposes the container port directly (not port 80).
+		healthURL = fmt.Sprintf("%s:%d", u, server.ContainerPort)
+	}
+	podName, err := k.updatedMCPPodName(ctx, healthURL, server.MCPServerName, server)
 	if err != nil {
 		return ServerConfig{}, err
 	}
 
 	// For direct access to the real MCP server (when there's a shim), use a different port
 	if server.NanobotAgentName != "" || server.SkipShim {
-		// Point directly to the mcp container's port
-		fullURL := fmt.Sprintf("%s:8080/%s", u, strings.TrimPrefix(server.ContainerPath, "/"))
+		// Point directly to the mcp container's port.
+		// When SkipShim, the service exposes the container port directly.
+		// When NanobotAgentName is set, the service has a dedicated "mcp" port on 8080.
+		directPort := 8080
+		if server.SkipShim {
+			directPort = server.ContainerPort
+		}
+		fullURL := fmt.Sprintf("%s:%d/%s", u, directPort, strings.TrimPrefix(server.ContainerPath, "/"))
 
 		return ServerConfig{
 			URL:                  fullURL,
@@ -588,19 +599,23 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		portName = "mcp"
 		// Remove the webhooks because those are in the shim.
 		webhooks = nil
+	}
 
-		if server.Runtime == types.RuntimeContainerized {
-			if server.Command != "" {
-				command = []string{expandEnvVars(server.Command, fileMapping, nil)}
-			}
+	if server.Runtime == types.RuntimeContainerized {
+		if server.Command != "" {
+			command = []string{expandEnvVars(server.Command, fileMapping, nil)}
+		}
 
-			if server.ContainerImage != "" {
-				image = expandEnvVars(server.ContainerImage, fileMapping, nil)
-			}
+		if server.ContainerImage != "" {
+			image = expandEnvVars(server.ContainerImage, fileMapping, nil)
+		}
 
-			if server.Args != nil {
-				args = server.Args
-			}
+		if server.Args != nil {
+			args = server.Args
+		} else if server.SkipShim {
+			// When SkipShim is true, the default nanobot args don't apply.
+			// Let the container use its own entrypoint/CMD.
+			args = nil
 		}
 	}
 
@@ -768,22 +783,36 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	objs = append(objs, dep)
 
-	// Create service ports - always include the main "http" port
-	servicePorts := []corev1.ServicePort{
-		{
-			Name:       "http",
-			Port:       80,
-			TargetPort: intstr.FromString("http"),
-		},
-	}
+	// Create service ports
+	var servicePorts []corev1.ServicePort
+	if server.SkipShim {
+		// When the shim is skipped, expose the container's port directly.
+		// The container port is named "http" since there's no shim to rename it.
+		servicePorts = []corev1.ServicePort{
+			{
+				Name:       "http",
+				Port:       int32(port),
+				TargetPort: intstr.FromString("http"),
+			},
+		}
+	} else {
+		// The shim listens on the "http" port; expose it on port 80.
+		servicePorts = []corev1.ServicePort{
+			{
+				Name:       "http",
+				Port:       80,
+				TargetPort: intstr.FromString("http"),
+			},
+		}
 
-	// Add a second port for direct access to the MCP container for nanobot agents or when the shim is skipped
-	if server.NanobotAgentName != "" || server.SkipShim {
-		servicePorts = append(servicePorts, corev1.ServicePort{
-			Name:       "mcp",
-			Port:       8080,
-			TargetPort: intstr.FromString("mcp"),
-		})
+		// Add a second port for direct access to the MCP container for nanobot agents
+		if server.NanobotAgentName != "" {
+			servicePorts = append(servicePorts, corev1.ServicePort{
+				Name:       "mcp",
+				Port:       8080,
+				TargetPort: intstr.FromString("mcp"),
+			})
+		}
 	}
 
 	objs = append(objs, &corev1.Service{
@@ -894,8 +923,11 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 	const maxRetries = 5
 	var lastErr error
 
-	// The Kubernetes backend is always going to have a Nanobot pod running. So, ensure that the runtime is "remote" instead of "containerized"
-	server.Runtime = types.RuntimeRemote
+	// The Kubernetes backend usually has a Nanobot pod running, so use "remote" for health checks.
+	// However, when SkipShim is true, there's no nanobot — keep the original runtime for correct health checking.
+	if !server.SkipShim {
+		server.Runtime = types.RuntimeRemote
+	}
 
 	// Retry loop with smart pod status checking
 	for attempt := range maxRetries {
