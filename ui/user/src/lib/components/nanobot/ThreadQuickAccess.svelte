@@ -205,7 +205,7 @@
 	class={twMerge(
 		'bg-base-100 border-base-300 h-[100dvh] w-16 min-w-16 overflow-hidden overflow-y-auto border-l ',
 		open && 'w-sm min-w-sm',
-		!selectedFile && 'transition-width duration-150'
+		!selectedFile && 'transition-[width] duration-150'
 	)}
 >
 	<div class={twMerge('flex h-full w-full flex-col gap-4 pt-1', open ? 'p-4 pt-1' : 'pt-1 pb-4')}>
@@ -339,10 +339,18 @@
 				{/if}
 			</div>
 		{:else}
-			<button class="icon-button size-10 self-center" onclick={() => onToggle?.()}>
+			<button
+				class="icon-button size-10 self-center"
+				onclick={() => onToggle?.()}
+				aria-label="Expand to show to-do list"
+			>
 				<ListCheck class="size-6" />
 			</button>
-			<button class="icon-button size-10 self-center" onclick={() => onToggle?.()}>
+			<button
+				class="icon-button size-10 self-center"
+				onclick={() => onToggle?.()}
+				aria-label="Expand to show file list"
+			>
 				<Folders class="size-6" />
 			</button>
 		{/if}

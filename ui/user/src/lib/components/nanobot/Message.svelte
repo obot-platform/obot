@@ -7,7 +7,6 @@
 		ChatResult
 	} from '$lib/services/nanobot/types';
 	import MessageItemText from './MessageItemText.svelte';
-	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		message: ChatMessage;

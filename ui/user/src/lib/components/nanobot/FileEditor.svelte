@@ -242,6 +242,22 @@
 	const visible = $derived(mounted && open);
 	let justOpened = $state(false);
 
+	// Normalized 0–100 slider value for ARIA (reflects active sizing mode)
+	const ariaSliderValue = $derived.by(() => {
+		if (containerWidth > 0) {
+			const maxPx = Math.floor(containerWidth * (MAX_DVW / 100));
+			const range = maxPx - MIN_WIDTH_PX;
+			if (range <= 0) return 0;
+			const pct = ((widthPx - MIN_WIDTH_PX) / range) * 100;
+			return Math.round(Math.max(0, Math.min(100, pct)));
+		}
+		const minDvw = getMinDvw();
+		const range = MAX_DVW - minDvw;
+		if (range <= 0) return 100;
+		const pct = ((widthDvw - minDvw) / range) * 100;
+		return Math.round(Math.max(0, Math.min(100, pct)));
+	});
+
 	$effect(() => {
 		if (!visible) return;
 		justOpened = true;
@@ -274,9 +290,9 @@
 		onkeydown={handleResizeKeydown}
 		role="slider"
 		aria-orientation="horizontal"
-		aria-valuenow={widthDvw}
-		aria-valuemin={MIN_DVW}
-		aria-valuemax={MAX_DVW}
+		aria-valuenow={ariaSliderValue}
+		aria-valuemin={0}
+		aria-valuemax={100}
 		aria-label="Resize file editor"
 		tabindex="0"
 	></div>
