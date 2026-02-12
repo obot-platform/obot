@@ -149,23 +149,35 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 		return "", false, nil, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "systemmcpserver"}, mcpID)
 	}
 
-	// Gather credentials (same pattern as systemmcpserver controller handler)
-	credCtx := systemServer.Name
-	creds, err := h.gptClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{credCtx},
-	})
-	if err != nil {
-		return "", false, nil, fmt.Errorf("failed to list credentials for system server: %w", err)
+	// Only look up credentials if the manifest has env vars without static values.
+	// This avoids expensive credential lookups on the hot path for servers like
+	// obot-mcp-server where all env vars have static values.
+	credEnv := make(map[string]string)
+	needsCredentials := false
+	for _, env := range systemServer.Spec.Manifest.Env {
+		if env.Required && env.Value == "" {
+			needsCredentials = true
+			break
+		}
 	}
 
-	credEnv := make(map[string]string)
-	for _, cred := range creds {
-		credDetail, err := h.gptClient.RevealCredential(req.Context(), []string{credCtx}, cred.ToolName)
+	if needsCredentials {
+		credCtx := systemServer.Name
+		creds, err := h.gptClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+			CredentialContexts: []string{credCtx},
+		})
 		if err != nil {
-			continue
+			return "", false, nil, fmt.Errorf("failed to list credentials for system server: %w", err)
 		}
-		for k, v := range credDetail.Env {
-			credEnv[k] = v
+
+		for _, cred := range creds {
+			credDetail, err := h.gptClient.RevealCredential(req.Context(), []string{credCtx}, cred.ToolName)
+			if err != nil {
+				continue
+			}
+			for k, v := range credDetail.Env {
+				credEnv[k] = v
+			}
 		}
 	}
 

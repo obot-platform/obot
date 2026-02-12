@@ -681,32 +681,39 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					Tolerations:      k8sSettings.Tolerations,
 					RuntimeClassName: k8sSettings.RuntimeClassName,
 					SecurityContext:  getPodSecurityContext(psaLevel),
-					Volumes: []corev1.Volume{
-						{
-							Name: "files",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(server.MCPServerName, "files"),
+					Volumes: func() []corev1.Volume {
+						vols := []corev1.Volume{
+							{
+								Name: "files",
+								VolumeSource: corev1.VolumeSource{
+									Secret: &corev1.SecretVolumeSource{
+										SecretName: name.SafeConcatName(server.MCPServerName, "files"),
+									},
 								},
 							},
-						},
-						{
-							Name: "run-file",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(server.MCPServerName, "run"),
+						}
+						if server.Runtime != types.RuntimeContainerized {
+							vols = append(vols, corev1.Volume{
+								Name: "run-file",
+								VolumeSource: corev1.VolumeSource{
+									Secret: &corev1.SecretVolumeSource{
+										SecretName: name.SafeConcatName(server.MCPServerName, "run"),
+									},
 								},
-							},
-						},
-						{
-							Name: "run-shim-file",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(server.MCPServerName, "run", "shim"),
+							})
+						}
+						if server.Runtime != types.RuntimeRemote && !server.SkipShim {
+							vols = append(vols, corev1.Volume{
+								Name: "run-shim-file",
+								VolumeSource: corev1.VolumeSource{
+									Secret: &corev1.SecretVolumeSource{
+										SecretName: name.SafeConcatName(server.MCPServerName, "run", "shim"),
+									},
 								},
-							},
-						},
-					},
+							})
+						}
+						return vols
+					}(),
 					Containers: containers,
 				},
 			},

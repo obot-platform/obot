@@ -110,19 +110,40 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 		Name:      system.ObotMCPServerName,
 	}, &existing)
 	if err == nil {
-		// Update if image or OBOT_URL changed
+		// Reconcile all critical fields to ensure the server is correctly configured
 		var needsUpdate bool
 
+		if !existing.Spec.Manifest.Enabled {
+			existing.Spec.Manifest.Enabled = true
+			needsUpdate = true
+		}
+
+		if existing.Spec.Manifest.Runtime != types.RuntimeContainerized {
+			existing.Spec.Manifest.Runtime = types.RuntimeContainerized
+			needsUpdate = true
+		}
+
+		expectedConfig := &types.ContainerizedRuntimeConfig{
+			Image: image,
+			Port:  8080,
+			Path:  "/mcp",
+		}
 		if existing.Spec.Manifest.ContainerizedConfig == nil {
-			existing.Spec.Manifest.ContainerizedConfig = &types.ContainerizedRuntimeConfig{
-				Image: image,
-				Port:  8080,
-				Path:  "/mcp",
+			existing.Spec.Manifest.ContainerizedConfig = expectedConfig
+			needsUpdate = true
+		} else {
+			if existing.Spec.Manifest.ContainerizedConfig.Image != image {
+				existing.Spec.Manifest.ContainerizedConfig.Image = image
+				needsUpdate = true
 			}
-			needsUpdate = true
-		} else if existing.Spec.Manifest.ContainerizedConfig.Image != image {
-			existing.Spec.Manifest.ContainerizedConfig.Image = image
-			needsUpdate = true
+			if existing.Spec.Manifest.ContainerizedConfig.Port != 8080 {
+				existing.Spec.Manifest.ContainerizedConfig.Port = 8080
+				needsUpdate = true
+			}
+			if existing.Spec.Manifest.ContainerizedConfig.Path != "/mcp" {
+				existing.Spec.Manifest.ContainerizedConfig.Path = "/mcp"
+				needsUpdate = true
+			}
 		}
 
 		// Check OBOT_URL env var
