@@ -18863,6 +18863,13 @@ func schema_storage_apis_obotobotai_v1_SystemMCPServerStatus(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"auditLogTokenHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuditLogTokenHash contains the hash of the audit log token",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
