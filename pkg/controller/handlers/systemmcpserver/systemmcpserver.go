@@ -3,8 +3,10 @@ package systemmcpserver
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
@@ -18,6 +20,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	kwait "k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -182,11 +186,25 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 	}
 
 	// Retrieve the token exchange credential
-	var secretsCred map[string]string
-	tokenExchangeCred, err := h.gptClient.RevealCredential(req.Ctx, []string{systemServer.Name}, secretToolName)
-	if err == nil {
-		secretsCred = tokenExchangeCred.Env
+	var (
+		tokenExchangeCred gptscript.Credential
+		tokenCredErr      error
+	)
+	if err = retry.OnError(kwait.Backoff{
+		Steps:    10,
+		Duration: 100 * time.Millisecond,
+		Factor:   2.0,
+		Jitter:   0.1,
+	}, func(err error) bool {
+		return errors.As(err, &gptscript.ErrNotFound{})
+	}, func() error {
+		tokenExchangeCred, tokenCredErr = h.gptClient.RevealCredential(req.Ctx, []string{systemServer.Name}, secretToolName)
+		return tokenCredErr
+	}); err != nil {
+		return fmt.Errorf("failed to find token exchange credential: %w", tokenCredErr)
 	}
+
+	secretsCred := tokenExchangeCred.Env
 
 	audiences := systemServer.ValidConnectURLs(h.serverURL)
 

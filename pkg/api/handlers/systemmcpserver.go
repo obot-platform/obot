@@ -17,6 +17,8 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kwait "k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 )
 
 type SystemMCPServerHandler struct {
@@ -463,11 +465,25 @@ func systemServerToServerConfig(req api.Context, server v1.SystemMCPServer) (mcp
 		return mcp.ServerConfig{}, nil, err
 	}
 
-	var secretsCred map[string]string
-	tokenExchangeCred, err := req.GPTClient.RevealCredential(req.Context(), []string{server.Name}, systemmcpserver.SecretInfoToolName(server.Name))
-	if err == nil {
-		secretsCred = tokenExchangeCred.Env
+	var (
+		tokenExchangeCred gptscript.Credential
+		tokenCredErr      error
+	)
+	if err = retry.OnError(kwait.Backoff{
+		Steps:    10,
+		Duration: 100 * time.Millisecond,
+		Factor:   2.0,
+		Jitter:   0.1,
+	}, func(err error) bool {
+		return errors.As(err, &gptscript.ErrNotFound{})
+	}, func() error {
+		tokenExchangeCred, tokenCredErr = req.GPTClient.RevealCredential(req.Context(), []string{server.Name}, systemmcpserver.SecretInfoToolName(server.Name))
+		return tokenCredErr
+	}); err != nil {
+		return mcp.ServerConfig{}, nil, fmt.Errorf("failed to find token exchange credential: %w", tokenCredErr)
 	}
+
+	secretsCred := tokenExchangeCred.Env
 
 	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
 	audiences := server.ValidConnectURLs(baseURL)
