@@ -260,8 +260,9 @@ func readBody(r *http.Request) (map[string]any, error) {
 	return m, nil
 }
 
-// extractModelFromBody extracts the model name from a request body,
-// checking top-level "model" first, then nested paths used by different providers.
+// extractModelFromBody extracts the model name from an arbitrary JSON payload or body,
+// checking top-level "model" first, then nested paths such as "message.model" and "response.model"
+// used by different providers or event/response shapes.
 func extractModelFromBody(body []byte) string {
 	if model := gjson.GetBytes(body, "model").String(); model != "" {
 		return model
