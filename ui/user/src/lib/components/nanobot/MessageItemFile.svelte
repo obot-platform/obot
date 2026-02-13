@@ -22,7 +22,7 @@
 			<FileIcon class="size-4" />
 
 			{#if pending}
-				<span class="animate-pulse text-sm">...</span>
+				<span class="skeleton skeleton-text bg-transparent text-sm">...</span>
 			{:else}
 				<span class="text-sm">{name}</span>
 			{/if}

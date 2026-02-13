@@ -346,6 +346,44 @@ export class SimpleClient {
 		return data.result;
 	}
 
+	async notify(method: string, params: unknown): Promise<void> {
+		const sessionId = await this.#ensureSession();
+
+		// Notifications don't have an id field per JSON-RPC spec
+		const notification = {
+			jsonrpc: '2.0' as const,
+			method,
+			params
+		};
+
+		// Build query string for access logs
+		const [basePath, existingQuery] = this.#url.split('?');
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const queryParams = new URLSearchParams(existingQuery || '');
+		queryParams.set('method', method);
+		const url = `${basePath}?${queryParams.toString()}`;
+
+		const resp = await this.#fetcher(url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Mcp-Session-Id': sessionId
+			},
+			body: JSON.stringify(notification)
+		});
+
+		// Notifications typically return 204 No Content or 202 Accepted
+		if (resp.status === 204 || resp.status === 202) {
+			return;
+		}
+
+		if (!resp.ok) {
+			const text = await resp.text();
+			// Don't throw - notifications are fire-and-forget
+			console.error(`notify: ${resp.status}: ${resp.statusText}: ${text}`);
+		}
+	}
+
 	async callMCPTool<T>(
 		name: string,
 		opts?: {

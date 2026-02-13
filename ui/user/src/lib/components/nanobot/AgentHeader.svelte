@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Agent, Attachment, ChatResult } from '$lib/services/nanobot/types';
-	import { onMount } from 'svelte';
+	import { darkMode } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -10,37 +10,7 @@
 
 	let { onSend, agent }: Props = $props();
 
-	let imgRef = $state<HTMLImageElement>();
-
-	onMount(() => {
-		const target = document.documentElement;
-		const observer = new MutationObserver((mutations) => {
-			for (const mutation of mutations) {
-				if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
-					updateLogo();
-				}
-			}
-		});
-
-		observer.observe(target, {
-			attributes: true,
-			attributeFilter: ['data-theme']
-		});
-	});
-
-	function updateLogo() {
-		const isDark = document.documentElement.getAttribute('data-theme') === 'black';
-		const url = isDark ? agent?.iconDark || agent?.icon : agent?.icon;
-		if (url && imgRef) {
-			imgRef.src = url;
-		}
-	}
-
-	$effect(() => {
-		if (imgRef) {
-			updateLogo();
-		}
-	});
+	const logoSrc = $derived(darkMode.isDark ? agent?.iconDark || agent?.icon : (agent?.icon ?? ''));
 </script>
 
 <div class="flex flex-col items-center p-8 pt-20">
@@ -48,7 +18,7 @@
 		<!-- Agent Icon -->
 		{#if agent.icon}
 			<div class="mb-6">
-				<img bind:this={imgRef} src={agent.icon} alt={agent.name} class="h-16" />
+				<img src={logoSrc} alt={agent.name} class="h-16" />
 			</div>
 			<!-- Agent Description -->
 			<div class="mb-8 text-center">

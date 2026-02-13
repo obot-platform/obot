@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { AlertTriangle } from 'lucide-svelte';
+	import { AlertCircle, AlertTriangle } from 'lucide-svelte';
 	import { getFileIcon } from '$lib/components/nanobot/MessageAttachments.svelte';
 	import type { ChatMessageItemResource } from '$lib/services/nanobot/types';
+	import { isCancellationError } from '$lib/services/nanobot/utils';
 
 	interface Props {
 		item: ChatMessageItemResource;
@@ -28,6 +29,10 @@
 
 	function isPdfType(mimeType: string): boolean {
 		return mimeType === 'application/pdf';
+	}
+
+	function isCancelledError(text?: string): boolean {
+		return isCancellationError(text);
 	}
 
 	function getResourceDisplayName(): string {
@@ -76,8 +81,13 @@
 	}
 </script>
 
-{#if isError}
-	<div class="border-error/20 bg-error/10 mb-3 rounded-lg border p-3">
+{#if isError && isCancelledError(item.resource.text)}
+	<div class="my-4 flex items-center gap-1 text-xs italic">
+		<AlertCircle class="size-3" />
+		Aborted. This message has been discarded.
+	</div>
+{:else if isError}
+	<div class="border-error/20 bg-error/10 mt-3 mb-3 rounded-lg border p-3">
 		<div class="mb-2 flex items-center gap-2 text-sm">
 			<AlertTriangle class="text-error h-4 w-4" />
 			<span class="text-error font-medium">Error</span>

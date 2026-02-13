@@ -24,8 +24,11 @@
 	let prevThreadId: string | null | undefined = undefined; // undefined = not yet initialized
 	let sidebarRef: { refreshThreads: () => Promise<void> } | undefined = $state();
 	let initialPlannerMode = $derived(page.url.searchParams.get('planner') === 'true');
-
+	let initialQuickBarAccessOpen = $state(false);
 	let selectedFile = $state('');
+	let threadContentWidth = $state(0);
+
+	const layout = nanobotLayout.getLayout();
 
 	function handleThreadCreated(thread: Chat) {
 		prevThreadId = thread.id;
@@ -37,6 +40,29 @@
 
 		sidebarRef?.refreshThreads();
 	}
+
+	$effect(() => {
+		if (initialQuickBarAccessOpen) return;
+		if (chat && chat.messages.length > 0) {
+			let foundTool = false;
+			for (const message of chat.messages) {
+				if (message.role !== 'assistant') continue;
+				for (const item of message.items || []) {
+					if (item.type === 'tool' && (item.name === 'todoWrite' || item.name === 'write')) {
+						initialQuickBarAccessOpen = true;
+
+						if (!layout.quickBarAccessOpen) {
+							layout.quickBarAccessOpen = true;
+						}
+
+						foundTool = true;
+						break;
+					}
+				}
+				if (foundTool) break;
+			}
+		}
+	});
 
 	$effect(() => {
 		const currentThreadId = threadId;
@@ -103,12 +129,16 @@
 	}}
 	whiteBackground
 	disableResize
+	hideProfileButton
 >
 	{#snippet overrideLeftSidebarContent()}
 		<ProjectSidebar {chatApi} {projectId} bind:this={sidebarRef} />
 	{/snippet}
 
-	<div class="flex w-full grow">
+	<div
+		class="flex w-full min-w-0 grow"
+		style={threadContentWidth > 0 ? `min-width: ${threadContentWidth}px` : ''}
+	>
 		{#if chat}
 			{#key chat}
 				<ProjectStartThread
@@ -116,9 +146,11 @@
 					{projectId}
 					{chat}
 					onFileOpen={(filename) => {
+						layout.quickBarAccessOpen = false;
 						selectedFile = filename;
 					}}
 					suppressEmptyState={!!threadId}
+					onThreadContentWidth={(w) => (threadContentWidth = w)}
 				/>
 			{/key}
 		{/if}
@@ -131,15 +163,24 @@
 					filename={selectedFile}
 					{chat}
 					open={!!selectedFile}
-					onClose={() => (selectedFile = '')}
+					onClose={() => {
+						selectedFile = '';
+						layout.quickBarAccessOpen = true;
+					}}
+					quickBarAccessOpen={layout.quickBarAccessOpen}
+					{threadContentWidth}
 				/>
 			{/if}
+
 			<ThreadQuickAccess
 				{chat}
 				{selectedFile}
 				onFileOpen={(filename) => {
+					layout.quickBarAccessOpen = false;
 					selectedFile = filename;
 				}}
+				onToggle={() => (layout.quickBarAccessOpen = !layout.quickBarAccessOpen)}
+				open={layout.quickBarAccessOpen}
 			/>
 		{/if}
 	{/snippet}

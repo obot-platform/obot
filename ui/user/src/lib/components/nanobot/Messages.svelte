@@ -1,6 +1,12 @@
 <script lang="ts">
 	import Message from './Message.svelte';
-	import type { ChatMessage, ChatResult, Agent, Attachment } from '$lib/services/nanobot/types';
+	import type {
+		ChatMessage,
+		ChatMessageItem,
+		ChatResult,
+		Agent,
+		Attachment
+	} from '$lib/services/nanobot/types';
 	import AgentHeader from '$lib/components/nanobot/AgentHeader.svelte';
 
 	interface Props {
@@ -20,6 +26,7 @@
 		agent,
 		hideAgentHeader = false
 	}: Props = $props();
+
 	let messageGroups = $derived.by(() => {
 		return messages.reduce((acc, message) => {
 			if (message.role === 'user' || acc.length === 0) {
@@ -29,6 +36,44 @@
 			}
 			return acc;
 		}, [] as ChatMessage[][]);
+	});
+
+	let displayMessageGroups = $derived.by((): ChatMessage[][] => {
+		return messageGroups.map((group) => {
+			const out: ChatMessage[] = [];
+			let assistantAccum: ChatMessageItem[] = [];
+			let assistantAccumIds: string[] = [];
+			let assistantAccumCreated: string | undefined;
+			const flushAssistant = () => {
+				if (assistantAccum.length === 0) return;
+				out.push({
+					id: `merged-assistant-${assistantAccumIds.join('-')}`,
+					created: assistantAccumCreated,
+					role: 'assistant',
+					items: [...assistantAccum]
+				});
+				assistantAccum = [];
+				assistantAccumIds = [];
+				assistantAccumCreated = undefined;
+			};
+			for (const msg of group) {
+				if (msg.role === 'user') {
+					flushAssistant();
+					out.push(msg);
+				} else {
+					if (msg.items?.length) {
+						assistantAccum.push(...msg.items);
+						assistantAccumIds.push(msg.id);
+						if (!assistantAccumCreated && msg.created) assistantAccumCreated = msg.created;
+					} else {
+						flushAssistant();
+						out.push(msg);
+					}
+				}
+			}
+			flushAssistant();
+			return out;
+		});
 	});
 
 	// Check if any messages have content (text items)
@@ -55,17 +100,18 @@
 			<AgentHeader {agent} {onSend} />
 		{/if}
 	{:else}
-		{@const lastIndex = messageGroups.length - 1}
+		{@const lastIndex = displayMessageGroups.length - 1}
 
-		{#each messageGroups as messageGroup, i (messageGroup[0]?.id)}
+		{#each displayMessageGroups as displayGroup, i (messageGroups[i]?.[0]?.id)}
 			{@const isLast = i === lastIndex}
+			{@const messageGroup = messageGroups[i]}
 
 			<div
-				id={`group-${messageGroup[0]?.id}`}
-				class={isLast ? 'min-h-[calc(100dvh-4rem)]' : 'contents'}
-				data-message-id={messageGroup[0]?.id}
+				id={`group-${messageGroup?.[0]?.id}`}
+				class="contents"
+				data-message-id={messageGroup?.[0]?.id}
 			>
-				{#each messageGroup as message, i (`${messageGroup[0]?.id}-${i}`)}
+				{#each displayGroup as message (message.id)}
 					<Message {message} {onSend} {onFileOpen} />
 				{/each}
 				{#if isLast}

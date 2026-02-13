@@ -110,7 +110,7 @@
 	}}
 >
 	{#snippet icon()}
-		<div class="relative">
+		<div class="relative flex-shrink-0">
 			<ProfileIcon />
 			{#if showUpgradeAvailable}
 				<CircleFadingArrowUp

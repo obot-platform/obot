@@ -174,6 +174,30 @@
 	--noise: 1;
 }
 
+.nanobot[data-theme='nanobotlight'] {
+	--background: var(--theme-background-light, var(--color-white));
+	--on-background: var(--theme-on-background-light, var(--color-black));
+	--surface1: var(--theme-surface1-light, var(--color-gray-70));
+	--on-surface1: var(--theme-on-surface-light, var(--color-gray-400));
+	--surface2: var(--theme-surface2-light, var(--color-gray-100));
+	--on-surface2: var(--theme-on-surface-light, var(--color-black));
+	--surface3: var(--theme-surface3-light, var(--color-gray-200));
+	--on-surface3: var(--theme-on-surface-light, var(--color-black));
+	--primary: var(--theme-primary-light, var(--color-blue-500));
+}
+
+.nanobot[data-theme='nanobotdark'] {
+	--background: var(--theme-background-dark, var(--color-black));
+	--on-background: var(--theme-on-background-dark, var(--color-gray-50));
+	--surface1: var(--theme-surface1-dark, var(--color-gray-950));
+	--on-surface1: var(--theme-on-surface-dark, var(--color-gray-500));
+	--surface2: var(--theme-surface2-dark, var(--color-gray-900));
+	--on-surface2: var(--theme-on-surface-dark, var(--color-gray-50));
+	--surface3: var(--theme-surface3-dark, var(--color-gray-800));
+	--on-surface3: var(--theme-on-surface-dark, var(--color-gray-50));
+	--primary: var(--theme-primary-dark, var(--color-blue-500));
+}
+
 /*
   The default border color has changed to `currentColor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
@@ -1359,6 +1383,23 @@
 		& ::marker {
 			color: var(--color-gray-500);
 		}
+	}
+
+	& hr {
+		margin-bottom: 1rem;
+	}
+
+	& * + h1,
+	& * + h2,
+	& * + h3,
+	& * + h4 {
+		margin-top: 0;
+	}
+
+	& * + p,
+	& * + ol,
+	& * + ul {
+		margin-top: 0;
 	}
 }
 

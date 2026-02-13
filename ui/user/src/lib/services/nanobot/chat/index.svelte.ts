@@ -243,6 +243,14 @@ export class ChatAPI {
 		};
 	}
 
+	async cancelRequest(requestId: string, sessionId: string): Promise<void> {
+		const client = this.#getClient(sessionId);
+		await client.notify('notifications/cancelled', {
+			requestId,
+			reason: 'User requested cancellation'
+		});
+	}
+
 	subscribe(
 		threadId: string,
 		onEvent: (e: Event) => void,
@@ -394,6 +402,7 @@ export class ChatService {
 	private closer = () => {};
 	private history: ChatMessage[] | undefined;
 	private onChatDone: (() => void)[] = [];
+	private currentRequestId: string | undefined;
 	private subscribed = false;
 	private onThreadCreated?: (thread: Chat) => void;
 
@@ -638,14 +647,14 @@ export class ChatService {
 		}
 		const toolName = `chat-with-${effectiveAgentId}`;
 
-		const requestId = crypto.randomUUID();
+		this.currentRequestId = crypto.randomUUID();
 		const optimisticUserMessage: ChatMessage = {
-			id: requestId,
+			id: this.currentRequestId,
 			role: 'user',
 			created: now(),
 			items: [
 				{
-					id: requestId + '_0',
+					id: this.currentRequestId + '_0',
 					type: 'text',
 					text: message
 				}
@@ -661,7 +670,7 @@ export class ChatService {
 		try {
 			const response = await this.api.sendMessage(
 				{
-					id: requestId,
+					id: this.currentRequestId,
 					threadId: this.chatId,
 					message: message,
 					attachments: [...this.uploadedFiles, ...(attachments || [])]
@@ -674,6 +683,7 @@ export class ChatService {
 			return new Promise<ChatResult | void>((resolve) => {
 				this.onChatDone.push(() => {
 					this.isLoading = false;
+					this.currentRequestId = undefined;
 					const i = this.messages.findIndex((m) => m.id === response.message.id);
 					if (i !== -1 && i <= this.messages.length) {
 						resolve({
@@ -686,6 +696,7 @@ export class ChatService {
 			});
 		} catch (error) {
 			this.isLoading = false;
+			this.currentRequestId = undefined;
 			this.messages = appendMessage(this.messages, {
 				id: crypto.randomUUID(),
 				role: 'assistant',
@@ -699,6 +710,20 @@ export class ChatService {
 				]
 			});
 		}
+	};
+
+	cancelMessage = async () => {
+		if (!this.currentRequestId || !this.chatId) return;
+		const requestId = this.currentRequestId;
+		this.isLoading = false;
+		this.currentRequestId = undefined;
+
+		for (const waiting of this.onChatDone) {
+			waiting();
+		}
+		this.onChatDone = [];
+
+		await this.api.cancelRequest(requestId, this.chatId);
 	};
 
 	cancelUpload = (fileId: string) => {

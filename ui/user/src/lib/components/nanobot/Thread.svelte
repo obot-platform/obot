@@ -29,6 +29,9 @@
 		onSendMessage?: (message: string, attachments?: Attachment[]) => Promise<ChatResult | void>;
 		onFileUpload?: (file: File, opts?: { controller?: AbortController }) => Promise<Attachment>;
 		onFileOpen?: (filename: string) => void;
+		onRestart?: () => void;
+		onCancel?: () => void;
+		onContentWidthChange?: (width: number) => void;
 		cancelUpload?: (fileId: string) => void;
 		uploadingFiles?: UploadingFile[];
 		uploadedFiles?: UploadedFile[];
@@ -39,7 +42,6 @@
 		selectedAgentId?: string;
 		onAgentChange?: (agentId: string) => void;
 		emptyStateContent?: Snippet;
-		onRestart?: () => void;
 		onRefreshResources?: () => void;
 		suppressEmptyState?: boolean;
 	}
@@ -48,22 +50,24 @@
 		// Do not use _chat variable anywhere except these assignments
 		messages,
 		prompts,
+		elicitations,
+		onElicitationResult,
 		onSendMessage,
 		onFileUpload,
 		onFileOpen,
+		onRestart,
+		onCancel,
+		onContentWidthChange,
 		cancelUpload,
 		uploadingFiles,
 		uploadedFiles,
-		elicitations,
-		onElicitationResult,
+		isLoading,
+		isRestoring,
 		agent,
 		agents = [],
 		selectedAgentId = '',
 		onAgentChange,
-		isLoading,
-		isRestoring,
 		emptyStateContent,
-		onRestart,
 		onRefreshResources,
 		suppressEmptyState
 	}: Props = $props();
@@ -196,6 +200,19 @@
 			}
 		});
 		ro.observe(inner);
+		return () => ro.disconnect();
+	});
+
+	$effect(() => {
+		const inner = messagesContentInner;
+		if (!inner || !onContentWidthChange) return;
+
+		const ro = new ResizeObserver((entries) => {
+			const entry = entries[0];
+			if (entry) onContentWidthChange(entry.contentRect.width);
+		});
+		ro.observe(inner);
+		onContentWidthChange(inner.getBoundingClientRect().width);
 		return () => ro.disconnect();
 	});
 
@@ -359,6 +376,7 @@
 				{uploadingFiles}
 				{uploadedFiles}
 				{onRestart}
+				{onCancel}
 			/>
 		</div>
 	</div>

@@ -4,15 +4,26 @@
 	import { X } from 'lucide-svelte';
 	import MarkdownEditor from './MarkdownEditor.svelte';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
+	import { getLayout } from '$lib/context/nanobotLayout.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		filename: string;
 		chat: ChatService;
 		open?: boolean;
 		onClose?: () => void;
+		quickBarAccessOpen?: boolean;
+		threadContentWidth?: number;
 	}
 
-	let { filename, chat, open, onClose }: Props = $props();
+	let {
+		filename,
+		chat,
+		open,
+		onClose,
+		quickBarAccessOpen,
+		threadContentWidth = 0
+	}: Props = $props();
 
 	const name = $derived(filename.split('/').pop()?.split('.').shift() || '');
 	let resource = $state<ResourceContents | null>(null);
@@ -20,12 +31,19 @@
 	let error = $state<string | null>(null);
 	let mounted = $state(false);
 
-	let widthDvw = $state(50);
+	let widthPx = $state(0);
 	let isResizing = $state(false);
+	let maxThreadContentWidthSeen = $state(0);
+	let containerWidth = $state(0);
+	let rootEl = $state<HTMLDivElement | null>(null);
+	let recalculateAnimationFrameId = 0;
 
-	const MIN_WIDTH_PX = 500;
+	let layout = getLayout();
+
+	const MIN_WIDTH_PX = 300;
 	const MAX_DVW = 50;
-	const MIN_DVW = 10;
+	const MAX_DVW_FILL = 90;
+	const MIN_THREAD_DVW = 55;
 
 	function getViewportWidth(): number {
 		return typeof window !== 'undefined' && window.visualViewport
@@ -35,10 +53,8 @@
 				: 1024;
 	}
 
-	function getMinDvw(): number {
-		const vw = getViewportWidth();
-		const minDvwFromPx = (MIN_WIDTH_PX / vw) * 100;
-		return Math.max(MIN_DVW, minDvwFromPx);
+	function getEffectiveRefWidth(): number {
+		return containerWidth > 0 ? containerWidth : getViewportWidth();
 	}
 
 	function handleResizeStart(e: MouseEvent) {
@@ -46,15 +62,16 @@
 		isResizing = true;
 
 		const startX = e.clientX;
-		const startDvw = widthDvw;
+		const startPx = widthPx;
 
 		function onMouseMove(e: MouseEvent) {
-			const vw = getViewportWidth();
 			const deltaX = startX - e.clientX;
-			const deltaDvw = (deltaX / vw) * 100;
-			let newDvw = startDvw + deltaDvw;
-			newDvw = Math.max(getMinDvw(), Math.min(MAX_DVW, newDvw));
-			widthDvw = newDvw;
+			const refWidth = getEffectiveRefWidth();
+			const maxPx = Math.min(
+				Math.floor(refWidth * (MAX_DVW / 100)),
+				getMaxFileEditorWidthPx(refWidth)
+			);
+			widthPx = Math.max(MIN_WIDTH_PX, Math.min(maxPx, startPx + deltaX));
 		}
 
 		function onMouseUp() {
@@ -68,23 +85,108 @@
 	}
 
 	function handleResizeKeydown(e: KeyboardEvent) {
-		const step = 2;
-		const minDvw = getMinDvw();
-
+		const step = 40;
+		const refWidth = getEffectiveRefWidth();
+		const maxPx = Math.min(
+			Math.floor(refWidth * (MAX_DVW / 100)),
+			getMaxFileEditorWidthPx(refWidth)
+		);
 		if (e.key === 'ArrowLeft') {
 			e.preventDefault();
-			widthDvw = Math.min(MAX_DVW, widthDvw + step);
+			widthPx = Math.min(maxPx, widthPx + step);
 		} else if (e.key === 'ArrowRight') {
 			e.preventDefault();
-			widthDvw = Math.max(minDvw, widthDvw - step);
+			widthPx = Math.max(MIN_WIDTH_PX, widthPx - step);
 		}
 	}
 
+	function getThreadRefWidth(): number {
+		return maxThreadContentWidthSeen > 0
+			? maxThreadContentWidthSeen
+			: threadContentWidth > 0
+				? threadContentWidth
+				: 400;
+	}
+
+	function getSidebarWidth(): number {
+		return layout.sidebarOpen ? 300 : 0;
+	}
+
+	function getQuickBarWidth(): number {
+		return quickBarAccessOpen ? 384 : 72;
+	}
+
+	function getMinThreadWidthPx(refWidth: number): number {
+		return Math.floor(refWidth * (MIN_THREAD_DVW / 100));
+	}
+
+	function getMaxFileEditorWidthPx(refWidth: number): number {
+		const sidebarWidth = getSidebarWidth();
+		const quickBarAccessWidth = getQuickBarWidth();
+		return refWidth - sidebarWidth - getMinThreadWidthPx(refWidth) - quickBarAccessWidth;
+	}
+
+	function calculateRemainingPx(refWidth: number): number {
+		return refWidth - getSidebarWidth() - getThreadRefWidth() - getQuickBarWidth();
+	}
+
+	function calculateInitialWidthPx(refWidth: number): number {
+		if (refWidth <= 0) return MIN_WIDTH_PX;
+		const remaining = calculateRemainingPx(refWidth);
+		const maxByFill = Math.floor(refWidth * (MAX_DVW_FILL / 100));
+		const maxByThread = getMaxFileEditorWidthPx(refWidth);
+		const maxPx = Math.min(maxByFill, maxByThread);
+		return Math.max(MIN_WIDTH_PX, Math.min(maxPx, remaining));
+	}
+
 	$effect(() => {
-		if (!open) return;
+		if (!open || !rootEl?.parentElement) return;
+		const parent = rootEl.parentElement;
+		const syncWidth = (w: number) => {
+			containerWidth = w;
+			if (w > 0) {
+				widthPx = calculateInitialWidthPx(w);
+			}
+		};
+		const ro = new ResizeObserver((entries) => {
+			const entry = entries[0];
+			if (entry) syncWidth(entry.contentRect.width);
+		});
+		ro.observe(parent);
+		syncWidth(parent.clientWidth);
+		return () => ro.disconnect();
+	});
+
+	$effect(() => {
+		const w = threadContentWidth;
+		if (w > 0 && w > maxThreadContentWidthSeen) {
+			maxThreadContentWidthSeen = w;
+		}
+	});
+
+	$effect(() => {
+		if (!open) {
+			maxThreadContentWidthSeen = 0;
+			return;
+		}
 		requestAnimationFrame(() => {
 			mounted = true;
+			widthPx = calculateInitialWidthPx(getEffectiveRefWidth());
 		});
+	});
+
+	$effect(() => {
+		void quickBarAccessOpen;
+		void layout.sidebarOpen;
+		if (recalculateAnimationFrameId) cancelAnimationFrame(recalculateAnimationFrameId);
+		recalculateAnimationFrameId = requestAnimationFrame(() => {
+			widthPx = calculateInitialWidthPx(getEffectiveRefWidth());
+		});
+		return () => {
+			if (recalculateAnimationFrameId) {
+				cancelAnimationFrame(recalculateAnimationFrameId);
+			}
+		};
 	});
 
 	$effect(() => {
@@ -114,8 +216,6 @@
 		};
 
 		loadResource();
-
-		// Cleanup subscription when component unmounts or filename changes
 		return () => cleanup?.();
 	});
 
@@ -124,15 +224,54 @@
 	let mimeType = $derived(resource?.mimeType ?? 'text/plain');
 
 	const visible = $derived(mounted && open);
+	let justOpened = $state(false);
+
+	function getPanelDimensionsPx(): { width: number; minWidth: number; maxWidth: number } {
+		if (!visible) {
+			return { width: 0, minWidth: 0, maxWidth: 0 };
+		}
+		const refWidth = getEffectiveRefWidth();
+		const maxByFill = Math.floor(refWidth * (MAX_DVW_FILL / 100));
+		const maxByThread = getMaxFileEditorWidthPx(refWidth);
+		return {
+			width: widthPx,
+			minWidth: MIN_WIDTH_PX,
+			maxWidth: Math.min(maxByFill, maxByThread)
+		};
+	}
+
+	const panelDimensionsPx = $derived(getPanelDimensionsPx());
+
+	const ariaSliderValue = $derived.by(() => {
+		const refWidth = getEffectiveRefWidth();
+		const maxPx = Math.min(
+			Math.floor(refWidth * (MAX_DVW / 100)),
+			getMaxFileEditorWidthPx(refWidth)
+		);
+		const range = maxPx - MIN_WIDTH_PX;
+		if (range <= 0) return 0;
+		const pct = ((widthPx - MIN_WIDTH_PX) / range) * 100;
+		return Math.round(Math.max(0, Math.min(100, pct)));
+	});
+
+	$effect(() => {
+		if (!visible) return;
+		justOpened = true;
+		const t = setTimeout(() => {
+			justOpened = false;
+		}, 300);
+		return () => clearTimeout(t);
+	});
 </script>
 
 <div
-	class="relative h-dvh shrink-0 overflow-hidden transition-[opacity,width,min-width] duration-300 ease-out {visible
-		? 'opacity-100'
-		: 'opacity-0'}"
-	style="width: {visible ? widthDvw : 0}dvw; min-width: {visible
-		? MIN_WIDTH_PX
-		: 0}px; max-width: {MAX_DVW}dvw;"
+	bind:this={rootEl}
+	class={twMerge(
+		'relative h-dvh shrink-0 overflow-hidden duration-300 ease-out',
+		justOpened ? 'transition-[opacity,width,min-width]' : 'transition-opacity',
+		visible ? 'opacity-100' : 'opacity-0'
+	)}
+	style="width: {panelDimensionsPx.width}px; min-width: {panelDimensionsPx.minWidth}px; max-width: {panelDimensionsPx.maxWidth}px;"
 >
 	<!-- Resize handle -->
 	<div
@@ -143,9 +282,9 @@
 		onkeydown={handleResizeKeydown}
 		role="slider"
 		aria-orientation="horizontal"
-		aria-valuenow={widthDvw}
-		aria-valuemin={MIN_DVW}
-		aria-valuemax={MAX_DVW}
+		aria-valuenow={ariaSliderValue}
+		aria-valuemin={0}
+		aria-valuemax={100}
 		aria-label="Resize file editor"
 		tabindex="0"
 	></div>
