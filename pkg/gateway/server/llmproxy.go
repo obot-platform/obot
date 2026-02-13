@@ -345,10 +345,8 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 	// Use max to handle cumulative token counts (e.g. Anthropic's message_delta
 	// reports cumulative output_tokens, not incremental).
 	usage := gjson.GetBytes(line, "usage")
-	promptTokens := usage.Get("prompt_tokens").Int()
-	promptTokens += usage.Get("input_tokens").Int()
-	completionTokens := usage.Get("completion_tokens").Int()
-	completionTokens += usage.Get("output_tokens").Int()
+	promptTokens := max(usage.Get("prompt_tokens").Int(), usage.Get("input_tokens").Int())
+	completionTokens := max(usage.Get("completion_tokens").Int(), usage.Get("output_tokens").Int())
 	totalTokens := usage.Get("total_tokens").Int()
 
 	if msgUsage := gjson.GetBytes(line, "message.usage"); msgUsage.Exists() {
