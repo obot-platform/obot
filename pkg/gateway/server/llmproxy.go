@@ -260,6 +260,18 @@ func readBody(r *http.Request) (map[string]any, error) {
 	return m, nil
 }
 
+// extractModelFromBody extracts the model name from a request body,
+// checking top-level "model" first, then nested paths used by different providers.
+func extractModelFromBody(body []byte) string {
+	if model := gjson.GetBytes(body, "model").String(); model != "" {
+		return model
+	}
+	if model := gjson.GetBytes(body, "message.model").String(); model != "" {
+		return model
+	}
+	return gjson.GetBytes(body, "response.model").String()
+}
+
 // copyBody returns a copy of the bytes in a request body.
 // If the copy was successful the request body is restored to its original state before returning so that
 // it can be reused.
@@ -456,13 +468,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		return fmt.Errorf("failed to copy body: %w", err)
 	}
 
-	targetModel := gjson.GetBytes(body, "model").String()
-	if targetModel == "" {
-		targetModel = gjson.GetBytes(body, "message.model").String()
-	}
-	if targetModel == "" {
-		targetModel = gjson.GetBytes(body, "response.model").String()
-	}
+	targetModel := extractModelFromBody(body)
 	if targetModel != "" {
 		// Get the models matching the target model and provider.
 		var models v1.ModelList

@@ -11,9 +11,9 @@ import (
 
 func TestModifyResponse_PathFiltering(t *testing.T) {
 	tests := []struct {
-		name       string
-		path       string
-		statusCode int
+		name        string
+		path        string
+		statusCode  int
 		wantWrapped bool
 	}{
 		{"chat completions", "/v1/chat/completions", http.StatusOK, true},
@@ -275,5 +275,53 @@ func TestResponseModifier_StreamNonDataLinesPassThrough(t *testing.T) {
 	}
 	if r.promptTokens != 0 || r.completionTokens != 0 {
 		t.Error("non-data lines should not affect token counts")
+	}
+}
+
+func TestExtractModelFromBody(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			"top-level model (OpenAI/Anthropic request)",
+			`{"model":"gpt-4o","messages":[]}`,
+			"gpt-4o",
+		},
+		{
+			"nested under message",
+			`{"type":"message_start","message":{"model":"claude-sonnet-4-20250514"}}`,
+			"claude-sonnet-4-20250514",
+		},
+		{
+			"nested under response",
+			`{"type":"response.completed","response":{"model":"gpt-4o"}}`,
+			"gpt-4o",
+		},
+		{
+			"top-level takes precedence over nested",
+			`{"model":"top-level","message":{"model":"nested"}}`,
+			"top-level",
+		},
+		{
+			"empty body",
+			`{}`,
+			"",
+		},
+		{
+			"no model anywhere",
+			`{"messages":[{"role":"user","content":"hello"}]}`,
+			"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractModelFromBody([]byte(tt.body))
+			if got != tt.want {
+				t.Errorf("extractModelFromBody() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
