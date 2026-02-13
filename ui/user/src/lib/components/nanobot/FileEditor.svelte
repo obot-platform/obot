@@ -113,7 +113,7 @@
 	}
 
 	function getQuickBarWidth(): number {
-		return quickBarAccessOpen ? 384 : 64;
+		return quickBarAccessOpen ? 384 : 72;
 	}
 
 	function getMinThreadWidthPx(refWidth: number): number {

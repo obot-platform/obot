@@ -8,10 +8,9 @@
 	interface Props {
 		item: ChatMessageItemText;
 		role: 'user' | 'assistant';
-		cancelled?: boolean;
 	}
 
-	let { item, role, cancelled }: Props = $props();
+	let { item, role }: Props = $props();
 
 	const hasClientCancellation = $derived(item.text?.includes(CANCELLATION_PHRASE_CLIENT) ?? false);
 	const textWithoutCancellation = $derived(
@@ -26,8 +25,7 @@
 	class={twMerge(
 		'prose rounded-box flex w-full max-w-none flex-col gap-2 p-2',
 		role === 'assistant' ? 'p-4' : '',
-		role === 'user' ? 'bg-base-200 whitespace-pre-wrap' : '',
-		cancelled ? 'text-base-content/25' : 'text-base-content'
+		role === 'user' ? 'bg-base-200 whitespace-pre-wrap' : ''
 	)}
 >
 	{#if renderedContent}

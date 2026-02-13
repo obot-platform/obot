@@ -44,15 +44,18 @@
 	$effect(() => {
 		if (initialQuickBarAccessOpen) return;
 		if (chat && chat.messages.length > 0) {
+			let foundTool = false;
 			for (const message of chat.messages) {
 				if (message.role !== 'assistant') continue;
 				for (const item of message.items || []) {
 					if (item.type === 'tool' && (item.name === 'todoWrite' || item.name === 'write')) {
 						initialQuickBarAccessOpen = true;
 						quickBarAccessOpen = true;
+						foundTool = true;
 						break;
 					}
 				}
+				if (foundTool) break;
 			}
 		}
 	});

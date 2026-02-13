@@ -10,7 +10,6 @@
 
 	let { onSend, agent }: Props = $props();
 
-	let imgRef = $state<HTMLImageElement>();
 	const logoSrc = $derived(darkMode.isDark ? agent?.iconDark || agent?.icon : (agent?.icon ?? ''));
 </script>
 
@@ -19,7 +18,7 @@
 		<!-- Agent Icon -->
 		{#if agent.icon}
 			<div class="mb-6">
-				<img bind:this={imgRef} src={logoSrc} alt={agent.name} class="h-16" />
+				<img src={logoSrc} alt={agent.name} class="h-16" />
 			</div>
 			<!-- Agent Description -->
 			<div class="mb-8 text-center">
