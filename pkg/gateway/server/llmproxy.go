@@ -457,6 +457,12 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 	}
 
 	targetModel := gjson.GetBytes(body, "model").String()
+	if targetModel == "" {
+		targetModel = gjson.GetBytes(body, "message.model").String()
+	}
+	if targetModel == "" {
+		targetModel = gjson.GetBytes(body, "response.model").String()
+	}
 	if targetModel != "" {
 		// Get the models matching the target model and provider.
 		var models v1.ModelList
