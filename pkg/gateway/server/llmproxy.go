@@ -372,15 +372,7 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 
 	// Extract model from response if not already set
 	if r.model == "" {
-		responseModel := gjson.GetBytes(line, "model").String()
-		// Anthropic's message_start event nests model under "message.model"
-		if responseModel == "" {
-			responseModel = gjson.GetBytes(line, "message.model").String()
-		}
-		// OpenAI Responses API nests model under "response.model"
-		if responseModel == "" {
-			responseModel = gjson.GetBytes(line, "response.model").String()
-		}
+		responseModel := extractModelFromBody(line)
 		if responseModel != "" {
 			r.lock.Lock()
 			r.model = responseModel
