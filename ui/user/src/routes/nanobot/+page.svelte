@@ -23,7 +23,6 @@
 	let sidebarRef: { refreshThreads: () => Promise<void> } | undefined = $state();
 
 	const layout = nanobotLayout.getLayout();
-	layout.sidebarOpen = false;
 
 	onMount(async () => {
 		loading = true;
@@ -109,7 +108,11 @@
 
 	{#snippet rightSidebar()}
 		{#if chat}
-			<ThreadQuickAccess {chat} />
+			<ThreadQuickAccess
+				{chat}
+				open={layout.quickBarAccessOpen}
+				onToggle={() => (layout.quickBarAccessOpen = !layout.quickBarAccessOpen)}
+			/>
 		{/if}
 	{/snippet}
 </Layout>

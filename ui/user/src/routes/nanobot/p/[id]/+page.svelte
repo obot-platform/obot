@@ -19,16 +19,16 @@
 
 	const chatApi = $derived(new ChatAPI(agent.connectURL));
 
-	let quickBarAccessOpen = $state(false);
 	let chat = $state<ChatService | null>(null);
 	let threadId = $derived(page.url.searchParams.get('tid'));
 	let prevThreadId: string | null | undefined = undefined; // undefined = not yet initialized
 	let sidebarRef: { refreshThreads: () => Promise<void> } | undefined = $state();
 	let initialPlannerMode = $derived(page.url.searchParams.get('planner') === 'true');
 	let initialQuickBarAccessOpen = $state(false);
-
 	let selectedFile = $state('');
 	let threadContentWidth = $state(0);
+
+	const layout = nanobotLayout.getLayout();
 
 	function handleThreadCreated(thread: Chat) {
 		prevThreadId = thread.id;
@@ -50,7 +50,11 @@
 				for (const item of message.items || []) {
 					if (item.type === 'tool' && (item.name === 'todoWrite' || item.name === 'write')) {
 						initialQuickBarAccessOpen = true;
-						quickBarAccessOpen = true;
+
+						if (!layout.quickBarAccessOpen) {
+							layout.quickBarAccessOpen = true;
+						}
+
 						foundTool = true;
 						break;
 					}
@@ -142,7 +146,7 @@
 					{projectId}
 					{chat}
 					onFileOpen={(filename) => {
-						quickBarAccessOpen = false;
+						layout.quickBarAccessOpen = false;
 						selectedFile = filename;
 					}}
 					suppressEmptyState={!!threadId}
@@ -161,9 +165,9 @@
 					open={!!selectedFile}
 					onClose={() => {
 						selectedFile = '';
-						quickBarAccessOpen = true;
+						layout.quickBarAccessOpen = true;
 					}}
-					{quickBarAccessOpen}
+					quickBarAccessOpen={layout.quickBarAccessOpen}
 					{threadContentWidth}
 				/>
 			{/if}
@@ -172,11 +176,11 @@
 				{chat}
 				{selectedFile}
 				onFileOpen={(filename) => {
-					quickBarAccessOpen = false;
+					layout.quickBarAccessOpen = false;
 					selectedFile = filename;
 				}}
-				onToggle={() => (quickBarAccessOpen = !quickBarAccessOpen)}
-				open={quickBarAccessOpen}
+				onToggle={() => (layout.quickBarAccessOpen = !layout.quickBarAccessOpen)}
+				open={layout.quickBarAccessOpen}
 			/>
 		{/if}
 	{/snippet}

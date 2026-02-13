@@ -4,6 +4,7 @@ export const LAYOUT_CONTEXT = 'nanobot-layout';
 
 export interface Layout {
 	sidebarOpen?: boolean;
+	quickBarAccessOpen?: boolean;
 }
 
 export function initLayout() {
@@ -11,7 +12,8 @@ export function initLayout() {
 		return;
 	}
 	const data = $state<Layout>({
-		sidebarOpen: false
+		sidebarOpen: false,
+		quickBarAccessOpen: false
 	});
 	setContext(LAYOUT_CONTEXT, data);
 }
