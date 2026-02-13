@@ -2,7 +2,9 @@
 	import type { Chat } from '$lib/services/nanobot/types';
 	import { goto } from '$lib/url';
 	import { Check, Edit, MoreVertical, Trash2, X, Plus } from 'lucide-svelte';
-	import { page } from '$app/state';
+	import { fly } from 'svelte/transition';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import { get } from 'svelte/store';
 
 	interface Props {
 		threads: Chat[];
@@ -10,7 +12,8 @@
 		onDelete: (threadId: string) => void;
 		isLoading?: boolean;
 		onThreadClick?: () => void;
-		projectId: string;
+		onCreateThread?: () => void;
+		selectedThreadId?: string;
 	}
 
 	let {
@@ -19,16 +22,17 @@
 		onDelete,
 		isLoading = false,
 		onThreadClick,
-		projectId
+		onCreateThread,
+		selectedThreadId
 	}: Props = $props();
 
 	let editingThreadId = $state<string | null>(null);
 	let editTitle = $state('');
-	let selectedThreadId = $derived(page.url.searchParams.get('tid'));
 
 	function navigateToThread(threadId: string) {
+		const storedChat = get(nanobotChat);
 		onThreadClick?.();
-		goto(`/nanobot/p/${projectId}?tid=${threadId}`);
+		goto(`/nanobot/p/${storedChat?.projectId}?tid=${threadId}`);
 	}
 
 	function formatTime(timestamp: string): string {
@@ -75,23 +79,21 @@
 	}
 </script>
 
-<div class="flex h-full w-full flex-col">
+<div class="flex w-full grow flex-col">
 	<!-- Header -->
-	<div class="flex flex-shrink-0 items-center justify-between gap-2 pr-2 pl-3">
-		<h2 class="text-base-content/60 font-semibold">Conversations</h2>
+	<div class="mb-2 flex flex-shrink-0 items-center justify-between gap-2 pr-3 pl-4">
+		<h2 class="text-base-content/50 text-md font-semibold">Conversations</h2>
 		<button
 			class="btn btn-square btn-ghost btn-sm tooltip tooltip-left"
 			data-tip="Start New Conversation"
-			onclick={() => {
-				goto(`/nanobot`);
-			}}
+			onclick={onCreateThread}
 		>
-			<Plus class="size-4" />
+			<Plus class="text-base-content/50 size-6" />
 		</button>
 	</div>
 
-	<!-- Thread list -->
-	<div class="flex-1">
+	<!-- Thread list (scroll container so header tooltips are not clipped by overflow) -->
+	<div class="flex min-h-0 grow flex-col">
 		{#if isLoading}
 			<!-- Skeleton UI when loading -->
 			{#each Array(5).fill(null) as _, index (index)}
@@ -113,6 +115,7 @@
 				<div
 					class="group border-base-200 dark:hover:bg-base-100/25 hover:bg-base-100/65 flex items-center border-b"
 					class:bg-base-100={selectedThreadId === thread.id}
+					in:fly={{ x: 100, duration: 150 }}
 				>
 					<!-- Thread title area (clickable) -->
 					<button
@@ -168,7 +171,7 @@
 					{#if editingThreadId !== thread.id}
 						<!-- Dropdown menu - only show on hover -->
 						<div
-							class="dropdown dropdown-end mr-2 opacity-0 transition-opacity group-hover:opacity-100"
+							class="dropdown dropdown-end mr-2 w-0 opacity-0 transition-[width,opacity] group-hover:w-8 group-hover:opacity-100"
 						>
 							<div tabindex="0" role="button" class="btn btn-square btn-ghost btn-sm">
 								<MoreVertical class="h-4 w-4" />

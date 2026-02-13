@@ -43,7 +43,6 @@
 	const MIN_WIDTH_PX = 300;
 	const MAX_DVW = 50;
 	const MAX_DVW_FILL = 90;
-	const MIN_THREAD_DVW = 55;
 
 	function getViewportWidth(): number {
 		return typeof window !== 'undefined' && window.visualViewport
@@ -108,26 +107,17 @@
 				: 400;
 	}
 
-	function getSidebarWidth(): number {
-		return layout.sidebarOpen ? 300 : 0;
-	}
-
 	function getQuickBarWidth(): number {
 		return quickBarAccessOpen ? 384 : 72;
 	}
 
-	function getMinThreadWidthPx(refWidth: number): number {
-		return Math.floor(refWidth * (MIN_THREAD_DVW / 100));
-	}
-
+	// refWidth is the width of our container (flex row: thread + file editor + quick bar), already excluding left sidebar
 	function getMaxFileEditorWidthPx(refWidth: number): number {
-		const sidebarWidth = getSidebarWidth();
-		const quickBarAccessWidth = getQuickBarWidth();
-		return refWidth - sidebarWidth - getMinThreadWidthPx(refWidth) - quickBarAccessWidth;
+		return refWidth - getThreadRefWidth() - getQuickBarWidth();
 	}
 
 	function calculateRemainingPx(refWidth: number): number {
-		return refWidth - getSidebarWidth() - getThreadRefWidth() - getQuickBarWidth();
+		return refWidth - getThreadRefWidth() - getQuickBarWidth();
 	}
 
 	function calculateInitialWidthPx(refWidth: number): number {
@@ -154,7 +144,24 @@
 		});
 		ro.observe(parent);
 		syncWidth(parent.clientWidth);
-		return () => ro.disconnect();
+
+		// Recalculate on zoom: visual viewport resize doesn't always trigger ResizeObserver on the parent
+		const onViewportResize = () => {
+			if (rootEl?.parentElement) {
+				syncWidth(rootEl.parentElement.clientWidth);
+			}
+		};
+		let cleanupViewport: (() => void) | undefined;
+		const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+		if (vv) {
+			vv.addEventListener('resize', onViewportResize);
+			cleanupViewport = () => vv.removeEventListener('resize', onViewportResize);
+		}
+
+		return () => {
+			ro.disconnect();
+			cleanupViewport?.();
+		};
 	});
 
 	$effect(() => {

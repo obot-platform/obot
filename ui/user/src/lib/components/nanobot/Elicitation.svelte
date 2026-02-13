@@ -253,7 +253,7 @@
 	{@const isSingle = questions.length === 1}
 
 	<div class="flex w-full items-start gap-3 px-1">
-		<div class="border-base-300 rounded-box w-full border p-4">
+		<div class="border-base-300 rounded-box bg-base-100 w-full border p-4 shadow-sm">
 			{#if !isSingle && !reviewMode}
 				<!-- Step indicators for multi-question -->
 				<div class="mb-4 flex flex-wrap items-center gap-1.5">
@@ -405,13 +405,13 @@
 					<button
 						type="button"
 						class="btn btn-ghost btn-xs text-base-content/40"
-						onclick={nextStep}
+						onclick={handleCancel}
 					>
 						<SkipForward class="h-3 w-3" />
-						Skip
+						Skip All
 					</button>
 					<div class="flex gap-1.5">
-						{#if !isSingle}
+						{#if !isSingle && currentStep > 0}
 							<button
 								type="button"
 								class="btn btn-ghost btn-sm"
@@ -435,6 +435,13 @@
 								Submit
 							</button>
 						{:else if currentStep < questions.length - 1}
+							<button
+								type="button"
+								class="btn btn-ghost btn-sm text-base-content/40"
+								onclick={nextStep}
+							>
+								Skip
+							</button>
 							<button
 								type="button"
 								class="btn btn-primary btn-sm"
