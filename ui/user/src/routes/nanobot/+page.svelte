@@ -12,6 +12,7 @@
 	import { NanobotService } from '$lib/services';
 	import { errors } from '$lib/stores';
 	import { LoaderCircle } from 'lucide-svelte';
+	import ThreadQuickAccess from '$lib/components/nanobot/ThreadQuickAccess.svelte';
 
 	let { data } = $props();
 	let projects = $derived(data.projects);
@@ -90,6 +91,7 @@
 	}}
 	whiteBackground
 	disableResize
+	hideProfileButton
 >
 	{#snippet overrideLeftSidebarContent()}
 		<ProjectSidebar {chatApi} projectId={projects[0].id} bind:this={sidebarRef} />
@@ -104,6 +106,12 @@
 			<LoaderCircle class="size-6 animate-spin" />
 		{/if}
 	</div>
+
+	{#snippet rightSidebar()}
+		{#if chat}
+			<ThreadQuickAccess {chat} />
+		{/if}
+	{/snippet}
 </Layout>
 
 <svelte:head>

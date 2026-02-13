@@ -204,7 +204,7 @@
 
 <div
 	class={twMerge(
-		'bg-base-100 border-base-300 h-[100dvh] w-16 min-w-16 overflow-hidden overflow-y-auto border-l ',
+		'bg-base-100 border-base-300 h-[100dvh] w-18 min-w-18 overflow-hidden overflow-y-auto border-l ',
 		open && 'w-sm min-w-sm'
 	)}
 >
@@ -345,17 +345,17 @@
 					</ul>
 				{/if}
 			</div>
-		{:else}
+		{:else if onToggle}
 			<button
 				class="icon-button size-10 self-center"
-				onclick={() => onToggle?.()}
+				onclick={() => onToggle()}
 				aria-label="Expand to show to-do list"
 			>
 				<ListCheck class="size-6" />
 			</button>
 			<button
 				class="icon-button size-10 self-center"
-				onclick={() => onToggle?.()}
+				onclick={() => onToggle()}
 				aria-label="Expand to show file list"
 			>
 				<Folders class="size-6" />

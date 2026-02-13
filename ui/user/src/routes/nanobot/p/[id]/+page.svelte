@@ -19,12 +19,13 @@
 
 	const chatApi = $derived(new ChatAPI(agent.connectURL));
 
-	let quickBarAccessOpen = $state(true);
+	let quickBarAccessOpen = $state(false);
 	let chat = $state<ChatService | null>(null);
 	let threadId = $derived(page.url.searchParams.get('tid'));
 	let prevThreadId: string | null | undefined = undefined; // undefined = not yet initialized
 	let sidebarRef: { refreshThreads: () => Promise<void> } | undefined = $state();
 	let initialPlannerMode = $derived(page.url.searchParams.get('planner') === 'true');
+	let initialQuickBarAccessOpen = $state(false);
 
 	let selectedFile = $state('');
 	let threadContentWidth = $state(0);
@@ -39,6 +40,22 @@
 
 		sidebarRef?.refreshThreads();
 	}
+
+	$effect(() => {
+		if (initialQuickBarAccessOpen) return;
+		if (chat && chat.messages.length > 0) {
+			for (const message of chat.messages) {
+				if (message.role !== 'assistant') continue;
+				for (const item of message.items || []) {
+					if (item.type === 'tool' && (item.name === 'todoWrite' || item.name === 'write')) {
+						initialQuickBarAccessOpen = true;
+						quickBarAccessOpen = true;
+						break;
+					}
+				}
+			}
+		}
+	});
 
 	$effect(() => {
 		const currentThreadId = threadId;
