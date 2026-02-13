@@ -347,18 +347,20 @@
 			</div>
 		{:else if onToggle}
 			<button
-				class="icon-button size-10 self-center"
+				class="btn btn-ghost btn-circle tooltip tooltip-left size-10 self-center"
 				onclick={() => onToggle()}
 				aria-label="Expand to show to-do list"
+				use:tooltip={'Expand'}
 			>
-				<ListCheck class="size-6" />
+				<ListCheck class="text-base-content/50 size-6" />
 			</button>
 			<button
-				class="icon-button size-10 self-center"
+				class="btn btn-ghost btn-circle tooltip tooltip-left size-10 self-center"
 				onclick={() => onToggle()}
 				aria-label="Expand to show file list"
+				use:tooltip={'Expand'}
 			>
-				<Folders class="size-6" />
+				<Folders class="text-base-content/50 size-6" />
 			</button>
 		{/if}
 		<div class="flex grow"></div>
@@ -370,14 +372,14 @@
 				)}
 			>
 				<button
-					class="icon-button"
+					class="btn btn-ghost btn-circle tooltip tooltip-left"
 					onclick={() => onToggle()}
 					use:tooltip={open ? 'Close to-do & file list' : 'Open to-do & file list'}
 				>
 					{#if open}
-						<SidebarOpen class="size-6" />
+						<SidebarOpen class="text-base-content/50 size-6" />
 					{:else}
-						<SidebarClose class="size-6" />
+						<SidebarClose class="text-base-content/50 size-6" />
 					{/if}
 				</button>
 			</div>
