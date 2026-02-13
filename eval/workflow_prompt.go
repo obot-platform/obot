@@ -1,5 +1,13 @@
 package eval
 
+// ShortWordPressEvalPrompt is a minimal prompt for WordPress eval to avoid API rate limits (429).
+// Use in nanobot_wordpress_real and anywhere a short WP check is needed.
+const ShortWordPressEvalPrompt = "WP check: reply VALID or INVALID only."
+
+// ShortContentPublishingPrompt is a minimal prompt for rate-limit bypass when running full-workflow eval.
+// Use when OBOT_EVAL_SHORT_PROMPT=1 instead of ContentPublishingWorkflowPrompt.
+const ShortContentPublishingPrompt = "Use WordPress MCP to list 1 post. Reply with only the post title or EVAL_OK."
+
 // ContentPublishingWorkflowPrompt is the sample prompt for the "content publishing workflow"
 // eval. Run this in nanobot; capture the final response and pass it to
 // EvaluateContentPublishingResponse or the nanobot_workflow_content_publishing_eval case.

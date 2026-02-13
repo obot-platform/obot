@@ -2,14 +2,20 @@ package eval
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
 // TestEvalNanobotWorkflow runs all nanobot evals when OBOT_EVAL_BASE_URL is set.
 // Set OBOT_EVAL_BASE_URL (and OBOT_EVAL_AUTH_HEADER for authenticated APIs) to run against a live instance.
+// Set OBOT_EVAL_REAL_ONLY=1 to run only real scenarios (exclude in-process mock cases).
 // Example: OBOT_EVAL_BASE_URL=http://localhost:8080 OBOT_EVAL_AUTH_HEADER="Bearer <token>" go test -v ./eval/...
 func TestEvalNanobotWorkflow(t *testing.T) {
-	results, err := RunFromEnv(AllCases())
+	cases := AllCases()
+	if os.Getenv("OBOT_EVAL_REAL_ONLY") == "1" {
+		cases = RealOnlyCases()
+	}
+	results, err := RunFromEnv(cases)
 	if err != nil {
 		t.Fatalf("run evals: %v", err)
 	}
@@ -26,6 +32,29 @@ func TestEvalNanobotWorkflow(t *testing.T) {
 				t.Logf("  step: %s", step)
 			}
 		}
+	}
+
+	// Print chat UI URL(s) at the end so you can verify the nanobot chat in the browser.
+	var viewURLs []string
+	for _, r := range results {
+		if idx := strings.Index(r.Message, "View in UI:"); idx >= 0 {
+			url := strings.TrimSpace(r.Message[idx+len("View in UI:"):])
+			// Trim trailing sentence if present
+			if end := strings.Index(url, " "); end > 0 {
+				url = url[:end]
+			}
+			if url != "" && (strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")) {
+				viewURLs = append(viewURLs, url)
+			}
+		}
+	}
+	if len(viewURLs) > 0 {
+		t.Logf("---")
+		t.Logf("Chat UI URL(s) (open in browser to verify nanobot chat):")
+		for _, u := range viewURLs {
+			t.Logf("  %s", u)
+		}
+		t.Logf("---")
 	}
 
 	if passed < len(results) {
