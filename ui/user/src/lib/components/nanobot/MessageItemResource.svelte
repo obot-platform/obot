@@ -77,7 +77,7 @@
 </script>
 
 {#if isError}
-	<div class="border-error/20 bg-error/10 mb-3 rounded-lg border p-3">
+	<div class="border-error/20 bg-error/10 mt-3 mb-3 rounded-lg border p-3">
 		<div class="mb-2 flex items-center gap-2 text-sm">
 			<AlertTriangle class="text-error h-4 w-4" />
 			<span class="text-error font-medium">Error</span>
