@@ -20,6 +20,7 @@
 
 	let showRestartConfirm = $state(false);
 	let restarting = $state(false);
+	let cancelMessage = $state<() => Promise<void>>();
 
 	async function handleRestart() {
 		restarting = true;
@@ -50,6 +51,7 @@
 				onElicitationResult={chat.replyToElicitation}
 				onSendMessage={chat.sendMessage}
 				onFileUpload={chat.uploadFile}
+				onCancel={chat.cancelMessage}
 				cancelUpload={chat.cancelUpload}
 				uploadingFiles={chat.uploadingFiles}
 				uploadedFiles={chat.uploadedFiles}

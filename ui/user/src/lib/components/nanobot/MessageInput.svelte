@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Power, Send } from 'lucide-svelte';
+	import { Power, Send, Square } from 'lucide-svelte';
 	import MessageAttachments from './MessageAttachments.svelte';
 	import type MessageSlashPromptsType from './MessageSlashPrompts.svelte';
 	import MessageSlashPrompts from './MessageSlashPrompts.svelte';
@@ -18,6 +18,7 @@
 		onPrompt?: (promptName: string) => void;
 		onFileUpload?: (file: File, opts?: { controller?: AbortController }) => Promise<Attachment>;
 		onRestart?: () => void;
+		onCancel?: () => void;
 		cancelUpload?: (fileId: string) => void;
 		uploadingFiles?: UploadingFile[];
 		uploadedFiles?: UploadedFile[];
@@ -34,6 +35,7 @@
 		onSend,
 		onFileUpload,
 		onPrompt,
+		onCancel,
 		placeholder = 'Type a message...',
 		disabled = false,
 		uploadingFiles = [],
@@ -208,18 +210,28 @@
 				<!-- Action buttons -->
 				<div class="flex gap-2">
 					<!-- Submit button -->
-					<button
-						type="submit"
-						class="btn btn-sm btn-primary h-9 w-9 rounded-full p-0"
-						disabled={disabled || isUploading || !message.trim()}
-						aria-label="Send message"
-					>
-						{#if disabled && !isUploading}
-							<span class="loading loading-xs loading-spinner"></span>
-						{:else}
-							<Send class="h-4 w-4" />
-						{/if}
-					</button>
+					{#if onCancel && disabled}
+						<button
+							onclick={onCancel}
+							class="btn btn-sm btn-primary h-9 w-9 rounded-full p-0"
+							aria-label="Stop generating"
+						>
+							<Square class="size-4" />
+						</button>
+					{:else}
+						<button
+							type="submit"
+							class="btn btn-sm btn-primary h-9 w-9 rounded-full p-0"
+							disabled={disabled || isUploading || !message.trim()}
+							aria-label="Send message"
+						>
+							{#if disabled && !isUploading}
+								<span class="loading loading-xs loading-spinner"></span>
+							{:else}
+								<Send class="size-4" />
+							{/if}
+						</button>
+					{/if}
 				</div>
 			</div>
 		</div>

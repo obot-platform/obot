@@ -7,6 +7,10 @@
 		ChatResult
 	} from '$lib/services/nanobot/types';
 	import MessageItemText from './MessageItemText.svelte';
+	import {
+		CANCELLATION_PHRASE_CLIENT,
+		isCancellationError
+	} from '$lib/services/nanobot/utils';
 
 	interface Props {
 		message: ChatMessage;
@@ -73,6 +77,28 @@
 			text: promptText
 		};
 	});
+
+	function isCancelledErrorResource(item: ChatMessageItem): boolean {
+		if (item.type !== 'resource') return false;
+		const mime = item.resource.mimeType;
+		return (
+			mime === 'application/vnd.nanobot.error+json' &&
+			isCancellationError(item.resource.text)
+		);
+	}
+
+	function isCancelledTextItem(item: ChatMessageItem): boolean {
+		if (item.type !== 'text') return false;
+		return (item.text?.includes(CANCELLATION_PHRASE_CLIENT) ?? false);
+	}
+
+	const hasCancelledResource = $derived.by(
+		() =>
+			message.role === 'assistant' &&
+			(message.items ?? []).some(
+				(item) => isCancelledErrorResource(item) || isCancelledTextItem(item)
+			)
+	);
 </script>
 
 {#if promptDisplayItem}
@@ -102,7 +128,7 @@
 		</div>
 	</div>
 {:else}
-	<div class="flex w-full items-start gap-3">
+	<div class="flex w-full items-start gap-3" class:opacity-30={hasCancelledResource}>
 		<!-- Assistant message content -->
 		<div class="flex min-w-0 flex-1 flex-col items-start">
 			<!-- Render all message items (consecutive tool items grouped in one collapse) -->

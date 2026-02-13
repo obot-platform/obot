@@ -29,6 +29,8 @@
 		onSendMessage?: (message: string, attachments?: Attachment[]) => Promise<ChatResult | void>;
 		onFileUpload?: (file: File, opts?: { controller?: AbortController }) => Promise<Attachment>;
 		onFileOpen?: (filename: string) => void;
+		onRestart?: () => void;
+		onCancel?: () => void;
 		onContentWidthChange?: (width: number) => void;
 		cancelUpload?: (fileId: string) => void;
 		uploadingFiles?: UploadingFile[];
@@ -40,7 +42,6 @@
 		selectedAgentId?: string;
 		onAgentChange?: (agentId: string) => void;
 		emptyStateContent?: Snippet;
-		onRestart?: () => void;
 		onRefreshResources?: () => void;
 		suppressEmptyState?: boolean;
 	}
@@ -49,25 +50,26 @@
 		// Do not use _chat variable anywhere except these assignments
 		messages,
 		prompts,
+		elicitations,
+		onElicitationResult,
 		onSendMessage,
 		onFileUpload,
 		onFileOpen,
+		onRestart,
+		onCancel,
+		onContentWidthChange,
 		cancelUpload,
 		uploadingFiles,
 		uploadedFiles,
-		elicitations,
-		onElicitationResult,
+		isLoading,
+		isRestoring,
 		agent,
 		agents = [],
 		selectedAgentId = '',
 		onAgentChange,
-		isLoading,
-		isRestoring,
 		emptyStateContent,
-		onRestart,
 		onRefreshResources,
-		suppressEmptyState,
-		onContentWidthChange
+		suppressEmptyState
 	}: Props = $props();
 
 	let messagesContainer: HTMLElement;
@@ -374,6 +376,7 @@
 				{uploadingFiles}
 				{uploadedFiles}
 				{onRestart}
+				{onCancel}
 			/>
 		</div>
 	</div>
