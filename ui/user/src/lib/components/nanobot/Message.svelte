@@ -7,10 +7,7 @@
 		ChatResult
 	} from '$lib/services/nanobot/types';
 	import MessageItemText from './MessageItemText.svelte';
-	import {
-		CANCELLATION_PHRASE_CLIENT,
-		isCancellationError
-	} from '$lib/services/nanobot/utils';
+	import { CANCELLATION_PHRASE_CLIENT, isCancellationError } from '$lib/services/nanobot/utils';
 
 	interface Props {
 		message: ChatMessage;
@@ -81,15 +78,12 @@
 	function isCancelledErrorResource(item: ChatMessageItem): boolean {
 		if (item.type !== 'resource') return false;
 		const mime = item.resource.mimeType;
-		return (
-			mime === 'application/vnd.nanobot.error+json' &&
-			isCancellationError(item.resource.text)
-		);
+		return mime === 'application/vnd.nanobot.error+json' && isCancellationError(item.resource.text);
 	}
 
 	function isCancelledTextItem(item: ChatMessageItem): boolean {
 		if (item.type !== 'text') return false;
-		return (item.text?.includes(CANCELLATION_PHRASE_CLIENT) ?? false);
+		return item.text?.includes(CANCELLATION_PHRASE_CLIENT) ?? false;
 	}
 
 	const hasCancelledResource = $derived.by(

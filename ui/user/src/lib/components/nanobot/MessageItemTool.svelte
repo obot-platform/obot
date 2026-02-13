@@ -217,7 +217,7 @@
 
 {#if hasRenderableOutputContent}
 	<div class="flex w-full flex-wrap items-start justify-start gap-2 p-2">
-		{#each item.output!.content as contentItem, i (i)}
+		{#each item.output!.content ?? [] as contentItem, i (i)}
 			{#if contentItem.type === 'resource' && contentItem.resource && isUIResource(contentItem) && !contentItem.resource._meta?.['ai.nanobot.meta/workspace']}
 				<MessageItemUI
 					item={contentItem}

@@ -245,9 +245,9 @@ export class ChatAPI {
 
 	async cancelRequest(requestId: string, sessionId: string): Promise<void> {
 		const client = this.#getClient(sessionId);
-		await client.notify("notifications/cancelled", {
+		await client.notify('notifications/cancelled', {
 			requestId,
-			reason: "User requested cancellation",
+			reason: 'User requested cancellation'
 		});
 	}
 
@@ -399,7 +399,7 @@ export class ChatService {
 	uploadingFiles: UploadingFile[];
 
 	private api: ChatAPI;
-	private closer = () => { };
+	private closer = () => {};
 	private history: ChatMessage[] | undefined;
 	private onChatDone: (() => void)[] = [];
 	private currentRequestId: string | undefined;

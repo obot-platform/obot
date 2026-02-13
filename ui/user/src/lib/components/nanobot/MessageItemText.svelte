@@ -13,13 +13,9 @@
 
 	let { item, role, cancelled }: Props = $props();
 
-	const hasClientCancellation = $derived(
-		item.text?.includes(CANCELLATION_PHRASE_CLIENT) ?? false
-	);
+	const hasClientCancellation = $derived(item.text?.includes(CANCELLATION_PHRASE_CLIENT) ?? false);
 	const textWithoutCancellation = $derived(
-		hasClientCancellation
-			? item.text.replace(CANCELLATION_PHRASE_CLIENT, '').trimEnd()
-			: item.text
+		hasClientCancellation ? item.text.replace(CANCELLATION_PHRASE_CLIENT, '').trimEnd() : item.text
 	);
 	const renderedContent = $derived(
 		role === 'assistant' ? toHTMLFromMarkdown(textWithoutCancellation) : textWithoutCancellation

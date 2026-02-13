@@ -5,10 +5,7 @@ export const CANCELLATION_PHRASE_CLIENT =
 
 export function isCancellationError(text: string | undefined): boolean {
 	if (!text) return false;
-	return (
-		text.includes('User requested cancellation') ||
-		text.includes(CANCELLATION_PHRASE_CLIENT)
-	);
+	return text.includes('User requested cancellation') || text.includes(CANCELLATION_PHRASE_CLIENT);
 }
 
 export function parseToolFilePath(item: ChatMessageItemToolCall) {

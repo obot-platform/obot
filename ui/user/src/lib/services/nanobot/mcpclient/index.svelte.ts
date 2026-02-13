@@ -351,25 +351,25 @@ export class SimpleClient {
 
 		// Notifications don't have an id field per JSON-RPC spec
 		const notification = {
-			jsonrpc: "2.0" as const,
+			jsonrpc: '2.0' as const,
 			method,
-			params,
+			params
 		};
 
 		// Build query string for access logs
-		const [basePath, existingQuery] = this.#url.split("?");
+		const [basePath, existingQuery] = this.#url.split('?');
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const queryParams = new URLSearchParams(existingQuery || "");
-		queryParams.set("method", method);
+		const queryParams = new URLSearchParams(existingQuery || '');
+		queryParams.set('method', method);
 		const url = `${basePath}?${queryParams.toString()}`;
 
 		const resp = await this.#fetcher(url, {
-			method: "POST",
+			method: 'POST',
 			headers: {
-				"Content-Type": "application/json",
-				"Mcp-Session-Id": sessionId,
+				'Content-Type': 'application/json',
+				'Mcp-Session-Id': sessionId
 			},
-			body: JSON.stringify(notification),
+			body: JSON.stringify(notification)
 		});
 
 		// Notifications typically return 204 No Content or 202 Accepted
