@@ -798,3 +798,29 @@ export interface MCPServerOAuthCredentialStatus {
 	configured: boolean;
 	clientID?: string;
 }
+
+export interface TokenUsage {
+	userID?: string;
+	runName?: string;
+	model?: string;
+	promptTokens: number;
+	completionTokens: number;
+	totalTokens: number;
+	date: string;
+}
+
+export interface TokenUsageTimeRange {
+	start: Date | string;
+	end: Date | string;
+}
+
+export interface TotalTokenUsage {
+	promptTokens: number;
+	completionTokens: number;
+	totalTokens: number;
+	personalToken?: boolean;
+}
+
+export interface TotalTokenUsageByUser extends TotalTokenUsage {
+	userID: string;
+}

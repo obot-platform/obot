@@ -55,9 +55,8 @@ type ServerConfig struct {
 	MCPCatalogEntryName  string `json:"mcpCatalogEntryName"`
 	MCPServerDisplayName string `json:"mcpServerDisplayName"`
 	NanobotAgentName     string `json:"nanobotAgentName"`
-
-	ProjectMCPServer   bool `json:"projectMCPServer"`
-	ComponentMCPServer bool `json:"componentMCPServer"`
+	ProjectMCPServer     bool   `json:"projectMCPServer"`
+	ComponentMCPServer   bool   `json:"componentMCPServer"`
 
 	Issuer    string   `json:"issuer"`
 	Audiences []string `json:"audiences"`
@@ -451,7 +450,7 @@ func ProjectServerToConfig(projectMCPServer v1.ProjectMCPServer, publicBaseURL, 
 }
 
 // SystemServerToServerConfig converts a v1.SystemMCPServer to a ServerConfig for deployment
-func SystemServerToServerConfig(systemServer v1.SystemMCPServer, credEnv map[string]string) (ServerConfig, []string, error) {
+func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []string, issuer string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
 	fileEnvVars := make(map[string]struct{})
 	for _, env := range systemServer.Spec.Manifest.Env {
 		if env.File {
@@ -465,12 +464,22 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, credEnv map[str
 	}
 
 	serverConfig := ServerConfig{
-		Env:                  make([]string, 0, len(systemServer.Spec.Manifest.Env)),
-		MCPServerNamespace:   systemServer.Namespace,
-		MCPServerName:        systemServer.Name,
-		MCPServerDisplayName: displayName,
-		Runtime:              systemServer.Spec.Manifest.Runtime,
-		Scope:                fmt.Sprintf("%s-system", systemServer.Name),
+		Env:                       make([]string, 0, len(systemServer.Spec.Manifest.Env)),
+		MCPServerNamespace:        systemServer.Namespace,
+		MCPServerName:             systemServer.Name,
+		MCPServerDisplayName:      displayName,
+		Runtime:                   systemServer.Spec.Manifest.Runtime,
+		Scope:                     fmt.Sprintf("%s-system", systemServer.Name),
+		Issuer:                    issuer,
+		Audiences:                 audiences,
+		TokenExchangeClientID:     secretsCred["TOKEN_EXCHANGE_CLIENT_ID"],
+		TokenExchangeClientSecret: secretsCred["TOKEN_EXCHANGE_CLIENT_SECRET"],
+		TokenExchangeEndpoint:     fmt.Sprintf("%s/oauth/token", issuer),
+		JWKSEndpoint:              fmt.Sprintf("%s/oauth/jwks.json", issuer),
+		AuthorizeEndpoint:         fmt.Sprintf("%s/oauth/authorize", issuer),
+		AuditLogEndpoint:          fmt.Sprintf("%s/api/mcp-audit-logs", issuer),
+		AuditLogToken:             secretsCred["AUDIT_LOG_TOKEN"],
+		AuditLogMetadata:          fmt.Sprintf("mcpID=%s,mcpServerDisplayName=%s", systemServer.Name, displayName),
 	}
 
 	var missingRequiredNames []string
@@ -491,54 +500,31 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, credEnv map[str
 				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
 			}
 		}
-
-	case types.RuntimeRemote:
-		if systemServer.Spec.Manifest.RemoteConfig != nil {
-			serverConfig.URL = expandEnvVars(systemServer.Spec.Manifest.RemoteConfig.URL, credEnv, fileEnvVars)
-
-			// Add headers from remote config
-			serverConfig.Headers = make([]string, 0, len(systemServer.Spec.Manifest.RemoteConfig.Headers))
-			for _, header := range systemServer.Spec.Manifest.RemoteConfig.Headers {
-				var (
-					val      string
-					hasValue bool
-				)
-
-				// Check for static value first
-				if header.Value != "" {
-					val = header.Value
-					hasValue = true
-				} else {
-					// Fall back to user-configured value from credentials
-					credVal, ok := credEnv[header.Key]
-					if ok && credVal != "" {
-						val = credVal
-						hasValue = true
-					}
-				}
-
-				if !hasValue {
-					if header.Required {
-						missingRequiredNames = append(missingRequiredNames, header.Key)
-					}
-					continue
-				}
-
-				// Apply prefix if specified (e.g., "Bearer ", "Token ")
-				// Only apply to user-supplied values, not static values
-				if header.Value == "" {
-					val = applyPrefix(val, header.Prefix)
-				}
-
-				serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
-			}
-		}
+	default:
+		return ServerConfig{}, nil, fmt.Errorf("unsupported runtime type: %s", systemServer.Spec.Manifest.Runtime)
 	}
 
 	// Process environment variables
 	for _, env := range systemServer.Spec.Manifest.Env {
-		val, ok := credEnv[env.Key]
-		if !ok || val == "" {
+		var (
+			val      string
+			hasValue bool
+		)
+
+		// Check for static value first
+		if env.Value != "" {
+			val = env.Value
+			hasValue = true
+		} else {
+			// Fall back to user-configured value from credentials
+			credVal, ok := credEnv[env.Key]
+			if ok && credVal != "" {
+				val = credVal
+				hasValue = true
+			}
+		}
+
+		if !hasValue {
 			if env.Required {
 				missingRequiredNames = append(missingRequiredNames, env.Key)
 			}
@@ -546,7 +532,10 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, credEnv map[str
 		}
 
 		// Apply prefix if specified (e.g., "Bearer ", "sk-")
-		val = applyPrefix(val, env.Prefix)
+		// Only apply to user-supplied values, not static values
+		if env.Value == "" {
+			val = applyPrefix(val, env.Prefix)
+		}
 
 		if !env.File {
 			serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))

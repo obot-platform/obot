@@ -11,7 +11,6 @@
 		ElicitationResult,
 		Elicitation as ElicitationType,
 		Prompt as PromptType,
-		Resource,
 		UploadedFile,
 		UploadingFile
 	} from '$lib/services/nanobot/types';
@@ -25,7 +24,6 @@
 	interface Props {
 		messages: ChatMessage[];
 		prompts: PromptType[];
-		resources: Resource[];
 		elicitations?: ElicitationType[];
 		onElicitationResult?: (elicitation: ElicitationType, result: ElicitationResult) => void;
 		onSendMessage?: (message: string, attachments?: Attachment[]) => Promise<ChatResult | void>;
@@ -50,7 +48,6 @@
 		// Do not use _chat variable anywhere except these assignments
 		messages,
 		prompts,
-		resources,
 		onSendMessage,
 		onFileUpload,
 		onFileOpen,
@@ -83,6 +80,14 @@
 
 	const selectedPromptData = $derived(
 		selectedPrompt && prompts?.length ? prompts.find((p) => p.name === selectedPrompt) : undefined
+	);
+
+	// Split elicitations: question type renders inline, others render as modal
+	const questionElicitation = $derived(
+		elicitations?.find((e) => e._meta?.['ai.nanobot.meta/question']) ?? null
+	);
+	const modalElicitation = $derived(
+		elicitations?.find((e) => !e._meta?.['ai.nanobot.meta/question']) ?? null
 	);
 
 	const SCROLL_THRESHOLD = 10;
@@ -329,11 +334,20 @@
 			</div>
 		{/if}
 		<div class="mx-auto w-full max-w-4xl">
+			{#if questionElicitation}
+				{#key questionElicitation.id}
+					<Elicitation
+						elicitation={questionElicitation}
+						open
+						onresult={(result) => {
+							onElicitationResult?.(questionElicitation, result);
+						}}
+					/>
+				{/key}
+			{/if}
 			<MessageInput
 				placeholder={`Type your message...${prompts && prompts.length > 0 ? ' or / for prompts' : ''}`}
 				onSend={onSendMessage}
-				{resources}
-				{messages}
 				{agents}
 				{selectedAgentId}
 				{onAgentChange}
@@ -349,13 +363,14 @@
 		</div>
 	</div>
 
-	{#if elicitations && elicitations.length > 0}
-		{#key elicitations[0].id}
+	<!-- Modal elicitations (OAuth, generic form) -->
+	{#if modalElicitation}
+		{#key modalElicitation.id}
 			<Elicitation
-				elicitation={elicitations[0]}
+				elicitation={modalElicitation}
 				open
 				onresult={(result) => {
-					onElicitationResult?.(elicitations[0], result);
+					onElicitationResult?.(modalElicitation, result);
 				}}
 			/>
 		{/key}

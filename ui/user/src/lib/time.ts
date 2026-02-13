@@ -160,39 +160,33 @@ export function formatTimeUntil(timestamp: string | undefined): TimeAgoResult {
 	return { relativeTime, fullDate };
 }
 
-export function formatTimeRange(startTime: string, endTime: string): string {
-	if (!startTime || !endTime) return '';
+export function formatTimeRange(startTime: Date | string, endTime: Date | string): string {
+	if (startTime == null || endTime == null) return '';
 
-	const start = new Date(startTime);
-	const end = new Date(endTime);
+	const start = startTime instanceof Date ? startTime : new Date(startTime);
+	const end = endTime instanceof Date ? endTime : new Date(endTime);
 	const now = new Date();
 
 	const durationInHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-	const endIsCloseToNow = Math.abs(end.getTime() - now.getTime()) < 1000; // 1 sec leeway
-	if (Math.abs(durationInHours - 24) < 0.1 && endIsCloseToNow) {
-		// Within 6 minutes of exactly 24 hours and ending close to now
-		return 'Last 24 Hours';
-	}
+	const endIsCloseToNow = Math.abs(end.getTime() - now.getTime()) < 2 * 60 * 1000;
 
-	// Check if it's the last 7 days
-	const sevenDayDurationInHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-	const isLast7Days =
-		Math.abs(sevenDayDurationInHours - 168) < 0.1 &&
-		Math.abs(end.getTime() - now.getTime()) < 24 * 60 * 60 * 1000;
+	// Preset ranges ending close to now (order matters: check specific durations first)
+	if (Math.abs(durationInHours - 1) < 0.02 && endIsCloseToNow) return 'Last Hour';
+	if (Math.abs(durationInHours - 6) < 0.02 && endIsCloseToNow) return 'Last 6 Hours';
+	if (Math.abs(durationInHours - 24) < 0.1 && endIsCloseToNow) return 'Last 24 Hours';
 
-	if (isLast7Days) {
-		return 'Last 7 Days';
-	}
+	// "Last X Days" presets: start = midnight N days ago (local), end = now (local). When stored
+	// as UTC, duration becomes N*24 + (hours since midnight local), so we see N*24..N*24+24.
+	const endWithinDay = Math.abs(end.getTime() - now.getTime()) < 24 * 60 * 60 * 1000;
 
-	//check if it's the last 30 days
-	const thirtyDayDurationInHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-	const isLast30Days =
-		Math.abs(thirtyDayDurationInHours - 720) < 0.1 &&
-		Math.abs(end.getTime() - now.getTime()) < 24 * 60 * 60 * 1000;
-
-	if (isLast30Days) {
-		return 'Last 30 Days';
-	}
+	// Last 7 Days: 144h (6d) to 193h (7d+1d timezone/end-of-day slack)
+	if (endWithinDay && durationInHours >= 144 && durationInHours < 193) return 'Last 7 Days';
+	// Last 30 Days: 696h (29d) to 745h
+	if (endWithinDay && durationInHours >= 696 && durationInHours < 745) return 'Last 30 Days';
+	// Last 60 Days: 1416h (59d) to 1465h
+	if (endWithinDay && durationInHours >= 1416 && durationInHours < 1465) return 'Last 60 Days';
+	// Last 90 Days: 2136h (89d) to 2185h
+	if (endWithinDay && durationInHours >= 2136 && durationInHours < 2185) return 'Last 90 Days';
 
 	// Check if it's a whole day (start at 00:00 and end at 23:59 or next day 00:00)
 	const startHour = start.getHours();
@@ -263,9 +257,9 @@ export function formatTimeRange(startTime: string, endTime: string): string {
 	return `${startFormatted} - ${endFormatted}`;
 }
 
-export function getTimeRangeShorthand(startTime: string, endTime: string): string {
-	const start = new Date(startTime);
-	const end = new Date(endTime);
+export function getTimeRangeShorthand(startTime: Date | string, endTime: Date | string): string {
+	const start = startTime instanceof Date ? startTime : new Date(startTime);
+	const end = endTime instanceof Date ? endTime : new Date(endTime);
 	const diffMs = end.getTime() - start.getTime();
 
 	const hours = diffMs / (1000 * 60 * 60);

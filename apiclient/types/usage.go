@@ -3,6 +3,7 @@ package types
 type TokenUsage struct {
 	UserID           string `json:"userID,omitempty"`
 	RunName          string `json:"runName,omitempty"`
+	Model            string `json:"model,omitempty"`
 	PromptTokens     int    `json:"promptTokens"`
 	CompletionTokens int    `json:"completionTokens"`
 	TotalTokens      int    `json:"totalTokens"`
@@ -11,6 +12,13 @@ type TokenUsage struct {
 }
 
 type TokenUsageList List[TokenUsage]
+
+type TokenUsageByDate struct {
+	Date  string       `json:"date"`
+	Items []TokenUsage `json:"items"`
+}
+
+type TokenUsageSeries []TokenUsageByDate
 
 type RemainingTokenUsage struct {
 	UserID                    string `json:"userID,omitempty"`

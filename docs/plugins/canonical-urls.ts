@@ -2,6 +2,7 @@ import type { LoadContext, Plugin } from "@docusaurus/types";
 import * as fs from "fs/promises";
 import * as path from "path";
 import versions from "../versions.json";
+import { escapeRegExp } from "./utils";
 
 /**
  * Older versions that should have their canonical URLs point to the latest version.
@@ -81,7 +82,13 @@ async function processHtmlFile(
   version: string,
   siteUrl: string
 ): Promise<void> {
-  const content = await fs.readFile(filePath, "utf-8");
+  let content: string;
+  try {
+    content = await fs.readFile(filePath, "utf-8");
+  } catch (error) {
+    console.error(`[canonical-urls] Failed to read ${filePath}: ${error}`);
+    throw error;
+  }
 
   // 1. Update canonical URL to point to the latest version
   // Example: <link rel="canonical" href="https://docs.obot.ai/v0.15.0/some/page/">
@@ -125,9 +132,3 @@ async function processHtmlFile(
   }
 }
 
-/**
- * Escape special regex characters in a string
- */
-function escapeRegExp(string: string): string {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}

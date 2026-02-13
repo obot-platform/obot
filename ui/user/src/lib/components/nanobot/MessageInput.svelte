@@ -1,13 +1,11 @@
 <script lang="ts">
 	import { Power, Send } from 'lucide-svelte';
 	import MessageAttachments from './MessageAttachments.svelte';
-	import MessageResources from './MessageResources.svelte';
 	import type MessageSlashPromptsType from './MessageSlashPrompts.svelte';
 	import MessageSlashPrompts from './MessageSlashPrompts.svelte';
 	import type {
 		Agent,
 		Attachment,
-		ChatMessage,
 		ChatResult,
 		Prompt,
 		Resource,
@@ -27,8 +25,6 @@
 		disabled?: boolean;
 		supportedMimeTypes?: string[];
 		prompts?: Prompt[];
-		resources?: Resource[];
-		messages?: ChatMessage[];
 		agents?: Agent[];
 		selectedAgentId?: string;
 		onAgentChange?: (agentId: string) => void;
@@ -44,8 +40,6 @@
 		uploadedFiles = [],
 		cancelUpload,
 		prompts = [],
-		resources = [],
-		messages = [],
 		agents = [],
 		selectedAgentId = '',
 		onAgentChange,
@@ -80,15 +74,6 @@
 
 	function removeSelectedResource(resource: Resource) {
 		selectedResources = selectedResources.filter((r) => r.uri !== resource.uri);
-	}
-
-	function toggleResource(resource: Resource) {
-		const isSelected = selectedResources.some((r) => r.uri === resource.uri);
-		if (isSelected) {
-			selectedResources = selectedResources.filter((r) => r.uri !== resource.uri);
-		} else {
-			selectedResources = [...selectedResources, resource];
-		}
 	}
 
 	async function handleFileSelect(e: Event) {
@@ -222,14 +207,6 @@
 
 				<!-- Action buttons -->
 				<div class="flex gap-2">
-					<MessageResources
-						{disabled}
-						{resources}
-						{selectedResources}
-						{toggleResource}
-						{messages}
-					/>
-
 					<!-- Submit button -->
 					<button
 						type="submit"
