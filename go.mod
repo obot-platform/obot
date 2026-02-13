@@ -1,6 +1,6 @@
 module github.com/obot-platform/obot
 
-go 1.25.5
+go 1.26.0
 
 replace (
 	github.com/obot-platform/obot/apiclient => ./apiclient

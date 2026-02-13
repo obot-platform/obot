@@ -33,6 +33,12 @@ type K8sSettingsSpec struct {
 	// +k8s:openapi-gen=false
 	RuntimeClassName *string `json:"runtimeClassName,omitempty"`
 
+	// StorageClassName specifies the StorageClass for nanobot workspace volumes
+	StorageClassName *string `json:"storageClassName,omitempty"`
+
+	// NanobotWorkspaceSize specifies the size for nanobot workspace volumes
+	NanobotWorkspaceSize string `json:"nanobotWorkspaceSize,omitempty"`
+
 	// PodSecurityAdmission contains Pod Security Admission settings for the MCP namespace
 	PodSecurityAdmission *PodSecurityAdmissionSettings `json:"podSecurityAdmission,omitempty"`
 

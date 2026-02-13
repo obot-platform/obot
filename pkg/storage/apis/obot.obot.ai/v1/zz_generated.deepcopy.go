@@ -894,6 +894,11 @@ func (in *K8sSettingsSpec) DeepCopyInto(out *K8sSettingsSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.StorageClassName != nil {
+		in, out := &in.StorageClassName, &out.StorageClassName
+		*out = new(string)
+		**out = **in
+	}
 	if in.PodSecurityAdmission != nil {
 		in, out := &in.PodSecurityAdmission, &out.PodSecurityAdmission
 		*out = new(PodSecurityAdmissionSettings)

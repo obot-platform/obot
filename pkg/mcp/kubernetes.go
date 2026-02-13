@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"reflect"
 	"sort"
 	"strconv"
@@ -84,7 +85,9 @@ func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfi
 		return fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.MCPServerName, err)
 	}
 
-	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.Scope).WithPruneTypes(new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service)).Apply(ctx, nil, nil); err != nil && !apierrors.IsNotFound(err) {
+	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.Scope).WithPruneTypes(
+		new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service), new(corev1.PersistentVolumeClaim),
+	).Apply(ctx, nil, nil); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to cleanup old MCP deployment %s: %w", server.MCPServerName, err)
 	}
 
@@ -307,7 +310,9 @@ func (k *kubernetesBackend) transformObotHostname(url string) string {
 }
 
 func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error {
-	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(id).WithPruneTypes(new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service)).Apply(ctx, nil, nil); err != nil {
+	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(id).WithPruneTypes(
+		new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service), new(corev1.PersistentVolumeClaim),
+	).Apply(ctx, nil, nil); err != nil {
 		return fmt.Errorf("failed to delete MCP deployment %s: %w", id, err)
 	}
 
@@ -435,6 +440,40 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	// Get PSA enforce level for security context decisions
 	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
+
+	var workspacePVCName string
+	if server.NanobotAgentName != "" {
+		workspacePVCName = name.SafeConcatName(server.MCPServerName, "workspace")
+
+		workspaceSizeDef := k8sSettings.NanobotWorkspaceSize
+		if workspaceSizeDef == "" {
+			workspaceSizeDef = nanobotWorkspaceDefaultSize
+		}
+		workspaceSize, err := resource.ParseQuantity(workspaceSizeDef)
+		if err != nil {
+			return nil, fmt.Errorf("invalid workspace size '%s': %w", workspaceSizeDef, err)
+		}
+
+		pvcAnnotations := maps.Clone(annotations)
+		// Apply the annotation to prevent the PVC from being updated after creation.
+		pvcAnnotations[apply.AnnotationUpdate] = "false"
+		objs = append(objs, &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        workspacePVCName,
+				Namespace:   k.mcpNamespace,
+				Annotations: pvcAnnotations,
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: workspaceSize,
+					},
+				},
+				StorageClassName: k8sSettings.StorageClassName,
+			},
+		})
+	}
 
 	webhookSecretStringData := make(map[string]string, len(webhooks))
 	containers := make([]corev1.Container, 0, len(webhooks)+2)
@@ -612,6 +651,19 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		StringData: secretEnvStringData,
 	})
 
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "files",
+			MountPath: "/files",
+		},
+	}
+	if workspacePVCName != "" {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      nanobotWorkspaceVolumeName,
+			MountPath: nanobotWorkspaceMountPath,
+		})
+	}
+
 	// This is the "real" MCP container.
 	containers = append(containers, corev1.Container{
 		Name:            "mcp",
@@ -635,6 +687,12 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		SecurityContext: getContainerSecurityContext(psaLevel),
 		Command:         command,
 		Args:            args,
+		WorkingDir: func() string {
+			if workspacePVCName != "" {
+				return nanobotWorkspaceMountPath
+			}
+			return ""
+		}(),
 		EnvFrom: []corev1.EnvFromSource{{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
@@ -642,12 +700,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				},
 			},
 		}},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "files",
-				MountPath: "/files",
-			},
-		},
+		VolumeMounts: volumeMounts,
 	})
 
 	dep := &appsv1.Deployment{
@@ -680,32 +733,47 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					Tolerations:      k8sSettings.Tolerations,
 					RuntimeClassName: k8sSettings.RuntimeClassName,
 					SecurityContext:  getPodSecurityContext(psaLevel),
-					Volumes: []corev1.Volume{
-						{
-							Name: "files",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(server.MCPServerName, "files"),
+					Volumes: func() []corev1.Volume {
+						volumes := []corev1.Volume{
+							{
+								Name: "files",
+								VolumeSource: corev1.VolumeSource{
+									Secret: &corev1.SecretVolumeSource{
+										SecretName: name.SafeConcatName(server.MCPServerName, "files"),
+									},
 								},
 							},
-						},
-						{
-							Name: "run-file",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(server.MCPServerName, "run"),
+							{
+								Name: "run-file",
+								VolumeSource: corev1.VolumeSource{
+									Secret: &corev1.SecretVolumeSource{
+										SecretName: name.SafeConcatName(server.MCPServerName, "run"),
+									},
 								},
 							},
-						},
-						{
-							Name: "run-shim-file",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(server.MCPServerName, "run", "shim"),
+							{
+								Name: "run-shim-file",
+								VolumeSource: corev1.VolumeSource{
+									Secret: &corev1.SecretVolumeSource{
+										SecretName: name.SafeConcatName(server.MCPServerName, "run", "shim"),
+									},
 								},
 							},
-						},
-					},
+						}
+
+						if workspacePVCName != "" {
+							volumes = append(volumes, corev1.Volume{
+								Name: nanobotWorkspaceVolumeName,
+								VolumeSource: corev1.VolumeSource{
+									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+										ClaimName: workspacePVCName,
+									},
+								},
+							})
+						}
+
+						return volumes
+					}(),
 					Containers: containers,
 				},
 			},
@@ -1549,6 +1617,16 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
 	// Hash runtimeClassName
 	if settings.RuntimeClassName != nil && *settings.RuntimeClassName != "" {
 		buf.WriteString(*settings.RuntimeClassName)
+	}
+
+	// Hash storageClassName
+	if settings.StorageClassName != nil {
+		buf.WriteString(*settings.StorageClassName)
+	}
+
+	// Hash nanobotWorkspaceSize
+	if settings.NanobotWorkspaceSize != "" {
+		buf.WriteString(settings.NanobotWorkspaceSize)
 	}
 
 	// Hash Pod Security Admission settings

@@ -652,6 +652,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		env           []string
 		containerPort int
 		image         string
+		workspaceName string
 	)
 
 	// Prepare file volumes and environment variables
@@ -665,6 +666,20 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			Source: fileVolumeName,
 			Target: "/files",
 		})
+	}
+
+	if server.NanobotAgentName != "" {
+		workspaceName, err = d.ensureWorkspaceVolume(ctx, server, mcpServerName)
+		if err != nil {
+			return "", 0, fmt.Errorf("failed to create workspace volume: %w", err)
+		}
+		if workspaceName != "" {
+			volumeMounts = append(volumeMounts, mount.Mount{
+				Type:   mount.TypeVolume,
+				Source: workspaceName,
+				Target: nanobotWorkspaceMountPath,
+			})
+		}
 	}
 
 	if len(fileEnvVars) > 0 {
@@ -792,6 +807,9 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			"mcp.user.id":            server.UserID,
 			"mcp.config.hash":        configHash,
 		},
+	}
+	if server.NanobotAgentName != "" {
+		config.WorkingDir = nanobotWorkspaceMountPath
 	}
 
 	// Host config with port bindings and volume mounts
@@ -930,6 +948,43 @@ func (d *dockerBackend) prepareContainerFiles(ctx context.Context, server Server
 	}
 
 	return volumeName, envVars, nil
+}
+
+func (d *dockerBackend) ensureWorkspaceVolume(ctx context.Context, server ServerConfig, mcpServerName string) (string, error) {
+	volumeName := server.MCPServerName + "-workspace"
+	labels := map[string]string{
+		"mcp.server.id": server.MCPServerName,
+		"mcp.purpose":   "workspace",
+	}
+	if mcpServerName != "" {
+		labels["mcp.deployment.id"] = mcpServerName
+	}
+
+	resp, err := d.client.VolumeList(ctx, volume.ListOptions{
+		Filters: filters.NewArgs(filters.KeyValuePair{
+			Key:   "name",
+			Value: volumeName,
+		}),
+	})
+	if err != nil {
+		return "", err
+	}
+
+	for _, v := range resp.Volumes {
+		if v.Name == volumeName {
+			return volumeName, nil
+		}
+	}
+
+	_, err = d.client.VolumeCreate(ctx, volume.CreateOptions{
+		Labels: labels,
+		Name:   volumeName,
+	})
+	if err != nil && !cerrdefs.IsAlreadyExists(err) {
+		return "", fmt.Errorf("failed to create workspace volume: %w", err)
+	}
+
+	return volumeName, nil
 }
 
 // createVolumeWithFiles creates an anonymous volume and populates it with file data using an init container

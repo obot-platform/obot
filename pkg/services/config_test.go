@@ -84,10 +84,12 @@ func TestParsePodSchedulingSettingsFromHelm(t *testing.T) {
 		{
 			name: "all valid fields combined",
 			opts: mcp.Options{
-				MCPK8sSettingsAffinity:         `{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"disktype","operator":"In","values":["ssd"]}]}]}}}`,
-				MCPK8sSettingsTolerations:      `[{"key":"key1","operator":"Equal","value":"value1","effect":"NoSchedule"}]`,
-				MCPK8sSettingsResources:        `{"limits":{"cpu":"2","memory":"4Gi"}}`,
-				MCPK8sSettingsRuntimeClassName: "gvisor",
+				MCPK8sSettingsAffinity:             `{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"disktype","operator":"In","values":["ssd"]}]}]}}}`,
+				MCPK8sSettingsTolerations:          `[{"key":"key1","operator":"Equal","value":"value1","effect":"NoSchedule"}]`,
+				MCPK8sSettingsResources:            `{"limits":{"cpu":"2","memory":"4Gi"}}`,
+				MCPK8sSettingsRuntimeClassName:     "gvisor",
+				MCPK8sSettingsStorageClassName:     "fast-ssd",
+				MCPK8sSettingsNanobotWorkspaceSize: "5Gi",
 			},
 			expectError: false,
 			validateResult: func(t *testing.T, spec *v1.K8sSettingsSpec) {
@@ -103,6 +105,12 @@ func TestParsePodSchedulingSettingsFromHelm(t *testing.T) {
 				}
 				if spec.RuntimeClassName == nil || *spec.RuntimeClassName != "gvisor" {
 					t.Error("expected runtimeClassName to be 'gvisor'")
+				}
+				if spec.StorageClassName == nil || *spec.StorageClassName != "fast-ssd" {
+					t.Error("expected storageClassName to be 'fast-ssd'")
+				}
+				if spec.NanobotWorkspaceSize != "5Gi" {
+					t.Error("expected nanobotWorkspaceSize to be '5Gi'")
 				}
 			},
 		},

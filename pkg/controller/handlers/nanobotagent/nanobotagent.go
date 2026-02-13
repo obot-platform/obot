@@ -70,7 +70,7 @@ func (h *Handler) CreateMCPServer(req router.Request, resp router.Response) erro
 		}
 
 		// Check if default agent changed
-		expectedArgs := []string{"run"}
+		expectedArgs := []string{"run", "--state", ".nanobot/state/nanobot.db"}
 		if agent.Spec.DefaultAgent != "" {
 			expectedArgs = append(expectedArgs, "--agent", agent.Spec.DefaultAgent)
 		}

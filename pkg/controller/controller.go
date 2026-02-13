@@ -370,6 +370,8 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, podScheduling
 			k8sSettings.Spec.Tolerations = podSchedulingSettings.Tolerations
 			k8sSettings.Spec.Resources = podSchedulingSettings.Resources
 			k8sSettings.Spec.RuntimeClassName = podSchedulingSettings.RuntimeClassName
+			k8sSettings.Spec.StorageClassName = podSchedulingSettings.StorageClassName
+			k8sSettings.Spec.NanobotWorkspaceSize = podSchedulingSettings.NanobotWorkspaceSize
 		}
 
 		// PSA settings are always applied from environment/Helm (independent of SetViaHelm)
@@ -390,12 +392,16 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, podScheduling
 			!affinityEqual(k8sSettings.Spec.Affinity, podSchedulingSettings.Affinity) ||
 			!tolerationsEqual(k8sSettings.Spec.Tolerations, podSchedulingSettings.Tolerations) ||
 			!resourcesEqual(k8sSettings.Spec.Resources, podSchedulingSettings.Resources) ||
-			!runtimeClassNameEqual(k8sSettings.Spec.RuntimeClassName, podSchedulingSettings.RuntimeClassName) {
+			!classNameEqual(k8sSettings.Spec.RuntimeClassName, podSchedulingSettings.RuntimeClassName) ||
+			!classNameEqual(k8sSettings.Spec.StorageClassName, podSchedulingSettings.StorageClassName) ||
+			!workspaceSizeEqual(k8sSettings.Spec.NanobotWorkspaceSize, podSchedulingSettings.NanobotWorkspaceSize) {
 			k8sSettings.Spec.SetViaHelm = true
 			k8sSettings.Spec.Affinity = podSchedulingSettings.Affinity
 			k8sSettings.Spec.Tolerations = podSchedulingSettings.Tolerations
 			k8sSettings.Spec.Resources = podSchedulingSettings.Resources
 			k8sSettings.Spec.RuntimeClassName = podSchedulingSettings.RuntimeClassName
+			k8sSettings.Spec.StorageClassName = podSchedulingSettings.StorageClassName
+			k8sSettings.Spec.NanobotWorkspaceSize = podSchedulingSettings.NanobotWorkspaceSize
 			needsUpdate = true
 		}
 	} else if k8sSettings.Spec.SetViaHelm {
@@ -406,6 +412,8 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, podScheduling
 		k8sSettings.Spec.Tolerations = nil
 		k8sSettings.Spec.Resources = nil
 		k8sSettings.Spec.RuntimeClassName = nil
+		k8sSettings.Spec.StorageClassName = nil
+		k8sSettings.Spec.NanobotWorkspaceSize = ""
 		needsUpdate = true
 	}
 
@@ -450,7 +458,7 @@ func resourcesEqual(a, b *corev1.ResourceRequirements) bool {
 	return equality.Semantic.DeepEqual(a, b)
 }
 
-func runtimeClassNameEqual(a, b *string) bool {
+func classNameEqual(a, b *string) bool {
 	if a == nil && b == nil {
 		return true
 	}
@@ -458,6 +466,10 @@ func runtimeClassNameEqual(a, b *string) bool {
 		return false
 	}
 	return *a == *b
+}
+
+func workspaceSizeEqual(a, b string) bool {
+	return a == b
 }
 
 func psaSettingsEqual(a, b *v1.PodSecurityAdmissionSettings) bool {
