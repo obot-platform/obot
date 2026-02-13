@@ -20,7 +20,6 @@
 
 	let showRestartConfirm = $state(false);
 	let restarting = $state(false);
-	let cancelMessage = $state<() => Promise<void>>();
 
 	async function handleRestart() {
 		restarting = true;
