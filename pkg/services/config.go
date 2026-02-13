@@ -57,6 +57,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
@@ -297,7 +298,9 @@ func parsePodSchedulingSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, 
 	hasPodSettings := (opts.MCPK8sSettingsAffinity != "" && opts.MCPK8sSettingsAffinity != "{}") ||
 		(opts.MCPK8sSettingsTolerations != "" && opts.MCPK8sSettingsTolerations != "[]") ||
 		(opts.MCPK8sSettingsResources != "" && opts.MCPK8sSettingsResources != "{}") ||
-		opts.MCPK8sSettingsRuntimeClassName != ""
+		opts.MCPK8sSettingsRuntimeClassName != "" ||
+		opts.MCPK8sSettingsStorageClassName != "" ||
+		opts.MCPK8sSettingsNanobotWorkspaceSize != ""
 
 	if !hasPodSettings {
 		return nil, nil
@@ -331,6 +334,18 @@ func parsePodSchedulingSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, 
 
 	if opts.MCPK8sSettingsRuntimeClassName != "" {
 		spec.RuntimeClassName = &opts.MCPK8sSettingsRuntimeClassName
+	}
+
+	if opts.MCPK8sSettingsStorageClassName != "" {
+		storageClassName := opts.MCPK8sSettingsStorageClassName
+		spec.StorageClassName = &storageClassName
+	}
+
+	if opts.MCPK8sSettingsNanobotWorkspaceSize != "" {
+		if _, err := resource.ParseQuantity(opts.MCPK8sSettingsNanobotWorkspaceSize); err != nil {
+			return nil, fmt.Errorf("invalid nanobot workspace size from Helm: %w", err)
+		}
+		spec.NanobotWorkspaceSize = opts.MCPK8sSettingsNanobotWorkspaceSize
 	}
 
 	return spec, nil

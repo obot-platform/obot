@@ -3208,6 +3208,20 @@ func schema_obot_platform_obot_apiclient_types_K8sSettings(ref common.ReferenceC
 							Format:      "",
 						},
 					},
+					"storageClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StorageClassName specifies the StorageClass for nanobot workspace volumes",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"nanobotWorkspaceSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NanobotWorkspaceSize specifies the size for nanobot workspace volumes",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"podSecurityAdmission": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PodSecurityAdmission contains Pod Security Admission settings for the MCP namespace",
@@ -13984,6 +13998,20 @@ func schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref common.ReferenceCallb
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"storageClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StorageClassName specifies the StorageClass for nanobot workspace volumes",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"nanobotWorkspaceSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NanobotWorkspaceSize specifies the size for nanobot workspace volumes",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"podSecurityAdmission": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PodSecurityAdmission contains Pod Security Admission settings for the MCP namespace",

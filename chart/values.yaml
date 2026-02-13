@@ -290,6 +290,12 @@ mcpServerDefaults:
   # This allows running MCP servers with specific container runtimes (e.g., gVisor, Kata)
   runtimeClassName: ""
 
+  # mcpServerDefaults.storageClassName -- StorageClass name for nanobot workspace volumes
+  storageClassName: ""
+
+  # mcpServerDefaults.nanobotWorkspaceSize -- Size for nanobot workspace volumes (e.g., 1Gi)
+  nanobotWorkspaceSize: ""
+
 # nodeSelector -- Configure node selector for pod assignment
 nodeSelector: {}
 

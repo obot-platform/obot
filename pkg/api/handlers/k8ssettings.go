@@ -9,6 +9,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -67,6 +68,12 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 		}
 	}
 
+	if input.NanobotWorkspaceSize != "" {
+		if _, err := resource.ParseQuantity(input.NanobotWorkspaceSize); err != nil {
+			errs = append(errs, fmt.Errorf("invalid nanobotWorkspaceSize: %v", err))
+		}
+	}
+
 	var settings v1.K8sSettings
 	if err := req.Storage.Get(req.Context(), client.ObjectKey{
 		Namespace: req.Namespace(),
@@ -108,6 +115,18 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 		settings.Spec.RuntimeClassName = &input.RuntimeClassName
 	} else {
 		settings.Spec.RuntimeClassName = nil
+	}
+
+	if input.StorageClassName != "" {
+		settings.Spec.StorageClassName = &input.StorageClassName
+	} else {
+		settings.Spec.StorageClassName = nil
+	}
+
+	if input.NanobotWorkspaceSize != "" {
+		settings.Spec.NanobotWorkspaceSize = input.NanobotWorkspaceSize
+	} else {
+		settings.Spec.NanobotWorkspaceSize = ""
 	}
 
 	// PodSecurityAdmission settings are managed at initialization time (e.g. via Helm)
@@ -164,6 +183,14 @@ func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {
 
 	if settings.Spec.RuntimeClassName != nil {
 		result.RuntimeClassName = *settings.Spec.RuntimeClassName
+	}
+
+	if settings.Spec.StorageClassName != nil {
+		result.StorageClassName = *settings.Spec.StorageClassName
+	}
+
+	if settings.Spec.NanobotWorkspaceSize != "" {
+		result.NanobotWorkspaceSize = settings.Spec.NanobotWorkspaceSize
 	}
 
 	// Convert PSA settings

@@ -665,6 +665,8 @@ export interface K8sSettings {
 	tolerations?: string;
 	resources?: string;
 	runtimeClassName?: string;
+	storageClassName?: string;
+	nanobotWorkspaceSize?: string;
 	setViaHelm?: boolean;
 }
 
@@ -673,6 +675,8 @@ export interface K8sSettingsManifest {
 	tolerations?: string;
 	resources?: string;
 	runtimeClassName?: string;
+	storageClassName?: string;
+	nanobotWorkspaceSize?: string;
 }
 
 export interface ServerK8sSettings {

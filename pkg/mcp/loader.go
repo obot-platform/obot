@@ -36,27 +36,29 @@ type Options struct {
 	MCPImagePullSecrets     []string `usage:"The name of the image pull secret to use for pulling MCP images"`
 
 	// Kubernetes settings from Helm
-	MCPK8sSettingsAffinity         string `usage:"Affinity rules for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_AFFINITY"`
-	MCPK8sSettingsTolerations      string `usage:"Tolerations for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_TOLERATIONS"`
-	MCPK8sSettingsResources        string `usage:"Resource requests/limits for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_RESOURCES"`
-	MCPK8sSettingsRuntimeClassName string `usage:"RuntimeClass name for MCP server pods (e.g., gvisor, kata)" env:"OBOT_SERVER_MCPK8S_SETTINGS_RUNTIMECLASSNAME"`
+	MCPK8sSettingsAffinity             string `usage:"Affinity rules for MCP server pods (JSON)"`
+	MCPK8sSettingsTolerations          string `usage:"Tolerations for MCP server pods (JSON)"`
+	MCPK8sSettingsResources            string `usage:"Resource requests/limits for MCP server pods (JSON)"`
+	MCPK8sSettingsRuntimeClassName     string `usage:"RuntimeClass name for MCP server pods (e.g., gvisor, kata)"`
+	MCPK8sSettingsStorageClassName     string `usage:"StorageClass name for nanobot workspace volumes"`
+	MCPK8sSettingsNanobotWorkspaceSize string `usage:"Nanobot workspace size for MCP server pods (e.g., 1Gi)"`
 
 	// Obot service configuration for constructing internal service FQDN
-	ServiceName      string `usage:"The Kubernetes service name for the obot server" env:"OBOT_SERVER_SERVICE_NAME"`
-	ServiceNamespace string `usage:"The Kubernetes namespace where the obot server runs" env:"OBOT_SERVER_SERVICE_NAMESPACE"`
+	ServiceName      string `usage:"The Kubernetes service name for the obot server"`
+	ServiceNamespace string `usage:"The Kubernetes namespace where the obot server runs"`
 
 	// Audit log configuration
 	MCPAuditLogPersistIntervalSeconds int `usage:"The interval in seconds to persist MCP audit logs to the database" default:"5"`
 	MCPAuditLogsPersistBatchSize      int `usage:"The number of MCP audit logs to persist in a single batch" default:"1000"`
 
 	// Pod Security Admission configuration for MCP namespace
-	MCPPodSecurityEnabled        bool   `usage:"Enable Pod Security Admission labels on the MCP namespace" default:"true" env:"OBOT_SERVER_MCPPOD_SECURITY_ENABLED"`
-	MCPPodSecurityEnforce        string `usage:"Pod Security Standards level to enforce (privileged, baseline, or restricted)" default:"restricted" env:"OBOT_SERVER_MCPPOD_SECURITY_ENFORCE"`
-	MCPPodSecurityEnforceVersion string `usage:"Kubernetes version for the enforce policy" default:"latest" env:"OBOT_SERVER_MCPPOD_SECURITY_ENFORCE_VERSION"`
-	MCPPodSecurityAudit          string `usage:"Pod Security Standards level to audit (privileged, baseline, or restricted)" default:"restricted" env:"OBOT_SERVER_MCPPOD_SECURITY_AUDIT"`
-	MCPPodSecurityAuditVersion   string `usage:"Kubernetes version for the audit policy" default:"latest" env:"OBOT_SERVER_MCPPOD_SECURITY_AUDIT_VERSION"`
-	MCPPodSecurityWarn           string `usage:"Pod Security Standards level to warn about (privileged, baseline, or restricted)" default:"restricted" env:"OBOT_SERVER_MCPPOD_SECURITY_WARN"`
-	MCPPodSecurityWarnVersion    string `usage:"Kubernetes version for the warn policy" default:"latest" env:"OBOT_SERVER_MCPPOD_SECURITY_WARN_VERSION"`
+	MCPPodSecurityEnabled        bool   `usage:"Enable Pod Security Admission labels on the MCP namespace" default:"true"`
+	MCPPodSecurityEnforce        string `usage:"Pod Security Standards level to enforce (privileged, baseline, or restricted)" default:"restricted"`
+	MCPPodSecurityEnforceVersion string `usage:"Kubernetes version for the enforce policy" default:"latest"`
+	MCPPodSecurityAudit          string `usage:"Pod Security Standards level to audit (privileged, baseline, or restricted)" default:"restricted"`
+	MCPPodSecurityAuditVersion   string `usage:"Kubernetes version for the audit policy" default:"latest"`
+	MCPPodSecurityWarn           string `usage:"Pod Security Standards level to warn about (privileged, baseline, or restricted)" default:"restricted"`
+	MCPPodSecurityWarnVersion    string `usage:"Kubernetes version for the warn policy" default:"latest"`
 }
 
 type SessionManager struct {
@@ -351,6 +353,11 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 func clientID(server ServerConfig) string {
 	// The user ID and scope is not part of the client ID.
 	server.UserID = ""
+
+	if server.NanobotAgentName != "" {
+		// HACK: redeploy nanobot agent servers so they get a volume
+		server.NanobotAgentName += "with-volume"
+	}
 	return "mcp" + hash.Digest(server)
 }
 

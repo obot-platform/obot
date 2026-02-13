@@ -8,7 +8,7 @@ Obot is an open-source platform for implementing Model Context Protocol (MCP) te
 
 ## Tech Stack
 
-- **Backend**: Go 1.25.5 with PostgreSQL (pgx), MCP protocol (`github.com/modelcontextprotocol/go-sdk`), gptscript, Kubernetes client libraries
+- **Backend**: Go 1.26.0 with PostgreSQL (pgx), MCP protocol (`github.com/modelcontextprotocol/go-sdk`), gptscript, Kubernetes client libraries
 - **Frontend**: SvelteKit 5 with Vite, Tailwind CSS 4, TypeScript, CodeMirror 6, Milkdown (markdown editor)
 - **Documentation**: Docusaurus 3 (in `/docs`)
 
@@ -124,7 +124,7 @@ REST API handlers are in `/pkg/api/handlers/`. Each handler file corresponds to 
 
 ## Go Linting Configuration
 
-Uses golangci-lint v2.4.0 with these linters enabled: errcheck, govet, ineffassign, revive, staticcheck, thelper, unused, whitespace. Formatters: gofmt, goimports.
+Uses golangci-lint v2.9.0 with these linters enabled: errcheck, govet, ineffassign, revive, staticcheck, thelper, unused, whitespace. Formatters: gofmt, goimports.
 
 ## Module Structure
 
