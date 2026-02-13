@@ -370,16 +370,6 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 		r.lock.Unlock()
 	}
 
-	// Extract model from response if not already set
-	if r.model == "" {
-		responseModel := extractModelFromBody(line)
-		if responseModel != "" {
-			r.lock.Lock()
-			r.model = responseModel
-			r.lock.Unlock()
-		}
-	}
-
 	var n int
 	if len(prefix) > 0 {
 		n = copy(p, prefix)
