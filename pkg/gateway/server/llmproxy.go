@@ -260,6 +260,19 @@ func readBody(r *http.Request) (map[string]any, error) {
 	return m, nil
 }
 
+// extractModelFromBody extracts the model name from an arbitrary JSON payload or body,
+// checking top-level "model" first, then nested paths such as "message.model" and "response.model"
+// used by different providers or event/response shapes.
+func extractModelFromBody(body []byte) string {
+	if model := gjson.GetBytes(body, "model").String(); model != "" {
+		return model
+	}
+	if model := gjson.GetBytes(body, "message.model").String(); model != "" {
+		return model
+	}
+	return gjson.GetBytes(body, "response.model").String()
+}
+
 // copyBody returns a copy of the bytes in a request body.
 // If the copy was successful the request body is restored to its original state before returning so that
 // it can be reused.
@@ -290,7 +303,7 @@ type responseModifier struct {
 }
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
-	if resp.StatusCode != http.StatusOK || resp.Request.URL.Path != "/v1/chat/completions" {
+	if resp.StatusCode != http.StatusOK || (resp.Request.URL.Path != "/v1/chat/completions" && resp.Request.URL.Path != "/v1/messages" && resp.Request.URL.Path != "/v1/responses") {
 		return nil
 	}
 
@@ -323,22 +336,35 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 		line = rest
 	}
 
+	// Extract token usage from all known locations.
+	// Providers nest usage differently:
+	//   - OpenAI Chat Completions: top-level "usage"
+	//   - Anthropic message_start: "message.usage"
+	//   - Anthropic message_delta: top-level "usage" (cumulative)
+	//   - OpenAI Responses API:    "response.usage"
+	// Use max to handle cumulative token counts (e.g. Anthropic's message_delta
+	// reports cumulative output_tokens, not incremental).
 	usage := gjson.GetBytes(line, "usage")
-	promptTokens := usage.Get("prompt_tokens").Int()
-	promptTokens += usage.Get("input_tokens").Int()
-	completionTokens := usage.Get("completion_tokens").Int()
-	completionTokens += usage.Get("output_tokens").Int()
+	promptTokens := max(usage.Get("prompt_tokens").Int(), usage.Get("input_tokens").Int())
+	completionTokens := max(usage.Get("completion_tokens").Int(), usage.Get("output_tokens").Int())
 	totalTokens := usage.Get("total_tokens").Int()
 
-	if totalTokens == 0 {
-		totalTokens = promptTokens + completionTokens
+	if msgUsage := gjson.GetBytes(line, "message.usage"); msgUsage.Exists() {
+		promptTokens = max(promptTokens, msgUsage.Get("input_tokens").Int())
+		completionTokens = max(completionTokens, msgUsage.Get("output_tokens").Int())
+	}
+
+	if respUsage := gjson.GetBytes(line, "response.usage"); respUsage.Exists() {
+		promptTokens = max(promptTokens, respUsage.Get("input_tokens").Int())
+		completionTokens = max(completionTokens, respUsage.Get("output_tokens").Int())
+		totalTokens = max(totalTokens, respUsage.Get("total_tokens").Int())
 	}
 
 	if promptTokens > 0 || completionTokens > 0 || totalTokens > 0 {
 		r.lock.Lock()
-		r.promptTokens += int(promptTokens)
-		r.completionTokens += int(completionTokens)
-		r.totalTokens += int(totalTokens)
+		r.promptTokens = max(r.promptTokens, int(promptTokens))
+		r.completionTokens = max(r.completionTokens, int(completionTokens))
+		r.totalTokens = max(r.totalTokens, int(totalTokens))
 		r.lock.Unlock()
 	}
 
@@ -353,13 +379,17 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 
 func (r *responseModifier) Close() error {
 	r.lock.Lock()
+	totalTokens := r.totalTokens
+	if totalTokens == 0 {
+		totalTokens = r.promptTokens + r.completionTokens
+	}
 	activity := &types.RunTokenActivity{
 		Name:             r.runID,
 		UserID:           r.userID,
 		Model:            r.model,
 		PromptTokens:     r.promptTokens,
 		CompletionTokens: r.completionTokens,
-		TotalTokens:      r.totalTokens,
+		TotalTokens:      totalTokens,
 		PersonalToken:    r.personalToken,
 	}
 	r.lock.Unlock()
@@ -419,7 +449,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		return fmt.Errorf("failed to copy body: %w", err)
 	}
 
-	targetModel := gjson.GetBytes(body, "model").String()
+	targetModel := extractModelFromBody(body)
 	if targetModel != "" {
 		// Get the models matching the target model and provider.
 		var models v1.ModelList
