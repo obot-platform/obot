@@ -29,6 +29,7 @@
 	} from './utils';
 	import { twMerge } from 'tailwind-merge';
 	import { goto } from '$lib/url';
+	import StackedBarsChart from '$lib/components/charts/StackedBarsChart.svelte';
 
 	let loadingTableData = $state(true);
 	let loadingTotalTokensData = $state(true);
@@ -165,8 +166,28 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	const byTokenData = $derived.by(() => {
-		if (groupBy !== 'group_by_default') return [];
-		return aggregateByBucketDefaultInRange(filteredData, start, end);
+		return filteredData.flatMap((row) => {
+			const user = row.userID ?? row.runName;
+
+			return [
+				{
+					date: new Date(row.date),
+					tokenType: 'input_tokens',
+					tokenValue: row.promptTokens ?? 0,
+					user,
+					promptTokens: row.promptTokens ?? 0,
+					completionTokens: row.completionTokens ?? 0
+				},
+				{
+					date: new Date(row.date),
+					tokenType: 'output_tokens',
+					tokenValue: row.completionTokens ?? 0,
+					user,
+					promptTokens: row.promptTokens ?? 0,
+					completionTokens: row.completionTokens ?? 0
+				}
+			];
+		});
 	});
 
 	const byUserData = $derived.by(() => {
@@ -183,6 +204,8 @@
 			(k) => userKeyToLabel.get(k) ?? k
 		);
 	});
+
+	$inspect(filteredData, 'byTokenData');
 
 	const targetModelToDisplayName = $derived(
 		new Map(modelsData.map((m) => [m.targetModel, m.displayName || m.name]))
@@ -222,11 +245,13 @@
 			rows.push(r);
 		}
 		return [...byModel.entries()].map(([model, modelRows]) => {
-			const aggregated = aggregateByBucketDefaultInRange(modelRows, start, end);
 			return {
 				modelKey: model,
 				modelLabel: targetModelToDisplayName.get(model) ?? model,
-				data: aggregated.map((row) => ({ bucket: row.bucket, input_tokens: row.input_tokens }))
+				data: modelRows.flatMap((row) => [
+					{ date: new Date(row.date), tokenType: 'input_tokens', value: row.promptTokens ?? 0 },
+					{ date: new Date(row.date), tokenType: 'output_tokens', value: row.completionTokens ?? 0 }
+				])
 			};
 		});
 	});
@@ -248,16 +273,21 @@
 		const userKeyToLabel = getUserLabels(usersMap, userKeys);
 		return userKeys.map((userKey) => {
 			const userRows = byUser.get(userKey)!;
-			const aggregated = aggregateByBucketDefaultInRange(userRows, start, end);
 			return {
 				userKey,
 				userLabel: userKeyToLabel.get(userKey) ?? userKey,
-				data: aggregated.map((row) => ({ bucket: row.bucket, input_tokens: row.input_tokens }))
+				data: userRows.flatMap((row) => [
+					{ date: new Date(row.date), tokenType: 'input_tokens', value: row.promptTokens ?? 0 },
+					{ date: new Date(row.date), tokenType: 'output_tokens', value: row.completionTokens ?? 0 }
+				])
 			};
 		});
 	});
 
-	type GraphItem = { label: string; data: { bucket: string; input_tokens: number }[] };
+	type GraphItem = {
+		label: string;
+		data: { date: Date; tokenType: string; value: number }[];
+	};
 	const graphItems = $derived.by((): GraphItem[] => {
 		if (selectedSubview === 'models') {
 			return perModelPromptData.map(({ modelLabel, data }) => ({ label: modelLabel, data }));
@@ -417,7 +447,7 @@
 						onSelect={(option) => handleGroupByChange(option.id)}
 					/>
 				</div>
-				<StackedGraph
+				<!-- <StackedGraph
 					data={groupBy === 'group_by_default'
 						? byTokenData
 						: groupBy === 'group_by_users'
@@ -429,7 +459,18 @@
 							? colorsByModels
 							: undefined}
 					tweened
-				/>
+				/> -->
+
+				<div class="relative h-[500px] w-full">
+					<StackedBarsChart
+						{start}
+						{end}
+						data={byTokenData}
+						dateAccessor={(row) => row.date}
+						categoryAccessor={(row) => row.user}
+						groupAccessor={(items) => items.reduce((sum, item) => sum + (item.tokenValue ?? 0), 0)}
+					/>
+				</div>
 			</div>
 
 			<div class="relative mt-2 flex flex-col">
@@ -460,7 +501,21 @@
 						{#snippet children({ item })}
 							<div class="paper flex min-h-0 flex-col">
 								<h5 class="text-sm font-medium">{item.label}</h5>
-								<StackedGraph height={responsive.isMobile ? 210 : 240} data={item.data} />
+								<div class="relative" style="height: {responsive.isMobile ? 210 : 240}px;">
+									<StackedBarsChart
+										{start}
+										{end}
+										data={item.data}
+										dateAccessor={(row) => row.date}
+										categoryAccessor={(row) => {
+											if (groupBy === ' group_by_users') return row.user;
+
+											return row.tokenType;
+										}}
+										groupAccessor={(items) =>
+											items.reduce((sum, item) => sum + (item.value ?? 0), 0)}
+									/>
+								</div>
 							</div>
 						{/snippet}
 					</VirtualizedGrid>
