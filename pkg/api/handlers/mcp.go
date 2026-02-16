@@ -1725,12 +1725,24 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
-	existing.Spec.Manifest = updated
+	// Use retry.RetryOnConflict because controllers (e.g. DetectK8sSettingsDrift,
+	// UpdateMCPServerStatus) can update this MCPServer concurrently, bumping the
+	// ResourceVersion between our read and write.
+	if err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := req.Get(&existing, id); err != nil {
+			return err
+		}
 
-	// Add extracted env vars to the server definition
-	addExtractedEnvVars(&existing)
+		// Re-validate catalog/workspace membership after re-fetch, since a controller
+		// may have changed these fields between the initial check and this retry.
+		if existing.Spec.MCPCatalogID != catalogID || existing.Spec.PowerUserWorkspaceID != workspaceID {
+			return types.NewErrNotFound("MCP server not found")
+		}
 
-	if err = req.Update(&existing); err != nil {
+		existing.Spec.Manifest = updated
+		addExtractedEnvVars(&existing)
+		return req.Update(&existing)
+	}); err != nil {
 		return err
 	}
 
@@ -3096,9 +3108,27 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 		// Also update the K8sSettingsHash to the current expected hash so that the
 		// deployment handler won't re-set NeedsK8sUpdate when it observes the old
 		// deployment before the new one is created.
-		server.Status.NeedsK8sUpdate = false
-		server.Status.K8sSettingsHash = currentHash
-		if err := req.Storage.Status().Update(req.Context(), &server); err != nil {
+		//
+		// Use retry.RetryOnConflict because the RestartServerDeployment call above
+		// can trigger controller-side status updates (e.g. UpdateMCPServerStatus)
+		// that race with this write and bump the ResourceVersion.
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			var latest v1.MCPServer
+			if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
+				Namespace: req.Namespace(),
+				Name:      server.Name,
+			}, &latest); err != nil {
+				return err
+			}
+			latest.Status.NeedsK8sUpdate = false
+			latest.Status.K8sSettingsHash = currentHash
+			if err := req.Storage.Status().Update(req.Context(), &latest); err != nil {
+				return err
+			}
+			// Refresh server so the API response reflects the updated status.
+			server = latest
+			return nil
+		}); err != nil {
 			return fmt.Errorf("failed to update server status: %w", err)
 		}
 	}
