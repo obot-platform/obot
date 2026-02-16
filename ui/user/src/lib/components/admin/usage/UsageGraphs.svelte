@@ -1,12 +1,5 @@
 <script lang="ts">
-	import {
-		ChevronsLeft,
-		ChevronsRight,
-		Funnel,
-		ChartBarDecreasing,
-		X,
-		BarChart
-	} from 'lucide-svelte';
+	import { Funnel, ChartBarDecreasing, X } from 'lucide-svelte';
 	import {
 		AdminService,
 		type AuditLogURLFilters,
@@ -15,8 +8,6 @@
 		type UsageStatsFilters
 	} from '$lib/services';
 	import StatBar from '../StatBar.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import HorizontalBarGraph from '../../graph/HorizontalBarGraph.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { afterNavigate } from '$app/navigation';
 	import { goto } from '$lib/url';
@@ -30,7 +21,8 @@
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import AuditLogCalendar from '../audit-logs/AuditLogCalendar.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
-	import BarChartHorizontal from '$lib/components/charts/barChartHorizontal.svelte';
+	import StackedBarsChart from '$lib/components/charts/StackedBarsChart.svelte';
+	import type { Snippet } from 'svelte';
 
 	type Props = {
 		mcpId?: string | null;
@@ -38,18 +30,30 @@
 		mcpServerCatalogEntryName?: string | null;
 	};
 
+	type GraphDataItem = {
+		createdAt: Date;
+		mcpID: string;
+		mcpServerDisplayName: string;
+		mcpServerCatalogEntryName?: string;
+		toolName: string;
+		userID: string;
+		processingTimeMs: number;
+		responseStatus: number;
+		error: string;
+	};
+
 	type GraphConfig = {
 		id: string;
 		label: string;
-		xKey: string;
-		yKey: string;
-		formatXLabel?: (
-			d: Record<string, string | number>[keyof Record<string, string | number>]
-		) => string;
-		formatYLabel?: (d: Record<string, string | number>) => string;
-		formatTooltipValue?: (data: Record<string, string | number>) => string;
-		formatTooltipTitle?: (d: Record<string, string | number>) => string;
-		transform: (stats?: AuditLogUsageStats) => Array<Record<string, string | number>>;
+		dateAccessor: (d: GraphDataItem) => Date;
+		categoryAccessor: (d: GraphDataItem) => string;
+		groupAccessor?: (d: GraphDataItem[]) => number;
+		formatYLabel?: (d: GraphDataItem) => string;
+		tooltip?: Snippet<[{ category: string; value: number; date: Date; data: any }]>;
+	};
+
+	type GraphConfigWithRenderer = GraphConfig & {
+		renderer: Snippet<[{ data: GraphDataItem[]; config: GraphConfig }]>;
 	};
 
 	let { mcpId, mcpServerCatalogEntryName, mcpServerDisplayName }: Props = $props();
@@ -210,236 +214,109 @@
 
 	let showLoadingSpinner = $state(true);
 	let listUsageStats = $state<Promise<AuditLogUsageStats>>();
-	let graphPageSize = $state(10);
-	let graphPages = $state<Record<string, number>>({});
-	let graphData = $derived<Record<string, Record<string, string | number>[]>>({});
-	let graphTotals = $derived<Record<string, number>>({});
 	let showFilters = $state(false);
 	let rightSidebar = $state<HTMLDivElement>();
 
 	const usersMap = new SvelteMap<string, OrgUser>([]);
 	const usersAsArray = $derived(usersMap.values().toArray());
 
-	const graphConfigs: GraphConfig[] = [
+	let stats = $state<AuditLogUsageStats>();
+
+	const graphDataNew = $derived.by(() => {
+		const array: GraphDataItem[] = [];
+
+		for (const s of stats?.items ?? []) {
+			for (const call of s.toolCalls ?? []) {
+				for (const item of call.items ?? []) {
+					if (item.userID) {
+						array.push({
+							createdAt: new Date(item.createdAt),
+							mcpID: s.mcpID,
+							mcpServerDisplayName: s.mcpServerDisplayName,
+							mcpServerCatalogEntryName:
+								'mcpServerCatalogEntryName' in s
+									? (s['mcpServerCatalogEntryName'] as string)
+									: undefined,
+							toolName: call.toolName,
+							userID: item.userID,
+							processingTimeMs: item.processingTimeMs,
+							responseStatus: item.responseStatus,
+							error: item.error
+						});
+					}
+				}
+			}
+		}
+
+		return array.sort((a, b) => (a.createdAt as Date).getTime() - (b.createdAt as Date).getTime());
+	});
+
+	let responseTimeView = $state<'average' | 'individual'>('average');
+
+	const graphConfigs: GraphConfigWithRenderer[] = [
 		{
 			id: 'most-frequent-tool-calls',
 			label: 'Most Frequent Tool Calls',
-			xKey: 'toolName',
-			yKey: 'count',
-			formatYLabel: (d) => d['toolName'].split('.').slice(1).join('.'),
-			formatTooltipValue: (d) => {
-				const name = d['toolName'].split('.').slice(1).join('.');
-				return `${d.count} calls • ${name}`;
+			dateAccessor: (d) => d.createdAt,
+			categoryAccessor: (d) => d.toolName,
+			groupAccessor: (d) => {
+				return d.length;
 			},
-			formatTooltipTitle: (data) => data.serverDisplayName,
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const counts = new Map<string, { count: number; serverDisplayName: string }>();
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						const key = `${s.mcpServerDisplayName}.${call.toolName}`;
-						const existing = counts.get(key) ?? {
-							count: 0,
-							serverDisplayName: s.mcpServerDisplayName
-						};
-						existing.count += call.callCount;
-						counts.set(key, existing);
-					}
-				}
-				return Array.from(counts.entries())
-					.map(([toolName, { count, serverDisplayName }]) => ({
-						toolName,
-						count,
-						serverDisplayName
-					}))
-					.sort((a, b) => b.count - a.count);
-			}
+			tooltip: unifiedTooltip,
+			renderer: defaultChartSnippet
 		},
 		{
 			id: 'most-frequently-used-servers',
 			label: 'Most Frequently Used Servers',
-			xKey: 'serverName',
-			yKey: 'count',
-			formatTooltipValue: (data) => `${data.count} calls`,
-			formatTooltipTitle: (data) => data.serverName as string,
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const counts = new Map<string, number>();
-				for (const s of stats?.items ?? []) {
-					const total = (s.toolCalls ?? []).reduce((sum, t) => sum + t.callCount, 0);
-					if (total > 0) {
-						counts.set(s.mcpServerDisplayName, (counts.get(s.mcpServerDisplayName) ?? 0) + total);
-					}
-				}
-				return Array.from(counts.entries())
-					.map(([serverName, count]) => ({ serverName, count }))
-					.sort((a, b) => b.count - a.count);
-			}
+			dateAccessor: (d) => d.createdAt,
+			categoryAccessor: (d) => d.mcpServerDisplayName,
+			groupAccessor: (d) => {
+				return d.length;
+			},
+			tooltip: unifiedTooltip,
+			renderer: defaultChartSnippet
 		},
 		{
 			id: 'tool-call-average-response-time',
-			label: 'Tool Call Average Response Time',
-			xKey: 'toolName',
-			yKey: 'averageResponseTimeMs',
-			formatYLabel: (d) => d['toolName'].split('.').slice(1).join('.'),
-			formatTooltipValue: (data) => `${(data.averageResponseTimeMs as number).toFixed(2)}ms avg`,
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const responseTimes = new Map<
-					string,
-					{ total: number; count: number; serverDisplayName: string }
-				>();
-
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						const key = `${s.mcpServerDisplayName}.${call.toolName}`;
-						for (const item of call.items ?? []) {
-							const entry = responseTimes.get(key) ?? {
-								total: 0,
-								count: 0,
-								serverDisplayName: s.mcpServerDisplayName
-							};
-							entry.total += item.processingTimeMs;
-							entry.count += 1;
-							responseTimes.set(key, entry);
-						}
-					}
+			label: 'Tool Call Response Time',
+			dateAccessor: (d) => d.createdAt,
+			categoryAccessor: (d) => d.toolName,
+			groupAccessor: (d) => {
+				if (responseTimeView === 'individual') {
+					return d.reduce((acc, item) => acc + (item.processingTimeMs as number), 0);
 				}
 
-				return Array.from(responseTimes.entries())
-					.map(([toolName, { total, count, serverDisplayName }]) => ({
-						toolName,
-						averageResponseTimeMs: count > 0 ? total / count : 0,
-						serverDisplayName
-					}))
-					.sort((a, b) => b.averageResponseTimeMs - a.averageResponseTimeMs);
-			}
-		},
-		{
-			id: 'tool-call-individual-response-time',
-			label: 'Tool Call Individual Response Time',
-			xKey: 'toolName',
-			yKey: 'processingTimeMs',
-			formatYLabel: (d) => d['toolName'].split('.').slice(1).join('.'),
-			formatTooltipValue: (data) => `${(data.processingTimeMs as number).toFixed(2)}ms`,
-			transform: (stats) => {
-				const rows = [];
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						for (const [itemIndex, item] of (call.items ?? []).entries()) {
-							rows.push({
-								toolName: `${s.mcpServerDisplayName}.${s.mcpID}.${itemIndex}.${call.toolName}`,
-								processingTimeMs: item.processingTimeMs,
-								serverDisplayName: s.mcpServerDisplayName
-							});
-						}
-					}
-				}
-				return rows.sort((a, b) => b.processingTimeMs - a.processingTimeMs);
-			}
+				return d.reduce((acc, item) => acc + (item.processingTimeMs as number), 0) / d.length;
+			},
+			tooltip: toolCallResponseTimeTooltip,
+			renderer: toolCallResponseTimeGraph
 		},
 		{
 			id: 'tool-call-errors',
 			label: 'Tool Call Errors',
-			xKey: 'toolName',
-			yKey: 'errorCount',
-			formatYLabel: (d) => {
-				// Just grab the tool name
-				const parts = String(d['toolName']).split('.');
-				return parts[parts.length - 1];
-			},
-			formatTooltipValue: (data) => `${data.errorCount} errors`,
-			formatTooltipTitle: (data) => data['toolName'] as string,
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const errorCounts = new Map<string, { errorCount: number; serverDisplayName: string }>();
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						const key = `${s.mcpServerDisplayName}.${call.toolName}`;
-						let count = 0;
-						for (const item of call.items ?? []) {
-							if (item.error || item.responseStatus >= 400) count++;
-						}
-						if (count > 0) {
-							const existing = errorCounts.get(key) ?? {
-								errorCount: 0,
-								serverDisplayName: s.mcpServerDisplayName
-							};
-							existing.errorCount += count;
-							errorCounts.set(key, existing);
-						}
-					}
-				}
-				return Array.from(errorCounts.entries())
-					.filter(([_, { errorCount }]) => errorCount > 0)
-					.map(([toolName, { errorCount, serverDisplayName }]) => ({
-						toolName,
-						errorCount,
-						serverDisplayName
-					}))
-					.sort((a, b) => b.errorCount - a.errorCount);
-			}
+			dateAccessor: (d) => d.createdAt,
+			categoryAccessor: (d) => d.toolName,
+			groupAccessor: (d) => d.filter((d) => Boolean(d.error)).length,
+			tooltip: unifiedTooltip,
+			renderer: defaultChartSnippet
 		},
 		{
 			id: 'tool-call-errors-by-server',
 			label: 'Tool Call Errors by Server',
-			xKey: 'serverName',
-			yKey: 'errorCount',
-			formatTooltipValue: (data) => `${data.errorCount} errors`,
-			formatTooltipTitle: (data) => data.serverName as string,
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const errorCounts = new Map<string, number>();
-				for (const s of stats?.items ?? []) {
-					let count = 0;
-					for (const call of s.toolCalls ?? []) {
-						for (const item of call.items ?? []) {
-							if (item.error || item.responseStatus >= 400) count++;
-						}
-					}
-					if (count > 0) {
-						errorCounts.set(
-							s.mcpServerDisplayName,
-							(errorCounts.get(s.mcpServerDisplayName) ?? 0) + count
-						);
-					}
-				}
-				return Array.from(errorCounts.entries())
-					.map(([serverName, errorCount]) => ({ serverName, errorCount }))
-					.sort((a, b) => b.errorCount - a.errorCount);
-			}
+			dateAccessor: (d) => d.createdAt,
+			categoryAccessor: (d) => d.mcpServerDisplayName,
+			groupAccessor: (d) => d.filter((d) => Boolean(d.error)).length,
+			tooltip: unifiedTooltip,
+			renderer: defaultChartSnippet
 		},
 		{
 			id: 'most-active-users',
 			label: 'Most Active Users',
-			xKey: 'userId',
-			yKey: 'callCount',
-			formatTooltipValue: (data) => `${data.callCount} calls`,
-			formatTooltipTitle: (d) => {
-				const userId = d['userId'];
-				const user = usersAsArray.find((u) => u.id === userId);
-				return userDisplayName(user);
-			},
-			formatYLabel: (d) => {
-				const userId = d['userId'];
-				const user = usersAsArray.find((u) => u.id === userId);
-				return userDisplayName(user);
-			},
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const userCounts = new Map<string, number>();
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						for (const item of call.items ?? []) {
-							const count = userCounts.get(item.userID) ?? 0;
-							userCounts.set(item.userID, count + 1);
-						}
-					}
-				}
-				return Array.from(userCounts.entries())
-					.map(([userId, callCount]) => ({ userId, callCount }))
-					.sort((a, b) => b.callCount - a.callCount);
-			}
+			dateAccessor: (d) => d.createdAt,
+			categoryAccessor: (d) => d.userID,
+			groupAccessor: (d) => d.length,
+			tooltip: usersTooltip,
+			renderer: defaultChartSnippet
 		}
 	];
 
@@ -509,31 +386,12 @@
 	});
 
 	async function updateGraphs() {
-		const stats = await listUsageStats;
-		const data: Record<string, Record<string, string | number>[]> = {};
-		const totals: Record<string, number> = {};
-
-		for (const cfg of filteredGraphConfigs) {
-			const rows = cfg.transform(stats);
-			data[cfg.id] = rows;
-			totals[cfg.id] = rows.length;
-		}
-
-		graphData = data;
-		graphTotals = totals;
-	}
-
-	function setGraphPage(id: string, p: number) {
-		graphPages[id] = p;
+		stats = await listUsageStats;
 	}
 
 	function handleRightSidebarClose() {
 		rightSidebar?.hidePopover();
 		showFilters = false;
-	}
-
-	function hasData(graphConfigs: GraphConfig[]) {
-		return graphConfigs.some((cfg) => graphTotals[cfg.id] ?? 0 > 0);
 	}
 
 	function getFilterDisplayLabel(key: string) {
@@ -601,6 +459,156 @@
 	}
 </script>
 
+{#snippet unifiedTooltip(data, unit = undefined)}
+	{@const typeOfValue = typeof data.value}
+
+	<div class="flex flex-col gap-2">
+		<div class="flex flex-col gap-0">
+			{#if data?.date}
+				{@const formattedDate = new Date(data.date).toLocaleString(undefined, {
+					year: 'numeric',
+					month: 'short',
+					day: 'numeric',
+					hour: '2-digit',
+					minute: '2-digit'
+				})}
+				<div class="text-xs opacity-70">
+					{formattedDate}
+				</div>
+			{/if}
+			{#if data?.category}
+				<div class="text-sm font-semibold">
+					{data.category}
+				</div>
+			{/if}
+		</div>
+		{#if data?.value !== undefined}
+			<div class="text-sm font-medium">
+				<span>
+					{#if typeOfValue === 'number'}
+						{data.value.toLocaleString()}
+					{:else}
+						{data.value}
+					{/if}
+				</span>
+
+				{#if unit}
+					<span>{unit}</span>
+				{/if}
+			</div>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet toolCallResponseTimeTooltip(data)}
+	{@render unifiedTooltip(data, 'ms')}
+{/snippet}
+
+{#snippet usersTooltip(data)}
+	{@const displayName = getUserDisplayName(usersMap, String(data.value))}
+
+	<div class="flex flex-col gap-2">
+		<div class="flex flex-col gap-0">
+			{#if data?.date}
+				{@const formattedDate = new Date(data.date).toLocaleString(undefined, {
+					year: 'numeric',
+					month: 'short',
+					day: 'numeric',
+					hour: '2-digit',
+					minute: '2-digit'
+				})}
+				<div class="text-xs opacity-70">
+					{formattedDate}
+				</div>
+			{/if}
+			{#if data?.category}
+				<div class="text-sm font-semibold">
+					{data.category}
+				</div>
+			{/if}
+		</div>
+		{#if data?.value !== undefined}
+			<div class="text-sm font-medium">
+				<span>
+					{displayName}
+				</span>
+			</div>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet defaultChartSnippet({
+	data = [],
+	config,
+	views
+}: {
+	data: GraphDataItem[];
+	config: GraphConfig;
+	views?: Snippet;
+})}
+	<div
+		class="dark:bg-surface1 dark:border-surface3 bg-background rounded-md border border-transparent p-6 shadow-sm"
+	>
+		<div class="flex justify-between gap-4">
+			<h3 class="mb-4 text-lg font-semibold">{config.label}</h3>
+			{#if views}
+				{@render views()}
+			{/if}
+		</div>
+
+		<div class="h-[300px] min-h-[300h]">
+			{#if data.length > 0}
+				<StackedBarsChart
+					start={new Date(filters.start_time)}
+					end={new Date(filters.end_time)}
+					{data}
+					dateAccessor={config.dateAccessor}
+					categoryAccessor={config.categoryAccessor}
+					groupAccessor={config.groupAccessor ?? ((d) => d.length)}
+					tooltip={config.tooltip}
+				/>
+			{:else if !showLoadingSpinner}
+				<div class="text-on-surface1 flex h-[300px] items-center justify-center text-sm font-light">
+					No data available
+				</div>
+			{/if}
+		</div>
+	</div>
+{/snippet}
+
+{#snippet toolCallReponseTimeViews()}
+	<div class="flex gap-2">
+		<button
+			class="button h-8 px-3 py-1 text-sm"
+			class:button-primary={responseTimeView === 'average'}
+			onclick={() => (responseTimeView = 'average')}
+		>
+			Average
+		</button>
+		<button
+			class="button h-8 px-3 py-1 text-sm"
+			class:button-primary={responseTimeView === 'individual'}
+			onclick={() => (responseTimeView = 'individual')}
+		>
+			Individual
+		</button>
+	</div>
+{/snippet}
+
+{#snippet toolCallResponseTimeGraph({
+	data,
+	config
+}: {
+	data: GraphDataItem[];
+	config: GraphConfig;
+})}
+	{@render defaultChartSnippet({
+		data,
+		config,
+		views: toolCallReponseTimeViews
+	})}
+{/snippet}
+
 {#if showLoadingSpinner}
 	<div
 		class="absolute inset-0 z-10 flex items-center justify-center"
@@ -649,7 +657,7 @@
 		</div>
 	</div>
 
-	{#if !showLoadingSpinner && !hasData(filteredGraphConfigs)}
+	{#if !showLoadingSpinner && !graphDataNew.length}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<ChartBarDecreasing class="text-on-surface1 size-24 opacity-50" />
 			<h4 class="text-on-surface1 text-lg font-semibold">No usage stats</h4>
@@ -661,75 +669,17 @@
 	{:else if !showLoadingSpinner}
 		<div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
 			{#each filteredGraphConfigs as cfg (cfg.id)}
-				{@const full = graphData[cfg.id] ?? []}
-				{@const total = graphTotals[cfg.id] ?? 0}
-				{@const page = graphPages[cfg.id] ?? 0}
-				{@const maxPage = Math.max(0, Math.ceil(total / graphPageSize) - 1)}
-				{@const paginated = full.slice(page * graphPageSize, (page + 1) * graphPageSize)}
-
-				{@const xAccessor = (d: Record<string, string | number>) => parseInt(d[cfg.yKey])}
-				{@const yAccessor = (d: Record<string, string | number>) => d[cfg.xKey]}
-				<div
-					class="dark:bg-surface1 dark:border-surface3 bg-background rounded-md border border-transparent p-6 shadow-sm"
-				>
-					<h3 class="mb-4 text-lg font-semibold">{cfg.label}</h3>
-
-					<div class="h-[300px] min-h-[300h]">
-						{#if paginated.length > 0}
-							<!-- <HorizontalBarGraph
-								data={paginated}
-								x={cfg.xKey}
-								y={cfg.yKey}
-								padding={10}
-								formatTooltipText={cfg.formatTooltipText ||
-									((d) => `${d[cfg.yKey]} ${cfg.tooltip}`)}
-								formatXLabel={cfg.formatXLabel}
-							/> -->
-
-							<BarChartHorizontal
-								data={paginated}
-								xGet={xAccessor}
-								yGet={yAccessor}
-								formatTooltipValue={cfg.formatTooltipValue}
-								formatTooltipTitle={cfg.formatTooltipTitle}
-								formatYLabel={cfg.formatYLabel}
-							/>
-						{:else if !showLoadingSpinner}
-							<div
-								class="text-on-surface1 flex h-[300px] items-center justify-center text-sm font-light"
-							>
-								No data available
-							</div>
-						{/if}
-					</div>
-
-					{#if maxPage > 0}
-						<div
-							class="mt-4 flex items-center justify-center gap-4 border-t border-gray-200 p-4 pb-0 dark:border-gray-700"
-						>
-							<button
-								class="icon-button"
-								onclick={() => setGraphPage(cfg.id, Math.max(0, page - 1))}
-								disabled={page === 0}
-								use:tooltip={'Previous Page'}
-							>
-								<ChevronsLeft class="size-5" />
-							</button>
-							<span class="text-sm">
-								Page {page + 1} of {maxPage + 1}
-								(showing {Math.min(graphPageSize, total - page * graphPageSize)} of {total} items)
-							</span>
-							<button
-								class="icon-button"
-								onclick={() => setGraphPage(cfg.id, Math.min(maxPage, page + 1))}
-								disabled={page >= maxPage}
-								use:tooltip={'Next Page'}
-							>
-								<ChevronsRight class="size-5" />
-							</button>
-						</div>
-					{/if}
-				</div>
+				{@render cfg.renderer({
+					data: $state.snapshot(graphDataNew),
+					config: {
+						id: cfg.id,
+						label: cfg.label,
+						dateAccessor: cfg.dateAccessor,
+						categoryAccessor: cfg.categoryAccessor,
+						groupAccessor: cfg.groupAccessor,
+						tooltip: cfg.tooltip
+					}
+				})}
 			{/each}
 		</div>
 	{/if}
