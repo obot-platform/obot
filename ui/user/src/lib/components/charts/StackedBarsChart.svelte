@@ -43,6 +43,7 @@
 			category: string;
 			value: number;
 			data: any;
+			color: string;
 			group: any[];
 		}>;
 		total: number;
@@ -798,6 +799,7 @@
 							category: string;
 							value: number;
 							data: { dateKey: string };
+							color: string;
 							group: any[];
 						}>;
 						total: number;
@@ -822,6 +824,7 @@
 										category,
 										value,
 										data: { dateKey },
+										color: colorScale(category),
 										group: items
 									};
 								})
