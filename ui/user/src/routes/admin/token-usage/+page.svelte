@@ -29,7 +29,10 @@
 	} from './utils';
 	import { twMerge } from 'tailwind-merge';
 	import { goto } from '$lib/url';
-	import StackedBarsChart from '$lib/components/charts/StackedBarsChart.svelte';
+	import StackedBarsChart, {
+		type TooltipArg,
+		type StackedBarsChartProps
+	} from '$lib/components/charts/StackedBarsChart.svelte';
 
 	let loadingTableData = $state(true);
 	let loadingTotalTokensData = $state(true);
@@ -165,7 +168,7 @@
 	});
 	const duration = PAGE_TRANSITION_DURATION;
 
-	const byTokenData = $derived.by(() => {
+	const preparedData = $derived.by(() => {
 		return filteredData.flatMap((row) => {
 			const user = row.userID ?? row.runName;
 
@@ -176,7 +179,9 @@
 					tokenValue: row.promptTokens ?? 0,
 					user,
 					promptTokens: row.promptTokens ?? 0,
-					completionTokens: row.completionTokens ?? 0
+					completionTokens: row.completionTokens ?? 0,
+					runName: row.runName,
+					model: row.model
 				},
 				{
 					date: new Date(row.date),
@@ -184,7 +189,9 @@
 					tokenValue: row.completionTokens ?? 0,
 					user,
 					promptTokens: row.promptTokens ?? 0,
-					completionTokens: row.completionTokens ?? 0
+					completionTokens: row.completionTokens ?? 0,
+					runName: row.runName,
+					model: row.model
 				}
 			];
 		});
@@ -205,8 +212,6 @@
 		);
 	});
 
-	$inspect(filteredData, 'byTokenData');
-
 	const targetModelToDisplayName = $derived(
 		new Map(modelsData.map((m) => [m.targetModel, m.displayName || m.name]))
 	);
@@ -222,13 +227,45 @@
 		);
 	});
 
-	const colorsByUsers = $derived.by(() =>
-		buildStackedSeriesColors(byUserData as Record<string, unknown>[], colors, othersColor)
-	);
+	const colorsByUsers = $derived.by(() => {
+		const uniqueUsers = [...new Set(preparedData.map((d) => d.user))].filter(Boolean);
+		// buildStackedSeriesColors expects keys with _input_tokens/_output_tokens suffixes
+		const mockRow: Record<string, unknown> = { bucket: 'mock' };
+		for (const user of uniqueUsers) {
+			mockRow[`${user}_input_tokens`] = 0;
+			mockRow[`${user}_output_tokens`] = 0;
+		}
 
-	const colorsByModels = $derived.by(() =>
-		buildStackedSeriesColors(byModelData as Record<string, unknown>[], colors, othersColor)
-	);
+		return buildStackedSeriesColors([mockRow], colors, othersColor).reduce(
+			(acc, { key, color }) => {
+				// Extract the user ID by removing the suffix
+				const user = key.replace(/_input_tokens$|_output_tokens$/, '');
+				acc[user] = color;
+				return acc;
+			},
+			{} as Record<string, string>
+		);
+	});
+
+	const colorsByModels = $derived.by(() => {
+		const uniqueModels = [...new Set(preparedData.map((d) => d.model))].filter(Boolean);
+		// buildStackedSeriesColors expects keys with _input_tokens/_output_tokens suffixes
+		const mockRow: Record<string, unknown> = { bucket: 'mock' };
+		for (const model of uniqueModels) {
+			mockRow[`${model}_input_tokens`] = 0;
+			mockRow[`${model}_output_tokens`] = 0;
+		}
+
+		return buildStackedSeriesColors([mockRow], colors, othersColor).reduce(
+			(acc, { key, color }) => {
+				// Extract the model name by removing the suffix
+				const model = key.replace(/_input_tokens$|_output_tokens$/, '');
+				acc[model] = color;
+				return acc;
+			},
+			{} as Record<string, string>
+		);
+	});
 
 	const perModelPromptData = $derived.by(() => {
 		if (!filteredData.length) return [];
@@ -375,6 +412,129 @@
 	]);
 </script>
 
+{#snippet defaultChartTooltip(arg: TooltipArg)}
+	{@const categoryLabel =
+		arg.category === 'input_tokens'
+			? 'Input Tokens'
+			: arg.category === 'output_tokens'
+				? 'Output Tokens'
+				: arg.category}
+
+	<div class="text-md text-base-content/50 flex flex-col gap-1">
+		{#if arg?.date}
+			<div class="text-xs">
+				{arg.date.toLocaleDateString(undefined, {
+					year: 'numeric',
+					month: 'short',
+					day: 'numeric',
+					hour: '2-digit',
+					minute: '2-digit'
+				})}
+			</div>
+		{/if}
+
+		{#if arg?.category}
+			<div class="text-base-content text-lg font-semibold">{categoryLabel}</div>
+		{/if}
+
+		{#if arg?.value !== undefined}
+			<div class="text-base-content text-xl">
+				{arg.value.toLocaleString()} tokens
+			</div>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet groupByUsersChartTooltip(arg: TooltipArg)}
+	{@const items = arg.group ?? []}
+	{@const input = items.reduce((s, i) => s + (i.promptTokens ?? 0), 0)}
+	{@const output = items.reduce((s, i) => s + (i.completionTokens ?? 0), 0)}
+	{@const total = input + output}
+	{@const userDisplayName =
+		usersMap.get(arg.category ?? '')?.displayName ?? arg.category ?? 'Unknown'}
+
+	<div class="text-md text-base-content/50 flex flex-col gap-1">
+		{#if arg?.date}
+			<div class="text-xs">
+				{arg.date.toLocaleDateString(undefined, {
+					year: 'numeric',
+					month: 'short',
+					day: 'numeric',
+					hour: '2-digit',
+					minute: '2-digit'
+				})}
+			</div>
+		{/if}
+
+		{#if arg?.category}
+			<div class="text-base-content text-xl font-semibold">User: {userDisplayName}</div>
+		{/if}
+
+		{#if arg?.value !== undefined}
+			<div class="">
+				Total: <span class="text-base-content text-lg">{total.toLocaleString()}</span> tokens
+			</div>
+		{/if}
+
+		{#if items.length > 0}
+			<div class="text-md">
+				Input: <span class="text-base-content">{input.toLocaleString()}</span> | Output:
+				<span class="text-base-content">{output.toLocaleString()}</span>
+			</div>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet promptCompletionStackedGraph()}
+	{@const [categoryAccessor, groupAccessor, colorScheme, tooltip] = (() => {
+		type Datum = (typeof preparedData)[number];
+		type ChartProps = StackedBarsChartProps<Datum>;
+
+		type CategoryAccessor = ChartProps['categoryAccessor'];
+		type GroupAccessor = ChartProps['groupAccessor'];
+		type Tooltip = ChartProps['tooltip'];
+
+		type Result = [CategoryAccessor, GroupAccessor, Record<string, string>?, Tooltip?];
+
+		if (groupBy === 'group_by_users')
+			return [
+				(row) => row.user,
+				(items) => items.reduce((sum, item) => sum + (item.tokenValue ?? 0), 0),
+				colorsByUsers,
+				groupByUsersChartTooltip
+			] as Result;
+		if (groupBy === 'group_by_models')
+			return [
+				(row) => row.model,
+				(items) => items.reduce((sum, item) => sum + (item.tokenValue ?? 0), 0),
+				colorsByModels,
+				defaultChartTooltip
+			] as Result;
+
+		return [
+			(row) => row.tokenType,
+			(items) => items.reduce((sum, item) => sum + (item.tokenValue ?? 0), 0),
+			undefined,
+			defaultChartTooltip
+		] as Result;
+	})()}
+
+	<StackedBarsChart
+		{start}
+		{end}
+		data={preparedData}
+		dateAccessor={(row) => row.date}
+		{categoryAccessor}
+		{groupAccessor}
+		{colorScheme}
+		{tooltip}
+	/>
+{/snippet}
+
+<!-- ============================================================================ -->
+<!-- PAGE LAYOUT & CONTENT                                                        -->
+<!-- ============================================================================ -->
+
 <Layout
 	title="Token Usage"
 	classes={{
@@ -428,8 +588,8 @@
 				<div class="bg-surface3 hidden h-8 w-0.5 md:block"></div>
 				<AuditLogCalendar {start} {end} onChange={handleDateRangeChange} />
 			</div>
-			<div class="paper w-full gap-0">
-				<div class="mb-1 flex justify-between gap-2">
+			<div class="paper w-full gap-4">
+				<div class="mb-1 flex items-center justify-between gap-4">
 					<h4 class="flex items-center gap-2 self-start font-semibold">
 						Prompt & Completion Tokens
 						{#if loadingTableData}
@@ -462,14 +622,7 @@
 				/> -->
 
 				<div class="relative h-[500px] w-full">
-					<StackedBarsChart
-						{start}
-						{end}
-						data={byTokenData}
-						dateAccessor={(row) => row.date}
-						categoryAccessor={(row) => row.user}
-						groupAccessor={(items) => items.reduce((sum, item) => sum + (item.tokenValue ?? 0), 0)}
-					/>
+					{@render promptCompletionStackedGraph()}
 				</div>
 			</div>
 
@@ -514,6 +667,7 @@
 										}}
 										groupAccessor={(items) =>
 											items.reduce((sum, item) => sum + (item.value ?? 0), 0)}
+										tooltip={defaultChartTooltip}
 									/>
 								</div>
 							</div>
