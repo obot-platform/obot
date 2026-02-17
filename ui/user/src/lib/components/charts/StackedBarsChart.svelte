@@ -33,8 +33,8 @@
 		date?: Date;
 		category?: string;
 		value: number;
-		data: any;
-		group: any[];
+		data: unknown;
+		group: unknown[];
 	};
 
 	export type StackTooltipArg = {
@@ -42,9 +42,9 @@
 		segments: Array<{
 			category: string;
 			value: number;
-			data: any;
+			data: unknown;
 			color: string;
-			group: any[];
+			group: unknown[];
 		}>;
 		total: number;
 	};
@@ -75,7 +75,7 @@
 		legend?: 'internal' | Snippet<[{ category: string; color: string }[]]>;
 	}
 
-	function compilePadding(input?: StackedBarsChartProps<any>['padding']) {
+	function compilePadding(input?: StackedBarsChartProps<unknown>['padding']) {
 		/** Declare default padding values */
 		const defaultTop = 8;
 		const defaultRight = 8;
@@ -175,7 +175,7 @@
 		stackTooltip,
 		emptyYAxisContent,
 		legend
-	}: StackedBarsChartProps<any> = $props();
+	}: StackedBarsChartProps<unknown> = $props();
 
 	let highlightedRectElement = $state<SVGRectElement>();
 	let tooltipData = $state<TooltipArg>();
@@ -382,7 +382,7 @@
 			return startOfYear(d);
 		};
 
-		return (d: any) => {
+		return (d: unknown) => {
 			const dateValue = dateAccessor(d);
 			const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
 			return round(date).toISOString();
@@ -514,7 +514,7 @@
 			.keys(categories)
 			.value((d, key) => {
 				const grouped = (d[1] as unknown as Map<string, number>).get(key) as unknown as
-					| [number, any]
+					| [number, unknown]
 					| undefined;
 				return grouped?.[0] ?? 0;
 			});
@@ -880,7 +880,7 @@
 								value: number;
 								data: { dateKey: string };
 								color: string;
-								group: any[];
+								group: unknown[];
 							}>;
 							total: number;
 						};
@@ -905,7 +905,7 @@
 											value,
 											data: { dateKey },
 											color: colorScale(category),
-											group: items
+											group: items as unknown[]
 										};
 									})
 									.filter((s): s is NonNullable<typeof s> => s !== null);
