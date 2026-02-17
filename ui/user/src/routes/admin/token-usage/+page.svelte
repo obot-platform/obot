@@ -17,16 +17,10 @@
 	} from '$lib/services';
 	import { onMount } from 'svelte';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
-	import StackedGraph from '$lib/components/graph/StackedGraph.svelte';
 	import VirtualizedGrid from './VirtualizedGrid.svelte';
 	import { errors, responsive } from '$lib/stores';
 	import { buildPaletteFromPrimary, hslToHex, parseColorToHsl } from '$lib/colors';
-	import {
-		aggregateByBucketDefaultInRange,
-		aggregateByBucketGroupedInRange,
-		buildStackedSeriesColors,
-		getUserLabels
-	} from './utils';
+	import { buildStackedSeriesColors, getUserLabels } from './utils';
 	import { twMerge } from 'tailwind-merge';
 	import { goto } from '$lib/url';
 	import StackedBarsChart, {
@@ -197,35 +191,9 @@
 		});
 	});
 
-	const byUserData = $derived.by(() => {
-		if (groupBy !== 'group_by_users') return [];
-		const userKeys = [
-			...new Set(filteredData.map((r) => r.userID ?? r.runName ?? 'Unknown'))
-		].sort();
-		const userKeyToLabel = getUserLabels(usersMap, userKeys);
-		return aggregateByBucketGroupedInRange(
-			filteredData,
-			start,
-			end,
-			(row) => row.userID ?? row.runName ?? 'Unknown',
-			(k) => userKeyToLabel.get(k) ?? k
-		);
-	});
-
 	const targetModelToDisplayName = $derived(
 		new Map(modelsData.map((m) => [m.targetModel, m.displayName || m.name]))
 	);
-
-	const byModelData = $derived.by(() => {
-		if (groupBy !== 'group_by_models') return [];
-		return aggregateByBucketGroupedInRange(
-			filteredData,
-			start,
-			end,
-			(row) => row.model ?? 'Unknown',
-			(k) => targetModelToDisplayName.get(k) ?? k
-		);
-	});
 
 	const colorsByUsers = $derived.by(() => {
 		const uniqueUsers = [...new Set(preparedData.map((d) => d.user))].filter(Boolean);
@@ -607,76 +575,62 @@
 						onSelect={(option) => handleGroupByChange(option.id)}
 					/>
 				</div>
-				<!-- <StackedGraph
-					data={groupBy === 'group_by_default'
-						? byTokenData
-						: groupBy === 'group_by_users'
-							? byUserData
-							: byModelData}
-					series={groupBy === 'group_by_users'
-						? colorsByUsers
-						: groupBy === 'group_by_models'
-							? colorsByModels
-							: undefined}
-					tweened
-				/> -->
 
 				<div class="relative h-[500px] w-full">
 					{@render promptCompletionStackedGraph()}
 				</div>
 			</div>
+		</div>
 
-			<div class="relative mt-2 flex flex-col">
-				<div class="relative z-10 flex shrink-0 items-center">
-					<button
-						class={twMerge(
-							'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
-							selectedSubview === 'models' && 'border-primary'
-						)}
-						onclick={() => (selectedSubview = 'models')}
-					>
-						Models
-					</button>
-					<button
-						class={twMerge(
-							'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
-							selectedSubview === 'users' && 'border-primary'
-						)}
-						onclick={() => (selectedSubview = 'users')}
-					>
-						Users
-					</button>
-				</div>
-				<div class="bg-surface3 h-0.5 w-full shrink-0 -translate-y-0.5"></div>
-
-				{#if graphItems.length > 0}
-					<VirtualizedGrid class="my-4" data={graphItems} columns={2} rowHeight={340} overscan={2}>
-						{#snippet children({ item })}
-							<div class="paper flex min-h-0 flex-col">
-								<h5 class="text-sm font-medium">{item.label}</h5>
-								<div class="relative" style="height: {responsive.isMobile ? 210 : 240}px;">
-									<StackedBarsChart
-										{start}
-										{end}
-										data={item.data}
-										dateAccessor={(row) => row.date}
-										categoryAccessor={(row) => {
-											if (groupBy === ' group_by_users') return row.user;
-
-											return row.tokenType;
-										}}
-										groupAccessor={(items) =>
-											items.reduce((sum, item) => sum + (item.value ?? 0), 0)}
-										tooltip={defaultChartTooltip}
-									/>
-								</div>
-							</div>
-						{/snippet}
-					</VirtualizedGrid>
-				{:else}
-					<div class="text-on-surface1 mx-auto py-12 text-sm font-light">No data available.</div>
-				{/if}
+		<div class="relative mt-2 flex flex-col">
+			<div class="relative z-10 flex shrink-0 items-center">
+				<button
+					class={twMerge(
+						'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
+						selectedSubview === 'models' && 'border-primary'
+					)}
+					onclick={() => (selectedSubview = 'models')}
+				>
+					Models
+				</button>
+				<button
+					class={twMerge(
+						'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
+						selectedSubview === 'users' && 'border-primary'
+					)}
+					onclick={() => (selectedSubview = 'users')}
+				>
+					Users
+				</button>
 			</div>
+			<div class="bg-surface3 h-0.5 w-full shrink-0 -translate-y-0.5"></div>
+
+			{#if graphItems.length > 0}
+				<VirtualizedGrid class="my-4" data={graphItems} columns={2} rowHeight={340} overscan={2}>
+					{#snippet children({ item })}
+						<div class="paper flex min-h-0 flex-col">
+							<h5 class="text-sm font-medium">{item.label}</h5>
+							<div class="relative" style="height: {responsive.isMobile ? 210 : 240}px;">
+								<StackedBarsChart
+									{start}
+									{end}
+									data={item.data}
+									dateAccessor={(row) => row.date}
+									categoryAccessor={(row) => {
+										if (groupBy === ' group_by_users') return row.user;
+
+										return row.tokenType;
+									}}
+									groupAccessor={(items) => items.reduce((sum, item) => sum + (item.value ?? 0), 0)}
+									tooltip={defaultChartTooltip}
+								/>
+							</div>
+						</div>
+					{/snippet}
+				</VirtualizedGrid>
+			{:else}
+				<div class="text-on-surface1 mx-auto py-12 text-sm font-light">No data available.</div>
+			{/if}
 		</div>
 	</div>
 </Layout>
