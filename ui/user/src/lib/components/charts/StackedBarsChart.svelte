@@ -71,6 +71,8 @@
 		stackTooltip?: Snippet<[StackTooltipArg]>;
 		/** Optional snippet to render when data is empty. If not provided, shows "No data available" message */
 		emptyYAxisContent?: Snippet;
+		/** Optional legend configuration. undefined = no legend (default), 'internal' = use built-in legend, Snippet = custom legend */
+		legend?: 'internal' | Snippet<[{ category: string; color: string }[]]>;
 	}
 
 	function compilePadding(input?: StackedBarsChartProps<any>['padding']) {
@@ -170,7 +172,8 @@
 		colorScheme,
 		segmentTooltip,
 		stackTooltip,
-		emptyYAxisContent
+		emptyYAxisContent,
+		legend
 	}: StackedBarsChartProps<any> = $props();
 
 	let highlightedRectElement = $state<SVGRectElement>();
@@ -599,9 +602,16 @@
 			ancestorResize: true
 		});
 	}
+
+	const legendData = $derived(
+		categoriesArray.map((category) => ({
+			category,
+			color: colorScale(category)
+		}))
+	);
 </script>
 
-<div bind:clientHeight bind:clientWidth class="group relative h-full w-full">
+<div bind:clientHeight bind:clientWidth class="group relative flex w-full flex-1 flex-col">
 	<!-- Empty state content -->
 	{#if hideYAxis}
 		<div class="absolute inset-0 flex items-center justify-center">
@@ -697,7 +707,7 @@
 		</div>
 	{/if}
 
-	<svg width={clientWidth} height={clientHeight} viewBox={`0 0 ${clientWidth} ${clientHeight}`}>
+	<svg class="flex-1 absolute inset-0" width={clientWidth} height={clientHeight} viewBox={`0 0 ${clientWidth} ${clientHeight}`}>
 		<g transform="translate({paddingLeft}, {paddingTop})">
 			<g
 				class="x-axis text-on-surface3/20 dark:text-on-surface1/10"
@@ -1007,3 +1017,21 @@
 		</g>
 	</svg>
 </div>
+
+<!-- Legend -->
+{#if legend}
+	{#if legend === 'internal'}
+		<div class="legend-container shrink-0 flex justify-center max-h-48 overflow-y-auto">
+			<div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-2 py-1">
+				{#each legendData as item (item.category)}
+					<div class="flex items-center gap-1" style:color={item.color}>
+						<div class="h-3 w-3 rounded-sm bg-current"></div>
+						<span class="text-sm">{item.category}</span>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{:else}
+		{@render legend(legendData)}
+	{/if}
+{/if}
