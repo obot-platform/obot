@@ -436,7 +436,7 @@
 		{/if}
 
 		{#if arg?.category}
-			<div class="text-base-content text-xl font-semibold">User: {userDisplayName}</div>
+			<div class="text-base-content text-xl font-semibold">{userDisplayName}</div>
 		{/if}
 
 		{#if arg?.value !== undefined}
