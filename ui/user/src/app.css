@@ -1319,6 +1319,10 @@
 	}
 }
 
+@utility fill-opacity-50 {
+  fill-opacity: 0.5;
+}
+
 .nanobot .prose,
 .nanobot .milkdown .ProseMirror {
 	& h1 {
