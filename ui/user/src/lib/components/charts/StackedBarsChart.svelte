@@ -630,7 +630,7 @@
 	<!-- Segment tooltip (shows when hovering a specific segment) -->
 	{#if highlightedRectElement && tooltipData && !stackTooltipData}
 		<div
-			class="tooltip pointer-events-none fixed top-0 left-0 flex flex-col shadow-md"
+			class="tooltip pointer-events-none fixed top-0 left-0 flex flex-col shadow-md z-10"
 			{@attach (node) => createTooltip(highlightedRectElement!, node)}
 			in:fade={{ duration: 100, delay: 10 }}
 			out:fade={{ duration: 100 }}
@@ -666,7 +666,7 @@
 	<!-- Stack tooltip (shows when hovering anywhere on the stack background) -->
 	{#if highlightedRectElement && stackTooltipData}
 		<div
-			class="tooltip pointer-events-none fixed top-0 left-0 flex flex-col shadow-md"
+			class="tooltip pointer-events-none fixed top-0 left-0 flex flex-col shadow-md z-12"
 			{@attach (node) => createTooltip(highlightedRectElement!, node)}
 			in:fade={{ duration: 100, delay: 10 }}
 			out:fade={{ duration: 100 }}
