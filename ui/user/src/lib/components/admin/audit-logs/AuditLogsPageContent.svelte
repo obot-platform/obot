@@ -557,7 +557,7 @@
 	>
 		<h3 class="mb-2 px-4 pt-4 text-lg font-medium">Timeline</h3>
 		<div class="px-4">
-			<div class="text-on-surface1 flex h-40 items-center justify-center rounded-md">
+			<div class="text-on-surface1 flex h-40 justify-center rounded-md">
 				<AuditLogsTimeline
 					data={remoteAuditLogs}
 					start={timeRangeFilters.startTime}
