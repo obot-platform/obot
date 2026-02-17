@@ -1836,7 +1836,9 @@ func (h *MCPCatalogHandler) DeleteOAuthCredentials(req api.Context) error {
 		log.Warnf("failed to list MCP servers for token cleanup of catalog entry %s: %v", entry.Name, err)
 	} else {
 		for _, server := range mcpServers.Items {
-			_ = h.gatewayClient.DeleteMCPOAuthTokenForAllUsers(req.Context(), server.Name)
+			if err := h.gatewayClient.DeleteMCPOAuthTokenForAllUsers(req.Context(), server.Name); err != nil {
+				log.Warnf("failed to delete OAuth tokens for MCP server %s (catalog entry %s): %v", server.Name, entry.Name, err)
+			}
 		}
 	}
 
