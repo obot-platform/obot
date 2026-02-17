@@ -1830,6 +1830,16 @@ func (h *MCPCatalogHandler) DeleteOAuthCredentials(req api.Context) error {
 		}
 	}
 
+	// Best-effort cleanup of per-user OAuth tokens associated with this catalog entry.
+	var mcpServers v1.MCPServerList
+	if err := req.List(&mcpServers, client.MatchingFields{"spec.mcpServerCatalogEntryName": entry.Name}); err != nil {
+		log.Warnf("failed to list MCP servers for token cleanup of catalog entry %s: %v", entry.Name, err)
+	} else {
+		for _, server := range mcpServers.Items {
+			_ = h.gatewayClient.DeleteMCPOAuthTokenForAllUsers(req.Context(), server.Name)
+		}
+	}
+
 	// Trigger reconciliation to update the status
 	if entry.Annotations == nil {
 		entry.Annotations = make(map[string]string, 1)
