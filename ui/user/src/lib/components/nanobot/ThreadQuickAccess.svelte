@@ -208,7 +208,10 @@
 				)}
 			>
 				<button
-					class="btn btn-ghost btn-circle tooltip tooltip-left"
+					class={twMerge(
+						'btn btn-ghost btn-circle tooltip',
+						open ? 'tooltip-right' : 'tooltip-left'
+					)}
 					onclick={() => onToggle()}
 					data-tip={open ? 'Close to-do & file list' : 'Open to-do & file list'}
 				>

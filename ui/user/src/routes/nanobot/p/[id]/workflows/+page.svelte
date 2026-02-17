@@ -105,7 +105,15 @@
 				{#each workflows as workflow, index (workflow.uri)}
 					<tr
 						class="hover:bg-base-200 cursor-pointer"
+						role="button"
+						tabindex="0"
 						onclick={() => handleSelectWorkflow(workflow.name)}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								handleSelectWorkflow(workflow.name);
+							}
+						}}
 					>
 						<td class="w-14 text-center">{index + 1}</td>
 						<td>{workflow.name}</td>
@@ -142,7 +150,15 @@
 			{#each runs as run, index (run.uri)}
 				<tr
 					class="hover:bg-base-200 cursor-pointer"
+					role="button"
+					tabindex="0"
 					onclick={() => projectLayout.handleFileOpen(run.uri)}
+					onkeydown={(e) => {
+						if (e.key === 'Enter' || e.key === ' ') {
+							e.preventDefault();
+							projectLayout.handleFileOpen(run.uri);
+						}
+					}}
 				>
 					<td class="w-14 text-center">{index + 1}</td>
 					<td>{run.displayLabel}</td>
