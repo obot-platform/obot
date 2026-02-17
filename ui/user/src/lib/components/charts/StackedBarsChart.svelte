@@ -445,7 +445,7 @@
 	const group = $derived.by(() => {
 		return rollup(
 			$state.snapshot(data),
-			(items) => [groupAccessor(items), items],
+			(items) => [groupAccessor(items), items] as const,
 			xAccessor,
 			categoryAccessor
 		);
@@ -456,7 +456,7 @@
 			.keys(categories)
 			.value((d, key) => {
 				const grouped = (d[1] as unknown as Map<string, number>).get(key) as unknown as
-					| [number, any][]
+					| [number, any]
 					| undefined;
 				return grouped?.[0] ?? 0;
 			});
@@ -769,7 +769,7 @@
 							const date = new Date(dateKey);
 
 							// Get the original items from the grouped data
-							const groupedData = group.get(dateKey)?.get(category);
+							const groupedData = group.get(String(dateKey))?.get(category);
 							const items = groupedData?.[1] ?? [];
 
 							tooltipData = $state.snapshot({
