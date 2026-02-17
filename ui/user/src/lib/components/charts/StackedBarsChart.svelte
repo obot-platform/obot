@@ -928,7 +928,7 @@
 						.join('g')
 						.attr('class', 'serie')
 						.attr('data-type', (d) => d.key)
-						.attr('fill', (d) => colorScale(d.key))
+						.attr('color', (d) => colorScale(d.key))
 						.selectAll('rect')
 						.data((d) => d)
 						.join('rect')
@@ -937,7 +937,10 @@
 						.attr('height', (d) => Math.abs(yScale(d[0]) - yScale(d[1])))
 						.attr('width', xScale.bandwidth())
 						.attr('cursor', 'pointer')
-						.attr('class', 'text-on-surface1 segment-rect')
+						.attr(
+							'class',
+							'segment-rect stroke-current fill-current hover:fill-opacity-50 stroke-0 hover:stroke-2 duration-100 transition-colors'
+						)
 						.attr('pointer-events', 'all')
 						.on('pointerenter', function (ev, d) {
 							highlightedRectElement = this as SVGRectElement;
@@ -967,16 +970,12 @@
 
 							// Clear stack tooltip when showing segment tooltip
 							stackTooltipData = undefined;
-
-							select(this).attr('stroke', 'currentColor').attr('stroke-width', 2);
 						})
 						.on('pointerleave', function () {
 							if (this === highlightedRectElement) {
 								highlightedRectElement = undefined;
 								tooltipData = undefined;
 							}
-
-							select(this).attr('stroke-width', 0);
 						});
 				}}
 			>
