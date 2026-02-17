@@ -414,7 +414,7 @@
 	</div>
 {/snippet}
 
-{#snippet groupByUsersChartTooltip(arg: TooltipArg)}
+{#snippet groupByUsersSegmentTooltip(arg: TooltipArg)}
 	{@const items = arg.group ?? []}
 	{@const input = items.reduce((s, i) => s + (i.promptTokens ?? 0), 0)}
 	{@const output = items.reduce((s, i) => s + (i.completionTokens ?? 0), 0)}
@@ -467,7 +467,7 @@
 				})}
 			</div>
 		{/if}
-		<div class="flex flex-col gap-1">
+		<div class="text-base-content/50 flex flex-col gap-1">
 			{#each arg.segments as segment}
 				{@const userDisplayName =
 					usersMap.get(segment.category)?.displayName ?? segment.category ?? 'Unknown'}
@@ -478,17 +478,22 @@
 				<div class="flex flex-col gap-1">
 					<div class="flex items-center gap-2">
 						<div class="h-3 w-3 rounded-sm" style="background-color: {segment.color}"></div>
-						<div class="text-sm font-semibold">{userDisplayName}</div>
-						<div class="ml-auto font-semibold">{segment.value.toLocaleString()} tokens</div>
+						<div class="text-base-content text-sm font-semibold">{userDisplayName}</div>
+						<div class="ml-auto font-semibold">
+							<span class="text-base-content">{segment.value.toLocaleString()}</span> tokens
+						</div>
 					</div>
-					<div class="text-on-surface1/70 ml-5 text-xs">
-						Input: {input.toLocaleString()} | Output: {output.toLocaleString()}
+					<div class="ml-5 text-xs">
+						Input: <span class="text-base-content">{input.toLocaleString()}</span> | Output:
+						<span class="text-base-content">{output.toLocaleString()}</span>
 					</div>
 				</div>
 			{/each}
 			<div class="mt-1 flex items-center gap-2 border-t pt-1">
 				<div class="text-sm font-semibold">Total</div>
-				<div class="ml-auto text-lg font-bold">{arg.total.toLocaleString()} tokens</div>
+				<div class="ml-auto text-lg font-bold">
+					<span class="text-base-content">{arg.total.toLocaleString()}</span> tokens
+				</div>
 			</div>
 		</div>
 	</div>
@@ -517,7 +522,7 @@
 				(row) => row.user,
 				(items) => items.reduce((sum, item) => sum + (item.tokenValue ?? 0), 0),
 				colorsByUsers,
-				groupByUsersChartTooltip,
+				groupByUsersSegmentTooltip,
 				groupByUsersStackTooltip
 			] as Result;
 		if (groupBy === 'group_by_models')
