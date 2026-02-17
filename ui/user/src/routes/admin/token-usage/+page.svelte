@@ -542,6 +542,7 @@
 		{start}
 		{end}
 		data={preparedData}
+		padding={{ top: 32, right: 16, bottom: 32, left: 48 }}
 		dateAccessor={(row) => row.date}
 		{categoryAccessor}
 		{groupAccessor}
@@ -670,6 +671,7 @@
 										{start}
 										{end}
 										data={item.data}
+										padding={{ top: 16, right: 16, bottom: 32, left: 48 }}
 										dateAccessor={(row) => row.date}
 										categoryAccessor={(row) => {
 											if (groupBy === ' group_by_users') return row.user;
