@@ -487,7 +487,7 @@
 				</div>
 			{/if}
 		</div>
-		{#if arg?.value !== undefined}
+		{#if arg?.value || typeof arg.value === 'number'}
 			<div class="text-sm font-medium">
 				<span>
 					{#if typeOfValue === 'number'}
@@ -532,7 +532,7 @@
 				</div>
 			{/if}
 		</div>
-		{#if arg?.value !== undefined}
+		{#if arg?.value || typeof arg.value === 'number'}
 			<div class="text-sm font-medium">
 				<span>
 					{arg.value.toLocaleString()}
