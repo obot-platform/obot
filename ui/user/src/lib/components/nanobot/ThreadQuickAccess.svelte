@@ -231,7 +231,8 @@
 		{@const args = JSON.parse(file.arguments ?? '{}') as { file_path: string } | undefined}
 		{@const displayLabel = args?.file_path.split('/').pop()?.split('.').shift()}
 		{@const isWorkflow =
-			args?.file_path?.includes('workflows/') || args?.file_path?.startsWith('workflow://')}
+			(args?.file_path?.includes('workflows/') || args?.file_path?.startsWith('workflow://')) &&
+			!args?.file_path?.includes('.runs')}
 		{@const openPath = args?.file_path?.includes('://')
 			? args.file_path
 			: args?.file_path
