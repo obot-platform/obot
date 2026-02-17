@@ -27,6 +27,40 @@
 		- categoryAccessor={(item) => item.product}
 		- colorScheme={['#254993', '#D65C7C', '#635DB6']} (array for multiple categories)
 -->
+
+<script module>
+	export type TooltipArg = {
+		date?: Date;
+		category?: string;
+		value: number;
+		data: any;
+		group: any[];
+	};
+
+	export interface StackedBarsChartProps<T> {
+		start: Date;
+		end: Date;
+		data: T[];
+		/** Function to extract the date/time value from each data item */
+		dateAccessor: (item: T) => Date | string;
+		/** Function to extract the category/stack key from each data item */
+		categoryAccessor: (item: T) => string;
+		/** Optional function to determine the value for each item. Defaults to counting items in each category */
+		groupAccessor?: (items: T[]) => number;
+		/** Optional color mapping for categories. Can be an object mapping category names to colors, or an array of colors to use in order. If not provided, default colors will be used */
+		colorScheme?: Record<string, string> | string[];
+		/** Optional function to format tooltip content */
+		// tooltipFormatter?: (item: {
+		// 	category: string;
+		// 	value: number;
+		// 	date: Date;
+		// 	data: T;
+		// }) => TooltipData;
+
+		tooltip?: Snippet<[TooltipArg]>;
+	}
+</script>
+
 <script lang="ts">
 	import {
 		scaleBand,
@@ -75,37 +109,6 @@
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
 
-	type TooltipData = {
-		date?: Date;
-		category?: string;
-		value: number;
-		data: any;
-		parentData: any;
-	};
-
-	interface Props<T> {
-		start: Date;
-		end: Date;
-		data: T[];
-		/** Function to extract the date/time value from each data item */
-		dateAccessor: (item: T) => Date | string;
-		/** Function to extract the category/stack key from each data item */
-		categoryAccessor: (item: T) => string;
-		/** Optional function to determine the value for each item. Defaults to counting items in each category */
-		groupAccessor?: (items: T[]) => number;
-		/** Optional color mapping for categories. Can be an object mapping category names to colors, or an array of colors to use in order. If not provided, default colors will be used */
-		colorScheme?: Record<string, string> | string[];
-		/** Optional function to format tooltip content */
-		// tooltipFormatter?: (item: {
-		// 	category: string;
-		// 	value: number;
-		// 	date: Date;
-		// 	data: T;
-		// }) => TooltipData;
-
-		tooltip?: Snippet<[TooltipData]>;
-	}
-
 	type FrameName = 'minute' | 'hour' | 'day' | 'month';
 	type Frame = [name: FrameName, step: number, duration: number];
 
@@ -118,7 +121,7 @@
 		groupAccessor = (d) => d.length,
 		colorScheme,
 		tooltip
-	}: Props<any> = $props();
+	}: StackedBarsChartProps<any> = $props();
 
 	let highlightedRectElement = $state<SVGRectElement>();
 
@@ -469,7 +472,7 @@
 
 	const yScale = $derived(scaleLinear(yDomain, [innerHeight, 0]));
 
-	let tooltipData = $state<TooltipData>();
+	let tooltipData = $state<TooltipArg>();
 
 	const isMainTick = (tick: Date) => {
 		const [frame] = timeFrame;
@@ -559,7 +562,13 @@
 					<div class="flex flex-col gap-0 text-xs">
 						{#if tooltipData?.date}
 							<div>
-								{tooltipData.date}
+								{tooltipData.date.toLocaleDateString(undefined, {
+									year: 'numeric',
+									month: 'short',
+									day: 'numeric',
+									hour: '2-digit',
+									minute: '2-digit'
+								})}
 							</div>
 						{/if}
 						{#if tooltipData?.category}
@@ -768,7 +777,7 @@
 								category: category,
 								value: value,
 								data: d.data,
-								groupedData: items
+								group: items
 							});
 
 							select(this).attr('stroke', 'currentColor').attr('stroke-width', 2);
