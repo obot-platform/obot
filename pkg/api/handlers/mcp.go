@@ -745,12 +745,22 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 	if catalogName == "" {
 		catalogName = mcpServer.Status.MCPCatalogID
 	}
-	if catalogName == "" && mcpServer.Spec.MCPServerCatalogEntryName != "" {
+	if catalogName == "" {
+		// For multi-user servers in a workspace, use the workspace ID as the catalog name
+		catalogName = mcpServer.Spec.PowerUserWorkspaceID
+	}
+	// Look up catalog entry for catalog name if needed
+	if mcpServer.Spec.MCPServerCatalogEntryName != "" {
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Get(&entry, mcpServer.Spec.MCPServerCatalogEntryName); err != nil {
 			return fmt.Errorf("failed to get MCP server catalog entry: %w", err)
 		}
-		catalogName = entry.Spec.MCPCatalogName
+		if catalogName == "" {
+			catalogName = entry.Spec.MCPCatalogName
+		}
+		if catalogName == "" {
+			catalogName = entry.Spec.PowerUserWorkspaceID
+		}
 	}
 
 	tokenExchangeCred, err := req.GPTClient.RevealCredential(req.Context(), []string{mcpServer.Name}, mcpServer.Name)
@@ -1212,12 +1222,22 @@ func serverFromMCPServerInstance(req api.Context, instance v1.MCPServerInstance)
 	if catalogName == "" {
 		catalogName = server.Status.MCPCatalogID
 	}
-	if catalogName == "" && server.Spec.MCPServerCatalogEntryName != "" {
+	if catalogName == "" {
+		// For multi-user servers in a workspace, use the workspace ID as the catalog name
+		catalogName = server.Spec.PowerUserWorkspaceID
+	}
+	// Look up catalog entry for catalog name if needed
+	if server.Spec.MCPServerCatalogEntryName != "" {
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
 			return server, mcp.ServerConfig{}, fmt.Errorf("failed to get MCP server catalog entry: %w", err)
 		}
-		catalogName = entry.Spec.MCPCatalogName
+		if catalogName == "" {
+			catalogName = entry.Spec.MCPCatalogName
+		}
+		if catalogName == "" {
+			catalogName = entry.Spec.PowerUserWorkspaceID
+		}
 	}
 
 	tokenExchangeCred, err := req.GPTClient.RevealCredential(req.Context(), []string{server.Name}, server.Name)
@@ -1299,16 +1319,28 @@ func serverConfigForAction(req api.Context, server v1.MCPServer) (mcp.ServerConf
 	if catalogName == "" {
 		catalogName = server.Status.MCPCatalogID
 	}
-	if catalogName == "" && server.Spec.MCPServerCatalogEntryName != "" {
+	if catalogName == "" {
+		// For multi-user servers in a workspace, use the workspace ID as the catalog name
+		catalogName = server.Spec.PowerUserWorkspaceID
+	}
+	// Look up catalog entry for catalog name if needed
+	if server.Spec.MCPServerCatalogEntryName != "" {
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err == nil {
-			catalogName = entry.Spec.MCPCatalogName
+			if catalogName == "" {
+				catalogName = entry.Spec.MCPCatalogName
+			}
+			if catalogName == "" {
+				catalogName = entry.Spec.PowerUserWorkspaceID
+			}
 		} else if apierrors.IsNotFound(err) && server.Spec.CompositeName != "" {
 			// For composite component's, this usually happens when the component's catalog entry
 			// was deleted, but the component hasn't been removed from the composite catalog entry yet.
 			// At the moment, composite MCP servers can only contain catalog entries from the default catalog,
 			// so we can assume the deleted entry belongs to the default catalog for now.
-			catalogName = system.DefaultCatalog
+			if catalogName == "" {
+				catalogName = system.DefaultCatalog
+			}
 		} else {
 			return mcp.ServerConfig{}, fmt.Errorf("failed to get MCP server catalog entry: %w", err)
 		}

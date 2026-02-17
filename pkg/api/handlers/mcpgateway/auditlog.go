@@ -168,9 +168,10 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		}
 		opts.OwnServerMCPIDs = ownServerMCPIDs
 
-		// PowerUsers also see workspace servers (union)
+		// PowerUsers also see workspace servers
 		if req.UserIsPowerUser() {
-			opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
+			workspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
+			opts.PowerUserWorkspaceID = []string{workspaceID}
 		}
 
 		// Return empty if no access scope
@@ -295,7 +296,7 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 			return types.NewErrForbidden("you do not have access to this audit log")
 		}
 
-		// Full payload only for OWN servers (not workspace servers)
+		// Full payload only for OWN servers (not workspace servers or catalog entry workspace servers)
 		canAccessFullPayload = isOwnServer
 	}
 
@@ -365,9 +366,10 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 		}
 		opts.OwnServerMCPIDs = ownServerMCPIDs
 
-		// PowerUsers also see workspace servers (union)
+		// PowerUsers also see workspace servers
 		if req.UserIsPowerUser() {
-			opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
+			workspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
+			opts.PowerUserWorkspaceID = []string{workspaceID}
 		}
 
 		// Return empty if no access scope
@@ -451,9 +453,10 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 		}
 		opts.OwnServerMCPIDs = ownServerMCPIDs
 
-		// PowerUsers also see workspace servers (union)
+		// PowerUsers also see workspace servers
 		if req.UserIsPowerUser() {
-			opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
+			workspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
+			opts.PowerUserWorkspaceID = []string{workspaceID}
 		}
 
 		// Return empty if no access scope
