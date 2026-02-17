@@ -499,8 +499,78 @@
 	</div>
 {/snippet}
 
+{#snippet groupByUsersLegend(legendData: { category: string; color: string }[])}
+	{@const userCount = legendData.length}
+	{@const shouldTruncate = userCount > 8}
+	{@const shouldUseInitials = userCount > 15}
+
+	{@const formatUserName = (userId: string) => {
+		const user = usersMap.get(userId);
+		const displayName = user?.displayName || userId;
+		const parts = displayName.split(' ').filter(Boolean);
+
+		// For many users (>15), use compact format
+		if (shouldUseInitials) {
+			if (parts.length === 2) {
+				// Two-word names: "John Doe" → "J. Doe"
+				return `${parts[0][0]}. ${parts[1]}`;
+			}
+			if (parts.length > 2) {
+				// Multi-word names: "John Paul Doe" → "J.P. Doe"
+				const initials = parts
+					.slice(0, -1)
+					.map((p) => `${p[0]}.`)
+					.join('');
+				return `${initials} ${parts[parts.length - 1]}`;
+			}
+			// Single word: truncate to 5 chars
+			return displayName.slice(0, 5).toUpperCase();
+		}
+
+		// For moderate number of users (8-15), use shorter format
+		if (shouldTruncate) {
+			if (parts.length === 2) {
+				// Two-word names: "John Doe" → "J. Doe"
+				return `${parts[0][0]}. ${parts[1]}`;
+			}
+			const firstName = parts[0];
+			return firstName.length > 12 ? firstName.slice(0, 12) + '…' : firstName;
+		}
+
+		// For few users, show full name (max 20 chars)
+		return displayName.length > 20 ? displayName.slice(0, 20) + '…' : displayName;
+	}}
+
+	<div class="legend-container max-h-48 shrink-0 overflow-y-auto">
+		<div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-1">
+			{#each legendData as item (item.category)}
+				{@const fullName = usersMap.get(item.category)?.displayName || item.category}
+
+				<div
+					class="flex items-center gap-1 whitespace-nowrap"
+					title={fullName}
+					style:color={item.color}
+				>
+					<div
+						class="h-3 w-3 flex-shrink-0 rounded-sm"
+						style="background-color: currentColor"
+					></div>
+					<span class="text-sm">{formatUserName(item.category)}</span>
+				</div>
+			{/each}
+		</div>
+	</div>
+{/snippet}
+
 {#snippet promptCompletionStackedGraph()}
-	{@const [categoryAccessor, groupAccessor, colorScheme, segmentTooltip, stackTooltip] = (() => {
+	{@const [
+		categoryAccessor,
+		groupAccessor,
+		colorScheme,
+		segmentTooltip,
+		stackTooltip,
+		customLegend
+	] = (() => {
 		type Datum = (typeof preparedData)[number];
 		type ChartProps = StackedBarsChartProps<Datum>;
 
@@ -508,13 +578,15 @@
 		type GroupAccessor = ChartProps['groupAccessor'];
 		type SegmentTooltip = ChartProps['segmentTooltip'];
 		type StackTooltip = ChartProps['stackTooltip'];
+		type Legend = ChartProps['legend'];
 
 		type Result = [
 			CategoryAccessor,
 			GroupAccessor,
 			Record<string, string>?,
 			SegmentTooltip?,
-			StackTooltip?
+			StackTooltip?,
+			Legend?
 		];
 
 		if (groupBy === 'group_by_users')
@@ -523,7 +595,8 @@
 				(items) => items.reduce((sum, item) => sum + (item.tokenValue ?? 0), 0),
 				colorsByUsers,
 				groupByUsersSegmentTooltip,
-				groupByUsersStackTooltip
+				groupByUsersStackTooltip,
+				groupByUsersLegend
 			] as Result;
 		if (groupBy === 'group_by_models')
 			return [
@@ -531,7 +604,8 @@
 				(items) => items.reduce((sum, item) => sum + (item.tokenValue ?? 0), 0),
 				colorsByModels,
 				defaultChartTooltip,
-				undefined
+				undefined,
+				'internal'
 			] as Result;
 
 		return [
@@ -539,22 +613,26 @@
 			(items) => items.reduce((sum, item) => sum + (item.tokenValue ?? 0), 0),
 			undefined,
 			defaultChartTooltip,
-			undefined
+			undefined,
+			'internal'
 		] as Result;
 	})()}
 
-	<StackedBarsChart
-		{start}
-		{end}
-		data={preparedData}
-		padding={{ top: 32, right: 16, bottom: 32, left: 48 }}
-		dateAccessor={(row) => row.date}
-		{categoryAccessor}
-		{groupAccessor}
-		{colorScheme}
-		{segmentTooltip}
-		{stackTooltip}
-	/>
+	<div class="relative flex h-[500px] w-full flex-col">
+		<StackedBarsChart
+			{start}
+			{end}
+			data={preparedData}
+			padding={{ top: 32, right: 16, bottom: 32, left: 48 }}
+			dateAccessor={(row) => row.date}
+			{categoryAccessor}
+			{groupAccessor}
+			{colorScheme}
+			{segmentTooltip}
+			{stackTooltip}
+			legend={customLegend}
+		/>
+	</div>
 {/snippet}
 
 <!-- ============================================================================ -->
@@ -634,9 +712,7 @@
 					/>
 				</div>
 
-				<div class="relative h-[500px] w-full">
-					{@render promptCompletionStackedGraph()}
-				</div>
+				{@render promptCompletionStackedGraph()}
 			</div>
 		</div>
 
@@ -671,7 +747,7 @@
 						{#snippet children({ item })}
 							<div class="paper flex min-h-0 flex-col">
 								<h5 class="text-sm font-medium">{item.label}</h5>
-								<div class="relative" style="height: {responsive.isMobile ? 210 : 240}px;">
+								<div class="relative flex" style="height: {responsive.isMobile ? 210 : 240}px;">
 									<StackedBarsChart
 										{start}
 										{end}
