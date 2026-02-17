@@ -21,7 +21,10 @@
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import AuditLogCalendar from '../audit-logs/AuditLogCalendar.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
-	import StackedBarsChart from '$lib/components/charts/StackedBarsChart.svelte';
+	import StackedBarsChart, {
+		type StackTooltipArg,
+		type TooltipArg
+	} from '$lib/components/charts/StackedBarsChart.svelte';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -49,7 +52,8 @@
 		categoryAccessor: (d: GraphDataItem) => string;
 		groupAccessor?: (d: GraphDataItem[]) => number;
 		formatYLabel?: (d: GraphDataItem) => string;
-		tooltip?: Snippet<[{ category: string; value: number; date: Date; data: any }]>;
+		segmentTooltip?: Snippet<[TooltipArg]>;
+		stackTooltip?: Snippet<[StackTooltipArg]>;
 	};
 
 	type GraphConfigWithRenderer = GraphConfig & {
@@ -262,7 +266,7 @@
 			groupAccessor: (d) => {
 				return d.length;
 			},
-			tooltip: unifiedTooltip,
+			segmentTooltip: unifiedTooltip,
 			renderer: defaultChartSnippet
 		},
 		{
@@ -273,7 +277,7 @@
 			groupAccessor: (d) => {
 				return d.length;
 			},
-			tooltip: unifiedTooltip,
+			segmentTooltip: unifiedTooltip,
 			renderer: defaultChartSnippet
 		},
 		{
@@ -288,7 +292,7 @@
 
 				return d.reduce((acc, item) => acc + (item.processingTimeMs as number), 0) / d.length;
 			},
-			tooltip: toolCallResponseTimeTooltip,
+			segmentTooltip: toolCallResponseTimeTooltip,
 			renderer: toolCallResponseTimeGraph
 		},
 		{
@@ -297,7 +301,7 @@
 			dateAccessor: (d) => d.createdAt,
 			categoryAccessor: (d) => d.toolName,
 			groupAccessor: (d) => d.filter((d) => Boolean(d.error)).length,
-			tooltip: unifiedTooltip,
+			segmentTooltip: unifiedTooltip,
 			renderer: defaultChartSnippet
 		},
 		{
@@ -306,7 +310,7 @@
 			dateAccessor: (d) => d.createdAt,
 			categoryAccessor: (d) => d.mcpServerDisplayName,
 			groupAccessor: (d) => d.filter((d) => Boolean(d.error)).length,
-			tooltip: unifiedTooltip,
+			segmentTooltip: unifiedTooltip,
 			renderer: defaultChartSnippet
 		},
 		{
@@ -315,7 +319,8 @@
 			dateAccessor: (d) => d.createdAt,
 			categoryAccessor: (d) => d.userID,
 			groupAccessor: (d) => d.length,
-			tooltip: usersTooltip,
+			segmentTooltip: usersTooltip,
+			stackTooltip: usersStackTooltip,
 			renderer: defaultChartSnippet
 		}
 	];
@@ -459,13 +464,13 @@
 	}
 </script>
 
-{#snippet unifiedTooltip(data, unit = undefined)}
-	{@const typeOfValue = typeof data.value}
+{#snippet unifiedTooltip(arg: TooltipArg, unit: string | undefined = undefined)}
+	{@const typeOfValue = typeof arg.value}
 
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-col gap-0">
-			{#if data?.date}
-				{@const formattedDate = new Date(data.date).toLocaleString(undefined, {
+			{#if arg?.date}
+				{@const formattedDate = new Date(arg.date).toLocaleString(undefined, {
 					year: 'numeric',
 					month: 'short',
 					day: 'numeric',
@@ -476,19 +481,19 @@
 					{formattedDate}
 				</div>
 			{/if}
-			{#if data?.category}
+			{#if arg?.category}
 				<div class="text-sm font-semibold">
-					{data.category}
+					{arg.category}
 				</div>
 			{/if}
 		</div>
-		{#if data?.value !== undefined}
+		{#if arg?.value !== undefined}
 			<div class="text-sm font-medium">
 				<span>
 					{#if typeOfValue === 'number'}
-						{data.value.toLocaleString()}
+						{arg.value.toLocaleString()}
 					{:else}
-						{data.value}
+						{arg.value}
 					{/if}
 				</span>
 
@@ -500,17 +505,17 @@
 	</div>
 {/snippet}
 
-{#snippet toolCallResponseTimeTooltip(data)}
-	{@render unifiedTooltip(data, 'ms')}
+{#snippet toolCallResponseTimeTooltip(arg: TooltipArg)}
+	{@render unifiedTooltip(arg, 'ms')}
 {/snippet}
 
-{#snippet usersTooltip(data)}
-	{@const displayName = getUserDisplayName(usersMap, String(data.value))}
+{#snippet usersTooltip(arg: TooltipArg)}
+	{@const displayName = getUserDisplayName(usersMap, String(arg.value))}
 
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-col gap-0">
-			{#if data?.date}
-				{@const formattedDate = new Date(data.date).toLocaleString(undefined, {
+			{#if arg?.date}
+				{@const formattedDate = new Date(arg.date).toLocaleString(undefined, {
 					year: 'numeric',
 					month: 'short',
 					day: 'numeric',
@@ -521,19 +526,70 @@
 					{formattedDate}
 				</div>
 			{/if}
-			{#if data?.category}
+			{#if arg?.category}
 				<div class="text-sm font-semibold">
-					{data.category}
+					{arg.category}
 				</div>
 			{/if}
 		</div>
-		{#if data?.value !== undefined}
+		{#if arg?.value !== undefined}
 			<div class="text-sm font-medium">
 				<span>
 					{displayName}
 				</span>
 			</div>
 		{/if}
+	</div>
+{/snippet}
+
+{#snippet usersStackTooltip(arg: StackTooltipArg)}
+	<div class="flex flex-col gap-2">
+		{#if arg?.date}
+			<div class="text-xs">
+				{arg.date.toLocaleDateString(undefined, {
+					year: 'numeric',
+					month: 'short',
+					day: 'numeric',
+					hour: '2-digit',
+					minute: '2-digit'
+				})}
+			</div>
+		{/if}
+		<div class="text-base-content/50 flex flex-col gap-1">
+			{#each arg.segments as segment}
+				{@const userDisplayName = getUserDisplayName(usersMap, segment.category)}
+				{@const items = segment.group ?? []}
+				{@const errorCount = items.filter((i) => Boolean(i.error)).length}
+				{@const avgResponseTime =
+					items.length > 0
+						? items.reduce((s, i) => s + (i.processingTimeMs ?? 0), 0) / items.length
+						: 0}
+
+				<div class="flex flex-col gap-1">
+					<div class="flex items-center gap-2">
+						<div class="h-3 w-3 rounded-sm" style="background-color: {segment.color}"></div>
+						<div class="text-base-content text-sm font-semibold">{userDisplayName}</div>
+						<div class="ml-auto font-semibold">
+							<span class="text-base-content">{segment.value.toLocaleString()}</span> calls
+						</div>
+					</div>
+					<div class="ml-5 text-xs">
+						Avg Response: <span class="text-base-content"
+							>{Math.round(avgResponseTime).toLocaleString()}ms</span
+						>
+						{#if errorCount > 0}
+							| Errors: <span class="text-error">{errorCount.toLocaleString()}</span>
+						{/if}
+					</div>
+				</div>
+			{/each}
+			<div class="mt-1 flex items-center gap-2 border-t pt-1">
+				<div class="text-sm font-semibold">Total</div>
+				<div class="ml-auto text-lg font-bold">
+					<span class="text-base-content">{arg.total.toLocaleString()}</span> calls
+				</div>
+			</div>
+		</div>
 	</div>
 {/snippet}
 
@@ -565,7 +621,8 @@
 					dateAccessor={config.dateAccessor}
 					categoryAccessor={config.categoryAccessor}
 					groupAccessor={config.groupAccessor ?? ((d) => d.length)}
-					segmentTooltip={config.tooltip}
+					segmentTooltip={config.segmentTooltip}
+					stackTooltip={config.stackTooltip}
 				/>
 			{:else if !showLoadingSpinner}
 				<div class="text-on-surface1 flex h-[300px] items-center justify-center text-sm font-light">
@@ -677,7 +734,8 @@
 						dateAccessor: cfg.dateAccessor,
 						categoryAccessor: cfg.categoryAccessor,
 						groupAccessor: cfg.groupAccessor,
-						tooltip: cfg.tooltip
+						segmentTooltip: cfg.segmentTooltip,
+						stackTooltip: cfg.stackTooltip
 					}
 				})}
 			{/each}
