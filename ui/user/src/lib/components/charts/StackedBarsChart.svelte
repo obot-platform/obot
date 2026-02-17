@@ -53,6 +53,10 @@
 		start: Date;
 		end: Date;
 		data: T[];
+		padding?:
+			| number
+			| { top?: number; right?: number; bottom?: number; left?: number }
+			| [top?: number, right?: number, bottom?: number, left?: number];
 		/** Function to extract the date/time value from each data item */
 		dateAccessor: (item: T) => Date | string;
 		/** Function to extract the category/stack key from each data item */
@@ -65,6 +69,40 @@
 		segmentTooltip?: Snippet<[TooltipArg]>;
 		/** Optional snippet to render stack tooltip (shows when hovering anywhere on the stack) */
 		stackTooltip?: Snippet<[StackTooltipArg]>;
+	}
+
+	function compilePadding(input?: StackedBarsChartProps<any>['padding']) {
+		/** Declare default padding values */
+		const defaultTop = 8;
+		const defaultRight = 8;
+		const defaultBottom = 16;
+		const defaultLeft = 32;
+
+		/** Compile padding input into a consistent object format */
+		if (typeof input === 'number') {
+			return { top: input, right: input, bottom: input, left: input };
+		} else if (Array.isArray(input)) {
+			const [top, right, bottom, left] = [
+				input[0] ?? defaultTop,
+				input[1] ?? defaultRight,
+				input[2] ?? defaultBottom,
+				input[3] ?? defaultLeft
+			];
+
+			return { top, right, bottom, left };
+
+			/** Compile padding input into a consistent object format */
+		} else if (typeof input === 'object' && input !== null) {
+			const top = input.top ?? defaultTop;
+			const right = input.right ?? defaultRight;
+			const bottom = input.bottom ?? defaultBottom;
+			const left = input.left ?? defaultLeft;
+
+			return { top, right, bottom, left };
+		}
+
+		/** Return default padding if no input is provided */
+		return { top: defaultTop, right: defaultRight, bottom: defaultBottom, left: defaultLeft };
 	}
 </script>
 
@@ -123,6 +161,7 @@
 		start,
 		end,
 		data,
+		padding,
 		dateAccessor,
 		categoryAccessor,
 		groupAccessor = (d) => d.length,
@@ -135,10 +174,12 @@
 	let tooltipData = $state<TooltipArg>();
 	let stackTooltipData = $state<StackTooltipArg>();
 
-	let paddingLeft = $state(32);
-	let paddingRight = $state(8);
-	let paddingTop = $state(8);
-	let paddingBottom = $state(16);
+	const compiledPadding = $derived(compilePadding(padding));
+
+	let paddingLeft = $derived(compiledPadding.left);
+	let paddingRight = $derived(compiledPadding.right);
+	let paddingTop = $derived(compiledPadding.top);
+	let paddingBottom = $derived(compiledPadding.bottom);
 
 	let clientWidth = $state(0);
 	let innerWidth = $derived(clientWidth - paddingLeft - paddingRight);
