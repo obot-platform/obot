@@ -630,7 +630,7 @@
 	<!-- Segment tooltip (shows when hovering a specific segment) -->
 	{#if highlightedRectElement && tooltipData && !stackTooltipData}
 		<div
-			class="tooltip pointer-events-none fixed top-0 left-0 flex flex-col shadow-md z-10"
+			class="tooltip pointer-events-none fixed top-0 left-0 z-10 flex flex-col shadow-md"
 			{@attach (node) => createTooltip(highlightedRectElement!, node)}
 			in:fade={{ duration: 100, delay: 10 }}
 			out:fade={{ duration: 100 }}
@@ -666,7 +666,7 @@
 	<!-- Stack tooltip (shows when hovering anywhere on the stack background) -->
 	{#if highlightedRectElement && stackTooltipData}
 		<div
-			class="tooltip pointer-events-none fixed top-0 left-0 flex flex-col shadow-md z-12"
+			class="tooltip pointer-events-none fixed top-0 left-0 z-12 flex flex-col shadow-md"
 			{@attach (node) => createTooltip(highlightedRectElement!, node)}
 			in:fade={{ duration: 100, delay: 10 }}
 			out:fade={{ duration: 100 }}
@@ -707,7 +707,12 @@
 		</div>
 	{/if}
 
-	<svg class="flex-1 absolute inset-0" width={clientWidth} height={clientHeight} viewBox={`0 0 ${clientWidth} ${clientHeight}`}>
+	<svg
+		class="absolute inset-0 flex-1"
+		width={clientWidth}
+		height={clientHeight}
+		viewBox={`0 0 ${clientWidth} ${clientHeight}`}
+	>
 		<g transform="translate({paddingLeft}, {paddingTop})">
 			<g
 				class="x-axis text-on-surface3/20 dark:text-on-surface1/10"
@@ -1021,7 +1026,7 @@
 <!-- Legend -->
 {#if legend}
 	{#if legend === 'internal'}
-		<div class="legend-container shrink-0 flex justify-center max-h-48 overflow-y-auto">
+		<div class="legend-container flex max-h-48 shrink-0 justify-center overflow-y-auto">
 			<div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-2 py-1">
 				{#each legendData as item (item.category)}
 					<div class="flex items-center gap-1" style:color={item.color}>
