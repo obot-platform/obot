@@ -116,14 +116,14 @@
 				{#if layout.sidebarOpen}
 					<div class="flex min-h-0 flex-col gap-4" in:fly={{ x: -100, duration: 150 }}>
 						<a
-							href={resolve('/nanobot/p/{projectId}/workflows')}
+							href={resolve(`/nanobot/p/${projectId}/workflows`)}
 							class="btn btn-ghost text-base-content/50 text-md justify-between rounded-none"
 						>
 							Workflows <WorkflowIcon class="size-6" />
 						</a>
 
 						<a
-							href={resolve('/nanobot/p/{projectId}/files')}
+							href={resolve(`/nanobot/p/${projectId}/files`)}
 							class="btn btn-ghost text-base-content/50 text-md justify-between rounded-none"
 						>
 							Files <FoldersIcon class="size-6" />

@@ -119,9 +119,9 @@
 <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 md:px-8" bind:this={filesContainer}>
 	<div>
 		<h2 class="text-2xl font-semibold">Files</h2>
-		<description class="text-base-content/50 text-sm font-light">
+		<p class="text-base-content/50 text-sm font-light">
 			Manage & view files accessible to the project.
-		</description>
+		</p>
 	</div>
 	<label class="input w-full">
 		<Search class="size-6" />

@@ -185,28 +185,7 @@
 						</ul>
 					{/if}
 				</div>
-				{#each files as file (file.callID)}
-					{@const args = JSON.parse(file.arguments ?? '{}') as { file_path: string } | undefined}
-					{@const displayLabel = args?.file_path.split('/').pop()?.split('.').shift()}
-					{@const isWorkflow = args?.file_path.includes('workflows/')}
-					<button
-						class="rounded-selector hover:bg-base-300 flex items-center gap-2 border border-transparent px-4 py-2"
-						onclick={() => {
-							if (args?.file_path) {
-								projectLayout.handleFileOpen(`file:///${args.file_path}`);
-							} else {
-								console.error('No file path found for tool call', file);
-							}
-						}}
-					>
-						{#if isWorkflow}
-							<WorkflowIcon class="size-5" />
-						{:else}
-							<FileIcon class="size-5" />
-						{/if}
-						<span>{displayLabel}</span>
-					</button>
-				{/each}
+				{@render listThreadFiles(false)}
 			</div>
 		{:else if onToggle}
 			<button
@@ -218,29 +197,7 @@
 				<ListCheck class="text-base-content/50 size-5" />
 			</button>
 
-			{#each files as file (file.callID)}
-				{@const args = JSON.parse(file.arguments ?? '{}') as { file_path: string } | undefined}
-				{@const displayLabel = args?.file_path.split('/').pop()?.split('.').shift()}
-				{@const isWorkflow = args?.file_path.includes('workflows/')}
-				<button
-					class="btn btn-ghost btn-circle tooltip tooltip-left size-10 self-center"
-					in:fly={{ x: 100, duration: 150 }}
-					onclick={() => {
-						if (args?.file_path) {
-							projectLayout.handleFileOpen(`file:///${args.file_path}`);
-						} else {
-							console.error('No file path found for tool call', file);
-						}
-					}}
-					data-tip={`Open ${displayLabel}`}
-				>
-					{#if isWorkflow}
-						<WorkflowIcon class="text-base-content/50 size-5" />
-					{:else}
-						<FileIcon class="text-base-content/50 size-5" />
-					{/if}
-				</button>
-			{/each}
+			{@render listThreadFiles(true)}
 		{/if}
 		<div class="flex grow"></div>
 		{#if onToggle}
@@ -265,3 +222,55 @@
 		{/if}
 	</div>
 </div>
+
+{#snippet listThreadFiles(compact?: boolean)}
+	{#each files as file (file.callID)}
+		{@const args = JSON.parse(file.arguments ?? '{}') as { file_path: string } | undefined}
+		{@const displayLabel = args?.file_path.split('/').pop()?.split('.').shift()}
+		{@const isWorkflow =
+			args?.file_path?.includes('workflows/') || args?.file_path?.startsWith('workflow://')}
+		{@const openPath = args?.file_path?.includes('://')
+			? args.file_path
+			: args?.file_path
+				? `file:///${args.file_path}`
+				: undefined}
+		{#if compact}
+			<button
+				class="btn btn-ghost btn-circle tooltip tooltip-left size-10 self-center"
+				in:fly={{ x: 100, duration: 150 }}
+				onclick={() => {
+					if (openPath) {
+						projectLayout.handleFileOpen(openPath);
+					} else {
+						console.error('No file path found for tool call', file);
+					}
+				}}
+				data-tip={`Open ${displayLabel}`}
+			>
+				{#if isWorkflow}
+					<WorkflowIcon class="text-base-content/50 size-5" />
+				{:else}
+					<FileIcon class="text-base-content/50 size-5" />
+				{/if}
+			</button>
+		{:else}
+			<button
+				class="rounded-selector hover:bg-base-300 flex items-center gap-2 border border-transparent px-4 py-2"
+				onclick={() => {
+					if (openPath) {
+						projectLayout.handleFileOpen(openPath);
+					} else {
+						console.error('No file path found for tool call', file);
+					}
+				}}
+			>
+				{#if isWorkflow}
+					<WorkflowIcon class="size-5" />
+				{:else}
+					<FileIcon class="size-5" />
+				{/if}
+				<span>{displayLabel}</span>
+			</button>
+		{/if}
+	{/each}
+{/snippet}

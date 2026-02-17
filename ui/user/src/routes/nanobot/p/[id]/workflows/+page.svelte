@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { ChatAPI, ChatService } from '$lib/services/nanobot/chat/index.svelte';
-	import type { Chat } from '$lib/services/nanobot/types';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
 	import { Search } from 'lucide-svelte';
@@ -39,23 +38,25 @@
 	function handleSelectWorkflow(workflowName: string) {
 		selectedWorkflowName = workflowName;
 		const newChat = new ChatService({
-			api: chatApi,
-			onThreadCreated: (thread: Chat) => {
-				nanobotChat.update((data) => {
-					if (data) {
-						data.chat = newChat;
-						data.threadId = thread.id;
-					}
-					return data;
-				});
-				goto(`/nanobot/p/${projectId}?wid=${selectedWorkflowName}`, {
-					replaceState: true,
-					noScroll: true,
-					keepFocus: true
-				});
-			}
+			api: chatApi
 		});
-		newChat.sendMessage(`Run workflow: ${selectedWorkflowName}`);
+
+		nanobotChat.update((data) => {
+			if (data) {
+				if (data.chat && data.chat !== newChat) {
+					data.chat.close();
+				}
+				data.chat = newChat;
+				data.threadId = undefined;
+			}
+			return data;
+		});
+
+		goto(`/nanobot/p/${projectId}?wid=${selectedWorkflowName}`, {
+			replaceState: true,
+			noScroll: true,
+			keepFocus: true
+		});
 	}
 
 	$effect(() => {
@@ -79,9 +80,9 @@
 	<div>
 		<h2 class="text-2xl font-semibold">Workflows</h2>
 
-		<description class="text-base-content/50 text-sm font-light">
+		<p class="text-base-content/50 text-sm font-light">
 			Workflows are AI-powered tools that can be used to automate tasks and processes.
-		</description>
+		</p>
 	</div>
 
 	<h3 class="text-lg font-semibold">All Workflows</h3>

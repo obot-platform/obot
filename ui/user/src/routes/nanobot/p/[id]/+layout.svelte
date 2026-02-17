@@ -33,22 +33,36 @@
 
 	const layout = nanobotLayout.getLayout();
 
-	/** All tool items in the thread with name todoWrite or write (files/todos written in the thread) */
 	const threadWriteToolItems = $derived.by((): ChatMessageItemToolCall[] => {
-		if (!chat?.messages?.length) return [];
 		const items: ChatMessageItemToolCall[] = [];
-		for (const message of chat.messages) {
-			if (message.role !== 'assistant') continue;
-			for (const item of message.items || []) {
-				if (
-					item.type === 'tool' &&
-					(item.name === 'todoWrite' || item.name === 'write') &&
-					item.arguments &&
-					JSON.parse(item.arguments).file_path
-				) {
-					items.push(item as ChatMessageItemToolCall);
+		if (chat?.messages?.length) {
+			for (const message of chat.messages) {
+				if (message.role !== 'assistant') continue;
+				for (const item of message.items || []) {
+					if (
+						item.type === 'tool' &&
+						(item.name === 'todoWrite' || item.name === 'write') &&
+						item.arguments
+					) {
+						try {
+							const args = JSON.parse(item.arguments);
+							if (args.file_path) {
+								items.push(item as ChatMessageItemToolCall);
+							}
+						} catch {
+							console.error('Failed to parse tool call arguments', item);
+						}
+					}
 				}
 			}
+		}
+		if (workflowId) {
+			items.push({
+				type: 'tool',
+				name: 'write',
+				callID: `workflow-${workflowId}`,
+				arguments: JSON.stringify({ file_path: `workflow:///${workflowId}` })
+			} as ChatMessageItemToolCall);
 		}
 		return items;
 	});

@@ -14,7 +14,6 @@
 	import { errors } from '$lib/stores';
 	import { LoaderCircle } from 'lucide-svelte';
 	import ThreadQuickAccess from '$lib/components/nanobot/ThreadQuickAccess.svelte';
-	import FileEditor from '$lib/components/nanobot/FileEditor.svelte';
 
 	let { data } = $props();
 	let projects = $derived(data.projects);
@@ -22,7 +21,6 @@
 	let isNewAgent = $derived(data.isNewAgent);
 	let chat = $state<ChatService | null>(null);
 	let loading = $state(true);
-	let selectedFile = $state('');
 	let threadContentWidth = $state(0);
 
 	const layout = nanobotLayout.getLayout();
@@ -145,18 +143,6 @@
 
 	{#snippet rightSidebar()}
 		{#if chat}
-			{#if selectedFile}
-				<FileEditor
-					filename={selectedFile}
-					{chat}
-					open={!!selectedFile}
-					onClose={() => {
-						selectedFile = '';
-					}}
-					quickBarAccessOpen={layout.quickBarAccessOpen}
-					{threadContentWidth}
-				/>
-			{/if}
 			<ThreadQuickAccess
 				open={layout.quickBarAccessOpen}
 				onToggle={() => (layout.quickBarAccessOpen = !layout.quickBarAccessOpen)}
