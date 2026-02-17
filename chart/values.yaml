@@ -164,6 +164,9 @@ extraEnvFrom: []
 # resources -- Resource requests and limits to use for Obot
 resources: {}
 
+# runtimeClassName -- RuntimeClass name for Obot server pods. This allows running Obot with specific container runtimes (e.g., gVisor, Kata).
+runtimeClassName: ""
+
 persistence:
   # persistence.enabled -- Enables persistence using a PVC
   enabled: true

@@ -23,6 +23,9 @@ spec:
       labels:
         {{- include "obot.labels" . | nindent 8 }}
     spec:
+      {{- if .Values.runtimeClassName }}
+      runtimeClassName: {{ .Values.runtimeClassName }}
+      {{- end }}
       serviceAccountName: {{ include "obot.serviceAccountName" . }}
       {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
