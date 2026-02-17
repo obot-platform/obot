@@ -110,7 +110,7 @@
 	}
 </script>
 
-<script lang="ts">
+<script lang="ts" generics="T">
 	import {
 		scaleBand,
 		scaleLinear,
@@ -175,7 +175,7 @@
 		stackTooltip,
 		emptyYAxisContent,
 		legend
-	}: StackedBarsChartProps<unknown> = $props();
+	}: StackedBarsChartProps<T> = $props();
 
 	let highlightedRectElement = $state<SVGRectElement>();
 	let tooltipData = $state<TooltipArg>();
@@ -688,7 +688,7 @@
 						</div>
 					{/if}
 					<div class="flex flex-col gap-1">
-						{#each stackTooltipData.segments as segment}
+						{#each stackTooltipData.segments as segment (segment.category)}
 							<div class="flex items-center gap-2">
 								<div
 									class="h-3 w-3 rounded-sm"
