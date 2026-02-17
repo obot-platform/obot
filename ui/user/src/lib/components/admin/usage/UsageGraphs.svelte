@@ -612,7 +612,7 @@
 			{/if}
 		</div>
 
-		<div class="h-[300px] min-h-[300h]">
+		<div class="flex h-[300px] flex-col">
 			{#if data.length > 0}
 				<StackedBarsChart
 					start={new Date(filters.start_time)}
