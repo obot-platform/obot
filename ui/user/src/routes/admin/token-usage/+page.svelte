@@ -25,7 +25,8 @@
 	import { goto } from '$lib/url';
 	import StackedBarsChart, {
 		type TooltipArg,
-		type StackedBarsChartProps
+		type StackedBarsChartProps,
+		type StackTooltipArg
 	} from '$lib/components/charts/StackedBarsChart.svelte';
 
 	let loadingTableData = $state(true);
@@ -453,37 +454,87 @@
 	</div>
 {/snippet}
 
+{#snippet groupByUsersStackTooltip(arg: StackTooltipArg)}
+	<div class="flex flex-col gap-2">
+		{#if arg?.date}
+			<div class="text-xs">
+				{arg.date.toLocaleDateString(undefined, {
+					year: 'numeric',
+					month: 'short',
+					day: 'numeric',
+					hour: '2-digit',
+					minute: '2-digit'
+				})}
+			</div>
+		{/if}
+		<div class="flex flex-col gap-1">
+			{#each arg.segments as segment}
+				{@const userDisplayName =
+					usersMap.get(segment.category)?.displayName ?? segment.category ?? 'Unknown'}
+				{@const items = segment.group ?? []}
+				{@const input = items.reduce((s, i) => s + (i.promptTokens ?? 0), 0)}
+				{@const output = items.reduce((s, i) => s + (i.completionTokens ?? 0), 0)}
+
+				<div class="flex flex-col gap-1">
+					<div class="flex items-center gap-2">
+						<div class="h-3 w-3 rounded-sm" style="background-color: {segment.color}"></div>
+						<div class="text-sm font-semibold">{userDisplayName}</div>
+						<div class="ml-auto font-semibold">{segment.value.toLocaleString()} tokens</div>
+					</div>
+					<div class="text-on-surface1/70 ml-5 text-xs">
+						Input: {input.toLocaleString()} | Output: {output.toLocaleString()}
+					</div>
+				</div>
+			{/each}
+			<div class="mt-1 flex items-center gap-2 border-t pt-1">
+				<div class="text-sm font-semibold">Total</div>
+				<div class="ml-auto text-lg font-bold">{arg.total.toLocaleString()} tokens</div>
+			</div>
+		</div>
+	</div>
+{/snippet}
+
 {#snippet promptCompletionStackedGraph()}
-	{@const [categoryAccessor, groupAccessor, colorScheme, tooltip] = (() => {
+	{@const [categoryAccessor, groupAccessor, colorScheme, segmentTooltip, stackTooltip] = (() => {
 		type Datum = (typeof preparedData)[number];
 		type ChartProps = StackedBarsChartProps<Datum>;
 
 		type CategoryAccessor = ChartProps['categoryAccessor'];
 		type GroupAccessor = ChartProps['groupAccessor'];
-		type Tooltip = ChartProps['segmentTooltip'];
+		type SegmentTooltip = ChartProps['segmentTooltip'];
+		type StackTooltip = ChartProps['stackTooltip'];
 
-		type Result = [CategoryAccessor, GroupAccessor, Record<string, string>?, Tooltip?];
+		type Result = [
+			CategoryAccessor,
+			GroupAccessor,
+			Record<string, string>?,
+			SegmentTooltip?,
+			StackTooltip?
+		];
 
 		if (groupBy === 'group_by_users')
 			return [
 				(row) => row.user,
 				(items) => items.reduce((sum, item) => sum + (item.tokenValue ?? 0), 0),
 				colorsByUsers,
-				groupByUsersChartTooltip
+				groupByUsersChartTooltip,
+				groupByUsersStackTooltip
 			] as Result;
 		if (groupBy === 'group_by_models')
 			return [
 				(row) => row.model,
 				(items) => items.reduce((sum, item) => sum + (item.tokenValue ?? 0), 0),
 				colorsByModels,
-				defaultChartTooltip
+				defaultChartTooltip,
+				undefined
 			] as Result;
 
 		return [
 			(row) => row.tokenType,
 			(items) => items.reduce((sum, item) => sum + (item.tokenValue ?? 0), 0),
 			undefined,
-			defaultChartTooltip
+			defaultChartTooltip,
+			undefined
 		] as Result;
 	})()}
 
@@ -495,7 +546,8 @@
 		{categoryAccessor}
 		{groupAccessor}
 		{colorScheme}
-		segmentTooltip={tooltip}
+		{segmentTooltip}
+		{stackTooltip}
 	/>
 {/snippet}
 
