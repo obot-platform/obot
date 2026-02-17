@@ -69,6 +69,8 @@
 		segmentTooltip?: Snippet<[TooltipArg]>;
 		/** Optional snippet to render stack tooltip (shows when hovering anywhere on the stack) */
 		stackTooltip?: Snippet<[StackTooltipArg]>;
+		/** Optional snippet to render when data is empty. If not provided, shows "No data available" message */
+		emptyYAxisContent?: Snippet;
 	}
 
 	function compilePadding(input?: StackedBarsChartProps<any>['padding']) {
@@ -167,7 +169,8 @@
 		groupAccessor = (d) => d.length,
 		colorScheme,
 		segmentTooltip,
-		stackTooltip
+		stackTooltip,
+		emptyYAxisContent
 	}: StackedBarsChartProps<any> = $props();
 
 	let highlightedRectElement = $state<SVGRectElement>();
@@ -521,6 +524,8 @@
 		return [mn ?? 0, mx ?? 0];
 	});
 
+	const hideYAxis = $derived(Math.abs(yDomain[1] - yDomain[0]) === 0);
+
 	const yScale = $derived(scaleLinear(yDomain, [innerHeight, 0]));
 
 	const isMainTick = (tick: Date) => {
@@ -597,6 +602,21 @@
 </script>
 
 <div bind:clientHeight bind:clientWidth class="group relative h-full w-full">
+	<!-- Empty state content -->
+	{#if hideYAxis}
+		<div class="absolute inset-0 flex items-center justify-center">
+			{#if emptyYAxisContent}
+				{@render emptyYAxisContent()}
+			{:else}
+				<div
+					class="text-on-surface1 flex h-full w-full items-center justify-center text-sm font-light"
+				>
+					No data available
+				</div>
+			{/if}
+		</div>
+	{/if}
+
 	<!-- Segment tooltip (shows when hovering a specific segment) -->
 	{#if highlightedRectElement && tooltipData && !stackTooltipData}
 		<div
@@ -683,6 +703,7 @@
 				class="x-axis text-on-surface3/20 dark:text-on-surface1/10"
 				transform="translate(0 {innerHeight})"
 				{@attach (node: SVGGElement) => {
+					console.log('Updating x-axis');
 					const selection = select(node);
 
 					const format = timeFormat;
@@ -810,175 +831,178 @@
 				}}
 			></g>
 
-			<g
-				class="y-axis text-on-surface3 dark:text-on-surface1"
-				{@attach (node: SVGGElement) => {
-					const selection = select(node);
+			<!-- Y Axis -->
+			<g style:opacity={+!hideYAxis}>
+				<g
+					class="y-axis text-on-surface3 dark:text-on-surface1"
+					{@attach (node: SVGGElement) => {
+						const selection = select(node);
 
-					selection.transition().duration(100).call(axisLeft(yScale).tickSizeOuter(0).ticks(3));
+						selection.transition().duration(100).call(axisLeft(yScale).tickSizeOuter(0).ticks(3));
 
-					selection
-						.selectAll('.tick')
-						.attr('stroke', 'currentColor')
-						.attr('stroke-opacity', 0.5)
-						.selectAll('line')
-						.attr('x1', innerWidth)
-						.attr('stroke-opacity', 0.1);
+						selection
+							.selectAll('.tick')
+							.attr('stroke', 'currentColor')
+							.attr('stroke-opacity', 0.5)
+							.selectAll('line')
+							.attr('x1', innerWidth)
+							.attr('stroke-opacity', 0.1);
 
-					selection.select('.domain').attr('opacity', 0);
-				}}
-			></g>
+						selection.select('.domain').attr('opacity', 0);
+					}}
+				></g>
 
-			<!-- Background rects for stack-level tooltips -->
-			<g
-				class="stack-backgrounds"
-				{@attach (node: SVGGElement) => {
-					// Create one background rect per time bucket
-					type BackgroundData = {
-						dateKey: string;
-						segments: Array<{
-							category: string;
-							value: number;
-							data: { dateKey: string };
-							color: string;
-							group: any[];
-						}>;
-						total: number;
-					};
+				<!-- Background rects for stack-level tooltips -->
+				<g
+					class="stack-backgrounds"
+					{@attach (node: SVGGElement) => {
+						// Create one background rect per time bucket
+						type BackgroundData = {
+							dateKey: string;
+							segments: Array<{
+								category: string;
+								value: number;
+								data: { dateKey: string };
+								color: string;
+								group: any[];
+							}>;
+							total: number;
+						};
 
-					const backgroundData: BackgroundData[] = bands
-						.values()
-						.toArray()
-						.map((band) => {
-							const dateKey = band;
-							const categoryMap = group.get(String(dateKey));
+						const backgroundData: BackgroundData[] = bands
+							.values()
+							.toArray()
+							.map((band) => {
+								const dateKey = band;
+								const categoryMap = group.get(String(dateKey));
 
-							if (!categoryMap) return null;
+								if (!categoryMap) return null;
 
-							const segments = categoriesArray
-								.map((category) => {
-									const groupedData = categoryMap.get(category);
-									if (!groupedData) return null;
+								const segments = categoriesArray
+									.map((category) => {
+										const groupedData = categoryMap.get(category);
+										if (!groupedData) return null;
 
-									const [value, items] = groupedData;
-									return {
-										category,
-										value,
-										data: { dateKey },
-										color: colorScale(category),
-										group: items
-									};
-								})
-								.filter((s): s is NonNullable<typeof s> => s !== null);
+										const [value, items] = groupedData;
+										return {
+											category,
+											value,
+											data: { dateKey },
+											color: colorScale(category),
+											group: items
+										};
+									})
+									.filter((s): s is NonNullable<typeof s> => s !== null);
 
-							const total = segments.reduce((sum, seg) => sum + seg.value, 0);
+								const total = segments.reduce((sum, seg) => sum + seg.value, 0);
 
-							return {
-								dateKey,
-								segments,
-								total
-							};
-						})
-						.filter((d): d is BackgroundData => d !== null && d.segments.length > 0);
+								return {
+									dateKey,
+									segments,
+									total
+								};
+							})
+							.filter((d): d is BackgroundData => d !== null && d.segments.length > 0);
 
-					select(node)
-						.selectAll('rect')
-						.data(backgroundData)
-						.join('rect')
-						.attr('x', (d) => xScale(d.dateKey) ?? 0)
-						.attr('y', -paddingTop)
-						.attr('width', xScale.bandwidth())
-						.attr('height', innerHeight + paddingTop)
-						.attr('fill', 'transparent')
-						.attr('cursor', 'pointer')
-						.attr(
-							'class',
-							'stack-background text-background/0 hover:text-background/50 duration-200 transition-colors'
-						)
-						.attr('fill', 'currentColor')
-						.on('pointerenter', function (ev, d) {
-							highlightedRectElement = this as SVGRectElement;
+						select(node)
+							.selectAll('rect')
+							.data(backgroundData)
+							.join('rect')
+							.attr('x', (d) => xScale(d.dateKey) ?? 0)
+							.attr('y', -paddingTop)
+							.attr('width', Math.max(xScale.bandwidth(), 0))
+							.attr('height', Math.max(innerHeight + paddingTop, 0))
+							.attr('fill', 'transparent')
+							.attr('cursor', 'pointer')
+							.attr(
+								'class',
+								'stack-background text-background/0 hover:text-background/50 duration-200 transition-colors'
+							)
+							.attr('fill', 'currentColor')
+							.on('pointerenter', function (ev, d) {
+								highlightedRectElement = this as SVGRectElement;
 
-							stackTooltipData = $state.snapshot({
-								date: new Date(d.dateKey),
-								segments: d.segments,
-								total: d.total
-							});
+								stackTooltipData = $state.snapshot({
+									date: new Date(d.dateKey),
+									segments: d.segments,
+									total: d.total
+								});
 
-							// Clear segment tooltip when showing stack tooltip
-							tooltipData = undefined;
-						})
-						.on('pointerleave', function () {
-							if (this === highlightedRectElement) {
-								highlightedRectElement = undefined;
-								stackTooltipData = undefined;
-							}
-						});
-				}}
-			>
-			</g>
-
-			<!-- Segment rects -->
-			<g
-				class="data"
-				{@attach (node: SVGGElement) => {
-					select(node)
-						.selectAll('g')
-						.data(series)
-						.join('g')
-						.attr('class', 'serie')
-						.attr('data-type', (d) => d.key)
-						.attr('color', (d) => colorScale(d.key))
-						.selectAll('rect')
-						.data((d) => d)
-						.join('rect')
-						.attr('x', (d) => xScale((d.data[0] ?? '') as unknown as string) ?? 0)
-						.attr('y', (d) => yScale(d[1]))
-						.attr('height', (d) => Math.abs(yScale(d[0]) - yScale(d[1])))
-						.attr('width', xScale.bandwidth())
-						.attr('cursor', 'pointer')
-						.attr(
-							'class',
-							'segment-rect stroke-current fill-current hover:fill-opacity-50 stroke-0 hover:stroke-2 duration-100 transition-colors'
-						)
-						.attr('pointer-events', 'all')
-						.on('pointerenter', function (ev, d) {
-							highlightedRectElement = this as SVGRectElement;
-
-							const parentData = select(
-								highlightedRectElement.parentNode as SVGElement
-							).datum() as {
-								key: string;
-							};
-
-							const category = parentData.key;
-							const value = d[1] - d[0];
-							const dateKey = d.data[0];
-							const date = new Date(dateKey);
-
-							// Get the original items from the grouped data
-							const groupedData = group.get(String(dateKey))?.get(category);
-							const items = groupedData?.[1] ?? [];
-
-							tooltipData = $state.snapshot({
-								date: date,
-								category: category,
-								value: value,
-								data: d.data,
-								group: items
-							});
-
-							// Clear stack tooltip when showing segment tooltip
-							stackTooltipData = undefined;
-						})
-						.on('pointerleave', function () {
-							if (this === highlightedRectElement) {
-								highlightedRectElement = undefined;
+								// Clear segment tooltip when showing stack tooltip
 								tooltipData = undefined;
-							}
-						});
-				}}
-			>
+							})
+							.on('pointerleave', function () {
+								if (this === highlightedRectElement) {
+									highlightedRectElement = undefined;
+									stackTooltipData = undefined;
+								}
+							});
+					}}
+				>
+				</g>
+
+				<!-- Segment rects -->
+				<g
+					class="data"
+					{@attach (node: SVGGElement) => {
+						select(node)
+							.selectAll('g')
+							.data(series)
+							.join('g')
+							.attr('class', 'serie')
+							.attr('data-type', (d) => d.key)
+							.attr('color', (d) => colorScale(d.key))
+							.selectAll('rect')
+							.data((d) => d)
+							.join('rect')
+							.attr('x', (d) => xScale((d.data[0] ?? '') as unknown as string) ?? 0)
+							.attr('y', (d) => yScale(d[1]))
+							.attr('height', (d) => Math.abs(yScale(d[0]) - yScale(d[1])))
+							.attr('width', xScale.bandwidth())
+							.attr('cursor', 'pointer')
+							.attr(
+								'class',
+								'segment-rect stroke-current fill-current hover:fill-opacity-50 stroke-0 hover:stroke-2 duration-100 transition-colors'
+							)
+							.attr('pointer-events', 'all')
+							.on('pointerenter', function (ev, d) {
+								highlightedRectElement = this as SVGRectElement;
+
+								const parentData = select(
+									highlightedRectElement.parentNode as SVGElement
+								).datum() as {
+									key: string;
+								};
+
+								const category = parentData.key;
+								const value = d[1] - d[0];
+								const dateKey = d.data[0];
+								const date = new Date(dateKey);
+
+								// Get the original items from the grouped data
+								const groupedData = group.get(String(dateKey))?.get(category);
+								const items = groupedData?.[1] ?? [];
+
+								tooltipData = $state.snapshot({
+									date: date,
+									category: category,
+									value: value,
+									data: d.data,
+									group: items
+								});
+
+								// Clear stack tooltip when showing segment tooltip
+								stackTooltipData = undefined;
+							})
+							.on('pointerleave', function () {
+								if (this === highlightedRectElement) {
+									highlightedRectElement = undefined;
+									tooltipData = undefined;
+								}
+							});
+					}}
+				>
+				</g>
 			</g>
 		</g>
 	</svg>
