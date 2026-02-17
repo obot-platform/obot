@@ -157,6 +157,7 @@
 	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	type FrameName = 'minute' | 'hour' | 'day' | 'month';
 	type Frame = [name: FrameName, step: number, duration: number];
@@ -847,7 +848,7 @@
 			></g>
 
 			<!-- Y Axis -->
-			<g style:opacity={+!hideYAxis}>
+			<g class={twMerge(hideYAxis && 'pointer-events-none')} style:opacity={+!hideYAxis}>
 				<g
 					class="y-axis text-on-surface3 dark:text-on-surface1"
 					{@attach (node: SVGGElement) => {
