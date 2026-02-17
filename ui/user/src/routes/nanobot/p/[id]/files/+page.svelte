@@ -109,6 +109,7 @@
 		if (!q) return flatFileList;
 
 		const flat = flatFileList;
+		//eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const toInclude = new Set<string>();
 
 		for (const { path, node } of flat) {
