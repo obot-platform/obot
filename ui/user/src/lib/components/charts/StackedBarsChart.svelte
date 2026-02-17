@@ -845,9 +845,9 @@
 						.data(backgroundData)
 						.join('rect')
 						.attr('x', (d) => xScale(d.dateKey) ?? 0)
-						.attr('y', 0)
+						.attr('y', -paddingTop)
 						.attr('width', xScale.bandwidth())
-						.attr('height', innerHeight)
+						.attr('height', innerHeight + paddingTop)
 						.attr('fill', 'transparent')
 						.attr('cursor', 'pointer')
 						.attr(
