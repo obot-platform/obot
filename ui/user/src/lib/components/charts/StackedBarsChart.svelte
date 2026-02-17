@@ -664,12 +664,12 @@
 									style="background-color: {colorScale(segment.category)}"
 								></div>
 								<div class="text-sm">{segment.category}</div>
-								<div class="ml-auto font-semibold">{segment.value}</div>
+								<div class="ml-auto font-semibold">{segment.value.toLocaleString()}</div>
 							</div>
 						{/each}
 						<div class="flex items-center gap-2 border-t pt-1">
 							<div class="text-sm font-semibold">Total</div>
-							<div class="ml-auto text-lg font-bold">{stackTooltipData.total}</div>
+							<div class="ml-auto text-lg font-bold">{stackTooltipData.total.toLocaleString()}</div>
 						</div>
 					</div>
 				</div>
