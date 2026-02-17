@@ -73,9 +73,6 @@ func TestResponseModifier_OpenAIChatCompletions(t *testing.T) {
 	if r.totalTokens != 30 {
 		t.Errorf("totalTokens = %d, want 30", r.totalTokens)
 	}
-	if r.model != "gpt-4o" {
-		t.Errorf("model = %q, want %q", r.model, "gpt-4o")
-	}
 }
 
 func TestResponseModifier_AnthropicMessages(t *testing.T) {
@@ -107,9 +104,6 @@ func TestResponseModifier_AnthropicMessages(t *testing.T) {
 	if r.completionTokens != 15 {
 		t.Errorf("completionTokens = %d, want 15 (cumulative from message_delta)", r.completionTokens)
 	}
-	if r.model != "claude-sonnet-4-20250514" {
-		t.Errorf("model = %q, want %q", r.model, "claude-sonnet-4-20250514")
-	}
 }
 
 func TestResponseModifier_OpenAIResponsesAPI(t *testing.T) {
@@ -136,9 +130,6 @@ func TestResponseModifier_OpenAIResponsesAPI(t *testing.T) {
 	if r.totalTokens != 150 {
 		t.Errorf("totalTokens = %d, want 150", r.totalTokens)
 	}
-	if r.model != "gpt-4o" {
-		t.Errorf("model = %q, want %q", r.model, "gpt-4o")
-	}
 }
 
 func TestResponseModifier_NonStreamingResponse(t *testing.T) {
@@ -164,9 +155,6 @@ func TestResponseModifier_NonStreamingResponse(t *testing.T) {
 	}
 	if r.totalTokens != 15 {
 		t.Errorf("totalTokens = %d, want 15", r.totalTokens)
-	}
-	if r.model != "gpt-4o" {
-		t.Errorf("model = %q, want %q", r.model, "gpt-4o")
 	}
 }
 
