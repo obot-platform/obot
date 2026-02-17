@@ -61,7 +61,7 @@
 		/** Optional color mapping for categories. Can be an object mapping category names to colors, or an array of colors to use in order. If not provided, default colors will be used */
 		colorScheme?: Record<string, string> | string[];
 		/** Optional snippet to render segment tooltip (shows when hovering a specific segment) */
-		tooltip?: Snippet<[TooltipArg]>;
+		segmentTooltip?: Snippet<[TooltipArg]>;
 		/** Optional snippet to render stack tooltip (shows when hovering anywhere on the stack) */
 		stackTooltip?: Snippet<[StackTooltipArg]>;
 	}
@@ -126,7 +126,7 @@
 		categoryAccessor,
 		groupAccessor = (d) => d.length,
 		colorScheme,
-		tooltip,
+		segmentTooltip,
 		stackTooltip
 	}: StackedBarsChartProps<any> = $props();
 
@@ -563,8 +563,8 @@
 			in:fade={{ duration: 100, delay: 10 }}
 			out:fade={{ duration: 100 }}
 		>
-			{#if tooltip}
-				{@render tooltip(tooltipData)}
+			{#if segmentTooltip}
+				{@render segmentTooltip(tooltipData)}
 			{:else}
 				<div class="flex flex-col">
 					<div class="flex flex-col gap-0 text-xs">

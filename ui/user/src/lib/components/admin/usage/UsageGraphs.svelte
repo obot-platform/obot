@@ -565,7 +565,7 @@
 					dateAccessor={config.dateAccessor}
 					categoryAccessor={config.categoryAccessor}
 					groupAccessor={config.groupAccessor ?? ((d) => d.length)}
-					tooltip={config.tooltip}
+					segmentTooltip={config.tooltip}
 				/>
 			{:else if !showLoadingSpinner}
 				<div class="text-on-surface1 flex h-[300px] items-center justify-center text-sm font-light">

@@ -460,7 +460,7 @@
 
 		type CategoryAccessor = ChartProps['categoryAccessor'];
 		type GroupAccessor = ChartProps['groupAccessor'];
-		type Tooltip = ChartProps['tooltip'];
+		type Tooltip = ChartProps['segmentTooltip'];
 
 		type Result = [CategoryAccessor, GroupAccessor, Record<string, string>?, Tooltip?];
 
@@ -495,7 +495,7 @@
 		{categoryAccessor}
 		{groupAccessor}
 		{colorScheme}
-		{tooltip}
+		segmentTooltip={tooltip}
 	/>
 {/snippet}
 
@@ -626,7 +626,7 @@
 										}}
 										groupAccessor={(items) =>
 											items.reduce((sum, item) => sum + (item.value ?? 0), 0)}
-										tooltip={defaultChartTooltip}
+										segmentTooltip={defaultChartTooltip}
 									/>
 								</div>
 							</div>
