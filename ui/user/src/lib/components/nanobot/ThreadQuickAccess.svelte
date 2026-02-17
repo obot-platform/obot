@@ -19,7 +19,6 @@
 	import { getContext } from 'svelte';
 
 	interface Props {
-		selectedFile?: string;
 		onToggle?: () => void;
 		open?: boolean;
 		files?: ChatMessageItemToolCall[];
@@ -227,7 +226,7 @@
 </div>
 
 {#snippet listThreadFiles(compact?: boolean)}
-	{#each files as file (file.callID)}
+	{#each files ?? [] as file (file.callID)}
 		{@const args = JSON.parse(file.arguments ?? '{}') as { file_path: string } | undefined}
 		{@const displayLabel = args?.file_path.split('/').pop()?.split('.').shift()}
 		{@const isWorkflow =

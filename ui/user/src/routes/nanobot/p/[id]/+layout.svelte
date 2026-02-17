@@ -190,6 +190,8 @@
 	afterNavigate(() => {
 		if (workflowId) {
 			selectedFile = `workflow:///${workflowId}`;
+		} else {
+			selectedFile = '';
 		}
 	});
 </script>
@@ -235,7 +237,6 @@
 			{/if}
 
 			<ThreadQuickAccess
-				{selectedFile}
 				onToggle={() => (layout.quickBarAccessOpen = !layout.quickBarAccessOpen)}
 				open={layout.quickBarAccessOpen}
 				files={threadWriteToolItems}

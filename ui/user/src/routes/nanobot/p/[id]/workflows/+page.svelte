@@ -10,6 +10,9 @@
 	let projectId = $derived(data.projectId);
 	const chatApi = $derived(new ChatAPI(agent.connectURL));
 
+	let workflowQuery = $state('');
+	let runsQuery = $state('');
+
 	let workflows = $derived(
 		$nanobotChat?.chat?.resources
 			? $nanobotChat.chat.resources.filter((r) => r.uri.startsWith('workflow:///'))
@@ -26,7 +29,13 @@
 		}))
 	);
 
-	let selectedWorkflowName = $state<string | undefined>(undefined);
+	let filteredWorkflows = $derived(
+		workflows.filter((w) => w.name.toLowerCase().includes(workflowQuery.toLowerCase()))
+	);
+	let filteredRuns = $derived(
+		runs.filter((r) => r.displayLabel.toLowerCase().includes(runsQuery.toLowerCase()))
+	);
+
 	let workflowsContainer = $state<HTMLElement | undefined>(undefined);
 
 	const projectLayout = getContext<{
@@ -36,7 +45,6 @@
 	}>('nanobot-project-layout');
 
 	function handleSelectWorkflow(workflowName: string) {
-		selectedWorkflowName = workflowName;
 		const newChat = new ChatService({
 			api: chatApi
 		});
@@ -52,7 +60,7 @@
 			return data;
 		});
 
-		goto(`/nanobot/p/${projectId}?wid=${selectedWorkflowName}`, {
+		goto(`/nanobot/p/${projectId}?wid=${workflowName}`, {
 			replaceState: true,
 			noScroll: true,
 			keepFocus: true
@@ -89,7 +97,7 @@
 
 	<label class="input w-full">
 		<Search class="size-6" />
-		<input type="search" required placeholder="Search workflows..." />
+		<input type="search" required placeholder="Search workflows..." bind:value={workflowQuery} />
 	</label>
 
 	<table class="table">
@@ -101,8 +109,8 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#if workflows.length > 0}
-				{#each workflows as workflow, index (workflow.uri)}
+			{#if filteredWorkflows.length > 0}
+				{#each filteredWorkflows as workflow, index (workflow.uri)}
 					<tr
 						class="hover:bg-base-200 cursor-pointer"
 						role="button"
@@ -121,7 +129,7 @@
 				{/each}
 			{:else}
 				<tr>
-					<td colspan="3" class="text-base-content/50 text-center text-sm font-light italic">
+					<td colspan="2" class="text-base-content/50 text-center text-sm font-light italic">
 						<span>No workflows found.</span>
 					</td>
 				</tr>
@@ -135,7 +143,7 @@
 
 	<label class="input w-full">
 		<Search class="size-6" />
-		<input type="search" required placeholder="Search runs..." />
+		<input type="search" required placeholder="Search runs..." bind:value={runsQuery} />
 	</label>
 
 	<table class="mb-8 table">
@@ -147,23 +155,31 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each runs as run, index (run.uri)}
-				<tr
-					class="hover:bg-base-200 cursor-pointer"
-					role="button"
-					tabindex="0"
-					onclick={() => projectLayout.handleFileOpen(run.uri)}
-					onkeydown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							projectLayout.handleFileOpen(run.uri);
-						}
-					}}
-				>
-					<td class="w-14 text-center">{index + 1}</td>
-					<td>{run.displayLabel}</td>
+			{#if filteredRuns.length > 0}
+				{#each filteredRuns as run, index (run.uri)}
+					<tr
+						class="hover:bg-base-200 cursor-pointer"
+						role="button"
+						tabindex="0"
+						onclick={() => projectLayout.handleFileOpen(run.uri)}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								projectLayout.handleFileOpen(run.uri);
+							}
+						}}
+					>
+						<td class="w-14 text-center">{index + 1}</td>
+						<td>{run.displayLabel}</td>
+					</tr>
+				{/each}
+			{:else}
+				<tr>
+					<td colspan="2" class="text-base-content/50 text-center text-sm font-light italic">
+						<span>No runs found.</span>
+					</td>
 				</tr>
-			{/each}
+			{/if}
 		</tbody>
 	</table>
 </div>

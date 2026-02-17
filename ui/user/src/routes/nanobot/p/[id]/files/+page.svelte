@@ -4,10 +4,6 @@
 	import { twMerge } from 'tailwind-merge';
 	import { getContext } from 'svelte';
 
-	function onFileOpen(filename: string) {
-		projectLayout?.handleFileOpen(filename);
-	}
-
 	let resourceFiles = $derived(
 		$nanobotChat?.chat?.resources
 			? $nanobotChat.chat.resources.filter((r) => r.uri.startsWith('file:///'))
@@ -15,6 +11,8 @@
 	);
 
 	let filesContainer = $state<HTMLElement | undefined>(undefined);
+	let query = $state('');
+
 	const projectLayout = getContext<{
 		chat: import('$lib/services/nanobot/chat/index.svelte').ChatService | null;
 		handleFileOpen: (filename: string) => void;
@@ -24,6 +22,10 @@
 	type FileTreeNode =
 		| { type: 'folder'; name: string; children: FileTreeNode[] }
 		| { type: 'file'; name: string; uri: string };
+
+	function onFileOpen(filename: string) {
+		projectLayout?.handleFileOpen(filename);
+	}
 
 	function buildFileTreeSimple(files: { uri: string; name?: string }[]): FileTreeNode[] {
 		const root: Extract<FileTreeNode, { type: 'folder' }> = {
@@ -102,6 +104,36 @@
 		return flattenTree(fileTree, 0, '', (path) => open[path] ?? true);
 	});
 
+	let filteredFlatFileList = $derived.by(() => {
+		const q = query.trim().toLowerCase();
+		if (!q) return flatFileList;
+
+		const flat = flatFileList;
+		const toInclude = new Set<string>();
+
+		for (const { path, node } of flat) {
+			const pathLower = path.toLowerCase();
+			const nameLower = node.name.toLowerCase();
+			const matches = pathLower.includes(q) || nameLower.includes(q);
+
+			if (matches) {
+				if (node.type === 'folder') {
+					toInclude.add(path);
+					for (const { path: p } of flat) {
+						if (p.startsWith(path + '/')) toInclude.add(p);
+					}
+				} else {
+					const segments = path.split('/');
+					for (let i = 1; i <= segments.length; i++) {
+						toInclude.add(segments.slice(0, i).join('/'));
+					}
+				}
+			}
+		}
+
+		return flat.filter(({ path }) => toInclude.has(path));
+	});
+
 	$effect(() => {
 		const container = filesContainer;
 		if (!container) return;
@@ -125,11 +157,11 @@
 	</div>
 	<label class="input w-full">
 		<Search class="size-6" />
-		<input type="search" required placeholder="Search" />
+		<input type="search" required placeholder="Search" bind:value={query} />
 	</label>
 	<ul class="mb-8 flex w-full flex-col">
-		{#if flatFileList.length > 0}
-			{#each flatFileList as { depth, path, node } (node.type === 'file' ? node.uri : `folder:${path}`)}
+		{#if filteredFlatFileList.length > 0}
+			{#each filteredFlatFileList as { depth, path, node } (node.type === 'file' ? node.uri : `folder:${path}`)}
 				<li class="w-full font-light">
 					{#if node.type === 'folder'}
 						<button
