@@ -510,7 +510,7 @@
 {/snippet}
 
 {#snippet usersTooltip(arg: TooltipArg)}
-	{@const displayName = getUserDisplayName(usersMap, String(arg.value))}
+	{@const displayName = getUserDisplayName(usersMap, String(arg.category))}
 
 	<div class="flex flex-col gap-2">
 		<div class="flex flex-col gap-0">
@@ -528,14 +528,14 @@
 			{/if}
 			{#if arg?.category}
 				<div class="text-sm font-semibold">
-					{arg.category}
+					{displayName}
 				</div>
 			{/if}
 		</div>
 		{#if arg?.value !== undefined}
 			<div class="text-sm font-medium">
 				<span>
-					{displayName}
+					{arg.value.toLocaleString()}
 				</span>
 			</div>
 		{/if}
