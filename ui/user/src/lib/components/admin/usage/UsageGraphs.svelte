@@ -226,7 +226,7 @@
 
 	let stats = $state<AuditLogUsageStats>();
 
-	const graphDataNew = $derived.by(() => {
+	const graphData = $derived.by(() => {
 		const array: GraphDataItem[] = [];
 
 		for (const s of stats?.items ?? []) {
@@ -703,7 +703,7 @@
 		</div>
 	</div>
 
-	{#if !showLoadingSpinner && !graphDataNew.length}
+	{#if !showLoadingSpinner && !graphData.length}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<ChartBarDecreasing class="text-on-surface1 size-24 opacity-50" />
 			<h4 class="text-on-surface1 text-lg font-semibold">No usage stats</h4>
@@ -716,7 +716,7 @@
 		<div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
 			{#each filteredGraphConfigs as cfg (cfg.id)}
 				{@render cfg.renderer({
-					data: $state.snapshot(graphDataNew),
+					data: $state.snapshot(graphData),
 					config: {
 						id: cfg.id,
 						label: cfg.label,
