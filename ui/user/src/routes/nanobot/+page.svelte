@@ -13,7 +13,7 @@
 	import { NanobotService } from '$lib/services';
 	import { errors } from '$lib/stores';
 	import { LoaderCircle } from 'lucide-svelte';
-	import ThreadQuickAccess from '$lib/components/nanobot/ThreadQuickAccess.svelte';
+	import ThreadQuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
 
 	let { data } = $props();
 	let projects = $derived(data.projects);

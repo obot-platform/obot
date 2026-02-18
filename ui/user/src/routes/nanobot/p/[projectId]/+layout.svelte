@@ -9,14 +9,17 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { loadNanobotThreads } from '../../loadNanobotThreads';
 	import FileEditor from '$lib/components/nanobot/FileEditor.svelte';
-	import ThreadQuickAccess from '$lib/components/nanobot/ThreadQuickAccess.svelte';
+	import QuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
 	import { afterNavigate } from '$app/navigation';
 	import { setContext } from 'svelte';
-	import type { ChatMessageItemToolCall } from '$lib/services/nanobot/types';
+	import type { ChatMessageItemToolCall, ProjectLayoutContext } from '$lib/services/nanobot/types';
+	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 
 	let { data, children } = $props();
 	let agent = $derived(data.agent);
 	let projectId = $derived(data.projectId);
+	let workflowName = $derived((page.data as { workflowName?: string } | undefined)?.workflowName);
+	let parentWorkflowId = $derived(page.url.searchParams.get('pwid') ?? undefined);
 	let workflowId = $derived(page.url.searchParams.get('wid') ?? undefined);
 
 	const chatApi = $derived(new ChatAPI(agent.connectURL));
@@ -30,11 +33,14 @@
 	);
 	let threadContentWidth = $state(0);
 	let needsRefreshThreads = $state(true);
+	let layoutName = $state('');
+	let showBackButton = $state(false);
 
 	const layout = nanobotLayout.getLayout();
 
 	const threadWriteToolItems = $derived.by((): ChatMessageItemToolCall[] => {
 		const items: ChatMessageItemToolCall[] = [];
+		if (!threadId) return items;
 		if (chat?.messages?.length) {
 			for (const message of chat.messages) {
 				if (message.role !== 'assistant') continue;
@@ -72,24 +78,42 @@
 		selectedFile = filename;
 	}
 
-	const projectLayoutContext = $state({
+	const projectLayoutContext = $state<ProjectLayoutContext>({
 		chat: null as ChatService | null,
 		threadWriteToolItems: [] as ChatMessageItemToolCall[],
 		handleFileOpen,
-		setThreadContentWidth: (w: number) => (threadContentWidth = w)
+		setThreadContentWidth: (w: number) => (threadContentWidth = w),
+		setLayoutName: (name: string) => (layoutName = name),
+		setShowBackButton: (show: boolean) => (showBackButton = show)
 	});
+
 	$effect(() => {
 		projectLayoutContext.chat = chat;
 		projectLayoutContext.threadWriteToolItems = threadWriteToolItems;
+		if (parentWorkflowId || workflowId) {
+			projectLayoutContext.setLayoutName(`${parentWorkflowId || workflowId}`);
+			projectLayoutContext.setShowBackButton(true);
+		} else {
+			projectLayoutContext.setLayoutName(workflowName ?? '');
+			projectLayoutContext.setShowBackButton(workflowName !== undefined);
+		}
 	});
-	setContext('nanobot-project-layout', projectLayoutContext);
+
+	$effect(() => {
+		const res = chat?.resources ?? [];
+		nanobotChat.update((data) => {
+			if (data) data.resources = res;
+			return data;
+		});
+	});
+	setContext(PROJECT_LAYOUT_CONTEXT, projectLayoutContext);
 
 	onMount(() => {
 		loadNanobotThreads(chatApi, projectId, threadId ?? undefined);
 	});
 
 	$effect(() => {
-		if (initialQuickBarAccessOpen) return;
+		if (initialQuickBarAccessOpen || !threadId) return;
 		if (chat && chat.messages.length > 0) {
 			let foundTool = false;
 			for (const message of chat.messages) {
@@ -193,11 +217,16 @@
 		} else {
 			selectedFile = '';
 		}
+
+		if (!threadId) {
+			initialQuickBarAccessOpen = false;
+			layout.quickBarAccessOpen = false;
+		}
 	});
 </script>
 
 <Layout
-	title=""
+	title={layoutName}
 	layoutContext={nanobotLayout}
 	classes={{
 		container: 'px-0 py-0 md:px-0',
@@ -206,9 +235,11 @@
 		sidebar: 'pt-0 px-0',
 		sidebarRoot: 'bg-base-200'
 	}}
+	{showBackButton}
 	whiteBackground
 	disableResize
 	hideProfileButton
+	alwaysShowHeaderTitle
 >
 	{#snippet leftSidebar()}
 		<ProjectSidebar {chatApi} selectedThreadId={threadId} {projectId} />
@@ -236,10 +267,11 @@
 				/>
 			{/if}
 
-			<ThreadQuickAccess
+			<QuickAccess
 				onToggle={() => (layout.quickBarAccessOpen = !layout.quickBarAccessOpen)}
 				open={layout.quickBarAccessOpen}
 				files={threadWriteToolItems}
+				{threadId}
 			/>
 		{/if}
 	{/snippet}

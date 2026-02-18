@@ -20,6 +20,7 @@ export interface Chat {
 	created: string;
 	visibility?: 'public' | 'private';
 	readonly?: boolean;
+	workflowURIs?: string[];
 }
 
 export interface ChatMessage {
@@ -436,3 +437,14 @@ export interface ProjectV2AgentUpdateRequest {
 	description?: string;
 	defaultAgent?: string;
 }
+
+export interface ProjectLayoutContext {
+	chat: import('$lib/services/nanobot/chat/index.svelte').ChatService | null;
+	threadWriteToolItems: ChatMessageItemToolCall[];
+	handleFileOpen: (filename: string) => void;
+	setThreadContentWidth: (w: number) => void;
+	setLayoutName: (name: string) => void;
+	setShowBackButton: (show: boolean) => void;
+}
+
+export const PROJECT_LAYOUT_CONTEXT = 'nanobot-project-layout';

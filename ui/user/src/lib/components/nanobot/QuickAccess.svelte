@@ -17,14 +17,17 @@
 	import { fly } from 'svelte/transition';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { getContext } from 'svelte';
+	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
+	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 
 	interface Props {
 		onToggle?: () => void;
 		open?: boolean;
 		files?: ChatMessageItemToolCall[];
+		threadId?: string;
 	}
 
-	let { onToggle, open, files }: Props = $props();
+	let { onToggle, open, files, threadId }: Props = $props();
 
 	/** Todo item shape from todo:///list resource or todo_write tool (application/json) */
 	interface TodoItem {
@@ -34,9 +37,7 @@
 	}
 
 	const TODO_WRITE_NAMES = ['todo_write', 'todoWrite'];
-	const projectLayout = getContext<{
-		handleFileOpen: (filename: string) => void;
-	}>('nanobot-project-layout');
+	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
 
 	function parseTodoItem(raw: unknown): TodoItem | null {
 		if (!raw || typeof raw !== 'object') return null;
@@ -130,97 +131,99 @@
 			<Profile />
 		</div>
 
-		{#if open}
-			<div in:fly={{ x: 100, duration: 150 }} class="flex flex-col gap-4">
-				<div
-					class="rounded-selector bg-base-200 dark:border-base-300 flex flex-col gap-2 border border-transparent p-4"
-				>
-					<h4 class="flex w-full items-center justify-between gap-2 text-sm font-semibold">
-						To Do List
-						<button
-							class="btn btn-ghost btn-xs tooltip tooltip-left"
-							data-tip={showTodoList ? 'Hide To Do List' : 'Show To Do List'}
-							onclick={() => (showTodoList = !showTodoList)}
-						>
-							{#if showTodoList}
-								<ChevronUp class="size-4" />
-							{:else}
-								<ChevronDown class="size-4" />
-							{/if}
-						</button>
-					</h4>
-					{#if showTodoList}
-						<ul class="flex flex-col gap-1.5">
-							{#if todoItems.length > 0}
-								{#each todoItems as item, i (i)}
-									<li class="flex min-w-0 items-start gap-2 text-sm font-light">
-										{#if item.status === 'completed' || item.status === 'cancelled'}
-											<CheckCircle2 class="text-success mt-0.5 size-4 shrink-0" />
-										{:else if item.status === 'in_progress'}
-											<Loader2 class="text-primary mt-0.5 size-4 shrink-0 animate-spin" />
-										{:else}
-											<Circle class="text-base-content/40 mt-0.5 size-4 shrink-0" />
-										{/if}
-										<span
-											class="min-w-0 truncate"
-											class:line-through={item.status === 'completed' ||
-												item.status === 'cancelled'}
-											class:opacity-50={item.status === 'cancelled'}
-										>
-											{item.content}
-										</span>
-									</li>
-								{/each}
-							{:else}
-								<li
-									class="text-base-content/50 flex min-w-0 items-start gap-2 text-xs font-light italic"
-								>
-									<span class="min-w-0 truncate"
-										>Running to-dos for longer tasks will display here. You do not currently have
-										any running to-dos.</span
+		{#if !!threadId}
+			{#if open}
+				<div in:fly={{ x: 100, duration: 150 }} class="flex flex-col gap-4">
+					<div
+						class="rounded-selector bg-base-200 dark:border-base-300 flex flex-col gap-2 border border-transparent p-4"
+					>
+						<h4 class="flex w-full items-center justify-between gap-2 text-sm font-semibold">
+							To Do List
+							<button
+								class="btn btn-ghost btn-xs tooltip tooltip-left"
+								data-tip={showTodoList ? 'Hide To Do List' : 'Show To Do List'}
+								onclick={() => (showTodoList = !showTodoList)}
+							>
+								{#if showTodoList}
+									<ChevronUp class="size-4" />
+								{:else}
+									<ChevronDown class="size-4" />
+								{/if}
+							</button>
+						</h4>
+						{#if showTodoList}
+							<ul class="flex flex-col gap-1.5">
+								{#if todoItems.length > 0}
+									{#each todoItems as item, i (i)}
+										<li class="flex min-w-0 items-start gap-2 text-sm font-light">
+											{#if item.status === 'completed' || item.status === 'cancelled'}
+												<CheckCircle2 class="text-success mt-0.5 size-4 shrink-0" />
+											{:else if item.status === 'in_progress'}
+												<Loader2 class="text-primary mt-0.5 size-4 shrink-0 animate-spin" />
+											{:else}
+												<Circle class="text-base-content/40 mt-0.5 size-4 shrink-0" />
+											{/if}
+											<span
+												class="min-w-0 truncate"
+												class:line-through={item.status === 'completed' ||
+													item.status === 'cancelled'}
+												class:opacity-50={item.status === 'cancelled'}
+											>
+												{item.content}
+											</span>
+										</li>
+									{/each}
+								{:else}
+									<li
+										class="text-base-content/50 flex min-w-0 items-start gap-2 text-xs font-light italic"
 									>
-								</li>
-							{/if}
-						</ul>
-					{/if}
+										<span class="min-w-0 truncate"
+											>Running to-dos for longer tasks will display here. You do not currently have
+											any running to-dos.</span
+										>
+									</li>
+								{/if}
+							</ul>
+						{/if}
+					</div>
+					{@render listThreadFiles(false)}
 				</div>
-				{@render listThreadFiles(false)}
-			</div>
-		{:else if onToggle}
-			<button
-				class="btn btn-ghost btn-circle tooltip tooltip-left size-10 self-center"
-				onclick={() => onToggle()}
-				aria-label="Expand to show to-do list"
-				data-tip="Expand to show to-do list"
-			>
-				<ListCheck class="text-base-content/50 size-5" />
-			</button>
-
-			{@render listThreadFiles(true)}
-		{/if}
-		<div class="flex grow"></div>
-		{#if onToggle}
-			<div
-				class={twMerge(
-					'sticky right-0 bottom-2 flex flex-shrink-0',
-					open ? 'justify-start' : 'justify-center'
-				)}
-			>
+			{:else if onToggle}
 				<button
-					class={twMerge(
-						'btn btn-ghost btn-circle tooltip',
-						open ? 'tooltip-right' : 'tooltip-left'
-					)}
+					class="btn btn-ghost btn-circle tooltip tooltip-left size-10 self-center"
 					onclick={() => onToggle()}
-					data-tip={open ? 'Close to-do & file list' : 'Open to-do & file list'}
+					aria-label="Expand to show to-do list"
+					data-tip="Expand to show to-do list"
 				>
-					{#if open}
-						<SidebarOpen class="text-base-content/50 size-6" />
-					{:else}
-						<SidebarClose class="text-base-content/50 size-6" />
-					{/if}
+					<ListCheck class="text-base-content/50 size-5" />
 				</button>
-			</div>
+
+				{@render listThreadFiles(true)}
+			{/if}
+			<div class="flex grow"></div>
+			{#if onToggle}
+				<div
+					class={twMerge(
+						'sticky right-0 bottom-2 flex flex-shrink-0',
+						open ? 'justify-start' : 'justify-center'
+					)}
+				>
+					<button
+						class={twMerge(
+							'btn btn-ghost btn-circle tooltip',
+							open ? 'tooltip-right' : 'tooltip-left'
+						)}
+						onclick={() => onToggle()}
+						data-tip={open ? 'Close to-do & file list' : 'Open to-do & file list'}
+					>
+						{#if open}
+							<SidebarOpen class="text-base-content/50 size-6" />
+						{:else}
+							<SidebarClose class="text-base-content/50 size-6" />
+						{/if}
+					</button>
+				</div>
+			{/if}
 		{/if}
 	</div>
 </div>
