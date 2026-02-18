@@ -369,7 +369,7 @@
 	]);
 </script>
 
-{#snippet defaultChartTooltip(arg: TooltipArg)}
+{#snippet defaultSegmentTooltip(arg: TooltipArg)}
 	{@const categoryLabel =
 		arg.category === 'input_tokens'
 			? 'Input Tokens'
@@ -377,9 +377,9 @@
 				? 'Output Tokens'
 				: arg.category}
 
-	<div class="text-md text-base-content/50 flex flex-col gap-1">
+	<div class="flex flex-col gap-1 text-gray-900 dark:text-gray-100">
 		{#if arg?.date}
-			<div class="text-xs">
+			<div class="text-xs opacity-50">
 				{arg.date.toLocaleDateString(undefined, {
 					year: 'numeric',
 					month: 'short',
@@ -391,12 +391,12 @@
 		{/if}
 
 		{#if arg?.category}
-			<div class="text-base-content text-lg font-semibold">{categoryLabel}</div>
+			<div class="text-lg font-semibold">{categoryLabel}</div>
 		{/if}
 
 		{#if arg?.value !== undefined}
-			<div class="text-base-content text-xl">
-				{arg.value.toLocaleString()} tokens
+			<div class="text-xl">
+				{arg.value.toLocaleString()} <span class="text-xs font-normal opacity-50">tokens</span>
 			</div>
 		{/if}
 	</div>
@@ -413,9 +413,9 @@
 	{@const total = input + output}
 	{@const userDisplayName = getUserDisplayName(usersMap, arg.category ?? '')}
 
-	<div class="text-md text-base-content/50 flex flex-col gap-1">
+	<div class="flex flex-col gap-1 text-gray-900 dark:text-gray-100">
 		{#if arg?.date}
-			<div class="text-xs">
+			<div class="text-xs opacity-50">
 				{arg.date.toLocaleDateString(undefined, {
 					year: 'numeric',
 					month: 'short',
@@ -427,28 +427,30 @@
 		{/if}
 
 		{#if arg?.category}
-			<div class="text-base-content text-xl font-semibold">{userDisplayName}</div>
+			<div class="text-xl font-semibold">{userDisplayName}</div>
 		{/if}
 
 		{#if arg?.value !== undefined}
 			<div class="">
-				Total: <span class="text-base-content text-lg">{total.toLocaleString()}</span> tokens
+				<span class="opacity-50">Total: </span><span class="text-lg">{total.toLocaleString()}</span>
+				<span class="opacity-50">tokens</span>
 			</div>
 		{/if}
 
 		{#if items.length > 0}
-			<div class="text-md">
-				Input: <span class="text-base-content">{input.toLocaleString()}</span> | Output:
-				<span class="text-base-content">{output.toLocaleString()}</span>
+			<div class="text-sm">
+				<span class="opacity-50">Input:</span> <span>{input.toLocaleString()}</span> |
+				<span class="opacity-50">Output:</span>
+				<span>{output.toLocaleString()}</span>
 			</div>
 		{/if}
 	</div>
 {/snippet}
 
 {#snippet groupByUsersStackTooltip(arg: StackTooltipArg)}
-	<div class="flex flex-col gap-2">
+	<div class="flex flex-col gap-2 text-gray-900 dark:text-gray-100">
 		{#if arg?.date}
-			<div class="text-xs">
+			<div class="text-xs opacity-50">
 				{arg.date.toLocaleDateString(undefined, {
 					year: 'numeric',
 					month: 'short',
@@ -458,7 +460,7 @@
 				})}
 			</div>
 		{/if}
-		<div class="text-base-content/50 flex flex-col gap-1">
+		<div class="flex flex-col gap-1">
 			{#each arg.segments as segment (segment.category)}
 				{@const userDisplayName =
 					usersMap.get(segment.category)?.displayName ?? segment.category ?? 'Unknown'}
@@ -469,21 +471,25 @@
 				<div class="flex flex-col gap-1">
 					<div class="flex items-center gap-2">
 						<div class="h-3 w-3 rounded-sm" style="background-color: {segment.color}"></div>
-						<div class="text-base-content text-sm font-semibold">{userDisplayName}</div>
+						<div class="text-sm font-semibold">
+							{userDisplayName}
+						</div>
 						<div class="ml-auto font-semibold">
-							<span class="text-base-content">{segment.value.toLocaleString()}</span> tokens
+							{segment.value.toLocaleString()}
 						</div>
 					</div>
 					<div class="ml-5 text-xs">
-						Input: <span class="text-base-content">{input.toLocaleString()}</span> | Output:
-						<span class="text-base-content">{output.toLocaleString()}</span>
+						<span class="opacity-50">Input:</span> <span>{input.toLocaleString()}</span> |
+						<span class="opacity-50">Output:</span>
+						<span>{output.toLocaleString()}</span>
 					</div>
 				</div>
 			{/each}
 			<div class="mt-1 flex items-center gap-2 border-t pt-1">
 				<div class="text-sm font-semibold">Total</div>
 				<div class="ml-auto text-lg font-bold">
-					<span class="text-base-content">{arg.total.toLocaleString()}</span> tokens
+					<span>{arg.total.toLocaleString()}</span>
+					<span class="text-xs font-normal opacity-50">tokens</span>
 				</div>
 			</div>
 		</div>
@@ -546,7 +552,7 @@
 						class="h-3 w-3 flex-shrink-0 rounded-sm"
 						style="background-color: currentColor"
 					></div>
-					<span class="text-sm">{formatUserName(item.category)}</span>
+					<span>{formatUserName(item.category)}</span>
 				</div>
 			{/each}
 		</div>
@@ -593,7 +599,7 @@
 				(row) => row.model,
 				(items) => items.reduce((sum, item) => sum + (item.tokenValue ?? 0), 0),
 				colorsByModels,
-				defaultChartTooltip,
+				defaultSegmentTooltip,
 				undefined,
 				'internal'
 			] as Result;
@@ -602,7 +608,7 @@
 			(row) => row.tokenType,
 			(items) => items.reduce((sum, item) => sum + (item.tokenValue ?? 0), 0),
 			undefined,
-			defaultChartTooltip,
+			defaultSegmentTooltip,
 			undefined,
 			'internal'
 		] as Result;
@@ -747,7 +753,7 @@
 										categoryAccessor={(row) => row.tokenType}
 										groupAccessor={(items) =>
 											items.reduce((sum, item) => sum + (item.value ?? 0), 0)}
-										segmentTooltip={defaultChartTooltip}
+										segmentTooltip={defaultSegmentTooltip}
 									/>
 								</div>
 							</div>
