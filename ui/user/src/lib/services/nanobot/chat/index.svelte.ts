@@ -313,7 +313,12 @@ export class ChatAPI {
 				};
 
 				// Certain events should be processed immediately (not batched)
-				if (type === 'history-start' || type === 'history-end' || type === 'chat-done') {
+				if (
+					type === 'history-start' ||
+					type === 'history-end' ||
+					type === 'chat-done' ||
+					type === 'error'
+				) {
 					// Flush any pending events first
 					flushBuffer();
 					if (batchTimer !== null) {
@@ -555,6 +560,14 @@ export class ChatService {
 					this.isLoading = true;
 				} else if (event.type == 'chat-done') {
 					this.isLoading = false;
+					for (const waiting of this.onChatDone) {
+						waiting();
+					}
+					this.onChatDone = [];
+				} else if (event.type == 'error') {
+					this.isLoading = false;
+					this.subscribed = false;
+					this.currentRequestId = undefined;
 					for (const waiting of this.onChatDone) {
 						waiting();
 					}
