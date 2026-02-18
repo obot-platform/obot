@@ -64,14 +64,25 @@
 		}
 	});
 
-	// Reset current match index when query changes or matches update
+	// Reset/clamp current match index when query or matches update, then scroll to current match
 	$effect(() => {
-		if (query) {
-			// Use a small delay to ensure DOM is updated
-			setTimeout(() => scrollToMatch(Math.min(currentMatchIndex, matchingIndices.length - 1)), 100);
-		} else {
+		// No query: reset index and do not scroll
+		if (!query) {
 			currentMatchIndex = 0;
+			return;
 		}
+
+		// No matches: reset index and do not scroll
+		if (!matchingIndices.length) {
+			currentMatchIndex = 0;
+			return;
+		}
+
+		// Clamp currentMatchIndex into valid range
+		setTimeout(
+			() => scrollToMatch(Math.max(0, Math.min(currentMatchIndex, matchingIndices.length - 1))),
+			100
+		);
 	});
 
 	function isScrolledToBottom(element: HTMLElement): boolean {
@@ -89,7 +100,7 @@
 	}
 
 	function clearLogs() {
-		// Mark the current position - future messages after this will be shown
+		// Clear logs and reset UI state
 		query = ''; // Also clear search
 		userScrolledUp = false; // Reset scroll tracking
 
@@ -165,7 +176,8 @@
 	}
 
 	export function scroll() {
-		if (logsContainer) {
+		// Respect the userScrolledUp state to avoid disrupting the user's reading position
+		if (logsContainer && !userScrolledUp) {
 			scrollToBottom(logsContainer);
 		}
 	}
@@ -180,7 +192,7 @@
 			<button
 				onclick={onRefresh}
 				use:tooltip={'Refresh logs'}
-				class="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+				class="text-on-surface1/60 hover:bg-surface2 hover:text-on-surface1 rounded-md p-1 disabled:opacity-50"
 				disabled={refreshing}
 				aria-label="Refresh logs"
 			>
@@ -199,7 +211,7 @@
 			<button
 				onclick={clearLogs}
 				use:tooltip={'Clear logs'}
-				class="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+				class="text-on-surface1/60 hover:bg-surface2 hover:text-on-surface1 rounded-md p-1 disabled:opacity-50"
 				disabled={!hasMessages || refreshing}
 				aria-label="Clear logs"
 			>
@@ -211,7 +223,7 @@
 					isMaximized = true;
 				}}
 				use:tooltip={'Maximize (Esc to close)'}
-				class="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+				class="text-on-surface1/60 hover:bg-surface2 hover:text-on-surface1 rounded-md p-1 disabled:opacity-50"
 				disabled={!hasMessages}
 				aria-label="Maximize logs"
 			>
@@ -225,11 +237,12 @@
 		onclick={handleModalClick}
 		class={twMerge(
 			isMaximized
-				? 'fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/50 p-4 md:p-8 lg:p-10'
+				? 'bg-background/50 fixed inset-0 z-50 flex flex-col items-center justify-center p-4 md:p-8 lg:p-10'
 				: 'contents'
 		)}
 		role={isMaximized ? 'dialog' : undefined}
 		aria-modal={isMaximized ? 'true' : undefined}
+		aria-label={isMaximized ? title : undefined}
 	>
 		<div
 			onscroll={handleUserScroll}
@@ -240,12 +253,10 @@
 			)}
 		>
 			{#if hasMessages}
-				<div
-					class="dark:bg-surface1 bg-background sticky top-0 z-10 border-b border-gray-200 p-4 dark:border-gray-700"
-				>
+				<div class="dark:bg-surface1 bg-background border-surface3 sticky top-0 z-10 border-b p-4">
 					<div
 						class={twMerge(
-							'border-surface2 bg-surface1/50 flex h-10 w-full items-center gap-2 rounded-sm border pr-2 pl-2 text-xs focus-within:outline focus-within:outline-2 focus-within:outline-blue-500',
+							'border-surface2 bg-surface1/50 focus-within:outline-primary flex h-10 w-full items-center gap-2 rounded-sm border pr-2 pl-2 text-xs focus-within:outline-2',
 							isMaximized && 'text-md h-12'
 						)}
 					>
@@ -255,7 +266,7 @@
 
 						<input
 							bind:this={searchInput}
-							class="flex-1 bg-transparent py-3 outline-none placeholder:text-gray-400"
+							class="placeholder:text-on-surface1/40 flex-1 bg-transparent py-3 outline-none"
 							type="text"
 							placeholder="Search logs... (Ctrl+F)"
 							bind:value={query}
@@ -265,7 +276,7 @@
 
 						<div class="flex h-full items-center gap-1 p-0.5">
 							{#if query}
-								<span class="text-xs text-gray-500 dark:text-gray-400">
+								<span class="text-on-surface1/60 text-xs">
 									{#if hasMatches}
 										{currentMatchIndex + 1} / {matchingIndices.length}
 									{:else}
@@ -319,23 +330,24 @@
 			{/if}
 
 			{#if hasMessages}
-				<div class="messages-grid space-y-1 p-4">
+				<div class="space-y-1 p-4">
 					{#each messages as message, i (i)}
 						{@const isMatchingLine = query ? isMatch(i) : true}
 						{@const isCurrentMatchLine = isCurrentMatch(i)}
 						<div
 							data-message-index={i}
 							class={twMerge(
-								'group col-span-full grid grid-cols-subgrid gap-2 rounded px-2 py-1 font-mono text-sm transition-all',
+								'group grid gap-2 rounded px-2 py-1 font-mono text-sm transition-all',
 								isMaximized && 'text-base',
 								!isMatchingLine && 'opacity-50',
-								isMatchingLine && 'hover:bg-gray-50 dark:hover:bg-gray-800',
-								isCurrentMatchLine && 'outline-2 outline-offset-2 outline-blue-500'
+								isMatchingLine && 'hover:bg-surface2',
+								isCurrentMatchLine && 'outline-primary outline-2 outline-offset-2'
 							)}
+							style="grid-template-columns: auto 1fr;"
 							in:fade
 						>
 							<div class="border-surface3 border-r pr-1 text-right">
-								<span class="text-gray-400 select-none dark:text-gray-600">{i + 1}</span>
+								<span class="text-on-surface1/40 select-none">{i + 1}</span>
 							</div>
 							<span class="text-on-surface1 flex-1">
 								{@html highlightText(message, query)}
@@ -354,11 +366,3 @@
 		</div>
 	</div>
 </div>
-
-<style>
-	.messages-grid {
-		/* Show line numbers in a separate column */
-		display: grid;
-		grid-template-columns: auto 1fr;
-	}
-</style>
