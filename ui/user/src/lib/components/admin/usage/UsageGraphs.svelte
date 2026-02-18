@@ -544,7 +544,7 @@
 			</div>
 		{/if}
 		<div class="text-base-content/50 flex flex-col gap-1">
-			{#each arg.segments as segment}
+			{#each arg.segments as segment (segment.category)}
 				{@const userDisplayName = getUserDisplayName(usersMap, segment.category)}
 				{@const items = (segment.group ?? []) as GraphDataItem[]}
 				{@const errorCount = items.filter((item) => Boolean(item.error)).length}
