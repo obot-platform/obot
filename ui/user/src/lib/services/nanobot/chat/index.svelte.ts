@@ -257,6 +257,7 @@ export class ChatAPI {
 		opts?: {
 			events?: string[];
 			batchInterval?: number;
+			onClose?: () => void;
 		}
 	): () => void {
 		console.log('Subscribing to thread:', threadId);
@@ -266,6 +267,7 @@ export class ChatAPI {
 		const batchInterval = opts?.batchInterval ?? 200; // Default 200ms
 		let eventBuffer: Event[] = [];
 		let batchTimer: ReturnType<typeof setTimeout> | null = null;
+		let closed = false;
 
 		const flushBuffer = () => {
 			if (eventBuffer.length === 0) return;
@@ -346,7 +348,11 @@ export class ChatAPI {
 			const errorInfo = `EventSource error: readyState=${readyState}, url=${eventSource.url}`;
 			onEvent({ type: 'error', error: errorInfo });
 			console.error('EventSource failed:', { readyState, url: eventSource.url, event: e });
-			eventSource.close();
+			if (!closed) {
+				closed = true;
+				eventSource.close();
+				opts?.onClose?.();
+			}
 		};
 
 		eventSource.onopen = () => {
@@ -354,12 +360,18 @@ export class ChatAPI {
 		};
 
 		return () => {
+			if (closed) {
+				return;
+			}
+			closed = true;
 			// Clean up: flush remaining events and clear timer
 			flushBuffer();
 			if (batchTimer !== null) {
 				clearTimeout(batchTimer);
+				batchTimer = null;
 			}
 			eventSource.close();
+			opts?.onClose?.();
 		};
 	}
 }
@@ -531,11 +543,14 @@ export class ChatService {
 		)) as Resources;
 	};
 
-	private subscribe(chatId: string) {
+	private subscribe(chatId: string, opts?: { includeHistory?: boolean }) {
 		this.closer();
 		if (!chatId) {
+			this.subscribed = false;
 			return;
 		}
+		this.subscribed = true;
+		const includeHistory = opts?.includeHistory ?? false;
 		this.closer = this.api.subscribe(
 			chatId,
 			(event) => {
@@ -545,9 +560,9 @@ export class ChatService {
 					} else {
 						this.messages = appendMessage(this.messages, event.message);
 					}
-				} else if (event.type == 'history-start') {
+				} else if (event.type == 'history-start' && includeHistory) {
 					this.history = [];
-				} else if (event.type == 'history-end') {
+				} else if (event.type == 'history-end' && includeHistory) {
 					this.messages = this.history || [];
 					this.history = undefined;
 					this.isRestoring = false;
@@ -571,14 +586,23 @@ export class ChatService {
 			},
 			{
 				events: [
-					'history-start',
-					'history-end',
+					...(includeHistory ? ['history-start', 'history-end'] : []),
 					'chat-in-progress',
 					'chat-done',
 					'elicitation/create'
-				]
+				],
+				onClose: () => {
+					this.subscribed = false;
+				}
 			}
 		);
+	}
+
+	private ensureSubscribed() {
+		if (!this.chatId || this.subscribed) {
+			return;
+		}
+		this.subscribe(this.chatId, { includeHistory: false });
 	}
 
 	replyToElicitation = async (elicitation: Elicitation, result: ElicitationResult) => {
@@ -612,7 +636,7 @@ export class ChatService {
 
 		// Subscribe immediately to load chat history (thread exists on server)
 		this.subscribed = true;
-		this.subscribe(chatId);
+		this.subscribe(chatId, { includeHistory: true });
 
 		// Load resources, prompts, and agents using default session
 		this.listResources({ useDefaultSession: true }).then((r) => {
@@ -662,10 +686,7 @@ export class ChatService {
 		};
 		this.messages = appendMessage(this.messages, optimisticUserMessage);
 
-		if (!this.subscribed && this.chatId) {
-			this.subscribed = true;
-			this.subscribe(this.chatId);
-		}
+		this.ensureSubscribed();
 
 		try {
 			const response = await this.api.sendMessage(
@@ -787,6 +808,8 @@ export class ChatService {
 		if (!this.chatId) {
 			throw new Error('Chat ID not set');
 		}
+
+		this.ensureSubscribed();
 
 		return await this.api.createResource(file.name, file.type, base64, {
 			description: file.name,
