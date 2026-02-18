@@ -20,6 +20,7 @@
 	import { ChevronDown } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		messages: ChatMessage[];
@@ -78,8 +79,8 @@
 	let wasRestoring = false;
 	let disabledAutoScroll = $state(false);
 	const hasMessages = $derived((messages && messages.length > 0) || isRestoring);
-	const pinInputToBottom = $derived(hasMessages || !!suppressEmptyState);
-	const showInlineAgentHeader = $derived(!hasMessages && !emptyStateContent && !isLoading);
+	let pinInputToBottom = $derived(hasMessages || !!suppressEmptyState);
+	const showInlineAgentHeader = $derived(!emptyStateContent && !isLoading && !pinInputToBottom);
 	let selectedPrompt = $state<string | undefined>();
 
 	const selectedPromptData = $derived(
@@ -287,7 +288,11 @@
 	class="flex h-[calc(100dvh-4rem)] w-full flex-col transition-transform md:relative peer-[.workspace]:md:w-1/4"
 >
 	<!-- Messages area - full height scrollable with bottom padding for floating input -->
-	<div class="w-full overflow-y-auto px-4" bind:this={messagesContainer} onscroll={handleScroll}>
+	<div
+		class="h-full w-full overflow-y-auto px-4"
+		bind:this={messagesContainer}
+		onscroll={handleScroll}
+	>
 		<div class="mx-auto max-w-4xl" bind:this={messagesContentInner}>
 			<!-- Prompts section - show when prompts available and no messages -->
 			{#if prompts && prompts.length > 0}
@@ -299,6 +304,7 @@
 								onSend={async (m) => {
 									selectedPrompt = undefined;
 									if (onSendMessage) {
+										pinInputToBottom = true;
 										return await onSendMessage(m);
 									}
 								}}
@@ -312,7 +318,10 @@
 
 			<Messages
 				{messages}
-				onSend={onSendMessage}
+				onSend={async (m) => {
+					pinInputToBottom = true;
+					return await onSendMessage?.(m);
+				}}
 				{isLoading}
 				{agent}
 				{onFileOpen}
@@ -323,14 +332,32 @@
 
 	<!-- Message input - centered when no messages, bottom when messages exist or when empty state is suppressed -->
 	<div
-		class="absolute right-0 bottom-0 left-0 flex flex-col transition-all duration-500 ease-in-out {pinInputToBottom
-			? 'bg-base-100/80 backdrop-blur-sm'
-			: 'md:-translate-y-1/2 [@media(min-height:900px)]:md:top-1/2 [@media(min-height:900px)]:md:bottom-auto'}"
+		class={twMerge(
+			'absolute top-auto right-0 bottom-0 left-0 flex flex-col transition-all duration-500 ease-in-out',
+			pinInputToBottom
+				? 'bg-base-100/80 ' + (questionElicitation ? 'h-full' : 'backdrop-blur-xs')
+				: 'top-1/2 -translate-y-1/2'
+		)}
 	>
+		{#if pinInputToBottom}
+			<!-- Overlay: always in DOM when pinned so opacity/blur can transition -->
+			<div
+				class={twMerge(
+					'bg-base-100/30 absolute inset-0 z-0 transition-[opacity,backdrop-filter] duration-500 ease-out',
+					questionElicitation
+						? 'bg-base-100 opacity-100 backdrop-blur-[1px]'
+						: 'pointer-events-none opacity-0 backdrop-blur-none'
+				)}
+				aria-hidden="true"
+			></div>
+		{/if}
+		{#if questionElicitation}
+			<div class="relative z-10 flex grow"></div>
+		{/if}
 		<!-- Scroll to bottom button -->
 		{#if showScrollButton && hasMessages}
 			<button
-				class="btn btn-circle border-base-300 bg-base-100 btn-md mx-auto shadow-lg active:translate-y-0.5"
+				class="btn btn-circle border-base-300 bg-base-100 btn-md relative z-10 mx-auto shadow-lg active:translate-y-0.5"
 				onclick={scrollToBottom}
 				aria-label="Scroll to bottom"
 			>
@@ -338,28 +365,30 @@
 			</button>
 		{/if}
 		{#if showInlineAgentHeader}
-			<div class="mx-auto w-full max-w-4xl" out:slide={{ axis: 'y', duration: 300 }}>
-				<div out:fade={{ duration: 200 }}>
+			<div class="relative z-10 mx-auto w-full max-w-4xl" out:slide={{ axis: 'y', duration: 500 }}>
+				<div out:fade={{ duration: 500 }}>
 					<AgentHeader {agent} onSend={onSendMessage} />
 				</div>
 			</div>
-		{:else if !hasMessages && !isLoading && emptyStateContent && !suppressEmptyState}
-			<div class="mx-auto w-full max-w-4xl" out:slide={{ axis: 'y', duration: 300 }}>
-				<div out:fade={{ duration: 200 }}>
+		{:else if emptyStateContent && !pinInputToBottom}
+			<div class="relative z-10 mx-auto w-full max-w-4xl" out:slide={{ axis: 'y', duration: 500 }}>
+				<div out:fade={{ duration: 500 }}>
 					{@render emptyStateContent()}
 				</div>
 			</div>
 		{/if}
-		<div class="mx-auto w-full max-w-4xl">
+		<div class="relative z-10 mx-auto w-full max-w-4xl">
 			{#if questionElicitation}
 				{#key questionElicitation.id}
-					<Elicitation
-						elicitation={questionElicitation}
-						open
-						onresult={(result) => {
-							onElicitationResult?.(questionElicitation, result);
-						}}
-					/>
+					<div class="elicitation-slide-in">
+						<Elicitation
+							elicitation={questionElicitation}
+							open
+							onresult={(result) => {
+								onElicitationResult?.(questionElicitation, result);
+							}}
+						/>
+					</div>
 				{/key}
 			{/if}
 			<MessageInput
@@ -394,3 +423,19 @@
 		{/key}
 	{/if}
 </div>
+
+<style>
+	@keyframes elicitation-slide-in {
+		from {
+			opacity: 0;
+			transform: translateY(24px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+	.elicitation-slide-in {
+		animation: elicitation-slide-in 0.5s ease-out;
+	}
+</style>

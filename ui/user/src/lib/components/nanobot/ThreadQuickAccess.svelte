@@ -1,35 +1,30 @@
 <script lang="ts">
-	import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import type { ChatMessageItemToolCall } from '$lib/services/nanobot/types';
 	import {
 		Circle,
 		CheckCircle2,
 		Loader2,
-		File,
-		Folder,
 		ChevronUp,
 		ChevronDown,
-		ChevronRight,
-		FolderOpen,
 		SidebarOpen,
 		SidebarClose,
 		ListCheck,
-		Folders
+		FileIcon,
+		WorkflowIcon
 	} from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Profile from '../navbar/Profile.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { fly } from 'svelte/transition';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import { getContext } from 'svelte';
 
 	interface Props {
-		chat: ChatService;
-		onFileOpen?: (filename: string) => void;
-		selectedFile?: string;
 		onToggle?: () => void;
 		open?: boolean;
+		files?: ChatMessageItemToolCall[];
 	}
 
-	let { chat, onFileOpen, selectedFile, onToggle, open }: Props = $props();
+	let { onToggle, open, files }: Props = $props();
 
 	/** Todo item shape from todo:///list resource or todo_write tool (application/json) */
 	interface TodoItem {
@@ -39,6 +34,9 @@
 	}
 
 	const TODO_WRITE_NAMES = ['todo_write', 'todoWrite'];
+	const projectLayout = getContext<{
+		handleFileOpen: (filename: string) => void;
+	}>('nanobot-project-layout');
 
 	function parseTodoItem(raw: unknown): TodoItem | null {
 		if (!raw || typeof raw !== 'object') return null;
@@ -95,7 +93,7 @@
 
 	/** Todo list derived from latest todo_write / todoWrite tool call in messages (works even when server doesn't push resource updates) */
 	let todoItemsFromMessages = $derived.by((): TodoItem[] => {
-		const messages = chat.messages;
+		const messages = $nanobotChat?.chat?.messages ?? [];
 		if (!messages?.length) return [];
 		let latest: TodoItem[] = [];
 		for (const msg of messages) {
@@ -113,99 +111,13 @@
 	});
 
 	let showTodoList = $state(true);
-	let showFiles = $state(true);
-
 	let todoItems = $derived(todoItemsFromMessages);
-	let resourceFiles = $derived(
-		chat.resources ? chat.resources.filter((r) => r.uri.startsWith('file:///')) : []
-	);
-
-	type FileTreeNode =
-		| { type: 'folder'; name: string; children: FileTreeNode[] }
-		| { type: 'file'; name: string; uri: string };
-
-	function buildFileTreeSimple(files: { uri: string; name?: string }[]): FileTreeNode[] {
-		const root: Extract<FileTreeNode, { type: 'folder' }> = {
-			type: 'folder',
-			name: '',
-			children: []
-		};
-		function ensurePath(segments: string[]): Extract<FileTreeNode, { type: 'folder' }> {
-			let current = root;
-			for (const seg of segments) {
-				let found = current.children.find((c) => c.type === 'folder' && c.name === seg) as
-					| Extract<FileTreeNode, { type: 'folder' }>
-					| undefined;
-				if (!found) {
-					found = { type: 'folder', name: seg, children: [] };
-					current.children.push(found);
-				}
-				current = found;
-			}
-			return current;
-		}
-		for (const f of files) {
-			const path = f.uri.replace(/^file:\/\/+/, '');
-			const segments = path.split('/').filter(Boolean);
-			if (segments.length === 0) continue;
-			const fileName = segments.pop()!;
-			const parent = ensurePath(segments);
-			parent.children.push({ type: 'file', name: fileName, uri: f.uri });
-		}
-		// Sort: folders first then files, both alphabetically
-		function sortNodes(nodes: FileTreeNode[]): void {
-			nodes.sort((a, b) => {
-				if (a.type === 'folder' && b.type === 'file') return -1;
-				if (a.type === 'file' && b.type === 'folder') return 1;
-				return (a.name || '').localeCompare(b.name || '');
-			});
-			for (const n of nodes) {
-				if (n.type === 'folder') sortNodes(n.children);
-			}
-		}
-		sortNodes(root.children);
-		return root.children;
-	}
-
-	let fileTree = $derived(buildFileTreeSimple(resourceFiles));
-
-	type FlatNode = { depth: number; path: string; node: FileTreeNode };
-	function flattenTree(
-		nodes: FileTreeNode[],
-		depth: number,
-		pathPrefix: string,
-		isOpen: (path: string) => boolean
-	): FlatNode[] {
-		const out: FlatNode[] = [];
-		for (const n of nodes) {
-			const path = pathPrefix ? `${pathPrefix}/${n.name}` : n.name;
-			out.push({ depth, path, node: n });
-			if (n.type === 'folder' && isOpen(path)) {
-				out.push(...flattenTree(n.children, depth + 1, path, isOpen));
-			}
-		}
-		return out;
-	}
-
-	let folderOpen = $state<Record<string, boolean>>({});
-	function toggleFolder(path: string) {
-		folderOpen[path] = !(folderOpen[path] ?? true);
-		folderOpen = { ...folderOpen };
-	}
-	function isFolderOpen(path: string): boolean {
-		return folderOpen[path] ?? true;
-	}
-
-	let flatFileList = $derived.by(() => {
-		const open = folderOpen;
-		return flattenTree(fileTree, 0, '', (path) => open[path] ?? true);
-	});
 </script>
 
 <div
 	class={twMerge(
-		'bg-base-100 border-base-300 h-[100dvh] w-18 min-w-18 overflow-hidden overflow-y-auto border-l ',
-		open && 'w-sm min-w-sm'
+		'bg-base-100 border-base-300 h-[100dvh] w-18 min-w-18 border-l ',
+		open ? 'w-sm min-w-sm overflow-y-auto' : 'overflow-y-visible'
 	)}
 >
 	<div
@@ -219,162 +131,88 @@
 		</div>
 
 		{#if open}
-			<div
-				class="rounded-selector bg-base-200 dark:border-base-300 flex flex-col gap-2 border border-transparent p-4"
-				in:fly={{ x: 100, duration: 150 }}
-			>
-				<h4 class="flex w-full items-center justify-between gap-2 text-sm font-semibold">
-					To Do List
-					<button
-						class="btn btn-ghost btn-xs tooltip tooltip-left"
-						data-tip={showTodoList ? 'Hide To Do List' : 'Show To Do List'}
-						onclick={() => (showTodoList = !showTodoList)}
-					>
-						{#if showTodoList}
-							<ChevronUp class="size-4" />
-						{:else}
-							<ChevronDown class="size-4" />
-						{/if}
-					</button>
-				</h4>
-				{#if showTodoList}
-					<ul class="flex flex-col gap-1.5">
-						{#if todoItems.length > 0}
-							{#each todoItems as item, i (i)}
-								<li class="flex min-w-0 items-start gap-2 text-sm font-light">
-									{#if item.status === 'completed' || item.status === 'cancelled'}
-										<CheckCircle2 class="text-success mt-0.5 size-4 shrink-0" />
-									{:else if item.status === 'in_progress'}
-										<Loader2 class="text-primary mt-0.5 size-4 shrink-0 animate-spin" />
-									{:else}
-										<Circle class="text-base-content/40 mt-0.5 size-4 shrink-0" />
-									{/if}
-									<span
-										class="min-w-0 truncate"
-										class:line-through={item.status === 'completed' || item.status === 'cancelled'}
-										class:opacity-50={item.status === 'cancelled'}
-									>
-										{item.content}
-									</span>
-								</li>
-							{/each}
-						{:else}
-							<li
-								class="text-base-content/50 flex min-w-0 items-start gap-2 text-xs font-light italic"
-							>
-								<span class="min-w-0 truncate"
-									>Running to-dos for longer tasks will display here. You do not currently have any
-									running to-dos.</span
+			<div in:fly={{ x: 100, duration: 150 }} class="flex flex-col gap-4">
+				<div
+					class="rounded-selector bg-base-200 dark:border-base-300 flex flex-col gap-2 border border-transparent p-4"
+				>
+					<h4 class="flex w-full items-center justify-between gap-2 text-sm font-semibold">
+						To Do List
+						<button
+							class="btn btn-ghost btn-xs tooltip tooltip-left"
+							data-tip={showTodoList ? 'Hide To Do List' : 'Show To Do List'}
+							onclick={() => (showTodoList = !showTodoList)}
+						>
+							{#if showTodoList}
+								<ChevronUp class="size-4" />
+							{:else}
+								<ChevronDown class="size-4" />
+							{/if}
+						</button>
+					</h4>
+					{#if showTodoList}
+						<ul class="flex flex-col gap-1.5">
+							{#if todoItems.length > 0}
+								{#each todoItems as item, i (i)}
+									<li class="flex min-w-0 items-start gap-2 text-sm font-light">
+										{#if item.status === 'completed' || item.status === 'cancelled'}
+											<CheckCircle2 class="text-success mt-0.5 size-4 shrink-0" />
+										{:else if item.status === 'in_progress'}
+											<Loader2 class="text-primary mt-0.5 size-4 shrink-0 animate-spin" />
+										{:else}
+											<Circle class="text-base-content/40 mt-0.5 size-4 shrink-0" />
+										{/if}
+										<span
+											class="min-w-0 truncate"
+											class:line-through={item.status === 'completed' ||
+												item.status === 'cancelled'}
+											class:opacity-50={item.status === 'cancelled'}
+										>
+											{item.content}
+										</span>
+									</li>
+								{/each}
+							{:else}
+								<li
+									class="text-base-content/50 flex min-w-0 items-start gap-2 text-xs font-light italic"
 								>
-							</li>
-						{/if}
-					</ul>
-				{/if}
-			</div>
-			<div
-				class="rounded-selector bg-base-200 dark:border-base-300 flex flex-col gap-2 border border-transparent py-4"
-				in:fly={{ x: 100, duration: 150 }}
-			>
-				<h4 class="flex w-full justify-between gap-2 px-4 text-sm font-semibold">
-					Files
-					<button
-						class="btn btn-ghost btn-xs tooltip tooltip-left"
-						data-tip={showFiles ? 'Hide Files' : 'Show Files'}
-						onclick={() => (showFiles = !showFiles)}
-					>
-						{#if showFiles}
-							<ChevronUp class="size-4" />
-						{:else}
-							<ChevronDown class="size-4" />
-						{/if}
-					</button>
-				</h4>
-				{#if showFiles}
-					<ul class="flex flex-col">
-						{#if flatFileList.length > 0}
-							{#each flatFileList as { depth, path, node } (node.type === 'file' ? node.uri : `folder:${path}`)}
-								<li class="w-full text-sm font-light">
-									{#if node.type === 'folder'}
-										<button
-											class="btn btn-ghost flex w-full min-w-0 items-center justify-start gap-2 rounded-none text-left"
-											style="padding-left: {depth * 0.75}rem;"
-											onclick={() => toggleFolder(path)}
-											aria-expanded={isFolderOpen(path)}
-										>
-											<span class="flex shrink-0 pl-2">
-												{#if isFolderOpen(path)}
-													<ChevronDown class="text-base-content/60 size-4" />
-												{:else}
-													<ChevronRight class="text-base-content/60 size-4" />
-												{/if}
-											</span>
-											<div class="bg-base-200 shrink-0 rounded-md p-1">
-												{#if isFolderOpen(path)}
-													<FolderOpen class="text-primary/80 size-4" />
-												{:else}
-													<Folder class="text-primary/80 size-4" />
-												{/if}
-											</div>
-											<span class="min-w-0 truncate font-normal">{node.name}</span>
-										</button>
-									{:else}
-										<button
-											class={twMerge(
-												'btn btn-ghost flex w-full min-w-0 items-center justify-start gap-2 rounded-none text-left',
-												selectedFile === node.uri ? 'bg-base-300' : ''
-											)}
-											style="padding-left: {depth * 0.65}rem;"
-											onclick={() => onFileOpen?.(node.uri)}
-										>
-											<span class="w-[14px] shrink-0" aria-hidden="true"></span>
-											<div class="bg-base-200 shrink-0 rounded-md p-1">
-												<File class="size-4" />
-											</div>
-											<span class="min-w-0 truncate font-normal">{node.name}</span>
-										</button>
-									{/if}
+									<span class="min-w-0 truncate"
+										>Running to-dos for longer tasks will display here. You do not currently have
+										any running to-dos.</span
+									>
 								</li>
-							{/each}
-						{:else}
-							<li
-								class="text-base-content/50 flex items-start gap-2 px-4 text-xs font-light italic"
-							>
-								<span>No files found.</span>
-							</li>
-						{/if}
-					</ul>
-				{/if}
+							{/if}
+						</ul>
+					{/if}
+				</div>
+				{@render listThreadFiles(false)}
 			</div>
 		{:else if onToggle}
 			<button
 				class="btn btn-ghost btn-circle tooltip tooltip-left size-10 self-center"
 				onclick={() => onToggle()}
 				aria-label="Expand to show to-do list"
-				use:tooltip={'Expand'}
+				data-tip="Expand to show to-do list"
 			>
-				<ListCheck class="text-base-content/50 size-6" />
+				<ListCheck class="text-base-content/50 size-5" />
 			</button>
-			<button
-				class="btn btn-ghost btn-circle tooltip tooltip-left size-10 self-center"
-				onclick={() => onToggle()}
-				aria-label="Expand to show file list"
-				use:tooltip={'Expand'}
-			>
-				<Folders class="text-base-content/50 size-6" />
-			</button>
+
+			{@render listThreadFiles(true)}
 		{/if}
 		<div class="flex grow"></div>
 		{#if onToggle}
 			<div
 				class={twMerge(
 					'sticky right-0 bottom-2 flex flex-shrink-0',
-					open ? 'justify-end' : 'justify-center'
+					open ? 'justify-start' : 'justify-center'
 				)}
 			>
 				<button
-					class="btn btn-ghost btn-circle tooltip tooltip-left"
+					class={twMerge(
+						'btn btn-ghost btn-circle tooltip',
+						open ? 'tooltip-right' : 'tooltip-left'
+					)}
 					onclick={() => onToggle()}
-					use:tooltip={open ? 'Close to-do & file list' : 'Open to-do & file list'}
+					data-tip={open ? 'Close to-do & file list' : 'Open to-do & file list'}
 				>
 					{#if open}
 						<SidebarOpen class="text-base-content/50 size-6" />
@@ -386,3 +224,67 @@
 		{/if}
 	</div>
 </div>
+
+{#snippet listThreadFiles(compact?: boolean)}
+	{#each files ?? [] as file (file.callID)}
+		{@const args = (() => {
+			try {
+				return JSON.parse(file.arguments ?? '{}') as { file_path: string } | undefined;
+			} catch (error) {
+				console.error('Failed to parse file.arguments as JSON in ThreadQuickAccess', {
+					error,
+					file,
+					arguments: file.arguments
+				});
+				return undefined;
+			}
+		})()}
+		{@const displayLabel = args?.file_path.split('/').pop()?.split('.').shift()}
+		{@const isWorkflow =
+			(args?.file_path?.includes('workflows/') || args?.file_path?.startsWith('workflow://')) &&
+			!args?.file_path?.includes('.runs')}
+		{@const openPath = args?.file_path?.includes('://')
+			? args.file_path
+			: args?.file_path
+				? `file:///${args.file_path}`
+				: undefined}
+		{#if compact}
+			<button
+				class="btn btn-ghost btn-circle tooltip tooltip-left size-10 self-center"
+				in:fly={{ x: 100, duration: 150 }}
+				onclick={() => {
+					if (openPath) {
+						projectLayout.handleFileOpen(openPath);
+					} else {
+						console.error('No file path found for tool call', file);
+					}
+				}}
+				data-tip={`Open ${displayLabel}`}
+			>
+				{#if isWorkflow}
+					<WorkflowIcon class="text-base-content/50 size-5" />
+				{:else}
+					<FileIcon class="text-base-content/50 size-5" />
+				{/if}
+			</button>
+		{:else}
+			<button
+				class="rounded-selector hover:bg-base-300 flex items-center gap-2 border border-transparent px-4 py-2"
+				onclick={() => {
+					if (openPath) {
+						projectLayout.handleFileOpen(openPath);
+					} else {
+						console.error('No file path found for tool call', file);
+					}
+				}}
+			>
+				{#if isWorkflow}
+					<WorkflowIcon class="size-5" />
+				{:else}
+					<FileIcon class="size-5" />
+				{/if}
+				<span>{displayLabel}</span>
+			</button>
+		{/if}
+	{/each}
+{/snippet}

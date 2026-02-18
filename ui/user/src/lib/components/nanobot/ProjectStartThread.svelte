@@ -68,7 +68,7 @@
 				onContentWidthChange={onThreadContentWidth}
 			>
 				{#snippet emptyStateContent()}
-					<div class="flex flex-col items-center gap-4">
+					<div class="flex flex-col items-center gap-4 px-5">
 						<div class="flex flex-col items-center gap-1">
 							<h1 class="w-xs text-center text-3xl font-semibold md:w-full">
 								What would you like to work on?
