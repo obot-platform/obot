@@ -172,6 +172,7 @@
 
 	function highlightText(text: string, search: string): string {
 		if (!search) return escapeHtml(text);
+		if (!text.toLowerCase().includes(search.toLowerCase())) return escapeHtml(text);
 		const regex = new RegExp(`(${search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
 		const parts = text.split(regex);
 
