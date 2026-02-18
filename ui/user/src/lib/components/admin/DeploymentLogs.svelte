@@ -285,7 +285,7 @@
 							bind:this={searchInput}
 							class="placeholder:text-on-surface1/40 flex-1 bg-transparent py-3 outline-none"
 							type="text"
-							placeholder="Search logs... (Ctrl+F)"
+							placeholder="Search logs... (Ctrl/Cmd+F)"
 							bind:value={query}
 							onkeydown={handleSearchKeydown}
 							aria-label="Search logs"
