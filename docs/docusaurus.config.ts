@@ -14,15 +14,24 @@ const olderVersions = versions.slice(1);
 
 // Generate version config for older versions (latest is served at root)
 // "unmaintained" banner shows a warning that this is an older version with link to latest
+// noIndex prevents search engines from indexing older version pages (rendered via React Helmet)
 const versionsConfig = Object.fromEntries(
   olderVersions.map((version) => [
     version,
-    { label: version, banner: "unmaintained" as const, path: version },
+    {
+      label: version,
+      banner: "unmaintained" as const,
+      path: version,
+      noIndex: true,
+    },
   ])
 );
 
-// Generate sitemap ignore patterns for older versions
-const sitemapIgnorePatterns = olderVersions.map((version) => `/${version}/**`);
+// Generate sitemap ignore patterns for older and unreleased versions
+const sitemapIgnorePatterns = [
+  ...olderVersions.map((version) => `/${version}/**`),
+  "/next/**",
+];
 
 const config: Config = {
   title: "Obot Docs",
@@ -82,15 +91,21 @@ const config: Config = {
 
           // Versioning configuration - dynamically generated from versions.json
           lastVersion: latestVersion,
-          versions: versionsConfig,
+          versions: {
+            // The "current" version (served at /next/) is unreleased and should not be indexed
+            current: {
+              noIndex: true,
+            },
+            ...versionsConfig,
+          },
         },
         theme: {
           customCss: "./src/css/custom.css",
         },
         blog: false,
         sitemap: {
-          // Exclude older versioned docs from sitemap - only index the latest version
-          // Dynamically generated from versions.json
+          // Exclude older versioned and unreleased (/next/) docs from sitemap
+          // Only the latest version should be indexed
           ignorePatterns: sitemapIgnorePatterns,
         },
       } satisfies Preset.Options,
