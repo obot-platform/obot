@@ -94,7 +94,8 @@ function createLimit(concurrency: number): LimitFn {
  * WebPage, BreadcrumbList (migrated from the standalone one Docusaurus
  * already emits), and TechArticle entities.
  *
- * Older versioned pages are skipped — they are already noindex.
+ * Older versioned pages and /next/ (unreleased) pages are skipped —
+ * they are already noindex and should not carry structured data.
  */
 export default function structuredDataPlugin(_context: LoadContext): Plugin {
   return {
@@ -129,7 +130,7 @@ export default function structuredDataPlugin(_context: LoadContext): Plugin {
  * 1. If the preferred path exists as a built page → use it.
  * 2. Otherwise, scan the section directory for the first page (sorted
  *    alphabetically) and use that as a fallback.
- * 3. If no pages exist under the section at all → warn and omit.
+ * 3. If no pages exist under the section at all → warn and fall back to the section slug itself.
  */
 async function resolveSectionLandingPaths(
   outDir: string,
@@ -231,8 +232,13 @@ async function processDirectory(
       const fullPath = path.join(dir, entry.name);
 
       if (entry.isDirectory()) {
-        // Skip older version directories at the top level of outDir
-        if (dir === outDir && OLDER_VERSIONS.includes(entry.name)) {
+        // Skip versioned directories at the top level of outDir —
+        // older versions are already noindex and /next/ is unreleased.
+        // Only latest-version (root-level) pages should get structured data.
+        if (
+          dir === outDir &&
+          (OLDER_VERSIONS.includes(entry.name) || entry.name === "next")
+        ) {
           return;
         }
         await processDirectory(fullPath, outDir, site, limit);
@@ -281,15 +287,13 @@ async function processHtmlFile(
     return;
   }
 
-  const { breadcrumbs: docusaurusBreadcrumbs, html: htmlAfterRemoval } =
-    extractAndRemoveBreadcrumbList(html);
+  const { html: htmlAfterRemoval } = extractAndRemoveBreadcrumbList(html);
   const section = deriveSection(canonical, site);
 
   const graph = buildGraph({
     title,
     description,
     url: canonical,
-    docusaurusBreadcrumbs,
     section,
     ogImage,
     site,
@@ -372,21 +376,18 @@ const LD_JSON_SCRIPT_RE =
   /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g;
 
 /**
- * Find the standalone BreadcrumbList JSON-LD that Docusaurus auto-generates,
- * return its parsed content, and return the HTML with that specific tag removed.
+ * Find and remove the standalone BreadcrumbList JSON-LD that Docusaurus
+ * auto-generates, returning the HTML with that script tag stripped.
  *
- * Identification is done by *parsing* each ld+json block and checking that the
- * top-level `@type` is exactly `"BreadcrumbList"` (with an optional schema.org
- * `@context`), so @graph blocks or other structured data that merely reference
- * BreadcrumbList in a nested position are left untouched.
+ * Our @graph block contains its own hierarchical BreadcrumbList built from
+ * the URL path, so the single-item Docusaurus version is redundant.
+ *
+ * Identification is done by *parsing* each ld+json block and checking that
+ * the top-level `@type` is exactly `"BreadcrumbList"` (with an optional
+ * schema.org `@context`), so @graph blocks or other structured data that
+ * merely reference BreadcrumbList in a nested position are left untouched.
  */
-function extractAndRemoveBreadcrumbList(html: string): {
-  breadcrumbs: Record<string, unknown> | null;
-  html: string;
-} {
-  let breadcrumbs: Record<string, unknown> | null = null;
-  let tagToRemove: string | null = null;
-
+function extractAndRemoveBreadcrumbList(html: string): { html: string } {
   for (const match of html.matchAll(LD_JSON_SCRIPT_RE)) {
     let parsed: Record<string, unknown>;
     try {
@@ -401,15 +402,10 @@ function extractAndRemoveBreadcrumbList(html: string): {
     const ctx = parsed["@context"];
     if (ctx !== undefined && ctx !== "https://schema.org") continue;
 
-    breadcrumbs = parsed;
-    tagToRemove = match[0];
-    break;
+    return { html: html.replace(match[0], "") };
   }
 
-  return {
-    breadcrumbs,
-    html: tagToRemove ? html.replace(tagToRemove, "") : html,
-  };
+  return { html };
 }
 
 /** Extract the relative pathname from a full URL, stripped of siteUrl and baseUrl. */
@@ -541,7 +537,6 @@ interface PageMeta {
   title: string;
   description: string | null;
   url: string;
-  docusaurusBreadcrumbs: Record<string, unknown> | null;
   section: string;
   ogImage: string | null;
   site: SiteInfo;
@@ -653,10 +648,11 @@ function buildGraph(meta: PageMeta): Record<string, unknown> {
  * this produces:
  *   1. Home → https://docs.obot.ai/
  *   2. Installation → https://docs.obot.ai/installation/overview/
- *   3. Google Cloud GKE (current page, no item URL)
+ *   3. Reference Architectures
+ *   4. Google Cloud GKE (current page, no item URL)
  *
- * Falls back to the Docusaurus-generated breadcrumbs if we cannot build
- * a meaningful hierarchy (e.g. for the root page).
+ * For the root page (no URL segments beyond the base), the list contains
+ * only the "Home" item plus the page title.
  */
 function buildBreadcrumbList(
   meta: PageMeta,
