@@ -65,6 +65,7 @@
 		groupAccessor?: (items: T[]) => number;
 		/** Optional color mapping for categories. Can be an object mapping category names to colors, or an array of colors to use in order. If not provided, default colors will be used */
 		colorScheme?: Record<string, string> | string[];
+		yAxisTickFormat?: ReturnType<typeof format>;
 		/** Optional snippet to render segment tooltip (shows when hovering a specific segment) */
 		segmentTooltip?: Snippet<[TooltipArg]>;
 		/** Optional snippet to render stack tooltip (shows when hovering anywhere on the stack) */
@@ -128,9 +129,9 @@
 		timeMinutes,
 		timeMonths,
 		axisLeft,
-		type NumberValue
+		type NumberValue,
+		format
 	} from 'd3';
-	import { timeFormat } from 'd3-time-format';
 
 	import {
 		startOfMonth,
@@ -141,16 +142,13 @@
 		startOfDay,
 		startOfYear,
 		intervalToDuration,
-		startOfSecond,
 		startOfMinute,
 		startOfWeek,
 		endOfWeek,
-		getDate,
 		max,
 		min,
 		set,
 		endOfMinute,
-		getHours,
 		type Duration,
 		getDay
 	} from 'date-fns';
@@ -171,6 +169,7 @@
 		categoryAccessor,
 		groupAccessor = (d) => d.length,
 		colorScheme,
+		yAxisTickFormat = format('~s'),
 		segmentTooltip,
 		stackTooltip,
 		emptyYAxisContent,
@@ -722,64 +721,7 @@
 					console.log('Updating x-axis');
 					const selection = select(node);
 
-					const format = timeFormat;
-
-					const formatMillisecond = format('.%L'),
-						formatSecond = format(':%S'),
-						formatMinute = format('%I:%M'),
-						formatHour = format('%I %p'),
-						formatDayOfWeek = format('%a %d'),
-						formatDayOfMonth = format('%d'),
-						formatMonth = format('%B'),
-						formatYear = format('%Y');
-
-					function tickFormat(domainValue: Date | NumberValue) {
-						const date = domainValue as Date;
-						const fn = (() => {
-							if (startOfSecond(date) < date) return formatMillisecond;
-
-							if (startOfMinute(date) < date) return formatSecond;
-
-							if (startOfHour(date) < date) {
-								if (getHours(date) === 0) {
-									return formatDayOfMonth;
-								}
-
-								return formatMinute;
-							}
-
-							if (startOfDay(date) < date) {
-								return formatHour;
-							}
-
-							if (startOfMonth(date) < date) {
-								if (getDate(date) === 15) {
-									return formatDayOfWeek;
-								}
-
-								if (timeFrame[0] === 'hour') {
-									return formatDayOfWeek;
-								}
-
-								if (timeFrame[0] === 'day' && timeFrame[2] <= 90 && getDay(date) === 1) {
-									return formatDayOfWeek;
-								}
-
-								return formatDayOfMonth;
-							}
-
-							if (startOfYear(date) < date) return formatMonth;
-
-							return formatYear;
-						})();
-
-						return fn(date);
-					}
-
-					const axis = axisBottom(timeScale)
-						.tickSizeOuter(0)
-						.tickValues(xAxisTicks)
-						.tickFormat(tickFormat);
+					const axis = axisBottom(timeScale).tickSizeOuter(0).tickValues(xAxisTicks);
 
 					selection
 						.transition()
@@ -854,7 +796,10 @@
 					{@attach (node: SVGGElement) => {
 						const selection = select(node);
 
-						selection.transition().duration(100).call(axisLeft(yScale).tickSizeOuter(0).ticks(3));
+						selection
+							.transition()
+							.duration(100)
+							.call(axisLeft(yScale).tickSizeOuter(0).ticks(3).tickFormat(yAxisTickFormat));
 
 						selection
 							.selectAll('.tick')
