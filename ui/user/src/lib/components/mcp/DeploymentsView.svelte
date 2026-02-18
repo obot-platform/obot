@@ -706,7 +706,7 @@
 							<div class="flex flex-col gap-1 p-2">
 								<a
 									class="menu-button"
-									href={getMcpCatalogUrl(d)}
+									href={resolve(getMcpCatalogUrl(d) as `/${string}`)}
 									onclick={(ev) => {
 										ev.stopPropagation();
 										const hasAdminAccess = profile.current.hasAdminAccess?.();
