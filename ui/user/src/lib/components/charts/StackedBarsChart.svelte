@@ -129,7 +129,6 @@
 		timeMinutes,
 		timeMonths,
 		axisLeft,
-		type NumberValue,
 		format
 	} from 'd3';
 
