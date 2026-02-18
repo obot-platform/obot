@@ -606,7 +606,7 @@
 					start={new Date(filters.start_time)}
 					end={new Date(filters.end_time)}
 					{data}
-					padding={{ top: 16, right: 16, bottom: 32, left: 48 }}
+					padding={{ top: 16, right: 16, bottom: 32, left: 32 }}
 					dateAccessor={config.dateAccessor}
 					categoryAccessor={config.categoryAccessor}
 					groupAccessor={config.groupAccessor ?? ((d) => d.length)}

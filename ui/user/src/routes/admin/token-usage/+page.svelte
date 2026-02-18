@@ -627,7 +627,7 @@
 			{start}
 			{end}
 			data={preparedData}
-			padding={{ top: 32, right: 16, bottom: 32, left: 48 }}
+			padding={{ top: 32, right: 16, bottom: 32, left: 32 }}
 			dateAccessor={(row) => row.date}
 			{categoryAccessor}
 			{groupAccessor}
@@ -756,7 +756,7 @@
 										{start}
 										{end}
 										data={item.data}
-										padding={{ top: 16, right: 16, bottom: 32, left: 48 }}
+										padding={{ top: 16, right: 16, bottom: 32, left: 32 }}
 										dateAccessor={(row) => row.date}
 										categoryAccessor={(row) => row.tokenType}
 										groupAccessor={(items) =>
