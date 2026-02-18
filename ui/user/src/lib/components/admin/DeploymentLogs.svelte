@@ -78,11 +78,11 @@
 			return;
 		}
 
-		// Clamp currentMatchIndex into valid range
-		setTimeout(
-			() => scrollToMatch(Math.max(0, Math.min(currentMatchIndex, matchingIndices.length - 1))),
-			100
-		);
+		// Clamp currentMatchIndex into valid range and persist it
+		const clampedIndex = Math.max(0, Math.min(currentMatchIndex, matchingIndices.length - 1));
+		currentMatchIndex = clampedIndex;
+
+		setTimeout(() => scrollToMatch(clampedIndex), 100);
 	});
 
 	function isScrolledToBottom(element: HTMLElement): boolean {
