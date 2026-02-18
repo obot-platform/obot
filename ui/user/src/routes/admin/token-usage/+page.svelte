@@ -170,7 +170,7 @@
 			return [
 				{
 					date: new Date(row.date),
-					tokenType: 'input_tokens',
+					tokenType: 'input_tokens' as const,
 					tokenValue: row.promptTokens ?? 0,
 					user,
 					promptTokens: row.promptTokens ?? 0,
@@ -180,7 +180,7 @@
 				},
 				{
 					date: new Date(row.date),
-					tokenType: 'output_tokens',
+					tokenType: 'output_tokens' as const,
 					tokenValue: row.completionTokens ?? 0,
 					user,
 					promptTokens: row.promptTokens ?? 0,
@@ -418,8 +418,12 @@
 
 {#snippet groupByUsersSegmentTooltip(arg: TooltipArg)}
 	{@const items = (arg.group ?? []) as PreparedDataItem[]}
-	{@const input = items.reduce((sum, input) => sum + (input.promptTokens ?? 0), 0)}
-	{@const output = items.reduce((sum, input) => sum + (input.completionTokens ?? 0), 0)}
+	{@const input = items
+		.filter((item) => item.tokenType === 'input_tokens')
+		.reduce((sum, input) => sum + (input.tokenValue ?? 0), 0)}
+	{@const output = items
+		.filter((item) => item.tokenType === 'output_tokens')
+		.reduce((sum, input) => sum + (input.tokenValue ?? 0), 0)}
 	{@const total = input + output}
 	{@const userDisplayName =
 		usersMap.get(arg.category ?? '')?.displayName ?? arg.category ?? 'Unknown'}
