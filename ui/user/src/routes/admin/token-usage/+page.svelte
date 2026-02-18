@@ -231,7 +231,10 @@
 			(acc, { key, color }) => {
 				// Extract the model name by removing the suffix
 				const model = key.replace(/_input_tokens$|_output_tokens$/, '');
-				acc[model] = color;
+				// Use a single stable color per model: take only the input token color
+				if (key.endsWith('_input_tokens')) {
+					acc[model] = color;
+				}
 				return acc;
 			},
 			{} as Record<string, string>
