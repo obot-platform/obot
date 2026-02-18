@@ -170,6 +170,7 @@
 							style="padding-left: {depth * 0.75}rem;"
 							onclick={() => toggleFolder(path)}
 							aria-expanded={isFolderOpen(path)}
+							aria-label={`Toggle folder ${node.name}`}
 						>
 							<span class="flex shrink-0 pl-2">
 								{#if isFolderOpen(path)}
@@ -194,6 +195,7 @@
 							)}
 							style="padding-left: {depth * 0.65}rem;"
 							onclick={() => onFileOpen?.(node.uri)}
+							aria-label={`Open file ${node.name}`}
 						>
 							<span class="w-[14px] shrink-0" aria-hidden="true"></span>
 							<div class="bg-base-200 shrink-0 rounded-md p-1">

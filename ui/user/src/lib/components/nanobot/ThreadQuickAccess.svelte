@@ -227,7 +227,18 @@
 
 {#snippet listThreadFiles(compact?: boolean)}
 	{#each files ?? [] as file (file.callID)}
-		{@const args = JSON.parse(file.arguments ?? '{}') as { file_path: string } | undefined}
+		{@const args = (() => {
+			try {
+				return JSON.parse(file.arguments ?? '{}') as { file_path: string } | undefined;
+			} catch (error) {
+				console.error('Failed to parse file.arguments as JSON in ThreadQuickAccess', {
+					error,
+					file,
+					arguments: file.arguments
+				});
+				return undefined;
+			}
+		})()}
 		{@const displayLabel = args?.file_path.split('/').pop()?.split('.').shift()}
 		{@const isWorkflow =
 			(args?.file_path?.includes('workflows/') || args?.file_path?.startsWith('workflow://')) &&
