@@ -300,7 +300,7 @@
 			label: 'Tool Call Errors',
 			dateAccessor: (d) => d.createdAt,
 			categoryAccessor: (d) => d.toolName,
-			groupAccessor: (d) => d.filter((d) => Boolean(d.error)).length,
+			groupAccessor: (d) => d.filter((d) => d.responseStatus >= 400).length,
 			segmentTooltip: unifiedTooltip,
 			renderer: defaultChartSnippet
 		},
@@ -309,7 +309,7 @@
 			label: 'Tool Call Errors by Server',
 			dateAccessor: (d) => d.createdAt,
 			categoryAccessor: (d) => d.mcpServerDisplayName,
-			groupAccessor: (d) => d.filter((d) => Boolean(d.error)).length,
+			groupAccessor: (d) => d.filter((d) => d.responseStatus >= 400).length,
 			segmentTooltip: unifiedTooltip,
 			renderer: defaultChartSnippet
 		},
