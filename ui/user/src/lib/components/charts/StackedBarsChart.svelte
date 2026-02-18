@@ -382,7 +382,7 @@
 			return startOfYear(d);
 		};
 
-		return (d: unknown) => {
+		return (d: T) => {
 			const dateValue = dateAccessor(d);
 			const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
 			return round(date).toISOString();
@@ -502,7 +502,7 @@
 
 	const group = $derived.by(() => {
 		return rollup(
-			$state.snapshot(data),
+			$state.snapshot(data) as T[],
 			(items) => [groupAccessor(items), items] as const,
 			xAccessor,
 			categoryAccessor
