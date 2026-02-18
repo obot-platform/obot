@@ -192,6 +192,8 @@
 		});
 	});
 
+	type PreparedDataItem = (typeof preparedData)[number];
+
 	const targetModelToDisplayName = $derived(
 		new Map(modelsData.map((m) => [m.targetModel, m.displayName || m.name]))
 	);
@@ -415,9 +417,9 @@
 {/snippet}
 
 {#snippet groupByUsersSegmentTooltip(arg: TooltipArg)}
-	{@const items = arg.group ?? []}
-	{@const input = items.reduce((s, i) => s + (i.promptTokens ?? 0), 0)}
-	{@const output = items.reduce((s, i) => s + (i.completionTokens ?? 0), 0)}
+	{@const items = (arg.group ?? []) as PreparedDataItem[]}
+	{@const input = items.reduce((sum, input) => sum + (input.promptTokens ?? 0), 0)}
+	{@const output = items.reduce((sum, input) => sum + (input.completionTokens ?? 0), 0)}
 	{@const total = input + output}
 	{@const userDisplayName =
 		usersMap.get(arg.category ?? '')?.displayName ?? arg.category ?? 'Unknown'}
@@ -468,12 +470,12 @@
 			</div>
 		{/if}
 		<div class="text-base-content/50 flex flex-col gap-1">
-			{#each arg.segments as segment}
+			{#each arg.segments as segment (segment.category)}
 				{@const userDisplayName =
 					usersMap.get(segment.category)?.displayName ?? segment.category ?? 'Unknown'}
-				{@const items = segment.group ?? []}
-				{@const input = items.reduce((s, i) => s + (i.promptTokens ?? 0), 0)}
-				{@const output = items.reduce((s, i) => s + (i.completionTokens ?? 0), 0)}
+				{@const items = (segment.group ?? []) as PreparedDataItem[]}
+				{@const input = items.reduce((sum, input) => sum + (input.promptTokens ?? 0), 0)}
+				{@const output = items.reduce((sum, input) => sum + (input.completionTokens ?? 0), 0)}
 
 				<div class="flex flex-col gap-1">
 					<div class="flex items-center gap-2">
@@ -571,8 +573,7 @@
 		stackTooltip,
 		customLegend
 	] = (() => {
-		type Datum = (typeof preparedData)[number];
-		type ChartProps = StackedBarsChartProps<Datum>;
+		type ChartProps = StackedBarsChartProps<PreparedDataItem>;
 
 		type CategoryAccessor = ChartProps['categoryAccessor'];
 		type GroupAccessor = ChartProps['groupAccessor'];
@@ -754,11 +755,7 @@
 										data={item.data}
 										padding={{ top: 16, right: 16, bottom: 32, left: 48 }}
 										dateAccessor={(row) => row.date}
-										categoryAccessor={(row) => {
-											if (groupBy === ' group_by_users') return row.user;
-
-											return row.tokenType;
-										}}
+										categoryAccessor={(row) => row.tokenType}
 										groupAccessor={(items) =>
 											items.reduce((sum, item) => sum + (item.value ?? 0), 0)}
 										segmentTooltip={defaultChartTooltip}

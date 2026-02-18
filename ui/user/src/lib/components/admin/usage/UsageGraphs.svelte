@@ -370,18 +370,6 @@
 				});
 	}
 
-	function userDisplayName(user?: OrgUser): string {
-		if (!user) {
-			return 'Unknown';
-		}
-
-		let display = user.originalEmail || user.email || user.id || 'Unknown';
-		if (user.deletedAt) {
-			display += ' (Deleted)';
-		}
-		return display;
-	}
-
 	afterNavigate(() => {
 		AdminService.listUsersIncludeDeleted().then((userData) => {
 			for (const user of userData) {
@@ -558,8 +546,8 @@
 		<div class="text-base-content/50 flex flex-col gap-1">
 			{#each arg.segments as segment}
 				{@const userDisplayName = getUserDisplayName(usersMap, segment.category)}
-				{@const items = segment.group ?? []}
-				{@const errorCount = items.filter((i) => Boolean(i.error)).length}
+				{@const items = (segment.group ?? []) as GraphDataItem[]}
+				{@const errorCount = items.filter((item) => Boolean(item.error)).length}
 				{@const avgResponseTime =
 					items.length > 0
 						? items.reduce((s, i) => s + (i.processingTimeMs ?? 0), 0) / items.length
