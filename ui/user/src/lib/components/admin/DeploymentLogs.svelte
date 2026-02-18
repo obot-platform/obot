@@ -112,6 +112,27 @@
 		if (e.key === 'Escape' && isMaximized) {
 			isMaximized = false;
 		} else if ((e.ctrlKey || e.metaKey) && e.key === 'f' && hasMessages) {
+			// Only override browser find when logs are maximized or the event originates within the logs.
+			let eventInsideLogs = false;
+
+			if (logsContainer) {
+				const target = e.target as Node | null;
+
+				// Prefer composedPath when available to correctly handle shadow DOM and nested components.
+				const path = typeof e.composedPath === 'function' ? e.composedPath() : null;
+				if (path) {
+					eventInsideLogs = path.includes(logsContainer);
+				} else if (target) {
+					eventInsideLogs = logsContainer.contains(target);
+				}
+			}
+
+			// If the logs are not maximized and the event did not originate from within them,
+			// let the browser handle Ctrl/Cmd+F normally.
+			if (!isMaximized && !eventInsideLogs) {
+				return;
+			}
+
 			e.preventDefault();
 			searchInput?.focus();
 		}
