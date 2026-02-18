@@ -1,4 +1,4 @@
-import { lightenHex } from '$lib/colors';
+import { adjustColorForSecondary } from '$lib/colors';
 import type { OrgUser, TokenUsage } from '$lib/services/admin/types';
 import { getUserDisplayName } from '$lib/utils';
 import {
@@ -336,7 +336,8 @@ export function aggregateByBucketGroupedInRange(
 export function buildStackedSeriesColors(
 	rows: Record<string, unknown>[],
 	palette: string[],
-	fallbackColor: string
+	fallbackColor: string,
+	isDark: boolean = false
 ): { key: string; color: string }[] {
 	if (!rows.length) return [];
 	const keys = new Set<string>();
@@ -360,7 +361,7 @@ export function buildStackedSeriesColors(
 			: key.slice(0, -COMPLETION_SUFFIX.length);
 		const idx = labelIndex.get(label) ?? 0;
 		const baseColor = idx < palette.length ? palette[idx]! : fallbackColor;
-		const color = isPrompt ? baseColor : lightenHex(baseColor, 0.5);
+		const color = isPrompt ? baseColor : adjustColorForSecondary(baseColor, isDark);
 		return { key, color };
 	});
 }

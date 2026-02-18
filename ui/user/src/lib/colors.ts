@@ -96,6 +96,29 @@ export function buildPaletteFromPrimary(primaryHsl: { h: number; s: number; l: n
 	return out;
 }
 
+/**
+ * Build a theme-aware contrasting palette from primary color.
+ * Adjusts saturation and lightness based on whether we're in light or dark mode.
+ */
+export function buildPaletteFromPrimaryThemeAware(
+	primaryHsl: { h: number; s: number; l: number },
+	isDark: boolean
+): string[] {
+	const { h } = primaryHsl;
+
+	// For light mode, use higher saturation and medium lightness for vibrant colors
+	// For dark mode, use medium-high saturation and higher lightness for visibility
+	const sat = isDark ? 65 : 75;
+	const light = isDark ? 60 : 50;
+
+	const out: string[] = [];
+	for (let i = 0; i < PALETTE_SIZE; i++) {
+		const hue = (h + (360 / PALETTE_SIZE) * i) % 360;
+		out.push(hslToHex(hue, sat, light));
+	}
+	return out;
+}
+
 export function lightenHex(hex: string, amount: number): string {
 	const h = hex.replace(/^#/, '');
 	const r = parseInt(h.slice(0, 2), 16);
@@ -103,4 +126,28 @@ export function lightenHex(hex: string, amount: number): string {
 	const b = parseInt(h.slice(4, 6), 16);
 	const mix = (c: number) => Math.round(c + (255 - c) * amount);
 	return `#${[r, g, b].map((c) => mix(c).toString(16).padStart(2, '0')).join('')}`;
+}
+
+export function darkenHex(hex: string, amount: number): string {
+	const h = hex.replace(/^#/, '');
+	const r = parseInt(h.slice(0, 2), 16);
+	const g = parseInt(h.slice(2, 4), 16);
+	const b = parseInt(h.slice(4, 6), 16);
+	const mix = (c: number) => Math.round(c * (1 - amount));
+	return `#${[r, g, b].map((c) => mix(c).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * Adjust a color for the secondary series (e.g., completion tokens).
+ * In light mode: darken slightly for better contrast
+ * In dark mode: lighten moderately for visibility
+ */
+export function adjustColorForSecondary(hex: string, isDark: boolean): string {
+	if (isDark) {
+		// In dark mode, lighten by 25% for better visibility
+		return lightenHex(hex, 0.25);
+	} else {
+		// In light mode, darken by 15% for better contrast
+		return darkenHex(hex, 0.15);
+	}
 }

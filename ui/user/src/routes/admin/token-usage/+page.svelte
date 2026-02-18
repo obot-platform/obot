@@ -18,8 +18,8 @@
 	import { onMount } from 'svelte';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import VirtualizedGrid from './VirtualizedGrid.svelte';
-	import { errors, responsive } from '$lib/stores';
-	import { buildPaletteFromPrimary, hslToHex, parseColorToHsl } from '$lib/colors';
+	import { errors, responsive, darkMode } from '$lib/stores';
+	import { buildPaletteFromPrimaryThemeAware, hslToHex, parseColorToHsl } from '$lib/colors';
 	import { buildStackedSeriesColors, getUserLabels } from './utils';
 	import { twMerge } from 'tailwind-merge';
 	import { goto } from '$lib/url';
@@ -97,7 +97,7 @@
 
 		const primary = primaryColorCss ? parseColorToHsl(primaryColorCss) : null;
 		const hsl = primary ?? fallbackHsl;
-		return buildPaletteFromPrimary(hsl);
+		return buildPaletteFromPrimaryThemeAware(hsl, darkMode.isDark);
 	});
 
 	/** Neutral gray for "other" users/models; re-runs when theme (primary) changes. */
@@ -207,7 +207,7 @@
 			mockRow[`${user}_output_tokens`] = 0;
 		}
 
-		return buildStackedSeriesColors([mockRow], colors, othersColor).reduce(
+		return buildStackedSeriesColors([mockRow], colors, othersColor, darkMode.isDark).reduce(
 			(acc, { key, color }) => {
 				// Extract the user ID by removing the suffix
 				const user = key.replace(/_input_tokens$|_output_tokens$/, '');
@@ -227,7 +227,7 @@
 			mockRow[`${model}_output_tokens`] = 0;
 		}
 
-		return buildStackedSeriesColors([mockRow], colors, othersColor).reduce(
+		return buildStackedSeriesColors([mockRow], colors, othersColor, darkMode.isDark).reduce(
 			(acc, { key, color }) => {
 				// Extract the model name by removing the suffix
 				const model = key.replace(/_input_tokens$|_output_tokens$/, '');
