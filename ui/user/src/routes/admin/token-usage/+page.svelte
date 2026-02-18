@@ -20,7 +20,7 @@
 	import VirtualizedGrid from './VirtualizedGrid.svelte';
 	import { errors, responsive, darkMode } from '$lib/stores';
 	import { buildPaletteFromPrimaryThemeAware, hslToHex, parseColorToHsl } from '$lib/colors';
-	import { buildStackedSeriesColors, getUserLabels } from './utils';
+	import { getUserLabels } from './utils';
 	import { twMerge } from 'tailwind-merge';
 	import { goto } from '$lib/url';
 	import StackedBarsChart, {
@@ -199,46 +199,29 @@
 	);
 
 	const colorsByUsers = $derived.by(() => {
-		const uniqueUsers = [...new Set(preparedData.map((d) => d.user))].filter(Boolean);
-		// buildStackedSeriesColors expects keys with _input_tokens/_output_tokens suffixes
-		const mockRow: Record<string, unknown> = { bucket: 'mock' };
-		for (const user of uniqueUsers) {
-			mockRow[`${user}_input_tokens`] = 0;
-			mockRow[`${user}_output_tokens`] = 0;
+		const uniqueUsers = [...new Set(preparedData.map((d) => d.user))]
+			.filter((u): u is string => Boolean(u))
+			.sort();
+		const result: Record<string, string> = {};
+		for (let i = 0; i < uniqueUsers.length; i++) {
+			const user = uniqueUsers[i]!;
+			// Use palette colors, fallback to othersColor for items beyond palette size
+			result[user] = colors[i] ?? othersColor;
 		}
-
-		return buildStackedSeriesColors([mockRow], colors, othersColor, darkMode.isDark).reduce(
-			(acc, { key, color }) => {
-				// Extract the user ID by removing the suffix
-				const user = key.replace(/_input_tokens$|_output_tokens$/, '');
-				acc[user] = color;
-				return acc;
-			},
-			{} as Record<string, string>
-		);
+		return result;
 	});
 
 	const colorsByModels = $derived.by(() => {
-		const uniqueModels = [...new Set(preparedData.map((d) => d.model))].filter(Boolean);
-		// buildStackedSeriesColors expects keys with _input_tokens/_output_tokens suffixes
-		const mockRow: Record<string, unknown> = { bucket: 'mock' };
-		for (const model of uniqueModels) {
-			mockRow[`${model}_input_tokens`] = 0;
-			mockRow[`${model}_output_tokens`] = 0;
+		const uniqueModels = [...new Set(preparedData.map((d) => d.model))]
+			.filter((m): m is string => Boolean(m))
+			.sort();
+		const result: Record<string, string> = {};
+		for (let i = 0; i < uniqueModels.length; i++) {
+			const model = uniqueModels[i]!;
+			// Use palette colors, fallback to othersColor for items beyond palette size
+			result[model] = colors[i] ?? othersColor;
 		}
-
-		return buildStackedSeriesColors([mockRow], colors, othersColor, darkMode.isDark).reduce(
-			(acc, { key, color }) => {
-				// Extract the model name by removing the suffix
-				const model = key.replace(/_input_tokens$|_output_tokens$/, '');
-				// Use a single stable color per model: take only the input token color
-				if (key.endsWith('_input_tokens')) {
-					acc[model] = color;
-				}
-				return acc;
-			},
-			{} as Record<string, string>
-		);
+		return result;
 	});
 
 	const perModelPromptData = $derived.by(() => {
