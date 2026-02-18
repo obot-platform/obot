@@ -425,8 +425,7 @@
 		.filter((item) => item.tokenType === 'output_tokens')
 		.reduce((sum, input) => sum + (input.tokenValue ?? 0), 0)}
 	{@const total = input + output}
-	{@const userDisplayName =
-		usersMap.get(arg.category ?? '')?.displayName ?? arg.category ?? 'Unknown'}
+	{@const userDisplayName = getUserDisplayName(usersMap, arg.category ?? '')}
 
 	<div class="text-md text-base-content/50 flex flex-col gap-1">
 		{#if arg?.date}
