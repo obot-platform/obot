@@ -876,7 +876,7 @@
 							.attr('cursor', 'pointer')
 							.attr(
 								'class',
-								'stack-background text-background/0 hover:text-background/50 duration-200 transition-colors'
+								'stack-background text-surface3/0 hover:text-surface3/50 duration-200 transition-colors'
 							)
 							.attr('fill', 'currentColor')
 							.on('pointerenter', function (ev, d) {
