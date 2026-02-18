@@ -313,12 +313,7 @@ export class ChatAPI {
 				};
 
 				// Certain events should be processed immediately (not batched)
-				if (
-					type === 'history-start' ||
-					type === 'history-end' ||
-					type === 'chat-done' ||
-					type === 'error'
-				) {
+				if (type === 'history-start' || type === 'history-end' || type === 'chat-done') {
 					// Flush any pending events first
 					flushBuffer();
 					if (batchTimer !== null) {
@@ -544,27 +539,27 @@ export class ChatService {
 		this.closer = this.api.subscribe(
 			chatId,
 			(event) => {
-				if (event.type == 'message' && event.message?.id) {
+				if (event.type === 'message' && event.message?.id) {
 					if (this.history) {
 						this.history = appendMessage(this.history, event.message);
 					} else {
 						this.messages = appendMessage(this.messages, event.message);
 					}
-				} else if (event.type == 'history-start') {
+				} else if (event.type === 'history-start') {
 					this.history = [];
-				} else if (event.type == 'history-end') {
+				} else if (event.type === 'history-end') {
 					this.messages = this.history || [];
 					this.history = undefined;
 					this.isRestoring = false;
-				} else if (event.type == 'chat-in-progress') {
+				} else if (event.type === 'chat-in-progress') {
 					this.isLoading = true;
-				} else if (event.type == 'chat-done') {
+				} else if (event.type === 'chat-done') {
 					this.isLoading = false;
 					for (const waiting of this.onChatDone) {
 						waiting();
 					}
 					this.onChatDone = [];
-				} else if (event.type == 'error') {
+				} else if (event.type === 'error') {
 					this.isLoading = false;
 					this.subscribed = false;
 					this.currentRequestId = undefined;
@@ -572,7 +567,7 @@ export class ChatService {
 						waiting();
 					}
 					this.onChatDone = [];
-				} else if (event.type == 'elicitation/create') {
+				} else if (event.type === 'elicitation/create') {
 					this.elicitations = [
 						...this.elicitations,
 						{
