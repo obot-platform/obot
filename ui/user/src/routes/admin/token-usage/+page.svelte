@@ -198,6 +198,33 @@
 		new Map(modelsData.map((m) => [m.targetModel, m.displayName || m.name]))
 	);
 
+	/**
+	 * Generate a unique color for a given index.
+	 * Uses palette colors directly, then cycles with lightness variations.
+	 */
+	function getUniqueColor(index: number, paletteColors: string[]): string {
+		if (paletteColors.length === 0) return othersColor;
+
+		// Use palette color directly if within range
+		if (index < paletteColors.length) {
+			return paletteColors[index]!;
+		}
+
+		// For items beyond palette size, cycle through with lightness variations
+		const paletteIndex = index % paletteColors.length;
+		const baseColor = paletteColors[paletteIndex]!;
+		const parsed = parseColorToHsl(baseColor);
+
+		if (!parsed) return othersColor;
+
+		// Adjust lightness based on which "cycle" we're in
+		const cycle = Math.floor(index / paletteColors.length);
+		const lightnessAdjustment = cycle % 3 === 1 ? 10 : cycle % 3 === 2 ? -10 : 0;
+		const newLightness = Math.max(20, Math.min(80, parsed.l + lightnessAdjustment));
+
+		return hslToHex(parsed.h, parsed.s, newLightness);
+	}
+
 	const colorsByUsers = $derived.by(() => {
 		const uniqueUsers = [...new Set(preparedData.map((d) => d.user))]
 			.filter((u): u is string => Boolean(u))
@@ -205,8 +232,7 @@
 		const result: Record<string, string> = {};
 		for (let i = 0; i < uniqueUsers.length; i++) {
 			const user = uniqueUsers[i]!;
-			// Use palette colors, fallback to othersColor for items beyond palette size
-			result[user] = colors[i] ?? othersColor;
+			result[user] = getUniqueColor(i, colors);
 		}
 		return result;
 	});
@@ -218,8 +244,7 @@
 		const result: Record<string, string> = {};
 		for (let i = 0; i < uniqueModels.length; i++) {
 			const model = uniqueModels[i]!;
-			// Use palette colors, fallback to othersColor for items beyond palette size
-			result[model] = colors[i] ?? othersColor;
+			result[model] = getUniqueColor(i, colors);
 		}
 		return result;
 	});
