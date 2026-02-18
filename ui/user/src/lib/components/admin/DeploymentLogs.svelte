@@ -140,10 +140,27 @@
 		}
 	}
 
+	function escapeHtml(text: string): string {
+		return text
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#39;');
+	}
+
 	function highlightText(text: string, search: string): string {
-		if (!search) return text;
+		if (!search) return escapeHtml(text);
 		const regex = new RegExp(`(${search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-		return text.replace(regex, '<mark class="bg-yellow-300 dark:bg-yellow-600">$1</mark>');
+		const parts = text.split(regex);
+
+		return parts
+			.map((part, index) =>
+				index % 2 === 1
+					? `<mark class="bg-yellow-300 dark:bg-yellow-600">${escapeHtml(part)}</mark>`
+					: escapeHtml(part)
+			)
+			.join('');
 	}
 
 	function isMatch(index: number): boolean {
