@@ -165,7 +165,7 @@
 
 	const preparedData = $derived.by(() => {
 		return filteredData.flatMap((row) => {
-			const user = row.userID ?? row.runName;
+			const user = row.userID ?? row.runName ?? 'Unknown';
 
 			return [
 				{
