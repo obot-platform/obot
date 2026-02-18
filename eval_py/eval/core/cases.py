@@ -1,8 +1,34 @@
 """Eval case definitions and run functions."""
+import uuid
+
 from .framework import Case, Context, Result
 from ..clients.client import Client, project_id, agent_id
+from ..helper import event_stream_data
 from ..workflow.workflow_eval import read_captured_response, evaluate_content_publishing_response
 from ..workflow.workflow_prompt import CONTENT_PUBLISHING_PHASED_PROMPTS
+
+# Max chars to print for event-stream validation
+_EVENT_STREAM_PRINT_CHARS = 1200
+
+
+def _print_event_stream_validation(assistant_text: str, raw_sse: str) -> None:
+    """Print event-stream response summary and sample to stdout for validation."""
+    print("\n[event-stream validation]")
+    print("  assistant text length: %d bytes" % len(assistant_text))
+    print("  raw SSE length: %d bytes" % len(raw_sse))
+    if assistant_text:
+        sample = assistant_text[: _EVENT_STREAM_PRINT_CHARS]
+        if len(assistant_text) > _EVENT_STREAM_PRINT_CHARS:
+            sample += "... [truncated]"
+        print("  assistant text sample:\n%s" % sample)
+    if raw_sse:
+        sample = raw_sse[: _EVENT_STREAM_PRINT_CHARS]
+        if len(raw_sse) > _EVENT_STREAM_PRINT_CHARS:
+            sample += "\n... [truncated]"
+        print("  raw SSE sample:\n%s" % sample)
+    if not assistant_text and not raw_sse:
+        print("  (no data received)")
+    print()
 
 
 def run_lifecycle(ctx: Context) -> Result:
@@ -209,15 +235,32 @@ def run_workflow_content_publishing_step_eval(ctx: Context) -> Result:
     status = mcp.notifications_initialized(session_id)
     if status not in (200, 202):
         return Result(pass_=False, message="notifications/initialized: status=%s" % status)
-    ctx.append_step("MCP chat phase 1: send")
-    _, status = mcp.chat_send(session_id, "chat-with-nanobot", prompts[0])
-    if status != 200:
-        return Result(pass_=False, message="chat send: status=%s" % status)
-    ctx.append_step("GET event stream (api/events)")
-    response_text = mcp.get_response_from_events(session_id)
+    progress_token = str(uuid.uuid4())
+    ctx.append_step("Event stream + chat (async): open api/events, then send with progressToken")
+
+    def send_chat():
+        out, st = mcp.chat_send(
+            session_id, "chat-with-nanobot", prompts[0], progress_token=progress_token
+        )
+        if st != 200:
+            raise RuntimeError("chat send: status=%s" % st)
+
+    response_text, raw_sse = mcp.get_response_from_events_async(session_id, send_chat_fn=send_chat)
     if response_text:
         ctx.append_step("Got reply from events: %s", (response_text[:80] + "..." if len(response_text) > 80 else response_text))
     ctx.append_step("Assert 200 and response received")
+
+    # Print event-stream response for validation
+    _print_event_stream_validation(response_text, raw_sse)
+
+    event_stream_data.save_event_stream_response(
+        "nanobot_workflow_content_publishing_step_eval", session_id, response_text or "", raw_sse=raw_sse
+    )
+    out_path = event_stream_data.write_step_eval_output_file(
+        "nanobot_workflow_content_publishing_step_eval", ctx.trajectory, raw_sse, session_id
+    )
+    print("[step_eval] Full steps + raw SSE saved to: %s" % out_path)
+
     return Result(pass_=True, message="sent phase 0 prompt, status 200, events reply %d bytes" % len(response_text))
 
 

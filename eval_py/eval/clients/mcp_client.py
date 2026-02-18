@@ -1,9 +1,10 @@
 """MCP JSON-RPC client for Obot MCP gateway (initialize, chat, events stream)."""
 import json
+import threading
 import time
 import uuid
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 from urllib.parse import urlencode
 
 import requests
@@ -17,6 +18,7 @@ EVENTS_STREAM_MAX_WAIT = 120
 @dataclass
 class EventsStreamResult:
     assistant_text: str
+    raw_sse: str
     tool_call_count: int = 0
     api_call_count: int = 0
 
@@ -102,9 +104,16 @@ class MCPClient:
     def events_stream_url(self, session_id: str) -> str:
         return self.mcp_url.rstrip("/") + "/api/events/" + session_id
 
-    def get_response_from_events(self, session_id: str) -> str:
+    # User-Agent matching browser so event-stream responses are returned (server may gate on it)
+    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+
+    def _read_events_stream(self, session_id: str) -> tuple[str, str]:
+        """Read GET api/events stream; return (assistant_text, raw_sse)."""
         url = self.events_stream_url(session_id)
-        headers = {"Accept": "text/event-stream"}
+        headers = {
+            "Accept": "text/event-stream",
+            "User-Agent": self.USER_AGENT,
+        }
         if session_id:
             headers["Mcp-Session-Id"] = session_id
         _apply_auth(headers, self.auth_header)
@@ -123,27 +132,32 @@ class MCPClient:
             finally:
                 resp.close()
             api_log.log_api_call("GET", url, b"", resp.status_code, err_body or b"(no body)")
-            return ""
+            return "", ""
+
         api_log.log_api_call(
             "GET", url, b"", 200, b"(event-stream, reading until chat-done or timeout)"
         )
-        out = []
-        current = {"event": None, "data": []}
+        out: list[str] = []
+        raw_lines: list[str] = []
+        current_event: Optional[str] = None
+        current_data_lines: list[str] = []
         start = time.time()
 
         def flush_event():
-            for raw in current["data"]:
-                s = (raw.strip() if isinstance(raw, str) else raw).strip()
-                if not s or s == "{}":
-                    continue
-                try:
-                    ev = json.loads(s)
-                    if ev.get("role") == "assistant":
-                        for item in ev.get("items", []):
-                            if item.get("type") == "text" and item.get("text"):
-                                out.append(item["text"])
-                except json.JSONDecodeError:
-                    pass
+            nonlocal current_event, current_data_lines
+            # SSE: multiple data lines are joined with \n
+            if current_data_lines:
+                data_str = "\n".join(current_data_lines).strip()
+                if data_str and data_str != "{}":
+                    try:
+                        ev = json.loads(data_str)
+                        if ev.get("role") == "assistant":
+                            for item in ev.get("items", []):
+                                if item.get("type") == "text" and item.get("text"):
+                                    out.append(item["text"])
+                    except json.JSONDecodeError:
+                        pass
+            current_data_lines = []
 
         try:
             for raw_line in resp.iter_lines(decode_unicode=True):
@@ -151,19 +165,22 @@ class MCPClient:
                     break
                 if raw_line is None:
                     continue
-                line = raw_line.strip() if raw_line else ""
+                line = raw_line.strip("\r\n") if raw_line else ""
+                raw_lines.append(line if line else "")
+
                 if line == "":
                     flush_event()
-                    if current["event"] == "chat-done":
+                    if current_event == "chat-done":
                         break
-                    current = {"event": None, "data": []}
+                    current_event = None
+                    current_data_lines = []
                     continue
                 if line.startswith("event:"):
                     flush_event()
-                    current["event"] = line[6:].strip()
-                    current["data"] = []
+                    current_event = line[6:].strip()
+                    current_data_lines = []
                 elif line.startswith("data:"):
-                    current["data"].append(line[5:].strip())
+                    current_data_lines.append(line[5:].strip())
         except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError):
             pass
         except Exception:
@@ -171,6 +188,9 @@ class MCPClient:
         finally:
             resp.close()
         flush_event()
+
+        # Rebuild raw SSE in same format as curl (event:\n data:\n\n)
+        raw_sse = "\n".join(raw_lines)
 
         result = "".join(out)
         summary = "(event-stream response, %d bytes assistant text)" % len(result)
@@ -181,4 +201,30 @@ class MCPClient:
         else:
             summary = summary.encode("utf-8")
         api_log.log_api_stream_response(url, summary)
-        return result
+        return result, raw_sse
+
+    def get_response_from_events(self, session_id: str) -> str:
+        assistant_text, _ = self._read_events_stream(session_id)
+        return assistant_text
+
+    def get_response_from_events_async(
+        self, session_id: str, send_chat_fn: Callable[[], None]
+    ) -> tuple[str, str]:
+        """Open event stream first, then call send_chat_fn(); read until chat-done. Returns (assistant_text, raw_sse)."""
+        result_holder: list[tuple[str, str]] = []
+
+        def read_thread():
+            res = self._read_events_stream(session_id)
+            result_holder.append(res)
+
+        t = threading.Thread(target=read_thread, daemon=True)
+        t.start()
+        time.sleep(0.5)
+        try:
+            send_chat_fn()
+        finally:
+            pass
+        t.join(timeout=EVENTS_STREAM_MAX_WAIT)
+        if result_holder:
+            return result_holder[0]
+        return "", ""
