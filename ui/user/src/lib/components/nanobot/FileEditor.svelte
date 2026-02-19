@@ -34,7 +34,6 @@
 	let widthPx = $state(0);
 	let isResizing = $state(false);
 	let maxThreadContentWidthSeen = $state(0);
-	let containerWidth = $state(0);
 	let rootEl = $state<HTMLDivElement | null>(null);
 	let recalculateAnimationFrameId = 0;
 
@@ -120,7 +119,6 @@
 		if (!open || !rootEl?.parentElement) return;
 		const parent = rootEl.parentElement;
 		const syncWidth = (w: number) => {
-			containerWidth = w;
 			if (w > 0) {
 				widthPx = calculateInitialWidthPx();
 			}
