@@ -14,7 +14,7 @@ View and manage all users on the platform. From this page you can:
 - Update individual user roles
 - Monitor user activity
 
-For details on updating roles, see [User Roles](/configuration/user-roles/#managing-roles).
+For details on updating roles, see [User Roles](/configuration/user-roles/#managing-user-roles).
 
 ## User Roles
 

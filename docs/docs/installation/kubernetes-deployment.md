@@ -116,7 +116,7 @@ When enabled, this policy:
 - Blocks access to private IP ranges and internal cluster resources
 - Prevents potential lateral movement if an MCP server is compromised
 
-For details, see [MCP Deployments in Kubernetes - Network Policy](/configuration/mcp-deployments-in-kubernetes/#network-policy).
+For details, see [MCP Deployments in Kubernetes - Network Policy](../configuration/mcp-deployments-in-kubernetes.md#network-policy).
 
 ### Pod Security Admission for MCP Servers
 
@@ -135,7 +135,7 @@ mcpNamespace:
 
 The restricted policy follows current Pod hardening best practices and provides the highest level of security. If you need more permissive settings, you can change to **baseline** or **privileged** levels.
 
-For details, see [MCP Deployments in Kubernetes - Pod Security Admission](/configuration/mcp-deployments-in-kubernetes/#pod-security-admission).
+For details, see [MCP Deployments in Kubernetes - Pod Security Admission](../configuration/mcp-deployments-in-kubernetes.md#pod-security-admission).
 
 ## Next Steps
 
