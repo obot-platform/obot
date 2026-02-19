@@ -25,7 +25,7 @@
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
-	import { openUrl } from '$lib/utils';
+	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
 	import {
 		AlertTriangle,
 		Captions,
@@ -35,6 +35,7 @@
 		MessageCircle,
 		PencilLine,
 		ReceiptText,
+		RefreshCw,
 		SatelliteDish,
 		Server,
 		ServerCog,
@@ -56,7 +57,14 @@
 	import type { MCPServerOAuthCredentialStatus } from '$lib/services/admin/types';
 
 	type Item = ReturnType<typeof convertEntriesAndServersToTableData>[number];
-	type ServerSelectMode = 'connect' | 'rename' | 'edit' | 'disconnect' | 'chat' | 'server-details';
+	type ServerSelectMode =
+		| 'connect'
+		| 'rename'
+		| 'edit'
+		| 'disconnect'
+		| 'chat'
+		| 'server-details'
+		| 'restart';
 
 	interface Props {
 		entity?: 'workspace' | 'catalog';
@@ -149,7 +157,12 @@
 	function getAuditLogsUrl(d: Item) {
 		let useAdminUrl =
 			window.location.pathname.includes('/admin') && profile.current.hasAdminAccess?.();
-		let hasAuditLogUrlsAccess = profile.current.groups.includes(Group.POWERUSER);
+
+		// Basic users can access audit logs for their own servers
+		// Check if this is a server (not a catalog entry) belonging to the user
+		let isOwnServer = 'userID' in d.data && isOwnSingleUserServer(d.data, profile.current?.id);
+
+		let hasAuditLogUrlsAccess = isOwnServer || profile.current.groups.includes(Group.POWERUSER);
 
 		if (!hasAuditLogUrlsAccess) {
 			return null;
@@ -188,7 +201,8 @@
 		entry: MCPCatalogEntry,
 		mode: ServerSelectMode = 'connect'
 	) {
-		selectedConfiguredServers = getConfiguredServersForCatalogEntry(entry);
+		const allServers = getConfiguredServersForCatalogEntry(entry);
+		selectedConfiguredServers = allServers;
 		selectedEntry = entry;
 		selectServerDialog?.open();
 		selectServerMode = mode;
@@ -470,6 +484,24 @@
 										}}
 									>
 										<ReceiptText class="size-4" /> Server Details
+									</button>
+								{/if}
+
+								{#if matchingServers.length > 0 && catalogEntry}
+									<button
+										class="menu-button hover:bg-surface3"
+										onclick={async (e) => {
+											e.stopPropagation();
+											if (matchingServers.length === 1) {
+												await ChatService.restartMcpServer(matchingServers[0].id);
+												mcpServersAndEntries.refreshUserConfiguredServers();
+											} else {
+												handleShowSelectServerDialog(catalogEntry, 'restart');
+											}
+											toggle(false);
+										}}
+									>
+										<RefreshCw class="size-4" /> Restart Server
 									</button>
 								{/if}
 
@@ -810,6 +842,11 @@
 				}
 				case 'disconnect': {
 					await ChatService.deleteSingleOrRemoteMcpServer(d.id);
+					mcpServersAndEntries.refreshUserConfiguredServers();
+					break;
+				}
+				case 'restart': {
+					await ChatService.restartMcpServer(d.id);
 					mcpServersAndEntries.refreshUserConfiguredServers();
 					break;
 				}

@@ -1470,6 +1470,10 @@ export async function deconfigureCompositeMcpServer(id: string): Promise<void> {
 	return deconfigureSingleOrRemoteMcpServer(id);
 }
 
+export async function restartMcpServer(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
+	await doPost(`/mcp-servers/${id}/restart`, {}, opts);
+}
+
 // Update any MCP server manifest (used for composite skips)
 export async function updateMcpServerManifest(
 	id: string,

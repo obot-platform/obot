@@ -28,7 +28,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '../Confirm.svelte';
 	import McpServerK8sInfo from './McpServerK8sInfo.svelte';
-	import { openUrl } from '$lib/utils';
+	import { openUrl, isOwnSingleUserServer, getUserDisplayName } from '$lib/utils';
 	import DiffDialog from './DiffDialog.svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
@@ -39,9 +39,10 @@
 		entry?: MCPCatalogEntry | MCPCatalogServer;
 		users?: OrgUser[];
 		type?: LaunchServerType;
+		configuredServers?: MCPCatalogServer[];
 	}
 
-	let { id, entity = 'catalog', entry, users = [], type }: Props = $props();
+	let { id, entity = 'catalog', entry, users = [], type, configuredServers }: Props = $props();
 
 	let listServerInstances = $state<Promise<MCPServerInstance[]>>();
 	let listEntryServers = $state<Promise<MCPCatalogServer[]>>();
@@ -58,7 +59,20 @@
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
 	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
 
+	// Reactively update listEntryServers when configuredServers changes
+	$effect(() => {
+		if (configuredServers && entry && 'isCatalogEntry' in entry && configuredServers.length > 0) {
+			const filtered = configuredServers.filter((s) => s.catalogEntryID === entry.id);
+			listEntryServers = Promise.resolve(filtered);
+		}
+	});
+
 	onMount(() => {
+		// If we already have configured servers from the effect, don't fetch again
+		if (listEntryServers) {
+			return;
+		}
+
 		if (entry && !('isCatalogEntry' in entry) && id) {
 			if (entry.catalogEntryID) {
 				listServerInstances = Promise.resolve([
@@ -143,7 +157,11 @@
 				: `/admin/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`;
 		}
 
-		return profile.current?.groups.includes(Group.POWERUSER)
+		// Basic users can access audit logs for their own servers
+		let isOwnServer = entry && isOwnSingleUserServer(entry, profile.current?.id);
+		// Also check if this specific server instance belongs to the current user
+		let isOwnInstance = d.userID === profile.current?.id;
+		return isOwnServer || isOwnInstance || profile.current?.groups.includes(Group.POWERUSER)
 			? `/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`
 			: null;
 	}
@@ -250,11 +268,14 @@
 					{:else if property === 'userID'}
 						{@const user = usersMap.get(d[property] as string)}
 						<span class="flex items-center gap-1">
-							{#if users.length === 0}
-								<!--This covers the case where a Power User is listing their own servers.-->
-								{profile.current.email || 'Unknown'}
+							{#if configuredServers}
+								<!--This is a basic user viewing their own configured servers from the global store-->
+								{getUserDisplayName(usersMap, profile.current.id)}
+							{:else if users.length === 0}
+								<!--This covers the case where a Power User is listing their own servers without a users array-->
+								{getUserDisplayName(usersMap, profile.current.id)}
 							{:else}
-								{user?.email || user?.username || 'Unknown'}
+								{user ? getUserDisplayName(usersMap, user.id) : 'Unknown User'}
 							{/if}
 							{#if type === 'single' || type === 'composite'}
 								{#if d.needsUpdate}
