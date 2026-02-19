@@ -780,6 +780,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		},
 	}
 
+	objs = append(objs, dep)
+
 	if server.Runtime != types.RuntimeContainerized {
 		// Setup the nanobot config file and add it to the last container in the deployment.
 		var nanobotFileString string
@@ -826,8 +828,6 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		}
 	}
 
-	objs = append(objs, dep)
-
 	// Create service ports - always include the main "http" port
 	servicePorts := []corev1.ServicePort{
 		{
@@ -839,6 +839,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	// Add a second port for direct access to the MCP container for nanobot agents
 	if server.NanobotAgentName != "" {
+		dep.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
 		servicePorts = append(servicePorts, corev1.ServicePort{
 			Name:       "mcp",
 			Port:       8080,
