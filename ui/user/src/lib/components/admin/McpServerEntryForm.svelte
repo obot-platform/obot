@@ -38,7 +38,7 @@
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import { page } from '$app/state';
-	import { openUrl } from '$lib/utils';
+	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
 	import CatalogConfigureForm, {
 		type LaunchFormData,
 		type CompositeLaunchFormData,
@@ -65,6 +65,7 @@
 		hasExistingConfigured?: boolean;
 		isDialogView?: boolean;
 		limitViews?: string[];
+		configuredServers?: MCPCatalogServer[];
 	}
 
 	let {
@@ -78,13 +79,24 @@
 		onSubmit,
 		hasExistingConfigured,
 		isDialogView,
-		limitViews
+		limitViews,
+		configuredServers
 	}: Props = $props();
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
-	let belongsToUser = $derived(
+
+	// True owner: admin, workspace owner, or power user who created the server
+	let trueOwner = $derived(
 		(entity === 'workspace' && entry?.powerUserWorkspaceID && entry.powerUserWorkspaceID === id) ||
-			profile.current?.hasAdminAccess?.()
+			profile.current?.hasAdminAccess?.() ||
+			// Basic users own their single-user servers
+			(entry && isOwnSingleUserServer(entry, profile.current?.id))
 	);
+
+	// Basic user who just connected to a catalog entry
+	let basicUserConnected = $derived(!trueOwner && entry && !server && hasExistingConfigured);
+
+	// Combined: has any access
+	let belongsToUser = $derived(trueOwner || basicUserConnected);
 
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
 	let listFilters = $state<Promise<MCPFilter[]>>();
@@ -144,27 +156,24 @@
 			entry && !server
 				? [
 						{ label: 'Overview', view: 'overview' },
-						...(belongsToUser && profile.current?.groups.includes(Group.POWERUSER_PLUS)
-							? [{ label: 'Server Details', view: 'server-instances' }]
-							: []),
+						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
 						{ label: 'Tools', view: 'tools' },
+						// Basic users who just connected don't see Configuration
+						...(trueOwner ? [{ label: 'Configuration', view: 'configuration' }] : []),
 						...(belongsToUser
 							? [
-									{ label: 'Configuration', view: 'configuration' },
 									{ label: 'Audit Logs', view: 'audit-logs' },
 									{ label: 'Usage', view: 'usage' }
 								]
 							: []),
-						...(isAtLeastPowerUserPlus && belongsToUser
+						...(isAtLeastPowerUserPlus && trueOwner
 							? [{ label: 'Registries', view: 'access-control' }]
 							: []),
 						...(profile.current?.hasAdminAccess?.() ? [{ label: 'Filters', view: 'filters' }] : [])
 					]
 				: [
 						{ label: 'Overview', view: 'overview' },
-						...(belongsToUser && profile.current?.groups.includes(Group.POWERUSER_PLUS)
-							? [{ label: 'Server Details', view: 'server-instances' }]
-							: []),
+						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
 						{ label: 'Tools', view: 'tools' },
 						...(belongsToUser ? [{ label: 'Audit Logs', view: 'audit-logs' }] : [])
 					];
@@ -699,6 +708,7 @@
 				entry={entry && 'isCatalogEntry' in entry && server ? server : entry}
 				{users}
 				{type}
+				{configuredServers}
 			/>
 		{:else if selected === 'filters'}
 			{@render filtersView()}

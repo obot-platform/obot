@@ -14,6 +14,7 @@
 		MessageCircle,
 		PencilLine,
 		ReceiptText,
+		RefreshCw,
 		Server,
 		ServerCog,
 		StepForward,
@@ -31,7 +32,14 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 
-	type ServerSelectMode = 'connect' | 'rename' | 'edit' | 'disconnect' | 'chat' | 'server-details';
+	type ServerSelectMode =
+		| 'connect'
+		| 'rename'
+		| 'edit'
+		| 'disconnect'
+		| 'chat'
+		| 'server-details'
+		| 'restart';
 
 	interface Props {
 		server?: MCPCatalogServer;
@@ -69,6 +77,7 @@
 	let oauthConfiguredOverride = $state<boolean | undefined>(undefined);
 
 	let disconnecting = $state(false);
+	let restarting = $state(false);
 
 	let instance = $derived(
 		server && !server.catalogEntryID
@@ -279,6 +288,11 @@
 					});
 					break;
 				}
+				case 'restart': {
+					ChatService.restartMcpServer(d.id);
+					mcpServersAndEntries.refreshUserConfiguredServers();
+					break;
+				}
 				case 'disconnect': {
 					ChatService.deleteSingleOrRemoteMcpServer(d.id);
 					mcpServersAndEntries.refreshUserConfiguredServers();
@@ -410,6 +424,29 @@
 					</button>
 				{/if}
 			{/if}
+			{#if server}
+				<button
+					class="menu-button"
+					disabled={restarting}
+					onclick={async (e) => {
+						e.stopPropagation();
+						restarting = true;
+						try {
+							await ChatService.restartMcpServer(server.id);
+							refresh();
+						} finally {
+							restarting = false;
+							toggle(false);
+						}
+					}}
+				>
+					{#if restarting}
+						<LoaderCircle class="size-4 animate-spin" />
+					{:else}
+						<RefreshCw class="size-4" />
+					{/if} Restart
+				</button>
+			{/if}
 			{#if server && instance}
 				<button
 					class="menu-button"
@@ -533,6 +570,33 @@
 						<ServerCog class="size-4" /> Edit Configuration
 					</button>
 				{/if}
+			{/if}
+			{#if configuredServers.length > 0}
+				<button
+					class="menu-button"
+					disabled={restarting}
+					onclick={async (e) => {
+						e.stopPropagation();
+						if (configuredServers.length === 1) {
+							restarting = true;
+							try {
+								await ChatService.restartMcpServer(configuredServers[0].id);
+								refresh();
+							} finally {
+								restarting = false;
+								toggle(false);
+							}
+						} else {
+							handleShowSelectServerDialog('restart');
+						}
+					}}
+				>
+					{#if restarting}
+						<LoaderCircle class="size-4 animate-spin" />
+					{:else}
+						<RefreshCw class="size-4" />
+					{/if} Restart
+				</button>
 			{/if}
 			<button
 				class="menu-button"
