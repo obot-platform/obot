@@ -156,7 +156,7 @@
 <div use:editor class:readonly></div>
 
 <style>
-	:global(.milkdown) {
+	:global(.nanobot .milkdown) {
 		--crepe-color-background: var(--color-base-200);
 		--crepe-color-on-background: var(--color-base-content);
 		--crepe-color-surface: var(--color-base-100);
@@ -182,28 +182,29 @@
 		--crepe-font-title: inherit;
 	}
 
-	:global(.milkdown .ProseMirror) {
+	:global(.nanobot .milkdown .ProseMirror) {
 		padding-top: 0;
 		padding-bottom: 0;
 		padding-left: 0.25rem;
 		padding-right: 0.25rem;
 	}
 
-	:global(.milkdown .ProseMirror.block-editor-enabled) {
+	:global(.nanobot .milkdown .ProseMirror.block-editor-enabled) {
 		padding-left: 5.5rem;
 		padding-right: 5.5rem;
 	}
 
-	:global(.milkdown .milkdown-code-block) {
+	:global(.nanobot .milkdown .milkdown-code-block) {
 		border-radius: var(--radius-box);
 	}
 
-	.readonly :global(.milkdown .ProseMirror p.crepe-paragraph:empty::before),
-	.readonly :global(.milkdown .ProseMirror [data-placeholder]::before) {
+	.readonly :global(.nanobot .milkdown .ProseMirror p.crepe-paragraph:empty::before),
+	.readonly :global(.nanobot .milkdown .ProseMirror [data-placeholder]::before) {
 		display: none;
 	}
 
-	.readonly :global(.milkdown .ProseMirror p:has(> .ProseMirror-trailingBreak:only-child)) {
+	.readonly
+		:global(.nanobot .milkdown .ProseMirror p:has(> .ProseMirror-trailingBreak:only-child)) {
 		display: none;
 	}
 </style>
