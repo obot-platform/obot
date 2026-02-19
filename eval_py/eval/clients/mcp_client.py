@@ -138,26 +138,40 @@ class MCPClient:
             "GET", url, b"", 200, b"(event-stream, reading until chat-done or timeout)"
         )
         out: list[str] = []
-        raw_lines: list[str] = []
+        raw_sse_lines: list[str] = []
+        seen_created_id: set[tuple[str, str]] = set()
         current_event: Optional[str] = None
         current_data_lines: list[str] = []
+        current_raw_lines: list[str] = []
         start = time.time()
 
         def flush_event():
-            nonlocal current_event, current_data_lines
-            # SSE: multiple data lines are joined with \n
+            nonlocal current_event, current_data_lines, current_raw_lines
+            # Deduplicate by (created, id): skip if we've already seen this event
+            is_duplicate = False
             if current_data_lines:
                 data_str = "\n".join(current_data_lines).strip()
                 if data_str and data_str != "{}":
                     try:
                         ev = json.loads(data_str)
-                        if ev.get("role") == "assistant":
-                            for item in ev.get("items", []):
-                                if item.get("type") == "text" and item.get("text"):
-                                    out.append(item["text"])
+                        created = ev.get("created")
+                        eid = ev.get("id")
+                        if created is not None and eid is not None:
+                            key = (str(created), str(eid))
+                            if key in seen_created_id:
+                                is_duplicate = True
+                            else:
+                                seen_created_id.add(key)
+                            if not is_duplicate and ev.get("role") == "assistant":
+                                for item in ev.get("items", []):
+                                    if item.get("type") == "text" and item.get("text"):
+                                        out.append(item["text"])
                     except json.JSONDecodeError:
                         pass
+            if not is_duplicate and current_raw_lines:
+                raw_sse_lines.extend(current_raw_lines)
             current_data_lines = []
+            current_raw_lines = []
 
         try:
             for raw_line in resp.iter_lines(decode_unicode=True):
@@ -166,21 +180,22 @@ class MCPClient:
                 if raw_line is None:
                     continue
                 line = raw_line.strip("\r\n") if raw_line else ""
-                raw_lines.append(line if line else "")
 
                 if line == "":
+                    current_raw_lines.append("")
                     flush_event()
                     if current_event == "chat-done":
                         break
                     current_event = None
-                    current_data_lines = []
                     continue
                 if line.startswith("event:"):
                     flush_event()
                     current_event = line[6:].strip()
+                    current_raw_lines.append(line)
                     current_data_lines = []
                 elif line.startswith("data:"):
                     current_data_lines.append(line[5:].strip())
+                    current_raw_lines.append(line)
         except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError):
             pass
         except Exception:
@@ -189,8 +204,7 @@ class MCPClient:
             resp.close()
         flush_event()
 
-        # Rebuild raw SSE in same format as curl (event:\n data:\n\n)
-        raw_sse = "\n".join(raw_lines)
+        raw_sse = "\n".join(raw_sse_lines)
 
         result = "".join(out)
         summary = "(event-stream response, %d bytes assistant text)" % len(result)
