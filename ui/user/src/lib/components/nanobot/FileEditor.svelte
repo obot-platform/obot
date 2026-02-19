@@ -59,10 +59,6 @@
 				: 1024;
 	}
 
-	function getEffectiveRefWidth(): number {
-		return containerWidth > 0 ? containerWidth : getViewportWidth();
-	}
-
 	function handleResizeStart(e: MouseEvent) {
 		e.preventDefault();
 		isResizing = true;
