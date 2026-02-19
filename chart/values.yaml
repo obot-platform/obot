@@ -93,6 +93,10 @@ config:
   OBOT_SERVER_ENABLE_AUTHENTICATION: false
   # config.OBOT_SERVER_ENABLE_REGISTRY_AUTH -- Enables authentication for the MCP registry API. When false (default), registry is accessible without authentication and returns only default catalog items with wildcard access control rules.
   OBOT_SERVER_ENABLE_REGISTRY_AUTH: false
+  # config.OBOT_SERVER_UNAUTHENTICATED_RATE_LIMIT -- Rate limit for unauthenticated requests in requests per second. Tracked by source IP address. Defaults to 100.
+  OBOT_SERVER_UNAUTHENTICATED_RATE_LIMIT: ""
+  # config.OBOT_SERVER_AUTHENTICATED_RATE_LIMIT -- Rate limit for authenticated non-admin requests in requests per second. Tracked by user ID. Admin users are exempt. Defaults to 200.
+  OBOT_SERVER_AUTHENTICATED_RATE_LIMIT: ""
   # config.OBOT_SERVER_ENCRYPTION_PROVIDER -- Configures an encryption provider for credentials in Obot
   OBOT_SERVER_ENCRYPTION_PROVIDER: "" # "aws", "gcp", "azure", "custom"
   # config.OBOT_SERVER_ENCRYPTION_CONFIG_FILE -- The path to a file containing the encryption configuration. Only used if config.OBOT_SERVER_ENCRYPTION_PROVIDER is 'custom'
