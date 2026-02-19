@@ -32,7 +32,6 @@
 	import DiffDialog from './DiffDialog.svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { getUser } from '$lib/services/admin/operations';
 
 	interface Props {
 		id?: string;
