@@ -112,11 +112,6 @@ async function collectValidPaths(outDir: string): Promise<Set<string>> {
   }
 
   await walk(outDir, "");
-  // Root index.html registers as "" — normalize to make lookups consistent
-  if (paths.has("index.html")) {
-    paths.delete("index.html");
-    paths.add("");
-  }
   return paths;
 }
 
