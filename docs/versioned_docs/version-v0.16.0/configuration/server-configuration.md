@@ -19,6 +19,8 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_KNOWLEDGE_FILE_WORKERS` | Sets the number of workers used by knowledge for processing files. | `5` |
 | `KINM_DB_CONNECTIONS` | The number of connections in the database pool for kinm | `5` |
 | `OBOT_SERVER_ENABLE_AUTHENTICATION` | Enables authentication for Obot | `false` |
+| `OBOT_SERVER_UNAUTHENTICATED_RATE_LIMIT` | Rate limit for unauthenticated requests (requests per second). Unauthenticated requests are tracked by source IP address. | `100` |
+| `OBOT_SERVER_AUTHENTICATED_RATE_LIMIT` | Rate limit for authenticated non-admin requests (requests per second). Authenticated requests are tracked by user ID. Admin users are exempt from rate limiting. | `200` |
 | `OBOT_SERVER_ENCRYPTION_PROVIDER` | Configures an encryption provider for credentials in Obot. One of aws, gcp, azure, custom, or none | `none` |
 | `OBOT_SERVER_ENCRYPTION_CONFIG_FILE` | The path to a file containing the encryption configuration. Only used when `OBOT_SERVER_ENCRYPTION_PROVIDER` is `custom` | - |
 | `OBOT_SERVER_ENCRYPTION_KEY` | Sets the key to be used for encryption. Should only be set if `OBOT_SERVER_ENCRYPTION_PROVIDER` is `custom` | - |
