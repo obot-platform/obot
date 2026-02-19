@@ -14,7 +14,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import { goto } from '$lib/url';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
-	import { getUserDisplayName } from '$lib/utils';
+	import { getUserDisplayName, isBasicUser } from '$lib/utils';
 	import type { SupportedStateFilter } from './types';
 	import { fade, slide } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
@@ -23,6 +23,7 @@
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import AuditLogCalendar from '../audit-logs/AuditLogCalendar.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
+	import profile from '$lib/stores/profile.svelte';
 
 	type Props = {
 		mcpId?: string | null;
@@ -114,6 +115,16 @@
 
 	const propsFiltersKeys = $derived(new Set(Object.keys(propsFilters)));
 
+	// Enforced filters for Basic users - they can only see their own usage stats
+	const enforcedFilters = $derived.by(() => {
+		if (isBasicUser(profile.current.groups) && profile.current?.id) {
+			return { user_ids: profile.current.id };
+		}
+		return {};
+	});
+
+	const enforcedFiltersKeys = $derived(new Set(Object.keys(enforcedFilters)));
+
 	// Keep only filters with defined values
 	const pillsSearchParamFilters = $derived.by(() => {
 		const filters = searchParamsAsArray
@@ -130,7 +141,8 @@
 		// Sort pills; those from props goes first
 		return Object.entries({
 			...filters,
-			...propsFilters
+			...propsFilters,
+			...enforcedFilters
 		})
 			.sort((a, b) => {
 				if (propsFiltersKeys.has(a[0])) {
@@ -157,7 +169,7 @@
 			delete clone[key as SupportedStateFilter];
 		}
 
-		return { ...clone, ...propsFilters };
+		return { ...clone, ...propsFilters, ...enforcedFilters };
 	});
 
 	let timeRangeFilters = $derived.by(() => {
@@ -193,6 +205,7 @@
 	let filters = $derived({
 		...searchParamFilters,
 		...propsFilters,
+		...enforcedFilters,
 		start_time: timeRangeFilters.startTime.toISOString(),
 		end_time: timeRangeFilters.endTime.toISOString()
 	});
@@ -721,8 +734,10 @@
 			filters={auditLogsSlideoverFilters}
 			{getFilterDisplayLabel}
 			getUserDisplayName={(...args) => getUserDisplayName(usersMap, ...args)}
-			isFilterDisabled={(filterId) => propsFiltersKeys.has(filterId)}
-			isFilterClearable={(filterId) => !propsFiltersKeys.has(filterId)}
+			isFilterDisabled={(filterId) =>
+				propsFiltersKeys.has(filterId) || enforcedFiltersKeys.has(filterId)}
+			isFilterClearable={(filterId) =>
+				!propsFiltersKeys.has(filterId) && !enforcedFiltersKeys.has(filterId)}
 			endpoint={async (filterId: string, ...args) => {
 				const proxyFilterId = proxy.get(filterId as SupportedStateFilter) ?? filterId;
 				return AdminService.listAuditLogFilterOptions(proxyFilterId, ...args);
@@ -748,7 +763,8 @@
 			{#each filterEntries as [filterKey, filterValues] (filterKey)}
 				{@const displayLabel = getFilterDisplayLabel(filterKey)}
 				{@const values = filterValues?.toString().split(',').filter(Boolean) ?? []}
-				{@const isClearable = Object.keys(propsFilters).every((d) => d !== filterKey)}
+				{@const isClearable =
+					!propsFiltersKeys.has(filterKey) && !enforcedFiltersKeys.has(filterKey)}
 
 				<div
 					class="border-primary/50 bg-primary/10 text-primary flex items-center gap-1 rounded-lg border px-4 py-2"

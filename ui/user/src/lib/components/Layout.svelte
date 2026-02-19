@@ -382,12 +382,37 @@
 					]
 				: [
 						{
-							id: 'mcp-servers',
-							href: '/mcp-servers',
-							icon: Server,
-							label: 'MCP Servers',
+							id: 'mcp-server-management',
+							icon: RadioTower,
+							label: 'MCP Management',
+							collapsible: false,
 							disabled: false,
-							collapsible: false
+							items: [
+								{
+									id: 'mcp-servers',
+									href: '/mcp-servers',
+									icon: Server,
+									label: 'MCP Servers',
+									disabled: false,
+									collapsible: false
+								},
+								{
+									id: 'audit-logs',
+									href: '/audit-logs',
+									icon: Captions,
+									label: 'Audit Logs',
+									disabled: false,
+									collapsible: false
+								},
+								{
+									id: 'usage',
+									href: '/usage',
+									icon: ChartBarDecreasing,
+									label: 'Usage',
+									disabled: false,
+									collapsible: false
+								}
+							]
 						},
 						{
 							id: 'chat',

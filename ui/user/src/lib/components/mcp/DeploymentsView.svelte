@@ -702,6 +702,39 @@
 									{/if}
 								</div>
 							{/if}
+							<div class="flex flex-col gap-1 p-2">
+								{#if d.needsUpdate && (d.isMyServer || profile.current?.hasAdminAccess?.())}
+									{#if !readonly && (d.isMyServer || isAtLeastPowerUser)}
+										<button
+											class="menu-button-primary"
+											disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
+											onclick={(e) => {
+												e.stopPropagation();
+												if (!d) return;
+												showUpgradeConfirm = {
+													type: 'single',
+													server: d,
+													onConfirm: async () => {
+														reload();
+													}
+												};
+											}}
+											use:tooltip={d.compositeName
+												? {
+														text: 'This is a component of a composite server and cannot be updated independently; update the composite MCP server instead',
+														classes: ['w-md'],
+														disablePortal: true
+													}
+												: undefined}
+										>
+											{#if updating[d.id]?.inProgress}
+												<LoaderCircle class="size-4 animate-spin" />
+											{:else}
+												<CircleFadingArrowUp class="size-4" />
+											{/if}
+											Update Server
+										</button>
+									{/if}
 
 							<div class="flex flex-col gap-1 p-2">
 								<a
@@ -774,7 +807,7 @@
 									</button>
 								{/if}
 
-								{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser && d.needsK8sUpdate}
+								{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && (d.isMyServer || isAtLeastPowerUser) && d.needsK8sUpdate}
 									<button
 										class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -797,6 +830,35 @@
 								{/if}
 
 								{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser}
+									{#if !readonly && (d.isMyServer || isAtLeastPowerUser)}
+										<button
+											class="menu-button"
+											disabled={restarting}
+											onclick={async (e) => {
+												e.stopPropagation();
+												restarting = true;
+												if (d.powerUserWorkspaceID) {
+													await ChatService.restartWorkspaceK8sServerDeployment(
+														d.powerUserWorkspaceID,
+														d.id
+													);
+												} else {
+													await AdminService.restartK8sDeployment(d.id);
+												}
+
+												await delay(1000);
+
+												toggle((restarting = false));
+											}}
+										>
+											{#if restarting}
+												<LoaderCircle class="size-4 animate-spin" /> Restarting...
+											{:else}
+												<Power class="size-4" />
+												Restart Server
+											{/if}
+										</button>
+									{/if}
 									<button
 										class="menu-button"
 										disabled={restarting}

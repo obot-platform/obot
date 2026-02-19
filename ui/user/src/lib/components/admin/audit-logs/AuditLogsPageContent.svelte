@@ -27,7 +27,7 @@
 	import { localState } from '$lib/runes/localState.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
-	import { getUserDisplayName } from '$lib/utils';
+	import { getUserDisplayName, isBasicUser } from '$lib/utils';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import profile from '$lib/stores/profile.svelte';
 	import { Group } from '$lib/services';
@@ -77,6 +77,16 @@
 	let rightSidebar = $state<HTMLDivElement>();
 	let showFilterConfirmDialog = $state(false);
 	let pendingExportType = $state<'export' | 'scheduled' | null>(null);
+
+	// Enforced filters for Basic users - they can only see their own audit logs
+	const enforcedFilters = $derived.by(() => {
+		if (isBasicUser(profile.current.groups) && profile.current?.id) {
+			return { user_id: profile.current.id };
+		}
+		return {};
+	});
+
+	const enforcedFiltersKeys = $derived(new Set(Object.keys(enforcedFilters)));
 
 	// Supported filters for the audit logs
 	// These filters are used to filter the audit logs based on the URL parameters
@@ -165,7 +175,7 @@
 			) as Record<keyof AuditLogURLFilters, string>;
 
 		return (
-			Object.entries({ ...propsFilters, ...base })
+			Object.entries({ ...propsFilters, ...base, ...enforcedFilters })
 				.filter(([, value]) => !!value)
 				// Sort to prioritize props filter keys first, then alphabetically
 				.sort((a, b) => {
@@ -206,7 +216,7 @@
 			delete clone[key as keyof AuditLogURLFilters];
 		}
 
-		return { ...clone, ...propsFilters };
+		return { ...clone, ...propsFilters, ...enforcedFilters };
 	});
 
 	let timeRangeFilters = $derived.by(() => {
@@ -572,7 +582,7 @@
 
 				<div class="flex items-center">
 					{#if numberOfPages > 1}
-						<sapn>{Intl.NumberFormat().format(pageIndex + 1)}</sapn>/
+						<span>{Intl.NumberFormat().format(pageIndex + 1)}</span>/
 						<span>{Intl.NumberFormat().format(numberOfPages)}</span>
 						<span class="ml-1">pages</span>
 					{:else}
@@ -603,25 +613,28 @@
 		</div>
 	</div>
 
-	<AuditLogsTable
-		data={remoteAuditLogs}
-		onSelectRow={async (d: AuditLog & { user: string }) => {
-			showFilters = false;
-			rightSidebar?.showPopover();
-			// Fetch full audit log details with request/response bodies
-			try {
-				const fullDetails = await AdminService.getAuditLog(d.id);
-				selectedAuditLog = { ...fullDetails, user: d.user };
-			} catch (error) {
-				console.error('Failed to fetch audit log details:', error);
-				// Fallback to the cached data if fetch fails
-				selectedAuditLog = d;
-			}
-		}}
-		getUserDisplayName={(userId: string, hasConflict?: () => boolean) =>
-			getUserDisplayName(users, userId, hasConflict)}
-		{emptyContent}
-	></AuditLogsTable>
+	<!-- Debug: Check if this section renders -->
+	<div class="mt-4">
+		<AuditLogsTable
+			data={remoteAuditLogs}
+			onSelectRow={async (d: AuditLog & { user: string }) => {
+				showFilters = false;
+				rightSidebar?.showPopover();
+				// Fetch full audit log details with request/response bodies
+				try {
+					const fullDetails = await AdminService.getAuditLog(d.id);
+					selectedAuditLog = { ...fullDetails, user: d.user };
+				} catch (error) {
+					console.error('Failed to fetch audit log details:', error);
+					// Fallback to the cached data if fetch fails
+					selectedAuditLog = d;
+				}
+			}}
+			getUserDisplayName={(userId: string, hasConflict?: () => boolean) =>
+				getUserDisplayName(users, userId, hasConflict)}
+			{emptyContent}
+		></AuditLogsTable>
+	</div>
 {:else if !showLoadingSpinner}
 	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
 		<Captions class="text-on-surface1 size-24 opacity-50" />
@@ -642,8 +655,10 @@
 		<FiltersDrawer
 			onClose={handleRightSidebarClose}
 			filters={{ ...auditLogsSlideoverFilters }}
-			isFilterDisabled={(filterId) => propsFiltersKeys.has(filterId)}
-			isFilterClearable={(filterId) => !propsFiltersKeys.has(filterId)}
+			isFilterDisabled={(filterId) =>
+				propsFiltersKeys.has(filterId) || enforcedFiltersKeys.has(filterId)}
+			isFilterClearable={(filterId) =>
+				!propsFiltersKeys.has(filterId) && !enforcedFiltersKeys.has(filterId)}
 			getUserDisplayName={(...args) => getUserDisplayName(users, ...args)}
 			{getFilterDisplayLabel}
 			getDefaultValue={(filter) => defaultSearchParams[filter]}
@@ -688,7 +703,8 @@
 			{#each entries as [filterKey, filterValues] (filterKey)}
 				{@const displayLabel = getFilterDisplayLabel(filterKey)}
 				{@const values = filterValues?.toString().split(',').filter(Boolean) ?? []}
-				{@const isClearable = !propsFiltersKeys.has(filterKey)}
+				{@const isClearable =
+					!propsFiltersKeys.has(filterKey) && !enforcedFiltersKeys.has(filterKey)}
 
 				<div
 					class="border-primary/50 bg-primary/10 text-primary flex items-center gap-1 rounded-lg border px-4 py-2"

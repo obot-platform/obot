@@ -23,6 +23,13 @@
 				)
 		)
 	);
+	const configuredServers = $derived(
+		catalogEntry
+			? mcpServersAndEntries.current.userConfiguredServers.filter(
+					(server) => server.catalogEntryID === catalogEntry.id
+				)
+			: []
+	);
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 	let promptOAuthConfig = $derived(page.url.searchParams.get('configure-oauth') === 'true');
 </script>
@@ -57,6 +64,7 @@
 					goto('/mcp-servers');
 				}}
 				{hasExistingConfigured}
+				{configuredServers}
 			/>
 		{/if}
 	</div>

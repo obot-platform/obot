@@ -30,6 +30,7 @@
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import { resolve } from '$app/paths';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
+	import { isOwnSingleUserServer } from '$lib/utils';
 
 	interface Props {
 		id?: string;
@@ -86,6 +87,8 @@
 		return `/api/mcp-servers/${mcpServerId}/logs`;
 	});
 
+	const hasAdminAccess = $derived(profile.current?.hasAdminAccess?.() ?? false);
+
 	const eventStream = new EventStreamService<string>();
 	const dontLogErrors = true;
 
@@ -141,13 +144,17 @@
 	}
 
 	onMount(() => {
-		revealServerValues = profile.current.isAdmin?.()
-			? ChatService.revealSingleOrRemoteMcpServer(mcpServerId, {
-					dontLogErrors: true
-				})
-			: Promise.resolve<Record<string, string>>({});
-		listK8sInfo = getK8sInfo();
-		listK8sSettingsStatus = getK8sSettingsStatus();
+		// Only load sensitive server values and k8s info if the user has admin access
+		if (hasAdminAccess) {
+			revealServerValues = profile.current.isAdmin?.()
+				? ChatService.revealSingleOrRemoteMcpServer(mcpServerId, {
+						dontLogErrors: true
+					})
+				: Promise.resolve<Record<string, string>>({});
+			listK8sInfo = getK8sInfo();
+			listK8sSettingsStatus = getK8sSettingsStatus();
+		}
+
 		eventStream.connect(logsUrl, {
 			onMessage: (data) => {
 				messages = [...messages, data];
@@ -332,7 +339,7 @@
 		if (compositeParentName) return null;
 
 		if (isAdminUrl) {
-			if (!profile.current?.hasAdminAccess?.()) return null;
+			if (!hasAdminAccess) return null;
 			return entity === 'workspace'
 				? catalogEntry?.id
 					? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
@@ -342,7 +349,9 @@
 					: `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
 		}
 
-		if (!profile.current?.groups.includes(Group.POWERUSER)) return null;
+		// Basic users can access audit logs for their own single-user servers
+		let isOwnServer = mcpServer && isOwnSingleUserServer(mcpServer, profile.current?.id);
+		if (!isOwnServer && !profile.current?.groups.includes(Group.POWERUSER)) return null;
 		return catalogEntry?.id
 			? `/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
 			: `/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
@@ -359,13 +368,15 @@
 			{name}
 		{/if}
 	</h1>
-	<button
-		onclick={handleRefreshEvents}
-		class="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-		disabled={refreshingEvents}
-	>
-		<RefreshCw class="size-4 {refreshingEvents ? 'animate-spin' : ''}" />
-	</button>
+	{#if hasAdminAccess}
+		<button
+			onclick={handleRefreshEvents}
+			class="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+			disabled={refreshingEvents}
+		>
+			<RefreshCw class="size-4 {refreshingEvents ? 'animate-spin' : ''}" />
+		</button>
+	{/if}
 </div>
 
 {#if mcpServerInstanceId}
@@ -381,88 +392,92 @@
 {/if}
 
 {#await listK8sInfo}
-	<div class="flex w-full justify-center">
-		<LoaderCircle class="size-6 animate-spin" />
-	</div>
+	{#if hasAdminAccess}
+		<div class="flex w-full justify-center">
+			<LoaderCircle class="size-6 animate-spin" />
+		</div>
+	{/if}
 {:then info}
 	{@const k8sInfo = compileK8sInfo(info)}
-	<div class="flex flex-col gap-2">
-		{#each k8sInfo as detail (detail.id)}
-			{@render detailRow(detail.label, detail.value, detail.id)}
-		{/each}
-		{#if catalogEntry?.manifest.runtime === 'remote' && mcpServer?.manifest.remoteConfig?.url}
-			{@render configurationRow('URL', mcpServer?.manifest.remoteConfig?.url)}
-		{/if}
-	</div>
+	{#if hasAdminAccess}
+		<div class="flex flex-col gap-2">
+			{#each k8sInfo as detail (detail.id)}
+				{@render detailRow(detail.label, detail.value, detail.id)}
+			{/each}
+			{#if catalogEntry?.manifest.runtime === 'remote' && mcpServer?.manifest.remoteConfig?.url}
+				{@render configurationRow('URL', mcpServer?.manifest.remoteConfig?.url)}
+			{/if}
+		</div>
 
-	{#if profile.current?.isAdmin?.()}
-		{#await revealServerValues}
-			<div class="flex w-full justify-center">
-				<LoaderCircle class="size-6 animate-spin" />
-			</div>
-		{:then revealedValues}
-			{@const { headers, envs } = compileRevealedValues(revealedValues, catalogEntry)}
-			{#if catalogEntry?.manifest.runtime === 'remote'}
+		{#if hasAdminAccess}
+			{#await revealServerValues}
+				<div class="flex w-full justify-center">
+					<LoaderCircle class="size-6 animate-spin" />
+				</div>
+			{:then revealedValues}
+				{@const { headers, envs } = compileRevealedValues(revealedValues, catalogEntry)}
+				{#if catalogEntry?.manifest.runtime === 'remote'}
+					<div>
+						<h2 class="mb-2 text-lg font-semibold">Headers</h2>
+						{#if headers.length > 0}
+							<div class="flex flex-col gap-2">
+								{#each headers as h (h.id)}
+									{@render configurationRow(h.label, h.value, h.sensitive)}
+								{/each}
+							</div>
+						{:else}
+							<span class="text-on-surface1 text-sm font-light">No configured headers.</span>
+						{/if}
+					</div>
+				{/if}
+
 				<div>
-					<h2 class="mb-2 text-lg font-semibold">Headers</h2>
-					{#if headers.length > 0}
+					<h2 class="mb-2 text-lg font-semibold">Configuration</h2>
+					{#if envs.length > 0}
 						<div class="flex flex-col gap-2">
-							{#each headers as h (h.id)}
-								{@render configurationRow(h.label, h.value, h.sensitive)}
+							{#each envs as env (env.id)}
+								{@render configurationRow(env.label, env.value, env.sensitive)}
 							{/each}
 						</div>
 					{:else}
-						<span class="text-on-surface1 text-sm font-light">No configured headers.</span>
+						<span class="text-on-surface1 text-sm font-light"
+							>No configured environment or file variables set.</span
+						>
 					{/if}
 				</div>
-			{/if}
-
-			<div>
-				<h2 class="mb-2 text-lg font-semibold">Configuration</h2>
-				{#if envs.length > 0}
-					<div class="flex flex-col gap-2">
-						{#each envs as env (env.id)}
-							{@render configurationRow(env.label, env.value, env.sensitive)}
-						{/each}
-					</div>
-				{:else}
-					<span class="text-on-surface1 text-sm font-light"
-						>No configured environment or file variables set.</span
-					>
-				{/if}
-			</div>
-		{/await}
-	{/if}
-
-	<div>
-		<h2 class="mb-2 text-lg font-semibold">Recent Events</h2>
-		{#if info?.events && info.events.length > 0}
-			{@const tableData = info.events.map((event, index) => ({
-				id: `${event.time}-${index}`,
-				...event
-			}))}
-			<Table
-				data={tableData}
-				fields={['time', 'eventType', 'message']}
-				headers={[{ title: 'Event Type', property: 'eventType' }]}
-			>
-				{#snippet onRenderColumn(property, d)}
-					{#if property === 'time'}
-						{formatTimeAgo(d.time).fullDate}
-					{:else}
-						{d[property as keyof typeof d]}
-					{/if}
-				{/snippet}
-			</Table>
-		{:else}
-			<span class="text-on-surface1 text-sm font-light">No events.</span>
+			{/await}
 		{/if}
-	</div>
+
+		<div>
+			<h2 class="mb-2 text-lg font-semibold">Recent Events</h2>
+			{#if info?.events && info.events.length > 0}
+				{@const tableData = info.events.map((event, index) => ({
+					id: `${event.time}-${index}`,
+					...event
+				}))}
+				<Table
+					data={tableData}
+					fields={['time', 'eventType', 'message']}
+					headers={[{ title: 'Event Type', property: 'eventType' }]}
+				>
+					{#snippet onRenderColumn(property, d)}
+						{#if property === 'time'}
+							{formatTimeAgo(d.time).fullDate}
+						{:else}
+							{d[property as keyof typeof d]}
+						{/if}
+					{/snippet}
+				</Table>
+			{:else}
+				<span class="text-on-surface1 text-sm font-light">No events.</span>
+			{/if}
+		</div>
+	{/if}
 {:catch error}
 	{@const isPending = error instanceof Error && error.message.includes('ContainerCreating')}
 	{@const needsUpdate = error instanceof Error && error.message.includes('missing required config')}
 
-	{#if needsUpdate}
+	{#if needsUpdate && hasAdminAccess}
 		<div class="notification-alert">
 			<div class="flex grow flex-col gap-2">
 				<div class="flex items-center gap-2">
@@ -479,18 +494,20 @@
 		</div>
 	{/if}
 
-	<div class="flex flex-col gap-2">
-		<div
-			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent p-4 shadow-sm"
-		>
-			<div class="grid grid-cols-2 gap-4">
-				<p class="text-sm font-semibold">Status</p>
-				<p class="text-sm font-light">
-					{isPending ? 'Pending' : needsUpdate ? 'Update Required' : 'Error'}
-				</p>
+	{#if hasAdminAccess}
+		<div class="flex flex-col gap-2">
+			<div
+				class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent p-4 shadow-sm"
+			>
+				<div class="grid grid-cols-2 gap-4">
+					<p class="text-sm font-semibold">Status</p>
+					<p class="text-sm font-light">
+						{isPending ? 'Pending' : needsUpdate ? 'Update Required' : 'Error'}
+					</p>
+				</div>
 			</div>
 		</div>
-	</div>
+	{/if}
 {/await}
 
 <div>
@@ -529,25 +546,27 @@
 	</div>
 </div>
 
-<div>
-	<h2 class="mb-2 text-lg font-semibold">Connected Users</h2>
-	<Table data={connectedUsers ?? []} fields={['name']}>
-		{#snippet onRenderColumn(property, d)}
-			{#if property === 'name'}
-				{d.email || d.username || 'Unknown'}
-			{:else}
-				{d[property as keyof typeof d]}
-			{/if}
-		{/snippet}
+{#if hasAdminAccess}
+	<div>
+		<h2 class="mb-2 text-lg font-semibold">Connected Users</h2>
+		<Table data={connectedUsers ?? []} fields={['name']}>
+			{#snippet onRenderColumn(property, d)}
+				{#if property === 'name'}
+					{d.email || d.username || 'Unknown'}
+				{:else}
+					{d[property as keyof typeof d]}
+				{/if}
+			{/snippet}
 
-		{#snippet actions(d)}
-			{@const auditLogsUrl = getAuditLogUrl(d)}
-			{#if auditLogsUrl}
-				<a href={resolve(auditLogsUrl as `/${string}`)} class="button-text"> View Audit Logs </a>
-			{/if}
-		{/snippet}
-	</Table>
-</div>
+			{#snippet actions(d)}
+				{@const auditLogsUrl = getAuditLogUrl(d)}
+				{#if auditLogsUrl}
+					<a href={resolve(auditLogsUrl as `/${string}`)} class="button-text"> View Audit Logs </a>
+				{/if}
+			{/snippet}
+		</Table>
+	</div>
+{/if}
 
 {#snippet detailRow(label: string, value: string, id: string)}
 	<div
