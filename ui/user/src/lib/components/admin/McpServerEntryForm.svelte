@@ -853,36 +853,34 @@
 
 		<div class="mt-4 flex flex-1 flex-col gap-8 pb-8">
 			<!-- temporary filter mcp server by name and catalog entry id-->
-			{#if id}
-				<AuditLogsPageContent
-					mcpId={isMultiUserServer ? entryId : server ? server.id : null}
-					mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer ? entryId : null}
-					{mcpServerDisplayName}
-					{id}
-					{entity}
-				>
-					{#snippet emptyContent()}
-						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-							<Users class="text-on-surface1 size-24 opacity-50" />
-							<h4 class="text-on-surface1 text-lg font-semibold">No recent audit logs</h4>
+			<AuditLogsPageContent
+				mcpId={isMultiUserServer ? entryId : server ? server.id : null}
+				mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer ? entryId : null}
+				{mcpServerDisplayName}
+				{id}
+				{entity}
+			>
+				{#snippet emptyContent()}
+					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+						<Users class="text-on-surface1 size-24 opacity-50" />
+						<h4 class="text-on-surface1 text-lg font-semibold">No recent audit logs</h4>
+						<p class="text-on-surface1 text-sm font-light">
+							This server has not had any active usage in the last 7 days.
+						</p>
+						{#if entryId || mcpCatalogEntryId}
+							{@const param = entryId ? 'mcpId=' + entryId : 'entryId=' + mcpCatalogEntryId}
 							<p class="text-on-surface1 text-sm font-light">
-								This server has not had any active usage in the last 7 days.
+								See more usage details in the server's <a
+									href={resolve(`/admin/audit-logs?${param}`)}
+									class="text-link"
+								>
+									Audit Logs
+								</a>.
 							</p>
-							{#if entryId || mcpCatalogEntryId}
-								{@const param = entryId ? 'mcpId=' + entryId : 'entryId=' + mcpCatalogEntryId}
-								<p class="text-on-surface1 text-sm font-light">
-									See more usage details in the server's <a
-										href={resolve(`/admin/audit-logs?${param}`)}
-										class="text-link"
-									>
-										Audit Logs
-									</a>.
-								</p>
-							{/if}
-						</div>
-					{/snippet}
-				</AuditLogsPageContent>
-			{/if}
+						{/if}
+					</div>
+				{/snippet}
+			</AuditLogsPageContent>
 		</div>
 	{/if}
 {/snippet}
