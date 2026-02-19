@@ -111,6 +111,10 @@ config:
   OBOT_SERVER_HOSTNAME: ""
   # config.OBOT_SERVER_RETENTION_POLICY_HOURS -- The retention policy for the system. Set to 0 to disable retention. Default is 2160 (90 days) if left blank. This field should just be a number in a string, no `h` suffix.
   OBOT_SERVER_RETENTION_POLICY_HOURS: ""
+  # config.OBOT_SERVER_DAILY_USER_PROMPT_TOKEN_LIMIT -- The maximum number of prompt/input tokens allowed per user per day. Set <= 0 to disable this limit. Defaults to 10000000.
+  OBOT_SERVER_DAILY_USER_PROMPT_TOKEN_LIMIT: ""
+  # config.OBOT_SERVER_DAILY_USER_COMPLETION_TOKEN_LIMIT -- The maximum number of completion/output tokens allowed per user per day. Set <= 0 to disable this limit. Defaults to 100000.
+  OBOT_SERVER_DAILY_USER_COMPLETION_TOKEN_LIMIT: ""
   # config.OPENAI_API_KEY -- An OpenAI API Key used to configure access to OpenAI models, which are the default in Obot.
   OPENAI_API_KEY: ""
   # config.ANTHROPIC_API_KEY -- An Anthropic API Key used to configure access to Anthropic models, which can be used as the default in Obot.
