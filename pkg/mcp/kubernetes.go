@@ -1330,10 +1330,12 @@ func (k *kubernetesBackend) deploymentSettingsMatch(deployment *appsv1.Deploymen
 // patchDeploymentHash applies only the K8s settings hash annotation to the deployment.
 // This should be called after verifying that the actual settings have been applied.
 func (k *kubernetesBackend) patchDeploymentHash(ctx context.Context, deployment *appsv1.Deployment, k8sSettingsHash string) error {
+	now := time.Now().Format(time.RFC3339)
 	patch := map[string]any{
 		"metadata": map[string]any{
 			"annotations": map[string]string{
 				"obot.ai/k8s-settings-hash": k8sSettingsHash,
+				"obot.ai/last-restart":      now,
 			},
 		},
 		"spec": map[string]any{
@@ -1341,6 +1343,7 @@ func (k *kubernetesBackend) patchDeploymentHash(ctx context.Context, deployment 
 				"metadata": map[string]any{
 					"annotations": map[string]string{
 						"obot.ai/k8s-settings-hash": k8sSettingsHash,
+						"obot.ai/last-restart":      now,
 					},
 				},
 			},
