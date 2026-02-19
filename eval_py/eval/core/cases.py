@@ -235,33 +235,45 @@ def run_workflow_content_publishing_step_eval(ctx: Context) -> Result:
     status = mcp.notifications_initialized(session_id)
     if status not in (200, 202):
         return Result(pass_=False, message="notifications/initialized: status=%s" % status)
-    progress_token = str(uuid.uuid4())
-    ctx.append_step("Event stream + chat (async): open api/events, then send with progressToken")
 
-    def send_chat():
-        out, st = mcp.chat_send(
-            session_id, "chat-with-nanobot", prompts[0], progress_token=progress_token
+    response_texts: list[str] = []
+    raw_sse_per_phase: list[str] = []
+    total_reply_bytes = 0
+
+    for phase in range(len(prompts)):
+        progress_token = str(uuid.uuid4())
+        ctx.append_step("Phase %d: event stream + chat (async)", phase)
+
+        p = phase
+        def send_chat():
+            out, st = mcp.chat_send(
+                session_id, "chat-with-nanobot", prompts[p], progress_token=progress_token
+            )
+            if st != 200:
+                raise RuntimeError("chat send phase %d: status=%s" % (p, st))
+
+        response_text, raw_sse = mcp.get_response_from_events_async(session_id, send_chat_fn=send_chat)
+        response_texts.append(response_text or "")
+        raw_sse_per_phase.append(raw_sse)
+        total_reply_bytes += len(response_text or "")
+
+        if response_text:
+            ctx.append_step("Phase %d reply: %s", phase, (response_text[:80] + "..." if len(response_text) > 80 else response_text))
+        event_stream_data.save_event_stream_response_phase(
+            "nanobot_workflow_content_publishing_step_eval", session_id, phase, response_text or "", raw_sse=raw_sse
         )
-        if st != 200:
-            raise RuntimeError("chat send: status=%s" % st)
+        _print_event_stream_validation(response_text or "", raw_sse)
 
-    response_text, raw_sse = mcp.get_response_from_events_async(session_id, send_chat_fn=send_chat)
-    if response_text:
-        ctx.append_step("Got reply from events: %s", (response_text[:80] + "..." if len(response_text) > 80 else response_text))
-    ctx.append_step("Assert 200 and response received")
-
-    # Print event-stream response for validation
-    _print_event_stream_validation(response_text, raw_sse)
-
-    event_stream_data.save_event_stream_response(
-        "nanobot_workflow_content_publishing_step_eval", session_id, response_text or "", raw_sse=raw_sse
+    ctx.append_step("Assert 200 and response received for all phases")
+    out_path = event_stream_data.write_step_eval_output_file_multi_phase(
+        "nanobot_workflow_content_publishing_step_eval", ctx.trajectory, raw_sse_per_phase, session_id
     )
-    out_path = event_stream_data.write_step_eval_output_file(
-        "nanobot_workflow_content_publishing_step_eval", ctx.trajectory, raw_sse, session_id
-    )
-    print("[step_eval] Full steps + raw SSE saved to: %s" % out_path)
+    print("[step_eval] Full steps + raw SSE (%d phases) saved to: %s" % (len(prompts), out_path))
 
-    return Result(pass_=True, message="sent phase 0 prompt, status 200, events reply %d bytes" % len(response_text))
+    return Result(
+        pass_=True,
+        message="sent %d phases, status 200, total events reply %d bytes" % (len(prompts), total_reply_bytes),
+    )
 
 
 def all_cases() -> list[Case]:
