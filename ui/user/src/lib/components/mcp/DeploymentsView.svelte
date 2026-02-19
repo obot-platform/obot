@@ -100,6 +100,8 @@
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
 
+	const hasAdminAccess = $derived(profile.current.hasAdminAccess?.() ?? false);
+
 	let loading = $state(false);
 
 	let diffDialog = $state<ReturnType<typeof DiffDialog>>();
@@ -703,7 +705,7 @@
 								</div>
 							{/if}
 							<div class="flex flex-col gap-1 p-2">
-								{#if d.needsUpdate && (d.isMyServer || profile.current?.hasAdminAccess?.())}
+								{#if d.needsUpdate && (d.isMyServer || hasAdminAccess)}
 									{#if !readonly && (d.isMyServer || isAtLeastPowerUser)}
 										<button
 											class="menu-button-primary"
@@ -758,7 +760,7 @@
 									</span>
 								</a>
 
-								{#if d.needsUpdate && (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser}
+								{#if d.needsUpdate && (d.isMyServer || hasAdminAccess) && !readonly && isAtLeastPowerUser}
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -807,7 +809,7 @@
 									</button>
 								{/if}
 
-								{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && (d.isMyServer || isAtLeastPowerUser) && d.needsK8sUpdate}
+								{#if (d.isMyServer || hasAdminAccess) && !readonly && (d.isMyServer || isAtLeastPowerUser) && d.needsK8sUpdate}
 									<button
 										class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -829,7 +831,7 @@
 									</button>
 								{/if}
 
-								{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser}
+								{#if (d.isMyServer || hasAdminAccess) && !readonly && isAtLeastPowerUser}
 									{#if !readonly && (d.isMyServer || isAtLeastPowerUser)}
 										<button
 											class="menu-button"
