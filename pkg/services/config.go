@@ -88,7 +88,7 @@ type Config struct {
 	AllowedOrigin              string   `usage:"Allowed origin for CORS"`
 	ToolRegistries             []string `usage:"The remote tool references to the set of gptscript tool registries to use" default:"github.com/obot-platform/tools"`
 	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
-	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-4.1-mini"`
+	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-5-mini"`
 	EmailServerName            string   `usage:"The name of the email server to display for email receivers"`
 	Docker                     bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
 	EnvKeys                    []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
