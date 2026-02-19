@@ -698,7 +698,7 @@
 										</button>
 									{/if}
 
-									{#if d.isMyServer}
+									{#if d.isMyServer && !readonly}
 										{@render editConfigAction(d)}
 										{#if d.catalogEntryID}
 											{@render renameAction(d)}
@@ -739,6 +739,8 @@
 											Update Server
 										</button>
 									{/if}
+								{/if}
+							</div>
 
 							<div class="flex flex-col gap-1 p-2">
 								<a
@@ -834,35 +836,6 @@
 								{/if}
 
 								{#if (d.isMyServer || hasAdminAccess) && !readonly && isAtLeastPowerUser}
-									{#if !readonly && (d.isMyServer || isAtLeastPowerUser)}
-										<button
-											class="menu-button"
-											disabled={restarting}
-											onclick={async (e) => {
-												e.stopPropagation();
-												restarting = true;
-												if (d.powerUserWorkspaceID) {
-													await ChatService.restartWorkspaceK8sServerDeployment(
-														d.powerUserWorkspaceID,
-														d.id
-													);
-												} else {
-													await AdminService.restartK8sDeployment(d.id);
-												}
-
-												await delay(1000);
-
-												toggle((restarting = false));
-											}}
-										>
-											{#if restarting}
-												<LoaderCircle class="size-4 animate-spin" /> Restarting...
-											{:else}
-												<Power class="size-4" />
-												Restart Server
-											{/if}
-										</button>
-									{/if}
 									<button
 										class="menu-button"
 										disabled={restarting}
