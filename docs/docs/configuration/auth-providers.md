@@ -222,10 +222,8 @@ Ensure the following environment variable is set in your Obot installation:
 
 1. Log in to obot server.
 2. Authenticate using your Microsoft Entra credentials.
-After successful authentication:
-- A **basic user** account will be automatically created.
+   - After successful authentication, a **basic user** account will be automatically created.
 3. Log out.
-
 ### Step 5: Promote the Entra User to Owner
 1. Access admin login page.
 2. Click **Sign in with Bootstrap Token**.
