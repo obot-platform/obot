@@ -16,12 +16,10 @@ func apply(h api.HandlerFunc, m ...api.Middleware) api.HandlerFunc {
 	return h
 }
 
-func contentType(contentTypes ...string) api.Middleware {
+func contentType(contentType string) api.Middleware {
 	return func(h api.HandlerFunc) api.HandlerFunc {
 		return func(apiContext api.Context) error {
-			for _, ct := range contentTypes {
-				apiContext.ResponseWriter.Header().Add("Content-Type", ct)
-			}
+			apiContext.ResponseWriter.Header().Set("Content-Type", contentType)
 			return h(apiContext)
 		}
 	}

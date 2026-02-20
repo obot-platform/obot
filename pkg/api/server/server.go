@@ -1,8 +1,11 @@
 package server
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"slices"
 	"strings"
@@ -83,6 +86,11 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		ctx, span := tracer.Start(req.Context(), req.Pattern)
 		defer span.End()
 		req = req.WithContext(ctx)
+
+		// Ensure security headers and a sane default Content-Type.
+		// This wrapper is intentionally applied early so it covers authn/authz
+		// errors, registry endpoints, UI, static, and proxy responses.
+		rw = &headersResponseWriter{ResponseWriter: rw}
 
 		user, err := s.authenticator.Authenticate(req)
 		if err != nil {
@@ -187,7 +195,6 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			rw.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0")
 			rw.Header().Set("Pragma", "no-cache")
 			rw.Header().Set("Expires", "0")
-			rw.Header().Set("X-Content-Type-Options", "nosniff")
 		}
 
 		err = f(api.Context{
@@ -207,6 +214,73 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 		}
 	}
+}
+
+type headersResponseWriter struct {
+	http.ResponseWriter
+	wroteHeader bool
+}
+
+func (w *headersResponseWriter) ensureHeaders(status int) {
+	// Always set nosniff; harmless for non-browser clients.
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+
+	// If a handler is going to send a body, ensure Content-Type is present.
+	// Avoid setting it for statuses that must not include a body.
+	if (status >= 100 && status < 200) || status == http.StatusNoContent || status == http.StatusResetContent || status == http.StatusNotModified {
+		return
+	}
+	if w.Header().Get("Content-Type") == "" {
+		// Use the same default net/http uses for plain text errors.
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	}
+}
+
+func (w *headersResponseWriter) WriteHeader(status int) {
+	if w.wroteHeader {
+		return
+	}
+	w.ensureHeaders(status)
+	w.wroteHeader = true
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *headersResponseWriter) Write(p []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(p)
+}
+
+func (w *headersResponseWriter) ReadFrom(r io.Reader) (int64, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	if rf, ok := w.ResponseWriter.(io.ReaderFrom); ok {
+		return rf.ReadFrom(r)
+	}
+	return io.Copy(w, r)
+}
+
+func (w *headersResponseWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (w *headersResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h, ok := w.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("underlying ResponseWriter does not support hijacking")
+	}
+	return h.Hijack()
+}
+
+func (w *headersResponseWriter) Push(target string, opts *http.PushOptions) error {
+	if p, ok := w.ResponseWriter.(http.Pusher); ok {
+		return p.Push(target, opts)
+	}
+	return http.ErrNotSupported
 }
 
 // isStaticAssetPath returns true if the path is a static asset that should be
