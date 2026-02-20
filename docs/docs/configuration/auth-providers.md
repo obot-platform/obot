@@ -200,7 +200,7 @@ Ensure the following environment variable is set in your Obot installation:
 
 7. After deconfiguration, you will be redirected to the **Welcome to Obot** page.
 
-![Screenshot of welcome obot](/img/welcone_obot_bootstrap.png)
+![Screenshot of welcome obot](/img/welcome_obot_bootstrap.png)
 
 ### Step 3: Configure Microsoft Entra as the New Auth Provider
 
