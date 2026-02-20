@@ -184,7 +184,7 @@ Ensure the following environment variable is set in your Obot installation:
 ### Step 2: Deconfigure the Existing Auth Provider (GitHub)
 
 1. Access admin login page.
-2. Use **Sign in With Bootstrap Token** option
+2. Use **Sign in with Bootstrap Token** option.
 
 ![Screenshot of login with bootstrap and entra](/img/login_bootstrap_and_entra.png)
 
@@ -210,7 +210,7 @@ Ensure the following environment variable is set in your Obot installation:
 
 ![Screenshot of setup entra](/img/setup_entra.png)
 
-4. Follow the documentation to create and configure the Entra application from [Entra Instructions](#entra-enterprise-only)
+4. Follow the documentation to create and configure the Entra application from [Entra Instructions](#entra-enterprise-only).
 5. Enter the required details:
 - Client ID
 - Client Secret
@@ -222,8 +222,8 @@ Ensure the following environment variable is set in your Obot installation:
 
 1. Log in to obot server.
 2. Authenticate using your Microsoft Entra credentials.
-   - After successful authentication, a **basic user** account will be automatically created.
-3. Log out.
+3. After successful authentication, a **basic user** account will be automatically created.
+4. Log out.
 ### Step 5: Promote the Entra User to Owner
 1. Access the admin login page.
 2. Click **Sign in with Bootstrap Token**.
@@ -236,7 +236,7 @@ Ensure the following environment variable is set in your Obot installation:
 ### Step 6: Final Verification
 1. Log in to obot server.
 2. Click **Continue with Microsoft Entra**.
-3. Log in using the Entra user account that was created in Step 4.
+3. Log in using the Entra user account that was promoted to Owner in Step 5.
 4. You should now be logged in successfully as an **Owner**.
 
 :::note
