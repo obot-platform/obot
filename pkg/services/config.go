@@ -112,6 +112,7 @@ type Config struct {
 	EnableRegistryAuth      bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 	NanobotIntegration      bool   `usage:"Enable Nanobot integration" default:"false"`
 	MCPServerSearchImage    string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:main"`
+	NanobotAgentImage       string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/nanobot-ai/nanobot:main"`
 
 	GeminiConfig
 	GatewayConfig
@@ -195,6 +196,7 @@ type Services struct {
 	AutonomousToolUseEnabled bool
 	NanobotIntegration       bool
 	MCPServerSearchImage     string
+	NanobotAgentImage        string
 }
 
 const (
@@ -914,6 +916,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		RegistryNoAuth:                registryNoAuth,
 		NanobotIntegration:            config.NanobotIntegration,
 		MCPServerSearchImage:          config.MCPServerSearchImage,
+		NanobotAgentImage:             config.NanobotAgentImage,
 	}, nil
 }
 
