@@ -44,6 +44,10 @@
 	let customAnswers = new SvelteMap<number, string>();
 	let showCustomInput = new SvelteMap<number, boolean>();
 
+	function focusWhenMounted(node: HTMLTextAreaElement) {
+		queueMicrotask(() => node.focus());
+	}
+
 	// Initialize form data with defaults
 	$effect(() => {
 		const newFormData: { [key: string]: string | number | boolean } = {};
@@ -67,12 +71,15 @@
 
 	// Reset question state when elicitation changes
 	$effect(() => {
-		if (isQuestionElicitation()) {
+		if (isQuestionElicitation() && questions.length > 0) {
 			currentStep = 0;
 			reviewMode = false;
 			selectedOptions.clear();
 			customAnswers.clear();
 			showCustomInput.clear();
+			for (let i = 0; i < questions.length; i++) {
+				showCustomInput.set(i, true);
+			}
 		}
 	});
 
@@ -181,16 +188,13 @@
 			current.clear();
 			current.add(label);
 			showCustomInput.set(qIndex, false);
-			customAnswers.set(qIndex, '');
 		}
 	}
 
 	function toggleCustomInput(qIndex: number) {
 		const current = showCustomInput.get(qIndex) ?? false;
 		showCustomInput.set(qIndex, !current);
-		if (current) {
-			customAnswers.set(qIndex, '');
-		} else if (!questions[qIndex].multiple) {
+		if (!current && !questions[qIndex].multiple) {
 			selectedOptions.set(qIndex, new SvelteSet());
 		}
 	}
@@ -213,11 +217,17 @@
 	}
 
 	function goToStep(step: number) {
+		if (!(showCustomInput.get(currentStep) ?? false)) {
+			customAnswers.delete(currentStep);
+		}
 		currentStep = step;
 		reviewMode = false;
 	}
 
 	function nextStep() {
+		if (!(showCustomInput.get(currentStep) ?? false)) {
+			customAnswers.delete(currentStep);
+		}
 		if (currentStep < questions.length - 1) {
 			currentStep++;
 		} else {
@@ -359,7 +369,7 @@
 				<div
 					role="button"
 					tabindex="0"
-					class="flex w-full cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors
+					class="mt-1.5 flex w-full cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 text-left transition-colors
 						{isCustomSelected
 						? 'border-primary bg-primary/10'
 						: 'border-base-300 hover:border-base-content/20'}"
@@ -384,18 +394,26 @@
 						/>
 					{/if}
 					<div class="min-w-0 flex-1">
-						<span class="text-sm font-medium">Other (specify)</span>
+						<span class="text-sm font-medium">Type something</span>
 						{#if isCustomSelected}
-							<!-- svelte-ignore a11y_autofocus -->
-							<textarea
-								class="textarea textarea-bordered mt-1.5 w-full text-sm"
-								placeholder="Type your answer..."
-								rows={2}
-								autofocus
-								value={customAnswers.get(currentStep) ?? ''}
-								onclick={(e) => e.stopPropagation()}
-								oninput={(e) => updateCustomAnswer(currentStep, e.currentTarget.value)}
-							></textarea>
+							{#key currentStep}
+								<textarea
+									use:focusWhenMounted
+									class="textarea textarea-bordered mt-1.5 w-full text-sm"
+									placeholder="Type your answer..."
+									rows={2}
+									value={customAnswers.get(currentStep) ?? ''}
+									onclick={(e) => e.stopPropagation()}
+									oninput={(e) => updateCustomAnswer(currentStep, e.currentTarget.value)}
+									onkeydown={(e) => {
+										if (e.key === 'Enter' && !e.shiftKey) {
+											e.preventDefault();
+											e.stopPropagation();
+											nextStep();
+										}
+									}}
+								></textarea>
+							{/key}
 						{/if}
 					</div>
 				</div>
@@ -456,7 +474,12 @@
 								type="button"
 								class="btn btn-primary btn-sm"
 								disabled={!hasAnswer(currentStep)}
-								onclick={() => (reviewMode = true)}
+								onclick={() => {
+									if (!(showCustomInput.get(currentStep) ?? false)) {
+										customAnswers.delete(currentStep);
+									}
+									reviewMode = true;
+								}}
 							>
 								Review
 							</button>
