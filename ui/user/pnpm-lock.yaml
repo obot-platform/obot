@@ -34,6 +34,9 @@ importers:
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
+      devicon:
+        specifier: ^2.17.0
+        version: 2.17.0
       es-toolkit:
         specifier: ^1.37.2
         version: 1.39.7
@@ -1953,6 +1956,9 @@ packages:
 
   devalue@5.6.2:
     resolution: {integrity: sha512-nPRkjWzzDQlsejL1WVifk5rvcFi/y1onBRxjaFMjZeR9mFpqu2gmAZ9xUB9/IEanEP/vBtGeGganC/GO1fmufg==}
+
+  devicon@2.17.0:
+    resolution: {integrity: sha512-2nKUdjobJlmRSaCHa50PGsVq0VDURnq9gVzQoJggsM/NKN0tLhC/Uq2zmy2pH36Q/1q3gvYwp/GjTgv/R0Ysbg==}
 
   devlop@1.1.0:
     resolution: {integrity: sha512-RWmIqhcFf1lRYBvNmr7qTNuyCt/7/ns2jbpp1+PalgE/rDQcBT0fioSMUpJ93irlUhC5hrg4cYqe6U+0ImW0rA==}
@@ -5619,6 +5625,8 @@ snapshots:
   detect-libc@2.0.4: {}
 
   devalue@5.6.2: {}
+
+  devicon@2.17.0: {}
 
   devlop@1.1.0:
     dependencies:

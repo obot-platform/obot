@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { darkMode } from '$lib/stores';
 	import { initLayout } from '$lib/context/nanobotLayout.svelte';
+	import 'devicon/devicon.min.css';
 
 	let { children } = $props();
 

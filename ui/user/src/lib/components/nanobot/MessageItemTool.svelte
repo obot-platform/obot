@@ -132,7 +132,7 @@
 	<input type="checkbox" bind:checked={expanded} />
 	<div class="collapse-title">
 		<div class="flex items-center gap-2">
-			{#if item.output}
+			{#if !item.hasMore}
 				<Settings class="text-primary/60 h-4 w-4" />
 			{:else}
 				<span class="loading loading-xs loading-spinner"></span>
@@ -180,7 +180,7 @@
 			{/if}
 			{#if expanded && item.output}
 				{#if outputDisplay}
-					<div class="flex flex-col">
+					<div class="flex flex-col gap-2">
 						<div class="text-base-content/70 mb-1 text-xs font-medium">Output:</div>
 						{#if outputDisplay.isError}
 							<div class="alert alert-error">

@@ -8,9 +8,7 @@
 		ChevronDown,
 		SidebarOpen,
 		SidebarClose,
-		ListCheck,
-		FileIcon,
-		WorkflowIcon
+		ListCheck
 	} from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Profile from '../navbar/Profile.svelte';
@@ -19,15 +17,17 @@
 	import { getContext } from 'svelte';
 	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
+	import FileItem from '$lib/components/nanobot/FileItem.svelte';
 
 	interface Props {
 		onToggle?: () => void;
 		open?: boolean;
 		files?: ChatMessageItemToolCall[];
 		threadId?: string;
+		selectedFile?: string;
 	}
 
-	let { onToggle, open, files, threadId }: Props = $props();
+	let { onToggle, open, files, threadId, selectedFile }: Props = $props();
 
 	/** Todo item shape from todo:///list resource or todo_write tool (application/json) */
 	interface TodoItem {
@@ -186,7 +186,9 @@
 							</ul>
 						{/if}
 					</div>
-					{@render listThreadFiles(false)}
+					<div class="flex flex-col gap-2">
+						{@render listThreadFiles(false)}
+					</div>
 				</div>
 			{:else if onToggle}
 				<button
@@ -242,52 +244,24 @@
 				return undefined;
 			}
 		})()}
-		{@const displayLabel = args?.file_path.split('/').pop()?.split('.').shift()}
-		{@const isWorkflow =
-			(args?.file_path?.includes('workflows/') || args?.file_path?.startsWith('workflow://')) &&
-			!args?.file_path?.includes('.runs')}
 		{@const openPath = args?.file_path?.includes('://')
 			? args.file_path
 			: args?.file_path
 				? `file:///${args.file_path}`
 				: undefined}
-		{#if compact}
-			<button
-				class="btn btn-ghost btn-circle tooltip tooltip-left size-10 self-center"
-				in:fly={{ x: 100, duration: 150 }}
-				onclick={() => {
-					if (openPath) {
-						projectLayout.handleFileOpen(openPath);
-					} else {
-						console.error('No file path found for tool call', file);
-					}
-				}}
-				data-tip={`Open ${displayLabel}`}
-			>
-				{#if isWorkflow}
-					<WorkflowIcon class="text-base-content/50 size-5" />
-				{:else}
-					<FileIcon class="text-base-content/50 size-5" />
-				{/if}
-			</button>
-		{:else}
-			<button
-				class="rounded-selector hover:bg-base-300 flex items-center gap-2 border border-transparent px-4 py-2"
-				onclick={() => {
-					if (openPath) {
-						projectLayout.handleFileOpen(openPath);
-					} else {
-						console.error('No file path found for tool call', file);
-					}
-				}}
-			>
-				{#if isWorkflow}
-					<WorkflowIcon class="size-5" />
-				{:else}
-					<FileIcon class="size-5" />
-				{/if}
-				<span>{displayLabel}</span>
-			</button>
-		{/if}
+		{@const isSelected = selectedFile === openPath}
+		<FileItem
+			uri={openPath}
+			type="button"
+			{compact}
+			{isSelected}
+			onClick={() => {
+				if (openPath) {
+					projectLayout.handleFileOpen(openPath);
+				} else {
+					console.error('No file path found for tool call', file);
+				}
+			}}
+		/>
 	{/each}
 {/snippet}

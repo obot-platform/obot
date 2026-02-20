@@ -7,13 +7,13 @@
 		FolderOpen,
 		Search,
 		LayoutList,
-		FolderTree,
-		FileIcon
+		FolderTree
 	} from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { getContext } from 'svelte';
 	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
+	import FileItem from '$lib/components/nanobot/FileItem.svelte';
 
 	let resourceFiles = $derived(
 		$nanobotChat?.resources
@@ -26,8 +26,7 @@
 	let filesContainer = $state<HTMLElement | undefined>(undefined);
 	let query = $state('');
 	let view = $state<'list' | 'tree'>('list');
-
-	const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico']);
+	let showHiddenFiles = $state(false);
 
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
 
@@ -117,11 +116,16 @@
 		return flattenTree(fileTree, 0, '', (path) => open[path] ?? true);
 	});
 
+	function isHiddenPath(path: string): boolean {
+		return path.split('/').some((seg) => seg.startsWith('.'));
+	}
+
 	let filteredFlatFileList = $derived.by(() => {
 		const q = query.trim().toLowerCase();
-		if (!q) return flatFileList;
-
-		const flat = flatFileList;
+		const flat = showHiddenFiles
+			? flatFileList
+			: flatFileList.filter(({ path }) => !isHiddenPath(path));
+		if (!q) return flat;
 		//eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const toInclude = new Set<string>();
 
@@ -189,7 +193,20 @@
 			<FolderTree class="size-5" />
 		</button>
 	</div>
-	<h2 class="text-2xl font-semibold">Files</h2>
+	<div class="flex items-center justify-between gap-4">
+		<h2 class="text-2xl font-semibold">Files</h2>
+		<label class="label text-sm">
+			<input
+				type="checkbox"
+				bind:checked={showHiddenFiles}
+				class={twMerge(
+					'checkbox checkbox-xs rounded-field',
+					showHiddenFiles ? 'checkbox-primary' : ''
+				)}
+			/>
+			Show hidden files
+		</label>
+	</div>
 	{#if view === 'list'}
 		<table class="table">
 			<thead>
@@ -218,8 +235,7 @@
 								}}
 							>
 								<td class="flex items-center gap-2">
-									{@render fileIcon(node.name)}
-									{node.name}
+									<FileItem uri={node.uri} />
 								</td>
 								<td></td>
 								<td></td>
@@ -276,9 +292,7 @@
 								aria-label={`Open file ${node.name}`}
 							>
 								<span class="min-w-0 shrink-0" aria-hidden="true"></span>
-								<div class="bg-base-200 shrink-0 rounded-md p-1">
-									{@render fileIcon(node.name)}
-								</div>
+								<FileItem uri={node.uri} />
 								<span class="min-w-0 truncate font-normal">{node.name}</span>
 							</button>
 						{/if}
@@ -292,15 +306,3 @@
 		</ul>
 	{/if}
 </div>
-
-{#snippet fileIcon(filename: string)}
-	{@const extension = filename.split('.').pop()?.toLowerCase()}
-	{@const iconColorClass =
-		extension && IMAGE_EXTENSIONS.has(extension) ? 'text-green-500' : 'text-primary'}
-	<div class="relative w-fit">
-		<FileIcon class="size-6 {iconColorClass}" />
-		<span class="bg-base-100 absolute right-0.5 bottom-1 text-[6px] font-semibold {iconColorClass}">
-			{extension}
-		</span>
-	</div>
-{/snippet}
