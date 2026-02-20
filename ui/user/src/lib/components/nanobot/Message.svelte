@@ -95,7 +95,13 @@
 	);
 </script>
 
-{#if promptDisplayItem}
+{#if message.items?.[0]?._meta?.['ai.nanobot.meta/compaction-summary']}
+	<div class="flex items-center gap-2 py-2 opacity-50">
+		<div class="h-px flex-1 bg-base-300"></div>
+		<span class="text-xs text-base-content/50">Earlier messages summarized</span>
+		<div class="h-px flex-1 bg-base-300"></div>
+	</div>
+{:else if promptDisplayItem}
 	<MessageItemText item={promptDisplayItem} role="user" />
 {:else if message.role === 'user' && toolCall?.type === 'tool' && toolCall.payload?.toolName}
 	<!-- Don't print anything for tool calls -->
