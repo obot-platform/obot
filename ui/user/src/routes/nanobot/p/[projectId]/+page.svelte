@@ -1,16 +1,14 @@
 <script lang="ts">
 	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
 	import { getContext } from 'svelte';
+	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
+	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 
 	let { data } = $props();
 	let agent = $derived(data.agent);
 	let projectId = $derived(data.projectId);
 
-	const projectLayout = getContext<{
-		chat: import('$lib/services/nanobot/chat/index.svelte').ChatService | null;
-		handleFileOpen: (filename: string) => void;
-		setThreadContentWidth: (w: number) => void;
-	}>('nanobot-project-layout');
+	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
 </script>
 
 {#if projectLayout.chat}

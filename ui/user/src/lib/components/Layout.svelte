@@ -90,6 +90,7 @@
 		layoutContext?: LayoutContext;
 		disableResize?: boolean;
 		hideProfileButton?: boolean;
+		alwaysShowHeaderTitle?: boolean;
 	}
 
 	const {
@@ -107,7 +108,8 @@
 		rightSidebar,
 		layoutContext,
 		disableResize,
-		hideProfileButton
+		hideProfileButton,
+		alwaysShowHeaderTitle
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
 	let collapsed = $state<Record<string, boolean>>({});
@@ -577,7 +579,7 @@
 					{/if}
 				{/snippet}
 				{#snippet centerContent()}
-					{#if layout.sidebarOpen && !hideSidebar}
+					{#if (layout.sidebarOpen && !hideSidebar) || alwaysShowHeaderTitle}
 						<div class="mx-6 flex w-full items-center gap-2" class:ml-4={showBackButton}>
 							{@render layoutHeaderContent()}
 						</div>
@@ -605,7 +607,7 @@
 					{#if isAdminRoute && !excludeConfigureBanner.includes(pathname)}
 						<ConfigureBanner />
 					{/if}
-					{#if !layout.sidebarOpen || hideSidebar}
+					{#if (!layout.sidebarOpen || hideSidebar) && !alwaysShowHeaderTitle}
 						<div
 							class={twMerge(
 								'flex w-full items-center justify-between gap-2 pb-4',

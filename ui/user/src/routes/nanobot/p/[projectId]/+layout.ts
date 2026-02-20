@@ -12,10 +12,10 @@ export const load: LayoutLoad = async ({ fetch, params }) => {
 	}
 
 	let agent: ProjectV2Agent;
-	const agents = await NanobotService.listProjectV2Agents(params.id, { fetch });
+	const agents = await NanobotService.listProjectV2Agents(params.projectId, { fetch });
 	if (agents.length === 0) {
 		agent = await NanobotService.createProjectV2Agent(
-			params.id,
+			params.projectId,
 			{ displayName: 'New Agent' },
 			{ fetch }
 		);
@@ -24,7 +24,7 @@ export const load: LayoutLoad = async ({ fetch, params }) => {
 	}
 
 	return {
-		projectId: params.id,
+		projectId: params.projectId,
 		agent
 	};
 };
