@@ -166,6 +166,14 @@ export class ChatAPI {
 		};
 	}
 
+	async deleteWorkflow(workflowUri: string): Promise<void> {
+		await this.callMCPTool<void>('deleteWorkflow', {
+			payload: {
+				uri: workflowUri
+			}
+		});
+	}
+
 	async createResource(
 		name: string,
 		mimeType: string,

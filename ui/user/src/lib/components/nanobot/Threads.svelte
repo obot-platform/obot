@@ -82,7 +82,7 @@
 <div class="flex w-full grow flex-col">
 	<!-- Header -->
 	<div class="mb-2 flex flex-shrink-0 items-center justify-between gap-2 pr-3 pl-4">
-		<h2 class="text-base-content/50 text-md font-semibold">Conversations</h2>
+		<h2 class="text-base-content/50 text-md font-semibold">Sessions</h2>
 		<button
 			class="btn btn-square btn-ghost btn-sm tooltip tooltip-left"
 			data-tip="Start New Conversation"

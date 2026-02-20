@@ -74,7 +74,7 @@
 								What would you like to work on?
 							</h1>
 							<p class="text-base-content/50 text-md text-center font-light">
-								Choose an entry point or pick up where you left off.
+								Choose an entry point or begin a conversation to get started.
 							</p>
 						</div>
 						<div class="grid grid-cols-1 items-stretch gap-4 md:grid-cols-3">
