@@ -225,7 +225,7 @@ Ensure the following environment variable is set in your Obot installation:
    - After successful authentication, a **basic user** account will be automatically created.
 3. Log out.
 ### Step 5: Promote the Entra User to Owner
-1. Access admin login page.
+1. Access the admin login page.
 2. Click **Sign in with Bootstrap Token**.
 3. Log in using the Bootstrap token.
 4. Navigate to **User Management → Users**.
