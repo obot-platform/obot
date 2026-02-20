@@ -165,7 +165,7 @@ You can restrict login access to specific Okta users and groups by taking the fo
 4. Select `Assign` on groups you want to allow Obot access to
 5. Once you've made your selections, click `Done`
 
-## Steps to switch between Auth providers.
+## Steps to Switch Between Auth Providers
 
 This section describes the steps involved in switching authentication providers in Obot. In this example, we will switch from **GitHub** to **Microsoft Entra**.
 
