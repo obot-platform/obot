@@ -233,7 +233,6 @@ Ensure the following environment variable is set in your Obot installation:
 6. Click **Update Role** and change the role to **Owner**.
 7. Log out.
 
-
 ### Step 6: Final Verification
 1. Log in to obot server.
 2. Click **Continue with Microsoft Entra**.
