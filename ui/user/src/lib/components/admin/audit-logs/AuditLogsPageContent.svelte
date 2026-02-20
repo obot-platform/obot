@@ -613,7 +613,6 @@
 		</div>
 	</div>
 
-	<!-- Debug: Check if this section renders -->
 	<div class="mt-4">
 		<AuditLogsTable
 			data={remoteAuditLogs}
