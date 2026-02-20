@@ -380,7 +380,7 @@
 		<div class="relative z-10 mx-auto w-full max-w-4xl">
 			{#if questionElicitation}
 				{#key questionElicitation.id}
-					<div class="elicitation-slide-in">
+					<div class="elicitation-slide-in mb-8">
 						<Elicitation
 							elicitation={questionElicitation}
 							open
@@ -390,23 +390,24 @@
 						/>
 					</div>
 				{/key}
+			{:else}
+				<MessageInput
+					placeholder={`Type your message...${prompts && prompts.length > 0 ? ' or / for prompts' : ''}`}
+					onSend={onSendMessage}
+					{agents}
+					{selectedAgentId}
+					{onAgentChange}
+					onPrompt={(p) => (selectedPrompt = p)}
+					{onFileUpload}
+					disabled={isLoading}
+					{prompts}
+					{cancelUpload}
+					{uploadingFiles}
+					{uploadedFiles}
+					{onRestart}
+					{onCancel}
+				/>
 			{/if}
-			<MessageInput
-				placeholder={`Type your message...${prompts && prompts.length > 0 ? ' or / for prompts' : ''}`}
-				onSend={onSendMessage}
-				{agents}
-				{selectedAgentId}
-				{onAgentChange}
-				onPrompt={(p) => (selectedPrompt = p)}
-				{onFileUpload}
-				disabled={isLoading}
-				{prompts}
-				{cancelUpload}
-				{uploadingFiles}
-				{uploadedFiles}
-				{onRestart}
-				{onCancel}
-			/>
 		</div>
 	</div>
 
