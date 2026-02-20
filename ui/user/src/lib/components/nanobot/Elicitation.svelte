@@ -222,6 +222,9 @@
 	}
 
 	function nextStep() {
+		if (!(showCustomInput.get(currentStep) ?? false)) {
+			customAnswers.delete(currentStep);
+		}
 		if (currentStep < questions.length - 1) {
 			currentStep++;
 		} else {
@@ -400,7 +403,7 @@
 									onclick={(e) => e.stopPropagation()}
 									oninput={(e) => updateCustomAnswer(currentStep, e.currentTarget.value)}
 									onkeydown={(e) => {
-										if (e.key === 'Enter') {
+										if (e.key === 'Enter' && !e.shiftKey) {
 											e.preventDefault();
 											e.stopPropagation();
 											nextStep();
@@ -468,7 +471,12 @@
 								type="button"
 								class="btn btn-primary btn-sm"
 								disabled={!hasAnswer(currentStep)}
-								onclick={() => (reviewMode = true)}
+								onclick={() => {
+									if (!(showCustomInput.get(currentStep) ?? false)) {
+										customAnswers.delete(currentStep);
+									}
+									reviewMode = true;
+								}}
 							>
 								Review
 							</button>
