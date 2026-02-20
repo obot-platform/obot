@@ -175,7 +175,7 @@ This section describes the steps involved in switching authentication providers 
 - GitHub must be configured as the active auth provider.
 - An initial **Owner** user must already be set up successfully.
 
-### Step 1: Verify Bootstrap login is Enabled
+### Step 1: Verify Bootstrap Login is Enabled
 
 Ensure the following environment variable is set in your Obot installation:
 
