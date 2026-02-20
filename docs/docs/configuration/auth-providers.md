@@ -240,7 +240,8 @@ Ensure the following environment variable is set in your Obot installation:
 3. Log in using the Entra user account that was used in step 4.
 4. You should now be logged in successfully as an **Owner**.
 
-**Note**
-User identities are scoped to the authentication provider used during login.  
+:::note
+User identities are scoped to the authentication provider used during login.
 If a user previously authenticated via GitHub logs in later using Entra with the same email address, the system creates a new user record.
-As a result, multiple user accounts with the same email address may exist when authentication providers are switched.  
+As a result, multiple user accounts with the same email address may exist when authentication providers are switched.
+:::
