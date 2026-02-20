@@ -91,7 +91,7 @@
 		"layerchart": "1.0.13",
 		"react": "^18",
 		"react-dom": "^18",
-		"tar": "^7.5.2"
+		"tar": "^7.5.8"
 	},
 	"pnpm": {
 		"overrides": {
