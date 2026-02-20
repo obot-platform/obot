@@ -93,84 +93,84 @@
 				(item) => isCancelledErrorResource(item) || isCancelledTextItem(item)
 			)
 	);
+
+	const hasCompactionSummary = $derived(
+		message.items?.[0]?._meta?.['ai.nanobot.meta/compaction-summary']
+	);
 </script>
 
-{#if message.items?.[0]?._meta?.['ai.nanobot.meta/compaction-summary']}
-	<div class="flex items-center gap-2 py-2 opacity-50">
-		<div class="bg-base-300 h-px flex-1"></div>
-		<span class="text-base-content/50 text-xs">Earlier messages summarized</span>
-		<div class="bg-base-300 h-px flex-1"></div>
-	</div>
-{:else if promptDisplayItem}
-	<MessageItemText item={promptDisplayItem} role="user" />
-{:else if message.role === 'user' && toolCall?.type === 'tool' && toolCall.payload?.toolName}
-	<!-- Don't print anything for tool calls -->
-{:else if message.role === 'user'}
-	<div class="group flex w-full justify-end">
-		<div class="max-w-md">
-			<div class="flex flex-col items-end">
-				<div class="rounded-box bg-base-200 mt-4 p-2">
-					{#if message.items && message.items.length > 0}
-						{#each message.items as item (item.id)}
-							<MessageItem {item} role={message.role} />
-						{/each}
-					{:else}
-						<!-- Fallback for messages without items -->
-						<p>No content</p>
-					{/if}
-				</div>
-				<div
-					class="transition-duration-500 mb-1 text-sm font-medium opacity-0 transition-opacity group-hover:opacity-100"
-				>
-					<time class="ml-2 text-xs opacity-50">{displayTime.toLocaleTimeString()}</time>
+{#if !hasCompactionSummary}
+	{#if promptDisplayItem}
+		<MessageItemText item={promptDisplayItem} role="user" />
+	{:else if message.role === 'user' && toolCall?.type === 'tool' && toolCall.payload?.toolName}
+		<!-- Don't print anything for tool calls -->
+	{:else if message.role === 'user'}
+		<div class="group flex w-full justify-end">
+			<div class="max-w-md">
+				<div class="flex flex-col items-end">
+					<div class="rounded-box bg-base-200 mt-4 p-2">
+						{#if message.items && message.items.length > 0}
+							{#each message.items as item (item.id)}
+								<MessageItem {item} role={message.role} />
+							{/each}
+						{:else}
+							<!-- Fallback for messages without items -->
+							<p>No content</p>
+						{/if}
+					</div>
+					<div
+						class="transition-duration-500 mb-1 text-sm font-medium opacity-0 transition-opacity group-hover:opacity-100"
+					>
+						<time class="ml-2 text-xs opacity-50">{displayTime.toLocaleTimeString()}</time>
+					</div>
 				</div>
 			</div>
 		</div>
-	</div>
-{:else}
-	<div class="flex w-full items-start gap-3" class:opacity-30={hasCancelledResource}>
-		<!-- Assistant message content -->
-		<div class="flex min-w-0 flex-1 flex-col items-start">
-			<!-- Render all message items (consecutive tool items grouped in one collapse) -->
-			{#if message.items && message.items.length > 0}
-				<div class="w-full">
-					{#each itemGroups as group (groupKey(group))}
-						{#if 'toolGroup' in group}
-							{@const isThinking = group.toolGroup.some(
-								(item) => item.type === 'tool' && !item.output
-							)}
-							<div
-								class="hover:collapse-arrow hover:border-base-300 collapse w-full border border-transparent"
-							>
-								<input type="checkbox" aria-label="Toggle tool group details" />
+	{:else}
+		<div class="flex w-full items-start gap-3" class:opacity-30={hasCancelledResource}>
+			<!-- Assistant message content -->
+			<div class="flex min-w-0 flex-1 flex-col items-start">
+				<!-- Render all message items (consecutive tool items grouped in one collapse) -->
+				{#if message.items && message.items.length > 0}
+					<div class="w-full">
+						{#each itemGroups as group (groupKey(group))}
+							{#if 'toolGroup' in group}
+								{@const isThinking = group.toolGroup.some(
+									(item) => item.type === 'tool' && !item.output
+								)}
 								<div
-									class="collapse-title text-base-content/35 min-h-0 py-2 text-xs font-light italic"
+									class="hover:collapse-arrow hover:border-base-300 collapse w-full border border-transparent"
 								>
-									{#if isThinking}
-										<span class="skeleton skeleton-text bg-transparent">Thinking...</span>
-									{:else}
-										{`${group.toolGroup.length} tool call${group.toolGroup.length === 1 ? '' : 's'} completed`}
-									{/if}
-								</div>
-								<div class="collapse-content">
-									<div>
-										{#each group.toolGroup as item (item.id)}
-											<MessageItem {item} role={message.role} {onSend} {onFileOpen} />
-										{/each}
+									<input type="checkbox" aria-label="Toggle tool group details" />
+									<div
+										class="collapse-title text-base-content/35 min-h-0 py-2 text-xs font-light italic"
+									>
+										{#if isThinking}
+											<span class="skeleton skeleton-text bg-transparent">Thinking...</span>
+										{:else}
+											{`${group.toolGroup.length} tool call${group.toolGroup.length === 1 ? '' : 's'} completed`}
+										{/if}
+									</div>
+									<div class="collapse-content">
+										<div>
+											{#each group.toolGroup as item (item.id)}
+												<MessageItem {item} role={message.role} {onSend} {onFileOpen} />
+											{/each}
+										</div>
 									</div>
 								</div>
-							</div>
-						{:else}
-							<MessageItem item={group.single} role={message.role} {onSend} {onFileOpen} />
-						{/if}
-					{/each}
-				</div>
-			{:else}
-				<!-- Fallback for messages without items -->
-				<div class="prose bg-base-200 prose-invert w-full max-w-full rounded-lg p-3">
-					<p>No content</p>
-				</div>
-			{/if}
+							{:else}
+								<MessageItem item={group.single} role={message.role} {onSend} {onFileOpen} />
+							{/if}
+						{/each}
+					</div>
+				{:else}
+					<!-- Fallback for messages without items -->
+					<div class="prose bg-base-200 prose-invert w-full max-w-full rounded-lg p-3">
+						<p>No content</p>
+					</div>
+				{/if}
+			</div>
 		</div>
-	</div>
+	{/if}
 {/if}
