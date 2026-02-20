@@ -714,7 +714,7 @@
 	{/if}
 </div>
 
-<div bind:this={rightSidebar} popover class="drawer">
+<div bind:this={rightSidebar} popover class="drawer md:w-lg lg:w-xl">
 	{#if showFilters}
 		<FiltersDrawer
 			onClose={handleRightSidebarClose}

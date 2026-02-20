@@ -166,6 +166,7 @@ export interface Version {
 	upgradeAvailable?: boolean;
 	engine?: 'docker' | 'kubernetes' | 'local';
 	autonomousToolUseEnabled?: boolean;
+	nanobotIntegration?: boolean;
 }
 
 export interface Profile {
@@ -471,6 +472,7 @@ export interface ProjectMCP {
 	needsK8sUpdate?: boolean;
 	needsURL?: boolean;
 	runtime?: Runtime;
+	missingOAuthCredentials?: boolean;
 }
 
 export interface Credential {

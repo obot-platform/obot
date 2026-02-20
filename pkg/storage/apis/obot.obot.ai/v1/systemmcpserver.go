@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -21,7 +22,7 @@ type SystemMCPServerSpec struct {
 }
 
 type SystemMCPServerStatus struct {
-	// DeploymentStatus indicates overall status (Ready, Progressing, Failed)
+	// DeploymentStatus indicates overall status (Available, Progressing, Unavailable, Needs Attention, Unknown)
 	DeploymentStatus string `json:"deploymentStatus,omitempty"`
 	// DeploymentAvailableReplicas is the number of available replicas
 	DeploymentAvailableReplicas *int32 `json:"deploymentAvailableReplicas,omitempty"`
@@ -33,6 +34,12 @@ type SystemMCPServerStatus struct {
 	DeploymentConditions []DeploymentCondition `json:"deploymentConditions,omitempty"`
 	// K8sSettingsHash contains the hash of K8s settings this was deployed with
 	K8sSettingsHash string `json:"k8sSettingsHash,omitempty"`
+	// AuditLogTokenHash contains the hash of the audit log token
+	AuditLogTokenHash string `json:"auditLogTokenHash,omitempty"`
+}
+
+func (in *SystemMCPServer) ValidConnectURLs(base string) []string {
+	return []string{system.MCPConnectURL(base, in.Name)}
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

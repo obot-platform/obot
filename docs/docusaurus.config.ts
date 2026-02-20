@@ -1,8 +1,37 @@
 import { themes as prismThemes } from "prism-react-renderer";
 import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
+import versions from "./versions.json";
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
+
+// First version in versions.json is the latest, rest are older versions
+// If versions.json is empty, fall back to the "current" version label.
+const latestVersion = versions[0] ?? "current";
+// olderVersions may legitimately be empty (when there is only one or zero versions).
+// This is safe: the subsequent .map calls will just operate on an empty array.
+const olderVersions = versions.slice(1);
+
+// Generate version config for older versions (latest is served at root)
+// "unmaintained" banner shows a warning that this is an older version with link to latest
+// noIndex prevents search engines from indexing older version pages (rendered via React Helmet)
+const versionsConfig = Object.fromEntries(
+  olderVersions.map((version) => [
+    version,
+    {
+      label: version,
+      banner: "unmaintained" as const,
+      path: version,
+      noIndex: true,
+    },
+  ])
+);
+
+// Generate sitemap ignore patterns for older and unreleased versions
+const sitemapIgnorePatterns = [
+  ...olderVersions.map((version) => `/${version}/**`),
+  "/next/**",
+];
 
 const config: Config = {
   title: "Obot Docs",
@@ -14,7 +43,12 @@ const config: Config = {
   organizationName: "obot-platform",
   projectName: "obot",
   onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: "warn",
+
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: "warn",
+    },
+  },
 
   i18n: {
     defaultLocale: "en",
@@ -22,6 +56,10 @@ const config: Config = {
   },
 
   plugins: [
+    // Custom plugin to rewrite canonical URLs in versioned docs to point to latest
+    "./plugins/canonical-urls.ts",
+    // Custom plugin to inject JSON-LD structured data into built HTML pages
+    "./plugins/structured-data.ts",
     [
       "@docusaurus/plugin-client-redirects",
       {
@@ -56,18 +94,25 @@ const config: Config = {
           editUrl: "https://github.com/obot-platform/obot/tree/main/docs",
           routeBasePath: "/", // Serve the docs at the site's root
 
-          // Versioning configuration
-          lastVersion: "v0.16.0",
+          // Versioning configuration - dynamically generated from versions.json
+          lastVersion: latestVersion,
           versions: {
-            "v0.15.0": { label: "v0.15.0", banner: "none", path: "v0.15.0" },
-            "v0.14.0": { label: "v0.14.0", banner: "none", path: "v0.14.0" },
-            "v0.13.0": { label: "v0.13.0", banner: "none", path: "v0.13.0" },
+            // The "current" version (served at /next/) is unreleased and should not be indexed
+            current: {
+              noIndex: true,
+            },
+            ...versionsConfig,
           },
         },
         theme: {
           customCss: "./src/css/custom.css",
         },
         blog: false,
+        sitemap: {
+          // Exclude older versioned and unreleased (/next/) docs from sitemap
+          // Only the latest version should be indexed
+          ignorePatterns: sitemapIgnorePatterns,
+        },
       } satisfies Preset.Options,
     ],
   ],

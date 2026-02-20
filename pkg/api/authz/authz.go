@@ -129,6 +129,9 @@ var (
 		"GET /api/admin-api-keys",
 		"GET /api/admin-api-keys/{id}",
 		"DELETE /api/admin-api-keys/{id}",
+
+		"/api/projectsv2",
+		"/api/projectsv2/",
 	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,
@@ -235,10 +238,6 @@ var (
 			// API Key authentication webhook (called by nanobot shim)
 			// This endpoint validates the API key passed in the header
 			"POST /api/api-keys/auth",
-
-			// Integrated MCP server - authentication is handled in the HTTP handler
-			"/mcp",
-			"/mcp/",
 		},
 
 		types.GroupBasic: {
@@ -270,6 +269,10 @@ var (
 			"GET /api/mcp-audit-logs/{mcp_id}",
 			"GET /api/mcp-stats",
 			"GET /api/mcp-stats/{mcp_id}",
+
+			// Allow basic users to create and list ProjectV2 resources
+			"POST /api/projectsv2",
+			"GET /api/projectsv2",
 		},
 
 		types.GroupPowerUserPlus: {
@@ -305,12 +308,6 @@ var (
 			"GET /api/api-keys",
 			"GET /api/api-keys/{id}",
 			"DELETE /api/api-keys/{id}",
-
-			// MCP token management for user's own tokens
-			"POST /api/mcp-tokens",
-			"GET /api/mcp-tokens",
-			"GET /api/mcp-tokens/{id}",
-			"DELETE /api/mcp-tokens/{id}",
 		},
 
 		// API key users have restricted access - they can only access MCP-connect routes and /api/me

@@ -2,8 +2,17 @@
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { columnResize } from '$lib/actions/resize';
 	import { profile, responsive, version } from '$lib/stores';
-	import { initLayout, getLayout } from '$lib/context/layout.svelte';
-	import { type Component, type Snippet } from 'svelte';
+	import {
+		initLayout as defaultInitLayout,
+		getLayout as defaultGetLayout,
+		type Layout as LayoutState
+	} from '$lib/context/layout.svelte';
+	import { type Component, type Snippet, untrack } from 'svelte';
+
+	type LayoutContext = {
+		initLayout: () => void;
+		getLayout: () => LayoutState;
+	};
 	import { fade, slide } from 'svelte/transition';
 	import {
 		AlarmClock,
@@ -30,7 +39,9 @@
 		SquareLibrary,
 		UserCog,
 		Users,
-		Group as GroupIcon
+		Group as GroupIcon,
+		BotMessageSquare,
+		Coins
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -59,6 +70,10 @@
 			container?: string;
 			childrenContainer?: string;
 			navbar?: string;
+			collapsedSidebarHeaderContent?: string;
+			sidebar?: string;
+			sidebarRoot?: string;
+			noSidebarTitle?: string;
 		};
 		children: Snippet;
 		onRenderSubContent?: Snippet<[string]>;
@@ -70,6 +85,11 @@
 		title?: string;
 		showBackButton?: boolean;
 		onBackButtonClick?: () => void;
+		leftSidebar?: Snippet;
+		rightSidebar?: Snippet;
+		layoutContext?: LayoutContext;
+		disableResize?: boolean;
+		hideProfileButton?: boolean;
 	}
 
 	const {
@@ -82,7 +102,12 @@
 		rightNavActions,
 		title,
 		showBackButton,
-		onBackButtonClick
+		onBackButtonClick,
+		leftSidebar,
+		rightSidebar,
+		layoutContext,
+		disableResize,
+		hideProfileButton
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
 	let collapsed = $state<Record<string, boolean>>({});
@@ -201,13 +226,33 @@
 								collapsible: false
 							},
 							{
+								id: 'tokens',
+								href: '/admin/token-usage',
+								icon: Coins,
+								label: 'Token Usage',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
 								id: 'chat',
 								href: '/chat',
 								icon: MessageCircle,
 								label: 'Launch Chat',
 								disabled: isBootStrapUser,
 								collapsible: false
-							}
+							},
+							...(version.current.nanobotIntegration
+								? [
+										{
+											id: 'nanobot',
+											href: '/nanobot',
+											icon: BotMessageSquare,
+											disabled: isBootStrapUser,
+											label: 'Launch Nanobot',
+											collapsible: false
+										}
+									]
+								: [])
 						]
 					},
 					{
@@ -322,7 +367,18 @@
 							label: 'Chat',
 							disabled: isBootStrapUser,
 							collapsible: false
-						}
+						},
+						...(version.current.nanobotIntegration
+							? [
+									{
+										id: 'nanobot',
+										href: '/nanobot',
+										icon: BotMessageSquare,
+										label: 'Launch Nanobot',
+										collapsible: false
+									}
+								]
+							: [])
 					]
 				: [
 						{
@@ -366,15 +422,20 @@
 		}
 	});
 
-	initLayout();
-	const layout = getLayout();
+	untrack(() => (layoutContext?.initLayout ?? defaultInitLayout)());
+	const layout = untrack(() => (layoutContext?.getLayout ?? defaultGetLayout)());
 </script>
 
 <div class="flex min-h-dvh flex-col items-center">
 	<div class="relative flex w-full grow">
-		{#if layout.sidebarOpen && !hideSidebar}
+		{#if leftSidebar}
+			{@render leftSidebar()}
+		{:else if layout.sidebarOpen && !hideSidebar}
 			<div
-				class="bg-background flex max-h-dvh w-full min-w-dvw flex-shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[300px]"
+				class={twMerge(
+					'bg-background flex max-h-dvh w-full min-w-dvw flex-shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[300px]',
+					classes?.sidebarRoot
+				)}
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
@@ -383,7 +444,10 @@
 				</div>
 
 				<div
-					class="text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto px-3 pt-8 pl-2 font-medium"
+					class={twMerge(
+						'text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto px-3 pt-8 pl-2 font-medium',
+						classes?.sidebar
+					)}
 				>
 					<div class="flex flex-col gap-1">
 						{#each navLinks as link (link.id)}
@@ -485,7 +549,7 @@
 					</button>
 				</div>
 			</div>
-			{#if !responsive.isMobile}
+			{#if !responsive.isMobile && !disableResize}
 				<div
 					role="none"
 					class="h-inherit border-r-surface2 dark:border-r-surface2 relative -ml-3 w-3 cursor-col-resize border-r"
@@ -496,7 +560,7 @@
 
 		<Render
 			class={twMerge(
-				'default-scrollbar-thin relative flex h-svh w-full grow flex-col overflow-y-auto',
+				'default-scrollbar-thin relative flex h-svh w-full min-w-0 grow flex-col overflow-y-auto',
 				whiteBackground ? 'bg-background' : 'bg-surface1 dark:bg-background'
 			)}
 			component={main?.component}
@@ -505,9 +569,10 @@
 		>
 			<Navbar
 				class={twMerge('dark:bg-background sticky top-0 left-0 z-50 w-full', classes?.navbar)}
+				{hideProfileButton}
 			>
 				{#snippet leftContent()}
-					{#if !layout.sidebarOpen || hideSidebar}
+					{#if (!layout.sidebarOpen || hideSidebar) && !leftSidebar}
 						<BetaLogo />
 					{/if}
 				{/snippet}
@@ -541,7 +606,12 @@
 						<ConfigureBanner />
 					{/if}
 					{#if !layout.sidebarOpen || hideSidebar}
-						<div class="flex w-full items-center justify-between gap-2 pb-4">
+						<div
+							class={twMerge(
+								'flex w-full items-center justify-between gap-2 pb-4',
+								classes?.collapsedSidebarHeaderContent
+							)}
+						>
 							{@render layoutHeaderContent()}
 							<div class="flex flex-shrink-0 items-center gap-2">
 								{#if rightNavActions}
@@ -554,9 +624,13 @@
 				</div>
 			</div>
 		</Render>
+
+		{#if rightSidebar}
+			{@render rightSidebar()}
+		{/if}
 	</div>
 
-	{#if !layout.sidebarOpen && !hideSidebar}
+	{#if !layout.sidebarOpen && !hideSidebar && !leftSidebar}
 		<div class="absolute bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
 			<button
 				class="icon-button"
@@ -589,7 +663,14 @@
 		</button>
 	{/if}
 	{#if title}
-		<h1 class="w-full text-xl font-semibold">{title}</h1>
+		<h1
+			class={twMerge(
+				'w-full text-xl font-semibold',
+				!layout.sidebarOpen && classes?.noSidebarTitle
+			)}
+		>
+			{title}
+		</h1>
 	{/if}
 {/snippet}
 

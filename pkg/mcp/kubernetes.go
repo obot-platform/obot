@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -83,7 +85,9 @@ func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfi
 		return fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.MCPServerName, err)
 	}
 
-	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.Scope).WithPruneTypes(new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service)).Apply(ctx, nil, nil); err != nil && !apierrors.IsNotFound(err) {
+	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.Scope).WithPruneTypes(
+		new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service), new(corev1.PersistentVolumeClaim),
+	).Apply(ctx, nil, nil); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to cleanup old MCP deployment %s: %w", server.MCPServerName, err)
 	}
 
@@ -97,7 +101,7 @@ func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfi
 func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
 	// Transform component URLs to use internal service FQDN
 	for i, component := range server.Components {
-		component.URL = k.replaceHostWithServiceFQDN(component.URL)
+		component.URL = k.transformObotHostname(component.URL)
 		server.Components[i] = component
 	}
 
@@ -109,6 +113,27 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 	podName, err := k.updatedMCPPodName(ctx, u, server.MCPServerName, server)
 	if err != nil {
 		return ServerConfig{}, err
+	}
+
+	// For direct access to the real MCP server (when there's a shim), use a different port
+	if server.NanobotAgentName != "" {
+		// Point directly to the mcp container's port
+		fullURL := fmt.Sprintf("%s:8080/%s", u, strings.TrimPrefix(server.ContainerPath, "/"))
+
+		return ServerConfig{
+			URL:                  fullURL,
+			MCPServerName:        server.MCPServerName,
+			Audiences:            server.Audiences,
+			MCPServerNamespace:   server.MCPServerNamespace,
+			MCPServerDisplayName: server.MCPServerDisplayName,
+			Scope:                podName,
+			UserID:               server.UserID,
+			Runtime:              types.RuntimeRemote,
+			Issuer:               server.Issuer,
+			ContainerPort:        server.ContainerPort,
+			ContainerPath:        server.ContainerPath,
+			NanobotAgentName:     server.NanobotAgentName,
+		}, nil
 	}
 
 	fullURL := fmt.Sprintf("%s/%s", u, strings.TrimPrefix(server.ContainerPath, "/"))
@@ -259,19 +284,19 @@ func (k *kubernetesBackend) transformConfig(ctx context.Context, serverConfig Se
 	return &ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/%s", serverConfig.MCPServerName, k.mcpNamespace, k.mcpClusterDomain, strings.TrimPrefix(serverConfig.ContainerPath, "/")), MCPServerName: pods.Items[0].Name}, nil
 }
 
-// replaceHostWithServiceFQDN replaces the host and port in a URL with the internal service FQDN.
-func (k *kubernetesBackend) replaceHostWithServiceFQDN(urlStr string) string {
-	if k.serviceFQDN == "" || urlStr == "" {
-		return urlStr
+// transformObotHostname replaces the host and port in a URL with the internal service FQDN.
+func (k *kubernetesBackend) transformObotHostname(url string) string {
+	if k.serviceFQDN == "" || url == "" {
+		return url
 	}
 
 	// Parse the URL to extract the path
-	idx := strings.Index(urlStr, "://")
+	idx := strings.Index(url, "://")
 	if idx == -1 {
-		return urlStr
+		return url
 	}
 
-	rest := urlStr[idx+3:]
+	rest := url[idx+3:]
 
 	// Find where the path starts (after host:port)
 	pathIdx := strings.Index(rest, "/")
@@ -285,7 +310,9 @@ func (k *kubernetesBackend) replaceHostWithServiceFQDN(urlStr string) string {
 }
 
 func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error {
-	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(id).WithPruneTypes(new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service)).Apply(ctx, nil, nil); err != nil {
+	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(id).WithPruneTypes(
+		new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service), new(corev1.PersistentVolumeClaim),
+	).Apply(ctx, nil, nil); err != nil {
 		return fmt.Errorf("failed to delete MCP deployment %s: %w", id, err)
 	}
 
@@ -381,21 +408,21 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	// JWT environment variables
 	secretEnvStringData["NANOBOT_RUN_OAUTH_SCOPES"] = "profile"
 	secretEnvStringData["NANOBOT_RUN_TRUSTED_ISSUER"] = server.Issuer
-	secretEnvStringData["NANOBOT_RUN_OAUTH_JWKSURL"] = k.replaceHostWithServiceFQDN(server.JWKSEndpoint)
+	secretEnvStringData["NANOBOT_RUN_OAUTH_JWKSURL"] = k.transformObotHostname(server.JWKSEndpoint)
 	secretEnvStringData["NANOBOT_RUN_TRUSTED_AUDIENCES"] = strings.Join(server.Audiences, ",")
 	secretEnvStringData["NANOBOT_RUN_OAUTH_CLIENT_ID"] = server.TokenExchangeClientID
 	secretEnvStringData["NANOBOT_RUN_OAUTH_CLIENT_SECRET"] = server.TokenExchangeClientSecret
-	secretEnvStringData["NANOBOT_RUN_OAUTH_TOKEN_URL"] = k.replaceHostWithServiceFQDN(server.TokenExchangeEndpoint)
-	secretEnvStringData["NANOBOT_RUN_OAUTH_AUTHORIZE_URL"] = k.replaceHostWithServiceFQDN(server.AuthorizeEndpoint)
+	secretEnvStringData["NANOBOT_RUN_OAUTH_TOKEN_URL"] = k.transformObotHostname(server.TokenExchangeEndpoint)
+	secretEnvStringData["NANOBOT_RUN_OAUTH_AUTHORIZE_URL"] = k.transformObotHostname(server.AuthorizeEndpoint)
 	secretEnvStringData["NANOBOT_DISABLE_HEALTH_CHECKER"] = strconv.FormatBool(server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeComposite)
 	// Audit log variables
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_TOKEN"] = server.AuditLogToken
-	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_SEND_URL"] = k.replaceHostWithServiceFQDN(server.AuditLogEndpoint)
+	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_SEND_URL"] = k.transformObotHostname(server.AuditLogEndpoint)
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE"] = strconv.Itoa(k.auditLogsBatchSize)
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS"] = strconv.Itoa(k.auditLogsFlushIntervalSeconds)
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_METADATA"] = server.AuditLogMetadata
 	// API key authentication webhook URL
-	secretEnvStringData["NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL"] = k.replaceHostWithServiceFQDN(server.Issuer + "/api/api-keys/auth")
+	secretEnvStringData["NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL"] = k.transformObotHostname(server.Issuer + "/api/api-keys/auth")
 	secretEnvStringData["NANOBOT_RUN_MCPSERVER_ID"] = strings.TrimSuffix(server.MCPServerName, "-shim")
 
 	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvStringData) + hash.Digest(secretVolumeStringData) + hash.Digest(webhooks))
@@ -410,6 +437,43 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	// Add K8s settings hash to annotations
 	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings)
+
+	// Get PSA enforce level for security context decisions
+	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
+
+	var workspacePVCName string
+	if server.NanobotAgentName != "" {
+		workspacePVCName = name.SafeConcatName(server.MCPServerName, "workspace")
+
+		workspaceSizeDef := k8sSettings.NanobotWorkspaceSize
+		if workspaceSizeDef == "" {
+			workspaceSizeDef = nanobotWorkspaceDefaultSize
+		}
+		workspaceSize, err := resource.ParseQuantity(workspaceSizeDef)
+		if err != nil {
+			return nil, fmt.Errorf("invalid workspace size '%s': %w", workspaceSizeDef, err)
+		}
+
+		pvcAnnotations := maps.Clone(annotations)
+		// Apply the annotation to prevent the PVC from being updated after creation.
+		pvcAnnotations[apply.AnnotationUpdate] = "false"
+		objs = append(objs, &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        workspacePVCName,
+				Namespace:   k.mcpNamespace,
+				Annotations: pvcAnnotations,
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: workspaceSize,
+					},
+				},
+				StorageClassName: k8sSettings.StorageClassName,
+			},
+		})
+	}
 
 	webhookSecretStringData := make(map[string]string, len(webhooks))
 	containers := make([]corev1.Container, 0, len(webhooks)+2)
@@ -457,19 +521,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Ports: []corev1.ContainerPort{{
 				ContainerPort: int32(port),
 			}},
-			SecurityContext: &corev1.SecurityContext{
-				AllowPrivilegeEscalation: &[]bool{false}[0],
-				RunAsNonRoot:             &[]bool{true}[0],
-				RunAsUser:                &[]int64{1000}[0],
-				RunAsGroup:               &[]int64{1000}[0],
-				Capabilities: &corev1.Capabilities{
-					Drop: []corev1.Capability{"ALL"},
-				},
-				SeccompProfile: &corev1.SeccompProfile{
-					Type: corev1.SeccompProfileTypeRuntimeDefault,
-				},
-			},
-			Env: env,
+			SecurityContext: getContainerSecurityContext(psaLevel),
+			Env:             env,
 		})
 
 		// Update the URL for this webhook for use inside the "main" container.
@@ -543,19 +596,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				Name:          portName,
 				ContainerPort: int32(port),
 			}},
-			SecurityContext: &corev1.SecurityContext{
-				AllowPrivilegeEscalation: &[]bool{false}[0],
-				RunAsNonRoot:             &[]bool{true}[0],
-				RunAsUser:                &[]int64{1000}[0],
-				RunAsGroup:               &[]int64{1000}[0],
-				Capabilities: &corev1.Capabilities{
-					Drop: []corev1.Capability{"ALL"},
-				},
-				SeccompProfile: &corev1.SeccompProfile{
-					Type: corev1.SeccompProfileTypeRuntimeDefault,
-				},
-			},
-			Args: []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", port), "--exclude-built-in-agents", "--config", "/run/nanobot.yaml"},
+			SecurityContext: getContainerSecurityContext(psaLevel),
+			Args:            []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", port), "--exclude-built-in-agents", "--config", "/run/nanobot.yaml"},
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      "run-shim-file",
@@ -580,8 +622,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			},
 		})
 
-		// Reset the portName so that the service points to the shim.
-		portName = ""
+		// Change the port name for the real MCP container; the shim keeps the http name.
+		portName = "mcp"
 		// Remove the webhooks because those are in the shim.
 		webhooks = nil
 
@@ -609,6 +651,19 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		StringData: secretEnvStringData,
 	})
 
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "files",
+			MountPath: "/files",
+		},
+	}
+	if workspacePVCName != "" {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      nanobotWorkspaceVolumeName,
+			MountPath: nanobotWorkspaceMountPath,
+		})
+	}
+
 	// This is the "real" MCP container.
 	containers = append(containers, corev1.Container{
 		Name:            "mcp",
@@ -629,20 +684,15 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				},
 			}
 		}(),
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &[]bool{false}[0],
-			RunAsNonRoot:             &[]bool{true}[0],
-			RunAsUser:                &[]int64{1000}[0],
-			RunAsGroup:               &[]int64{1000}[0],
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			},
-		},
-		Command: command,
-		Args:    args,
+		SecurityContext: getContainerSecurityContext(psaLevel),
+		Command:         command,
+		Args:            args,
+		WorkingDir: func() string {
+			if workspacePVCName != "" {
+				return nanobotWorkspaceMountPath
+			}
+			return ""
+		}(),
 		EnvFrom: []corev1.EnvFromSource{{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
@@ -650,12 +700,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				},
 			},
 		}},
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "files",
-				MountPath: "/files",
-			},
-		},
+		VolumeMounts: volumeMounts,
 	})
 
 	dep := &appsv1.Deployment{
@@ -687,46 +732,55 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					Affinity:         k8sSettings.Affinity,
 					Tolerations:      k8sSettings.Tolerations,
 					RuntimeClassName: k8sSettings.RuntimeClassName,
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsNonRoot: &[]bool{true}[0],
-						RunAsUser:    &[]int64{1000}[0],
-						RunAsGroup:   &[]int64{1000}[0],
-						FSGroup:      &[]int64{1000}[0],
-						SeccompProfile: &corev1.SeccompProfile{
-							Type: corev1.SeccompProfileTypeRuntimeDefault,
-						},
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "files",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(server.MCPServerName, "files"),
+					SecurityContext:  getPodSecurityContext(psaLevel),
+					Volumes: func() []corev1.Volume {
+						volumes := []corev1.Volume{
+							{
+								Name: "files",
+								VolumeSource: corev1.VolumeSource{
+									Secret: &corev1.SecretVolumeSource{
+										SecretName: name.SafeConcatName(server.MCPServerName, "files"),
+									},
 								},
 							},
-						},
-						{
-							Name: "run-file",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(server.MCPServerName, "run"),
+							{
+								Name: "run-file",
+								VolumeSource: corev1.VolumeSource{
+									Secret: &corev1.SecretVolumeSource{
+										SecretName: name.SafeConcatName(server.MCPServerName, "run"),
+									},
 								},
 							},
-						},
-						{
-							Name: "run-shim-file",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(server.MCPServerName, "run", "shim"),
+							{
+								Name: "run-shim-file",
+								VolumeSource: corev1.VolumeSource{
+									Secret: &corev1.SecretVolumeSource{
+										SecretName: name.SafeConcatName(server.MCPServerName, "run", "shim"),
+									},
 								},
 							},
-						},
-					},
+						}
+
+						if workspacePVCName != "" {
+							volumes = append(volumes, corev1.Volume{
+								Name: nanobotWorkspaceVolumeName,
+								VolumeSource: corev1.VolumeSource{
+									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+										ClaimName: workspacePVCName,
+									},
+								},
+							})
+						}
+
+						return volumes
+					}(),
 					Containers: containers,
 				},
 			},
 		},
 	}
+
+	objs = append(objs, dep)
 
 	if server.Runtime != types.RuntimeContainerized {
 		// Setup the nanobot config file and add it to the last container in the deployment.
@@ -774,7 +828,24 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		}
 	}
 
-	objs = append(objs, dep)
+	// Create service ports - always include the main "http" port
+	servicePorts := []corev1.ServicePort{
+		{
+			Name:       "http",
+			Port:       80,
+			TargetPort: intstr.FromString("http"),
+		},
+	}
+
+	// Add a second port for direct access to the MCP container for nanobot agents
+	if server.NanobotAgentName != "" {
+		dep.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
+		servicePorts = append(servicePorts, corev1.ServicePort{
+			Name:       "mcp",
+			Port:       8080,
+			TargetPort: intstr.FromString("mcp"),
+		})
+	}
 
 	objs = append(objs, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -783,13 +854,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "http",
-					Port:       80,
-					TargetPort: intstr.FromString("http"),
-				},
-			},
+			Ports: servicePorts,
 			Selector: map[string]string{
 				"app": server.MCPServerName,
 			},
@@ -981,15 +1046,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 }
 
 func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error {
-	var deployment appsv1.Deployment
-	if err := k.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: k.mcpNamespace}, &deployment); apierrors.IsNotFound(err) {
-		// If the deployment isn't found, then just return and it will be created when needed.
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to get deployment %s: %w", id, err)
-	}
-
-	// Fetch K8s settings
+	// Fetch K8s settings once at the start
 	k8sSettings, err := k.getK8sSettings(ctx)
 	if err != nil {
 		// Log error but continue with defaults
@@ -1000,23 +1057,86 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 	// Compute K8s settings hash
 	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings)
 
-	// Build the patch with restart annotation and k8s settings hash
-	podAnnotations := map[string]string{
-		"kubectl.kubernetes.io/restartedAt": time.Now().Format(time.RFC3339),
-		"obot.ai/k8s-settings-hash":         k8sSettingsHash,
+	// Get PSA enforce level for security context decisions
+	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
+
+	// Retry patching up to 3 times to handle cases where:
+	// 1. Strategic merge patch doesn't fully apply all changes (especially when combining resources and PSA settings)
+	// 2. Conflict errors (409) occur due to concurrent updates by controllers
+	const maxPatchRetries = 3
+	for attempt := range maxPatchRetries {
+		// Always re-fetch the deployment to get the latest state
+		var deployment appsv1.Deployment
+		if err := k.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: k.mcpNamespace}, &deployment); apierrors.IsNotFound(err) {
+			// If the deployment isn't found, then just return and it will be created when needed.
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("failed to get deployment %s: %w", id, err)
+		}
+
+		// Check if deployment already matches the desired state
+		if k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel) {
+			olog.Debugf("deployment %s matches desired K8s settings after %d patch attempt(s)", id, attempt)
+			// Settings match, now apply the hash to mark reconciliation complete
+			if err := k.patchDeploymentHash(ctx, &deployment, k8sSettingsHash); err != nil {
+				if apierrors.IsConflict(err) {
+					olog.Debugf("conflict patching hash for deployment %s on attempt %d, retrying", id, attempt+1)
+					continue
+				}
+				return err
+			}
+			return nil
+		}
+
+		// Build and apply the patch (without hash - hash is applied only after verification)
+		if err := k.patchDeploymentWithK8sSettings(ctx, &deployment, k8sSettings, psaLevel); err != nil {
+			if apierrors.IsConflict(err) {
+				olog.Debugf("conflict patching deployment %s on attempt %d, retrying", id, attempt+1)
+				continue
+			}
+			return err
+		}
+
+		// Re-fetch to verify the patch was applied correctly
+		if err := k.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: k.mcpNamespace}, &deployment); err != nil {
+			return fmt.Errorf("failed to get deployment %s after patch: %w", id, err)
+		}
+
+		// Verify the patch was applied correctly (check settings, not hash)
+		if k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel) {
+			olog.Debugf("deployment %s patched successfully with K8s settings on attempt %d", id, attempt+1)
+			// Settings match, now apply the hash to mark reconciliation complete
+			if err := k.patchDeploymentHash(ctx, &deployment, k8sSettingsHash); err != nil {
+				if apierrors.IsConflict(err) {
+					olog.Debugf("conflict patching hash for deployment %s on attempt %d, retrying", id, attempt+1)
+					continue
+				}
+				return err
+			}
+			return nil
+		}
+
+		olog.Debugf("deployment %s K8s settings patch incomplete on attempt %d, retrying", id, attempt+1)
 	}
 
-	// Update the deployment metadata annotation as well
-	deploymentAnnotations := map[string]string{
-		"obot.ai/k8s-settings-hash": k8sSettingsHash,
+	// After max retries, settings still don't match. Don't update the hash so that
+	// NeedsK8sUpdate flag remains set and another reconciliation will be triggered.
+	olog.Warnf("deployment %s failed to fully reconcile K8s settings after %d attempts, hash not updated", id, maxPatchRetries)
+	return fmt.Errorf("failed to fully apply K8s settings to deployment %s after %d attempts", id, maxPatchRetries)
+}
+
+// patchDeploymentWithK8sSettings applies the K8s settings patch to the deployment
+// Note: This does NOT update the hash annotation - that's done separately via patchDeploymentHash
+// after verification passes, ensuring the hash only reflects successfully applied settings.
+func (k *kubernetesBackend) patchDeploymentWithK8sSettings(ctx context.Context, deployment *appsv1.Deployment, k8sSettings v1.K8sSettingsSpec, psaLevel PSAEnforceLevel) error {
+	// Build the patch with restart annotation (but not the hash - that comes after verification)
+	podAnnotations := map[string]string{
+		"kubectl.kubernetes.io/restartedAt": time.Now().Format(time.RFC3339),
 	}
 
 	// Build the patch structure
 	templateSpec := make(map[string]any)
 	patch := map[string]any{
-		"metadata": map[string]any{
-			"annotations": deploymentAnnotations,
-		},
 		"spec": map[string]any{
 			"template": map[string]any{
 				"metadata": map[string]any{
@@ -1074,7 +1194,40 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 		templateSpec["runtimeClassName"] = nil
 	}
 
-	// Add resources to the container
+	// Add pod-level security context based on PSA level
+	podSecurityContextPatch := getPodSecurityContextPatch(psaLevel)
+	if podSecurityContextPatch != nil {
+		templateSpec["securityContext"] = podSecurityContextPatch
+	} else {
+		// Use $patch: delete to remove any existing security context for privileged mode
+		templateSpec["securityContext"] = map[string]any{
+			"$patch": "delete",
+		}
+	}
+
+	// Get the container security context patch based on PSA level
+	containerSecurityContextPatch := getContainerSecurityContextPatch(psaLevel)
+
+	// Build container patches - we need to patch all possible containers
+	// based on PSA compliance level
+	containerPatches := []map[string]any{}
+
+	// Build the mcp container patch
+	mcpContainerPatch := map[string]any{
+		"name": "mcp",
+	}
+
+	// Apply security context based on PSA level
+	if containerSecurityContextPatch != nil {
+		mcpContainerPatch["securityContext"] = containerSecurityContextPatch
+	} else {
+		// For privileged mode, remove security context
+		mcpContainerPatch["securityContext"] = map[string]any{
+			"$patch": "delete",
+		}
+	}
+
+	// Add resources to the mcp container
 	if k8sSettings.Resources != nil {
 		// Use $patch: replace to completely replace the resources field
 		resourcesMap := map[string]any{
@@ -1088,26 +1241,35 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 		if len(k8sSettings.Resources.Requests) > 0 {
 			resourcesMap["requests"] = k8sSettings.Resources.Requests
 		}
-
-		// Patch the container resources (container name is "mcp")
-		// Using strategic merge patch which can merge containers by name
-		templateSpec["containers"] = []map[string]any{
-			{
-				"name":      "mcp",
-				"resources": resourcesMap,
-			},
-		}
+		mcpContainerPatch["resources"] = resourcesMap
 	} else {
 		// Use $patch: delete to remove any existing resources
-		templateSpec["containers"] = []map[string]any{
-			{
-				"name": "mcp",
-				"resources": map[string]any{
-					"$patch": "delete",
-				},
-			},
+		mcpContainerPatch["resources"] = map[string]any{
+			"$patch": "delete",
 		}
 	}
+	containerPatches = append(containerPatches, mcpContainerPatch)
+
+	// Patch shim and webhook containers (any container that's not "mcp")
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == "mcp" {
+			continue
+		}
+
+		containerPatch := map[string]any{
+			"name": container.Name,
+		}
+		if containerSecurityContextPatch != nil {
+			containerPatch["securityContext"] = containerSecurityContextPatch
+		} else {
+			containerPatch["securityContext"] = map[string]any{
+				"$patch": "delete",
+			}
+		}
+		containerPatches = append(containerPatches, containerPatch)
+	}
+
+	templateSpec["containers"] = containerPatches
 
 	patchBytes, err := json.Marshal(patch)
 	if err != nil {
@@ -1115,11 +1277,323 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 	}
 
 	// Use StrategicMergePatchType to merge containers by name without requiring all fields
-	if err := k.client.Patch(ctx, &deployment, kclient.RawPatch(ktypes.StrategicMergePatchType, patchBytes)); err != nil {
-		return fmt.Errorf("failed to patch deployment %s: %w", id, err)
+	if err := k.client.Patch(ctx, deployment, kclient.RawPatch(ktypes.StrategicMergePatchType, patchBytes)); err != nil {
+		return fmt.Errorf("failed to patch deployment %s: %w", deployment.Name, err)
 	}
 
 	return nil
+}
+
+// deploymentSettingsMatch verifies that a deployment has the expected K8s settings applied
+// This checks the actual settings (PSA, resources, runtimeClassName, affinity, tolerations) but NOT the hash annotation.
+// The hash is applied separately after settings are verified to ensure it reflects actual state.
+func (k *kubernetesBackend) deploymentSettingsMatch(deployment *appsv1.Deployment, k8sSettings v1.K8sSettingsSpec, psaLevel PSAEnforceLevel) bool {
+	// Check PSA compliance (uses existing comprehensive check)
+	if DeploymentNeedsPSAUpdate(deployment, psaLevel) {
+		return false
+	}
+
+	// Check resources on the mcp container
+	mcpFound := false
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name == "mcp" {
+			mcpFound = true
+			if !resourcesMatch(container.Resources, k8sSettings.Resources) {
+				return false
+			}
+			break
+		}
+	}
+	// If resources are configured but no mcp container exists, settings can't match
+	if !mcpFound && k8sSettings.Resources != nil {
+		return false
+	}
+
+	// Check runtimeClassName
+	if !runtimeClassNameMatches(deployment.Spec.Template.Spec.RuntimeClassName, k8sSettings.RuntimeClassName) {
+		return false
+	}
+
+	// Check affinity
+	if !affinityMatches(deployment.Spec.Template.Spec.Affinity, k8sSettings.Affinity) {
+		return false
+	}
+
+	// Check tolerations
+	if !tolerationsMatch(deployment.Spec.Template.Spec.Tolerations, k8sSettings.Tolerations) {
+		return false
+	}
+
+	return true
+}
+
+// patchDeploymentHash applies only the K8s settings hash annotation to the deployment.
+// This should be called after verifying that the actual settings have been applied.
+func (k *kubernetesBackend) patchDeploymentHash(ctx context.Context, deployment *appsv1.Deployment, k8sSettingsHash string) error {
+	now := time.Now().Format(time.RFC3339)
+	patch := map[string]any{
+		"metadata": map[string]any{
+			"annotations": map[string]string{
+				"obot.ai/k8s-settings-hash": k8sSettingsHash,
+				"obot.ai/last-restart":      now,
+			},
+		},
+		"spec": map[string]any{
+			"template": map[string]any{
+				"metadata": map[string]any{
+					"annotations": map[string]string{
+						"obot.ai/k8s-settings-hash": k8sSettingsHash,
+						"obot.ai/last-restart":      now,
+					},
+				},
+			},
+		},
+	}
+
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return fmt.Errorf("failed to marshal hash patch: %w", err)
+	}
+
+	if err := k.client.Patch(ctx, deployment, kclient.RawPatch(ktypes.StrategicMergePatchType, patchBytes)); err != nil {
+		return fmt.Errorf("failed to patch deployment %s with hash: %w", deployment.Name, err)
+	}
+
+	return nil
+}
+
+// resourcesMatch checks if the container's resources match the desired settings.
+// It performs a full bidirectional comparison: desired keys must exist in actual with
+// equal values, and actual must not contain extra keys beyond what desired specifies.
+func resourcesMatch(actual corev1.ResourceRequirements, desired *corev1.ResourceRequirements) bool {
+	if desired == nil {
+		// If no desired resources, actual must also be empty.
+		// If actual still has resources, the delete patch didn't fully apply.
+		return len(actual.Limits) == 0 && len(actual.Requests) == 0
+	}
+
+	// Check limits: lengths must match and all desired values must be present and equal
+	if len(actual.Limits) != len(desired.Limits) {
+		return false
+	}
+	for resourceName, desiredQty := range desired.Limits {
+		actualQty, exists := actual.Limits[resourceName]
+		if !exists || !actualQty.Equal(desiredQty) {
+			return false
+		}
+	}
+
+	// Check requests: lengths must match and all desired values must be present and equal
+	if len(actual.Requests) != len(desired.Requests) {
+		return false
+	}
+	for resourceName, desiredQty := range desired.Requests {
+		actualQty, exists := actual.Requests[resourceName]
+		if !exists || !actualQty.Equal(desiredQty) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// runtimeClassNameMatches checks if the runtime class names match
+func runtimeClassNameMatches(actual *string, desired *string) bool {
+	actualVal := ""
+	if actual != nil {
+		actualVal = *actual
+	}
+
+	desiredVal := ""
+	if desired != nil {
+		desiredVal = *desired
+	}
+
+	return actualVal == desiredVal
+}
+
+// affinityMatches checks if the deployment's affinity matches the desired settings
+func affinityMatches(actual *corev1.Affinity, desired *corev1.Affinity) bool {
+	if desired == nil && actual == nil {
+		return true
+	}
+	if desired == nil {
+		// No desired affinity, but deployment has one - not a match
+		return actual == nil
+	}
+	if actual == nil {
+		// Desired affinity set, but deployment doesn't have one
+		return false
+	}
+	return reflect.DeepEqual(actual, desired)
+}
+
+// tolerationsMatch checks if the deployment's tolerations match the desired settings
+func tolerationsMatch(actual []corev1.Toleration, desired []corev1.Toleration) bool {
+	if len(desired) == 0 && len(actual) == 0 {
+		return true
+	}
+	if len(desired) == 0 {
+		return len(actual) == 0
+	}
+	if len(actual) != len(desired) {
+		return false
+	}
+	return reflect.DeepEqual(actual, desired)
+}
+
+// PSAEnforceLevel represents the Pod Security Admission enforce level
+type PSAEnforceLevel string
+
+const (
+	// PSAPrivileged allows all pod configurations (no restrictions)
+	PSAPrivileged PSAEnforceLevel = "privileged"
+	// PSABaseline provides minimal restrictions that prevent known privilege escalations
+	PSABaseline PSAEnforceLevel = "baseline"
+	// PSARestricted heavily restricts pod configurations following security best practices
+	PSARestricted PSAEnforceLevel = "restricted"
+)
+
+// GetPSAEnforceLevelFromSpec extracts the PSA enforce level from K8sSettingsSpec
+func GetPSAEnforceLevelFromSpec(settings v1.K8sSettingsSpec) PSAEnforceLevel {
+	if settings.PodSecurityAdmission == nil || !settings.PodSecurityAdmission.Enabled {
+		return PSARestricted // Default to restricted when PSA is not configured
+	}
+
+	switch settings.PodSecurityAdmission.Enforce {
+	case "privileged":
+		return PSAPrivileged
+	case "baseline":
+		return PSABaseline
+	default:
+		return PSARestricted
+	}
+}
+
+// ValidPSALevels contains all valid Pod Security Admission levels
+var ValidPSALevels = []string{"privileged", "baseline", "restricted"}
+
+// ValidatePSALevel checks if a PSA level value is valid
+func ValidatePSALevel(level string) bool {
+	switch level {
+	case "privileged", "baseline", "restricted":
+		return true
+	default:
+		return false
+	}
+}
+
+// getContainerSecurityContext returns the appropriate container security context based on PSA level
+func getContainerSecurityContext(psaLevel PSAEnforceLevel) *corev1.SecurityContext {
+	switch psaLevel {
+	case PSAPrivileged:
+		// Privileged mode: no security context restrictions
+		return nil
+	case PSABaseline:
+		// Baseline mode: minimal restrictions
+		// - Disallow privilege escalation
+		// Note: baseline PSA does NOT require dropping capabilities
+		return &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &[]bool{false}[0],
+		}
+	default: // PSARestricted
+		// Restricted mode: full security context
+		return &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &[]bool{false}[0],
+			RunAsNonRoot:             &[]bool{true}[0],
+			RunAsUser:                &[]int64{1000}[0],
+			RunAsGroup:               &[]int64{1000}[0],
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		}
+	}
+}
+
+// getPodSecurityContext returns the appropriate pod security context based on PSA level
+func getPodSecurityContext(psaLevel PSAEnforceLevel) *corev1.PodSecurityContext {
+	switch psaLevel {
+	case PSAPrivileged:
+		// Privileged mode: no security context restrictions
+		return nil
+	case PSABaseline:
+		// Baseline mode: minimal pod-level restrictions
+		return &corev1.PodSecurityContext{
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		}
+	default: // PSARestricted
+		// Restricted mode: full pod security context
+		return &corev1.PodSecurityContext{
+			RunAsNonRoot: &[]bool{true}[0],
+			RunAsUser:    &[]int64{1000}[0],
+			RunAsGroup:   &[]int64{1000}[0],
+			FSGroup:      &[]int64{1000}[0],
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		}
+	}
+}
+
+// getContainerSecurityContextPatch returns a map for patching container security context based on PSA level
+func getContainerSecurityContextPatch(psaLevel PSAEnforceLevel) map[string]any {
+	switch psaLevel {
+	case PSAPrivileged:
+		// Privileged mode: remove security context
+		return nil
+	case PSABaseline:
+		// Baseline mode: minimal restrictions
+		// Note: baseline PSA does NOT require dropping capabilities
+		return map[string]any{
+			"allowPrivilegeEscalation": false,
+		}
+	default: // PSARestricted
+		// Restricted mode: full security context
+		return map[string]any{
+			"allowPrivilegeEscalation": false,
+			"runAsNonRoot":             true,
+			"runAsUser":                int64(1000),
+			"runAsGroup":               int64(1000),
+			"capabilities": map[string]any{
+				"drop": []string{"ALL"},
+			},
+			"seccompProfile": map[string]any{
+				"type": "RuntimeDefault",
+			},
+		}
+	}
+}
+
+// getPodSecurityContextPatch returns a map for patching pod security context based on PSA level
+func getPodSecurityContextPatch(psaLevel PSAEnforceLevel) map[string]any {
+	switch psaLevel {
+	case PSAPrivileged:
+		// Privileged mode: no security context restrictions
+		return nil
+	case PSABaseline:
+		// Baseline mode: minimal pod-level restrictions
+		return map[string]any{
+			"seccompProfile": map[string]any{
+				"type": "RuntimeDefault",
+			},
+		}
+	default: // PSARestricted
+		// Restricted mode: full pod security context
+		return map[string]any{
+			"runAsNonRoot": true,
+			"runAsUser":    int64(1000),
+			"runAsGroup":   int64(1000),
+			"fsGroup":      int64(1000),
+			"seccompProfile": map[string]any{
+				"type": "RuntimeDefault",
+			},
+		}
+	}
 }
 
 // ComputeK8sSettingsHash computes a hash of K8s settings for change detection
@@ -1149,6 +1623,22 @@ func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
 		buf.WriteString(*settings.RuntimeClassName)
 	}
 
+	// Hash storageClassName
+	if settings.StorageClassName != nil {
+		buf.WriteString(*settings.StorageClassName)
+	}
+
+	// Hash nanobotWorkspaceSize
+	if settings.NanobotWorkspaceSize != "" {
+		buf.WriteString(settings.NanobotWorkspaceSize)
+	}
+
+	// Hash Pod Security Admission settings
+	if settings.PodSecurityAdmission != nil {
+		psaJSON, _ := json.Marshal(settings.PodSecurityAdmission)
+		buf.Write(psaJSON)
+	}
+
 	if buf.Len() == 0 {
 		return "none"
 	}
@@ -1164,6 +1654,139 @@ func (k *kubernetesBackend) getK8sSettings(ctx context.Context) (v1.K8sSettingsS
 	}, &settings)
 
 	return settings.Spec, err
+}
+
+// DeploymentNeedsPSAUpdate checks if a deployment needs to be updated to be PSA compliant
+// based on the given PSA enforce level. For "privileged" level, no update is needed.
+// For "baseline" level, checks for basic privilege escalation restrictions.
+// For "restricted" level, checks for full security context requirements.
+func DeploymentNeedsPSAUpdate(deployment *appsv1.Deployment, level PSAEnforceLevel) bool {
+	if deployment == nil {
+		return false
+	}
+
+	// Privileged PSA level has no requirements
+	if level == PSAPrivileged {
+		return false
+	}
+
+	// Check pod-level security context
+	podSC := deployment.Spec.Template.Spec.SecurityContext
+
+	// For restricted level, need full pod security context
+	if level == PSARestricted {
+		if podSC == nil {
+			return true
+		}
+
+		// Check runAsNonRoot (must be true for restricted PSA)
+		if podSC.RunAsNonRoot == nil || !*podSC.RunAsNonRoot {
+			return true
+		}
+
+		// Check runAsUser (must be > 0 for restricted PSA, i.e., non-root)
+		if podSC.RunAsUser == nil || *podSC.RunAsUser == 0 {
+			return true
+		}
+
+		// Check runAsGroup (must be set for restricted PSA)
+		if podSC.RunAsGroup == nil {
+			return true
+		}
+
+		// Check seccompProfile (must be RuntimeDefault or Localhost for restricted PSA)
+		if podSC.SeccompProfile == nil || podSC.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
+			return true
+		}
+	}
+
+	// For baseline level, require a pod-level seccompProfile with an allowed type
+	if level == PSABaseline {
+		if podSC == nil || podSC.SeccompProfile == nil {
+			return true
+		}
+
+		switch podSC.SeccompProfile.Type {
+		case corev1.SeccompProfileTypeRuntimeDefault,
+			corev1.SeccompProfileTypeLocalhost:
+			// allowed
+		default:
+			return true
+		}
+	}
+	// Check each container's security context
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if containerNeedsPSAUpdate(&container, level) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// containerNeedsPSAUpdate checks if a container needs PSA compliance updates based on the given level.
+// For "privileged" level, no update is needed.
+// For "baseline" level, checks allowPrivilegeEscalation.
+// For "restricted" level, checks all security context requirements including capabilities.drop ALL.
+func containerNeedsPSAUpdate(container *corev1.Container, level PSAEnforceLevel) bool {
+	// Privileged PSA level has no requirements
+	if level == PSAPrivileged {
+		return false
+	}
+
+	sc := container.SecurityContext
+	if sc == nil {
+		return true
+	}
+
+	// Both baseline and restricted require this check
+	// Check allowPrivilegeEscalation (must be false)
+	if sc.AllowPrivilegeEscalation == nil || *sc.AllowPrivilegeEscalation {
+		return true
+	}
+
+	// Restricted level has additional requirements
+	if level == PSARestricted {
+		// Check capabilities.drop contains ALL (required for restricted PSA)
+		if sc.Capabilities == nil {
+			return true
+		}
+		hasDropAll := false
+		for _, cap := range sc.Capabilities.Drop {
+			if cap == "ALL" {
+				hasDropAll = true
+				break
+			}
+		}
+		if !hasDropAll {
+			return true
+		}
+		// Check runAsNonRoot (must be true for restricted PSA)
+		if sc.RunAsNonRoot == nil || !*sc.RunAsNonRoot {
+			return true
+		}
+
+		// Check runAsUser (must be > 0 for restricted PSA, i.e., non-root)
+		if sc.RunAsUser == nil || *sc.RunAsUser == 0 {
+			return true
+		}
+
+		// Check runAsGroup (must be set for restricted PSA)
+		if sc.RunAsGroup == nil {
+			return true
+		}
+
+		// Check seccompProfile (must be RuntimeDefault or Localhost for restricted PSA)
+		if sc.SeccompProfile == nil {
+			return true
+		}
+		if sc.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault &&
+			sc.SeccompProfile.Type != corev1.SeccompProfileTypeLocalhost {
+			return true
+		}
+	}
+
+	return false
 }
 
 // CheckCapacity checks if there's enough capacity to deploy a new MCP server.

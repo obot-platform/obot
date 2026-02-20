@@ -33,6 +33,7 @@
 		CircleAlert,
 		CircleFadingArrowUp,
 		Ellipsis,
+		ExternalLink,
 		GitCompare,
 		LoaderCircle,
 		MessageCircle,
@@ -48,6 +49,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import CapacityBanner from './CapacityBanner.svelte';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		usersMap?: Map<string, OrgUser>;
@@ -489,175 +491,241 @@
 				? `/admin/audit-logs?mcp_id=${d.id}`
 				: `/audit-logs?mcp_id=${d.id}`;
 	}
+
+	function getMcpCatalogUrl(d: MCPCatalogServer) {
+		// If this is a component of a composite server, link to the parent composite server
+		if (d.compositeName) {
+			const parent = compositeMapping[d.compositeName];
+			if (parent) {
+				// Recursively get the parent's catalog URL
+				return getMcpCatalogUrl(parent);
+			}
+		}
+
+		// Workspace-specific server (power user workspace)
+		if (d.powerUserWorkspaceID) {
+			// Workspace catalog entry deployment
+			if (d.catalogEntryID) {
+				return resolve('/admin/mcp-servers/w/[wid]/c/[id]', {
+					id: d.catalogEntryID,
+					wid: d.powerUserWorkspaceID
+				});
+			}
+
+			// Workspace multi-user server
+			return resolve('/admin/mcp-servers/w/[wid]/s/[id]', {
+				id: d.id,
+				wid: d.powerUserWorkspaceID
+			});
+		}
+
+		// Global catalog entry deployment
+		if (d.catalogEntryID) {
+			return resolve('/admin/mcp-servers/c/[id]', {
+				id: d.catalogEntryID
+			});
+		}
+
+		// Global multi-user server
+		return resolve('/admin/mcp-servers/s/[id]', {
+			id: d.id
+		});
+	}
 </script>
 
 <div class="flex flex-col gap-2">
-	{#if entity === 'catalog' && profile.current.hasAdminAccess?.()}
-		<CapacityBanner bind:this={capacityBanner} />
-	{/if}
-	{#if tableData.length > 0}
-		<Table
-			bind:this={tableRef}
-			data={tableData}
-			fields={entity === 'workspace'
-				? [
-						'displayName',
-						'type',
-						...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
-						'updatesAvailable',
-						'created'
-					]
-				: [
-						'displayName',
-						'type',
-						...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
-						'updatesAvailable',
-						'userName',
-						'registry',
-						'created'
-					]}
-			filterable={[
-				'displayName',
-				'type',
-				'deploymentStatus',
-				'updatesAvailable',
-				'userName',
-				'registry'
-			].filter(Boolean) as string[]}
-			{filters}
-			headers={[
-				{ title: 'Name', property: 'displayName' },
-				{ title: 'User', property: 'userName' },
-				{ title: 'Health', property: 'deploymentStatus' },
-				{ title: 'Update Status', property: 'updatesAvailable' }
-			]}
-			onClickRow={(d, isCtrlClick) => {
-				setLastVisitedMcpServer(d);
+	{#if loading || mcpServersAndEntries.current.loading}
+		<div class="my-2 flex items-center justify-center">
+			<LoaderCircle class="size-6 animate-spin" />
+		</div>
+	{:else}
+		{#if entity === 'catalog' && profile.current.hasAdminAccess?.()}
+			<CapacityBanner bind:this={capacityBanner} />
+		{/if}
+		{#if tableData.length > 0}
+			<Table
+				bind:this={tableRef}
+				data={tableData}
+				fields={entity === 'workspace'
+					? [
+							'displayName',
+							'type',
+							...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
+							'updatesAvailable',
+							'created'
+						]
+					: [
+							'displayName',
+							'type',
+							...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
+							'updatesAvailable',
+							'userName',
+							'registry',
+							'created'
+						]}
+				filterable={[
+					'displayName',
+					'type',
+					'deploymentStatus',
+					'updatesAvailable',
+					'userName',
+					'registry'
+				].filter(Boolean) as string[]}
+				{filters}
+				headers={[
+					{ title: 'Name', property: 'displayName' },
+					{ title: 'User', property: 'userName' },
+					{ title: 'Health', property: 'deploymentStatus' },
+					{ title: 'Update Status', property: 'updatesAvailable' }
+				]}
+				onClickRow={(d, isCtrlClick) => {
+					setLastVisitedMcpServer(d);
 
-				const url = getServerUrl(d);
-				setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
-				openUrl(url, isCtrlClick);
-			}}
-			{onFilter}
-			{onClearAllFilters}
-			{onSort}
-			{initSort}
-			sortable={['displayName', 'type', 'updatesAvailable', 'userName', 'registry', 'created']}
-			noDataMessage="No catalog servers added."
-			classes={{
-				root: 'rounded-none rounded-b-md shadow-none',
-				thead: classes?.tableHeader
-			}}
-			sectionedBy="isMyServer"
-			sectionPrimaryTitle="My Deployments"
-			sectionSecondaryTitle="All Deployments"
-			setRowClasses={(d) => {
-				if (d.needsUpdate && d.needsK8sUpdate) {
-					return 'bg-orange-500/5 hover:bg-orange-500/10 border-orange-500/20';
-				}
+					const url = getServerUrl(d);
+					setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+					openUrl(url, isCtrlClick);
+				}}
+				{onFilter}
+				{onClearAllFilters}
+				{onSort}
+				{initSort}
+				sortable={['displayName', 'type', 'updatesAvailable', 'userName', 'registry', 'created']}
+				noDataMessage="No catalog servers added."
+				classes={{
+					root: 'rounded-none rounded-b-md shadow-none',
+					thead: classes?.tableHeader
+				}}
+				sectionedBy="isMyServer"
+				sectionPrimaryTitle="My Deployments"
+				sectionSecondaryTitle="All Deployments"
+				setRowClasses={(d) => {
+					if (d.needsUpdate && d.needsK8sUpdate) {
+						return 'bg-orange-500/5 hover:bg-orange-500/10 border-orange-500/20';
+					}
 
-				if (d.needsUpdate) {
-					return 'bg-primary/5 hover:bg-primary/10 border-primary/20';
-				}
+					if (d.needsUpdate) {
+						return 'bg-primary/5 hover:bg-primary/10 border-primary/20';
+					}
 
-				if (d.needsK8sUpdate) {
-					return 'bg-yellow-500/5 hover:bg-yellow-500/10 border-yellow-500/20';
-				}
+					if (d.needsK8sUpdate) {
+						return 'bg-yellow-500/5 hover:bg-yellow-500/10 border-yellow-500/20';
+					}
 
-				return '';
-			}}
-		>
-			{#snippet onRenderColumn(property, d)}
-				{#if property === 'displayName'}
-					<div class="flex flex-shrink-0 items-center gap-2">
-						<div class="icon">
-							{#if d.manifest.icon}
-								<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
-							{:else}
-								<Server class="size-6" />
-							{/if}
-						</div>
-						<p class="flex flex-col">
-							{d.displayName}
-							{#if d.compositeParentName}
-								<span class="text-on-surface1 text-xs">
-									({d.compositeParentName})
-								</span>
-							{/if}
-						</p>
-					</div>
-				{:else if property === 'created'}
-					{formatTimeAgo(d.created).relativeTime}
-				{:else if property === 'updatesAvailable'}
-					<div
-						use:tooltip={{ text: d.updateStatusTooltip ?? '', classes: ['whitespace-pre-line'] }}
-					>
-						{d.updateStatus || '--'}
-					</div>
-				{:else}
-					{d[property as keyof typeof d]}
-				{/if}
-			{/snippet}
-
-			{#snippet actions(d)}
-				{@const isComposite = !!d.compositeName}
-				{@const auditLogsUrl = getAuditLogsUrl(d)}
-
-				<DotDotDot class="icon-button hover:dark:bg-background/50" classes={{ menu: 'p-0' }}>
-					{#snippet icon()}
-						<Ellipsis class="size-4" />
-					{/snippet}
-
-					{#snippet children({ toggle })}
-						{@const isAtLeastPowerUser = profile.current.groups.includes(Group.POWERUSER)}
-						{#if !isComposite && d.isMyServer}
-							<div
-								class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
-							>
-								My Connection
-							</div>
-							<div
-								class={twMerge('flex flex-col gap-1 p-2', d.isMyServer ? 'bg-surface1' : 'pb-0')}
-							>
-								<button
-									class="menu-button"
-									onclick={async (e) => {
-										e.stopPropagation();
-										const entry = d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined;
-										connectToServerDialog?.open({
-											entry,
-											server: d,
-											instance: instancesMap.get(d.id)
-										});
-										toggle(false);
-									}}
-								>
-									<SatelliteDish class="size-4" /> Connect To Server
-								</button>
-								<button
-									class="menu-button"
-									onclick={async (e) => {
-										e.stopPropagation();
-										if (d) {
-											connectToServerDialog?.handleSetupChat(d, instancesMap.get(d.id));
-										}
-										toggle(false);
-									}}
-								>
-									<MessageCircle class="size-4" /> Chat
-								</button>
-
-								{#if d.isMyServer}
-									{@render editConfigAction(d)}
-									{#if d.catalogEntryID}
-										{@render renameAction(d)}
-									{/if}
+					return '';
+				}}
+			>
+				{#snippet onRenderColumn(property, d)}
+					{#if property === 'displayName'}
+						<div class="flex flex-shrink-0 items-center gap-2">
+							<div class="icon">
+								{#if d.manifest.icon}
+									<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
+								{:else}
+									<Server class="size-6" />
 								{/if}
 							</div>
-						{/if}
-						<div class="flex flex-col gap-1 p-2">
-							{#if d.needsUpdate && (d.isMyServer || profile.current?.hasAdminAccess?.())}
-								{#if !readonly && isAtLeastPowerUser}
+							<p class="flex flex-col">
+								{d.displayName}
+								{#if d.compositeParentName}
+									<span class="text-on-surface1 text-xs">
+										({d.compositeParentName})
+									</span>
+								{/if}
+							</p>
+						</div>
+					{:else if property === 'created'}
+						{formatTimeAgo(d.created).relativeTime}
+					{:else if property === 'updatesAvailable'}
+						<div
+							use:tooltip={{ text: d.updateStatusTooltip ?? '', classes: ['whitespace-pre-line'] }}
+						>
+							{d.updateStatus || '--'}
+						</div>
+					{:else}
+						{d[property as keyof typeof d]}
+					{/if}
+				{/snippet}
+
+				{#snippet actions(d)}
+					{@const isComposite = !!d.compositeName}
+					{@const auditLogsUrl = getAuditLogsUrl(d)}
+
+					<DotDotDot class="icon-button hover:dark:bg-background/50" classes={{ menu: 'p-0' }}>
+						{#snippet icon()}
+							<Ellipsis class="size-4" />
+						{/snippet}
+
+						{#snippet children({ toggle })}
+							{@const isAtLeastPowerUser = profile.current.groups.includes(Group.POWERUSER)}
+							{#if !isComposite && d.isMyServer}
+								<div
+									class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+								>
+									My Connection
+								</div>
+								<div
+									class={twMerge('flex flex-col gap-1 p-2', d.isMyServer ? 'bg-surface1' : 'pb-0')}
+								>
+									<button
+										class="menu-button"
+										onclick={async (e) => {
+											e.stopPropagation();
+											const entry = d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined;
+											connectToServerDialog?.open({
+												entry,
+												server: d,
+												instance: instancesMap.get(d.id)
+											});
+											toggle(false);
+										}}
+									>
+										<SatelliteDish class="size-4" /> Connect To Server
+									</button>
+									<button
+										class="menu-button"
+										onclick={async (e) => {
+											e.stopPropagation();
+											if (d) {
+												connectToServerDialog?.handleSetupChat(d, instancesMap.get(d.id));
+											}
+											toggle(false);
+										}}
+									>
+										<MessageCircle class="size-4" /> Chat
+									</button>
+
+									{#if d.isMyServer}
+										{@render editConfigAction(d)}
+										{#if d.catalogEntryID}
+											{@render renameAction(d)}
+										{/if}
+									{/if}
+								</div>
+							{/if}
+
+							<div class="flex flex-col gap-1 p-2">
+								<a
+									class="menu-button"
+									href={resolve(getMcpCatalogUrl(d) as `/${string}`)}
+									onclick={(ev) => {
+										ev.stopPropagation();
+										const hasAdminAccess = profile.current.hasAdminAccess?.();
+										if (!hasAdminAccess) {
+											ev.preventDefault();
+										}
+									}}
+								>
+									<ExternalLink class="size-4" />
+									<span>
+										{#if d.catalogEntryID}
+											View Catalog Entry
+										{:else}
+											View Server
+										{/if}
+									</span>
+								</a>
+
+								{#if d.needsUpdate && (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser}
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -689,46 +757,46 @@
 									</button>
 								{/if}
 
-								<button
-									class="menu-button-primary"
-									disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
-									onclick={(e) => {
-										e.stopPropagation();
-										if (!d.catalogEntryID) return;
+								{#if d.catalogEntryID}
+									<button
+										class="menu-button-primary"
+										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
+										onclick={(e) => {
+											e.stopPropagation();
+											if (!d.catalogEntryID) return;
 
-										existingServer = d;
-										updatedServer = entriesMap[d.catalogEntryID];
-										diffDialog?.open();
-									}}
-								>
-									<GitCompare class="size-4" /> View Diff
-								</button>
-							{/if}
+											existingServer = d;
+											updatedServer = entriesMap[d.catalogEntryID];
+											diffDialog?.open();
+										}}
+									>
+										<GitCompare class="size-4" /> View Diff
+									</button>
+								{/if}
 
-							{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser && d.needsK8sUpdate}
-								<button
-									class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
-									disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
-									onclick={(e) => {
-										e.stopPropagation();
-										if (!d) return;
-										showK8sUpgradeConfirm = {
-											type: 'single',
-											server: d
-										};
-									}}
-								>
-									{#if updating[d.id]?.inProgress}
-										<LoaderCircle class="size-4 animate-spin" />
-									{:else}
-										<CircleFadingArrowUp class="size-4" />
-									{/if}
-									Update Scheduling Config
-								</button>
-							{/if}
+								{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser && d.needsK8sUpdate}
+									<button
+										class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
+										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
+										onclick={(e) => {
+											e.stopPropagation();
+											if (!d) return;
+											showK8sUpgradeConfirm = {
+												type: 'single',
+												server: d
+											};
+										}}
+									>
+										{#if updating[d.id]?.inProgress}
+											<LoaderCircle class="size-4 animate-spin" />
+										{:else}
+											<CircleFadingArrowUp class="size-4" />
+										{/if}
+										Update Scheduling Config
+									</button>
+								{/if}
 
-							{#if d.isMyServer || profile.current?.hasAdminAccess?.()}
-								{#if !readonly && isAtLeastPowerUser}
+								{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser}
 									<button
 										class="menu-button"
 										disabled={restarting}
@@ -757,6 +825,7 @@
 										{/if}
 									</button>
 								{/if}
+
 								<button
 									onclick={(e) => {
 										e.stopPropagation();
@@ -798,119 +867,115 @@
 										<Trash2 class="size-4" /> Delete Server
 									</button>
 								{/if}
+							</div>
+						{/snippet}
+					</DotDotDot>
+				{/snippet}
+
+				{#snippet tableSelectActions(currentSelected)}
+					{@const restartableCount = Object.values(currentSelected).filter(
+						(s) => s.configured
+					).length}
+					{@const upgradeableCount = Object.values(currentSelected).filter(
+						(s) => s.needsUpdate && !s.compositeName
+					).length}
+					{@const k8sUpgradeableCount = Object.values(currentSelected).filter(
+						(s) => s.needsK8sUpdate && !s.compositeName
+					).length}
+					{@const deletableCount = Object.values(currentSelected).filter(
+						(s) => !s.compositeName
+					).length}
+
+					<div class="flex grow items-center justify-end gap-2 px-4 py-2">
+						<button
+							class="button flex items-center gap-1 text-sm font-normal"
+							onclick={() => {
+								selected = currentSelected;
+								handleBulkRestart();
+							}}
+							disabled={restarting || readonly || restartableCount === 0}
+						>
+							{#if restarting}
+								<LoaderCircle class="size-4 animate-spin self-center" /> Restarting...
+							{:else}
+								<Power class="size-4" /> Restart
 							{/if}
-						</div>
-					{/snippet}
-				</DotDotDot>
-			{/snippet}
+							{#if restartableCount > 0 && !readonly}
+								<span class="pill-primary">
+									{restartableCount}
+								</span>
+							{/if}
+						</button>
+						<button
+							class="button flex items-center gap-1 text-sm font-normal"
+							onclick={() => {
+								selected = currentSelected;
+								showUpgradeConfirm = {
+									type: 'multi',
+									onConfirm: () => {
+										reload();
+									}
+								};
+							}}
+							disabled={readonly || upgradeableCount === 0}
+						>
+							<CircleFadingArrowUp class="size-4" /> Upgrade
+							{#if upgradeableCount > 0 && !readonly}
+								<span class="pill-primary">
+									{upgradeableCount}
+								</span>
+							{/if}
+						</button>
+						<button
+							class="button flex items-center gap-1 text-sm font-normal"
+							onclick={() => {
+								selected = currentSelected;
+								const type = Object.keys(selected).length > 1 ? 'multi' : 'single';
 
-			{#snippet tableSelectActions(currentSelected)}
-				{@const restartableCount = Object.values(currentSelected).filter(
-					(s) => s.configured
-				).length}
-				{@const upgradeableCount = Object.values(currentSelected).filter(
-					(s) => s.needsUpdate && !s.compositeName
-				).length}
-				{@const k8sUpgradeableCount = Object.values(currentSelected).filter(
-					(s) => s.needsK8sUpdate && !s.compositeName
-				).length}
-				{@const deletableCount = Object.values(currentSelected).filter(
-					(s) => !s.compositeName
-				).length}
-
-				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
-					<button
-						class="button flex items-center gap-1 text-sm font-normal"
-						onclick={() => {
-							selected = currentSelected;
-							handleBulkRestart();
-						}}
-						disabled={restarting || readonly || restartableCount === 0}
-					>
-						{#if restarting}
-							<LoaderCircle class="size-4 animate-spin self-center" /> Restarting...
-						{:else}
-							<Power class="size-4" /> Restart
-						{/if}
-						{#if restartableCount > 0 && !readonly}
-							<span class="pill-primary">
-								{restartableCount}
-							</span>
-						{/if}
-					</button>
-					<button
-						class="button flex items-center gap-1 text-sm font-normal"
-						onclick={() => {
-							selected = currentSelected;
-							showUpgradeConfirm = {
-								type: 'multi',
-								onConfirm: () => {
-									reload();
+								if (type === 'multi') {
+									showK8sUpgradeConfirm = {
+										type: 'multi'
+									};
+								} else {
+									const server = type === 'single' ? Object.values(selected)[0] : undefined;
+									showK8sUpgradeConfirm = {
+										type: 'single',
+										server: server!
+									};
 								}
-							};
-						}}
-						disabled={readonly || upgradeableCount === 0}
-					>
-						<CircleFadingArrowUp class="size-4" /> Upgrade
-						{#if upgradeableCount > 0 && !readonly}
-							<span class="pill-primary">
-								{upgradeableCount}
-							</span>
-						{/if}
-					</button>
-					<button
-						class="button flex items-center gap-1 text-sm font-normal"
-						onclick={() => {
-							selected = currentSelected;
-							const type = Object.keys(selected).length > 1 ? 'multi' : 'single';
-
-							if (type === 'multi') {
-								showK8sUpgradeConfirm = {
+							}}
+							disabled={readonly || k8sUpgradeableCount === 0}
+						>
+							<CircleFadingArrowUp class="size-4" /> Kubernetes Upgrade
+							{#if k8sUpgradeableCount > 0 && !readonly}
+								<span class="pill-primary">
+									{k8sUpgradeableCount}
+								</span>
+							{/if}
+						</button>
+						<button
+							class="button flex items-center gap-1 text-sm font-normal"
+							onclick={() => {
+								selected = currentSelected;
+								showDeleteConfirm = {
 									type: 'multi'
 								};
-							} else {
-								const server = type === 'single' ? Object.values(selected)[0] : undefined;
-								showK8sUpgradeConfirm = {
-									type: 'single',
-									server: server!
-								};
-							}
-						}}
-						disabled={readonly || k8sUpgradeableCount === 0}
-					>
-						<CircleFadingArrowUp class="size-4" /> Kubernetes Upgrade
-						{#if k8sUpgradeableCount > 0 && !readonly}
-							<span class="pill-primary">
-								{k8sUpgradeableCount}
-							</span>
-						{/if}
-					</button>
-					<button
-						class="button flex items-center gap-1 text-sm font-normal"
-						onclick={() => {
-							selected = currentSelected;
-							showDeleteConfirm = {
-								type: 'multi'
-							};
-						}}
-						disabled={readonly || deletableCount === 0}
-					>
-						<Trash2 class="size-4" /> Delete
-						{#if deletableCount > 0 && !readonly}
-							<span class="pill-primary">
-								{deletableCount}
-							</span>
-						{/if}
-					</button>
-				</div>
-			{/snippet}
-		</Table>
-	{:else if loading || mcpServersAndEntries.current.loading}
-		<div class="my-2 flex items-center justify-center">
-			<LoaderCircle class="size-6 animate-spin" />
-		</div>
-	{:else}
-		{@render noDataContent?.()}
+							}}
+							disabled={readonly || deletableCount === 0}
+						>
+							<Trash2 class="size-4" /> Delete
+							{#if deletableCount > 0 && !readonly}
+								<span class="pill-primary">
+									{deletableCount}
+								</span>
+							{/if}
+						</button>
+					</div>
+				{/snippet}
+			</Table>
+		{:else}
+			{@render noDataContent?.()}
+		{/if}
 	{/if}
 </div>
 

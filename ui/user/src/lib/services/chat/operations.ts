@@ -89,7 +89,8 @@ export async function patchProfile(
 }
 
 export async function getVersion(opts?: { fetch?: Fetcher }): Promise<Version> {
-	return (await doGet('/version', opts)) as Version;
+	const version = (await doGet('/version', opts)) as Version;
+	return version;
 }
 
 export async function getAssistant(id: string, opts?: { fetch?: Fetcher }): Promise<Assistant> {

@@ -46,7 +46,7 @@ lint: lint-go
 tidy:
 	go mod tidy
 
-GOLANGCI_LINT_VERSION ?= v2.4.0
+GOLANGCI_LINT_VERSION ?= v2.9.0
 setup-env:
 	if ! command -v golangci-lint &> /dev/null; then \
   		echo "Could not find golangci-lint, installing version $(GOLANGCI_LINT_VERSION)."; \
@@ -60,10 +60,7 @@ generate:
 	go generate
 
 test:
-	go test -v -cover $$(go list ./... | grep -v github.com/obot-platform/obot/tests/integration)
-
-test-integration:
-	./tests/integration/setup.sh
+	go test -v -cover ./...
 
 # Runs Go linters and validates that all generated code is committed.
 validate-go-code: tidy generate lint-go no-changes

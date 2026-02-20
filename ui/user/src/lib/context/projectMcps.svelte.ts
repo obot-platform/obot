@@ -7,8 +7,6 @@ const Key = Symbol('mcps');
 export type ProjectMcpItem = ProjectMCP & {
 	oauthURL?: string;
 	authenticated?: boolean;
-	configured?: boolean;
-	needsURL?: boolean;
 };
 
 export interface ProjectMCPContext {

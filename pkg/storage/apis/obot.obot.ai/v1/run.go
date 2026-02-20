@@ -25,6 +25,7 @@ const (
 	OAuthClientFinalizer           = "obot.obot.ai/oauth-client"
 	AccessControlRuleFinalizer     = "obot.obot.ai/access-control-rule"
 	SystemMCPServerFinalizer       = "obot.obot.ai/system-mcp-server"
+	NanobotAgentFinalizer          = "obot.obot.ai/nanobot-agent"
 
 	ModelProviderSyncAnnotation         = "obot.ai/model-provider-sync"
 	WorkflowSyncAnnotation              = "obot.ai/workflow-sync"
@@ -137,12 +138,13 @@ const (
 )
 
 type RunStatus struct {
-	Conditions   []metav1.Condition `json:"conditions,omitempty"`
-	State        RunStateState      `json:"state,omitempty"`
-	Output       string             `json:"output"`
-	EndTime      metav1.Time        `json:"endTime,omitempty"`
-	Error        string             `json:"error,omitempty"`
-	ExternalCall *ExternalCall      `json:"externalCall,omitempty"`
+	Conditions             []metav1.Condition `json:"conditions,omitempty"`
+	State                  RunStateState      `json:"state,omitempty"`
+	Output                 string             `json:"output"`
+	EndTime                metav1.Time        `json:"endTime,omitempty"`
+	Error                  string             `json:"error,omitempty"`
+	ExternalCall           *ExternalCall      `json:"externalCall,omitempty"`
+	RequestedCallDecisions []string           `json:"requestedCallDecisions,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

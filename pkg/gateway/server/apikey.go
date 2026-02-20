@@ -156,9 +156,6 @@ func (s *Server) deleteAPIKey(apiContext api.Context) error {
 	}
 
 	if err := apiContext.GatewayClient.DeleteAPIKey(apiContext.Context(), userID, uint(keyID)); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types2.NewErrNotFound("API key not found")
-		}
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to delete API key: %v", err))
 	}
 
@@ -203,9 +200,6 @@ func (s *Server) deleteAnyAPIKey(apiContext api.Context) error {
 	}
 
 	if err := apiContext.GatewayClient.DeleteAPIKeyByID(apiContext.Context(), uint(keyID)); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types2.NewErrNotFound("API key not found")
-		}
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to delete API key: %v", err))
 	}
 
@@ -288,26 +282,28 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	}
 
 	// Verify user still has access to the server
-	var server v1.MCPServer
-	if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &server); err != nil {
-		return apiContext.Write(apiKeyAuthResponse{
-			Allowed: false,
-			Reason:  "MCP server not found",
-		})
-	}
+	if system.IsMCPServerID(req.MCPID) {
+		var server v1.MCPServer
+		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &server); err != nil {
+			return apiContext.Write(apiKeyAuthResponse{
+				Allowed: false,
+				Reason:  "MCP server not found",
+			})
+		}
 
-	hasAccess, err := s.userHasAccessToMCPServerByUserID(apiContext, &server, apiKey.UserID)
-	if err != nil {
-		return apiContext.Write(apiKeyAuthResponse{
-			Allowed: false,
-			Reason:  fmt.Sprintf("failed to verify access: %v", err),
-		})
-	}
-	if !hasAccess {
-		return apiContext.Write(apiKeyAuthResponse{
-			Allowed: false,
-			Reason:  "user does not have access to this MCP server",
-		})
+		hasAccess, err := s.userHasAccessToMCPServerByUserID(apiContext, &server, apiKey.UserID)
+		if err != nil {
+			return apiContext.Write(apiKeyAuthResponse{
+				Allowed: false,
+				Reason:  fmt.Sprintf("failed to verify access: %v", err),
+			})
+		}
+		if !hasAccess {
+			return apiContext.Write(apiKeyAuthResponse{
+				Allowed: false,
+				Reason:  "user does not have access to this MCP server",
+			})
+		}
 	}
 
 	err = apiContext.Write(apiKeyAuthResponse{

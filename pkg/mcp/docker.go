@@ -127,6 +127,10 @@ func detectCurrentLocalIP() (string, error) {
 	return ip, nil
 }
 
+func (d *dockerBackend) transformObotHostname(url string) string {
+	return localhostURLRegexp.ReplaceAllString(url, d.hostBaseURLWithPort)
+}
+
 // cleanupContainersWithOldID removes containers with old ID and no config hash label.
 // This is a migration for simplifying the container names and updating existing containers
 // when configuration changes instead of possibly orphaning them.
@@ -210,14 +214,20 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	}
 
 	if server.Runtime != otypes.RuntimeRemote {
-		// For non-remote runtimes, we deploy a shim that handles webhooks.
-		server, err = d.ensureDeployment(ctx, server, "", true, nil)
+		// For non-remote runtimes, we deploy the real MCP server first.
+		server, err = d.ensureDeployment(ctx, server, "", d.containerEnv || server.NanobotAgentName == "", nil)
 		if err != nil {
 			return ServerConfig{}, err
 		}
 
+		// If this is a server for a nanobot agent, return the config pointing to the real server without deploying the shim.
+		if server.NanobotAgentName != "" {
+			return server, nil
+		}
+
 		server.MCPServerName += "-shim"
 	} else {
+		// For remote runtime servers, direct has no effect since there's no shim.
 		server.URL = strings.Replace(server.URL, "http://localhost", d.hostBaseURL, 1)
 	}
 
@@ -228,12 +238,12 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 }
 
 func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfig, mcpServerName string, containerEnv bool, webhooks []Webhook) (ServerConfig, error) {
-	server.TokenExchangeEndpoint = localhostURLRegexp.ReplaceAllString(server.TokenExchangeEndpoint, d.hostBaseURLWithPort)
-	server.AuditLogEndpoint = localhostURLRegexp.ReplaceAllString(server.AuditLogEndpoint, d.hostBaseURLWithPort)
-	server.JWKSEndpoint = localhostURLRegexp.ReplaceAllString(server.JWKSEndpoint, d.hostBaseURLWithPort)
+	server.TokenExchangeEndpoint = d.transformObotHostname(server.TokenExchangeEndpoint)
+	server.AuditLogEndpoint = d.transformObotHostname(server.AuditLogEndpoint)
+	server.JWKSEndpoint = d.transformObotHostname(server.JWKSEndpoint)
 
 	for i, component := range server.Components {
-		component.URL = localhostURLRegexp.ReplaceAllString(component.URL, d.hostBaseURLWithPort)
+		component.URL = d.transformObotHostname(component.URL)
 		server.Components[i] = component
 	}
 
@@ -607,6 +617,7 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		AuditLogToken:             server.AuditLogToken,
 		AuditLogMetadata:          server.AuditLogMetadata,
 		ContainerPath:             server.ContainerPath,
+		NanobotAgentName:          server.NanobotAgentName,
 	}, nil
 }
 
@@ -641,6 +652,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		env           []string
 		containerPort int
 		image         string
+		workspaceName string
 	)
 
 	// Prepare file volumes and environment variables
@@ -654,6 +666,20 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			Source: fileVolumeName,
 			Target: "/files",
 		})
+	}
+
+	if server.NanobotAgentName != "" {
+		workspaceName, err = d.ensureWorkspaceVolume(ctx, server, mcpServerName)
+		if err != nil {
+			return "", 0, fmt.Errorf("failed to create workspace volume: %w", err)
+		}
+		if workspaceName != "" {
+			volumeMounts = append(volumeMounts, mount.Mount{
+				Type:   mount.TypeVolume,
+				Source: workspaceName,
+				Target: nanobotWorkspaceMountPath,
+			})
+		}
 	}
 
 	if len(fileEnvVars) > 0 {
@@ -686,7 +712,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			// Set nanobot environment variables
 			env = []string{
 				"NANOBOT_RUN_TRUSTED_ISSUER=" + server.Issuer,
-				"NANOBOT_RUN_OAUTH_JWKSURL=" + localhostURLRegexp.ReplaceAllString(server.JWKSEndpoint, d.hostBaseURLWithPort),
+				"NANOBOT_RUN_OAUTH_JWKSURL=" + d.transformObotHostname(server.JWKSEndpoint),
 				"NANOBOT_RUN_TRUSTED_AUDIENCES=" + strings.Join(server.Audiences, ","),
 				"NANOBOT_RUN_OAUTH_CLIENT_ID=" + server.TokenExchangeClientID,
 				"NANOBOT_RUN_OAUTH_CLIENT_SECRET=" + server.TokenExchangeClientSecret,
@@ -695,7 +721,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 				"NANOBOT_RUN_OAUTH_SCOPES=profile",
 				"NANOBOT_RUN_FORCE_FETCH_TOOL_LIST=true",
 				"NANOBOT_DISABLE_HEALTH_CHECKER=true",
-				"NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL=" + localhostURLRegexp.ReplaceAllString(server.Issuer+"/api/api-keys/auth", d.hostBaseURLWithPort),
+				"NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL=" + d.transformObotHostname(server.Issuer+"/api/api-keys/auth"),
 				"NANOBOT_RUN_MCPSERVER_ID=" + strings.TrimSuffix(server.MCPServerName, "-shim"),
 			}
 
@@ -781,6 +807,9 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			"mcp.user.id":            server.UserID,
 			"mcp.config.hash":        configHash,
 		},
+	}
+	if server.NanobotAgentName != "" {
+		config.WorkingDir = nanobotWorkspaceMountPath
 	}
 
 	// Host config with port bindings and volume mounts
@@ -919,6 +948,43 @@ func (d *dockerBackend) prepareContainerFiles(ctx context.Context, server Server
 	}
 
 	return volumeName, envVars, nil
+}
+
+func (d *dockerBackend) ensureWorkspaceVolume(ctx context.Context, server ServerConfig, mcpServerName string) (string, error) {
+	volumeName := server.MCPServerName + "-workspace"
+	labels := map[string]string{
+		"mcp.server.id": server.MCPServerName,
+		"mcp.purpose":   "workspace",
+	}
+	if mcpServerName != "" {
+		labels["mcp.deployment.id"] = mcpServerName
+	}
+
+	resp, err := d.client.VolumeList(ctx, volume.ListOptions{
+		Filters: filters.NewArgs(filters.KeyValuePair{
+			Key:   "name",
+			Value: volumeName,
+		}),
+	})
+	if err != nil {
+		return "", err
+	}
+
+	for _, v := range resp.Volumes {
+		if v.Name == volumeName {
+			return volumeName, nil
+		}
+	}
+
+	_, err = d.client.VolumeCreate(ctx, volume.CreateOptions{
+		Labels: labels,
+		Name:   volumeName,
+	})
+	if err != nil && !cerrdefs.IsAlreadyExists(err) {
+		return "", fmt.Errorf("failed to create workspace volume: %w", err)
+	}
+
+	return volumeName, nil
 }
 
 // createVolumeWithFiles creates an anonymous volume and populates it with file data using an init container

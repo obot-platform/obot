@@ -106,7 +106,7 @@ mcpServerDefaults:
 
 | Environment Variable | Description | Default |
 |---------------------|-------------|---------|
-| `OBOT_SERVER_MCPK8S_SETTINGS_RUNTIMECLASSNAME` | RuntimeClass name for MCP server pods | (empty) |
+| `OBOT_SERVER_MCPK8S_SETTINGS_RUNTIME_CLASS_NAME` | RuntimeClass name for MCP server pods | (empty) |
 
 **Via Admin UI:**
 

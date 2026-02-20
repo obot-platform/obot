@@ -13,6 +13,17 @@ items:
   - apiVersion: obot.obot.ai/v1
     kind: Model
     metadata:
+      name: gpt-5.2
+      namespace: default
+    spec:
+      manifest:
+        targetModel: gpt-5.2
+        modelProvider: openai-model-provider
+        active: true
+        usage: llm
+  - apiVersion: obot.obot.ai/v1
+    kind: Model
+    metadata:
       name: text-embedding-ada-002
       namespace: default
     spec:
@@ -54,6 +65,28 @@ items:
         modelProvider: openai-model-provider
         active: true
         usage: image-generation
+  - apiVersion: obot.obot.ai/v1
+    kind: Model
+    metadata:
+      name: gpt-image-1.5
+      namespace: default
+    spec:
+      manifest:
+        targetModel: gpt-image-1.5
+        modelProvider: openai-model-provider
+        active: true
+        usage: image-generation
+  - apiVersion: obot.obot.ai/v1
+    kind: Model
+    metadata:
+      name: gpt-5-mini
+      namespace: default
+    spec:
+      manifest:
+        targetModel: gpt-5-mini
+        modelProvider: openai-model-provider
+        active: true
+        usage: llm
   - apiVersion: obot.obot.ai/v1
     kind: Model
     metadata:

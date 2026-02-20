@@ -2,4 +2,4 @@ apiVersion: v2
 name: obot
 description: A Helm chart for Obot
 version: 0.1.0
-appVersion: 1.0.0
+appVersion: 0.0.0-dev

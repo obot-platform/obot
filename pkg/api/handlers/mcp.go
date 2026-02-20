@@ -745,12 +745,22 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 	if catalogName == "" {
 		catalogName = mcpServer.Status.MCPCatalogID
 	}
-	if catalogName == "" && mcpServer.Spec.MCPServerCatalogEntryName != "" {
+	if catalogName == "" {
+		// For multi-user servers in a workspace, use the workspace ID as the catalog name
+		catalogName = mcpServer.Spec.PowerUserWorkspaceID
+	}
+	// Look up catalog entry for catalog name if needed
+	if mcpServer.Spec.MCPServerCatalogEntryName != "" {
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Get(&entry, mcpServer.Spec.MCPServerCatalogEntryName); err != nil {
 			return fmt.Errorf("failed to get MCP server catalog entry: %w", err)
 		}
-		catalogName = entry.Spec.MCPCatalogName
+		if catalogName == "" {
+			catalogName = entry.Spec.MCPCatalogName
+		}
+		if catalogName == "" {
+			catalogName = entry.Spec.PowerUserWorkspaceID
+		}
 	}
 
 	tokenExchangeCred, err := req.GPTClient.RevealCredential(req.Context(), []string{mcpServer.Name}, mcpServer.Name)
@@ -1212,12 +1222,22 @@ func serverFromMCPServerInstance(req api.Context, instance v1.MCPServerInstance)
 	if catalogName == "" {
 		catalogName = server.Status.MCPCatalogID
 	}
-	if catalogName == "" && server.Spec.MCPServerCatalogEntryName != "" {
+	if catalogName == "" {
+		// For multi-user servers in a workspace, use the workspace ID as the catalog name
+		catalogName = server.Spec.PowerUserWorkspaceID
+	}
+	// Look up catalog entry for catalog name if needed
+	if server.Spec.MCPServerCatalogEntryName != "" {
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
 			return server, mcp.ServerConfig{}, fmt.Errorf("failed to get MCP server catalog entry: %w", err)
 		}
-		catalogName = entry.Spec.MCPCatalogName
+		if catalogName == "" {
+			catalogName = entry.Spec.MCPCatalogName
+		}
+		if catalogName == "" {
+			catalogName = entry.Spec.PowerUserWorkspaceID
+		}
 	}
 
 	tokenExchangeCred, err := req.GPTClient.RevealCredential(req.Context(), []string{server.Name}, server.Name)
@@ -1299,16 +1319,28 @@ func serverConfigForAction(req api.Context, server v1.MCPServer) (mcp.ServerConf
 	if catalogName == "" {
 		catalogName = server.Status.MCPCatalogID
 	}
-	if catalogName == "" && server.Spec.MCPServerCatalogEntryName != "" {
+	if catalogName == "" {
+		// For multi-user servers in a workspace, use the workspace ID as the catalog name
+		catalogName = server.Spec.PowerUserWorkspaceID
+	}
+	// Look up catalog entry for catalog name if needed
+	if server.Spec.MCPServerCatalogEntryName != "" {
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err == nil {
-			catalogName = entry.Spec.MCPCatalogName
+			if catalogName == "" {
+				catalogName = entry.Spec.MCPCatalogName
+			}
+			if catalogName == "" {
+				catalogName = entry.Spec.PowerUserWorkspaceID
+			}
 		} else if apierrors.IsNotFound(err) && server.Spec.CompositeName != "" {
 			// For composite component's, this usually happens when the component's catalog entry
 			// was deleted, but the component hasn't been removed from the composite catalog entry yet.
 			// At the moment, composite MCP servers can only contain catalog entries from the default catalog,
 			// so we can assume the deleted entry belongs to the default catalog for now.
-			catalogName = system.DefaultCatalog
+			if catalogName == "" {
+				catalogName = system.DefaultCatalog
+			}
 		} else {
 			return mcp.ServerConfig{}, fmt.Errorf("failed to get MCP server catalog entry: %w", err)
 		}
@@ -1725,12 +1757,24 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
-	existing.Spec.Manifest = updated
+	// Use retry.RetryOnConflict because controllers (e.g. DetectK8sSettingsDrift,
+	// UpdateMCPServerStatus) can update this MCPServer concurrently, bumping the
+	// ResourceVersion between our read and write.
+	if err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := req.Get(&existing, id); err != nil {
+			return err
+		}
 
-	// Add extracted env vars to the server definition
-	addExtractedEnvVars(&existing)
+		// Re-validate catalog/workspace membership after re-fetch, since a controller
+		// may have changed these fields between the initial check and this retry.
+		if existing.Spec.MCPCatalogID != catalogID || existing.Spec.PowerUserWorkspaceID != workspaceID {
+			return types.NewErrNotFound("MCP server not found")
+		}
 
-	if err = req.Update(&existing); err != nil {
+		existing.Spec.Manifest = updated
+		addExtractedEnvVars(&existing)
+		return req.Update(&existing)
+	}); err != nil {
 		return err
 	}
 
@@ -3078,9 +3122,10 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 
 	// Compute current K8s settings hash and check if update is needed
 	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
-	needsUpdate := deployedHash != currentHash
+	hashDrift := deployedHash != currentHash
 
-	if needsUpdate {
+	// Trigger restart if hash drift OR if the server needs K8s update (e.g., PSA compliance)
+	if hashDrift || server.Status.NeedsK8sUpdate {
 		// Trigger restart to force redeployment with new settings
 		if err := m.mcpSessionManager.RestartServerDeployment(req.Context(), serverConfig); err != nil {
 			if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
@@ -3088,13 +3133,37 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 			}
 			return fmt.Errorf("failed to redeploy server: %w", err)
 		}
-
-		// We are assuming the redeployment will succeed, so we can clear the flag here.
-		server.Status.NeedsK8sUpdate = false
 	}
 
-	// We are assuming the redeployment will succeed, so we can clear the flag here.
-	server.Status.NeedsK8sUpdate = false
+	if server.Status.NeedsK8sUpdate || hashDrift {
+		// Clear the NeedsK8sUpdate flag now that the redeployment has been initiated.
+		// Also update the K8sSettingsHash to the current expected hash so that the
+		// deployment handler won't re-set NeedsK8sUpdate when it observes the old
+		// deployment before the new one is created.
+		//
+		// Use retry.RetryOnConflict because the RestartServerDeployment call above
+		// can trigger controller-side status updates (e.g. UpdateMCPServerStatus)
+		// that race with this write and bump the ResourceVersion.
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			var latest v1.MCPServer
+			if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
+				Namespace: req.Namespace(),
+				Name:      server.Name,
+			}, &latest); err != nil {
+				return err
+			}
+			latest.Status.NeedsK8sUpdate = false
+			latest.Status.K8sSettingsHash = currentHash
+			if err := req.Storage.Status().Update(req.Context(), &latest); err != nil {
+				return err
+			}
+			// Refresh server so the API response reflects the updated status.
+			server = latest
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to update server status: %w", err)
+		}
+	}
 
 	// Get credential for server
 	var credCtxs []string
@@ -3436,8 +3505,9 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		if entry.Spec.Manifest.RemoteConfig.FixedURL != "" {
 			// Use the fixed URL from catalog entry
 			server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-				URL:     entry.Spec.Manifest.RemoteConfig.FixedURL,
-				Headers: entry.Spec.Manifest.RemoteConfig.Headers,
+				URL:                 entry.Spec.Manifest.RemoteConfig.FixedURL,
+				Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
+				StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 			}
 		} else if entry.Spec.Manifest.RemoteConfig.Hostname != "" {
 			// Check if the server's current URL matches the new hostname requirement
@@ -3451,20 +3521,23 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 				}
 
 				server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-					Headers:  entry.Spec.Manifest.RemoteConfig.Headers,
-					Hostname: entry.Spec.Manifest.RemoteConfig.Hostname,
+					Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
+					Hostname:            entry.Spec.Manifest.RemoteConfig.Hostname,
+					StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 				}
 			} else {
 				// No current URL, needs one
 				server.Spec.NeedsURL = true
 				server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-					Headers: entry.Spec.Manifest.RemoteConfig.Headers,
+					Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
+					StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 				}
 			}
 		} else if entry.Spec.Manifest.RemoteConfig.URLTemplate != "" {
 			server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-				Headers:     entry.Spec.Manifest.RemoteConfig.Headers,
-				URLTemplate: entry.Spec.Manifest.RemoteConfig.URLTemplate,
+				Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
+				URLTemplate:         entry.Spec.Manifest.RemoteConfig.URLTemplate,
+				StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 			}
 		}
 	} else {

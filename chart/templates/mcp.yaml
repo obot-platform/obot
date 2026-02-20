@@ -1,4 +1,5 @@
 {{- if eq .Values.config.OBOT_SERVER_MCPRUNTIME_BACKEND "kubernetes" }}
+{{- include "obot.validatePodSecurityLevels" . -}}
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -41,7 +42,7 @@ metadata:
     {{- include "obot.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
-    resources: ["secrets", "services"]
+    resources: ["secrets", "services", "persistentvolumeclaims"]
     verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["pods", "pods/log", "events"]

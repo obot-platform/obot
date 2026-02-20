@@ -57,6 +57,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
@@ -87,7 +88,7 @@ type Config struct {
 	AllowedOrigin              string   `usage:"Allowed origin for CORS"`
 	ToolRegistries             []string `usage:"The remote tool references to the set of gptscript tool registries to use" default:"github.com/obot-platform/tools"`
 	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
-	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-4.1-mini"`
+	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-5-mini"`
 	EmailServerName            string   `usage:"The name of the email server to display for email receivers"`
 	Docker                     bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
 	EnvKeys                    []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
@@ -109,6 +110,8 @@ type Config struct {
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
 	EnableRegistryAuth      bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
+	NanobotIntegration      bool   `usage:"Enable Nanobot integration" default:"false"`
+	MCPServerSearchImage    string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:main"`
 
 	GeminiConfig
 	GatewayConfig
@@ -178,13 +181,20 @@ type Services struct {
 	MCPServerNamespace string
 
 	// Parsed settings from Helm for k8s to pass to controller
-	K8sSettingsFromHelm *v1.K8sSettingsSpec
+	// PodSchedulingSettingsFromHelm contains affinity, tolerations, resources, runtimeClassName
+	// when explicitly set via Helm. If non-nil, SetViaHelm=true and UI cannot modify these.
+	PodSchedulingSettingsFromHelm *v1.K8sSettingsSpec
+	// PSASettingsFromHelm contains Pod Security Admission settings, always sourced from
+	// environment/Helm config and not modifiable via UI.
+	PSASettingsFromHelm *v1.PodSecurityAdmissionSettings
 
 	DisableUpdateCheck       bool
 	MCPRuntimeBackend        string
+	MCPRemoteShimBaseImage   string
 	RegistryNoAuth           bool
 	AutonomousToolUseEnabled bool
 	NanobotIntegration       bool
+	MCPServerSearchImage     string
 }
 
 const (
@@ -246,17 +256,59 @@ func unmarshalJSONStrict(data []byte, v any) error {
 	return decoder.Decode(v)
 }
 
-func parseK8sSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
-	if (opts.MCPK8sSettingsAffinity == "" || opts.MCPK8sSettingsAffinity == "{}") &&
-		(opts.MCPK8sSettingsTolerations == "" || opts.MCPK8sSettingsTolerations == "[]") &&
-		(opts.MCPK8sSettingsResources == "" || opts.MCPK8sSettingsResources == "{}") &&
-		opts.MCPK8sSettingsRuntimeClassName == "" {
+// parsePSASettingsFromHelm parses Pod Security Admission settings from environment/Helm options.
+// PSA settings are always managed via Helm/environment and cannot be modified via UI.
+func parsePSASettingsFromHelm(opts mcp.Options) (*v1.PodSecurityAdmissionSettings, error) {
+	// Check if any PSA options were explicitly set via Helm/environment
+	hasPSASettings := opts.MCPPodSecurityEnabled ||
+		opts.MCPPodSecurityEnforce != "" ||
+		opts.MCPPodSecurityAudit != "" ||
+		opts.MCPPodSecurityWarn != ""
+
+	if !hasPSASettings {
+		return nil, nil
+	}
+
+	// Validate PSA level values early to fail fast with clear error messages
+	if opts.MCPPodSecurityEnforce != "" && !mcp.ValidatePSALevel(opts.MCPPodSecurityEnforce) {
+		return nil, fmt.Errorf("invalid PSA enforce level %q: must be one of %v", opts.MCPPodSecurityEnforce, mcp.ValidPSALevels)
+	}
+	if opts.MCPPodSecurityAudit != "" && !mcp.ValidatePSALevel(opts.MCPPodSecurityAudit) {
+		return nil, fmt.Errorf("invalid PSA audit level %q: must be one of %v", opts.MCPPodSecurityAudit, mcp.ValidPSALevels)
+	}
+	if opts.MCPPodSecurityWarn != "" && !mcp.ValidatePSALevel(opts.MCPPodSecurityWarn) {
+		return nil, fmt.Errorf("invalid PSA warn level %q: must be one of %v", opts.MCPPodSecurityWarn, mcp.ValidPSALevels)
+	}
+
+	return &v1.PodSecurityAdmissionSettings{
+		Enabled:        opts.MCPPodSecurityEnabled,
+		Enforce:        opts.MCPPodSecurityEnforce,
+		EnforceVersion: opts.MCPPodSecurityEnforceVersion,
+		Audit:          opts.MCPPodSecurityAudit,
+		AuditVersion:   opts.MCPPodSecurityAuditVersion,
+		Warn:           opts.MCPPodSecurityWarn,
+		WarnVersion:    opts.MCPPodSecurityWarnVersion,
+	}, nil
+}
+
+// parsePodSchedulingSettingsFromHelm parses pod scheduling settings (affinity, tolerations, resources,
+// runtimeClassName) from Helm options. These settings can be managed via Helm OR UI.
+// If this returns non-nil, SetViaHelm will be true and UI cannot modify these settings.
+func parsePodSchedulingSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
+	hasPodSettings := (opts.MCPK8sSettingsAffinity != "" && opts.MCPK8sSettingsAffinity != "{}") ||
+		(opts.MCPK8sSettingsTolerations != "" && opts.MCPK8sSettingsTolerations != "[]") ||
+		(opts.MCPK8sSettingsResources != "" && opts.MCPK8sSettingsResources != "{}") ||
+		opts.MCPK8sSettingsRuntimeClassName != "" ||
+		opts.MCPK8sSettingsStorageClassName != "" ||
+		opts.MCPK8sSettingsNanobotWorkspaceSize != ""
+
+	if !hasPodSettings {
 		return nil, nil
 	}
 
 	spec := &v1.K8sSettingsSpec{}
 
-	if opts.MCPK8sSettingsAffinity != "" {
+	if opts.MCPK8sSettingsAffinity != "" && opts.MCPK8sSettingsAffinity != "{}" {
 		var affinity corev1.Affinity
 		if err := unmarshalJSONStrict([]byte(opts.MCPK8sSettingsAffinity), &affinity); err != nil {
 			return nil, fmt.Errorf("failed to parse affinity from Helm: %w", err)
@@ -264,7 +316,7 @@ func parseK8sSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
 		spec.Affinity = &affinity
 	}
 
-	if opts.MCPK8sSettingsTolerations != "" {
+	if opts.MCPK8sSettingsTolerations != "" && opts.MCPK8sSettingsTolerations != "[]" {
 		var tolerations []corev1.Toleration
 		if err := unmarshalJSONStrict([]byte(opts.MCPK8sSettingsTolerations), &tolerations); err != nil {
 			return nil, fmt.Errorf("failed to parse tolerations from Helm: %w", err)
@@ -272,7 +324,7 @@ func parseK8sSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
 		spec.Tolerations = tolerations
 	}
 
-	if opts.MCPK8sSettingsResources != "" {
+	if opts.MCPK8sSettingsResources != "" && opts.MCPK8sSettingsResources != "{}" {
 		var resources corev1.ResourceRequirements
 		if err := unmarshalJSONStrict([]byte(opts.MCPK8sSettingsResources), &resources); err != nil {
 			return nil, fmt.Errorf("failed to parse resources from Helm: %w", err)
@@ -282,6 +334,18 @@ func parseK8sSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
 
 	if opts.MCPK8sSettingsRuntimeClassName != "" {
 		spec.RuntimeClassName = &opts.MCPK8sSettingsRuntimeClassName
+	}
+
+	if opts.MCPK8sSettingsStorageClassName != "" {
+		storageClassName := opts.MCPK8sSettingsStorageClassName
+		spec.StorageClassName = &storageClassName
+	}
+
+	if opts.MCPK8sSettingsNanobotWorkspaceSize != "" {
+		if _, err := resource.ParseQuantity(opts.MCPK8sSettingsNanobotWorkspaceSize); err != nil {
+			return nil, fmt.Errorf("invalid nanobot workspace size from Helm: %w", err)
+		}
+		spec.NanobotWorkspaceSize = opts.MCPK8sSettingsNanobotWorkspaceSize
 	}
 
 	return spec, nil
@@ -455,8 +519,15 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		}
 	}
 
-	// Parse Helm K8s settings
-	helmK8sSettings, err := parseK8sSettingsFromHelm(mcp.Options(config.MCPConfig))
+	// Parse Helm K8s settings - PSA settings and pod scheduling settings are handled separately
+	// PSA settings are always sourced from Helm/environment and cannot be modified via UI
+	psaSettings, err := parsePSASettingsFromHelm(mcp.Options(config.MCPConfig))
+	if err != nil {
+		return nil, err
+	}
+	// Pod scheduling settings (affinity, tolerations, resources, runtimeClassName) can be managed
+	// via Helm OR UI. If set via Helm, SetViaHelm=true and UI cannot modify them.
+	podSchedulingSettings, err := parsePodSchedulingSettingsFromHelm(mcp.Options(config.MCPConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -662,7 +733,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	gatewayOpts := gserver.Options(config.GatewayConfig)
-	gatewayOpts.NanobotIntegration = config.NanobotIntegration
 	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, gatewayOpts)
 	if err != nil {
 		return nil, err
@@ -830,17 +900,20 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
 			UserInfoEndpoint:                  fmt.Sprintf("%s/oauth/userinfo", config.Hostname),
 		},
-		AccessControlRuleHelper:  acrHelper,
-		ModelAccessPolicyHelper:  mapHelper,
-		WebhookHelper:            webhookHelper,
-		LocalK8sConfig:           localK8sConfig,
-		MCPServerNamespace:       config.MCPNamespace,
-		K8sSettingsFromHelm:      helmK8sSettings,
-		DisableUpdateCheck:       config.DisableUpdateCheck,
-		AutonomousToolUseEnabled: config.EnableAutonomousToolUse,
-		MCPRuntimeBackend:        config.MCPRuntimeBackend,
-		RegistryNoAuth:           registryNoAuth,
-		NanobotIntegration:       config.NanobotIntegration,
+		AccessControlRuleHelper:       acrHelper,
+		ModelAccessPolicyHelper:       mapHelper,
+		WebhookHelper:                 webhookHelper,
+		LocalK8sConfig:                localK8sConfig,
+		MCPServerNamespace:            config.MCPNamespace,
+		PodSchedulingSettingsFromHelm: podSchedulingSettings,
+		PSASettingsFromHelm:           psaSettings,
+		DisableUpdateCheck:            config.DisableUpdateCheck,
+		AutonomousToolUseEnabled:      config.EnableAutonomousToolUse,
+		MCPRuntimeBackend:             config.MCPRuntimeBackend,
+		MCPRemoteShimBaseImage:        config.MCPRemoteShimBaseImage,
+		RegistryNoAuth:                registryNoAuth,
+		NanobotIntegration:            config.NanobotIntegration,
+		MCPServerSearchImage:          config.MCPServerSearchImage,
 	}, nil
 }
 

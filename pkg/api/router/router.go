@@ -10,8 +10,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/registry"
 	"github.com/obot-platform/obot/pkg/api/handlers/setup"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
-	"github.com/obot-platform/obot/pkg/mcp/listing"
-	"github.com/obot-platform/obot/pkg/mcpserver"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/ui"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -69,7 +67,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.MCPRuntimeBackend, services.ServerURL)
 	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL, services.InternalServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
-	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.WebhookHelper, services.OAuthServerConfig.ScopesSupported)
+	mcpGateway := mcpgateway.NewHandler(services.MCPLoader, services.WebhookHelper, services.OAuthServerConfig.ScopesSupported, services.NanobotIntegration)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GPTClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
@@ -570,7 +568,9 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/system-mcp-servers/{id}/tools", systemMCPServers.GetTools)
 
 	// MCP Gateway Endpoints
+	// The first pattern handles the root path, the second handles all sub-paths
 	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.Proxy)
+	mux.HandleFunc("/mcp-connect/{mcp_id}/{rest...}", mcpGateway.Proxy)
 
 	// Registry API
 	mux.HandleFunc("GET /v0.1/servers", registryHandler.ListServers)
@@ -748,20 +748,24 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	// Prompt
 	mux.HandleFunc("POST /api/prompt", prompt.Prompt)
 
-	// Integrated MCP Server - uses its own MCP token auth (allowed via authz anyGroup rules)
 	// Only enabled when Nanobot integration is enabled
 	if services.NanobotIntegration {
-		// Create shared lister for MCP server discovery
-		mcpLister := listing.NewLister(services.StorageClient, services.AccessControlRuleHelper)
+		// ProjectV2
+		projectV2 := handlers.NewProjectV2Handler()
+		mux.HandleFunc("POST /api/projectsv2", projectV2.Create)
+		mux.HandleFunc("GET /api/projectsv2", projectV2.List)
+		mux.HandleFunc("GET /api/projectsv2/{projectv2_id}", projectV2.ByID)
+		mux.HandleFunc("PUT /api/projectsv2/{projectv2_id}", projectV2.Update)
+		mux.HandleFunc("DELETE /api/projectsv2/{projectv2_id}", projectV2.Delete)
 
-		integratedMCP := mcpserver.NewServer(
-			services.GatewayClient,
-			services.StorageClient,
-			mcpLister,
-			services.ServerURL,
-		)
-		mux.HTTPHandle("/mcp", integratedMCP.Handler())
-		mux.HTTPHandle("/mcp/", integratedMCP.Handler())
+		// NanobotAgents
+		nanobotAgents := handlers.NewNanobotAgentHandler(services.MCPLoader, services.ServerURL)
+		mux.HandleFunc("POST /api/projectsv2/{project_id}/agents", nanobotAgents.Create)
+		mux.HandleFunc("GET /api/projectsv2/{project_id}/agents", nanobotAgents.List)
+		mux.HandleFunc("GET /api/projectsv2/{project_id}/agents/{nanobot_agent_id}", nanobotAgents.ByID)
+		mux.HandleFunc("PUT /api/projectsv2/{project_id}/agents/{nanobot_agent_id}", nanobotAgents.Update)
+		mux.HandleFunc("DELETE /api/projectsv2/{project_id}/agents/{nanobot_agent_id}", nanobotAgents.Delete)
+		mux.HandleFunc("POST /api/projectsv2/{project_id}/agents/{nanobot_agent_id}/launch", nanobotAgents.Launch)
 	}
 
 	// Catch all 404 for API

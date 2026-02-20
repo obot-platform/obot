@@ -78,7 +78,7 @@ func TestReplaceHostWithServiceFQDN(t *testing.T) {
 			k := &kubernetesBackend{
 				serviceFQDN: tt.serviceFQDN,
 			}
-			result := k.replaceHostWithServiceFQDN(tt.inputURL)
+			result := k.transformObotHostname(tt.inputURL)
 			if result != tt.expectedURL {
 				t.Errorf("replaceHostWithServiceFQDN() = %v, want %v", result, tt.expectedURL)
 			}

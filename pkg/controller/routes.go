@@ -21,6 +21,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpsession"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelaccesspolicy"
+	"github.com/obot-platform/obot/pkg/controller/handlers/nanobotagent"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthclients"
 	"github.com/obot-platform/obot/pkg/controller/handlers/poweruserworkspace"
@@ -82,7 +83,8 @@ func (c *Controller) setupRoutes() {
 	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
 	oauthclients := oauthclients.NewHandler(c.services.GPTClient)
 	projectMCPServerHandler := projectmcpserver.NewHandler()
-	systemMCPServerHandler := systemmcpserver.New(c.services.GPTClient, c.services.MCPLoader)
+	systemMCPServerHandler := systemmcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
+	nanobotAgentHandler := nanobotagent.New(c.services.GPTClient, c.services.PersistentTokenServer, c.services.GatewayClient, c.services.MCPRemoteShimBaseImage, c.services.ServerURL, c.services.MCPLoader)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -313,6 +315,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ProjectMCPServer{}).HandlerFunc(cleanup.Cleanup)
 
 	// System MCP Servers
+	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureSecretInfo)
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureDeployment)
 	root.Type(&v1.SystemMCPServer{}).FinalizeFunc(v1.SystemMCPServerFinalizer, systemMCPServerHandler.CleanupDeployment)
 
@@ -321,6 +324,15 @@ func (c *Controller) setupRoutes() {
 
 	// ScheduledAuditLogExport
 	root.Type(&v1.ScheduledAuditLogExport{}).HandlerFunc(scheduledAuditLogExportHandler.ScheduleExports)
+
+	// NanobotAgent
+	if c.services.NanobotIntegration {
+		root.Type(&v1.NanobotAgent{}).HandlerFunc(nanobotAgentHandler.CreateMCPServer)
+		root.Type(&v1.NanobotAgent{}).HandlerFunc(cleanup.Cleanup)
+		root.Type(&v1.NanobotAgent{}).FinalizeFunc(v1.NanobotAgentFinalizer, nanobotAgentHandler.Cleanup)
+	} else {
+		root.Type(&v1.NanobotAgent{}).HandlerFunc(nanobotAgentHandler.DeleteMCPServer)
+	}
 
 	c.toolRefHandler = toolRef
 	c.mcpCatalogHandler = mcpCatalog

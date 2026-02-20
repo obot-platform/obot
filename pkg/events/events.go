@@ -75,6 +75,7 @@ type callFramePrintState struct {
 type printState struct {
 	frames          map[string]callFramePrintState
 	toolCalls       map[string]string
+	confirmPrinted  map[string]bool
 	lastStepPrinted string
 }
 
@@ -82,13 +83,15 @@ func newPrintState(oldState *printState) *printState {
 	if oldState != nil && oldState.toolCalls != nil {
 		// carry over tool call state
 		return &printState{
-			frames:    map[string]callFramePrintState{},
-			toolCalls: oldState.toolCalls,
+			frames:         map[string]callFramePrintState{},
+			toolCalls:      oldState.toolCalls,
+			confirmPrinted: oldState.confirmPrinted,
 		}
 	}
 	return &printState{
-		frames:    map[string]callFramePrintState{},
-		toolCalls: map[string]string{},
+		frames:         map[string]callFramePrintState{},
+		toolCalls:      map[string]string{},
+		confirmPrinted: map[string]bool{},
 	}
 }
 
@@ -297,11 +300,62 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 		}
 	}()
 
+	tick, forceTick, stopTick := tickEvery(time.Second)
+	defer stopTick()
+
 	var (
-		tick   = immediately()
-		ticker *time.Ticker
+		requestedDecisions   = run.Status.RequestedCallDecisions
+		requestedDecisionsMu sync.RWMutex
+
+		// withConfirmPrinted mutates the given printState by adding the run's latest requested call decisions to the state's confirmPrinted field.
+		// This gives us thread safety
+		withConfirmPrinted = func(s *printState) *printState {
+			requestedDecisionsMu.RLock()
+			defer requestedDecisionsMu.RUnlock()
+
+			for _, callID := range requestedDecisions {
+				if _, ok := s.confirmPrinted[callID]; ok {
+					continue
+				}
+
+				state.confirmPrinted[callID] = false
+			}
+
+			return s
+		}
 	)
 
+	// Watch the run for changes to RequestedCallDecisions to keep confirmPrinted up-to-date.
+	w, err := e.client.Watch(ctx,
+		&v1.RunList{},
+		kclient.InNamespace(run.Namespace),
+		kclient.MatchingFields{"metadata.name": run.Name},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to watch run")
+	}
+	defer w.Stop()
+
+	go func() {
+		for event := range w.ResultChan() {
+			run, ok := event.Object.(*v1.Run)
+			if !ok || slices.Equal(run.Status.RequestedCallDecisions, requestedDecisions) {
+				continue
+			}
+
+			// Update the set of requested decisions
+			requestedDecisionsMu.Lock()
+			requestedDecisions = run.Status.RequestedCallDecisions
+			requestedDecisionsMu.Unlock()
+
+			// Force a tick to sync events from database immediately
+			// This will cause new confirm progress events to be emitted.
+			forceTick()
+		}
+	}()
+
+	// Force an initial tick to sync events from the database immediately
+	forceTick()
 	for {
 		select {
 		case <-ctx.Done():
@@ -345,17 +399,12 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 					progress.ParentRunID = run.Spec.PreviousRunName
 					result <- progress
 				} else {
-					if err := e.callToEvents(run, toPrint.Prg, *toPrint.Frames, state, result); err != nil {
+					if err := e.callToEvents(run, toPrint.Prg, *toPrint.Frames, withConfirmPrinted(state), result); err != nil {
 						return err
 					}
 				}
 			}
 		case <-tick:
-			if ticker == nil {
-				// now wait every second for new events
-				ticker = time.NewTicker(time.Second)
-				tick = ticker.C
-			}
 			runState, err := e.gatewayClient.RunState(ctx, run.Namespace, run.Name)
 			// There was a previous bug that made it possible to have run states leftover from previous runs.
 			// If this run happens to coincide with an old run state, then wait for the run state to be updated.
@@ -396,7 +445,7 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 				return nil
 			}
 
-			if err := e.callToEvents(run, &prg, callFrames, state, result); err != nil {
+			if err := e.callToEvents(run, &prg, callFrames, withConfirmPrinted(state), result); err != nil {
 				return err
 			}
 
@@ -415,10 +464,51 @@ func (e *Emitter) printRun(ctx context.Context, state *printState, run v1.Run, r
 	}
 }
 
-func immediately() <-chan time.Time {
-	ch := make(chan time.Time)
-	close(ch)
-	return ch
+// tickEvery returns a channel that signals every d duration.
+// The force function triggers an immediate signal without waiting for the next tick.
+func tickEvery(d time.Duration) (tick <-chan struct{}, force, stop func()) {
+	var (
+		tickCh  = make(chan struct{}, 1)
+		forceCh = make(chan struct{}, 1)
+		doneCh  = make(chan struct{})
+		ticker  = time.NewTicker(d)
+	)
+
+	notify := func(c chan<- struct{}) {
+		select {
+		case c <- struct{}{}:
+		default:
+		}
+	}
+
+	go func() {
+		defer func() {
+			ticker.Stop()
+			close(tickCh)
+		}()
+
+		for {
+			select {
+			case <-doneCh:
+				return
+			case <-ticker.C:
+				notify(tickCh)
+			case <-forceCh:
+				notify(tickCh)
+			}
+		}
+	}()
+
+	force = func() {
+		notify(forceCh)
+	}
+
+	var once sync.Once
+	stop = func() {
+		once.Do(func() { close(doneCh) })
+	}
+
+	return tickCh, force, stop
 }
 
 func (e *Emitter) printParent(ctx context.Context, remaining int, state *printState, run v1.Run, result chan types.Progress) error {
@@ -759,6 +849,23 @@ func (e *Emitter) printCall(run v1.Run, prg *gptscript.Program, call *gptscript.
 					}
 					lastPrint.toolCalls[callID] = output
 				}
+			}
+
+			// Emit a tool confirm progress event when the tool call is in lastPrint.confirmPrinted and its mapped value is false.
+			// This indicates that the invoker has observed GPTScript's confirm event for the tool call and has determined that we should prompt the user for confirmation.
+			if confirmPrinted, confirmRequested := lastPrint.confirmPrinted[callID]; confirmRequested && !confirmPrinted && frames[callID].Type == gptscript.EventTypeCallConfirm {
+				toolConfirm := &types.ToolConfirm{
+					ID:          callID,
+					ToolName:    frames[callID].Tool.Name,
+					Description: frames[callID].Tool.Description,
+					Input:       frames[callID].Input,
+				}
+				out <- types.Progress{
+					RunID:       run.Name,
+					Time:        types.NewTime(call.Start),
+					ToolConfirm: toolConfirm,
+				}
+				lastPrint.confirmPrinted[callID] = true
 			}
 		}
 

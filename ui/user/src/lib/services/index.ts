@@ -5,6 +5,7 @@ export { default as AdminService } from './admin';
 export { default as ApiKeysService } from './api-keys';
 export { default as ChatService } from './chat';
 export { default as EditorService } from './editor/index.svelte';
+export { default as NanobotService } from './nanobot';
 export type { Fetcher } from './http';
 
 export async function updateMemory(

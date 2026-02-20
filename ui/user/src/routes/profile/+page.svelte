@@ -73,9 +73,9 @@
 	<Navbar />
 
 	<main
-		class="colors-background relative flex w-full max-w-(--breakpoint-2xl) flex-col justify-center md:pb-12"
+		class="colors-background relative flex h-dvh w-full max-w-(--breakpoint-2xl) flex-col items-center md:pb-12"
 	>
-		<div class="mt-8 flex w-full flex-col gap-8">
+		<div class="mt-4 flex w-full flex-col gap-8">
 			<div class="flex w-full flex-col gap-4">
 				<div class="bg-background sticky top-0 z-30 flex items-center gap-4 px-4 py-4 md:px-12">
 					<h3 class="flex flex-shrink-0 text-2xl font-semibold">My Account</h3>
