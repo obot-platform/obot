@@ -2,6 +2,7 @@ package logger
 
 import (
 	"io"
+	"maps"
 	"runtime"
 	"strings"
 
@@ -59,13 +60,9 @@ type Logger struct {
 }
 
 func (l *Logger) FieldsMap(kv map[string]any) *Logger {
-	newFields := map[string]any{}
-	for k, v := range l.fields {
-		newFields[k] = v
-	}
-	for k, v := range kv {
-		newFields[k] = v
-	}
+	newFields := make(map[string]any, len(l.fields)+len(kv))
+	maps.Copy(newFields, l.fields)
+	maps.Copy(newFields, kv)
 	return &Logger{
 		log:    l.log,
 		fields: newFields,
@@ -73,10 +70,8 @@ func (l *Logger) FieldsMap(kv map[string]any) *Logger {
 }
 
 func (l *Logger) Fields(kv ...any) *Logger {
-	newFields := map[string]any{}
-	for k, v := range l.fields {
-		newFields[k] = v
-	}
+	newFields := make(map[string]any, len(l.fields)+len(kv)/2)
+	maps.Copy(newFields, l.fields)
 	for i, v := range kv {
 		if i%2 == 1 {
 			newFields[kv[i-1].(string)] = v
