@@ -217,6 +217,9 @@
 	}
 
 	function goToStep(step: number) {
+		if (!(showCustomInput.get(currentStep) ?? false)) {
+			customAnswers.delete(currentStep);
+		}
 		currentStep = step;
 		reviewMode = false;
 	}
