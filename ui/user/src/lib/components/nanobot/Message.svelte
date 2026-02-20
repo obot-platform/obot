@@ -97,9 +97,9 @@
 
 {#if message.items?.[0]?._meta?.['ai.nanobot.meta/compaction-summary']}
 	<div class="flex items-center gap-2 py-2 opacity-50">
-		<div class="h-px flex-1 bg-base-300"></div>
-		<span class="text-xs text-base-content/50">Earlier messages summarized</span>
-		<div class="h-px flex-1 bg-base-300"></div>
+		<div class="bg-base-300 h-px flex-1"></div>
+		<span class="text-base-content/50 text-xs">Earlier messages summarized</span>
+		<div class="bg-base-300 h-px flex-1"></div>
 	</div>
 {:else if promptDisplayItem}
 	<MessageItemText item={promptDisplayItem} role="user" />
