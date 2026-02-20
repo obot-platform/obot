@@ -613,7 +613,8 @@
 		</div>
 	</div>
 
-	<div class="mt-4">
+	<!-- Force section render -->
+	<div>
 		<AuditLogsTable
 			data={remoteAuditLogs}
 			onSelectRow={async (d: AuditLog & { user: string }) => {
