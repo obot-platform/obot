@@ -1,0 +1,20 @@
+{
+    "prompts": [
+    "Is BigQuery Toolbox connected?",
+    "Retrieve all columns from the table company_data.Employees where Salary is greater than 60000.",
+    "List the first 10 employees' first and last names from company_data.Employees.",
+    "Count the total number of employees in company_data.Employees.",
+    "Find the average salary of all employees in company_data.Employees.",
+    "Find all employees from company_data.Employees who were hired after January 1, 2023.",
+    "Get the total salary amount paid to all employees in company_data.Employees.",
+    "List employees from company_data.Employees with their email addresses ordered by HireDate descending.",
+    "Use service account credentials to query the company_data.Employees table.",
+    "Run SELECT * FROM company_data.Employees LIMIT 5.",
+    "Find the employee with the highest salary in company_data.Employees.",
+    "Find the employee with the lowest salary in company_data.Employees.",
+    "Find the number of employees hired per year from company_data.Employees."
+  ],
+    "tools": [
+        "query"
+    ]
+}
