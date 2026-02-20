@@ -15,6 +15,8 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_DSN` | Obot uses a database backend. By default, it will use a sqlite3 local database when running the plan Obot binary. The Obot container will use an internal PostgreSQL database (not recommended for production). This environment variable allows you to specify another database option. For example, you can use a postgres database with something like `OBOT_SERVER_DSN=postgres://user:password@host/database`. | - |
 | `OBOT_SERVER_HOSTNAME` | Tell Obot what its server URL is so that things like OAuth, LLM proxying, and invoke URLs are handled correctly. | - |
 | `OBOT_SERVER_RETENTION_POLICY_HOURS` | The retention policy for the system. Set to 0 to disable retention. This field should just be a number in a string, no `h` suffix. | `2160` (90 days) |
+| `OBOT_SERVER_DAILY_USER_PROMPT_TOKEN_LIMIT` | The maximum number of prompt/input tokens allowed per user per day. Set to a value less than or equal to 0 to disable this limit. | `10000000` |
+| `OBOT_SERVER_DAILY_USER_COMPLETION_TOKEN_LIMIT` | The maximum number of completion/output tokens allowed per user per day. Set to a value less than or equal to 0 to disable this limit. | `100000` |
 | `NAH_THREADINESS` | Sets the number of concurrent threads that can run in the Obot controller. | `10` |
 | `OBOT_SERVER_KNOWLEDGE_FILE_WORKERS` | Sets the number of workers used by knowledge for processing files. | `5` |
 | `KINM_DB_CONNECTIONS` | The number of connections in the database pool for kinm | `5` |
