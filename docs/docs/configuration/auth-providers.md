@@ -236,7 +236,7 @@ Ensure the following environment variable is set in your Obot installation:
 ### Step 6: Final Verification
 1. Log in to obot server.
 2. Click **Continue with Microsoft Entra**.
-3. Log in using the Entra user account that was used in step 4.
+3. Log in using the Entra user account that was created in Step 4.
 4. You should now be logged in successfully as an **Owner**.
 
 :::note
