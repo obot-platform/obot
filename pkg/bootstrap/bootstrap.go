@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/hash"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -158,8 +159,9 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 	gatewayUser, err := b.gatewayClient.EnsureIdentityWithRole(
 		req.Context(),
 		&types.Identity{
-			ProviderUsername: "bootstrap",
-			ProviderUserID:   "bootstrap",
+			ProviderUsername:     "bootstrap",
+			ProviderUserID:       "bootstrap",
+			HashedProviderUserID: hash.String("bootstrap"),
 		},
 		req.Header.Get("X-Obot-User-Timezone"),
 		types2.RoleOwner,
