@@ -11,8 +11,10 @@ import (
 	"path"
 	"regexp"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	cerrdefs "github.com/containerd/errdefs"
@@ -30,6 +32,7 @@ import (
 )
 
 var localhostURLRegexp = regexp.MustCompile(`^http://localhost(:\d+)?`)
+var containerFileNameSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 
 type dockerBackend struct {
 	client                        *client.Client
@@ -42,6 +45,8 @@ type dockerBackend struct {
 	remoteShimBaseImage           string
 	auditLogsBatchSize            int
 	auditLogsFlushIntervalSeconds int
+	fileSyncMu                    sync.RWMutex
+	syncedFilesHash               map[string]string
 }
 
 func newDockerBackend(ctx context.Context, exposedPort int, opts Options) (backend, error) {
@@ -78,6 +83,7 @@ func newDockerBackend(ctx context.Context, exposedPort int, opts Options) (backe
 		remoteShimBaseImage:           opts.MCPRemoteShimBaseImage,
 		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
 		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
+		syncedFilesHash:               map[string]string{},
 	}
 	if err = d.cleanupContainersWithOldID(ctx); err != nil {
 		return nil, fmt.Errorf("failed to cleanup containers with old ID: %w", err)
@@ -165,7 +171,7 @@ func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig, _
 		return nil
 	}
 
-	_, _, err = d.createAndStartContainer(ctx, server, "", configHash, nil)
+	_, _, err = d.createAndStartContainer(ctx, server, "", configHash, fileEnvKeysHash(server.Files), nil)
 	return err
 }
 
@@ -248,6 +254,7 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 	}
 
 	configHash := clientID(server)
+	desiredFileEnvKeysHash := fileEnvKeysHash(server.Files)
 	if len(webhooks) > 0 {
 		// Include webhooks in the config hash so that changes to webhooks trigger a redeployment
 		configHash += hash.Digest(webhooks)
@@ -256,7 +263,13 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 	// Check if container already exists
 	existing, err := d.getContainer(ctx, server.MCPServerName)
 	if err == nil && existing != nil {
+		currentFileEnvKeysHash, hasFileEnvHash := existing.Labels["mcp.file.env.keys.hash"]
+		if !hasFileEnvHash {
+			currentFileEnvKeysHash = ""
+		}
+
 		if existing.Labels["mcp.config.hash"] != configHash ||
+			currentFileEnvKeysHash != desiredFileEnvKeysHash ||
 			existing.NetworkSettings == nil ||
 			existing.NetworkSettings.Networks[d.network] == nil ||
 			(server.Runtime == otypes.RuntimeRemote || server.Runtime == otypes.RuntimeComposite) && existing.Image != d.remoteShimBaseImage {
@@ -284,6 +297,10 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 			// The container is ready now, so fallthrough to the next case.
 			fallthrough
 		case container.StateRunning:
+			if err := d.syncContainerFiles(ctx, server, existing); err != nil {
+				return ServerConfig{}, fmt.Errorf("failed syncing container files: %w", err)
+			}
+
 			containerPort := server.ContainerPort
 			if containerPort == 0 {
 				containerPort = defaultContainerPort
@@ -314,7 +331,7 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 	}
 
 	// Create new container
-	return d.createAndStartAndWaitForContainer(ctx, server, mcpServerName, configHash, containerEnv, webhooks)
+	return d.createAndStartAndWaitForContainer(ctx, server, mcpServerName, configHash, desiredFileEnvKeysHash, containerEnv, webhooks)
 }
 
 func (d *dockerBackend) transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error) {
@@ -621,8 +638,8 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 	}, nil
 }
 
-func (d *dockerBackend) createAndStartAndWaitForContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash string, containerEnv bool, webhooks []Webhook) (retConfig ServerConfig, retErr error) {
-	containerID, containerPort, err := d.createAndStartContainer(ctx, server, mcpServerName, configHash, webhooks)
+func (d *dockerBackend) createAndStartAndWaitForContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash, fileEnvKeysHash string, containerEnv bool, webhooks []Webhook) (retConfig ServerConfig, retErr error) {
+	containerID, containerPort, err := d.createAndStartContainer(ctx, server, mcpServerName, configHash, fileEnvKeysHash, webhooks)
 	if err != nil {
 		return ServerConfig{}, err
 	}
@@ -644,7 +661,7 @@ func (d *dockerBackend) createAndStartAndWaitForContainer(ctx context.Context, s
 	return d.buildServerConfig(server, c, containerPort, containerEnv)
 }
 
-func (d *dockerBackend) createAndStartContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash string, webhooks []Webhook) (string, int, error) {
+func (d *dockerBackend) createAndStartContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash, fileEnvKeysHash string, webhooks []Webhook) (string, int, error) {
 	var (
 		volumeMounts  []mount.Mount
 		entrypoint    []string
@@ -806,6 +823,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			"mcp.server.id":          server.MCPServerName,
 			"mcp.user.id":            server.UserID,
 			"mcp.config.hash":        configHash,
+			"mcp.file.env.keys.hash": fileEnvKeysHash,
 		},
 	}
 	if server.NanobotAgentName != "" {
@@ -950,6 +968,31 @@ func (d *dockerBackend) prepareContainerFiles(ctx context.Context, server Server
 	return volumeName, envVars, nil
 }
 
+func (d *dockerBackend) syncContainerFiles(ctx context.Context, server ServerConfig, c *container.Summary) error {
+	if c == nil {
+		return nil
+	}
+
+	desiredFilesHash := hash.Digest(server.Files)
+
+	d.fileSyncMu.RLock()
+	if d.syncedFilesHash[c.ID] == desiredFilesHash {
+		d.fileSyncMu.RUnlock()
+		return nil
+	}
+	d.fileSyncMu.RUnlock()
+
+	if _, _, err := d.createVolumeWithFiles(ctx, server.Files, server.MCPServerName, c.Labels["mcp.deployment.id"]); err != nil {
+		return fmt.Errorf("failed to sync file volume: %w", err)
+	}
+
+	d.fileSyncMu.Lock()
+	d.syncedFilesHash[c.ID] = desiredFilesHash
+	d.fileSyncMu.Unlock()
+
+	return nil
+}
+
 func (d *dockerBackend) ensureWorkspaceVolume(ctx context.Context, server ServerConfig, mcpServerName string) (string, error) {
 	volumeName := server.MCPServerName + "-workspace"
 	labels := map[string]string{
@@ -994,6 +1037,7 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	}
 
 	volumeName := containerName + "-files"
+	fileContents, envVars := containerFiles(files, containerName)
 
 	// Create anonymous volume
 	_, err := d.client.VolumeCreate(ctx, volume.CreateOptions{
@@ -1008,32 +1052,83 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 		return "", nil, fmt.Errorf("failed to create volume: %w", err)
 	}
 
-	// Create init container to populate the volume
-	initImage := "alpine:latest"
-	if err := d.pullImage(ctx, initImage, true); err != nil {
-		return "", nil, fmt.Errorf("failed to ensure init image exists: %w", err)
+	if err := d.populateFilesVolume(ctx, volumeName, containerName, fileContents); err != nil {
+		return "", nil, fmt.Errorf("failed to populate files volume: %w", err)
 	}
 
-	// Build script to create files in the volume
-	var script strings.Builder
-	script.WriteString("#!/bin/sh\nset -e\n")
+	return volumeName, envVars, nil
+}
 
+func containerFiles(files []File, containerName string) (map[string]string, map[string]string) {
+	fileContents := make(map[string]string, len(files))
 	envVars := make(map[string]string, len(files))
-	for _, file := range files {
-		// Generate unique filename for container
-		filename := fmt.Sprintf("%s-%s", containerName, hash.Digest(file)[:24])
-		containerPath := path.Join("/files", filename)
+	usedFileNames := map[string]int{}
 
-		// Add to script
-		script.WriteString(fmt.Sprintf("cat > '%s' << 'EOF'\n%s\nEOF\n", containerPath, file.Data))
+	for i, file := range files {
+		baseName := file.EnvKey
+		if baseName == "" {
+			baseName = fmt.Sprintf("file-%d", i)
+		}
 
-		// Set environment variable if specified
+		baseName = containerFileNameSanitizer.ReplaceAllString(baseName, "-")
+		baseName = strings.Trim(baseName, "-.")
+		if baseName == "" {
+			baseName = fmt.Sprintf("file-%d", i)
+		}
+
+		filename := fmt.Sprintf("%s-%s", containerName, baseName)
+		if n := usedFileNames[filename]; n > 0 {
+			filename = fmt.Sprintf("%s-%d", filename, n+1)
+		}
+		usedFileNames[filename]++
+
+		fileContents[filename] = file.Data
 		if file.EnvKey != "" {
-			envVars[file.EnvKey] = containerPath
+			envVars[file.EnvKey] = path.Join("/files", filename)
 		}
 	}
 
-	// Create and run init container
+	return fileContents, envVars
+}
+
+func fileEnvKeysHash(files []File) string {
+	keys := make([]string, 0, len(files))
+	seen := make(map[string]struct{}, len(files))
+	for _, file := range files {
+		if file.EnvKey == "" {
+			continue
+		}
+		if _, ok := seen[file.EnvKey]; ok {
+			continue
+		}
+		seen[file.EnvKey] = struct{}{}
+		keys = append(keys, file.EnvKey)
+	}
+	sort.Strings(keys)
+	return hash.Digest(keys)
+}
+
+func (d *dockerBackend) populateFilesVolume(ctx context.Context, volumeName, containerName string, fileContents map[string]string) error {
+	initImage := "alpine:latest"
+	if err := d.pullImage(ctx, initImage, true); err != nil {
+		return fmt.Errorf("failed to ensure init image exists: %w", err)
+	}
+
+	var script strings.Builder
+	script.WriteString("#!/bin/sh\nset -e\n")
+	script.WriteString("rm -f /files/*\n")
+
+	fileNames := make([]string, 0, len(fileContents))
+	for filename := range fileContents {
+		fileNames = append(fileNames, filename)
+	}
+	sort.Strings(fileNames)
+
+	for _, filename := range fileNames {
+		containerPath := path.Join("/files", filename)
+		script.WriteString(fmt.Sprintf("cat > '%s' << 'EOF'\n%s\nEOF\n", containerPath, fileContents[filename]))
+	}
+
 	initConfig := &container.Config{
 		Image:      initImage,
 		Entrypoint: []string{"sh", "-c"},
@@ -1042,41 +1137,36 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	}
 
 	initHostConfig := &container.HostConfig{
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeVolume,
-				Source: volumeName,
-				Target: "/files",
-			},
-		},
+		Mounts: []mount.Mount{{
+			Type:   mount.TypeVolume,
+			Source: volumeName,
+			Target: "/files",
+		}},
 		AutoRemove: true,
 	}
 
 	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, &network.NetworkingConfig{}, nil, fmt.Sprintf("%s-init-%s", containerName, strings.ToLower(rand.Text())))
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to create init container: %w", err)
+		return fmt.Errorf("failed to create init container: %w", err)
 	}
 
-	// Start and wait for init container to complete
 	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return "", nil, fmt.Errorf("failed to start init container: %w", err)
+		return fmt.Errorf("failed to start init container: %w", err)
 	}
 
-	// Wait for init container to complete
 	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
-		// It's OK if the container is already gone.
 		if err != nil && !cerrdefs.IsNotFound(err) {
-			return "", nil, fmt.Errorf("error waiting for init container: %w", err)
+			return fmt.Errorf("error waiting for init container: %w", err)
 		}
 	case status := <-statusCh:
 		if status.StatusCode != 0 {
-			return "", nil, fmt.Errorf("init container failed with exit code %d", status.StatusCode)
+			return fmt.Errorf("init container failed with exit code %d", status.StatusCode)
 		}
 	}
 
-	return volumeName, envVars, nil
+	return nil
 }
 
 func (d *dockerBackend) pullImage(ctx context.Context, imageName string, ifNotExists bool) error {

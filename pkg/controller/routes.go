@@ -84,7 +84,7 @@ func (c *Controller) setupRoutes() {
 	oauthclients := oauthclients.NewHandler(c.services.GPTClient)
 	projectMCPServerHandler := projectmcpserver.NewHandler()
 	systemMCPServerHandler := systemmcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
-	nanobotAgentHandler := nanobotagent.New(c.services.GPTClient, c.services.PersistentTokenServer, c.services.GatewayClient, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPLoader)
+	nanobotAgentHandler := nanobotagent.New(c.services.GPTClient, c.services.PersistentTokenServer, c.services.GatewayClient, c.localK8sRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPLoader)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -327,7 +327,7 @@ func (c *Controller) setupRoutes() {
 
 	// NanobotAgent
 	if c.services.NanobotIntegration {
-		root.Type(&v1.NanobotAgent{}).HandlerFunc(nanobotAgentHandler.CreateMCPServer)
+		root.Type(&v1.NanobotAgent{}).HandlerFunc(nanobotAgentHandler.EnsureMCPServer)
 		root.Type(&v1.NanobotAgent{}).HandlerFunc(cleanup.Cleanup)
 		root.Type(&v1.NanobotAgent{}).FinalizeFunc(v1.NanobotAgentFinalizer, nanobotAgentHandler.Cleanup)
 	} else {

@@ -354,10 +354,20 @@ func clientID(server ServerConfig) string {
 	// The user ID and scope is not part of the client ID.
 	server.UserID = ""
 
-	if server.NanobotAgentName != "" {
-		// HACK: redeploy nanobot agent servers so they get a volume
-		server.NanobotAgentName += "with-volume"
+	// File values are dynamic and can be updated in place.
+	// Keep file env keys, but clear file contents before hashing.
+	files := make([]File, 0, len(server.Files))
+	for _, f := range server.Files {
+		if f.Dynamic {
+			files = append(files, File{
+				EnvKey: f.EnvKey,
+			})
+		} else {
+			files = append(files, f)
+		}
 	}
+	server.Files = files
+
 	return "mcp" + hash.Digest(server)
 }
 

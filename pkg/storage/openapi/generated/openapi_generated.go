@@ -4237,6 +4237,13 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 							Format:  "",
 						},
 					},
+					"dynamicFile": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DynamicFile indicates that this file will be dynamically read by the process and that the server does not need to be restarted for changes to this file to be picked up. Ignored if File is false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name", "description", "key", "value", "sensitive", "required", "file"},
 			},
