@@ -1252,7 +1252,11 @@ func serverFromMCPServerInstance(req api.Context, instance v1.MCPServerInstance)
 	}
 
 	if len(missingConfig) > 0 {
-		return server, mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
+		msg := "missing required config: " + strings.Join(missingConfig, ", ")
+		if server.Spec.NanobotAgentID != "" {
+			msg += ". For nanobot agents this usually means the agent credential was not created yet (e.g. controller or gateway not ready). Check controller logs; try updating the agent in the UI to retry credential creation."
+		}
+		return server, mcp.ServerConfig{}, types.NewErrBadRequest("%s", msg)
 	}
 
 	return server, serverConfig, nil
@@ -1395,7 +1399,11 @@ func serverConfigForAction(req api.Context, server v1.MCPServer) (mcp.ServerConf
 	}
 
 	if len(missingConfig) > 0 {
-		return mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
+		msg := "missing required config: " + strings.Join(missingConfig, ", ")
+		if server.Spec.NanobotAgentID != "" {
+			msg += ". For nanobot agents this usually means the agent credential was not created yet (e.g. controller or gateway not ready). Check controller logs; try updating the agent in the UI to retry credential creation."
+		}
+		return mcp.ServerConfig{}, types.NewErrBadRequest("%s", msg)
 	}
 
 	return serverConfig, nil
