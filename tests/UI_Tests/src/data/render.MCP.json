@@ -1,0 +1,18 @@
+{
+  "prompts": [
+    "Get the status and details of the web service with ID 'srv-d54l7lmmcj7s73etk74g'.",
+    "List the last 3 deploys for the service with ID 'srv-d54l7lmmcj7s73etk74g'.",
+    "Show me the last 10 logs for the service with ID 'srv-d54l7lmmcj7s73etk74g'.",
+    "Show me the CPU and memory usage for the service with ID 'srv-d54l7lmmcj7s73etk74g' over the past hour.",
+    "Update the environment variable 'DEBUG' to 'true' for the service with ID 'srv-d54l7lmmcj7s73etk74g'.",
+    "List all environment variables for the service with ID 'srv-d54l7lmmcj7s73etk74g'.",
+    "Get the public URL for the web service with ID 'srv-d54l7lmmcj7s73etk74g'."
+  ],
+  "tools": [
+    "get_service",
+    "list_deploys",
+    "list_logs",
+    "get_metrics",
+    "update_environment_variables"
+  ]
+}
