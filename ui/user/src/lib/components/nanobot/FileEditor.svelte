@@ -6,6 +6,7 @@
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 	import { getLayout } from '$lib/context/nanobotLayout.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import RawEditor from '$lib/components/editor/RawEditor.svelte';
 
 	interface Props {
 		filename: string;
@@ -214,6 +215,7 @@
 	// Derive the content to display
 	let content = $derived(resource?.text ?? '');
 	let mimeType = $derived(resource?.mimeType ?? 'text/plain');
+	let isMarkdown = $derived(mimeType.startsWith('text/markdown'));
 
 	const visible = $derived(mounted && open);
 	let justOpened = $state(false);
@@ -297,7 +299,7 @@
 			{/if}
 		</div>
 
-		<div class="flex-1 overflow-auto p-4 pt-0">
+		<div class={twMerge('flex-1 overflow-auto', isMarkdown ? 'p-4 pt-0' : '')}>
 			{#if loading}
 				<div class="flex h-full items-center justify-center">
 					<span class="loading loading-spinner loading-md"></span>
@@ -317,8 +319,17 @@
 				{:else}
 					<div class="text-base-content/60">Binary content ({mimeType})</div>
 				{/if}
-			{:else if content}
+			{:else if isMarkdown}
 				<MarkdownEditor value={content} />
+			{:else if content}
+				<RawEditor
+					value={content}
+					disablePreview
+					class="h-full grow rounded-none border-0 bg-inherit shadow-none"
+					classes={{
+						input: 'bg-base-200 h-full max-h-full p-4 pb-8 grid'
+					}}
+				/>
 			{:else}
 				<div class="text-base-content/60 italic">The contents of this file are empty.</div>
 			{/if}
