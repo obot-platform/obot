@@ -72,7 +72,7 @@
 	class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 md:px-8"
 	bind:this={workflowsContainer}
 >
-	<label class="input w-full">
+	<label class="input mt-1 w-full">
 		<Search class="size-6" />
 		<input type="search" required placeholder="Search workflows..." bind:value={workflowQuery} />
 	</label>
