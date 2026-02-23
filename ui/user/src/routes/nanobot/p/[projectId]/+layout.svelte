@@ -95,15 +95,13 @@
 		projectLayoutContext.chat = chat;
 		projectLayoutContext.threadWriteToolItems = threadWriteToolItems;
 		if (parentWorkflowId || workflowId) {
-			untrack(() => {
-				const workflow = get(nanobotChat)?.resources?.find((r) =>
-					parentWorkflowId
-						? r.uri === `workflow:///${parentWorkflowId}`
-						: r.uri === `workflow:///${workflowId}`
-				);
-				const name = (workflow?._meta?.name as string) ?? workflow?.name ?? '';
-				projectLayoutContext.setLayoutName(name);
-			});
+			const workflow = get(nanobotChat)?.resources?.find((r) =>
+				parentWorkflowId
+					? r.uri === `workflow:///${parentWorkflowId}`
+					: r.uri === `workflow:///${workflowId}`
+			);
+			const name = (workflow?._meta?.name as string) ?? workflow?.name ?? '';
+			projectLayoutContext.setLayoutName(name);
 			projectLayoutContext.setShowBackButton(true);
 		} else {
 			projectLayoutContext.setLayoutName('');

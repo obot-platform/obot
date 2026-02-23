@@ -285,7 +285,7 @@
 						{:else}
 							<button
 								class={twMerge(
-									'btn btn-ghost flex w-full min-w-0 items-center justify-start gap-2 rounded-none py-6 text-left'
+									'btn btn-ghost flex w-full min-w-0 items-center justify-start gap-2 rounded-none py-6 text-left font-normal'
 								)}
 								style="padding-left: {depth * 1.6}rem;"
 								onclick={() => onFileOpen?.(node.uri)}
@@ -293,7 +293,6 @@
 							>
 								<span class="min-w-0 shrink-0" aria-hidden="true"></span>
 								<FileItem uri={node.uri} />
-								<span class="min-w-0 truncate font-normal">{node.name}</span>
 							</button>
 						{/if}
 					</li>
