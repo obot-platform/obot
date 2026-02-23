@@ -18,8 +18,11 @@
 	let { data, children } = $props();
 	let agent = $derived(data.agent);
 	let projectId = $derived(data.projectId);
-	let workflowName = $derived((page.data as { workflowName?: string } | undefined)?.workflowName);
-	let parentWorkflowId = $derived(page.url.searchParams.get('pwid') ?? undefined);
+	let parentWorkflowId = $derived(
+		(page.data as { workflowName?: string } | undefined)?.workflowName ??
+			page.url.searchParams.get('pwid') ??
+			undefined
+	);
 	let workflowId = $derived(page.url.searchParams.get('wid') ?? undefined);
 
 	const chatApi = $derived(new ChatAPI(agent.connectURL));
@@ -28,9 +31,7 @@
 	let threadId = $derived(page.url.searchParams.get('tid') ?? undefined);
 	let prevThreadId: string | null | undefined = undefined;
 	let initialQuickBarAccessOpen = $state(false);
-	let selectedFile = $state(
-		page.url.searchParams.get('wid') ? `workflow:///${page.url.searchParams.get('wid')}` : undefined
-	);
+	let selectedFile = $state('');
 	let threadContentWidth = $state(0);
 	let needsRefreshThreads = $state(true);
 	let layoutName = $state('');
@@ -40,6 +41,8 @@
 
 	const threadWriteToolItems = $derived.by((): ChatMessageItemToolCall[] => {
 		const items: ChatMessageItemToolCall[] = [];
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const existing = new Set<string>();
 		if (!threadId) return items;
 		if (chat?.messages?.length) {
 			for (const message of chat.messages) {
@@ -52,7 +55,8 @@
 					) {
 						try {
 							const args = JSON.parse(item.arguments);
-							if (args.file_path) {
+							if (args.file_path && !existing.has(args.file_path)) {
+								existing.add(args.file_path);
 								items.push(item as ChatMessageItemToolCall);
 							}
 						} catch {
@@ -91,11 +95,17 @@
 		projectLayoutContext.chat = chat;
 		projectLayoutContext.threadWriteToolItems = threadWriteToolItems;
 		if (parentWorkflowId || workflowId) {
-			projectLayoutContext.setLayoutName(`${parentWorkflowId || workflowId}`);
+			const workflow = get(nanobotChat)?.resources?.find((r) =>
+				parentWorkflowId
+					? r.uri === `workflow:///${parentWorkflowId}`
+					: r.uri === `workflow:///${workflowId}`
+			);
+			const name = (workflow?._meta?.name as string) ?? workflow?.name ?? '';
+			projectLayoutContext.setLayoutName(name);
 			projectLayoutContext.setShowBackButton(true);
 		} else {
-			projectLayoutContext.setLayoutName(workflowName ?? '');
-			projectLayoutContext.setShowBackButton(workflowName !== undefined);
+			projectLayoutContext.setLayoutName('');
+			projectLayoutContext.setShowBackButton(false);
 		}
 	});
 
@@ -272,6 +282,7 @@
 				open={layout.quickBarAccessOpen}
 				files={threadWriteToolItems}
 				{threadId}
+				{selectedFile}
 			/>
 		{/if}
 	{/snippet}

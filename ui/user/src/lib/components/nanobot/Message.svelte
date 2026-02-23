@@ -8,6 +8,7 @@
 	} from '$lib/services/nanobot/types';
 	import MessageItemText from './MessageItemText.svelte';
 	import { CANCELLATION_PHRASE_CLIENT, isCancellationError } from '$lib/services/nanobot/utils';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		message: ChatMessage;
@@ -17,6 +18,20 @@
 	}
 
 	let { message, timestamp, onSend, onFileOpen }: Props = $props();
+
+	let openToolGroups = new SvelteSet<string>();
+
+	function toolGroupOpenKey(groupIndex: number): string {
+		return `${message.id}-tool-group-${groupIndex}`;
+	}
+
+	function toggleToolGroupOpen(key: string): void {
+		if (openToolGroups.has(key)) {
+			openToolGroups.delete(key);
+		} else {
+			openToolGroups.add(key);
+		}
+	}
 
 	function isMessageItemTool(item: ChatMessageItem): boolean {
 		return item.type === 'tool' && item.name !== 'write';
@@ -46,10 +61,11 @@
 		}
 	);
 
-	function groupKey(group: { toolGroup: ChatMessageItem[] } | { single: ChatMessageItem }): string {
-		return 'toolGroup' in group
-			? `tool-${group.toolGroup.map((i) => i.id).join('-')}`
-			: `single-${group.single.id}`;
+	function groupKey(
+		group: { toolGroup: ChatMessageItem[] } | { single: ChatMessageItem },
+		index: number
+	): string {
+		return 'toolGroup' in group ? `tool-group-${index}` : `single-${group.single.id}`;
 	}
 
 	const displayTime = $derived(
@@ -133,15 +149,22 @@
 				<!-- Render all message items (consecutive tool items grouped in one collapse) -->
 				{#if message.items && message.items.length > 0}
 					<div class="w-full">
-						{#each itemGroups as group (groupKey(group))}
+						{#each itemGroups as group, groupIndex (groupKey(group, groupIndex))}
 							{#if 'toolGroup' in group}
 								{@const isThinking = group.toolGroup.some(
-									(item) => item.type === 'tool' && !item.output
+									(item) => item.type === 'tool' && item.hasMore
 								)}
+								{@const openKey = toolGroupOpenKey(groupIndex)}
 								<div
 									class="hover:collapse-arrow hover:border-base-300 collapse w-full border border-transparent"
+									class:collapse-open={openToolGroups.has(openKey)}
 								>
-									<input type="checkbox" aria-label="Toggle tool group details" />
+									<input
+										type="checkbox"
+										aria-label="Toggle tool group details"
+										checked={openToolGroups.has(openKey)}
+										onchange={() => toggleToolGroupOpen(openKey)}
+									/>
 									<div
 										class="collapse-title text-base-content/35 min-h-0 py-2 text-xs font-light italic"
 									>

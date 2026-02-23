@@ -86,7 +86,7 @@
 		}
 	});
 
-	function handleSetupWorkflowThread(message: string) {
+	function handleSetupWorkflowThread(message: string, showFile: boolean = false) {
 		loading = true;
 		const newChat = new ChatService({
 			api: chatApi,
@@ -104,14 +104,14 @@
 
 				loading = false;
 
-				goto(`/nanobot/p/${projectId}?tid=${thread.id}&wid=${workflowName}`);
+				goto(`/nanobot/p/${projectId}?tid=${thread.id}${showFile ? `&wid=${workflowName}` : ''}`);
 			}
 		});
 		newChat.sendMessage(message);
 	}
 
 	function handleModifyWorkflow() {
-		handleSetupWorkflowThread(`I'd like to modify the workflow: ${workflowName}`);
+		handleSetupWorkflowThread(`I'd like to modify the workflow: ${workflowName}`, true);
 	}
 
 	function handleRunWorkflow() {
@@ -145,7 +145,7 @@
 					<MarkdownEditor value={resource?.text ?? ''} readonly />
 				</div>
 				<div
-					class="from-base-100 dark:from-base-200 pointer-events-none absolute inset-x-0 bottom-0 z-[100] h-32 bg-gradient-to-t to-transparent"
+					class="from-base-100 dark:from-base-200 pointer-events-none absolute inset-x-0 bottom-0 z-10 h-32 bg-gradient-to-t to-transparent"
 					aria-hidden="true"
 				></div>
 			</div>

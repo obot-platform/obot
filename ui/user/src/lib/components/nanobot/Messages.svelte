@@ -47,7 +47,7 @@
 			const flushAssistant = () => {
 				if (assistantAccum.length === 0) return;
 				out.push({
-					id: `merged-assistant-${assistantAccumIds.join('-')}`,
+					id: `merged-assistant-${assistantAccumIds[0]}`,
 					created: assistantAccumCreated,
 					role: 'assistant',
 					items: [...assistantAccum]

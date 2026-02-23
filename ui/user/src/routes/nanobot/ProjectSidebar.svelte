@@ -109,7 +109,7 @@
 			</div>
 			{#if layout.sidebarOpen}
 				<div
-					class="flex min-h-0 min-w-0 flex-col gap-4 overflow-x-hidden overflow-y-auto"
+					class="flex min-h-0 min-w-0 grow flex-col gap-4 overflow-x-hidden overflow-y-auto"
 					in:fly={{ x: -100, duration: 150 }}
 				>
 					<a
@@ -168,9 +168,9 @@
 						</button>
 					</div>
 				</div>
+				<div class="flex grow"></div>
 			{/if}
 
-			<div class="flex grow"></div>
 			<div
 				class="bg-base-200 sticky bottom-0 flex flex-shrink-0 justify-end overflow-visible pr-4 pb-3"
 			>

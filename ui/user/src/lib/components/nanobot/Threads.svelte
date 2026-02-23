@@ -77,6 +77,67 @@
 			cancelRename();
 		}
 	}
+
+	const DROPDOWN_MENU_HEIGHT = 132;
+	const DROPDOWN_TOP_BUFFER = 16;
+	let listHost = $state<HTMLDivElement | null>(null);
+	let indicesNeedingDropdownTop = $state<Set<number>>(new Set());
+
+	function getScrollParent(el: HTMLElement | null): HTMLElement | null {
+		if (!el?.parentElement) return null;
+		const { overflowY } = getComputedStyle(el.parentElement);
+		if (/(auto|scroll|overlay)/.test(overflowY)) return el.parentElement;
+		return getScrollParent(el.parentElement);
+	}
+
+	function getVisibleBottom(scrollEl: HTMLElement): number {
+		const rect = scrollEl.getBoundingClientRect();
+		const style = getComputedStyle(scrollEl);
+		const paddingBottom = parseFloat(style.paddingBottom) || 0;
+		return rect.bottom - paddingBottom;
+	}
+
+	$effect(() => {
+		const host = listHost;
+		if (!host) return;
+		void threads.length;
+
+		const scrollEl = getScrollParent(host) ?? host;
+
+		const update = () => {
+			const visibleBottom = getVisibleBottom(scrollEl);
+			const rows = host.querySelectorAll<HTMLElement>('[data-thread-row]');
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
+			const next = new Set<number>();
+			rows.forEach((row) => {
+				const i = parseInt(row.dataset.threadRow ?? '-1', 10);
+				if (i < 0) return;
+				const rowRect = row.getBoundingClientRect();
+				// Apply dropdown-top if opening below would be clipped (with buffer)
+				if (rowRect.bottom + DROPDOWN_MENU_HEIGHT + DROPDOWN_TOP_BUFFER > visibleBottom) {
+					next.add(i);
+				}
+			});
+			if (
+				next.size !== indicesNeedingDropdownTop.size ||
+				[...next].some((n) => !indicesNeedingDropdownTop.has(n))
+			) {
+				indicesNeedingDropdownTop = next;
+			}
+		};
+
+		const scheduleUpdate = () => requestAnimationFrame(update);
+		requestAnimationFrame(() => requestAnimationFrame(update));
+
+		update();
+		scrollEl.addEventListener('scroll', scheduleUpdate);
+		const ro = new ResizeObserver(scheduleUpdate);
+		ro.observe(scrollEl);
+		return () => {
+			scrollEl.removeEventListener('scroll', scheduleUpdate);
+			ro.disconnect();
+		};
+	});
 </script>
 
 <div class="flex w-full grow flex-col">
@@ -93,7 +154,7 @@
 	</div>
 
 	<!-- Thread list (scroll container so header tooltips are not clipped by overflow) -->
-	<div class="flex min-h-0 grow flex-col">
+	<div class="flex min-h-0 grow flex-col" bind:this={listHost}>
 		{#if isLoading}
 			<!-- Skeleton UI when loading -->
 			{#each Array(5).fill(null) as _, index (index)}
@@ -111,8 +172,9 @@
 				</div>
 			{/each}
 		{:else}
-			{#each threads as thread (thread.id)}
+			{#each threads as thread, index (thread.id)}
 				<div
+					data-thread-row={index}
 					class="group border-base-200 dark:hover:bg-base-100/25 hover:bg-base-100/65 flex items-center border-b"
 					class:bg-base-100={selectedThreadId === thread.id}
 					in:fly={{ x: 100, duration: 150 }}
@@ -172,6 +234,7 @@
 						<!-- Dropdown menu - only show on hover -->
 						<div
 							class="dropdown dropdown-end mr-2 w-0 opacity-0 transition-[width,opacity] group-hover:w-8 group-hover:opacity-100"
+							class:dropdown-top={indicesNeedingDropdownTop.has(index)}
 						>
 							<div tabindex="0" role="button" class="btn btn-square btn-ghost btn-sm">
 								<MoreVertical class="h-4 w-4" />

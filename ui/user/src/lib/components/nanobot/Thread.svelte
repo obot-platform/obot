@@ -77,6 +77,8 @@
 	let messagesContentInner = $state<HTMLElement | undefined>(undefined);
 	let showScrollButton = $state(false);
 	let wasRestoring = false;
+	let didInitialScrollToBottom = $state(false);
+	let scrollToBottomWhenReady = $state(false);
 	let disabledAutoScroll = $state(false);
 	const hasMessages = $derived((messages && messages.length > 0) || isRestoring);
 	let pinInputToBottom = $derived(hasMessages || !!suppressEmptyState);
@@ -156,37 +158,42 @@
 		};
 	});
 
-	// have scroll at bottom after restoring existing session
+	// Scroll to bottom after restoring existing session
 	$effect(() => {
 		const restoring = isRestoring === true;
-		const justFinishedRestoring = wasRestoring && !restoring;
-
-		if (!justFinishedRestoring || !messagesContainer || !messages?.length) {
-			if (!justFinishedRestoring) wasRestoring = restoring;
-			return;
+		const hasMessages = !!messages?.length;
+		// reset
+		if (!hasMessages || restoring) {
+			didInitialScrollToBottom = false;
+			scrollToBottomWhenReady = false;
+			if (!hasMessages) wasRestoring = false;
 		}
-		wasRestoring = restoring;
+		const justFinishedRestoring = wasRestoring && !restoring;
+		const shouldScrollOnce =
+			hasMessages &&
+			!restoring &&
+			!didInitialScrollToBottom &&
+			(justFinishedRestoring || !wasRestoring);
 
-		let raf1: number;
-		let raf2: number | undefined;
-		raf1 = requestAnimationFrame(() => {
-			raf2 = requestAnimationFrame(() => {
-				if (messagesContainer) {
-					messagesContainer.scrollTo({
-						top: messagesContainer.scrollHeight,
-						behavior: 'auto'
-					});
-				}
-			});
-		});
-		return () => {
-			cancelAnimationFrame(raf1);
-			if (typeof raf2 === 'number') cancelAnimationFrame(raf2);
-		};
+		if (!justFinishedRestoring) wasRestoring = restoring;
+		if (!shouldScrollOnce) return;
+
+		didInitialScrollToBottom = true;
+		scrollToBottomWhenReady = true;
+
+		if (!messagesContainer) return;
+		const fallbackId = setTimeout(() => {
+			if (messagesContainer && scrollToBottomWhenReady) {
+				messagesContainer.scrollTo({
+					top: messagesContainer.scrollHeight,
+					behavior: 'auto'
+				});
+				scrollToBottomWhenReady = false;
+			}
+		}, 100);
+		return () => clearTimeout(fallbackId);
 	});
 
-	// When the inner content grows (e.g. streaming), keep view pinned to bottom. Observe the
-	// element that actually changes height; the scroll container itself does not resize.
 	$effect(() => {
 		const container = messagesContainer;
 		const inner = messagesContentInner ?? container;
@@ -195,6 +202,10 @@
 
 		const ro = new ResizeObserver(() => {
 			if (!container) return;
+			if (scrollToBottomWhenReady) {
+				container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
+				scrollToBottomWhenReady = false;
+			}
 			if (disabledAutoScroll) return;
 			if (isLoading || isNearBottom()) {
 				container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
