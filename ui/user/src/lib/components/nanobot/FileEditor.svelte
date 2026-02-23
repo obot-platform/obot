@@ -324,6 +324,7 @@
 			{:else if content}
 				<RawEditor
 					value={content}
+					filename={filename}
 					disablePreview
 					class="h-full grow rounded-none border-0 bg-inherit shadow-none"
 					classes={{
