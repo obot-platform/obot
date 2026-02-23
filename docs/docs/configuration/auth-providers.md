@@ -165,7 +165,7 @@ You can restrict login access to specific Okta users and groups by taking the fo
 4. Select `Assign` on groups you want to allow Obot access to
 5. Once you've made your selections, click `Done`
 
-## Steps to Switch Between Auth Providers
+## Switching Between Auth Providers
 
 This section describes the steps involved in switching authentication providers in Obot. In this example, the provider is switched from **GitHub** to **Microsoft Entra**.
 
@@ -222,7 +222,7 @@ Ensure the following environment variable is set in your Obot installation:
 
 1. Log in to the Obot server (`<obot-server>`).
 2. Authenticate using your Microsoft Entra credentials.
-3. After successful authentication, a **basic user** account is created automatically.
+3. After successful authentication, a user with the default role is created.
 4. Log out.
 
 ### Step 5: Promote the Entra User to Owner
