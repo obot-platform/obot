@@ -215,7 +215,10 @@
 	// Derive the content to display
 	let content = $derived(resource?.text ?? '');
 	let mimeType = $derived(resource?.mimeType ?? 'text/plain');
-	let isMarkdown = $derived(mimeType.startsWith('text/markdown'));
+	let extension = $derived(
+		filename.includes('.') ? filename.split('.').pop()?.toLowerCase() : undefined
+	);
+	let isMarkdown = $derived(mimeType.startsWith('text/markdown') || extension === 'md');
 
 	const visible = $derived(mounted && open);
 	let justOpened = $state(false);
