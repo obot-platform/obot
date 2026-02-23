@@ -184,7 +184,7 @@ Ensure the following environment variable is set in your Obot installation:
 ### Step 2: Deconfigure the Existing Auth Provider (GitHub)
 
 1. Log in to the admin console (`<obot-server>/admin`).
-2. Use **Sign in with Bootstrap Token** option.
+2. Use the **Sign in with Bootstrap Token** option.
 
 ![screenshot of login with bootstrap and github](/img/login_bootstrap_and_github.png)
 
