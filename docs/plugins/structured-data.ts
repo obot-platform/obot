@@ -63,6 +63,8 @@ interface SiteInfo {
   baseUrl: string;
   /** Validated section → landing page path map, built from the actual build output. */
   sectionLandingPaths: Record<string, string>;
+  /** Set of latest-version built page pathnames (leading+trailing "/"). */
+  pagePathnames: Set<string>;
 }
 
 type LimitFn = <T>(fn: () => Promise<T>) => Promise<T>;
@@ -103,11 +105,13 @@ export default function structuredDataPlugin(_context: LoadContext): Plugin {
 
     async postBuild({ outDir, siteConfig }) {
       const sectionLandingPaths = await resolveSectionLandingPaths(outDir);
+      const pagePathnames = await collectBuiltPagePathnames(outDir);
       const site: SiteInfo = {
         siteUrl: siteConfig.url.replace(/\/+$/, ""),
         siteName: siteConfig.title,
         baseUrl: siteConfig.baseUrl,
         sectionLandingPaths,
+        pagePathnames,
       };
       const limit = createLimit(64);
       await processDirectory(outDir, outDir, site, limit);
@@ -116,6 +120,49 @@ export default function structuredDataPlugin(_context: LoadContext): Plugin {
       );
     },
   };
+}
+
+function normalizePathname(pathname: string): string {
+  const cleaned = `/${pathname}`.replace(/\/+/g, "/");
+  return cleaned.endsWith("/") ? cleaned : `${cleaned}/`;
+}
+
+/**
+ * Collect all built page pathnames from the output directory.
+ *
+ * We only include latest-version pages (root-level) and skip older versions
+ * and /next/ to match the pages we inject structured data into.
+ */
+async function collectBuiltPagePathnames(outDir: string): Promise<Set<string>> {
+  const result = new Set<string>();
+
+  async function walk(dir: string): Promise<void> {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+
+    if (entries.some((e) => e.isFile() && e.name === "index.html")) {
+      const rel = path.relative(outDir, dir);
+      const relPosix = rel.split(path.sep).join("/");
+      result.add(normalizePathname(relPosix === "." ? "" : relPosix));
+    }
+
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const next = path.join(dir, entry.name);
+
+      // Skip versioned directories at the top level of outDir.
+      if (
+        dir === outDir &&
+        (OLDER_VERSIONS.includes(entry.name) || entry.name === "next")
+      ) {
+        continue;
+      }
+
+      await walk(next);
+    }
+  }
+
+  await walk(outDir);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -658,9 +705,18 @@ function buildBreadcrumbList(
   meta: PageMeta,
   breadcrumbId: string,
 ): Record<string, unknown> {
-  const { siteUrl } = meta.site;
-  const pathname = toPathname(meta.url, meta.site);
+  const { siteUrl, baseUrl } = meta.site;
+  const pathname = normalizePathname(toPathname(meta.url, meta.site));
   const segments = pathname.split("/").filter(Boolean);
+
+  const base = new URL(baseUrl, `${siteUrl}/`);
+  const abs = (relPath: string): string => {
+    const clean = relPath.replace(/^\//, "");
+    return new URL(clean, base).toString();
+  };
+
+  const isOverviewLike = (segment: string | undefined): boolean =>
+    segment === "overview" || segment === "index";
 
   const items: Record<string, unknown>[] = [];
   let position = 1;
@@ -670,7 +726,7 @@ function buildBreadcrumbList(
     "@type": "ListItem",
     position: position++,
     name: "Home",
-    item: `${siteUrl}/`,
+    item: abs(""),
   });
 
   if (segments.length > 0) {
@@ -688,12 +744,48 @@ function buildBreadcrumbList(
           "@type": "ListItem",
           position: position++,
           name: sectionName,
-          item: `${siteUrl}/${landingPath}/`,
+          item: abs(`${landingPath.replace(/\/+$/, "")}/`),
         });
       }
 
       // 3. Sub-category for deeply nested pages (e.g. reference-architectures, encryption-providers)
       if (segments.length > 2) {
+        const currentSegment = segments[segments.length - 1];
+        const prefixPath = segments.slice(0, -1).join("/");
+
+        const prefixDirPathname = normalizePathname(prefixPath);
+        const overviewPathname = normalizePathname(`${prefixPath}/overview`);
+
+        const findFirstChildPage = (prefix: string): string | null => {
+          let best: string | null = null;
+          for (const p of meta.site.pagePathnames) {
+            if (!p.startsWith(prefix)) continue;
+            if (p === pathname) continue;
+            if (best === null || p < best) best = p;
+          }
+          return best;
+        };
+
+        // Prefer an overview-like landing page for the sub-category when we're
+        // on a leaf page. For overview/index pages, link back to the current page.
+        let subItemPath = pathname;
+        if (!isOverviewLike(currentSegment)) {
+          if (meta.site.pagePathnames.has(overviewPathname)) {
+            subItemPath = overviewPathname;
+          } else if (meta.site.pagePathnames.has(prefixDirPathname)) {
+            subItemPath = prefixDirPathname;
+          } else {
+            const child = findFirstChildPage(prefixDirPathname);
+            if (child) {
+              subItemPath = child;
+            } else {
+              // Fallback: keep a stable (though possibly non-existent) path rather
+              // than omitting `item`, which triggers structured data warnings.
+              subItemPath = overviewPathname;
+            }
+          }
+        }
+
         const subName = segments
           .slice(1, -1)
           .map((s) =>
@@ -707,15 +799,17 @@ function buildBreadcrumbList(
           "@type": "ListItem",
           position: position++,
           name: subName,
+          item: abs(subItemPath),
         });
       }
     }
 
-    // 4. Current page (last breadcrumb — no `item` URL per Google guidelines)
+    // 4. Current page (last breadcrumb)
     items.push({
       "@type": "ListItem",
       position: position,
       name: meta.title,
+      item: meta.url,
     });
   }
 
