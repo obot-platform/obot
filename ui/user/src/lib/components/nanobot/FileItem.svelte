@@ -17,7 +17,9 @@
 	let { uri, classes, compact, type = 'label', isSelected, onClick }: Props = $props();
 
 	let name = $derived(uri ? uri.split('/').pop() : undefined);
-	let extension = $derived(name?.split('.').pop()?.toLowerCase());
+	let extension = $derived(
+		name && name.includes('.') ? name.split('.').pop()?.toLowerCase() : undefined
+	);
 
 	// Devicon class for popular languages/frameworks; generic files (txt, images, etc.) fall back to FileIcon/FileImage
 	const EXTENSION_TO_DEVICON: Record<string, string> = {
