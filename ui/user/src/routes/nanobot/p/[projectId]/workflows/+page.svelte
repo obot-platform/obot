@@ -96,6 +96,7 @@
 		<tbody>
 			{#if filteredWorkflows.length > 0}
 				{#each filteredWorkflows as workflow (workflow.uri)}
+					{@const name = workflow._meta?.name ?? workflow.name}
 					<tr
 						class="hover:bg-base-200 cursor-pointer"
 						role="button"
@@ -110,7 +111,7 @@
 							}
 						}}
 					>
-						<td>{workflow.name}</td>
+						<td>{name}</td>
 						<td class="text-right">
 							<button
 								class="btn btn-ghost btn-square tooltip tooltip-left flex-shrink-0"

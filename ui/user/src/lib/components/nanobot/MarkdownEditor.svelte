@@ -7,6 +7,29 @@
 	import { replaceAll } from '@milkdown/kit/utils';
 	import { untrack } from 'svelte';
 
+	function splitFrontmatter(markdown: string): { frontmatter: string; body: string } {
+		const trimmed = markdown.trimStart();
+		if (!trimmed.startsWith('---')) {
+			return { frontmatter: '', body: markdown };
+		}
+		const afterFirstFence = trimmed.slice(3);
+		const secondFenceIndex = afterFirstFence.indexOf('\n---');
+		if (secondFenceIndex === -1) {
+			return { frontmatter: '', body: markdown };
+		}
+		const fenceEnd = afterFirstFence.indexOf('\n---') + 4; // include \n---
+		const frontmatter = markdown.slice(0, markdown.length - trimmed.length + 3 + fenceEnd);
+		const body = markdown
+			.slice(markdown.length - trimmed.length + 3 + fenceEnd)
+			.replace(/^\n?/, '');
+		return { frontmatter, body };
+	}
+
+	function mergeFrontmatter(frontmatter: string, body: string): string {
+		if (!frontmatter) return body;
+		return body ? `${frontmatter}\n${body}` : frontmatter;
+	}
+
 	interface Props {
 		value: string;
 		blockEditEnabled?: boolean;
@@ -19,14 +42,18 @@
 
 	let focused = $state(false);
 	let prevValue = $state(untrack(() => value));
+	let frontmatter = $state('');
 	let editorNode: HTMLElement | null = null;
 	let isCrepeReady = false;
 	let crepe: Crepe | null = null;
 
 	async function createEditor(node: HTMLElement, enableBlockEdit: boolean, isReadonly: boolean) {
+		const { frontmatter: fm, body } = splitFrontmatter(value);
+		frontmatter = fm;
+
 		const instance = new Crepe({
 			root: node,
-			defaultValue: value,
+			defaultValue: body,
 			features: {
 				[Crepe.Feature.Toolbar]: false,
 				[Crepe.Feature.Latex]: false,
@@ -51,8 +78,9 @@
 
 					if (markdown === prevMarkdown) return;
 					if (!focused) return;
-					onChange?.(markdown);
-					prevValue = markdown;
+					const full = mergeFrontmatter(frontmatter, markdown);
+					onChange?.(full);
+					prevValue = full;
 				});
 			})
 			.use(listener);
@@ -115,9 +143,10 @@
 	});
 
 	function setValue(newValue: string) {
-		if (crepe) {
-			crepe.editor.action(replaceAll(newValue));
-		}
+		if (!crepe) return;
+		const { frontmatter: fm, body } = splitFrontmatter(newValue);
+		frontmatter = fm;
+		crepe.editor.action(replaceAll(body));
 	}
 
 	function editor(node: HTMLElement) {

@@ -32,14 +32,55 @@
 	} from '@codemirror/autocomplete';
 	import { lintKeymap } from '@codemirror/lint';
 	import { markdown } from '@codemirror/lang-markdown';
+	import { javascript } from '@codemirror/lang-javascript';
+	import { go } from '@codemirror/lang-go';
+	import { cpp } from '@codemirror/lang-cpp';
+	import { css } from '@codemirror/lang-css';
+	import { html } from '@codemirror/lang-html';
+	import { sql } from '@codemirror/lang-sql';
+	import { vue } from '@codemirror/lang-vue';
+	import { sass } from '@codemirror/lang-sass';
+	import { rust } from '@codemirror/lang-rust';
+	import { java } from '@codemirror/lang-java';
+	import { yaml } from '@codemirror/lang-yaml';
+	import type { LanguageSupport } from '@codemirror/language';
 	import { EditorState as CMEditorState } from '@codemirror/state';
 	import { EditorView as CMEditorView } from '@codemirror/view';
 	import { githubLight, githubDark } from '@uiw/codemirror-theme-github';
 	import { darkMode } from '$lib/stores';
 	import { onDestroy, untrack } from 'svelte';
 
+	const LANGUAGE_MAP: Record<string, () => LanguageSupport> = {
+		java,
+		go,
+		c: cpp,
+		h: cpp,
+		hpp: cpp,
+		cpp,
+		css,
+		html,
+		htm: html,
+		sql,
+		vue,
+		sass,
+		scss: sass,
+		rs: rust,
+		rust,
+		yml: yaml,
+		yaml
+	};
+
+	function getLanguageSupport(filename: string | undefined): LanguageSupport[] {
+		if (!filename) return [markdown()];
+		const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+		if (ext === 'txt') return [];
+		const lang = LANGUAGE_MAP[ext] ?? javascript;
+		return [lang()];
+	}
+
 	interface Props {
 		value?: string;
+		filename?: string;
 		class?: string;
 		classes?: {
 			input?: string;
@@ -54,6 +95,7 @@
 
 	let {
 		value = $bindable(''),
+		filename,
 		class: klass,
 		classes,
 		disabled,
@@ -119,10 +161,18 @@
 
 	// Track previous disabled state to detect changes
 	let prevDisabled = $state(untrack(() => disabled));
+	let prevFilename = $state(untrack(() => filename));
 
 	$effect(() => {
 		if (cmView && prevDisabled !== disabled) {
 			prevDisabled = disabled;
+			reload();
+		}
+	});
+
+	$effect(() => {
+		if (cmView && prevFilename !== filename) {
+			prevFilename = filename;
 			reload();
 		}
 	});
@@ -218,13 +268,14 @@
 		});
 
 		reload = () => {
+			const langSupport = getLanguageSupport(filename);
 			const newState = CMEditorState.create({
 				doc: state.doc,
 				extensions: [
 					basicSetup,
 					darkMode.isDark ? githubDark : githubLight,
 					updater,
-					markdown(),
+					...langSupport,
 					// Add placeholder if provided
 					...(placeholder ? [cmPlaceholder(placeholder)] : []),
 					// Make editor read-only when disabled
