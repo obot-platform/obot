@@ -414,7 +414,12 @@ export class ChatService {
 	private subscribed = false;
 	private onThreadCreated?: (thread: Chat) => void;
 
-	constructor(opts?: { api?: ChatAPI; chatId?: string; onThreadCreated?: (thread: Chat) => void }) {
+	constructor(opts?: {
+		api?: ChatAPI;
+		chatId?: string;
+		onThreadCreated?: (thread: Chat) => void;
+		skipInitialResources?: boolean;
+	}) {
 		this.api = opts?.api || defaultChatApi;
 		this.onThreadCreated = opts?.onThreadCreated;
 		this.messages = $state<ChatMessage[]>([]);
@@ -430,7 +435,13 @@ export class ChatService {
 		this.selectedAgentId = $state('');
 		this.uploadedFiles = $state([]);
 		this.uploadingFiles = $state([]);
-		this.setChatId(opts?.chatId);
+		if (opts?.chatId !== undefined && opts?.chatId !== '') {
+			this.setChatId(opts.chatId);
+		} else if (!opts?.skipInitialResources) {
+			this.listResources({ useDefaultSession: true }).then((r) => {
+				if (r?.resources) this.resources = r.resources;
+			});
+		}
 	}
 
 	close = () => {
@@ -459,19 +470,15 @@ export class ChatService {
 			this.subscribed = false;
 		}
 
-		this.listResources({ useDefaultSession: true }).then((r) => {
-			if (r && r.resources) {
-				this.resources = r.resources;
-			}
-		});
+		if (chatId) {
+			this.listPrompts({ useDefaultSession: true }).then((prompts) => {
+				if (prompts && prompts.prompts) {
+					this.prompts = prompts.prompts;
+				}
+			});
 
-		this.listPrompts({ useDefaultSession: true }).then((prompts) => {
-			if (prompts && prompts.prompts) {
-				this.prompts = prompts.prompts;
-			}
-		});
-
-		await this.reloadAgent({ useDefaultSession: true });
+			await this.reloadAgent({ useDefaultSession: true });
+		}
 	};
 
 	private reloadAgent = async (opts?: { useDefaultSession?: boolean }) => {

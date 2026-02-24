@@ -194,7 +194,8 @@
 		});
 
 		const newChat = new ChatService({
-			api: chatApi
+			api: chatApi,
+			skipInitialResources: !!currentThreadId
 		});
 
 		if (currentThreadId) {
