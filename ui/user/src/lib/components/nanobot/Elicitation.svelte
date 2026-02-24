@@ -10,16 +10,9 @@
 		ElicitationResult,
 		PrimitiveSchemaDefinition
 	} from '$lib/services/nanobot/types';
-	import { Copy, ChevronLeft, ChevronRight, SkipForward, Pencil, Info } from 'lucide-svelte';
+	import { ChevronLeft, ChevronRight, SkipForward, Pencil, Info } from 'lucide-svelte';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';
-
-	const stepColors = [
-		{ bg: 'bg-primary', text: 'text-primary-content', ring: 'ring-primary/30' },
-		{ bg: 'bg-secondary', text: 'text-secondary-content', ring: 'ring-secondary/30' },
-		{ bg: 'bg-accent', text: 'text-accent-content', ring: 'ring-accent/30' },
-		{ bg: 'bg-info', text: 'text-info-content', ring: 'ring-info/30' }
-	];
 
 	let { elicitation, open = false, onresult }: Props = $props();
 
@@ -269,16 +262,17 @@
 				<!-- Step indicators for multi-question -->
 				<div class="mb-4 flex flex-wrap items-center gap-1.5">
 					{#each questions as q, i (i)}
-						{@const color = stepColors[i % stepColors.length]}
 						<button
 							type="button"
 							onclick={() => goToStep(i)}
-							class="flex items-center justify-center rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap transition-colors
-								{i === currentStep
-								? `${color.bg} ${color.text}`
-								: hasAnswer(i)
-									? 'bg-success/20 text-success ring-success/30 ring-1'
-									: 'bg-base-200 text-base-content/40 hover:bg-base-300'}"
+							class={twMerge(
+								'flex items-center justify-center rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap transition-colors',
+								i === currentStep
+									? 'bg-primary text-primary-content'
+									: hasAnswer(i)
+										? 'bg-success/20 text-success ring-success/30 ring-1'
+										: 'bg-base-200 text-base-content/40 hover:bg-base-300'
+							)}
 						>
 							{q.header || q.question}
 						</button>
@@ -523,6 +517,7 @@
 					</button>
 				</div>
 			{:else}
+				{@const test = console.log(elicitation)}
 				<!-- Generic Elicitation Form -->
 				<h3 class="text-lg font-bold">Information Request</h3>
 
