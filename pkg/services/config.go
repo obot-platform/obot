@@ -110,7 +110,8 @@ type Config struct {
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
 	EnableRegistryAuth      bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
-	NanobotIntegration      bool   `usage:"Enable Nanobot integration" default:"false"`
+	DisableLegacyChat       bool   `usage:"Disable legacy chat" default:"true"`
+	NanobotIntegration      bool   `usage:"Enable Nanobot integration" default:"true"`
 	MCPServerSearchImage    string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:main"`
 	NanobotAgentImage       string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/nanobot-ai/nanobot:main"`
 
@@ -190,6 +191,7 @@ type Services struct {
 	PSASettingsFromHelm *v1.PodSecurityAdmissionSettings
 
 	DisableUpdateCheck       bool
+	DisableLegacyChat        bool
 	MCPRuntimeBackend        string
 	MCPRemoteShimBaseImage   string
 	RegistryNoAuth           bool
@@ -910,6 +912,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		PodSchedulingSettingsFromHelm: podSchedulingSettings,
 		PSASettingsFromHelm:           psaSettings,
 		DisableUpdateCheck:            config.DisableUpdateCheck,
+		DisableLegacyChat:             config.DisableLegacyChat,
 		AutonomousToolUseEnabled:      config.EnableAutonomousToolUse,
 		MCPRuntimeBackend:             config.MCPRuntimeBackend,
 		MCPRemoteShimBaseImage:        config.MCPRemoteShimBaseImage,
