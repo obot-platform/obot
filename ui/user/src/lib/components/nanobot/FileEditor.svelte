@@ -318,11 +318,13 @@
 			{:else if resource?.blob}
 				<!-- Binary content - show as image if possible -->
 				{#if mimeType.startsWith('image/') && isSafeImageMimeType(mimeType)}
-					<img
-						src="data:{mimeType};base64,{resource.blob}"
-						alt={filename}
-						class="h-auto max-w-full"
-					/>
+					<div class="flex h-full w-full items-center justify-center">
+						<img
+							src="data:{mimeType};base64,{resource.blob}"
+							alt={filename}
+							class="h-auto max-w-full"
+						/>
+					</div>
 				{:else}
 					<div class="text-base-content/60">Binary content ({mimeType})</div>
 				{/if}
