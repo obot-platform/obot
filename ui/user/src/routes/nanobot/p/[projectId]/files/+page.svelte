@@ -298,7 +298,7 @@
 								}}
 							>
 								<td class="flex items-center gap-2">
-									<FileItem uri={node.uri} />
+									<FileItem uri={node.uri} classes={{ icon: 'size-4' }} />
 								</td>
 								<td>{formatFileSize(node.size)}</td>
 								{#if hasModifiedAt}
@@ -362,7 +362,7 @@
 								aria-label={`Open file ${node.name}`}
 							>
 								<span class="min-w-0 shrink-0" aria-hidden="true"></span>
-								<FileItem uri={node.uri} />
+								<FileItem uri={node.uri} classes={{ icon: 'size-4' }} />
 							</button>
 						{/if}
 					</li>
