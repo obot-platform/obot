@@ -12,6 +12,7 @@
 	} from '$lib/services/nanobot/types';
 	import { Copy, ChevronLeft, ChevronRight, SkipForward, Pencil, Info } from 'lucide-svelte';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
+	import { twMerge } from 'tailwind-merge';
 
 	const stepColors = [
 		{ bg: 'bg-primary', text: 'text-primary-content', ring: 'ring-primary/30' },
@@ -492,7 +493,12 @@
 {:else if open}
 	<!-- Modal for OAuth and generic elicitations -->
 	<dialog class="modal-open modal">
-		<div class="modal-box dialog-container w-full max-w-2xl">
+		<div
+			class={twMerge(
+				'modal-box dialog-container w-full',
+				isOAuthElicitation() ? 'max-w-lg' : 'max-w-2xl'
+			)}
+		>
 			<form method="dialog">
 				<button
 					class="btn btn-circle btn-ghost btn-sm absolute top-2 right-2"
@@ -502,37 +508,18 @@
 
 			{#if isOAuthElicitation()}
 				<!-- OAuth Authentication Dialog -->
-				<h3 class="mb-4 text-lg font-bold">Authentication Required</h3>
+				<h3 class="text-lg font-bold">Authentication Required</h3>
 
 				<div class="mb-6">
-					<p class="text-base-content/80 mb-4 whitespace-pre-wrap">{elicitation.message}</p>
-
-					<div class="group bg-base-200 relative mb-4 rounded-lg p-4">
-						<p class="text-base-content/90 pr-8 font-mono text-sm break-all">{getOAuthUrl()}</p>
-						<button
-							type="button"
-							class="btn btn-ghost btn-xs absolute top-2 right-2 opacity-60 transition-opacity hover:opacity-100"
-							onclick={copyToClipboard}
-							title="Copy to clipboard"
-						>
-							<Copy class="h-4 w-4" />
-						</button>
-						{#if showCopiedTooltip}
-							<div
-								class="bg-success text-success-content absolute -top-8 right-2 rounded px-2 py-1 text-xs shadow-lg transition-opacity duration-500 {showCopiedTooltip
-									? 'opacity-100'
-									: 'opacity-0'}"
-							>
-								Copied!
-							</div>
-						{/if}
-					</div>
+					<p class="text-base-content/80 mb-4 text-sm whitespace-pre-wrap">{elicitation.message}</p>
 				</div>
 
-				<div class="modal-action">
-					<button type="button" class="btn btn-error" onclick={handleDecline}> Decline </button>
-					<button type="button" class="btn btn-success" onclick={openOAuthLink}>
+				<div class="modal-action flex flex-col">
+					<button type="button" class="btn btn-primary" onclick={openOAuthLink}>
 						Authenticate
+					</button>
+					<button type="button" class="btn btn-error btn-soft" onclick={handleDecline}>
+						Decline
 					</button>
 				</div>
 			{:else}
