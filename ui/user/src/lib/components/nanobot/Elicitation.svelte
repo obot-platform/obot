@@ -10,7 +10,7 @@
 		ElicitationResult,
 		PrimitiveSchemaDefinition
 	} from '$lib/services/nanobot/types';
-	import { ChevronLeft, ChevronRight, SkipForward, Pencil, Info } from 'lucide-svelte';
+	import { ChevronLeft, ChevronRight, Pencil, Info, X } from 'lucide-svelte';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';
 
@@ -248,9 +248,20 @@
 
 	<div class="flex w-full items-start gap-3 px-1">
 		<div class="border-base-300 rounded-box bg-base-100 w-full border p-4 shadow-sm">
+			<div class="absolute top-2 right-3">
+				<button
+					type="button"
+					class="btn btn-ghost btn-square btn-xs tooltip"
+					onclick={handleCancel}
+					data-tip="Close & skip all"
+					aria-label="Close & skip all"
+				>
+					<X class="size-3" />
+				</button>
+			</div>
 			{#if !isSingle && !reviewMode}
 				<!-- Step indicators for multi-question -->
-				<div class="mb-4 flex flex-wrap items-center gap-1.5">
+				<div class="mb-4 flex flex-wrap items-center gap-1.5 pr-4">
 					{#each questions as q, i (i)}
 						<button
 							type="button"
@@ -297,7 +308,22 @@
 				</div>
 
 				<div class="mt-4 flex justify-end gap-2">
-					<button type="button" class="btn btn-ghost btn-sm" onclick={handleDecline}>Cancel</button>
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm"
+						onclick={() => {
+							currentStep = questions.length - 1;
+							reviewMode = false;
+						}}
+					>
+						<ChevronLeft class="h-4 w-4" />
+						Back
+					</button>
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm text-base-content/40"
+						onclick={handleDecline}>Cancel</button
+					>
 					<button type="button" class="btn btn-primary btn-sm" onclick={handleQuestionSubmit}
 						>Submit</button
 					>
@@ -404,17 +430,9 @@
 				</div>
 
 				<!-- Navigation -->
-				<div class="mt-3 flex items-center justify-between">
-					<button
-						type="button"
-						class="btn btn-ghost btn-xs text-base-content/40"
-						onclick={handleCancel}
-					>
-						<SkipForward class="h-3 w-3" />
-						Skip All
-					</button>
+				<div class="mt-3 flex items-center justify-end">
 					<div class="flex gap-1.5">
-						{#if !isSingle && currentStep > 0}
+						{#if !isSingle}
 							<button
 								type="button"
 								class="btn btn-ghost btn-sm"
@@ -437,37 +455,41 @@
 							>
 								Submit
 							</button>
-						{:else if currentStep < questions.length - 1}
+						{:else}
 							<button
 								type="button"
 								class="btn btn-ghost btn-sm text-base-content/40"
 								onclick={nextStep}
+								disabled={currentStep === questions.length - 1}
 							>
 								Skip
 							</button>
-							<button
-								type="button"
-								class="btn btn-primary btn-sm"
-								disabled={!hasAnswer(currentStep)}
-								onclick={nextStep}
-							>
-								Next
-								<ChevronRight class="h-4 w-4" />
-							</button>
-						{:else}
-							<button
-								type="button"
-								class="btn btn-primary btn-sm"
-								disabled={!hasAnswer(currentStep)}
-								onclick={() => {
-									if (!(showCustomInput.get(currentStep) ?? false)) {
-										customAnswers.delete(currentStep);
-									}
-									reviewMode = true;
-								}}
-							>
-								Review
-							</button>
+							{#if currentStep < questions.length - 1}
+								<button
+									type="button"
+									class="btn btn-primary btn-sm"
+									disabled={!hasAnswer(currentStep)}
+									onclick={nextStep}
+								>
+									Next
+									<ChevronRight class="h-4 w-4" />
+								</button>
+							{:else}
+								<button
+									type="button"
+									class="btn btn-primary btn-sm"
+									disabled={!hasAnswer(currentStep)}
+									onclick={() => {
+										if (!(showCustomInput.get(currentStep) ?? false)) {
+											customAnswers.delete(currentStep);
+										}
+										reviewMode = true;
+									}}
+								>
+									Next
+									<ChevronRight class="h-4 w-4" />
+								</button>
+							{/if}
 						{/if}
 					</div>
 				</div>
