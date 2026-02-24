@@ -143,10 +143,7 @@
 
 	{#snippet rightSidebar()}
 		{#if chat}
-			<ThreadQuickAccess
-				open={layout.quickBarAccessOpen}
-				onToggle={() => (layout.quickBarAccessOpen = !layout.quickBarAccessOpen)}
-			/>
+			<ThreadQuickAccess />
 		{/if}
 	{/snippet}
 </Layout>
