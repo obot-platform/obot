@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ChatMessageItemToolCall } from '$lib/services/nanobot/types';
 	import { parseToolFilePath } from '$lib/services/nanobot/utils';
-	import { FileIcon, FolderIcon } from 'lucide-svelte';
+	import FileItem from '$lib/components/nanobot/FileItem.svelte';
 	interface Props {
 		item: ChatMessageItemToolCall;
 		onFileOpen?: (filename: string) => void;
@@ -11,15 +11,20 @@
 
 	const pending = $derived(item.hasMore);
 	const filename = $derived(item.arguments ? (parseToolFilePath(item) ?? '') : (item.name ?? ''));
-	const name = $derived(filename ? filename.split('/').pop()?.split('.').shift() : null);
+	const name = $derived(filename ? filename.split('/').pop() : null);
 </script>
 
-<div
-	class="rounded-field text border-base-200 dark:border-base-300 bg-base-100 mt-3 mb-2 w-full border p-3 shadow-xs"
+<button
+	class="rounded-field text border-base-300 bg-base-100 tooltip hover:bg-base-300 mt-3 mb-2 w-full border p-3 shadow-xs transition-colors"
+	data-tip={`Open ${filename}`}
+	onclick={() => {
+		onFileOpen?.(`file:///${filename}`);
+	}}
+	disabled={pending}
 >
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-2">
-			<FileIcon class="size-4" />
+			<FileItem uri={filename} compact />
 
 			{#if pending}
 				<span class="skeleton skeleton-text bg-transparent text-sm">...</span>
@@ -27,15 +32,5 @@
 				<span class="text-sm">{name}</span>
 			{/if}
 		</div>
-		<button
-			class="btn btn-sm tooltip"
-			data-tip="Open"
-			onclick={() => {
-				onFileOpen?.(`file:///${filename}`);
-			}}
-			disabled={pending}
-		>
-			<FolderIcon class="size-4" />
-		</button>
 	</div>
-</div>
+</button>

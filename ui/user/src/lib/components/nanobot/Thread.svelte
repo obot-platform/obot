@@ -356,7 +356,7 @@
 				class={twMerge(
 					'bg-base-100/30 absolute inset-0 z-0 transition-[opacity,backdrop-filter] duration-500 ease-out',
 					questionElicitation
-						? 'bg-base-100 opacity-100 backdrop-blur-[1px]'
+						? 'bg-base-100 opacity-75 backdrop-blur-[1px]'
 						: 'pointer-events-none opacity-0 backdrop-blur-none'
 				)}
 				aria-hidden="true"
