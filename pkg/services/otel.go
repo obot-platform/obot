@@ -3,28 +3,20 @@ package services
 import (
 	"context"
 	"errors"
+	"os"
+	"strings"
 
 	"github.com/obot-platform/obot/pkg/version"
-	"go.opentelemetry.io/contrib/samplers/probability/consistent"
+	"go.opentelemetry.io/contrib/exporters/autoexport"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 )
-
-type OtelOptions struct {
-	SampleProb         float64 `usage:"The probability of sampling a trace" default:"0.1" name:"otel-sample-prob" env:"OTEL_TRACES_SAMPLER_ARG"`
-	BaseExportEndpoint string  `usage:"The base endpoint to export to, if not set, no metrics, tracing, or logging will be exported" name:"otel-base-export-endpoint" env:"OTEL_EXPORTER_OTLP_ENDPOINT"`
-	BearerToken        string  `usage:"Bearer token for authentication" name:"otel-bearer-token"`
-}
 
 type Otel struct {
 	shutdown []func(context.Context) error
@@ -38,9 +30,12 @@ func (s *Otel) Shutdown(ctx context.Context) error {
 	return err
 }
 
-// newOtel bootstraps the OpenTelemetry pipeline.
-// If it does not return an error, make sure to call shutdown for proper cleanup.
-func newOtel(ctx context.Context, opts OtelOptions) (o *Otel, err error) {
+// newOtel bootstraps the OpenTelemetry pipeline using the autoexport package.
+// All configuration is driven by standard OTEL environment variables
+// (e.g. OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_PROTOCOL,
+// OTEL_TRACES_SAMPLER, OTEL_TRACES_SAMPLER_ARG, etc.).
+// If it does not return an error, make sure to call Shutdown for proper cleanup.
+func newOtel(ctx context.Context) (o *Otel, err error) {
 	resource, err := resource.New(ctx, resource.WithAttributes(
 		attribute.Key("service.name").String("obot"),
 		attribute.Key("service.version").String(version.Get().String()),
@@ -56,12 +51,16 @@ func newOtel(ctx context.Context, opts OtelOptions) (o *Otel, err error) {
 		}
 	}()
 
+	exportEnabled := otelExportEnabled()
+
 	// Set up propagator.
-	prop := newPropagator()
-	otel.SetTextMapPropagator(prop)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
 
 	// Set up trace provider.
-	tracerProvider, err := newTracerProvider(ctx, resource, opts)
+	tracerProvider, err := newTracerProvider(ctx, resource, exportEnabled)
 	if err != nil {
 		return
 	}
@@ -69,7 +68,7 @@ func newOtel(ctx context.Context, opts OtelOptions) (o *Otel, err error) {
 	otel.SetTracerProvider(tracerProvider)
 
 	// Set up meter provider.
-	meterProvider, err := newMeterProvider(ctx, resource, opts)
+	meterProvider, err := newMeterProvider(ctx, resource, exportEnabled)
 	if err != nil {
 		return
 	}
@@ -77,7 +76,7 @@ func newOtel(ctx context.Context, opts OtelOptions) (o *Otel, err error) {
 	otel.SetMeterProvider(meterProvider)
 
 	// Set up logger provider.
-	loggerProvider, err := newLoggerProvider(ctx, resource, opts)
+	loggerProvider, err := newLoggerProvider(ctx, resource, exportEnabled)
 	if err != nil {
 		return
 	}
@@ -87,113 +86,78 @@ func newOtel(ctx context.Context, opts OtelOptions) (o *Otel, err error) {
 	return
 }
 
-func newPropagator() propagation.TextMapPropagator {
-	return propagation.NewCompositeTextMapPropagator(
-		propagation.TraceContext{},
-		propagation.Baggage{},
-	)
-}
-
-func newTracerProvider(ctx context.Context, resource *resource.Resource, cfg OtelOptions) (*trace.TracerProvider, error) {
-	var (
-		traceExporter trace.SpanExporter = (*dummyTraceExporter)(nil)
-		err           error
-	)
-	if cfg.BaseExportEndpoint != "" {
-		traceExporter, err = otlptracegrpc.New(ctx, otlptracegrpc.WithEndpointURL(cfg.BaseExportEndpoint+"/v1/traces"), otlptracegrpc.WithHeaders(map[string]string{"Authorization": "Bearer " + cfg.BearerToken}))
-		if err != nil {
-			return nil, err
+// otelExportEnabled returns true if any standard OTEL environment variable
+// that implies exporting is set.
+func otelExportEnabled() bool {
+	for _, k := range []string{
+		"OTEL_TRACES_EXPORTER",
+		"OTEL_METRICS_EXPORTER",
+		"OTEL_LOGS_EXPORTER",
+		"OTEL_EXPORTER_OTLP_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+		"OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
+	} {
+		if strings.TrimSpace(os.Getenv(k)) != "" {
+			return true
 		}
 	}
-
-	return trace.NewTracerProvider(trace.WithSampler(trace.ParentBased(consistent.ProbabilityBased(cfg.SampleProb))), trace.WithBatcher(traceExporter), trace.WithResource(resource)), nil
+	return false
 }
 
-func newMeterProvider(ctx context.Context, resource *resource.Resource, cfg OtelOptions) (*metric.MeterProvider, error) {
-	var (
-		metricExporter metric.Exporter = (*dummyMetricsExporter)(nil)
-		err            error
-	)
-	if cfg.BaseExportEndpoint != "" {
-		metricExporter, err = otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithEndpointURL(cfg.BaseExportEndpoint+"/v1/metrics"), otlpmetricgrpc.WithHeaders(map[string]string{"Authorization": "Bearer " + cfg.BearerToken}))
-		if err != nil {
-			return nil, err
-		}
+func newTracerProvider(ctx context.Context, resource *resource.Resource, exportEnabled bool) (*trace.TracerProvider, error) {
+	providerOpts := []trace.TracerProviderOption{trace.WithResource(resource)}
+
+	if !exportEnabled {
+		return trace.NewTracerProvider(providerOpts...), nil
 	}
 
-	return metric.NewMeterProvider(metric.WithReader(metric.NewPeriodicReader(metricExporter)), metric.WithResource(resource)), nil
-}
-
-func newLoggerProvider(ctx context.Context, resource *resource.Resource, cfg OtelOptions) (*log.LoggerProvider, error) {
-	var (
-		logExporter log.Exporter = (*dummyLogExporter)(nil)
-		err         error
-	)
-	if cfg.BaseExportEndpoint != "" {
-		logExporter, err = otlploggrpc.New(ctx, otlploggrpc.WithEndpointURL(cfg.BaseExportEndpoint+"/v1/logs"), otlploggrpc.WithHeaders(map[string]string{"Authorization": "Bearer " + cfg.BearerToken}))
-		if err != nil {
-			return nil, err
-		}
+	exporter, err := autoexport.NewSpanExporter(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if autoexport.IsNoneSpanExporter(exporter) {
+		return trace.NewTracerProvider(providerOpts...), nil
 	}
 
-	return log.NewLoggerProvider(log.WithProcessor(log.NewBatchProcessor(logExporter)), log.WithResource(resource)), nil
+	providerOpts = append(providerOpts, trace.WithBatcher(exporter))
+	return trace.NewTracerProvider(providerOpts...), nil
 }
 
-// What follows are dummy exporters for when OTel is not enabled.
-// This allows the code to rename the same without worrying about whether metrics, tracing, or logging is enabled.
+func newMeterProvider(ctx context.Context, resource *resource.Resource, exportEnabled bool) (*metric.MeterProvider, error) {
+	providerOpts := []metric.Option{metric.WithResource(resource)}
 
-type dummyTraceExporter struct{}
+	if !exportEnabled {
+		return metric.NewMeterProvider(providerOpts...), nil
+	}
 
-// ExportSpans implements trace.SpanExporter.
-func (d *dummyTraceExporter) ExportSpans(context.Context, []trace.ReadOnlySpan) error {
-	return nil
+	reader, err := autoexport.NewMetricReader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if autoexport.IsNoneMetricReader(reader) {
+		return metric.NewMeterProvider(providerOpts...), nil
+	}
+
+	providerOpts = append(providerOpts, metric.WithReader(reader))
+	return metric.NewMeterProvider(providerOpts...), nil
 }
 
-// Shutdown implements trace.SpanExporter.
-func (d *dummyTraceExporter) Shutdown(context.Context) error {
-	return nil
-}
+func newLoggerProvider(ctx context.Context, resource *resource.Resource, exportEnabled bool) (*log.LoggerProvider, error) {
+	providerOpts := []log.LoggerProviderOption{log.WithResource(resource)}
 
-type dummyMetricsExporter struct{}
+	if !exportEnabled {
+		return log.NewLoggerProvider(providerOpts...), nil
+	}
 
-// Aggregation implements metric.Exporter.
-func (d *dummyMetricsExporter) Aggregation(metric.InstrumentKind) metric.Aggregation {
-	return nil
-}
+	exporter, err := autoexport.NewLogExporter(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if autoexport.IsNoneLogExporter(exporter) {
+		return log.NewLoggerProvider(providerOpts...), nil
+	}
 
-// Export implements metric.Exporter.
-func (d *dummyMetricsExporter) Export(context.Context, *metricdata.ResourceMetrics) error {
-	return nil
-}
-
-// ForceFlush implements metric.Exporter.
-func (d *dummyMetricsExporter) ForceFlush(context.Context) error {
-	return nil
-}
-
-// Temporality implements metric.Exporter.
-func (d *dummyMetricsExporter) Temporality(metric.InstrumentKind) metricdata.Temporality {
-	return 0
-}
-
-// Shutdown implements metric.Exporter.
-func (d *dummyMetricsExporter) Shutdown(context.Context) error {
-	return nil
-}
-
-type dummyLogExporter struct{}
-
-// Export implements log.Exporter.
-func (d *dummyLogExporter) Export(context.Context, []log.Record) error {
-	return nil
-}
-
-// ForceFlush implements log.Exporter.
-func (d *dummyLogExporter) ForceFlush(context.Context) error {
-	return nil
-}
-
-// Shutdown implements log.Exporter.
-func (d *dummyLogExporter) Shutdown(context.Context) error {
-	return nil
+	providerOpts = append(providerOpts, log.WithProcessor(log.NewBatchProcessor(exporter)))
+	return log.NewLoggerProvider(providerOpts...), nil
 }
