@@ -164,6 +164,10 @@ config:
 
   # config.OBOT_SERVER_DISABLE_UPDATE_CHECK -- Disable the Obot server update check. Defaults to false.
   OBOT_SERVER_DISABLE_UPDATE_CHECK: ""
+  # config.OBOT_SERVER_NANOBOT_INTEGRATION -- Enable Nanobot integration. Defaults to true.
+  OBOT_SERVER_NANOBOT_INTEGRATION: true
+  # config.OBOT_SERVER_DISABLE_LEGACY_CHAT -- Disable legacy chat APIs/UX paths. Defaults to true.
+  OBOT_SERVER_DISABLE_LEGACY_CHAT: true
 
 # extraEnv -- A map of additional environment variables to set
 extraEnv: {}
