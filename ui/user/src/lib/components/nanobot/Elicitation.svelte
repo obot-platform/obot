@@ -17,7 +17,6 @@
 	let { elicitation, open = false, onresult }: Props = $props();
 
 	let formData = $state<{ [key: string]: string | number | boolean }>({});
-	let showCopiedTooltip = $state(false);
 
 	// Question-specific types
 	interface QuestionOptionData {
@@ -132,15 +131,6 @@
 			newWindow.opener = null;
 		}
 		handleAccept();
-	}
-
-	async function copyToClipboard() {
-		const url = getOAuthUrl();
-		await navigator.clipboard.writeText(url);
-		showCopiedTooltip = true;
-		setTimeout(() => {
-			showCopiedTooltip = false;
-		}, 2000);
 	}
 
 	// Question elicitation functions
@@ -517,7 +507,6 @@
 					</button>
 				</div>
 			{:else}
-				{@const test = console.log(elicitation)}
 				<!-- Generic Elicitation Form -->
 				<h3 class="text-lg font-bold">Information Request</h3>
 

@@ -23,8 +23,6 @@
 	let loading = $state(true);
 	let threadContentWidth = $state(0);
 
-	const layout = nanobotLayout.getLayout();
-
 	onMount(async () => {
 		loading = true;
 		if (isNewAgent) {

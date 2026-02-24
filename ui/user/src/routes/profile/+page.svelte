@@ -2,12 +2,10 @@
 	import { ChatService } from '$lib/services';
 	import { profile, errors, version } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import Notifications from '$lib/components/Notifications.svelte';
 	import { getUserRoleLabel } from '$lib/utils';
 	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
 	import { success } from '$lib/stores/success';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import Navbar from '$lib/components/Navbar.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 
@@ -73,7 +71,7 @@
 <Layout title="My Account">
 	<div class="mt-6 flex w-full flex-col gap-8">
 		<div class="flex w-full flex-col gap-4">
-			<div class="bg-background mx-auto w-full max-w-lg rounded-xl p-6 shadow-md">
+			<div class="bg-background dark:bg-surface1 mx-auto w-full max-w-lg rounded-xl p-6 shadow-md">
 				<img
 					src={profile.current.iconURL}
 					alt=""
