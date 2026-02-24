@@ -161,10 +161,10 @@
 				<FileImage class={twMerge('size-5', classes?.icon)} />
 			{:else}
 				<FileIcon class={twMerge('size-5', classes?.icon)} />
+				<span class="bg-base-100 absolute right-0.5 bottom-1 text-[6px] font-semibold">
+					{extension}
+				</span>
 			{/if}
-			<span class="bg-base-100 absolute right-0.5 bottom-1 text-[6px] font-semibold">
-				{extension}
-			</span>
 		</div>
 	{/if}
 {/snippet}

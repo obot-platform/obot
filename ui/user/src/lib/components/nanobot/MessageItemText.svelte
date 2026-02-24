@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { AlertCircle } from 'lucide-svelte';
-	import { toHTMLFromMarkdown } from '$lib/markdown';
+	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import type { ChatMessageItemText } from '$lib/services/nanobot/types';
 	import { CANCELLATION_PHRASE_CLIENT } from '$lib/services/nanobot/utils';
 	import { twMerge } from 'tailwind-merge';
@@ -17,7 +17,9 @@
 		hasClientCancellation ? item.text.replace(CANCELLATION_PHRASE_CLIENT, '').trimEnd() : item.text
 	);
 	const renderedContent = $derived(
-		role === 'assistant' ? toHTMLFromMarkdown(textWithoutCancellation) : textWithoutCancellation
+		role === 'assistant'
+			? toHTMLFromMarkdownWithNewTabLinks(textWithoutCancellation)
+			: textWithoutCancellation
 	);
 </script>
 

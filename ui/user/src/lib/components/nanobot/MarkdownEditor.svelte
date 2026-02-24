@@ -167,15 +167,27 @@
 			focused = false;
 		}
 
+		function onCopyButtonClick(e: Event) {
+			const btn = (e.target as HTMLElement).closest?.('.copy-button');
+			if (!btn || !(btn instanceof HTMLElement) || !node.contains(btn)) return;
+			const originalContent = btn.innerHTML;
+			btn.innerHTML = 'Copied!';
+			window.setTimeout(() => {
+				btn.innerHTML = originalContent;
+			}, 2000);
+		}
+
 		node.addEventListener('mouseleave', onMouseLeave);
 		node.addEventListener('focusin', onFocusIn);
 		node.addEventListener('focusout', onFocusOut);
+		node.addEventListener('click', onCopyButtonClick);
 
 		return {
 			destroy: () => {
 				node.removeEventListener('mouseleave', onMouseLeave);
 				node.removeEventListener('focusin', onFocusIn);
 				node.removeEventListener('focusout', onFocusOut);
+				node.removeEventListener('click', onCopyButtonClick);
 				editorNode = null;
 			}
 		};

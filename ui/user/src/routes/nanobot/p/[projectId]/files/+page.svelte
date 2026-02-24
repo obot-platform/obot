@@ -7,7 +7,8 @@
 		FolderOpen,
 		Search,
 		LayoutList,
-		FolderTree
+		FolderTree,
+		ChevronUp
 	} from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { getContext } from 'svelte';
@@ -61,6 +62,10 @@
 	let query = $state('');
 	let view = $state<'list' | 'tree'>('list');
 	let showHiddenFiles = $state(false);
+	let sorted = $state<{ property: string; order: 'asc' | 'desc' }>({
+		property: 'name',
+		order: 'desc'
+	});
 
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
 
@@ -215,6 +220,38 @@
 		return flat.filter(({ path }) => toInclude.has(path));
 	});
 
+	const sortValueByProperty: Record<string, (item: FlatNode) => string | number> = {
+		name: (item) => item.node.name ?? '',
+		size: (item) => (item.node.type === 'file' ? (item.node.size ?? 0) : 0),
+		modifiedAt: (item) =>
+			item.node.type === 'file' ? (item.node.modifiedAt.date?.getTime() ?? 0) : 0,
+		createdAt: (item) =>
+			item.node.type === 'file' ? (item.node.createdAt.date?.getTime() ?? 0) : 0,
+		uri: (item) => (item.node.type === 'file' ? item.node.uri : item.path)
+	};
+
+	let sortedFlatFileList = $derived.by(() => {
+		const list = [...filteredFlatFileList];
+		const { property, order } = sorted;
+		const mult = order === 'asc' ? 1 : -1;
+		const getVal = sortValueByProperty[property] ?? sortValueByProperty.name;
+
+		list.sort((a, b) => {
+			if (property === 'size' || property === 'modifiedAt' || property === 'createdAt') {
+				if (a.node.type === 'folder' && b.node.type === 'file') return -1;
+				if (a.node.type === 'file' && b.node.type === 'folder') return 1;
+			}
+			const aVal = getVal(a);
+			const bVal = getVal(b);
+			const cmp =
+				typeof aVal === 'string' && typeof bVal === 'string'
+					? (aVal || '').localeCompare(bVal || '')
+					: (aVal as number) - (bVal as number);
+			return mult * cmp;
+		});
+		return list;
+	});
+
 	$effect(() => {
 		const container = filesContainer;
 		if (!container) return;
@@ -271,19 +308,42 @@
 		</label>
 	</div>
 	{#if view === 'list'}
-		<table class="table">
+		<table class="table w-full table-fixed">
 			<thead>
 				<tr>
-					<th>Name</th>
-					<th>Size</th>
-					{#if hasModifiedAt}<th>Last Modified</th>{/if}
-					{#if hasCreatedAt}<th>Created</th>{/if}
-					<th>Location</th>
+					{#each [{ property: 'name', title: 'Name' }, { property: 'size', title: 'Size' }, { property: 'modifiedAt', title: 'Last Modified' }, { property: 'createdAt', title: 'Created' }, { property: 'uri', title: 'Location' }] as header (header.property)}
+						<th
+							class="group min-w-0 {header.title === 'Size'
+								? 'w-20'
+								: header.title === 'Last Modified' || header.title === 'Created'
+									? 'w-36'
+									: ''}"
+						>
+							{header.title}
+							<button
+								class="btn btn-ghost tooltip btn-circle btn-xs opacity-0 transition-opacity group-hover:opacity-100"
+								onclick={() => {
+									if (sorted.property === header.property) {
+										sorted.order = sorted.order === 'asc' ? 'desc' : 'asc';
+									} else {
+										sorted = { property: header.property, order: 'asc' };
+									}
+								}}
+								data-tip={`Sort by ${header.title}: ${sorted.order === 'asc' || sorted.property !== header.property ? 'Descending' : 'Ascending'}`}
+							>
+								{#if (sorted.property === header.property && sorted.order === 'asc') || sorted.property !== header.property}
+									<ChevronDown class="size-3" />
+								{:else}
+									<ChevronUp class="size-3" />
+								{/if}
+							</button>
+						</th>
+					{/each}
 				</tr>
 			</thead>
 			<tbody>
-				{#if filteredFlatFileList.length > 0}
-					{#each filteredFlatFileList as { path, node } (node.type === 'file' ? node.uri : `folder:${path}`)}
+				{#if sortedFlatFileList.length > 0}
+					{#each sortedFlatFileList as { path, node } (node.type === 'file' ? node.uri : `folder:${path}`)}
 						{#if node.type === 'file'}
 							<tr
 								onclick={() => onFileOpen?.(node.uri)}
@@ -297,17 +357,30 @@
 									}
 								}}
 							>
-								<td class="flex items-center gap-2">
-									<FileItem uri={node.uri} />
+								<td>
+									<div class="flex items-center gap-2">
+										<FileItem uri={node.uri} classes={{ icon: 'size-4' }} compact />
+										<span class="min-w-0 truncate font-normal">
+											{node.name}
+										</span>
+									</div>
 								</td>
-								<td>{formatFileSize(node.size)}</td>
+								<td><p class="truncate text-nowrap break-all">{formatFileSize(node.size)}</p></td>
 								{#if hasModifiedAt}
-									<td>{node.modifiedAt.formatted}</td>
+									<td><p class="truncate text-nowrap break-all">{node.modifiedAt.formatted}</p></td>
 								{/if}
 								{#if hasCreatedAt}
-									<td>{node.createdAt.formatted}</td>
+									<td><p class="truncate text-nowrap break-all">{node.createdAt.formatted}</p></td>
 								{/if}
-								<td class="text-base-content/50 text-sm font-light italic">{node.uri}</td>
+								<td>
+									<div class="w-full min-w-0">
+										<p
+											class="text-base-content/50 w-full min-w-0 truncate text-sm font-light break-all italic"
+										>
+											{node.uri}
+										</p>
+									</div>
+								</td>
 							</tr>
 						{/if}
 					{/each}
@@ -362,7 +435,7 @@
 								aria-label={`Open file ${node.name}`}
 							>
 								<span class="min-w-0 shrink-0" aria-hidden="true"></span>
-								<FileItem uri={node.uri} />
+								<FileItem uri={node.uri} classes={{ icon: 'size-4' }} />
 							</button>
 						{/if}
 					</li>

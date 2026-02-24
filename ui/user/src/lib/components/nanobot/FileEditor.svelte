@@ -7,6 +7,7 @@
 	import { getLayout } from '$lib/context/nanobotLayout.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import RawEditor from '$lib/components/editor/RawEditor.svelte';
+	import FileItem from './FileItem.svelte';
 
 	interface Props {
 		filename: string;
@@ -26,7 +27,7 @@
 		threadContentWidth = 0
 	}: Props = $props();
 
-	const name = $derived(filename.split('/').pop()?.split('.').shift() || '');
+	const name = $derived(filename.split('/').pop() || '');
 	let resource = $state<ResourceContents | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
@@ -281,14 +282,14 @@
 
 	<div class="bg-base-200 flex h-full w-full flex-col">
 		<div class="border-base-300 flex items-center gap-2 border-b px-4 py-2">
-			<div class="flex grow items-center justify-between">
+			<div class="flex grow items-center justify-between truncate">
 				{#if loading}
 					<span class="loading loading-spinner loading-xs"></span>
 				{:else}
-					<span class="truncate text-sm font-medium">{name}</span>
-					{#if mimeType}
-						<span class="text-base-content/60 text-xs">{mimeType}</span>
-					{/if}
+					<div class="flex items-center gap-1 truncate">
+						<FileItem uri={filename} compact />
+						<span class="truncate text-sm font-medium">{name}</span>
+					</div>
 				{/if}
 			</div>
 			{#if onClose}
@@ -314,13 +315,15 @@
 			{:else if resource?.blob}
 				<!-- Binary content - show as image if possible -->
 				{#if mimeType.startsWith('image/') && isSafeImageMimeType(mimeType)}
-					<img
-						src="data:{mimeType};base64,{resource.blob}"
-						alt={filename}
-						class="h-auto max-w-full"
-					/>
+					<div class="flex h-full w-full items-center justify-center">
+						<img
+							src="data:{mimeType};base64,{resource.blob}"
+							alt={filename}
+							class="h-auto max-w-full"
+						/>
+					</div>
 				{:else}
-					<div class="text-base-content/60">Binary content ({mimeType})</div>
+					<div class="text-base-content/40 italic">This file could not be displayed.</div>
 				{/if}
 			{:else if isMarkdown}
 				<MarkdownEditor value={content} />

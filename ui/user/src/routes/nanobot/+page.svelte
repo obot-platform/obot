@@ -23,8 +23,6 @@
 	let loading = $state(true);
 	let threadContentWidth = $state(0);
 
-	const layout = nanobotLayout.getLayout();
-
 	onMount(async () => {
 		loading = true;
 		if (isNewAgent) {
@@ -143,10 +141,7 @@
 
 	{#snippet rightSidebar()}
 		{#if chat}
-			<ThreadQuickAccess
-				open={layout.quickBarAccessOpen}
-				onToggle={() => (layout.quickBarAccessOpen = !layout.quickBarAccessOpen)}
-			/>
+			<ThreadQuickAccess />
 		{/if}
 	{/snippet}
 </Layout>

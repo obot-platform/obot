@@ -10,20 +10,13 @@
 		ElicitationResult,
 		PrimitiveSchemaDefinition
 	} from '$lib/services/nanobot/types';
-	import { Copy, ChevronLeft, ChevronRight, SkipForward, Pencil } from 'lucide-svelte';
+	import { ChevronLeft, ChevronRight, Pencil, Info, X } from 'lucide-svelte';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
-
-	const stepColors = [
-		{ bg: 'bg-primary', text: 'text-primary-content', ring: 'ring-primary/30' },
-		{ bg: 'bg-secondary', text: 'text-secondary-content', ring: 'ring-secondary/30' },
-		{ bg: 'bg-accent', text: 'text-accent-content', ring: 'ring-accent/30' },
-		{ bg: 'bg-info', text: 'text-info-content', ring: 'ring-info/30' }
-	];
+	import { twMerge } from 'tailwind-merge';
 
 	let { elicitation, open = false, onresult }: Props = $props();
 
 	let formData = $state<{ [key: string]: string | number | boolean }>({});
-	let showCopiedTooltip = $state(false);
 
 	// Question-specific types
 	interface QuestionOptionData {
@@ -138,15 +131,6 @@
 			newWindow.opener = null;
 		}
 		handleAccept();
-	}
-
-	async function copyToClipboard() {
-		const url = getOAuthUrl();
-		await navigator.clipboard.writeText(url);
-		showCopiedTooltip = true;
-		setTimeout(() => {
-			showCopiedTooltip = false;
-		}, 2000);
 	}
 
 	// Question elicitation functions
@@ -264,20 +248,32 @@
 
 	<div class="flex w-full items-start gap-3 px-1">
 		<div class="border-base-300 rounded-box bg-base-100 w-full border p-4 shadow-sm">
+			<div class="absolute top-2 right-3">
+				<button
+					type="button"
+					class="btn btn-ghost btn-square btn-xs tooltip"
+					onclick={handleCancel}
+					data-tip="Close & skip all"
+					aria-label="Close & skip all"
+				>
+					<X class="size-3" />
+				</button>
+			</div>
 			{#if !isSingle && !reviewMode}
 				<!-- Step indicators for multi-question -->
-				<div class="mb-4 flex flex-wrap items-center gap-1.5">
+				<div class="mb-4 flex flex-wrap items-center gap-1.5 pr-4">
 					{#each questions as q, i (i)}
-						{@const color = stepColors[i % stepColors.length]}
 						<button
 							type="button"
 							onclick={() => goToStep(i)}
-							class="flex items-center justify-center rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap transition-colors
-								{i === currentStep
-								? `${color.bg} ${color.text}`
-								: hasAnswer(i)
-									? 'bg-success/20 text-success ring-success/30 ring-1'
-									: 'bg-base-200 text-base-content/40 hover:bg-base-300'}"
+							class={twMerge(
+								'flex items-center justify-center rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap transition-colors',
+								i === currentStep
+									? 'bg-primary text-primary-content'
+									: hasAnswer(i)
+										? 'bg-success/20 text-success ring-success/30 ring-1'
+										: 'bg-base-200 text-base-content/40 hover:bg-base-300'
+							)}
 						>
 							{q.header || q.question}
 						</button>
@@ -312,7 +308,22 @@
 				</div>
 
 				<div class="mt-4 flex justify-end gap-2">
-					<button type="button" class="btn btn-ghost btn-sm" onclick={handleDecline}>Cancel</button>
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm"
+						onclick={() => {
+							currentStep = questions.length - 1;
+							reviewMode = false;
+						}}
+					>
+						<ChevronLeft class="h-4 w-4" />
+						Back
+					</button>
+					<button
+						type="button"
+						class="btn btn-ghost btn-sm text-base-content/40"
+						onclick={handleDecline}>Cancel</button
+					>
 					<button type="button" class="btn btn-primary btn-sm" onclick={handleQuestionSubmit}
 						>Submit</button
 					>
@@ -419,17 +430,9 @@
 				</div>
 
 				<!-- Navigation -->
-				<div class="mt-3 flex items-center justify-between">
-					<button
-						type="button"
-						class="btn btn-ghost btn-xs text-base-content/40"
-						onclick={handleCancel}
-					>
-						<SkipForward class="h-3 w-3" />
-						Skip All
-					</button>
+				<div class="mt-3 flex items-center justify-end">
 					<div class="flex gap-1.5">
-						{#if !isSingle && currentStep > 0}
+						{#if !isSingle}
 							<button
 								type="button"
 								class="btn btn-ghost btn-sm"
@@ -452,37 +455,41 @@
 							>
 								Submit
 							</button>
-						{:else if currentStep < questions.length - 1}
+						{:else}
 							<button
 								type="button"
 								class="btn btn-ghost btn-sm text-base-content/40"
 								onclick={nextStep}
+								disabled={currentStep === questions.length - 1}
 							>
 								Skip
 							</button>
-							<button
-								type="button"
-								class="btn btn-primary btn-sm"
-								disabled={!hasAnswer(currentStep)}
-								onclick={nextStep}
-							>
-								Next
-								<ChevronRight class="h-4 w-4" />
-							</button>
-						{:else}
-							<button
-								type="button"
-								class="btn btn-primary btn-sm"
-								disabled={!hasAnswer(currentStep)}
-								onclick={() => {
-									if (!(showCustomInput.get(currentStep) ?? false)) {
-										customAnswers.delete(currentStep);
-									}
-									reviewMode = true;
-								}}
-							>
-								Review
-							</button>
+							{#if currentStep < questions.length - 1}
+								<button
+									type="button"
+									class="btn btn-primary btn-sm"
+									disabled={!hasAnswer(currentStep)}
+									onclick={nextStep}
+								>
+									Next
+									<ChevronRight class="h-4 w-4" />
+								</button>
+							{:else}
+								<button
+									type="button"
+									class="btn btn-primary btn-sm"
+									disabled={!hasAnswer(currentStep)}
+									onclick={() => {
+										if (!(showCustomInput.get(currentStep) ?? false)) {
+											customAnswers.delete(currentStep);
+										}
+										reviewMode = true;
+									}}
+								>
+									Next
+									<ChevronRight class="h-4 w-4" />
+								</button>
+							{/if}
 						{/if}
 					</div>
 				</div>
@@ -492,7 +499,12 @@
 {:else if open}
 	<!-- Modal for OAuth and generic elicitations -->
 	<dialog class="modal-open modal">
-		<div class="modal-box w-full max-w-2xl">
+		<div
+			class={twMerge(
+				'modal-box dialog-container w-full',
+				isOAuthElicitation() ? 'max-w-lg' : 'max-w-2xl'
+			)}
+		>
 			<form method="dialog">
 				<button
 					class="btn btn-circle btn-ghost btn-sm absolute top-2 right-2"
@@ -502,45 +514,26 @@
 
 			{#if isOAuthElicitation()}
 				<!-- OAuth Authentication Dialog -->
-				<h3 class="mb-4 text-lg font-bold">Authentication Required</h3>
+				<h3 class="text-lg font-bold">Authentication Required</h3>
 
 				<div class="mb-6">
-					<p class="text-base-content/80 mb-4 whitespace-pre-wrap">{elicitation.message}</p>
-
-					<div class="group bg-base-200 relative mb-4 rounded-lg p-4">
-						<p class="text-base-content/90 pr-8 font-mono text-sm break-all">{getOAuthUrl()}</p>
-						<button
-							type="button"
-							class="btn btn-ghost btn-xs absolute top-2 right-2 opacity-60 transition-opacity hover:opacity-100"
-							onclick={copyToClipboard}
-							title="Copy to clipboard"
-						>
-							<Copy class="h-4 w-4" />
-						</button>
-						{#if showCopiedTooltip}
-							<div
-								class="bg-success text-success-content absolute -top-8 right-2 rounded px-2 py-1 text-xs shadow-lg transition-opacity duration-500 {showCopiedTooltip
-									? 'opacity-100'
-									: 'opacity-0'}"
-							>
-								Copied!
-							</div>
-						{/if}
-					</div>
+					<p class="text-base-content/80 mb-4 text-sm whitespace-pre-wrap">{elicitation.message}</p>
 				</div>
 
-				<div class="modal-action">
-					<button type="button" class="btn btn-error" onclick={handleDecline}> Decline </button>
-					<button type="button" class="btn btn-success" onclick={openOAuthLink}>
+				<div class="modal-action flex flex-col">
+					<button type="button" class="btn btn-primary" onclick={openOAuthLink}>
 						Authenticate
+					</button>
+					<button type="button" class="btn btn-error btn-soft" onclick={handleDecline}>
+						Decline
 					</button>
 				</div>
 			{:else}
 				<!-- Generic Elicitation Form -->
-				<h3 class="mb-4 text-lg font-bold">Information Request</h3>
+				<h3 class="text-lg font-bold">Information Request</h3>
 
 				<div class="mb-6">
-					<p class="text-base-content/80 whitespace-pre-wrap">{elicitation.message}</p>
+					<p class="text-base-content/80 text-sm whitespace-pre-wrap">{elicitation.message}</p>
 				</div>
 
 				<form
@@ -552,20 +545,31 @@
 				>
 					{#each Object.entries(elicitation.requestedSchema?.properties ?? {}) as [key, schema] (key)}
 						<div class="form-control">
-							<label class="label" for={key}>
-								<span class="label-text font-medium">
-									{getFieldTitle(key, schema)}
-									{#if isRequired(key)}
-										<span class="text-error">*</span>
-									{/if}
-								</span>
-							</label>
+							<div class="flex items-center gap-0.5">
+								<label class="label" for={key}>
+									<span class="text-base-content text-md">
+										{getFieldTitle(key, schema)}
+										{#if isRequired(key)}
+											<span class="text-error">*</span>
+										{/if}
+									</span>
+								</label>
 
-							{#if schema.description}
-								<div class="label">
-									<span class="label-text-alt text-base-content/60">{schema.description}</span>
-								</div>
-							{/if}
+								{#if schema.description}
+									{@const optional = !elicitation.requestedSchema?.required?.includes(key)}
+									<div class="tooltip border-transparent bg-transparent p-0 shadow-none">
+										<div class="tooltip-content text-left break-words">
+											<p class="text-xs font-light">{schema.description}</p>
+										</div>
+										{#if optional}
+											<span class="text-base-content/40">(optional)</span>
+										{/if}
+										<div class="btn btn-circle size-4 bg-transparent">
+											<Info class="text-base-content/40 size-4" />
+										</div>
+									</div>
+								{/if}
+							</div>
 
 							{#if schema.type === 'string' && 'enum' in schema}
 								<!-- Enum/Select field -->
@@ -601,7 +605,7 @@
 									id={key}
 									type="number"
 									bind:value={formData[key]}
-									class="input-bordered input w-full"
+									class="text-input-filled w-full"
 									required={isRequired(key)}
 									min={schema.minimum}
 									max={schema.maximum}
@@ -614,7 +618,7 @@
 										id={key}
 										type="email"
 										bind:value={formData[key]}
-										class="input-bordered input w-full"
+										class="text-input-filled w-full"
 										required={isRequired(key)}
 										minlength={schema.minLength}
 										maxlength={schema.maxLength}
@@ -624,7 +628,7 @@
 										id={key}
 										type="url"
 										bind:value={formData[key]}
-										class="input-bordered input w-full"
+										class="text-input-filled w-full"
 										required={isRequired(key)}
 										minlength={schema.minLength}
 										maxlength={schema.maxLength}
@@ -634,7 +638,7 @@
 										id={key}
 										type="date"
 										bind:value={formData[key]}
-										class="input-bordered input w-full"
+										class="text-input-filled w-full"
 										required={isRequired(key)}
 									/>
 								{:else if schema.format === 'date-time'}
@@ -642,7 +646,7 @@
 										id={key}
 										type="datetime-local"
 										bind:value={formData[key]}
-										class="input-bordered input w-full"
+										class="text-input-filled w-full"
 										required={isRequired(key)}
 									/>
 								{:else if schema.format === 'password'}
@@ -650,7 +654,7 @@
 										id={key}
 										type="password"
 										bind:value={formData[key]}
-										class="input-bordered input w-full"
+										class="text-input-filled w-full"
 										required={isRequired(key)}
 										minlength={schema.minLength}
 										maxlength={schema.maxLength}
@@ -660,7 +664,7 @@
 										id={key}
 										type="text"
 										bind:value={formData[key]}
-										class="input-bordered input w-full"
+										class="text-input-filled w-full"
 										required={isRequired(key)}
 										minlength={schema.minLength}
 										maxlength={schema.maxLength}
