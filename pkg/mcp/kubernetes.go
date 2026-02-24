@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gptscript-ai/gptscript/pkg/hash"
@@ -49,6 +50,13 @@ type kubernetesBackend struct {
 	auditLogsBatchSize            int
 	auditLogsFlushIntervalSeconds int
 	obotClient                    kclient.Client
+	deploymentCacheMu             sync.RWMutex
+	deploymentCache               map[string]*kubernetesDeploymentCacheEntry
+}
+
+type kubernetesDeploymentCacheEntry struct {
+	hash    string
+	podName string
 }
 
 func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, obotClient kclient.Client, opts Options) backend {
@@ -70,19 +78,24 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
 		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
 		obotClient:                    obotClient,
+		deploymentCache:               map[string]*kubernetesDeploymentCacheEntry{},
 	}
 }
 
 func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfig, webhooks []Webhook) error {
-	// Check capacity before deploying (fail-open if capacity can't be determined)
-	if err := k.CheckCapacity(ctx); err != nil {
-		return err
-	}
-
 	// Generate the Kubernetes deployment objects.
 	objs, err := k.k8sObjects(ctx, server, webhooks)
 	if err != nil {
 		return fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.MCPServerName, err)
+	}
+
+	return k.deployServerObjects(ctx, server, objs)
+}
+
+func (k *kubernetesBackend) deployServerObjects(ctx context.Context, server ServerConfig, objs []kclient.Object) error {
+	// Check capacity before deploying (fail-open if capacity can't be determined)
+	if err := k.CheckCapacity(ctx); err != nil {
+		return err
 	}
 
 	// Cleanup old deployments if it exists. Notice the server.Scope as the owner sub-context,
@@ -107,8 +120,28 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		server.Components[i] = component
 	}
 
-	if err := k.deployServer(ctx, server, webhooks); err != nil {
-		return ServerConfig{}, err
+	serverConfigHash := hash.Digest(map[string]any{"server": server, "webhooks": webhooks})
+	cachedDeployment := k.getDeploymentCache(server.MCPServerName)
+
+	shouldDeploy := cachedDeployment == nil || cachedDeployment.hash != serverConfigHash
+	if !shouldDeploy {
+		var deployment appsv1.Deployment
+		if err := k.client.Get(ctx, kclient.ObjectKey{Name: server.MCPServerName, Namespace: k.mcpNamespace}, &deployment); apierrors.IsNotFound(err) {
+			shouldDeploy = true
+		} else if err != nil {
+			return ServerConfig{}, fmt.Errorf("failed to get deployment %s: %w", server.MCPServerName, err)
+		}
+	}
+
+	if shouldDeploy {
+		objs, err := k.k8sObjects(ctx, server, webhooks)
+		if err != nil {
+			return ServerConfig{}, fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.MCPServerName, err)
+		}
+
+		if err := k.deployServerObjects(ctx, server, objs); err != nil {
+			return ServerConfig{}, err
+		}
 	}
 
 	u := fmt.Sprintf("http://%s.%s.svc.%s", server.MCPServerName, k.mcpNamespace, k.mcpClusterDomain)
@@ -116,10 +149,21 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		// Point directly to the mcp container's port
 		u = fmt.Sprintf("%s:8080", u)
 	}
-	podName, err := k.updatedMCPPodName(ctx, u, server.MCPServerName, server)
+
+	var previousPodName string
+	if cachedDeployment != nil {
+		previousPodName = cachedDeployment.podName
+	}
+
+	podName, err := k.updatedMCPPodName(ctx, u, server.MCPServerName, server, previousPodName)
 	if err != nil {
 		return ServerConfig{}, err
 	}
+
+	k.setDeploymentCache(server.MCPServerName, kubernetesDeploymentCacheEntry{
+		hash:    serverConfigHash,
+		podName: podName,
+	})
 
 	// For direct access to the real MCP server (when there's a shim), use a different port
 	if server.NanobotAgentName != "" {
@@ -318,6 +362,8 @@ func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error
 	).Apply(ctx, nil, nil); err != nil {
 		return fmt.Errorf("failed to delete MCP deployment %s: %w", id, err)
 	}
+
+	k.deleteDeploymentCache(id)
 
 	return nil
 }
@@ -961,7 +1007,7 @@ func analyzePodStatus(pod *corev1.Pod) (bool, error) {
 	return true, fmt.Errorf("pod in phase %s, waiting for containers to be ready", pod.Status.Phase)
 }
 
-func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id string, server ServerConfig) (string, error) {
+func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id string, server ServerConfig, previousPodName string) (string, error) {
 	const maxRetries = 5
 	var lastErr error
 
@@ -975,12 +1021,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 			return dep.Generation == dep.Status.ObservedGeneration && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1, nil
 		}, wait.Option{Timeout: time.Minute})
 		if err == nil {
-			// Deployment is ready, now ensure the server is ready
-			if err = ensureServerReady(ctx, url, server); err != nil {
-				return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
-			}
-
-			// Now get the pod name that is currently running
+			// Get the pod name that is currently running.
 			var (
 				pods    corev1.PodList
 				podName string
@@ -998,10 +1039,19 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 			for _, p := range pods.Items {
 				if p.DeletionTimestamp.IsZero() && p.CreationTimestamp.After(newestCreatedTime.Time) && p.Status.Phase == corev1.PodRunning {
 					podName = p.Name
+					newestCreatedTime = p.CreationTimestamp
 				}
 			}
 
 			if podName != "" {
+				if podName == previousPodName {
+					return podName, nil
+				}
+
+				if err = ensureServerReady(ctx, url, server); err != nil {
+					return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
+				}
+
 				return podName, nil
 			}
 
@@ -1053,6 +1103,27 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 
 	olog.Debugf("exceeded max retries waiting for pod: id=%s lastError=%v attempts=%d", id, lastErr, maxRetries)
 	return "", fmt.Errorf("%w after %d retries: %v", ErrHealthCheckTimeout, maxRetries, lastErr)
+}
+
+func (k *kubernetesBackend) getDeploymentCache(mcpServerName string) *kubernetesDeploymentCacheEntry {
+	k.deploymentCacheMu.RLock()
+	defer k.deploymentCacheMu.RUnlock()
+
+	return k.deploymentCache[mcpServerName]
+}
+
+func (k *kubernetesBackend) setDeploymentCache(mcpServerName string, entry kubernetesDeploymentCacheEntry) {
+	k.deploymentCacheMu.Lock()
+	defer k.deploymentCacheMu.Unlock()
+
+	k.deploymentCache[mcpServerName] = &entry
+}
+
+func (k *kubernetesBackend) deleteDeploymentCache(mcpServerName string) {
+	k.deploymentCacheMu.Lock()
+	defer k.deploymentCacheMu.Unlock()
+
+	delete(k.deploymentCache, mcpServerName)
 }
 
 func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error {
