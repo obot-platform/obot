@@ -5,9 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/nah/pkg/backend"
+	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -15,36 +18,45 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Handler struct {
-	gptClient     *gptscript.GPTScript
-	tokenService  *persistent.TokenService
-	gatewayClient *client.Client
-	nanobotImage  string
-	serverURL     string
+	gptClient          *gptscript.GPTScript
+	tokenService       *persistent.TokenService
+	gatewayClient      *client.Client
+	localK8SBackend    backend.Backend
+	nanobotImage       string
+	serverURL          string
+	mcpServerNamespace string
 }
 
-func New(gptClient *gptscript.GPTScript, tokenService *persistent.TokenService, gatewayClient *client.Client, nanobotImage, serverURL string, mcpSessionManager *mcp.SessionManager) *Handler {
+func New(gptClient *gptscript.GPTScript, tokenService *persistent.TokenService, gatewayClient *client.Client, localK8sRouter *router.Router, nanobotImage, serverURL, mcpServerNamespace string, mcpSessionManager *mcp.SessionManager) *Handler {
+	var localK8SBackend backend.Backend
+	if localK8sRouter != nil {
+		localK8SBackend = localK8sRouter.Backend()
+	}
 	return &Handler{
-		gptClient:     gptClient,
-		tokenService:  tokenService,
-		gatewayClient: gatewayClient,
-		nanobotImage:  nanobotImage,
-		serverURL:     mcpSessionManager.TransformObotHostname(serverURL),
+		gptClient:          gptClient,
+		tokenService:       tokenService,
+		gatewayClient:      gatewayClient,
+		localK8SBackend:    localK8SBackend,
+		nanobotImage:       nanobotImage,
+		serverURL:          mcpSessionManager.TransformObotHostname(serverURL),
+		mcpServerNamespace: mcpServerNamespace,
 	}
 }
 
-func (h *Handler) CreateMCPServer(req router.Request, resp router.Response) error {
+func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) error {
 	agent := req.Object.(*v1.NanobotAgent)
 
 	mcpServerName := system.MCPServerPrefix + agent.Name
 
 	// Check if MCPServer already exists
-	existing := &v1.MCPServer{}
-	err := req.Get(existing, agent.Namespace, mcpServerName)
+	var existing v1.MCPServer
+	err := req.Get(&existing, agent.Namespace, mcpServerName)
 	if err == nil {
 		// MCP Server already exists, update it if needed
 		var needsUpdate bool
@@ -73,6 +85,20 @@ func (h *Handler) CreateMCPServer(req router.Request, resp router.Response) erro
 			expectedArgs = append(expectedArgs, "--agent", agent.Spec.DefaultAgent)
 		}
 
+		expectedEnv := []types.MCPEnv{
+			{
+				MCPHeader: types.MCPHeader{
+					Name:        "NANOBOT_ENV_FILE",
+					Description: "Environment variables file for Nanobot",
+					Key:         "NANOBOT_ENV_FILE",
+					Sensitive:   true,
+					Required:    true,
+				},
+				File:        true,
+				DynamicFile: true,
+			},
+		}
+
 		currentArgs := existing.Spec.Manifest.ContainerizedConfig.Args
 		if len(currentArgs) != len(expectedArgs) {
 			needsUpdate = true
@@ -85,9 +111,14 @@ func (h *Handler) CreateMCPServer(req router.Request, resp router.Response) erro
 			}
 		}
 
+		if len(existing.Spec.Manifest.Env) != len(expectedEnv) || existing.Spec.Manifest.Env[0] != expectedEnv[0] {
+			needsUpdate = true
+		}
+
 		if needsUpdate {
 			existing.Spec.Manifest.ContainerizedConfig.Args = expectedArgs
-			if err := req.Client.Update(req.Ctx, existing); err != nil {
+			existing.Spec.Manifest.Env = expectedEnv
+			if err := req.Client.Update(req.Ctx, &existing); err != nil {
 				return fmt.Errorf("failed to update MCPServer: %w", err)
 			}
 		}
@@ -96,6 +127,7 @@ func (h *Handler) CreateMCPServer(req router.Request, resp router.Response) erro
 		if err := h.ensureCredentials(req.Ctx, agent, mcpServerName, resp); err != nil {
 			return fmt.Errorf("failed to ensure credentials: %w", err)
 		}
+
 		return nil
 	}
 	if !apierrors.IsNotFound(err) {
@@ -131,66 +163,14 @@ func (h *Handler) CreateMCPServer(req router.Request, resp router.Response) erro
 				Env: []types.MCPEnv{
 					{
 						MCPHeader: types.MCPHeader{
-							Name:        "ANTHROPIC_BASE_URL",
-							Description: "Base URL for Anthropic API proxy",
-							Key:         "ANTHROPIC_BASE_URL",
-							Sensitive:   false,
-							Required:    true,
-						},
-					},
-					{
-						MCPHeader: types.MCPHeader{
-							Name:        "OPENAI_BASE_URL",
-							Description: "Base URL for OpenAI API proxy",
-							Key:         "OPENAI_BASE_URL",
-							Sensitive:   false,
-							Required:    true,
-						},
-					},
-					{
-						MCPHeader: types.MCPHeader{
-							Name:        "ANTHROPIC_API_KEY",
-							Description: "API key for Anthropic proxy authentication",
-							Key:         "ANTHROPIC_API_KEY",
+							Name:        "NANOBOT_ENV_FILE",
+							Description: "Environment variables file for Nanobot",
+							Key:         "NANOBOT_ENV_FILE",
 							Sensitive:   true,
 							Required:    true,
 						},
-					},
-					{
-						MCPHeader: types.MCPHeader{
-							Name:        "OPENAI_API_KEY",
-							Description: "API key for OpenAI proxy authentication",
-							Key:         "OPENAI_API_KEY",
-							Sensitive:   true,
-							Required:    true,
-						},
-					},
-					{
-						MCPHeader: types.MCPHeader{
-							Name:        "MCP_API_KEY",
-							Description: "API key for MCP server access",
-							Key:         "MCP_API_KEY",
-							Sensitive:   true,
-							Required:    true,
-						},
-					},
-					{
-						MCPHeader: types.MCPHeader{
-							Name:        "MCP_SERVER_SEARCH_URL",
-							Description: "URL for MCP server search",
-							Key:         "MCP_SERVER_SEARCH_URL",
-							Sensitive:   false,
-							Required:    true,
-						},
-					},
-					{
-						MCPHeader: types.MCPHeader{
-							Name:        "MCP_SERVER_SEARCH_API_KEY",
-							Description: "API key for MCP server search",
-							Key:         "MCP_SERVER_SEARCH_API_KEY",
-							Sensitive:   true,
-							Required:    true,
-						},
+						File:        true,
+						DynamicFile: true,
 					},
 				},
 			},
@@ -217,6 +197,8 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 	// Check if credential exists and if the token needs refreshing
 	var needsRefresh bool
 	cred, err := h.gptClient.RevealCredential(ctx, []string{credCtx}, mcpServerName)
+	// Parse the env file before checking the error.
+	credEnvFileVars := parseEnvFile(cred.Env["NANOBOT_ENV_FILE"])
 	if err != nil {
 		if !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to reveal credential: %w", err)
@@ -225,8 +207,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 		needsRefresh = true
 	} else {
 		// Credential exists, check if token needs refreshing
-		token := cred.Env["OPENAI_API_KEY"]
-		if token != "" {
+		if token := credEnvFileVars["OPENAI_API_KEY"]; token != "" {
 			tokenCtx, err := h.tokenService.DecodeToken(ctx, token)
 			if err != nil {
 				// Token is invalid, needs refresh
@@ -235,6 +216,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 				if untilRefresh := time.Until(tokenCtx.ExpiresAt) - 2*time.Hour; untilRefresh <= 0 {
 					// If the token expires in the next 2 hours, then refresh it
 					needsRefresh = true
+					resp.RetryAfter(time.Second)
 				} else {
 					// Otherwise, look at the agent again around the time the refresh would be needed.
 					resp.RetryAfter(untilRefresh)
@@ -246,8 +228,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 		}
 	}
 
-	searchServerURL := system.MCPConnectURL(h.serverURL, system.ObotMCPServerName)
-	if !needsRefresh && cred.Env["OBOT_URL"] == h.serverURL && cred.Env["MCP_SERVER_SEARCH_URL"] == searchServerURL {
+	if !needsRefresh {
 		// Credentials are up to date
 		return nil
 	}
@@ -273,9 +254,15 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 
-	// Delete old API key if present
-	// Extract old API key ID if present for cleanup
-	if apiKeyIDStr := cred.Env["MCP_API_KEY_ID"]; apiKeyIDStr != "" {
+	// Delete old API key if present.
+	// We're not deleting the key the container is currently using because it may take a few minutes for the volume
+	// to update with the new credentials. We delete the previously used key instead to ensure that we don't leave orphaned keys around.
+	apiKeyIDStr := credEnvFileVars["MCP_API_KEY_ID_PREV"]
+	if apiKeyIDStr == "" {
+		// Backward compatibility while migrating old credentials.
+		apiKeyIDStr = cred.Env["MCP_API_KEY_ID"]
+	}
+	if apiKeyIDStr != "" {
 		if id, err := strconv.ParseUint(apiKeyIDStr, 10, 32); err == nil {
 			if err = h.gatewayClient.DeleteAPIKey(ctx, gatewayUser.ID, uint(id)); err != nil {
 				return fmt.Errorf("failed to delete old API key: %w", err)
@@ -302,20 +289,34 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 		ToolName: mcpServerName,
 		Type:     gptscript.CredentialTypeTool,
 		Env: map[string]string{
-			"OBOT_URL":                  h.serverURL,
-			"ANTHROPIC_BASE_URL":        fmt.Sprintf("%s/api/llm-proxy/anthropic", h.serverURL),
-			"OPENAI_BASE_URL":           fmt.Sprintf("%s/api/llm-proxy/openai", h.serverURL),
-			"ANTHROPIC_API_KEY":         token,
-			"OPENAI_API_KEY":            token,
-			"MCP_API_KEY":               apiKeyResp.Key,
-			"MCP_API_KEY_ID":            strconv.FormatUint(uint64(apiKeyResp.ID), 10),
-			"MCP_SERVER_SEARCH_URL":     searchServerURL,
-			"MCP_SERVER_SEARCH_API_KEY": apiKeyResp.Key,
+			"NANOBOT_ENV_FILE": strings.Join([]string{
+				fmt.Sprintf("OBOT_URL=%s", h.serverURL),
+				fmt.Sprintf("ANTHROPIC_BASE_URL=%s/api/llm-proxy/anthropic", h.serverURL),
+				fmt.Sprintf("OPENAI_BASE_URL=%s/api/llm-proxy/openai", h.serverURL),
+				fmt.Sprintf("ANTHROPIC_API_KEY=%s", token),
+				fmt.Sprintf("OPENAI_API_KEY=%s", token),
+				fmt.Sprintf("MCP_API_KEY=%s", apiKeyResp.Key),
+				fmt.Sprintf("MCP_API_KEY_ID=%d", apiKeyResp.ID),
+				fmt.Sprintf("MCP_API_KEY_ID_PREV=%s", credEnvFileVars["MCP_API_KEY_ID"]),
+				fmt.Sprintf("MCP_SERVER_SEARCH_URL=%s", system.MCPConnectURL(h.serverURL, system.ObotMCPServerName)),
+				fmt.Sprintf("MCP_SERVER_SEARCH_API_KEY=%s", apiKeyResp.Key),
+			}, "\n"),
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
+	if h.localK8SBackend != nil {
+		// If local Kubernetes backend is available, trigger a sync to update the secret with the new credentials
+		if err := h.localK8SBackend.Trigger(
+			ctx,
+			corev1.SchemeGroupVersion.WithKind("Secret"),
+			fmt.Sprintf("%s/%s", name.SafeConcatName(h.mcpServerNamespace, "files"), mcpServerName),
+			time.Second,
+		); err != nil {
+			return fmt.Errorf("failed to trigger local Kubernetes sync: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -365,7 +366,8 @@ func (h *Handler) deleteTokens(ctx context.Context, agent *v1.NanobotAgent, mcpS
 	}
 
 	// Extract and delete the API key if present
-	if apiKeyIDStr := cred.Env["MCP_API_KEY_ID"]; apiKeyIDStr != "" {
+
+	if apiKeyIDStr := parseEnvFile(cred.Env["NANOBOT_ENV_FILE"])["MCP_API_KEY_ID"]; apiKeyIDStr != "" {
 		apiKeyID, err := strconv.ParseUint(apiKeyIDStr, 10, 32)
 		if err != nil {
 			return fmt.Errorf("failed to parse API key ID: %w", err)
@@ -384,6 +386,17 @@ func (h *Handler) deleteTokens(ctx context.Context, agent *v1.NanobotAgent, mcpS
 	}
 
 	return nil
+}
+
+func parseEnvFile(content string) map[string]string {
+	result := map[string]string{}
+	for line := range strings.SplitSeq(content, "\n") {
+		if key, value, ok := strings.Cut(strings.TrimSpace(line), "="); ok {
+			result[key] = value
+		}
+	}
+
+	return result
 }
 
 // Cleanup is a finalizer handler that cleans up tokens when a NanobotAgent is deleted.

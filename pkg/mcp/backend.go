@@ -62,7 +62,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 	if server.Runtime != types.RuntimeContainerized {
 		// This server is using nanobot as long as it is not the containerized runtime,
 		// so we can reach out to nanobot's healthz path.
-		url = fmt.Sprintf("%s/healthz", url)
+		url = fmt.Sprintf("%s/healthz", strings.TrimSuffix(url, "/"))
 		for {
 			resp, err := client.Get(url)
 			if err == nil {

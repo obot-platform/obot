@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/deployment"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
+	"github.com/obot-platform/obot/pkg/controller/handlers/secret"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/services"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -538,4 +539,7 @@ func (c *Controller) setupLocalK8sRoutes() {
 	deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend())
 	c.localK8sRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
 	c.localK8sRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)
+
+	secretHandler := secret.New(c.services.MCPServerNamespace, c.services.GPTClient)
+	c.localK8sRouter.Type(&corev1.Secret{}).HandlerFunc(secretHandler.UpdateNanobotAgentCreds)
 }
