@@ -10,7 +10,7 @@
 		ElicitationResult,
 		PrimitiveSchemaDefinition
 	} from '$lib/services/nanobot/types';
-	import { Copy, ChevronLeft, ChevronRight, SkipForward, Pencil } from 'lucide-svelte';
+	import { Copy, ChevronLeft, ChevronRight, SkipForward, Pencil, Info } from 'lucide-svelte';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 
 	const stepColors = [
@@ -492,7 +492,7 @@
 {:else if open}
 	<!-- Modal for OAuth and generic elicitations -->
 	<dialog class="modal-open modal">
-		<div class="modal-box w-full max-w-2xl">
+		<div class="modal-box dialog-container w-full max-w-2xl">
 			<form method="dialog">
 				<button
 					class="btn btn-circle btn-ghost btn-sm absolute top-2 right-2"
@@ -537,10 +537,10 @@
 				</div>
 			{:else}
 				<!-- Generic Elicitation Form -->
-				<h3 class="mb-4 text-lg font-bold">Information Request</h3>
+				<h3 class="text-lg font-bold">Information Request</h3>
 
 				<div class="mb-6">
-					<p class="text-base-content/80 whitespace-pre-wrap">{elicitation.message}</p>
+					<p class="text-base-content/80 text-sm whitespace-pre-wrap">{elicitation.message}</p>
 				</div>
 
 				<form
@@ -552,20 +552,31 @@
 				>
 					{#each Object.entries(elicitation.requestedSchema?.properties ?? {}) as [key, schema] (key)}
 						<div class="form-control">
-							<label class="label" for={key}>
-								<span class="label-text font-medium">
-									{getFieldTitle(key, schema)}
-									{#if isRequired(key)}
-										<span class="text-error">*</span>
-									{/if}
-								</span>
-							</label>
+							<div class="flex items-center gap-0.5">
+								<label class="label" for={key}>
+									<span class="text-base-content text-md">
+										{getFieldTitle(key, schema)}
+										{#if isRequired(key)}
+											<span class="text-error">*</span>
+										{/if}
+									</span>
+								</label>
 
-							{#if schema.description}
-								<div class="label">
-									<span class="label-text-alt text-base-content/60">{schema.description}</span>
-								</div>
-							{/if}
+								{#if schema.description}
+									{@const optional = !elicitation.requestedSchema?.required?.includes(key)}
+									<div class="tooltip border-transparent bg-transparent p-0 shadow-none">
+										<div class="tooltip-content text-left break-words">
+											<p class="text-xs font-light">{schema.description}</p>
+										</div>
+										{#if optional}
+											<span class="text-base-content/40">(optional)</span>
+										{/if}
+										<div class="btn btn-circle size-4 bg-transparent">
+											<Info class="text-base-content/40 size-4" />
+										</div>
+									</div>
+								{/if}
+							</div>
 
 							{#if schema.type === 'string' && 'enum' in schema}
 								<!-- Enum/Select field -->
@@ -601,7 +612,7 @@
 									id={key}
 									type="number"
 									bind:value={formData[key]}
-									class="input-bordered input w-full"
+									class="text-input-filled w-full"
 									required={isRequired(key)}
 									min={schema.minimum}
 									max={schema.maximum}
@@ -614,7 +625,7 @@
 										id={key}
 										type="email"
 										bind:value={formData[key]}
-										class="input-bordered input w-full"
+										class="text-input-filled w-full"
 										required={isRequired(key)}
 										minlength={schema.minLength}
 										maxlength={schema.maxLength}
@@ -624,7 +635,7 @@
 										id={key}
 										type="url"
 										bind:value={formData[key]}
-										class="input-bordered input w-full"
+										class="text-input-filled w-full"
 										required={isRequired(key)}
 										minlength={schema.minLength}
 										maxlength={schema.maxLength}
@@ -634,7 +645,7 @@
 										id={key}
 										type="date"
 										bind:value={formData[key]}
-										class="input-bordered input w-full"
+										class="text-input-filled w-full"
 										required={isRequired(key)}
 									/>
 								{:else if schema.format === 'date-time'}
@@ -642,7 +653,7 @@
 										id={key}
 										type="datetime-local"
 										bind:value={formData[key]}
-										class="input-bordered input w-full"
+										class="text-input-filled w-full"
 										required={isRequired(key)}
 									/>
 								{:else if schema.format === 'password'}
@@ -650,7 +661,7 @@
 										id={key}
 										type="password"
 										bind:value={formData[key]}
-										class="input-bordered input w-full"
+										class="text-input-filled w-full"
 										required={isRequired(key)}
 										minlength={schema.minLength}
 										maxlength={schema.maxLength}
@@ -660,7 +671,7 @@
 										id={key}
 										type="text"
 										bind:value={formData[key]}
-										class="input-bordered input w-full"
+										class="text-input-filled w-full"
 										required={isRequired(key)}
 										minlength={schema.minLength}
 										maxlength={schema.maxLength}
