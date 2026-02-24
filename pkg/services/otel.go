@@ -21,8 +21,8 @@ import (
 )
 
 type OtelOptions struct {
-	SampleProb         float64 `usage:"The probability of sampling a trace" default:"0.1" name:"otel-sample-prob"`
-	BaseExportEndpoint string  `usage:"The base endpoint to export to, if not set, no metrics, tracing, or logging will be exported" name:"otel-base-export-endpoint"`
+	SampleProb         float64 `usage:"The probability of sampling a trace" default:"0.1" name:"otel-sample-prob" env:"OTEL_TRACES_SAMPLER_ARG"`
+	BaseExportEndpoint string  `usage:"The base endpoint to export to, if not set, no metrics, tracing, or logging will be exported" name:"otel-base-export-endpoint" env:"OTEL_EXPORTER_OTLP_ENDPOINT"`
 	BearerToken        string  `usage:"Bearer token for authentication" name:"otel-bearer-token"`
 }
 
