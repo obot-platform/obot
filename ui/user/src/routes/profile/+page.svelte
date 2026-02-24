@@ -9,6 +9,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
+	import Layout from '$lib/components/Layout.svelte';
 
 	let toDelete = $state(false);
 	let toRevoke = $state(false);
@@ -69,83 +70,71 @@
 	}
 </script>
 
-<div class="flex h-full flex-col items-center">
-	<Navbar />
-
-	<main
-		class="colors-background relative flex h-dvh w-full max-w-(--breakpoint-2xl) flex-col items-center md:pb-12"
-	>
-		<div class="mt-4 flex w-full flex-col gap-8">
-			<div class="flex w-full flex-col gap-4">
-				<div class="bg-background sticky top-0 z-30 flex items-center gap-4 px-4 py-4 md:px-12">
-					<h3 class="flex flex-shrink-0 text-2xl font-semibold">My Account</h3>
+<Layout title="My Account">
+	<div class="mt-6 flex w-full flex-col gap-8">
+		<div class="flex w-full flex-col gap-4">
+			<div class="bg-background mx-auto w-full max-w-lg rounded-xl p-6 shadow-md">
+				<img
+					src={profile.current.iconURL}
+					alt=""
+					class="mx-auto mb-3 h-28 w-28 rounded-full object-cover"
+				/>
+				<div class="flex flex-row py-3">
+					<div class="w-1/2 max-w-[150px]">Display Name:</div>
+					<div class="w-1/2 break-words">{profile.current.displayName}</div>
 				</div>
-				<div class="bg-surface1 mx-auto w-full max-w-lg rounded-xl p-6 shadow-md">
-					<img
-						src={profile.current.iconURL}
-						alt=""
-						class="mx-auto mb-3 h-28 w-28 rounded-full object-cover"
-					/>
-					<div class="flex flex-row py-3">
-						<div class="w-1/2 max-w-[150px]">Display Name:</div>
-						<div class="w-1/2 break-words">{profile.current.displayName}</div>
+				<hr />
+				<div class="flex flex-row py-3">
+					<div class="w-1/2 max-w-[150px]">Email:</div>
+					<div class="w-1/2 break-words">{profile.current.email}</div>
+				</div>
+				<hr />
+				<div class="flex flex-row py-3">
+					<div class="w-1/2 max-w-[150px]">Role:</div>
+					<div class="w-1/2 break-words">
+						{getUserRoleLabel(profile.current.effectiveRole)}
 					</div>
-					<hr />
-					<div class="flex flex-row py-3">
-						<div class="w-1/2 max-w-[150px]">Email:</div>
-						<div class="w-1/2 break-words">{profile.current.email}</div>
-					</div>
-					<hr />
-					<div class="flex flex-row py-3">
-						<div class="w-1/2 max-w-[150px]">Role:</div>
-						<div class="w-1/2 break-words">
-							{getUserRoleLabel(profile.current.effectiveRole)}
+				</div>
+				<hr />
+				{#if !version.current.autonomousToolUseEnabled}
+					<div class="flex flex-row items-center justify-between py-3">
+						<div class="flex flex-col gap-1">
+							<p>Allow Autonomous Tool Use</p>
+							<span class="text-sm font-light opacity-70">
+								When enabled, chat sessions can run tools automatically without asking for approval.
+							</span>
 						</div>
+						<Toggle
+							label=""
+							checked={autonomousToolUseEnabled}
+							disabled={savingPreferences}
+							onChange={handleAutonomousToolUseToggle}
+						/>
 					</div>
 					<hr />
-					{#if !version.current.autonomousToolUseEnabled}
-						<div class="flex flex-row items-center justify-between py-3">
-							<div class="flex flex-col gap-1">
-								<p>Allow Autonomous Tool Use</p>
-								<span class="text-sm font-light opacity-70">
-									When enabled, chat sessions can run tools automatically without asking for
-									approval.
-								</span>
-							</div>
-							<Toggle
-								label=""
-								checked={autonomousToolUseEnabled}
-								disabled={savingPreferences}
-								onChange={handleAutonomousToolUseToggle}
-							/>
-						</div>
-						<hr />
-					{/if}
-					<div class="mt-2 flex flex-col gap-4 py-3">
-						{#if version.current.sessionStore === 'db'}
-							<button
-								class="w-full rounded-3xl border-2 border-red-600 px-4 py-2 font-medium text-red-600 hover:border-red-700 hover:text-red-700"
-								onclick={(e) => {
-									e.preventDefault();
-									toRevoke = !toRevoke;
-								}}>Log out all other sessions</button
-							>
-						{/if}
+				{/if}
+				<div class="mt-2 flex flex-col gap-4 py-3">
+					{#if version.current.sessionStore === 'db'}
 						<button
-							class="w-full rounded-3xl bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
+							class="w-full rounded-3xl border-2 border-red-600 px-4 py-2 font-medium text-red-600 hover:border-red-700 hover:text-red-700"
 							onclick={(e) => {
 								e.preventDefault();
-								toDelete = !toDelete;
-							}}>Delete my account</button
+								toRevoke = !toRevoke;
+							}}>Log out all other sessions</button
 						>
-					</div>
+					{/if}
+					<button
+						class="w-full rounded-3xl bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
+						onclick={(e) => {
+							e.preventDefault();
+							toDelete = !toDelete;
+						}}>Delete my account</button
+					>
 				</div>
 			</div>
 		</div>
-	</main>
-
-	<Notifications />
-</div>
+	</div>
+</Layout>
 
 <Confirm
 	show={toRevoke}
