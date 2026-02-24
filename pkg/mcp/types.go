@@ -73,8 +73,9 @@ type ServerConfig struct {
 }
 
 type File struct {
-	Data   string `json:"data"`
-	EnvKey string `json:"envKey"`
+	Data    string `json:"data"`
+	EnvKey  string `json:"envKey"`
+	Dynamic bool   `json:"dynamic"`
 }
 
 type ComponentServer struct {
@@ -149,8 +150,9 @@ func legacyServerToServerConfig(mcpServer v1.MCPServer, userID, scope string, cr
 		}
 
 		serverConfig.Files = append(serverConfig.Files, File{
-			Data:   val,
-			EnvKey: env.Key,
+			Data:    val,
+			EnvKey:  env.Key,
+			Dynamic: env.DynamicFile,
 		})
 	}
 
@@ -428,8 +430,9 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		}
 
 		serverConfig.Files = append(serverConfig.Files, File{
-			Data:   val,
-			EnvKey: env.Key,
+			Data:    val,
+			EnvKey:  env.Key,
+			Dynamic: env.DynamicFile,
 		})
 	}
 
@@ -543,8 +546,9 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		}
 
 		serverConfig.Files = append(serverConfig.Files, File{
-			Data:   val,
-			EnvKey: env.Key,
+			Data:    val,
+			EnvKey:  env.Key,
+			Dynamic: env.DynamicFile,
 		})
 	}
 

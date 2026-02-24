@@ -188,6 +188,10 @@ type MCPHeader struct {
 type MCPEnv struct {
 	MCPHeader `json:",inline"`
 	File      bool `json:"file"`
+	// DynamicFile indicates that this file will be dynamically read by the process and that the
+	// server does not need to be restarted for changes to this file to be picked up.
+	// Ignored if File is false.
+	DynamicFile bool `json:"dynamicFile,omitempty"`
 }
 
 type MCPServerCatalogEntryList List[MCPServerCatalogEntry]
