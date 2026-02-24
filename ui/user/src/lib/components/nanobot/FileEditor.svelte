@@ -323,7 +323,7 @@
 						/>
 					</div>
 				{:else}
-					<div class="text-base-content/60">Binary content ({mimeType})</div>
+					<div class="text-base-content/40 italic">This file could not be displayed.</div>
 				{/if}
 			{:else if isMarkdown}
 				<MarkdownEditor value={content} />
