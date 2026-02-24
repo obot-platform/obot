@@ -290,9 +290,6 @@
 						<FileItem uri={filename} compact />
 						<span class="truncate text-sm font-medium">{name}</span>
 					</div>
-					{#if mimeType}
-						<span class="text-base-content/60 truncate text-xs break-all">{mimeType}</span>
-					{/if}
 				{/if}
 			</div>
 			{#if onClose}
