@@ -311,7 +311,7 @@
 		<table class="table w-full table-fixed">
 			<thead>
 				<tr>
-					{#each [{ property: 'name', title: 'Name' }, { property: 'size', title: 'Size' }, { property: 'modifiedAt', title: 'Last Modified' }, { property: 'createdAt', title: 'Created' }, { property: 'uri', title: 'Location' }] as header}
+					{#each [{ property: 'name', title: 'Name' }, { property: 'size', title: 'Size' }, { property: 'modifiedAt', title: 'Last Modified' }, { property: 'createdAt', title: 'Created' }, { property: 'uri', title: 'Location' }] as header (header.property)}
 						<th
 							class="group min-w-0 {header.title === 'Size'
 								? 'w-20'
