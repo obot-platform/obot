@@ -300,6 +300,7 @@ type responseModifier struct {
 	b                                           *bufio.Reader
 	c                                           io.Closer
 	stream                                      bool
+	leftover                                    []byte
 }
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
@@ -316,6 +317,12 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 }
 
 func (r *responseModifier) Read(p []byte) (int, error) {
+	if len(r.leftover) > 0 {
+		n := copy(p, r.leftover)
+		r.leftover = r.leftover[n:]
+		return n, nil
+	}
+
 	line, err := r.b.ReadBytes('\n')
 	if len(line) > 0 && errors.Is(err, io.EOF) {
 		// Don't send an EOF until we read everything.
@@ -368,12 +375,18 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 		r.lock.Unlock()
 	}
 
-	var n int
-	if len(prefix) > 0 {
-		n = copy(p, prefix)
+	n := copy(p, prefix)
+	if n < len(prefix) {
+		// We couldn't copy the entire prefix, so save the leftover for the next read and return.
+		r.leftover = append(prefix[n:], line...)
+		return n, nil
 	}
 
 	n += copy(p[n:], line)
+
+	// If we didn't copy the entire line, then save the leftover for the next read.
+	r.leftover = line[n-len(prefix):]
+
 	return n, nil
 }
 
