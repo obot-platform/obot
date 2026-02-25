@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import Thread from '$lib/components/nanobot/Thread.svelte';
-	import { Binoculars, MessageCircle, Sparkles } from 'lucide-svelte';
+	import { MessageCircle, Sparkles } from 'lucide-svelte';
 	import { AdminService, NanobotService } from '$lib/services';
 	import { errors } from '$lib/stores';
 	import Confirm from '$lib/components/Confirm.svelte';
