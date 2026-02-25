@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -21,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Handler struct {
@@ -124,7 +126,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 		}
 
 		// Ensure credentials are up to date
-		if err := h.ensureCredentials(req.Ctx, agent, mcpServerName, resp); err != nil {
+		if err := h.ensureCredentials(req.Ctx, req, resp, agent, mcpServerName); err != nil {
 			return fmt.Errorf("failed to ensure credentials: %w", err)
 		}
 
@@ -182,7 +184,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 	}
 
 	// Create credentials for the new server
-	if err := h.ensureCredentials(req.Ctx, agent, mcpServerName, resp); err != nil {
+	if err := h.ensureCredentials(req.Ctx, req, resp, agent, mcpServerName); err != nil {
 		return fmt.Errorf("failed to create credentials: %w", err)
 	}
 
@@ -191,7 +193,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 
 // ensureCredentials ensures that the MCP server has credentials with API keys that are valid
 // and refreshes them if they expire within 2 hours.
-func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent, mcpServerName string, resp router.Response) error {
+func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, resp router.Response, agent *v1.NanobotAgent, mcpServerName string) error {
 	credCtx := fmt.Sprintf("%s-%s", agent.Spec.UserID, mcpServerName)
 
 	// Check if credential exists and if the token needs refreshing
@@ -200,7 +202,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 	// Parse the env file before checking the error.
 	credEnvFileVars := parseEnvFile(cred.Env["NANOBOT_ENV_FILE"])
 	if err != nil {
-		if !errors.As(err, &gptscript.ErrNotFound{}) {
+		if _, ok := errors.AsType[gptscript.ErrNotFound](err); !ok {
 			return fmt.Errorf("failed to reveal credential: %w", err)
 		}
 		// Credential doesn't exist, needs to be created
@@ -228,7 +230,16 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 		}
 	}
 
-	if !needsRefresh {
+	llmModel, err := getModelForAlias(ctx, req.Client, req.Namespace, types.DefaultModelAliasTypeLLM)
+	if err != nil {
+		return err
+	}
+	miniModel, err := getModelForAlias(ctx, req.Client, req.Namespace, types.DefaultModelAliasTypeLLMMini)
+	if err != nil {
+		return err
+	}
+
+	if !needsRefresh && credEnvFileVars["NANOBOT_DEFAULT_MODEL"] == llmModel && credEnvFileVars["NANOBOT_DEFAULT_MINI_MODEL"] == miniModel {
 		// Credentials are up to date
 		return nil
 	}
@@ -300,6 +311,8 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 				fmt.Sprintf("MCP_API_KEY_ID_PREV=%s", credEnvFileVars["MCP_API_KEY_ID"]),
 				fmt.Sprintf("MCP_SERVER_SEARCH_URL=%s", system.MCPConnectURL(h.serverURL, system.ObotMCPServerName)),
 				fmt.Sprintf("MCP_SERVER_SEARCH_API_KEY=%s", apiKeyResp.Key),
+				fmt.Sprintf("NANOBOT_DEFAULT_MODEL=%s", llmModel),
+				fmt.Sprintf("NANOBOT_DEFAULT_MINI_MODEL=%s", miniModel),
 			}, "\n"),
 		},
 	}); err != nil {
@@ -318,6 +331,25 @@ func (h *Handler) ensureCredentials(ctx context.Context, agent *v1.NanobotAgent,
 		}
 	}
 	return nil
+}
+
+func getModelForAlias(ctx context.Context, client kclient.Client, namespace string, aliasName types.DefaultModelAliasType) (string, error) {
+	llmModel, err := alias.GetFromScope(ctx, client, "Model", namespace, string(aliasName))
+	if err != nil {
+		return "", fmt.Errorf("failed to get default model alias %v: %w", aliasName, err)
+	}
+
+	modelAlias, ok := llmModel.(*v1.DefaultModelAlias)
+	if !ok {
+		return "", fmt.Errorf("alias %v is not of type Alias", aliasName)
+	}
+
+	var model v1.Model
+	if err := alias.Get(ctx, client, &model, namespace, modelAlias.Spec.Manifest.Model); err != nil {
+		return "", err
+	}
+
+	return model.Spec.Manifest.TargetModel, nil
 }
 
 func (h *Handler) DeleteMCPServer(req router.Request, _ router.Response) error {
