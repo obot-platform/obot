@@ -452,8 +452,54 @@ eventLoop:
 }
 
 func (d *dockerBackend) restartServer(ctx context.Context, id string) error {
-	if err := d.client.ContainerRestart(ctx, id, container.StopOptions{}); err != nil {
-		return fmt.Errorf("failed to restart container %s: %w", id, err)
+	inspect, err := d.client.ContainerInspect(ctx, id)
+	if err != nil {
+		if cerrdefs.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to inspect container %s: %w", id, err)
+	}
+
+	if inspect.Config == nil {
+		return fmt.Errorf("container %s has no config", id)
+	}
+
+	if err := d.pullImage(ctx, inspect.Config.Image, false); err != nil {
+		return fmt.Errorf("failed to pull image for container %s: %w", id, err)
+	}
+
+	if err := d.client.ContainerRemove(ctx, inspect.ID, container.RemoveOptions{Force: true}); err != nil && !cerrdefs.IsNotFound(err) {
+		return fmt.Errorf("failed to remove container %s: %w", id, err)
+	}
+
+	networkingConfig := &network.NetworkingConfig{}
+	if inspect.NetworkSettings != nil && len(inspect.NetworkSettings.Networks) > 0 {
+		networkingConfig.EndpointsConfig = make(map[string]*network.EndpointSettings, len(inspect.NetworkSettings.Networks))
+		for networkName, endpointConfig := range inspect.NetworkSettings.Networks {
+			networkingConfig.EndpointsConfig[networkName] = &network.EndpointSettings{
+				Aliases:    endpointConfig.Aliases,
+				IPAMConfig: endpointConfig.IPAMConfig,
+				Links:      endpointConfig.Links,
+			}
+		}
+	}
+
+	containerName := strings.TrimPrefix(inspect.Name, "/")
+	if containerName == "" {
+		containerName = id
+	}
+
+	resp, err := d.client.ContainerCreate(ctx, inspect.Config, inspect.HostConfig, networkingConfig, nil, containerName)
+	if err != nil {
+		return fmt.Errorf("failed to recreate container %s: %w", id, err)
+	}
+
+	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return fmt.Errorf("failed to start recreated container %s: %w", id, err)
+	}
+
+	if err := d.waitForContainer(ctx, resp.ID); err != nil {
+		return fmt.Errorf("recreated container %s failed to become ready: %w", id, err)
 	}
 
 	return nil
