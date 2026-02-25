@@ -14,7 +14,8 @@
 		MessageCircle,
 		CircleFadingArrowUp,
 		LayoutDashboard,
-		KeyRound
+		KeyRound,
+		BotMessageSquare
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
@@ -74,7 +75,10 @@
 
 	afterNavigate(() => {
 		inAdminRoute = window.location.pathname.includes('/admin');
-		showChatLink = !window.location.pathname.startsWith('/o') || inAdminRoute;
+		showChatLink =
+			(!window.location.pathname.startsWith('/o') &&
+				!window.location.pathname.startsWith('/nanobot')) ||
+			inAdminRoute;
 		showMcpManagement = ['/o', '/profile', '/nanobot'].some((path) =>
 			window.location.pathname.startsWith(path)
 		);
@@ -149,7 +153,7 @@
 	{/snippet}
 	{#snippet body()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
-			{#if showChatLink}
+			{#if showChatLink && version.current.disableLegacyChat !== true}
 				<button
 					class="dropdown-link"
 					onclick={async (event) => {
@@ -176,7 +180,17 @@
 					}}
 				>
 					<MessageCircle class="size-4" />
-					Chat
+					Launch Chat
+				</button>
+			{/if}
+			{#if showChatLink && version.current.nanobotIntegration}
+				<button
+					class="dropdown-link"
+					onclick={async (event) => {
+						navigateTo('/nanobot', event?.ctrlKey || event?.metaKey);
+					}}
+				>
+					<BotMessageSquare class="size-4" /> Launch Agent
 				</button>
 			{/if}
 			{#if showMcpManagement}
