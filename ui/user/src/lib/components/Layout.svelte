@@ -118,6 +118,32 @@
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
+	let chatLinks = $derived<NavLink[]>([
+		...(version.current.disableLegacyChat !== true
+			? [
+					{
+						id: 'legacy-chat',
+						href: '/chat',
+						icon: MessageCircle,
+						label: 'Launch Chat',
+						disabled: isBootStrapUser,
+						collapsible: false
+					}
+				]
+			: []),
+		...(version.current.nanobotIntegration
+			? [
+					{
+						id: 'nanobot-chat',
+						href: '/nanobot',
+						icon: BotMessageSquare,
+						disabled: isBootStrapUser,
+						label: 'Launch Agent',
+						collapsible: false
+					}
+				]
+			: [])
+	]);
 	let navLinks = $derived<NavLink[]>(
 		profile.current.hasAdminAccess?.()
 			? [
@@ -235,26 +261,7 @@
 								disabled: isBootStrapUser,
 								collapsible: false
 							},
-							{
-								id: 'chat',
-								href: '/chat',
-								icon: MessageCircle,
-								label: 'Launch Chat',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							...(version.current.nanobotIntegration
-								? [
-										{
-											id: 'nanobot',
-											href: '/nanobot',
-											icon: BotMessageSquare,
-											disabled: isBootStrapUser,
-											label: 'Launch Nanobot',
-											collapsible: false
-										}
-									]
-								: [])
+							...chatLinks
 						]
 					},
 					{
@@ -362,25 +369,7 @@
 								}
 							]
 						},
-						{
-							id: 'chat',
-							href: '/chat',
-							icon: MessageCircle,
-							label: 'Chat',
-							disabled: isBootStrapUser,
-							collapsible: false
-						},
-						...(version.current.nanobotIntegration
-							? [
-									{
-										id: 'nanobot',
-										href: '/nanobot',
-										icon: BotMessageSquare,
-										label: 'Launch Nanobot',
-										collapsible: false
-									}
-								]
-							: [])
+						...chatLinks
 					]
 				: [
 						{
@@ -391,14 +380,7 @@
 							disabled: false,
 							collapsible: false
 						},
-						{
-							id: 'chat',
-							href: '/chat',
-							icon: MessageCircle,
-							label: 'Chat',
-							disabled: isBootStrapUser,
-							collapsible: false
-						}
+						...chatLinks
 					]
 	);
 

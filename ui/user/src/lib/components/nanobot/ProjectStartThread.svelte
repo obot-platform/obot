@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import Thread from '$lib/components/nanobot/Thread.svelte';
-	import { Binoculars, MessageCircle, Sparkles } from 'lucide-svelte';
+	import { MessageCircle, Sparkles } from 'lucide-svelte';
 	import { AdminService, NanobotService } from '$lib/services';
 	import { errors } from '$lib/stores';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -88,20 +88,6 @@
 								<h3 class="text-base font-semibold">Create a workflow</h3>
 								<p class="text-base-content/50 text-sm font-light">
 									Design and execute an agentic workflow through conversation
-								</p>
-							</button>
-							<button
-								class="bg-base-200 dark:border-base-300 rounded-field col-span-1 h-full p-4 text-left shadow-sm"
-								onclick={() => {
-									chat?.sendMessage(
-										'I want you to perform deep research on a topic. Help me get started.'
-									);
-								}}
-							>
-								<Binoculars class="mb-4 size-5" />
-								<h3 class="text-base font-semibold">Deep research a topic</h3>
-								<p class="text-base-content/50 text-sm font-light">
-									Get a thorough, evidence-backed report on complex topics
 								</p>
 							</button>
 							<button
