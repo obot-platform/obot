@@ -149,6 +149,13 @@
 	);
 	let hasCreatedAt = $derived(resourceFiles.some((r) => !!formatFileTime(r._meta?.createdAt).date));
 	let columnCount = $derived(3 + (hasModifiedAt ? 1 : 0) + (hasCreatedAt ? 1 : 0));
+	let columnHeaders = $derived([
+		{ property: 'name', title: 'Name' },
+		{ property: 'size', title: 'Size' },
+		...(hasModifiedAt ? [{ property: 'modifiedAt', title: 'Last Modified' }] : []),
+		...(hasCreatedAt ? [{ property: 'createdAt', title: 'Created' }] : []),
+		{ property: 'uri', title: 'Location' }
+	]);
 
 	let fileTree = $derived(buildFileTreeSimple(resourceFiles));
 
@@ -311,7 +318,7 @@
 		<table class="table w-full table-fixed">
 			<thead>
 				<tr>
-					{#each [{ property: 'name', title: 'Name' }, { property: 'size', title: 'Size' }, { property: 'modifiedAt', title: 'Last Modified' }, { property: 'createdAt', title: 'Created' }, { property: 'uri', title: 'Location' }] as header (header.property)}
+					{#each columnHeaders as header (header.property)}
 						<th
 							class="group min-w-0 {header.title === 'Size'
 								? 'w-20'
