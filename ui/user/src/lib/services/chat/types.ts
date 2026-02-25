@@ -167,6 +167,7 @@ export interface Version {
 	engine?: 'docker' | 'kubernetes' | 'local';
 	autonomousToolUseEnabled?: boolean;
 	nanobotIntegration?: boolean;
+	disableLegacyChat?: boolean;
 }
 
 export interface Profile {
