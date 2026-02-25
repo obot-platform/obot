@@ -216,8 +216,17 @@
 					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
 				}
 
+				// Compute health status based on configured state
+				let healthStatus = deployment.deploymentStatus;
+				if (!deployment.configured) {
+					healthStatus = 'Configuration Required';
+				} else if (!healthStatus) {
+					healthStatus = 'Not Started';
+				}
+
 				return {
 					...deployment,
+					deploymentStatus: healthStatus,
 					displayName: deployment.alias || deployment.manifest.name || '',
 					userName: getUserDisplayName(usersMap, deployment.userID),
 					registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
