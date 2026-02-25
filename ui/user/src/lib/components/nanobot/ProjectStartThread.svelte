@@ -94,20 +94,6 @@
 								class="bg-base-200 dark:border-base-300 rounded-field col-span-1 h-full p-4 text-left shadow-sm"
 								onclick={() => {
 									chat?.sendMessage(
-										'I want you to perform deep research on a topic. Help me get started.'
-									);
-								}}
-							>
-								<Binoculars class="mb-4 size-5" />
-								<h3 class="text-base font-semibold">Deep research a topic</h3>
-								<p class="text-base-content/50 text-sm font-light">
-									Get a thorough, evidence-backed report on complex topics
-								</p>
-							</button>
-							<button
-								class="bg-base-200 dark:border-base-300 rounded-field col-span-1 h-full p-4 text-left shadow-sm"
-								onclick={() => {
-									chat?.sendMessage(
 										'Help me understand what you can do. Explain your capabilities and suggest a few things we could try.'
 									);
 								}}
