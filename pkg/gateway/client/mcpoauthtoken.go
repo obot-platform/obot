@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"golang.org/x/oauth2"
@@ -65,7 +66,45 @@ func (c *Client) GetMCPOAuthTokenByState(ctx context.Context, state string) (*ty
 	return token, nil
 }
 
-func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, userID, mcpID, url, oauthAuthRequestID, state, verifier string, oauthConf *oauth2.Config, token *oauth2.Token) error {
+func (c *Client) GetActivePendingMCPOAuthToken(ctx context.Context, userID, mcpID, url, oauthAuthRequestID string) (*types.MCPOAuthToken, error) {
+	token, err := c.GetMCPOAuthToken(ctx, userID, mcpID, url)
+	if err != nil {
+		return nil, err
+	}
+
+	if token.OAuthAuthRequestID != oauthAuthRequestID ||
+		token.State == "" ||
+		token.Verifier == "" ||
+		token.HashedState == nil ||
+		token.AccessToken != "" ||
+		token.PendingAuthURL == "" ||
+		token.PendingExpiresAt.IsZero() ||
+		!token.PendingExpiresAt.After(time.Now()) {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	return token, nil
+}
+
+func (c *Client) SetPendingAuthURLByState(ctx context.Context, state, authURL string) error {
+	if state == "" || authURL == "" {
+		return nil
+	}
+
+	result := c.db.WithContext(ctx).
+		Model(&types.MCPOAuthToken{}).
+		Where("hashed_state = ?", fmt.Sprintf("%x", sha256.Sum256([]byte(state)))).
+		Update("pending_auth_url", authURL)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, userID, mcpID, url, oauthAuthRequestID, state, verifier, pendingAuthURL string, pendingExpiresAt time.Time, oauthConf *oauth2.Config, token *oauth2.Token) error {
 	t := &types.MCPOAuthToken{
 		UserID:             userID,
 		MCPID:              mcpID,
@@ -73,6 +112,8 @@ func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, userID, mcpID, url, o
 		OAuthAuthRequestID: oauthAuthRequestID,
 		State:              state,
 		Verifier:           verifier,
+		PendingAuthURL:     pendingAuthURL,
+		PendingExpiresAt:   pendingExpiresAt,
 		AccessToken:        token.AccessToken,
 		TokenType:          token.TokenType,
 		RefreshToken:       token.RefreshToken,

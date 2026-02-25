@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
@@ -68,7 +69,7 @@ func (t *tokenStore) GetTokenConfig(ctx context.Context, mcpURL string) (*oauth2
 }
 
 func (t *tokenStore) SetTokenConfig(ctx context.Context, mcpURL string, config *oauth2.Config, token *oauth2.Token) error {
-	return t.gatewayClient.ReplaceMCPOAuthToken(ctx, t.userID, t.mcpID, mcpURL, "", "", "", config, token)
+	return t.gatewayClient.ReplaceMCPOAuthToken(ctx, t.userID, t.mcpID, mcpURL, "", "", "", "", time.Time{}, config, token)
 }
 
 func (t *tokenStore) DeleteTokenConfig(ctx context.Context, mcpURL string) error {

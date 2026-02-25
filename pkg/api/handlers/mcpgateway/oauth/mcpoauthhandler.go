@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -17,6 +18,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/oauth2"
+	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -98,6 +100,12 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		return "", nil
 	}
 
+	if pendingURL, err := f.stateCache.activePendingAuthURL(req.Context(), userID, mcpID, mcpServerConfig.URL, oauthAppAuthRequestID); err == nil && pendingURL != "" {
+		return pendingURL, nil
+	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", fmt.Errorf("failed to get pending oauth url: %w", err)
+	}
+
 	// Remote server, check for OAuth directly
 	oauthHandler := f.newMCPOAuthHandler(userID, mcpID, mcpServerConfig.URL, oauthAppAuthRequestID)
 	errChan := make(chan error, 1)
@@ -160,6 +168,14 @@ func (m *mcpOAuthHandler) URLChan() <-chan string {
 }
 
 func (m *mcpOAuthHandler) HandleAuthURL(ctx context.Context, _ string, authURL string) (bool, error) {
+	if u, err := url.Parse(authURL); err == nil {
+		if state := u.Query().Get("state"); state != "" {
+			if err = m.stateCache.setPendingAuthURL(ctx, state, authURL); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				return false, fmt.Errorf("failed to store pending auth url: %w", err)
+			}
+		}
+	}
+
 	select {
 	case m.urlChan <- authURL:
 		return true, nil

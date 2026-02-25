@@ -43,6 +43,10 @@ type MCPOAuthToken struct {
 	State       string
 	HashedState *string `gorm:"unique"`
 	Verifier    string
+	// PendingAuthURL is the auth URL associated with the active pending OAuth state.
+	PendingAuthURL string
+	// PendingExpiresAt bounds how long a pending state can be reused.
+	PendingExpiresAt time.Time
 
 	MCPID              string `gorm:"primaryKey"`
 	UserID             string `gorm:"primaryKey"`
