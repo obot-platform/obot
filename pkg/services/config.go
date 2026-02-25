@@ -80,6 +80,10 @@ type (
 	MCPConfig         mcp.Options
 )
 
+type MetricsAuthConfig struct {
+	MetricsBearerToken string `usage:"Bearer token for metrics endpoint authentication" name:"metrics-bearer-token"`
+}
+
 type Config struct {
 	HTTPListenPort             int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
 	DevMode                    bool     `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
@@ -118,7 +122,7 @@ type Config struct {
 	GeminiConfig
 	GatewayConfig
 	EncryptionConfig
-	OtelOptions
+	MetricsAuthConfig
 	AuditConfig
 	RateLimiterConfig
 	MCPConfig
@@ -417,7 +421,7 @@ func newGPTScript(ctx context.Context,
 
 func New(ctx context.Context, config Config) (*Services, error) {
 	// Setup Otel first so other services can use it.
-	otel, err := newOtel(ctx, config.OtelOptions)
+	otel, err := newOtel(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bootstrap OTel SDK: %w", err)
 	}
@@ -757,9 +761,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, persistentTokenServer)
 		// Add bootstrap auth
 		authenticators = union.NewFailOnError(authenticators, bootstrapper)
-		if config.BearerToken != "" {
-			// Add otel metrics auth
-			authenticators = union.New(authenticators, authn.NewToken(config.BearerToken, "metrics", authz.MetricsGroup))
+		if config.MetricsBearerToken != "" {
+			// Add metrics auth
+			authenticators = union.New(authenticators, authn.NewToken(config.MetricsBearerToken, "metrics", authz.MetricsGroup))
 		}
 		// Add anonymous user authenticator
 		authenticators = union.NewFailOnError(authenticators, authn.Anonymous{})
