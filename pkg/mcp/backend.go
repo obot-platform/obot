@@ -59,7 +59,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 		Timeout: time.Second,
 	}
 
-	if server.Runtime != types.RuntimeContainerized {
+	if server.Runtime != types.RuntimeContainerized || server.NanobotAgentName != "" {
 		// This server is using nanobot as long as it is not the containerized runtime,
 		// so we can reach out to nanobot's healthz path.
 		url = fmt.Sprintf("%s/healthz", strings.TrimSuffix(url, "/"))
