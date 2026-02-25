@@ -874,6 +874,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	}
 	if server.NanobotAgentName != "" {
 		config.WorkingDir = nanobotWorkspaceMountPath
+		config.Env = append(config.Env, "NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true")
 	}
 
 	// Host config with port bindings and volume mounts
