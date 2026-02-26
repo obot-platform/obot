@@ -79,7 +79,7 @@
 						</div>
 						<div class="flex w-full flex-col items-center justify-center gap-4 md:flex-row">
 							<button
-								class="bg-base-200 dark:border-base-300 rounded-field col-span-1 h-full p-4 text-left shadow-sm md:w-70"
+								class="bg-base-200 dark:border-base-300 rounded-field hover:bg-base-300 col-span-1 h-full p-4 text-left shadow-sm md:w-70"
 								onclick={() => {
 									chat?.sendMessage('I want to design an AI workflow. Help me get started.');
 								}}
@@ -91,7 +91,7 @@
 								</p>
 							</button>
 							<button
-								class="bg-base-200 dark:border-base-300 rounded-field col-span-1 h-full p-4 text-left shadow-sm md:w-70"
+								class="bg-base-200 dark:border-base-300 rounded-field hover:bg-base-300 col-span-1 h-full p-4 text-left shadow-sm md:w-70"
 								onclick={() => {
 									chat?.sendMessage(
 										'Help me understand what you can do. Explain your capabilities and suggest a few things we could try.'
