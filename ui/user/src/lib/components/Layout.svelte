@@ -204,55 +204,12 @@
 						].filter(Boolean) as NavLink[]
 					},
 					{
-						id: 'obot-chat',
-						icon: MessageCircle,
-						label: 'Chat Management',
+						id: 'agent-management',
+						icon: BotMessageSquare,
+						label: 'Obot Agent Management',
 						disabled: isBootStrapUser,
 						collapsible: true,
 						items: [
-							{
-								id: 'chat-threads',
-								href: '/admin/chat-threads',
-								icon: MessageCircleMore,
-								label: 'Chat Threads',
-								collapsible: false
-							},
-							{
-								id: 'tasks',
-								href: '/admin/tasks',
-								icon: Cpu,
-								label: 'Tasks',
-								disabled: isBootStrapUser
-							},
-							{
-								id: 'task-runs',
-								href: '/admin/task-runs',
-								icon: CircuitBoard,
-								label: 'Task Runs',
-								disabled: isBootStrapUser
-							},
-							{
-								id: 'chat-configuration',
-								href: '/admin/chat-configuration',
-								icon: Settings,
-								label: 'Chat Configuration',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'model-providers',
-								href: '/admin/model-providers',
-								icon: Boxes,
-								label: 'Model Providers',
-								collapsible: false
-							},
-							{
-								id: 'model-access-policies',
-								href: '/admin/model-access-policies',
-								icon: LockKeyhole,
-								label: 'Model Access Policies',
-								collapsible: false
-							},
 							{
 								id: 'tokens',
 								href: '/admin/token-usage',
@@ -261,9 +218,86 @@
 								disabled: isBootStrapUser,
 								collapsible: false
 							},
-							...chatLinks
+
+							{
+								id: 'model-providers',
+								href: '/admin/model-providers',
+								icon: Boxes,
+								label: 'Model Providers',
+								collapsible: false
+							},
+
+							{
+								id: 'model-access-policies',
+								href: '/admin/model-access-policies',
+								icon: LockKeyhole,
+								label: 'Model Access Policies',
+								collapsible: false
+							},
+							...(version.current.nanobotIntegration
+								? [
+										{
+											id: 'launch-nanobot-chat',
+											href: '/nanobot',
+											icon: BotMessageSquare,
+											label: 'Launch Agent',
+											disabled: isBootStrapUser,
+											collapsible: false
+										}
+									]
+								: [])
 						]
 					},
+					...(version.current.disableLegacyChat !== true
+						? [
+								{
+									id: 'obot-chat',
+									icon: MessageCircle,
+									label: 'Legacy Chat Management',
+									disabled: isBootStrapUser,
+									collapsible: true,
+									items: [
+										{
+											id: 'chat-threads',
+											href: '/admin/chat-threads',
+											icon: MessageCircleMore,
+											label: 'Chat Threads',
+											collapsible: false
+										},
+										{
+											id: 'tasks',
+											href: '/admin/tasks',
+											icon: Cpu,
+											label: 'Tasks',
+											disabled: isBootStrapUser
+										},
+										{
+											id: 'task-runs',
+											href: '/admin/task-runs',
+											icon: CircuitBoard,
+											label: 'Task Runs',
+											disabled: isBootStrapUser
+										},
+										{
+											id: 'chat-configuration',
+											href: '/admin/chat-configuration',
+											icon: Settings,
+											label: 'Chat Configuration',
+											disabled: isBootStrapUser,
+											collapsible: false
+										},
+										{
+											id: 'launch-legacy-chat',
+											href: '/chat',
+											icon: MessageCircle,
+											label: 'Launch Legacy Chat',
+											disabled: isBootStrapUser,
+											collapsible: false
+										}
+									]
+								}
+							]
+						: []),
 					{
 						id: 'user-management',
 						icon: Users,

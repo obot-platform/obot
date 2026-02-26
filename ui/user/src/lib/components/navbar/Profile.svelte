@@ -29,6 +29,7 @@
 
 	let versionDialog = $state<HTMLDialogElement>();
 	let showChatLink = $state(false);
+	let showApiKeysLink = $state(false);
 	let showMcpManagement = $state(false);
 	let inAdminRoute = $state(false);
 	let loadingChat = $state(false);
@@ -79,6 +80,9 @@
 			(!window.location.pathname.startsWith('/o') &&
 				!window.location.pathname.startsWith('/nanobot')) ||
 			inAdminRoute;
+		showApiKeysLink =
+			!window.location.pathname.startsWith('/o') &&
+			!window.location.pathname.startsWith('/nanobot');
 		showMcpManagement = ['/o', '/profile', '/nanobot'].some((path) =>
 			window.location.pathname.startsWith(path)
 		);
@@ -153,6 +157,31 @@
 	{/snippet}
 	{#snippet body()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
+			{#if responsive.isMobile}
+				<a href="https://docs.obot.ai" rel="external" target="_blank" class="dropdown-link"
+					><Book class="size-4" />Docs</a
+				>
+			{/if}
+			{#if profile.current.email && page.url.pathname !== '/profile'}
+				<a href={resolve('/profile')} role="menuitem" class="dropdown-link"
+					><User class="size-4" /> My Account</a
+				>
+			{/if}
+			{#if showApiKeysLink}
+				<a href={resolve('/keys')} role="menuitem" class="dropdown-link"
+					><KeyRound class="size-4" />My API Keys</a
+				>
+			{/if}
+			<button class="dropdown-link" onclick={handleLogout}>
+				<LogOut class="size-4" /> Log out
+			</button>
+			{#if profile.current.isBootstrapUser?.()}
+				<button class="dropdown-link" onclick={handleBootstrapLogout}>
+					<LogOut class="size-4" /> Log out
+				</button>
+			{/if}
+		</div>
+		<div class="p-2">
 			{#if showChatLink && version.current.disableLegacyChat !== true}
 				<button
 					class="dropdown-link"
@@ -202,66 +231,45 @@
 					<LayoutDashboard class="size-4" /> MCP Platform
 				</a>
 			{/if}
-			{#if responsive.isMobile}
-				<a href="https://docs.obot.ai" rel="external" target="_blank" class="dropdown-link"
-					><Book class="size-4" />Docs</a
-				>
-			{/if}
-			{#if profile.current.email && page.url.pathname !== '/profile'}
-				<a href={resolve('/profile')} role="menuitem" class="dropdown-link"
-					><User class="size-4" /> My Account</a
-				>
-			{/if}
-			<a href={resolve('/keys')} role="menuitem" class="dropdown-link"
-				><KeyRound class="size-4" /> API Keys</a
-			>
-			<button class="dropdown-link" onclick={handleLogout}>
-				<LogOut class="size-4" /> Log out
-			</button>
-			{#if profile.current.isBootstrapUser?.()}
-				<button class="dropdown-link" onclick={handleBootstrapLogout}>
-					<LogOut class="size-4" /> Log out
-				</button>
+			{#if version.current.obot}
+				{#if showUpgradeAvailable}
+					<div class="text-on-background flex items-center gap-1 p-1 text-[11px]">
+						<CircleFadingArrowUp class="text-primary size-4 flex-shrink-0" />
+						<p>
+							Upgrade Available. <br /> Check out the
+							<a
+								rel="external"
+								target="_blank"
+								class="text-link"
+								href="https://github.com/obot-platform/obot/releases/latest"
+								>latest release notes.</a
+							>
+						</p>
+					</div>
+				{/if}
+				<div class="text-on-surface1 flex justify-end p-2 text-xs">
+					<div class="flex gap-2">
+						{#if version.current.obot}
+							{@const link = getLink('obot', version.current.obot)}
+							{#if link}
+								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external github link -->
+								<a href={link} target="_blank" rel="external">
+									{version.current.obot}
+								</a>
+							{/if}
+						{/if}
+						<button
+							use:tooltip={{ disablePortal: true, text: 'Versions' }}
+							onclick={() => {
+								versionDialog?.showModal();
+							}}
+						>
+							<BadgeInfo class="size-3" />
+						</button>
+					</div>
+				</div>
 			{/if}
 		</div>
-
-		{#if version.current.obot}
-			{#if showUpgradeAvailable}
-				<div class="text-on-background flex items-center gap-1 p-1 text-[11px]">
-					<CircleFadingArrowUp class="text-primary size-4 flex-shrink-0" />
-					<p>
-						Upgrade Available. <br /> Check out the
-						<a
-							rel="external"
-							target="_blank"
-							class="text-link"
-							href="https://github.com/obot-platform/obot/releases/latest">latest release notes.</a
-						>
-					</p>
-				</div>
-			{/if}
-			<div class="text-on-surface1 flex justify-end p-2 text-xs">
-				<div class="flex gap-2">
-					{#if version.current.obot}
-						{@const link = getLink('obot', version.current.obot)}
-						{#if link}
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external github link -->
-							<a href={link} target="_blank" rel="external">
-								{version.current.obot}
-							</a>
-						{/if}
-					{/if}
-					<button
-						use:tooltip={{ disablePortal: true, text: 'Versions' }}
-						onclick={() => {
-							versionDialog?.showModal();
-						}}
-					>
-						<BadgeInfo class="size-3" />
-					</button>
-				</div>
-			</div>
-		{/if}
 	{/snippet}
 </Menu>
 
