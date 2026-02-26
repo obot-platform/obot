@@ -51,6 +51,7 @@ func (sm *stateManager) createToken(ctx context.Context, state, code, errorStr, 
 
 	token, err := conf.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", ps.Verifier))
 	if err != nil {
+		_ = sm.gatewayClient.DeleteMCPOAuthPendingState(ctx, ps.HashedState)
 		return "", "", fmt.Errorf("failed to exchange code: %w", err)
 	}
 

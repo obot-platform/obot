@@ -149,13 +149,15 @@ func (c *Client) DeleteMCPOAuthPendingState(ctx context.Context, hashedState str
 	return c.db.WithContext(ctx).Delete(&types.MCPOAuthPendingState{}, "hashed_state = ?", hashedState).Error
 }
 
+const pendingStateTTL = 30 * time.Minute
+
 func (c *Client) CleanupExpiredMCPOAuthPendingStates(ctx context.Context, olderThan time.Duration) error {
 	cutoff := time.Now().Add(-olderThan)
 	return c.db.WithContext(ctx).Delete(&types.MCPOAuthPendingState{}, "created_at < ?", cutoff).Error
 }
 
 func (c *Client) runPendingStateCleanup(ctx context.Context) {
-	timer := time.NewTimer(10 * time.Minute)
+	timer := time.NewTimer(pendingStateTTL)
 	defer timer.Stop()
 
 	for {
@@ -165,11 +167,11 @@ func (c *Client) runPendingStateCleanup(ctx context.Context) {
 		case <-timer.C:
 		}
 
-		if err := c.CleanupExpiredMCPOAuthPendingStates(ctx, 10*time.Minute); err != nil {
+		if err := c.CleanupExpiredMCPOAuthPendingStates(ctx, pendingStateTTL); err != nil {
 			log.Errorf("Failed to cleanup expired MCP OAuth pending states: %v", err)
 		}
 
-		timer.Reset(10 * time.Minute)
+		timer.Reset(pendingStateTTL)
 	}
 }
 
