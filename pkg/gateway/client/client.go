@@ -45,6 +45,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	}
 
 	go c.runPersistenceLoop(ctx, auditLogPersistenceInterval)
+	go c.runPendingStateCleanup(ctx)
 	return c
 }
 

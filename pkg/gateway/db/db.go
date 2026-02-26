@@ -76,6 +76,10 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to drop obot_mcp_tokens table: %w", err)
 	}
 
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_mcp_oauth_token_state_columns", dropMCPOAuthTokenStateColumns); err != nil {
+		return fmt.Errorf("failed to drop state columns from mcp_oauth_tokens: %w", err)
+	}
+
 	if err := tx.AutoMigrate(&GptscriptCredential{}); err != nil {
 		return fmt.Errorf("failed to auto migrate GptscriptCredential: %w", err)
 	}
@@ -97,6 +101,7 @@ func (db *DB) AutoMigrate() (err error) {
 		types.FileScannerConfig{},
 		types.RunTokenActivity{},
 		types.MCPOAuthToken{},
+		types.MCPOAuthPendingState{},
 		types.MCPAuditLog{},
 		types.TempSetupUser{},
 		types.Property{},

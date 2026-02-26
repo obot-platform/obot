@@ -33,6 +33,7 @@ When you enable an encryption provider, the following resource types are automat
 | `users.obot.obot.ai` | User account information |
 | `identities.obot.obot.ai` | Identity provider data |
 | `mcpoauthtokens.obot.obot.ai` | MCP OAuth tokens |
+| `mcpoauthpendingstates.obot.obot.ai` | MCP OAuth pending authorization states |
 | `mcpauditlogs.obot.obot.ai` | MCP audit log data |
 | `sessioncookies.obot.obot.ai` | Session cookie data |
 
@@ -60,8 +61,13 @@ All OAuth-related secrets are encrypted:
 - `refreshToken` - OAuth refresh token
 - `clientID` - OAuth client ID
 - `clientSecret` - OAuth client secret
+
+### MCP OAuth Pending States (`mcpoauthpendingstates.obot.obot.ai`)
+Pending OAuth authorization state data is encrypted:
 - `state` - OAuth state parameter
 - `verifier` - PKCE verifier
+- `clientID` - OAuth client ID
+- `clientSecret` - OAuth client secret
 
 ### Session Cookies (`sessioncookies.obot.obot.ai`)
 Session authentication data is encrypted:
