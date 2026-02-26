@@ -289,6 +289,10 @@
 	oncancel={() => (deletingWorkflow = false)}
 />
 
+<svelte:head>
+	<title>Obot | {workflow?._meta?.name ?? workflowName}</title>
+</svelte:head>
+
 <style lang="postcss">
 	:global(.mockup-window .milkdown) {
 		background-color: transparent;

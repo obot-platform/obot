@@ -137,3 +137,7 @@
 		</tbody>
 	</table>
 </div>
+
+<svelte:head>
+	<title>Obot | Workflows</title>
+</svelte:head>

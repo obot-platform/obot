@@ -288,7 +288,3 @@
 		{/if}
 	{/snippet}
 </Layout>
-
-<svelte:head>
-	<title>Nanobot</title>
-</svelte:head>

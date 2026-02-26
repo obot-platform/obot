@@ -147,5 +147,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Nanobot</title>
+	<title>Obot | What would you like to work on?</title>
 </svelte:head>
