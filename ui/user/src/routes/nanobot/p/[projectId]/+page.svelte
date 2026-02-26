@@ -4,7 +4,7 @@
 	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import { page } from '$app/state';
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte.js';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 
 	let { data } = $props();
 	let agent = $derived(data.agent);
@@ -30,5 +30,5 @@
 {/if}
 
 <svelte:head>
-	<title>Obot | {thread?.title}</title>
+	<title>Obot | {thread?.title || 'Untitled'}</title>
 </svelte:head>

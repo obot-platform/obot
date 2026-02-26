@@ -34,6 +34,7 @@
 	let selectedFile = $state('');
 	let threadContentWidth = $state(0);
 	let needsRefreshThreads = $state(true);
+	let titleRefreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	let layoutName = $state('');
 	let showBackButton = $state(false);
 
@@ -156,15 +157,51 @@
 	}
 
 	$effect(() => {
-		if (chat && chat.messages.length >= 2 && needsRefreshThreads) {
-			const tid = chat.chatId;
-			const inThreads = $nanobotChat?.threads.find((t) => t.id === tid);
-			if (!inThreads) {
-				loadThreads();
-			}
+		if (!chat || chat.messages.length < 2) return;
 
+		const tid = chat.chatId;
+		const threads = $nanobotChat?.threads ?? [];
+		const inThreads = threads.find((t) => t.id === tid);
+
+		if (!inThreads) {
+			if (needsRefreshThreads) {
+				loadThreads();
+				needsRefreshThreads = false;
+			}
+			return () => {
+				if (titleRefreshTimeoutId != null) {
+					clearTimeout(titleRefreshTimeoutId);
+					titleRefreshTimeoutId = null;
+				}
+			};
+		}
+
+		// Thread is in list; refetch until it has a title (avoids sync loop by using a delay)
+		const hasTitle = inThreads.title != null && String(inThreads.title).trim() !== '';
+		if (!hasTitle) {
+			if (titleRefreshTimeoutId == null) {
+				titleRefreshTimeoutId = setTimeout(() => {
+					titleRefreshTimeoutId = null;
+					loadThreads();
+				}, 2000);
+			}
+		} else {
+			if (titleRefreshTimeoutId != null) {
+				clearTimeout(titleRefreshTimeoutId);
+				titleRefreshTimeoutId = null;
+			}
+		}
+
+		if (needsRefreshThreads) {
 			needsRefreshThreads = false;
 		}
+
+		return () => {
+			if (titleRefreshTimeoutId != null) {
+				clearTimeout(titleRefreshTimeoutId);
+				titleRefreshTimeoutId = null;
+			}
+		};
 	});
 
 	$effect(() => {

@@ -198,8 +198,10 @@
 										onclick={(e) => e.stopPropagation()}
 										onfocus={(e) => (e.target as HTMLInputElement).select()}
 									/>
+								{:else if thread.title}
+									<h3 class="truncate text-sm font-medium">{thread.title}</h3>
 								{:else}
-									<h3 class="truncate text-sm font-medium">{thread.title || 'Untitled'}</h3>
+									<span class="skeleton skeleton-text text-fm font-medium">...</span>
 								{/if}
 							</div>
 							{#if editingThreadId !== thread.id}
