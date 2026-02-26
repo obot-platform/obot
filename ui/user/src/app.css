@@ -982,6 +982,19 @@
 		display: inline-block;
 	}
 
+	.dropdown-link {
+		font-size: var(--text-md);
+		display: flex;
+		width: 100%;
+		align-items: center;
+		gap: 0.5rem;
+		border-radius: 0.5rem;
+		padding: 0.5rem;
+	}
+	.dropdown-link:hover {
+		background-color: var(--surface3);
+	}
+
 	.drawer[popover] {
 		position: fixed;
 		top: 0;

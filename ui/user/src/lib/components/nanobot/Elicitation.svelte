@@ -135,6 +135,7 @@
 
 	// Question elicitation functions
 	function isQuestionElicitation(): boolean {
+		console.log(elicitation);
 		return Boolean(elicitation._meta?.['ai.nanobot.meta/question']);
 	}
 
@@ -502,7 +503,7 @@
 		<div
 			class={twMerge(
 				'modal-box dialog-container w-full',
-				isOAuthElicitation() ? 'max-w-lg' : 'max-w-2xl'
+				isOAuthElicitation() ? 'max-w-md' : 'max-w-2xl'
 			)}
 		>
 			<form method="dialog">
@@ -514,9 +515,11 @@
 
 			{#if isOAuthElicitation()}
 				<!-- OAuth Authentication Dialog -->
-				<h3 class="text-lg font-bold">Authentication Required</h3>
+				<h3 class="mb-4 text-lg font-bold">
+					{elicitation._meta?.['ai.nanobot.meta/server-name'] || 'Authentication Required'}
+				</h3>
 
-				<div class="mb-6">
+				<div class="mb-4">
 					<p class="text-base-content/80 mb-4 text-sm whitespace-pre-wrap">{elicitation.message}</p>
 				</div>
 
@@ -530,9 +533,11 @@
 				</div>
 			{:else}
 				<!-- Generic Elicitation Form -->
-				<h3 class="text-lg font-bold">Information Request</h3>
+				<h3 class="mb-4 text-lg font-bold">
+					{elicitation._meta?.['ai.nanobot.meta/server-name'] || 'Information Request'}
+				</h3>
 
-				<div class="mb-6">
+				<div class="mb-4">
 					<p class="text-base-content/80 text-sm whitespace-pre-wrap">{elicitation.message}</p>
 				</div>
 

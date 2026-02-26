@@ -102,9 +102,15 @@
 			<div class="flex w-fit gap-1 p-4 pt-2">
 				<Logo />
 				{#if layout.sidebarOpen}
-					<span in:slide={{ axis: 'x', duration: 150 }} class="self-end text-2xl font-semibold"
-						>workflows</span
+					<div
+						in:slide={{ axis: 'x', duration: 150 }}
+						class="flex items-center gap-1 self-end text-2xl font-semibold"
 					>
+						obot
+						<span class="border-primary text-primary rounded-full border-2 px-2 text-sm">
+							agent
+						</span>
+					</div>
 				{/if}
 			</div>
 			{#if layout.sidebarOpen}
