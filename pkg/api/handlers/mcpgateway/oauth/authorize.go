@@ -334,7 +334,7 @@ func (h *handler) callback(req api.Context) error {
 
 // oauthCallback handles the second-level third-party OAuth for MCP servers.
 func (h *handler) oauthCallback(req api.Context) error {
-	oauthAuthRequestID, mcpServerID, err := h.oauthChecker.stateCache.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
+	oauthAuthRequestID, mcpServerID, err := h.oauthChecker.stateMgr.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
 	if err != nil {
 		return types.NewErrHTTP(http.StatusBadRequest, err.Error())
 	}

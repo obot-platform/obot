@@ -199,6 +199,23 @@ func migrateUserRoles(tx *gorm.DB) error {
 	return nil
 }
 
+func dropMCPOAuthTokenStateColumns(tx *gorm.DB) error {
+	migrator := tx.Migrator()
+	if !migrator.HasTable("mcp_oauth_tokens") {
+		return nil
+	}
+
+	for _, col := range []string{"state", "hashed_state", "verifier"} {
+		if migrator.HasColumn(&types.MCPOAuthToken{}, col) {
+			if err := migrator.DropColumn(&types.MCPOAuthToken{}, col); err != nil {
+				return fmt.Errorf("failed to drop column %s from mcp_oauth_tokens: %w", col, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 func migrateIfEntryNotFoundInMigrationsTable(tx *gorm.DB, name string, f func(*gorm.DB) error) error {
 	var migration types.Migration
 	if err := tx.Where("name = ?", name).First(&migration).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
