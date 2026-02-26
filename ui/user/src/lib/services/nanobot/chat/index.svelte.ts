@@ -149,11 +149,15 @@ export class ChatAPI {
 	}
 
 	async getThreads(): Promise<Chat[]> {
+		const rootSessionData = localStorage.getItem(`mcp-session-${this.baseUrl}`);
+		const rootSessionId = rootSessionData ? JSON.parse(rootSessionData).sessionId : undefined;
 		return (
-			await this.callMCPTool<{
-				chats: Chat[];
-			}>('list_chats')
-		).chats;
+			(
+				await this.callMCPTool<{
+					chats: Chat[];
+				}>('list_chats')
+			).chats ?? []
+		).filter((t) => t.id !== rootSessionId);
 	}
 
 	async createThread(): Promise<Chat> {
