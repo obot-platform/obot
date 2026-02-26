@@ -74,7 +74,12 @@
 	<User class="size-4" /> My Account
 </button>
 
-<ResponsiveDialog bind:this={dialog} title="My Account" class="w-full max-w-lg">
+<ResponsiveDialog
+	bind:this={dialog}
+	title="My Account"
+	class="w-full max-w-lg"
+	classes={{ content: 'p-6' }}
+>
 	<img
 		src={profile.current.iconURL}
 		alt=""
