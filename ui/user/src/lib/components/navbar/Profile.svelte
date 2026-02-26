@@ -182,9 +182,20 @@
 			{/if}
 		</div>
 		<div class="p-2">
+			{#if showChatLink && version.current.nanobotIntegration}
+				<button
+					class="dropdown-link mt-2"
+					onclick={async (event) => {
+						navigateTo('/nanobot', event?.ctrlKey || event?.metaKey);
+					}}
+				>
+					<BotMessageSquare class="size-4" /> Launch Agent
+				</button>
+			{/if}
 			{#if showChatLink && version.current.disableLegacyChat !== true}
 				<button
 					class="dropdown-link"
+					class:mt-2={version.current.nanobotIntegration}
 					onclick={async (event) => {
 						const asNewTab = event?.ctrlKey || event?.metaKey;
 						loadingChat = true;
@@ -209,17 +220,7 @@
 					}}
 				>
 					<MessageCircle class="size-4" />
-					Launch Chat
-				</button>
-			{/if}
-			{#if showChatLink && version.current.nanobotIntegration}
-				<button
-					class="dropdown-link"
-					onclick={async (event) => {
-						navigateTo('/nanobot', event?.ctrlKey || event?.metaKey);
-					}}
-				>
-					<BotMessageSquare class="size-4" /> Launch Agent
+					Launch Legacy Chat
 				</button>
 			{/if}
 			{#if showMcpManagement}
