@@ -68,7 +68,7 @@
 				onContentWidthChange={onThreadContentWidth}
 			>
 				{#snippet emptyStateContent()}
-					<div class="flex flex-col items-center gap-4 px-5">
+					<div class="flex flex-col items-center gap-4 px-5 pb-5 md:pb-0">
 						<div class="flex flex-col items-center gap-1">
 							<h1 class="w-xs text-center text-3xl font-semibold md:w-full">
 								What would you like to work on?
@@ -77,9 +77,9 @@
 								Choose an entry point or begin a conversation to get started.
 							</p>
 						</div>
-						<div class="grid grid-cols-1 items-stretch gap-4 md:grid-cols-3">
+						<div class="flex w-full flex-col items-center justify-center gap-4 md:flex-row">
 							<button
-								class="bg-base-200 dark:border-base-300 rounded-field col-span-1 h-full p-4 text-left shadow-sm"
+								class="bg-base-200 dark:border-base-300 rounded-field col-span-1 h-full p-4 text-left shadow-sm md:w-70"
 								onclick={() => {
 									chat?.sendMessage('I want to design an AI workflow. Help me get started.');
 								}}
@@ -91,7 +91,7 @@
 								</p>
 							</button>
 							<button
-								class="bg-base-200 dark:border-base-300 rounded-field col-span-1 h-full p-4 text-left shadow-sm"
+								class="bg-base-200 dark:border-base-300 rounded-field col-span-1 h-full p-4 text-left shadow-sm md:w-70"
 								onclick={() => {
 									chat?.sendMessage(
 										'Help me understand what you can do. Explain your capabilities and suggest a few things we could try.'
