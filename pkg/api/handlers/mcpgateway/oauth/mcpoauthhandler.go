@@ -26,7 +26,7 @@ type MCPOAuthHandlerFactory struct {
 	mcpSessionManager *mcp.SessionManager
 	client            kclient.Client
 	gptscript         *gptscript.GPTScript
-	stateCache        *stateCache
+	stateMgr          *stateManager
 	tokenStore        mcp.GlobalTokenStore
 }
 
@@ -36,7 +36,7 @@ func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManage
 		mcpSessionManager: sessionManager,
 		client:            client,
 		gptscript:         gptClient,
-		stateCache:        newStateCache(gatewayClient),
+		stateMgr:          newStateManager(gatewayClient),
 		tokenStore:        globalTokenStore,
 	}
 }
@@ -134,7 +134,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 type mcpOAuthHandler struct {
 	client             kclient.Client
 	gptscript          *gptscript.GPTScript
-	stateCache         *stateCache
+	stateMgr           *stateManager
 	mcpID              string
 	mcpURL             string
 	userID             string
@@ -146,7 +146,7 @@ func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(userID, mcpID, mcpURL, oauth
 	return &mcpOAuthHandler{
 		client:             f.client,
 		gptscript:          f.gptscript,
-		stateCache:         f.stateCache,
+		stateMgr:           f.stateMgr,
 		userID:             userID,
 		mcpID:              mcpID,
 		mcpURL:             mcpURL,
@@ -173,8 +173,12 @@ func (m *mcpOAuthHandler) HandleAuthURL(ctx context.Context, _ string, authURL s
 func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, verifier string) (string, <-chan nmcp.CallbackPayload, error) {
 	state := strings.ToLower(rand.Text())
 
+	// The channel is required by the nanobot CallbackHandler interface but is not used
+	// in the Obot flow. The auth URL is handled via HandleAuthURL/URLChan, and the
+	// callback arrives via a separate HTTP endpoint (oauthCallback) which looks up
+	// the pending state from the DB directly.
 	ch := make(chan nmcp.CallbackPayload)
-	return state, ch, m.stateCache.store(ctx, m.userID, m.mcpID, m.mcpURL, m.oauthAuthRequestID, state, verifier, conf, ch)
+	return state, ch, m.stateMgr.store(ctx, m.userID, m.mcpID, m.mcpURL, m.oauthAuthRequestID, state, verifier, conf)
 }
 
 func (m *mcpOAuthHandler) Lookup(ctx context.Context, authServerURL string) (string, string, error) {
