@@ -451,7 +451,7 @@
 		{:else if layout.sidebarOpen && !hideSidebar}
 			<div
 				class={twMerge(
-					'bg-background flex max-h-dvh w-full min-w-dvw flex-shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[300px]',
+					'bg-background flex max-h-dvh w-full min-w-dvw flex-shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[305px]',
 					classes?.sidebarRoot
 				)}
 				transition:slide={{ axis: 'x' }}
