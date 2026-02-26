@@ -150,7 +150,15 @@ export class ChatAPI {
 
 	async getThreads(): Promise<Chat[]> {
 		const rootSessionData = localStorage.getItem(`mcp-session-${this.baseUrl}`);
-		const rootSessionId = rootSessionData ? JSON.parse(rootSessionData).sessionId : undefined;
+		let rootSessionId: string | undefined;
+		if (rootSessionData) {
+			try {
+				const parsed = JSON.parse(rootSessionData);
+				rootSessionId = parsed?.sessionId;
+			} catch (e) {
+				console.error('Failed to parse root session data:', e);
+			}
+		}
 		return (
 			(
 				await this.callMCPTool<{
