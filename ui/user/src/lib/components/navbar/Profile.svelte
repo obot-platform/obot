@@ -5,7 +5,6 @@
 	import { getUserRoleLabel } from '$lib/utils';
 	import {
 		Book,
-		User,
 		LogOut,
 		Moon,
 		Sun,
@@ -26,6 +25,7 @@
 	import PageLoading from '../PageLoading.svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import MyAccount from '../profile/MyAccount.svelte';
 
 	let versionDialog = $state<HTMLDialogElement>();
 	let showChatLink = $state(false);
@@ -128,7 +128,7 @@
 		</div>
 	{/snippet}
 	{#snippet header()}
-		<div class="flex w-full items-center justify-between gap-8 p-4">
+		<div class="flex w-full items-center justify-between gap-8 p-4 pb-2">
 			<div class="flex items-center gap-3">
 				<ProfileIcon class="size-12" />
 				<div class="flex grow flex-col">
@@ -156,16 +156,14 @@
 		</div>
 	{/snippet}
 	{#snippet body()}
-		<div class="flex flex-col gap-2 px-2 pb-4">
+		<div class="flex flex-col gap-1 px-2 pb-4">
 			{#if responsive.isMobile}
 				<a href="https://docs.obot.ai" rel="external" target="_blank" class="dropdown-link"
 					><Book class="size-4" />Docs</a
 				>
 			{/if}
 			{#if profile.current.email && page.url.pathname !== '/profile'}
-				<a href={resolve('/profile')} role="menuitem" class="dropdown-link"
-					><User class="size-4" /> My Account</a
-				>
+				<MyAccount />
 			{/if}
 			{#if showApiKeysLink}
 				<a href={resolve('/keys')} role="menuitem" class="dropdown-link"
@@ -181,10 +179,10 @@
 				</button>
 			{/if}
 		</div>
-		<div class="p-2">
+		<div class="mt-2 p-2">
 			{#if showChatLink && version.current.nanobotIntegration}
 				<button
-					class="dropdown-link mt-2"
+					class="dropdown-link"
 					onclick={async (event) => {
 						navigateTo('/nanobot', event?.ctrlKey || event?.metaKey);
 					}}
@@ -195,7 +193,7 @@
 			{#if showChatLink && version.current.disableLegacyChat !== true}
 				<button
 					class="dropdown-link"
-					class:mt-2={version.current.nanobotIntegration}
+					class:mt-1={version.current.nanobotIntegration}
 					onclick={async (event) => {
 						const asNewTab = event?.ctrlKey || event?.metaKey;
 						loadingChat = true;
@@ -321,19 +319,6 @@
 <PageLoading show={loadingChat} text="Loading chat..." />
 
 <style lang="postcss">
-	.dropdown-link {
-		font-size: var(--text-md);
-		display: flex;
-		width: 100%;
-		align-items: center;
-		gap: 0.5rem;
-		border-radius: 0.5rem;
-		padding: 0.5rem;
-	}
-	.dropdown-link:hover {
-		background-color: var(--surface3);
-	}
-
 	.dark-selected::after {
 		transform: translateY(2rem);
 		background-color: var(--surface1);

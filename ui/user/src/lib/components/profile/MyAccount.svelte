@@ -7,8 +7,10 @@
 	import { success } from '$lib/stores/success';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
-	import Layout from '$lib/components/Layout.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import { User } from 'lucide-svelte';
 
+	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let toDelete = $state(false);
 	let toRevoke = $state(false);
 	let savingPreferences = $state(false);
@@ -68,84 +70,90 @@
 	}
 </script>
 
-<Layout title="My Account">
-	<div class="mt-6 flex w-full flex-col gap-8">
-		<div class="flex w-full flex-col gap-4">
-			<div class="bg-background dark:bg-surface1 mx-auto w-full max-w-lg rounded-xl p-6 shadow-md">
-				<img
-					src={profile.current.iconURL}
-					alt=""
-					class="mx-auto mb-3 h-28 w-28 rounded-full object-cover"
-				/>
-				<div class="flex flex-row py-3">
-					<div class="w-1/2 max-w-[150px]">Display Name:</div>
-					<div class="w-1/2 break-words">{profile.current.displayName}</div>
-				</div>
-				<hr />
-				<div class="flex flex-row py-3">
-					<div class="w-1/2 max-w-[150px]">Email:</div>
-					<div class="w-1/2 break-words">{profile.current.email}</div>
-				</div>
-				<hr />
-				<div class="flex flex-row py-3">
-					<div class="w-1/2 max-w-[150px]">Role:</div>
-					<div class="w-1/2 break-words">
-						{getUserRoleLabel(profile.current.effectiveRole)}
-					</div>
-				</div>
-				<hr />
-				{#if !version.current.autonomousToolUseEnabled}
-					<div class="flex flex-row items-center justify-between py-3">
-						<div class="flex flex-col gap-1">
-							<p>Allow Autonomous Tool Use</p>
-							<span class="text-sm font-light opacity-70">
-								When enabled, chat sessions can run tools automatically without asking for approval.
-							</span>
-						</div>
-						<Toggle
-							label=""
-							checked={autonomousToolUseEnabled}
-							disabled={savingPreferences}
-							onChange={handleAutonomousToolUseToggle}
-						/>
-					</div>
-					<hr />
-				{/if}
-				<div class="mt-2 flex flex-col gap-4 py-3">
-					{#if version.current.sessionStore === 'db'}
-						<button
-							class="w-full rounded-3xl border-2 border-red-600 px-4 py-2 font-medium text-red-600 hover:border-red-700 hover:text-red-700"
-							onclick={(e) => {
-								e.preventDefault();
-								toRevoke = !toRevoke;
-							}}>Log out all other sessions</button
-						>
-					{/if}
-					<button
-						class="w-full rounded-3xl bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
-						onclick={(e) => {
-							e.preventDefault();
-							toDelete = !toDelete;
-						}}>Delete my account</button
-					>
-				</div>
-			</div>
+<button class="dropdown-link" onclick={() => dialog?.open()}>
+	<User class="size-4" /> My Account
+</button>
+
+<ResponsiveDialog bind:this={dialog} title="My Account" class="w-full max-w-lg">
+	<img
+		src={profile.current.iconURL}
+		alt=""
+		class="mx-auto mb-3 h-28 w-28 rounded-full object-cover"
+	/>
+	<div class="flex flex-row py-3">
+		<div class="w-1/2 max-w-[150px]">Display Name:</div>
+		<div class="w-1/2 break-words">{profile.current.displayName}</div>
+	</div>
+	<hr />
+	<div class="flex flex-row py-3">
+		<div class="w-1/2 max-w-[150px]">Email:</div>
+		<div class="w-1/2 break-words">{profile.current.email}</div>
+	</div>
+	<hr />
+	<div class="flex flex-row py-3">
+		<div class="w-1/2 max-w-[150px]">Role:</div>
+		<div class="w-1/2 break-words">
+			{getUserRoleLabel(profile.current.effectiveRole)}
 		</div>
 	</div>
-</Layout>
+	<hr />
+	{#if !version.current.autonomousToolUseEnabled}
+		<div class="flex flex-row items-center justify-between py-3">
+			<div class="flex flex-col gap-1">
+				<p>Allow Autonomous Tool Use</p>
+				<span class="text-sm font-light opacity-70">
+					When enabled, chat sessions can run tools automatically without asking for approval.
+				</span>
+			</div>
+			<Toggle
+				label=""
+				checked={autonomousToolUseEnabled}
+				disabled={savingPreferences}
+				onChange={handleAutonomousToolUseToggle}
+			/>
+		</div>
+		<hr />
+	{/if}
+	<div class="mt-2 flex flex-col gap-4 py-3">
+		{#if version.current.sessionStore === 'db'}
+			<button
+				class="w-full rounded-3xl border-2 border-red-600 px-4 py-2 font-medium text-red-600 hover:border-red-700 hover:text-red-700"
+				onclick={(e) => {
+					e.preventDefault();
+					toRevoke = !toRevoke;
+					dialog?.close();
+				}}>Log out all other sessions</button
+			>
+		{/if}
+		<button
+			class="w-full rounded-3xl bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
+			onclick={(e) => {
+				e.preventDefault();
+				toDelete = !toDelete;
+				dialog?.close();
+			}}>Delete my account</button
+		>
+	</div>
+</ResponsiveDialog>
 
 <Confirm
 	show={toRevoke}
 	msg="Are you sure you want to log out of all other sessions? This will sign you out of all other devices and browsers, except for this one."
 	onsuccess={logoutAll}
-	oncancel={() => (toRevoke = false)}
+	oncancel={() => {
+		toRevoke = false;
+		dialog?.open();
+	}}
 />
 
 <ConfirmDeleteAccount
 	username={profile.current.username}
 	show={!!toDelete}
 	onsuccess={deleteAccount}
-	oncancel={() => (toDelete = false)}
+	oncancel={() => {
+		toDelete = false;
+		dialog?.open();
+	}}
 />
 
 <svelte:head>
