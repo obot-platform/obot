@@ -26,6 +26,7 @@
 	import { resolve } from '$app/paths';
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { onMount } from 'svelte';
+	import { version } from '$lib/stores';
 
 	interface Props {
 		userConfiguredServers: MCPCatalogServer[];
@@ -676,7 +677,7 @@
 					/>
 				</div>
 			</div>
-			{#if !hideActions}
+			{#if !hideActions && version.current.disableLegacyChat !== true}
 				<div class="w-32">
 					<button
 						class="button-primary flex h-fit w-full grow items-center justify-center gap-2 text-sm"

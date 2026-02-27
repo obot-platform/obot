@@ -22,7 +22,7 @@
 		hasEditableConfiguration,
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
@@ -425,27 +425,29 @@
 								{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
 									{@render connectToServerAction(d.data, toggle)}
 								{/if}
-								<button
-									class="menu-button hover:bg-surface3"
-									onclick={async (e) => {
-										e.stopPropagation();
-										if (catalogEntry) {
-											if (matchingServers.length === 1) {
-												connectToServerDialog?.handleSetupChat(matchingServers[0]);
+								{#if version.current.disableLegacyChat !== true}
+									<button
+										class="menu-button hover:bg-surface3"
+										onclick={async (e) => {
+											e.stopPropagation();
+											if (catalogEntry) {
+												if (matchingServers.length === 1) {
+													connectToServerDialog?.handleSetupChat(matchingServers[0]);
+												} else {
+													handleShowSelectServerDialog(catalogEntry, 'chat');
+												}
 											} else {
-												handleShowSelectServerDialog(catalogEntry, 'chat');
+												connectToServerDialog?.handleSetupChat(
+													d.data as MCPCatalogServer,
+													instancesMap.get(d.id)
+												);
 											}
-										} else {
-											connectToServerDialog?.handleSetupChat(
-												d.data as MCPCatalogServer,
-												instancesMap.get(d.id)
-											);
-										}
-										toggle(false);
-									}}
-								>
-									<MessageCircle class="size-4" /> Chat
-								</button>
+											toggle(false);
+										}}
+									>
+										<MessageCircle class="size-4" /> Chat
+									</button>
+								{/if}
 
 								{#if catalogEntry}
 									{@render editCatalogEntryAction(catalogEntry, matchingServers)}
