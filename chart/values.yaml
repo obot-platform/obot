@@ -169,6 +169,9 @@ config:
   # config.OBOT_SERVER_DISABLE_LEGACY_CHAT -- Disable legacy chat APIs/UX paths. Defaults to true.
   OBOT_SERVER_DISABLE_LEGACY_CHAT: true
 
+  # config.OBOT_SERVER_MCPSERVER_SEARCH_IMAGE -- The container image to use for the MCP server search functionality. Defaults to ghcr.io/obot-platform/obot-mcp-server:v0.0.1
+  OBOT_SERVER_MCPSERVER_SEARCH_IMAGE: ghcr.io/obot-platform/obot-mcp-server:v0.0.1
+
 # extraEnv -- A map of additional environment variables to set
 extraEnv: {}
 
