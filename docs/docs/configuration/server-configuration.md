@@ -39,6 +39,7 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_AUDIT_LOGS_USE_PATH_STYLE` | Whether to use path style for S3 | - |
 | `OBOT_SERVER_MCPBASE_IMAGE` | Deploy MCP servers in the kubernetes cluster or using docker with this base image. | `ghcr.io/obot-platform/mcp-images/phat:main` |
 | `OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE` | Deploy MCP remote shim servers in the cluster using this base image. | `ghcr.io/nanobot-ai/nanobot:v0.0.56` |
+| `OBOT_SERVER_NANOBOT_AGENT_IMAGE` | Deploy the Nanobot agent in the cluster using this image. | `ghcr.io/nanobot-ai/nanobot:v0.0.56` |
 | `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE` | Deploy MCP HTTP webhook servers in the cluster using this base image. | `ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:main` |
 | `OBOT_SERVER_MCPRUNTIME_BACKEND` | The runtime backend to use for running MCP servers: docker, kubernetes, or local. | `kubernetes` in the helm chart, `docker` otherwise |
 | `OBOT_SERVER_MCPCLUSTER_DOMAIN` | The cluster domain to use for MCP services. Only matters if `OBOT_SERVER_MCPBASE_IMAGE` is set. | `cluster.local` |
