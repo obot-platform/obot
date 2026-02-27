@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { ChatMessageItemToolCall } from '$lib/services/nanobot/types';
 	import {
 		Circle,
 		CheckCircle2,
@@ -18,16 +17,18 @@
 	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+	import { parseJSON } from '$lib/services/nanobot/utils';
 
 	interface Props {
 		onToggle?: () => void;
 		open?: boolean;
-		files?: ChatMessageItemToolCall[];
-		threadId?: string;
+		sessionId?: string;
 		selectedFile?: string;
+		agentId?: string;
+		projectId?: string;
 	}
 
-	let { onToggle, open, files, threadId, selectedFile }: Props = $props();
+	let { onToggle, open, sessionId, selectedFile, agentId, projectId }: Props = $props();
 
 	/** Todo item shape from todo:///list resource or todo_write tool (application/json) */
 	interface TodoItem {
@@ -36,83 +37,34 @@
 		activeForm?: string;
 	}
 
-	const TODO_WRITE_NAMES = ['todo_write', 'todoWrite'];
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
+	let todoItems = $state<TodoItem[]>([]);
 
-	function parseTodoItem(raw: unknown): TodoItem | null {
-		if (!raw || typeof raw !== 'object') return null;
-		const o = raw as Record<string, unknown>;
-		const content = typeof o.content === 'string' ? o.content : '';
-		const status = o.status;
-		const validStatus =
-			status === 'pending' ||
-			status === 'in_progress' ||
-			status === 'completed' ||
-			status === 'cancelled'
-				? status
-				: 'pending';
-		return { content, status: validStatus, activeForm: o.activeForm as string | undefined };
-	}
+	const chatForSession = $derived(
+		$nanobotChat?.chat?.chatId === sessionId ? ($nanobotChat?.chat ?? null) : null
+	);
 
-	function parseTodosFromToolCall(item: ChatMessageItemToolCall): TodoItem[] {
-		const out: TodoItem[] = [];
-		// Prefer tool output (structuredContent or content with resource) when present
-		const output = item.output;
-		if (
-			output?.structuredContent &&
-			Array.isArray((output.structuredContent as { todos?: unknown[] }).todos)
-		) {
-			const todos = (output.structuredContent as { todos: unknown[] }).todos;
-			for (const t of todos) {
-				const parsed = parseTodoItem(t);
-				if (parsed) out.push(parsed);
-			}
-			if (out.length > 0) return out;
-		}
-		if (output?.structuredContent && Array.isArray(output.structuredContent)) {
-			for (const t of output.structuredContent as unknown[]) {
-				const parsed = parseTodoItem(t);
-				if (parsed) out.push(parsed);
-			}
-			if (out.length > 0) return out;
-		}
-		// Parse tool input (arguments): agent sends { merge, todos } or just { todos }
-		if (!item.arguments) return [];
-		try {
-			const args = JSON.parse(item.arguments) as { todos?: unknown[] };
-			if (Array.isArray(args.todos)) {
-				for (const t of args.todos) {
-					const parsed = parseTodoItem(t);
-					if (parsed) out.push(parsed);
-				}
-			}
-		} catch {
-			// ignore
-		}
-		return out;
-	}
+	const files = $derived(
+		chatForSession?.resources?.filter((r) => r.uri.startsWith('file:///')) ?? []
+	);
 
-	/** Todo list derived from latest todo_write / todoWrite tool call in messages (works even when server doesn't push resource updates) */
-	let todoItemsFromMessages = $derived.by((): TodoItem[] => {
-		const messages = $nanobotChat?.chat?.messages ?? [];
-		if (!messages?.length) return [];
-		let latest: TodoItem[] = [];
-		for (const msg of messages) {
-			if (msg.role !== 'assistant' || !msg.items) continue;
-			for (const item of msg.items) {
-				if (item.type !== 'tool') continue;
-				const tool = item as ChatMessageItemToolCall;
-				if (tool.name && TODO_WRITE_NAMES.includes(tool.name)) {
-					const parsed = parseTodosFromToolCall(tool);
-					if (parsed.length > 0) latest = parsed;
-				}
-			}
+	$effect(() => {
+		const chat = chatForSession;
+		if (!sessionId || !chat) {
+			return;
 		}
-		return latest;
+		const unwatch = chat.watchResource('todo:///list', (resource) => {
+			todoItems = parseJSON<TodoItem[]>(resource.text) ?? [];
+		});
+		chat.readResource('todo:///list').then((resource) => {
+			todoItems = parseJSON<TodoItem[]>(resource.contents[0].text) ?? [];
+		});
+		return () => {
+			unwatch();
+		};
 	});
 
 	let showTodoList = $state(true);
-	let todoItems = $derived(todoItemsFromMessages);
 </script>
 
 <div
@@ -128,10 +80,10 @@
 		)}
 	>
 		<div class={twMerge(open ? 'self-end' : 'w-14 self-center')}>
-			<Profile />
+			<Profile {agentId} {projectId} />
 		</div>
 
-		{#if !!threadId}
+		{#if !!sessionId}
 			{#if open}
 				<div in:fly={{ x: 100, duration: 150 }} class="flex flex-col gap-4">
 					<div
@@ -231,24 +183,8 @@
 </div>
 
 {#snippet listThreadFiles(compact?: boolean)}
-	{#each files ?? [] as file (file.callID)}
-		{@const args = (() => {
-			try {
-				return JSON.parse(file.arguments ?? '{}') as { file_path: string } | undefined;
-			} catch (error) {
-				console.error('Failed to parse file.arguments as JSON in ThreadQuickAccess', {
-					error,
-					file,
-					arguments: file.arguments
-				});
-				return undefined;
-			}
-		})()}
-		{@const openPath = args?.file_path?.includes('://')
-			? args.file_path
-			: args?.file_path
-				? `file:///${args.file_path}`
-				: undefined}
+	{#each files ?? [] as file (file.uri)}
+		{@const openPath = file.uri.replace('file:///', `file:///sessions/${sessionId}/`)}
 		{@const isSelected = selectedFile === openPath}
 		<FileItem
 			uri={openPath}

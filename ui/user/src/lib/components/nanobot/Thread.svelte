@@ -32,7 +32,6 @@
 		onFileUpload?: (file: File, opts?: { controller?: AbortController }) => Promise<Attachment>;
 		onFileOpen?: (filename: string) => void;
 		onReadResource?: (uri: string) => Promise<{ contents: ResourceContents[] }>;
-		onRestart?: () => void;
 		onCancel?: () => void;
 		onContentWidthChange?: (width: number) => void;
 		cancelUpload?: (fileId: string) => void;
@@ -59,7 +58,6 @@
 		onFileUpload,
 		onFileOpen,
 		onReadResource,
-		onRestart,
 		onCancel,
 		onContentWidthChange,
 		cancelUpload,
@@ -340,6 +338,8 @@
 	ondragleave={handleDragLeave}
 	ondragover={handleDragOver}
 	ondrop={handleDrop}
+	role="region"
+	aria-label="Drag and drop files to upload"
 >
 	<!-- Drag-and-drop overlay -->
 	{#if isDragging}
@@ -473,7 +473,6 @@
 					{cancelUpload}
 					{uploadingFiles}
 					{uploadedFiles}
-					{onRestart}
 					{onCancel}
 				/>
 			{/if}

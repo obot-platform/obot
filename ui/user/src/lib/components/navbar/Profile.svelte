@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
-	import { profile, responsive, darkMode } from '$lib/stores';
+	import { profile, responsive, darkMode, errors } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { getUserRoleLabel } from '$lib/utils';
 	import {
@@ -14,18 +14,27 @@
 		CircleFadingArrowUp,
 		LayoutDashboard,
 		KeyRound,
-		BotMessageSquare
+		BotMessageSquare,
+		Power
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { AdminService, ChatService, EditorService } from '$lib/services';
+	import { AdminService, ChatService, EditorService, NanobotService } from '$lib/services';
 	import { afterNavigate } from '$app/navigation';
 	import { goto } from '$lib/url';
 	import PageLoading from '../PageLoading.svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import MyAccount from '../profile/MyAccount.svelte';
+	import Confirm from '../Confirm.svelte';
+
+	interface Props {
+		agentId?: string;
+		projectId?: string;
+	}
+
+	let { agentId, projectId }: Props = $props();
 
 	let versionDialog = $state<HTMLDialogElement>();
 	let showChatLink = $state(false);
@@ -33,6 +42,10 @@
 	let showMcpManagement = $state(false);
 	let inAdminRoute = $state(false);
 	let loadingChat = $state(false);
+
+	let showRestartOption = $state(false);
+	let showRestartAgentConfirm = $state(false);
+	let restartingAgent = $state(false);
 
 	let showUpgradeAvailable = $derived(
 		version.current.authEnabled
@@ -74,6 +87,22 @@
 		}
 	}
 
+	async function handleRestartAgent() {
+		if (!agentId || !projectId) return;
+		restartingAgent = true;
+		try {
+			await AdminService.restartK8sDeployment(`ms1${agentId}`);
+			await NanobotService.launchProjectV2Agent(projectId, agentId);
+			window.location.reload();
+		} catch (error) {
+			console.error('Failed to restart agent:', error);
+			errors.append(error);
+		} finally {
+			restartingAgent = false;
+			showRestartAgentConfirm = false;
+		}
+	}
+
 	afterNavigate(() => {
 		inAdminRoute = window.location.pathname.includes('/admin');
 		showChatLink =
@@ -86,6 +115,7 @@
 		showMcpManagement = ['/o', '/profile', '/nanobot'].some((path) =>
 			window.location.pathname.startsWith(path)
 		);
+		showRestartOption = window.location.pathname.startsWith('/nanobot') && !!agentId && !!projectId;
 	});
 
 	function navigateTo(path: string, asNewTab?: boolean) {
@@ -157,6 +187,16 @@
 	{/snippet}
 	{#snippet body()}
 		<div class="flex flex-col gap-1 px-2 pb-4">
+			{#if showRestartOption}
+				<button
+					class="dropdown-link"
+					onclick={() => {
+						showRestartAgentConfirm = true;
+					}}
+				>
+					<Power class="size-4" /> Restart Agent
+				</button>
+			{/if}
 			{#if responsive.isMobile}
 				<a href="https://docs.obot.ai" rel="external" target="_blank" class="dropdown-link"
 					><Book class="size-4" />Docs</a
@@ -315,6 +355,21 @@
 		>
 	</form>
 </dialog>
+
+<Confirm
+	show={showRestartAgentConfirm}
+	onsuccess={handleRestartAgent}
+	oncancel={() => (showRestartAgentConfirm = false)}
+	loading={restartingAgent}
+	title="Restart Agent"
+	msg="Are you sure you want to restart this agent?"
+	type="info"
+>
+	{#snippet note()}
+		This will restart the current agent with the latest available version. Are you sure you want to
+		continue?
+	{/snippet}
+</Confirm>
 
 <PageLoading show={loadingChat} text="Loading chat..." />
 

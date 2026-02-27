@@ -16,6 +16,7 @@
 	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+	import { afterNavigate } from '$app/navigation';
 
 	interface FileTimeResult {
 		date?: Date;
@@ -53,9 +54,7 @@
 
 	let resourceFiles = $derived(
 		$nanobotChat?.resources
-			? $nanobotChat.resources.filter(
-					(r) => r.uri.startsWith('file:///') && !r.uri.includes('workflows/')
-				)
+			? $nanobotChat.resources.filter((r) => r.uri.startsWith('file:///'))
 			: []
 	);
 
@@ -67,6 +66,7 @@
 		property: 'name',
 		order: 'desc'
 	});
+	let loading = $state(false);
 
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
 
@@ -279,6 +279,24 @@
 		projectLayout.setThreadContentWidth(container.getBoundingClientRect().width);
 		return () => ro.disconnect();
 	});
+
+	afterNavigate(({ from }) => {
+		if (!from?.url || !$nanobotChat?.api) return;
+		loading = true;
+		$nanobotChat.api
+			.listResources()
+			.then((resources) => {
+				nanobotChat.update((data) => {
+					if (data) {
+						data.resources = resources;
+					}
+					return data;
+				});
+			})
+			.finally(() => {
+				loading = false;
+			});
+	});
 </script>
 
 <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 md:px-8" bind:this={filesContainer}>
@@ -309,7 +327,12 @@
 		</button>
 	</div>
 	<div class="flex items-center justify-between gap-4">
-		<h2 class="text-2xl font-semibold">Files</h2>
+		<div class="flex items-center gap-1">
+			<h2 class="text-2xl font-semibold">Files</h2>
+			{#if loading}
+				<div class="loading loading-spinner text-primary loading-sm"></div>
+			{/if}
+		</div>
 		<label class="label text-sm">
 			<input
 				type="checkbox"

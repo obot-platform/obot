@@ -29,14 +29,15 @@ export class SimpleClient {
 	readonly #url: string;
 	readonly #fetcher: typeof fetch;
 	readonly #headers: Record<string, string>;
+	readonly #baseUrl: string;
 	#sessionId?: string;
 	#initializeResult?: InitializationResult;
 	#initializationPromise?: Promise<void>;
 	readonly #externalSession: boolean;
+	#closed = false;
 	#sseConnection?: EventSource;
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	#sseSubscriptions = new Map<string, Set<(resource: ResourceContents) => void>>();
-
 	constructor(opts?: {
 		path?: string;
 		baseUrl?: string;
@@ -48,6 +49,7 @@ export class SimpleClient {
 	}) {
 		const baseUrl = opts?.baseUrl || '';
 		const path = opts?.path || '';
+		this.#baseUrl = baseUrl;
 		this.#url = `${baseUrl}${path}`;
 		this.#fetcher = opts?.fetcher || fetch;
 		this.#headers = opts?.headers || {};
@@ -71,6 +73,10 @@ export class SimpleClient {
 			}
 			this.#externalSession = false;
 		}
+	}
+
+	get baseUrl(): string {
+		return this.#baseUrl;
 	}
 
 	async deleteSession(): Promise<void> {
@@ -228,6 +234,9 @@ export class SimpleClient {
 	}
 
 	async #ensureSession(): Promise<string> {
+		if (this.#closed) {
+			throw new Error('SimpleClient is closed');
+		}
 		if (!this.#sessionId) {
 			await this.#initialize();
 		}
@@ -235,6 +244,12 @@ export class SimpleClient {
 			throw new Error('Failed to establish session');
 		}
 		return this.#sessionId;
+	}
+
+	close(): void {
+		if (this.#closed) return;
+		this.#closed = true;
+		this.#clearSession();
 	}
 
 	async reply(id: string | number, result: unknown): Promise<void> {
@@ -478,7 +493,7 @@ export class SimpleClient {
 		const queryParams = new URLSearchParams(existingQuery || '');
 		queryParams.set('stream', 'true');
 		if (this.#sessionId) {
-			queryParams.set('sessionId', this.#sessionId);
+			queryParams.set('id', this.#sessionId);
 		}
 		const sseUrl = `${basePath}?${queryParams.toString()}`;
 

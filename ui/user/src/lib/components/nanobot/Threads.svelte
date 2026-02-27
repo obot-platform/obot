@@ -8,32 +8,32 @@
 	import { isRecent } from '$lib/time';
 
 	interface Props {
-		threads: Chat[];
-		onRename: (threadId: string, newTitle: string) => void;
-		onDelete: (threadId: string) => void;
+		sessions: Chat[];
+		onRename: (sessionId: string, newTitle: string) => void;
+		onDelete: (sessionId: string) => void;
 		isLoading?: boolean;
-		onThreadClick?: () => void;
-		onCreateThread?: () => void;
-		selectedThreadId?: string;
+		onSessionClick?: () => void;
+		onCreateSession?: () => void;
+		selectedSessionId?: string;
 	}
 
 	let {
-		threads,
+		sessions,
 		onRename,
 		onDelete,
 		isLoading = false,
-		onThreadClick,
-		onCreateThread,
-		selectedThreadId
+		onSessionClick,
+		onCreateSession,
+		selectedSessionId
 	}: Props = $props();
 
-	let editingThreadId = $state<string | null>(null);
+	let editingSessionId = $state<string | null>(null);
 	let editTitle = $state('');
 
-	function navigateToThread(threadId: string) {
+	function navigateToSession(sessionId: string) {
 		const storedChat = get(nanobotChat);
-		onThreadClick?.();
-		goto(`/nanobot/p/${storedChat?.projectId}?tid=${threadId}`);
+		onSessionClick?.();
+		goto(`/nanobot/p/${storedChat?.projectId}?tid=${sessionId}`);
 	}
 
 	function formatTime(timestamp: string): string {
@@ -49,21 +49,21 @@
 		return `${days}d`;
 	}
 
-	function startRename(threadId: string, currentTitle: string) {
-		editingThreadId = threadId;
+	function startRename(sessionId: string, currentTitle: string) {
+		editingSessionId = sessionId;
 		editTitle = currentTitle || '';
 	}
 
 	function saveRename() {
-		if (editingThreadId && editTitle.trim()) {
-			onRename(editingThreadId, editTitle.trim());
-			editingThreadId = null;
+		if (editingSessionId && editTitle.trim()) {
+			onRename(editingSessionId, editTitle.trim());
+			editingSessionId = null;
 			editTitle = '';
 		}
 	}
 
 	function cancelRename() {
-		editingThreadId = null;
+		editingSessionId = null;
 		editTitle = '';
 	}
 
@@ -101,7 +101,7 @@
 	$effect(() => {
 		const host = listHost;
 		if (!host) return;
-		void threads.length;
+		void sessions.length;
 
 		const scrollEl = getScrollParent(host) ?? host;
 
@@ -148,7 +148,7 @@
 		<button
 			class="btn btn-square btn-ghost btn-sm tooltip tooltip-left"
 			data-tip="Start New Conversation"
-			onclick={onCreateThread}
+			onclick={onCreateSession}
 		>
 			<Plus class="text-base-content/50 size-6" />
 		</button>
@@ -173,24 +173,24 @@
 				</div>
 			{/each}
 		{:else}
-			{#each threads as thread, index (thread.id)}
+			{#each sessions as session, index (session.id)}
 				<div
 					data-thread-row={index}
 					class="group border-base-200 dark:hover:bg-base-100/25 hover:bg-base-100/65 flex items-center border-b"
-					class:bg-base-100={selectedThreadId === thread.id}
+					class:bg-base-100={selectedSessionId === session.id}
 					in:fly={{ x: 100, duration: 150 }}
 				>
 					<!-- Thread title area (clickable) -->
 					<button
 						class="flex-1 truncate p-3 text-left transition-colors focus:outline-none"
 						onclick={() => {
-							if (editingThreadId === thread.id) return;
-							navigateToThread(thread.id);
+							if (editingSessionId === session.id) return;
+							navigateToSession(session.id);
 						}}
 					>
 						<div class="flex items-center justify-between gap-2">
 							<div class="flex min-w-0 flex-1 items-center gap-2">
-								{#if editingThreadId === thread.id}
+								{#if editingSessionId === session.id}
 									<input
 										type="text"
 										bind:value={editTitle}
@@ -199,22 +199,22 @@
 										onclick={(e) => e.stopPropagation()}
 										onfocus={(e) => (e.target as HTMLInputElement).select()}
 									/>
-								{:else if isRecent(thread.created) && !thread.title}
+								{:else if isRecent(session.created) && !session.title}
 									<span class="skeleton skeleton-text text-fm font-medium">...</span>
 								{:else}
-									<h3 class="truncate text-sm font-medium">{thread.title || 'Untitled'}</h3>
+									<h3 class="truncate text-sm font-medium">{session.title || 'Untitled'}</h3>
 								{/if}
 							</div>
-							{#if editingThreadId !== thread.id}
+							{#if editingSessionId !== session.id}
 								<span class="text-base-content/50 flex-shrink-0 text-xs">
-									{formatTime(thread.created)}
+									{formatTime(session.created)}
 								</span>
 							{/if}
 						</div>
 					</button>
 
 					<!-- Save/Cancel buttons for editing -->
-					{#if editingThreadId === thread.id}
+					{#if editingSessionId === session.id}
 						<div class="flex items-center gap-1 px-2">
 							<button
 								class="btn btn-ghost btn-xs"
@@ -233,7 +233,7 @@
 						</div>
 					{/if}
 
-					{#if editingThreadId !== thread.id}
+					{#if editingSessionId !== session.id}
 						<!-- Dropdown menu - only show on hover -->
 						<div
 							class="dropdown dropdown-end mr-2 w-0 opacity-0 transition-[width,opacity] group-hover:w-8 group-hover:opacity-100"
@@ -244,13 +244,13 @@
 							</div>
 							<ul class="dropdown-content menu dropdown-menu z-[1] w-32">
 								<li>
-									<button onclick={() => startRename(thread.id, thread.title)} class="text-sm">
+									<button onclick={() => startRename(session.id, session.title)} class="text-sm">
 										<Edit class="h-4 w-4" />
 										Rename
 									</button>
 								</li>
 								<li>
-									<button onclick={() => handleDelete(thread.id)} class="text-error text-sm">
+									<button onclick={() => handleDelete(session.id)} class="text-error text-sm">
 										<Trash2 class="h-4 w-4" />
 										Delete
 									</button>

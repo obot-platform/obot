@@ -160,7 +160,3 @@
 		dialog?.open();
 	}}
 />
-
-<svelte:head>
-	<title>Obot | My Account</title>
-</svelte:head>
