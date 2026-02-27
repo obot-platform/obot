@@ -51,8 +51,14 @@ func NewProxyManager(dispatcher *dispatcher.Dispatcher, gptClient *gptscript.GPT
 func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
 	// Check for the access token cookie.
 	// This authenticator requires the cookie in order to authenticate any users.
-	if _, err := req.Cookie(ObotAccessTokenCookie); errors.Is(err, http.ErrNoCookie) {
-		return nil, false, nil
+	// When sessions exceed 4KB, oauth2-proxy splits them into multiple cookies (_0, _1, _2, etc.)
+	// so we check for either the base cookie or the _0 cookie.
+	_, err := req.Cookie(ObotAccessTokenCookie)
+	if errors.Is(err, http.ErrNoCookie) {
+		// Try the _0 cookie for multi-cookie sessions
+		if _, err := req.Cookie(ObotAccessTokenCookieZero); errors.Is(err, http.ErrNoCookie) {
+			return nil, false, nil
+		}
 	}
 
 	configuredProvider, err := pm.dispatcher.GetConfiguredAuthProvider(req.Context())
