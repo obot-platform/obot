@@ -20,7 +20,7 @@
 		Trash2,
 		Unplug
 	} from 'lucide-svelte';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -369,7 +369,7 @@
 {#snippet serverActions(toggle: (value: boolean) => void)}
 	{#if server && server.userID === profile.current.id}
 		<div class="flex flex-col gap-1 p-2 {!isProjectMcp && 'bg-surface1 rounded-t-xl'}">
-			{#if !isProjectMcp && !connectOnly}
+			{#if !isProjectMcp && !connectOnly && version.current.disableLegacyChat !== true}
 				<button
 					class="menu-button"
 					onclick={async () => {
@@ -483,7 +483,7 @@
 			My Connection(s)
 		</div>
 		<div class="bg-surface1 flex flex-col gap-1 p-2">
-			{#if !connectOnly}
+			{#if !connectOnly && version.current.disableLegacyChat !== true}
 				<button
 					class="menu-button"
 					onclick={() => {
