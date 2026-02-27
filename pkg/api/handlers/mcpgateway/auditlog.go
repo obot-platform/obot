@@ -101,7 +101,8 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 		return types.NewErrHTTP(http.StatusUnauthorized, "invalid token")
 	}
 
-	mcpServerName := mcpServers.Items[0].Name
+	mcpServer := mcpServers.Items[0]
+	mcpServerName := mcpServer.Name
 
 	var auditLogs []auditLogInput
 	if err := req.Read(&auditLogs); err != nil {
@@ -117,6 +118,11 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 		}
 		if auditLog.UserID == "" {
 			auditLog.UserID = auditLog.Subject
+		}
+		// NanobotAgent containers are single-user; attribute audit logs to the owner
+		// when the container doesn't report a user (no auth middleware configured).
+		if auditLog.UserID == "" && mcpServer.Spec.NanobotAgentID != "" {
+			auditLog.UserID = mcpServer.Spec.UserID
 		}
 		if auditLog.MCPServerCatalogEntryName == "" {
 			auditLog.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
