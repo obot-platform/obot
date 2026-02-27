@@ -681,18 +681,20 @@
 									>
 										<SatelliteDish class="size-4" /> Connect To Server
 									</button>
-									<button
-										class="menu-button"
-										onclick={async (e) => {
-											e.stopPropagation();
-											if (d) {
-												connectToServerDialog?.handleSetupChat(d, instancesMap.get(d.id));
-											}
-											toggle(false);
-										}}
-									>
-										<MessageCircle class="size-4" /> Chat
-									</button>
+									{#if version.current.disableLegacyChat !== true}
+										<button
+											class="menu-button"
+											onclick={async (e) => {
+												e.stopPropagation();
+												if (d) {
+													connectToServerDialog?.handleSetupChat(d, instancesMap.get(d.id));
+												}
+												toggle(false);
+											}}
+										>
+											<MessageCircle class="size-4" /> Chat
+										</button>
+									{/if}
 
 									{#if d.isMyServer}
 										{@render editConfigAction(d)}
