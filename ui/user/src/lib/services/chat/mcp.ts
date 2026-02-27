@@ -82,7 +82,8 @@ export function hasEditableConfiguration(item: MCPCatalogEntry) {
 	if (item.manifest?.runtime === 'composite') {
 		const componentServers = item.manifest?.compositeConfig?.componentServers || [];
 		return componentServers.some((component) => {
-			const hasEnvs = component.manifest?.env && component.manifest.env.length > 0;
+			const hasEnvs =
+				(component.manifest?.env?.filter?.((env) => !env.value)?.length ?? 0) > 0;
 			const hasHeaders =
 				(component?.manifest?.remoteConfig?.headers?.filter?.((header) => !header.value)?.length ??
 					0) > 0;
@@ -94,7 +95,8 @@ export function hasEditableConfiguration(item: MCPCatalogEntry) {
 
 	const hasUrlToFill =
 		!item.manifest?.remoteConfig?.fixedURL && item.manifest?.remoteConfig?.hostname;
-	const hasEnvsToFill = item.manifest?.env && item.manifest.env.length > 0;
+	const hasEnvsToFill =
+		(item.manifest?.env?.filter?.((env) => !env.value)?.length ?? 0) > 0;
 	const hasHeadersToFill =
 		(item?.manifest?.remoteConfig?.headers?.filter?.((header) => !header.value)?.length ?? 0) > 0;
 
@@ -379,7 +381,7 @@ export async function convertCompositeInfoToLaunchFormData(
 				: (m.env ?? []).map((e) => ({
 						...(e as unknown as Record<string, unknown>),
 						key: e.key,
-						value: init?.config?.[e.key] ?? ''
+						value: init?.config?.[e.key] ?? e.value ?? ''
 					})),
 			headers: isMultiUser
 				? []

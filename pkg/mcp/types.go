@@ -135,14 +135,36 @@ func legacyServerToServerConfig(mcpServer v1.MCPServer, userID, scope string, cr
 
 	var missingRequiredNames []string
 	for _, env := range mcpServer.Spec.Manifest.Env {
-		val, ok := credEnv[env.Key]
-		if !ok && env.Required {
-			missingRequiredNames = append(missingRequiredNames, env.Key)
+		var (
+			val      string
+			hasValue bool
+		)
+
+		// Check for static value first
+		if env.Value != "" {
+			val = env.Value
+			hasValue = true
+		} else {
+			// Fall back to user-configured value from credentials
+			credVal, ok := credEnv[env.Key]
+			if ok && credVal != "" {
+				val = credVal
+				hasValue = true
+			}
+		}
+
+		if !hasValue {
+			if env.Required {
+				missingRequiredNames = append(missingRequiredNames, env.Key)
+			}
 			continue
 		}
 
 		// Apply prefix if specified (e.g., "Bearer ", "sk-")
-		val = applyPrefix(val, env.Prefix)
+		// Only apply to user-supplied values, not static values
+		if env.Value == "" {
+			val = applyPrefix(val, env.Prefix)
+		}
 
 		if !env.File {
 			serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))
@@ -413,8 +435,25 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 	}
 
 	for _, env := range mcpServer.Spec.Manifest.Env {
-		val, ok := credEnv[env.Key]
-		if !ok || val == "" {
+		var (
+			val      string
+			hasValue bool
+		)
+
+		// Check for static value first
+		if env.Value != "" {
+			val = env.Value
+			hasValue = true
+		} else {
+			// Fall back to user-configured value from credentials
+			credVal, ok := credEnv[env.Key]
+			if ok && credVal != "" {
+				val = credVal
+				hasValue = true
+			}
+		}
+
+		if !hasValue {
 			if env.Required {
 				missingRequiredNames = append(missingRequiredNames, env.Key)
 			}
@@ -422,7 +461,10 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		}
 
 		// Apply prefix if specified (e.g., "Bearer ", "sk-")
-		val = applyPrefix(val, env.Prefix)
+		// Only apply to user-supplied values, not static values
+		if env.Value == "" {
+			val = applyPrefix(val, env.Prefix)
+		}
 
 		if !env.File {
 			serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))
