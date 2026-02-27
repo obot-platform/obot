@@ -145,9 +145,9 @@ config:
   # config.OBOT_SERVER_MCPBASE_IMAGE -- Deploy MCP servers in the cluster using this base image. OBOT_SERVER_MCPNAMESPACE is automatically added to the secret if config.OBOT_SERVER_MCPBASE_IMAGE is set. If no tag is specified, the chart's appVersion will be used unless it starts with '0.0.0', in which case the 'main' tag will be used.
   OBOT_SERVER_MCPBASE_IMAGE: "ghcr.io/obot-platform/mcp-images/phat"
   # config.OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE -- Deploy MCP remote shim servers in the cluster using this base image.
-  OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE: "ghcr.io/nanobot-ai/nanobot:v0.0.55"
+  OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE: "ghcr.io/nanobot-ai/nanobot:v0.0.56"
   # config.OBOT_SERVER_NANOBOT_AGENT_IMAGE -- Container image for the Nanobot agent MCP server.
-  OBOT_SERVER_NANOBOT_AGENT_IMAGE: "ghcr.io/nanobot-ai/nanobot:main"
+  OBOT_SERVER_NANOBOT_AGENT_IMAGE: "ghcr.io/nanobot-ai/nanobot:v0.0.56"
   # config.OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE -- Deploy MCP HTTP webhook servers in the cluster using this base image.
   OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE: "ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:main"
   # config.OBOT_SERVER_MCPCLUSTER_DOMAIN -- The cluster domain to use for MCP services. Defaults to cluster.local. Only matters if the above image is set.
