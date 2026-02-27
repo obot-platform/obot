@@ -14,6 +14,7 @@
 	import { setContext } from 'svelte';
 	import type { ChatMessageItemToolCall, ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
+	import { isRecent } from '$lib/time';
 
 	let { data, children } = $props();
 	let agent = $derived(data.agent);
@@ -157,7 +158,14 @@
 	}
 
 	$effect(() => {
-		if (!chat || chat.messages.length < 2) return;
+		const clearTitleRefreshTimeout = () => {
+			if (titleRefreshTimeoutId != null) {
+				clearTimeout(titleRefreshTimeoutId);
+				titleRefreshTimeoutId = null;
+			}
+		};
+
+		if (!chat || chat.messages.length < 2) return clearTitleRefreshTimeout;
 
 		const tid = chat.chatId;
 		const threads = $nanobotChat?.threads ?? [];
@@ -168,22 +176,17 @@
 				loadThreads();
 				needsRefreshThreads = false;
 			}
-			return () => {
-				if (titleRefreshTimeoutId != null) {
-					clearTimeout(titleRefreshTimeoutId);
-					titleRefreshTimeoutId = null;
-				}
-			};
+			return clearTitleRefreshTimeout;
 		}
 
-		// Thread is in list; refetch until it has a title (avoids sync loop by using a delay)
-		const hasTitle = inThreads.title != null && String(inThreads.title).trim() !== '';
+		const hasTitle =
+			(inThreads.title && inThreads.title.trim().length > 0) || !isRecent(inThreads.created);
 		if (!hasTitle) {
 			if (titleRefreshTimeoutId == null) {
 				titleRefreshTimeoutId = setTimeout(() => {
 					titleRefreshTimeoutId = null;
 					loadThreads();
-				}, 2000);
+				}, 5000); // 5 sec poll
 			}
 		} else {
 			if (titleRefreshTimeoutId != null) {
@@ -196,12 +199,7 @@
 			needsRefreshThreads = false;
 		}
 
-		return () => {
-			if (titleRefreshTimeoutId != null) {
-				clearTimeout(titleRefreshTimeoutId);
-				titleRefreshTimeoutId = null;
-			}
-		};
+		return clearTitleRefreshTimeout;
 	});
 
 	$effect(() => {
@@ -230,8 +228,7 @@
 			chat?.close();
 		});
 
-		const newChat = new ChatService({
-			api: chatApi,
+		const newChat = new ChatService(chatApi, {
 			skipInitialResources: !!currentThreadId
 		});
 

@@ -5,6 +5,7 @@
 	import { fly } from 'svelte/transition';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { get } from 'svelte/store';
+	import { isRecent } from '$lib/time';
 
 	interface Props {
 		threads: Chat[];
@@ -198,10 +199,10 @@
 										onclick={(e) => e.stopPropagation()}
 										onfocus={(e) => (e.target as HTMLInputElement).select()}
 									/>
-								{:else if thread.title}
-									<h3 class="truncate text-sm font-medium">{thread.title}</h3>
-								{:else}
+								{:else if isRecent(thread.created) && !thread.title}
 									<span class="skeleton skeleton-text text-fm font-medium">...</span>
+								{:else}
+									<h3 class="truncate text-sm font-medium">{thread.title || 'Untitled'}</h3>
 								{/if}
 							</div>
 							{#if editingThreadId !== thread.id}

@@ -62,8 +62,7 @@
 	}
 
 	$effect(() => {
-		const newChat = new ChatService({
-			api: chatApi,
+		const newChat = new ChatService(chatApi, {
 			onThreadCreated: handleThreadCreated
 		});
 

@@ -29,8 +29,7 @@
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
 
 	function handleSelectWorkflow(workflowName: string) {
-		const newChat = new ChatService({
-			api: chatApi,
+		const newChat = new ChatService(chatApi, {
 			onThreadCreated: (thread) => {
 				nanobotChat.update((data) => {
 					if (data) {

@@ -88,8 +88,7 @@
 
 	function handleSetupWorkflowThread(message: string, showFile: boolean = false) {
 		loading = true;
-		const newChat = new ChatService({
-			api: chatApi,
+		const newChat = new ChatService(chatApi, {
 			onThreadCreated: (thread) => {
 				nanobotChat.update((data) => {
 					if (data) {
@@ -104,7 +103,9 @@
 
 				loading = false;
 
-				goto(`/nanobot/p/${projectId}?tid=${thread.id}${showFile ? `&wid=${workflowName}` : ''}`);
+				goto(
+					`/nanobot/p/${projectId}?tid=${thread.id}&pid=${workflowName}${showFile ? `&wid=${workflowName}` : ''}`
+				);
 			}
 		});
 		newChat.sendMessage(message);
