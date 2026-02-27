@@ -19,14 +19,36 @@ import (
 
 var githubToken = os.Getenv("GITHUB_AUTH_TOKEN")
 
+// isGitURL checks if a URL points to a git repository.
+// Returns true for GitHub URLs or URLs with .git suffix.
+func isGitURL(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	// GitHub URLs are always git repos, even without .git suffix
+	if u.Host == "github.com" {
+		return true
+	}
+	// For other hosts, require .git suffix
+	return strings.HasSuffix(u.Path, ".git") || strings.Contains(u.Path, ".git/")
+}
+
+// extractCredentials extracts username and password from a URL.
+// Returns empty strings if no credentials present.
+func extractCredentials(rawURL string) (username, password string) {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.User == nil {
+		return "", ""
+	}
+	username = u.User.Username()
+	password, _ = u.User.Password()
+	return username, password
+}
+
 // GitHubRepoInfo represents the repository information from GitHub API
 type GitHubRepoInfo struct {
 	Size int `json:"size"` // Size in KB
-}
-
-func isGitHubURL(catalogURL string) bool {
-	u, err := url.Parse(catalogURL)
-	return err == nil && u.Host == "github.com"
 }
 
 // checkRepoSize checks the repository size using GitHub API before cloning
@@ -131,10 +153,12 @@ func isPathSafe(path, baseDir string) error {
 	return nil
 }
 
-func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest, error) {
+// readGitCatalog clones a git repository and reads catalog entries.
+// Supports any git host with URL-embedded credentials or GITHUB_AUTH_TOKEN for GitHub.
+func readGitCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest, error) {
 	// Make sure we don't use plain HTTP
 	if strings.HasPrefix(catalogURL, "http://") {
-		return nil, fmt.Errorf("only HTTPS is supported for GitHub catalogs")
+		return nil, fmt.Errorf("only HTTPS is supported for Git catalogs")
 	}
 
 	// Normalize the URL to ensure HTTPS
@@ -145,32 +169,70 @@ func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest
 	// Parse URL to ensure it's valid
 	u, err := url.Parse(catalogURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid GitHub URL: %w", err)
+		return nil, fmt.Errorf("invalid Git URL: %w", err)
 	}
 
-	// Should not be possible, but check anyway.
-	if u.Host != "github.com" {
-		return nil, fmt.Errorf("not a GitHub URL: %s", catalogURL)
-	}
+	// Extract credentials from URL if present
+	username, password := extractCredentials(catalogURL)
 
-	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-	if len(parts) < 2 {
-		return nil, fmt.Errorf("invalid GitHub URL format, expected github.com/org/repo")
-	}
-	org, repo := parts[0], parts[1]
-	branch := "main"
-	if len(parts) > 2 {
-		branch = strings.Join(parts[2:], "/")
-		// Validate branch name for security
-		if err := validateBranchName(branch); err != nil {
-			return nil, fmt.Errorf("invalid branch name: %w", err)
+	// Parse the path to extract repo path and optional branch
+	// Supports formats:
+	//   - /org/repo (GitHub only, for backward compatibility)
+	//   - /org/repo.git
+	//   - /org/repo.git/branch/name
+	//   - /group/subgroup/repo.git (GitLab nested groups)
+	pathParts := strings.Split(strings.Trim(u.Path, "/"), "/")
+
+	var repoPathParts []string
+	var branch string
+
+	// Look for .git suffix to determine repo boundary
+	for i, part := range pathParts {
+		if strings.HasSuffix(part, ".git") {
+			repoPathParts = pathParts[:i+1]
+			if i+1 < len(pathParts) {
+				branch = strings.Join(pathParts[i+1:], "/")
+				if err := validateBranchName(branch); err != nil {
+					return nil, fmt.Errorf("invalid branch name: %w", err)
+				}
+			}
+			break
 		}
 	}
 
-	// Check repository size before cloning (limit to 100 MB)
-	const maxRepoSizeMB = 100
-	if err := checkRepoSize(org, repo, maxRepoSizeMB); err != nil {
-		return nil, fmt.Errorf("repository size check failed: %w", err)
+	// For GitHub, support URLs without .git suffix (backward compatibility)
+	// Format: github.com/org/repo or github.com/org/repo/branch
+	if len(repoPathParts) == 0 && u.Host == "github.com" {
+		if len(pathParts) < 2 {
+			return nil, fmt.Errorf("invalid GitHub URL format, expected github.com/org/repo")
+		}
+		repoPathParts = pathParts[:2]
+		// Append .git for cloning
+		repoPathParts[1] = repoPathParts[1] + ".git"
+		if len(pathParts) > 2 {
+			branch = strings.Join(pathParts[2:], "/")
+			if err := validateBranchName(branch); err != nil {
+				return nil, fmt.Errorf("invalid branch name: %w", err)
+			}
+		}
+	}
+
+	if len(repoPathParts) == 0 {
+		return nil, fmt.Errorf("invalid Git URL format, expected URL with path ending in .git")
+	}
+
+	if branch == "" {
+		branch = "main"
+	}
+
+	// GitHub-specific size check (only if GitHub and we have access)
+	if u.Host == "github.com" && len(repoPathParts) >= 2 {
+		org := repoPathParts[0]
+		repo := strings.TrimSuffix(repoPathParts[1], ".git")
+		const maxRepoSizeMB = 100
+		if err := checkRepoSize(org, repo, maxRepoSizeMB); err != nil {
+			return nil, fmt.Errorf("repository size check failed: %w", err)
+		}
 	}
 
 	// Create temporary directory for cloning
@@ -180,18 +242,28 @@ func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Clone the repository
-	cloneURL := fmt.Sprintf("https://github.com/%s/%s.git", org, repo)
+	// Build clone URL without credentials and without branch path
+	cloneURL := &url.URL{
+		Scheme: "https",
+		Host:   u.Host,
+		Path:   "/" + strings.Join(repoPathParts, "/"),
+	}
 
 	// Set up clone options
 	cloneOptions := &git.CloneOptions{
-		URL:           cloneURL,
+		URL:           cloneURL.String(),
 		Depth:         1,
 		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branch)),
 	}
 
-	// Set up git credentials if token is available
-	if githubToken != "" {
+	// Set up authentication - prioritize URL-embedded credentials
+	if username != "" && password != "" {
+		cloneOptions.Auth = &githttp.BasicAuth{
+			Username: username,
+			Password: password,
+		}
+	} else if u.Host == "github.com" && githubToken != "" {
+		// Fallback to environment token for GitHub
 		cloneOptions.Auth = &githttp.BasicAuth{
 			Username: "obot", // Use a dummy username. The username is ignored, but required to be non-empty.
 			Password: githubToken,
