@@ -103,9 +103,7 @@
 
 				loading = false;
 
-				goto(
-					`/nanobot/p/${projectId}?tid=${thread.id}&pid=${workflowName}${showFile ? `&wid=${workflowName}` : ''}`
-				);
+				goto(`/nanobot/p/${projectId}?tid=${thread.id}${showFile ? `&wid=${workflowName}` : ''}`);
 			}
 		});
 		newChat.sendMessage(message);
