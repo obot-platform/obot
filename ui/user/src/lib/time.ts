@@ -280,3 +280,8 @@ export function getTimeRangeShorthand(startTime: Date | string, endTime: Date | 
 		return `${Math.round(hours)}h`;
 	}
 }
+
+export function isRecent(created: string, withinMinutes = 1): boolean {
+	const diff = Date.now() - new Date(created).getTime();
+	return diff < withinMinutes * 60 * 1000;
+}
