@@ -12,7 +12,7 @@ import requests
 from ..helper import api_log
 
 MCP_TIMEOUT = 60
-EVENTS_STREAM_MAX_WAIT = 120
+EVENTS_STREAM_MAX_WAIT = 600
 
 
 @dataclass
@@ -107,8 +107,13 @@ class MCPClient:
     # User-Agent matching browser so event-stream responses are returned (server may gate on it)
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
 
-    def _read_events_stream(self, session_id: str) -> tuple[str, str]:
-        """Read GET api/events stream; return (assistant_text, raw_sse)."""
+    def _read_events_stream(
+        self, session_id: str, stream_ready: Optional[threading.Event] = None
+    ) -> tuple[str, str, list[str]]:
+        """Read GET api/events stream; return (assistant_text, raw_sse, tools_used).
+        Captures the current turn only: events after history-end until chat-done.
+        If stream_ready is set, it is signaled once the stream is open (200) and reading.
+        """
         url = self.events_stream_url(session_id)
         headers = {
             "Accept": "text/event-stream",
@@ -132,23 +137,54 @@ class MCPClient:
             finally:
                 resp.close()
             api_log.log_api_call("GET", url, b"", resp.status_code, err_body or b"(no body)")
-            return "", ""
+            return "", "", []
 
         api_log.log_api_call(
             "GET", url, b"", 200, b"(event-stream, reading until chat-done or timeout)"
         )
+        if stream_ready is not None:
+            stream_ready.set()
         out: list[str] = []
-        raw_sse_lines: list[str] = []
+        tools_used: list[str] = []
         seen_created_id: set[tuple[str, str]] = set()
+        # Collect (message_key, block_lines); message_key = (created, id) for data blocks, None for others
+        blocks_in_order: list[tuple[Optional[tuple[str, str]], list[str]]] = []
+        after_history_until_done = False
         current_event: Optional[str] = None
         current_data_lines: list[str] = []
         current_raw_lines: list[str] = []
         start = time.time()
 
+        def _message_key_from_data(data_lines: list[str]) -> Optional[tuple[str, str]]:
+            """Parse first data line as JSON; return (created, id) if present else None."""
+            if not data_lines:
+                return None
+            data_str = "\n".join(data_lines).strip()
+            if not data_str or data_str == "{}":
+                return None
+            try:
+                ev = json.loads(data_str)
+                created = ev.get("created")
+                eid = ev.get("id")
+                if created is not None and eid is not None:
+                    return (str(created), str(eid))
+            except json.JSONDecodeError:
+                pass
+            return None
+
         def flush_event():
             nonlocal current_event, current_data_lines, current_raw_lines
-            # Deduplicate by (created, id): skip if we've already seen this event
-            is_duplicate = False
+            if not current_raw_lines:
+                current_data_lines = []
+                current_raw_lines = []
+                return
+            lines_copy = list(current_raw_lines)
+            if not after_history_until_done:
+                blocks_in_order.append((None, lines_copy))
+                current_data_lines = []
+                current_raw_lines = []
+                return
+            message_key = _message_key_from_data(current_data_lines)
             if current_data_lines:
                 data_str = "\n".join(current_data_lines).strip()
                 if data_str and data_str != "{}":
@@ -157,19 +193,16 @@ class MCPClient:
                         created = ev.get("created")
                         eid = ev.get("id")
                         if created is not None and eid is not None:
-                            key = (str(created), str(eid))
-                            if key in seen_created_id:
-                                is_duplicate = True
-                            else:
-                                seen_created_id.add(key)
-                            if not is_duplicate and ev.get("role") == "assistant":
-                                for item in ev.get("items", []):
-                                    if item.get("type") == "text" and item.get("text"):
-                                        out.append(item["text"])
+                            seen_created_id.add((str(created), str(eid)))
+                        if ev.get("role") == "assistant":
+                            for item in ev.get("items", []):
+                                if item.get("type") == "text" and item.get("text"):
+                                    out.append(item["text"])
+                                if item.get("type") == "tool" and item.get("name"):
+                                    tools_used.append(item["name"])
                     except json.JSONDecodeError:
                         pass
-            if not is_duplicate and current_raw_lines:
-                raw_sse_lines.extend(current_raw_lines)
+            blocks_in_order.append((message_key, lines_copy))
             current_data_lines = []
             current_raw_lines = []
 
@@ -191,6 +224,10 @@ class MCPClient:
                 if line.startswith("event:"):
                     flush_event()
                     current_event = line[6:].strip()
+                    if current_event == "history-end":
+                        after_history_until_done = True
+                    elif current_event == "chat-done":
+                        after_history_until_done = False
                     current_raw_lines.append(line)
                     current_data_lines = []
                 elif line.startswith("data:"):
@@ -204,9 +241,24 @@ class MCPClient:
             resp.close()
         flush_event()
 
-        raw_sse = "\n".join(raw_sse_lines)
+        # Collapse: for each (created, id) keep only the last block; preserve order of first occurrence
+        last_block_for_key: dict[tuple[str, str], list[str]] = {}
+        for msg_key, lines in blocks_in_order:
+            if msg_key is not None:
+                last_block_for_key[msg_key] = lines
+        seen_keys: set[tuple[str, str]] = set()
+        raw_sse_lines: list[str] = []
+        for msg_key, lines in blocks_in_order:
+            if msg_key is None:
+                raw_sse_lines.extend(lines)
+            elif msg_key not in seen_keys:
+                seen_keys.add(msg_key)
+                raw_sse_lines.extend(last_block_for_key[msg_key])
 
+        # Do not deduplicate by line: blank lines separate SSE events; dropping them breaks the stream
+        raw_sse = "\n".join(raw_sse_lines)
         result = "".join(out)
+        tools_used_dedup = list(dict.fromkeys(tools_used))
         summary = "(event-stream response, %d bytes assistant text)" % len(result)
         if len(result) > 0 and len(result) <= 500:
             summary = result.encode("utf-8")
@@ -215,25 +267,32 @@ class MCPClient:
         else:
             summary = summary.encode("utf-8")
         api_log.log_api_stream_response(url, summary)
-        return result, raw_sse
+        return result, raw_sse, tools_used_dedup
 
     def get_response_from_events(self, session_id: str) -> str:
-        assistant_text, _ = self._read_events_stream(session_id)
+        assistant_text, _, _ = self._read_events_stream(session_id)
         return assistant_text
+
+    STREAM_READY_WAIT = 15
 
     def get_response_from_events_async(
         self, session_id: str, send_chat_fn: Callable[[], None]
-    ) -> tuple[str, str]:
-        """Open event stream first, then call send_chat_fn(); read until chat-done. Returns (assistant_text, raw_sse)."""
-        result_holder: list[tuple[str, str]] = []
+    ) -> tuple[str, str, list[str]]:
+        """Open event stream first, signal when ready, then call send_chat_fn(); read until chat-done.
+        Ensures prompt is sent only after the stream is open so response is received in sequence.
+        Returns (assistant_text, raw_sse, tools_used)."""
+        result_holder: list[tuple[str, str, list[str]]] = []
+        stream_ready = threading.Event()
 
         def read_thread():
-            res = self._read_events_stream(session_id)
+            res = self._read_events_stream(session_id, stream_ready=stream_ready)
             result_holder.append(res)
 
         t = threading.Thread(target=read_thread, daemon=True)
         t.start()
-        time.sleep(0.5)
+        if not stream_ready.wait(timeout=self.STREAM_READY_WAIT):
+            t.join(timeout=2)
+            return "", "", []
         try:
             send_chat_fn()
         finally:
@@ -241,4 +300,4 @@ class MCPClient:
         t.join(timeout=EVENTS_STREAM_MAX_WAIT)
         if result_holder:
             return result_holder[0]
-        return "", ""
+        return "", "", []

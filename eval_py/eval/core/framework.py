@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable, Optional
 
 from ..helper import api_log
+from ..helper import paths
 
 if TYPE_CHECKING:
     from ..clients.client import Client
@@ -67,13 +68,13 @@ def run_all(cases: list[Case], base_url: str, auth_header: str) -> list[Result]:
         raise ValueError("OBOT_EVAL_BASE_URL is required")
     base_url = base_url.rstrip("/")
     log_path = os.environ.get("OBOT_EVAL_API_LOG")
-    if log_path:
-        api_log.init_api_log(log_path)
-        try:
-            return _run_cases(cases, base_url, auth_header)
-        finally:
-            api_log.close_api_log()
-    return _run_cases(cases, base_url, auth_header)
+    if not log_path:
+        log_path = paths.data_path("eval-api-log.txt")
+    api_log.init_api_log(log_path)
+    try:
+        return _run_cases(cases, base_url, auth_header)
+    finally:
+        api_log.close_api_log()
 
 
 def _run_cases(cases: list[Case], base_url: str, auth_header: str) -> list[Result]:
