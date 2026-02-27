@@ -1102,7 +1102,7 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 			}
 
 			for _, env := range entry.Spec.Manifest.Env {
-				if env.Required {
+				if env.Required && env.Value == "" {
 					return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
 				}
 			}
@@ -2495,6 +2495,11 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 	// Check for missing required env vars
 	for _, env := range server.Spec.Manifest.Env {
 		if !env.Required {
+			continue
+		}
+
+		// Env vars with a static default value are never considered missing
+		if env.Value != "" {
 			continue
 		}
 

@@ -77,7 +77,7 @@
 		configureForm = {
 			envs: server.manifest.env?.map((env) => ({
 				...env,
-				value: values[env.key] ?? ''
+				value: values[env.key] ?? env.value ?? ''
 			})),
 			headers: server.manifest.remoteConfig?.headers?.map((header) => ({
 				...header,
