@@ -1,25 +1,27 @@
 import { errors } from '$lib/stores';
 import { SimpleClient } from '../mcpclient/index.svelte';
-import type {
-	Agent,
-	Agents,
-	Attachment,
-	Chat,
-	ChatMessage,
-	ChatRequest,
-	ChatResult,
-	Elicitation,
-	ElicitationResult,
-	Event,
-	Prompt,
-	Prompts,
-	Resource,
-	Resources,
-	ToolOutputItem,
-	UploadedFile,
-	UploadingFile
+import {
+	ChatPath,
+	UIPath,
+	type Agent,
+	type Agents,
+	type Attachment,
+	type Chat,
+	type ChatMessage,
+	type ChatRequest,
+	type ChatResult,
+	type Elicitation,
+	type ElicitationResult,
+	type Event,
+	type Prompt,
+	type Prompts,
+	type Resource,
+	type Resources,
+	type ResourceContents,
+	type ToolOutputItem,
+	type UploadedFile,
+	type UploadingFile
 } from '../types';
-import type { ResourceContents } from '../types';
 import { SvelteDate } from 'svelte/reactivity';
 
 export interface CallToolResult {
@@ -43,6 +45,7 @@ export class ChatAPI {
 		this.headers = opts?.headers || {};
 		this.mcpClient = new SimpleClient({
 			baseUrl: baseUrl,
+			path: UIPath,
 			fetcher: opts?.fetcher,
 			sessionId: opts?.sessionId,
 			headers: this.headers
@@ -53,6 +56,7 @@ export class ChatAPI {
 		if (sessionId) {
 			return new SimpleClient({
 				baseUrl: this.baseUrl,
+				path: ChatPath,
 				sessionId,
 				headers: this.headers
 			});
