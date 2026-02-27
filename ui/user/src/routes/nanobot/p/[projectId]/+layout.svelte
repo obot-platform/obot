@@ -14,6 +14,7 @@
 	import { setContext } from 'svelte';
 	import type { ChatMessageItemToolCall, ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
+	import { isRecent } from '$lib/time';
 
 	let { data, children } = $props();
 	let agent = $derived(data.agent);
@@ -34,6 +35,7 @@
 	let selectedFile = $state('');
 	let threadContentWidth = $state(0);
 	let needsRefreshThreads = $state(true);
+	let titleRefreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	let layoutName = $state('');
 	let showBackButton = $state(false);
 
@@ -156,15 +158,48 @@
 	}
 
 	$effect(() => {
-		if (chat && chat.messages.length >= 2 && needsRefreshThreads) {
-			const tid = chat.chatId;
-			const inThreads = $nanobotChat?.threads.find((t) => t.id === tid);
-			if (!inThreads) {
-				loadThreads();
+		const clearTitleRefreshTimeout = () => {
+			if (titleRefreshTimeoutId != null) {
+				clearTimeout(titleRefreshTimeoutId);
+				titleRefreshTimeoutId = null;
 			}
+		};
 
+		if (!chat || chat.messages.length < 2) return clearTitleRefreshTimeout;
+
+		const tid = chat.chatId;
+		const threads = $nanobotChat?.threads ?? [];
+		const inThreads = threads.find((t) => t.id === tid);
+
+		if (!inThreads) {
+			if (needsRefreshThreads) {
+				loadThreads();
+				needsRefreshThreads = false;
+			}
+			return clearTitleRefreshTimeout;
+		}
+
+		const hasTitle =
+			(inThreads.title && inThreads.title.trim().length > 0) || !isRecent(inThreads.created);
+		if (!hasTitle) {
+			if (titleRefreshTimeoutId == null) {
+				titleRefreshTimeoutId = setTimeout(() => {
+					titleRefreshTimeoutId = null;
+					loadThreads();
+				}, 5000); // 5 sec poll
+			}
+		} else {
+			if (titleRefreshTimeoutId != null) {
+				clearTimeout(titleRefreshTimeoutId);
+				titleRefreshTimeoutId = null;
+			}
+		}
+
+		if (needsRefreshThreads) {
 			needsRefreshThreads = false;
 		}
+
+		return clearTitleRefreshTimeout;
 	});
 
 	$effect(() => {
@@ -193,8 +228,7 @@
 			chat?.close();
 		});
 
-		const newChat = new ChatService({
-			api: chatApi,
+		const newChat = new ChatService(chatApi, {
 			skipInitialResources: !!currentThreadId
 		});
 
@@ -288,7 +322,3 @@
 		{/if}
 	{/snippet}
 </Layout>
-
-<svelte:head>
-	<title>Nanobot</title>
-</svelte:head>

@@ -455,3 +455,7 @@
 		</ul>
 	{/if}
 </div>
+
+<svelte:head>
+	<title>Obot | Files</title>
+</svelte:head>

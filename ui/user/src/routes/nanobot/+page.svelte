@@ -61,8 +61,7 @@
 	}
 
 	$effect(() => {
-		const newChat = new ChatService({
-			api: chatApi,
+		const newChat = new ChatService(chatApi, {
 			onThreadCreated: handleThreadCreated
 		});
 
@@ -163,5 +162,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Nanobot</title>
+	<title>Obot | What would you like to work on?</title>
 </svelte:head>

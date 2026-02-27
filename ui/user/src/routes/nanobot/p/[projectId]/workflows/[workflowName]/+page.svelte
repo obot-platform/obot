@@ -88,8 +88,7 @@
 
 	function handleSetupWorkflowThread(message: string, showFile: boolean = false) {
 		loading = true;
-		const newChat = new ChatService({
-			api: chatApi,
+		const newChat = new ChatService(chatApi, {
 			onThreadCreated: (thread) => {
 				nanobotChat.update((data) => {
 					if (data) {
@@ -288,6 +287,10 @@
 	}}
 	oncancel={() => (deletingWorkflow = false)}
 />
+
+<svelte:head>
+	<title>Obot | {workflow?._meta?.name ?? workflowName}</title>
+</svelte:head>
 
 <style lang="postcss">
 	:global(.mockup-window .milkdown) {

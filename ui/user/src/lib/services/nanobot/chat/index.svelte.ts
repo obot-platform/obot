@@ -1,4 +1,5 @@
 import { errors } from '$lib/stores';
+import { isRecent } from '$lib/time';
 import { SimpleClient } from '../mcpclient/index.svelte';
 import type {
 	Agent,
@@ -149,11 +150,27 @@ export class ChatAPI {
 	}
 
 	async getThreads(): Promise<Chat[]> {
-		return (
-			await this.callMCPTool<{
-				chats: Chat[];
-			}>('list_chats')
-		).chats;
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const sessionIdsToFilter = new Set<string>();
+		for (let i = 0; i < localStorage.length; i++) {
+			const key = localStorage.key(i);
+			if (key?.startsWith('mcp-session-')) {
+				try {
+					const parsed = JSON.parse(localStorage.getItem(key) ?? '{}');
+					if (parsed?.sessionId) sessionIdsToFilter.add(parsed.sessionId);
+				} catch (e) {
+					console.error('Failed to parse session data for', key, e);
+				}
+			}
+		}
+		const threads = (
+			(
+				await this.callMCPTool<{
+					chats: Chat[];
+				}>('list_chats')
+			).chats ?? []
+		).filter((t) => !sessionIdsToFilter.has(t.id) && (t.title || isRecent(t.created)));
+		return threads;
 	}
 
 	async createThread(): Promise<Chat> {
@@ -389,9 +406,6 @@ export function appendMessage(messages: ChatMessage[], newMessage: ChatMessage):
 	return messages;
 }
 
-// Default instance
-export const defaultChatApi = new ChatAPI();
-
 export class ChatService {
 	messages: ChatMessage[];
 	prompts: Prompt[];
@@ -414,13 +428,15 @@ export class ChatService {
 	private subscribed = false;
 	private onThreadCreated?: (thread: Chat) => void;
 
-	constructor(opts?: {
-		api?: ChatAPI;
-		chatId?: string;
-		onThreadCreated?: (thread: Chat) => void;
-		skipInitialResources?: boolean;
-	}) {
-		this.api = opts?.api || defaultChatApi;
+	constructor(
+		api: ChatAPI,
+		opts?: {
+			chatId?: string;
+			onThreadCreated?: (thread: Chat) => void;
+			skipInitialResources?: boolean;
+		}
+	) {
+		this.api = api;
 		this.onThreadCreated = opts?.onThreadCreated;
 		this.messages = $state<ChatMessage[]>([]);
 		this.history = $state<ChatMessage[]>();
