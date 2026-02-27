@@ -116,7 +116,7 @@ type Config struct {
 	EnableRegistryAuth      bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 	DisableLegacyChat       bool   `usage:"Disable legacy chat" default:"true"`
 	NanobotIntegration      bool   `usage:"Enable Nanobot integration" default:"true"`
-	MCPServerSearchImage    string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:main"`
+	MCPServerSearchImage    string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.0.1"`
 	NanobotAgentImage       string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/nanobot-ai/nanobot:v0.0.56"`
 
 	GeminiConfig
