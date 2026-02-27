@@ -400,7 +400,8 @@ export interface InitializationResult {
 	};
 }
 
-export const UIPath = '/mcp?ui';
+export const UIPath = '/mcp/ui';
+export const ChatPath = '/mcp/chat';
 
 export interface ProjectV2 {
 	displayName: string;

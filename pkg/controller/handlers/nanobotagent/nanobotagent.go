@@ -160,7 +160,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 					Command: "nanobot",
 					Args:    args,
 					Port:    8080,
-					Path:    "/mcp?ui=true",
+					Path:    "/mcp",
 				},
 				Env: []types.MCPEnv{
 					{
