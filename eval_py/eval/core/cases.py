@@ -581,7 +581,6 @@ def run_workflow_content_publishing_step_eval(ctx: Context) -> Result:
     prompts = CONTENT_PUBLISHING_PHASED_PROMPTS
     if not prompts:
         return Result(pass_=False, message="no phased prompts defined")
-
     ctx.append_step("GET /api/version")
     v, status = c.get_version()
     if status != 200 or v is None:
