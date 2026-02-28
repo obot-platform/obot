@@ -177,9 +177,10 @@ func (s *Server) triggerReconciliationForGroup(apiContext api.Context, groupName
 
 // validateRoleForUser checks if the requester is authorized to assign the given role
 func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) error {
-	// Extract base role and auditor flag
+	// Extract base role and add-on role flags
 	baseRole := role.ExtractBaseRole()
 	hasAuditor := role.HasAuditorRole()
+	hasSuperUser := role.HasSuperUserRole()
 
 	// If role includes Owner, only Owners can assign it
 	if baseRole == types2.RoleOwner {
@@ -192,6 +193,20 @@ func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) e
 	if hasAuditor {
 		if !apiContext.UserIsOwner() {
 			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the auditor role to groups")
+		}
+	}
+
+	// If role includes Super User (even by itself), only Owners can assign it
+	if hasSuperUser {
+		if !apiContext.UserIsOwner() {
+			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the super user role to groups")
+		}
+
+		if baseRole != types2.RoleOwner && baseRole != types2.RoleAdmin {
+			return types2.NewErrBadRequest(
+				"super user role can only be combined with owner (%d) or admin (%d)",
+				types2.RoleOwner, types2.RoleAdmin,
+			)
 		}
 	}
 

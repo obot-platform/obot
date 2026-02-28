@@ -31,7 +31,7 @@
 	let { groups, groupRoleAssignments } = $derived(data);
 
 	function getRoleId(role: number): number {
-		return role & ~Role.AUDITOR;
+		return role & ~(Role.AUDITOR | Role.SUPERUSER);
 	}
 
 	// Create a map for quick role lookups

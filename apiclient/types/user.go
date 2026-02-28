@@ -9,8 +9,9 @@ package types
 //   - RolePowerUserPlus (64): Enhanced power user with ACL and MCP server management
 //   - RolePowerUser (128): Standard power user with workspace
 //
-// Orthogonal role:
+// Orthogonal roles:
 //   - RoleAuditor (32): Can view audit logs and sensitive data (can be combined with any base role)
+//   - RoleSuperUser (256): Can connect to other users' MCP servers (must be explicitly assigned)
 //
 // Examples of combined roles:
 //   - RoleAdmin | RoleAuditor (48): Admin with audit access
@@ -25,12 +26,14 @@ const (
 	RoleAuditor
 	RolePowerUserPlus
 	RolePowerUser
+	RoleSuperUser
 
 	RoleUnknown Role = 0
 
 	GroupOwner         = "owner"
 	GroupAdmin         = "admin"
 	GroupAuditor       = "auditor"
+	GroupSuperUser     = "super-user"
 	GroupPowerUserPlus = "power-user-plus"
 	GroupPowerUser     = "power-user"
 	GroupBasic         = "basic"
@@ -64,17 +67,21 @@ func (u Role) IsExactBaseRole(role Role) bool {
 }
 
 func (u Role) SwitchBaseRole(role Role) Role {
-	return role | (u & RoleAuditor)
+	return role | (u & (RoleAuditor | RoleSuperUser))
 }
 
-// ExtractBaseRole removes the Auditor flag from a role to get the base role
+// ExtractBaseRole removes orthogonal role flags to get the base role
 func (u Role) ExtractBaseRole() Role {
-	return u &^ RoleAuditor
+	return u &^ (RoleAuditor | RoleSuperUser)
 }
 
 // HasAuditorRole checks if the Auditor flag is set in the role
 func (u Role) HasAuditorRole() bool {
 	return u&RoleAuditor != 0
+}
+
+func (u Role) HasSuperUserRole() bool {
+	return u&RoleSuperUser != 0
 }
 
 func (u Role) Groups() []string {
@@ -96,6 +103,9 @@ func (u Role) Groups() []string {
 	}
 	if u.HasRole(RoleAuditor) {
 		groups = append(groups, GroupAuditor)
+	}
+	if u.HasRole(RoleSuperUser) {
+		groups = append(groups, GroupSuperUser)
 	}
 	if u != RoleUnknown {
 		groups = append(groups, GroupAuthenticated)

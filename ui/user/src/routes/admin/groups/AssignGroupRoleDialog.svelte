@@ -20,7 +20,7 @@
 
 	// Helper functions to work with roles
 	function getRoleId(role: number): number {
-		return role & ~Role.AUDITOR;
+		return role & ~(Role.AUDITOR | Role.SUPERUSER);
 	}
 
 	function hasAuditorFlag(role: number): boolean {
@@ -29,6 +29,14 @@
 
 	function addAuditorFlag(role: number): number {
 		return role | Role.AUDITOR;
+	}
+
+	function hasSuperUserFlag(role: number): boolean {
+		return (role & Role.SUPERUSER) !== 0;
+	}
+
+	function addSuperUserFlag(role: number): number {
+		return role | Role.SUPERUSER;
 	}
 
 	let {
@@ -45,6 +53,7 @@
 
 	let draftRoleId = $state(0);
 	let draftHaveAuditorPrivilege = $state(false);
+	let draftHaveSuperUserPrivilege = $state(false);
 
 	const hasRoleChanged = $derived(
 		draftRoleId !== getRoleId(groupAssignment ? groupAssignment.assignment.role : 0)
@@ -64,6 +73,7 @@
 			const role = groupAssignment.assignment.role || 0;
 			draftRoleId = getRoleId(role);
 			draftHaveAuditorPrivilege = hasAuditorFlag(role);
+			draftHaveSuperUserPrivilege = hasSuperUserFlag(role);
 		}
 	});
 
@@ -82,7 +92,13 @@
 	function handleConfirm() {
 		if (!groupAssignment) return;
 
-		const role = draftHaveAuditorPrivilege ? addAuditorFlag(draftRoleId) : draftRoleId;
+		let role = draftRoleId;
+		if (draftHaveAuditorPrivilege) {
+			role = addAuditorFlag(role);
+		}
+		if (draftHaveSuperUserPrivilege) {
+			role = addSuperUserFlag(role);
+		}
 		const result: GroupAssignment = {
 			group: groupAssignment.group,
 			assignment: {
@@ -144,6 +160,7 @@
 			<GroupRoleForm
 				bind:roleId={draftRoleId}
 				bind:hasAuditorPrivilege={draftHaveAuditorPrivilege}
+				bind:hasSuperUserPrivilege={draftHaveSuperUserPrivilege}
 			/>
 		</div>
 
