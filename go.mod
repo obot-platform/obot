@@ -31,7 +31,7 @@ require (
 	github.com/gptscript-ai/cmd v0.0.0-20250530150401-bc71fddf8070
 	github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b
 	github.com/gptscript-ai/go-gptscript v0.9.9-0.20260205140523-98f64d42d2ee
-	github.com/gptscript-ai/gptscript v0.9.9-0.20260205160632-c034f5040d30
+	github.com/gptscript-ai/gptscript v0.9.9-0.20260228210857-42ad0635572f
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/moby/moby/api v1.52.0-alpha.1
