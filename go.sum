@@ -407,8 +407,8 @@ github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b h1:IXgx6Y+g0
 github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b/go.mod h1:gMAaxAbeIvHtQoj/SKuqvoSGeywqc61/Yw9pusrT/R4=
 github.com/gptscript-ai/go-gptscript v0.9.9-0.20260205140523-98f64d42d2ee h1:8+510/jOqfLZ7l3c25TMtkKn33PQBEzuNiIt4XbJ7DY=
 github.com/gptscript-ai/go-gptscript v0.9.9-0.20260205140523-98f64d42d2ee/go.mod h1:8JGZNO+x4tkTrkT1q5PMrVCKY2AcnS/Ru8WCNvzLYIg=
-github.com/gptscript-ai/gptscript v0.9.9-0.20260205160632-c034f5040d30 h1:+H57JUhnyxPg3bbtwtcQHeSWfk7LH5IxxYD73r8otgI=
-github.com/gptscript-ai/gptscript v0.9.9-0.20260205160632-c034f5040d30/go.mod h1:KB2HGAB6D0Xyup7A4EtejHDZ3stWPKH822gLWbpYNPQ=
+github.com/gptscript-ai/gptscript v0.9.9-0.20260228210857-42ad0635572f h1:gN2tmbARXZgCj2S/Xindi/MDJ0/7S/luiGDDAzT975Y=
+github.com/gptscript-ai/gptscript v0.9.9-0.20260228210857-42ad0635572f/go.mod h1:KB2HGAB6D0Xyup7A4EtejHDZ3stWPKH822gLWbpYNPQ=
 github.com/gptscript-ai/tui v0.0.0-20250419050840-5e79e16786c9 h1:wQC8sKyeGA50WnCEG+Jo5FNRIkuX3HX8d3ubyWCCoI8=
 github.com/gptscript-ai/tui v0.0.0-20250419050840-5e79e16786c9/go.mod h1:iwHxuueg2paOak7zIg0ESBWx7A0wIHGopAratbgaPNY=
 github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 h1:+9834+KizmvFV7pXQGSXQTsaWhq2GjuNUt0aUU0YBYw=
