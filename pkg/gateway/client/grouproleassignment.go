@@ -108,7 +108,7 @@ func (c *Client) GetGroupRoleAssignmentsForGroups(ctx context.Context, groupName
 // ResolveUserEffectiveRole computes the effective role for a user by combining:
 // 1. Individual role from users table
 // 2. Group-based roles from GroupRoleAssignments
-// Returns the highest base role plus Auditor (if present).
+// Returns the highest base role plus orthogonal add-on roles (if present).
 func (c *Client) ResolveUserEffectiveRole(ctx context.Context, user *types.User, authGroupIDs []string) (types2.Role, error) {
 	// Start with user's individual role
 	effectiveRole := user.Role
@@ -136,10 +136,11 @@ func (c *Client) ResolveUserEffectiveRole(ctx context.Context, user *types.User,
 }
 
 // normalizeToHighestRole takes a combined role bitmap and returns only the highest
-// base role (Owner > Admin > PowerUserPlus > PowerUser > Basic) plus the Auditor bit if present.
+// base role (Owner > Admin > PowerUserPlus > PowerUser > Basic) plus add-on bits if present.
 func normalizeToHighestRole(combinedRole types2.Role) types2.Role {
-	// Check if Auditor bit is set
+	// Check if add-on bits are set
 	hasAuditor := combinedRole.HasAuditorRole()
+	hasSuperUser := combinedRole.HasSuperUserRole()
 
 	// Find the highest base role in descending order of privilege
 	var highestRole types2.Role
@@ -155,9 +156,12 @@ func normalizeToHighestRole(combinedRole types2.Role) types2.Role {
 		highestRole = types2.RoleBasic
 	}
 
-	// Add Auditor bit back if it was present
+	// Add add-on bits back if they were present
 	if hasAuditor {
 		highestRole = highestRole | types2.RoleAuditor
+	}
+	if hasSuperUser {
+		highestRole = highestRole | types2.RoleSuperUser
 	}
 
 	return highestRole

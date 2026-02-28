@@ -37,11 +37,13 @@
 		users
 			.map((user) => ({
 				...user,
+				assignedRole: user.role,
 				name: getUserDisplayName(user),
 				role: getUserRoleLabel(user.role).split(','),
 				effectiveRole: getUserRoleLabel(user.effectiveRole).split(','),
-				roleId: user.role & ~Role.AUDITOR,
-				auditor: user.role & Role.AUDITOR ? true : false
+				roleId: user.role & ~(Role.AUDITOR | Role.SUPERUSER),
+				auditor: user.role & Role.AUDITOR ? true : false,
+				superUser: user.role & Role.SUPERUSER ? true : false
 			}))
 			.filter(
 				(user) =>
@@ -57,7 +59,9 @@
 	let deletingUser = $state<TableItem>();
 	let confirmHandoffToUser = $state<TableItem>();
 	let confirmAuditorAdditionToUser = $state<TableItem>();
+	let confirmSuperUserAdditionToUser = $state<TableItem>();
 	let loading = $state(false);
+	let roleUpdateError = $state('');
 	let roleOptions = $derived([
 		...(profile.current.groups.includes(Group.OWNER) ? [{ label: 'Owner', id: Role.OWNER }] : []),
 		{ label: 'Admin', id: Role.ADMIN },
@@ -70,20 +74,37 @@
 	function closeUpdateRoleDialog() {
 		updateRoleDialog?.close();
 		updatingRole = undefined;
+		roleUpdateError = '';
 	}
 
-	async function updateUserRole(userID: string, role: number, refreshUsers = true) {
+	function getErrorMessage(error: unknown): string {
+		if (error instanceof Error && error.message) {
+			return error.message;
+		}
+		return 'Failed to update user role. Please try again.';
+	}
+
+	async function updateUserRole(userID: string, role: number, refreshUsers = true): Promise<boolean> {
 		loading = true;
-		await AdminService.updateUserRole(userID, role);
-		if (refreshUsers) {
-			users = await AdminService.listUsers();
+		roleUpdateError = '';
+		try {
+			await AdminService.updateUserRole(userID, role);
+			if (refreshUsers) {
+				users = await AdminService.listUsers();
+			}
+			if (profile.current.id === userID) {
+				// update with the role change
+				profile.current = await ChatService.getProfile();
+			}
+			closeUpdateRoleDialog();
+			return true;
+		} catch (error) {
+			roleUpdateError = getErrorMessage(error);
+			updateRoleDialog?.open();
+			return false;
+		} finally {
+			loading = false;
 		}
-		if (profile.current.id === userID) {
-			// update with the role change
-			profile.current = await ChatService.getProfile();
-		}
-		loading = false;
-		closeUpdateRoleDialog();
 	}
 
 	function getUserDisplayName(user: OrgUser): string {
@@ -116,6 +137,31 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
+	const isAddingAuditorWithSuperUser = $derived(
+		Boolean(
+			confirmSuperUserAdditionToUser &&
+				confirmSuperUserAdditionToUser.auditor &&
+				(confirmSuperUserAdditionToUser.assignedRole & Role.AUDITOR) === 0
+		)
+	);
+	const isRemovingAuditorWithSuperUser = $derived(
+		Boolean(
+			confirmSuperUserAdditionToUser &&
+				!confirmSuperUserAdditionToUser.auditor &&
+				(confirmSuperUserAdditionToUser.assignedRole & Role.AUDITOR) !== 0
+		)
+	);
+
+	function composeRole(roleId: number, auditor: boolean, superUser: boolean): number {
+		let role = roleId;
+		if (auditor) {
+			role |= Role.AUDITOR;
+		}
+		if (superUser) {
+			role |= Role.SUPERUSER;
+		}
+		return role;
+	}
 </script>
 
 <Layout title="Users">
@@ -231,6 +277,9 @@
 			{} as Record<number, string>
 		)}
 		<div class="m-4 flex flex-col gap-2 text-sm font-light">
+			{#if roleUpdateError}
+				<div class="notification-error mb-2 p-3 text-sm font-light">{roleUpdateError}</div>
+			{/if}
 			{#if updatingRole.explicitRole}
 				<div class="notification-info mb-2 p-3 text-sm font-light">
 					<div class="flex items-center gap-3">
@@ -281,6 +330,22 @@
 						{/if}
 					</span>
 				</label>
+				<label class="my-4 flex gap-4">
+					<input
+						type="checkbox"
+						bind:checked={updatingRole.superUser}
+						disabled={updatingRole.roleId !== Role.ADMIN && updatingRole.roleId !== Role.OWNER}
+					/>
+					<span
+						class="flex flex-col"
+						class:opacity-50={updatingRole.roleId !== Role.ADMIN && updatingRole.roleId !== Role.OWNER}
+					>
+						<p class="w-28 flex-shrink-0 font-semibold">Super User</p>
+						<p class="text-on-surface1">
+							Will be able to connect to other users' MCP servers. Requires Admin or Owner base role.
+						</p>
+					</span>
+				</label>
 			{/if}
 		</div>
 		<div class="flex grow"></div>
@@ -290,13 +355,24 @@
 				class="button-primary"
 				onclick={async () => {
 					if (!updatingRole) return;
+					roleUpdateError = '';
+					const addingSuperUser =
+						updatingRole.superUser && (updatingRole.assignedRole & Role.SUPERUSER) === 0;
+					const addingAuditor =
+						updatingRole.auditor && (updatingRole.assignedRole & Role.AUDITOR) === 0;
 					if (profile.current.isBootstrapUser?.() && updatingRole.roleId === Role.OWNER) {
 						updateRoleDialog?.close();
 						confirmHandoffToUser = updatingRole;
 						return;
 					}
 
-					if (updatingRole.auditor) {
+					if (addingSuperUser) {
+						updateRoleDialog?.close();
+						confirmSuperUserAdditionToUser = updatingRole;
+						return;
+					}
+
+					if (addingAuditor) {
 						updateRoleDialog?.close();
 						confirmAuditorAdditionToUser = updatingRole;
 						return;
@@ -304,7 +380,7 @@
 
 					updateUserRole(
 						updatingRole.id,
-						updatingRole.auditor ? updatingRole.roleId | Role.AUDITOR : updatingRole.roleId
+						composeRole(updatingRole.roleId, updatingRole.auditor, updatingRole.superUser)
 					);
 				}}
 				disabled={loading}
@@ -324,13 +400,19 @@
 	{loading}
 	onsuccess={async () => {
 		if (!confirmHandoffToUser) return;
-		await updateUserRole(
+		const ok = await updateUserRole(
 			confirmHandoffToUser.id,
-			confirmHandoffToUser.auditor
-				? confirmHandoffToUser.roleId | Role.AUDITOR
-				: confirmHandoffToUser.roleId,
+			composeRole(
+				confirmHandoffToUser.roleId,
+				confirmHandoffToUser.auditor,
+				confirmHandoffToUser.superUser
+			),
 			false
 		);
+		if (!ok) {
+			confirmHandoffToUser = undefined;
+			return;
+		}
 		await AdminService.bootstrapLogout();
 		window.location.href = '/oauth2/sign_out?rd=/admin';
 		confirmHandoffToUser = undefined;
@@ -359,6 +441,62 @@
 
 <Confirm
 	type="info"
+	title={isAddingAuditorWithSuperUser
+		? 'Confirm Super User + Auditor Roles'
+		: 'Confirm Super User Role'}
+	msg={isAddingAuditorWithSuperUser
+		? `Grant ${confirmSuperUserAdditionToUser?.email || confirmSuperUserAdditionToUser?.name} the Super User and Auditor roles?`
+		: `Grant ${confirmSuperUserAdditionToUser?.email || confirmSuperUserAdditionToUser?.name} the Super User role?`}
+	{loading}
+	show={Boolean(confirmSuperUserAdditionToUser)}
+	onsuccess={async () => {
+		if (!confirmSuperUserAdditionToUser) return;
+		await updateUserRole(
+			confirmSuperUserAdditionToUser.id,
+			composeRole(
+				confirmSuperUserAdditionToUser.roleId,
+				confirmSuperUserAdditionToUser.auditor,
+				true
+			)
+		);
+		confirmSuperUserAdditionToUser = undefined;
+	}}
+	oncancel={() => {
+		confirmSuperUserAdditionToUser = undefined;
+		updateRoleDialog?.open();
+	}}
+>
+	{#snippet note()}
+		<div class="flex flex-col gap-4">
+			<p class="text-left">
+				Super User can connect to other users' MCP servers. This is elevated cross-user access and
+				should be granted sparingly.
+			</p>
+			{#if isAddingAuditorWithSuperUser}
+				<p class="text-left">
+					This update will also grant Auditor, which adds expanded audit visibility (including
+					request/response/header details).
+				</p>
+			{:else if isRemovingAuditorWithSuperUser}
+				<p class="text-left">
+					This update will remove Auditor while granting Super User access.
+				</p>
+			{:else}
+				<p class="text-left">
+					This update does not modify the Auditor role.
+				</p>
+			{/if}
+			<p>
+				Are you sure you want to grant <b
+					>{confirmSuperUserAdditionToUser?.email || confirmSuperUserAdditionToUser?.name}</b
+				> {isAddingAuditorWithSuperUser ? 'these roles' : 'this role'}?
+			</p>
+		</div>
+	{/snippet}
+</Confirm>
+
+<Confirm
+	type="info"
 	title="Confirm Auditor Role"
 	msg={`Grant ${confirmAuditorAdditionToUser?.email || confirmAuditorAdditionToUser?.name} the Auditor role?`}
 	{loading}
@@ -367,11 +505,18 @@
 		if (!confirmAuditorAdditionToUser) return;
 		await updateUserRole(
 			confirmAuditorAdditionToUser.id,
-			confirmAuditorAdditionToUser.roleId | Role.AUDITOR
+			composeRole(
+				confirmAuditorAdditionToUser.roleId,
+				true,
+				confirmAuditorAdditionToUser.superUser
+			)
 		);
 		confirmAuditorAdditionToUser = undefined;
 	}}
-	oncancel={() => (confirmAuditorAdditionToUser = undefined)}
+	oncancel={() => {
+		confirmAuditorAdditionToUser = undefined;
+		updateRoleDialog?.open();
+	}}
 >
 	{#snippet note()}
 		<div class="flex flex-col gap-4">

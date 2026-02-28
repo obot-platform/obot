@@ -114,7 +114,7 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (string, bool, error) 
 		if err = req.Get(&agent, mcpServerConfig.NanobotAgentName); err != nil {
 			return "", false, fmt.Errorf("failed to get nanobot agent %q: %w", mcpServerConfig.NanobotAgentName, err)
 		}
-		if agent.Spec.UserID != req.User.GetUID() {
+		if agent.Spec.UserID != req.User.GetUID() && !(req.UserIsSuperUser() && req.UserIsAdmin()) {
 			return "", false, types.NewErrForbidden("user is not authorized to access nanobot agent %q", mcpServerConfig.NanobotAgentName)
 		}
 	}

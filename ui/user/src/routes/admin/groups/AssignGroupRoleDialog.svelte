@@ -14,13 +14,14 @@
 		onClose: () => void;
 		onConfirm: (groupAssignment: GroupAssignment) => void;
 		onAuditorConfirm: (groupAssignment: GroupAssignment) => void;
+		onSuperUserConfirm: (groupAssignment: GroupAssignment) => void;
 		onOwnerConfirm: (groupAssignment: GroupAssignment) => void;
 		open?: boolean;
 	}
 
 	// Helper functions to work with roles
 	function getRoleId(role: number): number {
-		return role & ~Role.AUDITOR;
+		return role & ~(Role.AUDITOR | Role.SUPERUSER);
 	}
 
 	function hasAuditorFlag(role: number): boolean {
@@ -31,6 +32,14 @@
 		return role | Role.AUDITOR;
 	}
 
+	function hasSuperUserFlag(role: number): boolean {
+		return (role & Role.SUPERUSER) !== 0;
+	}
+
+	function addSuperUserFlag(role: number): number {
+		return role | Role.SUPERUSER;
+	}
+
 	let {
 		groupAssignment = $bindable(),
 		open,
@@ -38,6 +47,7 @@
 		onClose,
 		onConfirm,
 		onAuditorConfirm,
+		onSuperUserConfirm,
 		onOwnerConfirm
 	}: Props = $props();
 
@@ -45,6 +55,7 @@
 
 	let draftRoleId = $state(0);
 	let draftHaveAuditorPrivilege = $state(false);
+	let draftHaveSuperUserPrivilege = $state(false);
 
 	const hasRoleChanged = $derived(
 		draftRoleId !== getRoleId(groupAssignment ? groupAssignment.assignment.role : 0)
@@ -55,8 +66,13 @@
 			draftHaveAuditorPrivilege
 	);
 
+	const hasSuperUserChanged = $derived(
+		hasSuperUserFlag(groupAssignment ? groupAssignment.assignment.role : 0) !==
+			draftHaveSuperUserPrivilege
+	);
+
 	// Check if any changes were made
-	const hasChanges = $derived(hasRoleChanged || hasAuditorChanged);
+	const hasChanges = $derived(hasRoleChanged || hasAuditorChanged || hasSuperUserChanged);
 
 	$effect(() => {
 		if (groupAssignment) {
@@ -64,6 +80,7 @@
 			const role = groupAssignment.assignment.role || 0;
 			draftRoleId = getRoleId(role);
 			draftHaveAuditorPrivilege = hasAuditorFlag(role);
+			draftHaveSuperUserPrivilege = hasSuperUserFlag(role);
 		}
 	});
 
@@ -82,7 +99,13 @@
 	function handleConfirm() {
 		if (!groupAssignment) return;
 
-		const role = draftHaveAuditorPrivilege ? addAuditorFlag(draftRoleId) : draftRoleId;
+		let role = draftRoleId;
+		if (draftHaveAuditorPrivilege) {
+			role = addAuditorFlag(role);
+		}
+		if (draftHaveSuperUserPrivilege) {
+			role = addSuperUserFlag(role);
+		}
 		const result: GroupAssignment = {
 			group: groupAssignment.group,
 			assignment: {
@@ -92,7 +115,10 @@
 		};
 
 		const currentRoleId = getRoleId(groupAssignment.assignment.role || 0);
-		if (hasAuditorChanged && draftHaveAuditorPrivilege && draftRoleId !== 0) {
+		if (hasSuperUserChanged && draftHaveSuperUserPrivilege && draftRoleId !== 0) {
+			// Super User changed - show confirmation
+			onSuperUserConfirm(result);
+		} else if (hasAuditorChanged && draftHaveAuditorPrivilege && draftRoleId !== 0) {
 			// Auditor changed - show auditor confirmation
 			onAuditorConfirm(result);
 		} else if (draftRoleId === Role.OWNER && currentRoleId !== Role.OWNER) {
@@ -144,6 +170,7 @@
 			<GroupRoleForm
 				bind:roleId={draftRoleId}
 				bind:hasAuditorPrivilege={draftHaveAuditorPrivilege}
+				bind:hasSuperUserPrivilege={draftHaveSuperUserPrivilege}
 			/>
 		</div>
 

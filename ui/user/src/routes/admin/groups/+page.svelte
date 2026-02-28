@@ -25,13 +25,14 @@
 	import AssignGroupRoleDialog from './AssignGroupRoleDialog.svelte';
 	import ConfirmAuditorRoleDialog from './ConfirmAuditorRoleDialog.svelte';
 	import ConfirmOwnerRoleDialog from './ConfirmOwnerRoleDialog.svelte';
+	import ConfirmSuperUserRoleDialog from './ConfirmSuperUserRoleDialog.svelte';
 	import type { GroupAssignment } from './types';
 
 	let { data } = $props();
 	let { groups, groupRoleAssignments } = $derived(data);
 
 	function getRoleId(role: number): number {
-		return role & ~Role.AUDITOR;
+		return role & ~(Role.AUDITOR | Role.SUPERUSER);
 	}
 
 	// Create a map for quick role lookups
@@ -75,6 +76,7 @@
 	let showAddAssignment = $state(false);
 	let showAssignGroupRoleDialog = $state(false);
 	let confirmAuditorAdditionToGroup = $state<GroupAssignment>();
+	let confirmSuperUserAdditionToGroup = $state<GroupAssignment>();
 	let confirmOwnerGroupAssignment = $state<GroupAssignment>();
 	let loading = $state(false);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
@@ -97,9 +99,10 @@
 				await AdminService.createGroupRoleAssignment(assignment);
 			}
 
-			showAddAssignment = false;
-			confirmAuditorAdditionToGroup = undefined;
-			confirmOwnerGroupAssignment = undefined;
+	showAddAssignment = false;
+	confirmAuditorAdditionToGroup = undefined;
+	confirmSuperUserAdditionToGroup = undefined;
+	confirmOwnerGroupAssignment = undefined;
 
 			// Refresh data
 			groupRoleAssignments = await AdminService.listGroupRoleAssignments();
@@ -246,6 +249,9 @@
 	onOwnerConfirm={(groupAssignment) => {
 		confirmOwnerGroupAssignment = groupAssignment;
 	}}
+	onSuperUserConfirm={(groupAssignment) => {
+		confirmSuperUserAdditionToGroup = groupAssignment;
+	}}
 	onAuditorConfirm={(groupAssignment) => {
 		confirmAuditorAdditionToGroup = groupAssignment;
 	}}
@@ -267,8 +273,41 @@
 	onOwnerConfirm={(groupAssignment) => {
 		confirmOwnerGroupAssignment = groupAssignment;
 	}}
+	onSuperUserConfirm={(groupAssignment) => {
+		confirmSuperUserAdditionToGroup = groupAssignment;
+	}}
 	onAuditorConfirm={(groupAssignment) => {
 		confirmAuditorAdditionToGroup = groupAssignment;
+	}}
+/>
+
+<ConfirmSuperUserRoleDialog
+	bind:groupAssignment={confirmSuperUserAdditionToGroup}
+	currentRole={confirmSuperUserAdditionToGroup
+		? (groupRoleMap[confirmSuperUserAdditionToGroup.group.id]?.role ?? 0)
+		: 0}
+	{loading}
+	onsuccess={(groupAssignment) => {
+		const originalRoleId = getRoleId(updatingRole?.assignment?.role || 0);
+		const newRoleId = getRoleId(groupAssignment.assignment.role);
+
+		if (newRoleId === Role.OWNER && originalRoleId !== Role.OWNER) {
+			confirmOwnerGroupAssignment = groupAssignment;
+			confirmSuperUserAdditionToGroup = undefined;
+			return;
+		}
+
+		updateGroupRole(groupAssignment);
+		confirmSuperUserAdditionToGroup = undefined;
+		updatingRole = undefined;
+	}}
+	oncancel={() => {
+		confirmSuperUserAdditionToGroup = undefined;
+		if (updatingRole) {
+			showAssignGroupRoleDialog = true;
+		} else {
+			showAddAssignment = true;
+		}
 	}}
 />
 
