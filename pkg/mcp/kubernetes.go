@@ -134,6 +134,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 	}
 
 	if shouldDeploy {
+		olog.Infof("Triggering redeploy for MCP server %s", server.MCPServerName)
 		objs, err := k.k8sObjects(ctx, server, webhooks)
 		if err != nil {
 			return ServerConfig{}, fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.MCPServerName, err)
