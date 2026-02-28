@@ -163,7 +163,7 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	}
 
 	(&httputil.ReverseProxy{
-		Director:       dispatcher.TransformRequest(u, credEnv),
+		Director:       llmTransformRequest(u, credEnv),
 		ModifyResponse: (&responseModifier{userID: token.UserID, runID: token.RunID, model: model, client: req.GatewayClient, personalToken: personalToken}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
@@ -420,6 +420,19 @@ func mustParseURL(s string) *url.URL {
 	return u
 }
 
+func llmTransformRequest(u url.URL, credEnv map[string]string) func(req *http.Request) {
+	transform := dispatcher.TransformRequest(u, credEnv)
+
+	return func(req *http.Request) {
+		transform(req)
+
+		// Ensure the upstream transport can transparently decode compressed responses.
+		// If we forward Accept-Encoding from the client, net/http transport will not
+		// auto-decompress and token usage parsing can see compressed bytes.
+		req.Header.Del("Accept-Encoding")
+	}
+}
+
 type llmProviderProxy struct {
 	dailyUserTokenPromptTokenLimit     int
 	dailyUserTokenCompletionTokenLimit int
@@ -517,7 +530,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 	}
 
 	(&httputil.ReverseProxy{
-		Director:       dispatcher.TransformRequest(l.u, nil),
+		Director:       llmTransformRequest(l.u, nil),
 		ModifyResponse: (&responseModifier{userID: req.User.GetUID(), model: targetModel, client: req.GatewayClient}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 

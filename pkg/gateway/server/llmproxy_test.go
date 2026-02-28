@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -311,5 +312,20 @@ func TestExtractModelFromBody(t *testing.T) {
 				t.Errorf("extractModelFromBody() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestLLMTransformRequest_RemovesAcceptEncoding(t *testing.T) {
+	u := mustParseURL("https://api.example.com/v1")
+	director := llmTransformRequest(*u, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/chat/completions", nil)
+	req.SetPathValue("path", "chat/completions")
+	req.Header.Set("Accept-Encoding", "gzip")
+
+	director(req)
+
+	if got := req.Header.Get("Accept-Encoding"); got != "" {
+		t.Fatalf("Accept-Encoding = %q, want empty", got)
 	}
 }
