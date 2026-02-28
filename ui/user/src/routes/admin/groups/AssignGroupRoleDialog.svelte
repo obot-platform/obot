@@ -14,6 +14,7 @@
 		onClose: () => void;
 		onConfirm: (groupAssignment: GroupAssignment) => void;
 		onAuditorConfirm: (groupAssignment: GroupAssignment) => void;
+		onSuperUserConfirm: (groupAssignment: GroupAssignment) => void;
 		onOwnerConfirm: (groupAssignment: GroupAssignment) => void;
 		open?: boolean;
 	}
@@ -46,6 +47,7 @@
 		onClose,
 		onConfirm,
 		onAuditorConfirm,
+		onSuperUserConfirm,
 		onOwnerConfirm
 	}: Props = $props();
 
@@ -64,8 +66,13 @@
 			draftHaveAuditorPrivilege
 	);
 
+	const hasSuperUserChanged = $derived(
+		hasSuperUserFlag(groupAssignment ? groupAssignment.assignment.role : 0) !==
+			draftHaveSuperUserPrivilege
+	);
+
 	// Check if any changes were made
-	const hasChanges = $derived(hasRoleChanged || hasAuditorChanged);
+	const hasChanges = $derived(hasRoleChanged || hasAuditorChanged || hasSuperUserChanged);
 
 	$effect(() => {
 		if (groupAssignment) {
@@ -108,7 +115,10 @@
 		};
 
 		const currentRoleId = getRoleId(groupAssignment.assignment.role || 0);
-		if (hasAuditorChanged && draftHaveAuditorPrivilege && draftRoleId !== 0) {
+		if (hasSuperUserChanged && draftHaveSuperUserPrivilege && draftRoleId !== 0) {
+			// Super User changed - show confirmation
+			onSuperUserConfirm(result);
+		} else if (hasAuditorChanged && draftHaveAuditorPrivilege && draftRoleId !== 0) {
 			// Auditor changed - show auditor confirmation
 			onAuditorConfirm(result);
 		} else if (draftRoleId === Role.OWNER && currentRoleId !== Role.OWNER) {

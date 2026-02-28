@@ -144,6 +144,13 @@
 				(confirmSuperUserAdditionToUser.assignedRole & Role.AUDITOR) === 0
 		)
 	);
+	const isRemovingAuditorWithSuperUser = $derived(
+		Boolean(
+			confirmSuperUserAdditionToUser &&
+				!confirmSuperUserAdditionToUser.auditor &&
+				(confirmSuperUserAdditionToUser.assignedRole & Role.AUDITOR) !== 0
+		)
+	);
 
 	function composeRole(roleId: number, auditor: boolean, superUser: boolean): number {
 		let role = roleId;
@@ -324,12 +331,18 @@
 					</span>
 				</label>
 				<label class="my-4 flex gap-4">
-					<input type="checkbox" bind:checked={updatingRole.superUser} />
-					<span class="flex flex-col">
+					<input
+						type="checkbox"
+						bind:checked={updatingRole.superUser}
+						disabled={updatingRole.roleId !== Role.ADMIN && updatingRole.roleId !== Role.OWNER}
+					/>
+					<span
+						class="flex flex-col"
+						class:opacity-50={updatingRole.roleId !== Role.ADMIN && updatingRole.roleId !== Role.OWNER}
+					>
 						<p class="w-28 flex-shrink-0 font-semibold">Super User</p>
 						<p class="text-on-surface1">
-							Will be able to connect to other users' MCP servers. Must be combined with Admin or
-							Owner.
+							Will be able to connect to other users' MCP servers. Requires Admin or Owner base role.
 						</p>
 					</span>
 				</label>
@@ -463,6 +476,10 @@
 				<p class="text-left">
 					This update will also grant Auditor, which adds expanded audit visibility (including
 					request/response/header details).
+				</p>
+			{:else if isRemovingAuditorWithSuperUser}
+				<p class="text-left">
+					This update will remove Auditor while granting Super User access.
 				</p>
 			{:else}
 				<p class="text-left">

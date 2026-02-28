@@ -18,6 +18,7 @@
 		onClose: () => void;
 		onConfirm: (groupAssignment: GroupAssignment) => void;
 		onAuditorConfirm: (groupAssignment: GroupAssignment) => void;
+		onSuperUserConfirm: (groupAssignment: GroupAssignment) => void;
 		onOwnerConfirm: (groupAssignment: GroupAssignment) => void;
 	}
 
@@ -45,6 +46,7 @@
 		onClose,
 		onConfirm,
 		onAuditorConfirm,
+		onSuperUserConfirm,
 		onOwnerConfirm
 	}: Props = $props();
 
@@ -125,9 +127,15 @@
 		const hadAuditorBefore = existingAssignment
 			? hasAuditorFlag(existingAssignment.role || 0)
 			: false;
+		const hadSuperUserBefore = existingAssignment
+			? hasSuperUserFlag(existingAssignment.role || 0)
+			: false;
 
-		// Auditor changed - show auditor confirmation only if they didn't have it before
-		if (draftHaveAuditorPrivilege && !hadAuditorBefore && draftRoleId !== 0) {
+		// Super User changed - show confirmation only if they didn't have it before
+		if (draftHaveSuperUserPrivilege && !hadSuperUserBefore && draftRoleId !== 0) {
+			onSuperUserConfirm(result);
+		} else if (draftHaveAuditorPrivilege && !hadAuditorBefore && draftRoleId !== 0) {
+			// Auditor changed - show auditor confirmation only if they didn't have it before
 			onAuditorConfirm(result);
 		} else if (draftRoleId === Role.OWNER) {
 			// Changing to owner role - show owner confirmation
