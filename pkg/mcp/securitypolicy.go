@@ -12,7 +12,7 @@ import (
 // SecurityPolicyProvider generates vendor-specific K8s objects for MCP server egress policies.
 type SecurityPolicyProvider interface {
 	Name() string
-	Objects(server ServerConfig) ([]kclient.Object, error)
+	Objects(server ServerConfig, mcpNamespace string) ([]kclient.Object, error)
 	PruneTypes() []kclient.Object
 }
 
@@ -32,7 +32,7 @@ func (a *aviatrixProvider) PruneTypes() []kclient.Object {
 	return []kclient.Object{obj}
 }
 
-func (a *aviatrixProvider) Objects(server ServerConfig) ([]kclient.Object, error) {
+func (a *aviatrixProvider) Objects(server ServerConfig, mcpNamespace string) ([]kclient.Object, error) {
 	if server.SecurityPolicy == nil {
 		return nil, nil
 	}
@@ -46,7 +46,7 @@ func (a *aviatrixProvider) Objects(server ServerConfig) ([]kclient.Object, error
 			"selectors": []interface{}{
 				map[string]interface{}{
 					"type":         "k8s",
-					"k8sNamespace": server.MCPServerNamespace,
+					"k8sNamespace": mcpNamespace,
 					"tags": map[string]interface{}{
 						"app": server.MCPServerName,
 					},
@@ -163,7 +163,7 @@ func (a *aviatrixProvider) Objects(server ServerConfig) ([]kclient.Object, error
 			"kind":       "FirewallPolicy",
 			"metadata": map[string]interface{}{
 				"name":      server.MCPServerName + "-fw",
-				"namespace": server.MCPServerNamespace,
+				"namespace": mcpNamespace,
 				"labels": map[string]interface{}{
 					"app":                          server.MCPServerName,
 					"app.kubernetes.io/managed-by": "obot",

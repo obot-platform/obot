@@ -967,7 +967,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	// Generate security policy objects if provider is configured
 	if k.securityPolicyProvider != nil && server.SecurityPolicy != nil {
-		policyObjs, err := k.securityPolicyProvider.Objects(server)
+		policyObjs, err := k.securityPolicyProvider.Objects(server, k.mcpNamespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate security policy for %s: %w", server.MCPServerName, err)
 		}
