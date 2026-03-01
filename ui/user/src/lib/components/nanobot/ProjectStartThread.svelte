@@ -64,6 +64,7 @@
 					chat.refreshResources();
 				}}
 				{onFileOpen}
+				onReadResource={chat.readResource}
 				{suppressEmptyState}
 				onContentWidthChange={onThreadContentWidth}
 			>

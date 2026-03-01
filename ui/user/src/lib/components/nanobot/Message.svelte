@@ -4,7 +4,8 @@
 		Attachment,
 		ChatMessage,
 		ChatMessageItem,
-		ChatResult
+		ChatResult,
+		ResourceContents
 	} from '$lib/services/nanobot/types';
 	import MessageItemText from './MessageItemText.svelte';
 	import { CANCELLATION_PHRASE_CLIENT, isCancellationError } from '$lib/services/nanobot/utils';
@@ -15,9 +16,10 @@
 		timestamp?: Date;
 		onSend?: (message: string, attachments?: Attachment[]) => Promise<ChatResult | void>;
 		onFileOpen?: (filename: string) => void;
+		onReadResource?: (uri: string) => Promise<{ contents: ResourceContents[] }>;
 	}
 
-	let { message, timestamp, onSend, onFileOpen }: Props = $props();
+	let { message, timestamp, onSend, onFileOpen, onReadResource }: Props = $props();
 
 	let openToolGroups = new SvelteSet<string>();
 
@@ -113,9 +115,13 @@
 	const hasCompactionSummary = $derived(
 		message.items?.[0]?._meta?.['ai.nanobot.meta/compaction-summary']
 	);
+
+	const isAttachmentContext = $derived(message.items?.[0]?._meta?.['ai.nanobot.meta/attachment']);
 </script>
 
-{#if !hasCompactionSummary}
+{#if isAttachmentContext}
+	<!-- Hidden attachment context message for model instructions -->
+{:else if !hasCompactionSummary}
 	{#if promptDisplayItem}
 		<MessageItemText item={promptDisplayItem} role="user" />
 	{:else if message.role === 'user' && toolCall?.type === 'tool' && toolCall.payload?.toolName}
@@ -127,7 +133,7 @@
 					<div class="rounded-box bg-base-200 mt-4 p-2">
 						{#if message.items && message.items.length > 0}
 							{#each message.items as item (item.id)}
-								<MessageItem {item} role={message.role} />
+								<MessageItem {item} role={message.role} {onFileOpen} {onReadResource} />
 							{/each}
 						{:else}
 							<!-- Fallback for messages without items -->
@@ -177,13 +183,25 @@
 									<div class="collapse-content">
 										<div>
 											{#each group.toolGroup as item (item.id)}
-												<MessageItem {item} role={message.role} {onSend} {onFileOpen} />
+												<MessageItem
+													{item}
+													role={message.role}
+													{onSend}
+													{onFileOpen}
+													{onReadResource}
+												/>
 											{/each}
 										</div>
 									</div>
 								</div>
 							{:else}
-								<MessageItem item={group.single} role={message.role} {onSend} {onFileOpen} />
+								<MessageItem
+									item={group.single}
+									role={message.role}
+									{onSend}
+									{onFileOpen}
+									{onReadResource}
+								/>
 							{/if}
 						{/each}
 					</div>

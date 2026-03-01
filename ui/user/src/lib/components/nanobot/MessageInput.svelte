@@ -170,6 +170,15 @@
 				bind:this={textareaRef}
 			></textarea>
 
+			<!-- Attachment chips row (left-aligned, only visible when files are present) -->
+			<MessageAttachments
+				{selectedResources}
+				{uploadedFiles}
+				{uploadingFiles}
+				{removeSelectedResource}
+				{cancelUpload}
+			/>
+
 			<!-- Bottom row: Agent select on left (if multiple agents), buttons on right -->
 			<div class="flex items-center justify-between">
 				<!-- Agent selector -->
@@ -198,14 +207,6 @@
 						</select>
 					{/if}
 				</div>
-
-				<MessageAttachments
-					{selectedResources}
-					{uploadedFiles}
-					{uploadingFiles}
-					{removeSelectedResource}
-					{cancelUpload}
-				/>
 
 				<!-- Action buttons -->
 				<div class="flex gap-2">
