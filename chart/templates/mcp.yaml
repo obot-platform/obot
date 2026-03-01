@@ -54,6 +54,10 @@ rules:
   - apiGroups: [""]
     resources: ["resourcequotas"]
     verbs: ["get", "list"]
+  # Aviatrix Kubernetes Firewall policy management
+  - apiGroups: ["networking.aviatrix.com"]
+    resources: ["firewallpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
