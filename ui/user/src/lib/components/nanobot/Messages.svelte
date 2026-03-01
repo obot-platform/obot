@@ -5,7 +5,8 @@
 		ChatMessageItem,
 		ChatResult,
 		Agent,
-		Attachment
+		Attachment,
+		ResourceContents
 	} from '$lib/services/nanobot/types';
 	import AgentHeader from '$lib/components/nanobot/AgentHeader.svelte';
 
@@ -13,6 +14,7 @@
 		messages: ChatMessage[];
 		onSend?: (message: string, attachments?: Attachment[]) => Promise<ChatResult | void>;
 		onFileOpen?: (filename: string) => void;
+		onReadResource?: (uri: string) => Promise<{ contents: ResourceContents[] }>;
 		isLoading?: boolean;
 		agent?: Agent;
 		hideAgentHeader?: boolean;
@@ -21,6 +23,7 @@
 	let {
 		messages,
 		onFileOpen,
+		onReadResource,
 		onSend,
 		isLoading = false,
 		agent,
@@ -112,7 +115,7 @@
 				data-message-id={messageGroup?.[0]?.id}
 			>
 				{#each displayGroup as message (message.id)}
-					<Message {message} {onSend} {onFileOpen} />
+					<Message {message} {onSend} {onFileOpen} {onReadResource} />
 				{/each}
 				{#if isLast}
 					{#if showLoadingIndicator}

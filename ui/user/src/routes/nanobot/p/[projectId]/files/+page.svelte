@@ -76,8 +76,7 @@
 				name: string;
 				uri: string;
 				size?: number;
-				createdAt: FileTimeResult;
-				modifiedAt: FileTimeResult;
+				lastModified?: FileTimeResult;
 		  };
 
 	function onFileOpen(filename: string) {
@@ -85,7 +84,7 @@
 	}
 
 	function buildFileTreeSimple(
-		files: { uri: string; name?: string; size?: number; _meta?: { [key: string]: unknown } }[]
+		files: { uri: string; name?: string; size?: number; annotations?: { lastModified?: string } }[]
 	): FileTreeNode[] {
 		const root: Extract<FileTreeNode, { type: 'folder' }> = {
 			type: 'folder',
@@ -118,8 +117,7 @@
 				name: fileName,
 				uri: f.uri,
 				size: f.size,
-				createdAt: formatFileTime(f._meta?.createdAt),
-				modifiedAt: formatFileTime(f._meta?.modifiedAt)
+				lastModified: formatFileTime(f.annotations?.lastModified)
 			});
 		}
 		// Sort: folders first then files, both alphabetically
@@ -144,16 +142,14 @@
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
 
-	let hasModifiedAt = $derived(
-		resourceFiles.some((r) => !!formatFileTime(r._meta?.modifiedAt).date)
+	let hasLastModified = $derived(
+		resourceFiles.some((r) => !!formatFileTime(r.annotations?.lastModified).date)
 	);
-	let hasCreatedAt = $derived(resourceFiles.some((r) => !!formatFileTime(r._meta?.createdAt).date));
-	let columnCount = $derived(3 + (hasModifiedAt ? 1 : 0) + (hasCreatedAt ? 1 : 0));
+	let columnCount = $derived(3 + (hasLastModified ? 1 : 0));
 	let columnHeaders = $derived([
 		{ property: 'name', title: 'Name' },
 		{ property: 'size', title: 'Size' },
-		...(hasModifiedAt ? [{ property: 'modifiedAt', title: 'Last Modified' }] : []),
-		...(hasCreatedAt ? [{ property: 'createdAt', title: 'Created' }] : []),
+		...(hasLastModified ? [{ property: 'lastModified', title: 'Last Modified' }] : []),
 		{ property: 'uri', title: 'Location' }
 	]);
 
@@ -231,9 +227,7 @@
 		name: (item) => item.node.name ?? '',
 		size: (item) => (item.node.type === 'file' ? (item.node.size ?? 0) : 0),
 		modifiedAt: (item) =>
-			item.node.type === 'file' ? (item.node.modifiedAt.date?.getTime() ?? 0) : 0,
-		createdAt: (item) =>
-			item.node.type === 'file' ? (item.node.createdAt.date?.getTime() ?? 0) : 0,
+			item.node.type === 'file' ? (item.node.lastModified?.date?.getTime() ?? 0) : 0,
 		uri: (item) => (item.node.type === 'file' ? item.node.uri : item.path)
 	};
 
@@ -373,11 +367,12 @@
 									</div>
 								</td>
 								<td><p class="truncate text-nowrap break-all">{formatFileSize(node.size)}</p></td>
-								{#if hasModifiedAt}
-									<td><p class="truncate text-nowrap break-all">{node.modifiedAt.formatted}</p></td>
-								{/if}
-								{#if hasCreatedAt}
-									<td><p class="truncate text-nowrap break-all">{node.createdAt.formatted}</p></td>
+								{#if hasLastModified}
+									<td
+										><p class="truncate text-nowrap break-all">
+											{node.lastModified?.formatted}
+										</p></td
+									>
 								{/if}
 								<td>
 									<div class="w-full min-w-0">

@@ -17,6 +17,7 @@
 
 <script lang="ts">
 	import { X } from 'lucide-svelte';
+	import FileItem from '$lib/components/nanobot/FileItem.svelte';
 
 	let {
 		uploadingFiles = [],
@@ -29,26 +30,26 @@
 
 {#snippet item<T>(
 	label: string,
-	type: string,
+	_type: string,
 	loading: boolean,
 	name: string,
 	id: T,
 	onClick?: (id: T) => void
 )}
-	<div class="bg-base-200 flex items-center gap-2 rounded-xl px-3 py-2 text-sm">
+	<div class="border-base-300 flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs">
 		{#if loading}
 			<span class="loading loading-xs loading-spinner"></span>
 		{:else}
-			<span>{getFileIcon(type)}</span>
+			<FileItem uri={name} compact />
 		{/if}
-		<span class="max-w-32 truncate">{name}</span>
+		<span class="max-w-28 truncate">{name}</span>
 		<button
 			type="button"
 			onclick={() => onClick?.(id)}
-			class="btn btn-ghost btn-xs h-5 w-5 rounded-full p-0"
+			class="btn btn-ghost btn-xs h-4 w-4 rounded-full p-0"
 			aria-label={label}
 		>
-			<X class="h-3 w-3" />
+			<X class="h-2.5 w-2.5" />
 		</button>
 	</div>
 {/snippet}

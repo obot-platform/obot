@@ -1,5 +1,10 @@
 <script lang="ts">
-	import type { Attachment, ChatResult, ChatMessageItem } from '$lib/services/nanobot/types';
+	import type {
+		Attachment,
+		ChatResult,
+		ChatMessageItem,
+		ResourceContents
+	} from '$lib/services/nanobot/types';
 	import MessageItemText from './MessageItemText.svelte';
 	import MessageItemImage from './MessageItemImage.svelte';
 	import MessageItemAudio from './MessageItemAudio.svelte';
@@ -14,9 +19,10 @@
 		role: 'user' | 'assistant';
 		onSend?: (message: string, attachments?: Attachment[]) => Promise<ChatResult | void>;
 		onFileOpen?: (filename: string) => void;
+		onReadResource?: (uri: string) => Promise<{ contents: ResourceContents[] }>;
 	}
 
-	let { item, role, onSend, onFileOpen }: Props = $props();
+	let { item, role, onSend, onFileOpen, onReadResource }: Props = $props();
 </script>
 
 {#if item.type === 'text'}
@@ -26,7 +32,7 @@
 {:else if item.type === 'audio'}
 	<MessageItemAudio {item} />
 {:else if item.type === 'resource_link'}
-	<MessageItemResourceLink {item} />
+	<MessageItemResourceLink {item} {onReadResource} />
 {:else if item.type === 'resource'}
 	<MessageItemResource {item} />
 {:else if item.type === 'reasoning'}

@@ -23,7 +23,7 @@ import {
 	type UploadedFile,
 	type UploadingFile
 } from '../types';
-import { SvelteDate } from 'svelte/reactivity';
+import { SvelteDate, SvelteSet } from 'svelte/reactivity';
 
 export interface CallToolResult {
 	content?: ToolOutputItem[];
@@ -195,29 +195,29 @@ export class ChatAPI {
 		});
 	}
 
-	async createResource(
+	async uploadFile(
 		name: string,
 		mimeType: string,
 		blob: string,
 		opts?: {
-			description?: string;
 			sessionId?: string;
 			abort?: AbortController;
 		}
 	): Promise<Attachment> {
-		return await this.callMCPTool<Attachment>('create_resource', {
+		return await this.callMCPTool<Attachment>('uploadFile', {
 			payload: {
 				blob,
 				mimeType,
-				name,
-				...(opts?.description && { description: opts.description })
+				name
 			},
 			sessionId: opts?.sessionId,
 			abort: opts?.abort,
 			parseResponse: (resp: CallToolResult) => {
 				if (resp.content?.[0]?.type === 'resource_link') {
 					return {
-						uri: resp.content[0].uri
+						name: resp.content[0].name,
+						uri: resp.content[0].uri,
+						mimeType: mimeType
 					};
 				}
 				return {
@@ -264,7 +264,8 @@ export class ChatAPI {
 					id: request.id + '_0',
 					type: 'text',
 					text: request.message
-				}
+				},
+				...buildFileAttachmentPreviewItems(request.id, request.attachments || [])
 			]
 		};
 		return {
@@ -408,6 +409,45 @@ export function appendMessage(messages: ChatMessage[], newMessage: ChatMessage):
 		messages = [...messages, newMessage];
 	}
 	return messages;
+}
+
+function attachmentPreviewName(attachment: Attachment): string | undefined {
+	if (attachment.name) {
+		return attachment.name;
+	}
+
+	if (!attachment.uri.startsWith('file:///')) {
+		return undefined;
+	}
+
+	const rawPath = attachment.uri.replace(/^file:\/\/\//, '');
+	let decodedPath = rawPath;
+	try {
+		decodedPath = decodeURIComponent(rawPath);
+	} catch {
+		// keep raw path if decode fails
+	}
+	return decodedPath.split('/').filter(Boolean).pop() || decodedPath;
+}
+
+function buildFileAttachmentPreviewItems(messageID: string, attachments: Attachment[]) {
+	const seen = new SvelteSet<string>();
+	return attachments
+		.filter((attachment) => {
+			const uri = attachment.uri || '';
+			if (!uri.startsWith('file:///') || seen.has(uri)) {
+				return false;
+			}
+			seen.add(uri);
+			return true;
+		})
+		.map((attachment, index) => ({
+			id: `${messageID}_attachment_${index}`,
+			type: 'resource_link' as const,
+			uri: attachment.uri,
+			name: attachmentPreviewName(attachment),
+			mimeType: attachment.mimeType || 'application/octet-stream'
+		}));
 }
 
 export class ChatService {
@@ -691,6 +731,7 @@ export class ChatService {
 		const toolName = `chat-with-${effectiveAgentId}`;
 
 		this.currentRequestId = crypto.randomUUID();
+		const allAttachments = [...this.uploadedFiles, ...(attachments || [])];
 		const optimisticUserMessage: ChatMessage = {
 			id: this.currentRequestId,
 			role: 'user',
@@ -700,7 +741,8 @@ export class ChatService {
 					id: this.currentRequestId + '_0',
 					type: 'text',
 					text: message
-				}
+				},
+				...buildFileAttachmentPreviewItems(this.currentRequestId, allAttachments)
 			]
 		};
 		this.messages = appendMessage(this.messages, optimisticUserMessage);
@@ -716,7 +758,7 @@ export class ChatService {
 					id: this.currentRequestId,
 					threadId: this.chatId,
 					message: message,
-					attachments: [...this.uploadedFiles, ...(attachments || [])]
+					attachments: allAttachments
 				},
 				toolName
 			);
@@ -779,6 +821,18 @@ export class ChatService {
 			}
 			return false;
 		});
+
+		// Delete the uploaded file from disk
+		const uploaded = this.uploadedFiles.find((f) => f.id === fileId);
+		if (uploaded?.uri) {
+			this.api
+				.callMCPTool('deleteFile', {
+					payload: { uri: uploaded.uri },
+					sessionId: this.chatId
+				})
+				.catch((err) => console.error('Failed to delete uploaded file:', err));
+		}
+
 		this.uploadedFiles = this.uploadedFiles.filter((f) => f.id !== fileId);
 	};
 
@@ -831,8 +885,7 @@ export class ChatService {
 			throw new Error('Chat ID not set');
 		}
 
-		return await this.api.createResource(file.name, file.type, base64, {
-			description: file.name,
+		return await this.api.uploadFile(file.name, file.type, base64, {
 			sessionId: this.chatId,
 			abort: controller
 		});

@@ -74,6 +74,7 @@ export interface ChatMessageItemResourceLink extends ChatMessageItemBase {
 	name?: string;
 	description?: string;
 	uri: string;
+	mimeType?: string;
 }
 
 export interface ChatMessageItemReasoning extends ChatMessageItemBase {

@@ -11,13 +11,14 @@
 		ElicitationResult,
 		Elicitation as ElicitationType,
 		Prompt as PromptType,
+		ResourceContents,
 		UploadedFile,
 		UploadingFile
 	} from '$lib/services/nanobot/types';
 	import MessageInput from './MessageInput.svelte';
 	import Messages from './Messages.svelte';
 	import AgentHeader from './AgentHeader.svelte';
-	import { ChevronDown } from 'lucide-svelte';
+	import { ChevronDown, Upload } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -30,6 +31,7 @@
 		onSendMessage?: (message: string, attachments?: Attachment[]) => Promise<ChatResult | void>;
 		onFileUpload?: (file: File, opts?: { controller?: AbortController }) => Promise<Attachment>;
 		onFileOpen?: (filename: string) => void;
+		onReadResource?: (uri: string) => Promise<{ contents: ResourceContents[] }>;
 		onRestart?: () => void;
 		onCancel?: () => void;
 		onContentWidthChange?: (width: number) => void;
@@ -56,6 +58,7 @@
 		onSendMessage,
 		onFileUpload,
 		onFileOpen,
+		onReadResource,
 		onRestart,
 		onCancel,
 		onContentWidthChange,
@@ -293,11 +296,65 @@
 			});
 		}
 	}
+
+	// Drag-and-drop file upload
+	let isDragging = $state(false);
+	let dragCounter = 0;
+
+	function handleDragEnter(e: DragEvent) {
+		e.preventDefault();
+		dragCounter++;
+		if (e.dataTransfer?.types.includes('Files')) {
+			isDragging = true;
+		}
+	}
+
+	function handleDragLeave(e: DragEvent) {
+		e.preventDefault();
+		dragCounter--;
+		if (dragCounter === 0) {
+			isDragging = false;
+		}
+	}
+
+	function handleDragOver(e: DragEvent) {
+		e.preventDefault();
+	}
+
+	async function handleDrop(e: DragEvent) {
+		e.preventDefault();
+		dragCounter = 0;
+		isDragging = false;
+
+		if (!onFileUpload || !e.dataTransfer?.files.length) return;
+
+		for (const file of e.dataTransfer.files) {
+			onFileUpload(file);
+		}
+	}
 </script>
 
 <div
 	class="flex h-[calc(100dvh-4rem)] w-full flex-col transition-transform md:relative peer-[.workspace]:md:w-1/4"
+	ondragenter={handleDragEnter}
+	ondragleave={handleDragLeave}
+	ondragover={handleDragOver}
+	ondrop={handleDrop}
 >
+	<!-- Drag-and-drop overlay -->
+	{#if isDragging}
+		<div
+			class="bg-base-300/60 pointer-events-none absolute inset-0 z-50 flex items-center justify-center backdrop-blur-sm"
+		>
+			<div
+				class="border-primary bg-base-100/90 flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed px-10 py-8 shadow-xl"
+			>
+				<Upload class="text-primary size-10" />
+				<p class="text-base-content text-lg font-semibold">Drop files to upload</p>
+			</div>
+		</div>
+	{/if}
+
 	<!-- Messages area - full height scrollable with bottom padding for floating input -->
 	<div
 		class="h-full w-full overflow-y-auto px-4"
@@ -336,6 +393,7 @@
 				{isLoading}
 				{agent}
 				{onFileOpen}
+				{onReadResource}
 				hideAgentHeader
 			/>
 		</div>
