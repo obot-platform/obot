@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
@@ -24,6 +25,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const (
+	nanobotTokenTTL      = 12 * time.Hour
+	nanobotRefreshBefore = 2 * time.Hour
+)
+
+var log = logger.Package()
 
 type Handler struct {
 	gptClient          *gptscript.GPTScript
@@ -118,6 +126,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 		}
 
 		if needsUpdate {
+			log.Debugf("Updating nanobot MCP server config: agent=%s mcpServer=%s", agent.Name, mcpServerName)
 			existing.Spec.Manifest.ContainerizedConfig.Args = expectedArgs
 			existing.Spec.Manifest.Env = expectedEnv
 			if err := req.Client.Update(req.Ctx, &existing); err != nil {
@@ -182,6 +191,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 	if err := req.Client.Create(req.Ctx, mcpServer); err != nil {
 		return fmt.Errorf("failed to create MCPServer: %w", err)
 	}
+	log.Infof("Created nanobot agent MCP server: agent=%s mcpServer=%s", agent.Name, mcpServerName)
 
 	// Create credentials for the new server
 	if err := h.ensureCredentials(req.Ctx, req, resp, agent, mcpServerName); err != nil {
@@ -192,7 +202,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 }
 
 // ensureCredentials ensures that the MCP server has credentials with API keys that are valid
-// and refreshes them if they expire within 2 hours.
+// and refreshes them when they are close to expiration.
 func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, resp router.Response, agent *v1.NanobotAgent, mcpServerName string) error {
 	credCtx := fmt.Sprintf("%s-%s", agent.Spec.UserID, mcpServerName)
 
@@ -207,6 +217,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		}
 		// Credential doesn't exist, needs to be created
 		needsRefresh = true
+		log.Debugf("Nanobot credential missing, creating: agent=%s mcpServer=%s", agent.Name, mcpServerName)
 	} else {
 		// Credential exists, check if token needs refreshing
 		if token := credEnvFileVars["OPENAI_API_KEY"]; token != "" {
@@ -214,11 +225,13 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 			if err != nil {
 				// Token is invalid, needs refresh
 				needsRefresh = true
+				log.Debugf("Nanobot credential token invalid, refreshing: agent=%s mcpServer=%s", agent.Name, mcpServerName)
 			} else {
-				if untilRefresh := time.Until(tokenCtx.ExpiresAt) - 2*time.Hour; untilRefresh <= 0 {
-					// If the token expires in the next 2 hours, then refresh it
+				if untilRefresh := time.Until(tokenCtx.ExpiresAt) - nanobotRefreshBefore; untilRefresh <= 0 {
+					// If the token expires soon, then refresh it
 					needsRefresh = true
 					resp.RetryAfter(time.Second)
+					log.Debugf("Nanobot credential due for refresh: agent=%s mcpServer=%s expiresAt=%s", agent.Name, mcpServerName, tokenCtx.ExpiresAt.UTC().Format(time.RFC3339))
 				} else {
 					// Otherwise, look at the agent again around the time the refresh would be needed.
 					resp.RetryAfter(untilRefresh)
@@ -227,6 +240,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		} else {
 			// No token in credential, needs refresh
 			needsRefresh = true
+			log.Debugf("Nanobot credential missing token, refreshing: agent=%s mcpServer=%s", agent.Name, mcpServerName)
 		}
 	}
 
@@ -244,9 +258,11 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		return nil
 	}
 
+	log.Debugf("Refreshing nanobot credentials: agent=%s mcpServer=%s model=%s miniModel=%s", agent.Name, mcpServerName, llmModel, miniModel)
+
 	// Generate a new token that expires in 12 hours
 	now := time.Now()
-	expiresAt := now.Add(12 * time.Hour)
+	expiresAt := now.Add(nanobotTokenTTL)
 	token, err := h.tokenService.NewToken(ctx, persistent.TokenContext{
 		Audience:   h.serverURL,
 		IssuedAt:   now,
@@ -321,15 +337,18 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 
 	if h.localK8SBackend != nil {
 		// If local Kubernetes backend is available, trigger a sync to update the secret with the new credentials
+		triggerKey := fmt.Sprintf("%s/%s", h.mcpServerNamespace, name.SafeConcatName(mcpServerName, "files"))
+		log.Debugf("Triggering local k8s secret sync: agent=%s mcpServer=%s key=%s", agent.Name, mcpServerName, triggerKey)
 		if err := h.localK8SBackend.Trigger(
 			ctx,
 			corev1.SchemeGroupVersion.WithKind("Secret"),
-			fmt.Sprintf("%s/%s", name.SafeConcatName(h.mcpServerNamespace, "files"), mcpServerName),
+			triggerKey,
 			time.Second,
 		); err != nil {
 			return fmt.Errorf("failed to trigger local Kubernetes sync: %w", err)
 		}
 	}
+	log.Infof("Nanobot credentials refreshed: agent=%s mcpServer=%s apiKeyID=%d", agent.Name, mcpServerName, apiKeyResp.ID)
 	return nil
 }
 
