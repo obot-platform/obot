@@ -71,6 +71,8 @@ type ServerConfig struct {
 	AuditLogToken    string `json:"auditLogToken"`
 	AuditLogEndpoint string `json:"auditLogEndpoint"`
 	AuditLogMetadata string `json:"auditLogMetadata"`
+
+	SecurityPolicy *types.SecurityPolicyConfig `json:"securityPolicy,omitempty"`
 }
 
 type File struct {
@@ -244,6 +246,8 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		serverConfig.AuditLogToken = secretsCred["AUDIT_LOG_TOKEN"]
 		serverConfig.AuditLogMetadata = fmt.Sprintf("mcpID=%s,mcpServerCatalogEntryName=%s,powerUserWorkspaceID=%s,mcpServerDisplayName=%s", mcpServer.Name, mcpServer.Spec.MCPServerCatalogEntryName, powerUserWorkspaceID, displayName)
 	}
+
+	serverConfig.SecurityPolicy = mcpServer.Spec.Manifest.SecurityPolicy
 
 	var missingRequiredNames []string
 
