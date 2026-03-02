@@ -136,21 +136,21 @@ func legacyServerToServerConfig(mcpServer v1.MCPServer, userID, scope string, cr
 	var missingRequiredNames []string
 	for _, env := range mcpServer.Spec.Manifest.Env {
 		var (
-			val      string
-			hasValue bool
+			val            string
+			hasValue       bool
+			fromCredential bool
 		)
 
-		// Check for static value first
-		if env.Value != "" {
+		// Check user-configured value from credentials first
+		credVal, ok := credEnv[env.Key]
+		if ok && credVal != "" {
+			val = credVal
+			hasValue = true
+			fromCredential = true
+		} else if env.Value != "" {
+			// Fall back to static default from manifest
 			val = env.Value
 			hasValue = true
-		} else {
-			// Fall back to user-configured value from credentials
-			credVal, ok := credEnv[env.Key]
-			if ok && credVal != "" {
-				val = credVal
-				hasValue = true
-			}
 		}
 
 		if !hasValue {
@@ -160,9 +160,8 @@ func legacyServerToServerConfig(mcpServer v1.MCPServer, userID, scope string, cr
 			continue
 		}
 
-		// Apply prefix if specified (e.g., "Bearer ", "sk-")
-		// Only apply to user-supplied values, not static values
-		if env.Value == "" {
+		// Apply prefix only to user-supplied values, not static defaults
+		if fromCredential {
 			val = applyPrefix(val, env.Prefix)
 		}
 
@@ -436,21 +435,21 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 
 	for _, env := range mcpServer.Spec.Manifest.Env {
 		var (
-			val      string
-			hasValue bool
+			val            string
+			hasValue       bool
+			fromCredential bool
 		)
 
-		// Check for static value first
-		if env.Value != "" {
+		// Check user-configured value from credentials first
+		credVal, ok := credEnv[env.Key]
+		if ok && credVal != "" {
+			val = credVal
+			hasValue = true
+			fromCredential = true
+		} else if env.Value != "" {
+			// Fall back to static default from manifest
 			val = env.Value
 			hasValue = true
-		} else {
-			// Fall back to user-configured value from credentials
-			credVal, ok := credEnv[env.Key]
-			if ok && credVal != "" {
-				val = credVal
-				hasValue = true
-			}
 		}
 
 		if !hasValue {
@@ -460,9 +459,8 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 			continue
 		}
 
-		// Apply prefix if specified (e.g., "Bearer ", "sk-")
-		// Only apply to user-supplied values, not static values
-		if env.Value == "" {
+		// Apply prefix only to user-supplied values, not static defaults
+		if fromCredential {
 			val = applyPrefix(val, env.Prefix)
 		}
 
