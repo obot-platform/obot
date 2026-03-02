@@ -4,6 +4,7 @@
 	import { X } from 'lucide-svelte';
 	import MarkdownEditor from './MarkdownEditor.svelte';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
+	import { tryDecodeURIComponent } from '$lib/url';
 	import { getLayout } from '$lib/context/nanobotLayout.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import RawEditor from '$lib/components/editor/RawEditor.svelte';
@@ -27,7 +28,7 @@
 		threadContentWidth = 0
 	}: Props = $props();
 
-	const name = $derived(filename.split('/').pop() || '');
+	const name = $derived(tryDecodeURIComponent(filename.split('/').pop() || ''));
 	let resource = $state<ResourceContents | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);

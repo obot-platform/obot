@@ -2,6 +2,7 @@
 	import { FileIcon, FileImage } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
+	import { tryDecodeURIComponent } from '$lib/url';
 
 	interface Props {
 		uri?: string;
@@ -16,7 +17,7 @@
 
 	let { uri, classes, compact, type = 'label', isSelected, onClick }: Props = $props();
 
-	let name = $derived(uri ? uri.split('/').pop() : undefined);
+	let name = $derived(uri ? tryDecodeURIComponent(uri.split('/').pop() ?? '') : undefined);
 	let extension = $derived(
 		name && name.includes('.') ? name.split('.').pop()?.toLowerCase() : undefined
 	);

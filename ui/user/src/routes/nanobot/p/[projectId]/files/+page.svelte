@@ -12,6 +12,7 @@
 	} from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { getContext } from 'svelte';
+	import { tryDecodeURIComponent } from '$lib/url';
 	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
@@ -110,7 +111,7 @@
 			const path = f.uri.replace(/^file:\/\/+/, '');
 			const segments = path.split('/').filter(Boolean);
 			if (segments.length === 0) continue;
-			const fileName = segments.pop()!;
+			const fileName = tryDecodeURIComponent(segments.pop()!);
 			const parent = ensurePath(segments);
 			parent.children.push({
 				type: 'file',
@@ -142,14 +143,20 @@
 		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
 
-	let hasLastModified = $derived(
-		resourceFiles.some((r) => !!formatFileTime(r.annotations?.lastModified).date)
-	);
-	let columnCount = $derived(3 + (hasLastModified ? 1 : 0));
+	function toNumberOrUndefined(value: unknown): number | undefined {
+		if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+		if (typeof value === 'string') {
+			const parsed = Number(value);
+			return Number.isFinite(parsed) ? parsed : undefined;
+		}
+		return undefined;
+	}
+
+	let columnCount = $derived(4);
 	let columnHeaders = $derived([
 		{ property: 'name', title: 'Name' },
 		{ property: 'size', title: 'Size' },
-		...(hasLastModified ? [{ property: 'lastModified', title: 'Last Modified' }] : []),
+		{ property: 'lastModified', title: 'Last Modified' },
 		{ property: 'uri', title: 'Location' }
 	]);
 
@@ -223,13 +230,15 @@
 		return flat.filter(({ path }) => toInclude.has(path));
 	});
 
-	const sortValueByProperty: Record<string, (item: FlatNode) => string | number> = {
+	const sortValueByProperty: Record<string, (item: FlatNode) => string | number | undefined> = {
 		name: (item) => item.node.name ?? '',
-		size: (item) => (item.node.type === 'file' ? (item.node.size ?? 0) : 0),
-		modifiedAt: (item) =>
-			item.node.type === 'file' ? (item.node.lastModified?.date?.getTime() ?? 0) : 0,
+		size: (item) => (item.node.type === 'file' ? toNumberOrUndefined(item.node.size) : undefined),
+		lastModified: (item) =>
+			item.node.type === 'file' ? item.node.lastModified?.date?.getTime() : undefined,
 		uri: (item) => (item.node.type === 'file' ? item.node.uri : item.path)
 	};
+
+	const numericSortProperties = new Set(['size', 'lastModified']);
 
 	let sortedFlatFileList = $derived.by(() => {
 		const list = [...filteredFlatFileList];
@@ -238,16 +247,21 @@
 		const getVal = sortValueByProperty[property] ?? sortValueByProperty.name;
 
 		list.sort((a, b) => {
-			if (property === 'size' || property === 'modifiedAt' || property === 'createdAt') {
+			if (numericSortProperties.has(property)) {
 				if (a.node.type === 'folder' && b.node.type === 'file') return -1;
 				if (a.node.type === 'file' && b.node.type === 'folder') return 1;
 			}
 			const aVal = getVal(a);
 			const bVal = getVal(b);
-			const cmp =
-				typeof aVal === 'string' && typeof bVal === 'string'
-					? (aVal || '').localeCompare(bVal || '')
-					: (aVal as number) - (bVal as number);
+			if (numericSortProperties.has(property)) {
+				const aNum = toNumberOrUndefined(aVal);
+				const bNum = toNumberOrUndefined(bVal);
+				if (aNum == undefined && bNum == undefined) return 0;
+				if (aNum == undefined) return 1;
+				if (bNum == undefined) return -1;
+				return mult * (aNum - bNum);
+			}
+			const cmp = (aVal as string).localeCompare(bVal as string);
 			return mult * cmp;
 		});
 		return list;
@@ -367,13 +381,11 @@
 									</div>
 								</td>
 								<td><p class="truncate text-nowrap break-all">{formatFileSize(node.size)}</p></td>
-								{#if hasLastModified}
-									<td
-										><p class="truncate text-nowrap break-all">
-											{node.lastModified?.formatted}
-										</p></td
-									>
-								{/if}
+								<td
+									><p class="truncate text-nowrap break-all">
+										{node.lastModified?.formatted || '-'}
+									</p></td
+								>
 								<td>
 									<div class="w-full min-w-0">
 										<p

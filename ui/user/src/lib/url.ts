@@ -109,3 +109,11 @@ export function setUrlParam(url: URL, key: string, value: string | null): void {
 		url.searchParams.delete(key);
 	}
 }
+
+export function tryDecodeURIComponent(value: string): string {
+	try {
+		return decodeURIComponent(value);
+	} catch {
+		return value;
+	}
+}
