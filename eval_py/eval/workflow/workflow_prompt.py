@@ -192,3 +192,36 @@ IMPORTANT:
 Deliver the chart first.
 Then provide the analysis clearly structured with headings."""
 ]
+
+
+# --- Conversation workflows: multi-turn with per-turn eval criteria ---
+# Each turn: send prompt → get response → run DeepEval with turn-specific criteria → then send next prompt (eval-based reply).
+# Used by nanobot_workflow_conversation_eval.
+
+def get_conversation_turns(workflow_id: str) -> list[dict]:
+    """Return list of turns for a conversation workflow. Each turn: prompt (str), criteria (list[str])."""
+    if workflow_id == "python_code_review":
+        return PYTHON_CODE_REVIEW_TURNS
+    return []
+
+
+PYTHON_CODE_REVIEW_TURNS = [
+    {
+        "prompt": """What is wrong with this Python code?
+
+for i in range(5)
+    print(i)""",
+        "criteria": [
+            "Mentions the missing colon (e.g. after range(5))",
+            "Provides corrected code (for i in range(5): with indented print)",
+            "Does not invent extra errors beyond the actual syntax errors",
+        ],
+    },
+    {
+        "prompt": "Great. Now modify it to print only even numbers.",
+        "criteria": [
+            "Response modifies the code to print only even numbers (e.g. 0, 2, 4)",
+            "Uses a valid approach: condition (e.g. i % 2 == 0) or range(0, 5, 2) or equivalent",
+        ],
+    },
+]

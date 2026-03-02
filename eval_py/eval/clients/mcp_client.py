@@ -108,10 +108,16 @@ class MCPClient:
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
 
     def _read_events_stream(
-        self, session_id: str, stream_ready: Optional[threading.Event] = None
+        self,
+        session_id: str,
+        stream_ready: Optional[threading.Event] = None,
+        expected_prompt: Optional[str] = None,
     ) -> tuple[str, str, list[str]]:
         """Read GET api/events stream; return (assistant_text, raw_sse, tools_used).
-        Captures the current turn only: events after history-end until chat-done.
+        Captures the current turn only when expected_prompt is provided: user + assistant
+        messages starting from the user message whose text contains expected_prompt,
+        until chat-done. If expected_prompt is None, collects all assistant messages
+        until chat-done (legacy behavior).
         If stream_ready is set, it is signaled once the stream is open (200) and reading.
         """
         url = self.events_stream_url(session_id)
@@ -149,7 +155,10 @@ class MCPClient:
         seen_created_id: set[tuple[str, str]] = set()
         # Collect (message_key, block_lines); message_key = (created, id) for data blocks, None for others
         blocks_in_order: list[tuple[Optional[tuple[str, str]], list[str]]] = []
-        after_history_until_done = False
+        # Track whether we've seen the user prompt for THIS turn and its assistant text;
+        # used so we don't stop at a chat-done that only corresponds to prior history replay.
+        turn_seen_prompt = expected_prompt is None
+        turn_has_assistant = False
         current_event: Optional[str] = None
         current_data_lines: list[str] = []
         current_raw_lines: list[str] = []
@@ -173,17 +182,12 @@ class MCPClient:
             return None
 
         def flush_event():
-            nonlocal current_event, current_data_lines, current_raw_lines
+            nonlocal current_event, current_data_lines, current_raw_lines, turn_seen_prompt, turn_has_assistant
             if not current_raw_lines:
                 current_data_lines = []
                 current_raw_lines = []
                 return
             lines_copy = list(current_raw_lines)
-            if not after_history_until_done:
-                blocks_in_order.append((None, lines_copy))
-                current_data_lines = []
-                current_raw_lines = []
-                return
             message_key = _message_key_from_data(current_data_lines)
             if current_data_lines:
                 data_str = "\n".join(current_data_lines).strip()
@@ -194,10 +198,35 @@ class MCPClient:
                         eid = ev.get("id")
                         if created is not None and eid is not None:
                             seen_created_id.add((str(created), str(eid)))
-                        if ev.get("role") == "assistant":
-                            for item in ev.get("items", []):
+
+                        role = ev.get("role")
+                        items = ev.get("items", [])
+
+                        # Detect when THIS turn's user prompt appears
+                        if (
+                            not turn_seen_prompt
+                            and role == "user"
+                            and expected_prompt
+                            and isinstance(items, list)
+                        ):
+                            for item in items:
+                                if not isinstance(item, dict):
+                                    continue
+                                if item.get("type") == "text" and isinstance(item.get("text"), str):
+                                    text_val = item["text"]
+                                    # Simple containment match to tolerate minor formatting differences
+                                    if expected_prompt.strip() in text_val:
+                                        turn_seen_prompt = True
+                                        break
+
+                        # Collect assistant text only after we've seen this turn's prompt
+                        if role == "assistant" and isinstance(items, list) and turn_seen_prompt:
+                            for item in items:
+                                if not isinstance(item, dict):
+                                    continue
                                 if item.get("type") == "text" and item.get("text"):
                                     out.append(item["text"])
+                                    turn_has_assistant = True
                                 if item.get("type") == "tool" and item.get("name"):
                                     tools_used.append(item["name"])
                     except json.JSONDecodeError:
@@ -217,17 +246,15 @@ class MCPClient:
                 if line == "":
                     current_raw_lines.append("")
                     flush_event()
-                    if current_event == "chat-done":
+                    # Only stop on chat-done after we've seen assistant content for this turn.
+                    # This avoids exiting early on a chat-done that belongs to prior history.
+                    if current_event == "chat-done" and turn_has_assistant:
                         break
                     current_event = None
                     continue
                 if line.startswith("event:"):
                     flush_event()
                     current_event = line[6:].strip()
-                    if current_event == "history-end":
-                        after_history_until_done = True
-                    elif current_event == "chat-done":
-                        after_history_until_done = False
                     current_raw_lines.append(line)
                     current_data_lines = []
                 elif line.startswith("data:"):
@@ -269,14 +296,17 @@ class MCPClient:
         api_log.log_api_stream_response(url, summary)
         return result, raw_sse, tools_used_dedup
 
-    def get_response_from_events(self, session_id: str) -> str:
-        assistant_text, _, _ = self._read_events_stream(session_id)
+    def get_response_from_events(self, session_id: str, expected_prompt: Optional[str] = None) -> str:
+        assistant_text, _, _ = self._read_events_stream(session_id, expected_prompt=expected_prompt)
         return assistant_text
 
     STREAM_READY_WAIT = 15
 
     def get_response_from_events_async(
-        self, session_id: str, send_chat_fn: Callable[[], None]
+        self,
+        session_id: str,
+        send_chat_fn: Callable[[], None],
+        expected_prompt: Optional[str] = None,
     ) -> tuple[str, str, list[str]]:
         """Open event stream first, signal when ready, then call send_chat_fn(); read until chat-done.
         Ensures prompt is sent only after the stream is open so response is received in sequence.
@@ -285,7 +315,7 @@ class MCPClient:
         stream_ready = threading.Event()
 
         def read_thread():
-            res = self._read_events_stream(session_id, stream_ready=stream_ready)
+            res = self._read_events_stream(session_id, stream_ready=stream_ready, expected_prompt=expected_prompt)
             result_holder.append(res)
 
         t = threading.Thread(target=read_thread, daemon=True)

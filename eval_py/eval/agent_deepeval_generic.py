@@ -320,6 +320,70 @@ def _build_agent_metrics() -> list[GEval]:
     return [flow, tools, alignment, robustness]
 
 
+def run_deepeval_for_turn(
+    user_prompt: str,
+    assistant_text: str,
+    raw_sse: str,
+    criteria: List[str],
+    turn_index: int = 0,
+) -> Tuple[bool, str]:
+    """
+    Run DeepEval on a single conversation turn with custom criteria.
+    Used by conversation workflow: after each turn we evaluate the response, then send the next prompt.
+    Returns (passed, message).
+    """
+    if not criteria:
+        return True, "no criteria (skip eval)"
+
+    # Prefer final assistant text reconstructed from raw SSE (deduplicated by event id),
+    # so DeepEval sees the cleaned-up reply instead of streaming repetitions.
+    if raw_sse:
+        try:
+            trace = _parse_sse_to_trace(raw_sse)
+            if trace.final_report:
+                assistant_text = trace.final_report
+        except Exception:
+            # Fall back silently to provided assistant_text
+            pass
+
+    context = [
+        "You are evaluating an assistant's response for a single conversation turn.",
+        "Check that the response satisfies all of the following criteria:",
+        "",
+    ] + ["- " + c for c in criteria]
+    test_case = LLMTestCase(
+        input=user_prompt or "(no prompt)",
+        actual_output=assistant_text or "(no response)",
+        context=context,
+    )
+    eval_params = [
+        LLMTestCaseParams.INPUT,
+        LLMTestCaseParams.ACTUAL_OUTPUT,
+        LLMTestCaseParams.CONTEXT,
+    ]
+    metric = GEval(
+        name="Turn %d criteria" % turn_index,
+        criteria="\n".join(criteria),
+        evaluation_params=eval_params,
+        threshold=0.7,
+    )
+    try:
+        metric.measure(test_case)
+        score = getattr(metric, "score", None)
+        threshold = getattr(metric, "threshold", 0.7)
+        reason = getattr(metric, "reason", "")
+        passed = (score is None) or (score >= threshold)
+        msg_parts = []
+        if score is not None:
+            msg_parts.append(f"score={score:.3f} (threshold={threshold})")
+        if reason:
+            msg_parts.append(f"reason={reason}")
+        msg = "; ".join(msg_parts) if msg_parts else f"evaluated (turn {turn_index})"
+        return passed, msg
+    except Exception as e:
+        return False, "eval error (turn %d): %s" % (turn_index, str(e))
+
+
 def run_deepeval_generic_for_latest_step_eval() -> None:
     """Entry point: run generic DeepEval process metrics on latest step-eval output."""
     trajectory, raw_sse = _read_step_eval_raw_sse()
