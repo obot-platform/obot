@@ -10,7 +10,6 @@
 	import QuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
 	import { afterNavigate } from '$app/navigation';
 	import { PROJECT_LAYOUT_CONTEXT, type ProjectLayoutContext } from '$lib/services/nanobot/types';
-	import { isRecent } from '$lib/time';
 
 	let { data, children } = $props();
 	let projectId = $derived(data.projects[0].id);
@@ -28,10 +27,10 @@
 	let initialQuickBarAccessOpen = $state(false);
 	let selectedFile = $state('');
 	let threadContentWidth = $state(0);
-	let needsRefreshThreads = $state(true);
-	let titleRefreshTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	let layoutName = $state('');
 	let showBackButton = $state(false);
+	/** Session ID we already tried to refresh for when it was missing (avoids loop if listSessions never returns it). */
+	let refreshedForMissingSessionId: string | null = null;
 
 	const layout = nanobotLayout.getLayout();
 	const projectLayoutContext = $state<ProjectLayoutContext>({
@@ -65,6 +64,27 @@
 	});
 
 	$effect(() => {
+		const api = $nanobotChat?.api;
+		const sessions = $nanobotChat?.sessions ?? [];
+		const sid = sessionId;
+		const c = chat;
+		if (!api || !sid || !c) return;
+		if (c.isLoading) return;
+		if (sessions.some((s) => s.id === sid)) {
+			refreshedForMissingSessionId = null;
+			return;
+		}
+		if (refreshedForMissingSessionId === sid) return;
+		refreshedForMissingSessionId = sid;
+		api.listSessions().then((list) => {
+			nanobotChat.update((data) => {
+				if (data) data.sessions = list ?? [];
+				return data;
+			});
+		});
+	});
+
+	$effect(() => {
 		if (initialQuickBarAccessOpen || !sessionId) return;
 		if (chat && chat.messages.length > 0) {
 			let foundTool = false;
@@ -85,73 +105,6 @@
 				if (foundTool) break;
 			}
 		}
-	});
-
-	async function updateThreads() {
-		const tid = chat?.chatId;
-		if (!tid) return;
-
-		const sessions = (await $nanobotChat?.api.listSessions()) ?? [];
-		const match = sessions.find((s) => s.id === tid);
-		if (!match) return;
-
-		nanobotChat.update((data) => {
-			// just update/add the session if it doesn't exist in store
-			if (data?.sessions) {
-				const matchingIndex = data.sessions.findIndex((s) => s.id === tid);
-				if (matchingIndex === -1) {
-					data.sessions.unshift(match);
-				} else {
-					data.sessions[matchingIndex].title = match?.title ?? '';
-				}
-			}
-			return data;
-		});
-	}
-
-	$effect(() => {
-		const clearTitleRefreshTimeout = () => {
-			if (titleRefreshTimeoutId != null) {
-				clearTimeout(titleRefreshTimeoutId);
-				titleRefreshTimeoutId = null;
-			}
-		};
-
-		if (!chat || chat.messages.length < 2) return clearTitleRefreshTimeout;
-
-		const tid = chat.chatId;
-		const sessions = $nanobotChat?.sessions ?? [];
-		const inSessions = sessions.find((s) => s.id === tid);
-
-		if (!inSessions) {
-			if (needsRefreshThreads) {
-				updateThreads();
-				needsRefreshThreads = false;
-			}
-			return clearTitleRefreshTimeout;
-		}
-
-		const hasTitle =
-			(inSessions.title && inSessions.title.trim().length > 0) || !isRecent(inSessions.created);
-		if (!hasTitle) {
-			if (titleRefreshTimeoutId == null) {
-				titleRefreshTimeoutId = setTimeout(() => {
-					titleRefreshTimeoutId = null;
-					updateThreads();
-				}, 5000); // 5 sec poll
-			}
-		} else {
-			if (titleRefreshTimeoutId != null) {
-				clearTimeout(titleRefreshTimeoutId);
-				titleRefreshTimeoutId = null;
-			}
-		}
-
-		if (needsRefreshThreads) {
-			needsRefreshThreads = false;
-		}
-
-		return clearTitleRefreshTimeout;
 	});
 
 	$effect(() => {
