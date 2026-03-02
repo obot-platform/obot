@@ -360,6 +360,14 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		if displayName, ok := profile["name"].(string); ok {
 			user.DisplayName = displayName
 		}
+	case "auth0-auth-provider":
+		if iconURL, ok := profile["icon_url"].(string); ok {
+			user.IconURL = iconURL
+			identity.IconURL = iconURL
+		}
+		if displayName, ok := profile["name"].(string); ok {
+			user.DisplayName = displayName
+		}
 	}
 	identity.IconLastChecked = time.Now()
 

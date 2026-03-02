@@ -165,6 +165,47 @@ You can restrict login access to specific Okta users and groups by taking the fo
 4. Select `Assign` on groups you want to allow Obot access to
 5. Once you've made your selections, click `Done`
 
+### Auth0 (Enterprise Only)
+
+Create a **Regular Web Application** in the [Auth0 Dashboard](https://manage.auth0.com) by navigating to Applications > Applications > Create Application.
+
+In the application's Settings tab:
+
+1. Set the **Allowed Callback URLs** to the redirect URI displayed in Obot's Auth Provider configuration dialog
+2. Take note of the **Domain**, **Client ID**, and **Client Secret**
+
+You can now return to Obot and finish configuring Auth0. Use the table below to determine the values to use for each field:
+
+| Obot          | Auth0         | Auth0 Dashboard Location |
+|---------------|---------------|--------------------------|
+| Domain        | Domain        | Application Settings     |
+| Client ID     | Client ID     | Application Settings     |
+| Client Secret | Client Secret | Application Settings     |
+
+#### Enabling Group Support (Optional)
+
+Auth0 supports groups through [Auth0 Organizations](https://auth0.com/docs/manage-users/organizations). To enable group support:
+
+1. Navigate to **Organizations** in the Auth0 Dashboard and create your organizations
+2. Add members to each organization
+3. In your application's settings, under **Organizations**, set the login flow to support organizations
+4. In the **APIs** section of the Auth0 Dashboard, ensure the **Auth0 Management API** is authorized for your application with the following scopes:
+   - `read:users`
+   - `read:organizations`
+   - `read:organization_members`
+
+The Auth0 auth provider will use the Management API to fetch organization memberships for each user.
+
+#### Restricting Login to Specific Users and Groups (Optional)
+
+You can restrict login access to specific Auth0 users by:
+
+1. Enabling **Organizations** and only allowing members of specific organizations to log in
+2. Using [Auth0 Actions](https://auth0.com/docs/customize/actions) to deny login to users who don't meet certain criteria
+3. Configuring **Connection**-level access control to limit which connections (identity providers) are enabled for your application
+
+For more details, see the [Auth0 documentation](https://auth0.com/docs).
+
 ## Switching Between Auth Providers
 
 This section describes the steps involved in switching authentication providers in Obot. In this example, the provider is switched from **GitHub** to **Microsoft Entra**.
