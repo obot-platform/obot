@@ -810,11 +810,11 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		volumeMounts = append(volumeMounts, mount.Mount{
 			Type:   mount.TypeVolume,
 			Source: nanobotVolumeName,
-			Target: "/run",
+			Target: "/config",
 		})
 
 		// Use nanobot command
-		cmd = []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "--exclude-built-in-agents", "--config", "/run/nanobot.yaml"}
+		cmd = []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "--exclude-built-in-agents", "--config", "/config/nanobot.yaml"}
 
 		// Set nanobot environment variables
 		env = append(env, "NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true")
@@ -1302,7 +1302,7 @@ func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerC
 	}
 
 	// Create script to write nanobot config
-	script := fmt.Sprintf("cat > /run/nanobot.yaml << 'EOF'\n%s\nEOF\n", nanobotYAML)
+	script := fmt.Sprintf("cat > /config/nanobot.yaml << 'EOF'\n%s\nEOF\n", nanobotYAML)
 
 	// Create and run init container
 	initConfig := &container.Config{
@@ -1316,7 +1316,7 @@ func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerC
 			{
 				Type:   mount.TypeVolume,
 				Source: volumeName,
-				Target: "/run",
+				Target: "/config",
 			},
 		},
 		AutoRemove: true,
