@@ -71,7 +71,7 @@
 
 <div class="nanobot" data-theme={darkMode.isDark ? 'nanobotdark' : 'nanobotlight'}>
 	{#if loading}
-		<div class="h-[calc(100dvh-4rem)] w-full px-4">
+		<div class="h-[100dvh] w-full px-4">
 			<div class="absolute top-1/2 left-1/2 w-full -translate-x-1/2 -translate-y-1/2 md:w-4xl">
 				<div class="flex flex-col items-center gap-4 px-5 pb-5 md:pb-0">
 					<div class="flex w-full flex-col items-center gap-1">
