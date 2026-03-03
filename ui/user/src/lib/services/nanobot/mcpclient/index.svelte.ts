@@ -38,6 +38,8 @@ export class SimpleClient {
 	#sseConnection?: EventSource;
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	#sseSubscriptions = new Map<string, Set<(resource: ResourceContents) => void>>();
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	#listChangedCallbacks = new Set<() => void>();
 	constructor(opts?: {
 		path?: string;
 		baseUrl?: string;
@@ -136,6 +138,7 @@ export class SimpleClient {
 			this.#sseConnection = undefined;
 		}
 		this.#sseSubscriptions.clear();
+		this.#listChangedCallbacks.clear();
 	}
 
 	async getSessionDetails(): Promise<{ id: string; initializeResult?: InitializationResult }> {
@@ -508,6 +511,16 @@ export class SimpleClient {
 					params?: { uri?: string };
 				};
 
+				if (message.method === 'notifications/resources/list_changed') {
+					this.#listChangedCallbacks.forEach((cb) => {
+						try {
+							cb();
+						} catch (e) {
+							console.error('[SimpleClient] list_changed callback error:', e);
+						}
+					});
+				}
+
 				// Check if this is a resource update notification
 				if (message.method === 'notifications/resources/updated' && message.params?.uri) {
 					const uri = message.params.uri;
@@ -609,11 +622,30 @@ export class SimpleClient {
 			}
 			console.log(`[SimpleClient] Stopped watching resources with prefix: ${prefix}`);
 
-			// Close SSE connection if no more subscriptions
-			if (this.#sseSubscriptions.size === 0 && this.#sseConnection) {
-				this.#sseConnection.close();
-				this.#sseConnection = undefined;
-			}
+			this.#closeSSEIfIdle();
 		};
+	}
+
+	watchListChanged(callback: () => void): () => void {
+		this.#listChangedCallbacks.add(callback);
+		this.#ensureSSEConnection().catch((e) => {
+			console.error('[SimpleClient] Failed to ensure SSE for list_changed:', e);
+		});
+
+		return () => {
+			this.#listChangedCallbacks.delete(callback);
+			this.#closeSSEIfIdle();
+		};
+	}
+
+	#closeSSEIfIdle(): void {
+		if (
+			this.#sseSubscriptions.size === 0 &&
+			this.#listChangedCallbacks.size === 0 &&
+			this.#sseConnection
+		) {
+			this.#sseConnection.close();
+			this.#sseConnection = undefined;
+		}
 	}
 }

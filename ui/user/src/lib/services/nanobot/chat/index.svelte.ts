@@ -334,6 +334,10 @@ export class ChatSession {
 		return this.sessionClient.watchResource(uri, callback);
 	}
 
+	watchListChanged(callback: () => void): () => void {
+		return this.sessionClient.watchListChanged(callback);
+	}
+
 	async cancelRequest(requestId: string): Promise<void> {
 		await this.sessionClient.notify('notifications/cancelled', {
 			requestId,
@@ -380,6 +384,9 @@ export class ChatSession {
 				if (!this.#promptsAbort?.signal.aborted && prompts?.prompts) {
 					this.prompts = prompts.prompts;
 				}
+			});
+			this.watchListChanged(() => {
+				this.refreshResources();
 			});
 		} else {
 			this.#resourcesAbort?.abort();
