@@ -6,6 +6,7 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { get } from 'svelte/store';
 	import { isRecent } from '$lib/time';
+	import { parseJSON } from '$lib/services/nanobot/utils';
 
 	interface Props {
 		sessions: Chat[];
@@ -29,6 +30,23 @@
 
 	let editingSessionId = $state<string | null>(null);
 	let editTitle = $state('');
+	let sessionsToShow = $derived.by(() => {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const sessionIdsToFilter = new Set<string>();
+		for (let i = 0; i < localStorage.length; i++) {
+			const key = localStorage.key(i);
+			if (key?.startsWith('mcp-session-')) {
+				const parsed = parseJSON<{ sessionId: string }>(localStorage.getItem(key) ?? '');
+				if (parsed?.sessionId) sessionIdsToFilter.add(parsed.sessionId);
+			}
+		}
+		return sessions.filter(
+			(t) =>
+				!sessionIdsToFilter.has(t.id) &&
+				t.id !== $nanobotChat?.api?.sessionId &&
+				(t.title || isRecent(t.created))
+		);
+	});
 
 	function navigateToSession(sessionId: string) {
 		const storedChat = get(nanobotChat);
@@ -173,7 +191,7 @@
 				</div>
 			{/each}
 		{:else}
-			{#each sessions as session, index (session.id)}
+			{#each sessionsToShow as session, index (session.id)}
 				<div
 					data-thread-row={index}
 					class="group border-base-200 dark:hover:bg-base-100/25 hover:bg-base-100/65 flex items-center border-b"
