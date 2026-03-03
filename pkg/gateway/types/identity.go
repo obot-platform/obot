@@ -9,6 +9,7 @@ type Identity struct {
 	ProviderUsername      string    `json:"providerUsername"`
 	ProviderUserID        string    `json:"providerUserID"`
 	HashedProviderUserID  string    `json:"hashedProviderUserID" gorm:"primaryKey"`
+	ProviderGroupLookupID string    `json:"providerGroupLookupID"`
 	Email                 string    `json:"email"`
 	HashedEmail           string    `json:"hashedEmail"`
 	UserID                uint      `json:"userID" gorm:"index:idx_user_auth_id"`
@@ -21,6 +22,13 @@ type Identity struct {
 
 	// AuthProviderGroups is the set of auth provider groups that the identity is a member of.
 	AuthProviderGroups []Group `json:"groups" gorm:"-"`
+}
+
+func (i Identity) GroupLookupID() string {
+	if i.ProviderGroupLookupID != "" {
+		return i.ProviderGroupLookupID
+	}
+	return i.ProviderUserID
 }
 
 func (i Identity) GetAuthProviderGroupIDs() []string {

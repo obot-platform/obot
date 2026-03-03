@@ -369,6 +369,12 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 			user.DisplayName = displayName
 		}
 	}
+
+	// Update the provider-native group lookup ID from the profile response.
+	if lookupID := extractProfileID(profile); lookupID != "" {
+		identity.ProviderGroupLookupID = lookupID
+	}
+
 	identity.IconLastChecked = time.Now()
 
 	if err = c.encryptIdentity(ctx, &identity); err != nil {
