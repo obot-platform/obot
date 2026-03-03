@@ -9,6 +9,7 @@
 	import RawEditor from '$lib/components/editor/RawEditor.svelte';
 	import FileItem from './FileItem.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import PDF from './PDF.svelte';
 
 	interface Props {
 		filename: string;
@@ -334,14 +335,7 @@
 						/>
 					</div>
 				{:else if isPdf}
-					<div class="h-full w-full">
-						<iframe
-							src="data:application/pdf;base64,{resource.blob}"
-							class="border-base-300 h-full w-full rounded border"
-							title="PDF Viewer"
-							sandbox=""
-						></iframe>
-					</div>
+					<PDF class="h-full" base64={resource.blob} classes={{ iframe: 'h-full' }} />
 				{:else}
 					<div class="text-base-content/40 italic">This file could not be displayed.</div>
 				{/if}
