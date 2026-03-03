@@ -177,8 +177,10 @@
 	});
 
 	function getResourcePath(filename: string): string {
-		const prefix = '/home/nanobot/';
-		const relpath = filename.startsWith(prefix) ? filename.slice(prefix.length) : filename;
+		if (filename.startsWith('workflow:///')) return filename;
+
+		const homePrefix = '/home/nanobot/';
+		const relpath = filename.startsWith(homePrefix) ? filename.slice(homePrefix.length) : filename;
 
 		const workflowsPrefix = 'workflows/';
 		const mdSuffix = '.md';
