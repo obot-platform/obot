@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Send, Square } from 'lucide-svelte';
+	import { Paperclip, Send, Square } from 'lucide-svelte';
 	import MessageAttachments from './MessageAttachments.svelte';
 	import type MessageSlashPromptsType from './MessageSlashPrompts.svelte';
 	import MessageSlashPrompts from './MessageSlashPrompts.svelte';
@@ -181,7 +181,17 @@
 			<!-- Bottom row: Agent select on left (if multiple agents), buttons on right -->
 			<div class="flex items-end justify-between">
 				<!-- Agent selector -->
-				<div>
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						class="btn btn-circle btn-ghost tooltip"
+						data-tip="Upload a file"
+						disabled={disabled || !onFileUpload || isUploading}
+						onclick={() => fileInput?.click()}
+						aria-label="Upload a file"
+					>
+						<Paperclip class="size-4" />
+					</button>
 					{#if showAgentDropdown}
 						<select
 							class="select select-ghost select-sm w-48"
