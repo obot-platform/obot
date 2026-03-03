@@ -648,7 +648,8 @@ export class ChatSession {
 					id: request.id + '_0',
 					type: 'text',
 					text: request.message
-				}
+				},
+				...buildFileAttachmentPreviewItems(request.id, request.attachments || [])
 			]
 		};
 		return {
