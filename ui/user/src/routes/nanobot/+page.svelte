@@ -133,7 +133,7 @@
 	</div>
 
 	{#snippet rightSidebar()}
-		<ThreadQuickAccess />
+		<ThreadQuickAccess {projectId} agentId={agent.id} />
 	{/snippet}
 </Layout>
 
