@@ -1,4 +1,4 @@
-import type { ChatService } from './chat/index.svelte';
+import type { ChatSession } from './chat/index.svelte';
 
 export interface Agent {
 	id: string;
@@ -379,8 +379,8 @@ export interface WorkspaceClient {
 	deleteFile(path: string): Promise<void>;
 	deleteSession(sessionId: string): Promise<void>;
 	getSessionDetails(sessionId: string): Promise<SessionDetails>;
-	getSession(sessionId: string): Promise<ChatService>;
-	newSession(opts?: { editor?: boolean }): Promise<ChatService>;
+	getSession(sessionId: string): Promise<ChatSession>;
+	newSession(opts?: { editor?: boolean }): Promise<ChatSession>;
 }
 
 export interface InitializationResult {
@@ -442,8 +442,6 @@ export interface ProjectV2AgentUpdateRequest {
 }
 
 export interface ProjectLayoutContext {
-	chat: import('$lib/services/nanobot/chat/index.svelte').ChatService | null;
-	threadWriteToolItems: ChatMessageItemToolCall[];
 	handleFileOpen: (filename: string) => void;
 	setThreadContentWidth: (w: number) => void;
 	setLayoutName: (name: string) => void;

@@ -1,40 +1,18 @@
 <script lang="ts">
-	import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import Thread from '$lib/components/nanobot/Thread.svelte';
 	import { MessageCircle, Sparkles } from 'lucide-svelte';
-	import { AdminService, NanobotService } from '$lib/services';
-	import { errors } from '$lib/stores';
-	import Confirm from '$lib/components/Confirm.svelte';
+	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
 
 	interface Props {
 		agentId: string;
 		projectId: string;
-		chat: ChatService;
+		chat: ChatSession;
 		onFileOpen?: (filename: string) => void;
 		suppressEmptyState?: boolean;
 		onThreadContentWidth?: (width: number) => void;
 	}
 
-	let { agentId, projectId, chat, onFileOpen, suppressEmptyState, onThreadContentWidth }: Props =
-		$props();
-
-	let showRestartConfirm = $state(false);
-	let restarting = $state(false);
-
-	async function handleRestart() {
-		restarting = true;
-		try {
-			await AdminService.restartK8sDeployment(`ms1${agentId}`);
-			await NanobotService.launchProjectV2Agent(projectId, agentId);
-			window.location.reload();
-		} catch (error) {
-			console.error('Failed to restart agent:', error);
-			errors.append(error);
-		} finally {
-			restarting = false;
-			showRestartConfirm = false;
-		}
-	}
+	let { chat, onFileOpen, suppressEmptyState, onThreadContentWidth }: Props = $props();
 </script>
 
 <div class="flex h-full w-full">
@@ -57,9 +35,6 @@
 				isLoading={chat.isLoading}
 				isRestoring={chat.isRestoring}
 				agent={chat.agent}
-				onRestart={() => {
-					showRestartConfirm = true;
-				}}
 				onRefreshResources={() => {
 					chat.refreshResources();
 				}}
@@ -112,18 +87,3 @@
 		{/key}
 	</div>
 </div>
-
-<Confirm
-	show={showRestartConfirm}
-	onsuccess={handleRestart}
-	oncancel={() => (showRestartConfirm = false)}
-	loading={restarting}
-	title="Restart Agent"
-	msg="Are you sure you want to restart this agent?"
-	type="info"
->
-	{#snippet note()}
-		This will restart the current agent with the latest available version. Are you sure you want to
-		continue?
-	{/snippet}
-</Confirm>

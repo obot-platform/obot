@@ -3,25 +3,22 @@
 	import { getContext } from 'svelte';
 	import type { ProjectLayoutContext, ResourceContents, Chat } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import { ChatAPI } from '$lib/services/nanobot/chat/index.svelte';
 	import MarkdownEditor from '$lib/components/nanobot/MarkdownEditor.svelte';
 	import { PencilLine, Play, Workflow, Eye, Trash2 } from 'lucide-svelte';
 	import { formatTimeAgo } from '$lib/time';
-	import { ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { goto } from '$lib/url';
 
 	let { data } = $props();
 	let workflowName = $derived(data.workflowName);
 	let projectId = $derived(data.projectId);
-	let agent = $derived(data.agent);
 	let workflow = $derived(
 		$nanobotChat?.resources?.length
 			? $nanobotChat.resources.find((r) => r.name === workflowName)
 			: undefined
 	);
 	let resource = $state<ResourceContents>();
-	let threads = $state<Chat[]>([]);
+	let sessions = $state<Chat[]>([]);
 	let loading = $state(false);
 	let deletingWorkflow = $state(false);
 
@@ -31,7 +28,7 @@
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
 
 	const sortedThreads = $derived.by(() => {
-		const list = [...threads];
+		const list = [...sessions];
 		const effective = sortBy || 'created-desc';
 		switch (effective) {
 			case 'name-asc':
@@ -47,12 +44,10 @@
 	});
 
 	const recentRuns = $derived(
-		[...threads]
+		[...sessions]
 			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
 			.slice(0, 3)
 	);
-
-	const chatApi = $derived(new ChatAPI(agent.connectURL));
 
 	$effect(() => {
 		const container = workflowsContainer;
@@ -68,9 +63,9 @@
 	});
 
 	$effect(() => {
-		if (!resource && workflow) {
-			$nanobotChat?.chat
-				?.readResource(workflow.uri)
+		if (!resource && workflow && $nanobotChat?.api) {
+			$nanobotChat.api
+				.readResource(workflow.uri)
 				.then((result) => {
 					if (result.contents?.length) {
 						resource = result.contents[0];
@@ -80,33 +75,35 @@
 					console.error(error);
 				});
 
-			chatApi.getThreads().then((threadData) => {
-				threads = threadData.filter((t) => t.workflowURIs && t.workflowURIs.includes(workflow.uri));
+			$nanobotChat.api.listSessions().then((sessionData) => {
+				sessions = sessionData.filter(
+					(t) => t.workflowURIs && t.workflowURIs.includes(workflow.uri)
+				);
 			});
 		}
 	});
 
 	function handleSetupWorkflowThread(message: string, showFile: boolean = false) {
 		loading = true;
-		const newChat = new ChatService(chatApi, {
-			onThreadCreated: (thread) => {
-				nanobotChat.update((data) => {
-					if (data) {
-						if (data.chat && data.chat !== newChat) {
-							data.chat.close();
-						}
-						data.chat = newChat;
-						data.threadId = newChat.chatId;
+		$nanobotChat?.api.createSession().then((sessionClient) => {
+			nanobotChat.update((data) => {
+				if (data) {
+					if (data.chat) {
+						data.chat.close();
 					}
-					return data;
-				});
+					data.chat = sessionClient;
+					data.sessionId = sessionClient.chatId;
+				}
+				return data;
+			});
+			sessionClient.sendMessage(message);
 
-				loading = false;
+			loading = false;
 
-				goto(`/nanobot/p/${projectId}?tid=${thread.id}${showFile ? `&wid=${workflowName}` : ''}`);
-			}
+			goto(
+				`/nanobot/p/${projectId}?tid=${sessionClient.chatId}${showFile ? `&wid=${workflowName}` : ''}`
+			);
 		});
-		newChat.sendMessage(message);
 	}
 
 	function handleModifyWorkflow() {
@@ -166,7 +163,7 @@
 		</div>
 
 		<div class="mb-8">
-			{#if threads.length > 3}
+			{#if sessions.length > 3}
 				<div class="list bg-base-100 rounded-box">
 					<h3 class="px-4 pb-2 text-base font-semibold tracking-wide">Most recent runs</h3>
 
@@ -223,7 +220,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#if threads.length > 0}
+					{#if sessions.length > 0}
 						{#each sortedThreads as thread (thread.id)}
 							<tr
 								class="list-row"
@@ -276,7 +273,7 @@
 	show={deletingWorkflow}
 	onsuccess={async () => {
 		if (!workflow) return;
-		await chatApi.deleteWorkflow(workflow.uri);
+		await $nanobotChat?.api.deleteWorkflow(workflow.uri);
 		nanobotChat.update((data) => {
 			if (data) {
 				data.resources = data.resources.filter((r) => r.uri !== workflow.uri);

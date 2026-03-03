@@ -1,5 +1,4 @@
 <script lang="ts">
-	import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import type { ResourceContents } from '$lib/services/nanobot/types';
 	import { X } from 'lucide-svelte';
 	import MarkdownEditor from './MarkdownEditor.svelte';
@@ -9,24 +8,18 @@
 	import { twMerge } from 'tailwind-merge';
 	import RawEditor from '$lib/components/editor/RawEditor.svelte';
 	import FileItem from './FileItem.svelte';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import PDF from './PDF.svelte';
 
 	interface Props {
 		filename: string;
-		chat: ChatService;
 		open?: boolean;
 		onClose?: () => void;
 		quickBarAccessOpen?: boolean;
 		threadContentWidth?: number;
 	}
 
-	let {
-		filename,
-		chat,
-		open,
-		onClose,
-		quickBarAccessOpen,
-		threadContentWidth = 0
-	}: Props = $props();
+	let { filename, open, onClose, quickBarAccessOpen, threadContentWidth = 0 }: Props = $props();
 
 	const name = $derived(tryDecodeURIComponent(filename.split('/').pop() || ''));
 	let resource = $state<ResourceContents | null>(null);
@@ -184,6 +177,23 @@
 		};
 	});
 
+	function getResourcePath(filename: string): string {
+		if (filename.startsWith('workflow:///')) return filename;
+
+		const homePrefix = '/home/nanobot/';
+		const relpath = filename.startsWith(homePrefix) ? filename.slice(homePrefix.length) : filename;
+
+		const workflowsPrefix = 'workflows/';
+		const mdSuffix = '.md';
+		if (relpath.startsWith(workflowsPrefix) && relpath.endsWith(mdSuffix)) {
+			const withoutWorkflows = relpath.slice(workflowsPrefix.length);
+			const withoutMd = withoutWorkflows.slice(0, -mdSuffix.length);
+			return `workflow:///${withoutMd}`;
+		} else {
+			return relpath.startsWith('file:///') ? relpath : `file:///${relpath}`;
+		}
+	}
+
 	$effect(() => {
 		// Reset state when filename changes
 		resource = null;
@@ -193,17 +203,17 @@
 		let cleanup: (() => void) | undefined;
 
 		const loadResource = async () => {
+			if (!$nanobotChat?.api) {
+				console.error('No chat API found');
+				return;
+			}
 			try {
-				const result = await chat.readResource(filename);
+				const resourcePath = getResourcePath(filename);
+				const result = await $nanobotChat.api.readResource(resourcePath);
 				if (result.contents?.length) {
 					resource = result.contents[0];
 				}
 				loading = false;
-
-				// Subscribe to live updates
-				cleanup = chat.watchResource(filename, (updatedResource) => {
-					resource = updatedResource;
-				});
 			} catch (e) {
 				error = e instanceof Error ? e.message : String(e);
 				loading = false;
@@ -221,6 +231,7 @@
 		filename.includes('.') ? filename.split('.').pop()?.toLowerCase() : undefined
 	);
 	let isMarkdown = $derived(mimeType.startsWith('text/markdown') || extension === 'md');
+	let isPdf = $derived(mimeType === 'application/pdf');
 
 	const visible = $derived(mounted && open);
 	let justOpened = $state(false);
@@ -323,13 +334,16 @@
 							class="h-auto max-w-full"
 						/>
 					</div>
+				{:else if isPdf}
+					<PDF class="h-full" base64={resource.blob} classes={{ iframe: 'h-full' }} />
 				{:else}
 					<div class="text-base-content/40 italic">This file could not be displayed.</div>
 				{/if}
 			{:else if isMarkdown}
-				<MarkdownEditor value={content} />
+				<MarkdownEditor value={content} readonly />
 			{:else if content}
 				<RawEditor
+					disabled
 					value={content}
 					{filename}
 					disablePreview

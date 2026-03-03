@@ -3,6 +3,7 @@
 	import { getFileIcon } from '$lib/components/nanobot/MessageAttachments.svelte';
 	import type { ChatMessageItemResource } from '$lib/services/nanobot/types';
 	import { isCancellationError } from '$lib/services/nanobot/utils';
+	import PDF from './PDF.svelte';
 
 	interface Props {
 		item: ChatMessageItemResource;
@@ -184,13 +185,10 @@
 						<pre><code>{getDecodedText()}</code></pre>
 					</div>
 				{:else if isPdfType(item.resource.mimeType) && item.resource.blob}
-					<div class="w-full">
-						<iframe
-							src="data:application/pdf;base64,{item.resource.blob}"
-							class="border-base-300 h-96 w-full rounded border"
-							title="PDF Viewer"
-						></iframe>
-					</div>
+					<PDF
+						base64={item.resource.blob}
+						classes={{ iframe: 'border-base-300 h-96 w-full rounded border' }}
+					/>
 				{:else}
 					<div class="py-8 text-center">
 						<div class="mb-4 text-6xl">{getFileIcon(item.resource.mimeType)}</div>

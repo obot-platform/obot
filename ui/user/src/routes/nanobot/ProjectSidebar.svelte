@@ -2,7 +2,6 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import Threads from '$lib/components/nanobot/Threads.svelte';
 	import { getLayout } from '$lib/context/nanobotLayout.svelte';
-	import { ChatAPI } from '$lib/services/nanobot/chat/index.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
 	import {
@@ -18,25 +17,29 @@
 	import { twMerge } from 'tailwind-merge';
 	import { fly, slide } from 'svelte/transition';
 	import { resolve } from '$app/paths';
+	import { errors } from '$lib/stores';
 
 	interface Props {
-		chatApi: ChatAPI;
-		selectedThreadId?: string;
+		selectedSessionId?: string;
 		projectId: string;
 	}
 
-	let { chatApi, selectedThreadId, projectId }: Props = $props();
+	let { selectedSessionId, projectId }: Props = $props();
 
 	const layout = getLayout();
-	async function handleRenameThread(threadId: string, newTitle: string) {
+	async function handleRenameSession(sessionId: string, newTitle: string) {
+		if (!$nanobotChat?.api) {
+			errors.append(new Error('Nanobot API not found'));
+			return;
+		}
 		try {
-			await chatApi.renameThread(threadId, newTitle);
+			await $nanobotChat.api.renameSession(sessionId, newTitle);
 			const sharedChat = get(nanobotChat);
-			const threadIndex = sharedChat?.threads.findIndex((t) => t.id === threadId) ?? -1;
-			if (threadIndex !== -1 && sharedChat) {
+			const sessionIndex = sharedChat?.sessions.findIndex((s) => s.id === sessionId) ?? -1;
+			if (sessionIndex !== -1 && sharedChat) {
 				nanobotChat.update((data) => {
-					if (data && threadIndex !== -1) {
-						data.threads[threadIndex].title = newTitle;
+					if (data && sessionIndex !== -1) {
+						data.sessions[sessionIndex].title = newTitle;
 					}
 					return data;
 				});
@@ -46,29 +49,30 @@
 		}
 	}
 
-	async function handleDeleteThread(threadId: string) {
-		const sharedChat = get(nanobotChat);
-		const isCurrentViewedThread = selectedThreadId === threadId;
+	async function handleDeleteSession(sessionId: string) {
+		if (!$nanobotChat?.api) {
+			errors.append(new Error('Nanobot API not found'));
+			return;
+		}
+		const isCurrentViewedSession = selectedSessionId === sessionId;
 		try {
-			await chatApi.deleteThread(threadId);
-			if (sharedChat) {
-				nanobotChat.update((data) => {
-					if (data) {
-						data.threads = data.threads.filter((t) => t.id !== threadId);
-						if (data.threadId === threadId) {
-							data.threadId = undefined;
+			await $nanobotChat.api.deleteSession(sessionId);
+			nanobotChat.update((data) => {
+				if (data) {
+					data.sessions = data.sessions.filter((s) => s.id !== sessionId);
+					if (data.sessionId === sessionId) {
+						data.sessionId = undefined;
 
-							if (data.chat) {
-								data.chat.close();
-								data.chat = undefined;
-							}
+						if (data.chat) {
+							data.chat.close();
+							data.chat = undefined;
 						}
 					}
-					return data;
-				});
-			}
+				}
+				return data;
+			});
 
-			if (isCurrentViewedThread) {
+			if (isCurrentViewedSession) {
 				goto(`/nanobot`, { replaceState: true });
 			}
 		} catch (error) {
@@ -76,10 +80,10 @@
 		}
 	}
 
-	function handleCreateThread() {
+	function handleCreateSession() {
 		nanobotChat.update((data) => {
 			if (data) {
-				data.threadId = undefined;
+				data.sessionId = undefined;
 			}
 			return data;
 		});
@@ -133,12 +137,12 @@
 					</a>
 
 					<Threads
-						threads={$nanobotChat?.threads ?? []}
-						onRename={handleRenameThread}
-						onDelete={handleDeleteThread}
-						onCreateThread={handleCreateThread}
+						sessions={$nanobotChat?.sessions ?? []}
+						onRename={handleRenameSession}
+						onDelete={handleDeleteSession}
+						onCreateSession={handleCreateSession}
 						isLoading={$nanobotChat?.isThreadsLoading ?? false}
-						{selectedThreadId}
+						{selectedSessionId}
 					/>
 				</div>
 			{:else}
@@ -168,7 +172,7 @@
 							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
 							aria-label="Start new conversation"
 							data-tip="Start new conversation"
-							onclick={handleCreateThread}
+							onclick={handleCreateSession}
 						>
 							<Plus class="text-base-content/50 size-6" />
 						</button>

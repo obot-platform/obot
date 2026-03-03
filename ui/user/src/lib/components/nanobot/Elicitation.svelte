@@ -135,7 +135,6 @@
 
 	// Question elicitation functions
 	function isQuestionElicitation(): boolean {
-		console.log(elicitation);
 		return Boolean(elicitation._meta?.['ai.nanobot.meta/question']);
 	}
 

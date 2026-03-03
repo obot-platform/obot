@@ -1,18 +1,17 @@
 <script lang="ts">
-	import { ChatAPI, ChatService } from '$lib/services/nanobot/chat/index.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
+	import { afterNavigate } from '$app/navigation';
 	import { Play, Search } from 'lucide-svelte';
 	import { getContext } from 'svelte';
 	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 
 	let { data } = $props();
-	let agent = $derived(data.agent);
-	let projectId = $derived(data.projectId);
-	const chatApi = $derived(new ChatAPI(agent.connectURL));
+	let projectId = $derived(data.projects[0].id);
 
 	let workflowQuery = $state('');
+	let loading = $state(false);
 
 	let workflows = $derived(
 		$nanobotChat?.resources
@@ -29,28 +28,25 @@
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
 
 	function handleSelectWorkflow(workflowName: string) {
-		const newChat = new ChatService(chatApi, {
-			onThreadCreated: (thread) => {
-				nanobotChat.update((data) => {
-					if (data) {
-						if (data.chat && data.chat !== newChat) {
-							data.chat.close();
-						}
-						data.chat = newChat;
-						data.threadId = newChat.chatId;
+		$nanobotChat?.api.createSession().then((sessionClient) => {
+			nanobotChat.update((data) => {
+				if (data) {
+					if (data.chat) {
+						data.chat.close();
 					}
-					return data;
-				});
+					data.chat = sessionClient;
+					data.sessionId = sessionClient.chatId;
+				}
+				return data;
+			});
 
-				goto(`/nanobot/p/${projectId}?tid=${thread.id}&wid=${workflowName}`, {
-					replaceState: true,
-					noScroll: true,
-					keepFocus: true
-				});
-			}
+			goto(`/nanobot/p/${projectId}?tid=${sessionClient.chatId}&wid=${workflowName}`, {
+				replaceState: true,
+				noScroll: true,
+				keepFocus: true
+			});
+			sessionClient.sendMessage(`Run workflow: ${workflowName}`);
 		});
-
-		newChat.sendMessage(`Run workflow: ${workflowName}`);
 	}
 
 	$effect(() => {
@@ -65,6 +61,24 @@
 		projectLayout.setThreadContentWidth(container.getBoundingClientRect().width);
 		return () => ro.disconnect();
 	});
+
+	afterNavigate(({ from }) => {
+		if (!from?.url || !$nanobotChat?.api) return;
+		loading = true;
+		$nanobotChat.api
+			.listResources()
+			.then((resources) => {
+				nanobotChat.update((data) => {
+					if (data) {
+						data.resources = resources;
+					}
+					return data;
+				});
+			})
+			.finally(() => {
+				loading = false;
+			});
+	});
 </script>
 
 <div
@@ -77,7 +91,12 @@
 	</label>
 
 	<div>
-		<h2 class="text-2xl font-semibold">Workflows</h2>
+		<div class="flex items-center gap-1">
+			<h2 class="text-2xl font-semibold">Workflows</h2>
+			{#if loading}
+				<div class="loading loading-spinner text-primary loading-sm ml-2"></div>
+			{/if}
+		</div>
 
 		<p class="text-base-content/50 text-sm font-light">
 			Workflows are AI-powered tools that can be used to automate tasks and processes.

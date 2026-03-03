@@ -3,6 +3,7 @@
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
+	import PDF from './PDF.svelte';
 
 	interface Props {
 		item: ChatMessageItemResourceLink;
@@ -217,13 +218,10 @@
 					<pre><code>{getDecodedText(previewBlob, previewText)}</code></pre>
 				</div>
 			{:else if previewMimeType && isPdfType(previewMimeType) && (previewBlob || previewText)}
-				<div class="w-full">
-					<iframe
-						src="data:application/pdf;base64,{previewBlob || previewText}"
-						class="border-base-300 h-96 w-full rounded border"
-						title="PDF Viewer"
-					></iframe>
-				</div>
+				<PDF
+					base64={previewBlob || previewText}
+					classes={{ iframe: 'border-base-300 h-96 w-full rounded border' }}
+				/>
 			{:else if previewMimeType?.startsWith('image/') && isSafeImageMimeType(previewMimeType) && previewBlob}
 				<div class="flex justify-center">
 					<img

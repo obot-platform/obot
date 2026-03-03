@@ -10,12 +10,7 @@ export function isCancellationError(text: string | undefined): boolean {
 
 export function parseToolFilePath(item: ChatMessageItemToolCall) {
 	if (!item.arguments) return null;
-	try {
-		const parsed = JSON.parse(item.arguments);
-		return parsed.file_path;
-	} catch {
-		return null;
-	}
+	return parseJSON<{ file_path: string }>(item.arguments)?.file_path ?? null;
 }
 
 const SAFE_IMAGE_MIME_TYPES = new Set<string>([
@@ -28,4 +23,13 @@ const SAFE_IMAGE_MIME_TYPES = new Set<string>([
 
 export function isSafeImageMimeType(mimeType: string | null | undefined): boolean {
 	return !!mimeType && SAFE_IMAGE_MIME_TYPES.has(mimeType);
+}
+
+export function parseJSON<T>(json?: string): T | null {
+	if (!json) return null;
+	try {
+		return JSON.parse(json) as T;
+	} catch {
+		return null;
+	}
 }
