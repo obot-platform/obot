@@ -2,103 +2,38 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import * as nanobotLayout from '$lib/context/nanobotLayout.svelte';
 	import ProjectSidebar from './ProjectSidebar.svelte';
-	import { ChatAPI, ChatService } from '$lib/services/nanobot/chat/index.svelte';
-	import { onMount, untrack } from 'svelte';
 	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
-	import type { Chat } from '$lib/services/nanobot/types';
-	import { goto } from '$lib/url';
-	import { get } from 'svelte/store';
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
-	import { loadNanobotThreads } from './loadNanobotThreads';
-	import { NanobotService } from '$lib/services';
-	import { errors } from '$lib/stores';
 	import ThreadQuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
+	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import { goto } from '$lib/url';
+	import type { Attachment, UploadedFile } from '$lib/services/nanobot/types';
 
 	let { data } = $props();
 	let projects = $derived(data.projects);
 	let agent = $derived(data.agent);
-	let isNewAgent = $derived(data.isNewAgent);
-	let chat = $state<ChatService | null>(null);
-	let loading = $state(true);
+	let projectId = $derived(projects[0]?.id ?? '');
 	let threadContentWidth = $state(0);
+	let initialMessage = $state<string | undefined>(undefined);
+	let pendingFiles = $state<UploadedFile[]>([]);
 
-	onMount(async () => {
-		loading = true;
-		if (isNewAgent) {
-			try {
-				await NanobotService.launchProjectV2Agent(projects[0].id, agent.id);
-			} catch (error) {
-				console.error(error);
-				errors.append(error);
-			} finally {
-				loading = false;
-			}
-		} else {
-			loading = false;
+	function cancelPendingUpload(fileId: string) {
+		const entry = pendingFiles.find((f) => f.id === fileId);
+		if (entry?.uri?.startsWith('blob:')) {
+			URL.revokeObjectURL(entry.uri);
 		}
-
-		await loadNanobotThreads(chatApi, projects[0].id);
-	});
-
-	const chatApi = $derived(new ChatAPI(agent.connectURL));
-
-	function handleThreadCreated(thread: Chat) {
-		const projectId = projects[0].id;
-		if (chat) {
-			nanobotChat.update((data) => {
-				if (data) {
-					data.chat = chat!;
-					data.threadId = thread.id;
-				}
-				return data;
-			});
-		}
-		goto(`/nanobot/p/${projectId}?tid=${thread.id}`, {
-			replaceState: true,
-			noScroll: true,
-			keepFocus: true
-		});
+		pendingFiles = pendingFiles.filter((f) => f.id !== fileId);
 	}
 
-	$effect(() => {
-		const newChat = new ChatService(chatApi, {
-			onThreadCreated: handleThreadCreated
-		});
-
-		newChat.selectedAgentId = 'explorer';
-
-		untrack(() => {
-			chat = newChat;
-			// Sync chat into store so sidebar (Workflows, FileExplorer) can read resources
-			const projectId = projects[0].id;
-			nanobotChat.update((data) => {
-				if (data) {
-					data.chat = newChat;
-					data.threadId = undefined;
-				}
-				return data;
-			});
-			// Store may still be null before loadNanobotThreads runs in onMount
-			if (get(nanobotChat) === null) {
-				nanobotChat.set({
-					projectId,
-					threadId: undefined,
-					chat: newChat,
-					threads: [],
-					isThreadsLoading: true,
-					resources: []
-				});
-			}
-		});
-
-		return () => {
-			const storedChat = get(nanobotChat);
-			if (storedChat?.chat === newChat) {
-				return;
-			}
-			newChat.close();
-		};
-	});
+	async function handleFileUpload(
+		file: File,
+		_opts?: { controller?: AbortController }
+	): Promise<Attachment> {
+		const id = crypto.randomUUID();
+		const uri = URL.createObjectURL(file);
+		pendingFiles = [...pendingFiles, { id, file, uri, mimeType: file.type || undefined }];
+		return { name: file.name, uri, mimeType: file.type || undefined };
+	}
 </script>
 
 <Layout
@@ -116,48 +51,89 @@
 	hideProfileButton
 >
 	{#snippet leftSidebar()}
-		<ProjectSidebar {chatApi} projectId={projects[0].id} />
+		<ProjectSidebar projectId={projects[0].id} />
 	{/snippet}
 
 	<div
 		class="flex w-full min-w-0 grow"
 		style={threadContentWidth > 0 ? `min-width: ${threadContentWidth}px` : ''}
 	>
-		{#if chat && !loading}
-			{#key chat.chatId}
-				<ProjectStartThread
-					agentId={agent.id}
-					projectId={projects[0].id}
-					{chat}
-					onThreadContentWidth={(w) => (threadContentWidth = w)}
-				/>
-			{/key}
-		{:else}
-			<div class="h-[calc(100dvh-4rem)] w-full px-4">
-				<div class="absolute top-1/2 left-1/2 w-full -translate-x-1/2 -translate-y-1/2 md:w-4xl">
-					<div class="flex flex-col items-center gap-4 px-5 pb-5 md:pb-0">
-						<div class="flex w-full flex-col items-center gap-1">
-							<div class="h-8 w-xs"></div>
-							<p class="text-md skeleton skeleton-text text-center font-light">
-								Just a moment, setting up your agent...
-							</p>
-						</div>
-						<div class="flex w-full flex-col items-center justify-center gap-4 md:flex-row">
-							<div class="rounded-field skeleton h-[132px] w-full md:w-70"></div>
-							<div class="rounded-field skeleton h-[132px] w-full md:w-70"></div>
-						</div>
+		<ProjectStartThread
+			agentId={agent.id}
+			{projectId}
+			chat={{
+				sendMessage: async (message: string, attachments?: Attachment[]) => {
+					initialMessage = message;
+					const toUpload = [...pendingFiles];
+					pendingFiles = [];
+					toUpload.forEach((p) => {
+						if (p.uri?.startsWith('blob:')) URL.revokeObjectURL(p.uri);
+					});
 
-						<div class="skeleton mb-6 h-[124px] w-full"></div>
-					</div>
-				</div>
-			</div>
-		{/if}
+					$nanobotChat?.api.createSession().then(async (session) => {
+						const uploadedAttachments: Attachment[] = await Promise.all(
+							toUpload.map((p) => session.uploadFile(p.file))
+						);
+						const allAttachments = [...uploadedAttachments, ...(attachments ?? [])];
+						session.sendMessage(message, allAttachments.length > 0 ? allAttachments : undefined);
+						nanobotChat.update((data) => {
+							if (data) {
+								data.projectId = projectId;
+								data.chat = session;
+								data.sessionId = session.chatId;
+							}
+							return data;
+						});
+
+						goto(`/nanobot/p/${projectId}?tid=${session.chatId}`, {
+							replaceState: true,
+							noScroll: true,
+							keepFocus: true
+						});
+					});
+				},
+				messages: initialMessage
+					? [
+							{
+								id: crypto.randomUUID(),
+								role: 'user',
+								created: new Date().toISOString(),
+								items: [
+									{
+										id: crypto.randomUUID(),
+										type: 'text',
+										text: initialMessage
+									}
+								]
+							}
+						]
+					: [],
+				prompts: [],
+				resources: [],
+				agent: undefined,
+				agents: [],
+				selectedAgentId: '',
+				elicitations: [],
+				isLoading: false,
+				isRestoring: false,
+				chatId: '',
+				uploadFile: handleFileUpload,
+				uploadedFiles: pendingFiles,
+				uploadingFiles: [],
+				cancelUpload: cancelPendingUpload,
+				sessionClient: undefined,
+				closer: () => {},
+				history: [],
+				onChatDone: [],
+				currentRequestId: undefined,
+				subscribed: false
+			} as unknown as ChatSession}
+			onThreadContentWidth={(w) => (threadContentWidth = w)}
+		/>
 	</div>
 
 	{#snippet rightSidebar()}
-		{#if chat}
-			<ThreadQuickAccess />
-		{/if}
+		<ThreadQuickAccess />
 	{/snippet}
 </Layout>
 

@@ -8,20 +8,21 @@
 
 	let { data } = $props();
 	let agent = $derived(data.agent);
-	let projectId = $derived(data.projectId);
-	let thread = $derived(
-		$nanobotChat?.threads?.find((t) => t.id === page.url.searchParams.get('tid'))
-	);
+	let projectId = $derived(data.projects[0].id);
+	let tid = $derived(page.url.searchParams.get('tid'));
+	let session = $derived($nanobotChat?.sessions?.find((s) => s.id === tid));
 
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
+
+	let displayChat = $derived($nanobotChat?.chat);
 </script>
 
-{#if projectLayout.chat}
-	{#key projectLayout.chat}
+{#if displayChat}
+	{#key displayChat}
 		<ProjectStartThread
 			agentId={agent.id}
 			{projectId}
-			chat={projectLayout.chat}
+			chat={displayChat}
 			onFileOpen={projectLayout.handleFileOpen}
 			suppressEmptyState
 			onThreadContentWidth={projectLayout.setThreadContentWidth}
@@ -30,5 +31,5 @@
 {/if}
 
 <svelte:head>
-	<title>Obot | {thread?.title || 'Untitled'}</title>
+	<title>Obot | {session?.title || 'Untitled'}</title>
 </svelte:head>

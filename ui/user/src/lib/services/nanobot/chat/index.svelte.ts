@@ -23,10 +23,60 @@ import {
 	type UploadedFile,
 	type UploadingFile
 } from '../types';
-import { SvelteDate, SvelteSet } from 'svelte/reactivity';
+import { parseJSON } from '../utils';
+import { SvelteSet } from 'svelte/reactivity';
 
 export interface CallToolResult {
 	content?: ToolOutputItem[];
+}
+
+async function callMCPTool<T>(
+	client: SimpleClient,
+	name: string,
+	opts?: {
+		payload?: Record<string, unknown>;
+		progressToken?: string;
+		async?: boolean;
+		abort?: AbortController;
+		parseResponse?: (data: CallToolResult) => T;
+	}
+): Promise<T> {
+	try {
+		// Get the raw result from exchange to support parseResponse
+		const result = await client.exchange(
+			'tools/call',
+			{
+				name: name,
+				arguments: opts?.payload || {},
+				...(opts?.async && {
+					_meta: {
+						'ai.nanobot.async': true,
+						progressToken: opts?.progressToken
+					}
+				})
+			},
+			{ abort: opts?.abort }
+		);
+
+		if (opts?.parseResponse) {
+			return opts.parseResponse(result as CallToolResult);
+		}
+
+		// Handle structured content
+		if (result && typeof result === 'object' && 'structuredContent' in result) {
+			return (result as { structuredContent: T }).structuredContent;
+		}
+
+		return result as T;
+	} catch (error) {
+		try {
+			errors.append(error);
+		} catch {
+			// If context is not available (e.g., during SSR), just log
+			console.error('MCP Tool Error:', error);
+		}
+		throw error;
+	}
 }
 
 export class ChatAPI {
@@ -53,114 +103,47 @@ export class ChatAPI {
 		});
 	}
 
-	#getClient(sessionId?: string) {
-		if (sessionId) {
-			return new SimpleClient({
-				baseUrl: this.baseUrl,
-				path: ChatPath,
-				sessionId,
-				headers: this.headers
-			});
-		}
-		return this.mcpClient;
-	}
-
-	async reply(id: string | number, result: unknown, opts?: { sessionId?: string }) {
-		// If sessionId is provided, create a new client instance with that session
-		const client = this.#getClient(opts?.sessionId);
-		await client.reply(id, result);
-	}
-
-	async exchange(method: string, params: unknown, opts?: { sessionId?: string }) {
-		// If sessionId is provided, create a new client instance with that session
-		const client = this.#getClient(opts?.sessionId);
-		return await client.exchange(method, params);
-	}
-
-	async callMCPTool<T>(
-		name: string,
-		opts?: {
-			payload?: Record<string, unknown>;
-			sessionId?: string;
-			progressToken?: string;
-			async?: boolean;
-			abort?: AbortController;
-			parseResponse?: (data: CallToolResult) => T;
-		}
-	): Promise<T> {
-		// If sessionId is provided, create a new client instance with that session
-		const client = this.#getClient(opts?.sessionId);
-
-		try {
-			// Get the raw result from exchange to support parseResponse
-			const result = await client.exchange(
-				'tools/call',
-				{
-					name: name,
-					arguments: opts?.payload || {},
-					...(opts?.async && {
-						_meta: {
-							'ai.nanobot.async': true,
-							progressToken: opts?.progressToken
-						}
-					})
-				},
-				{ abort: opts?.abort }
-			);
-
-			if (opts?.parseResponse) {
-				return opts.parseResponse(result as CallToolResult);
-			}
-
-			// Handle structured content
-			if (result && typeof result === 'object' && 'structuredContent' in result) {
-				return (result as { structuredContent: T }).structuredContent;
-			}
-
-			return result as T;
-		} catch (error) {
-			try {
-				errors.append(error);
-			} catch {
-				// If context is not available (e.g., during SSR), just log
-				console.error('MCP Tool Error:', error);
-			}
-			throw error;
-		}
+	#getClientSession(sessionId?: string) {
+		return new SimpleClient({
+			baseUrl: this.baseUrl,
+			path: ChatPath,
+			sessionId,
+			headers: this.headers
+		});
 	}
 
 	async capabilities() {
-		const client = this.#getClient();
+		const client = this.mcpClient;
 		const { initializeResult } = await client.getSessionDetails();
 		return initializeResult?.capabilities?.experimental?.['ai.nanobot']?.session ?? {};
 	}
 
-	async deleteThread(threadId: string): Promise<void> {
-		const client = this.#getClient(threadId);
+	async deleteSession(sessionId: string): Promise<void> {
+		const client = this.#getClientSession(sessionId);
 		return client.deleteSession();
 	}
 
-	async renameThread(threadId: string, title: string): Promise<Chat> {
-		return await this.callMCPTool<Chat>('update_chat', {
+	async listAgents(): Promise<Agents> {
+		return await callMCPTool<Agents>(this.mcpClient, 'list_agents');
+	}
+
+	async renameSession(sessionId: string, title: string): Promise<Chat> {
+		return await callMCPTool<Chat>(this.mcpClient, 'update_chat', {
 			payload: {
-				chatId: threadId,
+				chatId: sessionId,
 				title: title
 			}
 		});
 	}
 
-	async listAgents(opts?: { sessionId?: string }): Promise<Agents> {
-		return await this.callMCPTool<Agents>('list_agents', opts);
-	}
-
-	async getThreads(): Promise<Chat[]> {
+	async listSessions(): Promise<Chat[]> {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const sessionIdsToFilter = new Set<string>();
 		for (let i = 0; i < localStorage.length; i++) {
 			const key = localStorage.key(i);
 			if (key?.startsWith('mcp-session-')) {
 				try {
-					const parsed = JSON.parse(localStorage.getItem(key) ?? '{}');
+					const parsed = parseJSON<{ sessionId: string }>(localStorage.getItem(key) ?? '');
 					if (parsed?.sessionId) sessionIdsToFilter.add(parsed.sessionId);
 				} catch (e) {
 					console.error('Failed to parse session data for', key, e);
@@ -169,62 +152,176 @@ export class ChatAPI {
 		}
 		const threads = (
 			(
-				await this.callMCPTool<{
+				await callMCPTool<{
 					chats: Chat[];
-				}>('list_chats')
+				}>(this.mcpClient, 'list_chats')
 			).chats ?? []
 		).filter((t) => !sessionIdsToFilter.has(t.id) && (t.title || isRecent(t.created)));
 		return threads;
 	}
 
-	async createThread(): Promise<Chat> {
-		const client = this.#getClient('new');
+	async getSession(sessionId: string): Promise<ChatSession> {
+		const client = this.#getClientSession(sessionId);
+		const agents = await this.listAgents();
+		return new ChatSession(client, { chatId: sessionId, initialAgents: agents }, () =>
+			this.listAgents()
+		);
+	}
+
+	async createSession(): Promise<ChatSession> {
+		const client = this.#getClientSession('new');
 		const { id } = await client.getSessionDetails();
-		return {
-			id,
-			title: 'New Chat',
-			created: new SvelteDate().toISOString()
+		const agents = await this.listAgents();
+		const session = new ChatSession(
+			client,
+			{ skipInitialResources: true, initialAgents: agents },
+			() => this.listAgents()
+		);
+		await session.setChatId(id);
+		return session;
+	}
+
+	async listResources(): Promise<Resource[]> {
+		return ((await this.mcpClient.exchange('resources/list', {})) as Resources).resources ?? [];
+	}
+
+	async readResource(uri: string): Promise<{ contents: ResourceContents[] }> {
+		return (await this.mcpClient.exchange('resources/read', { uri })) as {
+			contents: ResourceContents[];
 		};
 	}
 
 	async deleteWorkflow(workflowUri: string): Promise<void> {
-		await this.callMCPTool<void>('deleteWorkflow', {
+		await callMCPTool<void>(this.mcpClient, 'deleteWorkflow', {
 			payload: {
 				uri: workflowUri
 			}
 		});
 	}
+}
 
-	async uploadFile(
-		name: string,
-		mimeType: string,
-		blob: string,
-		opts?: {
-			sessionId?: string;
-			abort?: AbortController;
-		}
-	): Promise<Attachment> {
-		return await this.callMCPTool<Attachment>('uploadFile', {
-			payload: {
-				blob,
-				mimeType,
-				name
-			},
-			sessionId: opts?.sessionId,
-			abort: opts?.abort,
-			parseResponse: (resp: CallToolResult) => {
-				if (resp.content?.[0]?.type === 'resource_link') {
-					return {
-						name: resp.content[0].name,
-						uri: resp.content[0].uri,
-						mimeType: mimeType
-					};
-				}
-				return {
-					uri: ''
-				};
+export function appendMessage(messages: ChatMessage[], newMessage: ChatMessage): ChatMessage[] {
+	let found = false;
+	if (newMessage.id) {
+		messages = messages.map((oldMessage) => {
+			if (oldMessage.id === newMessage.id) {
+				found = true;
+				return newMessage;
 			}
+			return oldMessage;
 		});
+	}
+	if (!found) {
+		messages = [...messages, newMessage];
+	}
+	return messages;
+}
+
+function attachmentPreviewName(attachment: Attachment): string | undefined {
+	if (attachment.name) {
+		return attachment.name;
+	}
+
+	if (!attachment.uri.startsWith('file:///')) {
+		return undefined;
+	}
+
+	const rawPath = attachment.uri.replace(/^file:\/\/\//, '');
+	let decodedPath = rawPath;
+	try {
+		decodedPath = decodeURIComponent(rawPath);
+	} catch {
+		// keep raw path if decode fails
+	}
+	return decodedPath.split('/').filter(Boolean).pop() || decodedPath;
+}
+
+function buildFileAttachmentPreviewItems(messageID: string, attachments: Attachment[]) {
+	const seen = new SvelteSet<string>();
+	return attachments
+		.filter((attachment) => {
+			const uri = attachment.uri || '';
+			if (!uri.startsWith('file:///') || seen.has(uri)) {
+				return false;
+			}
+			seen.add(uri);
+			return true;
+		})
+		.map((attachment, index) => ({
+			id: `${messageID}_attachment_${index}`,
+			type: 'resource_link' as const,
+			uri: attachment.uri,
+			name: attachmentPreviewName(attachment),
+			mimeType: attachment.mimeType || 'application/octet-stream'
+		}));
+}
+
+export class ChatSession {
+	messages: ChatMessage[];
+	prompts: Prompt[];
+	resources: Resource[];
+	agent: Agent;
+	agents: Agent[];
+	selectedAgentId: string;
+	elicitations: Elicitation[];
+	isLoading: boolean;
+	isRestoring: boolean;
+	chatId: string;
+	uploadedFiles: UploadedFile[];
+	uploadingFiles: UploadingFile[];
+
+	private sessionClient: SimpleClient;
+	private getAgents: (() => Promise<Agents>) | undefined;
+	private closer = () => {};
+	private history: ChatMessage[] | undefined;
+	private onChatDone: (() => void)[] = [];
+	private currentRequestId: string | undefined;
+	private subscribed = false;
+	#resourcesAbort: AbortController | undefined;
+	#promptsAbort: AbortController | undefined;
+	#initialListAbort: AbortController | undefined;
+
+	constructor(
+		client: SimpleClient,
+		opts?: {
+			chatId?: string;
+			skipInitialResources?: boolean;
+			initialAgents?: Agents;
+		},
+		getAgents?: () => Promise<Agents>
+	) {
+		this.sessionClient = client;
+		this.getAgents = getAgents;
+		this.messages = $state<ChatMessage[]>([]);
+		this.history = $state<ChatMessage[]>();
+		this.isLoading = $state(false);
+		this.isRestoring = $state(false);
+		this.elicitations = $state<Elicitation[]>([]);
+		this.prompts = $state<Prompt[]>([]);
+		this.resources = $state<Resource[]>([]);
+		this.chatId = $state('');
+		this.agent = $state<Agent>({ id: '' });
+		this.agents = $state<Agent[]>([]);
+		this.selectedAgentId = $state('');
+		this.uploadedFiles = $state([]);
+		this.uploadingFiles = $state([]);
+		if (opts?.initialAgents?.agents?.length) {
+			this.agents = opts.initialAgents.agents;
+			const current =
+				opts.initialAgents.agents.find((a) => a.current) || opts.initialAgents.agents[0];
+			this.agent = current;
+			this.selectedAgentId = current?.id ?? '';
+		}
+		if (opts?.chatId !== undefined && opts?.chatId !== '') {
+			this.setChatId(opts.chatId);
+		} else if (!opts?.skipInitialResources) {
+			this.#initialListAbort = new AbortController();
+			this.listResources(this.#initialListAbort).then((r) => {
+				if (!this.#initialListAbort?.signal.aborted && r?.resources) {
+					this.resources = r.resources;
+				}
+			});
+		}
 	}
 
 	/**
@@ -232,56 +329,134 @@ export class ChatAPI {
 	 */
 	watchResource(
 		uri: string,
-		callback: (resource: import('../types').ResourceContents) => void,
-		opts?: { sessionId?: string }
+		callback: (resource: import('../types').ResourceContents) => void
 	): () => void {
-		const client = this.#getClient(opts?.sessionId);
-		return client.watchResource(uri, callback);
+		return this.sessionClient.watchResource(uri, callback);
 	}
 
-	async sendMessage(request: ChatRequest, toolName: string): Promise<ChatResult> {
-		await this.callMCPTool<CallToolResult>(toolName, {
-			payload: {
-				prompt: request.message,
-				attachments: request.attachments?.map((a) => {
-					return {
-						name: a.name,
-						url: a.uri,
-						mimeType: a.mimeType
-					};
-				})
-			},
-			sessionId: request.threadId,
-			progressToken: request.id,
-			async: true
-		});
-		const message: ChatMessage = {
-			id: request.id,
-			role: 'user',
-			created: now(),
-			items: [
-				{
-					id: request.id + '_0',
-					type: 'text',
-					text: request.message
-				},
-				...buildFileAttachmentPreviewItems(request.id, request.attachments || [])
-			]
-		};
-		return {
-			message
-		};
+	watchListChanged(callback: () => void): () => void {
+		return this.sessionClient.watchListChanged(callback);
 	}
 
-	async cancelRequest(requestId: string, sessionId: string): Promise<void> {
-		const client = this.#getClient(sessionId);
-		await client.notify('notifications/cancelled', {
+	async cancelRequest(requestId: string): Promise<void> {
+		await this.sessionClient.notify('notifications/cancelled', {
 			requestId,
 			reason: 'User requested cancellation'
 		});
 	}
 
-	subscribe(
+	close = () => {
+		this.#initialListAbort?.abort();
+		this.closer();
+		this.setChatId('');
+	};
+
+	setChatId = async (chatId?: string, opts?: { preserveLoading?: boolean }) => {
+		if (chatId === this.chatId) {
+			return;
+		}
+
+		this.messages = [];
+		this.prompts = [];
+		this.resources = [];
+		this.elicitations = [];
+		this.history = undefined;
+		if (!opts?.preserveLoading) {
+			this.isLoading = false;
+		}
+		this.uploadedFiles = [];
+		this.uploadingFiles = [];
+
+		if (chatId) {
+			this.#resourcesAbort?.abort();
+			this.#promptsAbort?.abort();
+			this.#resourcesAbort = new AbortController();
+			this.#promptsAbort = new AbortController();
+			this.chatId = chatId;
+			this.subscribed = true;
+			this.subscribe(chatId);
+			this.listResources(this.#resourcesAbort).then((resources) => {
+				if (!this.#resourcesAbort?.signal.aborted && resources?.resources) {
+					this.resources = resources.resources;
+				}
+			});
+			this.listPrompts(this.#promptsAbort).then((prompts) => {
+				if (!this.#promptsAbort?.signal.aborted && prompts?.prompts) {
+					this.prompts = prompts.prompts;
+				}
+			});
+			this.watchListChanged(() => {
+				this.refreshResources();
+			});
+		} else {
+			this.#resourcesAbort?.abort();
+			this.#promptsAbort?.abort();
+			this.#initialListAbort?.abort();
+			this.#resourcesAbort = undefined;
+			this.#promptsAbort = undefined;
+			this.subscribed = false;
+			this.closer();
+			this.sessionClient.close();
+		}
+	};
+
+	/** Refetch agents from the server. Call this when the agent list should be refreshed. */
+	reloadAgents = async (): Promise<void> => {
+		if (!this.getAgents || !this.chatId) return;
+		const agentsData = await this.getAgents();
+		if (agentsData.agents?.length > 0) {
+			this.agents = agentsData.agents;
+
+			const preSelectedAgent = this.selectedAgentId
+				? agentsData.agents.find((a) => a.id === this.selectedAgentId)
+				: null;
+
+			if (preSelectedAgent) {
+				this.agent = preSelectedAgent;
+			} else {
+				this.agent = agentsData.agents.find((a) => a.current) || agentsData.agents[0];
+				this.selectedAgentId = this.agent.id || '';
+			}
+		}
+	};
+
+	selectAgent = (agentId: string) => {
+		this.selectedAgentId = agentId;
+		// Keep this.agent in sync with the selectedAgentId so the UI
+		// (which may rely on chat.agent) reflects the newly selected agent.
+		const selectedAgent = this.agents?.find((a) => a.id === agentId);
+		if (selectedAgent) {
+			this.agent = selectedAgent;
+		}
+	};
+
+	listPrompts = async (abort?: AbortController) => {
+		return (await this.sessionClient.exchange('prompts/list', {}, { abort })) as Prompts;
+	};
+
+	refreshResources = async () => {
+		this.listResources()
+			.then((response) => {
+				if (response && response.resources) {
+					this.resources = response.resources;
+				}
+			})
+			.catch((error) => {
+				errors.append(error);
+			});
+	};
+
+	listResources = async (abort?: AbortController) => {
+		return (await this.sessionClient.exchange('resources/list', {}, { abort })) as Resources;
+	};
+
+	readResource = async (uri: string) => {
+		return (await this.sessionClient.exchange('resources/read', { uri })) as {
+			contents: ResourceContents[];
+		};
+	};
+
+	register(
 		threadId: string,
 		onEvent: (e: Event) => void,
 		opts?: {
@@ -290,7 +465,7 @@ export class ChatAPI {
 		}
 	): () => void {
 		console.log('Subscribing to thread:', threadId);
-		const eventSource = new EventSource(`${this.baseUrl}/api/events/${threadId}`);
+		const eventSource = new EventSource(`${this.sessionClient.baseUrl}/api/events/${threadId}`);
 
 		// Batching setup
 		const batchInterval = opts?.batchInterval ?? 200; // Default 200ms
@@ -392,226 +567,13 @@ export class ChatAPI {
 			eventSource.close();
 		};
 	}
-}
-
-export function appendMessage(messages: ChatMessage[], newMessage: ChatMessage): ChatMessage[] {
-	let found = false;
-	if (newMessage.id) {
-		messages = messages.map((oldMessage) => {
-			if (oldMessage.id === newMessage.id) {
-				found = true;
-				return newMessage;
-			}
-			return oldMessage;
-		});
-	}
-	if (!found) {
-		messages = [...messages, newMessage];
-	}
-	return messages;
-}
-
-function attachmentPreviewName(attachment: Attachment): string | undefined {
-	if (attachment.name) {
-		return attachment.name;
-	}
-
-	if (!attachment.uri.startsWith('file:///')) {
-		return undefined;
-	}
-
-	const rawPath = attachment.uri.replace(/^file:\/\/\//, '');
-	let decodedPath = rawPath;
-	try {
-		decodedPath = decodeURIComponent(rawPath);
-	} catch {
-		// keep raw path if decode fails
-	}
-	return decodedPath.split('/').filter(Boolean).pop() || decodedPath;
-}
-
-function buildFileAttachmentPreviewItems(messageID: string, attachments: Attachment[]) {
-	const seen = new SvelteSet<string>();
-	return attachments
-		.filter((attachment) => {
-			const uri = attachment.uri || '';
-			if (!uri.startsWith('file:///') || seen.has(uri)) {
-				return false;
-			}
-			seen.add(uri);
-			return true;
-		})
-		.map((attachment, index) => ({
-			id: `${messageID}_attachment_${index}`,
-			type: 'resource_link' as const,
-			uri: attachment.uri,
-			name: attachmentPreviewName(attachment),
-			mimeType: attachment.mimeType || 'application/octet-stream'
-		}));
-}
-
-export class ChatService {
-	messages: ChatMessage[];
-	prompts: Prompt[];
-	resources: Resource[];
-	agent: Agent;
-	agents: Agent[];
-	selectedAgentId: string;
-	elicitations: Elicitation[];
-	isLoading: boolean;
-	isRestoring: boolean;
-	chatId: string;
-	uploadedFiles: UploadedFile[];
-	uploadingFiles: UploadingFile[];
-
-	private api: ChatAPI;
-	private closer = () => {};
-	private history: ChatMessage[] | undefined;
-	private onChatDone: (() => void)[] = [];
-	private currentRequestId: string | undefined;
-	private subscribed = false;
-	private onThreadCreated?: (thread: Chat) => void;
-
-	constructor(
-		api: ChatAPI,
-		opts?: {
-			chatId?: string;
-			onThreadCreated?: (thread: Chat) => void;
-			skipInitialResources?: boolean;
-		}
-	) {
-		this.api = api;
-		this.onThreadCreated = opts?.onThreadCreated;
-		this.messages = $state<ChatMessage[]>([]);
-		this.history = $state<ChatMessage[]>();
-		this.isLoading = $state(false);
-		this.isRestoring = $state(false);
-		this.elicitations = $state<Elicitation[]>([]);
-		this.prompts = $state<Prompt[]>([]);
-		this.resources = $state<Resource[]>([]);
-		this.chatId = $state('');
-		this.agent = $state<Agent>({ id: '' });
-		this.agents = $state<Agent[]>([]);
-		this.selectedAgentId = $state('');
-		this.uploadedFiles = $state([]);
-		this.uploadingFiles = $state([]);
-		if (opts?.chatId !== undefined && opts?.chatId !== '') {
-			this.setChatId(opts.chatId);
-		} else if (!opts?.skipInitialResources) {
-			this.listResources({ useDefaultSession: true }).then((r) => {
-				if (r?.resources) this.resources = r.resources;
-			});
-		}
-	}
-
-	close = () => {
-		this.closer();
-		this.setChatId('');
-	};
-
-	setChatId = async (chatId?: string, opts?: { preserveLoading?: boolean }) => {
-		if (chatId === this.chatId) {
-			return;
-		}
-
-		this.messages = [];
-		this.prompts = [];
-		this.resources = [];
-		this.elicitations = [];
-		this.history = undefined;
-		if (!opts?.preserveLoading) {
-			this.isLoading = false;
-		}
-		this.uploadedFiles = [];
-		this.uploadingFiles = [];
-
-		if (chatId) {
-			this.chatId = chatId;
-			this.subscribed = false;
-		}
-
-		if (chatId) {
-			this.listPrompts({ useDefaultSession: true }).then((prompts) => {
-				if (prompts && prompts.prompts) {
-					this.prompts = prompts.prompts;
-				}
-			});
-
-			await this.reloadAgent({ useDefaultSession: true });
-		}
-	};
-
-	private reloadAgent = async (opts?: { useDefaultSession?: boolean }) => {
-		const sessionId = opts?.useDefaultSession ? undefined : this.chatId;
-		const agentsData = await this.api.listAgents({ sessionId });
-		if (agentsData.agents?.length > 0) {
-			this.agents = agentsData.agents;
-
-			const preSelectedAgent = this.selectedAgentId
-				? agentsData.agents.find((a) => a.id === this.selectedAgentId)
-				: null;
-
-			if (preSelectedAgent) {
-				// Use the pre-selected agent
-				this.agent = preSelectedAgent;
-			} else {
-				// Fall back to current/default agent
-				this.agent = agentsData.agents.find((a) => a.current) || agentsData.agents[0];
-				this.selectedAgentId = this.agent.id || '';
-			}
-		}
-	};
-
-	selectAgent = (agentId: string) => {
-		this.selectedAgentId = agentId;
-		// Keep this.agent in sync with the selectedAgentId so the UI
-		// (which may rely on chat.agent) reflects the newly selected agent.
-		const selectedAgent = this.agents?.find((a) => a.id === agentId);
-		if (selectedAgent) {
-			this.agent = selectedAgent;
-		}
-	};
-
-	listPrompts = async (opts?: { useDefaultSession?: boolean }) => {
-		const sessionId = opts?.useDefaultSession ? undefined : this.chatId;
-		return (await this.api.exchange(
-			'prompts/list',
-			{},
-			{
-				sessionId
-			}
-		)) as Prompts;
-	};
-
-	refreshResources = async () => {
-		this.listResources({ useDefaultSession: true })
-			.then((response) => {
-				if (response && response.resources) {
-					this.resources = response.resources;
-				}
-			})
-			.catch((error) => {
-				errors.append(error);
-			});
-	};
-
-	listResources = async (opts?: { useDefaultSession?: boolean }) => {
-		const sessionId = opts?.useDefaultSession ? undefined : this.chatId;
-		return (await this.api.exchange(
-			'resources/list',
-			{},
-			{
-				sessionId
-			}
-		)) as Resources;
-	};
 
 	private subscribe(chatId: string) {
 		this.closer();
 		if (!chatId) {
 			return;
 		}
-		this.closer = this.api.subscribe(
+		this.closer = this.register(
 			chatId,
 			(event) => {
 				if (event.type === 'message' && event.message?.id) {
@@ -665,62 +627,47 @@ export class ChatService {
 	}
 
 	replyToElicitation = async (elicitation: Elicitation, result: ElicitationResult) => {
-		await this.api.reply(elicitation.id, result, {
-			sessionId: this.chatId
-		});
+		await this.sessionClient.reply(elicitation.id, result);
 		this.elicitations = this.elicitations.filter((e) => e.id !== elicitation.id);
 	};
 
-	newChat = async () => {
-		const thread = await this.api.createThread();
-		await this.setChatId(thread.id, { preserveLoading: true });
-		this.onThreadCreated?.(thread);
-	};
-
-	restoreChat = async (chatId: string) => {
-		if (chatId === this.chatId) {
-			return;
-		}
-
-		this.messages = [];
-		this.prompts = [];
-		this.resources = [];
-		this.elicitations = [];
-		this.history = undefined;
-		this.isLoading = false;
-		this.isRestoring = true;
-		this.uploadedFiles = [];
-		this.uploadingFiles = [];
-		this.chatId = chatId;
-
-		// Subscribe immediately to load chat history (thread exists on server)
-		this.subscribed = true;
-		this.subscribe(chatId);
-
-		// Load resources, prompts, and agents using default session
-		this.listResources({ useDefaultSession: true }).then((r) => {
-			if (r && r.resources) {
-				this.resources = r.resources;
-			}
+	async message(request: ChatRequest, toolName: string): Promise<ChatResult> {
+		await callMCPTool<CallToolResult>(this.sessionClient, toolName, {
+			payload: {
+				prompt: request.message,
+				attachments: request.attachments?.map((a) => {
+					return {
+						name: a.name,
+						url: a.uri,
+						mimeType: a.mimeType
+					};
+				})
+			},
+			progressToken: request.id,
+			async: true
 		});
-
-		this.listPrompts({ useDefaultSession: true }).then((prompts) => {
-			if (prompts && prompts.prompts) {
-				this.prompts = prompts.prompts;
-			}
-		});
-
-		await this.reloadAgent({ useDefaultSession: true });
-	};
+		const message: ChatMessage = {
+			id: request.id,
+			role: 'user',
+			created: now(),
+			items: [
+				{
+					id: request.id + '_0',
+					type: 'text',
+					text: request.message
+				},
+				...buildFileAttachmentPreviewItems(request.id, request.attachments || [])
+			]
+		};
+		return {
+			message
+		};
+	}
 
 	sendMessage = async (message: string, attachments?: Attachment[]) => {
 		if (!message.trim() || this.isLoading) return;
 
 		this.isLoading = true;
-
-		if (!this.chatId) {
-			await this.newChat();
-		}
 
 		// Determine which tool to call based on selected or current agent
 		const effectiveAgentId = this.selectedAgentId || this.agent?.id;
@@ -753,7 +700,7 @@ export class ChatService {
 		}
 
 		try {
-			const response = await this.api.sendMessage(
+			const response = await this.message(
 				{
 					id: this.currentRequestId,
 					threadId: this.chatId,
@@ -808,7 +755,7 @@ export class ChatService {
 		}
 		this.onChatDone = [];
 
-		await this.api.cancelRequest(requestId, this.chatId);
+		await this.cancelRequest(requestId);
 	};
 
 	cancelUpload = (fileId: string) => {
@@ -825,12 +772,9 @@ export class ChatService {
 		// Delete the uploaded file from disk
 		const uploaded = this.uploadedFiles.find((f) => f.id === fileId);
 		if (uploaded?.uri) {
-			this.api
-				.callMCPTool('deleteFile', {
-					payload: { uri: uploaded.uri },
-					sessionId: this.chatId
-				})
-				.catch((err) => console.error('Failed to delete uploaded file:', err));
+			callMCPTool(this.sessionClient, 'deleteFile', {
+				payload: { uri: uploaded.uri }
+			}).catch((err) => console.error('Failed to delete uploaded file:', err));
 		}
 
 		this.uploadedFiles = this.uploadedFiles.filter((f) => f.id !== fileId);
@@ -842,12 +786,6 @@ export class ChatService {
 			controller?: AbortController;
 		}
 	): Promise<Attachment> => {
-		// Create thread if it doesn't exist
-		if (!this.chatId) {
-			const thread = await this.api.createThread();
-			await this.setChatId(thread.id);
-		}
-
 		const fileId = crypto.randomUUID();
 		const controller = opts?.controller || new AbortController();
 
@@ -871,6 +809,36 @@ export class ChatService {
 		}
 	};
 
+	async upload(
+		name: string,
+		mimeType: string,
+		blob: string,
+		opts?: {
+			abort?: AbortController;
+		}
+	): Promise<Attachment> {
+		return await callMCPTool<Attachment>(this.sessionClient, 'uploadFile', {
+			payload: {
+				blob,
+				mimeType,
+				name
+			},
+			abort: opts?.abort,
+			parseResponse: (resp: CallToolResult) => {
+				if (resp.content?.[0]?.type === 'resource_link') {
+					return {
+						name: resp.content[0].name,
+						uri: resp.content[0].uri,
+						mimeType: mimeType
+					};
+				}
+				return {
+					uri: ''
+				};
+			}
+		});
+	}
+
 	private doUploadFile = async (file: File, controller: AbortController): Promise<Attachment> => {
 		// convert file to base64 string
 		const reader = new FileReader();
@@ -885,27 +853,9 @@ export class ChatService {
 			throw new Error('Chat ID not set');
 		}
 
-		return await this.api.uploadFile(file.name, file.type, base64, {
-			sessionId: this.chatId,
+		return await this.upload(file.name, file.type, base64, {
 			abort: controller
 		});
-	};
-
-	/**
-	 * Read a resource by URI
-	 */
-	readResource = async (uri: string) => {
-		return (await this.api.exchange('resources/read', { uri }, { sessionId: this.chatId })) as {
-			contents: ResourceContents[];
-		};
-	};
-
-	/**
-	 * Watch a resource for changes. Returns a cleanup function.
-	 * The callback is called whenever the resource changes.
-	 */
-	watchResource = (uri: string, callback: (resource: ResourceContents) => void): (() => void) => {
-		return this.api.watchResource(uri, callback, { sessionId: this.chatId });
 	};
 }
 

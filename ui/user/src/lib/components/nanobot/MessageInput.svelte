@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Power, Send, Square } from 'lucide-svelte';
+	import { Send, Square } from 'lucide-svelte';
 	import MessageAttachments from './MessageAttachments.svelte';
 	import type MessageSlashPromptsType from './MessageSlashPrompts.svelte';
 	import MessageSlashPrompts from './MessageSlashPrompts.svelte';
@@ -17,7 +17,6 @@
 		onSend?: (message: string, attachments?: Attachment[]) => Promise<ChatResult | void>;
 		onPrompt?: (promptName: string) => void;
 		onFileUpload?: (file: File, opts?: { controller?: AbortController }) => Promise<Attachment>;
-		onRestart?: () => void;
 		onCancel?: () => void;
 		cancelUpload?: (fileId: string) => void;
 		uploadingFiles?: UploadingFile[];
@@ -45,7 +44,6 @@
 		agents = [],
 		selectedAgentId = '',
 		onAgentChange,
-		onRestart,
 		supportedMimeTypes = [
 			'image/*',
 			'text/plain',
@@ -170,28 +168,20 @@
 				bind:this={textareaRef}
 			></textarea>
 
-			<!-- Attachment chips row (left-aligned, only visible when files are present) -->
-			<MessageAttachments
-				{selectedResources}
-				{uploadedFiles}
-				{uploadingFiles}
-				{removeSelectedResource}
-				{cancelUpload}
-			/>
+			{#if showAgentDropdown}
+				<MessageAttachments
+					{selectedResources}
+					{uploadedFiles}
+					{uploadingFiles}
+					{removeSelectedResource}
+					{cancelUpload}
+				/>
+			{/if}
 
 			<!-- Bottom row: Agent select on left (if multiple agents), buttons on right -->
-			<div class="flex items-center justify-between">
+			<div class="flex items-end justify-between">
 				<!-- Agent selector -->
-				<div class="flex items-center gap-2">
-					{#if onRestart}
-						<button
-							class="btn btn-ghost btn-circle btn-sm tooltip"
-							data-tip="Restart Agent"
-							onclick={onRestart}
-						>
-							<Power class="size-4" />
-						</button>
-					{/if}
+				<div>
 					{#if showAgentDropdown}
 						<select
 							class="select select-ghost select-sm w-48"
@@ -205,6 +195,14 @@
 								</option>
 							{/each}
 						</select>
+					{:else}
+						<MessageAttachments
+							{selectedResources}
+							{uploadedFiles}
+							{uploadingFiles}
+							{removeSelectedResource}
+							{cancelUpload}
+						/>
 					{/if}
 				</div>
 

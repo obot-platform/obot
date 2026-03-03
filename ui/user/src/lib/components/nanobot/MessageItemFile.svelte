@@ -18,7 +18,7 @@
 	class="rounded-field text border-base-300 bg-base-100 tooltip hover:bg-base-300 mt-3 mb-2 w-full border p-3 shadow-xs transition-colors"
 	data-tip={`Open ${filename}`}
 	onclick={() => {
-		onFileOpen?.(`file:///${filename}`);
+		onFileOpen?.(filename);
 	}}
 	disabled={pending}
 >

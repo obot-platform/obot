@@ -1,12 +1,13 @@
-import type { ChatService } from '$lib/services/nanobot/chat/index.svelte';
+import type { ChatAPI, ChatSession } from '$lib/services/nanobot/chat/index.svelte';
 import type { Chat, Resource } from '$lib/services/nanobot/types';
 import { writable } from 'svelte/store';
 
 export interface NanobotChat {
 	projectId: string;
-	threadId?: string;
-	chat?: ChatService;
-	threads: Chat[];
+	sessionId?: string;
+	chat?: ChatSession;
+	api: ChatAPI;
+	sessions: Chat[];
 	isThreadsLoading: boolean;
 	resources: Resource[];
 }

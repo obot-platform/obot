@@ -29,14 +29,17 @@ export class SimpleClient {
 	readonly #url: string;
 	readonly #fetcher: typeof fetch;
 	readonly #headers: Record<string, string>;
+	readonly #baseUrl: string;
 	#sessionId?: string;
 	#initializeResult?: InitializationResult;
 	#initializationPromise?: Promise<void>;
 	readonly #externalSession: boolean;
+	#closed = false;
 	#sseConnection?: EventSource;
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	#sseSubscriptions = new Map<string, Set<(resource: ResourceContents) => void>>();
-
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	#listChangedCallbacks = new Set<() => void>();
 	constructor(opts?: {
 		path?: string;
 		baseUrl?: string;
@@ -48,6 +51,7 @@ export class SimpleClient {
 	}) {
 		const baseUrl = opts?.baseUrl || '';
 		const path = opts?.path || '';
+		this.#baseUrl = baseUrl;
 		this.#url = `${baseUrl}${path}`;
 		this.#fetcher = opts?.fetcher || fetch;
 		this.#headers = opts?.headers || {};
@@ -71,6 +75,10 @@ export class SimpleClient {
 			}
 			this.#externalSession = false;
 		}
+	}
+
+	get baseUrl(): string {
+		return this.#baseUrl;
 	}
 
 	async deleteSession(): Promise<void> {
@@ -130,6 +138,7 @@ export class SimpleClient {
 			this.#sseConnection = undefined;
 		}
 		this.#sseSubscriptions.clear();
+		this.#listChangedCallbacks.clear();
 	}
 
 	async getSessionDetails(): Promise<{ id: string; initializeResult?: InitializationResult }> {
@@ -228,6 +237,9 @@ export class SimpleClient {
 	}
 
 	async #ensureSession(): Promise<string> {
+		if (this.#closed) {
+			throw new Error('SimpleClient is closed');
+		}
 		if (!this.#sessionId) {
 			await this.#initialize();
 		}
@@ -235,6 +247,12 @@ export class SimpleClient {
 			throw new Error('Failed to establish session');
 		}
 		return this.#sessionId;
+	}
+
+	close(): void {
+		if (this.#closed) return;
+		this.#closed = true;
+		this.#clearSession();
 	}
 
 	async reply(id: string | number, result: unknown): Promise<void> {
@@ -478,7 +496,7 @@ export class SimpleClient {
 		const queryParams = new URLSearchParams(existingQuery || '');
 		queryParams.set('stream', 'true');
 		if (this.#sessionId) {
-			queryParams.set('sessionId', this.#sessionId);
+			queryParams.set('id', this.#sessionId);
 		}
 		const sseUrl = `${basePath}?${queryParams.toString()}`;
 
@@ -492,6 +510,16 @@ export class SimpleClient {
 					method?: string;
 					params?: { uri?: string };
 				};
+
+				if (message.method === 'notifications/resources/list_changed') {
+					this.#listChangedCallbacks.forEach((cb) => {
+						try {
+							cb();
+						} catch (e) {
+							console.error('[SimpleClient] list_changed callback error:', e);
+						}
+					});
+				}
 
 				// Check if this is a resource update notification
 				if (message.method === 'notifications/resources/updated' && message.params?.uri) {
@@ -594,11 +622,30 @@ export class SimpleClient {
 			}
 			console.log(`[SimpleClient] Stopped watching resources with prefix: ${prefix}`);
 
-			// Close SSE connection if no more subscriptions
-			if (this.#sseSubscriptions.size === 0 && this.#sseConnection) {
-				this.#sseConnection.close();
-				this.#sseConnection = undefined;
-			}
+			this.#closeSSEIfIdle();
 		};
+	}
+
+	watchListChanged(callback: () => void): () => void {
+		this.#listChangedCallbacks.add(callback);
+		this.#ensureSSEConnection().catch((e) => {
+			console.error('[SimpleClient] Failed to ensure SSE for list_changed:', e);
+		});
+
+		return () => {
+			this.#listChangedCallbacks.delete(callback);
+			this.#closeSSEIfIdle();
+		};
+	}
+
+	#closeSSEIfIdle(): void {
+		if (
+			this.#sseSubscriptions.size === 0 &&
+			this.#listChangedCallbacks.size === 0 &&
+			this.#sseConnection
+		) {
+			this.#sseConnection.close();
+			this.#sseConnection = undefined;
+		}
 	}
 }
