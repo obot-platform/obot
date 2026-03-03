@@ -35,6 +35,7 @@ export class SimpleClient {
 	#initializationPromise?: Promise<void>;
 	readonly #externalSession: boolean;
 	#closed = false;
+	#abortController = new AbortController();
 	#sseConnection?: EventSource;
 	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	#sseSubscriptions = new Map<string, Set<(resource: ResourceContents) => void>>();
@@ -81,6 +82,10 @@ export class SimpleClient {
 		return this.#baseUrl;
 	}
 
+	getSessionId(): string {
+		return this.#sessionId ?? '';
+	}
+
 	async deleteSession(): Promise<void> {
 		try {
 			if (!this.#sessionId) {
@@ -91,7 +96,8 @@ export class SimpleClient {
 				headers: {
 					...this.#headers,
 					'Mcp-Session-Id': this.#sessionId
-				}
+				},
+				signal: this.#abortController.signal
 			});
 		} finally {
 			this.#clearSession();
@@ -179,6 +185,7 @@ export class SimpleClient {
 						...this.#headers,
 						'Content-Type': 'application/json'
 					},
+					signal: this.#abortController.signal,
 					body: JSON.stringify(initRequest)
 				});
 
@@ -220,6 +227,7 @@ export class SimpleClient {
 						'Content-Type': 'application/json',
 						'Mcp-Session-Id': sessionId
 					},
+					signal: this.#abortController.signal,
 					body: JSON.stringify(initializedRequest)
 				});
 
@@ -252,6 +260,7 @@ export class SimpleClient {
 	close(): void {
 		if (this.#closed) return;
 		this.#closed = true;
+		this.#abortController.abort();
 		this.#clearSession();
 	}
 
@@ -265,6 +274,7 @@ export class SimpleClient {
 				'Content-Type': 'application/json',
 				'Mcp-Session-Id': sessionId
 			},
+			signal: this.#abortController.signal,
 			body: JSON.stringify({
 				jsonrpc: '2.0',
 				id,
@@ -327,6 +337,11 @@ export class SimpleClient {
 
 		const url = `${basePath}?${queryParams.toString()}`;
 
+		const signal =
+			opts?.abort != null
+				? AbortSignal.any([this.#abortController.signal, opts.abort.signal])
+				: this.#abortController.signal;
+
 		const resp = await this.#fetcher(url, {
 			method: 'POST',
 			headers: {
@@ -334,7 +349,7 @@ export class SimpleClient {
 				'Content-Type': 'application/json',
 				'Mcp-Session-Id': sessionId
 			},
-			signal: opts?.abort?.signal,
+			signal,
 			body: JSON.stringify(request)
 		});
 
@@ -387,6 +402,7 @@ export class SimpleClient {
 				'Content-Type': 'application/json',
 				'Mcp-Session-Id': sessionId
 			},
+			signal: this.#abortController.signal,
 			body: JSON.stringify(notification)
 		});
 

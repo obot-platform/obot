@@ -1,5 +1,4 @@
 import { errors } from '$lib/stores';
-import { isRecent } from '$lib/time';
 import { SimpleClient } from '../mcpclient/index.svelte';
 import {
 	ChatPath,
@@ -23,7 +22,6 @@ import {
 	type UploadedFile,
 	type UploadingFile
 } from '../types';
-import { parseJSON } from '../utils';
 import { SvelteSet } from 'svelte/reactivity';
 
 export interface CallToolResult {
@@ -83,12 +81,12 @@ export class ChatAPI {
 	private readonly baseUrl: string;
 	private readonly mcpClient: SimpleClient;
 	private readonly headers: Record<string, string>;
+	readonly sessionId: string;
 
 	constructor(
 		baseUrl: string = '',
 		opts?: {
 			fetcher?: typeof fetch;
-			sessionId?: string;
 			headers?: Record<string, string>;
 		}
 	) {
@@ -98,9 +96,9 @@ export class ChatAPI {
 			baseUrl: baseUrl,
 			path: UIPath,
 			fetcher: opts?.fetcher,
-			sessionId: opts?.sessionId,
 			headers: this.headers
 		});
+		this.sessionId = $derived(this.mcpClient.getSessionId());
 	}
 
 	#getClientSession(sessionId?: string) {
@@ -137,27 +135,13 @@ export class ChatAPI {
 	}
 
 	async listSessions(): Promise<Chat[]> {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const sessionIdsToFilter = new Set<string>();
-		for (let i = 0; i < localStorage.length; i++) {
-			const key = localStorage.key(i);
-			if (key?.startsWith('mcp-session-')) {
-				try {
-					const parsed = parseJSON<{ sessionId: string }>(localStorage.getItem(key) ?? '');
-					if (parsed?.sessionId) sessionIdsToFilter.add(parsed.sessionId);
-				} catch (e) {
-					console.error('Failed to parse session data for', key, e);
-				}
-			}
-		}
-		const threads = (
+		return (
 			(
 				await callMCPTool<{
 					chats: Chat[];
 				}>(this.mcpClient, 'list_chats')
 			).chats ?? []
-		).filter((t) => !sessionIdsToFilter.has(t.id) && (t.title || isRecent(t.created)));
-		return threads;
+		);
 	}
 
 	async getSession(sessionId: string): Promise<ChatSession> {

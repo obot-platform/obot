@@ -9,6 +9,7 @@
 	import FileEditor from '$lib/components/nanobot/FileEditor.svelte';
 	import QuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
 	import { afterNavigate } from '$app/navigation';
+	import { onDestroy } from 'svelte';
 	import { PROJECT_LAYOUT_CONTEXT, type ProjectLayoutContext } from '$lib/services/nanobot/types';
 
 	let { data, children } = $props();
@@ -31,6 +32,9 @@
 	let showBackButton = $state(false);
 	/** Session ID we already tried to refresh for when it was missing (avoids loop if listSessions never returns it). */
 	let refreshedForMissingSessionId: string | null = null;
+	let titleInterval: ReturnType<typeof setInterval> | null = null;
+	let titleIntervalAttempts = 0;
+	const MAX_TITLE_INTERVAL_ATTEMPTS = 10;
 
 	const layout = nanobotLayout.getLayout();
 	const projectLayoutContext = $state<ProjectLayoutContext>({
@@ -41,6 +45,21 @@
 	});
 
 	setContext(PROJECT_LAYOUT_CONTEXT, projectLayoutContext);
+
+	onDestroy(() => {
+		if (titleInterval) {
+			clearInterval(titleInterval);
+			titleInterval = null;
+		}
+		chat?.close();
+		nanobotChat.update((data) => {
+			if (data) {
+				data.chat = undefined;
+				data.sessionId = undefined;
+			}
+			return data;
+		});
+	});
 
 	function handleFileOpen(filename: string) {
 		layout.quickBarAccessOpen = false;
@@ -75,8 +94,39 @@
 			return;
 		}
 		if (refreshedForMissingSessionId === sid) return;
+		if (titleInterval) {
+			clearInterval(titleInterval);
+			titleInterval = null;
+			titleIntervalAttempts = 0;
+		}
 		refreshedForMissingSessionId = sid;
 		api.listSessions().then((list) => {
+			const matchingSession = list.find((s) => s.id === sid);
+			if (!matchingSession) return;
+			if (!matchingSession.title) {
+				titleInterval = setInterval(() => {
+					if (titleIntervalAttempts > MAX_TITLE_INTERVAL_ATTEMPTS && titleInterval) {
+						clearInterval(titleInterval);
+						titleInterval = null;
+						titleIntervalAttempts = 0;
+						return;
+					}
+					api.listSessions().then((list) => {
+						titleIntervalAttempts++;
+						const matchingSession = list.find((s) => s.id === sid);
+						if (!matchingSession) return;
+						if (matchingSession.title) {
+							if (titleInterval) clearInterval(titleInterval);
+							titleInterval = null;
+							titleIntervalAttempts = 0;
+							nanobotChat.update((data) => {
+								if (data) data.sessions = list ?? [];
+								return data;
+							});
+						}
+					});
+				}, 5000);
+			}
 			nanobotChat.update((data) => {
 				if (data) data.sessions = list ?? [];
 				return data;
