@@ -189,10 +189,9 @@
 		return folderOpen[path] ?? true;
 	}
 
-	let flatFileList = $derived.by(() => {
-		const open = folderOpen;
-		return flattenTree(fileTree, 0, '', (path) => open[path] ?? true);
-	});
+	let flatFileList = $derived.by(() =>
+		flattenTree(fileTree, 0, '', view === 'list' ? () => true : (path) => folderOpen[path] ?? true)
+	);
 
 	function isHiddenPath(path: string): boolean {
 		return path.split('/').some((seg) => seg.startsWith('.'));
