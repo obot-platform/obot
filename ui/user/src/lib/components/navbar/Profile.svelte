@@ -21,7 +21,6 @@
 	import { version } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { AdminService, ChatService, EditorService, NanobotService } from '$lib/services';
-	import { afterNavigate } from '$app/navigation';
 	import { goto } from '$lib/url';
 	import PageLoading from '../PageLoading.svelte';
 	import { resolve } from '$app/paths';
@@ -37,13 +36,23 @@
 	let { agentId, projectId }: Props = $props();
 
 	let versionDialog = $state<HTMLDialogElement>();
-	let showChatLink = $state(false);
-	let showApiKeysLink = $state(false);
-	let showMcpManagement = $state(false);
-	let inAdminRoute = $state(false);
 	let loadingChat = $state(false);
 
-	let showRestartOption = $state(false);
+	let inAdminRoute = $derived(page.url.pathname.includes('/admin'));
+	let showChatLink = $derived(
+		(!page.url.pathname.startsWith('/o') && !page.url.pathname.startsWith('/nanobot')) ||
+			inAdminRoute
+	);
+	let showApiKeysLink = $derived(
+		!page.url.pathname.startsWith('/o') && !page.url.pathname.startsWith('/nanobot')
+	);
+	let showMcpManagement = $derived(
+		['/o', '/profile', '/nanobot'].some((path) => page.url.pathname.startsWith(path))
+	);
+	let showRestartOption = $derived(
+		page.url.pathname.startsWith('/nanobot') && !!agentId && !!projectId
+	);
+
 	let showRestartAgentConfirm = $state(false);
 	let restartingAgent = $state(false);
 
@@ -102,21 +111,6 @@
 			showRestartAgentConfirm = false;
 		}
 	}
-
-	afterNavigate(() => {
-		inAdminRoute = window.location.pathname.includes('/admin');
-		showChatLink =
-			(!window.location.pathname.startsWith('/o') &&
-				!window.location.pathname.startsWith('/nanobot')) ||
-			inAdminRoute;
-		showApiKeysLink =
-			!window.location.pathname.startsWith('/o') &&
-			!window.location.pathname.startsWith('/nanobot');
-		showMcpManagement = ['/o', '/profile', '/nanobot'].some((path) =>
-			window.location.pathname.startsWith(path)
-		);
-		showRestartOption = window.location.pathname.startsWith('/nanobot') && !!agentId && !!projectId;
-	});
 
 	function navigateTo(path: string, asNewTab?: boolean) {
 		if (asNewTab) {
