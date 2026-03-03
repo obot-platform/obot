@@ -147,7 +147,7 @@
 	>
 		{#if description && browser}
 			<div class="milkdown-content">
-				{@html toHTMLFromMarkdownWithNewTabLinks(description)}
+				{@html toHTMLFromMarkdownWithNewTabLinks(description, true)}
 			</div>
 		{:else}
 			<p class="text-md text-on-surface1 text-center font-light italic">

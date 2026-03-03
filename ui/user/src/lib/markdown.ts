@@ -2,22 +2,38 @@ import DOMPurify from 'dompurify';
 import { micromark } from 'micromark';
 import { gfm, gfmHtml } from 'micromark-extension-gfm';
 
-export function toHTMLFromMarkdown(markdown: string): string {
+export function toHTMLFromMarkdown(
+	markdown: string,
+	enableVideoAndIframeProcessing = false
+): string {
 	const html = micromark(markdown, {
 		extensions: [gfm()],
 		htmlExtensions: [gfmHtml()],
-		allowDangerousHtml: true
+		allowDangerousHtml: enableVideoAndIframeProcessing
 	});
 
 	if (typeof window !== 'undefined') {
 		// DOMPurify requires browser, errors in SSR
 		const sanitized = DOMPurify.sanitize(html);
 
-		const processedHtml = processVideoAndIframeTags(sanitized);
+		const processedHtml = enableVideoAndIframeProcessing
+			? processVideoAndIframeTags(sanitized)
+			: sanitized;
 		return processedHtml;
 	}
 
 	return html;
+}
+
+const ALLOWED_PROTOCOLS = ['https:'] as const;
+
+function isAllowedSrc(url: string): boolean {
+	try {
+		const parsed = new URL(url, document.baseURI);
+		return ALLOWED_PROTOCOLS.includes(parsed.protocol as (typeof ALLOWED_PROTOCOLS)[number]);
+	} catch {
+		return false;
+	}
 }
 
 const processVideoAndIframeTags = (html: string): string => {
@@ -54,6 +70,11 @@ const processVideoAndIframeTags = (html: string): string => {
 			const fullMatch = match[0];
 			const src = match[1];
 
+			if (!isAllowedSrc(src)) {
+				newText = newText.replace(fullMatch, '');
+				continue;
+			}
+
 			const iframe = document.createElement('iframe');
 			iframe.src = src;
 			iframe.setAttribute('frameborder', '0');
@@ -66,6 +87,11 @@ const processVideoAndIframeTags = (html: string): string => {
 		while ((match = videoRegex.exec(text)) !== null) {
 			const fullMatch = match[0];
 			const src = match[1];
+
+			if (!isAllowedSrc(src)) {
+				newText = newText.replace(fullMatch, '');
+				continue;
+			}
 
 			const video = document.createElement('video');
 			video.src = src;
@@ -95,8 +121,11 @@ const updateLinksWithTargetBlank = (html: string) => {
 	return html.replace(/<a href=/g, '<a target="_blank" rel="noopener" href=');
 };
 
-export function toHTMLFromMarkdownWithNewTabLinks(markdown: string): string {
-	return updateLinksWithTargetBlank(toHTMLFromMarkdown(markdown));
+export function toHTMLFromMarkdownWithNewTabLinks(
+	markdown: string,
+	enableVideoAndIframeProcessing = false
+): string {
+	return updateLinksWithTargetBlank(toHTMLFromMarkdown(markdown, enableVideoAndIframeProcessing));
 }
 
 export function stripMarkdownToText(markdown: string): string {
