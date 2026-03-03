@@ -186,7 +186,7 @@
 						type="button"
 						class="btn btn-circle btn-ghost tooltip"
 						data-tip="Upload a file"
-						disabled={!onFileUpload || isUploading}
+						disabled={disabled || !onFileUpload || isUploading}
 						onclick={() => fileInput?.click()}
 						aria-label="Upload a file"
 					>
