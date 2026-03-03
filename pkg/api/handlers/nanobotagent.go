@@ -162,9 +162,25 @@ func (h *NanobotAgentHandler) Launch(req api.Context) error {
 		return fmt.Errorf("failed to load MCP server for agent %s: %w", agent.Name, err)
 	}
 
-	serverConfig, err := serverConfigForAction(req, *server)
-	if err != nil {
-		return err
+	// Retry until credentials are available or the context deadline is reached.
+	// On initial agent setup there is a race between MCPServer creation and credential
+	// provisioning by the controller, so serverConfigForAction may transiently return a
+	// "missing required config: NANOBOT_ENV_FILE" error before the credential exists.
+	var serverConfig mcp.ServerConfig
+	for {
+		serverConfig, err = serverConfigForAction(req, *server)
+		if err == nil {
+			break
+		}
+		var errHTTP *types.ErrHTTP
+		if !errors.As(err, &errHTTP) || errHTTP.Code != http.StatusBadRequest || !strings.Contains(errHTTP.Message, "NANOBOT_ENV_FILE") {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return err
+		case <-time.After(500 * time.Millisecond):
+		}
 	}
 
 	if _, err = h.sessionManager.LaunchServer(req.Context(), serverConfig); err != nil {
