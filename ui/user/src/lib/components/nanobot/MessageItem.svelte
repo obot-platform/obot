@@ -13,6 +13,7 @@
 	import MessageItemReasoning from './MessageItemReasoning.svelte';
 	import MessageItemTool from './MessageItemTool.svelte';
 	import MessageItemFile from './MessageItemFile.svelte';
+	import { parseToolFilePath } from '$lib/services/nanobot/utils';
 
 	interface Props {
 		item: ChatMessageItem;
@@ -38,7 +39,8 @@
 {:else if item.type === 'reasoning'}
 	<MessageItemReasoning {item} />
 {:else if item.type === 'tool'}
-	{@const isWrittenFile = item.name === 'write'}
+	{@const filePath = item.name === 'write' && item.arguments ? parseToolFilePath(item) : null}
+	{@const isWrittenFile = !!filePath && !filePath.includes('/.nanobot/')}
 	{#if isWrittenFile}
 		<MessageItemFile {item} {onFileOpen} />
 	{:else}
