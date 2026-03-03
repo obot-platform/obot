@@ -36,12 +36,8 @@
 		for (let i = 0; i < localStorage.length; i++) {
 			const key = localStorage.key(i);
 			if (key?.startsWith('mcp-session-')) {
-				try {
-					const parsed = parseJSON<{ sessionId: string }>(localStorage.getItem(key) ?? '');
-					if (parsed?.sessionId) sessionIdsToFilter.add(parsed.sessionId);
-				} catch (e) {
-					console.error('Failed to parse session data for', key, e);
-				}
+				const parsed = parseJSON<{ sessionId: string }>(localStorage.getItem(key) ?? '');
+				if (parsed?.sessionId) sessionIdsToFilter.add(parsed.sessionId);
 			}
 		}
 		return sessions.filter(

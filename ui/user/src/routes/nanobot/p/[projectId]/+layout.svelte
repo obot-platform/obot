@@ -34,7 +34,7 @@
 	let refreshedForMissingSessionId: string | null = null;
 	let titleInterval: ReturnType<typeof setInterval> | null = null;
 	let titleIntervalAttempts = 0;
-	const MAX_TITLE_INTERVAL_ATTEMPTS = 10;
+	const MAX_TITLE_INTERVAL_ATTEMPTS = 5;
 
 	const layout = nanobotLayout.getLayout();
 	const projectLayoutContext = $state<ProjectLayoutContext>({
