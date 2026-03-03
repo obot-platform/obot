@@ -92,15 +92,19 @@
 			out.structuredContent != null
 				? parseToolOutput(JSON.stringify(out.structuredContent)).data
 				: null;
-		const contentItemsHtml =
-			out.content?.map((contentItem) => {
-				if (contentItem.type === 'text' && 'text' in contentItem) {
-					const parsed = parseToolOutput(contentItem.text ?? '');
-					if (parsed.success) return parsed.data;
-					if (contentItem.text) return toHTMLFromMarkdown(contentItem.text);
-				}
-				return parseToolOutput(JSON.stringify(contentItem)).data;
-			}) ?? [];
+		// When structuredContent is present, content is just a fallback for clients
+		// that don't support structured content, so skip it to avoid duplicate display.
+		const hasStructuredContent = out.structuredContent != null;
+		const contentItemsHtml = hasStructuredContent
+			? []
+			: (out.content?.map((contentItem) => {
+					if (contentItem.type === 'text' && 'text' in contentItem) {
+						const parsed = parseToolOutput(contentItem.text ?? '');
+						if (parsed.success) return parsed.data;
+						if (contentItem.text) return toHTMLFromMarkdown(contentItem.text);
+					}
+					return parseToolOutput(JSON.stringify(contentItem)).data;
+				}) ?? []);
 		return { isError: out.isError, structuredHtml, contentItemsHtml };
 	});
 
