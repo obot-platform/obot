@@ -339,6 +339,7 @@
 							src="data:application/pdf;base64,{resource.blob}"
 							class="border-base-300 h-full w-full rounded border"
 							title="PDF Viewer"
+							sandbox=""
 						></iframe>
 					</div>
 				{:else}
