@@ -8,7 +8,11 @@
 		ResourceContents
 	} from '$lib/services/nanobot/types';
 	import MessageItemText from './MessageItemText.svelte';
-	import { CANCELLATION_PHRASE_CLIENT, isCancellationError } from '$lib/services/nanobot/utils';
+	import {
+		CANCELLATION_PHRASE_CLIENT,
+		isCancellationError,
+		parseToolFilePath
+	} from '$lib/services/nanobot/utils';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
@@ -35,8 +39,14 @@
 		}
 	}
 
+	function isVisibleWrittenFile(item: ChatMessageItem): boolean {
+		if (item.type !== 'tool' || item.name !== 'write') return false;
+		const filePath = item.arguments ? parseToolFilePath(item) : null;
+		return !!filePath && !filePath.includes('/.nanobot/');
+	}
+
 	function isMessageItemTool(item: ChatMessageItem): boolean {
-		return item.type === 'tool' && item.name !== 'write';
+		return item.type === 'tool' && !isVisibleWrittenFile(item);
 	}
 
 	/** Groups items so consecutive MessageItemTool items are in one group for collapse. */
