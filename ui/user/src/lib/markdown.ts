@@ -9,7 +9,7 @@ export function toHTMLFromMarkdown(
 	const html = micromark(markdown, {
 		extensions: [gfm()],
 		htmlExtensions: [gfmHtml()],
-		allowDangerousHtml: enableVideoAndIframeProcessing
+		allowDangerousHtml: typeof window !== 'undefined' ? enableVideoAndIframeProcessing : false
 	});
 
 	if (typeof window !== 'undefined') {
