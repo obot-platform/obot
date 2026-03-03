@@ -94,7 +94,8 @@
 				: null;
 		// When structuredContent is present, content is just a fallback for clients
 		// that don't support structured content, so skip it to avoid duplicate display.
-		const contentItemsHtml = structuredHtml
+		const hasStructuredContent = out.structuredContent != null;
+		const contentItemsHtml = hasStructuredContent
 			? []
 			: (out.content?.map((contentItem) => {
 					if (contentItem.type === 'text' && 'text' in contentItem) {
