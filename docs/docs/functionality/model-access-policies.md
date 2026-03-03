@@ -4,10 +4,7 @@ title: Model Access Policies
 
 ## Overview
 
-Model Access Policies control which users and groups can use which language models in chat. Administrators create policies to grant model access based on organizational needs—whether that means giving everyone access to standard models, restricting powerful models to specific teams, or anything in between.
-
-This feature replaces the previous **Allowed Models** and **Default Model** settings that were part of Chat Configuration. If you previously used those settings, see [Upgrades and Migration](#upgrades-and-migration) for how your configuration was preserved.
-
+Model Access Policies control which users and groups can use which language models in Obot Agent. Administrators create policies to grant model access based on organizational needs—whether that means giving everyone access to standard models, restricting powerful models to specific teams, or anything in between.
 
 ## How Policies Work
 
@@ -37,7 +34,7 @@ When adding models to a policy, you can select:
 - **All models** — Grants access to every available model
 
 :::info Administrators Must Follow Policies
-Administrators do not have automatic access to all models. Like any other user, an administrator must be included in a policy to use a model in chat.
+Administrators do not have automatic access to all models. Like any other user, an administrator must be included in a policy to use a model in Obot Agent.
 :::
 
 ## Model Availability
@@ -79,7 +76,7 @@ You can find and modify this migrated policy on the Model Access Policies page. 
 
 ## Managing Policies
 
-To manage policies, go to **Chat Management > Model Access Policies**.
+To manage policies, go to **Obot Agent Management > Model Access Policies**.
 
 ### Creating a Policy
 

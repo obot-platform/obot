@@ -14,7 +14,7 @@ Full platform management plus the ability to assign the Owner and Auditor roles 
 
 ### Admin
 
-Full platform management: MCP Management, Chat Management, User Management, and App Preferences. Cannot assign the Owner or Auditor roles.
+Full platform management: MCP Management, Obot Agent Management, User Management, and App Preferences. Cannot assign the Owner or Auditor roles.
 
 ### Power User+
 
@@ -26,25 +26,25 @@ All Basic User permissions plus publishing custom MCP servers (personal use only
 
 ### Basic User
 
-Connect to MCP servers, use Obot Chat, and create projects and threads.
+Connect to MCP servers, use Obot Agent, and create conversations and workflows.
 
 ### Auditor
 
-Add-on permission that grants read-only access to sensitive data across the platform. Sensitive data (MCP request/response bodies, chat threads, and task runs) can only be viewed by users with this role. All other roles, including Owner, see only metadata for these resources. Can be combined with any other role.
+Add-on permission that grants read-only access to sensitive data across the platform. Sensitive data (MCP request/response bodies, conversations, and workflow runs) can only be viewed by users with this role. All other roles, including Owner, see only metadata for these resources. Can be combined with any other role.
 
 ## Role Comparison
 
 | Capability | Basic | Power | Power+ | Admin | Owner |
 |------------|-------|-------|--------|-------|-------|
 | Connect to MCP servers | Yes | Yes | Yes | Yes | Yes   |
-| Use Obot Chat | Yes | Yes | Yes | Yes | Yes   |
+| Use Obot Agent | Yes | Yes | Yes | Yes | Yes   |
 | View Audit Logs | | Yes* | Yes* | Yes** | Yes** |
 | View Usage | | Yes* | Yes* | Yes | Yes   |
 | Publish personal MCP servers | | Yes | Yes | Yes | Yes   |
 | Share MCP servers through registries | | | Yes | Yes | Yes   |
 | Manage Filters | | | | Yes | Yes   |
 | Server Scheduling | | | | Yes | Yes   |
-| Chat Management | | | | Yes | Yes   |
+| Obot Agent Management | | | | Yes | Yes   |
 | User Management | | | | Yes | Yes   |
 | App Preferences | | | | Yes | Yes   |
 | Assign Owner/Auditor roles | | | | | Yes   |

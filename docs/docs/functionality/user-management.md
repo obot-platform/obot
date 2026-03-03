@@ -20,7 +20,7 @@ For details on updating roles, see [User Roles](/configuration/user-roles/#manag
 
 Configure the default role assigned to new users when they first log in. Choose from:
 
-- **Basic User**: Connect to MCP servers and use Obot Chat
+- **Basic User**: Connect to MCP servers and use Obot Agent
 - **Power User**: Basic User features plus publish personal MCP servers
 - **Power User Plus**: Power User features plus share MCP servers through registries
 - **Admin**: Full platform management

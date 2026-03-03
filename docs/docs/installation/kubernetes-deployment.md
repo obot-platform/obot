@@ -11,6 +11,7 @@ For a complete list of all available Helm chart configuration values, see [chart
 - **Helm**
 - **PostgreSQL 17+** with pgvector extension
 - **S3-compatible storage** (for production)
+- **StorageClass** (for production)
 - **Encryption provider** (AWS KMS, GCP KMS, or Azure Key Vault recommended)
 
 ### Minimum Cluster Requirements
@@ -136,6 +137,17 @@ mcpNamespace:
 The restricted policy follows current Pod hardening best practices and provides the highest level of security. If you need more permissive settings, you can change to **baseline** or **privileged** levels.
 
 For details, see [MCP Deployments in Kubernetes - Pod Security Admission](../configuration/mcp-deployments-in-kubernetes.md#pod-security-admission).
+
+## Agent Persistence
+
+
+By default, Obot Agent uses storage inside its pod, which means all agent state is lost if the pod restarts. For production deployments, it's recommended to configure persistence.
+
+```yaml
+mcpServerDefaults:
+  storageClassName: <your storage class> # should be set to a configured StorageClass in your cluster.
+  nanobotWorkspaceSize: 1Gi # Can be adjusted based on expected workspace usage.
+```
 
 ## Next Steps
 

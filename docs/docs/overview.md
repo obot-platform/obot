@@ -66,7 +66,7 @@ A single entry point for accessing MCP servers:
 - Usage visibility to understand which servers are being used
 - Request inspection and filtering before requests reach servers
 
-### [Obot Chat](concepts/obot-chat)
+### [Obot Agent](concepts/obot-agent)
 
 A chat client built to work directly with MCP:
 
@@ -89,4 +89,4 @@ A chat client built to work directly with MCP:
 - [Installation Guide](installation/overview)
 - [Architecture](concepts/architecture)
 - [Functionality](functionality/overview)
-- [Obot Chat](functionality/chat/overview)
+- [Obot Agent](functionality/agent/overview)

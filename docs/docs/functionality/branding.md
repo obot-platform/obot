@@ -27,7 +27,7 @@ Upload custom icons and logos to match your organization's branding:
 - **Warning Icon**: Icon displayed for warning states
 - **Full Logo**: The main logo shown in the navbar (separate versions for light and dark schemes)
 - **Full Enterprise Logo**: Logo used when running enterprise version of Obot
-- **Full Chat Logo**: Log shown in the navbar when using Obot Chat
+- **Full Chat Logo**: Logo shown in the navbar when using the legacy Obot Chat
 
 ## Restoring Defaults
 

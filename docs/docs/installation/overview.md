@@ -8,7 +8,7 @@ This guide helps you choose the right deployment method for your use case. Befor
 - **Obot Server**: The core application server, distributed as a container image.
 - **MCP Server Hosting Platform**: The environment where Obot deploys users’ MCP servers. This matches the platform on which Obot itself is deployed (Docker or Kubernetes).
 - **PostgreSQL Database**: The primary database for Obot. PostgreSQL 17 or later is required, along with the [pgvector](https://github.com/pgvector/pgvector) extension.
-- **File Storage**: Local filesystem or S3-compatible object storage for files generated or uploaded during chat threads or task runs.
+- **File Storage**: Local filesystem or S3-compatible object storage for files generated or uploaded during chat conversations or workflow runs.
 
 Below you’ll find an overview of the available deployment options, along with system requirements and links to reference architectures.
 

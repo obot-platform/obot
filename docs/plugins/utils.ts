@@ -17,7 +17,7 @@ export function escapeRegExp(value: string): string {
  */
 export const PATH_REDIRECTS: Record<string, string> = {
   // Pages moved between versions
-  "architecture": "concepts/architecture",
+  architecture: "concepts/architecture",
 
   // concepts/admin/* — section removed; map to closest equivalents
   "concepts/admin/overview": "functionality/overview",
@@ -26,12 +26,16 @@ export const PATH_REDIRECTS: Record<string, string> = {
   "concepts/admin/filters": "functionality/filters",
   "concepts/admin/access-control": "configuration/user-roles",
 
-  // concepts/chat/* — section removed; map to chat overview
-  "concepts/chat/overview": "functionality/chat/overview",
-  "concepts/chat/projects": "functionality/chat/overview",
-  "concepts/chat/tasks": "functionality/chat/overview",
-  "concepts/chat/threads": "functionality/chat/overview",
+  // concepts/chat/* — section removed; map to agent overview
+  "concepts/chat/overview": "functionality/agent/overview",
+  "concepts/chat/projects": "functionality/agent/overview",
+  "concepts/chat/tasks": "functionality/agent/overview",
+  "concepts/chat/threads": "functionality/agent/overview",
 
+  // other chat-related pages removed/renamed; map to agent overview
+  "concepts/obot-chat": "functionality/agent/overview",
+  "functionality/chat/overview": "functionality/agent/overview",
+  "functionality/chat-management": "functionality/agent/overview",
   // concepts/mcp-gateway sub-pages — restructured into single page
   "concepts/mcp-gateway/overview": "concepts/mcp-gateway",
   "concepts/mcp-gateway/obot-registry": "concepts/mcp-registry",
@@ -40,7 +44,8 @@ export const PATH_REDIRECTS: Record<string, string> = {
 
   // configuration renames
   "configuration/chat-configuration": "configuration/server-configuration",
-  "configuration/oauth-configuration": "configuration/mcp-server-oauth-configuration",
+  "configuration/oauth-configuration":
+    "configuration/mcp-server-oauth-configuration",
 
   // Removed sections
   "integrations/ide-client-integration": "",

@@ -4,13 +4,13 @@ title: Architecture
 
 # Architecture
 
-Obot is designed to enable organizations to consume MCP servers in an enterprise setting. It consists of four core components: MCP Hosting for running servers, MCP Registry for discovery, MCP Gateway for access control, and Obot Chat for user interaction.
+Obot is designed to enable organizations to consume MCP servers in an enterprise setting. It consists of four core components: MCP Hosting for running servers, MCP Registry for discovery, MCP Gateway for access control, and Obot Agent for user interaction.
 
 ![Obot Platform Architecture](/img/obot-mcp-mgmt.png)
 
 ## Key Concepts
 
-- **MCP Clients**: Tools that interact with LLMs and consume MCP servers. These include agents, desktop tools like Cursor, Claude Desktop, VS Code, and Obot Chat.
+- **MCP Clients**: Tools that interact with LLMs and consume MCP servers. These include agents, desktop tools like Cursor, Claude Desktop, VS Code, and Obot Agent.
 
 - **MCP Servers**: Code that implements the MCP specification (tools, prompts, resources) for consumption by clients.
 
@@ -38,7 +38,8 @@ Key security properties:
 ## Data Persistence
 
 - **Database**: Postgres for storing configuration and metadata. In production, this should be hosted independently of the Obot deployment.
-- **Object Storage**: S3-compatible storage for workspace data (PDFs, text files, etc.)
+- **Object Storage**: S3-compatible storage for workspace data (PDFs, text files, etc.) - only required if you enable the legacy Obot Chat.
+- **Agent State**: Used to store files and other data for Obot Agent. Can be configured to use external volumes for persistence.
 
 ## Encryption
 

@@ -53,9 +53,9 @@ In the future, users will be able to build webhook filters directly as MCP serve
 
 ## Connecting to the Gateway
 
-### With Obot Chat
+### With Obot Agent
 
-Obot Chat connects through the gateway automatically. Users select which MCP servers to enable for their projects.
+Obot Agent connects through the gateway automatically. Users select which MCP servers to enable for their agents, conversations, or workflows.
 
 ### With External Clients
 

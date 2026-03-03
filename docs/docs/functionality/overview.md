@@ -14,7 +14,7 @@ The MCP Platform adapts its navigation and available features based on your assi
 
 ### Basic User
 
-Basic Users can deploy and use MCP servers that have been made available to them through an MCP Registry. They can interact with MCP servers via Obot Chat or external MCP clients but cannot publish or manage servers.
+Basic Users can deploy and use MCP servers that have been made available to them through an MCP Registry. They can interact with MCP servers via Obot Agent or external MCP clients but cannot publish or manage servers.
 
 ### Power User
 
@@ -26,7 +26,7 @@ Power Users+ include all Power User capabilities and can additionally publish MC
 
 ### Admin / Owner
 
-Admins and Owners have full administrative access to the platform, including system-wide configuration, user management, and chat administration.
+Admins and Owners have full administrative access to the platform, including system-wide configuration, user management, and Obot Agent administration.
 
 The only functional difference between Owners and Admins is that Owners can assign the **Auditor** role to users. For more information, see the [Auditor Role](/configuration/user-roles/#auditor).
 
@@ -41,7 +41,7 @@ The only functional difference between Owners and Admins is that Owners can assi
 | Usage | | ✓* | ✓* | ✓ |
 | Filters | | | | ✓ |
 | Server Scheduling | | | | ✓ |
-| **Chat Management** | | | | ✓ |
+| **Obot Agent Management** | | | | ✓ |
 | **User Management** | | | | ✓ |
 | API Keys (admin) | | | | ✓ |
 | **API Keys** | ✓ | ✓ | ✓ | ✓ |
@@ -57,9 +57,9 @@ The only functional difference between Owners and Admins is that Owners can assi
 - [Audit Logs and Usage](../audit-logs-and-usage/) - Monitor activity and track consumption
 - [Filters](../filters/) - Inspect and control MCP traffic
 - [Server Scheduling](../server-scheduling/) - Define server availability windows
-- [Chat Management](../chat-management/) - Configure default chat settings and monitor activity
+- [Obot Agent Management](../obot-agent-management/) - Configure default agent, conversation, and workflow settings, and monitor activity
 - [User Management](../user-management/) - Manage users, roles, and authentication
 - [API Keys](../api-keys/) - Create and manage API keys for programmatic MCP server access
 - [Branding](../branding/) - Customize theme colors and branding
-- [Obot Chat](../chat/overview/) - Projects, threads, tasks, and chat features
+- [Obot Agent](../agent/overview/) - Agents, conversations, workflows, and chat features
 - [User Roles](/configuration/user-roles/) - Detailed permissions and role definitions
