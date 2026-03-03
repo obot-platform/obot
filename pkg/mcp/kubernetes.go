@@ -374,7 +374,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		command  []string
 		objs     = make([]kclient.Object, 0, 5)
 		image    = k.baseImage
-		args     = []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "--exclude-built-in-agents", "--config", "/run/nanobot.yaml"}
+		args     = []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "--exclude-built-in-agents", "--config", "/config/nanobot.yaml"}
 		port     = defaultContainerPort
 		portName = "http"
 
@@ -659,11 +659,11 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					ContainerPort: int32(port),
 				}},
 				SecurityContext: getContainerSecurityContext(psaLevel),
-				Args:            []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", port), "--exclude-built-in-agents", "--config", "/run/nanobot.yaml"},
+				Args:            []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", port), "--exclude-built-in-agents", "--config", "/config/nanobot.yaml"},
 				VolumeMounts: []corev1.VolumeMount{
 					{
 						Name:      "run-shim-file",
-						MountPath: "/run",
+						MountPath: "/config",
 						ReadOnly:  true,
 					},
 				},
@@ -866,7 +866,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 		dep.Spec.Template.Spec.Containers[len(containers)-1].VolumeMounts = append(dep.Spec.Template.Spec.Containers[len(containers)-1].VolumeMounts, corev1.VolumeMount{
 			Name:      "run-file",
-			MountPath: "/run",
+			MountPath: "/config",
 			ReadOnly:  true,
 		})
 
