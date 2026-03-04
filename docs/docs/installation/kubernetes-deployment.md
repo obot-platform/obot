@@ -140,14 +140,9 @@ For details, see [MCP Deployments in Kubernetes - Pod Security Admission](../con
 
 ## Agent Persistence
 
+By default, Obot Agent uses storage inside its pod, which means all agent state is lost if the pod restarts. For production deployments, configure a persistent `StorageClass`.
 
-By default, Obot Agent uses storage inside its pod, which means all agent state is lost if the pod restarts. For production deployments, it's recommended to configure persistence.
-
-```yaml
-mcpServerDefaults:
-  storageClassName: <your storage class> # should be set to a configured StorageClass in your cluster.
-  nanobotWorkspaceSize: 1Gi # Can be adjusted based on expected workspace usage.
-```
+For complete guidance and examples (including AWS EBS, GCP Hyperdisk, and `nfs-subdir-external-provisioner`), see [Persistent Storage in Kubernetes](/installation/kubernetes-persistent-storage.md).
 
 ## Next Steps
 

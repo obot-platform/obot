@@ -27,10 +27,12 @@ For more details, see the [Docker Deployment Guide](/installation/docker-deploym
 Kubernetes provides the best way to run Obot reliably at scale in production environments.
 
 - Helm chart available at [charts.obot.ai](https://charts.obot.ai/)
-- Integrates with cloud-native services such as KMS and S3
+- Integrates with cloud-native services such as KMS
 - Requires an external PostgreSQL database and external storage
 
 For more details, see the [Kubernetes Deployment Guide](/installation/kubernetes-deployment/).
+
+If you are deploying agents on Kubernetes, also review [Persistent Storage in Kubernetes](/installation/kubernetes-persistent-storage.md).
 
 ## Production System Requirements
 
@@ -38,7 +40,6 @@ For production deployments, the following components are required:
 
 - **Kubernetes**: A production-grade Kubernetes cluster with capacity for Obot and the MCP servers it will manage
 - **External PostgreSQL database**: PostgreSQL 17 or later with the pgvector extension
-- **S3-compatible object storage**: For workspace files and persistent data
 - **Encryption provider**: AWS KMS, Google Cloud KMS, or Azure Key Vault
 - **Authentication provider**: See our supported [Authentication Providers](/configuration/auth-providers/)
 - **TLS/SSL certificates**: For secure HTTPS access
