@@ -7,6 +7,7 @@
 	import type { Snippet } from 'svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
+	import Toggle from '$lib/components/Toggle.svelte';
 
 	interface Props {
 		provider?: BaseProvider;
@@ -331,20 +332,20 @@
 							{#if parameter.name in form}
 								{@const error = !form[parameter.name].length && showRequired}
 								{#if booleanInputs.has(parameter.name)}
-									<li class="flex items-center gap-2">
-										<input
-											type="checkbox"
-											id={parameter.name}
-											checked={form[parameter.name] === 'true'}
-											onchange={(e) => {
-												form[parameter.name] = e.currentTarget.checked ? 'true' : 'false';
-											}}
-											disabled={readonly}
-										/>
+									<li class="flex flex-col gap-1">
 										<label for={parameter.name}>{parameter.friendlyName}</label>
 										{#if parameter.description}
-											<span class="text-gray text-xs">({parameter.description})</span>
+											<span class="text-gray text-xs">{parameter.description}</span>
 										{/if}
+										<Toggle
+											label=""
+											checked={form[parameter.name] === 'true'}
+											disabled={readonly ?? false}
+											onChange={(checked) => {
+												form[parameter.name] = checked ? 'true' : 'false';
+											}}
+											classes={{ label: 'gap-0' }}
+										/>
 									</li>
 								{:else}
 									<li class="flex flex-col gap-1">
@@ -408,20 +409,20 @@
 						{#each optionalConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
 								{#if booleanInputs.has(parameter.name)}
-									<li class="flex items-center gap-2">
-										<input
-											type="checkbox"
-											id={parameter.name}
-											checked={form[parameter.name] === 'true'}
-											onchange={(e) => {
-												form[parameter.name] = e.currentTarget.checked ? 'true' : 'false';
-											}}
-											disabled={readonly}
-										/>
+									<li class="flex flex-col gap-1">
 										<label for={parameter.name}>{parameter.friendlyName}</label>
 										{#if parameter.description}
-											<span class="text-gray text-xs">({parameter.description})</span>
+											<span class="text-gray text-xs">{parameter.description}</span>
 										{/if}
+										<Toggle
+											label=""
+											checked={form[parameter.name] === 'true'}
+											disabled={readonly ?? false}
+											onChange={(checked) => {
+												form[parameter.name] = checked ? 'true' : 'false';
+											}}
+											classes={{ label: 'gap-0' }}
+										/>
 									</li>
 								{:else}
 									<li class="flex flex-col gap-1">
