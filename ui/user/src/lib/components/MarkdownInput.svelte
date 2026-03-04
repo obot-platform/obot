@@ -226,7 +226,7 @@
 		<div
 			class="milkdown-content default-scrollbar-thin bg-background max-h-[650px] min-h-48 overflow-y-auto p-4"
 		>
-			{@html toHTMLFromMarkdownWithNewTabLinks(value)}
+			{@html toHTMLFromMarkdownWithNewTabLinks(value, true)}
 		</div>
 	{:else}
 		<div

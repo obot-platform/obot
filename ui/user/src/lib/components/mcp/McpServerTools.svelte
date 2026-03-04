@@ -273,7 +273,7 @@
 									in:slide={{ axis: 'y' }}
 									class="milkdown-content text-on-surface1 max-w-none text-sm font-light"
 								>
-									{@html toHTMLFromMarkdownWithNewTabLinks(tool.description || '')}
+									{@html toHTMLFromMarkdownWithNewTabLinks(tool.description || '', true)}
 								</div>
 							{/if}
 							{#if Object.keys(tool.params ?? {}).length > 0}

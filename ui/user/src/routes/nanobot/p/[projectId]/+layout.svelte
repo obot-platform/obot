@@ -88,7 +88,6 @@
 		const sid = sessionId;
 		const c = chat;
 		if (!api || !sid || !c) return;
-		if (c.isLoading) return;
 		if (sessions.some((s) => s.id === sid)) {
 			refreshedForMissingSessionId = null;
 			return;
