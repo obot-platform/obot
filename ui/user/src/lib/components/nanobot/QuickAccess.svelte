@@ -184,7 +184,9 @@
 
 {#snippet listThreadFiles(compact?: boolean)}
 	{#each files ?? [] as file (file.uri)}
-		{@const openPath = file.uri.replace('file:///', `file:///sessions/${sessionId}/`)}
+		{@const openPath = file.uri.startsWith('file:///workflows/')
+			? file.uri
+			: file.uri.replace('file:///', `file:///sessions/${sessionId}/`)}
 		{@const isSelected = selectedFile === openPath}
 		<FileItem
 			uri={openPath}

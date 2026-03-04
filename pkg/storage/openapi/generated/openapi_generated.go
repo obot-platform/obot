@@ -57,6 +57,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasList":                          schema_obot_platform_obot_apiclient_types_DefaultModelAliasList(ref),
 		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasManifest":                      schema_obot_platform_obot_apiclient_types_DefaultModelAliasManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeploymentCondition":                            schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref),
+		"github.com/obot-platform/obot/apiclient/types.DirectoryConfig":                                schema_obot_platform_obot_apiclient_types_DirectoryConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiver":                                  schema_obot_platform_obot_apiclient_types_EmailReceiver(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiverList":                              schema_obot_platform_obot_apiclient_types_EmailReceiverList(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiverManifest":                          schema_obot_platform_obot_apiclient_types_EmailReceiverManifest(ref),
@@ -176,6 +177,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.Prompt":                                         schema_obot_platform_obot_apiclient_types_Prompt(ref),
 		"github.com/obot-platform/obot/apiclient/types.PromptResponse":                                 schema_obot_platform_obot_apiclient_types_PromptResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter":                 schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(ref),
+		"github.com/obot-platform/obot/apiclient/types.PublishedArtifact":                              schema_obot_platform_obot_apiclient_types_PublishedArtifact(ref),
+		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactList":                          schema_obot_platform_obot_apiclient_types_PublishedArtifactList(ref),
+		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactManifest":                      schema_obot_platform_obot_apiclient_types_PublishedArtifactManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionEntry":                  schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionEntry(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryGitHubMeta":                             schema_obot_platform_obot_apiclient_types_RegistryGitHubMeta(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryMeta":                                   schema_obot_platform_obot_apiclient_types_RegistryMeta(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryObotMeta":                               schema_obot_platform_obot_apiclient_types_RegistryObotMeta(ref),
@@ -392,6 +397,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectV2List":                 schema_storage_apis_obotobotai_v1_ProjectV2List(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectV2Spec":                 schema_storage_apis_obotobotai_v1_ProjectV2Spec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectV2Status":               schema_storage_apis_obotobotai_v1_ProjectV2Status(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifact":             schema_storage_apis_obotobotai_v1_PublishedArtifact(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifactList":         schema_storage_apis_obotobotai_v1_PublishedArtifactList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifactSpec":         schema_storage_apis_obotobotai_v1_PublishedArtifactSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifactStatus":       schema_storage_apis_obotobotai_v1_PublishedArtifactStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Ref":                           schema_storage_apis_obotobotai_v1_Ref(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Run":                           schema_storage_apis_obotobotai_v1_Run(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunList":                       schema_storage_apis_obotobotai_v1_RunList(ref),
@@ -2658,6 +2667,26 @@ func schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref common.Re
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DirectoryConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"baseDir": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"baseDir"},
+			},
+		},
 	}
 }
 
@@ -8635,6 +8664,171 @@ func schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(re
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_PublishedArtifact(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PublishedArtifact represents a published artifact in the API.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"PublishedArtifactManifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.PublishedArtifactManifest"),
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"authorID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"latestVersion": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"visibility": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"Metadata", "PublishedArtifactManifest", "authorID", "latestVersion", "visibility"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.PublishedArtifactManifest"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_PublishedArtifactList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PublishedArtifactList is a list of published artifacts.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.PublishedArtifact"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.PublishedArtifact"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_PublishedArtifactManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PublishedArtifactManifest contains the user/client-editable fields for a published artifact.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"artifactType": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"authorEmail": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"name", "artifactType"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionEntry(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PublishedArtifactVersionEntry represents metadata for a single version of an artifact.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"blobKey": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"version", "blobKey", "createdAt"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_RegistryGitHubMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -9858,11 +10052,17 @@ func schema_obot_platform_obot_apiclient_types_StorageConfig(ref common.Referenc
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.CustomS3Config"),
 						},
 					},
+					"directoryConfig": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Local directory storage config",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.DirectoryConfig"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AzureConfig", "github.com/obot-platform/obot/apiclient/types.CustomS3Config", "github.com/obot-platform/obot/apiclient/types.GCSConfig", "github.com/obot-platform/obot/apiclient/types.S3Config"},
+			"github.com/obot-platform/obot/apiclient/types.AzureConfig", "github.com/obot-platform/obot/apiclient/types.CustomS3Config", "github.com/obot-platform/obot/apiclient/types.DirectoryConfig", "github.com/obot-platform/obot/apiclient/types.GCSConfig", "github.com/obot-platform/obot/apiclient/types.S3Config"},
 	}
 }
 
@@ -18010,6 +18210,195 @@ func schema_storage_apis_obotobotai_v1_ProjectV2Status(ref common.ReferenceCallb
 				Type: []string{"object"},
 			},
 		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_PublishedArtifact(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifactSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifactStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifactSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifactStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_PublishedArtifactList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifact"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PublishedArtifact", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_PublishedArtifactSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"artifactType": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"authorEmail": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"authorID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthorID is the user ID of the artifact's creator (extracted from auth token).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"latestVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LatestVersion is the current highest version number for this artifact.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"visibility": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Visibility controls who can see this artifact.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"blobKey": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BlobKey is the S3 path to the latest version's ZIP blob. Convention: published-artifacts/{id}/v{N}.zip",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name", "artifactType"},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_PublishedArtifactStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"versions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Versions tracks metadata for each published version.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionEntry"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionEntry"},
 	}
 }
 

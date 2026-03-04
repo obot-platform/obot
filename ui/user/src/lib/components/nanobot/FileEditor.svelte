@@ -187,7 +187,9 @@
 		const mdSuffix = '.md';
 		if (relpath.startsWith(workflowsPrefix) && relpath.endsWith(mdSuffix)) {
 			const withoutWorkflows = relpath.slice(workflowsPrefix.length);
-			const withoutMd = withoutWorkflows.slice(0, -mdSuffix.length);
+			let withoutMd = withoutWorkflows.slice(0, -mdSuffix.length);
+			// Handle directory-based workflows: workflows/<name>/SKILL.md → <name>
+			withoutMd = withoutMd.replace(/\/SKILL$/, '');
 			return `workflow:///${withoutMd}`;
 		} else {
 			return relpath.startsWith('file:///') ? relpath : `file:///${relpath}`;

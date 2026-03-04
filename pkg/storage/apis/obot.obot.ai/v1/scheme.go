@@ -119,6 +119,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&NanobotAgentList{},
 		&ProjectV2{},
 		&ProjectV2List{},
+		&PublishedArtifact{},
+		&PublishedArtifactList{},
 	); err != nil {
 		return err
 	}

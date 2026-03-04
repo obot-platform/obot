@@ -114,7 +114,7 @@
 		<tbody>
 			{#if filteredWorkflows.length > 0}
 				{#each filteredWorkflows as workflow (workflow.uri)}
-					{@const name = workflow._meta?.name ?? workflow.name}
+					{@const name = workflow._meta?.displayName ?? workflow._meta?.name ?? workflow.name}
 					<tr
 						class="hover:bg-base-200 cursor-pointer"
 						role="button"

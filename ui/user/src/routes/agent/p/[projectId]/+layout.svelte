@@ -73,7 +73,11 @@
 					? r.uri === `workflow:///${parentWorkflowId}`
 					: r.uri === `workflow:///${workflowId}`
 			);
-			const name = (workflow?._meta?.name as string) ?? workflow?.name ?? '';
+			const name =
+				(workflow?._meta?.displayName as string) ??
+				(workflow?._meta?.name as string) ??
+				workflow?.name ??
+				'';
 			projectLayoutContext.setLayoutName(name);
 			projectLayoutContext.setShowBackButton(true);
 		} else {
