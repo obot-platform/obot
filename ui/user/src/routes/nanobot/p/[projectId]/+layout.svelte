@@ -181,6 +181,7 @@
 		untrack(() => {
 			prevSessionId = currentSessionId;
 			chat?.close();
+			chat = null;
 		});
 
 		if (currentSessionId) {
@@ -199,6 +200,15 @@
 					return data;
 				});
 			});
+		} else {
+			// Left thread view (e.g. navigated to workflows); clear store so returning to same tid re-opens session
+			nanobotChat.update((data) => {
+				if (data) {
+					data.chat = undefined;
+					data.sessionId = undefined;
+				}
+				return data;
+			});
 		}
 
 		return () => {
@@ -206,6 +216,7 @@
 				const nextTid = sessionId;
 				if (chat && nextTid !== chat.chatId) {
 					chat.close();
+					chat = null;
 				}
 			});
 		};
