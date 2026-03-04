@@ -138,6 +138,9 @@
 		if (provider) {
 			for (const param of provider.requiredConfigurationParameters ?? []) {
 				let value = values?.[param.name] ? values?.[param.name] : '';
+				if (booleanInputs.has(param.name) && !value) {
+					value = 'false';
+				}
 				// Convert literal \n to actual newlines for multiline fields
 				if (param.multiline && value) {
 					value = value.replace(/\\n/g, '\n');
@@ -146,6 +149,9 @@
 			}
 			for (const param of provider.optionalConfigurationParameters ?? []) {
 				let value = values?.[param.name] ? values?.[param.name] : '';
+				if (booleanInputs.has(param.name) && !value) {
+					value = 'false';
+				}
 				// Convert literal \n to actual newlines for multiline fields
 				if (param.multiline && value) {
 					value = value.replace(/\\n/g, '\n');
@@ -235,6 +241,8 @@
 		'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS',
 		'OBOT_AZURE_OPENAI_MODEL_PROVIDER_DEPLOYMENTS'
 	]);
+
+	const booleanInputs = new Set(['OBOT_AUTH_PROVIDER_ENABLE_LOGGING']);
 </script>
 
 <ResponsiveDialog
@@ -322,6 +330,23 @@
 						{#each requiredConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
 								{@const error = !form[parameter.name].length && showRequired}
+								{#if booleanInputs.has(parameter.name)}
+									<li class="flex items-center gap-2">
+										<input
+											type="checkbox"
+											id={parameter.name}
+											checked={form[parameter.name] === 'true'}
+											onchange={(e) => {
+												form[parameter.name] = e.currentTarget.checked ? 'true' : 'false';
+											}}
+											disabled={readonly}
+										/>
+										<label for={parameter.name}>{parameter.friendlyName}</label>
+										{#if parameter.description}
+											<span class="text-gray text-xs">({parameter.description})</span>
+										{/if}
+									</li>
+								{:else}
 								<li class="flex flex-col gap-1">
 									<label for={parameter.name} class:text-red-500={error}
 										>{parameter.friendlyName}</label
@@ -369,6 +394,7 @@
 										/>
 									{/if}
 								</li>
+								{/if}
 							{/if}
 						{/each}
 					</ul>
@@ -381,6 +407,23 @@
 					<ul class="flex flex-col gap-4">
 						{#each optionalConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
+								{#if booleanInputs.has(parameter.name)}
+									<li class="flex items-center gap-2">
+										<input
+											type="checkbox"
+											id={parameter.name}
+											checked={form[parameter.name] === 'true'}
+											onchange={(e) => {
+												form[parameter.name] = e.currentTarget.checked ? 'true' : 'false';
+											}}
+											disabled={readonly}
+										/>
+										<label for={parameter.name}>{parameter.friendlyName}</label>
+										{#if parameter.description}
+											<span class="text-gray text-xs">({parameter.description})</span>
+										{/if}
+									</li>
+								{:else}
 								<li class="flex flex-col gap-1">
 									<label for={parameter.name}>{parameter.friendlyName}</label>
 									{#if parameter.description}
@@ -420,6 +463,7 @@
 										/>
 									{/if}
 								</li>
+								{/if}
 							{/if}
 						{/each}
 					</ul>
