@@ -6,7 +6,6 @@ Deploying Obot to Google Kubernetes Engine follows the standard Helm workflow. A
 * VPC Network
 * Google Cloud SQL instance running PostgreSQL 17+ with the pgvector extension enabled
 * VPC Network Peering between your VPC Network and the Cloud SQL instance
-* Private Google Cloud Storage bucket for workspace data
 * (Optional) Google Cloud KMS key for encrypting sensitive information
 * (Optional) IAM role with necessary permissions if you're using Google Cloud KMS for encryption
 * kubectl and Helm installed and configured to connect to your GKE cluster
@@ -109,17 +108,12 @@ config:
   OBOT_SERVER_AUTH_ADMIN_EMAILS: "<comma separated list of admin emails>"
   OBOT_SERVER_AUTH_OWNER_EMAILS: "<comma separated list of owner emails>"
 
-  # Configure GCS for workspace storage
-  # Set to s3 and use the s3 compatible settings below
-  OBOT_WORKSPACE_PROVIDER_TYPE: "s3"
-  WORKSPACE_PROVIDER_S3_BASE_ENDPOINT: "https://storage.googleapis.com"
-  WORKSPACE_PROVIDER_S3_BUCKET: "<your bucket name>"
-  AWS_REGION: "auto"
-  AWS_ACCESS_KEY_ID: "<your google api key id>"
-  AWS_SECRET_ACCESS_KEY: "<your google api key secret>"
-
   # Optionally configure model providers
   OPENAI_API_KEY: "<your openai api key>"
+
+mcpServerDefaults:
+  storageClassName: hyperdisk # replace with the name of your StorageClass
+  nanobotWorkspaceSize: 4Gi # Some disk types have a minimum size, read the documentation for the storage type you select.
 ```
 
 With the default configuration on GKE, this will set up ingress to expose Obot through a load balancer. You should also consider adding TLS termination to your load balancer for secure HTTPS access.
