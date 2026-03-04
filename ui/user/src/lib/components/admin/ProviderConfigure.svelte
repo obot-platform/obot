@@ -131,6 +131,17 @@
 		return optionalParams;
 	});
 
+	function initParamValue(param: ProviderParameter): string {
+		let value = values?.[param.name] ? values?.[param.name] : '';
+		if (booleanInputs.has(param.name) && !value && values && param.name in values) {
+			value = 'false';
+		}
+		if (param.multiline && value) {
+			value = value.replace(/\\n/g, '\n');
+		}
+		return value;
+	}
+
 	function onOpen() {
 		// Reset state on each open
 		form = {};
@@ -138,26 +149,10 @@
 
 		if (provider) {
 			for (const param of provider.requiredConfigurationParameters ?? []) {
-				let value = values?.[param.name] ? values?.[param.name] : '';
-				if (booleanInputs.has(param.name) && !value) {
-					value = 'false';
-				}
-				// Convert literal \n to actual newlines for multiline fields
-				if (param.multiline && value) {
-					value = value.replace(/\\n/g, '\n');
-				}
-				form[param.name] = value;
+				form[param.name] = initParamValue(param);
 			}
 			for (const param of provider.optionalConfigurationParameters ?? []) {
-				let value = values?.[param.name] ? values?.[param.name] : '';
-				if (booleanInputs.has(param.name) && !value) {
-					value = 'false';
-				}
-				// Convert literal \n to actual newlines for multiline fields
-				if (param.multiline && value) {
-					value = value.replace(/\\n/g, '\n');
-				}
-				form[param.name] = value;
+				form[param.name] = initParamValue(param);
 			}
 		}
 	}
@@ -246,6 +241,24 @@
 	const booleanInputs = new Set(['OBOT_AUTH_PROVIDER_ENABLE_LOGGING']);
 </script>
 
+{#snippet booleanToggle(parameter: ProviderParameter)}
+	<li class="flex flex-col gap-1">
+		<span>{parameter.friendlyName}</span>
+		{#if parameter.description}
+			<span class="text-gray text-xs">{parameter.description}</span>
+		{/if}
+		<Toggle
+			label=""
+			checked={form[parameter.name] === 'true'}
+			disabled={readonly ?? false}
+			onChange={(checked) => {
+				form[parameter.name] = checked ? 'true' : 'false';
+			}}
+			classes={{ label: 'gap-0' }}
+		/>
+	</li>
+{/snippet}
+
 <ResponsiveDialog
 	bind:this={dialog}
 	{onClose}
@@ -332,21 +345,7 @@
 							{#if parameter.name in form}
 								{@const error = !form[parameter.name].length && showRequired}
 								{#if booleanInputs.has(parameter.name)}
-									<li class="flex flex-col gap-1">
-										<label for={parameter.name}>{parameter.friendlyName}</label>
-										{#if parameter.description}
-											<span class="text-gray text-xs">{parameter.description}</span>
-										{/if}
-										<Toggle
-											label=""
-											checked={form[parameter.name] === 'true'}
-											disabled={readonly ?? false}
-											onChange={(checked) => {
-												form[parameter.name] = checked ? 'true' : 'false';
-											}}
-											classes={{ label: 'gap-0' }}
-										/>
-									</li>
+									{@render booleanToggle(parameter)}
 								{:else}
 									<li class="flex flex-col gap-1">
 										<label for={parameter.name} class:text-red-500={error}
@@ -409,21 +408,7 @@
 						{#each optionalConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
 								{#if booleanInputs.has(parameter.name)}
-									<li class="flex flex-col gap-1">
-										<label for={parameter.name}>{parameter.friendlyName}</label>
-										{#if parameter.description}
-											<span class="text-gray text-xs">{parameter.description}</span>
-										{/if}
-										<Toggle
-											label=""
-											checked={form[parameter.name] === 'true'}
-											disabled={readonly ?? false}
-											onChange={(checked) => {
-												form[parameter.name] = checked ? 'true' : 'false';
-											}}
-											classes={{ label: 'gap-0' }}
-										/>
-									</li>
+									{@render booleanToggle(parameter)}
 								{:else}
 									<li class="flex flex-col gap-1">
 										<label for={parameter.name}>{parameter.friendlyName}</label>
