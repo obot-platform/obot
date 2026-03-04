@@ -204,11 +204,12 @@
 					><KeyRound class="size-4" />My API Keys</a
 				>
 			{/if}
-			<button class="dropdown-link" onclick={handleLogout}>
-				<LogOut class="size-4" /> Log out
-			</button>
 			{#if profile.current.isBootstrapUser?.()}
 				<button class="dropdown-link" onclick={handleBootstrapLogout}>
+					<LogOut class="size-4" /> Log out
+				</button>
+			{:else}
+				<button class="dropdown-link" onclick={handleLogout}>
 					<LogOut class="size-4" /> Log out
 				</button>
 			{/if}

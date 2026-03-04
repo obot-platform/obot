@@ -22,8 +22,8 @@
 	import { type PaginatedResponse } from '$lib/services/admin/operations';
 	import AuditLogDetails from '$lib/components/admin/audit-logs/AuditLogDetails.svelte';
 	import AuditLogsTable from './AuditLogs.svelte';
-	import AuditLogsTimeline from './AuditLogsTimeline.svelte';
 	import AuditLogCalendar from './AuditLogCalendar.svelte';
+	import { aggregateAuditLogsByBucket, type AuditLogTimelineBucketRow } from './timelineUtils';
 	import { localState } from '$lib/runes/localState.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
@@ -31,6 +31,7 @@
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import profile from '$lib/stores/profile.svelte';
 	import { Group } from '$lib/services';
+	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 
 	interface Props {
 		mcpId?: string | null;
@@ -64,7 +65,46 @@
 
 	const remoteAuditLogs = $derived(auditLogsResponse?.items ?? []);
 
-	$effect(() => setVirtualPageData(remoteAuditLogs));
+	/** When there are more than this many results, defer timeline aggregation and table data to keep UI responsive. */
+	const DEFER_THRESHOLD = 500;
+	let displayTimelineData = $state<AuditLog[] | AuditLogTimelineBucketRow[]>([]);
+	let displayTableData = $state<AuditLog[]>([]);
+
+	$effect(() => {
+		const items = remoteAuditLogs;
+		const start = timeRangeFilters.startTime;
+		const end = timeRangeFilters.endTime;
+		const threshold = DEFER_THRESHOLD;
+
+		if (items.length <= threshold) {
+			displayTableData = items;
+			displayTimelineData = items;
+			return;
+		}
+
+		displayTableData = [];
+		displayTimelineData = [];
+		const schedule =
+			typeof requestIdleCallback !== 'undefined'
+				? (fn: () => void) => requestIdleCallback(fn, { timeout: 200 })
+				: (fn: () => void) => setTimeout(fn, 0);
+		const cancelSchedule =
+			typeof cancelIdleCallback !== 'undefined' ? cancelIdleCallback : clearTimeout;
+		const id = schedule(() => {
+			displayTableData = items;
+			displayTimelineData = aggregateAuditLogsByBucket(items, start, end);
+		});
+		return () => cancelSchedule(id);
+	});
+
+	$effect(() => setVirtualPageData(displayTableData));
+
+	const isTimelineAggregated = $derived(
+		displayTimelineData.length > 0 && 'count' in (displayTimelineData[0] as Record<string, unknown>)
+	);
+
+	/** Timeline accepts raw logs or bucketed rows; use a shape that includes optional value keys for StackedTimeline. */
+	type TimelineChartRow = { createdAt: string; callType: string; count?: number; _secondary?: 0 };
 
 	const isReachedMax = $derived(pageIndex >= numberOfPages - 1);
 	const isReachedMin = $derived(pageIndex <= 0);
@@ -557,13 +597,26 @@
 	>
 		<h3 class="mb-2 px-4 pt-4 text-lg font-medium">Timeline</h3>
 		<div class="px-4">
-			<div class="text-on-surface1 flex h-40 items-center justify-center rounded-md">
-				<AuditLogsTimeline
-					data={remoteAuditLogs}
-					start={timeRangeFilters.startTime}
-					end={timeRangeFilters.endTime}
-				/>
-			</div>
+			{#if displayTimelineData.length > 0}
+				<div class="text-on-surface1 flex h-40 items-center justify-center rounded-md">
+					<StackedTimeline
+						start={timeRangeFilters.startTime}
+						end={timeRangeFilters.endTime}
+						data={displayTimelineData as TimelineChartRow[]}
+						categoryKey="callType"
+						dateKey="createdAt"
+						primaryValueKey={isTimelineAggregated ? 'count' : undefined}
+						secondaryValueKey={isTimelineAggregated ? '_secondary' : undefined}
+					/>
+				</div>
+			{:else}
+				<div
+					class="text-on-surface1 flex h-40 items-center justify-center gap-2 rounded-md text-sm"
+				>
+					<Loading class="size-5 animate-spin" />
+					<span>Preparing timeline…</span>
+				</div>
+			{/if}
 		</div>
 		<hr class="dark:border-surface3 my-4 border" />
 		<div class="flex items-center justify-between gap-2 px-4 pb-4 text-xs text-gray-600">
@@ -602,26 +655,32 @@
 			</div>
 		</div>
 	</div>
-
-	<AuditLogsTable
-		data={remoteAuditLogs}
-		onSelectRow={async (d: AuditLog & { user: string }) => {
-			showFilters = false;
-			rightSidebar?.showPopover();
-			// Fetch full audit log details with request/response bodies
-			try {
-				const fullDetails = await AdminService.getAuditLog(d.id);
-				selectedAuditLog = { ...fullDetails, user: d.user };
-			} catch (error) {
-				console.error('Failed to fetch audit log details:', error);
-				// Fallback to the cached data if fetch fails
-				selectedAuditLog = d;
-			}
-		}}
-		getUserDisplayName={(userId: string, hasConflict?: () => boolean) =>
-			getUserDisplayName(users, userId, hasConflict)}
-		{emptyContent}
-	></AuditLogsTable>
+	{#if displayTableData.length > 0}
+		<AuditLogsTable
+			data={displayTableData}
+			onSelectRow={async (d: AuditLog & { user: string }) => {
+				showFilters = false;
+				rightSidebar?.showPopover();
+				// Fetch full audit log details with request/response bodies
+				try {
+					const fullDetails = await AdminService.getAuditLog(d.id);
+					selectedAuditLog = { ...fullDetails, user: d.user };
+				} catch (error) {
+					console.error('Failed to fetch audit log details:', error);
+					// Fallback to the cached data if fetch fails
+					selectedAuditLog = d;
+				}
+			}}
+			getUserDisplayName={(userId: string, hasConflict?: () => boolean) =>
+				getUserDisplayName(users, userId, hasConflict)}
+			{emptyContent}
+		></AuditLogsTable>
+	{:else if remoteAuditLogs.length > 0}
+		<div class="text-on-surface1 flex items-center justify-center gap-2 py-12 text-sm font-light">
+			<Loading class="size-5 animate-spin" />
+			<span>Preparing results…</span>
+		</div>
+	{/if}
 {:else if !showLoadingSpinner}
 	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
 		<Captions class="text-on-surface1 size-24 opacity-50" />
