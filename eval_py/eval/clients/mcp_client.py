@@ -12,7 +12,10 @@ import requests
 from ..helper import api_log
 
 MCP_TIMEOUT = 60
-EVENTS_STREAM_MAX_WAIT = 600
+# Maximum time (seconds) to wait for SSE events before giving up.
+# Set to 300 (5 minutes) so long-running workflows have enough time
+# to stream results, while still avoiding indefinite hangs.
+EVENTS_STREAM_MAX_WAIT = 300
 
 
 @dataclass

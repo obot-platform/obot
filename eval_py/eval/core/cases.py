@@ -787,6 +787,117 @@ def run_workflow_conversation_eval(ctx: Context) -> Result:
     return result
 
 
+def run_deep_news_briefing_single_prompt_eval(ctx: Context) -> Result:
+    """
+    Single-prompt DeepEval test for the deep news briefing workflow.
+
+    Sends the full deep news briefing instructions as one prompt, captures the
+    nanobot's response via event-stream, then evaluates that response using
+    DeepEval (run_deepeval_for_turn from agent_deepeval_generic.py) with
+    briefing-specific criteria.
+    """
+    c = ctx.client
+    ctx.append_step("GET /api/version")
+    v, status = c.get_version()
+    if status != 200 or v is None:
+        return Result(pass_=False, message="version: status=%s" % status)
+    if not v.get("nanobotIntegration"):
+        return Result(pass_=False, message="nanobotIntegration is false")
+
+    ctx.append_step("GET /api/projectsv2")
+    projects, status = c.list_projects_v2()
+    if status != 200:
+        return Result(pass_=False, message="list projects: status=%s" % status)
+    if not projects:
+        return Result(pass_=False, message="no projects: create a project and agent first")
+    pid = project_id(projects[0])
+    if not pid:
+        return Result(pass_=False, message="project ID empty")
+
+    ctx.append_step("GET /api/projectsv2/%s/agents", pid)
+    agents, status = c.list_agents(pid)
+    if status != 200 or not agents:
+        return Result(pass_=False, message="no agents in project")
+    aid = agent_id(agents[0])
+    if not aid:
+        return Result(pass_=False, message="agent ID empty")
+
+    mcp = c.mcp_client_for_agent(aid)
+    if mcp is None:
+        return Result(pass_=False, message="MCPClientForAgent returned None")
+
+    ctx.append_step("MCP initialize")
+    session_id, status = mcp.initialize()
+    if status != 200 or not session_id:
+        return Result(pass_=False, message="MCP initialize: status=%s" % status)
+    ctx.append_step("MCP notifications/initialized")
+    status = mcp.notifications_initialized(session_id)
+    if status not in (200, 202):
+        return Result(pass_=False, message="notifications/initialized: status=%s" % status)
+
+    # Use the full deep news briefing prompt (all phases) as a single user message.
+    if not CONTENT_PUBLISHING_PHASED_PROMPTS:
+        return Result(pass_=False, message="no deep news briefing prompt configured")
+    prompt_text = CONTENT_PUBLISHING_PHASED_PROMPTS[0]
+    progress_token = str(uuid.uuid4())
+    ctx.append_step("Single prompt: deep news briefing (event stream + chat async)")
+
+    raw_sse = ""
+    response_text = ""
+    tools_used: list[str] = []
+    try:
+        def send_chat(progress_tok=progress_token, prompt=prompt_text):
+            out, st = mcp.chat_send(
+                session_id, "chat-with-nanobot", prompt, progress_token=progress_tok
+            )
+            if st != 200:
+                raise RuntimeError("chat send (deep news single prompt): status=%s" % st)
+
+        response_text, raw_sse, tools_used = mcp.get_response_from_events_async(
+            session_id, send_chat_fn=send_chat, expected_prompt=prompt_text
+        )
+        event_stream_data.save_event_stream_response(
+            "nanobot_deep_news_briefing_single_prompt_eval",
+            session_id,
+            response_text or "",
+            raw_sse=raw_sse or "",
+        )
+        _print_event_stream_validation(response_text or "", raw_sse or "")
+
+        if not response_text and not (raw_sse and raw_sse.strip()):
+            # No assistant response or SSE data at all – likely a server-side issue.
+            msg = "no assistant response from SSE within timeout; raw_sse empty – check nanobot/server logs"
+            ctx.append_step("DeepEval (deep news single prompt) skipped: %s", msg)
+            return Result(pass_=False, message=msg)
+
+        # DeepEval criteria for the single-shot briefing.
+        criteria = [
+            "The response is a news-style briefing focused on the US–China trade war and tariffs.",
+            "The response includes clearly separated sections for confirmed facts, more uncertain or conflicting claims, key data points, and a short note on sources.",
+            "The content is coherent and stays on-topic; it does not drift to unrelated subjects.",
+        ]
+
+        from ..agent_deepeval_generic import run_deepeval_for_turn
+
+        passed, msg = run_deepeval_for_turn(
+            prompt_text, response_text or "", raw_sse or "", criteria, turn_index=0
+        )
+        ctx.append_step("DeepEval (deep news single prompt): pass=%s %s", passed, msg)
+        return Result(pass_=passed, message=msg)
+    except Exception as e:
+        ctx.append_step("Error (deep news single prompt): %s", e)
+        return Result(pass_=False, message=str(e))
+    finally:
+        # Always write step-eval output with raw SSE (and distinct variant) for manual inspection.
+        out_path = event_stream_data.write_step_eval_output_file(
+            "nanobot_deep_news_briefing_single_prompt_eval",
+            ctx.trajectory,
+            raw_sse or "",
+            session_id=session_id,
+        )
+        print("[step_eval] Steps + raw SSE (single prompt) saved to: %s" % out_path)
+
+
 def all_cases() -> list[Case]:
     return [
         Case("nanobot_lifecycle", "Create project → create agent → get agent → update → delete agent → delete project", run_lifecycle),
@@ -798,4 +909,5 @@ def all_cases() -> list[Case]:
         Case("nanobot_workflow_content_publishing_eval", "Evaluate captured workflow response; expects URL, title, sources, tool calls", run_workflow_content_publishing_eval),
         Case("nanobot_workflow_content_publishing_step_eval", "Send phased prompt via MCP chat; API calls logged", run_workflow_content_publishing_step_eval),
         Case("nanobot_workflow_conversation_eval", "Multi-turn: send prompt → get response → DeepEval (turn criteria) → next prompt; no manual eval", run_workflow_conversation_eval),
+        Case("nanobot_deep_news_briefing_single_prompt_eval", "Deep news briefing as single prompt → response → DeepEval criteria", run_deep_news_briefing_single_prompt_eval),
     ]
