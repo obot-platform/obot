@@ -7,6 +7,7 @@
 	import type { Snippet } from 'svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
+	import Toggle from '$lib/components/Toggle.svelte';
 
 	interface Props {
 		provider?: BaseProvider;
@@ -130,6 +131,17 @@
 		return optionalParams;
 	});
 
+	function initParamValue(param: ProviderParameter): string {
+		let value = values?.[param.name] ? values?.[param.name] : '';
+		if (booleanInputs.has(param.name) && !value && values && param.name in values) {
+			value = 'false';
+		}
+		if (param.multiline && value) {
+			value = value.replace(/\\n/g, '\n');
+		}
+		return value;
+	}
+
 	function onOpen() {
 		// Reset state on each open
 		form = {};
@@ -137,20 +149,10 @@
 
 		if (provider) {
 			for (const param of provider.requiredConfigurationParameters ?? []) {
-				let value = values?.[param.name] ? values?.[param.name] : '';
-				// Convert literal \n to actual newlines for multiline fields
-				if (param.multiline && value) {
-					value = value.replace(/\\n/g, '\n');
-				}
-				form[param.name] = value;
+				form[param.name] = initParamValue(param);
 			}
 			for (const param of provider.optionalConfigurationParameters ?? []) {
-				let value = values?.[param.name] ? values?.[param.name] : '';
-				// Convert literal \n to actual newlines for multiline fields
-				if (param.multiline && value) {
-					value = value.replace(/\\n/g, '\n');
-				}
-				form[param.name] = value;
+				form[param.name] = initParamValue(param);
 			}
 		}
 	}
@@ -235,7 +237,26 @@
 		'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS',
 		'OBOT_AZURE_OPENAI_MODEL_PROVIDER_DEPLOYMENTS'
 	]);
+
+	const booleanInputs = new Set(['OBOT_AUTH_PROVIDER_ENABLE_LOGGING']);
 </script>
+
+{#snippet booleanToggle(parameter: ProviderParameter)}
+	<li class="flex flex-col gap-1">
+		<span>{parameter.friendlyName}</span>
+		{#if parameter.description}
+			<span class="text-gray text-xs">{parameter.description}</span>
+		{/if}
+		<Toggle
+			label={parameter.friendlyName ?? ''}
+			checked={form[parameter.name] === 'true'}
+			disabled={readonly ?? false}
+			onChange={(checked) => {
+				form[parameter.name] = checked ? 'true' : 'false';
+			}}
+		/>
+	</li>
+{/snippet}
 
 <ResponsiveDialog
 	bind:this={dialog}
@@ -322,53 +343,57 @@
 						{#each requiredConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
 								{@const error = !form[parameter.name].length && showRequired}
-								<li class="flex flex-col gap-1">
-									<label for={parameter.name} class:text-red-500={error}
-										>{parameter.friendlyName}</label
-									>
-									{#if parameter.description}
-										<span class="text-gray text-xs">{parameter.description}</span>
-									{/if}
-									{#if parameter.sensitive}
-										<SensitiveInput
-											{error}
-											name={parameter.name}
-											bind:value={form[parameter.name]}
-											disabled={readonly}
-											textarea={parameter.multiline}
-											growable={parameter.multiline}
-										/>
-									{:else if multipValuesInputs.has(parameter.name)}
-										<MultiValueInput
-											bind:value={form[parameter.name]}
-											id={parameter.name}
-											labels={parameter.name === 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
-												? { '*': 'All domains' }
-												: {}}
-											class={['text-input-filled', error && 'error'].filter(Boolean).join(' ')}
-											placeholder={`Hit "Enter" to insert`.toString()}
-											disabled={readonly}
-										/>
-									{:else if parameter.multiline}
-										<textarea
-											id={parameter.name}
-											bind:value={form[parameter.name]}
-											class:error
-											class="text-input-filled min-h-[120px] resize-y"
-											disabled={readonly}
-											rows="5"
-										></textarea>
-									{:else}
-										<input
-											type="text"
-											id={parameter.name}
-											bind:value={form[parameter.name]}
-											class:error
-											class="text-input-filled"
-											disabled={readonly}
-										/>
-									{/if}
-								</li>
+								{#if booleanInputs.has(parameter.name)}
+									{@render booleanToggle(parameter)}
+								{:else}
+									<li class="flex flex-col gap-1">
+										<label for={parameter.name} class:text-red-500={error}
+											>{parameter.friendlyName}</label
+										>
+										{#if parameter.description}
+											<span class="text-gray text-xs">{parameter.description}</span>
+										{/if}
+										{#if parameter.sensitive}
+											<SensitiveInput
+												{error}
+												name={parameter.name}
+												bind:value={form[parameter.name]}
+												disabled={readonly}
+												textarea={parameter.multiline}
+												growable={parameter.multiline}
+											/>
+										{:else if multipValuesInputs.has(parameter.name)}
+											<MultiValueInput
+												bind:value={form[parameter.name]}
+												id={parameter.name}
+												labels={parameter.name === 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
+													? { '*': 'All domains' }
+													: {}}
+												class={['text-input-filled', error && 'error'].filter(Boolean).join(' ')}
+												placeholder={`Hit "Enter" to insert`.toString()}
+												disabled={readonly}
+											/>
+										{:else if parameter.multiline}
+											<textarea
+												id={parameter.name}
+												bind:value={form[parameter.name]}
+												class:error
+												class="text-input-filled min-h-[120px] resize-y"
+												disabled={readonly}
+												rows="5"
+											></textarea>
+										{:else}
+											<input
+												type="text"
+												id={parameter.name}
+												bind:value={form[parameter.name]}
+												class:error
+												class="text-input-filled"
+												disabled={readonly}
+											/>
+										{/if}
+									</li>
+								{/if}
 							{/if}
 						{/each}
 					</ul>
@@ -381,45 +406,49 @@
 					<ul class="flex flex-col gap-4">
 						{#each optionalConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
-								<li class="flex flex-col gap-1">
-									<label for={parameter.name}>{parameter.friendlyName}</label>
-									{#if parameter.description}
-										<span class="text-gray text-xs">{parameter.description}</span>
-									{/if}
-									{#if parameter.sensitive}
-										<SensitiveInput
-											name={parameter.name}
-											bind:value={form[parameter.name]}
-											disabled={readonly}
-											textarea={parameter.multiline}
-											growable={parameter.multiline}
-										/>
-									{:else if multipValuesInputs.has(parameter.name)}
-										<MultiValueInput
-											bind:value={form[parameter.name]}
-											id={parameter.name}
-											class="text-input-filled"
-											placeholder={`Hit "Enter" to insert`.toString()}
-											disabled={readonly}
-										/>
-									{:else if parameter.multiline}
-										<textarea
-											id={parameter.name}
-											bind:value={form[parameter.name]}
-											class="text-input-filled min-h-[120px] resize-y"
-											disabled={readonly}
-											rows="5"
-										></textarea>
-									{:else}
-										<input
-											type="text"
-											id={parameter.name}
-											bind:value={form[parameter.name]}
-											class="text-input-filled"
-											disabled={readonly}
-										/>
-									{/if}
-								</li>
+								{#if booleanInputs.has(parameter.name)}
+									{@render booleanToggle(parameter)}
+								{:else}
+									<li class="flex flex-col gap-1">
+										<label for={parameter.name}>{parameter.friendlyName}</label>
+										{#if parameter.description}
+											<span class="text-gray text-xs">{parameter.description}</span>
+										{/if}
+										{#if parameter.sensitive}
+											<SensitiveInput
+												name={parameter.name}
+												bind:value={form[parameter.name]}
+												disabled={readonly}
+												textarea={parameter.multiline}
+												growable={parameter.multiline}
+											/>
+										{:else if multipValuesInputs.has(parameter.name)}
+											<MultiValueInput
+												bind:value={form[parameter.name]}
+												id={parameter.name}
+												class="text-input-filled"
+												placeholder={`Hit "Enter" to insert`.toString()}
+												disabled={readonly}
+											/>
+										{:else if parameter.multiline}
+											<textarea
+												id={parameter.name}
+												bind:value={form[parameter.name]}
+												class="text-input-filled min-h-[120px] resize-y"
+												disabled={readonly}
+												rows="5"
+											></textarea>
+										{:else}
+											<input
+												type="text"
+												id={parameter.name}
+												bind:value={form[parameter.name]}
+												class="text-input-filled"
+												disabled={readonly}
+											/>
+										{/if}
+									</li>
+								{/if}
 							{/if}
 						{/each}
 					</ul>
