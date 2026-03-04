@@ -248,13 +248,12 @@
 			<span class="text-gray text-xs">{parameter.description}</span>
 		{/if}
 		<Toggle
-			label=""
+			label={parameter.friendlyName}
 			checked={form[parameter.name] === 'true'}
 			disabled={readonly ?? false}
 			onChange={(checked) => {
 				form[parameter.name] = checked ? 'true' : 'false';
 			}}
-			classes={{ label: 'gap-0' }}
 		/>
 	</li>
 {/snippet}
