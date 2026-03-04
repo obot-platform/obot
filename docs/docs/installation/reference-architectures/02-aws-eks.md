@@ -6,7 +6,6 @@ Deploying Obot to Amazon Elastic Kubernetes Service follows the standard Helm wo
 * VPC with subnets
 * Amazon RDS instance running PostgreSQL 17+ with the pgvector extension enabled
 * VPC Security Groups configured to allow connectivity between your EKS cluster and RDS instance
-* Private Amazon S3 bucket for workspace data
 * (Optional) AWS KMS key for encrypting sensitive information
 * (Optional) IAM role and policy for service account (IRSA) if you're using AWS services like KMS for encryption
 * kubectl and Helm installed and configured to connect to your EKS cluster
@@ -99,13 +98,12 @@ config:
   OBOT_SERVER_AUTH_ADMIN_EMAILS: "<comma separated list of admin emails>"
   OBOT_SERVER_AUTH_OWNER_EMAILS: "<comma separated list of owner emails>"
 
-  # Configure S3 for workspace storage
-  OBOT_WORKSPACE_PROVIDER_TYPE: "s3"
-  WORKSPACE_PROVIDER_S3_BUCKET: "<your bucket name>"
-  AWS_REGION: "<your aws region>"
-
   # Optionally configure model providers
   OPENAI_API_KEY: "<your openai api key>"
+  
+mcpServerDefaults:
+  storageClassName: ebs # replace with the name of your StorageClass
+  nanobotWorkspaceSize: 1Gi # Some disk types have a minimum size, read the documentation for the storage type you select.
 ```
 
 With the default configuration on EKS, this will set up ingress to expose Obot through an Application Load Balancer using the AWS Load Balancer Controller. Make sure you have the AWS Load Balancer Controller installed in your cluster. You should also consider adding TLS termination to your ALB for secure HTTPS access.
