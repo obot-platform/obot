@@ -201,7 +201,6 @@
 				});
 			});
 		} else {
-			// Left thread view (e.g. navigated to workflows); clear store so returning to same tid re-opens session
 			nanobotChat.update((data) => {
 				if (data) {
 					data.chat = undefined;
