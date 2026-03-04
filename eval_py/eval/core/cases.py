@@ -853,14 +853,18 @@ def run_deep_news_briefing_single_prompt_eval(ctx: Context) -> Result:
             if st != 200:
                 raise RuntimeError("chat send (deep news single prompt): status=%s" % st)
 
+        # Use expected_prompt=None so we capture any assistant content until chat-done.
+        # Long prompts can be echoed truncated or in chunks by the server; skipping prompt
+        # matching avoids missing the turn when the server sends events but the match fails.
         response_text, raw_sse, tools_used = mcp.get_response_from_events_async(
-            session_id, send_chat_fn=send_chat, expected_prompt=prompt_text
+            session_id, send_chat_fn=send_chat, expected_prompt=None
         )
         event_stream_data.save_event_stream_response(
             "nanobot_deep_news_briefing_single_prompt_eval",
             session_id,
             response_text or "",
             raw_sse=raw_sse or "",
+            tools_used=tools_used,
         )
         _print_event_stream_validation(response_text or "", raw_sse or "")
 

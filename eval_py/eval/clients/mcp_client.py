@@ -122,6 +122,10 @@ class MCPClient:
         until chat-done. If expected_prompt is None, collects all assistant messages
         until chat-done (legacy behavior).
         If stream_ready is set, it is signaled once the stream is open (200) and reading.
+        Note: For long-running agent tasks (e.g. deep news with tool calls), the server
+        may not send any event for a long time. Proxies/load balancers often close
+        idle connections after 60s; the server should send periodic SSE comments to
+        keep the connection alive if the agent runs for more than a minute.
         """
         url = self.events_stream_url(session_id)
         headers = {
@@ -221,6 +225,12 @@ class MCPClient:
                                     if expected_prompt.strip() in text_val:
                                         turn_seen_prompt = True
                                         break
+                                    # For long prompts, server may echo truncated or in chunks; match on prefix
+                                    if len(expected_prompt.strip()) > 400:
+                                        prefix = expected_prompt.strip()[:200]
+                                        if prefix and prefix in text_val:
+                                            turn_seen_prompt = True
+                                            break
 
                         # Collect assistant text only after we've seen this turn's prompt
                         if role == "assistant" and isinstance(items, list) and turn_seen_prompt:

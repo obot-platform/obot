@@ -97,10 +97,12 @@ def save_event_stream_response(
     session_id: str,
     response_text: str,
     raw_sse: str = "",
+    tools_used: list[str] | None = None,
 ) -> None:
     """
     Append an event stream API response to eval/data/data.json.
     raw_sse: full SSE body in same format as curl (event:\\n data:\\n\\n).
+    tools_used: optional list of tool names used in this response (e.g. from get_response_from_events_async).
     """
     data_file = paths.data_path("data.json")
     try:
@@ -112,14 +114,21 @@ def save_event_stream_response(
     if "event_stream_responses" not in data:
         data["event_stream_responses"] = []
 
-    data["event_stream_responses"].append({
+    entry = {
         "case": case_name,
         "session_id": session_id,
         "response_text": response_text,
         "response_length": len(response_text),
         "raw_sse": raw_sse,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-    })
+    }
+    if tools_used is not None:
+        entry["tools_used"] = tools_used
+    data["event_stream_responses"].append(entry)
+
+    os.makedirs(os.path.dirname(data_file), exist_ok=True)
+    with open(data_file, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
 
 
 def save_event_stream_response_phase(

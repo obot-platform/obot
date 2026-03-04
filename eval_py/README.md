@@ -63,3 +63,7 @@ Same as Go eval: nanobot_lifecycle, nanobot_launch, nanobot_list_and_filter, nan
 ## API log
 
 Set OBOT_EVAL_API_LOG to a file path to log all API requests/responses.
+
+## Event stream and long-running tasks
+
+For **nanobot_deep_news_briefing_single_prompt_eval**, the client opens the `/api/events/<session_id>` stream and waits for the assistant response. If the agent runs for a long time (e.g. tool calls for search/fetch), the server may not send any event for 60+ seconds. Many proxies and load balancers close connections that are idle (no data from server) after 60 seconds. If the eval sees "raw_sse empty" while the same prompt works in the browser, the server should send periodic SSE comments (e.g. every 15–30s) during long-running agent work so the connection is not closed. The client uses `expected_prompt=None` for the deep news single-prompt case so any assistant content is captured without requiring an exact user-message match.

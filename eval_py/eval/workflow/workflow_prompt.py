@@ -18,20 +18,6 @@ You can use **up to 3 searches** with short queries like:
 
 From the results, pick a **small set of credible sources** (major news, analysis, or reference sites), fetch their content, and then write a single, structured briefing:
 
-## US–China Trade War Briefing
-
-### Confirmed facts (2+ sources)
-Summarize the main, broadly agreed facts in a few sentences.
-
-### Conflicting or single-source claims
-Briefly mention any disagreements or claims that appear in only one source.
-
-### Key data points
-List the most important numbers, dates, or quotes.
-
-### Note on sources
-Name the main sources you relied on.
-
 Do not ask the user follow-up questions. If some details are missing, make reasonable assumptions and clearly label them as such."""
 ]
 
