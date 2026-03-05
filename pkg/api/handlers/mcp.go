@@ -1102,7 +1102,7 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 			}
 
 			for _, env := range entry.Spec.Manifest.Env {
-				if env.Required {
+				if env.Required && env.Value == "" {
 					return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
 				}
 			}
@@ -1113,7 +1113,7 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 				}
 
 				for _, h := range entry.Spec.Manifest.RemoteConfig.Headers {
-					if h.Required {
+					if h.Required && h.Value == "" {
 						return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
 					}
 				}
@@ -2498,6 +2498,11 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 			continue
 		}
 
+		// Env vars with a static default value are never considered missing
+		if env.Value != "" {
+			continue
+		}
+
 		if _, ok := credEnv[env.Key]; !ok {
 			missingEnvVars = append(missingEnvVars, env.Key)
 		}
@@ -2507,6 +2512,11 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 	if server.Spec.Manifest.Runtime == types.RuntimeRemote && server.Spec.Manifest.RemoteConfig != nil {
 		for _, header := range server.Spec.Manifest.RemoteConfig.Headers {
 			if !header.Required {
+				continue
+			}
+
+			// Headers with a static default value are never considered missing
+			if header.Value != "" {
 				continue
 			}
 
