@@ -1,16 +1,9 @@
-import { lightenHex } from '$lib/colors';
-import type { OrgUser, TokenUsage } from '$lib/services/admin/types';
+import type { OrgUser } from '$lib/services/admin/types';
 import { getUserDisplayName } from '$lib/utils';
 import {
-	addMinutes,
-	addHours,
-	addDays,
-	addWeeks,
-	addMonths,
 	differenceInCalendarDays,
 	differenceInHours,
 	differenceInMinutes,
-	format,
 	startOfMinute,
 	startOfHour,
 	startOfDay,
@@ -31,10 +24,6 @@ type BucketKind =
 
 const MAX_MINUTE_BUCKETS = 24;
 const MAX_HOUR_BUCKETS = 24;
-type TokenTotals = { prompt: number; completion: number };
-
-const PROMPT_SUFFIX = '_input_tokens';
-const COMPLETION_SUFFIX = '_output_tokens';
 
 export function getBucketKind(rangeStart: Date, rangeEnd: Date): BucketKind {
 	const hours = differenceInHours(rangeEnd, rangeStart);
@@ -101,82 +90,61 @@ export function getBucketStart(date: Date, kind: BucketKind): Date {
 	return startOfMonth(d);
 }
 
-function formatMinuteLikeLabel(bucketStart: Date): string {
-	const d = new Date(bucketStart);
-	if (d.getHours() === 0 && d.getMinutes() === 0) {
-		return format(d, 'MMM d');
-	}
-	if (d.getMinutes() === 0) return format(d, 'ha').toLowerCase();
-	return format(d, 'h:mma').toLowerCase();
-}
+export type TimelineBucketRow = {
+	date: string;
+	category: string;
+	promptTokens: number;
+	completionTokens: number;
+};
 
-export function formatBucketLabel(bucketStart: Date, kind: BucketKind): string {
-	if (kind === 'minute' || kind === '5min' || kind === '10min') {
-		return formatMinuteLikeLabel(bucketStart);
-	}
-	if (kind === 'hour' || kind === '2hour' || kind === '4hour') {
-		const d = new Date(bucketStart);
-		if (d.getHours() === 0 && d.getMinutes() === 0) {
-			return format(d, 'MMM d');
-		}
-		return format(d, 'ha').toLowerCase();
-	}
-	if (kind === 'day') return format(bucketStart, 'MMM d');
-	if (kind === 'week') return `${format(bucketStart, 'MMM d')} –`;
-	return format(bucketStart, 'MMM yyyy');
-}
-
-export type BucketInRange = { bucketKey: string; label: string };
-
-/** Returns every bucket (key + label) that falls within [rangeStart, rangeEnd] for the given kind. */
-export function getBucketsInRange(
+export function aggregateTimelineDataByBucket(
+	data: {
+		date: string | Date;
+		category: string;
+		promptTokens?: number;
+		completionTokens?: number;
+	}[],
 	rangeStart: Date,
-	rangeEnd: Date,
-	kind: BucketKind
-): BucketInRange[] {
-	const buckets: BucketInRange[] = [];
-	let cursor = getBucketStart(new Date(rangeStart), kind);
-	const endBucket = getBucketStart(new Date(rangeEnd), kind);
-	let addOne: (d: Date) => Date;
-	switch (kind) {
-		case 'minute':
-			addOne = (d: Date) => addMinutes(d, 1);
-			break;
-		case '5min':
-			addOne = (d: Date) => addMinutes(d, 5);
-			break;
-		case '10min':
-			addOne = (d: Date) => addMinutes(d, 10);
-			break;
-		case 'hour':
-			addOne = (d: Date) => addHours(d, 1);
-			break;
-		case '2hour':
-			addOne = (d: Date) => addHours(d, 2);
-			break;
-		case '4hour':
-			addOne = (d: Date) => addHours(d, 4);
-			break;
-		case 'day':
-			addOne = (d: Date) => addDays(d, 1);
-			break;
-		case 'week':
-			addOne = (d: Date) => addWeeks(d, 1);
-			break;
-		case 'month':
-			addOne = (d: Date) => addMonths(d, 1);
-			break;
-		default:
-			addOne = (d: Date) => addMonths(d, 1);
+	rangeEnd: Date
+): TimelineBucketRow[] {
+	if (data.length === 0) return [];
+	const kind = getBucketKind(rangeStart, rangeEnd);
+	const bucketToCategoryToTotals = new Map<
+		string,
+		Map<string, { prompt: number; completion: number }>
+	>();
+	for (const row of data) {
+		const bucketKey = getBucketStart(new Date(row.date), kind).toISOString();
+		let byCat = bucketToCategoryToTotals.get(bucketKey);
+		if (!byCat) {
+			byCat = new Map();
+			bucketToCategoryToTotals.set(bucketKey, byCat);
+		}
+		const cat = row.category;
+		const t = byCat.get(cat) ?? { prompt: 0, completion: 0 };
+		t.prompt += row.promptTokens ?? 0;
+		t.completion += row.completionTokens ?? 0;
+		byCat.set(cat, t);
 	}
-	while (cursor <= endBucket) {
-		buckets.push({
-			bucketKey: cursor.toISOString(),
-			label: formatBucketLabel(cursor, kind)
-		});
-		cursor = addOne(cursor);
+	const result: TimelineBucketRow[] = [];
+	for (const [bucketKey, byCat] of bucketToCategoryToTotals) {
+		for (const [category, totals] of byCat) {
+			result.push({
+				date: bucketKey,
+				category,
+				promptTokens: totals.prompt,
+				completionTokens: totals.completion
+			});
+		}
 	}
-	return buckets;
+
+	result.sort((a, b) => {
+		const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+		if (dateDiff !== 0) return dateDiff;
+		return a.category.localeCompare(b.category);
+	});
+
+	return result;
 }
 
 export function getUserLabels(
@@ -196,171 +164,4 @@ export function getUserLabels(
 			return [k, label];
 		})
 	);
-}
-
-export function aggregateByBucketDefault(
-	data: TokenUsage[],
-	getBucketKey: (row: TokenUsage) => string,
-	getBucketLabel: (bucketKey: string) => string
-): { bucket: string; input_tokens: number; output_tokens: number }[] {
-	const bucketToTokens = new Map<string, TokenTotals>();
-	for (const row of data) {
-		const bucketKey = getBucketKey(row);
-		let totals = bucketToTokens.get(bucketKey);
-		if (!totals) {
-			totals = { prompt: 0, completion: 0 };
-			bucketToTokens.set(bucketKey, totals);
-		}
-		totals.prompt += row.promptTokens ?? 0;
-		totals.completion += row.completionTokens ?? 0;
-	}
-	const sortedBuckets = [...bucketToTokens.keys()].sort();
-	return sortedBuckets.map((bucketKey) => {
-		const totals = bucketToTokens.get(bucketKey)!;
-		return {
-			bucket: getBucketLabel(bucketKey),
-			input_tokens: totals.prompt,
-			output_tokens: totals.completion
-		};
-	});
-}
-
-/** Like aggregateByBucketDefault but returns one row per bucket in [rangeStart, rangeEnd], with zeros for buckets that have no data. */
-export function aggregateByBucketDefaultInRange(
-	data: TokenUsage[],
-	rangeStart: Date,
-	rangeEnd: Date
-): { bucket: string; input_tokens: number; output_tokens: number }[] {
-	const kind = getBucketKind(rangeStart, rangeEnd);
-	const bucketsInRange = getBucketsInRange(rangeStart, rangeEnd, kind);
-	const bucketToTokens = new Map<string, TokenTotals>();
-	for (const row of data) {
-		const bucketKey = getBucketStart(new Date(row.date), kind).toISOString();
-		let totals = bucketToTokens.get(bucketKey);
-		if (!totals) {
-			totals = { prompt: 0, completion: 0 };
-			bucketToTokens.set(bucketKey, totals);
-		}
-		totals.prompt += row.promptTokens ?? 0;
-		totals.completion += row.completionTokens ?? 0;
-	}
-	return bucketsInRange.map(({ bucketKey, label }) => {
-		const totals = bucketToTokens.get(bucketKey) ?? { prompt: 0, completion: 0 };
-		return {
-			bucket: label,
-			input_tokens: totals.prompt,
-			output_tokens: totals.completion
-		};
-	});
-}
-
-export function aggregateByBucketGrouped(
-	data: TokenUsage[],
-	getBucketKey: (row: TokenUsage) => string,
-	getBucketLabel: (bucketKey: string) => string,
-	getGroupKey: (row: TokenUsage) => string,
-	keyToDisplayLabel: (key: string) => string
-): Record<string, string | number>[] {
-	const bucketToGroups = new Map<string, Record<string, TokenTotals>>();
-	const allGroupKeys = new Set<string>();
-	for (const row of data) {
-		const bucketKey = getBucketKey(row);
-		let totals = bucketToGroups.get(bucketKey);
-		if (!totals) {
-			totals = {};
-			bucketToGroups.set(bucketKey, totals);
-		}
-		const groupKey = getGroupKey(row);
-		allGroupKeys.add(groupKey);
-		const current = totals[groupKey] ?? { prompt: 0, completion: 0 };
-		current.prompt += row.promptTokens ?? 0;
-		current.completion += row.completionTokens ?? 0;
-		totals[groupKey] = current;
-	}
-	const sortedBuckets = [...bucketToGroups.keys()].sort();
-	const groupKeys = [...allGroupKeys].sort();
-	return sortedBuckets.map((bucketKey) => {
-		const totals = bucketToGroups.get(bucketKey)!;
-		const label = getBucketLabel(bucketKey);
-		const row: Record<string, string | number> = { bucket: label };
-		for (const k of groupKeys) {
-			const displayLabel = keyToDisplayLabel(k);
-			const groupTotals = totals[k] ?? { prompt: 0, completion: 0 };
-			row[`${displayLabel}_input_tokens`] = groupTotals.prompt;
-			row[`${displayLabel}_output_tokens`] = groupTotals.completion;
-		}
-		return row;
-	});
-}
-
-/** Like aggregateByBucketGrouped but returns one row per bucket in [rangeStart, rangeEnd], with zeros for buckets that have no data. */
-export function aggregateByBucketGroupedInRange(
-	data: TokenUsage[],
-	rangeStart: Date,
-	rangeEnd: Date,
-	getGroupKey: (row: TokenUsage) => string,
-	keyToDisplayLabel: (key: string) => string
-): Record<string, string | number>[] {
-	const kind = getBucketKind(rangeStart, rangeEnd);
-	const bucketsInRange = getBucketsInRange(rangeStart, rangeEnd, kind);
-	const bucketToGroups = new Map<string, Record<string, TokenTotals>>();
-	const allGroupKeys = new Set<string>();
-	for (const row of data) {
-		const bucketKey = getBucketStart(new Date(row.date), kind).toISOString();
-		let totals = bucketToGroups.get(bucketKey);
-		if (!totals) {
-			totals = {};
-			bucketToGroups.set(bucketKey, totals);
-		}
-		const groupKey = getGroupKey(row);
-		allGroupKeys.add(groupKey);
-		const current = totals[groupKey] ?? { prompt: 0, completion: 0 };
-		current.prompt += row.promptTokens ?? 0;
-		current.completion += row.completionTokens ?? 0;
-		totals[groupKey] = current;
-	}
-	const groupKeys = [...allGroupKeys].sort();
-	return bucketsInRange.map(({ bucketKey, label }) => {
-		const totals = bucketToGroups.get(bucketKey) ?? {};
-		const row: Record<string, string | number> = { bucket: label };
-		for (const k of groupKeys) {
-			const displayLabel = keyToDisplayLabel(k);
-			const groupTotals = totals[k] ?? { prompt: 0, completion: 0 };
-			row[`${displayLabel}_input_tokens`] = groupTotals.prompt;
-			row[`${displayLabel}_output_tokens`] = groupTotals.completion;
-		}
-		return row;
-	});
-}
-
-export function buildStackedSeriesColors(
-	rows: Record<string, unknown>[],
-	palette: string[],
-	fallbackColor: string
-): { key: string; color: string }[] {
-	if (!rows.length) return [];
-	const keys = new Set<string>();
-	for (const row of rows) {
-		for (const key of Object.keys(row)) {
-			if (key !== 'bucket') keys.add(key);
-		}
-	}
-	const sortedKeys = [...keys].sort();
-	const labels = new Set<string>();
-	for (const key of sortedKeys) {
-		if (key.endsWith(PROMPT_SUFFIX)) labels.add(key.slice(0, -PROMPT_SUFFIX.length));
-		else if (key.endsWith(COMPLETION_SUFFIX)) labels.add(key.slice(0, -COMPLETION_SUFFIX.length));
-	}
-	const sortedLabels = [...labels].sort();
-	const labelIndex = new Map(sortedLabels.map((label, i) => [label, i]));
-	return sortedKeys.map((key) => {
-		const isPrompt = key.endsWith(PROMPT_SUFFIX);
-		const label = isPrompt
-			? key.slice(0, -PROMPT_SUFFIX.length)
-			: key.slice(0, -COMPLETION_SUFFIX.length);
-		const idx = labelIndex.get(label) ?? 0;
-		const baseColor = idx < palette.length ? palette[idx]! : fallbackColor;
-		const color = isPrompt ? baseColor : lightenHex(baseColor, 0.5);
-		return { key, color };
-	});
 }
