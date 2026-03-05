@@ -18,7 +18,8 @@ const SAFE_IMAGE_MIME_TYPES = new Set<string>([
 	'image/jpeg',
 	'image/jpg',
 	'image/webp',
-	'image/gif'
+	'image/gif',
+	'image/svg+xml'
 ]);
 
 export function isSafeImageMimeType(mimeType: string | null | undefined): boolean {
