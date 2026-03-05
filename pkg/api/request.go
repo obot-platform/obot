@@ -284,6 +284,10 @@ func (r *Context) UserIsAuditor() bool {
 	return slices.Contains(r.User.GetGroups(), types.GroupAuditor)
 }
 
+func (r *Context) UserIsSuperUser() bool {
+	return slices.Contains(r.User.GetGroups(), types.GroupSuperUser)
+}
+
 func (r *Context) UserIsPowerUser() bool {
 	return slices.Contains(r.User.GetGroups(), types.GroupPowerUser)
 }

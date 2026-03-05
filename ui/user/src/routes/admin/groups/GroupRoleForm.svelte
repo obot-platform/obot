@@ -7,8 +7,10 @@
 	interface Props {
 		roleId: number;
 		hasAuditorPrivilege?: boolean;
+		hasSuperUserPrivilege?: boolean;
 		onRoleChange?: (roleId: number) => void;
 		onAuditorChange?: (hasAuditor: boolean) => void;
+		onSuperUserChange?: (hasSuperUser: boolean) => void;
 	}
 
 	interface RoleOption {
@@ -19,8 +21,10 @@
 	let {
 		roleId = $bindable(),
 		hasAuditorPrivilege = $bindable(false),
+		hasSuperUserPrivilege = $bindable(false),
 		onRoleChange,
-		onAuditorChange
+		onAuditorChange,
+		onSuperUserChange
 	}: Props = $props();
 
 	const canAssignOwner = $derived(profile.current.groups.includes(Group.OWNER));
@@ -51,6 +55,10 @@
 
 	function handleAuditorChange() {
 		onAuditorChange?.(hasAuditorPrivilege);
+	}
+
+	function handleSuperUserChange() {
+		onSuperUserChange?.(hasSuperUserPrivilege);
 	}
 </script>
 
@@ -113,6 +121,28 @@
 						All group members will gain access to additional details such as response, request, and
 						header information in the audit logs.
 					{/if}
+				</p>
+			</div>
+		</label>
+		{@const isSuperUserDisabled = isDisabled || (roleId !== Role.ADMIN && roleId !== Role.OWNER)}
+		<label
+			class={twMerge(
+				'border-surface3 hover:bg-background/2 active:bg-background/5 my-4 flex cursor-pointer gap-4 rounded-lg border p-3',
+				isSuperUserDisabled ? 'pointer-events-none opacity-50' : ''
+			)}
+			aria-disabled={isSuperUserDisabled}
+		>
+			<input
+				type="checkbox"
+				bind:checked={hasSuperUserPrivilege}
+				onchange={handleSuperUserChange}
+				disabled={isSuperUserDisabled}
+			/>
+			<div class="flex flex-col">
+				<div class="w-28 flex-shrink-0 font-semibold">Super User</div>
+				<p class="text-on-surface1 text-xs">
+					All group members will be able to connect to other users' MCP servers. Must be combined
+					with Admin or Owner.
 				</p>
 			</div>
 		</label>

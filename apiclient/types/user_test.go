@@ -18,6 +18,10 @@ func TestExtractBaseRole(t *testing.T) {
 		{"PowerUser with Auditor", RolePowerUser | RoleAuditor, RolePowerUser},
 		{"Owner and Admin", RoleOwner | RoleAdmin, RoleOwner | RoleAdmin},
 		{"Owner and Admin with Auditor", RoleOwner | RoleAdmin | RoleAuditor, RoleOwner | RoleAdmin},
+		{"Admin with Super User", RoleAdmin | RoleSuperUser, RoleAdmin},
+		{"Owner with Super User", RoleOwner | RoleSuperUser, RoleOwner},
+		{"Super User only", RoleSuperUser, 0},
+		{"Owner and Admin with Auditor and Super User", RoleOwner | RoleAdmin | RoleAuditor | RoleSuperUser, RoleOwner | RoleAdmin},
 	}
 
 	for _, tt := range tests {
@@ -25,6 +29,32 @@ func TestExtractBaseRole(t *testing.T) {
 			result := tt.role.ExtractBaseRole()
 			if result != tt.expected {
 				t.Errorf("extractBaseRole(%d) = %d, want %d", tt.role, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestHasSuperUserRole(t *testing.T) {
+	tests := []struct {
+		name     string
+		role     Role
+		expected bool
+	}{
+		{"Admin only", RoleAdmin, false},
+		{"Admin with Super User", RoleAdmin | RoleSuperUser, true},
+		{"Super User only", RoleSuperUser, true},
+		{"Owner only", RoleOwner, false},
+		{"Owner with Super User", RoleOwner | RoleSuperUser, true},
+		{"PowerUser only", RolePowerUser, false},
+		{"Owner and Admin", RoleOwner | RoleAdmin, false},
+		{"Owner and Admin with Super User", RoleOwner | RoleAdmin | RoleSuperUser, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.role.HasSuperUserRole()
+			if result != tt.expected {
+				t.Errorf("hasSuperUserRole(%d) = %v, want %v", tt.role, result, tt.expected)
 			}
 		})
 	}

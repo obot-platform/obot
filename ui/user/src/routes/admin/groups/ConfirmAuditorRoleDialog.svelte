@@ -13,7 +13,9 @@
 	let { groupAssignment = $bindable(), loading = false, onsuccess, oncancel }: Props = $props();
 
 	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
-	const roleId = $derived(groupAssignment ? groupAssignment.assignment.role & ~Role.AUDITOR : 0);
+	const roleId = $derived(
+		groupAssignment ? groupAssignment.assignment.role & ~(Role.AUDITOR | Role.SUPERUSER) : 0
+	);
 </script>
 
 <Confirm

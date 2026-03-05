@@ -199,8 +199,15 @@ func (s *Server) updateUser(apiContext api.Context) error {
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can add or remove owner role")
 		}
 		if originalUser.Role.HasRole(types2.RoleAuditor) != user.Role.HasRole(types2.RoleAuditor) {
-			return types2.NewErrHTTP(http.StatusForbidden, "only owner can remove admin role")
+			return types2.NewErrHTTP(http.StatusForbidden, "only owner can add or remove auditor role")
 		}
+		if originalUser.Role.HasRole(types2.RoleSuperUser) != user.Role.HasRole(types2.RoleSuperUser) {
+			return types2.NewErrHTTP(http.StatusForbidden, "only owner can add or remove super user role")
+		}
+	}
+
+	if user.Role.HasSuperUserRole() && !(user.Role.HasRole(types2.RoleAdmin) || user.Role.HasRole(types2.RoleOwner)) {
+		return types2.NewErrHTTP(http.StatusBadRequest, "super user role can only be combined with admin or owner")
 	}
 
 	status := http.StatusInternalServerError
@@ -284,6 +291,9 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 		}
 		if existingUser.Role.HasRole(types2.RoleAuditor) {
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can delete an auditor")
+		}
+		if existingUser.Role.HasRole(types2.RoleSuperUser) {
+			return types2.NewErrHTTP(http.StatusForbidden, "only owner can delete a super user")
 		}
 	}
 
@@ -391,7 +401,7 @@ func (s *Server) restrictGroups(ctx context.Context, gptscriptClient *gptscript.
 func userIsBasicOrPower(u user.Info) bool {
 	for _, group := range u.GetGroups() {
 		switch group {
-		case types2.GroupPowerUserPlus, types2.GroupAuditor, types2.GroupAdmin, types2.GroupOwner:
+		case types2.GroupPowerUserPlus, types2.GroupAuditor, types2.GroupSuperUser, types2.GroupAdmin, types2.GroupOwner:
 			return false
 		}
 	}

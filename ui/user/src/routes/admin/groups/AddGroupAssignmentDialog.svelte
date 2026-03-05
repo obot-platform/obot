@@ -18,6 +18,7 @@
 		onClose: () => void;
 		onConfirm: (groupAssignment: GroupAssignment) => void;
 		onAuditorConfirm: (groupAssignment: GroupAssignment) => void;
+		onSuperUserConfirm: (groupAssignment: GroupAssignment) => void;
 		onOwnerConfirm: (groupAssignment: GroupAssignment) => void;
 	}
 
@@ -29,6 +30,14 @@
 		return role | Role.AUDITOR;
 	}
 
+	function hasSuperUserFlag(role: number): boolean {
+		return (role & Role.SUPERUSER) !== 0;
+	}
+
+	function addSuperUserFlag(role: number): number {
+		return role | Role.SUPERUSER;
+	}
+
 	let {
 		open,
 		groups,
@@ -37,6 +46,7 @@
 		onClose,
 		onConfirm,
 		onAuditorConfirm,
+		onSuperUserConfirm,
 		onOwnerConfirm
 	}: Props = $props();
 
@@ -45,6 +55,7 @@
 	let selectedGroup = $state<OrgGroup | undefined>();
 	let draftRoleId = $state(0);
 	let draftHaveAuditorPrivilege = $state(false);
+	let draftHaveSuperUserPrivilege = $state(false);
 
 	let isSmallScreen = $derived(responsive.isMobile);
 
@@ -58,6 +69,7 @@
 		selectedGroup = undefined;
 		draftRoleId = 0;
 		draftHaveAuditorPrivilege = false;
+		draftHaveSuperUserPrivilege = false;
 	}
 
 	$effect(() => {
@@ -78,11 +90,13 @@
 		const existingAssignment = groupRoleMap[group.id];
 		if (existingAssignment) {
 			const role = existingAssignment.role || 0;
-			draftRoleId = role & ~Role.AUDITOR;
+			draftRoleId = role & ~(Role.AUDITOR | Role.SUPERUSER);
 			draftHaveAuditorPrivilege = hasAuditorFlag(role);
+			draftHaveSuperUserPrivilege = hasSuperUserFlag(role);
 		} else {
 			draftRoleId = 0;
 			draftHaveAuditorPrivilege = false;
+			draftHaveSuperUserPrivilege = false;
 		}
 	}
 
@@ -93,7 +107,13 @@
 	function handleConfirm() {
 		if (!selectedGroup) return;
 
-		const role = draftHaveAuditorPrivilege ? addAuditorFlag(draftRoleId) : draftRoleId;
+		let role = draftRoleId;
+		if (draftHaveAuditorPrivilege) {
+			role = addAuditorFlag(role);
+		}
+		if (draftHaveSuperUserPrivilege) {
+			role = addSuperUserFlag(role);
+		}
 		const result: GroupAssignment = {
 			group: selectedGroup,
 			assignment: {
@@ -107,9 +127,15 @@
 		const hadAuditorBefore = existingAssignment
 			? hasAuditorFlag(existingAssignment.role || 0)
 			: false;
+		const hadSuperUserBefore = existingAssignment
+			? hasSuperUserFlag(existingAssignment.role || 0)
+			: false;
 
-		// Auditor changed - show auditor confirmation only if they didn't have it before
-		if (draftHaveAuditorPrivilege && !hadAuditorBefore && draftRoleId !== 0) {
+		// Super User changed - show confirmation only if they didn't have it before
+		if (draftHaveSuperUserPrivilege && !hadSuperUserBefore && draftRoleId !== 0) {
+			onSuperUserConfirm(result);
+		} else if (draftHaveAuditorPrivilege && !hadAuditorBefore && draftRoleId !== 0) {
+			// Auditor changed - show auditor confirmation only if they didn't have it before
 			onAuditorConfirm(result);
 		} else if (draftRoleId === Role.OWNER) {
 			// Changing to owner role - show owner confirmation
@@ -186,6 +212,7 @@
 			<GroupRoleForm
 				bind:roleId={draftRoleId}
 				bind:hasAuditorPrivilege={draftHaveAuditorPrivilege}
+				bind:hasSuperUserPrivilege={draftHaveSuperUserPrivilege}
 			/>
 		{:else}
 			<div class="text-on-surface1 flex h-full items-center justify-center py-12 text-sm">

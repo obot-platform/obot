@@ -188,12 +188,13 @@ export function openUrl(url: string, isCtrlClick: boolean) {
 
 export const getUserRoleLabel = (role: number) => {
 	const withAuditor = role & Role.AUDITOR ? ', Auditor' : '';
-	if (role & Role.ADMIN) return 'Admin' + withAuditor;
-	if (role & Role.POWERUSER) return 'Power User' + withAuditor;
-	if (role & Role.POWERUSER_PLUS) return 'Power User Plus' + withAuditor;
-	if (role & Role.BASIC) return 'Basic User' + withAuditor;
-	if (role & Role.OWNER) return 'Owner' + withAuditor;
-	return 'Unknown' + withAuditor;
+	const withSuperUser = role & Role.SUPERUSER ? ', Super User' : '';
+	if (role & Role.OWNER) return 'Owner' + withAuditor + withSuperUser;
+	if (role & Role.ADMIN) return 'Admin' + withAuditor + withSuperUser;
+	if (role & Role.POWERUSER) return 'Power User' + withAuditor + withSuperUser;
+	if (role & Role.POWERUSER_PLUS) return 'Power User Plus' + withAuditor + withSuperUser;
+	if (role & Role.BASIC) return 'Basic User' + withAuditor + withSuperUser;
+	return 'Unknown' + withAuditor + withSuperUser;
 };
 
 /**
