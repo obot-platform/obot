@@ -4,7 +4,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { subDays } from 'date-fns';
-	import { Coins, LoaderCircle } from 'lucide-svelte';
+	import { Coins } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 	import Select from '$lib/components/Select.svelte';
 	import { getUserDisplayName } from '$lib/utils';
@@ -16,30 +16,26 @@
 		type TotalTokenUsage
 	} from '$lib/services';
 	import { onMount } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
-	import StackedGraph from '$lib/components/graph/StackedGraph.svelte';
-	import VirtualizedGrid from './VirtualizedGrid.svelte';
-	import { errors, responsive } from '$lib/stores';
-	import { buildPaletteFromPrimary, hslToHex, parseColorToHsl } from '$lib/colors';
-	import {
-		aggregateByBucketDefaultInRange,
-		aggregateByBucketGroupedInRange,
-		buildStackedSeriesColors,
-		getUserLabels
-	} from './utils';
+	import StackedTimeline, { type TooltipItem } from '$lib/components/graph/StackedTimeline.svelte';
+	import { errors } from '$lib/stores';
+	import { aggregateTimelineDataByBucket, getUserLabels } from './utils';
 	import { twMerge } from 'tailwind-merge';
 	import { goto } from '$lib/url';
+	import Loading from '$lib/icons/Loading.svelte';
+	import Search from '$lib/components/Search.svelte';
 
 	let loadingTableData = $state(true);
 	let loadingTotalTokensData = $state(true);
-	let end = $derived(
-		page.url.searchParams.get('end') ? new Date(page.url.searchParams.get('end')!) : new Date()
-	);
-	let start = $derived(
-		page.url.searchParams.get('start')
-			? new Date(page.url.searchParams.get('start')!)
-			: subDays(end, 7)
-	);
+	let end = $derived(page.url.searchParams.get('end'));
+	let start = $derived(page.url.searchParams.get('start'));
+	let lastStart = $state<string | null>(null);
+	let lastEnd = $state<string | null>(null);
+
+	let endDate = $derived(end ? new Date(end) : new Date());
+	let startDate = $derived(start ? new Date(start) : subDays(endDate, 7));
+
 	const selectedModelIds = $derived(page.url.searchParams.getAll('model'));
 	let filteredByModel = $derived(
 		selectedModelIds.length > 0 ? selectedModelIds.join(',') : 'all_models'
@@ -48,9 +44,12 @@
 	const selectedUserIdsForSelect = $derived(
 		selectedUserIds.length > 0 ? selectedUserIds.join(',') : 'all_users'
 	);
+	let selectedTokenType = $derived(
+		(page.url.searchParams.get('token_type') as 'input' | 'output') ?? 'input'
+	);
+
 	let totalTokensData = $state<TotalTokenUsage>();
 	let data = $state<TokenUsage[]>([]);
-	/** Token usage rows use provider target model (e.g. "gpt-4o"); filter by selected models' targetModel. */
 	const selectedTargetModels = $derived.by(() => {
 		const ids = selectedModelIds.filter((id) => id !== 'all_models');
 		if (ids.length === 0) return null;
@@ -83,38 +82,14 @@
 			'group_by_default'
 	);
 
-	let primaryColorCss = $state<string | null>(null);
-	$effect(() => {
-		if (typeof document === 'undefined') return;
-		primaryColorCss =
-			getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || null;
-	});
-
 	let selectedSubview = $state<'models' | 'users'>('models');
-
-	const colors = $derived.by(() => {
-		const defaultPrimaryHex = '#4f7ef3';
-		const fallbackHsl = parseColorToHsl(defaultPrimaryHex)!;
-
-		const primary = primaryColorCss ? parseColorToHsl(primaryColorCss) : null;
-		const hsl = primary ?? fallbackHsl;
-		return buildPaletteFromPrimary(hsl);
-	});
-
-	/** Neutral gray for "other" users/models; re-runs when theme (primary) changes. */
-	const othersColor = $derived.by(() => {
-		if (typeof document === 'undefined') {
-			return '#A9AABC';
-		}
-		if (primaryColorCss) {
-			const gray =
-				getComputedStyle(document.documentElement).getPropertyValue('--color-gray-500').trim() ||
-				'';
-			const parsed = gray ? parseColorToHsl(gray) : null;
-			if (parsed) return hslToHex(parsed.h, Math.min(40, parsed.s), parsed.l);
-		}
-		return '#A9AABC';
-	});
+	type SubViewSortBy =
+		| 'sort_by_name'
+		| 'sort_by_name_reverse'
+		| 'sort_by_total_tokens'
+		| 'sort_by_total_tokens_reverse';
+	let subViewSortBy = $state<SubViewSortBy>('sort_by_total_tokens');
+	let subViewSearchQuery = $state('');
 
 	const usersMap = $derived(new Map(usersData.map((u) => [u.id, u])));
 
@@ -136,6 +111,7 @@
 
 	let fetchAbortController: AbortController | null = null;
 
+	const DEFER_DATA_THRESHOLD = 400;
 	async function fetchData(start: Date, end: Date) {
 		fetchAbortController?.abort();
 		fetchAbortController = new AbortController();
@@ -146,7 +122,18 @@
 		AdminService.listTokenUsage(timeRange, { signal })
 			.then((tokenUsage) => {
 				if (signal.aborted) return;
-				data = tokenUsage;
+				if (tokenUsage.length <= DEFER_DATA_THRESHOLD) {
+					data = tokenUsage;
+					return;
+				}
+				// Defer so the UI can paint (200, loading off) before heavy derivation. Safari lacks requestIdleCallback.
+				const schedule =
+					typeof requestIdleCallback !== 'undefined'
+						? (fn: () => void) => requestIdleCallback(fn, { timeout: 120 })
+						: (fn: () => void) => setTimeout(fn, 0);
+				schedule(() => {
+					if (!signal.aborted) data = tokenUsage;
+				});
 			})
 			.finally(() => {
 				if (!signal.aborted) loadingTableData = false;
@@ -158,111 +145,321 @@
 	}
 
 	$effect(() => {
-		if (start || end) {
-			fetchData(start, end);
+		if (start && end) {
+			if (start !== lastStart || end !== lastEnd) {
+				lastStart = start;
+				lastEnd = end;
+				fetchData(startDate, endDate);
+			}
 		}
 	});
+
+	onMount(() => {
+		fetchData(startDate, endDate);
+	});
+
 	const duration = PAGE_TRANSITION_DURATION;
-
-	const byTokenData = $derived.by(() => {
-		if (groupBy !== 'group_by_default') return [];
-		return aggregateByBucketDefaultInRange(filteredData, start, end);
-	});
-
-	const byUserData = $derived.by(() => {
-		if (groupBy !== 'group_by_users') return [];
-		const userKeys = [
-			...new Set(filteredData.map((r) => r.userID ?? r.runName ?? 'Unknown'))
-		].sort();
-		const userKeyToLabel = getUserLabels(usersMap, userKeys);
-		return aggregateByBucketGroupedInRange(
-			filteredData,
-			start,
-			end,
-			(row) => row.userID ?? row.runName ?? 'Unknown',
-			(k) => userKeyToLabel.get(k) ?? k
-		);
-	});
 
 	const targetModelToDisplayName = $derived(
 		new Map(modelsData.map((m) => [m.targetModel, m.displayName || m.name]))
 	);
 
-	const byModelData = $derived.by(() => {
-		if (groupBy !== 'group_by_models') return [];
-		return aggregateByBucketGroupedInRange(
-			filteredData,
-			start,
-			end,
-			(row) => row.model ?? 'Unknown',
-			(k) => targetModelToDisplayName.get(k) ?? k
-		);
+	type TokenUsageWithCategory = TokenUsage & { category: string };
+
+	function toTimelineItem(r: TokenUsage, category: string): TokenUsageWithCategory {
+		return {
+			...r,
+			date: r.date,
+			promptTokens: r.promptTokens ?? 0,
+			completionTokens: r.completionTokens ?? 0,
+			totalTokens: r.totalTokens ?? (r.promptTokens ?? 0) + (r.completionTokens ?? 0),
+			category
+		};
+	}
+
+	function computeMainTimelineData(
+		filtered: TokenUsage[],
+		group: string,
+		users: Map<string, OrgUser>,
+		modelToName: Map<string, string>
+	): TokenUsageWithCategory[] {
+		if (group === 'group_by_users') {
+			const userKeys = [...new Set(filtered.map((r) => r.userID ?? r.runName ?? 'Unknown'))].sort();
+			const userKeyToLabel = getUserLabels(users, userKeys);
+			return filtered.map((r) =>
+				toTimelineItem(
+					r,
+					userKeyToLabel.get(r.userID ?? r.runName ?? 'Unknown') ??
+						r.userID ??
+						r.runName ??
+						'Unknown'
+				)
+			);
+		}
+		if (group === 'group_by_models') {
+			return filtered.map((r) =>
+				toTimelineItem(r, modelToName.get(r.model ?? '') ?? r.model ?? 'Unknown')
+			);
+		}
+		return filtered.map((r) => toTimelineItem(r, 'Token usage'));
+	}
+
+	type PerModelRow = {
+		modelKey: string;
+		modelLabel: string;
+		timelineData: TokenUsageWithCategory[];
+	};
+	type PerUserRow = { userKey: string; userLabel: string; timelineData: TokenUsageWithCategory[] };
+
+	let perModelPromptData = $state<PerModelRow[]>([]);
+	let perUserPromptData = $state<PerUserRow[]>([]);
+
+	const TIMELINE_AGGREGATE_THRESHOLD = 500;
+
+	$effect(() => {
+		const filtered = filteredData;
+		const users = usersMap;
+		const modelToName = targetModelToDisplayName;
+		const threshold = TIMELINE_AGGREGATE_THRESHOLD;
+
+		function computePerModel(): PerModelRow[] {
+			if (!filtered.length) return [];
+			const byModel = new SvelteMap<string, TokenUsage[]>();
+			for (const r of filtered) {
+				const model = r.model;
+				if (!model) continue;
+				let rows = byModel.get(model);
+				if (!rows) {
+					rows = [];
+					byModel.set(model, rows);
+				}
+				rows.push(r);
+			}
+			return [...byModel.entries()].map(([model, modelRows]) => {
+				const modelLabel = modelToName.get(model) ?? model;
+				return {
+					modelKey: model,
+					modelLabel,
+					timelineData: modelRows.map((r) => toTimelineItem(r, modelLabel))
+				};
+			});
+		}
+
+		function computePerUser(): PerUserRow[] {
+			if (!filtered.length) return [];
+			const byUser = new SvelteMap<string, TokenUsage[]>();
+			for (const r of filtered) {
+				const userKey = r.userID ?? r.runName ?? 'Unknown';
+				let rows = byUser.get(userKey);
+				if (!rows) {
+					rows = [];
+					byUser.set(userKey, rows);
+				}
+				rows.push(r);
+			}
+			const userKeys = [...byUser.keys()].sort();
+			const userKeyToLabel = getUserLabels(users, userKeys);
+			return userKeys.map((userKey) => {
+				const userRows = byUser.get(userKey)!;
+				const userLabel = userKeyToLabel.get(userKey) ?? userKey;
+				return {
+					userKey,
+					userLabel,
+					timelineData: userRows.map((r) => toTimelineItem(r, userLabel))
+				};
+			});
+		}
+
+		if (filtered.length <= threshold) {
+			perModelPromptData = computePerModel();
+			perUserPromptData = computePerUser();
+			return;
+		}
+
+		perModelPromptData = [];
+		perUserPromptData = [];
+		const ac = new AbortController();
+		const signal = ac.signal;
+		const schedule =
+			typeof requestIdleCallback !== 'undefined'
+				? (fn: () => void) => requestIdleCallback(fn, { timeout: 200 })
+				: (fn: () => void) => setTimeout(fn, 0);
+		schedule(() => {
+			if (signal.aborted) return;
+			perModelPromptData = computePerModel();
+			perUserPromptData = computePerUser();
+		});
+		return () => ac.abort();
 	});
 
-	const colorsByUsers = $derived.by(() =>
-		buildStackedSeriesColors(byUserData as Record<string, unknown>[], colors, othersColor)
-	);
+	function timelineDataForChartWithRange(
+		items: TokenUsageWithCategory[],
+		start: Date,
+		end: Date
+	): TokenUsageWithCategory[] {
+		if (items.length <= TIMELINE_AGGREGATE_THRESHOLD) return items;
+		return aggregateTimelineDataByBucket(items, start, end) as TokenUsageWithCategory[];
+	}
 
-	const colorsByModels = $derived.by(() =>
-		buildStackedSeriesColors(byModelData as Record<string, unknown>[], colors, othersColor)
-	);
+	let mainChartData = $state<TokenUsageWithCategory[]>([]);
 
-	const perModelPromptData = $derived.by(() => {
-		if (!filteredData.length) return [];
-		//eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const byModel = new Map<string, typeof filteredData>();
-		for (const r of filteredData) {
-			const model = r.model;
-			if (!model) continue;
-			let rows = byModel.get(model);
-			if (!rows) {
-				rows = [];
-				byModel.set(model, rows);
-			}
-			rows.push(r);
+	$effect(() => {
+		const filtered = filteredData;
+		const group = groupBy;
+		const start = startDate;
+		const end = endDate;
+		const users = usersMap;
+		const modelToName = targetModelToDisplayName;
+		const threshold = TIMELINE_AGGREGATE_THRESHOLD;
+
+		if (filtered.length <= threshold) {
+			const timeline = computeMainTimelineData(filtered, group, users, modelToName);
+			mainChartData = timeline;
+			return;
 		}
-		return [...byModel.entries()].map(([model, modelRows]) => {
-			const aggregated = aggregateByBucketDefaultInRange(modelRows, start, end);
-			return {
-				modelKey: model,
-				modelLabel: targetModelToDisplayName.get(model) ?? model,
-				data: aggregated.map((row) => ({ bucket: row.bucket, input_tokens: row.input_tokens }))
-			};
+
+		const schedule =
+			typeof requestIdleCallback !== 'undefined'
+				? (fn: () => void) => requestIdleCallback(fn, { timeout: 150 })
+				: (fn: () => void) => setTimeout(fn, 0);
+		schedule(() => {
+			const timeline = computeMainTimelineData(filtered, group, users, modelToName);
+			mainChartData = timelineDataForChartWithRange(timeline, start, end);
 		});
 	});
 
-	const perUserPromptData = $derived.by(() => {
-		if (!filteredData.length) return [];
-		//eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const byUser = new Map<string, typeof filteredData>();
-		for (const r of filteredData) {
-			const userKey = r.userID ?? r.runName ?? 'Unknown';
-			let rows = byUser.get(userKey);
-			if (!rows) {
-				rows = [];
-				byUser.set(userKey, rows);
-			}
-			rows.push(r);
-		}
-		const userKeys = [...byUser.keys()].sort();
-		const userKeyToLabel = getUserLabels(usersMap, userKeys);
-		return userKeys.map((userKey) => {
-			const userRows = byUser.get(userKey)!;
-			const aggregated = aggregateByBucketDefaultInRange(userRows, start, end);
-			return {
-				userKey,
-				userLabel: userKeyToLabel.get(userKey) ?? userKey,
-				data: aggregated.map((row) => ({ bucket: row.bucket, input_tokens: row.input_tokens }))
-			};
-		});
-	});
-
-	type GraphItem = { label: string; data: { bucket: string; input_tokens: number }[] };
+	type GraphItem = { label: string; timelineData: TokenUsageWithCategory[] };
 	const graphItems = $derived.by((): GraphItem[] => {
 		if (selectedSubview === 'models') {
-			return perModelPromptData.map(({ modelLabel, data }) => ({ label: modelLabel, data }));
+			return perModelPromptData.map(({ modelLabel, timelineData }) => ({
+				label: modelLabel,
+				timelineData
+			}));
 		}
-		return perUserPromptData.map(({ userLabel, data }) => ({ label: userLabel, data }));
+		return perUserPromptData.map(({ userLabel, timelineData }) => ({
+			label: userLabel,
+			timelineData
+		}));
+	});
+
+	const GRID_DEFER_ITEMS_THRESHOLD = 4;
+	const GRID_CHUNK_SIZE = 3;
+	let displayGraphItems = $state<GraphItem[]>([]);
+	const INITIAL_VISIBLE_CHARTS = 6;
+	const CHARTS_PER_FRAME = 6;
+	let visibleChartCount = $state(INITIAL_VISIBLE_CHARTS);
+	let gridDataReady = $state(true);
+
+	function sortGraphItems(items: GraphItem[], sortBy: SubViewSortBy): GraphItem[] {
+		const total = (item: GraphItem) => {
+			const total = item.timelineData.reduce(
+				(sum, r) => sum + (r.totalTokens ?? (r.promptTokens ?? 0) + (r.completionTokens ?? 0)),
+				0
+			);
+			return total;
+		};
+		const byNameAsc = (a: GraphItem, b: GraphItem) => a.label.localeCompare(b.label);
+		const byNameDesc = (a: GraphItem, b: GraphItem) => b.label.localeCompare(a.label);
+		const byTotalTokensDesc = (a: GraphItem, b: GraphItem) => total(b) - total(a);
+		const byTotalTokensAsc = (a: GraphItem, b: GraphItem) => total(a) - total(b);
+		const cmp =
+			sortBy === 'sort_by_name'
+				? byNameAsc
+				: sortBy === 'sort_by_name_reverse'
+					? byNameDesc
+					: sortBy === 'sort_by_total_tokens'
+						? byTotalTokensDesc
+						: byTotalTokensAsc;
+		return [...items].sort(cmp);
+	}
+
+	function filterGraphItemsBySearch(items: GraphItem[], query: string): GraphItem[] {
+		const q = query.trim().toLowerCase();
+		if (!q) return items;
+		return items.filter((item) => item.label.toLowerCase().includes(q));
+	}
+
+	function hasTokenData(item: GraphItem): boolean {
+		const total = item.timelineData.reduce(
+			(sum, r) => sum + (r.totalTokens ?? (r.promptTokens ?? 0) + (r.completionTokens ?? 0)),
+			0
+		);
+		return total > 0;
+	}
+
+	$effect(() => {
+		const items = graphItems;
+		const start = startDate;
+		const end = endDate;
+		const sortBy = subViewSortBy;
+		const searchQuery = subViewSearchQuery;
+		const threshold = TIMELINE_AGGREGATE_THRESHOLD;
+
+		const shouldDefer =
+			items.length > GRID_DEFER_ITEMS_THRESHOLD ||
+			items.some((item) => item.timelineData.length > threshold);
+
+		if (!shouldDefer) {
+			gridDataReady = true;
+			const mapped = items.map((item) => ({
+				label: item.label,
+				timelineData: timelineDataForChartWithRange(item.timelineData, start, end)
+			}));
+			const sorted = sortGraphItems(mapped, sortBy).filter(hasTokenData);
+			displayGraphItems = filterGraphItemsBySearch(sorted, searchQuery);
+			return;
+		}
+
+		gridDataReady = false;
+		displayGraphItems = [];
+		const ac = new AbortController();
+		const signal = ac.signal;
+		const accumulated: GraphItem[] = [];
+
+		function processChunk(fromIndex: number) {
+			if (signal.aborted) return;
+			const chunk = items.slice(fromIndex, fromIndex + GRID_CHUNK_SIZE);
+			for (const item of chunk) {
+				accumulated.push({
+					label: item.label,
+					timelineData: timelineDataForChartWithRange(item.timelineData, start, end)
+				});
+			}
+			const nextIndex = fromIndex + GRID_CHUNK_SIZE;
+			if (nextIndex < items.length) {
+				requestAnimationFrame(() => processChunk(nextIndex));
+			} else {
+				if (signal.aborted) return;
+				const sorted = sortGraphItems(accumulated, sortBy).filter(hasTokenData);
+				displayGraphItems = filterGraphItemsBySearch(sorted, searchQuery);
+				gridDataReady = true;
+			}
+		}
+
+		requestAnimationFrame(() => processChunk(0));
+		return () => ac.abort();
+	});
+
+	$effect(() => {
+		const total = displayGraphItems.length;
+		if (total <= INITIAL_VISIBLE_CHARTS) {
+			visibleChartCount = total;
+			return;
+		}
+		visibleChartCount = INITIAL_VISIBLE_CHARTS;
+		let cancelled = false;
+
+		function tick() {
+			if (cancelled) return;
+			visibleChartCount = Math.min(visibleChartCount + CHARTS_PER_FRAME, total);
+			if (visibleChartCount < total) {
+				requestAnimationFrame(tick);
+			}
+		}
+		requestAnimationFrame(tick);
+		return () => {
+			cancelled = true;
+		};
 	});
 
 	function handleDateRangeChange(range: DateRange) {
@@ -331,6 +528,17 @@
 	function handleGroupByChange(groupBy: string) {
 		const currentUrl = new URL(page.url);
 		currentUrl.searchParams.set('group_by', groupBy);
+		if (groupBy !== 'group_by_default') {
+			currentUrl.searchParams.set('token_type', 'input');
+		} else {
+			currentUrl.searchParams.delete('token_type');
+		}
+		goto(currentUrl, { noScroll: true, keepFocus: true });
+	}
+
+	function handleTokenTypeChange(tokenType: 'input' | 'output') {
+		const currentUrl = new URL(page.url);
+		currentUrl.searchParams.set('token_type', tokenType);
 		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
@@ -353,6 +561,21 @@
 		noSidebarTitle: 'pl-4 md:pl-8 mx-auto md:max-w-(--breakpoint-xl) pt-4'
 	}}
 >
+	{#if loadingTableData}
+		<div
+			class="absolute inset-0 z-20 flex items-center justify-center"
+			in:fade={{ duration: 100 }}
+			out:fade|global={{ duration: 300, delay: 500 }}
+		>
+			<div
+				class="bg-surface3/50 border-surface3 text-primary dark:text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
+			>
+				<Loading class="size-32 stroke-1" />
+				<div class="text-2xl font-semibold">Loading data...</div>
+			</div>
+		</div>
+	{/if}
+
 	<div class="mb-4 flex flex-col gap-4" transition:fade={{ duration }}>
 		<div class="bg-surface2 dark:bg-surface1 w-full">
 			<div class="m-auto w-full px-4 py-4 md:max-w-(--breakpoint-xl) md:px-8">
@@ -396,16 +619,39 @@
 					multiple
 				/>
 				<div class="bg-surface3 hidden h-8 w-0.5 md:block"></div>
-				<AuditLogCalendar {start} {end} onChange={handleDateRangeChange} />
+				<AuditLogCalendar start={startDate} end={endDate} onChange={handleDateRangeChange} />
 			</div>
-			<div class="paper w-full gap-0">
-				<div class="mb-1 flex justify-between gap-2">
-					<h4 class="flex items-center gap-2 self-start font-semibold">
-						Prompt & Completion Tokens
-						{#if loadingTableData}
-							<LoaderCircle class="size-4 animate-spin" />
-						{/if}
-					</h4>
+			<div class="paper w-full gap-0 pt-4">
+				<div class="mb-1 flex flex-wrap justify-between gap-2">
+					<div class="flex flex-wrap items-center gap-4">
+						<h4 class="flex items-center gap-2 font-semibold">
+							Prompt & Completion Tokens
+							{#if loadingTableData}
+								<Loading class="size-4 animate-spin" />
+							{/if}
+						</h4>
+
+						<div class="flex shrink-0">
+							<button
+								class={twMerge(
+									'button-secondary rounded-r-none border-1 border-r-0 text-xs',
+									selectedTokenType === 'input' && 'bg-surface2 border-surface2'
+								)}
+								onclick={() => handleTokenTypeChange('input')}
+							>
+								Input Tokens
+							</button>
+							<button
+								class={twMerge(
+									'button-secondary rounded-l-none border-1 text-xs',
+									selectedTokenType === 'output' && 'bg-surface2 border-surface2'
+								)}
+								onclick={() => handleTokenTypeChange('output')}
+							>
+								Output Tokens
+							</button>
+						</div>
+					</div>
 					<Select
 						class="bg-surface2 dark:bg-background dark:border-surface3 w-[50dvw] border border-transparent shadow-inner md:w-64"
 						options={[
@@ -417,53 +663,151 @@
 						onSelect={(option) => handleGroupByChange(option.id)}
 					/>
 				</div>
-				<StackedGraph
-					data={groupBy === 'group_by_default'
-						? byTokenData
-						: groupBy === 'group_by_users'
-							? byUserData
-							: byModelData}
-					series={groupBy === 'group_by_users'
-						? colorsByUsers
-						: groupBy === 'group_by_models'
-							? colorsByModels
-							: undefined}
-					tweened
-				/>
+				<div class="w-full pt-2">
+					{#key groupBy}
+						<StackedTimeline
+							start={startDate}
+							end={endDate}
+							data={mainChartData}
+							dateKey="date"
+							primaryValueKey={selectedTokenType === 'input' ? 'promptTokens' : 'completionTokens'}
+							categoryKey="category"
+							class="h-96"
+							legend={{
+								showSecondaryLabel: false,
+								primaryLabel:
+									groupBy === 'group_by_default'
+										? selectedTokenType === 'input'
+											? 'input tokens'
+											: 'output tokens'
+										: '',
+								hideCategoryLabel: groupBy === 'group_by_default'
+							}}
+						>
+							{#snippet tooltipContent(item)}
+								{@render tokenUsageTooltipContent(item)}
+							{/snippet}
+						</StackedTimeline>
+					{/key}
+				</div>
 			</div>
 
 			<div class="relative mt-2 flex flex-col">
-				<div class="relative z-10 flex shrink-0 items-center">
-					<button
-						class={twMerge(
-							'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
-							selectedSubview === 'models' && 'border-primary'
-						)}
-						onclick={() => (selectedSubview = 'models')}
-					>
-						Models
-					</button>
-					<button
-						class={twMerge(
-							'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
-							selectedSubview === 'users' && 'border-primary'
-						)}
-						onclick={() => (selectedSubview = 'users')}
-					>
-						Users
-					</button>
+				<div class="relative z-10 flex shrink-0 items-center justify-between">
+					<div class="flex shrink-0">
+						<button
+							class={twMerge(
+								'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
+								selectedSubview === 'models' && 'border-primary'
+							)}
+							onclick={() => {
+								selectedSubview = 'models';
+								subViewSearchQuery = '';
+							}}
+						>
+							Models
+						</button>
+						<button
+							class={twMerge(
+								'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
+								selectedSubview === 'users' && 'border-primary'
+							)}
+							onclick={() => {
+								selectedSubview = 'users';
+								subViewSearchQuery = '';
+							}}
+						>
+							Users
+						</button>
+					</div>
+					<Select
+						class="bg-surface1 hover:bg-surface2 dark:bg-background dark:hover:bg-surface1 mb-1.5 border border-transparent shadow-none md:w-64"
+						options={[
+							{ label: 'Sort by Name (A-Z)', id: 'sort_by_name' },
+							{ label: 'Sort by Name (Z-A)', id: 'sort_by_name_reverse' },
+							{
+								label: 'Sort by Total Tokens (Highest to Lower)',
+								id: 'sort_by_total_tokens'
+							},
+							{
+								label: 'Sort by Total Tokens (Lowest to Highest)',
+								id: 'sort_by_total_tokens_reverse'
+							}
+						]}
+						selected={subViewSortBy}
+						onSelect={(option) => {
+							subViewSortBy = option.id as SubViewSortBy;
+						}}
+						id="sub-view-sort-by-select"
+					/>
 				</div>
-				<div class="bg-surface3 h-0.5 w-full shrink-0 -translate-y-0.5"></div>
+				<div class="bg-surface3 h-0.5 w-full shrink-0 -translate-y-1"></div>
+
+				<Search
+					class="bg-background dark:border-surface3 mt-2 mb-3 border border-transparent"
+					value={subViewSearchQuery}
+					onChange={(value) => (subViewSearchQuery = value)}
+					placeholder={`Search ${selectedSubview === 'models' ? 'models' : 'users'}...`}
+				/>
 
 				{#if graphItems.length > 0}
-					<VirtualizedGrid class="my-4" data={graphItems} columns={2} rowHeight={340} overscan={2}>
-						{#snippet children({ item })}
-							<div class="paper flex min-h-0 flex-col">
-								<h5 class="text-sm font-medium">{item.label}</h5>
-								<StackedGraph height={responsive.isMobile ? 210 : 240} data={item.data} />
+					<div class="min-h-[300px]">
+						{#if !gridDataReady}
+							<div
+								class="text-on-surface1 flex items-center justify-center gap-2 py-12 text-sm"
+								aria-live="polite"
+							>
+								<Loading class="size-4 animate-spin" />
+								<span>Preparing charts…</span>
 							</div>
-						{/snippet}
-					</VirtualizedGrid>
+						{:else if displayGraphItems.length > 0}
+							<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+								{#each displayGraphItems.slice(0, visibleChartCount) as item (item.label)}
+									<div class="paper flex min-h-0 flex-col overflow-hidden">
+										<h5 class="shrink-0 text-sm font-medium">{item.label}</h5>
+										<div class="w-full shrink-0">
+											<StackedTimeline
+												start={startDate}
+												end={endDate}
+												data={item.timelineData}
+												categoryKey="category"
+												dateKey="date"
+												primaryValueKey="promptTokens"
+												secondaryValueKey="completionTokens"
+												class="h-48"
+												legend={{
+													hideCategoryLabel: true,
+													showSecondaryLabel: true,
+													primaryLabel: 'input tokens',
+													secondaryLabel: 'output tokens'
+												}}
+												classes={{
+													legend: 'pt-4 justify-start'
+												}}
+											>
+												{#snippet tooltipContent(item)}
+													{@render tokenUsageTooltipContent(item)}
+												{/snippet}
+											</StackedTimeline>
+										</div>
+									</div>
+								{/each}
+							</div>
+							{#if visibleChartCount < displayGraphItems.length}
+								<div
+									class="text-on-surface1 flex items-center justify-center gap-2 py-4 text-sm"
+									aria-live="polite"
+								>
+									<Loading class="size-4 animate-spin" />
+									<span>Loading charts… {visibleChartCount} of {displayGraphItems.length}</span>
+								</div>
+							{/if}
+						{:else}
+							<div class="text-on-surface1 mx-auto py-12 text-center text-sm font-light">
+								No matches found.
+							</div>
+						{/if}
+					</div>
 				{:else}
 					<div class="text-on-surface1 mx-auto py-12 text-sm font-light">No data available.</div>
 				{/if}
@@ -478,12 +822,26 @@
 		<div class="text-primary flex items-center gap-1 text-xl font-semibold">
 			{#if loadingTotalTokensData}
 				<div class="py-2">
-					<LoaderCircle class="size-4 animate-spin" />
+					<Loading class="size-4 animate-spin" />
 				</div>
 			{:else}
 				{value.toLocaleString()}
 				<Coins class="size-4" />
 			{/if}
+		</div>
+	</div>
+{/snippet}
+
+{#snippet tokenUsageTooltipContent(item: TooltipItem)}
+	{@const value = item.primaryTotal ?? 0}
+	<div class="flex flex-col gap-0 text-xs">
+		<div class="text-sm font-semibold">{item.key}</div>
+		<div class="text-on-surface1">{item.date}</div>
+		<div class="divider"></div>
+	</div>
+	<div class="flex flex-col gap-1">
+		<div class="text-on-surface1 flex flex-col">
+			<div class="text-xl font-bold">{value.toLocaleString()}</div>
 		</div>
 	</div>
 {/snippet}
@@ -499,5 +857,13 @@
 		background-color: var(--color-surface3);
 		margin-left: 1rem;
 		margin-right: 1rem;
+	}
+
+	.divider {
+		height: 1px;
+		width: 100%;
+		background-color: var(--color-surface3);
+		margin-top: 0.5rem;
+		margin-bottom: 0.5rem;
 	}
 </style>
