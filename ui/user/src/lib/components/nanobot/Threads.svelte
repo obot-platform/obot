@@ -51,7 +51,7 @@
 	function navigateToSession(sessionId: string) {
 		const storedChat = get(nanobotChat);
 		onSessionClick?.();
-		goto(`/nanobot/p/${storedChat?.projectId}?tid=${sessionId}`);
+		goto(`/agent/p/${storedChat?.projectId}?tid=${sessionId}`);
 	}
 
 	function formatTime(timestamp: string): string {

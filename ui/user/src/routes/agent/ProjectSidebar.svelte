@@ -73,7 +73,7 @@
 			});
 
 			if (isCurrentViewedSession) {
-				goto(`/nanobot`, { replaceState: true });
+				goto(`/agent`, { replaceState: true });
 			}
 		} catch (error) {
 			console.error('Failed to delete thread:', error);
@@ -87,7 +87,7 @@
 			}
 			return data;
 		});
-		goto(`/nanobot`);
+		goto(`/agent`);
 	}
 
 	function toggleSidebar() {
@@ -123,14 +123,14 @@
 					in:fly={{ x: -100, duration: 150 }}
 				>
 					<a
-						href={resolve(`/nanobot/p/${projectId}/workflows`)}
+						href={resolve(`/agent/p/${projectId}/workflows`)}
 						class="btn btn-ghost text-base-content/50 text-md justify-between rounded-none"
 					>
 						Workflows <WorkflowIcon class="size-6" />
 					</a>
 
 					<a
-						href={resolve(`/nanobot/p/${projectId}/files`)}
+						href={resolve(`/agent/p/${projectId}/files`)}
 						class="btn btn-ghost text-base-content/50 text-md justify-between rounded-none"
 					>
 						Files <FoldersIcon class="size-6" />
@@ -152,7 +152,7 @@
 							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
 							aria-label="Go to workflows"
 							data-tip="Go to workflows"
-							onclick={() => goto(`/nanobot/p/${projectId}/workflows`)}
+							onclick={() => goto(`/agent/p/${projectId}/workflows`)}
 						>
 							<Workflow class="text-base-content/50 size-6" />
 						</button>
@@ -162,7 +162,7 @@
 							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
 							aria-label="Go to files"
 							data-tip="Go to files"
-							onclick={() => goto(`/nanobot/p/${projectId}/files`)}
+							onclick={() => goto(`/agent/p/${projectId}/files`)}
 						>
 							<Folders class="text-base-content/50 size-6" />
 						</button>

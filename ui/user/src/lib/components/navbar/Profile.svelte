@@ -40,17 +40,16 @@
 
 	let inAdminRoute = $derived(page.url.pathname.includes('/admin'));
 	let showChatLink = $derived(
-		(!page.url.pathname.startsWith('/o') && !page.url.pathname.startsWith('/nanobot')) ||
-			inAdminRoute
+		(!page.url.pathname.startsWith('/o') && !page.url.pathname.startsWith('/agent')) || inAdminRoute
 	);
 	let showApiKeysLink = $derived(
-		!page.url.pathname.startsWith('/o') && !page.url.pathname.startsWith('/nanobot')
+		!page.url.pathname.startsWith('/o') && !page.url.pathname.startsWith('/agent')
 	);
 	let showMcpManagement = $derived(
-		['/o', '/profile', '/nanobot'].some((path) => page.url.pathname.startsWith(path))
+		['/o', '/profile', '/agent'].some((path) => page.url.pathname.startsWith(path))
 	);
 	let showRestartOption = $derived(
-		page.url.pathname.startsWith('/nanobot') && !!agentId && !!projectId
+		page.url.pathname.startsWith('/agent') && !!agentId && !!projectId
 	);
 
 	let showRestartAgentConfirm = $state(false);
