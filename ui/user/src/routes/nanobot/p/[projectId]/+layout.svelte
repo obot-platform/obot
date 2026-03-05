@@ -181,6 +181,7 @@
 		untrack(() => {
 			prevSessionId = currentSessionId;
 			chat?.close();
+			chat = null;
 		});
 
 		if (currentSessionId) {
@@ -199,6 +200,14 @@
 					return data;
 				});
 			});
+		} else {
+			nanobotChat.update((data) => {
+				if (data) {
+					data.chat = undefined;
+					data.sessionId = undefined;
+				}
+				return data;
+			});
 		}
 
 		return () => {
@@ -206,6 +215,7 @@
 				const nextTid = sessionId;
 				if (chat && nextTid !== chat.chatId) {
 					chat.close();
+					chat = null;
 				}
 			});
 		};

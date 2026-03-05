@@ -232,6 +232,7 @@
 	);
 	let isMarkdown = $derived(mimeType.startsWith('text/markdown') || extension === 'md');
 	let isPdf = $derived(mimeType === 'application/pdf');
+	let isSvg = $derived(mimeType === 'image/svg+xml' || extension === 'svg');
 
 	const visible = $derived(mounted && open);
 	let justOpened = $state(false);
@@ -339,6 +340,15 @@
 				{:else}
 					<div class="text-base-content/40 italic">This file could not be displayed.</div>
 				{/if}
+			{:else if isSvg && content}
+				<!-- SVG as text (no blob) - display as image -->
+				<div class="flex h-full w-full items-center justify-center p-4">
+					<img
+						src="data:image/svg+xml,{encodeURIComponent(content)}"
+						alt={name}
+						class="h-auto max-w-full"
+					/>
+				</div>
 			{:else if isMarkdown}
 				<MarkdownEditor value={content} readonly />
 			{:else if content}
