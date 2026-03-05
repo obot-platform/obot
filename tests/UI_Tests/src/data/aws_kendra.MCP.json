@@ -1,0 +1,11 @@
+{
+  "prompts": [
+    "Is AWS Kendra tool connected?",
+    "Query AWS Kendra for documents related to `IAM role best practices.`",
+    "List all available Kendra indexes in my AWS account."
+  ],
+  "tools" : [
+    "KendraQueryTool",
+    "KendraListIndexesTool"
+  ]
+}
