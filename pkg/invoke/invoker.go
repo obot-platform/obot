@@ -507,10 +507,12 @@ func (i *Invoker) createRun(ctx context.Context, gptClient *gptscript.GPTScript,
 
 	if opts.Ephemeral {
 		run.Name = fmt.Sprintf("%s-%d", ephemeralRunPrefix, ephemeralCounter.Add(1))
+		log.Infof("Starting ephemeral run: run=%s thread=%s agent=%s workflow=%s synchronous=%v", run.Name, thread.Name, opts.AgentName, opts.WorkflowName, opts.Synchronous)
 	} else {
 		if err := c.Create(ctx, &run); err != nil {
 			return nil, err
 		}
+		log.Infof("Created run resource: run=%s thread=%s agent=%s workflow=%s synchronous=%v previousRun=%s", run.Name, thread.Name, opts.AgentName, opts.WorkflowName, opts.Synchronous, previousRunName)
 	}
 
 	if !thread.Spec.SystemTask && !opts.Ephemeral {
@@ -561,7 +563,7 @@ func (i *Invoker) createRun(ctx context.Context, gptClient *gptscript.GPTScript,
 	resp.cancel = cancel
 	go func() {
 		if err := i.Resume(ctx, gptClient, c, thread, &run); err != nil {
-			log.Errorf("run failed: %v", err)
+			log.Errorf("run failed: run=%s thread=%s error=%v", run.Name, thread.Name, err)
 		}
 	}()
 
@@ -742,6 +744,7 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		Prompt:             true,
 		Confirm:            !autonomousToolUseEnabled,
 	}
+	log.Infof("Executing run with resolved invocation settings: run=%s thread=%s userID=%s autonomousToolUse=%v confirmToolCalls=%v", run.Name, thread.Name, thread.Spec.UserID, autonomousToolUseEnabled, !autonomousToolUseEnabled)
 
 	if len(run.Spec.Tool) == 0 {
 		return fmt.Errorf("no tool specified")
@@ -831,6 +834,7 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 		extCall      *v1.ExternalCall
 		runChanged   bool
 		err          error
+		prevState    = run.Status.State
 	)
 
 	runStateSpec.Name = run.Name
@@ -969,6 +973,16 @@ func (i *Invoker) doSaveState(ctx context.Context, c kclient.Client, thread *v1.
 		if err := c.Status().Update(ctx, run); err != nil {
 			return err
 		}
+		log.Infof(
+			"Persisted run status update: run=%s thread=%s previousState=%v newState=%v final=%v waitingForExternalCall=%v hasError=%v",
+			run.Name,
+			run.Spec.ThreadName,
+			prevState,
+			run.Status.State,
+			final,
+			run.Status.State == v1.Waiting && run.Status.ExternalCall != nil,
+			run.Status.Error != "",
+		)
 	}
 
 	if !thread.Spec.SystemTask {
@@ -1183,6 +1197,7 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 
 					// Auto-confirm pre-approved tools.
 					if frame.Call.ToolCategory != gptscript.NoCategory || isApprovedTool(toolName, latestThread.Spec.ApprovedTools) {
+						log.Infof("Auto-approving tool call: run=%s thread=%s callID=%s tool=%s category=%v", run.Name, thread.Name, callID, toolName, frame.Call.ToolCategory)
 						if err := gptClient.Confirm(runCtx, gptscript.AuthResponse{
 							ID:     callID,
 							Accept: true,
@@ -1197,6 +1212,7 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 					if err := addRequestedCallDecision(runCtx, c.Status(), run, callID); err != nil {
 						return fmt.Errorf("failed to add pending call decision to run: %w", err)
 					}
+					log.Infof("Waiting for user decision on tool call: run=%s thread=%s callID=%s tool=%s", run.Name, thread.Name, callID, toolName)
 
 					// Watch for the call decision to be set on the run and submit to GPTScript
 					go watchRunCallDecision(runCtx, gptClient, c, run, callID)
@@ -1241,6 +1257,7 @@ func watchRunCallDecision(
 			// Decision hasn't been made yet
 			return false, nil
 		}
+		log.Infof("Received user decision for tool call: run=%s callID=%s accept=%v", run.Name, callID, accept)
 
 		return true, gptClient.Confirm(ctx, gptscript.AuthResponse{
 			ID:     callID,
