@@ -840,7 +840,7 @@
 		<div class="divider"></div>
 	</div>
 	<div class="flex flex-col gap-1">
-		<div class="text-on-surface1 flex flex-col">
+		<div class="text-on-background flex flex-col">
 			<div class="text-xl font-bold">{value.toLocaleString()}</div>
 		</div>
 	</div>
