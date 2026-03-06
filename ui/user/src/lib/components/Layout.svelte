@@ -134,8 +134,8 @@
 		...(version.current.nanobotIntegration
 			? [
 					{
-						id: 'nanobot-chat',
-						href: '/nanobot',
+						id: 'agent-chat',
+						href: '/agent',
 						icon: BotMessageSquare,
 						disabled: isBootStrapUser,
 						label: 'Launch Agent',
@@ -237,8 +237,8 @@
 							...(version.current.nanobotIntegration
 								? [
 										{
-											id: 'launch-nanobot-chat',
-											href: '/nanobot',
+											id: 'launch-agent-chat',
+											href: '/agent',
 											icon: BotMessageSquare,
 											label: 'Launch Agent',
 											disabled: isBootStrapUser,

@@ -13,7 +13,7 @@ export const load: PageLoad = async ({ fetch }) => {
 	const projects = await NanobotService.listProjectsV2({ fetch });
 	if (projects.length === 0) {
 		const project = await NanobotService.createProjectV2({ displayName: 'New Project' }, { fetch });
-		throw redirect(302, `/nanobot/p/${project.id}`);
+		throw redirect(302, `/agent/p/${project.id}`);
 	}
-	throw redirect(302, `/nanobot/p/${projects[0].id}`);
+	throw redirect(302, `/agent/p/${projects[0].id}`);
 };

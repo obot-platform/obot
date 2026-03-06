@@ -77,7 +77,7 @@
 								<MessageCircle class="mb-4 size-5" />
 								<h3 class="text-base font-semibold">Just explore</h3>
 								<p class="text-base-content/50 min-h-[2lh] text-sm font-light">
-									Learn what Nanobot can do and take it from there
+									Learn what the agent can do and take it from there
 								</p>
 							</button>
 						</div>
