@@ -1,6 +1,10 @@
 package mcp
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/moby/moby/api/types/container"
+)
 
 func TestContainerFilesStablePathsAcrossDataChanges(t *testing.T) {
 	filesA := []File{{
@@ -69,5 +73,71 @@ func TestFileEnvKeysHashChangesWithKeySet(t *testing.T) {
 
 	if fileEnvKeysHash(filesA) == fileEnvKeysHash(filesB) {
 		t.Fatalf("expected different file env key hash when key set changes")
+	}
+}
+
+func TestApplyServerConfigToContainerConfigOverridesImageAndLabels(t *testing.T) {
+	config := &container.Config{
+		Image:  "ghcr.io/nanobot-ai/nanobot:v0.0.58",
+		Labels: nil,
+	}
+
+	server := ServerConfig{
+		MCPServerName:  "mcp-server-abc",
+		ContainerImage: "ghcr.io/nanobot-ai/nanobot:v0.0.59",
+		Runtime:        "containerized",
+		Files: []File{{
+			EnvKey:  "NANOBOT_ENV_FILE",
+			Data:    "value",
+			Dynamic: true,
+		}},
+	}
+
+	applyServerConfigToContainerConfig(config, server)
+
+	if config.Image != server.ContainerImage {
+		t.Fatalf("expected image %q, got %q", server.ContainerImage, config.Image)
+	}
+
+	if got, ok := config.Labels["mcp.config.hash"]; !ok || got != clientID(server) {
+		t.Fatalf("expected mcp.config.hash %q, got %q", clientID(server), got)
+	}
+
+	if got, ok := config.Labels["mcp.file.env.keys.hash"]; !ok || got != fileEnvKeysHash(server.Files) {
+		t.Fatalf("expected mcp.file.env.keys.hash %q, got %q", fileEnvKeysHash(server.Files), got)
+	}
+}
+
+func TestApplyServerConfigToContainerConfigNoImageNoChanges(t *testing.T) {
+	config := &container.Config{
+		Image: "ghcr.io/nanobot-ai/nanobot:v0.0.58",
+		Labels: map[string]string{
+			"existing": "label",
+		},
+	}
+
+	originalImage := config.Image
+	originalExistingLabel := config.Labels["existing"]
+
+	server := ServerConfig{
+		MCPServerName: "mcp-server-abc",
+	}
+
+	applyServerConfigToContainerConfig(config, server)
+
+	if config.Image != originalImage {
+		t.Fatalf("expected image to remain %q, got %q", originalImage, config.Image)
+	}
+
+	if config.Labels["existing"] != originalExistingLabel {
+		t.Fatalf("expected existing label to remain %q, got %q", originalExistingLabel, config.Labels["existing"])
+	}
+
+	if _, ok := config.Labels["mcp.config.hash"]; ok {
+		t.Fatalf("did not expect mcp.config.hash label to be set")
+	}
+
+	if _, ok := config.Labels["mcp.file.env.keys.hash"]; ok {
+		t.Fatalf("did not expect mcp.file.env.keys.hash label to be set")
 	}
 }

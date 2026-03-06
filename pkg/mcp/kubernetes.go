@@ -1127,7 +1127,11 @@ func (k *kubernetesBackend) deleteDeploymentCache(mcpServerName string) {
 	delete(k.deploymentCache, mcpServerName)
 }
 
-func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error {
+func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConfig) error {
+	id := server.MCPServerName
+	if id == "" {
+		return fmt.Errorf("MCPServerName is required to restart server")
+	}
 	// Fetch K8s settings once at the start
 	k8sSettings, err := k.getK8sSettings(ctx)
 	if err != nil {

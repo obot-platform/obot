@@ -451,7 +451,12 @@ eventLoop:
 	}, nil
 }
 
-func (d *dockerBackend) restartServer(ctx context.Context, id string) error {
+func (d *dockerBackend) restartServer(ctx context.Context, server ServerConfig) error {
+	id := server.MCPServerName
+	if id == "" {
+		return fmt.Errorf("server name is required")
+	}
+
 	inspect, err := d.client.ContainerInspect(ctx, id)
 	if err != nil {
 		if cerrdefs.IsNotFound(err) {
@@ -463,6 +468,8 @@ func (d *dockerBackend) restartServer(ctx context.Context, id string) error {
 	if inspect.Config == nil {
 		return fmt.Errorf("container %s has no config", id)
 	}
+
+	applyServerConfigToContainerConfig(inspect.Config, server)
 
 	if err := d.pullImage(ctx, inspect.Config.Image, false); err != nil {
 		return fmt.Errorf("failed to pull image for container %s: %w", id, err)
@@ -503,6 +510,20 @@ func (d *dockerBackend) restartServer(ctx context.Context, id string) error {
 	}
 
 	return nil
+}
+
+func applyServerConfigToContainerConfig(config *container.Config, server ServerConfig) {
+	if config == nil || server.ContainerImage == "" {
+		return
+	}
+
+	config.Image = server.ContainerImage
+	if config.Labels == nil {
+		config.Labels = map[string]string{}
+	}
+
+	config.Labels["mcp.config.hash"] = clientID(server)
+	config.Labels["mcp.file.env.keys.hash"] = fileEnvKeysHash(server.Files)
 }
 
 func (d *dockerBackend) shutdownServer(ctx context.Context, id string) error {
