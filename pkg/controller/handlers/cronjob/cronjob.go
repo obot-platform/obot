@@ -129,7 +129,7 @@ func (h *Handler) SetSuccessRunTime(req router.Request, _ router.Response) error
 	for _, execution := range workflowExecutions.Items {
 		if execution.Status.State == types.WorkflowStateComplete && (cj.Status.LastSuccessfulRunCompleted == nil || cj.Status.LastSuccessfulRunCompleted.Before(execution.Status.EndTime)) {
 			cj.Status.LastSuccessfulRunCompleted = execution.Status.EndTime
-			log.Infof("Updated last successful cron run time: cronJob=%s completedAt=%s", cj.Name, cj.Status.LastSuccessfulRunCompleted.Time.Format(time.RFC3339))
+			log.Infof("Updated last successful cron run time: cronJob=%s completedAt=%s", cj.Name, cj.Status.LastSuccessfulRunCompleted.Format(time.RFC3339))
 		}
 	}
 

@@ -376,7 +376,7 @@ func (t *Handler) CleanupEphemeralThreads(req router.Request, _ router.Response)
 		return nil
 	}
 
-	log.Infof("Deleting expired ephemeral thread: thread=%s createdAt=%s", thread.Name, thread.CreationTimestamp.Time.Format(time.RFC3339))
+	log.Infof("Deleting expired ephemeral thread: thread=%s createdAt=%s", thread.Name, thread.CreationTimestamp.Format(time.RFC3339))
 	return kclient.IgnoreNotFound(req.Delete(thread))
 }
 
