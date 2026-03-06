@@ -14,8 +14,7 @@
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser,
-		MCPCompositeDeletionDependencyError,
-		Group
+		MCPCompositeDeletionDependencyError
 	} from '$lib/services';
 	import {
 		getServerTypeLabel,
@@ -658,7 +657,6 @@
 						{/snippet}
 
 						{#snippet children({ toggle })}
-							{@const isAtLeastPowerUser = profile.current.groups.includes(Group.POWERUSER)}
 							{#if !isComposite && d.isMyServer}
 								<div
 									class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
@@ -706,41 +704,6 @@
 									{/if}
 								</div>
 							{/if}
-							<div class="flex flex-col gap-1 p-2">
-								{#if d.needsUpdate && (d.isMyServer || hasAdminAccess)}
-									{#if !readonly && (d.isMyServer || isAtLeastPowerUser)}
-										<button
-											class="menu-button-primary"
-											disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
-											onclick={(e) => {
-												e.stopPropagation();
-												if (!d) return;
-												showUpgradeConfirm = {
-													type: 'single',
-													server: d,
-													onConfirm: async () => {
-														reload();
-													}
-												};
-											}}
-											use:tooltip={d.compositeName
-												? {
-														text: 'This is a component of a composite server and cannot be updated independently; update the composite MCP server instead',
-														classes: ['w-md'],
-														disablePortal: true
-													}
-												: undefined}
-										>
-											{#if updating[d.id]?.inProgress}
-												<LoaderCircle class="size-4 animate-spin" />
-											{:else}
-												<CircleFadingArrowUp class="size-4" />
-											{/if}
-											Update Server
-										</button>
-									{/if}
-								{/if}
-							</div>
 
 							<div class="flex flex-col gap-1 p-2">
 								<a
@@ -763,8 +726,7 @@
 										{/if}
 									</span>
 								</a>
-
-								{#if d.needsUpdate && (d.isMyServer || hasAdminAccess) && !readonly && isAtLeastPowerUser}
+								{#if d.needsUpdate && (d.isMyServer || hasAdminAccess) && !readonly}
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -813,7 +775,7 @@
 									</button>
 								{/if}
 
-								{#if (d.isMyServer || hasAdminAccess) && !readonly && (d.isMyServer || isAtLeastPowerUser) && d.needsK8sUpdate}
+								{#if (d.isMyServer || hasAdminAccess) && !readonly && d.needsK8sUpdate}
 									<button
 										class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -835,7 +797,7 @@
 									</button>
 								{/if}
 
-								{#if (d.isMyServer || hasAdminAccess) && !readonly && isAtLeastPowerUser}
+								{#if (d.isMyServer || hasAdminAccess) && !readonly}
 									<button
 										class="menu-button"
 										disabled={restarting}
