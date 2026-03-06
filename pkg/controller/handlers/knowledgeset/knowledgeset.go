@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/create"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -17,6 +18,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var log = logger.Package()
 
 type Handler struct {
 	invoker   *invoke.Invoker
@@ -86,6 +89,7 @@ func createWorkspace(ctx context.Context, c kclient.Client, ks *v1.KnowledgeSet)
 			}); err != nil {
 				return err
 			}
+			copiedFiles := 0
 			for _, sourceFile := range knowledgeFiles.Items {
 				if sourceFile.Spec.KnowledgeSourceName != "" {
 					continue
@@ -109,10 +113,13 @@ func createWorkspace(ctx context.Context, c kclient.Client, ks *v1.KnowledgeSet)
 				} else if err != nil {
 					return err
 				}
+				copiedFiles++
 			}
+			log.Infof("Copied standalone knowledge files into derived knowledge set workspace: knowledgeSet=%s fromKnowledgeSet=%s files=%d", ks.Name, ks.Spec.FromKnowledgeSetName, copiedFiles)
 		}
 
 		ks.Status.WorkspaceName = ws.Name
+		log.Infof("Knowledge set workspace is ready: knowledgeSet=%s workspace=%s workspaceID=%s", ks.Name, ws.Name, ws.Status.WorkspaceID)
 		return c.Status().Update(ctx, ks)
 	}
 
@@ -142,9 +149,11 @@ func (h *Handler) createThread(ctx context.Context, c kclient.Client, ks *v1.Kno
 	// This also allows the knowledge files to not trigger on the thread.
 	if ks.Status.ThreadName == "" && thread.Status.WorkspaceID != "" {
 		ks.Status.ThreadName = thread.Name
+		log.Infof("Created knowledge set system thread: knowledgeSet=%s thread=%s", ks.Name, thread.Name)
 		return c.Status().Update(ctx, ks)
 	} else if ks.Status.ThreadName != "" && thread.Status.WorkspaceID == "" {
 		ks.Status.ThreadName = ""
+		log.Infof("Cleared knowledge set system thread reference until workspace is ready: knowledgeSet=%s", ks.Name)
 		return c.Status().Update(ctx, ks)
 	}
 	return nil
@@ -181,9 +190,11 @@ func (h *Handler) CheckHasContent(req router.Request, _ router.Response) error {
 		// Reset the embedding model so it can be implicitly updated when knowledge is added.
 		ks.Status.TextEmbeddingModel = ""
 		ks.Status.ExistingFile = ""
+		log.Infof("Knowledge set has no remaining content: knowledgeSet=%s", ks.Name)
 	} else {
 		ks.Status.ExistingFile = files.Items[0].Name
 		ks.Status.DatasetCreated = true
+		log.Infof("Knowledge set content detected: knowledgeSet=%s files=%d", ks.Name, len(files.Items))
 	}
 
 	return nil
@@ -205,6 +216,7 @@ func (h *Handler) SetEmbeddingModel(req router.Request, _ router.Response) error
 
 		if relatedKS.Status.TextEmbeddingModel != "" {
 			ks.Status.TextEmbeddingModel = relatedKS.Status.TextEmbeddingModel
+			log.Infof("Inherited embedding model from related knowledge set: knowledgeSet=%s relatedKnowledgeSet=%s model=%s", ks.Name, relatedKS.Name, ks.Status.TextEmbeddingModel)
 			return req.Client.Status().Update(req.Ctx, ks)
 		}
 	}
@@ -219,6 +231,7 @@ func (h *Handler) SetEmbeddingModel(req router.Request, _ router.Response) error
 	}
 
 	ks.Status.TextEmbeddingModel = defaultEmbeddingModel.Spec.Manifest.Model
+	log.Infof("Assigned default embedding model for knowledge set: knowledgeSet=%s model=%s", ks.Name, ks.Status.TextEmbeddingModel)
 	return nil
 }
 
@@ -254,6 +267,7 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 	defer task.Close()
+	log.Infof("Starting knowledge set dataset deletion task: knowledgeSet=%s thread=%s run=%s", ks.Name, thread.Name, task.Run.Name)
 
 	_, err = task.Result(req.Ctx)
 	if err != nil {
@@ -261,5 +275,6 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 	}
 
 	ks.Status.DatasetCreated = false
+	log.Infof("Completed knowledge set dataset deletion: knowledgeSet=%s", ks.Name)
 	return nil
 }

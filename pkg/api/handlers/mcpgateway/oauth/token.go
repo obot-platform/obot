@@ -54,16 +54,19 @@ func (h *handler) token(req api.Context) error {
 	if clientID == "" {
 		creds := strings.TrimPrefix(req.Request.Header.Get("Authorization"), "Basic ")
 		if creds == "" {
+			log.Infof("Denied OAuth token request due to missing client credentials")
 			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
 		}
 
 		c, err := base64.StdEncoding.DecodeString(creds)
 		if err != nil {
+			log.Infof("Denied OAuth token request due to invalid basic auth encoding")
 			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
 		}
 
 		idx := bytes.LastIndex(c, []byte{':'})
 		if idx == -1 {
+			log.Infof("Denied OAuth token request due to malformed basic auth credentials")
 			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
 		}
 
@@ -102,6 +105,7 @@ func (h *handler) token(req api.Context) error {
 	switch client.Spec.Manifest.TokenEndpointAuthMethod {
 	case "client_secret_basic", "client_secret_post":
 		if bcrypt.CompareHashAndPassword(client.Spec.ClientSecretHash, []byte(clientSecret)) != nil {
+			log.Infof("Denied OAuth token request due to invalid client secret: client=%s/%s", client.Namespace, client.Name)
 			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
 		}
 	}
@@ -120,6 +124,7 @@ func (h *handler) token(req api.Context) error {
 			Description: "client is not allowed to use authorization_code grant type",
 		})
 	}
+	log.Infof("Processing OAuth token request: client=%s/%s grantType=%s", client.Namespace, client.Name, grantType)
 
 	switch grantType {
 	case "authorization_code":
@@ -244,6 +249,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	if err = req.Create(&oauthToken); err != nil {
 		return fmt.Errorf("failed to create oauth token: %w", err)
 	}
+	log.Infof("Issued OAuth access and refresh token via authorization_code: client=%s userID=%d mcpID=%s", oauthClient.Name, oauthAuthRequest.Spec.UserID, oauthAuthRequest.Spec.MCPID)
 
 	return req.Write(types.OAuthToken{
 		AccessToken:  tkn,
@@ -338,6 +344,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 	if err = req.Create(&oauthToken); err != nil {
 		return fmt.Errorf("failed to create new oauth token: %w", err)
 	}
+	log.Infof("Issued OAuth access and refresh token via refresh_token: client=%s userID=%d mcpID=%s", oauthClient.Name, oauthToken.Spec.UserID, oauthToken.Spec.MCPID)
 
 	return req.Write(types.OAuthToken{
 		AccessToken:  tkn,
@@ -388,6 +395,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		// Validate the API key
 		apiKey, err := req.GatewayClient.ValidateAPIKey(req.Context(), subjectToken)
 		if err != nil {
+			log.Infof("Denied token exchange due to invalid API key subject token: client=%s", oauthClient.Name)
 			return types.NewErrBadRequest("%v", Error{
 				Code:        ErrInvalidRequest,
 				Description: "invalid API key",
@@ -405,6 +413,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 
 		// Check if API key has access to this MCP server
 		if err := validateAPIKeyAccess(req, apiKey, mcpID); err != nil {
+			log.Infof("Denied token exchange due to API key access restrictions: client=%s mcpID=%s", oauthClient.Name, mcpID)
 			return types.NewErrBadRequest("%v", Error{
 				Code:        ErrAccessDenied,
 				Description: err.Error(),
@@ -520,6 +529,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 
 			// For composite MCP servers, return the token.
 			// This ensures it gets passed to the component MCP servers so they can do token exchange.
+			log.Infof("Issued token-exchange response for composite MCP server: client=%s mcpID=%s audienceResource=%s subjectTokenType=%s", oauthClient.Name, mcpID, resource, subjectTokenType)
 			return req.Write(TokenExchangeResponse{
 				AccessToken:     token,
 				IssuedTokenType: tokenTypeAccessToken,

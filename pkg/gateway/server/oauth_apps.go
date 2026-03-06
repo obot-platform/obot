@@ -94,6 +94,7 @@ func (s *Server) listOAuthApps(apiContext api.Context) error {
 		app.Spec.Manifest.ClientSecret = ""
 		resp = append(resp, convertOAuthAppRegistrationToOAuthApp(app, s.baseURL))
 	}
+	logger.Infof("Listed OAuth app registrations: count=%d", len(resp))
 
 	return apiContext.Write(types2.OAuthAppList{Items: resp})
 }
@@ -161,6 +162,7 @@ func (s *Server) createOAuthApp(apiContext api.Context) error {
 	if err := apiContext.GPTClient.CreateCredential(apiContext.Context(), credential); err != nil {
 		return err
 	}
+	logger.Infof("Created OAuth app registration: appID=%s alias=%s", app.Name, app.Spec.Manifest.Alias)
 
 	return apiContext.Write(convertOAuthAppRegistrationToOAuthApp(app, s.baseURL))
 }
@@ -206,6 +208,7 @@ func (s *Server) updateOAuthApp(apiContext api.Context) error {
 	if err := apiContext.Update(&originalApp); err != nil {
 		return err
 	}
+	logger.Infof("Updated OAuth app registration: appID=%s alias=%s", originalApp.Name, originalApp.Spec.Manifest.Alias)
 
 	return apiContext.Write(convertOAuthAppRegistrationToOAuthApp(originalApp, s.baseURL))
 }
@@ -221,6 +224,7 @@ func (s *Server) deleteOAuthApp(apiContext api.Context) error {
 	if err := apiContext.GPTClient.DeleteCredential(apiContext.Context(), app.Name, app.Spec.Manifest.Alias); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return err
 	}
+	logger.Infof("Deleted OAuth app credential: appID=%s alias=%s", app.Name, app.Spec.Manifest.Alias)
 
 	return apiContext.Delete(&v1.OAuthApp{
 		ObjectMeta: metav1.ObjectMeta{
@@ -276,6 +280,7 @@ func (s *Server) authorizeOAuthApp(apiContext api.Context) error {
 	// If the challenge already exists, redirect the user to the "complete" page instead of putting them through the normal OAuth flow.
 	// This would happen if the user clicked on the "Authorize" link multiple times.
 	if !c.CreatedAt.IsZero() {
+		logger.Infof("OAuth app authorization already pending for state; redirecting to completion page: appID=%s", app.Name)
 		http.Redirect(apiContext.ResponseWriter, apiContext.Request, s.authCompleteURL(), http.StatusFound)
 		return nil
 	}
@@ -330,6 +335,7 @@ func (s *Server) authorizeOAuthApp(apiContext api.Context) error {
 	}
 
 	u.RawQuery = q.Encode()
+	logger.Infof("Starting OAuth app authorization flow: appID=%s", app.Name)
 
 	// Return a 302 to redirect.
 	http.Redirect(apiContext.ResponseWriter, apiContext.Request, u.String(), http.StatusFound)
@@ -452,6 +458,7 @@ func (s *Server) refreshOAuthApp(apiContext api.Context) error {
 			return fmt.Errorf("failed to parse token response: %w", err)
 		}
 	}
+	logger.Infof("Refreshed OAuth app token: appID=%s hasRefreshToken=%v", app.Name, tokenResp.RefreshToken != "")
 
 	return apiContext.Write(tokenResp)
 }
@@ -656,6 +663,7 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 	if err := s.db.WithContext(apiContext.Context()).Create(tokenResp).Error; err != nil {
 		return fmt.Errorf("failed to save token response: %w", err)
 	}
+	logger.Infof("Stored OAuth app token response after callback: appID=%s", app.Name)
 
 	http.Redirect(apiContext.ResponseWriter, apiContext.Request, s.authCompleteURL(), http.StatusFound)
 	return nil
@@ -690,6 +698,7 @@ func (s *Server) getTokenOAuthApp(apiContext api.Context) error {
 		// Return a 404 to mask that this matched a real challenge.
 		return types2.NewErrHTTP(http.StatusNotFound, "challenge not found")
 	}
+	logger.Infof("Verified OAuth token challenge for token retrieval")
 
 	// Look up the token response by the state.
 	var tokenResp types.OAuthTokenResponse
@@ -707,6 +716,7 @@ func (s *Server) getTokenOAuthApp(apiContext api.Context) error {
 	}); err != nil {
 		logger.Debugf("failed to delete OAuth token request challenge: %v", err)
 	}
+	logger.Infof("Returned OAuth token response for verified challenge")
 
 	return apiContext.Write(tokenResp)
 }

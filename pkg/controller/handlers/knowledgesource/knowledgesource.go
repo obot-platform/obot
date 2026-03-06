@@ -254,6 +254,7 @@ func (k *Handler) Sync(req router.Request, _ router.Response) error {
 	}
 
 	if len(credentialTools) > 0 && (authStatus.Required == nil || (*authStatus.Required && !authStatus.Authenticated)) {
+		log.Infof("Skipping knowledge source sync while authentication is incomplete: source=%s knowledgeSet=%s toolReference=%s", source.Name, source.Spec.KnowledgeSetName, toolReferenceName)
 		return nil
 	}
 
@@ -264,10 +265,12 @@ func (k *Handler) Sync(req router.Request, _ router.Response) error {
 
 	if source.Status.SyncState == types.KnowledgeSourceStateSyncing {
 		// We are recovering from a system restart, go back to pending and re-evaluate,
+		log.Infof("Resetting knowledge source sync state after restart recovery: source=%s previousRun=%s", source.Name, source.Status.RunName)
 		source.Status.SyncState = types.KnowledgeSourceStatePending
 	}
 
 	if source.Status.SyncState.IsTerminal() && !shouldRerun(source) {
+		log.Infof("Knowledge source is already in terminal state and no rerun requested: source=%s state=%s generation=%d", source.Name, source.Status.SyncState, source.Status.SyncGeneration)
 		return nil
 	}
 
@@ -276,6 +279,7 @@ func (k *Handler) Sync(req router.Request, _ router.Response) error {
 		return err
 	}
 	defer task.Close()
+	log.Infof("Starting knowledge source sync task: source=%s run=%s thread=%s generation=%d", source.Name, task.Run.Name, task.Thread.Name, source.Spec.SyncGeneration)
 
 	source.Status.LastSyncStartTime = metav1.Now()
 	source.Status.LastSyncEndTime = metav1.Time{}
@@ -320,9 +324,11 @@ forLoop:
 	if taskErr == nil {
 		source.Status.SyncState = types.KnowledgeSourceStateSynced
 		source.Status.Error = ""
+		log.Infof("Knowledge source sync completed: source=%s run=%s state=%s", source.Name, source.Status.RunName, source.Status.SyncState)
 	} else {
 		source.Status.SyncState = types.KnowledgeSourceStateError
 		source.Status.Error = taskErr.Error()
+		log.Infof("Knowledge source sync failed: source=%s run=%s", source.Name, source.Status.RunName)
 	}
 	return safeStatusSave(req.Ctx, req.Client, source)
 }
@@ -336,6 +342,7 @@ func (k *Handler) Cleanup(req router.Request, resp router.Response) error {
 	}
 
 	if len(files.Items) > 0 {
+		log.Infof("Cleaning up knowledge files for deleted source: source=%s files=%d", req.Name, len(files.Items))
 		for _, file := range files.Items {
 			if file.DeletionTimestamp.IsZero() {
 				_ = req.Delete(&file)

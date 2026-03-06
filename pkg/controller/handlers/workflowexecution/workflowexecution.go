@@ -7,6 +7,7 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflowstep"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -15,6 +16,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var log = logger.Package()
 
 type Handler struct {
 	invoker *invoke.Invoker
@@ -51,6 +54,7 @@ func (h *Handler) UpdateRun(req router.Request, _ router.Response) error {
 		if we.Status.Error != "" {
 			data = we.Status.Error
 		}
+		log.Infof("Recording workflow execution result into waiting run: workflowExecution=%s run=%s state=%s", we.Name, run.Name, we.Status.State)
 		run.Spec.ExternalCallResults = append(run.Spec.ExternalCallResults, v1.ExternalCallResult{
 			ID:   we.Name,
 			Data: data,
@@ -68,6 +72,7 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 
 	if we.Status.State.IsTerminal() {
 		if we.Spec.WorkflowGeneration != we.Status.WorkflowGeneration {
+			log.Infof("Workflow execution generation changed, resetting terminal state: workflowExecution=%s oldGeneration=%d newGeneration=%d", we.Name, we.Status.WorkflowGeneration, we.Spec.WorkflowGeneration)
 			we.Status.State = types.WorkflowStatePending
 			we.Status.EndTime = nil
 		}
@@ -88,6 +93,7 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 		if err != nil {
 			return err
 		}
+		log.Infof("Created workflow execution thread: workflowExecution=%s thread=%s workflow=%s", we.Name, t.Name, we.Spec.WorkflowName)
 
 		we.Status.ThreadName = t.Name
 		if err = req.Client.Status().Update(req.Ctx, we); err != nil {
@@ -108,6 +114,7 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 				found = true
 				if env.Value != input {
 					thread.Spec.Env[i].Value = input
+					log.Infof("Updating workflow input env on execution thread: workflowExecution=%s thread=%s", we.Name, thread.Name)
 					if err := req.Client.Update(req.Ctx, &thread); err != nil {
 						return err
 					}
@@ -120,6 +127,7 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 				Name:  "WORKFLOW_INPUT",
 				Value: input,
 			})
+			log.Infof("Adding missing workflow input env on execution thread: workflowExecution=%s thread=%s", we.Name, thread.Name)
 			if err := req.Client.Update(req.Ctx, &thread); err != nil {
 				return err
 			}
@@ -158,6 +166,7 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 	if newState.IsBlocked() {
 		we.Status.State = newState
 		we.Status.Error = output
+		log.Infof("Workflow execution entered blocked state: workflowExecution=%s state=%s", we.Name, newState)
 		return apply.New(req.Client).Apply(req.Ctx, req.Object, steps...)
 	}
 
@@ -172,6 +181,7 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 	we.Status.WorkflowGeneration = we.Spec.WorkflowGeneration
 	if we.Status.State.IsTerminal() && we.Status.EndTime == nil {
 		we.Status.EndTime = &metav1.Time{Time: time.Now()}
+		log.Infof("Workflow execution reached terminal state: workflowExecution=%s state=%s", we.Name, we.Status.State)
 	}
 
 	return apply.New(req.Client).Apply(req.Ctx, req.Object, steps...)
@@ -242,6 +252,7 @@ func (h *Handler) ReassignThread(req router.Request, _ router.Response) error {
 
 	if we.Spec.ThreadName != "" {
 		wfe.Spec.ThreadName = we.Spec.ThreadName
+		log.Infof("Reassigned workflow execution to workflow thread: workflowExecution=%s thread=%s", wfe.Name, wfe.Spec.ThreadName)
 		return req.Client.Update(req.Ctx, wfe)
 	}
 

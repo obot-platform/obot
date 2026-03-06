@@ -87,6 +87,7 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 
 	if len(pending) > 0 {
 		// There are still pending second level OAuth requests
+		log.Debugf("Composite OAuth still pending component authentication: compositeMCPID=%s pendingComponents=%d", compositeMCPID, len(pending))
 		return req.Write(pending)
 	}
 
@@ -111,10 +112,12 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 			"state": {authRequest.Spec.State},
 		}
 		redirectURL := authRequest.Spec.RedirectURI + "?" + q.Encode()
+		log.Infof("Composite OAuth completed; returning redirect URI to finish authorization: compositeMCPID=%s authRequest=%s", compositeMCPID, authRequest.Name)
 		return req.Write(map[string]string{
 			"redirect_uri": redirectURL,
 		})
 	}
 
+	log.Infof("Composite OAuth check completed with no pending component authentication: compositeMCPID=%s", compositeMCPID)
 	return req.Write(pending)
 }

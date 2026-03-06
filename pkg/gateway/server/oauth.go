@@ -31,6 +31,7 @@ func (s *Server) oauth(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get configured auth provider: %v", err))
 	}
 	if configuredProvider != "" && configuredProvider != name {
+		pkgLog.Infof("Rejected OAuth start for unconfigured auth provider: requestedProvider=%s configuredProvider=%s tokenRequestID=%s", name, configuredProvider, apiContext.PathValue("id"))
 		return types2.NewErrHTTP(http.StatusNotFound, "auth provider not found")
 	}
 
@@ -38,6 +39,7 @@ func (s *Server) oauth(apiContext api.Context) error {
 	if err != nil {
 		return fmt.Errorf("could not create state: %w", err)
 	}
+	pkgLog.Infof("Starting OAuth flow for token request: tokenRequestID=%s provider=%s/%s", apiContext.PathValue("id"), namespace, name)
 
 	// Redirect the user through the oauth proxy flow so that everything is consistent.
 	// The rd query parameter is used to redirect the user back through this oauth flow so a token can be generated.
@@ -73,6 +75,7 @@ func (s *Server) redirect(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get configured auth provider: %v", err))
 	}
 	if configuredProvider != "" && configuredProvider != name {
+		pkgLog.Infof("Rejected OAuth redirect for unconfigured auth provider: requestedProvider=%s configuredProvider=%s", name, configuredProvider)
 		return types2.NewErrHTTP(http.StatusNotFound, "auth provider not found")
 	}
 
@@ -91,6 +94,7 @@ func (s *Server) redirect(apiContext api.Context) error {
 	); err != nil {
 		return s.errorToken(apiContext.Context(), tr, http.StatusInternalServerError, err)
 	}
+	pkgLog.Infof("Completed OAuth redirect and issued auth token: tokenRequestID=%s provider=%s/%s userID=%d", tr.ID, namespace, name, apiContext.UserID())
 
 	if tr.CompletionRedirectURL == "" {
 		tr.CompletionRedirectURL = s.authCompleteURL()
@@ -108,6 +112,7 @@ func (s *Server) errorToken(ctx context.Context, tr *types.TokenRequest, code in
 		}); err != nil {
 			kcontext.GetLogger(ctx).ErrorContext(ctx, "failed to update token", "id", tr.ID, "error", err)
 		}
+		pkgLog.Infof("Stored OAuth token flow error on token request: tokenRequestID=%s status=%d", tr.ID, code)
 	}
 
 	return types2.NewErrHTTP(code, err.Error())

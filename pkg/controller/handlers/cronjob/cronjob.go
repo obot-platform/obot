@@ -7,6 +7,7 @@ import (
 	"github.com/adhocore/gronx"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
@@ -14,6 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var log = logger.Package()
 
 type Handler struct{}
 
@@ -65,22 +68,22 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 		return err
 	}
 
-	if err = req.Client.Create(req.Ctx,
-		&v1.WorkflowExecution{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: system.WorkflowExecutionPrefix,
-				Namespace:    req.Namespace,
-			},
-			Spec: v1.WorkflowExecutionSpec{
-				WorkflowName: workflow.Name,
-				Input:        cj.Spec.Input,
-				CronJobName:  cj.Name,
-				ThreadName:   cj.Spec.ThreadName,
-			},
+	execution := &v1.WorkflowExecution{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: system.WorkflowExecutionPrefix,
+			Namespace:    req.Namespace,
 		},
-	); err != nil {
+		Spec: v1.WorkflowExecutionSpec{
+			WorkflowName: workflow.Name,
+			Input:        cj.Spec.Input,
+			CronJobName:  cj.Name,
+			ThreadName:   cj.Spec.ThreadName,
+		},
+	}
+	if err = req.Client.Create(req.Ctx, execution); err != nil {
 		return err
 	}
+	log.Infof("Triggered workflow execution from cron job: cronJob=%s workflow=%s execution=%s schedule=%s", cj.Name, workflow.Name, execution.Name, cj.Spec.Schedule)
 
 	cj.Status.LastRunStartedAt = &[]metav1.Time{metav1.Now()}[0]
 	return nil
@@ -126,6 +129,7 @@ func (h *Handler) SetSuccessRunTime(req router.Request, _ router.Response) error
 	for _, execution := range workflowExecutions.Items {
 		if execution.Status.State == types.WorkflowStateComplete && (cj.Status.LastSuccessfulRunCompleted == nil || cj.Status.LastSuccessfulRunCompleted.Before(execution.Status.EndTime)) {
 			cj.Status.LastSuccessfulRunCompleted = execution.Status.EndTime
+			log.Infof("Updated last successful cron run time: cronJob=%s completedAt=%s", cj.Name, cj.Status.LastSuccessfulRunCompleted.Format(time.RFC3339))
 		}
 	}
 
