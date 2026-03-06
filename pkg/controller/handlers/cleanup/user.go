@@ -84,14 +84,12 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	deletedServers := 0
 	for _, server := range servers.Items {
 		if err := kclient.IgnoreNotFound(req.Delete(&server)); err != nil {
 			return err
 		}
-		deletedServers++
 	}
-	log.Infof("Deleted MCP servers during user cleanup: userID=%s servers=%d", userID, deletedServers)
+	log.Infof("Deleted MCP servers during user cleanup: userID=%s servers=%d", userID, len(servers.Items))
 
 	// DeleteRefs should handle cleaning up most of the user's MCPServerInstances.
 	// But there still might be MCPServerInstances pointing to multi-user servers that we need to delete.
@@ -105,14 +103,12 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	deletedInstances := 0
 	for _, instance := range instances.Items {
 		if err := kclient.IgnoreNotFound(req.Delete(&instance)); err != nil {
 			return err
 		}
-		deletedInstances++
 	}
-	log.Infof("Deleted MCP server instances during user cleanup: userID=%s instances=%d", userID, deletedInstances)
+	log.Infof("Deleted MCP server instances during user cleanup: userID=%s instances=%d", userID, len(instances.Items))
 
 	// Find the AccessControlRules that the user is on, and update them to remove the user.
 	acrs, err := u.acrHelper.GetAccessControlRulesForUser(req.Namespace, userID)
@@ -155,14 +151,12 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	deletedWorkspaces := 0
 	for _, workspace := range workspaces.Items {
 		if err := kclient.IgnoreNotFound(req.Delete(&workspace)); err != nil {
 			return err
 		}
-		deletedWorkspaces++
 	}
-	log.Infof("Deleted power user workspaces during user cleanup: userID=%s workspaces=%d", userID, deletedWorkspaces)
+	log.Infof("Deleted power user workspaces during user cleanup: userID=%s workspaces=%d", userID, len(workspaces.Items))
 
 	// If everything is cleaned up successfully, then delete this object because we don't need it.
 	log.Infof("Completed user cleanup: userID=%s", userID)

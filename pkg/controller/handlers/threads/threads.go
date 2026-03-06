@@ -510,14 +510,13 @@ func (t *Handler) CopyTasksFromSource(req router.Request, _ router.Response) err
 	}
 
 	// Delete any remaining existing tasks that we didn't find in the source tasks
-	deletedTasks := 0
 	for _, existingTask := range existingTasks {
 		if err := req.Client.Delete(req.Ctx, &existingTask); err != nil {
 			return err
 		}
-		deletedTasks++
 	}
-	log.Infof("Synchronized copied workflow tasks for thread: thread=%s sourceThread=%s created=%d updated=%d deleted=%d", thread.Name, thread.Spec.SourceThreadName, createdTasks, updatedTasks, deletedTasks)
+	log.Infof("Synchronized copied workflow tasks for thread: thread=%s sourceThread=%s created=%d updated=%d deleted=%d",
+		thread.Name, thread.Spec.SourceThreadName, createdTasks, updatedTasks, len(existingTasks))
 
 	thread.Status.CopiedTasks = true
 	return req.Client.Status().Update(req.Ctx, thread)
