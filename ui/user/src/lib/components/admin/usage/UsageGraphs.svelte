@@ -662,13 +662,14 @@
 				>
 					<h3 class="mb-4 text-lg font-semibold">{cfg.label}</h3>
 
-					<div class="text-on-surface1 h-[300px] min-h-[300h]">
+					<div class="text-on-surface1 h-[300px] min-h-[300px]">
 						{#if paginated.length > 0}
 							<HorizontalBarGraph
 								data={paginated}
 								labelKey={cfg.xKey}
 								valueKey={cfg.yKey}
 								formatLabel={cfg.formatXLabel}
+								formatValue={(value) => Math.round(value).toString()}
 							>
 								{#snippet tooltipContent(item)}
 									<div class="flex flex-col gap-0 text-xs">
