@@ -556,6 +556,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 
 	// System MCP Servers (admin only)
 	mux.HandleFunc("GET /api/system-mcp-servers", systemMCPServers.List)
+	mux.HandleFunc("POST /api/system-mcp-servers/restart-nanobot-agent-deployments", systemMCPServers.RestartNanobotAgentDeployments)
 	mux.HandleFunc("GET /api/system-mcp-servers/{id}", systemMCPServers.Get)
 	mux.HandleFunc("POST /api/system-mcp-servers", systemMCPServers.Create)
 	mux.HandleFunc("PUT /api/system-mcp-servers/{id}", systemMCPServers.Update)

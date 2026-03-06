@@ -28,7 +28,7 @@ type backend interface {
 	transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error)
 	streamServerLogs(ctx context.Context, id string) (io.ReadCloser, error)
 	getServerDetails(ctx context.Context, id string) (types.MCPServerDetails, error)
-	restartServer(ctx context.Context, id string) error
+	restartServer(ctx context.Context, server ServerConfig) error
 	shutdownServer(ctx context.Context, id string) error
 	transformObotHostname(url string) string
 }
