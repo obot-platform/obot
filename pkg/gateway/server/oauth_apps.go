@@ -224,7 +224,7 @@ func (s *Server) deleteOAuthApp(apiContext api.Context) error {
 	if err := apiContext.GPTClient.DeleteCredential(apiContext.Context(), app.Name, app.Spec.Manifest.Alias); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return err
 	}
-	logger.Infof("Deleting OAuth app registration: appID=%s alias=%s", app.Name, app.Spec.Manifest.Alias)
+	logger.Infof("Deleted OAuth app credential: appID=%s alias=%s", app.Name, app.Spec.Manifest.Alias)
 
 	return apiContext.Delete(&v1.OAuthApp{
 		ObjectMeta: metav1.ObjectMeta{
