@@ -85,6 +85,7 @@ func (s *Server) createGroupRoleAssignment(apiContext api.Context) error {
 		}
 		return fmt.Errorf("failed to create group role assignment: %v", err)
 	}
+	pkgLog.Infof("Created group role assignment: group=%s role=%d", req.GroupName, req.Role)
 
 	// Trigger reconciliation for all users in this group
 	if err := s.triggerReconciliationForGroup(apiContext, req.GroupName); err != nil {
@@ -123,6 +124,7 @@ func (s *Server) updateGroupRoleAssignment(apiContext api.Context) error {
 		}
 		return fmt.Errorf("failed to update group role assignment: %v", err)
 	}
+	pkgLog.Infof("Updated group role assignment: group=%s role=%d", groupName, req.Role)
 
 	// Trigger reconciliation for all users in this group
 	if err := s.triggerReconciliationForGroup(apiContext, groupName); err != nil {
@@ -146,6 +148,7 @@ func (s *Server) deleteGroupRoleAssignment(apiContext api.Context) error {
 		}
 		return fmt.Errorf("failed to delete group role assignment: %v", err)
 	}
+	pkgLog.Infof("Deleted group role assignment: group=%s", groupName)
 
 	// Trigger reconciliation for all users in this group
 	if err := s.triggerReconciliationForGroup(apiContext, groupName); err != nil {
@@ -184,6 +187,7 @@ func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) e
 	// If role includes Owner, only Owners can assign it
 	if baseRole == types2.RoleOwner {
 		if !apiContext.UserIsOwner() {
+			pkgLog.Infof("Denied group role assignment request: requestedRole=%d reason=owner_role_requires_owner", role)
 			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the owner role to groups")
 		}
 	}
@@ -191,6 +195,7 @@ func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) e
 	// If role includes Auditor (even by itself), only Owners can assign it
 	if hasAuditor {
 		if !apiContext.UserIsOwner() {
+			pkgLog.Infof("Denied group role assignment request: requestedRole=%d reason=auditor_role_requires_owner", role)
 			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the auditor role to groups")
 		}
 	}
@@ -213,6 +218,7 @@ func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) e
 		}
 
 		if !isValid {
+			pkgLog.Infof("Denied group role assignment request: requestedRole=%d reason=invalid_base_role", role)
 			return types2.NewErrBadRequest(
 				"base role must be one of: Owner (%d), Admin (%d), PowerUserPlus (%d), or PowerUser (%d)",
 				types2.RoleOwner, types2.RoleAdmin, types2.RolePowerUserPlus, types2.RolePowerUser,

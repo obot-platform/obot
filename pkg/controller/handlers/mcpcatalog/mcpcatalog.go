@@ -95,6 +95,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
 		} else {
+			log.Infof("Read MCP catalog source successfully: catalog=%s source=%s entries=%d", mcpCatalog.Name, sourceURL, len(objs))
 			delete(mcpCatalog.Status.SyncErrors, sourceURL)
 		}
 
@@ -126,8 +127,10 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 	// Don't run prune if there are sync errors
 	if len(mcpCatalog.Status.SyncErrors) > 0 {
+		log.Infof("Applying MCP catalog entries without prune due to source errors: catalog=%s entries=%d sourceErrors=%d", mcpCatalog.Name, len(toAdd), len(mcpCatalog.Status.SyncErrors))
 		app = app.WithNoPrune()
 	} else {
+		log.Infof("Applying MCP catalog entries with prune enabled: catalog=%s entries=%d", mcpCatalog.Name, len(toAdd))
 		app = app.WithPruneTypes(&v1.MCPServerCatalogEntry{})
 	}
 
@@ -410,6 +413,7 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) e
 			if err := c.Update(ctx, &existing); err != nil {
 				return fmt.Errorf("failed to migrate default catalog: %w", err)
 			}
+			log.Infof("Migrated default MCP catalog source URL: catalog=%s source=%s", existing.Name, h.defaultCatalogPath)
 		}
 
 		return nil
@@ -432,6 +436,7 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) e
 	}); err != nil {
 		return fmt.Errorf("failed to create default catalog: %w", err)
 	}
+	log.Infof("Created default MCP catalog: catalog=%s sources=%d", system.DefaultCatalog, len(sourceURLs))
 
 	return nil
 }

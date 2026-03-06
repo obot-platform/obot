@@ -42,6 +42,7 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 
 	userID := apiContext.UserID()
 	if userID == 0 {
+		pkgLog.Infof("Rejecting API key creation for unauthenticated request")
 		return types2.NewErrHTTP(http.StatusUnauthorized, "user not authenticated")
 	}
 
@@ -71,6 +72,7 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 	}
 
 	if len(errs) > 0 {
+		pkgLog.Infof("Rejecting API key creation due to unauthorized MCP server selections: userID=%d requestedServers=%d deniedServers=%d", userID, len(req.MCPServerIDs), len(errs))
 		return types2.NewErrHTTP(http.StatusBadRequest, errors.Join(errs...).Error())
 	}
 
@@ -78,6 +80,7 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to create API key: %v", err))
 	}
+	pkgLog.Infof("Created API key for user: userID=%d serverScopes=%d", userID, len(req.MCPServerIDs))
 
 	return apiContext.WriteCreated(response)
 }
@@ -158,6 +161,7 @@ func (s *Server) deleteAPIKey(apiContext api.Context) error {
 	if err := apiContext.GatewayClient.DeleteAPIKey(apiContext.Context(), userID, uint(keyID)); err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to delete API key: %v", err))
 	}
+	pkgLog.Infof("Deleted API key for user: userID=%d keyID=%d", userID, keyID)
 
 	return apiContext.Write(map[string]any{"deleted": true})
 }
@@ -226,6 +230,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	// Extract API key from header
 	authHeader := apiContext.Request.Header.Get("Authorization")
 	if authHeader == "" {
+		pkgLog.Infof("Denied API key auth request: reason=missing_authorization_header")
 		return apiContext.Write(apiKeyAuthResponse{
 			Allowed: false,
 			Reason:  "missing Authorization header",
@@ -234,6 +239,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 
 	bearer, ok := strings.CutPrefix(authHeader, "Bearer ")
 	if !ok || !strings.HasPrefix(bearer, "ok1-") {
+		pkgLog.Infof("Denied API key auth request: reason=invalid_api_key_format")
 		return apiContext.Write(apiKeyAuthResponse{
 			Allowed: false,
 			Reason:  "invalid API key format",
@@ -243,6 +249,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	// Parse request body for MCP server info
 	var req apiKeyAuthRequest
 	if err := apiContext.Read(&req); err != nil {
+		pkgLog.Infof("Denied API key auth request: reason=invalid_request_body")
 		return apiContext.Write(apiKeyAuthResponse{
 			Allowed: false,
 			Reason:  "invalid request body",
@@ -252,6 +259,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	// Validate the API key
 	apiKey, err := apiContext.GatewayClient.ValidateAPIKey(apiContext.Context(), bearer)
 	if err != nil {
+		pkgLog.Infof("Denied API key auth request: reason=invalid_or_expired_api_key mcpID=%s", req.MCPID)
 		return apiContext.Write(apiKeyAuthResponse{
 			Allowed: false,
 			Reason:  "invalid or expired API key",
@@ -261,6 +269,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	// Get user info
 	user, err := apiContext.GatewayClient.UserByID(apiContext.Context(), strconv.FormatUint(uint64(apiKey.UserID), 10))
 	if err != nil {
+		pkgLog.Infof("Denied API key auth request: reason=user_not_found keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
 		return apiContext.Write(apiKeyAuthResponse{
 			Allowed: false,
 			Reason:  "user not found",
@@ -274,6 +283,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 		// Check if this is a component server - if so, check the composite server ID
 		var mcpServer v1.MCPServer
 		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &mcpServer); err != nil || mcpServer.Spec.CompositeName == "" || !slices.Contains(apiKey.MCPServerIDs, mcpServer.Spec.CompositeName) {
+			pkgLog.Infof("Denied API key auth request: reason=api_key_scope_mismatch keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
 			return apiContext.Write(apiKeyAuthResponse{
 				Allowed: false,
 				Reason:  "API key does not have access to this MCP server",
@@ -285,6 +295,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	if system.IsMCPServerID(req.MCPID) {
 		var server v1.MCPServer
 		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &server); err != nil {
+			pkgLog.Infof("Denied API key auth request: reason=mcp_server_not_found keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
 			return apiContext.Write(apiKeyAuthResponse{
 				Allowed: false,
 				Reason:  "MCP server not found",
@@ -293,18 +304,21 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 
 		hasAccess, err := s.userHasAccessToMCPServerByUserID(apiContext, &server, apiKey.UserID)
 		if err != nil {
+			pkgLog.Infof("Denied API key auth request: reason=access_check_failed keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
 			return apiContext.Write(apiKeyAuthResponse{
 				Allowed: false,
 				Reason:  fmt.Sprintf("failed to verify access: %v", err),
 			})
 		}
 		if !hasAccess {
+			pkgLog.Infof("Denied API key auth request: reason=user_lost_mcp_access keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
 			return apiContext.Write(apiKeyAuthResponse{
 				Allowed: false,
 				Reason:  "user does not have access to this MCP server",
 			})
 		}
 	}
+	pkgLog.Debugf("Authorized API key request: keyUserID=%d mcpID=%s wildcardScope=%v", apiKey.UserID, req.MCPID, hasWildcard)
 
 	err = apiContext.Write(apiKeyAuthResponse{
 		Allowed:           true,

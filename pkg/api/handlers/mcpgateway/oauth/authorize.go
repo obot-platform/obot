@@ -224,8 +224,7 @@ func (h *handler) authorize(req api.Context) error {
 
 		return nil
 	}
-
-	// We need to authenticate the user.
+	log.Infof("Created OAuth authorization request and redirecting user to authenticate: authRequest=%s client=%s requestedMCPID=%s", oauthAppAuthRequest.Name, oauthClient.Name, strings.TrimPrefix(mcpID, "/"))
 	http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/?rd=/oauth/callback/%s%s", oauthAppAuthRequest.Name, mcpID), http.StatusFound)
 	return nil
 }
@@ -244,6 +243,7 @@ func (h *handler) callback(req api.Context) error {
 		authProviderName == "bootstrap" ||
 		authProviderNamespace == "bootstrap" {
 		// The user is either not authenticated or is authenticated as the bootstrap user.
+		log.Infof("Denied OAuth callback because user is not authenticated with a non-bootstrap identity: authRequest=%s", oauthAppAuthRequest.Name)
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 			Code:        ErrAccessDenied,
 			Description: "user is not authenticated",
@@ -322,11 +322,13 @@ func (h *handler) callback(req api.Context) error {
 		}
 
 		if u != "" {
+			log.Infof("OAuth callback requires second-level MCP authentication: authRequest=%s mcpID=%s", oauthAppAuthRequest.Name, mcpID)
 			http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
 			return nil
 		}
 	}
 
+	log.Infof("Issuing OAuth authorization code and redirecting to client: authRequest=%s client=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.ClientID)
 	redirectWithAuthorizeResponse(req, oauthAppAuthRequest, code, oauthAppAuthRequest.Spec.Scope)
 
 	return nil
@@ -342,6 +344,7 @@ func (h *handler) oauthCallback(req api.Context) error {
 	if oauthAuthRequestID == "" {
 		// If there is no OAuth request object, then MCP OAuth wasn't started by OAuth; likely the UI kicked it off.
 		// Redirect to the login complete page.
+		log.Infof("Completed MCP OAuth callback without first-level OAuth auth request context")
 		http.Redirect(req.ResponseWriter, req.Request, "/login_complete", http.StatusFound)
 		return nil
 	}
@@ -355,6 +358,7 @@ func (h *handler) oauthCallback(req api.Context) error {
 
 	if !req.UserIsAuthenticated() || req.User.GetName() == "bootstrap" || authProviderName == "bootstrap" || authProviderNamespace == "bootstrap" {
 		// The user is either not authenticated or is authenticated as the bootstrap user.
+		log.Infof("Denied MCP OAuth callback because user is not authenticated with a non-bootstrap identity: authRequest=%s", oauthAppAuthRequest.Name)
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 			Code:        ErrAccessDenied,
 			Description: "user is not authenticated",
@@ -377,6 +381,7 @@ func (h *handler) oauthCallback(req api.Context) error {
 		// Redirect to login complete page; the checkCompositeAuth handler will redirect back
 		// to the 1st level OAuth redirect URL when all pending 2nd level OAuth for the composite server's
 		// component servers are completed.
+		log.Infof("MCP OAuth callback completed for composite component server, awaiting composite finalization: authRequest=%s mcpServer=%s composite=%s", oauthAppAuthRequest.Name, server.Name, server.Spec.CompositeName)
 		http.Redirect(req.ResponseWriter, req.Request, "/login_complete", http.StatusFound)
 		return nil
 	}
@@ -393,6 +398,7 @@ func (h *handler) oauthCallback(req api.Context) error {
 		return nil
 	}
 
+	log.Infof("Completed MCP OAuth callback and issuing first-level OAuth authorization code: authRequest=%s mcpServer=%s", oauthAppAuthRequest.Name, mcpServerID)
 	redirectWithAuthorizeResponse(req, oauthAppAuthRequest, code, oauthAppAuthRequest.Spec.Scope)
 
 	return nil

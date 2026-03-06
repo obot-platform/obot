@@ -23,6 +23,7 @@ func NewHandler(serverURL string) *Handler {
 func (h *Handler) requireBootstrap(req api.Context) error {
 	// Check if user is bootstrap user
 	if req.User.GetName() != "bootstrap" {
+		log.Infof("Denied setup endpoint for non-bootstrap user")
 		return types.NewErrHTTP(http.StatusForbidden,
 			"this endpoint requires bootstrap authentication")
 	}
@@ -43,6 +44,7 @@ func (h *Handler) requireBootstrapEnabled(req api.Context) error {
 	// Check if any non-bootstrap Owner with email exists
 	for _, u := range adminUsers {
 		if u.Username != "bootstrap" && u.Email != "" {
+			log.Infof("Rejected setup endpoint because bootstrap mode is disabled")
 			// Bootstrap is disabled - return 404
 			return types.NewErrHTTP(http.StatusNotFound, "not found")
 		}
