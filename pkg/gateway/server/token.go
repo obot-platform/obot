@@ -142,8 +142,12 @@ func (s *Server) checkForToken(apiContext api.Context) error {
 		pkgLog.Infof("Token request completed with error: tokenRequestID=%s", tr.ID)
 		return apiContext.Write(map[string]any{"error": tr.Error})
 	}
-	pkgLog.Infof("Token request polled: tokenRequestID=%s tokenAvailable=%v tokenRetrieved=%v", tr.ID, tr.Token != "", tr.TokenRetrieved)
 
+	if tr.Token == "" {
+		pkgLog.Debugf("Token request polled: tokenRequestID=%s tokenAvailable=%v tokenRetrieved=%v", tr.ID, false, tr.TokenRetrieved)
+	} else {
+		pkgLog.Infof("Token request polled: tokenRequestID=%s tokenAvailable=%v tokenRetrieved=%v", tr.ID, true, tr.TokenRetrieved)
+	}
 	return apiContext.Write(refreshTokenResponse{
 		Token:     tr.Token,
 		ExpiresAt: tr.ExpiresAt,
