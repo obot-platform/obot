@@ -224,10 +224,7 @@ func (h *handler) authorize(req api.Context) error {
 
 		return nil
 	}
-	log.Infof("Created OAuth authorization request: authRequest=%s client=%s requestedMCPID=%s", oauthAppAuthRequest.Name, oauthClient.Name, strings.TrimPrefix(mcpID, "/"))
-
-	// We need to authenticate the user.
-	log.Infof("Redirecting user to authenticate for OAuth authorization request: authRequest=%s", oauthAppAuthRequest.Name)
+	log.Infof("Created OAuth authorization request and redirecting user to authenticate: authRequest=%s client=%s requestedMCPID=%s", oauthAppAuthRequest.Name, oauthClient.Name, strings.TrimPrefix(mcpID, "/"))
 	http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/?rd=/oauth/callback/%s%s", oauthAppAuthRequest.Name, mcpID), http.StatusFound)
 	return nil
 }
