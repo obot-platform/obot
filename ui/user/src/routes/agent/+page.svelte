@@ -85,7 +85,7 @@
 							return data;
 						});
 
-						goto(`/nanobot/p/${projectId}?tid=${session.chatId}`, {
+						goto(`/agent/p/${projectId}?tid=${session.chatId}`, {
 							replaceState: true,
 							noScroll: true,
 							keepFocus: true

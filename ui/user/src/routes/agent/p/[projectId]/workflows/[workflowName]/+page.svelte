@@ -101,7 +101,7 @@
 			loading = false;
 
 			goto(
-				`/nanobot/p/${projectId}?tid=${sessionClient.chatId}${showFile ? `&wid=${workflowName}` : ''}`
+				`/agent/p/${projectId}?tid=${sessionClient.chatId}${showFile ? `&wid=${workflowName}` : ''}`
 			);
 		});
 	}
@@ -171,7 +171,7 @@
 						<button
 							class="list-row text-left"
 							onclick={() => {
-								goto(`/nanobot/p/${projectId}?tid=${thread.id}&pwid=${workflowName}`);
+								goto(`/agent/p/${projectId}?tid=${thread.id}&pwid=${workflowName}`);
 							}}
 						>
 							<div
@@ -225,12 +225,12 @@
 							<tr
 								class="list-row"
 								onclick={() => {
-									goto(`/nanobot/p/${projectId}?tid=${thread.id}&pwid=${workflowName}`);
+									goto(`/agent/p/${projectId}?tid=${thread.id}&pwid=${workflowName}`);
 								}}
 								onkeydown={(e) => {
 									if (e.key === 'Enter') {
 										e.preventDefault();
-										goto(`/nanobot/p/${projectId}?tid=${thread.id}&pwid=${workflowName}`);
+										goto(`/agent/p/${projectId}?tid=${thread.id}&pwid=${workflowName}`);
 									}
 								}}
 								aria-label={`View thread ${thread.title}`}
@@ -280,7 +280,7 @@
 			}
 			return data;
 		});
-		goto(`/nanobot/p/${projectId}/workflows`, { replaceState: true });
+		goto(`/agent/p/${projectId}/workflows`, { replaceState: true });
 	}}
 	oncancel={() => (deletingWorkflow = false)}
 />

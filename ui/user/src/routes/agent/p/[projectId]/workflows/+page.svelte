@@ -40,7 +40,7 @@
 				return data;
 			});
 
-			goto(`/nanobot/p/${projectId}?tid=${sessionClient.chatId}&wid=${workflowName}`, {
+			goto(`/agent/p/${projectId}?tid=${sessionClient.chatId}&wid=${workflowName}`, {
 				replaceState: true,
 				noScroll: true,
 				keepFocus: true
@@ -120,12 +120,12 @@
 						role="button"
 						tabindex="0"
 						onclick={() => {
-							goto(`/nanobot/p/${projectId}/workflows/${encodeURIComponent(workflow.name)}`);
+							goto(`/agent/p/${projectId}/workflows/${encodeURIComponent(workflow.name)}`);
 						}}
 						onkeydown={(e) => {
 							if (e.key === 'Enter' || e.key === ' ') {
 								e.preventDefault();
-								goto(`/nanobot/p/${projectId}/workflows/${encodeURIComponent(workflow.name)}`);
+								goto(`/agent/p/${projectId}/workflows/${encodeURIComponent(workflow.name)}`);
 							}
 						}}
 					>
