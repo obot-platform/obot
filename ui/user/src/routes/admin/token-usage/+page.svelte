@@ -687,12 +687,12 @@
 							{#snippet tooltipContent(item)}
 								{@const value = item.primaryTotal ?? 0}
 								<div class="flex flex-col gap-0 text-xs">
-									<div class="text-sm font-semibold">{item.key}</div>
+									<div class="text-sm font-light">{item.key}</div>
 									<div class="text-on-surface1">{item.date}</div>
 									<div class="divider"></div>
 								</div>
 								<div class="flex flex-col gap-1">
-									<div class="text-on-surface1 flex flex-col">
+									<div class="text-on-background flex flex-col">
 										<div class="text-xl font-bold">{value.toLocaleString()}</div>
 									</div>
 								</div>
@@ -801,14 +801,14 @@
 															? (item.primaryTotal ?? 0)
 															: (item.secondaryTotal ?? 0)}
 													<div class="flex flex-col gap-0 text-xs">
-														<div class="text-sm font-semibold">
+														<div class="text-sm font-light">
 															{item.hoveredPart === 'primary' ? 'Input tokens' : 'Output tokens'}
 														</div>
 														<div class="text-on-surface1">{item.date}</div>
 														<div class="divider"></div>
 													</div>
 													<div class="flex flex-col gap-1">
-														<div class="text-on-surface1 flex flex-col">
+														<div class="text-on-background flex flex-col">
 															<div class="text-xl font-bold">{value.toLocaleString()}</div>
 														</div>
 													</div>
