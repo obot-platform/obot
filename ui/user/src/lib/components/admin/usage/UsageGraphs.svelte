@@ -662,17 +662,26 @@
 				>
 					<h3 class="mb-4 text-lg font-semibold">{cfg.label}</h3>
 
-					<div class="h-[300px] min-h-[300h]">
+					<div class="text-on-surface1 h-[300px] min-h-[300px]">
 						{#if paginated.length > 0}
 							<HorizontalBarGraph
 								data={paginated}
-								x={cfg.xKey}
-								y={cfg.yKey}
-								padding={10}
-								formatTooltipText={cfg.formatTooltipText ||
-									((d) => `${d[cfg.yKey]} ${cfg.tooltip}`)}
-								formatXLabel={cfg.formatXLabel}
-							/>
+								labelKey={cfg.xKey}
+								valueKey={cfg.yKey}
+								formatLabel={cfg.formatXLabel}
+								formatValue={(value) => Math.round(value).toString()}
+							>
+								{#snippet tooltipContent(item)}
+									<div class="flex flex-col gap-0 text-xs">
+										<div class="text-on-surface1 text-xs">{item.label}</div>
+									</div>
+									<div class="text-on-background font-semibold">
+										{cfg.formatTooltipText
+											? cfg.formatTooltipText(item.row as Record<string, string | number>)
+											: `${item.value} ${cfg.tooltip}`}
+									</div>
+								{/snippet}
+							</HorizontalBarGraph>
 						{:else if !showLoadingSpinner}
 							<div
 								class="text-on-surface1 flex h-[300px] items-center justify-center text-sm font-light"
