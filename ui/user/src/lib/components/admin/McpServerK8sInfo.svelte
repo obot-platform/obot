@@ -63,8 +63,8 @@
 		readonly
 	}: Props = $props();
 
-	let listK8sInfo = $state<Promise<K8sServerDetail>>();
-	let listK8sSettingsStatus = $state<Promise<ServerK8sSettings>>();
+	let listK8sInfo = $state<Promise<K8sServerDetail | undefined>>();
+	let listK8sSettingsStatus = $state<Promise<ServerK8sSettings | undefined>>();
 	let revealServerValues = $state<Promise<Record<string, string>>>();
 	let messages = $state<string[]>([]);
 	let error = $state<string>();
@@ -97,6 +97,7 @@
 	}
 
 	function getK8sInfo() {
+		if (!hasAdminAccess) return Promise.resolve<K8sServerDetail | undefined>(undefined);
 		return entity === 'workspace' && entityId
 			? catalogEntry?.id
 				? ChatService.getWorkspaceCatalogEntryServerK8sDetails(
@@ -110,6 +111,7 @@
 	}
 
 	function getK8sSettingsStatus() {
+		if (!hasAdminAccess) return Promise.resolve<ServerK8sSettings | undefined>(undefined);
 		return entity === 'workspace' && entityId
 			? catalogEntry?.id
 				? ChatService.getWorkspaceCatalogEntryServerK8sSettingsStatus(
@@ -132,15 +134,13 @@
 
 	onMount(() => {
 		// Only load sensitive server values and k8s info if the user has admin access
-		if (hasAdminAccess) {
-			revealServerValues = profile.current.isAdmin?.()
-				? ChatService.revealSingleOrRemoteMcpServer(mcpServerId, {
-						dontLogErrors: true
-					})
-				: Promise.resolve<Record<string, string>>({});
-			listK8sInfo = getK8sInfo();
-			listK8sSettingsStatus = getK8sSettingsStatus();
-		}
+		revealServerValues = profile.current.isAdmin?.()
+			? ChatService.revealSingleOrRemoteMcpServer(mcpServerId, {
+					dontLogErrors: true
+				})
+			: Promise.resolve<Record<string, string>>({});
+		listK8sInfo = getK8sInfo();
+		listK8sSettingsStatus = getK8sSettingsStatus();
 
 		eventStream.connect(logsUrl, {
 			onMessage: (data) => {
@@ -386,7 +386,7 @@
 	{/if}
 {:then info}
 	{@const k8sInfo = compileK8sInfo(info)}
-	{#if hasAdminAccess}
+	{#if hasAdminAccess && k8sInfo}
 		<div class="flex flex-col gap-2">
 			{#each k8sInfo as detail (detail.id)}
 				{@render detailRow(detail.label, detail.value, detail.id)}
