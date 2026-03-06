@@ -22,7 +22,6 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { profile } from '$lib/stores';
 	import DotDotDot from '../DotDotDot.svelte';
-	import { onMount } from 'svelte';
 	import Table from '../table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
