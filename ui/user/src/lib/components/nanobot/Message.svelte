@@ -25,6 +25,9 @@
 
 	let { message, timestamp, onSend, onFileOpen, onReadResource }: Props = $props();
 
+	let viewableMessageItems = $derived(
+		message.items?.filter((item) => item.type !== 'reasoning') ?? []
+	);
 	let openToolGroups = new SvelteSet<string>();
 
 	function toolGroupOpenKey(groupIndex: number): string {
@@ -52,7 +55,7 @@
 	/** Groups items so consecutive MessageItemTool items are in one group for collapse. */
 	const itemGroups = $derived.by(
 		(): Array<{ toolGroup: ChatMessageItem[] } | { single: ChatMessageItem }> => {
-			const items = message.items ?? [];
+			const items = viewableMessageItems;
 			if (items.length === 0) return [];
 			const groups: ({ toolGroup: ChatMessageItem[] } | { single: ChatMessageItem })[] = [];
 			let i = 0;
@@ -85,7 +88,7 @@
 	);
 	const toolCall = $derived.by(() => {
 		try {
-			const item = message.items?.[0];
+			const item = viewableMessageItems[0];
 			return message.role === 'user' && item?.type === 'text' ? JSON.parse(item.text) : null;
 		} catch {
 			// ignore parse error
@@ -117,16 +120,18 @@
 	const hasCancelledResource = $derived.by(
 		() =>
 			message.role === 'assistant' &&
-			(message.items ?? []).some(
+			viewableMessageItems.some(
 				(item) => isCancelledErrorResource(item) || isCancelledTextItem(item)
 			)
 	);
 
 	const hasCompactionSummary = $derived(
-		message.items?.[0]?._meta?.['ai.nanobot.meta/compaction-summary']
+		viewableMessageItems[0]?._meta?.['ai.nanobot.meta/compaction-summary']
 	);
 
-	const isAttachmentContext = $derived(message.items?.[0]?._meta?.['ai.nanobot.meta/attachment']);
+	const isAttachmentContext = $derived(
+		viewableMessageItems[0]?._meta?.['ai.nanobot.meta/attachment']
+	);
 </script>
 
 {#if isAttachmentContext}
@@ -141,8 +146,8 @@
 			<div class="max-w-md">
 				<div class="flex flex-col items-end">
 					<div class="rounded-box bg-base-200 mt-4 p-2">
-						{#if message.items && message.items.length > 0}
-							{#each message.items as item (item.id)}
+						{#if viewableMessageItems.length > 0}
+							{#each viewableMessageItems as item (item.id)}
 								<MessageItem {item} role={message.role} {onFileOpen} {onReadResource} />
 							{/each}
 						{:else}
@@ -163,7 +168,7 @@
 			<!-- Assistant message content -->
 			<div class="flex min-w-0 flex-1 flex-col items-start">
 				<!-- Render all message items (consecutive tool items grouped in one collapse) -->
-				{#if message.items && message.items.length > 0}
+				{#if viewableMessageItems.length > 0}
 					<div class="w-full">
 						{#each itemGroups as group, groupIndex (groupKey(group, groupIndex))}
 							{#if 'toolGroup' in group}
