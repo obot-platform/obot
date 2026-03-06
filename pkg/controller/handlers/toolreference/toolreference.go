@@ -328,7 +328,7 @@ func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c clie
 
 		// Stop the model provider if it was started while we were updating the credential.
 		h.dispatcher.StopModelProvider(modelProviderRef.Namespace, modelProviderRef.Name)
-		log.Infof("Restart requested for model provider after credential update: provider=%s", modelProviderRef.Name)
+		log.Infof("Stopped model provider to force restart after credential update: provider=%s", modelProviderRef.Name)
 	}
 
 	var modelAliases v1.DefaultModelAliasList
