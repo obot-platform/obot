@@ -218,7 +218,7 @@
 				<button
 					class="dropdown-link"
 					onclick={async (event) => {
-						navigateTo('/nanobot', event?.ctrlKey || event?.metaKey);
+						navigateTo('/agent', event?.ctrlKey || event?.metaKey);
 					}}
 				>
 					<BotMessageSquare class="size-4" /> Launch Agent
