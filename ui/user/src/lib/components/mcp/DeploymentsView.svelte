@@ -696,7 +696,7 @@
 										</button>
 									{/if}
 
-									{#if d.isMyServer && !readonly}
+									{#if d.isMyServer || (hasAdminAccess && !readonly)}
 										{@render editConfigAction(d)}
 										{#if d.catalogEntryID}
 											{@render renameAction(d)}
@@ -726,7 +726,7 @@
 										{/if}
 									</span>
 								</a>
-								{#if d.needsUpdate && (d.isMyServer || hasAdminAccess) && !readonly}
+								{#if d.needsUpdate && (d.isMyServer || (hasAdminAccess && !readonly))}
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -775,7 +775,7 @@
 									</button>
 								{/if}
 
-								{#if (d.isMyServer || hasAdminAccess) && !readonly && d.needsK8sUpdate}
+								{#if (d.isMyServer || (hasAdminAccess && !readonly)) && d.needsK8sUpdate}
 									<button
 										class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -797,7 +797,7 @@
 									</button>
 								{/if}
 
-								{#if (d.isMyServer || hasAdminAccess) && !readonly}
+								{#if d.isMyServer || (hasAdminAccess && !readonly)}
 									<button
 										class="menu-button"
 										disabled={restarting}
@@ -844,7 +844,7 @@
 									{/if}
 								</button>
 
-								{#if !readonly}
+								{#if d.isMyServer || (hasAdminAccess && !readonly)}
 									<button
 										class="menu-button-destructive"
 										onclick={async (e) => {
