@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type SystemMCPServerHandler struct {
@@ -253,6 +256,84 @@ func (h *SystemMCPServerHandler) Restart(req api.Context) error {
 
 	req.WriteHeader(http.StatusNoContent)
 	return nil
+}
+
+// RestartNanobotAgentDeployments restarts all nanobot-agent-backed MCP server deployments.
+func (h *SystemMCPServerHandler) RestartNanobotAgentDeployments(req api.Context) error {
+	if !req.UserIsAdmin() {
+		return types.NewErrForbidden("only admins can restart nanobot agent deployments")
+	}
+
+	dryRun := false
+	if rawDryRun := req.URL.Query().Get("dryRun"); rawDryRun != "" {
+		parsedDryRun, err := strconv.ParseBool(rawDryRun)
+		if err != nil {
+			return types.NewErrBadRequest("invalid dryRun query parameter: %v", err)
+		}
+		dryRun = parsedDryRun
+	}
+
+	var servers v1.MCPServerList
+	if err := req.List(&servers, &kclient.ListOptions{Namespace: req.Namespace()}); err != nil {
+		return fmt.Errorf("failed to list MCP servers: %w", err)
+	}
+
+	targetedServerIDs := make([]string, 0)
+	restartedServerIDs := make([]string, 0)
+	failed := make([]map[string]string, 0)
+
+	for _, server := range servers.Items {
+		if server.Spec.NanobotAgentID == "" {
+			continue
+		}
+
+		targetedServerIDs = append(targetedServerIDs, server.Name)
+		if dryRun {
+			continue
+		}
+
+		serverConfig, err := serverConfigForAction(req, server)
+		if err != nil {
+			failed = append(failed, map[string]string{
+				"serverID": server.Name,
+				"error":    err.Error(),
+			})
+			continue
+		}
+
+		if err := h.mcpSessionManager.RestartServerDeployment(req.Context(), serverConfig); err != nil {
+			if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+				failed = append(failed, map[string]string{
+					"serverID": server.Name,
+					"error":    nse.Error(),
+				})
+				continue
+			}
+
+			failed = append(failed, map[string]string{
+				"serverID": server.Name,
+				"error":    err.Error(),
+			})
+			continue
+		}
+
+		restartedServerIDs = append(restartedServerIDs, server.Name)
+	}
+
+	sort.Strings(targetedServerIDs)
+	sort.Strings(restartedServerIDs)
+
+	result := map[string]any{
+		"dryRun":                   dryRun,
+		"totalNanobotAgentServers": len(targetedServerIDs),
+		"targetedServerIDs":        targetedServerIDs,
+		"restartedCount":           len(restartedServerIDs),
+		"restartedServerIDs":       restartedServerIDs,
+		"failedCount":              len(failed),
+		"failed":                   failed,
+	}
+
+	return req.Write(result)
 }
 
 // Logs streams logs from a system MCP server
