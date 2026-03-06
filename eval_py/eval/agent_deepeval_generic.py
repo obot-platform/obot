@@ -54,9 +54,11 @@ def _safe_console(text: str, max_len: int = 200) -> str:
 
 def _read_step_eval_raw_sse() -> Tuple[str, str]:
     """
-    Return (trajectory_text, raw_sse_for_phase_0) from step_eval_output.txt.
+    Return (trajectory_text, raw_sse) from step_eval_output_distinct.txt.
 
-    Assumes format written by write_step_eval_output_file_multi_phase().
+    Supports two formats:
+    - Multi-phase (e.g. python_code_review): "--- Phase 0 ---" then "Event stream (api/events) raw response:" then SSE.
+    - Single-prompt (e.g. deep_news_briefing): "--- Event stream (api/events) raw response ---" then SSE.
     """
     path = paths.data_path("step_eval_output_distinct.txt")
     if not os.path.exists(path):
@@ -69,22 +71,32 @@ def _read_step_eval_raw_sse() -> Tuple[str, str]:
 
     in_steps = False
     in_phase0 = False
+    in_single_sse = False  # single-prompt format: "--- Event stream ... ---" then SSE
 
     for line in lines:
         if line.startswith("--- Steps (trajectory) ---"):
             in_steps = True
             in_phase0 = False
+            in_single_sse = False
             continue
         if line.startswith("--- Phase 0 ---"):
             in_steps = False
             in_phase0 = True
+            in_single_sse = False
             continue
+        # Single-prompt format (e.g. nanobot_deep_news_briefing_single_prompt_eval): no Phase 0, direct "--- Event stream ... ---"
+        if line.strip().startswith("---") and "Event stream (api/events) raw response" in line:
+            in_steps = False
+            in_phase0 = False
+            in_single_sse = True
+            continue  # skip the header line itself
         if in_steps:
             trajectory_lines.append(line)
         if in_phase0:
-            # After the "Event stream" header, we just copy through to end-of-file
             if "Event stream (api/events) raw response:" in line:
                 continue
+            raw_sse_lines.append(line)
+        if in_single_sse:
             raw_sse_lines.append(line)
 
     trajectory_text = "\n".join(trajectory_lines).strip()
@@ -388,7 +400,7 @@ def run_deepeval_generic_for_latest_step_eval() -> None:
     """Entry point: run generic DeepEval process metrics on latest step-eval output."""
     trajectory, raw_sse = _read_step_eval_raw_sse()
     if not raw_sse:
-        raise RuntimeError("No raw SSE found in step_eval_output.txt")
+        raise RuntimeError("No raw SSE found in step_eval_output_distinct.txt")
 
     trace = _parse_sse_to_trace(raw_sse)
     test_case = _build_deepeval_test_case(trace)

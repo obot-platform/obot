@@ -7,18 +7,47 @@ Read-only errors in the workflow usually mean the WordPress user role is too lim
 
 
 CONTENT_PUBLISHING_PHASED_PROMPTS = [
-    """I need a concise news briefing on the US–China trade war and tariffs.
+    """I need a deep news briefing on the US–China trade war and tariffs.
 
 Use the DuckDuckGo MCP server from Obot (no configuration needed). Connect to it and use both tools: search and fetch_content.
 
-You can use **up to 3 searches** with short queries like:
-- US China trade war tariffs latest
-- US China tariffs trade impact
-- China United States trade war overview
+**Phase 1 — Search (up to 5 searches)**  
+Run up to 5 DuckDuckGo searches, each with max_results=10. Use these queries if possible:
+- US-China trade war tariffs latest news 2025
+- US-China trade war tariffs analysis
+- US-China trade war impact
+- US China tariffs trade
+- China United States trade war
 
-From the results, pick a **small set of credible sources** (major news, analysis, or reference sites), fetch their content, and then write a single, structured briefing:
+If a search returns 0 results, try a shorter query (e.g. "US China tariffs", "trade war news") or skip. If you still get no results from search, use fetch_content on at least one known URL: https://en.wikipedia.org/wiki/China%E2%80%93United_States_trade_war (and any other relevant URLs you know). The goal is to have at least 2–3 sources to read.
 
-Do not ask the user follow-up questions. If some details are missing, make reasonable assumptions and clearly label them as such."""
+**Phase 2 — Source selection**  
+From the search results (or the fallback URL above), pick up to 6 URLs. Prefer diversity and substance. If you have fewer than 6, that is OK—use what you have.
+
+**Phase 3 — Deep reading**  
+Use fetch_content on each chosen URL (max 6). If a fetch fails, skip and continue. Stop after you have successfully loaded content from at least 2 sources. Do not keep fetching indefinitely.
+
+**Phase 4 — Cross-reference**  
+From the content you loaded, note: confirmed facts (2+ sources), conflicting or single-source claims, and key data points (stats, dates, quotes).
+
+**Phase 5 — Final report (required)**  
+You MUST produce the final report now. Do not fetch more sources. Do not add more tool calls. Write a single report with exactly these sections (use markdown headings):
+
+## US–China Trade War Briefing
+
+### Confirmed facts (2+ sources)
+(2–4 sentences on facts that appear in multiple sources)
+
+### Conflicting or single-source claims
+(1–3 sentences on disagreements or unverified claims, if any)
+
+### Key data points
+(Stats, dates, or quotes that matter)
+
+### Note on sources
+(Which URLs/sources you used; if any fetch failed, say so briefly)
+
+Then stop. Your reply must end with this report."""
 ]
 
 
@@ -54,94 +83,6 @@ for i in range(5)
         "criteria": [
             "Response modifies the code to print only even numbers (e.g. 0, 2, 4)",
             "Uses a valid approach: condition (e.g. i % 2 == 0) or range(0, 5, 2) or equivalent",
-        ],
-    },
-]
-
-
-DEEP_NEWS_BRIEFING_TURNS = [
-    {
-        # Phase 1 – Search strategy
-        "prompt": """Deep news briefing: US–China trade war and tariffs (Phase 1 — Search).
-
-Use the DuckDuckGo MCP server from Obot (no configuration needed). Connect to it and use both tools: search and fetch_content.
-
-In this phase, run up to 5 DuckDuckGo searches, each with max_results=10. Prefer queries like:
-- US-China trade war tariffs latest news 2025
-- US-China trade war tariffs analysis
-- US-China trade war impact
-- US China tariffs trade
-- China United States trade war
-
-If a search returns 0 results, try a shorter query (e.g. "US China tariffs", "trade war news") or skip.
-
-Your task in this turn:
-- Propose and justify which 3–5 concrete queries you will run and why.
-- Explain briefly how you will handle 0-result cases.
-- Do NOT fetch or summarize articles yet, just outline and justify the search plan.""",
-        "criteria": [
-            "Proposes at least three concrete DuckDuckGo search queries focused on the US–China trade war and tariffs.",
-            "Mentions a reasonable fallback strategy for 0-result searches (e.g. shortening queries or trying broader terms).",
-        ],
-    },
-    {
-        # Phase 2 – Source selection and deep reading plan
-        "prompt": """Deep news briefing: US–China trade war and tariffs (Phase 2 — Sources and reading plan).
-
-Assume Phase 1 searches have completed and produced a mix of results.
-
-Your task in this turn:
-- Describe what kinds of sources you will pick (up to 6 URLs) and why (e.g. major news outlets, think tanks, government or multilateral reports, etc.).
-- Explain criteria for deciding which results to ignore (e.g. low-quality blogs, content farms, duplicates).
-- Outline how you will use fetch_content on each chosen URL, including when to stop (after at least 2 successful loads, not fetching indefinitely).
-- Do NOT write the final report yet; focus on selection and deep reading strategy.""",
-        "criteria": [
-            "Explains a clear, reasonable strategy for selecting up to six diverse and credible sources from search results.",
-            "Mentions stopping conditions for fetch_content (e.g. after at least two successful loads, avoid infinite fetching).",
-        ],
-    },
-    {
-        # Phase 3 – Cross-reference and evidence structure
-        "prompt": """Deep news briefing: US–China trade war and tariffs (Phase 3 — Cross-reference and evidence).
-
-Assume you have successfully loaded content from at least two of your chosen sources.
-
-Your task in this turn:
-- Explain how you will distinguish between confirmed facts (appearing in 2+ sources) and single-source or conflicting claims.
-- Describe how you will track and use key data points (stats, dates, quotes) so they can be cited later.
-- Specify how you will handle disagreements between sources in the final briefing (e.g. flagging uncertainty, noting which side each claim comes from).
-- Do NOT write the final report yet; focus on how you will cross-check and organize evidence.""",
-        "criteria": [
-            "Describes a concrete method for separating multi-source confirmed facts from single-source or conflicting claims.",
-            "Mentions collecting specific data points (stats, dates, quotes) and how they will be used or cited in the final report.",
-        ],
-    },
-    {
-        # Phase 4 – Final report structure
-        "prompt": """Deep news briefing: US–China trade war and tariffs (Phase 4 — Final report structure).
-
-Now, based on the prior phases and assuming you have completed search, selection, reading, and cross-reference:
-
-Write the final briefing in this exact structure (markdown headings):
-
-## US–China Trade War Briefing
-
-### Confirmed facts (2+ sources)
-(2–4 sentences on facts that appear in multiple sources)
-
-### Conflicting or single-source claims
-(1–3 sentences on disagreements or unverified claims, if any)
-
-### Key data points
-(Stats, dates, or quotes that matter)
-
-### Note on sources
-(Which URLs/sources you used; if any fetch failed, say so briefly)
-
-In this turn, produce the full report text. Do not describe your plan; write the briefing itself, following the sections above.""",
-        "criteria": [
-            "Produces a report with all four required sections and correct markdown headings.",
-            "Uses content that is consistent with the topic (US–China trade war and tariffs) and clearly distinguishes confirmed facts from more uncertain claims.",
         ],
     },
 ]

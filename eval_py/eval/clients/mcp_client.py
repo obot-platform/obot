@@ -166,6 +166,12 @@ class MCPClient:
         # used so we don't stop at a chat-done that only corresponds to prior history replay.
         turn_seen_prompt = expected_prompt is None
         turn_has_assistant = False
+        # When expected_prompt is None, server may send full history; keep only the last assistant segment
+        # (content after the last user message) so multi-turn eval gets this turn's response only.
+        assistant_segments: list[list[str]] = []
+        tools_per_segment: list[list[str]] = []
+        current_assistant_chunks: list[str] = []
+        current_tools: list[str] = []
         current_event: Optional[str] = None
         current_data_lines: list[str] = []
         current_raw_lines: list[str] = []
@@ -190,6 +196,7 @@ class MCPClient:
 
         def flush_event():
             nonlocal current_event, current_data_lines, current_raw_lines, turn_seen_prompt, turn_has_assistant
+            nonlocal current_assistant_chunks, current_tools
             if not current_raw_lines:
                 current_data_lines = []
                 current_raw_lines = []
@@ -232,16 +239,34 @@ class MCPClient:
                                             turn_seen_prompt = True
                                             break
 
-                        # Collect assistant text only after we've seen this turn's prompt
-                        if role == "assistant" and isinstance(items, list) and turn_seen_prompt:
-                            for item in items:
-                                if not isinstance(item, dict):
-                                    continue
-                                if item.get("type") == "text" and item.get("text"):
-                                    out.append(item["text"])
-                                    turn_has_assistant = True
-                                if item.get("type") == "tool" and item.get("name"):
-                                    tools_used.append(item["name"])
+                        if expected_prompt is None:
+                            # Segment mode: keep only the last assistant block (after last user message)
+                            if role == "user":
+                                if current_assistant_chunks:
+                                    assistant_segments.append(current_assistant_chunks)
+                                    tools_per_segment.append(list(current_tools))
+                                current_assistant_chunks = []
+                                current_tools = []
+                            if role == "assistant" and isinstance(items, list):
+                                for item in items:
+                                    if not isinstance(item, dict):
+                                        continue
+                                    if item.get("type") == "text" and item.get("text"):
+                                        current_assistant_chunks.append(item["text"])
+                                        turn_has_assistant = True
+                                    if item.get("type") == "tool" and item.get("name"):
+                                        current_tools.append(item["name"])
+                        else:
+                            # Collect assistant text only after we've seen this turn's prompt
+                            if role == "assistant" and isinstance(items, list) and turn_seen_prompt:
+                                for item in items:
+                                    if not isinstance(item, dict):
+                                        continue
+                                    if item.get("type") == "text" and item.get("text"):
+                                        out.append(item["text"])
+                                        turn_has_assistant = True
+                                    if item.get("type") == "tool" and item.get("name"):
+                                        tools_used.append(item["name"])
                     except json.JSONDecodeError:
                         pass
             blocks_in_order.append((message_key, lines_copy))
@@ -297,8 +322,15 @@ class MCPClient:
 
         # Do not deduplicate by line: blank lines separate SSE events; dropping them breaks the stream
         raw_sse = "\n".join(raw_sse_lines)
-        result = "".join(out)
-        tools_used_dedup = list(dict.fromkeys(tools_used))
+        if expected_prompt is None and (assistant_segments or current_assistant_chunks):
+            if current_assistant_chunks:
+                assistant_segments.append(current_assistant_chunks)
+                tools_per_segment.append(current_tools)
+            result = "".join(assistant_segments[-1]) if assistant_segments else ""
+            tools_used_dedup = list(dict.fromkeys(tools_per_segment[-1])) if tools_per_segment else []
+        else:
+            result = "".join(out)
+            tools_used_dedup = list(dict.fromkeys(tools_used))
         summary = "(event-stream response, %d bytes assistant text)" % len(result)
         if len(result) > 0 and len(result) <= 500:
             summary = result.encode("utf-8")

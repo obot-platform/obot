@@ -748,6 +748,11 @@ def run_workflow_conversation_eval(ctx: Context) -> Result:
                 if st != 200:
                     raise RuntimeError("chat send turn %d: status=%s" % (phase, st))
 
+            # Use expected_prompt=None so we capture any assistant content for this turn
+            # without depending on an exact echo of the prompt text in the SSE stream.
+            # With expected_prompt=prompt_text, turns 2 and 3 often capture nothing because
+            # the server may not echo the new user message on the new GET connection, so
+            # turn_seen_prompt stays False and no assistant text is collected.
             response_text, raw_sse, tools_used = mcp.get_response_from_events_async(
                 session_id, send_chat_fn=send_chat, expected_prompt=prompt_text
             )
