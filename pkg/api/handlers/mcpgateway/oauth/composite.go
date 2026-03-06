@@ -87,7 +87,7 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 
 	if len(pending) > 0 {
 		// There are still pending second level OAuth requests
-		log.Infof("Composite OAuth still pending component authentication: compositeMCPID=%s pendingComponents=%d", compositeMCPID, len(pending))
+		log.Debugf("Composite OAuth still pending component authentication: compositeMCPID=%s pendingComponents=%d", compositeMCPID, len(pending))
 		return req.Write(pending)
 	}
 
