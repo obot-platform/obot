@@ -196,9 +196,11 @@ func (s *Server) updateUser(apiContext api.Context) error {
 
 	if !apiContext.UserIsOwner() {
 		if originalUser.Role.HasRole(types2.RoleOwner) != user.Role.HasRole(types2.RoleOwner) {
+			pkgLog.Infof("Denied user role update: targetUserID=%s reason=owner_role_change_requires_owner requestUser=%s", userID, apiContext.User.GetName())
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can add or remove owner role")
 		}
 		if originalUser.Role.HasRole(types2.RoleAuditor) != user.Role.HasRole(types2.RoleAuditor) {
+			pkgLog.Infof("Denied user role update: targetUserID=%s reason=auditor_role_change_requires_owner requestUser=%s", userID, apiContext.User.GetName())
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can remove admin role")
 		}
 	}
@@ -222,6 +224,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 
 	// Create UserRoleChange event to trigger reconciliation if personal role changed
 	if originalUser.Role != existingUser.Role {
+		pkgLog.Infof("User role changed via API: userID=%d oldRole=%d newRole=%d requestUser=%s", existingUser.ID, originalUser.Role, existingUser.Role, apiContext.User.GetName())
 		if err = apiContext.Create(&v1.UserRoleChange{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: system.UserRoleChangePrefix,
@@ -234,6 +237,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 			return fmt.Errorf("failed to create user role change event: %v", err)
 		}
 	}
+	pkgLog.Infof("Updated user profile via API: userID=%d requestUser=%s", existingUser.ID, apiContext.User.GetName())
 
 	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.HasExplicitRole(existingUser.Email) != types2.RoleUnknown, ""))
 }
@@ -280,9 +284,11 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 
 	if !apiContext.UserIsOwner() {
 		if existingUser.Role.HasRole(types2.RoleOwner) {
+			pkgLog.Infof("Denied user deletion: targetUserID=%s reason=owner_delete_requires_owner requestUser=%s", userID, apiContext.User.GetName())
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can delete an owner")
 		}
 		if existingUser.Role.HasRole(types2.RoleAuditor) {
+			pkgLog.Infof("Denied user deletion: targetUserID=%s reason=auditor_delete_requires_owner requestUser=%s", userID, apiContext.User.GetName())
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can delete an auditor")
 		}
 	}
@@ -311,6 +317,7 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 	}); err != nil {
 		return fmt.Errorf("failed to start deletion of user owned objects: %v", err)
 	}
+	pkgLog.Infof("Scheduled user cleanup after deletion: targetUserID=%d deleteMe=%v requestUser=%s", existingUser.ID, isDeleteMe, apiContext.User.GetName())
 
 	// Only clear the cookie if this is a "delete me" operation
 	if isDeleteMe {
@@ -356,6 +363,7 @@ func (s *Server) listAuthGroups(apiContext api.Context) error {
 			return fmt.Errorf("failed to restrict groups: %v", err)
 		}
 	}
+	pkgLog.Infof("Listed auth provider groups: provider=%s/%s groups=%d includeRestricted=%v", namespace, name, len(groups), apiContext.URL.Query().Get("includeRestricted") == "true")
 
 	return apiContext.Write(groups)
 }

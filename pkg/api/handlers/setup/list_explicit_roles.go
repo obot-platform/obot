@@ -33,6 +33,7 @@ func (h *Handler) ListExplicitRoleEmails(req api.Context) error {
 			admins = append(admins, email)
 		}
 	}
+	log.Infof("Listed explicit setup role emails: owners=%d admins=%d", len(owners), len(admins))
 
 	return req.Write(ExplicitRoleEmailsResponse{
 		Owners: owners,

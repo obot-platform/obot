@@ -36,6 +36,7 @@ func (s *Server) getTokens(apiContext api.Context) error {
 	if err := s.db.WithContext(apiContext.Context()).Where("user_id = ?", apiContext.UserID()).Find(&tokens).Error; err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("error getting tokens: %v", err))
 	}
+	pkgLog.Infof("Listed auth tokens for user: userID=%d tokens=%d", apiContext.UserID(), len(tokens))
 
 	return apiContext.Write(tokens)
 }
@@ -54,6 +55,7 @@ func (s *Server) deleteToken(apiContext api.Context) error {
 		}
 		return types2.NewErrHTTP(status, fmt.Sprintf("error deleting token: %v", err))
 	}
+	pkgLog.Infof("Deleted auth token for user: userID=%d tokenID=%s", apiContext.UserID(), id)
 
 	return apiContext.Write(map[string]any{"deleted": true})
 }
@@ -72,6 +74,7 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get configured auth provider: %v", err))
 	}
 	if configuredProvider != reqObj.ProviderName {
+		pkgLog.Infof("Rejected token request due to unconfigured auth provider: requestedProvider=%s configuredProvider=%s", reqObj.ProviderName, configuredProvider)
 		return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", reqObj.ProviderName))
 	}
 
@@ -87,6 +90,7 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 		}
 		return types2.NewErrHTTP(http.StatusInternalServerError, err.Error())
 	}
+	pkgLog.Infof("Created token request for auth flow: tokenRequestID=%s provider=%s/%s noExpiration=%v", tokenReq.ID, reqObj.ProviderNamespace, reqObj.ProviderName, reqObj.NoExpiration)
 
 	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/api/oauth/start/%s/%s/%s", s.baseURL, reqObj.ID, reqObj.ProviderNamespace, reqObj.ProviderName)})
 }
@@ -102,6 +106,7 @@ func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
 			return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get configured auth provider: %v", err))
 		}
 		if configuredProvider != name {
+			pkgLog.Infof("Rejected redirect-for-token request due to unconfigured auth provider: requestedProvider=%s configuredProvider=%s tokenRequestID=%s", name, configuredProvider, id)
 			return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", name))
 		}
 	}
@@ -113,6 +118,7 @@ func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
 		}
 		return types2.NewErrHTTP(http.StatusInternalServerError, err.Error())
 	}
+	pkgLog.Infof("Resolved token request redirect path: tokenRequestID=%s provider=%s/%s", tokenReq.ID, namespace, name)
 
 	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/api/oauth/start/%s/%s/%s", s.baseURL, tokenReq.ID, namespace, name)})
 }
@@ -133,8 +139,10 @@ func (s *Server) checkForToken(apiContext api.Context) error {
 	}
 
 	if tr.Error != "" {
+		pkgLog.Infof("Token request completed with error: tokenRequestID=%s", tr.ID)
 		return apiContext.Write(map[string]any{"error": tr.Error})
 	}
+	pkgLog.Infof("Token request polled: tokenRequestID=%s tokenAvailable=%v tokenRetrieved=%v", tr.ID, tr.Token != "", tr.TokenRetrieved)
 
 	return apiContext.Write(refreshTokenResponse{
 		Token:     tr.Token,
@@ -155,13 +163,14 @@ func (s *Server) createState(ctx context.Context, id string) (string, error) {
 	}); err != nil {
 		return "", fmt.Errorf("failed to create state: %w", err)
 	}
+	pkgLog.Infof("Created OAuth state for token request: tokenRequestID=%s", id)
 
 	return state, nil
 }
 
 func (s *Server) verifyState(ctx context.Context, state string) (*types.TokenRequest, error) {
 	tr := new(types.TokenRequest)
-	return tr, s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("state = ?", state).First(tr).Error; err != nil {
 			if tr.ID == "" {
 				return err
@@ -171,6 +180,8 @@ func (s *Server) verifyState(ctx context.Context, state string) (*types.TokenReq
 
 		return tx.Model(tr).Clauses(clause.Returning{}).Updates(map[string]any{"state": "", "error": tr.Error}).Error
 	})
+	pkgLog.Infof("Verified OAuth state for token request: tokenRequestID=%s success=%v", tr.ID, err == nil)
+	return tr, err
 }
 
 // autoCleanupTokens will delete token requests that have been retrieved and are older than the cleanupTick.

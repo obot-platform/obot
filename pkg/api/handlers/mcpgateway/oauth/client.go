@@ -50,6 +50,7 @@ func (h *handler) register(req api.Context) error {
 	if err = req.Create(&oauthClient); err != nil {
 		return err
 	}
+	log.Infof("Registered dynamic OAuth client: client=%s/%s", oauthClient.Namespace, oauthClient.Name)
 
 	return req.WriteCreated(handlers.ConvertDynamicClient(oauthClient, h.baseURL, clientSecret, registrationToken))
 }
@@ -69,6 +70,7 @@ func (h *handler) readClient(req api.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to update client secret: %w", err)
 	}
+	log.Infof("Read dynamic OAuth client registration: client=%s/%s", oauthClient.Namespace, oauthClient.Name)
 
 	return req.Write(handlers.ConvertDynamicClient(oauthClient, h.baseURL, clientSecret, registrationToken))
 }
@@ -106,6 +108,7 @@ func (h *handler) updateClient(req api.Context) error {
 	if err = req.Update(&oauthClient); err != nil {
 		return err
 	}
+	log.Infof("Updated dynamic OAuth client registration: client=%s/%s", oauthClient.Namespace, oauthClient.Name)
 
 	return req.Write(handlers.ConvertDynamicClient(oauthClient, h.baseURL, clientSecret, registrationToken))
 }
@@ -116,6 +119,7 @@ func (h *handler) deleteClient(req api.Context) error {
 		return types.NewErrBadRequest("invalid client name: %s", name)
 	}
 
+	log.Infof("Deleting dynamic OAuth client registration: client=%s/%s", namespace, name)
 	return req.Delete(&v1.OAuthClient{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       name,

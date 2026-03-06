@@ -30,6 +30,7 @@ type UserInfoResponse struct {
 func (h *handler) userInfo(req api.Context) error {
 	scope := gtypes.FirstSet(req.User.GetExtra()["oauthScope"]...)
 	if !slices.Contains(strings.Fields(scope), "profile") {
+		log.Infof("Denied OAuth userinfo request due to insufficient scope: userID=%s scope=%s", req.User.GetUID(), scope)
 		return h.writeUserInfoError(req, http.StatusUnauthorized,
 			"invalid_scope", "Insufficient scope")
 	}
@@ -38,6 +39,7 @@ func (h *handler) userInfo(req api.Context) error {
 	user, err := req.GatewayClient.UserByID(req.Context(), userID)
 	if err != nil {
 		// Don't reveal whether user exists - return generic error
+		log.Infof("Denied OAuth userinfo request due to invalid token user context: userID=%s", userID)
 		return h.writeUserInfoError(req, http.StatusForbidden, "invalid_token", "Invalid token")
 	}
 
@@ -56,6 +58,7 @@ func (h *handler) userInfo(req api.Context) error {
 	} else {
 		response.Name = user.Username
 	}
+	log.Infof("Returned OAuth userinfo response: userID=%s", userID)
 
 	return req.Write(response)
 }
