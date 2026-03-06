@@ -563,7 +563,7 @@ func (i *Invoker) createRun(ctx context.Context, gptClient *gptscript.GPTScript,
 	resp.cancel = cancel
 	go func() {
 		if err := i.Resume(ctx, gptClient, c, thread, &run); err != nil {
-			log.Errorf("run failed: run=%s thread=%s", run.Name, thread.Name)
+			log.Errorf("run failed: run=%s thread=%s error=%s", run.Name, thread.Name, err)
 		}
 	}()
 
