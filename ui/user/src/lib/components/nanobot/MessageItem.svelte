@@ -10,7 +10,6 @@
 	import MessageItemAudio from './MessageItemAudio.svelte';
 	import MessageItemResourceLink from './MessageItemResourceLink.svelte';
 	import MessageItemResource from './MessageItemResource.svelte';
-	import MessageItemReasoning from './MessageItemReasoning.svelte';
 	import MessageItemTool from './MessageItemTool.svelte';
 	import MessageItemFile from './MessageItemFile.svelte';
 	import { parseToolFilePath } from '$lib/services/nanobot/utils';
@@ -36,8 +35,6 @@
 	<MessageItemResourceLink {item} {onReadResource} />
 {:else if item.type === 'resource'}
 	<MessageItemResource {item} />
-{:else if item.type === 'reasoning'}
-	<MessageItemReasoning {item} />
 {:else if item.type === 'tool'}
 	{@const filePath = item.name === 'write' && item.arguments ? parseToolFilePath(item) : null}
 	{@const isWrittenFile = !!filePath && !filePath.includes('/.nanobot/')}
