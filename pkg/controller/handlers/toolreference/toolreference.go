@@ -52,6 +52,17 @@ type index struct {
 	MCPServers               map[string]indexEntry `json:"mcpServers,omitempty"`
 }
 
+func indexEntryCount(idx index) int {
+	return len(idx.Tools) +
+		len(idx.KnowledgeDataSources) +
+		len(idx.KnowledgeDocumentLoaders) +
+		len(idx.System) +
+		len(idx.ModelProviders) +
+		len(idx.AuthProviders) +
+		len(idx.FileScanners) +
+		len(idx.MCPServers)
+}
+
 type Handler struct {
 	gptClient          *gptscript.GPTScript
 	dispatcher         *dispatcher.Dispatcher
@@ -130,6 +141,7 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 			errs = append(errs, fmt.Errorf("failed to read registry %s: %w", registryURL, err))
 			continue
 		}
+		log.Infof("Loaded tool registry index: registry=%s entries=%d", registryURL, indexEntryCount(index))
 
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeSystem, registryURL, index.System)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeModelProvider, registryURL, index.ModelProviders)...)
@@ -142,14 +154,17 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 
 	if len(errs) > 0 {
 		// Don't accidentally delete tool references for registry URLs that failed to be read.
+		log.Infof("Skipping registry apply due to registry read errors: failedRegistries=%d", len(errs))
 		return errors.Join(errs...)
 	}
 
 	if len(toAdd) == 0 {
 		// Don't accidentally delete all the tool references
+		log.Infof("Skipping registry apply because no tool references were resolved")
 		return nil
 	}
 
+	log.Infof("Applying resolved tool references from registries: references=%d", len(toAdd))
 	return apply.New(c).WithOwnerSubContext("toolreferences").Apply(ctx, nil, toAdd...)
 }
 
@@ -159,6 +174,8 @@ func (h *Handler) PollRegistries(ctx context.Context, c client.Client) {
 	for {
 		if err := h.readFromRegistry(ctx, c); err != nil {
 			log.Errorf("Failed to read from registries: %v", err)
+		} else {
+			log.Infof("Completed periodic tool registry refresh")
 		}
 
 		select {
@@ -294,6 +311,7 @@ func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c clie
 		}); err != nil {
 			return err
 		}
+		log.Infof("Created model provider credential from environment configuration: provider=%s envVar=%s", modelProviderName, envVarName)
 	} else if cred.Env[credentialEnvVarName] != apiKey {
 		// If the credential exists, but has a different value, then update it.
 		if err = h.gptClient.CreateCredential(ctx, gptscript.Credential{
@@ -306,9 +324,11 @@ func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c clie
 		}); err != nil {
 			return fmt.Errorf("failed to update model provider credential: %w", err)
 		}
+		log.Infof("Updated model provider credential from environment configuration: provider=%s envVar=%s", modelProviderName, envVarName)
 
 		// Stop the model provider if it was started while we were updating the credential.
 		h.dispatcher.StopModelProvider(modelProviderRef.Namespace, modelProviderRef.Name)
+		log.Infof("Restart requested for model provider after credential update: provider=%s", modelProviderRef.Name)
 	}
 
 	var modelAliases v1.DefaultModelAliasList
@@ -316,6 +336,7 @@ func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c clie
 		return fmt.Errorf("failed to list model aliases: %w", err)
 	}
 
+	updatedAliases := 0
 	for _, alias := range modelAliases.Items {
 		if alias.Spec.Manifest.Model != "" {
 			continue
@@ -325,7 +346,9 @@ func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c clie
 		if err := c.Update(ctx, &alias); err != nil {
 			return fmt.Errorf("failed to update model alias %q for model provider %q: %w", alias.Name, modelProviderName, err)
 		}
+		updatedAliases++
 	}
+	log.Infof("Populated default model aliases for provider: provider=%s aliases=%d", modelProviderName, updatedAliases)
 
 	// Lastly, ensure that the models are populated from the model provider
 	if err := c.Get(ctx, client.ObjectKey{Namespace: modelProviderRef.Namespace, Name: modelProviderRef.Name}, &modelProviderRef); err != nil {
@@ -340,6 +363,7 @@ func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c clie
 		}
 		modelProviderRef.Annotations[v1.ModelProviderSyncAnnotation] = "true"
 	}
+	log.Infof("Toggled model provider sync annotation to refresh models: provider=%s", modelProviderRef.Name)
 
 	return c.Update(ctx, &modelProviderRef)
 }
@@ -435,6 +459,7 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 	if err = apply.New(req.Client).Apply(req.Ctx, toolRef, models...); err != nil {
 		return fmt.Errorf("failed to create models for model provider %q: %w", toolRef.Name, err)
 	}
+	log.Infof("Back-populated models for model provider: provider=%s models=%d", toolRef.Name, len(models))
 
 	return nil
 }
@@ -451,11 +476,15 @@ func removeModelsForProvider(ctx context.Context, c client.Client, namespace, na
 	}
 
 	var errs []error
+	deleted := 0
 	for _, model := range models.Items {
 		if err := client.IgnoreNotFound(c.Delete(ctx, &model)); err != nil {
 			errs = append(errs, fmt.Errorf("failed to delete model %q for cleanup: %w", model.Name, err))
+		} else {
+			deleted++
 		}
 	}
+	log.Infof("Removed stale models for provider: provider=%s models=%d", name, deleted)
 
 	return errors.Join(errs...)
 }
@@ -475,6 +504,7 @@ func (h *Handler) CleanupModelProvider(req router.Request, _ router.Response) er
 		if err := h.gptClient.DeleteCredential(req.Ctx, string(toolRef.UID), toolRef.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return err
 		}
+		log.Infof("Removed model provider credential during cleanup: provider=%s", toolRef.Name)
 	}
 
 	return removeModelsForProvider(req.Ctx, req.Client, req.Namespace, req.Name)

@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/create"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -23,6 +24,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var log = logger.Package()
 
 type Handler struct {
 	gptScript         *gptscript.GPTScript
@@ -124,6 +127,7 @@ func (t *Handler) CreateSharedWorkspace(req router.Request, _ router.Response) e
 		}
 
 		thread.Status.SharedWorkspaceName = parentThread.Status.SharedWorkspaceName
+		log.Infof("Inheriting shared workspace from parent project thread: thread=%s parentThread=%s sharedWorkspace=%s", thread.Name, parentThread.Name, thread.Status.SharedWorkspaceName)
 		return req.Client.Status().Update(req.Ctx, thread)
 	}
 
@@ -148,6 +152,7 @@ func (t *Handler) CreateSharedWorkspace(req router.Request, _ router.Response) e
 	}
 
 	thread.Status.SharedWorkspaceName = ws.Name
+	log.Infof("Created shared workspace for project thread: thread=%s workspace=%s", thread.Name, ws.Name)
 	return req.Client.Status().Update(req.Ctx, thread)
 }
 
@@ -200,6 +205,7 @@ func (t *Handler) CreateWorkspaces(req router.Request, _ router.Response) error 
 		thread.Status.WorkspaceName = ws.Name
 	}
 	if update {
+		log.Infof("Updated thread workspace references: thread=%s workspace=%s workspaceID=%s", thread.Name, ws.Name, ws.Status.WorkspaceID)
 		return req.Client.Status().Update(req.Ctx, thread)
 	}
 	return nil
@@ -245,6 +251,7 @@ func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) erro
 		}
 
 		thread.Status.SharedKnowledgeSetName = shared.Name
+		log.Infof("Created shared knowledge set from source thread: thread=%s sourceThread=%s knowledgeSet=%s", thread.Name, sourceThread.Name, shared.Name)
 		if err := req.Client.Status().Update(req.Ctx, thread); err != nil {
 			_ = req.Client.Delete(req.Ctx, shared)
 			return err
@@ -274,6 +281,7 @@ func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) erro
 		}
 
 		thread.Status.SharedKnowledgeSetName = shared.Name
+		log.Infof("Created shared knowledge set for thread: thread=%s knowledgeSet=%s", thread.Name, shared.Name)
 		if err := req.Client.Status().Update(req.Ctx, thread); err != nil {
 			_ = req.Client.Delete(req.Ctx, shared)
 			return err
@@ -282,6 +290,7 @@ func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) erro
 
 	relatedKnowledgeSets = append([]string{thread.Status.SharedKnowledgeSetName}, relatedKnowledgeSets...)
 	thread.Status.KnowledgeSetNames = relatedKnowledgeSets
+	log.Infof("Updated thread knowledge set chain: thread=%s knowledgeSets=%d", thread.Name, len(relatedKnowledgeSets))
 	return req.Client.Status().Update(req.Ctx, thread)
 }
 
@@ -310,6 +319,7 @@ func (t *Handler) SetCreated(req router.Request, _ router.Response) error {
 	if thread.Spec.AgentName == "" {
 		// Non-agent thread is ready at this point
 		thread.Status.Created = true
+		log.Infof("Marked thread as created: thread=%s projectBased=%v", thread.Name, thread.IsProjectBased())
 		return req.Client.Status().Update(req.Ctx, thread)
 	}
 
@@ -322,6 +332,7 @@ func (t *Handler) SetCreated(req router.Request, _ router.Response) error {
 	}
 
 	thread.Status.Created = true
+	log.Infof("Marked agent thread as created: thread=%s agent=%s", thread.Name, thread.Spec.AgentName)
 	return req.Client.Update(req.Ctx, thread)
 }
 
@@ -354,6 +365,7 @@ func (t *Handler) EnsureTemplateThreadShare(req router.Request, _ router.Respons
 			PublicID:          publicID,
 		},
 	}
+	log.Infof("Creating public thread share for template thread: thread=%s share=%s", thread.Name, share.Name)
 	return req.Client.Create(req.Ctx, &share)
 }
 
@@ -364,6 +376,7 @@ func (t *Handler) CleanupEphemeralThreads(req router.Request, _ router.Response)
 		return nil
 	}
 
+	log.Infof("Deleting expired ephemeral thread: thread=%s createdAt=%s", thread.Name, thread.CreationTimestamp.Time.Format(time.RFC3339))
 	return kclient.IgnoreNotFound(req.Delete(thread))
 }
 
@@ -388,6 +401,7 @@ func (t *Handler) GenerateName(req router.Request, _ router.Response) error {
 	}
 
 	thread.Spec.Manifest.Name = strings.TrimSpace(result)
+	log.Infof("Generated thread name from first run output: thread=%s name=%q", thread.Name, thread.Spec.Manifest.Name)
 	return req.Client.Update(req.Ctx, thread)
 }
 
@@ -399,12 +413,14 @@ func (t *Handler) EnsureShared(req router.Request, _ router.Response) error {
 
 	var sourceThread v1.Thread
 	if err := req.Get(&sourceThread, wf.Namespace, wf.Spec.SourceThreadName); apierrors.IsNotFound(err) {
+		log.Infof("Deleting managed workflow because source thread no longer exists: workflow=%s sourceThread=%s", wf.Name, wf.Spec.SourceThreadName)
 		return req.Delete(wf)
 	} else if err != nil {
 		return fmt.Errorf("failed to get source thread %s: %w", wf.Spec.SourceThreadName, err)
 	}
 
 	if !slices.Contains(sourceThread.Spec.Manifest.SharedTasks, wf.Spec.SourceWorkflowName) {
+		log.Infof("Deleting managed workflow because source task is no longer shared: workflow=%s sourceWorkflow=%s sourceThread=%s", wf.Name, wf.Spec.SourceWorkflowName, sourceThread.Name)
 		return req.Delete(wf)
 	}
 
@@ -441,6 +457,8 @@ func (t *Handler) CopyTasksFromSource(req router.Request, _ router.Response) err
 	}); err != nil {
 		return err
 	}
+	createdTasks := 0
+	updatedTasks := 0
 	for _, sourceTask := range sourceTasksList.Items {
 		copiedTaskName := name.SafeHashConcatName(sourceTask.Name, thread.Name)
 
@@ -463,6 +481,7 @@ func (t *Handler) CopyTasksFromSource(req router.Request, _ router.Response) err
 			if err := req.Client.Update(req.Ctx, &copiedTask); err != nil {
 				return err
 			}
+			updatedTasks++
 
 			continue
 		}
@@ -487,14 +506,18 @@ func (t *Handler) CopyTasksFromSource(req router.Request, _ router.Response) err
 		if err := req.Client.Create(req.Ctx, &copiedTask); err != nil {
 			return err
 		}
+		createdTasks++
 	}
 
 	// Delete any remaining existing tasks that we didn't find in the source tasks
+	deletedTasks := 0
 	for _, existingTask := range existingTasks {
 		if err := req.Client.Delete(req.Ctx, &existingTask); err != nil {
 			return err
 		}
+		deletedTasks++
 	}
+	log.Infof("Synchronized copied workflow tasks for thread: thread=%s sourceThread=%s created=%d updated=%d deleted=%d", thread.Name, thread.Spec.SourceThreadName, createdTasks, updatedTasks, deletedTasks)
 
 	thread.Status.CopiedTasks = true
 	return req.Client.Status().Update(req.Ctx, thread)
@@ -532,12 +555,14 @@ func (t *Handler) CopyToolsFromSource(req router.Request, _ router.Response) err
 			return err
 		}
 	}
+	log.Infof("Copied tool references from source thread: thread=%s sourceThread=%s tools=%d", thread.Name, thread.Spec.SourceThreadName, len(toolList.Items))
 
 	if err := t.copyMCPServersFromSource(req, thread); err != nil {
 		return err
 	}
 
 	thread.Status.CopiedTools = true
+	log.Infof("Completed copying tools and MCP mappings from source thread: thread=%s", thread.Name)
 	return req.Client.Status().Update(req.Ctx, thread)
 }
 
@@ -550,6 +575,7 @@ func (t *Handler) RemoveOldFinalizers(req router.Request, _ router.Response) err
 	})
 
 	if finalizerCount != len(thread.Finalizers) {
+		log.Infof("Removing deprecated thread finalizers: thread=%s removed=%d", thread.Name, finalizerCount-len(thread.Finalizers))
 		return req.Client.Update(req.Ctx, thread)
 	}
 	return nil
@@ -589,6 +615,8 @@ func (t *Handler) copyMCPServersFromSource(req router.Request, thread *v1.Thread
 	}
 
 	// Handle ProjectMCPServer creation/updates in a single operation
+	createdPMS := 0
+	updatedPMS := 0
 	for pmsName, desiredPMS := range desiredProjectMCPServers {
 		var existingPMS v1.ProjectMCPServer
 		if err := req.Get(&existingPMS, thread.Namespace, pmsName); err != nil {
@@ -600,12 +628,14 @@ func (t *Handler) copyMCPServersFromSource(req router.Request, thread *v1.Thread
 			if err := req.Client.Create(req.Ctx, &desiredPMS); err != nil {
 				return err
 			}
+			createdPMS++
 		} else {
 			// ProjectMCPServer exists, update it
 			existingPMS.Spec = desiredPMS.Spec
 			if err := req.Client.Update(req.Ctx, &existingPMS); err != nil {
 				return err
 			}
+			updatedPMS++
 		}
 	}
 
@@ -616,13 +646,16 @@ func (t *Handler) copyMCPServersFromSource(req router.Request, thread *v1.Thread
 	}); err != nil {
 		return err
 	}
+	deletedPMS := 0
 	for _, pms := range existingPMSList.Items {
 		if _, keep := desiredProjectMCPServers[pms.Name]; !keep {
 			if err := kclient.IgnoreNotFound(req.Client.Delete(req.Ctx, &pms)); err != nil {
 				return err
 			}
+			deletedPMS++
 		}
 	}
+	log.Infof("Synchronized ProjectMCPServer mappings for thread: thread=%s desired=%d created=%d updated=%d deleted=%d", thread.Name, len(desiredProjectMCPServers), createdPMS, updatedPMS, deletedPMS)
 
 	return nil
 }
@@ -668,6 +701,7 @@ func (*Handler) copyMCPServerInstance(req router.Request, sourcePMS *v1.ProjectM
 		if err := req.Client.Create(req.Ctx, &copiedMCPInstance); err != nil {
 			return nil, err
 		}
+		log.Infof("Created copied MCPServerInstance for project thread: thread=%s sourceInstance=%s copiedInstance=%s", thread.Name, sourceMCPID, copiedMCPInstance.Name)
 	} else {
 		// We found an existing copied MCP server instance, update it
 		copiedMCPInstance.Spec.MCPServerName = sourceMCPServerInstance.Spec.MCPServerName
@@ -680,6 +714,7 @@ func (*Handler) copyMCPServerInstance(req router.Request, sourcePMS *v1.ProjectM
 		if err := req.Client.Update(req.Ctx, &copiedMCPInstance); err != nil {
 			return nil, err
 		}
+		log.Infof("Updated copied MCPServerInstance for project thread: thread=%s sourceInstance=%s copiedInstance=%s", thread.Name, sourceMCPID, copiedMCPInstance.Name)
 	}
 
 	// Return the desired ProjectMCPServer
@@ -743,6 +778,7 @@ func (*Handler) copyMCPServer(req router.Request, sourcePMS *v1.ProjectMCPServer
 		if err := req.Client.Create(req.Ctx, &copiedMCPServer); err != nil {
 			return nil, err
 		}
+		log.Infof("Created copied MCPServer for project thread: thread=%s sourceServer=%s copiedServer=%s", thread.Name, sourceMCPID, copiedMCPServer.Name)
 	} else {
 		// We found an existing copied MCP server, update it
 		copiedMCPServer.Spec.Manifest = sourceMCPServer.Spec.Manifest
@@ -757,6 +793,7 @@ func (*Handler) copyMCPServer(req router.Request, sourcePMS *v1.ProjectMCPServer
 		if err := req.Client.Update(req.Ctx, &copiedMCPServer); err != nil {
 			return nil, err
 		}
+		log.Infof("Updated copied MCPServer for project thread: thread=%s sourceServer=%s copiedServer=%s", thread.Name, sourceMCPID, copiedMCPServer.Name)
 	}
 
 	// Return the desired ProjectMCPServer

@@ -2,9 +2,12 @@ package mcpserverinstance
 
 import (
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/logger"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
+
+var log = logger.Package()
 
 type Handler struct {
 	gatewayClient *gateway.Client
@@ -17,6 +20,7 @@ func New(gatewayClient *gateway.Client) *Handler {
 }
 
 func (h *Handler) RemoveOAuthToken(req router.Request, _ router.Response) error {
+	log.Infof("Removing MCP OAuth tokens for instance: instance=%s", req.Object.GetName())
 	return h.gatewayClient.DeleteMCPOAuthTokenForAllUsers(req.Ctx, req.Object.GetName())
 }
 
@@ -31,6 +35,7 @@ func (h *Handler) MigrationDeleteSingleUserInstances(req router.Request, _ route
 	if server.Spec.MCPCatalogID == "" && server.Spec.PowerUserWorkspaceID == "" {
 		// This server is unshared (neither catalog-shared nor workspace-scoped), so it should not have any server instances.
 		// Delete this instance.
+		log.Infof("Deleting invalid single-user MCPServerInstance for unshared server: instance=%s server=%s", instance.Name, server.Name)
 		return req.Delete(instance)
 	}
 
