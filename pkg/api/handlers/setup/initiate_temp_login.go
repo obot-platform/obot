@@ -46,7 +46,7 @@ func (h *Handler) InitiateTempLogin(req api.Context) error {
 
 	// Check if a temporary user is already cached
 	if cached := req.GatewayClient.GetTempUserCache(req.Context()); cached != nil {
-		log.Infof("Rejecting temporary setup login initiation because another user is already cached: cachedEmail=%s", cached.Email)
+		log.Infof("Rejecting temporary setup login initiation because another user is already cached: cachedUserID=%d", cached.UserID)
 		return types.NewErrHTTP(http.StatusConflict,
 			fmt.Sprintf("temporary user already cached: %s", cached.Email))
 	}

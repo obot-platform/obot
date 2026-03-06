@@ -166,7 +166,7 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 	if newState.IsBlocked() {
 		we.Status.State = newState
 		we.Status.Error = output
-		log.Infof("Workflow execution entered blocked state: workflowExecution=%s state=%s reason=%s", we.Name, newState, output)
+		log.Infof("Workflow execution entered blocked state: workflowExecution=%s state=%s", we.Name, newState)
 		return apply.New(req.Client).Apply(req.Ctx, req.Object, steps...)
 	}
 

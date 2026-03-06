@@ -56,7 +56,7 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 	// Verify that the email matches the cached user's email
 	// This prevents a race condition where the cached user might change
 	if cached.Email != body.Email {
-		log.Infof("Rejecting owner confirmation due to cached email mismatch: cachedEmail=%s requestEmail=%s", cached.Email, body.Email)
+		log.Infof("Rejecting owner confirmation due to cached email mismatch: cachedUserID=%d", cached.UserID)
 		return types.NewErrHTTP(http.StatusConflict,
 			fmt.Sprintf("email mismatch: expected %s but got %s in request", cached.Email, body.Email))
 	}
@@ -76,7 +76,7 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 	if !user.Role.HasRole(types.RoleOwner) {
 		// Don't promote hardcoded Admins - that would override explicit configuration
 		if explicitRole.HasRole(types.RoleAdmin) {
-			log.Infof("Rejecting owner promotion for explicitly configured admin: email=%s", user.Email)
+			log.Infof("Rejecting owner promotion for explicitly configured admin: userID=%d", user.ID)
 			return types.NewErrHTTP(http.StatusBadRequest,
 				fmt.Sprintf("cannot promote user %s to Owner: user is configured as Admin via environment variables", user.Email))
 		}
@@ -88,14 +88,14 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 		if _, err := req.GatewayClient.UpdateUser(req.Context(), true, user, fmt.Sprintf("%d", user.ID)); err != nil {
 			return fmt.Errorf("failed to update user role: %w", err)
 		}
-		log.Infof("Promoted temporary setup user to owner: userID=%d email=%s", user.ID, user.Email)
+		log.Infof("Promoted temporary setup user to owner: userID=%d", user.ID)
 	}
 
 	// Clear the temporary cache
 	if err := req.GatewayClient.ClearTempUserCache(req.Context()); err != nil {
 		return fmt.Errorf("failed to clear temp user cache: %w", err)
 	}
-	log.Infof("Cleared temporary setup user cache after owner confirmation: userID=%d email=%s", user.ID, user.Email)
+	log.Infof("Cleared temporary setup user cache after owner confirmation: userID=%d", user.ID)
 
 	// Create the UserRoleChange
 	if err := req.Create(&v1.UserRoleChange{

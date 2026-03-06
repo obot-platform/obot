@@ -80,7 +80,7 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to create API key: %v", err))
 	}
-	pkgLog.Infof("Created API key for user: userID=%d keyName=%s serverScopes=%d", userID, req.Name, len(req.MCPServerIDs))
+	pkgLog.Infof("Created API key for user: userID=%d serverScopes=%d", userID, len(req.MCPServerIDs))
 
 	return apiContext.WriteCreated(response)
 }

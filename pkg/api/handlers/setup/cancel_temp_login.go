@@ -55,7 +55,7 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 			if _, err := req.GatewayClient.UpdateUser(req.Context(), true, user, fmt.Sprintf("%d", user.ID)); err != nil {
 				return fmt.Errorf("failed to demote user: %w", err)
 			}
-			log.Infof("Demoted temporary setup user to basic role during cancel flow: userID=%d email=%s", user.ID, user.Email)
+			log.Infof("Demoted temporary setup user to basic role during cancel flow: userID=%d", user.ID)
 		}
 	}
 
@@ -63,7 +63,7 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 	if err := req.GatewayClient.ClearTempUserCache(req.Context()); err != nil {
 		return fmt.Errorf("failed to clear temp user cache: %w", err)
 	}
-	log.Infof("Cancelled temporary setup login and cleared cache: userID=%d email=%s", user.ID, user.Email)
+	log.Infof("Cancelled temporary setup login and cleared cache: userID=%d", user.ID)
 
 	return req.Write(CancelTempLoginResponse{
 		Success: true,

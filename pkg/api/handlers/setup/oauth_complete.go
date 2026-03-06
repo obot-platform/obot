@@ -20,7 +20,7 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 	// If the user that just logged in is an Owner, then we can redirect them now.
 	// The setup routes will be disabled, so we can just send the owner through without caching them or anything.
 	if req.UserIsOwner() {
-		log.Infof("Bypassing setup OAuth completion because authenticated user is already owner: user=%s", req.User.GetName())
+		log.Infof("Bypassing setup OAuth completion because authenticated user is already owner")
 		// Delete the bootstrap cookie so that there won't be two types of auth happening at once.
 		http.SetCookie(req.ResponseWriter, &http.Cookie{
 			Name:     bootstrap.ObotBootstrapCookie,

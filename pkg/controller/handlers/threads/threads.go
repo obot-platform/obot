@@ -401,7 +401,7 @@ func (t *Handler) GenerateName(req router.Request, _ router.Response) error {
 	}
 
 	thread.Spec.Manifest.Name = strings.TrimSpace(result)
-	log.Infof("Generated thread name from first run output: thread=%s name=%q", thread.Name, thread.Spec.Manifest.Name)
+	log.Infof("Generated thread name from first run output: thread=%s", thread.Name)
 	return req.Client.Update(req.Ctx, thread)
 }
 

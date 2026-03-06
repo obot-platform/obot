@@ -328,7 +328,7 @@ forLoop:
 	} else {
 		source.Status.SyncState = types.KnowledgeSourceStateError
 		source.Status.Error = taskErr.Error()
-		log.Infof("Knowledge source sync failed: source=%s run=%s error=%v", source.Name, source.Status.RunName, taskErr)
+		log.Infof("Knowledge source sync failed: source=%s run=%s", source.Name, source.Status.RunName)
 	}
 	return safeStatusSave(req.Ctx, req.Client, source)
 }

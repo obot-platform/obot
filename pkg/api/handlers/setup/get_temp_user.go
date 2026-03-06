@@ -36,7 +36,7 @@ func (h *Handler) GetTempUser(req api.Context) error {
 		log.Infof("No temporary setup user is currently cached")
 		return types.NewErrHTTP(http.StatusNotFound, "no temporary user cached")
 	}
-	log.Infof("Retrieved temporary setup user details: userID=%d email=%s", cached.UserID, cached.Email)
+	log.Infof("Retrieved temporary setup user details: userID=%d", cached.UserID)
 
 	return req.Write(TempUserInfoResponse{
 		UserID:                cached.UserID,

@@ -59,11 +59,9 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog := req.Object.(*v1.MCPCatalog)
 
 	forceSync := mcpCatalog.Annotations[v1.MCPCatalogSyncAnnotation] == "true" || mcpCatalog.Annotations[forceSyncStartupAnnotation] != startupSyncGeneration
-	log.Infof("Reconciling MCP catalog sync: catalog=%s forceSync=%v sources=%d", mcpCatalog.Name, forceSync, len(mcpCatalog.Spec.SourceURLs))
 	if !forceSync && !mcpCatalog.Status.LastSyncTime.IsZero() {
 		timeSinceLastSync := time.Since(mcpCatalog.Status.LastSyncTime.Time)
 		if timeSinceLastSync < time.Hour {
-			log.Infof("Skipping MCP catalog sync because refresh interval has not elapsed: catalog=%s nextSyncIn=%s", mcpCatalog.Name, time.Hour-timeSinceLastSync)
 			resp.RetryAfter(time.Hour - timeSinceLastSync)
 			return nil
 		}

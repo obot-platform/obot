@@ -30,7 +30,7 @@ type UserInfoResponse struct {
 func (h *handler) userInfo(req api.Context) error {
 	scope := gtypes.FirstSet(req.User.GetExtra()["oauthScope"]...)
 	if !slices.Contains(strings.Fields(scope), "profile") {
-		log.Infof("Denied OAuth userinfo request due to insufficient scope: userID=%s scope=%s", req.User.GetUID(), scope)
+		log.Infof("Denied OAuth userinfo request due to insufficient scope: userID=%s", req.User.GetUID())
 		return h.writeUserInfoError(req, http.StatusUnauthorized,
 			"invalid_scope", "Insufficient scope")
 	}
