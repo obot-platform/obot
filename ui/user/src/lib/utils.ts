@@ -1,5 +1,45 @@
-import { Role, type OrgUser } from './services';
+import { Role, type OrgUser, Group } from './services';
 import { goto } from './url';
+
+/**
+ * Check if the user is a Basic user (not PowerUser or higher).
+ *
+ * @param groups - Array of user group identifiers
+ * @returns True if the user is a Basic user (not PowerUser, PowerUserPlus, Admin, or Owner)
+ */
+export function isBasicUser(groups: string[]): boolean {
+	const privilegedGroups = Object.values(Group).filter((g) => g !== Group.USER);
+
+	return !groups.some((group) => privilegedGroups.includes(group));
+}
+
+/**
+ * Check if a server is a single-user server owned by a specific user.
+ * A single-user server is one that:
+ * - Is not a catalog entry (no 'isCatalogEntry' property)
+ * - Has a userID matching the specified user
+ * - Is not part of a PowerUserWorkspace
+ *
+ * NOTE: Single-user servers MAY have mcpCatalogID set when a Basic user adds a catalog
+ * entry to their project. These are still "own servers" because each user gets their own
+ * instance with their own credentials.
+ *
+ * @param server - The server object to check
+ * @param userId - The user ID to check ownership against
+ * @returns True if the server is a single-user server owned by the specified user
+ */
+export function isOwnSingleUserServer(
+	server: {
+		isCatalogEntry?: boolean;
+		userID?: string;
+		powerUserWorkspaceID?: string;
+		mcpCatalogID?: string;
+	},
+	userId?: string
+): boolean {
+	if (!userId) return false;
+	return !server.isCatalogEntry && server.userID === userId && !server.powerUserWorkspaceID;
+}
 
 // Simple delay function
 export function delay(ms: number): Promise<void> {

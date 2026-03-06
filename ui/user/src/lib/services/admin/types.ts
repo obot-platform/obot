@@ -373,6 +373,7 @@ export interface AuditLog {
 	mcpServerDisplayName: string;
 	mcpServerCatalogEntryName?: string;
 	mcpID?: string;
+	powerUserWorkspaceID?: string;
 	client: AuditLogClient;
 	clientIP: string;
 	callType: string;

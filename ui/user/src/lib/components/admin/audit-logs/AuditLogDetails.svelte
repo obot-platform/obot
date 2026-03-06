@@ -18,7 +18,11 @@
 	let container = $state<HTMLDivElement>();
 	let hasAuditorAccess = $derived(profile.current.groups.includes(Group.AUDITOR));
 
-	const shouldShowPayload = $derived(profile?.current?.hasAdminAccess?.() ?? false);
+	// Allow payload access for admins OR for users viewing their own single-user server logs
+	const shouldShowPayload = $derived(
+		profile?.current?.hasAdminAccess?.() ||
+			(auditLog.userID === profile.current.id && !auditLog.powerUserWorkspaceID)
+	);
 </script>
 
 {#if !responsive.isMobile && container}

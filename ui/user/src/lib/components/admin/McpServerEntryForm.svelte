@@ -38,7 +38,7 @@
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import { page } from '$app/state';
-	import { openUrl } from '$lib/utils';
+	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
 	import CatalogConfigureForm, {
 		type LaunchFormData,
 		type CompositeLaunchFormData,
@@ -65,6 +65,7 @@
 		hasExistingConfigured?: boolean;
 		isDialogView?: boolean;
 		limitViews?: string[];
+		configuredServers?: MCPCatalogServer[];
 	}
 
 	let {
@@ -78,13 +79,24 @@
 		onSubmit,
 		hasExistingConfigured,
 		isDialogView,
-		limitViews
+		limitViews,
+		configuredServers
 	}: Props = $props();
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
-	let belongsToUser = $derived(
+
+	// True owner: admin, workspace owner, or power user who created the server
+	let trueOwner = $derived(
 		(entity === 'workspace' && entry?.powerUserWorkspaceID && entry.powerUserWorkspaceID === id) ||
-			profile.current?.hasAdminAccess?.()
+			profile.current?.hasAdminAccess?.() ||
+			// Basic users own their single-user servers
+			(entry && isOwnSingleUserServer(entry, profile.current?.id))
 	);
+
+	// Basic user who just connected to a catalog entry
+	let basicUserConnected = $derived(!trueOwner && entry && !server && hasExistingConfigured);
+
+	// Combined: has any access
+	let belongsToUser = $derived(trueOwner || basicUserConnected);
 
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
 	let listFilters = $state<Promise<MCPFilter[]>>();
@@ -144,27 +156,24 @@
 			entry && !server
 				? [
 						{ label: 'Overview', view: 'overview' },
-						...(belongsToUser && profile.current?.groups.includes(Group.POWERUSER_PLUS)
-							? [{ label: 'Server Details', view: 'server-instances' }]
-							: []),
+						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
 						{ label: 'Tools', view: 'tools' },
+						// Basic users who just connected don't see Configuration
+						...(trueOwner ? [{ label: 'Configuration', view: 'configuration' }] : []),
 						...(belongsToUser
 							? [
-									{ label: 'Configuration', view: 'configuration' },
 									{ label: 'Audit Logs', view: 'audit-logs' },
 									{ label: 'Usage', view: 'usage' }
 								]
 							: []),
-						...(isAtLeastPowerUserPlus && belongsToUser
+						...(isAtLeastPowerUserPlus && trueOwner
 							? [{ label: 'Registries', view: 'access-control' }]
 							: []),
 						...(profile.current?.hasAdminAccess?.() ? [{ label: 'Filters', view: 'filters' }] : [])
 					]
 				: [
 						{ label: 'Overview', view: 'overview' },
-						...(belongsToUser && profile.current?.groups.includes(Group.POWERUSER_PLUS)
-							? [{ label: 'Server Details', view: 'server-instances' }]
-							: []),
+						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
 						{ label: 'Tools', view: 'tools' },
 						...(belongsToUser ? [{ label: 'Audit Logs', view: 'audit-logs' }] : [])
 					];
@@ -567,7 +576,7 @@
 
 	<div class="flex grow flex-col gap-2">
 		<OverflowContainer
-			class="scrollbar-none flex min-h-fit w-full items-center gap-2 overflow-x-auto"
+			class="scrollbar-none flex min-h-12 w-full items-center gap-2 overflow-x-auto"
 			style="scroll-behavior: smooth;"
 			{@attach (node: HTMLDivElement) => (scrollContainer = node)}
 		>
@@ -699,6 +708,7 @@
 				entry={entry && 'isCatalogEntry' in entry && server ? server : entry}
 				{users}
 				{type}
+				{configuredServers}
 			/>
 		{:else if selected === 'filters'}
 			{@render filtersView()}
@@ -843,36 +853,34 @@
 
 		<div class="mt-4 flex flex-1 flex-col gap-8 pb-8">
 			<!-- temporary filter mcp server by name and catalog entry id-->
-			{#if id}
-				<AuditLogsPageContent
-					mcpId={isMultiUserServer ? entryId : server ? server.id : null}
-					mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer ? entryId : null}
-					{mcpServerDisplayName}
-					{id}
-					{entity}
-				>
-					{#snippet emptyContent()}
-						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-							<Users class="text-on-surface1 size-24 opacity-50" />
-							<h4 class="text-on-surface1 text-lg font-semibold">No recent audit logs</h4>
+			<AuditLogsPageContent
+				mcpId={isMultiUserServer ? entryId : server ? server.id : null}
+				mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer ? entryId : null}
+				{mcpServerDisplayName}
+				{id}
+				{entity}
+			>
+				{#snippet emptyContent()}
+					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+						<Users class="text-on-surface1 size-24 opacity-50" />
+						<h4 class="text-on-surface1 text-lg font-semibold">No recent audit logs</h4>
+						<p class="text-on-surface1 text-sm font-light">
+							This server has not had any active usage in the last 7 days.
+						</p>
+						{#if entryId || mcpCatalogEntryId}
+							{@const param = entryId ? 'mcpId=' + entryId : 'entryId=' + mcpCatalogEntryId}
 							<p class="text-on-surface1 text-sm font-light">
-								This server has not had any active usage in the last 7 days.
+								See more usage details in the server's <a
+									href={resolve(`/admin/audit-logs?${param}`)}
+									class="text-link"
+								>
+									Audit Logs
+								</a>.
 							</p>
-							{#if entryId || mcpCatalogEntryId}
-								{@const param = entryId ? 'mcpId=' + entryId : 'entryId=' + mcpCatalogEntryId}
-								<p class="text-on-surface1 text-sm font-light">
-									See more usage details in the server's <a
-										href={resolve(`/admin/audit-logs?${param}`)}
-										class="text-link"
-									>
-										Audit Logs
-									</a>.
-								</p>
-							{/if}
-						</div>
-					{/snippet}
-				</AuditLogsPageContent>
-			{/if}
+						{/if}
+					</div>
+				{/snippet}
+			</AuditLogsPageContent>
 		</div>
 	{/if}
 {/snippet}
