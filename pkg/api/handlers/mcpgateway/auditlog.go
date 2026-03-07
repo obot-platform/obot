@@ -91,18 +91,36 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 	}
 
 	// Get the MCP server ID from the token
+	tokenHash := hash.Digest(token)
 	var mcpServers v1.MCPServerList
 	if err := req.List(&mcpServers, &kclient.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("auditLogTokenHash", hash.Digest(token)),
+		FieldSelector: fields.OneTermEqualSelector("auditLogTokenHash", tokenHash),
 	}); err != nil {
 		return err
 	}
-	if len(mcpServers.Items) != 1 {
-		return types.NewErrHTTP(http.StatusUnauthorized, "invalid token")
-	}
 
-	mcpServer := mcpServers.Items[0]
-	mcpServerName := mcpServer.Name
+	var (
+		mcpServerName  string
+		nanobotAgentID string
+		userID         string
+	)
+	if len(mcpServers.Items) == 1 {
+		mcpServerName = mcpServers.Items[0].Name
+		nanobotAgentID = mcpServers.Items[0].Spec.NanobotAgentID
+		userID = mcpServers.Items[0].Spec.UserID
+	} else {
+		// Also check SystemMCPServer resources (e.g. obot-mcp-server)
+		var systemServers v1.SystemMCPServerList
+		if err := req.List(&systemServers, &kclient.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector("auditLogTokenHash", tokenHash),
+		}); err != nil {
+			return err
+		}
+		if len(systemServers.Items) != 1 {
+			return types.NewErrHTTP(http.StatusUnauthorized, "invalid token")
+		}
+		mcpServerName = systemServers.Items[0].Name
+	}
 
 	var auditLogs []auditLogInput
 	if err := req.Read(&auditLogs); err != nil {
@@ -121,8 +139,8 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 		}
 		// NanobotAgent containers are single-user; attribute audit logs to the owner
 		// when the container doesn't report a user (no auth middleware configured).
-		if auditLog.UserID == "" && mcpServer.Spec.NanobotAgentID != "" {
-			auditLog.UserID = mcpServer.Spec.UserID
+		if auditLog.UserID == "" && nanobotAgentID != "" {
+			auditLog.UserID = userID
 		}
 		if auditLog.MCPServerCatalogEntryName == "" {
 			auditLog.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
