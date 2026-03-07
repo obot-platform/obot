@@ -67,6 +67,7 @@
 		initSort?: InitSort;
 		noDataContent?: Snippet;
 		onlyMyServers?: boolean;
+		scope?: 'all' | 'nanobot';
 	}
 
 	const SERVER_UPGRADES_AVAILABLE = {
@@ -95,7 +96,8 @@
 		onSort,
 		initSort = { property: 'created', order: 'desc' },
 		noDataContent,
-		onlyMyServers
+		onlyMyServers,
+		scope = 'all'
 	}: Props = $props();
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
@@ -129,8 +131,25 @@
 
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
+	let nanobotServers = $state<MCPCatalogServer[]>([]);
+	const NANOBOT_MCP_SERVER_ID_PREFIX = 'ms1nba1';
+
+	function isNanobotServerId(serverID: string) {
+		return serverID.startsWith(NANOBOT_MCP_SERVER_ID_PREFIX);
+	}
+
+	function isNanobotServer(server: MCPCatalogServer) {
+		return (
+			isNanobotServerId(server.id) ||
+			server.manifest.containerizedConfig?.command === 'nanobot'
+		);
+	}
+
+	const isNanobotScope = $derived(scope === 'nanobot');
 	let serversData = $derived(
-		entity === 'workspace'
+		isNanobotScope
+			? nanobotServers.filter((server) => !server.deleted)
+			: entity === 'workspace'
 			? mcpServersAndEntries.current.userConfiguredServers.filter((server) => !server.deleted)
 			: [
 					...deployedCatalogEntryServers.filter((server) => !server.deleted),
@@ -218,10 +237,11 @@
 
 				return {
 					...deployment,
-					displayName: deployment.alias || deployment.manifest.name || '',
+					displayName:
+						deployment.alias || deployment.manifest.shortDescription || deployment.manifest.name || '',
 					userName: getUserDisplayName(usersMap, deployment.userID),
 					registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
-					type: getServerTypeLabel(deployment),
+					type: isNanobotScope ? 'Nanobot Agent' : getServerTypeLabel(deployment),
 					powerUserWorkspaceID,
 					compositeParentName,
 					disabled: compositeParent
@@ -253,6 +273,11 @@
 	const POLL_INTERVAL_MS = 10000; // 10 seconds
 
 	async function checkAndPoll() {
+		if (isNanobotScope) {
+			await reload(false);
+			return;
+		}
+
 		// Check if there are any servers with Progressing status
 		const hasProgressing = tableData.some((row) => row.deploymentStatus === 'Progressing');
 
@@ -280,7 +305,9 @@
 			loading = true;
 		}
 
-		if (entity === 'catalog' && profile.current.hasAdminAccess?.() && id) {
+		if (isNanobotScope) {
+			nanobotServers = (await ChatService.listMCPCatalogServers({ all: true })).filter(isNanobotServer);
+		} else if (entity === 'catalog' && profile.current.hasAdminAccess?.() && id) {
 			deployedCatalogEntryServers =
 				await AdminService.listAllCatalogDeployedSingleRemoteServers(id);
 			deployedWorkspaceCatalogEntryServers =
@@ -352,6 +379,7 @@
 		} catch (err) {
 			console.error('Failed to restart deployments:', err);
 		} finally {
+			await reload(false);
 			restarting = false;
 			selected = {};
 			tableRef?.clearSelectAll();
@@ -493,6 +521,12 @@
 	}
 
 	function getMcpCatalogUrl(d: MCPCatalogServer) {
+		if (isNanobotServerId(d.id)) {
+			return resolve('/admin/mcp-servers/s/[id]/details', {
+				id: d.id
+			});
+		}
+
 		// If this is a component of a composite server, link to the parent composite server
 		if (d.compositeName) {
 			const parent = compositeMapping[d.compositeName];
@@ -534,12 +568,12 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	{#if loading || mcpServersAndEntries.current.loading}
+	{#if loading || (!isNanobotScope && mcpServersAndEntries.current.loading)}
 		<div class="my-2 flex items-center justify-center">
 			<LoaderCircle class="size-6 animate-spin" />
 		</div>
 	{:else}
-		{#if entity === 'catalog' && profile.current.hasAdminAccess?.()}
+		{#if !isNanobotScope && entity === 'catalog' && profile.current.hasAdminAccess?.()}
 			<CapacityBanner bind:this={capacityBanner} />
 		{/if}
 		{#if tableData.length > 0}
@@ -590,7 +624,7 @@
 				{onSort}
 				{initSort}
 				sortable={['displayName', 'type', 'updatesAvailable', 'userName', 'registry', 'created']}
-				noDataMessage="No catalog servers added."
+				noDataMessage={isNanobotScope ? 'No nanobot agents are currently running.' : 'No catalog servers added.'}
 				classes={{
 					root: 'rounded-none rounded-b-md shadow-none',
 					thead: classes?.tableHeader
@@ -727,7 +761,7 @@
 									</span>
 								</a>
 
-								{#if d.needsUpdate && (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser}
+								{#if !isNanobotScope && d.needsUpdate && (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser}
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -776,7 +810,7 @@
 									</button>
 								{/if}
 
-								{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser && d.needsK8sUpdate}
+								{#if !isNanobotScope && (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser && d.needsK8sUpdate}
 									<button
 										class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -815,6 +849,7 @@
 											}
 
 											await delay(1000);
+											await reload(false);
 
 											toggle((restarting = false));
 										}}
@@ -845,7 +880,7 @@
 									{/if}
 								</button>
 
-								{#if !readonly}
+								{#if !readonly && !isNanobotScope}
 									<button
 										class="menu-button-destructive"
 										onclick={async (e) => {
@@ -908,70 +943,72 @@
 								</span>
 							{/if}
 						</button>
-						<button
-							class="button flex items-center gap-1 text-sm font-normal"
-							onclick={() => {
-								selected = currentSelected;
-								showUpgradeConfirm = {
-									type: 'multi',
-									onConfirm: () => {
-										reload();
-									}
-								};
-							}}
-							disabled={readonly || upgradeableCount === 0}
-						>
-							<CircleFadingArrowUp class="size-4" /> Upgrade
-							{#if upgradeableCount > 0 && !readonly}
-								<span class="pill-primary">
-									{upgradeableCount}
-								</span>
-							{/if}
-						</button>
-						<button
-							class="button flex items-center gap-1 text-sm font-normal"
-							onclick={() => {
-								selected = currentSelected;
-								const type = Object.keys(selected).length > 1 ? 'multi' : 'single';
+						{#if !isNanobotScope}
+							<button
+								class="button flex items-center gap-1 text-sm font-normal"
+								onclick={() => {
+									selected = currentSelected;
+									showUpgradeConfirm = {
+										type: 'multi',
+										onConfirm: () => {
+											reload();
+										}
+									};
+								}}
+								disabled={readonly || upgradeableCount === 0}
+							>
+								<CircleFadingArrowUp class="size-4" /> Upgrade
+								{#if upgradeableCount > 0 && !readonly}
+									<span class="pill-primary">
+										{upgradeableCount}
+									</span>
+								{/if}
+							</button>
+							<button
+								class="button flex items-center gap-1 text-sm font-normal"
+								onclick={() => {
+									selected = currentSelected;
+									const type = Object.keys(selected).length > 1 ? 'multi' : 'single';
 
-								if (type === 'multi') {
-									showK8sUpgradeConfirm = {
+									if (type === 'multi') {
+										showK8sUpgradeConfirm = {
+											type: 'multi'
+										};
+									} else {
+										const server = type === 'single' ? Object.values(selected)[0] : undefined;
+										showK8sUpgradeConfirm = {
+											type: 'single',
+											server: server!
+										};
+									}
+								}}
+								disabled={readonly || k8sUpgradeableCount === 0}
+							>
+								<CircleFadingArrowUp class="size-4" /> Kubernetes Upgrade
+								{#if k8sUpgradeableCount > 0 && !readonly}
+									<span class="pill-primary">
+										{k8sUpgradeableCount}
+									</span>
+								{/if}
+							</button>
+							<button
+								class="button flex items-center gap-1 text-sm font-normal"
+								onclick={() => {
+									selected = currentSelected;
+									showDeleteConfirm = {
 										type: 'multi'
 									};
-								} else {
-									const server = type === 'single' ? Object.values(selected)[0] : undefined;
-									showK8sUpgradeConfirm = {
-										type: 'single',
-										server: server!
-									};
-								}
-							}}
-							disabled={readonly || k8sUpgradeableCount === 0}
-						>
-							<CircleFadingArrowUp class="size-4" /> Kubernetes Upgrade
-							{#if k8sUpgradeableCount > 0 && !readonly}
-								<span class="pill-primary">
-									{k8sUpgradeableCount}
-								</span>
-							{/if}
-						</button>
-						<button
-							class="button flex items-center gap-1 text-sm font-normal"
-							onclick={() => {
-								selected = currentSelected;
-								showDeleteConfirm = {
-									type: 'multi'
-								};
-							}}
-							disabled={readonly || deletableCount === 0}
-						>
-							<Trash2 class="size-4" /> Delete
-							{#if deletableCount > 0 && !readonly}
-								<span class="pill-primary">
-									{deletableCount}
-								</span>
-							{/if}
-						</button>
+								}}
+								disabled={readonly || deletableCount === 0}
+							>
+								<Trash2 class="size-4" /> Delete
+								{#if deletableCount > 0 && !readonly}
+									<span class="pill-primary">
+										{deletableCount}
+									</span>
+								{/if}
+							</button>
+						{/if}
 					</div>
 				{/snippet}
 			</Table>

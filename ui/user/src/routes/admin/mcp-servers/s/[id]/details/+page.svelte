@@ -19,10 +19,13 @@
 	onMount(async () => {
 		if (!mcpServer) return;
 		loading = true;
-		instances = await AdminService.listMcpCatalogServerInstances(
-			DEFAULT_MCP_CATALOG_ID,
-			mcpServer.id
-		);
+		const isNanobotServer = mcpServer.id.startsWith('ms1nba1');
+		if (!isNanobotServer) {
+			instances = await AdminService.listMcpCatalogServerInstances(
+				DEFAULT_MCP_CATALOG_ID,
+				mcpServer.id
+			);
+		}
 		users = await AdminService.listUsersIncludeDeleted();
 		loading = false;
 	});

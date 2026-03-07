@@ -21,13 +21,15 @@ type Handler struct {
 	mcpDeploymentNamespace string
 	mcpNamespace           string
 	storageClient          kclient.Client
+	nanobotImage           string
 }
 
-func New(mcpNamespace string, storageClient kclient.Client) *Handler {
+func New(mcpNamespace string, storageClient kclient.Client, nanobotImage string) *Handler {
 	return &Handler{
 		mcpDeploymentNamespace: mcpNamespace,
 		mcpNamespace:           system.DefaultNamespace,
 		storageClient:          storageClient,
+		nanobotImage:           nanobotImage,
 	}
 }
 
@@ -85,6 +87,33 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 	if !slices.Equal(mcpServer.Status.DeploymentConditions, conditions) {
 		mcpServer.Status.DeploymentConditions = conditions
 		needsUpdate = true
+	}
+
+	if mcpServer.Spec.NanobotAgentID != "" {
+		desiredImage := ""
+		if mcpServer.Spec.Manifest.ContainerizedConfig != nil {
+			desiredImage = mcpServer.Spec.Manifest.ContainerizedConfig.Image
+		}
+		if desiredImage == "" {
+			desiredImage = h.nanobotImage
+		}
+
+		deployedImage := ""
+		for _, container := range deployment.Spec.Template.Spec.Containers {
+			if container.Name == "mcp" {
+				deployedImage = container.Image
+				break
+			}
+		}
+		if deployedImage == "" && len(deployment.Spec.Template.Spec.Containers) > 0 {
+			deployedImage = deployment.Spec.Template.Spec.Containers[0].Image
+		}
+
+		nanobotNeedsUpdate := desiredImage != "" && deployedImage != "" && desiredImage != deployedImage
+		if mcpServer.Status.NeedsUpdate != nanobotNeedsUpdate {
+			mcpServer.Status.NeedsUpdate = nanobotNeedsUpdate
+			needsUpdate = true
+		}
 	}
 
 	// Manage NeedsK8sUpdate flag for K8s-compatible runtimes
