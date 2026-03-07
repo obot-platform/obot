@@ -95,6 +95,34 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		if err := c.ensureObotMCPServer(ctx); err != nil {
 			return fmt.Errorf("failed to ensure obot MCP server: %w", err)
 		}
+		if err := c.ensureNanobotAgentMCPServers(ctx); err != nil {
+			return fmt.Errorf("failed to ensure nanobot agent MCP servers: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) ensureNanobotAgentMCPServers(ctx context.Context) error {
+	var servers v1.MCPServerList
+	if err := c.services.StorageClient.List(ctx, &servers, kclient.InNamespace(system.DefaultNamespace)); err != nil {
+		return err
+	}
+
+	for _, server := range servers.Items {
+		if server.Spec.NanobotAgentID == "" || server.Spec.Manifest.ContainerizedConfig == nil {
+			continue
+		}
+
+		if server.Spec.Manifest.ContainerizedConfig.Image == c.services.NanobotAgentImage {
+			continue
+		}
+
+		server.Spec.Manifest.ContainerizedConfig.Image = c.services.NanobotAgentImage
+		if err := c.services.StorageClient.Update(ctx, &server); err != nil {
+			return fmt.Errorf("failed to update nanobot MCP server %s image: %w", server.Name, err)
+		}
+		log.Infof("Updated nanobot MCP server image: server=%s image=%s", server.Name, c.services.NanobotAgentImage)
 	}
 
 	return nil
@@ -536,7 +564,7 @@ func (c *Controller) setupLocalK8sRoutes() {
 		return
 	}
 
-	deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend())
+	deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend(), c.services.NanobotAgentImage)
 	c.localK8sRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
 	c.localK8sRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)
 
