@@ -9,7 +9,7 @@
 	import { profile } from '$lib/stores/index.js';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { page } from '$app/state';
-	import { AdminService } from '$lib/services/index.js';
+	import { getAdminDirectMcpServer } from '$lib/services/admin/mcpServers';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -33,7 +33,7 @@
 			{promptInitialLaunch}
 			onOAuthConfigured={() => {
 				if (!mcpServer) return;
-				AdminService.getMCPCatalogServer(DEFAULT_MCP_CATALOG_ID, mcpServer.id).then((server) => {
+				getAdminDirectMcpServer(mcpServer.id).then((server) => {
 					mcpServer = server;
 				});
 			}}
@@ -44,7 +44,7 @@
 		<McpServerEntryForm
 			entry={mcpServer}
 			type="multi"
-			id={DEFAULT_MCP_CATALOG_ID}
+			id={mcpServer?.mcpCatalogID ?? DEFAULT_MCP_CATALOG_ID}
 			onCancel={() => {
 				goto('/admin/mcp-servers');
 			}}

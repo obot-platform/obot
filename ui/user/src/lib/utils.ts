@@ -41,6 +41,11 @@ export function isOwnSingleUserServer(
 	return !server.isCatalogEntry && server.userID === userId && !server.powerUserWorkspaceID;
 }
 
+export const NANOBOT_MCP_SERVER_ID_PREFIX = 'ms1nba1';
+
+export function isNanobotServerId(serverID: string): boolean {
+	return serverID.startsWith(NANOBOT_MCP_SERVER_ID_PREFIX);
+}
 // Simple delay function
 export function delay(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
