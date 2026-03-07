@@ -67,7 +67,8 @@ export const CommonAuthProviderIds = {
 	GOOGLE: 'google-auth-provider',
 	GITHUB: 'github-auth-provider',
 	OKTA: 'okta-auth-provider',
-	ENTRA: 'entra-auth-provider'
+	ENTRA: 'entra-auth-provider',
+	AUTH0: 'auth0-auth-provider'
 } as const;
 
 export const BOOTSTRAP_USER_ID = 'bootstrap';

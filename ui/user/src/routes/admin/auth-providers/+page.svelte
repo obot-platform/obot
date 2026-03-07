@@ -27,7 +27,8 @@
 			const preferredOrder: string[] = [
 				CommonAuthProviderIds.GOOGLE,
 				CommonAuthProviderIds.GITHUB,
-				CommonAuthProviderIds.OKTA
+				CommonAuthProviderIds.OKTA,
+				CommonAuthProviderIds.AUTH0
 			];
 			const aIndex = preferredOrder.indexOf(a.id);
 			const bIndex = preferredOrder.indexOf(b.id);
