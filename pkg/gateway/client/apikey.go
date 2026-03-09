@@ -17,6 +17,7 @@ const (
 	apiKeySecretLength       = 32 // 32 bytes = 256 bits of entropy
 	apiKeyPrefix             = "ok1"
 	apiKeyValidationCacheTTL = 15 * time.Second
+	apiKeyCacheCleanupPeriod = 5 * time.Minute
 )
 
 type apiKeyValidationCacheEntry struct {
@@ -95,20 +96,37 @@ func (c *Client) putValidatedAPIKeyInCache(key string, apiKey *types.APIKey, now
 	}
 
 	c.apiKeyCacheLock.Lock()
-	if c.apiKeyCacheLastPruned.IsZero() || now.Sub(c.apiKeyCacheLastPruned) >= c.apiKeyCacheTTL {
-		for fingerprint, entry := range c.apiKeyCache {
-			if now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now)) {
-				delete(c.apiKeyCache, fingerprint)
-			}
-		}
-		c.apiKeyCacheLastPruned = now
-	}
 	c.apiKeyCache[apiKeyCacheFingerprint(key)] = apiKeyValidationCacheEntry{
 		apiKey:    cloneAPIKey(*apiKey),
 		expiresAt: now.Add(c.apiKeyCacheTTL),
 		keyID:     apiKey.ID,
 	}
 	c.apiKeyCacheLock.Unlock()
+}
+
+func (c *Client) pruneExpiredValidatedAPIKeys(now time.Time) {
+	c.apiKeyCacheLock.Lock()
+	defer c.apiKeyCacheLock.Unlock()
+
+	for fingerprint, entry := range c.apiKeyCache {
+		if now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now)) {
+			delete(c.apiKeyCache, fingerprint)
+		}
+	}
+}
+
+func (c *Client) runAPIKeyCacheCleanup(ctx context.Context) {
+	ticker := time.NewTicker(apiKeyCacheCleanupPeriod)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-ticker.C:
+			c.pruneExpiredValidatedAPIKeys(now)
+		}
+	}
 }
 
 func (c *Client) invalidateValidatedAPIKeysByID(keyID uint) {

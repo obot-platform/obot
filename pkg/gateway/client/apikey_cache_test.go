@@ -67,7 +67,7 @@ func TestInvalidateValidatedAPIKeysByID(t *testing.T) {
 	}
 }
 
-func TestPutValidatedAPIKeyInCachePrunesExpiredEntries(t *testing.T) {
+func TestPruneExpiredValidatedAPIKeys(t *testing.T) {
 	t.Parallel()
 
 	c := &Client{
@@ -86,9 +86,10 @@ func TestPutValidatedAPIKeyInCachePrunesExpiredEntries(t *testing.T) {
 	}
 
 	c.putValidatedAPIKeyInCache(activeKey, &types.APIKey{ID: 2, UserID: 7}, now)
+	c.pruneExpiredValidatedAPIKeys(now)
 
 	if _, ok := c.apiKeyCache[apiKeyCacheFingerprint(expiredKey)]; ok {
-		t.Fatal("expected expired cache entry to be pruned on put")
+		t.Fatal("expected expired cache entry to be pruned during cleanup")
 	}
 	if _, ok := c.apiKeyCache[apiKeyCacheFingerprint(activeKey)]; !ok {
 		t.Fatal("expected active cache entry to be inserted")
