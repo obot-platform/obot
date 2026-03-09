@@ -5,19 +5,24 @@
 		ModelAlias,
 		type Model,
 		type DefaultModelAlias,
-		ModelAliasToUsageMap
+		ModelAliasToUsageMap,
+		NanobotModelAlias
 	} from '$lib/services';
 	import { onMount } from 'svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { AdminService } from '$lib/services';
 	import Select from '../Select.svelte';
 	import { LoaderCircle } from 'lucide-svelte';
+	import { version } from '$lib/stores';
 
 	let { availableModels, readonly }: { availableModels: Model[]; readonly?: boolean } = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let defaultModelAliases = $state<DefaultModelAlias[]>([]);
 	let sortedModelAliases = $derived(
-		Object.values(ModelAlias)
+		(version.current.disableLegacyChat === true
+			? Object.values(NanobotModelAlias)
+			: Object.values(ModelAlias)
+		)
 			.map((alias) => defaultModelAliases.find((defaultAlias) => defaultAlias.alias === alias))
 			.filter((x) => !!x)
 	);
@@ -214,6 +219,8 @@
 						};
 					}}
 					disabled={readonly}
+					searchable
+					placeholder="Search models..."
 				/>
 			</div>
 		{/each}
