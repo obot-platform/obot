@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -25,6 +24,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/runtime"
 	apiclienttypes "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
@@ -70,6 +70,8 @@ import (
 	// Setup nah logging
 	_ "github.com/obot-platform/nah/pkg/logrus"
 )
+
+var pkgLog = logger.Package()
 
 type (
 	GatewayConfig     gserver.Options
@@ -440,13 +442,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	// Sanitize DSN for logging (remove credentials)
 	sanitizedDSN := logutil.SanitizeDSN(config.DSN)
-	slog.Info("Connecting to database", "dsn", sanitizedDSN)
+	pkgLog.Infof("Connecting to database: dsn=%s", sanitizedDSN)
 	storageClient, restConfig, dbAccess, err := storage.Start(ctx, config.Config)
 	if err != nil {
-		slog.Error("Failed to connect to database", "dsn", sanitizedDSN, "error", err)
+		pkgLog.Errorf("Failed to connect to database: dsn=%s error=%v", sanitizedDSN, err)
 		return nil, err
 	}
-	slog.Info("Successfully connected to database", "dsn", sanitizedDSN)
+	pkgLog.Infof("Successfully connected to database: dsn=%s", sanitizedDSN)
 
 	var electionConfig *leader.ElectionConfig
 	if config.ElectionFile != "" {
@@ -456,20 +458,20 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	// For now, always auto-migrate.
-	slog.Info("Initializing gateway database connection")
+	pkgLog.Infof("Initializing gateway database connection")
 	gatewayDB, err := db.New(dbAccess.DB, dbAccess.SQLDB, true)
 	if err != nil {
-		slog.Error("Failed to initialize gateway database", "error", err)
+		pkgLog.Errorf("Failed to initialize gateway database: error=%v", err)
 		return nil, err
 	}
 	// Important: the database needs to be auto-migrated before we create the cred store, so that
 	// the gptscript_credentials table is available.
-	slog.Info("Running database migrations")
+	pkgLog.Infof("Running database migrations")
 	if err := gatewayDB.AutoMigrate(); err != nil {
-		slog.Error("Failed to run database migrations", "error", err)
+		pkgLog.Errorf("Failed to run database migrations: error=%v", err)
 		return nil, err
 	}
-	slog.Info("Database migrations completed successfully")
+	pkgLog.Infof("Database migrations completed successfully")
 
 	encryptionConfig, encryptionConfigFile, err := encryption.Init(ctx, encryption.Options(config.EncryptionConfig))
 	if err != nil {
@@ -483,11 +485,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	if config.DevMode {
 		startDevMode(ctx, storageClient)
-		config.GatewayDebug = true
-	}
-
-	if config.GatewayDebug {
-		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}
 
 	if config.Hostname == "" {

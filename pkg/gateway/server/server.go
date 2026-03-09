@@ -11,9 +11,8 @@ import (
 )
 
 type Options struct {
-	Hostname     string
-	UIHostname   string `name:"ui-hostname" env:"OBOT_SERVER_UI_HOSTNAME"`
-	GatewayDebug bool
+	Hostname   string
+	UIHostname string `name:"ui-hostname" env:"OBOT_SERVER_UI_HOSTNAME"`
 
 	DailyUserPromptTokenLimit     int `usage:"The maximum number of daily user prompt/input token to allow, <= 0 disables the limit" default:"10000000"`     // default is 10 million
 	DailyUserCompletionTokenLimit int `usage:"The maximum number of daily user completion/output tokens to allow, <= 0 disables the limit" default:"100000"` // default is 100 thousand

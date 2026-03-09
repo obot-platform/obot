@@ -51,7 +51,7 @@ Now, any time one of these tools is run, your local copy will be used.
 
 ## Obot Server Dev Mode
 
-In the description above for running the server in an IDE, the `--dev-mode` flag is used. This flag is also used when running the server with `make dev`. This does a few things (like turns on debug logging), the most helpful of which is to give you access to the database via `kubectl`. The kubeconfig is located at `tools/devmode-kubeconfig`.
+In the description above for running the server in an IDE, the `--dev-mode` flag is used. This flag is also used when running the server with `make dev`. This does a few things, the most helpful of which is to give you access to the database via `kubectl`. The kubeconfig is located at `tools/devmode-kubeconfig`.
 
 For example, from the root directory of the obot repo, you can list all agents in your setup with `kubectl --kubeconfig tools/devmode-kubeconfig get agents`.
 

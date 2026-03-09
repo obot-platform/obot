@@ -52,12 +52,12 @@ func (s *Server) oAuthCleanup(ctx context.Context) {
 			// Delete token responses that are older than five minutes.
 			var responses []types.OAuthTokenResponse
 			if err := s.db.WithContext(ctx).Find(&responses).Error; err != nil {
-				logger.Debug("failed to get responses", "error", err)
+				logger.Debugf("failed to get responses: error=%v", err)
 			} else {
 				for _, response := range responses {
 					if time.Since(response.CreatedAt) > 5*time.Minute {
 						if err = s.db.WithContext(ctx).Where("state = ?", response.State).Delete(&response).Error; err != nil {
-							logger.Debug("failed to delete response", "error", err)
+							logger.Debugf("failed to delete response: error=%v", err)
 						}
 					}
 				}
@@ -66,12 +66,12 @@ func (s *Server) oAuthCleanup(ctx context.Context) {
 			// Delete token request challenges that are older than five minutes.
 			var challenges []types.OAuthTokenRequestChallenge
 			if err := s.db.WithContext(ctx).Find(&challenges).Error; err != nil {
-				logger.Debug("failed to get challenges", "error", err)
+				logger.Debugf("failed to get challenges: error=%v", err)
 			} else {
 				for _, challenge := range challenges {
 					if time.Since(challenge.CreatedAt) > 5*time.Minute {
 						if err := s.db.WithContext(ctx).Delete(&challenge).Error; err != nil {
-							kcontext.GetLogger(ctx).Debug("failed to delete challenge", "error", err)
+							kcontext.GetLogger(ctx).Debugf("failed to delete challenge: error=%v", err)
 						}
 					}
 				}

@@ -29,14 +29,14 @@ func logRequest(h api.HandlerFunc) api.HandlerFunc {
 	return func(apiContext api.Context) (err error) {
 		l := context.GetLogger(apiContext.Context())
 		defer func() {
-			l.DebugContext(apiContext.Context(), "Handled request", "method", apiContext.Method, "path", apiContext.URL.Path)
+			l.Debugf("Handled request: method=%s path=%s", apiContext.Method, apiContext.URL.Path)
 			if recErr := recover(); recErr != nil {
-				l.ErrorContext(apiContext.Context(), "Panic", "error", err, "stack", string(debug.Stack()))
+				l.Errorf("Panic: error=%v stack=%s", recErr, string(debug.Stack()))
 				err = fmt.Errorf("encountered an unexpected error")
 			}
 		}()
 
-		l.DebugContext(apiContext.Context(), "Handling request", "method", apiContext.Method, "path", apiContext.URL.Path)
+		l.Debugf("Handling request: method=%s path=%s", apiContext.Method, apiContext.URL.Path)
 		return h(apiContext)
 	}
 }
@@ -52,7 +52,7 @@ func addLogger(next api.HandlerFunc) api.HandlerFunc {
 	return func(apiContext api.Context) error {
 		logger := log.NewWithID(context.GetRequestID(apiContext.Context()))
 		if apiContext.User != nil {
-			logger = logger.With("username", apiContext.User.GetName())
+			logger = logger.Fields("username", apiContext.User.GetName())
 		}
 		apiContext.Request = apiContext.WithContext(context.WithLogger(
 			apiContext.Context(),
