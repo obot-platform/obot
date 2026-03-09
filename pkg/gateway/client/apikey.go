@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"time"
@@ -13,9 +14,131 @@ import (
 )
 
 const (
-	apiKeySecretLength = 32 // 32 bytes = 256 bits of entropy
-	apiKeyPrefix       = "ok1"
+	apiKeySecretLength       = 32 // 32 bytes = 256 bits of entropy
+	apiKeyPrefix             = "ok1"
+	apiKeyValidationCacheTTL = 15 * time.Second
+	apiKeyCacheCleanupPeriod = 5 * time.Minute
 )
+
+type apiKeyValidationCacheEntry struct {
+	apiKey    types.APIKey
+	expiresAt time.Time
+	keyID     uint
+}
+
+// cloneAPIKey creates a deep copy of the provided APIKey, so that it's safe to return without corrupting the cache
+func cloneAPIKey(apiKey types.APIKey) types.APIKey {
+	cloned := apiKey
+	if apiKey.MCPServerIDs != nil {
+		cloned.MCPServerIDs = append([]string(nil), apiKey.MCPServerIDs...)
+	}
+	if apiKey.LastUsedAt != nil {
+		cloned.LastUsedAt = new(*apiKey.LastUsedAt)
+	}
+	if apiKey.ExpiresAt != nil {
+		cloned.ExpiresAt = new(*apiKey.ExpiresAt)
+	}
+	return cloned
+}
+
+func apiKeyCacheFingerprint(key string) [32]byte {
+	return sha256.Sum256([]byte(key))
+}
+
+func (c *Client) getValidatedAPIKeyFromCache(key string, now time.Time) (*types.APIKey, bool) {
+	if c.apiKeyCacheTTL <= 0 {
+		return nil, false
+	}
+
+	fingerprint := apiKeyCacheFingerprint(key)
+
+	c.apiKeyCacheLock.RLock()
+	entry, ok := c.apiKeyCache[fingerprint]
+	if !ok {
+		c.apiKeyCacheLock.RUnlock()
+		return nil, false
+	}
+
+	// Fast path: entry appears valid under the read lock.
+	entryExpired := now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now))
+	if !entryExpired {
+		cachedAPIKey := entry.apiKey
+		c.apiKeyCacheLock.RUnlock()
+		apiKey := cloneAPIKey(cachedAPIKey)
+		return &apiKey, true
+	}
+
+	// Slow path: entry appears expired; re-check under write lock before deleting
+	c.apiKeyCacheLock.RUnlock()
+
+	c.apiKeyCacheLock.Lock()
+	entry, ok = c.apiKeyCache[fingerprint]
+	if !ok {
+		c.apiKeyCacheLock.Unlock()
+		return nil, false
+	}
+
+	if now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now)) {
+		delete(c.apiKeyCache, fingerprint)
+		c.apiKeyCacheLock.Unlock()
+		return nil, false
+	}
+
+	cachedAPIKey := entry.apiKey
+	c.apiKeyCacheLock.Unlock()
+	apiKey := cloneAPIKey(cachedAPIKey)
+	return &apiKey, true
+}
+
+func (c *Client) putValidatedAPIKeyInCache(key string, apiKey *types.APIKey, now time.Time) {
+	if c.apiKeyCacheTTL <= 0 || apiKey == nil {
+		return
+	}
+
+	c.apiKeyCacheLock.Lock()
+	c.apiKeyCache[apiKeyCacheFingerprint(key)] = apiKeyValidationCacheEntry{
+		apiKey:    cloneAPIKey(*apiKey),
+		expiresAt: now.Add(c.apiKeyCacheTTL),
+		keyID:     apiKey.ID,
+	}
+	c.apiKeyCacheLock.Unlock()
+}
+
+func (c *Client) pruneExpiredValidatedAPIKeys(now time.Time) {
+	c.apiKeyCacheLock.Lock()
+	defer c.apiKeyCacheLock.Unlock()
+
+	for fingerprint, entry := range c.apiKeyCache {
+		if now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now)) {
+			delete(c.apiKeyCache, fingerprint)
+		}
+	}
+}
+
+func (c *Client) runAPIKeyCacheCleanup(ctx context.Context) {
+	ticker := time.NewTicker(apiKeyCacheCleanupPeriod)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-ticker.C:
+			c.pruneExpiredValidatedAPIKeys(now)
+		}
+	}
+}
+
+func (c *Client) invalidateValidatedAPIKeysByID(keyID uint) {
+	c.apiKeyCacheLock.Lock()
+	defer c.apiKeyCacheLock.Unlock()
+
+	for fingerprint, entry := range c.apiKeyCache {
+		if entry.keyID == keyID {
+			delete(c.apiKeyCache, fingerprint)
+		}
+	}
+}
 
 // CreateAPIKey generates a new API key for the given user.
 // Returns the full key only once in the response.
@@ -82,14 +205,21 @@ func (c *Client) DeleteAPIKey(ctx context.Context, userID uint, keyID uint) erro
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete API key: %w", result.Error)
 	}
+	c.invalidateValidatedAPIKeysByID(keyID)
 	return nil
 }
 
 // ValidateAPIKey validates an API key and returns the associated APIKey record.
 // The key format is: ok1-<user_id>-<key_id>-<secret>
 // Lookup is done by key ID, then bcrypt is used to verify the secret.
-// Also updates the last_used_at timestamp on successful validation.
+// Cache hits return a previously validated key without touching the database.
+// On cache misses, last_used_at is updated only if more than a minute has elapsed.
 func (c *Client) ValidateAPIKey(ctx context.Context, key string) (*types.APIKey, error) {
+	cacheNow := time.Now()
+	if cachedAPIKey, ok := c.getValidatedAPIKeyFromCache(key, cacheNow); ok {
+		return cachedAPIKey, nil
+	}
+
 	// Parse the key to extract components
 	_, userID, keyID, secret, err := ParseAPIKey(key)
 	if err != nil {
@@ -114,10 +244,10 @@ func (c *Client) ValidateAPIKey(ctx context.Context, key string) (*types.APIKey,
 		}
 
 		// Update last used timestamp if more than a minute has elapsed
-		now := time.Now()
-		if apiKey.LastUsedAt == nil || now.Sub(*apiKey.LastUsedAt) > time.Minute {
-			apiKey.LastUsedAt = &now
-			return tx.Model(&apiKey).Update("last_used_at", now).Error
+		lastUsedAtNow := time.Now()
+		if apiKey.LastUsedAt == nil || lastUsedAtNow.Sub(*apiKey.LastUsedAt) > time.Minute {
+			apiKey.LastUsedAt = &lastUsedAtNow
+			return tx.Model(&apiKey).Update("last_used_at", lastUsedAtNow).Error
 		}
 		return nil
 	})
@@ -125,6 +255,7 @@ func (c *Client) ValidateAPIKey(ctx context.Context, key string) (*types.APIKey,
 		return nil, err
 	}
 
+	c.putValidatedAPIKeyInCache(key, &apiKey, cacheNow)
 	return &apiKey, nil
 }
 
@@ -167,6 +298,7 @@ func (c *Client) DeleteAPIKeyByID(ctx context.Context, keyID uint) error {
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete API key: %w", result.Error)
 	}
+	c.invalidateValidatedAPIKeysByID(keyID)
 	return nil
 }
 
