@@ -27,6 +27,7 @@ type Client struct {
 	apiKeyCacheLock        sync.RWMutex
 	apiKeyCache            map[[32]byte]apiKeyValidationCacheEntry
 	apiKeyCacheTTL         time.Duration
+	apiKeyCacheLastPruned  time.Time
 }
 
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int) *Client {

@@ -61,8 +61,9 @@ func (c *Client) getValidatedAPIKeyFromCache(key string, now time.Time) (*types.
 
 	// Fast path: entry appears valid under the read lock.
 	if !(now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now))) {
-		apiKey := cloneAPIKey(entry.apiKey)
+		cachedAPIKey := entry.apiKey
 		c.apiKeyCacheLock.RUnlock()
+		apiKey := cloneAPIKey(cachedAPIKey)
 		return &apiKey, true
 	}
 
@@ -70,19 +71,21 @@ func (c *Client) getValidatedAPIKeyFromCache(key string, now time.Time) (*types.
 	c.apiKeyCacheLock.RUnlock()
 
 	c.apiKeyCacheLock.Lock()
-	defer c.apiKeyCacheLock.Unlock()
-
 	entry, ok = c.apiKeyCache[fingerprint]
 	if !ok {
+		c.apiKeyCacheLock.Unlock()
 		return nil, false
 	}
 
 	if now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now)) {
 		delete(c.apiKeyCache, fingerprint)
+		c.apiKeyCacheLock.Unlock()
 		return nil, false
 	}
 
-	apiKey := cloneAPIKey(entry.apiKey)
+	cachedAPIKey := entry.apiKey
+	c.apiKeyCacheLock.Unlock()
+	apiKey := cloneAPIKey(cachedAPIKey)
 	return &apiKey, true
 }
 
@@ -92,10 +95,13 @@ func (c *Client) putValidatedAPIKeyInCache(key string, apiKey *types.APIKey, now
 	}
 
 	c.apiKeyCacheLock.Lock()
-	for fingerprint, entry := range c.apiKeyCache {
-		if now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now)) {
-			delete(c.apiKeyCache, fingerprint)
+	if c.apiKeyCacheLastPruned.IsZero() || now.Sub(c.apiKeyCacheLastPruned) >= c.apiKeyCacheTTL {
+		for fingerprint, entry := range c.apiKeyCache {
+			if now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now)) {
+				delete(c.apiKeyCache, fingerprint)
+			}
 		}
+		c.apiKeyCacheLastPruned = now
 	}
 	c.apiKeyCache[apiKeyCacheFingerprint(key)] = apiKeyValidationCacheEntry{
 		apiKey:    cloneAPIKey(*apiKey),
@@ -191,8 +197,8 @@ func (c *Client) DeleteAPIKey(ctx context.Context, userID uint, keyID uint) erro
 // Cache hits return a previously validated key without touching the database.
 // On cache misses, last_used_at is updated only if more than a minute has elapsed.
 func (c *Client) ValidateAPIKey(ctx context.Context, key string) (*types.APIKey, error) {
-	now := time.Now()
-	if cachedAPIKey, ok := c.getValidatedAPIKeyFromCache(key, now); ok {
+	cacheNow := time.Now()
+	if cachedAPIKey, ok := c.getValidatedAPIKeyFromCache(key, cacheNow); ok {
 		return cachedAPIKey, nil
 	}
 
@@ -220,10 +226,10 @@ func (c *Client) ValidateAPIKey(ctx context.Context, key string) (*types.APIKey,
 		}
 
 		// Update last used timestamp if more than a minute has elapsed
-		now := time.Now()
-		if apiKey.LastUsedAt == nil || now.Sub(*apiKey.LastUsedAt) > time.Minute {
-			apiKey.LastUsedAt = &now
-			return tx.Model(&apiKey).Update("last_used_at", now).Error
+		lastUsedAtNow := time.Now()
+		if apiKey.LastUsedAt == nil || lastUsedAtNow.Sub(*apiKey.LastUsedAt) > time.Minute {
+			apiKey.LastUsedAt = &lastUsedAtNow
+			return tx.Model(&apiKey).Update("last_used_at", lastUsedAtNow).Error
 		}
 		return nil
 	})
@@ -231,7 +237,7 @@ func (c *Client) ValidateAPIKey(ctx context.Context, key string) (*types.APIKey,
 		return nil, err
 	}
 
-	c.putValidatedAPIKeyInCache(key, &apiKey, now)
+	c.putValidatedAPIKeyInCache(key, &apiKey, cacheNow)
 	return &apiKey, nil
 }
 
