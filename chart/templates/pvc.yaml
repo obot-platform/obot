@@ -3,6 +3,7 @@ kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
   name: {{ .Release.Name }}-pvc
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "obot.labels" . | nindent 4 }}
 spec:

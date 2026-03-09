@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "obot.fullname" . }}
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "obot.labels" . | nindent 4 }}
 spec:
