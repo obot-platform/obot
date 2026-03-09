@@ -25,6 +25,22 @@ type apiKeyValidationCacheEntry struct {
 	keyID     uint
 }
 
+func cloneAPIKey(apiKey types.APIKey) types.APIKey {
+	cloned := apiKey
+	if apiKey.MCPServerIDs != nil {
+		cloned.MCPServerIDs = append([]string(nil), apiKey.MCPServerIDs...)
+	}
+	if apiKey.LastUsedAt != nil {
+		lastUsedAt := *apiKey.LastUsedAt
+		cloned.LastUsedAt = &lastUsedAt
+	}
+	if apiKey.ExpiresAt != nil {
+		expiresAt := *apiKey.ExpiresAt
+		cloned.ExpiresAt = &expiresAt
+	}
+	return cloned
+}
+
 func apiKeyCacheFingerprint(key string) [32]byte {
 	return sha256.Sum256([]byte(key))
 }
@@ -45,7 +61,7 @@ func (c *Client) getValidatedAPIKeyFromCache(key string, now time.Time) (*types.
 
 	// Fast path: entry appears valid under the read lock.
 	if !(now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now))) {
-		apiKey := entry.apiKey
+		apiKey := cloneAPIKey(entry.apiKey)
 		c.apiKeyCacheLock.RUnlock()
 		return &apiKey, true
 	}
@@ -66,7 +82,7 @@ func (c *Client) getValidatedAPIKeyFromCache(key string, now time.Time) (*types.
 		return nil, false
 	}
 
-	apiKey := entry.apiKey
+	apiKey := cloneAPIKey(entry.apiKey)
 	return &apiKey, true
 }
 
@@ -82,7 +98,7 @@ func (c *Client) putValidatedAPIKeyInCache(key string, apiKey *types.APIKey, now
 		}
 	}
 	c.apiKeyCache[apiKeyCacheFingerprint(key)] = apiKeyValidationCacheEntry{
-		apiKey:    *apiKey,
+		apiKey:    cloneAPIKey(*apiKey),
 		expiresAt: now.Add(c.apiKeyCacheTTL),
 		keyID:     apiKey.ID,
 	}

@@ -94,3 +94,46 @@ func TestPutValidatedAPIKeyInCachePrunesExpiredEntries(t *testing.T) {
 		t.Fatal("expected active cache entry to be inserted")
 	}
 }
+
+func TestValidatedAPIKeyCacheReturnsDeepCopy(t *testing.T) {
+	t.Parallel()
+
+	expiresAt := time.Now().Add(time.Hour)
+	lastUsedAt := time.Now()
+	c := &Client{
+		apiKeyCache:    make(map[[32]byte]apiKeyValidationCacheEntry),
+		apiKeyCacheTTL: time.Minute,
+	}
+
+	original := &types.APIKey{
+		ID:           1,
+		UserID:       7,
+		Name:         "cache-key",
+		MCPServerIDs: []string{"server-a"},
+		LastUsedAt:   &lastUsedAt,
+		ExpiresAt:    &expiresAt,
+	}
+
+	now := time.Now()
+	c.putValidatedAPIKeyInCache("ok1-7-1-secret", original, now)
+
+	got, ok := c.getValidatedAPIKeyFromCache("ok1-7-1-secret", now)
+	if !ok {
+		t.Fatal("expected cache hit")
+	}
+
+	got.MCPServerIDs[0] = "mutated"
+	*got.LastUsedAt = got.LastUsedAt.Add(time.Minute)
+	*got.ExpiresAt = got.ExpiresAt.Add(time.Minute)
+
+	cached := c.apiKeyCache[apiKeyCacheFingerprint("ok1-7-1-secret")].apiKey
+	if cached.MCPServerIDs[0] != "server-a" {
+		t.Fatal("expected cached MCPServerIDs to be isolated from returned value")
+	}
+	if !cached.LastUsedAt.Equal(lastUsedAt) {
+		t.Fatal("expected cached LastUsedAt to be isolated from returned value")
+	}
+	if !cached.ExpiresAt.Equal(expiresAt) {
+		t.Fatal("expected cached ExpiresAt to be isolated from returned value")
+	}
+}
