@@ -1,122 +1,211 @@
 <script lang="ts" generics="T extends object">
-	import { scaleBand, scaleLinear } from 'd3';
-	import { Axis, Chart, Svg, Tooltip, Highlight, RectClipPath, Bars } from 'layerchart';
-	import { onMount } from 'svelte';
-	import { cubicInOut } from 'svelte/easing';
+	import { scaleBand, scaleLinear, select } from 'd3';
+	import { axisBottom, axisLeft } from 'd3';
+	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
+	import { fade } from 'svelte/transition';
+	import type { Snippet } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
+	import HorizontalBarRow from './HorizontalBarRow.svelte';
 
-	interface Props {
+	/** Tooltip payload for a single bar (passed to tooltipContent snippet). */
+	type TooltipItem = {
+		label: string;
+		value: number;
+		row: T;
+	};
+
+	interface Props<T> {
 		data: T[];
-		x: keyof T & string;
-		y: keyof T & string;
-		padding?: number;
-		formatTooltipText?: (data: T) => string;
-		formatXLabel?: (d: T[keyof T]) => string;
+		labelKey: Extract<keyof T, string>;
+		valueKey: Extract<keyof T, string>;
+		tooltipContent?: Snippet<[TooltipItem]>;
+		class?: string;
+		formatValue?: (value: number) => string;
+		formatLabel?: (label: T[keyof T]) => string;
 	}
 
-	let { data, x, y, formatXLabel, padding, formatTooltipText }: Props = $props();
-	let show = $state(false);
+	let {
+		data,
+		labelKey,
+		valueKey,
+		tooltipContent,
+		class: klass = '',
+		formatValue = (v) => String(v),
+		formatLabel = (d) => String(d)
+	}: Props<T> = $props();
 
-	let xDomain = $derived([0, Math.max(...data.map((d) => Number(d[y])))]);
+	let highlightedRectElement = $state<SVGGraphicsElement>();
+	let currentItem = $state<TooltipItem>();
+	let clientWidth = $state(0);
+	let clientHeight = $state(0);
 
-	onMount(() => {
-		setTimeout(() => {
-			show = true;
-		}, 300);
-	});
+	const paddingLeft = 2;
+	const paddingRight = 8;
+	const paddingTop = 8;
+	const paddingBottom = 24;
+
+	const innerWidth = $derived(clientWidth - paddingLeft - paddingRight);
+	const innerHeight = $derived(clientHeight - paddingTop - paddingBottom);
+
+	const valueDomain = $derived([
+		0,
+		Math.max(
+			1,
+			...data.map((d) => {
+				const n = Number(d[valueKey]);
+				return Number.isFinite(n) ? n : 0;
+			})
+		)
+	] as [number, number]);
+
+	const xScale = $derived(scaleLinear(valueDomain, [0, innerWidth]));
+	/** One band per row (by index) so duplicate labels get separate bars */
+	const rowIndices = $derived(data.map((_, i) => i));
+	const yScale = $derived(
+		scaleBand<number>()
+			.domain(rowIndices)
+			.range([0, innerHeight])
+			.paddingInner(0.1)
+			.paddingOuter(0.1)
+	);
+
+	const barColor = '#4575b4';
+
+	const LABEL_INSET = 8;
+	const LABEL_MIN_GAP = 16;
 
 	function estimateTextWidth(text: string): number {
 		return text.length * 7;
 	}
+
+	const BAR_RADIUS = 2;
+
+	function tooltip(reference: Element, floating: HTMLElement) {
+		const compute = async () => {
+			const position = await computePosition(reference, floating, {
+				placement: 'top',
+				middleware: [
+					offset(8),
+					flip({
+						padding: { top: 0, right: 40, left: 40, bottom: 0 },
+						boundary: document.documentElement,
+						fallbackPlacements: ['top', 'top-end', 'top-start', 'left-start', 'right-start']
+					})
+				]
+			});
+			floating.style.transform = `translate(${position.x}px, ${position.y}px)`;
+		};
+		return autoUpdate(reference, floating, compute, {
+			animationFrame: true,
+			ancestorScroll: true,
+			ancestorResize: true
+		});
+	}
 </script>
 
-<div class="group h-[300px] w-full">
-	<Chart
-		{data}
-		x={y}
-		y={x}
-		xScale={scaleLinear()}
-		{xDomain}
-		yScale={scaleBand().paddingInner(0.1).paddingOuter(1)}
-		yDomain={data.map((d) => String(d[x]))}
-		padding={{ left: padding, bottom: padding, top: padding, right: padding }}
-		tooltip={{ mode: 'band' }}
-		let:xScale
-		let:yScale
-	>
-		<Svg>
-			<Axis
-				placement="bottom"
-				grid
-				rule
-				ticks={() => {
-					let max = Math.max(...data.map((d) => Number(d[y])));
-					if (max === 0) {
-						return [0];
-					}
-					if (max <= 1) {
-						return [0, 1];
-					}
+<div class={twMerge('group relative flex h-full w-full flex-col', klass)}>
+	<div bind:clientWidth bind:clientHeight class="min-h-0 min-w-0 flex-1">
+		{#if highlightedRectElement && currentItem}
+			<div
+				class="tooltip bg-background dark:bg-surface2 pointer-events-none fixed top-0 left-0 z-50 flex flex-col shadow-md"
+				{@attach (node) => tooltip(highlightedRectElement!, node)}
+				in:fade={{ duration: 100, delay: 10 }}
+				out:fade={{ duration: 100 }}
+			>
+				{#if tooltipContent}
+					{@render tooltipContent(currentItem)}
+				{:else}
+					<div class="flex flex-col gap-0 text-xs">
+						<div class="text-sm">{currentItem?.label}</div>
+					</div>
+					<div class="text-lg font-semibold">
+						{currentItem != null ? formatValue(currentItem.value) : ''}
+					</div>
+				{/if}
+			</div>
+		{/if}
 
-					return [0, max];
-				}}
-				format={(d) => Math.round(d).toString()}
-			/>
-
-			{#if show}
-				<Bars
-					tweened={{
-						x: { duration: 500, easing: cubicInOut },
-						width: { duration: 500, easing: cubicInOut }
+		<svg width={clientWidth} height={clientHeight} viewBox="0 0 {clientWidth} {clientHeight}">
+			<g transform="translate({paddingLeft}, {paddingTop})">
+				<g
+					class="x-axis text-on-surface3/20 dark:text-on-surface1/10"
+					transform="translate(0, {innerHeight})"
+					{@attach (node: SVGGElement) => {
+						select(node)
+							.transition()
+							.duration(100)
+							.call(
+								axisBottom(xScale)
+									.tickSizeOuter(0)
+									.ticks(5)
+									.tickFormat((d) => formatValue(Number(d)))
+							);
+						select(node).selectAll('.tick line').attr('y1', -innerHeight);
 					}}
-					class="fill-primary transition-colors group-hover:fill-gray-400/50 dark:group-hover:fill-gray-600/50"
-				/>
-			{/if}
+				></g>
 
-			{#if show && xScale && yScale}
-				{#each data as item (item[x])}
-					{@const barWidth = xScale(item[y]) - xScale(0)}
-					{@const barY = yScale(item[x]) + yScale.bandwidth() / 2}
-					{@const labelText = formatXLabel ? formatXLabel(item[x]) : String(item[x])}
-					{@const textWidth = estimateTextWidth(labelText)}
-					{@const fitsInside = barWidth > textWidth + 16}
-					{@const textX = fitsInside ? xScale(0) + barWidth / 2 : xScale(item[y]) + 8}
-					{@const textAnchor = fitsInside ? 'middle' : 'start'}
-					{@const textFill = fitsInside ? 'white' : 'currentColor'}
+				<g
+					class="y-axis text-on-surface3/20 dark:text-on-surface1/10"
+					{@attach (node: SVGGElement) => {
+						select(node)
+							.transition()
+							.duration(100)
+							.call(axisLeft(yScale).tickSizeOuter(0).tickSize(-innerWidth));
+						select(node).selectAll('.tick line').attr('stroke-opacity', 0.1);
+						select(node).selectAll('.tick text').remove();
+						select(node).select('.domain').attr('opacity', 0);
+					}}
+				></g>
 
-					<text
-						x={textX}
-						y={barY}
-						text-anchor={textAnchor}
-						dominant-baseline="central"
-						fill={textFill}
-						font-size="12"
-						font-weight="500"
-						class="pointer-events-none"
-					>
-						{labelText}
-					</text>
-				{/each}
-			{/if}
-			<Highlight bar>
-				<svelte:fragment slot="area" let:area>
-					<RectClipPath x={area.x} y={area.y} width={area.width} height={area.height} spring>
-						<Bars class="fill-primary" />
-					</RectClipPath>
-				</svelte:fragment>
-			</Highlight>
-		</Svg>
-
-		<Tooltip.Root let:data>
-			<Tooltip.Header class="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">
-				{formatXLabel?.(data[x]) ?? data[x]}
-			</Tooltip.Header>
-			<Tooltip.List class="space-y-1">
-				<Tooltip.Item
-					label=""
-					value={formatTooltipText ? formatTooltipText(data) : data.value}
-					class="text-sm text-gray-600 dark:text-gray-300"
-				/>
-			</Tooltip.List>
-		</Tooltip.Root>
-	</Chart>
+				<g class="data">
+					{#each data as row, i (i)}
+						{@const label = formatLabel(row[labelKey])}
+						{@const raw = Number(row[valueKey])}
+						{@const value = Number.isFinite(raw) ? raw : 0}
+						{@const y = yScale(i) ?? 0}
+						{@const height = yScale.bandwidth()}
+						{@const width = Math.max(0, xScale(value) - xScale(0))}
+						{@const textWidth = estimateTextWidth(label)}
+						{@const fitsInside = width > textWidth + LABEL_MIN_GAP}
+						{@const textX = fitsInside ? LABEL_INSET : width + LABEL_INSET}
+						{@const textAnchor = 'start'}
+						{@const barY = y + height / 2}
+						<HorizontalBarRow
+							targetWidth={width}
+							{y}
+							{height}
+							fill={barColor}
+							rx={BAR_RADIUS}
+							class="cursor-pointer"
+							onpointerenter={(e) => {
+								highlightedRectElement = e.currentTarget as SVGGraphicsElement;
+								currentItem = { label, value, row };
+								select(e.currentTarget as SVGGraphicsElement)
+									.attr('stroke', 'currentColor')
+									.attr('stroke-width', 2);
+							}}
+							onpointerleave={(e) => {
+								if (e.currentTarget === highlightedRectElement) {
+									highlightedRectElement = undefined;
+								}
+								select(e.currentTarget as SVGGraphicsElement).attr('stroke-width', 0);
+							}}
+						/>
+						<text
+							x={textX}
+							y={barY}
+							text-anchor={textAnchor}
+							dominant-baseline="central"
+							fill={fitsInside ? 'white' : 'currentColor'}
+							font-size="12"
+							font-weight="500"
+							class="text-on-surface1 pointer-events-none"
+						>
+							{label}
+						</text>
+					{/each}
+				</g>
+			</g>
+		</svg>
+	</div>
 </div>

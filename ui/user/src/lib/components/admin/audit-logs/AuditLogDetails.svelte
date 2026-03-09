@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { columnResize } from '$lib/actions/resize';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { Group, type AuditLog } from '$lib/services/admin/types';
-	import { profile, responsive } from '$lib/stores';
+	import { profile } from '$lib/stores';
 	import { X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -15,22 +14,13 @@
 
 	let { auditLog, onClose }: Props = $props();
 
-	let container = $state<HTMLDivElement>();
 	let hasAuditorAccess = $derived(profile.current.groups.includes(Group.AUDITOR));
 
 	const shouldShowPayload = $derived(profile?.current?.hasAdminAccess?.() ?? false);
 </script>
 
-{#if !responsive.isMobile && container}
-	<div
-		role="none"
-		class="absolute z-30 h-full w-3 cursor-col-resize"
-		use:columnResize={{ column: container, direction: 'right' }}
-	></div>
-{/if}
 <div
-	class="dark:bg-gray-990 text-on-background h-full w-screen max-w-full bg-gray-50 md:w-lg md:max-w-[85vw] md:min-w-lg"
-	bind:this={container}
+	class="dark:bg-gray-990 text-on-background flex h-full w-[inherit] min-w-[inherit] flex-col bg-gray-50"
 >
 	<div class="dark:bg-surface1 bg-background relative flex w-full flex-col p-4 pl-5 shadow-xs">
 		<div
