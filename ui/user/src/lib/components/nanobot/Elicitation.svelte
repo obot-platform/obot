@@ -61,6 +61,13 @@
 		}
 
 		formData = newFormData;
+		invalidFields.clear();
+	});
+
+	$effect(() => {
+		if (open) {
+			invalidFields.clear();
+		}
 	});
 
 	// Reset question state when elicitation changes
