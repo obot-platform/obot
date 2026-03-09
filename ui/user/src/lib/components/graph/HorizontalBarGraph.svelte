@@ -16,13 +16,11 @@
 
 	interface Props<T> {
 		data: T[];
-		labelKey: keyof T;
-		valueKey: keyof T;
+		labelKey: Extract<keyof T, string>;
+		valueKey: Extract<keyof T, string>;
 		tooltipContent?: Snippet<[TooltipItem]>;
 		class?: string;
-		/** Format value in axis and default tooltip */
 		formatValue?: (value: number) => string;
-		/** Format label in axis (default: String) */
 		formatLabel?: (label: T[keyof T]) => string;
 	}
 
