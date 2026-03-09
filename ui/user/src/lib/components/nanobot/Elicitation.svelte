@@ -17,6 +17,7 @@
 	let { elicitation, open = false, onresult }: Props = $props();
 
 	let formData = $state<{ [key: string]: string | number | boolean }>({});
+	let invalidFields = new SvelteSet<string>();
 
 	// Question-specific types
 	interface QuestionOptionData {
@@ -60,6 +61,13 @@
 		}
 
 		formData = newFormData;
+		invalidFields.clear();
+	});
+
+	$effect(() => {
+		if (open) {
+			invalidFields.clear();
+		}
 	});
 
 	// Reset question state when elicitation changes
@@ -77,10 +85,29 @@
 	});
 
 	function handleAccept() {
+		const required = elicitation.requestedSchema?.required;
+		if (required?.length) {
+			invalidFields.clear();
+			for (const key of required) {
+				const value = formData[key];
+				if (value === undefined || value === '' || value === null) {
+					invalidFields.add(key);
+				}
+			}
+			if (invalidFields.size > 0) return;
+		}
 		onresult?.({
 			action: 'accept',
 			content: { ...formData }
 		});
+	}
+
+	function isFieldInvalid(key: string): boolean {
+		return invalidFields.has(key);
+	}
+
+	function clearFieldInvalid(key: string) {
+		invalidFields.delete(key);
 	}
 
 	function handleDecline() {
@@ -101,19 +128,6 @@
 
 	function getFieldTitle(key: string, schema: PrimitiveSchemaDefinition): string {
 		return schema.title || key;
-	}
-
-	function validateForm(): boolean {
-		const required = elicitation.requestedSchema?.required;
-		if (!required) return true;
-
-		for (const requiredField of required) {
-			const value = formData[requiredField];
-			if (value === undefined || value === '' || value === null) {
-				return false;
-			}
-		}
-		return true;
 	}
 
 	function isOAuthElicitation(): boolean {
@@ -551,7 +565,12 @@
 						<div class="form-control">
 							<div class="flex items-center gap-0.5">
 								<label class="label" for={key}>
-									<span class="text-base-content text-md">
+									<span
+										class={twMerge(
+											'text-base-content text-md',
+											isFieldInvalid(key) && 'text-error'
+										)}
+									>
 										{getFieldTitle(key, schema)}
 										{#if isRequired(key)}
 											<span class="text-error">*</span>
@@ -580,8 +599,12 @@
 								<select
 									id={key}
 									bind:value={formData[key]}
-									class="select-bordered select w-full"
+									class={twMerge(
+										'select-bordered select w-full',
+										isFieldInvalid(key) && 'select-error'
+									)}
 									required={isRequired(key)}
+									onchange={() => clearFieldInvalid(key)}
 								>
 									{#each schema.enum as option, i (option)}
 										<option value={option}>
@@ -597,7 +620,10 @@
 											id={key}
 											type="checkbox"
 											checked={Boolean(formData[key])}
-											onchange={(e) => (formData[key] = e.currentTarget.checked)}
+											onchange={(e) => {
+												formData[key] = e.currentTarget.checked;
+												clearFieldInvalid(key);
+											}}
 											class="checkbox"
 										/>
 										<span class="label-text">Enable</span>
@@ -609,11 +635,12 @@
 									id={key}
 									type="number"
 									bind:value={formData[key]}
-									class="text-input-filled w-full"
+									class={twMerge('text-input-filled w-full', isFieldInvalid(key) && 'error')}
 									required={isRequired(key)}
 									min={schema.minimum}
 									max={schema.maximum}
 									step={schema.type === 'integer' ? '1' : 'any'}
+									oninput={() => clearFieldInvalid(key)}
 								/>
 							{:else if schema.type === 'string'}
 								<!-- String field -->
@@ -622,56 +649,62 @@
 										id={key}
 										type="email"
 										bind:value={formData[key]}
-										class="text-input-filled w-full"
+										class={twMerge('text-input-filled w-full', isFieldInvalid(key) && 'error')}
 										required={isRequired(key)}
 										minlength={schema.minLength}
 										maxlength={schema.maxLength}
+										oninput={() => clearFieldInvalid(key)}
 									/>
 								{:else if schema.format === 'uri'}
 									<input
 										id={key}
 										type="url"
 										bind:value={formData[key]}
-										class="text-input-filled w-full"
+										class={twMerge('text-input-filled w-full', isFieldInvalid(key) && 'error')}
 										required={isRequired(key)}
 										minlength={schema.minLength}
 										maxlength={schema.maxLength}
+										oninput={() => clearFieldInvalid(key)}
 									/>
 								{:else if schema.format === 'date'}
 									<input
 										id={key}
 										type="date"
 										bind:value={formData[key]}
-										class="text-input-filled w-full"
+										class={twMerge('text-input-filled w-full', isFieldInvalid(key) && 'error')}
 										required={isRequired(key)}
+										oninput={() => clearFieldInvalid(key)}
 									/>
 								{:else if schema.format === 'date-time'}
 									<input
 										id={key}
 										type="datetime-local"
 										bind:value={formData[key]}
-										class="text-input-filled w-full"
+										class={twMerge('text-input-filled w-full', isFieldInvalid(key) && 'error')}
 										required={isRequired(key)}
+										oninput={() => clearFieldInvalid(key)}
 									/>
 								{:else if schema.format === 'password'}
 									<input
 										id={key}
 										type="password"
 										bind:value={formData[key]}
-										class="text-input-filled w-full"
+										class={twMerge('text-input-filled w-full', isFieldInvalid(key) && 'error')}
 										required={isRequired(key)}
 										minlength={schema.minLength}
 										maxlength={schema.maxLength}
+										oninput={() => clearFieldInvalid(key)}
 									/>
 								{:else}
 									<input
 										id={key}
 										type="text"
 										bind:value={formData[key]}
-										class="text-input-filled w-full"
+										class={twMerge('text-input-filled w-full', isFieldInvalid(key) && 'error')}
 										required={isRequired(key)}
 										minlength={schema.minLength}
 										maxlength={schema.maxLength}
+										oninput={() => clearFieldInvalid(key)}
 									/>
 								{/if}
 							{/if}
@@ -681,14 +714,7 @@
 
 				<div class="modal-action">
 					<button type="button" class="btn btn-error" onclick={handleDecline}> Decline </button>
-					<button
-						type="button"
-						class="btn btn-primary"
-						disabled={!validateForm()}
-						onclick={handleAccept}
-					>
-						Accept
-					</button>
+					<button type="button" class="btn btn-primary" onclick={handleAccept}> Accept </button>
 				</div>
 			{/if}
 		</div>
