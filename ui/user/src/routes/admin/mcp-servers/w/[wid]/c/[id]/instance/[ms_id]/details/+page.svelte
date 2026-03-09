@@ -33,7 +33,7 @@
 		fetchUserInfo();
 	});
 
-	let title = $derived(`${catalogEntryName} | ${mcpServerId}`);
+	let title = $derived(mcpServer?.alias || `${catalogEntryName} | ${mcpServerId}`);
 </script>
 
 <Layout {title} showBackButton>
@@ -46,7 +46,7 @@
 				id={workspaceId}
 				entity="workspace"
 				{mcpServerId}
-				name={catalogEntryName}
+				name={title}
 				{connectedUsers}
 				readonly={profile.current.isAdminReadonly?.()}
 				{catalogEntry}
