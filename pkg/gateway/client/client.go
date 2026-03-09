@@ -24,6 +24,9 @@ type Client struct {
 	auditBuffer            []types.MCPAuditLog
 	kickAuditPersist       chan struct{}
 	storageClient          kclient.Client
+	apiKeyCacheLock        sync.RWMutex
+	apiKeyCache            map[[32]byte]apiKeyValidationCacheEntry
+	apiKeyCacheTTL         time.Duration
 }
 
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int) *Client {
@@ -42,6 +45,8 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		auditBuffer:            make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
 		kickAuditPersist:       make(chan struct{}),
 		storageClient:          storageClient,
+		apiKeyCache:            make(map[[32]byte]apiKeyValidationCacheEntry),
+		apiKeyCacheTTL:         apiKeyValidationCacheTTL,
 	}
 
 	go c.runPersistenceLoop(ctx, auditLogPersistenceInterval)

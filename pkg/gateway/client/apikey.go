@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"time"
@@ -13,9 +14,70 @@ import (
 )
 
 const (
-	apiKeySecretLength = 32 // 32 bytes = 256 bits of entropy
-	apiKeyPrefix       = "ok1"
+	apiKeySecretLength       = 32 // 32 bytes = 256 bits of entropy
+	apiKeyPrefix             = "ok1"
+	apiKeyValidationCacheTTL = 15 * time.Second
 )
+
+type apiKeyValidationCacheEntry struct {
+	apiKey    types.APIKey
+	expiresAt time.Time
+	keyID     uint
+}
+
+func apiKeyCacheFingerprint(key string) [32]byte {
+	return sha256.Sum256([]byte(key))
+}
+
+func (c *Client) getValidatedAPIKeyFromCache(key string, now time.Time) (*types.APIKey, bool) {
+	if c.apiKeyCacheTTL <= 0 {
+		return nil, false
+	}
+
+	fingerprint := apiKeyCacheFingerprint(key)
+
+	c.apiKeyCacheLock.RLock()
+	entry, ok := c.apiKeyCache[fingerprint]
+	c.apiKeyCacheLock.RUnlock()
+	if !ok {
+		return nil, false
+	}
+
+	if now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now)) {
+		c.apiKeyCacheLock.Lock()
+		delete(c.apiKeyCache, fingerprint)
+		c.apiKeyCacheLock.Unlock()
+		return nil, false
+	}
+
+	apiKey := entry.apiKey
+	return &apiKey, true
+}
+
+func (c *Client) putValidatedAPIKeyInCache(key string, apiKey *types.APIKey, now time.Time) {
+	if c.apiKeyCacheTTL <= 0 || apiKey == nil {
+		return
+	}
+
+	c.apiKeyCacheLock.Lock()
+	c.apiKeyCache[apiKeyCacheFingerprint(key)] = apiKeyValidationCacheEntry{
+		apiKey:    *apiKey,
+		expiresAt: now.Add(c.apiKeyCacheTTL),
+		keyID:     apiKey.ID,
+	}
+	c.apiKeyCacheLock.Unlock()
+}
+
+func (c *Client) invalidateValidatedAPIKeysByID(keyID uint) {
+	c.apiKeyCacheLock.Lock()
+	defer c.apiKeyCacheLock.Unlock()
+
+	for fingerprint, entry := range c.apiKeyCache {
+		if entry.keyID == keyID {
+			delete(c.apiKeyCache, fingerprint)
+		}
+	}
+}
 
 // CreateAPIKey generates a new API key for the given user.
 // Returns the full key only once in the response.
@@ -82,6 +144,7 @@ func (c *Client) DeleteAPIKey(ctx context.Context, userID uint, keyID uint) erro
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete API key: %w", result.Error)
 	}
+	c.invalidateValidatedAPIKeysByID(keyID)
 	return nil
 }
 
@@ -90,6 +153,11 @@ func (c *Client) DeleteAPIKey(ctx context.Context, userID uint, keyID uint) erro
 // Lookup is done by key ID, then bcrypt is used to verify the secret.
 // Also updates the last_used_at timestamp on successful validation.
 func (c *Client) ValidateAPIKey(ctx context.Context, key string) (*types.APIKey, error) {
+	now := time.Now()
+	if cachedAPIKey, ok := c.getValidatedAPIKeyFromCache(key, now); ok {
+		return cachedAPIKey, nil
+	}
+
 	// Parse the key to extract components
 	_, userID, keyID, secret, err := ParseAPIKey(key)
 	if err != nil {
@@ -125,6 +193,7 @@ func (c *Client) ValidateAPIKey(ctx context.Context, key string) (*types.APIKey,
 		return nil, err
 	}
 
+	c.putValidatedAPIKeyInCache(key, &apiKey, now)
 	return &apiKey, nil
 }
 
@@ -167,6 +236,7 @@ func (c *Client) DeleteAPIKeyByID(ctx context.Context, keyID uint) error {
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete API key: %w", result.Error)
 	}
+	c.invalidateValidatedAPIKeysByID(keyID)
 	return nil
 }
 
