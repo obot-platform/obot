@@ -39,6 +39,7 @@
 		loading?: boolean;
 		skipConnectDialog?: boolean;
 		onConnect?: ({ server, entry }: { server?: MCPCatalogServer; entry?: MCPCatalogEntry }) => void;
+		onOAuthConfigured?: () => void;
 		promptInitialLaunch?: boolean;
 		promptOAuthConfig?: boolean;
 		connectOnly?: boolean;
@@ -51,6 +52,7 @@
 		loading,
 		skipConnectDialog,
 		onConnect,
+		onOAuthConfigured,
 		promptInitialLaunch,
 		isProjectMcp,
 		promptOAuthConfig,
@@ -341,7 +343,7 @@
 	<div class="flex grow flex-col gap-2 p-4 pt-0 md:p-0">
 		<p class="text-center">
 			{#if entry && entry.manifest.runtime === 'remote'}
-				Your proxy remote server details have been configured.
+				Your remote server details have been configured.
 			{:else if entry}
 				Your server details have been configured.
 			{:else}
@@ -607,6 +609,7 @@
 			await AdminService.setMCPCatalogEntryOAuthCredentials('default', entry.id, credentials);
 		}
 		oauthConfiguredOverride = true;
+		onOAuthConfigured?.();
 
 		// Show the connect dialog if this was part of the initial creation flow
 		if (isInitialOAuthConfig) {

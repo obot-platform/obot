@@ -8,6 +8,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { page } from '$app/state';
+	import { ChatService } from '$lib/services/index.js';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -26,7 +27,16 @@
 	showBackButton
 >
 	{#snippet rightNavActions()}
-		<McpServerActions server={mcpServer} {promptInitialLaunch} />
+		<McpServerActions
+			server={mcpServer}
+			{promptInitialLaunch}
+			onOAuthConfigured={() => {
+				if (!mcpServer) return;
+				ChatService.getMcpCatalogServer(mcpServer.id).then((server) => {
+					mcpServer = server;
+				});
+			}}
+		/>
 	{/snippet}
 	<div class="flex h-full flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if mcpServer}
