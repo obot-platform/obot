@@ -330,6 +330,7 @@
 
 		const [start, end] = timeFrameDomain as [Date, Date];
 		const [frame, frameStep] = timeFrame;
+		const accessor = xAccessor;
 
 		let generator: Generator = timeMinutes;
 		let step = frameStep;
@@ -346,7 +347,10 @@
 			generator = timeMonths;
 		}
 
-		return union(generator(start, end, step).map((d) => d.toISOString()));
+		const generated = union(generator(start, end, step).map((d) => d.toISOString()));
+		const fromData = union(data.map((d) => accessor(d)));
+		const combined = new Set<string>([...generated, ...fromData]);
+		return Array.from(combined).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 	});
 
 	const xRange = $derived([0, innerWidth]);
