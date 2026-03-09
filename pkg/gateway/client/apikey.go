@@ -76,6 +76,11 @@ func (c *Client) putValidatedAPIKeyInCache(key string, apiKey *types.APIKey, now
 	}
 
 	c.apiKeyCacheLock.Lock()
+	for fingerprint, entry := range c.apiKeyCache {
+		if now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now)) {
+			delete(c.apiKeyCache, fingerprint)
+		}
+	}
 	c.apiKeyCache[apiKeyCacheFingerprint(key)] = apiKeyValidationCacheEntry{
 		apiKey:    *apiKey,
 		expiresAt: now.Add(c.apiKeyCacheTTL),
