@@ -439,13 +439,17 @@ export const findServerAndEntryForProjectMcp = (mcpServer: ProjectMCP) => {
 	return { server: userConfiguredServer, entry };
 };
 
+const NANOBOT_AGENT_SERVER_PREFIX = 'nba1';
 export const compileAvailableMcpServers = (
 	servers: MCPCatalogServer[],
 	userConfiguredServers: MCPCatalogServer[]
 ) => {
 	const serverMap = new Map<string, MCPCatalogServer>();
 	for (const server of [...userConfiguredServers, ...servers]) {
-		if (!server.deleted) {
+		const isNanobotAgentServer = server.manifest.name
+			? server.manifest.name.toLowerCase().startsWith(NANOBOT_AGENT_SERVER_PREFIX)
+			: false;
+		if (!server.deleted && !isNanobotAgentServer) {
 			serverMap.set(server.id, server);
 		}
 	}
