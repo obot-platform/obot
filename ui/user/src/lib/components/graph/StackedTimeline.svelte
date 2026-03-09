@@ -350,7 +350,7 @@
 		const generated = union(generator(start, end, step).map((d) => d.toISOString()));
 		const fromData = union(data.map((d) => accessor(d)));
 		const combined = new Set<string>([...generated, ...fromData]);
-		return Array.from(combined).sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+		return Array.from(combined).sort((a, b) => a.localeCompare(b));
 	});
 
 	const xRange = $derived([0, innerWidth]);
