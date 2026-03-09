@@ -61,7 +61,8 @@ func (c *Client) getValidatedAPIKeyFromCache(key string, now time.Time) (*types.
 	}
 
 	// Fast path: entry appears valid under the read lock.
-	if !(now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now))) {
+	entryExpired := now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now))
+	if !entryExpired {
 		cachedAPIKey := entry.apiKey
 		c.apiKeyCacheLock.RUnlock()
 		apiKey := cloneAPIKey(cachedAPIKey)
