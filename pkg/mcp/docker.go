@@ -45,8 +45,22 @@ type dockerBackend struct {
 	remoteShimBaseImage           string
 	auditLogsBatchSize            int
 	auditLogsFlushIntervalSeconds int
+	deploymentCacheMu             sync.RWMutex
+	deploymentCache               map[string]*dockerDeploymentCacheEntry
 	fileSyncMu                    sync.RWMutex
 	syncedFilesHash               map[string]string
+}
+
+type dockerDeploymentCacheEntry struct {
+	hash         string
+	serverConfig ServerConfig
+	containerIDs map[string]string
+}
+
+type dockerDeploymentValidationStats struct {
+	containerCount    int
+	getContainerMs    int64
+	maxGetContainerMs int64
 }
 
 func newDockerBackend(ctx context.Context, exposedPort int, opts Options) (backend, error) {
@@ -83,6 +97,7 @@ func newDockerBackend(ctx context.Context, exposedPort int, opts Options) (backe
 		remoteShimBaseImage:           opts.MCPRemoteShimBaseImage,
 		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
 		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
+		deploymentCache:               map[string]*dockerDeploymentCacheEntry{},
 		syncedFilesHash:               map[string]string{},
 	}
 	if err = d.cleanupContainersWithOldID(ctx); err != nil {
@@ -179,6 +194,26 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	serverName := server.MCPServerName
 	// Copy the webhooks so we can change the URL without that affecting the original slice.
 	transformedWebhooks := slices.Clone(webhooks)
+	for i, webhook := range transformedWebhooks {
+		webhook.URL = strings.Replace(webhook.URL, "http://localhost", d.hostBaseURL, 1)
+		transformedWebhooks[i] = webhook
+	}
+
+	serverConfigHash := hash.Digest(map[string]any{"server": server, "webhooks": transformedWebhooks})
+	cachedDeployment := d.getDeploymentCache(serverName)
+	if cachedDeployment != nil && cachedDeployment.hash == serverConfigHash {
+		valid, stats, err := d.deploymentCacheValid(ctx, cachedDeployment)
+		_ = stats
+		if err != nil {
+			return ServerConfig{}, err
+		} else if valid {
+			return cachedDeployment.serverConfig, nil
+		}
+
+		d.deleteDeploymentCache(serverName)
+	}
+
+	expectedContainers := make(map[string]string, len(transformedWebhooks)+2)
 
 	// List the currently deployed webhooks so we can delete any that are no longer needed.
 	currentWebhooks, err := d.getWebhookContainers(ctx, server.MCPServerName)
@@ -192,8 +227,6 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	}
 
 	for i, webhook := range transformedWebhooks {
-		webhook.URL = strings.Replace(webhook.URL, "http://localhost", d.hostBaseURL, 1)
-
 		c, err := webhookToServerConfig(webhook, d.webhookBaseImage, server.MCPServerName, server.UserID, server.Scope, defaultContainerPort)
 		if err != nil {
 			return ServerConfig{}, fmt.Errorf("failed to ensure webhook deployment: %w", err)
@@ -209,6 +242,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 
 		webhook.URL = c.URL
 		transformedWebhooks[i] = webhook
+		expectedContainers[c.MCPServerName] = c.Scope
 
 		delete(existingWebhooks, c.MCPServerName)
 	}
@@ -225,9 +259,15 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 		if err != nil {
 			return ServerConfig{}, err
 		}
+		expectedContainers[server.MCPServerName] = server.Scope
 
 		// If this is a server for a nanobot agent, return the config pointing to the real server without deploying the shim.
 		if server.NanobotAgentName != "" {
+			d.setDeploymentCache(serverName, dockerDeploymentCacheEntry{
+				hash:         serverConfigHash,
+				serverConfig: server,
+				containerIDs: expectedContainers,
+			})
 			return server, nil
 		}
 
@@ -238,8 +278,16 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	}
 
 	server, err = d.ensureDeployment(ctx, server, "", d.containerEnv, transformedWebhooks)
+	expectedContainers[server.MCPServerName] = server.Scope
 	// Ensure the name is the same as what it was when we started.
 	server.MCPServerName = serverName
+	if err == nil {
+		d.setDeploymentCache(serverName, dockerDeploymentCacheEntry{
+			hash:         serverConfigHash,
+			serverConfig: server,
+			containerIDs: expectedContainers,
+		})
+	}
 	return server, err
 }
 
@@ -457,6 +505,8 @@ func (d *dockerBackend) restartServer(ctx context.Context, server ServerConfig) 
 		return fmt.Errorf("server name is required")
 	}
 
+	d.deleteDeploymentCache(id)
+
 	inspect, err := d.client.ContainerInspect(ctx, id)
 	if err != nil {
 		if cerrdefs.IsNotFound(err) {
@@ -527,6 +577,8 @@ func applyServerConfigToContainerConfig(config *container.Config, server ServerC
 }
 
 func (d *dockerBackend) shutdownServer(ctx context.Context, id string) error {
+	d.deleteDeploymentCache(id)
+
 	c, err := d.getContainer(ctx, id)
 	if err != nil && !cerrdefs.IsNotFound(err) {
 		return fmt.Errorf("failed to get container %s for shutdown: %w", id, err)
@@ -639,6 +691,56 @@ func (d *dockerBackend) getWebhookContainers(ctx context.Context, mcpContainerNa
 	}
 
 	return containers, nil
+}
+
+func (d *dockerBackend) getDeploymentCache(mcpServerName string) *dockerDeploymentCacheEntry {
+	d.deploymentCacheMu.RLock()
+	defer d.deploymentCacheMu.RUnlock()
+
+	return d.deploymentCache[mcpServerName]
+}
+
+func (d *dockerBackend) setDeploymentCache(mcpServerName string, entry dockerDeploymentCacheEntry) {
+	entry.containerIDs = maps.Clone(entry.containerIDs)
+
+	d.deploymentCacheMu.Lock()
+	defer d.deploymentCacheMu.Unlock()
+
+	d.deploymentCache[mcpServerName] = &entry
+}
+
+func (d *dockerBackend) deleteDeploymentCache(mcpServerName string) {
+	d.deploymentCacheMu.Lock()
+	defer d.deploymentCacheMu.Unlock()
+
+	delete(d.deploymentCache, mcpServerName)
+}
+
+func (d *dockerBackend) deploymentCacheValid(ctx context.Context, entry *dockerDeploymentCacheEntry) (bool, dockerDeploymentValidationStats, error) {
+	stats := dockerDeploymentValidationStats{
+		containerCount: len(entry.containerIDs),
+	}
+	if len(entry.containerIDs) == 0 {
+		return false, stats, nil
+	}
+
+	for name, expectedID := range entry.containerIDs {
+		getContainerStart := time.Now()
+		c, err := d.getContainer(ctx, name)
+		getContainerDuration := time.Since(getContainerStart).Milliseconds()
+		stats.getContainerMs += getContainerDuration
+		if getContainerDuration > stats.maxGetContainerMs {
+			stats.maxGetContainerMs = getContainerDuration
+		}
+		if err != nil {
+			return false, stats, fmt.Errorf("failed to get container %s: %w", name, err)
+		}
+		if c == nil || c.ID != expectedID || c.State != container.StateRunning {
+			return false, stats, nil
+		}
+	}
+
+	return true, stats, nil
 }
 
 func (d *dockerBackend) getHostPort(container *container.Summary, containerPort int) (int, error) {
