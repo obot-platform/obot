@@ -38,15 +38,31 @@ func (c *Client) getValidatedAPIKeyFromCache(key string, now time.Time) (*types.
 
 	c.apiKeyCacheLock.RLock()
 	entry, ok := c.apiKeyCache[fingerprint]
+	if !ok {
+		c.apiKeyCacheLock.RUnlock()
+		return nil, false
+	}
+
+	// Fast path: entry appears valid under the read lock.
+	if !(now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now))) {
+		apiKey := entry.apiKey
+		c.apiKeyCacheLock.RUnlock()
+		return &apiKey, true
+	}
+
+	// Slow path: entry appears expired; re-check under write lock before deleting
 	c.apiKeyCacheLock.RUnlock()
+
+	c.apiKeyCacheLock.Lock()
+	defer c.apiKeyCacheLock.Unlock()
+
+	entry, ok = c.apiKeyCache[fingerprint]
 	if !ok {
 		return nil, false
 	}
 
 	if now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now)) {
-		c.apiKeyCacheLock.Lock()
 		delete(c.apiKeyCache, fingerprint)
-		c.apiKeyCacheLock.Unlock()
 		return nil, false
 	}
 
