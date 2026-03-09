@@ -110,7 +110,7 @@ func (s *Server) errorToken(ctx context.Context, tr *types.TokenRequest, code in
 		if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			return tx.Updates(tr).Error
 		}); err != nil {
-			kcontext.GetLogger(ctx).ErrorContext(ctx, "failed to update token", "id", tr.ID, "error", err)
+			kcontext.GetLogger(ctx).Errorf("failed to update token: id=%s error=%v", tr.ID, err)
 		}
 		pkgLog.Infof("Stored OAuth token flow error on token request: tokenRequestID=%s status=%d", tr.ID, code)
 	}

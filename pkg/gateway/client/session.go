@@ -57,7 +57,7 @@ func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storage
 		emailHash := hash.String(identity.Email)
 		userHash := hash.String(user)
 
-		logger.Debug("deleting sessions", "provider", identity.AuthProviderName, "emailHash", emailHash, "userHash", userHash)
+		logger.Debugf("deleting sessions: provider=%s emailHash=%s userHash=%s", identity.AuthProviderName, emailHash, userHash)
 
 		if meta, ok := ref.Status.Tool.Metadata["providerMeta"]; ok {
 			tablePrefix := gjson.Get(meta, "postgresTablePrefix").String()
@@ -71,7 +71,7 @@ func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storage
 				if err != nil {
 					errs = append(errs, fmt.Errorf("failed to delete sessions for provider %q: %w", identity.AuthProviderName, err))
 				} else {
-					logger.Info("deleted sessions", "provider", identity.AuthProviderName, "emailHash", emailHash, "userHash", userHash)
+					logger.Infof("deleted sessions: provider=%s emailHash=%s userHash=%s", identity.AuthProviderName, emailHash, userHash)
 				}
 			}
 		}
@@ -86,7 +86,7 @@ func (c *Client) tableExists(db *gorm.DB, tableName string) bool {
 
 func (c *Client) deleteAllSessionsForUser(ctx context.Context, db *gorm.DB, emailHash, userHash, tablePrefix string) error {
 	if !c.tableExists(db, tablePrefix+"sessions") {
-		gcontext.GetLogger(ctx).Info("table does not exist", "table", tablePrefix+"sessions")
+		gcontext.GetLogger(ctx).Infof("table does not exist: table=%s", tablePrefix+"sessions")
 		return nil
 	}
 
@@ -99,7 +99,7 @@ func (c *Client) deleteAllSessionsForUser(ctx context.Context, db *gorm.DB, emai
 
 func (c *Client) deleteSessionsForUserExceptCurrent(ctx context.Context, db *gorm.DB, emailHash, userHash, tablePrefix, currentSessionID string) error {
 	if !c.tableExists(db, tablePrefix+"sessions") {
-		gcontext.GetLogger(ctx).Info("table does not exist", "table", tablePrefix+"sessions")
+		gcontext.GetLogger(ctx).Infof("table does not exist: table=%s", tablePrefix+"sessions")
 		return nil
 	}
 
