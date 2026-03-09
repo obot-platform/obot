@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	loggerpkg "github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
@@ -30,6 +30,8 @@ type refreshTokenResponse struct {
 	Token     string    `json:"token"`
 	ExpiresAt time.Time `json:"expiresAt,omitzero"`
 }
+
+var tokenLog = loggerpkg.Package()
 
 func (s *Server) getTokens(apiContext api.Context) error {
 	var tokens []types.AuthToken
@@ -213,7 +215,7 @@ func (s *Server) autoCleanupTokens(ctx context.Context) {
 			errs = append(errs, tx.Where("no_expiration = ?", false).Where("expires_at < ?", now).Delete(new(types.AuthToken)).Error)
 			return errors.Join(errs...)
 		}); err != nil {
-			slog.ErrorContext(ctx, "error cleaning up state", "error", err)
+			tokenLog.Errorf("error cleaning up state: error=%v", err)
 		}
 
 		timer.Reset(cleanupTick)
