@@ -479,6 +479,22 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS"] = strconv.Itoa(k.auditLogsFlushIntervalSeconds)
 	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_METADATA"] = server.AuditLogMetadata
 
+	if server.NanobotAgentName != "" {
+		for key, value := range nanobotOTELEnv("nanobot-agent", nil) {
+			secretEnvStringData[key] = value
+		}
+	} else if server.Runtime == types.RuntimeRemote {
+		// non-remote runtimes will have their otel config added to the shim container
+		// below
+		// TODO Changes to the otel env vars do not properly trigger a redeploy or
+		// get propogated through to the pod I had a fix for this, but it ran into a
+		// problem in the the k8s apply logic and I didn't want to touch it until
+		// thedadams is around.
+		for key, value := range nanobotOTELEnv("nanobot-shim", nil) {
+			secretEnvStringData[key] = value
+		}
+	}
+
 	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvStringData) + hash.Digest(nonDynamicFileData) + hash.Digest(webhooks))
 
 	// Fetch K8s settings
@@ -629,6 +645,11 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					Annotations: annotations,
 				},
 				StringData: func() map[string]string {
+					// Start from the main container env (secretEnvStringData) and carve out the subset that should
+					// be applied to the dedicated shim container (vars). This function also removes
+					// shim-owned keys from secretEnvStringData so they are not injected into
+					// the real "mcp" container later via the main config secret.
+					// TODO There has to be a less confusing way to write this logic, but I didn't want to try to refactor it
 					vars := make(map[string]string, 15)
 					for k, v := range secretEnvStringData {
 						if k == "NANOBOT_DISABLE_HEALTH_CHECKER" {
@@ -638,10 +659,19 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 							}
 						} else if strings.HasPrefix(k, "NANOBOT_RUN_") {
 							vars[k] = v
+							// Audit log env always belongs on the shim. For non-composite runtimes,
+							// almost every NANOBOT_RUN_* setting is shim-only; the healthz path is
+							// the exception because the downstream mcp container also exposes it.
 							if strings.HasPrefix(k, "NANOBOT_RUN_AUDIT_LOG_") || k != "NANOBOT_RUN_HEALTHZ_PATH" && server.Runtime != types.RuntimeComposite {
 								delete(secretEnvStringData, k)
 							}
 						}
+					}
+
+					// OTEL env is added directly here because the shim secret only copies
+					// NANOBOT_* values from secretEnvStringData above.
+					for k, v := range nanobotOTELEnv("nanobot-shim", nil) {
+						vars[k] = v
 					}
 
 					return vars

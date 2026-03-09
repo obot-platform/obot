@@ -146,6 +146,11 @@ func (d *dockerBackend) transformObotHostname(url string) string {
 	return localhostURLRegexp.ReplaceAllString(url, d.hostBaseURLWithPort)
 }
 
+func (d *dockerBackend) transformCollectorEndpoint(rawURL string) string {
+	host := strings.TrimPrefix(d.hostBaseURL, "http://")
+	return rewriteLocalhostURLHost(rawURL, host)
+}
+
 // cleanupContainersWithOldID removes containers with old ID and no config hash label.
 // This is a migration for simplifying the container names and updating existing containers
 // when configuration changes instead of possibly orphaning them.
@@ -905,6 +910,10 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 					"NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS=" + strconv.Itoa(d.auditLogsFlushIntervalSeconds),
 					"NANOBOT_RUN_AUDIT_LOG_METADATA=" + server.AuditLogMetadata,
 				}...)
+
+				for key, value := range nanobotOTELEnv("nanobot-shim", d.transformCollectorEndpoint) {
+					env = append(env, key+"="+value)
+				}
 			}
 		}
 
@@ -984,6 +993,10 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	if server.NanobotAgentName != "" {
 		config.WorkingDir = nanobotWorkspaceMountPath
 		config.Env = append(config.Env, "NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true")
+
+		for key, value := range nanobotOTELEnv("nanobot-agent", d.transformCollectorEndpoint) {
+			config.Env = append(config.Env, key+"="+value)
+		}
 	}
 
 	// Host config with port bindings and volume mounts
