@@ -73,7 +73,7 @@
 
 	const barColor = '#4575b4';
 
-	const LABEL_INSET = 4;
+	const LABEL_INSET = 8;
 	const LABEL_MIN_GAP = 16;
 
 	function estimateTextWidth(text: string): number {
