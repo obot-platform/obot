@@ -172,7 +172,8 @@ func (c *Client) DeleteAPIKey(ctx context.Context, userID uint, keyID uint) erro
 // ValidateAPIKey validates an API key and returns the associated APIKey record.
 // The key format is: ok1-<user_id>-<key_id>-<secret>
 // Lookup is done by key ID, then bcrypt is used to verify the secret.
-// Also updates the last_used_at timestamp on successful validation.
+// Cache hits return a previously validated key without touching the database.
+// On cache misses, last_used_at is updated only if more than a minute has elapsed.
 func (c *Client) ValidateAPIKey(ctx context.Context, key string) (*types.APIKey, error) {
 	now := time.Now()
 	if cachedAPIKey, ok := c.getValidatedAPIKeyFromCache(key, now); ok {
