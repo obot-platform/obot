@@ -284,6 +284,12 @@ export const ModelAlias = {
 	ImageGeneration: 'image-generation',
 	Vision: 'vision'
 } as const;
+
+export const NanobotModelAlias = {
+	Llm: 'llm',
+	LlmMini: 'llm-mini'
+} as const;
+
 export type ModelAlias = (typeof ModelAlias)[keyof typeof ModelAlias];
 
 export const ModelAliasLabels = {

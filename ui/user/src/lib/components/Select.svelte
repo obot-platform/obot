@@ -27,8 +27,8 @@
 </script>
 
 <script lang="ts" generics="T extends { id: string | number; label: string }">
-	import { ChevronDown, X, Check } from 'lucide-svelte';
-	import { type Snippet } from 'svelte';
+	import { ChevronDown, X, Check, SearchIcon } from 'lucide-svelte';
+	import { tick, type Snippet } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -114,6 +114,15 @@
 		onSelect?.(option, selected);
 		popover?.hidePopover();
 	}
+
+	function toggle() {
+		popover?.togglePopover();
+		if (popover?.matches(':popover-open')) {
+			tick().then(() => {
+				input?.focus();
+			});
+		}
+	}
 </script>
 
 <div class={twMerge(classes?.root, (readonly || disabled) && 'pointer-events-none')}>
@@ -132,11 +141,11 @@
 			)}
 			style={`anchor-name: --${id}-anchor;`}
 			tabindex={readonly || disabled ? -1 : 0}
-			onclick={() => popover?.togglePopover()}
+			onclick={toggle}
 			onkeydown={(e) => {
 				if (e.key === 'Enter' || e.key === ' ') {
 					e.preventDefault();
-					popover?.togglePopover();
+					toggle();
 				}
 			}}
 		>
@@ -210,13 +219,9 @@
 				{#if buttonStartContent}
 					{@render buttonStartContent()}
 				{/if}
-				{#if !searchable}
-					<div class="min-w-0 flex-1 items-center gap-2 truncate">
-						{selectedOptions[0]?.label ?? ''}
-					</div>
-				{:else if !readonly}
-					{@render searchInput()}
-				{/if}
+				<div class="min-w-0 flex-1 items-center gap-2 truncate">
+					{selectedOptions[0]?.label ?? ''}
+				</div>
 			{/if}
 
 			<ChevronDown class="size-5 shrink-0 self-start" />
@@ -247,6 +252,16 @@
 			position === 'top' ? 'rounded-t-sm rounded-b-none' : 'rounded-t-none rounded-b-sm'
 		)}
 	>
+		{#if !multiple && searchable}
+			<div
+				class="border-surface3 flex h-12 items-center border-b p-2"
+				role="presentation"
+				onclick={() => input?.focus()}
+			>
+				<SearchIcon class="size-4" />
+				{@render searchInput()}
+			</div>
+		{/if}
 		{#if availableOptions.length === 0}
 			<div class="text-on-surface1 px-4 py-2 font-light">No options available</div>
 		{:else}
@@ -283,7 +298,10 @@
 
 {#snippet searchInput()}
 	<input
-		class="min-w-0 flex-1 bg-inherit focus:ring-0 focus:outline-none"
+		class={twMerge(
+			'min-w-0 flex-1 bg-inherit focus:ring-0 focus:outline-none',
+			!multiple && 'px-2 py-4'
+		)}
 		{placeholder}
 		bind:this={input}
 		bind:value={query}
