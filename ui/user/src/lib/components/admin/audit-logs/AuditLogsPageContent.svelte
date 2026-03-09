@@ -697,14 +697,14 @@
 <div
 	bind:this={rightSidebar}
 	popover
-	class="drawer {selectedAuditLog ? 'min-w-lg max-w-[85vw]' : 'md:w-lg lg:w-xl'}"
+	class="drawer {selectedAuditLog ? 'max-w-[85vw] min-w-lg' : 'md:w-lg lg:w-xl'}"
 	style={selectedAuditLog ? 'width: 32rem' : ''}
 >
 	{#if selectedAuditLog}
 		{#if !responsive.isMobile && rightSidebar}
 			<div
 				role="none"
-				class="absolute left-0 top-0 z-30 h-full w-3 cursor-col-resize"
+				class="absolute top-0 left-0 z-30 h-full w-3 cursor-col-resize"
 				use:columnResize={{ column: rightSidebar, direction: 'right' }}
 			></div>
 		{/if}
