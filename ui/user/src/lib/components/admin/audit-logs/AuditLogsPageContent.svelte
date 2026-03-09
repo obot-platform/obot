@@ -722,8 +722,6 @@
 			{getFilterDisplayLabel}
 			getDefaultValue={(filter) => defaultSearchParams[filter]}
 			endpoint={async (filterId: string, ...args) => {
-				console.log('filterId', filterId);
-				console.log('id', id);
 				if (filterId !== 'mcp_id') {
 					return await AdminService.listAuditLogFilterOptions(filterId, ...args);
 				}
