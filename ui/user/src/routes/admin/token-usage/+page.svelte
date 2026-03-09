@@ -18,7 +18,7 @@
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
-	import StackedTimeline, { type TooltipItem } from '$lib/components/graph/StackedTimeline.svelte';
+	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { errors } from '$lib/stores';
 	import { aggregateTimelineDataByBucket, getUserLabels } from './utils';
 	import { twMerge } from 'tailwind-merge';
@@ -685,7 +685,17 @@
 							}}
 						>
 							{#snippet tooltipContent(item)}
-								{@render tokenUsageTooltipContent(item)}
+								{@const value = item.primaryTotal ?? 0}
+								<div class="flex flex-col gap-0 text-xs">
+									<div class="text-sm font-semibold">{item.key}</div>
+									<div class="text-on-surface1">{item.date}</div>
+									<div class="divider"></div>
+								</div>
+								<div class="flex flex-col gap-1">
+									<div class="text-on-surface1 flex flex-col">
+										<div class="text-xl font-bold">{value.toLocaleString()}</div>
+									</div>
+								</div>
 							{/snippet}
 						</StackedTimeline>
 					{/key}
@@ -786,7 +796,22 @@
 												}}
 											>
 												{#snippet tooltipContent(item)}
-													{@render tokenUsageTooltipContent(item)}
+													{@const value =
+														item.hoveredPart === 'primary'
+															? (item.primaryTotal ?? 0)
+															: (item.secondaryTotal ?? 0)}
+													<div class="flex flex-col gap-0 text-xs">
+														<div class="text-sm font-semibold">
+															{item.hoveredPart === 'primary' ? 'Input tokens' : 'Output tokens'}
+														</div>
+														<div class="text-on-surface1">{item.date}</div>
+														<div class="divider"></div>
+													</div>
+													<div class="flex flex-col gap-1">
+														<div class="text-on-surface1 flex flex-col">
+															<div class="text-xl font-bold">{value.toLocaleString()}</div>
+														</div>
+													</div>
 												{/snippet}
 											</StackedTimeline>
 										</div>
@@ -828,20 +853,6 @@
 				{value.toLocaleString()}
 				<Coins class="size-4" />
 			{/if}
-		</div>
-	</div>
-{/snippet}
-
-{#snippet tokenUsageTooltipContent(item: TooltipItem)}
-	{@const value = item.primaryTotal ?? 0}
-	<div class="flex flex-col gap-0 text-xs">
-		<div class="text-sm font-semibold">{item.key}</div>
-		<div class="text-on-surface1">{item.date}</div>
-		<div class="divider"></div>
-	</div>
-	<div class="flex flex-col gap-1">
-		<div class="text-on-surface1 flex flex-col">
-			<div class="text-xl font-bold">{value.toLocaleString()}</div>
 		</div>
 	</div>
 {/snippet}
