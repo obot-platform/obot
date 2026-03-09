@@ -649,7 +649,7 @@
 			</p>
 		</div>
 	{:else if !showLoadingSpinner}
-		<div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
+		<div class="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
 			{#each filteredGraphConfigs as cfg (cfg.id)}
 				{@const full = graphData[cfg.id] ?? []}
 				{@const total = graphTotals[cfg.id] ?? 0}
@@ -660,7 +660,7 @@
 				<div
 					class="dark:bg-surface1 dark:border-surface3 bg-background rounded-md border border-transparent p-6 shadow-sm"
 				>
-					<h3 class="mb-4 text-lg font-semibold">{cfg.label}</h3>
+					<h3 class="text-lg font-semibold">{cfg.label}</h3>
 
 					<div class="text-on-surface1 h-[300px] min-h-[300px]">
 						{#if paginated.length > 0}
@@ -693,7 +693,7 @@
 
 					{#if maxPage > 0}
 						<div
-							class="mt-4 flex items-center justify-center gap-4 border-t border-gray-200 p-4 dark:border-gray-700"
+							class="mt-4 flex items-center justify-center gap-4 border-t border-gray-200 p-4 pb-0 dark:border-gray-700"
 						>
 							<button
 								class="icon-button"
