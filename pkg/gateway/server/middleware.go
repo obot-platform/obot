@@ -19,6 +19,9 @@ func apply(h api.HandlerFunc, m ...api.Middleware) api.HandlerFunc {
 func contentType(contentType string) api.Middleware {
 	return func(h api.HandlerFunc) api.HandlerFunc {
 		return func(apiContext api.Context) error {
+			_, span := gatewayTracer.Start(apiContext.Context(), "gateway.middleware.content_type")
+			defer span.End()
+
 			apiContext.ResponseWriter.Header().Set("Content-Type", contentType)
 			return h(apiContext)
 		}
@@ -27,6 +30,9 @@ func contentType(contentType string) api.Middleware {
 
 func logRequest(h api.HandlerFunc) api.HandlerFunc {
 	return func(apiContext api.Context) (err error) {
+		_, setupSpan := gatewayTracer.Start(apiContext.Context(), "gateway.middleware.log_request")
+		setupSpan.End()
+
 		l := context.GetLogger(apiContext.Context())
 		defer func() {
 			l.DebugContext(apiContext.Context(), "Handled request", "method", apiContext.Method, "path", apiContext.URL.Path)
@@ -43,19 +49,25 @@ func logRequest(h api.HandlerFunc) api.HandlerFunc {
 
 func addRequestID(next api.HandlerFunc) api.HandlerFunc {
 	return func(apiContext api.Context) error {
-		apiContext.Request = apiContext.WithContext(context.WithNewRequestID(apiContext.Context()))
+		middlewareCtx, span := gatewayTracer.Start(apiContext.Context(), "gateway.middleware.add_request_id")
+		defer span.End()
+
+		apiContext.Request = apiContext.WithContext(context.WithNewRequestID(middlewareCtx))
 		return next(apiContext)
 	}
 }
 
 func addLogger(next api.HandlerFunc) api.HandlerFunc {
 	return func(apiContext api.Context) error {
+		middlewareCtx, span := gatewayTracer.Start(apiContext.Context(), "gateway.middleware.add_logger")
+		defer span.End()
+
 		logger := log.NewWithID(context.GetRequestID(apiContext.Context()))
 		if apiContext.User != nil {
 			logger = logger.With("username", apiContext.User.GetName())
 		}
 		apiContext.Request = apiContext.WithContext(context.WithLogger(
-			apiContext.Context(),
+			middlewareCtx,
 			logger,
 		))
 		return next(apiContext)

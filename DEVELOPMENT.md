@@ -55,6 +55,35 @@ In the description above for running the server in an IDE, the `--dev-mode` flag
 
 For example, from the root directory of the obot repo, you can list all agents in your setup with `kubectl --kubeconfig tools/devmode-kubeconfig get agents`.
 
+## Local Jaeger
+
+Obot already supports standard OpenTelemetry exporters. For local tracing with Jaeger:
+
+1. Start Jaeger:
+```bash
+make otel-jaeger-up
+```
+2. Point Obot at Jaeger before running `make dev` or starting the server in your IDE:
+```bash
+export OTEL_TRACES_EXPORTER=otlp
+export OTEL_METRICS_EXPORTER=none
+export OTEL_LOGS_EXPORTER=none
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+export OTEL_SERVICE_NAME=obot
+export OTEL_TRACES_SAMPLER=always_on
+```
+3. Open Jaeger at `http://localhost:16686`.
+
+Jaeger also exposes OTLP gRPC on `localhost:4317` and OTLP HTTP on `localhost:4318`, so Nanobot can be pointed at the same local instance.
+
+Useful commands:
+
+```bash
+make otel-jaeger-logs
+make otel-jaeger-down
+```
+
 ## Obot Credentials
 
 The GPTScript credentials for Obot are, by default, stored in a SQLite database called `obot-credentials.db` in the root of the obot repo. You can use the `sqlite3` CLI to inspect the database directly: `sqlite3 obot-credentials.db`.

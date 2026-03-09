@@ -24,7 +24,10 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/storage"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -45,11 +48,12 @@ type Server struct {
 	baseURL        string
 	registryNoAuth bool
 
-	mux *http.ServeMux
+	mux         *http.ServeMux
+	otelHandler http.Handler
 }
 
 func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, registryNoAuth bool) *Server {
-	return &Server{
+	s := &Server{
 		storageClient:  storageClient,
 		gatewayClient:  gatewayClient,
 		gptClient:      gptClient,
@@ -62,6 +66,8 @@ func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptC
 		registryNoAuth: registryNoAuth,
 		mux:            http.NewServeMux(),
 	}
+	s.otelHandler = otelhttp.NewHandler(s.mux, "obot/http")
+	return s
 }
 
 func (s *Server) HandleFunc(pattern string, f api.HandlerFunc) {
@@ -78,7 +84,7 @@ func (s *Server) HTTPHandle(pattern string, f http.Handler) {
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, span := tracer.Start(r.Context(), "server")
 	defer span.End()
-	s.mux.ServeHTTP(w, r.WithContext(ctx))
+	s.otelHandler.ServeHTTP(w, r.WithContext(ctx))
 }
 
 func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
@@ -92,7 +98,13 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		// errors, registry endpoints, UI, static, and proxy responses.
 		rw = &headersResponseWriter{ResponseWriter: rw}
 
-		user, err := s.authenticator.Authenticate(req)
+		authCtx, authSpan := tracer.Start(req.Context(), "api.wrap.authenticate")
+		user, err := s.authenticator.Authenticate(req.WithContext(authCtx))
+		if err != nil {
+			authSpan.RecordError(err)
+			authSpan.SetStatus(codes.Error, err.Error())
+		}
+		authSpan.End()
 		if err != nil {
 			if errors.Is(err, proxy.ErrInvalidSession) {
 				// The session is invalid, so tell the browser to delete the cookie so that it won't try it again.
@@ -121,7 +133,15 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		// Skip rate limiting for static assets (JS chunks, CSS, images) to avoid
 		// hitting limits during page load when many assets are fetched in parallel.
 		if !isStaticAssetPath(req.URL.Path) {
-			if err := s.rateLimiter.ApplyLimit(user, rw, req); err != nil {
+			rateLimitCtx, rateLimitSpan := tracer.Start(req.Context(), "api.wrap.rate_limit")
+			rateLimitSpan.SetAttributes(attribute.String("api.path", req.URL.Path))
+			err := s.rateLimiter.ApplyLimit(user, rw, req.WithContext(rateLimitCtx))
+			if err != nil {
+				rateLimitSpan.RecordError(err)
+				rateLimitSpan.SetStatus(codes.Error, err.Error())
+			}
+			rateLimitSpan.End()
+			if err != nil {
 				if errors.Is(err, ratelimiter.ErrRateLimitExceeded) {
 					// The user has exceeded their rate limit.
 					http.Error(rw, err.Error(), http.StatusTooManyRequests)
@@ -153,7 +173,14 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 
 			if authenticated {
 				// Best effort
-				if err := s.gatewayClient.AddActivityForToday(req.Context(), user.GetUID()); err != nil {
+				activityCtx, activitySpan := tracer.Start(req.Context(), "api.wrap.add_activity")
+				err := s.gatewayClient.AddActivityForToday(activityCtx, user.GetUID())
+				if err != nil {
+					activitySpan.RecordError(err)
+					activitySpan.SetStatus(codes.Error, err.Error())
+				}
+				activitySpan.End()
+				if err != nil {
 					log.Warnf("Failed to add activity tracking for user %s: %v", user.GetName(), err)
 				}
 			}
@@ -165,7 +192,11 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
-		if !s.authorizer.Authorize(req, user) {
+		authzCtx, authzSpan := tracer.Start(req.Context(), "api.wrap.authorize")
+		authorized := s.authorizer.Authorize(req.WithContext(authzCtx), user)
+		authzSpan.SetAttributes(attribute.Bool("api.authorized", authorized))
+		authzSpan.End()
+		if !authorized {
 			if _, err := req.Cookie(auth.ObotAccessTokenCookie); err == nil && req.URL.Path == "/api/me" {
 				// Tell the browser to delete the obot_access_token cookie.
 				// If the user tried to access this path and was unauthorized, then something is wrong with their token.
@@ -197,15 +228,21 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			rw.Header().Set("Expires", "0")
 		}
 
+		handlerCtx, handlerSpan := tracer.Start(req.Context(), "api.wrap.handler")
 		err = f(api.Context{
 			ResponseWriter: rw,
-			Request:        req,
+			Request:        req.WithContext(handlerCtx),
 			GPTClient:      s.gptClient,
 			Storage:        s.storageClient,
 			GatewayClient:  s.gatewayClient,
 			User:           user,
 			APIBaseURL:     s.baseURL,
 		})
+		if err != nil {
+			handlerSpan.RecordError(err)
+			handlerSpan.SetStatus(codes.Error, err.Error())
+		}
+		handlerSpan.End()
 		if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
 			http.Error(rw, errHTTP.Message, errHTTP.Code)
 		} else if errStatus := (*apierrors.StatusError)(nil); errors.As(err, &errStatus) {

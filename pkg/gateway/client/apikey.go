@@ -9,6 +9,10 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -39,6 +43,17 @@ func cloneAPIKey(apiKey types.APIKey) types.APIKey {
 		cloned.ExpiresAt = new(*apiKey.ExpiresAt)
 	}
 	return cloned
+}
+
+var clientTracer = otel.Tracer("obot/gateway/client")
+
+func recordClientSpanError(span trace.Span, err error) {
+	if err == nil {
+		return
+	}
+
+	span.RecordError(err)
+	span.SetStatus(codes.Error, err.Error())
 }
 
 func apiKeyCacheFingerprint(key string) [32]byte {
@@ -215,47 +230,97 @@ func (c *Client) DeleteAPIKey(ctx context.Context, userID uint, keyID uint) erro
 // Cache hits return a previously validated key without touching the database.
 // On cache misses, last_used_at is updated only if more than a minute has elapsed.
 func (c *Client) ValidateAPIKey(ctx context.Context, key string) (*types.APIKey, error) {
+	ctx, span := clientTracer.Start(ctx, "gateway.client.validate_api_key")
+	defer span.End()
+
 	cacheNow := time.Now()
-	if cachedAPIKey, ok := c.getValidatedAPIKeyFromCache(key, cacheNow); ok {
+	_, cacheLookupSpan := clientTracer.Start(ctx, "gateway.client.validate_api_key.cache_lookup")
+	cachedAPIKey, cacheHit := c.getValidatedAPIKeyFromCache(key, cacheNow)
+	cacheLookupSpan.SetAttributes(attribute.Bool("gateway.client.cache_hit", cacheHit))
+	cacheLookupSpan.End()
+	span.SetAttributes(attribute.Bool("gateway.client.cache_hit", cacheHit))
+	if cacheHit {
 		return cachedAPIKey, nil
 	}
 
 	// Parse the key to extract components
+	_, parseSpan := clientTracer.Start(ctx, "gateway.client.validate_api_key.parse_key")
 	_, userID, keyID, secret, err := ParseAPIKey(key)
 	if err != nil {
+		recordClientSpanError(parseSpan, err)
+		parseSpan.End()
+		recordClientSpanError(span, err)
 		return nil, err
 	}
+	parseSpan.End()
 
 	var apiKey types.APIKey
+	_, txSpan := clientTracer.Start(ctx, "gateway.client.validate_api_key.transaction")
 	err = c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Look up by key ID
-		if err := tx.Where("id = ?", keyID).Where("user_id = ?", userID).First(&apiKey).Error; err != nil {
+		_, lookupSpan := clientTracer.Start(ctx, "gateway.client.validate_api_key.lookup_record")
+		err := tx.WithContext(ctx).Where("id = ?", keyID).Where("user_id = ?", userID).First(&apiKey).Error
+		if err != nil {
+			recordClientSpanError(lookupSpan, err)
+			lookupSpan.End()
 			return err
 		}
+		lookupSpan.End()
 
 		// Verify the secret using bcrypt
+		_, verifySecretSpan := clientTracer.Start(ctx, "gateway.client.validate_api_key.verify_secret")
 		if err := bcrypt.CompareHashAndPassword([]byte(apiKey.HashedSecret), []byte(secret)); err != nil {
+			recordClientSpanError(verifySecretSpan, err)
+			verifySecretSpan.End()
 			return fmt.Errorf("invalid API key")
 		}
+		verifySecretSpan.End()
 
 		// Check expiration
-		if apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(time.Now()) {
+		_, expirationSpan := clientTracer.Start(ctx, "gateway.client.validate_api_key.check_expiration")
+		expired := apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(time.Now())
+		expirationSpan.SetAttributes(attribute.Bool("gateway.client.api_key_expired", expired))
+		expirationSpan.End()
+		if expired {
 			return fmt.Errorf("API key has expired")
 		}
 
 		// Update last used timestamp if more than a minute has elapsed
 		lastUsedAtNow := time.Now()
 		if apiKey.LastUsedAt == nil || lastUsedAtNow.Sub(*apiKey.LastUsedAt) > time.Minute {
+			_, shouldUpdateSpan := clientTracer.Start(ctx, "gateway.client.validate_api_key.should_update_last_used")
+			shouldUpdateLastUsed := true
+			shouldUpdateSpan.SetAttributes(attribute.Bool("gateway.client.should_update_last_used", shouldUpdateLastUsed))
+			shouldUpdateSpan.End()
+			_, updateSpan := clientTracer.Start(ctx, "gateway.client.validate_api_key.update_last_used")
 			apiKey.LastUsedAt = &lastUsedAtNow
-			return tx.Model(&apiKey).Update("last_used_at", lastUsedAtNow).Error
+			err := tx.WithContext(ctx).Model(&apiKey).Update("last_used_at", lastUsedAtNow).Error
+			if err != nil {
+				recordClientSpanError(updateSpan, err)
+				updateSpan.End()
+				return err
+			}
+			updateSpan.End()
+			return nil
 		}
+
+		_, shouldUpdateSpan := clientTracer.Start(ctx, "gateway.client.validate_api_key.should_update_last_used")
+		shouldUpdateLastUsed := false
+		shouldUpdateSpan.SetAttributes(attribute.Bool("gateway.client.should_update_last_used", shouldUpdateLastUsed))
+		shouldUpdateSpan.End()
 		return nil
 	})
 	if err != nil {
+		recordClientSpanError(txSpan, err)
+	}
+	txSpan.End()
+	if err != nil {
+		recordClientSpanError(span, err)
 		return nil, err
 	}
 
 	c.putValidatedAPIKeyInCache(key, &apiKey, cacheNow)
+	span.SetAttributes(attribute.Bool("gateway.client.last_used_tracked", apiKey.LastUsedAt != nil))
 	return &apiKey, nil
 }
 
