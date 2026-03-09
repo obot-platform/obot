@@ -124,7 +124,7 @@ func (h *handler) token(req api.Context) error {
 			Description: "client is not allowed to use authorization_code grant type",
 		})
 	}
-	log.Infof("Processing OAuth token request: client=%s/%s grantType=%s", client.Namespace, client.Name, grantType)
+	log.Debugf("Processing OAuth token request: client=%s/%s grantType=%s", client.Namespace, client.Name, grantType)
 
 	switch grantType {
 	case "authorization_code":
