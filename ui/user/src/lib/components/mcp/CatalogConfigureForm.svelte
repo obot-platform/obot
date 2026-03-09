@@ -560,9 +560,11 @@
 					{/if}
 
 					{#each remoteHeaders as header (header.data.key)}
+						{@const highlightRequired =
+							highlightedFields.has(header.data.key) && !header.data.value}
 						<div class="flex flex-col gap-1">
 							<span class="flex items-center gap-2">
-								<label for={header.data.key}>
+								<label for={header.data.key} class={highlightRequired ? 'text-red-500' : ''}>
 									{header.data.name}
 									{#if !header.data.required}
 										<span class="text-on-surface1">(optional)</span>
@@ -572,6 +574,7 @@
 							</span>
 							{#if header.data.sensitive}
 								<SensitiveInput
+									error={highlightRequired}
 									name={header.data.name}
 									bind:value={form.headers![header.index].value}
 								/>
@@ -580,7 +583,10 @@
 									type="text"
 									id={header.data.key}
 									bind:value={form!.headers![header.index].value}
-									class="text-input-filled"
+									class={twMerge(
+										'text-input-filled',
+										highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+									)}
 								/>
 							{/if}
 						</div>
