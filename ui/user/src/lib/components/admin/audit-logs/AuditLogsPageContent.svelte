@@ -20,6 +20,7 @@
 		ChatService
 	} from '$lib/services';
 	import { type PaginatedResponse } from '$lib/services/admin/operations';
+	import { columnResize } from '$lib/actions/resize';
 	import AuditLogDetails from '$lib/components/admin/audit-logs/AuditLogDetails.svelte';
 	import AuditLogsTable from './AuditLogs.svelte';
 	import AuditLogCalendar from './AuditLogCalendar.svelte';
@@ -30,6 +31,7 @@
 	import { getUserDisplayName } from '$lib/utils';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import profile from '$lib/stores/profile.svelte';
+	import { responsive } from '$lib/stores';
 	import { Group } from '$lib/services';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 
@@ -692,8 +694,20 @@
 	</div>
 {/if}
 
-<div bind:this={rightSidebar} popover class="drawer md:w-lg lg:w-xl">
+<div
+	bind:this={rightSidebar}
+	popover
+	class="drawer {selectedAuditLog ? 'min-w-lg max-w-[85vw]' : 'md:w-lg lg:w-xl'}"
+	style={selectedAuditLog ? 'width: 32rem' : ''}
+>
 	{#if selectedAuditLog}
+		{#if !responsive.isMobile && rightSidebar}
+			<div
+				role="none"
+				class="absolute left-0 top-0 z-30 h-full w-3 cursor-col-resize"
+				use:columnResize={{ column: rightSidebar, direction: 'right' }}
+			></div>
+		{/if}
 		<AuditLogDetails onClose={handleRightSidebarClose} auditLog={selectedAuditLog} />
 	{/if}
 
