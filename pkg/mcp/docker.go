@@ -57,12 +57,6 @@ type dockerDeploymentCacheEntry struct {
 	containerIDs map[string]string
 }
 
-type dockerDeploymentValidationStats struct {
-	containerCount    int
-	getContainerMs    int64
-	maxGetContainerMs int64
-}
-
 func newDockerBackend(ctx context.Context, exposedPort int, opts Options) (backend, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -202,11 +196,12 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	serverConfigHash := hash.Digest(map[string]any{"server": server, "webhooks": transformedWebhooks})
 	cachedDeployment := d.getDeploymentCache(serverName)
 	if cachedDeployment != nil && cachedDeployment.hash == serverConfigHash {
-		valid, stats, err := d.deploymentCacheValid(ctx, cachedDeployment)
-		_ = stats
+		valid, err := d.deploymentCacheValid(ctx, cachedDeployment)
 		if err != nil {
 			return ServerConfig{}, err
-		} else if valid {
+		}
+
+		if valid {
 			return cachedDeployment.serverConfig, nil
 		}
 
@@ -716,31 +711,22 @@ func (d *dockerBackend) deleteDeploymentCache(mcpServerName string) {
 	delete(d.deploymentCache, mcpServerName)
 }
 
-func (d *dockerBackend) deploymentCacheValid(ctx context.Context, entry *dockerDeploymentCacheEntry) (bool, dockerDeploymentValidationStats, error) {
-	stats := dockerDeploymentValidationStats{
-		containerCount: len(entry.containerIDs),
-	}
+func (d *dockerBackend) deploymentCacheValid(ctx context.Context, entry *dockerDeploymentCacheEntry) (bool, error) {
 	if len(entry.containerIDs) == 0 {
-		return false, stats, nil
+		return false, nil
 	}
 
 	for name, expectedID := range entry.containerIDs {
-		getContainerStart := time.Now()
 		c, err := d.getContainer(ctx, name)
-		getContainerDuration := time.Since(getContainerStart).Milliseconds()
-		stats.getContainerMs += getContainerDuration
-		if getContainerDuration > stats.maxGetContainerMs {
-			stats.maxGetContainerMs = getContainerDuration
-		}
 		if err != nil {
-			return false, stats, fmt.Errorf("failed to get container %s: %w", name, err)
+			return false, fmt.Errorf("failed to get container %s: %w", name, err)
 		}
 		if c == nil || c.ID != expectedID || c.State != container.StateRunning {
-			return false, stats, nil
+			return false, nil
 		}
 	}
 
-	return true, stats, nil
+	return true, nil
 }
 
 func (d *dockerBackend) getHostPort(container *container.Summary, containerPort int) (int, error) {
