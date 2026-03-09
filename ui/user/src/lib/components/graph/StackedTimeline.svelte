@@ -607,7 +607,7 @@
 		<div bind:clientHeight bind:clientWidth class="min-h-0 min-w-0 flex-1">
 			{#if highlightedRectElement && currentItem}
 				<div
-					class="tooltip pointer-events-none fixed top-0 left-0 z-50 flex flex-col shadow-md"
+					class="tooltip bg-background dark:bg-surface2 pointer-events-none fixed top-0 left-0 z-50 flex flex-col shadow-md"
 					{@attach (node) => tooltip(highlightedRectElement!, node)}
 					in:fade={{ duration: 100, delay: 10 }}
 					out:fade={{ duration: 100 }}
@@ -616,14 +616,14 @@
 						{@render tooltipContent(currentItem)}
 					{:else}
 						<div class="flex flex-col gap-0 text-xs">
-							<div>
-								{currentItem?.date}
-							</div>
-							<div class="text-sm">
+							<div class="text-on-background text-sm">
 								{currentItem?.key}
 							</div>
+							<div class="border-on-surface1 mb-2 border-b pb-2">
+								{currentItem?.date}
+							</div>
 						</div>
-						<div class="text-2xl font-bold">{currentItem?.value}</div>
+						<div class="text-on-background text-2xl font-bold">{currentItem?.value}</div>
 					{/if}
 				</div>
 			{/if}

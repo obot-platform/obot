@@ -1,0 +1,45 @@
+<script lang="ts">
+	import { tweened } from 'svelte/motion';
+	import { cubicOut } from 'svelte/easing';
+
+	interface Props {
+		targetWidth: number;
+		y: number;
+		height: number;
+		fill: string;
+		rx: number;
+		class?: string;
+		onpointerenter: (e: PointerEvent) => void;
+		onpointerleave: (e: PointerEvent) => void;
+	}
+
+	let {
+		targetWidth,
+		y,
+		height,
+		fill,
+		rx,
+		class: klass = '',
+		onpointerenter,
+		onpointerleave
+	}: Props = $props();
+
+	const width = tweened(0, { duration: 400, easing: cubicOut });
+
+	$effect(() => {
+		width.set(targetWidth);
+	});
+</script>
+
+<rect
+	x={0}
+	{y}
+	width={$width}
+	{height}
+	{rx}
+	ry={rx}
+	{fill}
+	class={klass}
+	{onpointerenter}
+	{onpointerleave}
+/>
