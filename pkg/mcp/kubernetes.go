@@ -457,6 +457,14 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	// Tell nanobot to expose the healthz endpoint
 	secretEnvStringData["NANOBOT_RUN_HEALTHZ_PATH"] = "/healthz"
 
+	otelServiceName := "nanobot-shim"
+	if server.NanobotAgentName != "" {
+		otelServiceName = "nanobot-agent"
+	}
+	for key, value := range nanobotOTELEnv(otelServiceName, nil) {
+		secretEnvStringData[key] = value
+	}
+
 	// JWT environment variables
 	if server.NanobotAgentName == "" {
 		secretEnvStringData["NANOBOT_RUN_OAUTH_SCOPES"] = "profile"

@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -56,6 +57,7 @@ func (h *Handler) Proxy(req api.Context) error {
 	}
 
 	(&httputil.ReverseProxy{
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
 		Director: func(r *http.Request) {
 			r.Header.Set("X-Forwarded-Host", r.Host)
 			scheme := "https"
@@ -103,7 +105,6 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (string, bool, error) 
 	if err != nil {
 		return "", false, fmt.Errorf("failed to get mcp server config: %w", err)
 	}
-
 	if mcpServer.Spec.Template {
 		return "", false, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}

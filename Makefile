@@ -40,6 +40,15 @@ dev:
 dev-open: ARGS=--open-uis
 dev-open: dev
 
+otel-jaeger-up:
+	docker compose -f tools/jaeger-compose.yaml up -d
+
+otel-jaeger-down:
+	docker compose -f tools/jaeger-compose.yaml down
+
+otel-jaeger-logs:
+	docker compose -f tools/jaeger-compose.yaml logs -f
+
 # Lint the project
 lint: lint-go
 
@@ -99,4 +108,4 @@ remove-docs-version:
 	jq 'del(.[] | select(. == "${version}"))' ./docs/versions.json > tmp.json && mv tmp.json ./docs/versions.json
 	grep -v '"${version}": {label: "${version}", banner: "none", path: "${version}"},' ./docs/docusaurus.config.ts  > tmp.config.ts && mv tmp.config.ts ./docs/docusaurus.config.ts
 
-.PHONY: ui ui-user build all clean dev dev-open lint lint-admin lint-api no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version
+.PHONY: ui ui-user build all clean dev dev-open otel-jaeger-up otel-jaeger-down otel-jaeger-logs lint lint-admin lint-api no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version

@@ -24,14 +24,12 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/storage"
-	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-var (
-	log    = logger.Package()
-	tracer = otel.Tracer("obot/api")
-)
+var log = logger.Package()
 
 type Server struct {
 	storageClient  storage.Client
@@ -45,11 +43,12 @@ type Server struct {
 	baseURL        string
 	registryNoAuth bool
 
-	mux *http.ServeMux
+	mux         *http.ServeMux
+	otelHandler http.Handler
 }
 
 func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, registryNoAuth bool) *Server {
-	return &Server{
+	s := &Server{
 		storageClient:  storageClient,
 		gatewayClient:  gatewayClient,
 		gptClient:      gptClient,
@@ -62,6 +61,8 @@ func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptC
 		registryNoAuth: registryNoAuth,
 		mux:            http.NewServeMux(),
 	}
+	s.otelHandler = otelhttp.NewHandler(s.mux, "obot/http")
+	return s
 }
 
 func (s *Server) HandleFunc(pattern string, f api.HandlerFunc) {
@@ -76,17 +77,11 @@ func (s *Server) HTTPHandle(pattern string, f http.Handler) {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx, span := tracer.Start(r.Context(), "server")
-	defer span.End()
-	s.mux.ServeHTTP(w, r.WithContext(ctx))
+	s.otelHandler.ServeHTTP(w, r)
 }
 
 func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, req *http.Request) {
-		ctx, span := tracer.Start(req.Context(), req.Pattern)
-		defer span.End()
-		req = req.WithContext(ctx)
-
 		// Ensure security headers and a sane default Content-Type.
 		// This wrapper is intentionally applied early so it covers authn/authz
 		// errors, registry endpoints, UI, static, and proxy responses.

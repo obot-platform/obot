@@ -146,6 +146,11 @@ func (d *dockerBackend) transformObotHostname(url string) string {
 	return localhostURLRegexp.ReplaceAllString(url, d.hostBaseURLWithPort)
 }
 
+func (d *dockerBackend) transformCollectorEndpoint(rawURL string) string {
+	host := strings.TrimPrefix(d.hostBaseURL, "http://")
+	return rewriteLocalhostURLHost(rawURL, host)
+}
+
 // cleanupContainersWithOldID removes containers with old ID and no config hash label.
 // This is a migration for simplifying the container names and updating existing containers
 // when configuration changes instead of possibly orphaning them.
@@ -906,6 +911,14 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 					"NANOBOT_RUN_AUDIT_LOG_METADATA=" + server.AuditLogMetadata,
 				}...)
 			}
+		}
+
+		otelServiceName := "nanobot-shim"
+		if server.NanobotAgentName != "" {
+			otelServiceName = "nanobot-agent"
+		}
+		for key, value := range nanobotOTELEnv(otelServiceName, d.transformCollectorEndpoint) {
+			env = append(env, key+"="+value)
 		}
 
 		containerPort = defaultContainerPort
