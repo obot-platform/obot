@@ -52,11 +52,6 @@ func New(providerType types.StorageProviderType, config types.StorageConfig) (Bl
 			return nil, fmt.Errorf("custom S3 configuration is required")
 		}
 		return NewCustomS3Store(*config.CustomS3Config)
-	case types.StorageProviderDirectory:
-		if config.DirectoryConfig == nil {
-			return nil, fmt.Errorf("directory configuration is required")
-		}
-		return NewDirectoryStore(config.DirectoryConfig.BaseDir)
 	default:
 		return nil, fmt.Errorf("unsupported storage provider: %s", providerType)
 	}

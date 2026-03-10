@@ -124,7 +124,6 @@ const (
 	StorageProviderGCS       StorageProviderType = "gcs"
 	StorageProviderAzureBlob StorageProviderType = "azure"
 	StorageProviderCustomS3  StorageProviderType = "custom"
-	StorageProviderDirectory StorageProviderType = "directory"
 )
 
 type StorageProviderConfigInput struct {
@@ -142,12 +141,6 @@ type StorageConfig struct {
 	AzureConfig *AzureConfig `json:"azureConfig,omitempty"`
 	// Custom S3-compatible storage config
 	CustomS3Config *CustomS3Config `json:"customS3Config,omitempty"`
-	// Local directory storage config
-	DirectoryConfig *DirectoryConfig `json:"directoryConfig,omitempty"`
-}
-
-type DirectoryConfig struct {
-	BaseDir string `json:"baseDir"`
 }
 
 type S3Config struct {

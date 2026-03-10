@@ -57,7 +57,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasList":                          schema_obot_platform_obot_apiclient_types_DefaultModelAliasList(ref),
 		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasManifest":                      schema_obot_platform_obot_apiclient_types_DefaultModelAliasManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeploymentCondition":                            schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref),
-		"github.com/obot-platform/obot/apiclient/types.DirectoryConfig":                                schema_obot_platform_obot_apiclient_types_DirectoryConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiver":                                  schema_obot_platform_obot_apiclient_types_EmailReceiver(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiverList":                              schema_obot_platform_obot_apiclient_types_EmailReceiverList(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiverManifest":                          schema_obot_platform_obot_apiclient_types_EmailReceiverManifest(ref),
@@ -2667,26 +2666,6 @@ func schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref common.Re
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Time"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_DirectoryConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"baseDir": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-				},
-				Required: []string{"baseDir"},
-			},
-		},
 	}
 }
 
@@ -10052,17 +10031,11 @@ func schema_obot_platform_obot_apiclient_types_StorageConfig(ref common.Referenc
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.CustomS3Config"),
 						},
 					},
-					"directoryConfig": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Local directory storage config",
-							Ref:         ref("github.com/obot-platform/obot/apiclient/types.DirectoryConfig"),
-						},
 					},
-				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AzureConfig", "github.com/obot-platform/obot/apiclient/types.CustomS3Config", "github.com/obot-platform/obot/apiclient/types.DirectoryConfig", "github.com/obot-platform/obot/apiclient/types.GCSConfig", "github.com/obot-platform/obot/apiclient/types.S3Config"},
+			"github.com/obot-platform/obot/apiclient/types.AzureConfig", "github.com/obot-platform/obot/apiclient/types.CustomS3Config", "github.com/obot-platform/obot/apiclient/types.GCSConfig", "github.com/obot-platform/obot/apiclient/types.S3Config"},
 	}
 }
 
