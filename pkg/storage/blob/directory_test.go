@@ -162,6 +162,26 @@ func TestDirectoryStore_PathTraversal(t *testing.T) {
 	if err := store.Delete(ctx, "../escape", "key"); err == nil {
 		t.Fatal("expected error for path traversal in delete")
 	}
+
+	// Absolute path in key
+	if err := store.Upload(ctx, "bucket", "/etc/passwd", bytes.NewReader([]byte("bad"))); err == nil {
+		t.Fatal("expected error for absolute path in key")
+	}
+
+	// Absolute path in bucket
+	if err := store.Upload(ctx, "/tmp", "key.txt", bytes.NewReader([]byte("bad"))); err == nil {
+		t.Fatal("expected error for absolute path in bucket")
+	}
+
+	// Absolute path in download
+	if _, err := store.Download(ctx, "bucket", "/etc/shadow"); err == nil {
+		t.Fatal("expected error for absolute path in download")
+	}
+
+	// Absolute path in delete
+	if err := store.Delete(ctx, "/tmp", "key"); err == nil {
+		t.Fatal("expected error for absolute path in delete")
+	}
 }
 
 func TestDirectoryStore_Test(t *testing.T) {

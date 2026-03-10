@@ -21,7 +21,12 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const maxArtifactUploadBytes = 100 * 1024 * 1024
+const (
+	maxArtifactUploadBytes    = 100 * 1024 * 1024
+	maxZIPFiles               = 50
+	maxZIPUncompressedBytes   = 100 * 1024 * 1024
+	maxArtifactDescriptionLen = 1024
+)
 
 type PublishedArtifactHandler struct {
 	blobStore blob.BlobStore
@@ -331,6 +336,12 @@ func (h *PublishedArtifactHandler) Update(req api.Context) error {
 	}
 
 	if update.Description != nil {
+		if *update.Description == "" {
+			return types.NewErrBadRequest("description must not be empty")
+		}
+		if len(*update.Description) > maxArtifactDescriptionLen {
+			return types.NewErrBadRequest("description must be %d characters or fewer", maxArtifactDescriptionLen)
+		}
 		log.Debugf("Updating artifact %s description: %q -> %q", id, artifact.Spec.Description, *update.Description)
 		artifact.Spec.Description = *update.Description
 	}
@@ -445,6 +456,18 @@ func rewriteSkillFrontmatterInZIP(data []byte, fm skillformat.Frontmatter, body 
 		return nil, fmt.Errorf("failed to format %s: %w", skillformat.SkillMainFile, err)
 	}
 
+	if len(r.File) > maxZIPFiles {
+		return nil, fmt.Errorf("ZIP contains too many files (%d, max %d)", len(r.File), maxZIPFiles)
+	}
+
+	var totalUncompressed uint64
+	for _, f := range r.File {
+		totalUncompressed += f.UncompressedSize64
+		if totalUncompressed > maxZIPUncompressedBytes {
+			return nil, fmt.Errorf("ZIP uncompressed size exceeds limit (%d bytes)", maxZIPUncompressedBytes)
+		}
+	}
+
 	var buf bytes.Buffer
 	w := zip.NewWriter(&buf)
 
@@ -469,7 +492,7 @@ func rewriteSkillFrontmatterInZIP(data []byte, fm skillformat.Frontmatter, body 
 		if err != nil {
 			return nil, fmt.Errorf("failed to open entry %s: %w", f.Name, err)
 		}
-		if _, err := io.Copy(fw, rc); err != nil {
+		if _, err := io.Copy(fw, io.LimitReader(rc, int64(f.UncompressedSize64)+1)); err != nil {
 			rc.Close()
 			return nil, fmt.Errorf("failed to copy entry %s: %w", f.Name, err)
 		}

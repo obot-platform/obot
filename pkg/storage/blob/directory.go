@@ -31,7 +31,25 @@ func (d *DirectoryStore) objectPath(bucket, key string) (string, error) {
 	if strings.Contains(bucket, "..") || strings.Contains(key, "..") {
 		return "", fmt.Errorf("invalid path: bucket and key must not contain '..'")
 	}
-	return filepath.Join(d.baseDir, bucket, key), nil
+	if filepath.IsAbs(bucket) || filepath.IsAbs(key) {
+		return "", fmt.Errorf("invalid path: bucket and key must not be absolute paths")
+	}
+	if filepath.VolumeName(bucket) != "" || filepath.VolumeName(key) != "" {
+		return "", fmt.Errorf("invalid path: bucket and key must not contain volume names")
+	}
+	joined := filepath.Join(d.baseDir, bucket, key)
+	absBase, err := filepath.Abs(d.baseDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve base directory: %w", err)
+	}
+	absJoined, err := filepath.Abs(joined)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve object path: %w", err)
+	}
+	if !strings.HasPrefix(absJoined, absBase+string(filepath.Separator)) {
+		return "", fmt.Errorf("invalid path: resolved path escapes base directory")
+	}
+	return joined, nil
 }
 
 func (d *DirectoryStore) Upload(_ context.Context, bucket, key string, data io.Reader) error {
