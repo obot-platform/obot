@@ -177,7 +177,7 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 			//    (if MCPServer already expects the current hash, a redeploy is pending)
 			if !isSystemServer {
 				if !mcpServer.Status.NeedsK8sUpdate {
-					if k8sSettingsHash != currentHash && mcpServer.Status.K8sSettingsHash != currentHash {
+					if k8sSettingsHash != "" && k8sSettingsHash != currentHash && mcpServer.Status.K8sSettingsHash != currentHash {
 						mcpServer.Status.NeedsK8sUpdate = true
 						needsUpdate = true
 					}
