@@ -952,6 +952,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create artifact blob store: %w", err)
 		}
+		if err := artifactBlobStore.Test(ctx); err != nil {
+			return nil, fmt.Errorf("failed to validate artifact blob store: %w", err)
+		}
 		svcs.ArtifactBlobStore = artifactBlobStore
 	} else {
 		// Fallback: local directory storage when no cloud provider is configured.
