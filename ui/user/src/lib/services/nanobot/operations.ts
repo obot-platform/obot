@@ -5,7 +5,9 @@ import type {
 	ProjectV2AgentCreateRequest,
 	ProjectV2AgentUpdateRequest,
 	ProjectV2CreateRequest,
-	ProjectV2UpdateRequest
+	ProjectV2UpdateRequest,
+	PublishedArtifact,
+	PublishedArtifactUpdateRequest
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -106,4 +108,43 @@ export async function launchProjectV2Agent(
 		opts
 	)) as unknown;
 	return response;
+}
+
+export async function listPublishedWorkflows(opts?: {
+	fetch?: Fetcher;
+}): Promise<PublishedArtifact[]> {
+	const response = (await doGet(
+		`/published-artifacts?type=workflow`,
+		opts
+	)) as ItemsResponse<PublishedArtifact>;
+	return response.items ?? [];
+}
+
+export async function getPublishedArtifact(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<PublishedArtifact> {
+	const response = (await doGet(`/published-artifacts/${id}`, opts)) as PublishedArtifact;
+	return response;
+}
+
+export async function downloadPublishedArtifact(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<Blob> {
+	const response = (await doGet(`/published-artifacts/${id}/download`, opts)) as Blob;
+	return response;
+}
+
+export async function updatePublishedArtifact(
+	id: string,
+	request: PublishedArtifactUpdateRequest,
+	opts?: { fetch?: Fetcher }
+): Promise<PublishedArtifact> {
+	const response = (await doPut(`/published-artifacts/${id}`, request, opts)) as PublishedArtifact;
+	return response;
+}
+
+export async function deletePublishedArtifact(id: string): Promise<void> {
+	await doDelete(`/published-artifacts/${id}`);
 }

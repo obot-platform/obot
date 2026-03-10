@@ -449,3 +449,36 @@ export interface ProjectLayoutContext {
 }
 
 export const PROJECT_LAYOUT_CONTEXT = 'nanobot-project-layout';
+
+export type PublishedArtifact = {
+	id: string;
+	created: string;
+	deleted?: string | null;
+	metadata: Record<string, unknown>;
+	name: string;
+	displayName: string;
+	description: string;
+	authorID: string;
+	authorEmail: string;
+	latestVersion: number;
+	visibility: 'public' | 'private';
+};
+
+export interface PublishedArtifactUpdateRequest {
+	description?: string;
+	visibility?: 'public' | 'private';
+}
+
+export interface InstallArtifactResponse {
+	installedFiles: string[];
+	message: string;
+	name: string;
+	path: string;
+}
+
+export interface PublishArtifactResponse {
+	id: string;
+	message: string;
+	name: string;
+	version: number;
+}

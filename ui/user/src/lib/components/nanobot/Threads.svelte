@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Chat } from '$lib/services/nanobot/types';
 	import { goto } from '$lib/url';
-	import { Check, Edit, MoreVertical, Trash2, X, Plus } from 'lucide-svelte';
+	import { Check, Edit, EllipsisVertical, Trash2, X, Plus } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { get } from 'svelte/store';
@@ -258,7 +258,7 @@
 							class:dropdown-top={indicesNeedingDropdownTop.has(index)}
 						>
 							<div tabindex="0" role="button" class="btn btn-square btn-ghost btn-sm">
-								<MoreVertical class="h-4 w-4" />
+								<EllipsisVertical class="h-4 w-4" />
 							</div>
 							<ul class="dropdown-content menu dropdown-menu z-[1] w-32">
 								<li>
