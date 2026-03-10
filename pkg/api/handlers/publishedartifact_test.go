@@ -3,6 +3,7 @@ package handlers
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -332,5 +333,66 @@ func TestConvertPublishedArtifact_ZeroValue(t *testing.T) {
 	}
 	if result.Visibility != "" {
 		t.Errorf("Visibility = %q, want empty", result.Visibility)
+	}
+}
+
+func TestValidateZIP_PathTraversal(t *testing.T) {
+	zipData := createArtifactTestZIP(t, map[string][]byte{
+		"../etc/passwd": []byte("bad"),
+	})
+	r, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		t.Fatalf("failed to create zip reader: %v", err)
+	}
+	if err := validateZIP(r); err == nil {
+		t.Fatal("expected error for path traversal entry")
+	} else if !strings.Contains(err.Error(), "path traversal") {
+		t.Errorf("error = %q, want containing 'path traversal'", err.Error())
+	}
+}
+
+func TestValidateZIP_AbsolutePath(t *testing.T) {
+	zipData := createArtifactTestZIP(t, map[string][]byte{
+		"/etc/passwd": []byte("bad"),
+	})
+	r, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		t.Fatalf("failed to create zip reader: %v", err)
+	}
+	if err := validateZIP(r); err == nil {
+		t.Fatal("expected error for absolute path entry")
+	} else if !strings.Contains(err.Error(), "absolute path") {
+		t.Errorf("error = %q, want containing 'absolute path'", err.Error())
+	}
+}
+
+func TestValidateZIP_TooManyFiles(t *testing.T) {
+	files := make(map[string][]byte)
+	for i := range maxZIPFiles + 1 {
+		files[fmt.Sprintf("file%d.txt", i)] = []byte("x")
+	}
+	zipData := createArtifactTestZIP(t, files)
+	r, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		t.Fatalf("failed to create zip reader: %v", err)
+	}
+	if err := validateZIP(r); err == nil {
+		t.Fatal("expected error for too many files")
+	} else if !strings.Contains(err.Error(), "too many files") {
+		t.Errorf("error = %q, want containing 'too many files'", err.Error())
+	}
+}
+
+func TestValidateZIP_Valid(t *testing.T) {
+	zipData := createArtifactTestZIP(t, map[string][]byte{
+		skillformat.SkillMainFile: createSkillMDContent(t, "test", "A test.", nil),
+		"scripts/run.sh":          []byte("#!/bin/bash"),
+	})
+	r, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		t.Fatalf("failed to create zip reader: %v", err)
+	}
+	if err := validateZIP(r); err != nil {
+		t.Fatalf("validateZIP() unexpected error: %v", err)
 	}
 }

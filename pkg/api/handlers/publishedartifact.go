@@ -173,6 +173,18 @@ func (h *PublishedArtifactHandler) createNewArtifact(req api.Context, data []byt
 		return types.NewErrBadRequest("failed to rewrite SKILL.md in ZIP: %v", err)
 	}
 
+	// Upload to a unique blob key so concurrent creates don't overwrite each other.
+	nonce, err := randomHex(8)
+	if err != nil {
+		return fmt.Errorf("failed to generate upload nonce: %w", err)
+	}
+	blobKey := fmt.Sprintf("published-artifacts/%s/v1-%s.zip", artifactName, nonce)
+	log.Debugf("Uploading blob for new artifact %s v1, blobKey=%s", artifactName, blobKey)
+
+	if err := h.blobStore.Upload(req.Context(), h.bucket, blobKey, bytes.NewReader(data)); err != nil {
+		return fmt.Errorf("failed to upload artifact: %w", err)
+	}
+
 	artifact := v1.PublishedArtifact{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      artifactName,
@@ -182,44 +194,31 @@ func (h *PublishedArtifactHandler) createNewArtifact(req api.Context, data []byt
 			PublishedArtifactManifest: manifest,
 			AuthorID:                  authorID,
 			LatestVersion:             1,
+			BlobKey:                   blobKey,
 			Visibility:                types.PublishedArtifactVisibilityPrivate,
+		},
+		Status: v1.PublishedArtifactStatus{
+			Versions: []types.PublishedArtifactVersionEntry{
+				{
+					Version:     1,
+					BlobKey:     blobKey,
+					Description: manifest.Description,
+					CreatedAt:   *types.NewTime(time.Now()),
+				},
+			},
 		},
 	}
 
 	if err := req.Create(&artifact); apierrors.IsAlreadyExists(err) {
-		// Another concurrent request created this artifact first — the caller's retry loop
-		// will re-read it and take the update path.
+		// Another concurrent request created this artifact first — clean up our blob
+		// and let the caller's retry loop re-read and take the update path.
+		if delErr := h.blobStore.Delete(req.Context(), h.bucket, blobKey); delErr != nil {
+			log.Errorf("failed to delete blob %s after AlreadyExists: %v", blobKey, delErr)
+		}
 		return types.NewErrHTTP(http.StatusConflict, "concurrent publish detected, please retry")
 	} else if err != nil {
-		return err
-	}
-
-	blobKey := fmt.Sprintf("published-artifacts/%s/v1.zip", artifact.Name)
-	log.Debugf("Creating new artifact %s v1, blobKey=%s", artifact.Name, blobKey)
-
-	if err := h.blobStore.Upload(req.Context(), h.bucket, blobKey, bytes.NewReader(data)); err != nil {
-		log.Errorf("Blob upload failed for %s, cleaning up resource: %v", artifact.Name, err)
-		_ = req.Delete(&artifact)
-		return fmt.Errorf("failed to upload artifact: %w", err)
-	}
-
-	artifact.Spec.BlobKey = blobKey
-	artifact.Status.Versions = []types.PublishedArtifactVersionEntry{
-		{
-			Version:     1,
-			BlobKey:     blobKey,
-			Description: manifest.Description,
-			CreatedAt:   *types.NewTime(time.Now()),
-		},
-	}
-
-	if err := req.Update(&artifact); err != nil {
-		log.Errorf("Failed to update published artifact %s after blob upload, cleaning up: %v", artifact.Name, err)
-		if delErr := req.Delete(&artifact); delErr != nil {
-			log.Errorf("Failed to delete partially-created published artifact %s during cleanup: %v", artifact.Name, delErr)
-		}
 		if delErr := h.blobStore.Delete(req.Context(), h.bucket, blobKey); delErr != nil {
-			log.Errorf("Failed to delete blob %s during cleanup: %v", blobKey, delErr)
+			log.Errorf("failed to delete blob %s after create error: %v", blobKey, delErr)
 		}
 		return err
 	}
@@ -465,10 +464,13 @@ func validateZIP(r *zip.Reader) error {
 			return fmt.Errorf("ZIP entry %q is an absolute path", f.Name)
 		}
 
-		totalUncompressed += f.UncompressedSize64
-		if totalUncompressed > maxZIPUncompressedBytes {
-			return fmt.Errorf("ZIP uncompressed size exceeds limit (%d bytes)", maxZIPUncompressedBytes)
+		if f.UncompressedSize64 > uint64(maxZIPUncompressedBytes) {
+			return fmt.Errorf("ZIP entry %q uncompressed size exceeds limit (%d bytes)", f.Name, maxZIPUncompressedBytes)
 		}
+		if totalUncompressed > uint64(maxZIPUncompressedBytes)-f.UncompressedSize64 {
+			return fmt.Errorf("ZIP total uncompressed size exceeds limit (%d bytes)", maxZIPUncompressedBytes)
+		}
+		totalUncompressed += f.UncompressedSize64
 	}
 
 	return nil
