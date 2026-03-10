@@ -10,7 +10,7 @@ For a complete list of all available Helm chart configuration values, see [chart
 
 - **Helm**
 - **PostgreSQL 17+** with pgvector extension
-- **S3-compatible storage** (for production)
+- **Object storage or a persistent volume for published workflows** (for production)
 - **StorageClass** (for production)
 - **Encryption provider** (AWS KMS, GCP KMS, or Azure Key Vault recommended)
 
@@ -91,6 +91,11 @@ config:
 
 To enable a high availability setup, uncomment the `replicaCount` line and set it to `2` or higher. An external PostgreSQL database and a workspace provider are required for HA.
 
+For published workflow storage in HA, use one of these:
+
+- External object storage such as S3, GCS, Azure Blob Storage, or an S3-compatible service
+- A shared `ReadWriteMany` PVC mounted (see the `artifactPersistence` values in the Helm chart)
+
 For detailed configuration options, see:
 
 - **[Server Configuration](/configuration/server-configuration/)** - All available environment variables
@@ -153,7 +158,63 @@ For complete guidance and examples (including AWS EBS, GCP Hyperdisk, and `nfs-s
 
 ## Workflow Sharing in Kubernetes
 
-For Kubernetes deployments, configure published workflow storage in external object storage. Do not rely on pod-local disk for shared workflows if you are running more than one replica or using replaceable pods.
+If `OBOT_ARTIFACT_STORAGE_PROVIDER` is unset, Obot stores published workflows on local disk at `/data/.local/share/obot/published-artifacts`.
+
+The Helm chart can mount a PVC at that path using the `artifactPersistence` values.
+
+### Local PVC Instead of Cloud Object Storage
+
+Use this when you do not want S3, GCS, Azure Blob Storage, or another object store for published workflows.
+
+For a single Obot replica:
+
+- Use a PVC with `ReadWriteOnce`
+- This is appropriate for `replicaCount: 1`
+- A block-storage-backed `StorageClass` such as EBS, PD, or Azure Disk is typically fine
+
+For multiple Obot replicas:
+
+- Use a shared PVC with `ReadWriteMany`
+- All replicas must mount the same published-artifact directory concurrently
+- This requires a shared filesystem-backed `StorageClass`, such as NFS
+- A single shared `ReadWriteOnce` claim is not a valid multi-replica setup
+
+Example using dynamic provisioning for a single replica:
+
+```yaml
+replicaCount: 1
+
+config:
+  OBOT_ARTIFACT_STORAGE_PROVIDER: ""
+  OBOT_ARTIFACT_STORAGE_BUCKET: ""
+
+artifactPersistence:
+  enabled: true
+  storageClass: gp3
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+```
+
+Example using an existing RWX claim for multiple replicas:
+
+```yaml
+replicaCount: 2
+
+config:
+  OBOT_ARTIFACT_STORAGE_PROVIDER: ""
+  OBOT_ARTIFACT_STORAGE_BUCKET: ""
+
+artifactPersistence:
+  enabled: true
+  existingClaim: obot-artifacts-rwx
+```
+
+The `obot-artifacts-rwx` claim itself must be provisioned with `ReadWriteMany`.
+
+If you already mount `/data` with `persistence.enabled: true`, that volume also covers the local published-artifact path. `artifactPersistence` is useful when you want a dedicated volume just for shared workflow artifacts.
+
+For more examples and storage-class guidance, see [Persistent Storage in Kubernetes](/installation/kubernetes-persistent-storage.md).
 
 ## Next Steps
 

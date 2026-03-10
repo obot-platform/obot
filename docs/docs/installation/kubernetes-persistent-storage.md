@@ -27,6 +27,101 @@ mcpServerDefaults:
 - `mcpServerDefaults.storageClassName`: StorageClass used for MCP server workspaces
 - `mcpServerDefaults.nanobotWorkspaceSize`: PVC size requested for each workspace
 
+## Configure Published Workflow Storage on a PVC
+
+If `OBOT_ARTIFACT_STORAGE_PROVIDER` is unset, Obot stores published workflows on local disk at:
+
+```text
+/data/.local/share/obot/published-artifacts
+```
+
+The Helm chart can mount a PVC at that exact path with `artifactPersistence`.
+
+### Single Replica with ReadWriteOnce
+
+For `replicaCount: 1`, a `ReadWriteOnce` PVC is sufficient:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: obot-artifacts
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: <your rwo storage class>
+  resources:
+    requests:
+      storage: 10Gi
+```
+
+Mount it into Obot with:
+
+```yaml
+replicaCount: 1
+
+artifactPersistence:
+  enabled: true
+  existingClaim: obot-artifacts
+```
+
+This is the common setup when using a single Obot pod with a block-storage-backed `StorageClass`.
+
+### Multiple Replicas with ReadWriteMany
+
+For `replicaCount: 2` or higher, all Obot pods need concurrent access to the same published-artifact directory. That requires a shared `ReadWriteMany` volume:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: obot-artifacts-rwx
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: <your rwx storage class>
+  resources:
+    requests:
+      storage: 10Gi
+```
+
+Mount it into Obot with:
+
+```yaml
+replicaCount: 2
+
+artifactPersistence:
+  enabled: true
+  existingClaim: obot-artifacts-rwx
+```
+
+Use a `StorageClass` backed by a shared filesystem such as NFS. A single shared `ReadWriteOnce` claim is not suitable for multi-replica Obot deployments.
+
+### Use an Existing Claim
+
+If you already have a PVC, point the chart at it:
+
+```yaml
+artifactPersistence:
+  enabled: true
+  existingClaim: obot-artifacts
+```
+
+When enabled, the chart mounts that claim into the Obot container at `/data/.local/share/obot/published-artifacts`.
+
+### Let Helm Create the Claim
+
+If you prefer Helm-managed PVCs instead of creating them yourself, set the storage class, access mode, and size directly:
+
+```yaml
+artifactPersistence:
+  enabled: true
+  storageClass: <your storage class>
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+```
+
 ## Example: nfs-subdir-external-provisioner
 
 If you do not have a cloud-managed dynamic provisioner, you can use [nfs-subdir-external-provisioner](https://github.com/kubernetes-sigs/nfs-subdir-external-provisioner) to provide dynamic PVC provisioning backed by an NFS server.

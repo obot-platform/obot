@@ -138,6 +138,9 @@ For Docker or single-node development:
 
 For Kubernetes or multi-replica production:
 
-- Use external object storage for published workflows
-- Do not rely on per-pod local disk for shared workflow storage
+- External object storage is the recommended production option
+- If you do not want object storage, mount a persistent volume at `/data/.local/share/obot/published-artifacts`
+  - See the `artifactPersistence` values in the Helm chart.
+- Use `ReadWriteOnce` only for a single Obot replica
+- Use `ReadWriteMany` for multi-replica Obot deployments so every replica can access the same artifact files
 - Treat published workflow storage the same way you treat other persistent user-generated platform data

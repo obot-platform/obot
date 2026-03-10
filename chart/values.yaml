@@ -207,6 +207,28 @@ resources: {}
 # runtimeClassName -- RuntimeClass name for Obot server pods. This allows running Obot with specific container runtimes (e.g., gVisor, Kata).
 runtimeClassName: ""
 
+# artifactPersistence -- Persistence for local published workflow storage when OBOT_ARTIFACT_STORAGE_PROVIDER is unset.
+# Use a single-replica ReadWriteOnce claim when replicaCount=1.
+# Use a ReadWriteMany-capable StorageClass for multi-replica deployments.
+artifactPersistence:
+  # artifactPersistence.enabled -- Mount a PVC at Obot's local published-artifact directory.
+  enabled: false
+  # artifactPersistence.path -- The path used by Obot's local published-artifact store inside the container.
+  path: /data/.local/share/obot/published-artifacts
+  # artifactPersistence.storageClass -- Persistent Volume storage class for local published-artifact storage.
+  # If defined, storageClassName: <storageClass>
+  # If set to "-", storageClassName: "", which disables dynamic provisioning
+  # If undefined (the default) or set to null, no storageClassName spec is set, choosing the default provisioner
+  storageClass: ""
+  # artifactPersistence.accessModes -- Access modes for the published-artifact PVC.
+  # ReadWriteOnce is appropriate for replicaCount=1. ReadWriteMany is required when multiple Obot replicas share local artifact storage.
+  accessModes:
+    - ReadWriteOnce
+  # artifactPersistence.size -- Persistent Volume size for local published-artifact storage
+  size: 16Gi
+  # artifactPersistence.existingClaim -- Use an existing PVC instead of creating one.
+  existingClaim: ""
+
 persistence:
   # persistence.enabled -- Enables persistence using a PVC
   enabled: true
