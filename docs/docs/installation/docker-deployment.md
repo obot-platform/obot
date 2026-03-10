@@ -79,7 +79,7 @@ For local Docker deployments:
 - The default local published-workflow store is usually sufficient
 - Keep the Obot data volume mounted if you want published workflows to survive container replacement
 
-If you want published workflows in Docker to use external object storage instead of local disk, configure the published workflow storage environment variables described in [Server Configuration](/configuration/server-configuration/) and [Workflow Sharing](/functionality/workflow-sharing/).
+If you want published workflows in Docker to use external object storage instead of local disk, configure the published workflow storage environment variables described in [Server Configuration](../configuration/server-configuration.md) and [Workflow Sharing](../functionality/workflow-sharing.md).
 
 ## Next Steps
 

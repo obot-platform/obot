@@ -33,7 +33,7 @@ Workflows use the same configuration and credentials as the parent agent.
 
 Workflows can also be published as reusable shared packages so other users can discover and install them. Shared workflows preserve the workflow's `SKILL.md` metadata and supporting files, and they use versioning so you can republish improvements over time.
 
-See [Workflow Sharing](/functionality/workflow-sharing/) for the publishing, search, installation, storage, and access-control details.
+See [Workflow Sharing](../workflow-sharing.md) for the publishing, search, installation, storage, and access-control details.
 
 ## MCP Server Connections
 
