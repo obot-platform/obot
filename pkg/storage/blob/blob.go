@@ -30,7 +30,7 @@ type BlobStore interface {
 
 // New creates a BlobStore for the given provider type and config.
 func New(providerType types.StorageProviderType, config types.StorageConfig) (BlobStore, error) {
-	log.Infof("Creating blob store: provider=%s", providerType)
+	log.Debugf("Creating blob store: provider=%s", providerType)
 
 	switch providerType {
 	case types.StorageProviderS3:

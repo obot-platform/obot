@@ -942,6 +942,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ArtifactBlobBucket:            config.ArtifactStorageBucket,
 	}
 
+	if (config.ArtifactStorageProvider == "") != (config.ArtifactStorageBucket == "") {
+		return nil, fmt.Errorf("both OBOT_ARTIFACT_STORAGE_PROVIDER and OBOT_ARTIFACT_STORAGE_BUCKET must be set together")
+	}
+
 	if config.ArtifactStorageProvider != "" && config.ArtifactStorageBucket != "" {
 		artifactStorageConfig := buildArtifactStorageConfig(config)
 		artifactBlobStore, err := blob.New(apiclienttypes.StorageProviderType(config.ArtifactStorageProvider), artifactStorageConfig)

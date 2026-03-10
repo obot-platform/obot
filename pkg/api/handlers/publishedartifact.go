@@ -13,10 +13,12 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/auth"
+	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/skillformat"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/blob"
 	"github.com/obot-platform/obot/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -28,6 +30,8 @@ const (
 	maxSkillMDBytes           = 1024 * 1024
 	maxArtifactDescriptionLen = 1024
 )
+
+const maxPublishRetries = 3
 
 type PublishedArtifactHandler struct {
 	blobStore blob.BlobStore
@@ -67,10 +71,6 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 
 	log.Debugf("Parsed SKILL.md from ZIP: name=%q description=%q", fm.Name, fm.Description)
 
-	if fm.Description == "" {
-		return types.NewErrBadRequest("description is required — add a description to the SKILL.md frontmatter before publishing")
-	}
-
 	authorID := req.User.GetUID()
 	authorEmail := auth.FirstExtraValue(req.User.GetExtra(), "email")
 
@@ -84,53 +84,48 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 		AuthorEmail:  authorEmail,
 	}
 
-	// Auto-version: look for existing artifact with same name + type + author
-	var existing *v1.PublishedArtifact
-	var artifacts v1.PublishedArtifactList
-	if err := req.List(&artifacts, kclient.MatchingFields{
-		"spec.authorID":     authorID,
-		"spec.artifactType": string(manifest.ArtifactType),
-	}); err != nil {
-		return err
-	}
-	for i := range artifacts.Items {
-		if artifacts.Items[i].Spec.Name == manifest.Name {
-			existing = &artifacts.Items[i]
-			break
+	// Deterministic name based on author + artifact type + workflow name to prevent duplicate creates.
+	artifactName := system.PublishedArtifactPrefix + hash.String(authorID+string(manifest.ArtifactType)+manifest.Name)[:12]
+
+	for attempt := range maxPublishRetries {
+		// Try to get the existing artifact by its deterministic name.
+		var existing v1.PublishedArtifact
+		err := req.Get(&existing, artifactName)
+		if err != nil && !apierrors.IsNotFound(err) {
+			return err
 		}
-	}
 
-	var version int
-	if existing != nil {
-		version = existing.Spec.LatestVersion + 1
-	} else {
-		version = 1
-	}
+		if apierrors.IsNotFound(err) {
+			// No existing artifact — create a new one.
+			return h.createNewArtifact(req, data, fm, body, manifest, authorID, authorEmail, artifactName)
+		}
 
-	// Inject author email and version into SKILL.md frontmatter metadata and rewrite the ZIP.
-	if fm.Metadata == nil {
-		fm.Metadata = make(map[string]string)
-	}
-	fm.Metadata["author-email"] = authorEmail
-	fm.Metadata["version"] = fmt.Sprintf("%d", version)
-	data, err = rewriteSkillFrontmatterInZIP(data, fm, body)
-	if err != nil {
-		return types.NewErrBadRequest("failed to rewrite SKILL.md in ZIP: %v", err)
-	}
+		// Update existing artifact with a new version.
+		version := existing.Spec.LatestVersion + 1
 
-	if existing != nil {
-		// Increment version on existing artifact
+		// Inject author email and version into SKILL.md frontmatter metadata and rewrite the ZIP.
+		fmCopy := fm
+		if fmCopy.Metadata == nil {
+			fmCopy.Metadata = make(map[string]string)
+		}
+		fmCopy.Metadata["author-email"] = authorEmail
+		fmCopy.Metadata["version"] = fmt.Sprintf("%d", version)
+		rewrittenData, err := rewriteSkillFrontmatterInZIP(data, fmCopy, body)
+		if err != nil {
+			return types.NewErrBadRequest("failed to rewrite SKILL.md in ZIP: %v", err)
+		}
+
 		blobKey := fmt.Sprintf("published-artifacts/%s/v%d.zip", existing.Name, version)
-
 		log.Debugf("Updating existing artifact %s: v%d -> v%d, blobKey=%s", existing.Name, existing.Spec.LatestVersion, version, blobKey)
 
-		if err := h.blobStore.Upload(req.Context(), h.bucket, blobKey, bytes.NewReader(data)); err != nil {
+		if err := h.blobStore.Upload(req.Context(), h.bucket, blobKey, bytes.NewReader(rewrittenData)); err != nil {
 			return fmt.Errorf("failed to upload artifact: %w", err)
 		}
 
 		existing.Spec.LatestVersion = version
 		existing.Spec.BlobKey = blobKey
 		existing.Spec.Description = manifest.Description
+		existing.Spec.AuthorEmail = manifest.AuthorEmail
 		existing.Status.Versions = append(existing.Status.Versions, types.PublishedArtifactVersionEntry{
 			Version:     version,
 			BlobKey:     blobKey,
@@ -138,7 +133,13 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 			CreatedAt:   *types.NewTime(time.Now()),
 		})
 
-		if err := req.Update(existing); err != nil {
+		if err := req.Update(&existing); apierrors.IsConflict(err) {
+			log.Debugf("Conflict updating artifact %s (attempt %d/%d), retrying", existing.Name, attempt+1, maxPublishRetries)
+			if delErr := h.blobStore.Delete(req.Context(), h.bucket, blobKey); delErr != nil {
+				log.Errorf("failed to delete blob %s after conflict: %v", blobKey, delErr)
+			}
+			continue
+		} else if err != nil {
 			if delErr := h.blobStore.Delete(req.Context(), h.bucket, blobKey); delErr != nil {
 				log.Errorf("failed to delete blob %s after update error: %v", blobKey, delErr)
 			}
@@ -146,14 +147,28 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 		}
 
 		log.Infof("Published artifact %s v%d (updated)", existing.Name, version)
-		return req.Write(convertPublishedArtifact(existing))
+		return req.Write(convertPublishedArtifact(&existing))
 	}
 
-	// Create new artifact
+	return types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("failed to publish artifact after %d attempts due to concurrent updates, please retry", maxPublishRetries))
+}
+
+func (h *PublishedArtifactHandler) createNewArtifact(req api.Context, data []byte, fm skillformat.Frontmatter, body string, manifest types.PublishedArtifactManifest, authorID, authorEmail, artifactName string) error {
+	// Inject author email and version into SKILL.md frontmatter metadata and rewrite the ZIP.
+	if fm.Metadata == nil {
+		fm.Metadata = make(map[string]string)
+	}
+	fm.Metadata["author-email"] = authorEmail
+	fm.Metadata["version"] = "1"
+	data, err := rewriteSkillFrontmatterInZIP(data, fm, body)
+	if err != nil {
+		return types.NewErrBadRequest("failed to rewrite SKILL.md in ZIP: %v", err)
+	}
+
 	artifact := v1.PublishedArtifact{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.PublishedArtifactPrefix,
-			Namespace:    req.Namespace(),
+			Name:      artifactName,
+			Namespace: req.Namespace(),
 		},
 		Spec: v1.PublishedArtifactSpec{
 			PublishedArtifactManifest: manifest,
@@ -163,7 +178,11 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 		},
 	}
 
-	if err := req.Create(&artifact); err != nil {
+	if err := req.Create(&artifact); apierrors.IsAlreadyExists(err) {
+		// Another concurrent request created this artifact first — the caller's retry loop
+		// will re-read it and take the update path.
+		return types.NewErrHTTP(http.StatusConflict, "concurrent publish detected, please retry")
+	} else if err != nil {
 		return err
 	}
 
@@ -171,7 +190,6 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 	log.Debugf("Creating new artifact %s v1, blobKey=%s", artifact.Name, blobKey)
 
 	if err := h.blobStore.Upload(req.Context(), h.bucket, blobKey, bytes.NewReader(data)); err != nil {
-		// Clean up the created resource on upload failure
 		log.Errorf("Blob upload failed for %s, cleaning up resource: %v", artifact.Name, err)
 		_ = req.Delete(&artifact)
 		return fmt.Errorf("failed to upload artifact: %w", err)
