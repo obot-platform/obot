@@ -546,8 +546,11 @@ func rewriteSkillFrontmatterInZIP(data []byte, fm skillformat.Frontmatter, body 
 	var buf bytes.Buffer
 	w := zip.NewWriter(&buf)
 
+	var foundSkillMD bool
+
 	for _, f := range r.File {
 		if f.Name == skillformat.SkillMainFile {
+			foundSkillMD = true
 			fw, err := w.Create(f.Name)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create %s entry: %w", skillformat.SkillMainFile, err)
@@ -577,6 +580,10 @@ func rewriteSkillFrontmatterInZIP(data []byte, fm skillformat.Frontmatter, body 
 		if n > int64(f.UncompressedSize64) {
 			return nil, fmt.Errorf("entry %s exceeds declared uncompressed size", f.Name)
 		}
+	}
+
+	if !foundSkillMD {
+		return nil, fmt.Errorf("%s not found in ZIP archive", skillformat.SkillMainFile)
 	}
 
 	if err := w.Close(); err != nil {
