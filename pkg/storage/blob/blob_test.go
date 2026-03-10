@@ -147,4 +147,3 @@ func TestNew_ValidationErrors(t *testing.T) {
 		})
 	}
 }
-

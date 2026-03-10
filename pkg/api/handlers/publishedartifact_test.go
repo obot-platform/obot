@@ -165,7 +165,7 @@ func TestRewriteSkillFrontmatterInZIP(t *testing.T) {
 
 	zipData := createArtifactTestZIP(t, map[string][]byte{
 		skillformat.SkillMainFile: originalContent,
-		"scripts/run.sh":         otherFileContent,
+		"scripts/run.sh":          otherFileContent,
 	})
 
 	updatedFM := skillformat.Frontmatter{
@@ -223,8 +223,8 @@ func TestRewriteSkillFrontmatterInZIP(t *testing.T) {
 func TestRewriteSkillFrontmatterInZIP_PreservesMultipleFiles(t *testing.T) {
 	files := map[string][]byte{
 		skillformat.SkillMainFile: createSkillMDContent(t, "multi", "Multi skill.", nil),
-		"scripts/analyze.py":     []byte("print('hello')"),
-		"data/config.json":       []byte(`{"key": "value"}`),
+		"scripts/analyze.py":      []byte("print('hello')"),
+		"data/config.json":        []byte(`{"key": "value"}`),
 	}
 	zipData := createArtifactTestZIP(t, files)
 

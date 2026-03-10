@@ -10031,7 +10031,7 @@ func schema_obot_platform_obot_apiclient_types_StorageConfig(ref common.Referenc
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.CustomS3Config"),
 						},
 					},
-					},
+				},
 			},
 		},
 		Dependencies: []string{

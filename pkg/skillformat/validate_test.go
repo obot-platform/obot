@@ -190,7 +190,7 @@ func TestParseFrontmatter(t *testing.T) {
 		expectErr bool
 	}{
 		{
-			name: "valid with body",
+			name:    "valid with body",
 			content: "---\nname: my-skill\ndescription: A test skill.\n---\n# Hello\nBody content.",
 			wantFM: Frontmatter{
 				Name:        "my-skill",
@@ -215,7 +215,7 @@ func TestParseFrontmatter(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name: "with metadata",
+			name:    "with metadata",
 			content: "---\nname: my-skill\ndescription: A skill.\nmetadata:\n  createdAt: \"2026-01-15T09:00:00Z\"\n  author: test\n---\nBody.",
 			wantFM: Frontmatter{
 				Name:        "my-skill",
