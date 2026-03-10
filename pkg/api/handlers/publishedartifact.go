@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,6 +35,10 @@ const (
 )
 
 const maxPublishRetries = 3
+
+// errConcurrentCreate is returned by createNewArtifact when another request
+// created the same artifact first, signaling the retry loop to re-GET and update.
+var errConcurrentCreate = fmt.Errorf("concurrent create detected")
 
 type PublishedArtifactHandler struct {
 	blobStore blob.BlobStore
@@ -98,8 +103,14 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 		}
 
 		if apierrors.IsNotFound(err) {
-			// No existing artifact — create a new one.
-			return h.createNewArtifact(req, data, fm, body, manifest, authorID, authorEmail, artifactName)
+			// No existing artifact — try to create a new one.
+			if err := h.createNewArtifact(req, data, fm, body, manifest, authorID, authorEmail, artifactName); errors.Is(err, errConcurrentCreate) {
+				log.Debugf("Concurrent create for artifact %s (attempt %d/%d), retrying", artifactName, attempt+1, maxPublishRetries)
+				continue
+			} else if err != nil {
+				return err
+			}
+			return nil
 		}
 
 		// Update existing artifact with a new version.
@@ -211,11 +222,11 @@ func (h *PublishedArtifactHandler) createNewArtifact(req api.Context, data []byt
 
 	if err := req.Create(&artifact); apierrors.IsAlreadyExists(err) {
 		// Another concurrent request created this artifact first — clean up our blob
-		// and let the caller's retry loop re-read and take the update path.
+		// and return errConcurrentCreate so the caller's retry loop re-reads and takes the update path.
 		if delErr := h.blobStore.Delete(req.Context(), h.bucket, blobKey); delErr != nil {
 			log.Errorf("failed to delete blob %s after AlreadyExists: %v", blobKey, delErr)
 		}
-		return types.NewErrHTTP(http.StatusConflict, "concurrent publish detected, please retry")
+		return errConcurrentCreate
 	} else if err != nil {
 		if delErr := h.blobStore.Delete(req.Context(), h.bucket, blobKey); delErr != nil {
 			log.Errorf("failed to delete blob %s after create error: %v", blobKey, delErr)
