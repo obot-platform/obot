@@ -35,7 +35,7 @@ If `OBOT_ARTIFACT_STORAGE_PROVIDER` is unset, Obot stores published workflows on
 /data/.local/share/obot/published-artifacts
 ```
 
-The Helm chart can mount a PVC at that exact path with `artifactPersistence`.
+The Helm chart's `persistence` PVC mounts at `/data`, which includes that directory.
 
 ### Single Replica with ReadWriteOnce
 
@@ -45,7 +45,7 @@ For `replicaCount: 1`, a `ReadWriteOnce` PVC is sufficient:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: obot-artifacts
+  name: obot-data
 spec:
   accessModes:
     - ReadWriteOnce
@@ -60,22 +60,22 @@ Mount it into Obot with:
 ```yaml
 replicaCount: 1
 
-artifactPersistence:
+persistence:
   enabled: true
-  existingClaim: obot-artifacts
+  existingClaim: obot-data
 ```
 
-This is the common setup when using a single Obot pod with a block-storage-backed `StorageClass`.
+This is the common setup when using a single Obot pod with a block-storage-backed `StorageClass`. It persists both general `/data` contents and the local published-artifact directory under `/data/.local/share/obot/published-artifacts`.
 
 ### Multiple Replicas with ReadWriteMany
 
-For `replicaCount: 2` or higher, all Obot pods need concurrent access to the same published-artifact directory. That requires a shared `ReadWriteMany` volume:
+For `replicaCount: 2` or higher, all Obot pods need concurrent access to the same `/data` volume. That requires a shared `ReadWriteMany` volume:
 
 ```yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: obot-artifacts-rwx
+  name: obot-data-rwx
 spec:
   accessModes:
     - ReadWriteMany
@@ -90,9 +90,9 @@ Mount it into Obot with:
 ```yaml
 replicaCount: 2
 
-artifactPersistence:
+persistence:
   enabled: true
-  existingClaim: obot-artifacts-rwx
+  existingClaim: obot-data-rwx
 ```
 
 Use a `StorageClass` backed by a shared filesystem such as NFS. A single shared `ReadWriteOnce` claim is not suitable for multi-replica Obot deployments.
@@ -102,19 +102,19 @@ Use a `StorageClass` backed by a shared filesystem such as NFS. A single shared 
 If you already have a PVC, point the chart at it:
 
 ```yaml
-artifactPersistence:
+persistence:
   enabled: true
-  existingClaim: obot-artifacts
+  existingClaim: obot-data
 ```
 
-When enabled, the chart mounts that claim into the Obot container at `/data/.local/share/obot/published-artifacts`.
+When enabled, the chart mounts that claim into the Obot container at `/data`, which includes the local published-artifact directory.
 
 ### Let Helm Create the Claim
 
 If you prefer Helm-managed PVCs instead of creating them yourself, set the storage class, access mode, and size directly:
 
 ```yaml
-artifactPersistence:
+persistence:
   enabled: true
   storageClass: <your storage class>
   accessModes:

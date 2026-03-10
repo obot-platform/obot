@@ -139,8 +139,7 @@ For Docker or single-node development:
 For Kubernetes or multi-replica production:
 
 - External object storage is the recommended production option
-- If you do not want object storage, mount a persistent volume at `/data/.local/share/obot/published-artifacts`
-  - See the `artifactPersistence` values in the Helm chart.
+- If you do not want object storage, keep the chart's `persistence` PVC enabled because it mounts `/data`, which includes `/data/.local/share/obot/published-artifacts`
 - Use `ReadWriteOnce` only for a single Obot replica
 - Use `ReadWriteMany` for multi-replica Obot deployments so every replica can access the same artifact files
 - Treat published workflow storage the same way you treat other persistent user-generated platform data

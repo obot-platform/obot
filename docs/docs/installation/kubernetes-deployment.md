@@ -94,7 +94,7 @@ To enable a high availability setup, uncomment the `replicaCount` line and set i
 For published workflow storage in HA, use one of these:
 
 - External object storage such as S3, GCS, Azure Blob Storage, or an S3-compatible service
-- A shared `ReadWriteMany` PVC mounted (see the `artifactPersistence` values in the Helm chart)
+- The `persistence` PVC with `ReadWriteMany` access so all replicas can share `/data`
 
 For detailed configuration options, see:
 
@@ -160,22 +160,26 @@ For complete guidance and examples (including AWS EBS, GCP Hyperdisk, and `nfs-s
 
 If `OBOT_ARTIFACT_STORAGE_PROVIDER` is unset, Obot stores published workflows on local disk at `/data/.local/share/obot/published-artifacts`.
 
-The Helm chart can mount a PVC at that path using the `artifactPersistence` values.
+The Helm chart's `persistence` PVC mounts at `/data`, so it covers that path.
 
-### Local PVC Instead of Cloud Object Storage
+### Use the Existing Persistence Claim
 
 Use this when you do not want S3, GCS, Azure Blob Storage, or another object store for published workflows.
 
+If you disable `persistence`, published workflow artifacts remain on pod-local disk and will be lost when the pod is replaced.
+
 For a single Obot replica:
 
-- Use a PVC with `ReadWriteOnce`
+- Enable `persistence`
+- Use `ReadWriteOnce` as the access mode
 - This is appropriate for `replicaCount: 1`
 - A block-storage-backed `StorageClass` such as EBS, PD, or Azure Disk is typically fine
 
 For multiple Obot replicas:
 
-- Use a shared PVC with `ReadWriteMany`
-- All replicas must mount the same published-artifact directory concurrently
+- Enable `persistence`
+- Use `ReadWriteMany` as the access mode
+- All replicas must mount the same `/data` volume concurrently
 - This requires a shared filesystem-backed `StorageClass`, such as NFS
 - A single shared `ReadWriteOnce` claim is not a valid multi-replica setup
 
@@ -188,7 +192,7 @@ config:
   OBOT_ARTIFACT_STORAGE_PROVIDER: ""
   OBOT_ARTIFACT_STORAGE_BUCKET: ""
 
-artifactPersistence:
+persistence:
   enabled: true
   storageClass: gp3
   accessModes:
@@ -205,14 +209,12 @@ config:
   OBOT_ARTIFACT_STORAGE_PROVIDER: ""
   OBOT_ARTIFACT_STORAGE_BUCKET: ""
 
-artifactPersistence:
+persistence:
   enabled: true
-  existingClaim: obot-artifacts-rwx
+  existingClaim: obot-data-rwx
 ```
 
-The `obot-artifacts-rwx` claim itself must be provisioned with `ReadWriteMany`.
-
-If you already mount `/data` with `persistence.enabled: true`, that volume also covers the local published-artifact path. `artifactPersistence` is useful when you want a dedicated volume just for shared workflow artifacts.
+The `obot-data-rwx` claim itself must be provisioned with `ReadWriteMany`.
 
 For more examples and storage-class guidance, see [Persistent Storage in Kubernetes](/installation/kubernetes-persistent-storage.md).
 

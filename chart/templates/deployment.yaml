@@ -81,10 +81,6 @@ spec:
             - name: data
               mountPath: {{ .Values.persistence.path }}
             {{- end }}
-            {{- if .Values.artifactPersistence.enabled }}
-            - name: published-artifacts
-              mountPath: {{ .Values.artifactPersistence.path }}
-            {{- end }}
             {{- if .Values.extraVolumeMounts }}
             {{- toYaml .Values.extraVolumeMounts | nindent 12 }}
             {{- end }}
@@ -141,11 +137,6 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: {{ ternary .Values.persistence.existingClaim (print .Release.Name "-pvc") (ne .Values.persistence.existingClaim "") }}
-      {{- end }}
-      {{- if .Values.artifactPersistence.enabled }}
-        - name: published-artifacts
-          persistentVolumeClaim:
-            claimName: {{ ternary .Values.artifactPersistence.existingClaim (print .Release.Name "-artifacts-pvc") (ne .Values.artifactPersistence.existingClaim "") }}
       {{- end }}
       {{- if .Values.extraVolumes }}
         {{- if .Values.extraVolumes }}
