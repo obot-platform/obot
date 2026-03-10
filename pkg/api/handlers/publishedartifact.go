@@ -440,12 +440,42 @@ func (h *PublishedArtifactHandler) checkOwnership(artifact *v1.PublishedArtifact
 	return types.NewErrHTTP(http.StatusForbidden, "you do not have permission to modify this artifact")
 }
 
+// validateZIP checks the ZIP archive for file count limits, total uncompressed size limits,
+// and suspicious entry names (path traversal, absolute paths).
+func validateZIP(r *zip.Reader) error {
+	if len(r.File) > maxZIPFiles {
+		return fmt.Errorf("ZIP contains too many files (%d, max %d)", len(r.File), maxZIPFiles)
+	}
+
+	var totalUncompressed uint64
+	for _, f := range r.File {
+		// Reject suspicious entry names
+		if strings.Contains(f.Name, "..") {
+			return fmt.Errorf("ZIP entry %q contains path traversal", f.Name)
+		}
+		if strings.HasPrefix(f.Name, "/") {
+			return fmt.Errorf("ZIP entry %q is an absolute path", f.Name)
+		}
+
+		totalUncompressed += f.UncompressedSize64
+		if totalUncompressed > maxZIPUncompressedBytes {
+			return fmt.Errorf("ZIP uncompressed size exceeds limit (%d bytes)", maxZIPUncompressedBytes)
+		}
+	}
+
+	return nil
+}
+
 // readSkillFrontmatterFromZIP finds SKILL.md in the ZIP, parses its frontmatter,
 // and returns the frontmatter and body separately.
 func readSkillFrontmatterFromZIP(data []byte) (skillformat.Frontmatter, string, error) {
 	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return skillformat.Frontmatter{}, "", fmt.Errorf("invalid ZIP archive: %w", err)
+	}
+
+	if err := validateZIP(r); err != nil {
+		return skillformat.Frontmatter{}, "", err
 	}
 
 	for _, f := range r.File {
@@ -483,21 +513,13 @@ func rewriteSkillFrontmatterInZIP(data []byte, fm skillformat.Frontmatter, body 
 		return nil, fmt.Errorf("invalid ZIP archive: %w", err)
 	}
 
+	if err := validateZIP(r); err != nil {
+		return nil, err
+	}
+
 	newContent, err := skillformat.FormatSkillMD(fm, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to format %s: %w", skillformat.SkillMainFile, err)
-	}
-
-	if len(r.File) > maxZIPFiles {
-		return nil, fmt.Errorf("ZIP contains too many files (%d, max %d)", len(r.File), maxZIPFiles)
-	}
-
-	var totalUncompressed uint64
-	for _, f := range r.File {
-		totalUncompressed += f.UncompressedSize64
-		if totalUncompressed > maxZIPUncompressedBytes {
-			return nil, fmt.Errorf("ZIP uncompressed size exceeds limit (%d bytes)", maxZIPUncompressedBytes)
-		}
 	}
 
 	var buf bytes.Buffer
