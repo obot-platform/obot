@@ -53,14 +53,15 @@ func TestReadSkillFrontmatterFromZIP(t *testing.T) {
 		description string
 		metadata    map[string]string
 		extraFiles  map[string][]byte
-		checkResult func(t *testing.T, fm skillformat.Frontmatter, body string)
+		checkResult func(t *testing.T, fm skillformat.Frontmatter)
 	}{
 		{
 			name:        "valid with all fields",
 			skillName:   "test-workflow",
 			description: "A test description",
 			metadata:    map[string]string{"author-email": "author@test.com"},
-			checkResult: func(t *testing.T, fm skillformat.Frontmatter, body string) {
+			checkResult: func(t *testing.T, fm skillformat.Frontmatter) {
+				t.Helper()
 				if fm.Name != "test-workflow" {
 					t.Errorf("name = %q, want %q", fm.Name, "test-workflow")
 				}
@@ -76,7 +77,8 @@ func TestReadSkillFrontmatterFromZIP(t *testing.T) {
 			name:        "minimal",
 			skillName:   "minimal",
 			description: "Minimal skill.",
-			checkResult: func(t *testing.T, fm skillformat.Frontmatter, body string) {
+			checkResult: func(t *testing.T, fm skillformat.Frontmatter) {
+				t.Helper()
 				if fm.Name != "minimal" {
 					t.Errorf("name = %q, want %q", fm.Name, "minimal")
 				}
@@ -89,7 +91,8 @@ func TestReadSkillFrontmatterFromZIP(t *testing.T) {
 			extraFiles: map[string][]byte{
 				"scripts/analyze.py": []byte("print('hi')"),
 			},
-			checkResult: func(t *testing.T, fm skillformat.Frontmatter, body string) {
+			checkResult: func(t *testing.T, fm skillformat.Frontmatter) {
+				t.Helper()
 				if fm.Name != "with-files" {
 					t.Errorf("name = %q, want %q", fm.Name, "with-files")
 				}
@@ -106,11 +109,11 @@ func TestReadSkillFrontmatterFromZIP(t *testing.T) {
 				files[k] = v
 			}
 
-			fm, body, err := readSkillFrontmatterFromZIP(createArtifactTestZIP(t, files))
+			fm, _, err := readSkillFrontmatterFromZIP(createArtifactTestZIP(t, files))
 			if err != nil {
 				t.Fatalf("readSkillFrontmatterFromZIP() error: %v", err)
 			}
-			tt.checkResult(t, fm, body)
+			tt.checkResult(t, fm)
 		})
 	}
 }

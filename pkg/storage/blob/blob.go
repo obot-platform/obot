@@ -12,6 +12,7 @@ import (
 var log = logger.Package()
 
 // BlobStore provides a unified interface for cloud object storage operations.
+// nolint:revive
 type BlobStore interface {
 	// Upload writes data to the given bucket and key.
 	Upload(ctx context.Context, bucket, key string, data io.Reader) error
