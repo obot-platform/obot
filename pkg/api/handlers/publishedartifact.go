@@ -85,7 +85,7 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 	}
 
 	// Deterministic name based on author + artifact type + workflow name to prevent duplicate creates.
-	artifactName := system.PublishedArtifactPrefix + hash.String(authorID+string(manifest.ArtifactType)+manifest.Name)[:12]
+	artifactName := system.PublishedArtifactPrefix + hash.String(authorID + string(manifest.ArtifactType) + manifest.Name)[:12]
 
 	for attempt := range maxPublishRetries {
 		// Try to get the existing artifact by its deterministic name.
