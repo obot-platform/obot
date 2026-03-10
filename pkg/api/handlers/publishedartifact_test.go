@@ -5,13 +5,18 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/skillformat"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 func createArtifactTestZIP(t *testing.T, files map[string][]byte) []byte {
@@ -394,5 +399,66 @@ func TestValidateZIP_Valid(t *testing.T) {
 	}
 	if err := validateZIP(r); err != nil {
 		t.Fatalf("validateZIP() unexpected error: %v", err)
+	}
+}
+
+func TestValidateZIP_Symlink(t *testing.T) {
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+
+	header := &zip.FileHeader{Name: "scripts/link", Method: zip.Store}
+	header.SetMode(os.ModeSymlink | 0o777)
+
+	fw, err := w.CreateHeader(header)
+	if err != nil {
+		t.Fatalf("failed to create symlink entry: %v", err)
+	}
+	if _, err := fw.Write([]byte("../outside")); err != nil {
+		t.Fatalf("failed to write symlink entry: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close zip: %v", err)
+	}
+
+	r, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	if err != nil {
+		t.Fatalf("failed to create zip reader: %v", err)
+	}
+	if err := validateZIP(r); err == nil {
+		t.Fatal("expected error for symlink entry")
+	} else if !strings.Contains(err.Error(), "unsupported file type") {
+		t.Errorf("error = %q, want containing 'unsupported file type'", err.Error())
+	}
+}
+
+func TestCheckOwnership_ReturnsNotFoundForNonOwner(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPatch, "/api/published-artifacts/pa123", nil)
+	req.SetPathValue("id", "pa123")
+
+	err := (&PublishedArtifactHandler{}).checkOwnership(&v1.PublishedArtifact{
+		Spec: v1.PublishedArtifactSpec{
+			AuthorID: "owner",
+		},
+	}, api.Context{
+		Request:        req,
+		ResponseWriter: httptest.NewRecorder(),
+		User: &kuser.DefaultInfo{
+			UID:    "other-user",
+			Groups: []string{types.GroupAuthenticated},
+		},
+	})
+	if err == nil {
+		t.Fatal("expected error for non-owner")
+	}
+
+	errHTTP, ok := err.(*types.ErrHTTP)
+	if !ok {
+		t.Fatalf("expected *types.ErrHTTP, got %T", err)
+	}
+	if errHTTP.Code != http.StatusNotFound {
+		t.Fatalf("status code = %d, want %d", errHTTP.Code, http.StatusNotFound)
+	}
+	if !strings.Contains(errHTTP.Message, "pa123") {
+		t.Fatalf("message = %q, want artifact id", errHTTP.Message)
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -454,11 +455,11 @@ func (h *PublishedArtifactHandler) checkOwnership(artifact *v1.PublishedArtifact
 	if artifact.Spec.AuthorID == req.User.GetUID() || req.UserIsAdmin() {
 		return nil
 	}
-	return types.NewErrHTTP(http.StatusForbidden, "you do not have permission to modify this artifact")
+	return types.NewErrNotFound("artifact %s not found", req.PathValue("id"))
 }
 
 // validateZIP checks the ZIP archive for file count limits, total uncompressed size limits,
-// and suspicious entry names (path traversal, absolute paths).
+// and suspicious or unsafe entries (path traversal, absolute paths, non-regular files).
 func validateZIP(r *zip.Reader) error {
 	if len(r.File) > maxZIPFiles {
 		return fmt.Errorf("ZIP contains too many files (%d, max %d)", len(r.File), maxZIPFiles)
@@ -472,6 +473,9 @@ func validateZIP(r *zip.Reader) error {
 		}
 		if strings.HasPrefix(f.Name, "/") {
 			return fmt.Errorf("ZIP entry %q is an absolute path", f.Name)
+		}
+		if mode := f.Mode(); !mode.IsDir() && !mode.IsRegular() && mode&os.ModeType != 0 {
+			return fmt.Errorf("ZIP entry %q has unsupported file type", f.Name)
 		}
 
 		if f.UncompressedSize64 > uint64(maxZIPUncompressedBytes) {
