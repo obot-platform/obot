@@ -575,6 +575,16 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Ports: []corev1.ContainerPort{{
 				ContainerPort: int32(port),
 			}},
+			Resources: func() corev1.ResourceRequirements {
+				if k8sSettings.Resources != nil {
+					return *k8sSettings.Resources
+				}
+				return corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("400Mi"),
+					},
+				}
+			}(),
 			SecurityContext: getContainerSecurityContext(psaLevel),
 			Env:             env,
 		})
@@ -658,6 +668,16 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					Name:          portName,
 					ContainerPort: int32(port),
 				}},
+				Resources: func() corev1.ResourceRequirements {
+					if k8sSettings.Resources != nil {
+						return *k8sSettings.Resources
+					}
+					return corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("400Mi"),
+						},
+					}
+				}(),
 				SecurityContext: getContainerSecurityContext(psaLevel),
 				Args:            []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", port), "--exclude-built-in-agents", "--config", "/config/nanobot.yaml"},
 				VolumeMounts: []corev1.VolumeMount{

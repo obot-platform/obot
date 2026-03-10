@@ -159,6 +159,18 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 		return nil
 	}
 
+	// If K8s settings changed, trigger a redeploy by tearing down the current server
+	if systemServer.Status.NeedsK8sUpdate {
+		log.Infof("System MCP server %s needs K8s update, shutting down any existing deployment to trigger redeploy", systemServer.Name)
+		err := h.mcpSessionManager.ShutdownServer(req.Ctx, systemServer.Name)
+		if err != nil {
+			return fmt.Errorf("failed to shutdown system MCP server %s for K8s update: %w", systemServer.Name, err)
+		}
+
+		systemServer.Status.NeedsK8sUpdate = false
+		return req.Client.Status().Update(req.Ctx, systemServer)
+	}
+
 	// Get credentials for deployment
 	credCtx := systemServer.Name
 	creds, err := h.gptClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{

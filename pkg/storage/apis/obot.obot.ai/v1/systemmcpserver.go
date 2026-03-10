@@ -39,6 +39,8 @@ type SystemMCPServerStatus struct {
 	DeploymentConditions []DeploymentCondition `json:"deploymentConditions,omitempty"`
 	// K8sSettingsHash contains the hash of K8s settings this was deployed with
 	K8sSettingsHash string `json:"k8sSettingsHash,omitempty"`
+	// NeedsK8sUpdate indicates whether this server needs redeployment with new K8s settings
+	NeedsK8sUpdate bool `json:"needsK8sUpdate,omitempty"`
 	// AuditLogTokenHash contains the hash of the audit log token
 	AuditLogTokenHash string `json:"auditLogTokenHash,omitempty"`
 }
