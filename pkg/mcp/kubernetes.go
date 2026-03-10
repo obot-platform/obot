@@ -675,6 +675,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					return corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceMemory: resource.MustParse("400Mi"),
+							corev1.ResourceCPU:    resource.MustParse("10m"),
 						},
 					}
 				}(),
