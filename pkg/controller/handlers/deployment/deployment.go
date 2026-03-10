@@ -175,14 +175,7 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 			// 3. The deployment's hash doesn't match current K8sSettings
 			// 4. The MCPServer's expected hash also doesn't match current K8sSettings
 			//    (if MCPServer already expects the current hash, a redeploy is pending)
-			if isSystemServer {
-				if !systemServer.Status.NeedsK8sUpdate {
-					if k8sSettingsHash != currentHash && systemServer.Status.K8sSettingsHash != currentHash {
-						systemServer.Status.NeedsK8sUpdate = true
-						needsUpdate = true
-					}
-				}
-			} else {
+			if !isSystemServer {
 				if !mcpServer.Status.NeedsK8sUpdate {
 					if k8sSettingsHash != currentHash && mcpServer.Status.K8sSettingsHash != currentHash {
 						mcpServer.Status.NeedsK8sUpdate = true
