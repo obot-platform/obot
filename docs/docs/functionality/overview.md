@@ -62,4 +62,5 @@ The only functional difference between Owners and Admins is that Owners can assi
 - [API Keys](../api-keys/) - Create and manage API keys for programmatic MCP server access
 - [Branding](../branding/) - Customize theme colors and branding
 - [Obot Agent](../agent/overview/) - Agents, conversations, workflows, and chat features
+- [Workflow Sharing](../workflow-sharing/) - Publish, discover, install, and operate shared workflows
 - [User Roles](/configuration/user-roles/) - Detailed permissions and role definitions

@@ -32,9 +32,8 @@ const (
 	maxZIPUncompressedBytes   = 100 * 1024 * 1024
 	maxSkillMDBytes           = 1024 * 1024
 	maxArtifactDescriptionLen = 1024
+	maxPublishRetries         = 3
 )
-
-const maxPublishRetries = 3
 
 // errConcurrentCreate is returned by createNewArtifact when another request
 // created the same artifact first, signaling the retry loop to re-GET and update.

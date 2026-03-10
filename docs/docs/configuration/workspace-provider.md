@@ -2,6 +2,10 @@
 
 Workspaces are where files are stored and manipulated in Obot. The default installation uses a local disk directory to provide workspaces. For production deployments, we recommend using cloud object stores like AWS S3 or Azure Blob Storage to ensure adequate storage capacity and high availability.
 
+:::note
+Published workflows use a separate storage configuration from workspace files. See [Workflow Sharing](/functionality/workflow-sharing/) and [Server Configuration](/configuration/server-configuration/) for the published workflow storage settings.
+:::
+
 :::warning
 Ensure the bucket is configured to keep the objects private. You do not need public access to the bucket.
 :::

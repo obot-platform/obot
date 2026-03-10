@@ -29,6 +29,12 @@ Workflows use the same configuration and credentials as the parent agent.
 3. Select 'Create a workflow' from the options
 4. Chat with your agent to define the workflow
 
+### Sharing Workflows
+
+Workflows can also be published as reusable shared packages so other users can discover and install them. Shared workflows preserve the workflow's `SKILL.md` metadata and supporting files, and they use versioning so you can republish improvements over time.
+
+See [Workflow Sharing](/functionality/workflow-sharing/) for the publishing, search, installation, storage, and access-control details.
+
 ## MCP Server Connections
 
 Connect MCP servers to your agent to enable powerful tools and capabilities. Simply chat with your agent to configure server connections.

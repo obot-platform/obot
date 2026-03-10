@@ -68,6 +68,12 @@ config:
   OBOT_WORKSPACE_PROVIDER_TYPE: s3
   WORKSPACE_PROVIDER_S3_BUCKET: <s3 bucket name>
 
+  # Store published workflows in external object storage
+  # Options are s3, azure, gcs, and custom
+  OBOT_ARTIFACT_STORAGE_PROVIDER: s3
+  OBOT_ARTIFACT_STORAGE_BUCKET: <artifact bucket name>
+  OBOT_ARTIFACT_S3_REGION: <aws region>
+
   # optional - this will be generated automatically if you do not set it
   OBOT_BOOTSTRAP_TOKEN: <some random value>
 
@@ -89,6 +95,7 @@ For detailed configuration options, see:
 
 - **[Server Configuration](/configuration/server-configuration/)** - All available environment variables
 - **[Workspace Provider](/configuration/workspace-provider/)** - S3 storage configuration
+- **[Workflow Sharing](/functionality/workflow-sharing/)** - How shared workflows work and how to configure their storage
 - **[Encryption Providers](/configuration/encryption-providers/aws-kms/)** - KMS encryption setup
 
 ## Cloud-Specific Guides
@@ -143,6 +150,10 @@ For details, see [MCP Deployments in Kubernetes - Pod Security Admission](../con
 By default, Obot Agent uses storage inside its pod, which means all agent state is lost if the pod restarts. For production deployments, configure a persistent `StorageClass`.
 
 For complete guidance and examples (including AWS EBS, GCP Hyperdisk, and `nfs-subdir-external-provisioner`), see [Persistent Storage in Kubernetes](/installation/kubernetes-persistent-storage.md).
+
+## Workflow Sharing in Kubernetes
+
+For Kubernetes deployments, configure published workflow storage in external object storage. Do not rely on pod-local disk for shared workflows if you are running more than one replica or using replaceable pods.
 
 ## Next Steps
 

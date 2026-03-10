@@ -33,6 +33,7 @@ const sidebars = {
         "functionality/api-keys",
         "functionality/branding",
         "functionality/agent/overview",
+        "functionality/workflow-sharing",
         "functionality/chat/overview",
       ],
     },
