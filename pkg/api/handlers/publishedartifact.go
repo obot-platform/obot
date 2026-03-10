@@ -10,6 +10,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -344,8 +346,16 @@ func (h *PublishedArtifactHandler) Download(req api.Context) error {
 	}
 	defer reader.Close()
 
+	// Sanitize the artifact name for use in the Content-Disposition header to prevent
+	// header injection via quotes or control characters in the name.
+	safeName := strings.Map(func(r rune) rune {
+		if r == '"' || r == '\\' || r == '\n' || r == '\r' || r < 0x20 {
+			return '_'
+		}
+		return r
+	}, artifact.Spec.Name)
 	req.ResponseWriter.Header().Set("Content-Type", "application/zip")
-	req.ResponseWriter.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s-v%d.zip"`, artifact.Spec.Name, version))
+	req.ResponseWriter.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s-v%d.zip"`, safeName, version))
 	_, err = io.Copy(req.ResponseWriter, reader)
 	return err
 }
@@ -449,8 +459,10 @@ func (h *PublishedArtifactHandler) checkOwnership(artifact *v1.PublishedArtifact
 	return types.NewErrNotFound("artifact %s not found", req.PathValue("id"))
 }
 
-// validateZIP checks the ZIP archive for file count limits, total uncompressed size limits,
-// and suspicious or unsafe entries (path traversal, absolute paths, non-regular files).
+// validateZIP checks the ZIP archive for file count limits, total declared uncompressed size,
+// suspicious entry names (path traversal, absolute paths, symlinks), and Windows-style paths.
+// Note: declared sizes from headers are attacker-controlled; callers that decompress content
+// must also enforce limits on actual bytes read (see rewriteSkillFrontmatterInZIP).
 func validateZIP(r *zip.Reader) error {
 	if len(r.File) > maxZIPFiles {
 		return fmt.Errorf("ZIP contains too many files (%d, max %d)", len(r.File), maxZIPFiles)
@@ -458,12 +470,12 @@ func validateZIP(r *zip.Reader) error {
 
 	var totalUncompressed uint64
 	for _, f := range r.File {
-		// Reject suspicious entry names
-		if strings.Contains(f.Name, "..") {
-			return fmt.Errorf("ZIP entry %q contains path traversal", f.Name)
+		if err := validateZIPEntryName(f.Name); err != nil {
+			return err
 		}
-		if strings.HasPrefix(f.Name, "/") {
-			return fmt.Errorf("ZIP entry %q is an absolute path", f.Name)
+
+		if f.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("ZIP entry %q is a symbolic link", f.Name)
 		}
 		if mode := f.Mode(); !mode.IsDir() && !mode.IsRegular() && mode&os.ModeType != 0 {
 			return fmt.Errorf("ZIP entry %q has unsupported file type", f.Name)
@@ -478,6 +490,33 @@ func validateZIP(r *zip.Reader) error {
 		totalUncompressed += f.UncompressedSize64
 	}
 
+	return nil
+}
+
+// validateZIPEntryName checks a single ZIP entry name for path traversal, absolute paths,
+// and Windows drive-letter paths.
+func validateZIPEntryName(name string) error {
+	// Normalize backslashes to forward slashes before cleaning.
+	normalized := strings.ReplaceAll(filepath.ToSlash(name), "\\", "/")
+	cleaned := path.Clean(strings.TrimPrefix(normalized, "./"))
+
+	if cleaned == "." || cleaned == "" {
+		return nil
+	}
+	if strings.HasPrefix(cleaned, "/") {
+		return fmt.Errorf("ZIP entry %q is an absolute path", name)
+	}
+	if cleaned == ".." || strings.HasPrefix(cleaned, "../") {
+		return fmt.Errorf("ZIP entry %q contains path traversal", name)
+	}
+	// Reject Windows drive-letter paths (e.g. "C:\..." or "C:/...")
+	if len(cleaned) >= 2 && cleaned[1] == ':' &&
+		((cleaned[0] >= 'a' && cleaned[0] <= 'z') || (cleaned[0] >= 'A' && cleaned[0] <= 'Z')) {
+		return fmt.Errorf("ZIP entry %q is an absolute path", name)
+	}
+	if volume := filepath.VolumeName(filepath.FromSlash(cleaned)); volume != "" {
+		return fmt.Errorf("ZIP entry %q is an absolute path", name)
+	}
 	return nil
 }
 
@@ -537,10 +576,12 @@ func rewriteSkillFrontmatterInZIP(data []byte, fm skillformat.Frontmatter, body 
 		return nil, fmt.Errorf("failed to format %s: %w", skillformat.SkillMainFile, err)
 	}
 
-	var buf bytes.Buffer
+	var (
+		buf          bytes.Buffer
+		foundSkillMD bool
+		totalWritten uint64
+	)
 	w := zip.NewWriter(&buf)
-
-	var foundSkillMD bool
 
 	for _, f := range r.File {
 		if f.Name == skillformat.SkillMainFile {
@@ -549,13 +590,19 @@ func rewriteSkillFrontmatterInZIP(data []byte, fm skillformat.Frontmatter, body 
 			if err != nil {
 				return nil, fmt.Errorf("failed to create %s entry: %w", skillformat.SkillMainFile, err)
 			}
-			if _, err := fw.Write([]byte(newContent)); err != nil {
+			n, err := fw.Write([]byte(newContent))
+			if err != nil {
 				return nil, fmt.Errorf("failed to write %s: %w", skillformat.SkillMainFile, err)
+			}
+			totalWritten += uint64(n)
+			if totalWritten > uint64(maxZIPUncompressedBytes) {
+				return nil, fmt.Errorf("ZIP total uncompressed size exceeds limit (%d bytes)", maxZIPUncompressedBytes)
 			}
 			continue
 		}
 
-		// Copy other files unchanged
+		// Copy other files unchanged, enforcing the total uncompressed size limit
+		// based on actual bytes read rather than trusting header metadata.
 		fw, err := w.CreateHeader(&f.FileHeader)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create entry %s: %w", f.Name, err)
@@ -564,15 +611,15 @@ func rewriteSkillFrontmatterInZIP(data []byte, fm skillformat.Frontmatter, body 
 		if err != nil {
 			return nil, fmt.Errorf("failed to open entry %s: %w", f.Name, err)
 		}
-		lr := io.LimitReader(rc, int64(f.UncompressedSize64)+1)
-		n, err := io.Copy(fw, lr)
+		remaining := uint64(maxZIPUncompressedBytes) - totalWritten
+		n, err := io.Copy(fw, io.LimitReader(rc, int64(remaining)+1))
+		rc.Close()
 		if err != nil {
-			rc.Close()
 			return nil, fmt.Errorf("failed to copy entry %s: %w", f.Name, err)
 		}
-		rc.Close()
-		if n > int64(f.UncompressedSize64) {
-			return nil, fmt.Errorf("entry %s exceeds declared uncompressed size", f.Name)
+		totalWritten += uint64(n)
+		if totalWritten > uint64(maxZIPUncompressedBytes) {
+			return nil, fmt.Errorf("ZIP total uncompressed size exceeds limit (%d bytes)", maxZIPUncompressedBytes)
 		}
 	}
 

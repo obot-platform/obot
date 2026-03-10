@@ -32,6 +32,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/runs"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runstates"
 	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
+	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threads"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threadshare"
@@ -71,6 +72,7 @@ func (c *Controller) setupRoutes() {
 	runstates := runstates.NewHandler(c.services.GatewayClient)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper)
+	skillRepository := skillrepository.New()
 	mcpSession := mcpsession.New(c.services.GPTClient)
 	mcpserver := mcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
@@ -225,6 +227,12 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.Sync)
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServersForCatalog)
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServerInstancesForCatalog)
+
+	// SkillRepository
+	root.Type(&v1.SkillRepository{}).HandlerFunc(skillRepository.Sync)
+
+	// Skill
+	root.Type(&v1.Skill{}).HandlerFunc(cleanup.Cleanup)
 
 	// MCPServerCatalogEntry
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)

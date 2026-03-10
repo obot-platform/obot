@@ -24,6 +24,7 @@ const (
 	MCPSessionFinalizer            = "obot.obot.ai/mcp-session"
 	OAuthClientFinalizer           = "obot.obot.ai/oauth-client"
 	AccessControlRuleFinalizer     = "obot.obot.ai/access-control-rule"
+	SkillRepositoryFinalizer       = "obot.obot.ai/skill-repository"
 	SystemMCPServerFinalizer       = "obot.obot.ai/system-mcp-server"
 	NanobotAgentFinalizer          = "obot.obot.ai/nanobot-agent"
 
@@ -33,6 +34,7 @@ const (
 	AuthProviderSyncAnnotation          = "obot.ai/auth-provider-sync"
 	FileScannerProviderSyncAnnotation   = "obot.ai/file-scanner-provider-sync"
 	MCPCatalogSyncAnnotation            = "obot.ai/mcp-catalog-sync"
+	SkillRepositorySyncAnnotation       = "obot.ai/skill-repository-sync"
 	ThreadSyncAnnotation                = "obot.ai/thread-sync"
 	MCPServerCatalogEntrySyncAnnotation = "obot.ai/mcp-server-catalog-entry-sync"
 )
