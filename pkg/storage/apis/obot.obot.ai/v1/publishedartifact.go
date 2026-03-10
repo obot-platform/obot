@@ -43,7 +43,7 @@ func (in *PublishedArtifact) FieldNames() []string {
 func (*PublishedArtifact) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
-		{"Display Name", "Spec.Name"},
+		{"Skill Name", "Spec.Name"},
 		{"Type", "Spec.ArtifactType"},
 		{"Author", "Spec.AuthorID"},
 		{"Version", "Spec.LatestVersion"},

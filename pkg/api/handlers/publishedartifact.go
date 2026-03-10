@@ -3,6 +3,8 @@ package handlers
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -115,7 +117,12 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 			return types.NewErrBadRequest("failed to rewrite SKILL.md in ZIP: %v", err)
 		}
 
-		blobKey := fmt.Sprintf("published-artifacts/%s/v%d.zip", existing.Name, version)
+		// Upload to a unique provisional key so concurrent publishes never collide.
+		nonce, err := randomHex(8)
+		if err != nil {
+			return fmt.Errorf("failed to generate upload nonce: %w", err)
+		}
+		blobKey := fmt.Sprintf("published-artifacts/%s/v%d-%s.zip", existing.Name, version, nonce)
 		log.Debugf("Updating existing artifact %s: v%d -> v%d, blobKey=%s", existing.Name, existing.Spec.LatestVersion, version, blobKey)
 
 		if err := h.blobStore.Upload(req.Context(), h.bucket, blobKey, bytes.NewReader(rewrittenData)); err != nil {
@@ -135,8 +142,9 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 
 		if err := req.Update(&existing); apierrors.IsConflict(err) {
 			log.Debugf("Conflict updating artifact %s (attempt %d/%d), retrying", existing.Name, attempt+1, maxPublishRetries)
+			// Safe to delete — this key is unique to this request.
 			if delErr := h.blobStore.Delete(req.Context(), h.bucket, blobKey); delErr != nil {
-				log.Errorf("failed to delete blob %s after conflict: %v", blobKey, delErr)
+				log.Errorf("failed to delete provisional blob %s after conflict: %v", blobKey, delErr)
 			}
 			continue
 		} else if err != nil {
@@ -563,6 +571,14 @@ func rewriteSkillFrontmatterInZIP(data []byte, fm skillformat.Frontmatter, body 
 	}
 
 	return buf.Bytes(), nil
+}
+
+func randomHex(n int) (string, error) {
+	b := make([]byte, n)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }
 
 func convertPublishedArtifact(a *v1.PublishedArtifact) types.PublishedArtifact {
