@@ -21,6 +21,14 @@ func NewAzureStore(config types.AzureConfig) (*AzureStore, error) {
 	if config.StorageAccount == "" {
 		return nil, fmt.Errorf("storage account is required for Azure storage")
 	}
+	hasClientID := config.ClientID != ""
+	hasTenantID := config.TenantID != ""
+	hasClientSecret := config.ClientSecret != ""
+	if hasClientID || hasTenantID || hasClientSecret {
+		if !hasClientID || !hasTenantID || !hasClientSecret {
+			return nil, fmt.Errorf("all of client ID, tenant ID, and client secret must be provided together for Azure storage")
+		}
+	}
 	return &AzureStore{config: config}, nil
 }
 
@@ -84,7 +92,7 @@ func (a *AzureStore) Test(ctx context.Context) error {
 func (a *AzureStore) createClient() (*azblob.Client, error) {
 	var cred azcore.TokenCredential
 	var err error
-	if a.config.ClientID != "" || a.config.TenantID != "" || a.config.ClientSecret != "" {
+	if a.config.ClientID != "" && a.config.TenantID != "" && a.config.ClientSecret != "" {
 		cred, err = azidentity.NewClientSecretCredential(
 			a.config.TenantID,
 			a.config.ClientID,

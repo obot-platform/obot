@@ -25,6 +25,7 @@ const (
 	maxArtifactUploadBytes    = 100 * 1024 * 1024
 	maxZIPFiles               = 50
 	maxZIPUncompressedBytes   = 100 * 1024 * 1024
+	maxSkillMDBytes           = 1024 * 1024
 	maxArtifactDescriptionLen = 1024
 )
 
@@ -114,7 +115,7 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 	fm.Metadata["version"] = fmt.Sprintf("%d", version)
 	data, err = rewriteSkillFrontmatterInZIP(data, fm, body)
 	if err != nil {
-		return fmt.Errorf("failed to rewrite SKILL.md in ZIP: %w", err)
+		return types.NewErrBadRequest("failed to rewrite SKILL.md in ZIP: %v", err)
 	}
 
 	if existing != nil {
@@ -427,9 +428,12 @@ func readSkillFrontmatterFromZIP(data []byte) (skillformat.Frontmatter, string, 
 			}
 			defer rc.Close()
 
-			content, err := io.ReadAll(rc)
+			content, err := io.ReadAll(io.LimitReader(rc, maxSkillMDBytes+1))
 			if err != nil {
 				return skillformat.Frontmatter{}, "", fmt.Errorf("failed to read %s: %w", skillformat.SkillMainFile, err)
+			}
+			if len(content) > maxSkillMDBytes {
+				return skillformat.Frontmatter{}, "", fmt.Errorf("%s exceeds maximum size of %d bytes", skillformat.SkillMainFile, maxSkillMDBytes)
 			}
 
 			fm, body, err := skillformat.ParseAndValidateFrontmatter(string(content))
@@ -492,11 +496,16 @@ func rewriteSkillFrontmatterInZIP(data []byte, fm skillformat.Frontmatter, body 
 		if err != nil {
 			return nil, fmt.Errorf("failed to open entry %s: %w", f.Name, err)
 		}
-		if _, err := io.Copy(fw, io.LimitReader(rc, int64(f.UncompressedSize64)+1)); err != nil {
+		lr := io.LimitReader(rc, int64(f.UncompressedSize64)+1)
+		n, err := io.Copy(fw, lr)
+		if err != nil {
 			rc.Close()
 			return nil, fmt.Errorf("failed to copy entry %s: %w", f.Name, err)
 		}
 		rc.Close()
+		if n > int64(f.UncompressedSize64) {
+			return nil, fmt.Errorf("entry %s exceeds declared uncompressed size", f.Name)
+		}
 	}
 
 	if err := w.Close(); err != nil {

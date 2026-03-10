@@ -24,6 +24,9 @@ func NewS3Store(config types.S3Config) (*S3Store, error) {
 	if config.Region == "" {
 		return nil, fmt.Errorf("region is required for S3 storage")
 	}
+	if (config.AccessKeyID == "") != (config.SecretAccessKey == "") {
+		return nil, fmt.Errorf("both access key ID and secret access key must be provided together for S3 storage")
+	}
 	return &S3Store{config: config}, nil
 }
 
@@ -88,7 +91,7 @@ func (s *S3Store) Test(ctx context.Context) error {
 		return err
 	}
 
-	if s.config.AccessKeyID != "" || s.config.SecretAccessKey != "" {
+	if s.config.AccessKeyID != "" && s.config.SecretAccessKey != "" {
 		cfg.Credentials = credentials.NewStaticCredentialsProvider(
 			s.config.AccessKeyID,
 			s.config.SecretAccessKey,
@@ -114,7 +117,7 @@ func (s *S3Store) createClient(ctx context.Context) (*s3.Client, error) {
 		return nil, err
 	}
 
-	if s.config.AccessKeyID != "" || s.config.SecretAccessKey != "" {
+	if s.config.AccessKeyID != "" && s.config.SecretAccessKey != "" {
 		cfg.Credentials = credentials.NewStaticCredentialsProvider(
 			s.config.AccessKeyID,
 			s.config.SecretAccessKey,
