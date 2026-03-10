@@ -139,6 +139,9 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 		})
 
 		if err := req.Update(existing); err != nil {
+			if delErr := h.blobStore.Delete(req.Context(), h.bucket, blobKey); delErr != nil {
+				log.Errorf("failed to delete blob %s after update error: %v", blobKey, delErr)
+			}
 			return err
 		}
 
@@ -185,6 +188,13 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 	}
 
 	if err := req.Update(&artifact); err != nil {
+		log.Errorf("Failed to update published artifact %s after blob upload, cleaning up: %v", artifact.Name, err)
+		if delErr := req.Delete(&artifact); delErr != nil {
+			log.Errorf("Failed to delete partially-created published artifact %s during cleanup: %v", artifact.Name, delErr)
+		}
+		if delErr := h.blobStore.Delete(req.Context(), h.bucket, blobKey); delErr != nil {
+			log.Errorf("Failed to delete blob %s during cleanup: %v", blobKey, delErr)
+		}
 		return err
 	}
 
