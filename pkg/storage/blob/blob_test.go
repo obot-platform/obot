@@ -1,10 +1,6 @@
 package blob
 
 import (
-	"bytes"
-	"context"
-	"fmt"
-	"io"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -16,7 +12,6 @@ var (
 	_ BlobStore = (*GCSStore)(nil)
 	_ BlobStore = (*AzureStore)(nil)
 	_ BlobStore = (*CustomS3Store)(nil)
-	_ BlobStore = (*MockBlobStore)(nil)
 )
 
 func TestNew_ValidProviders(t *testing.T) {
@@ -153,111 +148,3 @@ func TestNew_ValidationErrors(t *testing.T) {
 	}
 }
 
-func TestMockBlobStore_UploadAndDownload(t *testing.T) {
-	m := NewMockBlobStore()
-	ctx := context.Background()
-
-	data := []byte("hello world")
-	if err := m.Upload(ctx, "bucket", "key", bytes.NewReader(data)); err != nil {
-		t.Fatalf("Upload() error: %v", err)
-	}
-
-	if m.UploadCalls != 1 {
-		t.Fatalf("expected 1 upload call, got %d", m.UploadCalls)
-	}
-
-	rc, err := m.Download(ctx, "bucket", "key")
-	if err != nil {
-		t.Fatalf("Download() error: %v", err)
-	}
-	defer rc.Close()
-
-	got, err := io.ReadAll(rc)
-	if err != nil {
-		t.Fatalf("ReadAll() error: %v", err)
-	}
-	if !bytes.Equal(got, data) {
-		t.Fatalf("got %q, want %q", got, data)
-	}
-	if m.DownloadCalls != 1 {
-		t.Fatalf("expected 1 download call, got %d", m.DownloadCalls)
-	}
-}
-
-func TestMockBlobStore_Delete(t *testing.T) {
-	m := NewMockBlobStore()
-	ctx := context.Background()
-
-	if err := m.Upload(ctx, "bucket", "key", bytes.NewReader([]byte("data"))); err != nil {
-		t.Fatalf("Upload() error: %v", err)
-	}
-	if m.ObjectCount() != 1 {
-		t.Fatalf("expected 1 object, got %d", m.ObjectCount())
-	}
-
-	if err := m.Delete(ctx, "bucket", "key"); err != nil {
-		t.Fatalf("Delete() error: %v", err)
-	}
-	if m.DeleteCalls != 1 {
-		t.Fatalf("expected 1 delete call, got %d", m.DeleteCalls)
-	}
-	if m.ObjectCount() != 0 {
-		t.Fatalf("expected 0 objects after delete, got %d", m.ObjectCount())
-	}
-}
-
-func TestMockBlobStore_DownloadNotFound(t *testing.T) {
-	m := NewMockBlobStore()
-	_, err := m.Download(context.Background(), "bucket", "missing")
-	if err == nil {
-		t.Fatal("expected error for missing object")
-	}
-}
-
-func TestMockBlobStore_InjectedErrors(t *testing.T) {
-	m := NewMockBlobStore()
-	ctx := context.Background()
-	injected := fmt.Errorf("injected")
-
-	m.UploadErr = injected
-	if err := m.Upload(ctx, "b", "k", bytes.NewReader(nil)); err != injected {
-		t.Fatalf("expected injected upload error, got: %v", err)
-	}
-
-	m.DownloadErr = injected
-	if _, err := m.Download(ctx, "b", "k"); err != injected {
-		t.Fatalf("expected injected download error, got: %v", err)
-	}
-
-	m.DeleteErr = injected
-	if err := m.Delete(ctx, "b", "k"); err != injected {
-		t.Fatalf("expected injected delete error, got: %v", err)
-	}
-
-	m.TestErr = injected
-	if err := m.Test(ctx); err != injected {
-		t.Fatalf("expected injected test error, got: %v", err)
-	}
-}
-
-func TestMockBlobStore_GetObject(t *testing.T) {
-	m := NewMockBlobStore()
-	ctx := context.Background()
-
-	if _, ok := m.GetObject("b", "k"); ok {
-		t.Fatal("expected not found before upload")
-	}
-
-	data := []byte("content")
-	if err := m.Upload(ctx, "b", "k", bytes.NewReader(data)); err != nil {
-		t.Fatalf("Upload() error: %v", err)
-	}
-
-	got, ok := m.GetObject("b", "k")
-	if !ok {
-		t.Fatal("expected object to be found after upload")
-	}
-	if !bytes.Equal(got, data) {
-		t.Fatalf("got %q, want %q", got, data)
-	}
-}
