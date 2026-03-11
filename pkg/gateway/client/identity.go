@@ -10,6 +10,8 @@ import (
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/accesstoken"
+	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -323,6 +325,20 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		}
 	}
 
+	// Populate ProviderGroupLookupID from the auth provider's user info if not set.
+	// This is the provider-native user ID used for group lookups, which may differ from the
+	// OIDC sub claim stored in ProviderUserID (e.g. Entra returns an Azure AD GUID).
+	if id.ProviderGroupLookupID == "" {
+		if lookupID, err := c.fetchProviderGroupLookupID(ctx); err != nil {
+			log.Warnf("failed to fetch provider group lookup ID: %v", err)
+		} else if lookupID != "" {
+			id.ProviderGroupLookupID = lookupID
+			if err := c.encryptAndUpdateIdentity(ctx, tx, *id); err != nil {
+				return nil, false, err
+			}
+		}
+	}
+
 	// Ensure groups and group memberships are up to date
 	groupsLastChecked := id.AuthProviderGroupsLastChecked
 	if err := c.ensureGroups(ctx, tx, id); err != nil {
@@ -336,6 +352,36 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	}
 
 	return user, created, nil
+}
+
+// fetchProviderGroupLookupID calls the auth provider's /obot-get-user-info endpoint
+// to get the provider-native user ID for group lookups.
+func (c *Client) fetchProviderGroupLookupID(ctx context.Context) (string, error) {
+	providerURL := auth.ProviderURLFromContext(ctx)
+	accessToken := accesstoken.GetAccessToken(ctx)
+	if providerURL == "" || accessToken == "" {
+		return "", nil
+	}
+
+	profile, err := c.fetchUserProfile(ctx, providerURL, accessToken)
+	if err != nil {
+		return "", err
+	}
+
+	return extractProfileID(profile), nil
+}
+
+// extractProfileID extracts the "id" field from a provider's user info response.
+// Handles both string and numeric ID types (GitHub returns int, others return string).
+func extractProfileID(profile map[string]any) string {
+	switch v := profile["id"].(type) {
+	case string:
+		return v
+	case float64:
+		return fmt.Sprintf("%d", int64(v))
+	default:
+		return ""
+	}
 }
 
 // encryptAndUpdateIdentity encrypts the identity and updates it in the database.
@@ -481,6 +527,11 @@ func (c *Client) encryptIdentity(ctx context.Context, identity *types.Identity) 
 	} else {
 		identity.ProviderUserID = base64.StdEncoding.EncodeToString(b)
 	}
+	if b, err = transformer.TransformToStorage(ctx, []byte(identity.ProviderGroupLookupID), dataCtx); err != nil {
+		errs = append(errs, err)
+	} else {
+		identity.ProviderGroupLookupID = base64.StdEncoding.EncodeToString(b)
+	}
 	if b, err = transformer.TransformToStorage(ctx, []byte(identity.IconURL), dataCtx); err != nil {
 		errs = append(errs, err)
 	} else {
@@ -542,6 +593,18 @@ func (c *Client) decryptIdentity(ctx context.Context, identity *types.Identity) 
 			errs = append(errs, err)
 		} else {
 			identity.ProviderUserID = string(out)
+		}
+	} else {
+		errs = append(errs, err)
+	}
+
+	decoded = make([]byte, base64.StdEncoding.DecodedLen(len(identity.ProviderGroupLookupID)))
+	n, err = base64.StdEncoding.Decode(decoded, []byte(identity.ProviderGroupLookupID))
+	if err == nil {
+		if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			identity.ProviderGroupLookupID = string(out)
 		}
 	} else {
 		errs = append(errs, err)
