@@ -340,6 +340,9 @@ var (
 			"GET /api/published-artifacts",
 			"GET /api/published-artifacts/{id}",
 			"GET /api/published-artifacts/{id}/download",
+			"GET /api/skills",
+			"GET /api/skills/{id}",
+			"GET /api/skills/{id}/download",
 		},
 
 		MetricsGroup: {
