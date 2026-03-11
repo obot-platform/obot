@@ -132,11 +132,13 @@
 			new Date(entry.toolPreviewsLastGenerated) < new Date(entry.lastUpdated)
 	);
 	let requiresStaticOauth = $derived(
-		entry &&
-			'isCatalogEntry' in entry &&
-			entry.manifest?.runtime === 'remote' &&
-			entry.manifest?.remoteConfig?.staticOAuthRequired &&
-			!entry.oauthCredentialConfigured
+		staticOauthStatus
+			? !staticOauthStatus.configured
+			: entry &&
+					'isCatalogEntry' in entry &&
+					entry.manifest?.runtime === 'remote' &&
+					entry.manifest?.remoteConfig?.staticOAuthRequired &&
+					!entry.oauthCredentialConfigured
 	);
 
 	const tabs = $derived.by(() => {
@@ -1088,6 +1090,10 @@
 		} else {
 			await AdminService.setMCPCatalogEntryOAuthCredentials(id, entry.id, credentials);
 		}
+		staticOauthStatus = {
+			...staticOauthStatus,
+			configured: true
+		};
 	}}
 	onDelete={async () => {
 		if (!entry || !id) return;
@@ -1096,6 +1102,10 @@
 		} else {
 			await AdminService.deleteMCPCatalogEntryOAuthCredentials(id, entry.id);
 		}
+		staticOauthStatus = {
+			...staticOauthStatus,
+			configured: false
+		};
 	}}
 />
 

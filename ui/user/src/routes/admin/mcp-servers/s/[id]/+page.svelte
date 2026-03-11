@@ -9,6 +9,7 @@
 	import { profile } from '$lib/stores/index.js';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { page } from '$app/state';
+	import { AdminService } from '$lib/services/index.js';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -27,7 +28,16 @@
 	showBackButton
 >
 	{#snippet rightNavActions()}
-		<McpServerActions server={mcpServer} {promptInitialLaunch} />
+		<McpServerActions
+			server={mcpServer}
+			{promptInitialLaunch}
+			onOAuthConfigured={() => {
+				if (!mcpServer) return;
+				AdminService.getMCPCatalogServer(DEFAULT_MCP_CATALOG_ID, mcpServer.id).then((server) => {
+					mcpServer = server;
+				});
+			}}
+		/>
 	{/snippet}
 
 	<div class="flex h-full flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>

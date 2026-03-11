@@ -180,7 +180,17 @@
 	showBackButton
 >
 	{#snippet rightNavActions()}
-		<McpServerActions entry={catalogEntry} {promptInitialLaunch} {promptOAuthConfig} />
+		<McpServerActions
+			entry={catalogEntry}
+			{promptInitialLaunch}
+			{promptOAuthConfig}
+			onOAuthConfigured={() => {
+				if (!catalogEntry) return;
+				AdminService.getMCPCatalogEntry(DEFAULT_MCP_CATALOG_ID, catalogEntry.id).then((entry) => {
+					catalogEntry = entry;
+				});
+			}}
+		/>
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if showUpgradeNotification}

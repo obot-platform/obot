@@ -9,6 +9,7 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { mcpServersAndEntries } from '$lib/stores/index.js';
 	import { page } from '$app/state';
+	import { ChatService } from '$lib/services/index.js';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -19,7 +20,7 @@
 		Boolean(
 			catalogEntry &&
 				mcpServersAndEntries.current.userConfiguredServers.some(
-					(server) => server.catalogEntryID === catalogEntry.id
+					(server) => server.catalogEntryID === catalogEntry?.id
 				)
 		)
 	);
@@ -36,7 +37,17 @@
 	showBackButton
 >
 	{#snippet rightNavActions()}
-		<McpServerActions entry={catalogEntry} {promptInitialLaunch} {promptOAuthConfig} />
+		<McpServerActions
+			entry={catalogEntry}
+			{promptInitialLaunch}
+			{promptOAuthConfig}
+			onOAuthConfigured={() => {
+				if (!catalogEntry) return;
+				ChatService.getMCP(catalogEntry.id).then((entry) => {
+					catalogEntry = entry;
+				});
+			}}
+		/>
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if catalogEntry}
