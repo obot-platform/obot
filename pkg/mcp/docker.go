@@ -1295,7 +1295,7 @@ func (d *dockerBackend) populateFilesVolume(ctx context.Context, volumeName, con
 
 	for _, filename := range fileNames {
 		containerPath := path.Join("/files", filename)
-		script.WriteString(fmt.Sprintf("cat > '%s' << 'EOF'\n%s\nEOF\n", containerPath, fileContents[filename]))
+		fmt.Fprintf(&script, "cat > '%s' << 'EOF'\n%s\nEOF\n", containerPath, fileContents[filename])
 	}
 
 	initConfig := &container.Config{

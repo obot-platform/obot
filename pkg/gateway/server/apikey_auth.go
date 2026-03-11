@@ -65,6 +65,9 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 			Name:   u.Username,
 			UID:    fmt.Sprintf("%d", u.ID),
 			Groups: []string{types2.GroupAPIKey},
+			Extra: map[string][]string{
+				"email": {u.Email},
+			},
 		},
 	}, true, nil
 }

@@ -77,6 +77,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	setupHandler := setup.NewHandler(services.ServerURL)
 	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth)
 	oauthClients := handlers.NewOAuthClientsHandler(services.OAuthServerConfig, services.ServerURL)
+	publishedArtifacts := handlers.NewPublishedArtifactHandler(services.ArtifactBlobStore, services.ArtifactBlobBucket)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -606,6 +607,14 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/storage-credentials", auditLogExports.GetStorageCredentials)
 	mux.HandleFunc("DELETE /api/storage-credentials", auditLogExports.DeleteStorageCredentials)
 	mux.HandleFunc("POST /api/storage-credentials/test", auditLogExports.TestStorageCredentials)
+
+	// Published Artifacts
+	mux.HandleFunc("POST /api/published-artifacts", publishedArtifacts.Create)
+	mux.HandleFunc("GET /api/published-artifacts", publishedArtifacts.List)
+	mux.HandleFunc("GET /api/published-artifacts/{id}", publishedArtifacts.Get)
+	mux.HandleFunc("GET /api/published-artifacts/{id}/download", publishedArtifacts.Download)
+	mux.HandleFunc("PUT /api/published-artifacts/{id}", publishedArtifacts.Update)
+	mux.HandleFunc("DELETE /api/published-artifacts/{id}", publishedArtifacts.Delete)
 
 	// MCP Servers in projects
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", projectMCP.ListServer)

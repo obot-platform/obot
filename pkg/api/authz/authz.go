@@ -270,6 +270,15 @@ var (
 			"GET /api/mcp-stats",
 			"GET /api/mcp-stats/{mcp_id}",
 
+			// Published artifacts — any authenticated user can publish, search, and download.
+			// Ownership checks for update/delete are enforced in the handler.
+			"POST /api/published-artifacts",
+			"GET /api/published-artifacts",
+			"GET /api/published-artifacts/{id}",
+			"GET /api/published-artifacts/{id}/download",
+			"PUT /api/published-artifacts/{id}",
+			"DELETE /api/published-artifacts/{id}",
+
 			// Allow basic users to create and list ProjectV2 resources
 			"POST /api/projectsv2",
 			"GET /api/projectsv2",
@@ -315,6 +324,10 @@ var (
 		types.GroupAPIKey: {
 			"GET /api/me",
 			"/mcp-connect/",
+			"POST /api/published-artifacts",
+			"GET /api/published-artifacts",
+			"GET /api/published-artifacts/{id}",
+			"GET /api/published-artifacts/{id}/download",
 		},
 
 		MetricsGroup: {

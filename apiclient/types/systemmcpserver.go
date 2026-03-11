@@ -28,12 +28,12 @@ type SystemMCPServer struct {
 	MissingRequiredHeaders []string `json:"missingRequiredHeaders,omitempty"`
 
 	// Deployment status fields
-	DeploymentStatus            string               `json:"deploymentStatus,omitempty"`
-	DeploymentAvailableReplicas *int32               `json:"deploymentAvailableReplicas,omitempty"`
-	DeploymentReadyReplicas     *int32               `json:"deploymentReadyReplicas,omitempty"`
-	DeploymentReplicas          *int32               `json:"deploymentReplicas,omitempty"`
+	DeploymentStatus            string                `json:"deploymentStatus,omitempty"`
+	DeploymentAvailableReplicas *int32                `json:"deploymentAvailableReplicas,omitempty"`
+	DeploymentReadyReplicas     *int32                `json:"deploymentReadyReplicas,omitempty"`
+	DeploymentReplicas          *int32                `json:"deploymentReplicas,omitempty"`
 	DeploymentConditions        []DeploymentCondition `json:"deploymentConditions,omitempty"`
-	K8sSettingsHash             string               `json:"k8sSettingsHash,omitempty"`
+	K8sSettingsHash             string                `json:"k8sSettingsHash,omitempty"`
 }
 
 type SystemMCPServerList List[SystemMCPServer]

@@ -286,7 +286,7 @@
 />
 
 <svelte:head>
-	<title>Obot | {workflow?._meta?.name ?? workflowName}</title>
+	<title>Obot | {workflow?._meta?.displayName ?? workflow?._meta?.name ?? workflowName}</title>
 </svelte:head>
 
 <style lang="postcss">

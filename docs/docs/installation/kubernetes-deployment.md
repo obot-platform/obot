@@ -10,7 +10,7 @@ For a complete list of all available Helm chart configuration values, see [chart
 
 - **Helm**
 - **PostgreSQL 17+** with pgvector extension
-- **S3-compatible storage** (for production)
+- **Object storage or a persistent volume for published workflows** (for production)
 - **StorageClass** (for production)
 - **Encryption provider** (AWS KMS, GCP KMS, or Azure Key Vault recommended)
 
@@ -68,6 +68,12 @@ config:
   OBOT_WORKSPACE_PROVIDER_TYPE: s3
   WORKSPACE_PROVIDER_S3_BUCKET: <s3 bucket name>
 
+  # Store published workflows in external object storage
+  # Options are s3, azure, gcs, and custom
+  OBOT_ARTIFACT_STORAGE_PROVIDER: s3
+  OBOT_ARTIFACT_STORAGE_BUCKET: <artifact bucket name>
+  OBOT_ARTIFACT_S3_REGION: <aws region>
+
   # optional - this will be generated automatically if you do not set it
   OBOT_BOOTSTRAP_TOKEN: <some random value>
 
@@ -85,10 +91,16 @@ config:
 
 To enable a high availability setup, uncomment the `replicaCount` line and set it to `2` or higher. An external PostgreSQL database and a workspace provider are required for HA.
 
+For published workflow storage in HA, use one of these:
+
+- External object storage such as S3, GCS, Azure Blob Storage, or an S3-compatible service
+- The `persistence` PVC with `ReadWriteMany` access so all replicas can share `/data`
+
 For detailed configuration options, see:
 
 - **[Server Configuration](/configuration/server-configuration/)** - All available environment variables
 - **[Workspace Provider](/configuration/workspace-provider/)** - S3 storage configuration
+- **[Workflow Sharing](../functionality/workflow-sharing.md)** - How shared workflows work and how to configure their storage
 - **[Encryption Providers](/configuration/encryption-providers/aws-kms/)** - KMS encryption setup
 
 ## Cloud-Specific Guides
@@ -143,6 +155,68 @@ For details, see [MCP Deployments in Kubernetes - Pod Security Admission](../con
 By default, Obot Agent uses storage inside its pod, which means all agent state is lost if the pod restarts. For production deployments, configure a persistent `StorageClass`.
 
 For complete guidance and examples (including AWS EBS, GCP Hyperdisk, and `nfs-subdir-external-provisioner`), see [Persistent Storage in Kubernetes](/installation/kubernetes-persistent-storage.md).
+
+## Workflow Sharing in Kubernetes
+
+If `OBOT_ARTIFACT_STORAGE_PROVIDER` is unset, Obot stores published workflows on local disk at `/data/.local/share/obot/published-artifacts`.
+
+The Helm chart's `persistence` PVC mounts at `/data`, so it covers that path.
+
+### Use the Existing Persistence Claim
+
+Use this when you do not want S3, GCS, Azure Blob Storage, or another object store for published workflows.
+
+If you disable `persistence`, published workflow artifacts remain on pod-local disk and will be lost when the pod is replaced.
+
+For a single Obot replica:
+
+- Enable `persistence`
+- Use `ReadWriteOnce` as the access mode
+- This is appropriate for `replicaCount: 1`
+- A block-storage-backed `StorageClass` such as EBS, PD, or Azure Disk is typically fine
+
+For multiple Obot replicas:
+
+- Enable `persistence`
+- Use `ReadWriteMany` as the access mode
+- All replicas must mount the same `/data` volume concurrently
+- This requires a shared filesystem-backed `StorageClass`, such as NFS
+- A single shared `ReadWriteOnce` claim is not a valid multi-replica setup
+
+Example using dynamic provisioning for a single replica:
+
+```yaml
+replicaCount: 1
+
+config:
+  OBOT_ARTIFACT_STORAGE_PROVIDER: ""
+  OBOT_ARTIFACT_STORAGE_BUCKET: ""
+
+persistence:
+  enabled: true
+  storageClass: gp3
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+```
+
+Example using an existing RWX claim for multiple replicas:
+
+```yaml
+replicaCount: 2
+
+config:
+  OBOT_ARTIFACT_STORAGE_PROVIDER: ""
+  OBOT_ARTIFACT_STORAGE_BUCKET: ""
+
+persistence:
+  enabled: true
+  existingClaim: obot-data-rwx
+```
+
+The `obot-data-rwx` claim itself must be provisioned with `ReadWriteMany`.
+
+For more examples and storage-class guidance, see [Persistent Storage in Kubernetes](/installation/kubernetes-persistent-storage.md).
 
 ## Next Steps
 
