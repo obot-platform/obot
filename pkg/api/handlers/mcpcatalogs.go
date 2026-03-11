@@ -56,7 +56,7 @@ func (*MCPCatalogHandler) List(req api.Context) error {
 		return fmt.Errorf("failed to list catalogs: %w", err)
 	}
 
-	var items []types.MCPCatalog
+	items := make([]types.MCPCatalog, 0, len(list.Items))
 	for _, item := range list.Items {
 		items = append(items, convertMCPCatalog(item))
 	}
@@ -446,7 +446,7 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 		return fmt.Errorf("failed to list servers: %w", err)
 	}
 
-	var items []types.MCPServer
+	items := make([]types.MCPServer, 0, len(list.Items))
 	for _, server := range list.Items {
 		if server.Spec.Template {
 			// Hide template servers
@@ -530,7 +530,7 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 		filteredServers = append(filteredServers, server)
 	}
 
-	var items []types.MCPServer
+	items := make([]types.MCPServer, 0, len(filteredServers))
 	for _, server := range filteredServers {
 		var credCtx string
 		if server.Spec.MCPCatalogID != "" {
@@ -600,7 +600,7 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 		return fmt.Errorf("failed to list servers: %w", err)
 	}
 
-	var items []types.MCPServer
+	items := make([]types.MCPServer, 0, len(list.Items))
 	for _, server := range list.Items {
 		if server.Spec.Template {
 			// Hide template servers
