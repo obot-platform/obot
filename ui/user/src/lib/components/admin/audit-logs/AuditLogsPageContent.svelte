@@ -28,7 +28,7 @@
 	import { localState } from '$lib/runes/localState.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
-	import { getUserDisplayName } from '$lib/utils';
+	import { getUserDisplayName, isBasicUser } from '$lib/utils';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import profile from '$lib/stores/profile.svelte';
 	import { responsive } from '$lib/stores';
@@ -120,6 +120,16 @@
 	let showFilterConfirmDialog = $state(false);
 	let pendingExportType = $state<'export' | 'scheduled' | null>(null);
 
+	// Enforced filters for Basic users - they can only see their own audit logs
+	const enforcedFilters = $derived.by(() => {
+		if (isBasicUser(profile.current.groups) && profile.current?.id) {
+			return { user_id: profile.current.id };
+		}
+		return {};
+	});
+
+	const enforcedFiltersKeys = $derived(new Set(Object.keys(enforcedFilters)));
+
 	// Supported filters for the audit logs
 	// These filters are used to filter the audit logs based on the URL parameters
 	// Ignore other params
@@ -207,7 +217,7 @@
 			) as Record<keyof AuditLogURLFilters, string>;
 
 		return (
-			Object.entries({ ...propsFilters, ...base })
+			Object.entries({ ...propsFilters, ...base, ...enforcedFilters })
 				.filter(([, value]) => !!value)
 				// Sort to prioritize props filter keys first, then alphabetically
 				.sort((a, b) => {
@@ -248,7 +258,7 @@
 			delete clone[key as keyof AuditLogURLFilters];
 		}
 
-		return { ...clone, ...propsFilters };
+		return { ...clone, ...propsFilters, ...enforcedFilters };
 	});
 
 	let timeRangeFilters = $derived.by(() => {
@@ -627,7 +637,7 @@
 
 				<div class="flex items-center">
 					{#if numberOfPages > 1}
-						<sapn>{Intl.NumberFormat().format(pageIndex + 1)}</sapn>/
+						<span>{Intl.NumberFormat().format(pageIndex + 1)}</span>/
 						<span>{Intl.NumberFormat().format(numberOfPages)}</span>
 						<span class="ml-1">pages</span>
 					{:else}
@@ -715,8 +725,10 @@
 		<FiltersDrawer
 			onClose={handleRightSidebarClose}
 			filters={{ ...auditLogsSlideoverFilters }}
-			isFilterDisabled={(filterId) => propsFiltersKeys.has(filterId)}
-			isFilterClearable={(filterId) => !propsFiltersKeys.has(filterId)}
+			isFilterDisabled={(filterId) =>
+				propsFiltersKeys.has(filterId) || enforcedFiltersKeys.has(filterId)}
+			isFilterClearable={(filterId) =>
+				!propsFiltersKeys.has(filterId) && !enforcedFiltersKeys.has(filterId)}
 			getUserDisplayName={(...args) => getUserDisplayName(users, ...args)}
 			{getFilterDisplayLabel}
 			getDefaultValue={(filter) => defaultSearchParams[filter]}
@@ -761,7 +773,8 @@
 			{#each entries as [filterKey, filterValues] (filterKey)}
 				{@const displayLabel = getFilterDisplayLabel(filterKey)}
 				{@const values = filterValues?.toString().split(',').filter(Boolean) ?? []}
-				{@const isClearable = !propsFiltersKeys.has(filterKey)}
+				{@const isClearable =
+					!propsFiltersKeys.has(filterKey) && !enforcedFiltersKeys.has(filterKey)}
 
 				<div
 					class="border-primary/50 bg-primary/10 text-primary flex items-center gap-1 rounded-lg border px-4 py-2"
