@@ -80,6 +80,7 @@ Jaeger also exposes OTLP gRPC on `localhost:4317` and OTLP HTTP on `localhost:43
 Useful commands:
 
 ```bash
+make otel-jaeger-up
 make otel-jaeger-logs
 make otel-jaeger-down
 ```
