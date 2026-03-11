@@ -193,8 +193,8 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 		return nil
 	}
 
-	// Fetch groups from the auth provider
-	providerGroups, err := c.fetchGroups(ctx, providerURL, identity.AuthProviderNamespace, identity.AuthProviderName, identity.Email)
+	groupLookupID := identity.GroupLookupID()
+	providerGroups, err := c.fetchGroups(ctx, providerURL, identity.AuthProviderNamespace, identity.AuthProviderName, groupLookupID)
 	if err != nil {
 		return err
 	}

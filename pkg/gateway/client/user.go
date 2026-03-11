@@ -360,7 +360,21 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		if displayName, ok := profile["name"].(string); ok {
 			user.DisplayName = displayName
 		}
+	case "auth0-auth-provider":
+		if iconURL, ok := profile["icon_url"].(string); ok {
+			user.IconURL = iconURL
+			identity.IconURL = iconURL
+		}
+		if displayName, ok := profile["name"].(string); ok {
+			user.DisplayName = displayName
+		}
 	}
+
+	// Update the provider-native group lookup ID from the profile response.
+	if lookupID := extractProfileID(profile); lookupID != "" {
+		identity.ProviderGroupLookupID = lookupID
+	}
+
 	identity.IconLastChecked = time.Now()
 
 	if err = c.encryptIdentity(ctx, &identity); err != nil {
