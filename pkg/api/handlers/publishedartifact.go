@@ -116,13 +116,8 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 		// Update existing artifact with a new version.
 		version := existing.Spec.LatestVersion + 1
 
-		// Inject author email and version into SKILL.md frontmatter metadata and rewrite the ZIP.
-		fmCopy := fm
-		if fmCopy.Metadata == nil {
-			fmCopy.Metadata = make(map[string]string)
-		}
-		fmCopy.Metadata["author-email"] = authorEmail
-		fmCopy.Metadata["version"] = fmt.Sprintf("%d", version)
+		// Stamp publish metadata into SKILL.md before uploading the next version.
+		fmCopy := withArtifactMetadata(fm, existing.Name, authorEmail, version)
 		rewrittenData, err := rewriteSkillFrontmatterInZIP(data, fmCopy, body)
 		if err != nil {
 			return types.NewErrBadRequest("failed to rewrite SKILL.md in ZIP: %v", err)
@@ -173,12 +168,8 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 }
 
 func (h *PublishedArtifactHandler) createNewArtifact(req api.Context, data []byte, fm skillformat.Frontmatter, body string, manifest types.PublishedArtifactManifest, authorID, authorEmail, artifactName string) error {
-	// Inject author email and version into SKILL.md frontmatter metadata and rewrite the ZIP.
-	if fm.Metadata == nil {
-		fm.Metadata = make(map[string]string)
-	}
-	fm.Metadata["author-email"] = authorEmail
-	fm.Metadata["version"] = "1"
+	// Stamp publish metadata into SKILL.md before uploading the first version.
+	fm = withArtifactMetadata(fm, artifactName, authorEmail, 1)
 	data, err := rewriteSkillFrontmatterInZIP(data, fm, body)
 	if err != nil {
 		return types.NewErrBadRequest("failed to rewrite SKILL.md in ZIP: %v", err)
@@ -594,6 +585,22 @@ func rewriteSkillFrontmatterInZIP(data []byte, fm skillformat.Frontmatter, body 
 	}
 
 	return buf.Bytes(), nil
+}
+
+func withArtifactMetadata(fm skillformat.Frontmatter, artifactID, authorEmail string, version int) skillformat.Frontmatter {
+	fmCopy := fm
+	if len(fm.Metadata) > 0 {
+		fmCopy.Metadata = make(map[string]string, len(fm.Metadata)+3)
+		for k, v := range fm.Metadata {
+			fmCopy.Metadata[k] = v
+		}
+	} else {
+		fmCopy.Metadata = make(map[string]string, 3)
+	}
+	fmCopy.Metadata["id"] = artifactID
+	fmCopy.Metadata["author-email"] = authorEmail
+	fmCopy.Metadata["version"] = strconv.Itoa(version)
+	return fmCopy
 }
 
 func randomHex(n int) (string, error) {

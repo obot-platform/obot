@@ -180,7 +180,11 @@ func TestRewriteSkillFrontmatterInZIP(t *testing.T) {
 	updatedFM := skillformat.Frontmatter{
 		Name:        "original",
 		Description: "Updated desc.",
-		Metadata:    map[string]string{"author-email": "injected@example.com"},
+		Metadata: map[string]string{
+			"id":           "pa1abc123def456",
+			"author-email": "injected@example.com",
+			"version":      "2",
+		},
 	}
 
 	result, err := rewriteSkillFrontmatterInZIP(zipData, updatedFM, "")
@@ -198,6 +202,12 @@ func TestRewriteSkillFrontmatterInZIP(t *testing.T) {
 	}
 	if gotFM.Metadata["author-email"] != "injected@example.com" {
 		t.Errorf("metadata[author-email] = %q, want %q", gotFM.Metadata["author-email"], "injected@example.com")
+	}
+	if gotFM.Metadata["id"] != "pa1abc123def456" {
+		t.Errorf("metadata[id] = %q, want %q", gotFM.Metadata["id"], "pa1abc123def456")
+	}
+	if gotFM.Metadata["version"] != "2" {
+		t.Errorf("metadata[version] = %q, want %q", gotFM.Metadata["version"], "2")
 	}
 
 	// Verify other files are preserved.
@@ -275,6 +285,47 @@ func TestRewriteSkillFrontmatterInZIP_InvalidZIP(t *testing.T) {
 	if !strings.Contains(err.Error(), "invalid ZIP archive") {
 		t.Errorf("error = %q, want containing %q", err.Error(), "invalid ZIP archive")
 	}
+}
+
+func TestWithArtifactMetadata(t *testing.T) {
+	t.Run("adds publish metadata to empty map", func(t *testing.T) {
+		fm := withArtifactMetadata(skillformat.Frontmatter{
+			Name:        "test-skill",
+			Description: "A test skill.",
+		}, "pa1abc123def456", "author@example.com", 3)
+
+		if fm.Metadata["id"] != "pa1abc123def456" {
+			t.Errorf("metadata[id] = %q, want %q", fm.Metadata["id"], "pa1abc123def456")
+		}
+		if fm.Metadata["author-email"] != "author@example.com" {
+			t.Errorf("metadata[author-email] = %q, want %q", fm.Metadata["author-email"], "author@example.com")
+		}
+		if fm.Metadata["version"] != "3" {
+			t.Errorf("metadata[version] = %q, want %q", fm.Metadata["version"], "3")
+		}
+	})
+
+	t.Run("preserves existing metadata", func(t *testing.T) {
+		original := skillformat.Frontmatter{
+			Name:        "test-skill",
+			Description: "A test skill.",
+			Metadata: map[string]string{
+				"custom": "value",
+			},
+		}
+
+		fm := withArtifactMetadata(original, "pa1zzz999yyy888", "author@example.com", 1)
+
+		if fm.Metadata["custom"] != "value" {
+			t.Errorf("metadata[custom] = %q, want %q", fm.Metadata["custom"], "value")
+		}
+		if fm.Metadata["id"] != "pa1zzz999yyy888" {
+			t.Errorf("metadata[id] = %q, want %q", fm.Metadata["id"], "pa1zzz999yyy888")
+		}
+		if original.Metadata["id"] != "" {
+			t.Errorf("original metadata should not be mutated, got id=%q", original.Metadata["id"])
+		}
+	})
 }
 
 func TestConvertPublishedArtifact(t *testing.T) {
