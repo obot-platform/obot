@@ -27,7 +27,7 @@
 	const configuredServers = $derived(
 		catalogEntry
 			? mcpServersAndEntries.current.userConfiguredServers.filter(
-					(server) => server.catalogEntryID === catalogEntry.id
+					(server) => server.catalogEntryID === catalogEntry?.id
 				)
 			: []
 	);
