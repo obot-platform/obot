@@ -5,6 +5,7 @@
 		Loader2,
 		ChevronUp,
 		ChevronDown,
+		Monitor,
 		SidebarOpen,
 		SidebarClose,
 		ListCheck
@@ -21,14 +22,25 @@
 
 	interface Props {
 		onToggle?: () => void;
+		onToggleBrowserViewer?: () => void;
 		open?: boolean;
+		browserViewerOpen?: boolean;
 		sessionId?: string;
 		selectedFile?: string;
 		agentId?: string;
 		projectId?: string;
 	}
 
-	let { onToggle, open, sessionId, selectedFile, agentId, projectId }: Props = $props();
+	let {
+		onToggle,
+		onToggleBrowserViewer,
+		open,
+		browserViewerOpen = false,
+		sessionId,
+		selectedFile,
+		agentId,
+		projectId
+	}: Props = $props();
 
 	/** Todo item shape from todo:///list resource or todo_write tool (application/json) */
 	interface TodoItem {
@@ -82,6 +94,33 @@
 		<div class={twMerge(open ? 'self-end' : 'w-14 self-center')}>
 			<Profile {agentId} {projectId} />
 		</div>
+
+		{#if onToggleBrowserViewer}
+			{#if open}
+				<button
+					class={twMerge(
+						'btn justify-start gap-2 self-stretch rounded-xl px-4',
+						browserViewerOpen ? 'btn-neutral' : 'btn-ghost border-base-300 border'
+					)}
+					onclick={onToggleBrowserViewer}
+				>
+					<Monitor class="size-4 shrink-0" />
+					Browser
+				</button>
+			{:else}
+				<button
+					class={twMerge(
+						'btn btn-circle tooltip tooltip-left size-10 self-center',
+						browserViewerOpen ? 'btn-neutral' : 'btn-ghost'
+					)}
+					onclick={onToggleBrowserViewer}
+					aria-label={browserViewerOpen ? 'Hide browser view' : 'Show browser view'}
+					data-tip={browserViewerOpen ? 'Hide browser view' : 'Show browser view'}
+				>
+					<Monitor class="size-5" />
+				</button>
+			{/if}
+		{/if}
 
 		{#if !!sessionId}
 			{#if open}

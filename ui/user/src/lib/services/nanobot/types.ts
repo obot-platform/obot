@@ -446,6 +446,8 @@ export interface ProjectLayoutContext {
 	setThreadContentWidth: (w: number) => void;
 	setLayoutName: (name: string) => void;
 	setShowBackButton: (show: boolean) => void;
+	browserViewerOpen: boolean;
+	setBrowserViewerOpen: (show: boolean) => void;
 }
 
 export const PROJECT_LAYOUT_CONTEXT = 'nanobot-project-layout';
