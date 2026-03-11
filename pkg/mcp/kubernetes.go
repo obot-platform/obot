@@ -576,16 +576,11 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				ContainerPort: int32(port),
 			}},
 			Resources: func() corev1.ResourceRequirements {
-				if k8sSettings.Resources != nil {
-					return *k8sSettings.Resources
-				}
-				return corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("10m"),
-						corev1.ResourceMemory: resource.MustParse("400Mi"),
-					},
-				}
-			}(),
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("400Mi"),
+				},
+			},
 			SecurityContext: getContainerSecurityContext(psaLevel),
 			Env:             env,
 		})
