@@ -750,11 +750,10 @@ def run_workflow_conversation_eval(ctx: Context) -> Result:
 
             # Use expected_prompt=None so we capture any assistant content for this turn
             # without depending on an exact echo of the prompt text in the SSE stream.
-            # With expected_prompt=prompt_text, turns 2 and 3 often capture nothing because
-            # the server may not echo the new user message on the new GET connection, so
-            # turn_seen_prompt stays False and no assistant text is collected.
+            # With expected_prompt=prompt_text, longer or multi-phase prompts may not be
+            # echoed exactly, which would cause us to capture no assistant text at all.
             response_text, raw_sse, tools_used = mcp.get_response_from_events_async(
-                session_id, send_chat_fn=send_chat, expected_prompt=prompt_text
+                session_id, send_chat_fn=send_chat, expected_prompt=None
             )
             response_texts.append(response_text or "")
             raw_sse_per_phase.append(raw_sse or "")
@@ -790,6 +789,34 @@ def run_workflow_conversation_eval(ctx: Context) -> Result:
         print("[step_eval] Steps + raw SSE (%d phases) saved to: %s" % (len(raw_sse_per_phase), out_path))
 
     return result
+
+
+def run_python_code_review_conversation_eval(ctx: Context) -> Result:
+    """
+    Convenience wrapper to run the python_code_review workflow conversation eval.
+
+    This sets OBOT_EVAL_CONVERSATION_WORKFLOW for this process, then delegates to
+    run_workflow_conversation_eval so that DeepEval runs turn-by-turn after each
+    response.
+    """
+    os.environ["OBOT_EVAL_CONVERSATION_WORKFLOW"] = "python_code_review"
+    return run_workflow_conversation_eval(ctx)
+
+
+def run_deep_news_briefing_conversation_eval(ctx: Context) -> Result:
+    """
+    Convenience wrapper to run the deep_news_briefing workflow conversation eval.
+    """
+    os.environ["OBOT_EVAL_CONVERSATION_WORKFLOW"] = "deep_news_briefing"
+    return run_workflow_conversation_eval(ctx)
+
+
+def run_antv_dual_axes_conversation_eval(ctx: Context) -> Result:
+    """
+    Convenience wrapper to run the antv_dual_axes_viz workflow conversation eval.
+    """
+    os.environ["OBOT_EVAL_CONVERSATION_WORKFLOW"] = "antv_dual_axes_viz"
+    return run_workflow_conversation_eval(ctx)
 
 
 def run_deep_news_briefing_single_prompt_eval(ctx: Context) -> Result:
@@ -918,5 +945,8 @@ def all_cases() -> list[Case]:
         Case("nanobot_workflow_content_publishing_eval", "Evaluate captured workflow response; expects URL, title, sources, tool calls", run_workflow_content_publishing_eval),
         Case("nanobot_workflow_content_publishing_step_eval", "Send phased prompt via MCP chat; API calls logged", run_workflow_content_publishing_step_eval),
         Case("nanobot_workflow_conversation_eval", "Multi-turn: send prompt → get response → DeepEval (turn criteria) → next prompt; no manual eval", run_workflow_conversation_eval),
+        Case("nanobot_python_code_review_conversation_eval", "Python code review workflow: multi-turn conversation with turn-level DeepEval criteria", run_python_code_review_conversation_eval),
+        Case("nanobot_deep_news_briefing_conversation_eval", "Deep news briefing workflow: multi-turn conversation with turn-level DeepEval criteria", run_deep_news_briefing_conversation_eval),
+        Case("nanobot_antv_dual_axes_conversation_eval", "AntV dual-axes workflow: multi-turn conversation with turn-level DeepEval criteria", run_antv_dual_axes_conversation_eval),
         Case("nanobot_deep_news_briefing_single_prompt_eval", "Deep news briefing as single prompt → response → DeepEval criteria", run_deep_news_briefing_single_prompt_eval),
     ]

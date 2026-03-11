@@ -79,10 +79,32 @@ for i in range(5)
         ],
     },
     {
-        "prompt": "Great. Now modify it to print only even numbers.",
+        "prompt": """Great. Now modify this code so it prints only even numbers between 0 and 4 (0, 2, 4).
+
+Start from the **fixed** version of the loop:
+
+```python
+for i in range(5):
+    print(i)
+```
+
+Update the loop so that it prints only even numbers. Return the **full corrected loop**, not just an inner snippet.""",
         "criteria": [
             "Response modifies the code to print only even numbers (e.g. 0, 2, 4)",
             "Uses a valid approach: condition (e.g. i % 2 == 0) or range(0, 5, 2) or equivalent",
+        ],
+    },
+]
+
+
+DEEP_NEWS_BRIEFING_TURNS = [
+    {
+        # Single-turn deep news briefing, aligned with CONTENT_PUBLISHING_PHASED_PROMPTS.
+        "prompt": CONTENT_PUBLISHING_PHASED_PROMPTS[0],
+        "criteria": [
+            "The response is a news-style briefing focused on the US–China trade war and tariffs.",
+            "The response includes clearly separated sections for confirmed facts, more uncertain or conflicting claims, key data points, and a short note on sources.",
+            "The content is coherent and stays on-topic; it does not drift to unrelated subjects.",
         ],
     },
 ]
@@ -149,7 +171,8 @@ Formatting:
 - Show data labels on line series
 - Use distinct colors for column and line
 
-Do NOT invent a different dataset. Focus on explaining the configuration and formatting in a way that could be passed to AntV or another charting library.""",
+Assume the dataset has already been validated in Phase 1. Do NOT re-validate the data.
+Do NOT invent a different dataset. Focus only on explaining the chart configuration and formatting in a way that could be passed to AntV or another charting library.""",
         "criteria": [
             "Describes a dual-axes configuration with month on X, revenue as columns on the left Y-axis, and profit_margin as a line on the right Y-axis.",
             "Mentions key formatting details such as currency formatting for revenue, percentage formatting for profit_margin, and distinct colors for the two series.",
