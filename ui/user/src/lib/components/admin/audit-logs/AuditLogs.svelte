@@ -4,6 +4,7 @@
 	import { GripVertical } from 'lucide-svelte';
 	import { tick } from 'svelte';
 	import { throttle } from '$lib/utils';
+	import { mcpServersAndEntries } from '$lib/stores';
 
 	let { data = [], onSelectRow, emptyContent, getUserDisplayName } = $props();
 
@@ -31,6 +32,15 @@
 
 		cellHandle?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
 	};
+
+	const serverAliases = $derived(
+		new Map(
+			[
+				...mcpServersAndEntries.current.servers.filter((server) => server.alias),
+				...mcpServersAndEntries.current.userConfiguredServers.filter((server) => server.alias)
+			].map((server) => [server.id, server.alias])
+		)
+	);
 </script>
 
 {#snippet thResizeHandler()}
@@ -190,7 +200,11 @@
 								.replace(/,/g, '')
 						)}
 						{@render td(getUserDisplayName(d.userID))}
-						{@render td(d.mcpServerDisplayName)}
+						{@render td(
+							d.mcpID
+								? serverAliases.get(d.mcpID) || d.mcpServerDisplayName
+								: d.mcpServerDisplayName
+						)}
 						{@render td(d.callType)}
 						{@render td(d.callIdentifier)}
 						{@render td(d.responseStatus)}

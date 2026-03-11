@@ -532,7 +532,13 @@
 						<Server class="size-10" />
 					{/if}
 				</div>
-				<h1 class="text-2xl font-semibold capitalize">{entry.manifest.name || 'Unknown'}</h1>
+				<h1 class="text-2xl font-semibold capitalize">
+					{#if entry && server}
+						{server.alias || entry.manifest.name}
+					{:else if entry}
+						{entry.manifest.name}
+					{/if}
+				</h1>
 				<div class="pill-rounded">
 					{getServerTypeLabel(entry)}
 				</div>
@@ -852,7 +858,6 @@
 		{@const mcpServerDisplayName = entry.manifest?.name ?? null}
 		{@const entryId = entry.id ?? null}
 		{@const mcpCatalogEntryId = 'catalogEntryID' in entry ? entry?.catalogEntryID : null}
-
 		<div class="mt-4 flex flex-1 flex-col gap-8 pb-8">
 			<!-- temporary filter mcp server by name and catalog entry id-->
 			<AuditLogsPageContent

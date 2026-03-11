@@ -43,7 +43,7 @@
 		}
 	});
 
-	let title = $derived(`${catalogEntryName} | ${mcpServerId}`);
+	let title = $derived(mcpServer?.alias || `${catalogEntryName} | ${mcpServerId}`);
 </script>
 
 <Layout {title} showBackButton>
@@ -55,7 +55,7 @@
 			{#if catalogEntry?.manifest.runtime === 'composite'}
 				<McpServerCompositeInfo
 					{mcpServerId}
-					name={catalogEntryName}
+					name={title}
 					{connectedUsers}
 					entity="catalog"
 					entityId={DEFAULT_MCP_CATALOG_ID}
@@ -64,7 +64,7 @@
 			{:else}
 				<McpServerK8sInfo
 					{mcpServerId}
-					name={catalogEntryName}
+					name={title}
 					{connectedUsers}
 					readonly={profile.current.isAdminReadonly?.()}
 					{catalogEntry}
