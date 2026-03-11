@@ -14,8 +14,7 @@
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser,
-		MCPCompositeDeletionDependencyError,
-		Group
+		MCPCompositeDeletionDependencyError
 	} from '$lib/services';
 	import {
 		getServerTypeLabel,
@@ -99,6 +98,8 @@
 	}: Props = $props();
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
+
+	const hasAdminAccess = $derived(profile.current.hasAdminAccess?.() ?? false);
 
 	let loading = $state(false);
 
@@ -656,7 +657,6 @@
 						{/snippet}
 
 						{#snippet children({ toggle })}
-							{@const isAtLeastPowerUser = profile.current.groups.includes(Group.POWERUSER)}
 							{#if !isComposite && d.isMyServer}
 								<div
 									class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
@@ -696,7 +696,7 @@
 										</button>
 									{/if}
 
-									{#if d.isMyServer}
+									{#if d.isMyServer || (hasAdminAccess && !readonly)}
 										{@render editConfigAction(d)}
 										{#if d.catalogEntryID}
 											{@render renameAction(d)}
@@ -726,8 +726,7 @@
 										{/if}
 									</span>
 								</a>
-
-								{#if d.needsUpdate && (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser}
+								{#if d.needsUpdate && (d.isMyServer || (hasAdminAccess && !readonly))}
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -776,7 +775,7 @@
 									</button>
 								{/if}
 
-								{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser && d.needsK8sUpdate}
+								{#if (d.isMyServer || (hasAdminAccess && !readonly)) && d.needsK8sUpdate}
 									<button
 										class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -798,7 +797,7 @@
 									</button>
 								{/if}
 
-								{#if (d.isMyServer || profile.current?.hasAdminAccess?.()) && !readonly && isAtLeastPowerUser}
+								{#if d.isMyServer || (hasAdminAccess && !readonly)}
 									<button
 										class="menu-button"
 										disabled={restarting}
@@ -845,7 +844,7 @@
 									{/if}
 								</button>
 
-								{#if !readonly}
+								{#if d.isMyServer || (hasAdminAccess && !readonly)}
 									<button
 										class="menu-button-destructive"
 										onclick={async (e) => {
