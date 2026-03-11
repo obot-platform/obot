@@ -174,6 +174,14 @@ In the application's Settings tab:
 1. Set the **Allowed Callback URLs** to the redirect URI displayed in Obot's Auth Provider configuration dialog
 2. Take note of the **Domain**, **Client ID**, and **Client Secret**
 
+:::important Email Verification
+Auth0 users must have a verified email address to log in to Obot. If a user's email is not verified, the login will fail with a 500 error.
+
+You can verify a user's email in the Auth0 Dashboard under **User Management > Users** by selecting the user and confirming their email is marked as verified. Alternatively, ensure your Auth0 connection is configured to automatically verify emails.
+
+If your Auth0 tenant does not support email verification (e.g. certain social or enterprise connections), you can set the `OBOT_AUTH0_AUTH_PROVIDER_INSECURE_ALLOW_UNVERIFIED_EMAIL` configuration option to `true` in the Auth Provider configuration dialog. Note that this weakens account and email-domain validation.
+:::
+
 You can now return to Obot and finish configuring Auth0. Use the table below to determine the values to use for each field:
 
 | Obot          | Auth0         | Auth0 Dashboard Location |
@@ -182,27 +190,25 @@ You can now return to Obot and finish configuring Auth0. Use the table below to 
 | Client ID     | Client ID     | Application Settings     |
 | Client Secret | Client Secret | Application Settings     |
 
-#### Enabling Group Support (Optional)
+#### Machine to Machine Application
 
-Auth0 supports groups through [Auth0 Organizations](https://auth0.com/docs/manage-users/organizations). To enable group support:
+A **Machine to Machine** application is required for Obot to read user and role information from Auth0.
 
-1. Navigate to **Organizations** in the Auth0 Dashboard and create your organizations
-2. Add members to each organization
-3. In your application's settings, under **Organizations**, set the login flow to support organizations
-4. In the **APIs** section of the Auth0 Dashboard, ensure the **Auth0 Management API** is authorized for your application with the following scopes:
+Create one in the Auth0 Dashboard by navigating to Applications > Applications > Create Application and selecting **Machine to Machine**.
+
+1. Authorize the app for the **Auth0 Management API** with the following scopes:
    - `read:users`
-   - `read:organizations`
-   - `read:organization_members`
+   - `read:role_members`
+2. Take note of the **Client ID** and **Client Secret** for this application
 
-The Auth0 auth provider will use the Management API to fetch organization memberships for each user.
+Provide the Machine to Machine app's Client ID and Client Secret to Obot in the corresponding fields in the Auth Provider configuration dialog.
 
-#### Restricting Login to Specific Users and Groups (Optional)
+#### Restricting Login to Specific Users (Optional)
 
 You can restrict login access to specific Auth0 users by:
 
-1. Enabling **Organizations** and only allowing members of specific organizations to log in
-2. Using [Auth0 Actions](https://auth0.com/docs/customize/actions) to deny login to users who don't meet certain criteria
-3. Configuring **Connection**-level access control to limit which connections (identity providers) are enabled for your application
+1. Using [Auth0 Actions](https://auth0.com/docs/customize/actions) to deny login to users who don't meet certain criteria
+2. Configuring **Connection**-level access control to limit which connections (identity providers) are enabled for your application
 
 For more details, see the [Auth0 documentation](https://auth0.com/docs).
 
