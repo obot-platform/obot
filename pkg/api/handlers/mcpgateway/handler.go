@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -24,6 +25,7 @@ type Handler struct {
 	webhookHelper             *mcp.WebhookHelper
 	nanobotIntegrationEnabled bool
 	scope                     string
+	transport                 http.RoundTripper
 }
 
 func NewHandler(mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.WebhookHelper, scopesSupported []string, nanobotIntegrationEnabled bool) *Handler {
@@ -36,6 +38,7 @@ func NewHandler(mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.Webhoo
 		webhookHelper:             webhookHelper,
 		nanobotIntegrationEnabled: nanobotIntegrationEnabled,
 		scope:                     scope,
+		transport:                 otelhttp.NewTransport(http.DefaultTransport),
 	}
 }
 
@@ -53,9 +56,11 @@ func (h *Handler) Proxy(req api.Context) error {
 	u, err := url.Parse(mcpURL)
 	if err != nil {
 		http.Error(req.ResponseWriter, err.Error(), http.StatusInternalServerError)
+		return nil
 	}
 
 	(&httputil.ReverseProxy{
+		Transport: h.transport,
 		Director: func(r *http.Request) {
 			r.Header.Set("X-Forwarded-Host", r.Host)
 			scheme := "https"
@@ -103,7 +108,6 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (string, bool, error) 
 	if err != nil {
 		return "", false, fmt.Errorf("failed to get mcp server config: %w", err)
 	}
-
 	if mcpServer.Spec.Template {
 		return "", false, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}

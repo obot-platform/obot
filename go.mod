@@ -38,8 +38,8 @@ require (
 	github.com/moby/moby/client v0.1.0-alpha.0
 	github.com/nanobot-ai/nanobot v0.0.54
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037
-	github.com/obot-platform/kinm v0.0.0-20250905213846-3c65d6845f83
-	github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317
+	github.com/obot-platform/kinm v0.0.0-20260310205725-afa1a058aa7a
+	github.com/obot-platform/nah v0.0.0-20260310205713-8137b9b71aeb
 	github.com/obot-platform/obot/apiclient v0.0.0-20250813183905-ade719c1e8bf
 	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
