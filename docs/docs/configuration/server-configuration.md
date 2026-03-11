@@ -57,3 +57,14 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_DISABLE_UPDATE_CHECK` | Disable the Obot server update check. (v0.14.0+) | `false ` |
 | `OBOT_SERVER_NANOBOT_INTEGRATION` | Enable Nanobot integration. Set to `false` to disable Nanobot routes and integration behavior. | `true` |
 | `OBOT_SERVER_DISABLE_LEGACY_CHAT` | Disable legacy chat APIs/UI paths surfaced by the server. | `true` |
+| `OBOT_ARTIFACT_STORAGE_PROVIDER` | Storage provider for published workflows. Supported values: `s3`, `gcs`, `azure`, `custom`. If unset, Obot stores published workflows on local disk. | - |
+| `OBOT_ARTIFACT_STORAGE_BUCKET` | Bucket or container name used for published workflow storage when `OBOT_ARTIFACT_STORAGE_PROVIDER` is set. | - |
+| `OBOT_ARTIFACT_S3_REGION` | AWS region for published workflow storage when using `s3` or `custom`. | - |
+| `OBOT_ARTIFACT_S3_ACCESS_KEY_ID` | Access key ID for published workflow storage when explicit S3-compatible credentials are required. | - |
+| `OBOT_ARTIFACT_S3_SECRET_ACCESS_KEY` | Secret access key for published workflow storage when explicit S3-compatible credentials are required. | - |
+| `OBOT_ARTIFACT_S3_ENDPOINT` | Endpoint URL for published workflow storage when using `custom` S3-compatible storage such as MinIO or Cloudflare R2. | - |
+| `OBOT_ARTIFACT_GCS_SERVICE_ACCOUNT_JSON` | Inline GCS service account JSON for published workflow storage. If unset, Obot uses Application Default Credentials. | - |
+| `OBOT_ARTIFACT_AZURE_STORAGE_ACCOUNT` | Azure storage account name for published workflow storage. | - |
+| `OBOT_ARTIFACT_AZURE_TENANT_ID` | Azure tenant ID for published workflow storage when using explicit Azure credentials. | - |
+| `OBOT_ARTIFACT_AZURE_CLIENT_ID` | Azure client ID for published workflow storage when using explicit Azure credentials. | - |
+| `OBOT_ARTIFACT_AZURE_CLIENT_SECRET` | Azure client secret for published workflow storage when using explicit Azure credentials. | - |

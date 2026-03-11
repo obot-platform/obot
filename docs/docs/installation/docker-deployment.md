@@ -70,6 +70,17 @@ Once started, access Obot at http://localhost:8080.
 
 If you enabled authentication, use your bootstrap token to log in as the owner and set up an authentication provider. If you didn't supply a bootstrap token, a random one will be generated and can be found in the container's logs by searching for "Bootstrap token".
 
+## Workflow Sharing Storage
+
+Workflow sharing is available through Obot's Nanobot integration and stores published workflows separately from workspace files.
+
+For local Docker deployments:
+
+- The default local published-workflow store is usually sufficient
+- Keep the Obot data volume mounted if you want published workflows to survive container replacement
+
+If you want published workflows in Docker to use external object storage instead of local disk, configure the published workflow storage environment variables described in [Server Configuration](../configuration/server-configuration.md) and [Workflow Sharing](../functionality/workflow-sharing.md).
+
 ## Next Steps
 
 1. **Configure Authentication**: Set up [auth providers](/installation/enabling-authentication/) for secure access

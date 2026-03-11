@@ -51,6 +51,7 @@ const (
 	ModelAccessPolicyPrefix       = "map1"
 	NanobotAgentPrefix            = "nba1"
 	ProjectV2Prefix               = "pv21"
+	PublishedArtifactPrefix       = "pa1"
 
 	ObotMCPServerName = SystemMCPServerPrefix + "obot-mcp-server"
 )
