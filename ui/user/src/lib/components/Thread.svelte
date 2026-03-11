@@ -580,7 +580,7 @@
 				{#if centerInput && assistant?.introductionMessage}
 					<div class="milkdown-content mb-5 max-w-full px-5" in:fade>
 						{#if browser}
-							{@html toHTMLFromMarkdown(assistant?.introductionMessage)}
+							{@html toHTMLFromMarkdown(assistant?.introductionMessage, true)}
 						{/if}
 					</div>
 				{/if}

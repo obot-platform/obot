@@ -71,7 +71,12 @@
 	});
 
 	function handleFilter(property: string, values: string[]) {
-		urlFilters[property] = values;
+		if (values.length === 0) {
+			delete urlFilters[property];
+			urlFilters = { ...urlFilters };
+		} else {
+			urlFilters[property] = values;
+		}
 		setFilterUrlParams(property, values);
 	}
 
@@ -234,10 +239,9 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	const updateSearchQuery = (value: string) => {
+		urlFilters = getTableUrlParamsFilters();
 		const newUrl = new URL(page.url);
-
 		setUrlParam(newUrl, 'query', value || null);
-
 		persistQueryToLocalStorage(view, value);
 		navigateWithState(newUrl);
 	};

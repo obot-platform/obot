@@ -190,7 +190,8 @@
 	const propsFilters = $derived.by(() => {
 		const entries: [key: SupportedFilter, value: string | null | undefined][] = [
 			['mcp_server_display_name', mcpServerDisplayName],
-			['mcp_server_catalog_entry_name', mcpServerCatalogEntryName]
+			['mcp_server_catalog_entry_name', mcpServerCatalogEntryName],
+			['mcp_id', mcpId ?? undefined]
 		];
 
 		return (

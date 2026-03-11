@@ -42,7 +42,7 @@
 	onMount(() => {
 		fetchUserInfo();
 	});
-	let title = $derived(`${catalogEntryName} | ${mcpServerId}`);
+	let title = $derived(mcpServer?.alias || `${catalogEntryName} | ${mcpServerId}`);
 </script>
 
 <Layout {title} showBackButton>
@@ -54,7 +54,7 @@
 			{#if catalogEntry?.manifest.runtime === 'composite'}
 				<McpServerCompositeInfo
 					{mcpServerId}
-					name={catalogEntryName}
+					name={title}
 					{connectedUsers}
 					entity="workspace"
 					entityId={workspaceId}
