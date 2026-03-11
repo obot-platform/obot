@@ -560,12 +560,12 @@ github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 h1:G7ERwszslrBzRxj//J
 github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037/go.mod h1:2bpvgLBZEtENV5scfDFEtB/5+1M4hkQhDQrccEJ/qGw=
 github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 h1:bQx3WeLcUWy+RletIKwUIt4x3t8n2SxavmoclizMb8c=
 github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90/go.mod h1:y5+oSEHCPT/DGrS++Wc/479ERge0zTFxaF8PbGKcg2o=
-github.com/obot-platform/kinm v0.0.0-20250905213846-3c65d6845f83 h1:f38gPMZxtqsvmusPBUgU8ZNmGsEU/lw4qpCruiStmu8=
-github.com/obot-platform/kinm v0.0.0-20250905213846-3c65d6845f83/go.mod h1:uIt/q4bSrRWxjnX9wGn9i+LfBvN04g0b/c4h5imPCOI=
+github.com/obot-platform/kinm v0.0.0-20260310205725-afa1a058aa7a h1:Lc9akHuLyb5ByKcp2L/f4vkIP0jkBVv/OiWUmUrFPr0=
+github.com/obot-platform/kinm v0.0.0-20260310205725-afa1a058aa7a/go.mod h1:uIt/q4bSrRWxjnX9wGn9i+LfBvN04g0b/c4h5imPCOI=
 github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260106135339-3745d9b14a30 h1:PbvvLXjoUHQGpQ4ZzV9Aj8n8y0evpZljPlpDu96lFC4=
 github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20260106135339-3745d9b14a30/go.mod h1:8I+MeGRPsv42hk7/MCSqWHvz4p7xvIR0CIh1GG3vtXM=
-github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317 h1:yUEiybfv/VpPf4Ct73cIBIDi++V0x5vzFH79pAXWgL0=
-github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317/go.mod h1:AUP8EhWbz+tBQn1QMYcBY8EPFN8LFNZvKhOxpt4hafA=
+github.com/obot-platform/nah v0.0.0-20260310205713-8137b9b71aeb h1:H1fxxy3t+ZbPHtmvSYFTMg2cHwqIcYFtDr+rd9MPPVc=
+github.com/obot-platform/nah v0.0.0-20260310205713-8137b9b71aeb/go.mod h1:AUP8EhWbz+tBQn1QMYcBY8EPFN8LFNZvKhOxpt4hafA=
 github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77 h1:3bMMZ1f+GPXFQ1uNaYbO/uECWvSfqEA+ZEXn1rFAT88=
 github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77/go.mod h1:8Hf+pH6thup1sPZPD+NLg7d6vbpsdilu9CPIeikvgMQ=
 github.com/onsi/ginkgo v1.16.5 h1:8xi0RTUf59SOSfEtZMvwTvXYMzG4gV23XVHOZiXNtnE=
