@@ -19,6 +19,9 @@ importers:
       '@mcp-ui/client':
         specifier: ^6.0.0
         version: 6.0.0(@preact/signals-core@1.12.2)(hono@4.11.7)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@novnc/novnc':
+        specifier: 1.4.0
+        version: 1.4.0
       '@oddbird/popover-polyfill':
         specifier: ^0.6.1
         version: 0.6.1
@@ -850,6 +853,9 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@novnc/novnc@1.4.0':
+    resolution: {integrity: sha512-kW6ALMc5BuH08e/ond/I1naYcfjc19JYMN1EdtmgjjjzPGCjW8fMtVM3MwM6q7YLRjPlQ3orEvoKMgSS7RkEVQ==}
 
   '@oddbird/popover-polyfill@0.6.1':
     resolution: {integrity: sha512-Papau51NPG+NajXvoEHCNT1CBJv4WIyvIGfH5gpJPLL8MZJt/4giC0jJ/mNZRtJmdzRuXWpUFB6QxkJa1RvMAQ==}
@@ -4534,6 +4540,8 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.19.1
+
+  '@novnc/novnc@1.4.0': {}
 
   '@oddbird/popover-polyfill@0.6.1': {}
 

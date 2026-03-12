@@ -82,6 +82,7 @@
 	"dependencies": {
 		"@codemirror/lang-markdown": "^6.3.3",
 		"@mcp-ui/client": "^6.0.0",
+		"@novnc/novnc": "1.4.0",
 		"@oddbird/popover-polyfill": "^0.6.1",
 		"d3": "^7.9.0",
 		"d3-time-format": "^4.1.0",
@@ -99,6 +100,11 @@
 			"glob": "10.5.0",
 			"cookie": "0.7.0",
 			"devalue": "5.6.2"
-		}
+		},
+		"onlyBuiltDependencies": [
+			"@modelcontextprotocol/ext-apps",
+			"@tailwindcss/oxide",
+			"esbuild"
+		]
 	}
 }

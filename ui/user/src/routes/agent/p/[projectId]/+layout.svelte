@@ -30,6 +30,7 @@
 	let threadContentWidth = $state(0);
 	let layoutName = $state('');
 	let showBackButton = $state(false);
+	let browserViewerOpen = $state(false);
 	/** Session ID we already tried to refresh for when it was missing (avoids loop if listSessions never returns it). */
 	let refreshedForMissingSessionId: string | null = null;
 	let titleInterval: ReturnType<typeof setInterval> | null = null;
@@ -41,7 +42,11 @@
 		handleFileOpen,
 		setThreadContentWidth: (w: number) => (threadContentWidth = w),
 		setLayoutName: (name: string) => (layoutName = name),
-		setShowBackButton: (show: boolean) => (showBackButton = show)
+		setShowBackButton: (show: boolean) => (showBackButton = show),
+		get browserViewerOpen() {
+			return browserViewerOpen;
+		},
+		setBrowserViewerOpen: (show: boolean) => (browserViewerOpen = show)
 	});
 
 	setContext(PROJECT_LAYOUT_CONTEXT, projectLayoutContext);
@@ -280,7 +285,9 @@
 		{/if}
 		<QuickAccess
 			onToggle={() => (layout.quickBarAccessOpen = !layout.quickBarAccessOpen)}
+			onToggleBrowserViewer={() => (browserViewerOpen = !browserViewerOpen)}
 			open={layout.quickBarAccessOpen}
+			{browserViewerOpen}
 			{sessionId}
 			{selectedFile}
 			{agentId}
