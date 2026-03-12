@@ -243,6 +243,17 @@ allowed-tools: tool1,tool2
 		assert.Equal(t, "1.0", skill.Spec.MetadataValues["version"])
 	})
 
+	t.Run("root skill rejected", func(t *testing.T) {
+		root := t.TempDir()
+		content := "---\nname: my-skill\ndescription: A root skill\n---\n"
+		require.NoError(t, os.WriteFile(filepath.Join(root, "SKILL.md"), []byte(content), 0o644))
+
+		skill, err := buildSkill(root, ".", repo, commitSHA, indexedAt)
+		require.NoError(t, err)
+		assert.False(t, skill.Status.Valid)
+		assert.Contains(t, skill.Status.ValidationError, "cannot be at the root")
+	})
+
 	t.Run("SKILL.md exceeds size limit", func(t *testing.T) {
 		parent := t.TempDir()
 		dir := filepath.Join(parent, "big-skill")

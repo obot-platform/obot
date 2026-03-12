@@ -144,7 +144,11 @@ func buildSkill(dirPath, relPath string, repo *v1.SkillRepository, commitSHA str
 		validateErr = skillformat.ValidateFrontmatter(fm)
 	}
 	if validateErr == nil {
-		validateErr = skillformat.ValidateNameMatchesDir(fm.Name, filepath.Base(dirPath))
+		if relPath == "." {
+			validateErr = fmt.Errorf("skill cannot be at the root of the repository — it must be in a subdirectory")
+		} else {
+			validateErr = skillformat.ValidateNameMatchesDir(fm.Name, filepath.Base(dirPath))
+		}
 	}
 	if validateErr == nil {
 		installHash, err := computeInstallHash(dirPath)
