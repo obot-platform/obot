@@ -52,10 +52,11 @@ func (h *SkillHandler) List(req api.Context) error {
 		return err
 	}
 
+	includeInvalid := req.UserIsAdmin() && req.URL.Query().Get("all") == "true"
 	query := strings.ToLower(strings.TrimSpace(req.URL.Query().Get("q")))
 	filtered := make([]types.Skill, 0, len(items))
 	for _, item := range items {
-		if !item.Status.Valid {
+		if !item.Status.Valid && !includeInvalid {
 			continue
 		}
 		if query != "" && !matchesSkillQuery(item, query) {
