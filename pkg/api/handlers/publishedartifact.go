@@ -500,8 +500,9 @@ func validateZIPEntryName(name string) error {
 	normalized := strings.ReplaceAll(filepath.ToSlash(name), "\\", "/")
 	cleaned := path.Clean(strings.TrimPrefix(normalized, "./"))
 
+	// Reject entries that are empty or resolve to the current directory.
 	if cleaned == "." || cleaned == "" {
-		return nil
+		return fmt.Errorf("ZIP entry %q is empty or refers to the current directory", name)
 	}
 	if strings.HasPrefix(cleaned, "/") {
 		return fmt.Errorf("ZIP entry %q is an absolute path", name)

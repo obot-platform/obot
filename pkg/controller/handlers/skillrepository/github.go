@@ -97,8 +97,9 @@ func (f *githubRepositoryFetcher) Fetch(ctx context.Context, repoURL, ref string
 	if err != nil {
 		return nil, err
 	}
-	if metadata.Size/1024 > f.maxRepoSizeMB {
-		return nil, fmt.Errorf("repository %s/%s is too large: %d MB (limit: %d MB)", repo.Owner, repo.Repo, metadata.Size/1024, f.maxRepoSizeMB)
+	maxSizeKB := f.maxRepoSizeMB * 1024
+	if metadata.Size > maxSizeKB {
+		return nil, fmt.Errorf("repository %s/%s is too large: %.1f MB (limit: %d MB)", repo.Owner, repo.Repo, float64(metadata.Size)/1024.0, f.maxRepoSizeMB)
 	}
 
 	resolvedRef := ref
