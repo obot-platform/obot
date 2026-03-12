@@ -349,6 +349,24 @@ func newTestGitHubServer(t *testing.T, opts testGitHubServerOpts) *httptest.Serv
 			json.NewEncoder(w).Encode(commit)
 			return
 		}
+		// /repos/{owner}/{repo}/git/trees/{sha}
+		if len(parts) == 6 && parts[3] == "git" && parts[4] == "trees" {
+			if opts.treeStatus != 0 {
+				w.WriteHeader(opts.treeStatus)
+				return
+			}
+			tree := opts.tree
+			if tree == nil {
+				tree = &githubTree{
+					Tree: []githubTreeEntry{
+						{Path: "README.md", Type: "blob"},
+					},
+				}
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(tree)
+			return
+		}
 		// /repos/{owner}/{repo}/zipball/{ref}
 		if len(parts) == 5 && parts[3] == "zipball" {
 			if opts.archiveStatus != 0 {
@@ -378,6 +396,8 @@ type testGitHubServerOpts struct {
 	metadataStatus   int
 	commitSHA        string
 	commitStatus     int
+	tree             *githubTree
+	treeStatus       int
 	archiveData      []byte
 	archiveStatus    int
 	recordAuthHeader func(string)
@@ -508,6 +528,57 @@ func TestGitHubRepositoryFetcher_Fetch(t *testing.T) {
 		assert.Contains(t, err.Error(), "500")
 	})
 
+	t.Run("repository tree entry count exceeds limit", func(t *testing.T) {
+		srv := newTestGitHubServer(t, testGitHubServerOpts{
+			tree: &githubTree{
+				Tree: []githubTreeEntry{
+					{Path: "a", Type: "blob"},
+					{Path: "b", Type: "blob"},
+					{Path: "c", Type: "blob"},
+					{Path: "d", Type: "blob"},
+				},
+			},
+		})
+		defer srv.Close()
+
+		f := &githubRepositoryFetcher{
+			client:            srv.Client(),
+			apiBaseURL:        srv.URL,
+			maxRepoSizeMB:     100,
+			maxArchiveBytes:   100 * 1024 * 1024,
+			maxExtractedFiles: 3,
+			maxExtractedBytes: 100 * 1024 * 1024,
+		}
+
+		_, err := f.Fetch(context.Background(), "https://github.com/owner/repo", "main")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "maximum entry count")
+	})
+
+	t.Run("truncated repository tree rejected", func(t *testing.T) {
+		srv := newTestGitHubServer(t, testGitHubServerOpts{
+			tree: &githubTree{
+				Tree:      []githubTreeEntry{{Path: "README.md", Type: "blob"}},
+				Truncated: true,
+			},
+		})
+		defer srv.Close()
+
+		f := &githubRepositoryFetcher{
+			client:            srv.Client(),
+			apiBaseURL:        srv.URL,
+			maxRepoSizeMB:     100,
+			maxArchiveBytes:   100 * 1024 * 1024,
+			maxExtractedFiles: 10000,
+			maxExtractedBytes: 100 * 1024 * 1024,
+		}
+
+		_, err := f.Fetch(context.Background(), "https://github.com/owner/repo", "main")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "tree listing")
+		assert.Contains(t, err.Error(), "truncated")
+	})
+
 	t.Run("archive too large", func(t *testing.T) {
 		bigArchive := bytes.Repeat([]byte("X"), 200)
 		srv := newTestGitHubServer(t, testGitHubServerOpts{
@@ -552,8 +623,8 @@ func TestGitHubRepositoryFetcher_Fetch(t *testing.T) {
 		require.NoError(t, err)
 		defer result.Cleanup()
 
-		// All three API calls should include the auth header
-		require.GreaterOrEqual(t, len(authHeaders), 3)
+		// Metadata, commit, tree, and archive requests should all include the auth header.
+		require.GreaterOrEqual(t, len(authHeaders), 4)
 		for _, h := range authHeaders {
 			assert.Equal(t, "Bearer test-token-123", h)
 		}
@@ -584,6 +655,33 @@ func TestGitHubRepositoryFetcher_MaterializeCommit(t *testing.T) {
 		require.NoError(t, err)
 		defer result.Cleanup()
 		assert.DirExists(t, result.RepoRoot)
+	})
+
+	t.Run("entry count limit enforced", func(t *testing.T) {
+		srv := newTestGitHubServer(t, testGitHubServerOpts{
+			tree: &githubTree{
+				Tree: []githubTreeEntry{
+					{Path: "a", Type: "blob"},
+					{Path: "b", Type: "blob"},
+					{Path: "c", Type: "blob"},
+					{Path: "d", Type: "blob"},
+				},
+			},
+		})
+		defer srv.Close()
+
+		f := &githubRepositoryFetcher{
+			client:            srv.Client(),
+			apiBaseURL:        srv.URL,
+			maxRepoSizeMB:     100,
+			maxArchiveBytes:   100 * 1024 * 1024,
+			maxExtractedFiles: 3,
+			maxExtractedBytes: 100 * 1024 * 1024,
+		}
+
+		_, err := f.MaterializeCommit(context.Background(), "https://github.com/owner/repo", "abc123")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "maximum entry count")
 	})
 
 	t.Run("empty commit SHA", func(t *testing.T) {

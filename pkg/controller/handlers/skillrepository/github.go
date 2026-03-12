@@ -60,6 +60,16 @@ type githubCommit struct {
 	SHA string `json:"sha"`
 }
 
+type githubTree struct {
+	Tree      []githubTreeEntry `json:"tree"`
+	Truncated bool              `json:"truncated"`
+}
+
+type githubTreeEntry struct {
+	Path string `json:"path"`
+	Type string `json:"type"`
+}
+
 func newGitHubRepositoryFetcher() *githubRepositoryFetcher {
 	return &githubRepositoryFetcher{
 		client:            http.DefaultClient,
@@ -165,7 +175,26 @@ func (f *githubRepositoryFetcher) resolveCommitSHA(ctx context.Context, repo git
 	return commit.SHA, nil
 }
 
+func (f *githubRepositoryFetcher) countRepositoryEntries(ctx context.Context, repo githubRepository, commitSHA string) (int, error) {
+	var tree githubTree
+	if err := f.getJSON(ctx, fmt.Sprintf("%s/repos/%s/%s/git/trees/%s?recursive=1", strings.TrimRight(f.apiBaseURL, "/"), repo.Owner, repo.Repo, url.PathEscape(commitSHA)), &tree); err != nil {
+		return 0, err
+	}
+	if tree.Truncated {
+		return 0, fmt.Errorf("repository tree listing for %s/%s at %s was truncated", repo.Owner, repo.Repo, commitSHA)
+	}
+	return len(tree.Tree), nil
+}
+
 func (f *githubRepositoryFetcher) downloadArchive(ctx context.Context, repo githubRepository, ref string) (*fetchedRepository, error) {
+	entryCount, err := f.countRepositoryEntries(ctx, repo, ref)
+	if err != nil {
+		return nil, err
+	}
+	if entryCount > f.maxExtractedFiles {
+		return nil, fmt.Errorf("repository archive exceeds maximum entry count of %d", f.maxExtractedFiles)
+	}
+
 	workspace, err := os.MkdirTemp("", "skill-repository-*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp workspace: %w", err)
@@ -252,7 +281,6 @@ func (f *githubRepositoryFetcher) getJSON(ctx context.Context, endpoint string, 
 }
 
 func extractGitHubArchive(data []byte, destRoot string, maxFiles int, maxBytes int64) error {
-	// TODO(g-linville): ask multiple models for a security assessment of this
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return fmt.Errorf("invalid repository archive: %w", err)
