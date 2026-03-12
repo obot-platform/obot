@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
+	"github.com/obot-platform/obot/pkg/skillformat"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -99,6 +100,10 @@ func (h *SkillHandler) Download(req api.Context) error {
 		return fmt.Errorf("failed to materialize skill source: %w", err)
 	}
 	defer cleanup()
+
+	if err := injectObotMetadata(skillDir, skill); err != nil {
+		return fmt.Errorf("failed to inject obot metadata into SKILL.md: %w", err)
+	}
 
 	fileName := sanitizeDownloadFilename(skill.Spec.Name)
 	if fileName == "" {
@@ -251,6 +256,38 @@ func skillSortName(displayName, name string) string {
 		return displayName
 	}
 	return name
+}
+
+func injectObotMetadata(skillDir string, skill *v1.Skill) error {
+	skillFile := filepath.Join(skillDir, skillformat.SkillMainFile)
+	content, err := os.ReadFile(skillFile)
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", skillformat.SkillMainFile, err)
+	}
+
+	fm, body, err := skillformat.ParseFrontmatter(string(content))
+	if err != nil {
+		return fmt.Errorf("failed to parse %s frontmatter: %w", skillformat.SkillMainFile, err)
+	}
+
+	if fm.Metadata == nil {
+		fm.Metadata = make(map[string]string)
+	}
+	fm.Metadata["obot-skill-id"] = skill.Name
+	fm.Metadata["obot-skill-repository-id"] = skill.Spec.RepoID
+	fm.Metadata["obot-commit-sha"] = skill.Spec.CommitSHA
+	fm.Metadata["obot-indexed-at"] = skill.Status.LastIndexedAt.UTC().Format("2006-01-02T15:04:05Z")
+
+	output, err := skillformat.FormatSkillMD(fm, body)
+	if err != nil {
+		return fmt.Errorf("failed to format %s: %w", skillformat.SkillMainFile, err)
+	}
+
+	if err := os.WriteFile(skillFile, []byte(output), 0644); err != nil {
+		return fmt.Errorf("failed to write %s: %w", skillformat.SkillMainFile, err)
+	}
+
+	return nil
 }
 
 func zipSkillDirectory(skillDir string, w io.Writer) error {
