@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { splitFrontmatter } from '$lib/services/nanobot/utils';
 	import { Crepe } from '@milkdown/crepe';
 	import '@milkdown/crepe/theme/common/style.css';
 	import '@milkdown/crepe/theme/frame.css';
@@ -6,24 +7,6 @@
 	import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
 	import { replaceAll } from '@milkdown/kit/utils';
 	import { untrack } from 'svelte';
-
-	function splitFrontmatter(markdown: string): { frontmatter: string; body: string } {
-		const trimmed = markdown.trimStart();
-		if (!trimmed.startsWith('---')) {
-			return { frontmatter: '', body: markdown };
-		}
-		const afterFirstFence = trimmed.slice(3);
-		const secondFenceIndex = afterFirstFence.indexOf('\n---');
-		if (secondFenceIndex === -1) {
-			return { frontmatter: '', body: markdown };
-		}
-		const fenceEnd = afterFirstFence.indexOf('\n---') + 4; // include \n---
-		const frontmatter = markdown.slice(0, markdown.length - trimmed.length + 3 + fenceEnd);
-		const body = markdown
-			.slice(markdown.length - trimmed.length + 3 + fenceEnd)
-			.replace(/^\n?/, '');
-		return { frontmatter, body };
-	}
 
 	function mergeFrontmatter(frontmatter: string, body: string): string {
 		if (!frontmatter) return body;
