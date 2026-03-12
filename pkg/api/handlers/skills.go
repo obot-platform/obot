@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"archive/zip"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -100,11 +99,6 @@ func (h *SkillHandler) Download(req api.Context) error {
 	}
 	defer cleanup()
 
-	data, err := zipSkillDirectory(skillDir)
-	if err != nil {
-		return fmt.Errorf("failed to package skill download: %w", err)
-	}
-
 	fileName := sanitizeDownloadFilename(skill.Spec.Name)
 	if fileName == "" {
 		fileName = skill.Name
@@ -113,8 +107,8 @@ func (h *SkillHandler) Download(req api.Context) error {
 	req.ResponseWriter.Header().Set("Content-Type", "application/zip")
 	req.ResponseWriter.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileName+".zip"))
 	req.ResponseWriter.WriteHeader(http.StatusOK)
-	_, err = req.ResponseWriter.Write(data)
-	return err
+
+	return zipSkillDirectory(skillDir, req.ResponseWriter)
 }
 
 func (h *SkillHandler) getAccessibleSkill(req api.Context, id string) (*v1.Skill, error) {
@@ -249,9 +243,8 @@ func skillSortName(displayName, name string) string {
 	return name
 }
 
-func zipSkillDirectory(skillDir string) ([]byte, error) {
-	var buf bytes.Buffer
-	writer := zip.NewWriter(&buf)
+func zipSkillDirectory(skillDir string, w io.Writer) error {
+	writer := zip.NewWriter(w)
 
 	err := filepath.WalkDir(skillDir, func(currentPath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -311,14 +304,14 @@ func zipSkillDirectory(skillDir string) ([]byte, error) {
 	})
 	if err != nil {
 		writer.Close()
-		return nil, err
+		return err
 	}
 
 	if err := writer.Close(); err != nil {
-		return nil, fmt.Errorf("failed to finalize skill ZIP: %w", err)
+		return fmt.Errorf("failed to finalize skill ZIP: %w", err)
 	}
 
-	return buf.Bytes(), nil
+	return nil
 }
 
 func sanitizeDownloadFilename(value string) string {
