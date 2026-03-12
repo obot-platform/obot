@@ -106,7 +106,7 @@ func (h *SkillHandler) Download(req api.Context) error {
 
 	req.ResponseWriter.Header().Set("Content-Type", "application/zip")
 	req.ResponseWriter.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileName+".zip"))
-	req.ResponseWriter.WriteHeader(http.StatusOK)
+	req.WriteHeader(http.StatusOK)
 
 	return zipSkillDirectory(skillDir, req.ResponseWriter)
 }

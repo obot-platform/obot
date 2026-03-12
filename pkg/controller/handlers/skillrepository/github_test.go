@@ -332,7 +332,7 @@ func newTestGitHubServer(t *testing.T, opts testGitHubServerOpts) *httptest.Serv
 				meta = &githubRepositoryMetadata{Size: 1024, DefaultBranch: "main"}
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(meta)
+			require.NoError(t, json.NewEncoder(w).Encode(meta))
 			return
 		}
 		// /repos/{owner}/{repo}/commits/{ref}
@@ -346,7 +346,7 @@ func newTestGitHubServer(t *testing.T, opts testGitHubServerOpts) *httptest.Serv
 				commit.SHA = "abc123def456"
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(commit)
+			require.NoError(t, json.NewEncoder(w).Encode(commit))
 			return
 		}
 		// /repos/{owner}/{repo}/git/trees/{sha}
@@ -364,7 +364,7 @@ func newTestGitHubServer(t *testing.T, opts testGitHubServerOpts) *httptest.Serv
 				}
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(tree)
+			require.NoError(t, json.NewEncoder(w).Encode(tree))
 			return
 		}
 		// /repos/{owner}/{repo}/zipball/{ref}
@@ -374,7 +374,8 @@ func newTestGitHubServer(t *testing.T, opts testGitHubServerOpts) *httptest.Serv
 				return
 			}
 			if opts.archiveData != nil {
-				w.Write(opts.archiveData)
+				_, err := w.Write(opts.archiveData)
+				require.NoError(t, err)
 				return
 			}
 			// Return a valid archive with one file
@@ -382,7 +383,8 @@ func newTestGitHubServer(t *testing.T, opts testGitHubServerOpts) *httptest.Serv
 				{Name: "owner-repo-abc123/", IsDir: true},
 				{Name: "owner-repo-abc123/README.md", Body: []byte("# Hello")},
 			})
-			w.Write(data)
+			_, err := w.Write(data)
+			require.NoError(t, err)
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)

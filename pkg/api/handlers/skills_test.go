@@ -260,7 +260,7 @@ func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
 	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
 		newSkillRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
 	))
-	handler.materializeSkillSource = func(ctx context.Context, got *v1.Skill) (func(), string, error) {
+	handler.materializeSkillSource = func(_ context.Context, got *v1.Skill) (func(), string, error) {
 		assert.Equal(t, "abc123", got.Spec.CommitSHA)
 		assert.Equal(t, "skills/postgres-helper", got.Spec.RelativePath)
 		return func() {}, tempDir, nil
