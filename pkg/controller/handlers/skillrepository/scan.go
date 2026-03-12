@@ -223,10 +223,18 @@ func skillObjectName(repoID, relPath string) string {
 	if fragment == "" {
 		fragment = "skill"
 	}
-	// Include the original relPath in the hash inputs so that paths which sanitize
-	// to the same fragment (e.g. "tools/my_skill" and "tools/my-skill") still
-	// produce distinct object names.
-	return name.SafeHashConcatName(system.SkillPrefix, repoID, fragment, relPath)
+	// Compute the hash from all inputs (including the raw relPath) so that paths
+	// which sanitize to the same fragment (e.g. "tools/my_skill" and
+	// "tools/my-skill") still produce distinct object names. Only sanitized
+	// components are used in the visible portion of the name to avoid producing
+	// Kubernetes names with characters that violate RFC 1123 (e.g. a bare ".").
+	d := sha256.New()
+	for _, part := range []string{system.SkillPrefix, repoID, fragment, relPath} {
+		d.Write([]byte(part))
+		d.Write([]byte{0})
+	}
+	suffix := hex.EncodeToString(d.Sum(nil))[:8]
+	return name.SafeConcatName(system.SkillPrefix, repoID, fragment, suffix)
 }
 
 func sanitizeNameFragment(value string) string {

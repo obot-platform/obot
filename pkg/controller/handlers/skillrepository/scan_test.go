@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -409,6 +410,9 @@ func TestComputeInstallHash(t *testing.T) {
 	})
 }
 
+// rfc1123Regexp matches valid RFC 1123 subdomain names.
+var rfc1123Regexp = regexp.MustCompile(`^[a-z0-9]([a-z0-9\-.]*[a-z0-9])?$`)
+
 func TestSkillObjectName(t *testing.T) {
 	t.Run("simple path", func(t *testing.T) {
 		name := skillObjectName("repo1", "my-skill")
@@ -427,6 +431,14 @@ func TestSkillObjectName(t *testing.T) {
 		assert.Contains(t, name, "skill")
 	})
 
+	t.Run("dot relPath is RFC 1123 compliant", func(t *testing.T) {
+		name := skillObjectName("repo1", ".")
+		assert.Contains(t, name, "sk1")
+		assert.Contains(t, name, "skill")
+		assert.True(t, rfc1123Regexp.MatchString(name), "name %q must be a valid RFC 1123 subdomain", name)
+		assert.NotContains(t, name, "-.-", "raw dot path must not appear in the name")
+	})
+
 	t.Run("deterministic", func(t *testing.T) {
 		name1 := skillObjectName("repo1", "my-skill")
 		name2 := skillObjectName("repo1", "my-skill")
@@ -437,6 +449,12 @@ func TestSkillObjectName(t *testing.T) {
 		name1 := skillObjectName("repo1", "skill-a")
 		name2 := skillObjectName("repo1", "skill-b")
 		assert.NotEqual(t, name1, name2)
+	})
+
+	t.Run("dot and empty differ", func(t *testing.T) {
+		name1 := skillObjectName("repo1", ".")
+		name2 := skillObjectName("repo1", "")
+		assert.NotEqual(t, name1, name2, "root path '.' and empty path must produce different names")
 	})
 }
 
