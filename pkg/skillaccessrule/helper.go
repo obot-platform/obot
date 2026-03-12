@@ -184,7 +184,7 @@ func (h *Helper) getIndexedRules(namespace, indexName, key, target string) ([]v1
 	result := make([]v1.SkillAccessRule, 0, len(rules))
 	for _, rule := range rules {
 		res, ok := rule.(*v1.SkillAccessRule)
-		if ok && res.Namespace == namespace && res.DeletionTimestamp.IsZero() {
+		if ok && res.Namespace == namespace && res.DeletionTimestamp == nil {
 			result = append(result, *res)
 		}
 	}
