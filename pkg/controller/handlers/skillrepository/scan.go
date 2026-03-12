@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -122,7 +123,7 @@ func buildSkill(dirPath, relPath string, repo *v1.SkillRepository, commitSHA str
 				License:        fm.License,
 				Compatibility:  fm.Compatibility,
 				AllowedTools:   fm.AllowedTools,
-				MetadataValues: cloneStringMap(fm.Metadata),
+				MetadataValues: maps.Clone(fm.Metadata),
 			},
 			RepoID:       repo.Name,
 			RepoURL:      repo.Spec.RepoURL,
@@ -246,16 +247,4 @@ func sanitizeNameFragment(value string) string {
 	}
 
 	return strings.Trim(b.String(), "-")
-}
-
-func cloneStringMap(values map[string]string) map[string]string {
-	// TODO(g-linville): use maps.Copy
-	if len(values) == 0 {
-		return nil
-	}
-	cloned := make(map[string]string, len(values))
-	for key, value := range values {
-		cloned[key] = value
-	}
-	return cloned
 }

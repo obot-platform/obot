@@ -225,7 +225,7 @@ func TestExtractGitHubArchive(t *testing.T) {
 		assert.Contains(t, err.Error(), "file count")
 	})
 
-	t.Run("extracted size limit exceeded", func(t *testing.T) {
+	t.Run("extracted size limit exceeded via declared size", func(t *testing.T) {
 		bigContent := bytes.Repeat([]byte("A"), 1024)
 		data := buildZipArchive(t, []zipEntry{
 			{Name: "root/", IsDir: true},
@@ -233,6 +233,22 @@ func TestExtractGitHubArchive(t *testing.T) {
 		})
 		dest := t.TempDir()
 		err := extractGitHubArchive(data, dest, 100, 512)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exceeding limit")
+	})
+
+	t.Run("extracted size limit exceeded via cumulative writes", func(t *testing.T) {
+		// Each file is small enough to pass the declared-size fast-reject,
+		// but their cumulative actual bytes exceed the limit.
+		content := bytes.Repeat([]byte("B"), 400)
+		data := buildZipArchive(t, []zipEntry{
+			{Name: "root/", IsDir: true},
+			{Name: "root/a.txt", Body: content},
+			{Name: "root/b.txt", Body: content},
+			{Name: "root/c.txt", Body: content},
+		})
+		dest := t.TempDir()
+		err := extractGitHubArchive(data, dest, 100, 1000)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "extracted size")
 	})

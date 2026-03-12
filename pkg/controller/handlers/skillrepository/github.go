@@ -317,9 +317,9 @@ func extractGitHubArchive(data []byte, destRoot string, maxFiles int, maxBytes i
 		if fileCount > maxFiles {
 			return fmt.Errorf("repository archive exceeds maximum file count of %d", maxFiles)
 		}
-		extractedSize += int64(file.UncompressedSize64)
-		if extractedSize > maxBytes {
-			return fmt.Errorf("repository archive exceeds maximum extracted size of %d bytes", maxBytes)
+		// Fast-reject using declared size (untrusted metadata, but cheap to check).
+		if file.UncompressedSize64 > uint64(maxBytes) {
+			return fmt.Errorf("archive entry %q declares uncompressed size exceeding limit", file.Name)
 		}
 
 		if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
@@ -342,7 +342,8 @@ func extractGitHubArchive(data []byte, destRoot string, maxFiles int, maxBytes i
 			return fmt.Errorf("failed to create extracted file %q: %w", relPath, err)
 		}
 
-		written, copyErr := io.Copy(out, io.LimitReader(rc, maxBytes+1))
+		remainingBytes := maxBytes - extractedSize
+		written, copyErr := io.Copy(out, io.LimitReader(rc, remainingBytes+1))
 		closeErr := out.Close()
 		rcErr := rc.Close()
 		if copyErr != nil {
@@ -354,7 +355,8 @@ func extractGitHubArchive(data []byte, destRoot string, maxFiles int, maxBytes i
 		if rcErr != nil {
 			return fmt.Errorf("failed to close archive entry %q: %w", relPath, rcErr)
 		}
-		if written > maxBytes {
+		extractedSize += written
+		if extractedSize > maxBytes {
 			return fmt.Errorf("repository archive exceeds maximum extracted size of %d bytes", maxBytes)
 		}
 	}
