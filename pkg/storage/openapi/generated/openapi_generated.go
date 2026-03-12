@@ -10280,12 +10280,13 @@ func schema_obot_platform_obot_apiclient_types_SkillRepository(ref common.Refere
 					},
 					"discoveredSkillCount": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
 						},
 					},
 				},
-				Required: []string{"Metadata", "SkillRepositoryManifest", "lastSyncTime"},
+				Required: []string{"Metadata", "SkillRepositoryManifest", "lastSyncTime", "discoveredSkillCount"},
 			},
 		},
 		Dependencies: []string{
@@ -19961,12 +19962,13 @@ func schema_storage_apis_obotobotai_v1_SkillRepositoryStatus(ref common.Referenc
 					},
 					"discoveredSkillCount": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
 						},
 					},
 				},
-				Required: []string{"lastSyncTime"},
+				Required: []string{"lastSyncTime", "discoveredSkillCount"},
 			},
 		},
 		Dependencies: []string{

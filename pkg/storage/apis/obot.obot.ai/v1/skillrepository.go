@@ -59,7 +59,7 @@ type SkillRepositoryStatus struct {
 	IsSyncing            bool        `json:"isSyncing,omitempty"`
 	SyncError            string      `json:"syncError,omitempty"`
 	ResolvedCommitSHA    string      `json:"resolvedCommitSHA,omitempty"`
-	DiscoveredSkillCount int         `json:"discoveredSkillCount,omitempty"`
+	DiscoveredSkillCount int         `json:"discoveredSkillCount"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

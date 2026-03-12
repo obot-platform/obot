@@ -7,7 +7,7 @@ type SkillRepository struct {
 	IsSyncing            bool   `json:"isSyncing,omitempty"`
 	SyncError            string `json:"syncError,omitempty"`
 	ResolvedCommitSHA    string `json:"resolvedCommitSHA,omitempty"`
-	DiscoveredSkillCount int    `json:"discoveredSkillCount,omitempty"`
+	DiscoveredSkillCount int    `json:"discoveredSkillCount"`
 }
 
 type SkillRepositoryManifest struct {
