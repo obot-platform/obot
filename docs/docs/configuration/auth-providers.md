@@ -186,7 +186,7 @@ You can now return to Obot and finish configuring Auth0. Use the table below to 
 
 | Obot          | Auth0         | Auth0 Dashboard Location |
 |---------------|---------------|--------------------------|
-| Domain        | Domain        | Application Settings     |
+| Auth0 Domain  | Domain        | Application Settings     |
 | Client ID     | Client ID     | Application Settings     |
 | Client Secret | Client Secret | Application Settings     |
 
@@ -201,16 +201,37 @@ Create one in the Auth0 Dashboard by navigating to Applications > Applications >
    - `read:role_members`
 2. Take note of the **Client ID** and **Client Secret** for this application
 
-Provide the Machine to Machine app's Client ID and Client Secret to Obot in the corresponding fields in the Auth Provider configuration dialog.
+Use the table below to determine the values to use for each field in Obot's Auth Provider configuration dialog:
+
+| Obot                        | Auth0         | Auth0 Dashboard Location |
+|-----------------------------|---------------|--------------------------|
+| Machine to Machine Client ID     | Client ID     | Application Settings     |
+| Machine to Machine Client Secret | Client Secret | Application Settings     |
 
 #### Restricting Login to Specific Users (Optional)
 
-You can restrict login access to specific Auth0 users by:
+You can restrict which users can log in to Obot through Auth0 using connection-level access control or organizations.
 
-1. Using [Auth0 Actions](https://auth0.com/docs/customize/actions) to deny login to users who don't meet certain criteria
-2. Configuring **Connection**-level access control to limit which connections (identity providers) are enabled for your application
+##### Using Connection-Level Access Control
 
-For more details, see the [Auth0 documentation](https://auth0.com/docs).
+You can limit which Auth0 connections (identity providers) are allowed to log in to Obot.
+
+1. In the Auth0 Dashboard, navigate to **Applications > Applications**
+2. Select your Obot application
+3. Open the **Connections** tab
+4. Disable any connections that should not be allowed to log in to Obot
+5. Leave enabled only the connections for users who should have access
+
+##### Using Auth0 Organizations
+
+If your Auth0 tenant supports [Organizations](https://auth0.com/docs/manage-users/organizations), you can restrict access to users who belong to specific organizations.
+
+1. In the Auth0 Dashboard, navigate to **Organizations**
+2. Create a new organization
+3. Add the desired users as members
+4. Under the organization's **Connections** tab, enable the connections users should use to log in
+5. In **Applications > Applications**, select your Obot application
+6. Open the **Organizations** tab and configure the application to require organization membership
 
 ## Switching Between Auth Providers
 
