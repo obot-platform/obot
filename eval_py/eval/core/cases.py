@@ -6,7 +6,7 @@ import uuid
 
 from .framework import Case, Context, Result
 from ..clients.client import Client, project_id, agent_id
-from ..helper import event_stream_data
+from ..helper import event_stream_data, paths
 from ..workflow.workflow_eval import read_captured_response, evaluate_content_publishing_response
 from ..workflow.workflow_prompt import CONTENT_PUBLISHING_PHASED_PROMPTS, get_conversation_turns
 
@@ -791,32 +791,117 @@ def run_workflow_conversation_eval(ctx: Context) -> Result:
     return result
 
 
+def _event_stream_response_count() -> int:
+    """Return current length of event_stream_responses in data.json."""
+    data_file = paths.data_path("data.json")
+    try:
+        with open(data_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return 0
+    items = data.get("event_stream_responses") or []
+    return len(items) if isinstance(items, list) else 0
+
+
+def _update_static_trace_from_latest_sse(
+    case_name: str,
+    txt_filename: str,
+    start_index: int,
+) -> None:
+    """
+    Copy the latest SSE for a conversation workflow into its raw .txt file.
+
+    - case_name is only used for logging/debug.
+    - txt_filename: e.g. "python_review.txt"
+    - start_index: starting index into data.json's event_stream_responses to slice from
+    """
+    data_file = paths.data_path("data.json")
+    try:
+        with open(data_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return
+
+    items = data.get("event_stream_responses") or []
+    if not isinstance(items, list) or start_index >= len(items):
+        return
+
+    new_items = items[start_index:]
+    # Concatenate raw SSE for all new phases in this run.
+    raw_sse_parts: list[str] = []
+    for entry in new_items:
+        raw = entry.get("raw_sse") or ""
+        if raw:
+            raw_sse_parts.append(raw)
+    if not raw_sse_parts:
+        return
+    combined_sse = "\n".join(raw_sse_parts)
+
+    # Use the same distinct-SSE logic we use for step_eval_output_distinct.txt
+    # so per-test-case .txt files contain deduplicated streams.
+    try:
+        from ..helper.event_stream_data import make_distinct_sse
+
+        combined_sse = make_distinct_sse(combined_sse) or combined_sse
+    except Exception:
+        # If distinct generation fails, fall back to raw SSE.
+        pass
+
+    txt_path = paths.data_path(txt_filename)
+    os.makedirs(os.path.dirname(txt_path), exist_ok=True)
+    with open(txt_path, "w", encoding="utf-8") as f:
+        f.write(combined_sse)
+
+
 def run_python_code_review_conversation_eval(ctx: Context) -> Result:
     """
     Convenience wrapper to run the python_code_review workflow conversation eval.
 
     This sets OBOT_EVAL_CONVERSATION_WORKFLOW for this process, then delegates to
     run_workflow_conversation_eval so that DeepEval runs turn-by-turn after each
-    response.
+    response, and finally writes distinct SSE to python_review.txt.
     """
+    before = _event_stream_response_count()
     os.environ["OBOT_EVAL_CONVERSATION_WORKFLOW"] = "python_code_review"
-    return run_workflow_conversation_eval(ctx)
+    result = run_workflow_conversation_eval(ctx)
+    _update_static_trace_from_latest_sse(
+        case_name="python_code_review",
+        txt_filename="python_review.txt",
+        start_index=before,
+    )
+    return result
 
 
 def run_deep_news_briefing_conversation_eval(ctx: Context) -> Result:
     """
     Convenience wrapper to run the deep_news_briefing workflow conversation eval.
+    Also writes distinct SSE to news.txt.
     """
+    before = _event_stream_response_count()
     os.environ["OBOT_EVAL_CONVERSATION_WORKFLOW"] = "deep_news_briefing"
-    return run_workflow_conversation_eval(ctx)
+    result = run_workflow_conversation_eval(ctx)
+    _update_static_trace_from_latest_sse(
+        case_name="deep_news_briefing",
+        txt_filename="news.txt",
+        start_index=before,
+    )
+    return result
 
 
 def run_antv_dual_axes_conversation_eval(ctx: Context) -> Result:
     """
     Convenience wrapper to run the antv_dual_axes_viz workflow conversation eval.
+    Also writes distinct SSE to antv_charts.txt.
     """
+    before = _event_stream_response_count()
     os.environ["OBOT_EVAL_CONVERSATION_WORKFLOW"] = "antv_dual_axes_viz"
-    return run_workflow_conversation_eval(ctx)
+    result = run_workflow_conversation_eval(ctx)
+    _update_static_trace_from_latest_sse(
+        case_name="antv_dual_axes_viz",
+        txt_filename="antv_charts.txt",
+        start_index=before,
+    )
+    return result
 
 
 def run_deep_news_briefing_single_prompt_eval(ctx: Context) -> Result:
