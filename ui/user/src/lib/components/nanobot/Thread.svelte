@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BrowserViewer from '$lib/components/nanobot/BrowserViewer.svelte';
 	import Elicitation from '$lib/components/nanobot/Elicitation.svelte';
 	import Prompt from '$lib/components/nanobot/Prompt.svelte';
 	import type {
@@ -34,6 +35,8 @@
 		onReadResource?: (uri: string) => Promise<{ contents: ResourceContents[] }>;
 		onCancel?: () => void;
 		onContentWidthChange?: (width: number) => void;
+		browserBaseUrl?: string;
+		browserViewerOpen?: boolean;
 		cancelUpload?: (fileId: string) => void;
 		uploadingFiles?: UploadingFile[];
 		uploadedFiles?: UploadedFile[];
@@ -60,6 +63,8 @@
 		onReadResource,
 		onCancel,
 		onContentWidthChange,
+		browserBaseUrl = '',
+		browserViewerOpen = $bindable(false),
 		cancelUpload,
 		uploadingFiles,
 		uploadedFiles,
@@ -85,6 +90,8 @@
 	let pinInputToBottom = $derived(hasMessages || !!suppressEmptyState);
 	const showInlineAgentHeader = $derived(!emptyStateContent && !isLoading && !pinInputToBottom);
 	let selectedPrompt = $state<string | undefined>();
+	let browserViewerWidth = $state(50);
+	let isResizing = $state(false);
 
 	const selectedPromptData = $derived(
 		selectedPrompt && prompts?.length ? prompts.find((p) => p.name === selectedPrompt) : undefined
@@ -99,6 +106,32 @@
 	);
 
 	const SCROLL_THRESHOLD = 10;
+
+	function startResize(e: MouseEvent) {
+		isResizing = true;
+		e.preventDefault();
+	}
+
+	function stopResize() {
+		isResizing = false;
+	}
+
+	function resize(e: MouseEvent) {
+		if (!isResizing) return;
+		const container = e.currentTarget as HTMLElement;
+		if (!container) return;
+
+		const rect = container.getBoundingClientRect();
+		const newWidth = ((rect.right - e.clientX) / rect.width) * 100;
+		browserViewerWidth = Math.max(20, Math.min(80, newWidth));
+	}
+
+	$effect(() => {
+		if (isResizing) {
+			window.addEventListener('mouseup', stopResize);
+			return () => window.removeEventListener('mouseup', stopResize);
+		}
+	});
 
 	const isNearBottom = () => {
 		if (!messagesContainer) return false;
@@ -333,7 +366,8 @@
 </script>
 
 <div
-	class="flex h-[calc(100dvh-4rem)] w-full flex-col transition-transform md:relative peer-[.workspace]:md:w-1/4"
+	class="flex h-[calc(100dvh-4rem)] w-full flex-row transition-transform md:relative peer-[.workspace]:md:w-1/4"
+	onmousemove={resize}
 	ondragenter={handleDragEnter}
 	ondragleave={handleDragLeave}
 	ondragover={handleDragOver}
@@ -355,129 +389,153 @@
 		</div>
 	{/if}
 
-	<!-- Messages area - full height scrollable with bottom padding for floating input -->
 	<div
-		class="h-full w-full overflow-y-auto px-4"
-		bind:this={messagesContainer}
-		onscroll={handleScroll}
+		class="relative flex flex-col"
+		style="width: {browserViewerOpen ? `${100 - browserViewerWidth}%` : '100%'}"
 	>
-		<div class="mx-auto max-w-4xl" bind:this={messagesContentInner}>
-			<!-- Prompts section - show when prompts available and no messages -->
-			{#if prompts && prompts.length > 0}
-				<div class="mb-6">
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-						{#if selectedPromptData}
-							<Prompt
-								prompt={selectedPromptData}
-								onSend={async (m) => {
-									selectedPrompt = undefined;
-									if (onSendMessage) {
-										pinInputToBottom = true;
-										return await onSendMessage(m);
-									}
-								}}
-								onCancel={() => (selectedPrompt = undefined)}
-								open
-							/>
-						{/if}
+		<!-- Messages area - full height scrollable with bottom padding for floating input -->
+		<div
+			class="h-full w-full flex-1 overflow-y-auto px-4"
+			bind:this={messagesContainer}
+			onscroll={handleScroll}
+		>
+			<div class="mx-auto max-w-4xl" bind:this={messagesContentInner}>
+				<!-- Prompts section - show when prompts available and no messages -->
+				{#if prompts && prompts.length > 0}
+					<div class="mb-6">
+						<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+							{#if selectedPromptData}
+								<Prompt
+									prompt={selectedPromptData}
+									onSend={async (m) => {
+										selectedPrompt = undefined;
+										if (onSendMessage) {
+											pinInputToBottom = true;
+											return await onSendMessage(m);
+										}
+									}}
+									onCancel={() => (selectedPrompt = undefined)}
+									open
+								/>
+							{/if}
+						</div>
 					</div>
-				</div>
-			{/if}
+				{/if}
 
-			<Messages
-				{messages}
-				onSend={async (m) => {
-					pinInputToBottom = true;
-					return await onSendMessage?.(m);
-				}}
-				{isLoading}
-				{agent}
-				{onFileOpen}
-				{onReadResource}
-				hideAgentHeader
-			/>
-		</div>
-	</div>
-
-	<!-- Message input - centered when no messages, bottom when messages exist or when empty state is suppressed -->
-	<div
-		class={twMerge(
-			'absolute top-auto right-0 bottom-0 left-0 flex flex-col transition-all duration-500 ease-in-out',
-			pinInputToBottom
-				? 'bg-base-100/80 ' + (questionElicitation ? 'h-full' : 'backdrop-blur-xs')
-				: 'top-1/2 -translate-y-1/2'
-		)}
-	>
-		{#if pinInputToBottom}
-			<!-- Overlay: always in DOM when pinned so opacity/blur can transition -->
-			<div
-				class={twMerge(
-					'bg-base-100/30 absolute inset-0 z-0 transition-[opacity,backdrop-filter] duration-500 ease-out',
-					questionElicitation
-						? 'bg-base-100 opacity-75 backdrop-blur-[1px]'
-						: 'pointer-events-none opacity-0 backdrop-blur-none'
-				)}
-				aria-hidden="true"
-			></div>
-		{/if}
-		{#if questionElicitation}
-			<div class="relative z-10 flex grow"></div>
-		{/if}
-		<!-- Scroll to bottom button -->
-		{#if showScrollButton && hasMessages}
-			<button
-				class="btn btn-circle border-base-300 bg-base-100 btn-md relative z-10 mx-auto shadow-lg active:translate-y-0.5"
-				onclick={scrollToBottom}
-				aria-label="Scroll to bottom"
-			>
-				<ChevronDown class="size-5" />
-			</button>
-		{/if}
-		{#if showInlineAgentHeader}
-			<div class="relative z-10 mx-auto w-full max-w-4xl" out:slide={{ axis: 'y', duration: 500 }}>
-				<div out:fade={{ duration: 500 }}>
-					<AgentHeader {agent} onSend={onSendMessage} />
-				</div>
-			</div>
-		{:else if emptyStateContent && !pinInputToBottom}
-			<div class="relative z-10 mx-auto w-full max-w-4xl" out:slide={{ axis: 'y', duration: 500 }}>
-				<div out:fade={{ duration: 500 }}>
-					{@render emptyStateContent()}
-				</div>
-			</div>
-		{/if}
-		<div class="relative z-10 mx-auto w-full max-w-4xl">
-			{#if questionElicitation}
-				{#key questionElicitation.id}
-					<div class="elicitation-slide-in mb-8">
-						<Elicitation
-							elicitation={questionElicitation}
-							open
-							onresult={(result) => {
-								onElicitationResult?.(questionElicitation, result);
-							}}
-						/>
-					</div>
-				{/key}
-			{:else}
-				<MessageInput
-					placeholder={`Type your message...${prompts && prompts.length > 0 ? ' or / for prompts' : ''}`}
-					onSend={onSendMessage}
-					{agents}
-					{selectedAgentId}
-					{onAgentChange}
-					onPrompt={(p) => (selectedPrompt = p)}
-					{onFileUpload}
-					disabled={isLoading}
-					{prompts}
-					{cancelUpload}
-					{uploadingFiles}
-					{uploadedFiles}
-					{onCancel}
+				<Messages
+					{messages}
+					onSend={async (m) => {
+						pinInputToBottom = true;
+						return await onSendMessage?.(m);
+					}}
+					{isLoading}
+					{agent}
+					{onFileOpen}
+					{onReadResource}
+					hideAgentHeader
 				/>
+			</div>
+		</div>
+
+		<!-- Message input - centered when no messages, bottom when messages exist or when empty state is suppressed -->
+		<div
+			class={twMerge(
+				'absolute top-auto right-0 bottom-0 left-0 flex flex-col transition-all duration-500 ease-in-out',
+				pinInputToBottom
+					? 'bg-base-100/80 ' + (questionElicitation ? 'h-full' : 'backdrop-blur-xs')
+					: 'top-1/2 -translate-y-1/2'
+			)}
+		>
+			{#if pinInputToBottom}
+				<div
+					class={twMerge(
+						'bg-base-100/30 absolute inset-0 z-0 transition-[opacity,backdrop-filter] duration-500 ease-out',
+						questionElicitation
+							? 'bg-base-100 opacity-75 backdrop-blur-[1px]'
+							: 'pointer-events-none opacity-0 backdrop-blur-none'
+					)}
+					aria-hidden="true"
+				></div>
 			{/if}
+			{#if questionElicitation}
+				<div class="relative z-10 flex grow"></div>
+			{/if}
+			{#if showScrollButton && hasMessages}
+				<button
+					class="btn btn-circle border-base-300 bg-base-100 btn-md relative z-10 mx-auto shadow-lg active:translate-y-0.5"
+					onclick={scrollToBottom}
+					aria-label="Scroll to bottom"
+				>
+					<ChevronDown class="size-5" />
+				</button>
+			{/if}
+			{#if showInlineAgentHeader}
+				<div
+					class="relative z-10 mx-auto w-full max-w-4xl"
+					out:slide={{ axis: 'y', duration: 500 }}
+				>
+					<div out:fade={{ duration: 500 }}>
+						<AgentHeader {agent} onSend={onSendMessage} />
+					</div>
+				</div>
+			{:else if emptyStateContent && !pinInputToBottom}
+				<div
+					class="relative z-10 mx-auto w-full max-w-4xl"
+					out:slide={{ axis: 'y', duration: 500 }}
+				>
+					<div out:fade={{ duration: 500 }}>
+						{@render emptyStateContent()}
+					</div>
+				</div>
+			{/if}
+			<div class="relative z-10 mx-auto w-full max-w-4xl">
+				{#if questionElicitation}
+					{#key questionElicitation.id}
+						<div class="elicitation-slide-in mb-8">
+							<Elicitation
+								elicitation={questionElicitation}
+								open
+								onresult={(result) => {
+									onElicitationResult?.(questionElicitation, result);
+								}}
+							/>
+						</div>
+					{/key}
+				{:else}
+					<MessageInput
+						placeholder={`Type your message...${prompts && prompts.length > 0 ? ' or / for prompts' : ''}`}
+						onSend={onSendMessage}
+						{agents}
+						{selectedAgentId}
+						{onAgentChange}
+						onPrompt={(p) => (selectedPrompt = p)}
+						{onFileUpload}
+						disabled={isLoading}
+						{prompts}
+						{cancelUpload}
+						{uploadingFiles}
+						{uploadedFiles}
+						{onCancel}
+					/>
+				{/if}
+			</div>
 		</div>
 	</div>
+
+	{#if browserViewerOpen}
+		<div
+			class="bg-base-300 hover:bg-primary w-1 cursor-col-resize transition-colors"
+			onmousedown={startResize}
+			role="separator"
+			aria-label="Resize browser viewer"
+		></div>
+	{/if}
+
+	{#if browserViewerOpen}
+		<div class="flex flex-col" style="width: {browserViewerWidth}%">
+			<BrowserViewer bind:visible={browserViewerOpen} {browserBaseUrl} />
+		</div>
+	{/if}
 
 	<!-- Modal elicitations (OAuth, generic form) -->
 	{#if modalElicitation}

@@ -16,6 +16,7 @@
 	let threadContentWidth = $state(0);
 	let initialMessage = $state<string | undefined>(undefined);
 	let pendingFiles = $state<UploadedFile[]>([]);
+	let browserViewerOpen = $state(false);
 
 	function cancelPendingUpload(fileId: string) {
 		const entry = pendingFiles.find((f) => f.id === fileId);
@@ -61,6 +62,8 @@
 		<ProjectStartThread
 			agentId={agent.id}
 			{projectId}
+			browserBaseUrl={agent.connectURL}
+			bind:browserViewerOpen
 			chat={{
 				sendMessage: async (message: string, attachments?: Attachment[]) => {
 					initialMessage = message;
@@ -133,7 +136,12 @@
 	</div>
 
 	{#snippet rightSidebar()}
-		<ThreadQuickAccess {projectId} agentId={agent.id} />
+		<ThreadQuickAccess
+			{projectId}
+			agentId={agent.id}
+			{browserViewerOpen}
+			onToggleBrowserViewer={() => (browserViewerOpen = !browserViewerOpen)}
+		/>
 	{/snippet}
 </Layout>
 

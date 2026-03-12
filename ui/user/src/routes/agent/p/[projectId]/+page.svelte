@@ -11,6 +11,7 @@
 	let projectId = $derived(data.projects[0].id);
 	let tid = $derived(page.url.searchParams.get('tid'));
 	let session = $derived($nanobotChat?.sessions?.find((s) => s.id === tid));
+	let browserBaseUrl = $derived(data.agent.connectURL);
 
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
 
@@ -22,6 +23,8 @@
 		<ProjectStartThread
 			agentId={agent.id}
 			{projectId}
+			{browserBaseUrl}
+			bind:browserViewerOpen={projectLayout.browserViewerOpen}
 			chat={displayChat}
 			onFileOpen={projectLayout.handleFileOpen}
 			suppressEmptyState

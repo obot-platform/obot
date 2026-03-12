@@ -7,12 +7,21 @@
 		agentId: string;
 		projectId: string;
 		chat: ChatSession;
+		browserBaseUrl?: string;
+		browserViewerOpen?: boolean;
 		onFileOpen?: (filename: string) => void;
 		suppressEmptyState?: boolean;
 		onThreadContentWidth?: (width: number) => void;
 	}
 
-	let { chat, onFileOpen, suppressEmptyState, onThreadContentWidth }: Props = $props();
+	let {
+		chat,
+		browserBaseUrl = '',
+		browserViewerOpen = $bindable(false),
+		onFileOpen,
+		suppressEmptyState,
+		onThreadContentWidth
+	}: Props = $props();
 </script>
 
 <div class="flex h-full w-full">
@@ -39,6 +48,8 @@
 					chat.refreshResources();
 				}}
 				{onFileOpen}
+				{browserBaseUrl}
+				bind:browserViewerOpen
 				onReadResource={chat.readResource}
 				{suppressEmptyState}
 				onContentWidthChange={onThreadContentWidth}
