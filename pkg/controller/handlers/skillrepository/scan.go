@@ -92,10 +92,9 @@ func buildSkill(dirPath, relPath string, repo *v1.SkillRepository, commitSHA str
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s for %s: %w", skillformat.SkillMainFile, relPath, err)
 	}
-	if len(content) > maxSkillMDBytes {
-		return nil, fmt.Errorf("%s for %s exceeds maximum size of %d bytes", skillformat.SkillMainFile, relPath, maxSkillMDBytes)
-	}
 
+	// Parse what we can even if the file is oversized, so we can populate the
+	// skill record with whatever metadata is available.
 	fm, _, parseErr := skillformat.ParseFrontmatter(string(content))
 	skillName := fm.Name
 	if skillName == "" {
@@ -132,7 +131,15 @@ func buildSkill(dirPath, relPath string, repo *v1.SkillRepository, commitSHA str
 		},
 	}
 
-	validateErr := parseErr
+	// Treat an oversized SKILL.md as a validation error rather than a hard
+	// failure so that one bad skill doesn't block indexing of the entire repo.
+	var validateErr error
+	if len(content) > maxSkillMDBytes {
+		validateErr = fmt.Errorf("%s exceeds maximum size of %d bytes", skillformat.SkillMainFile, maxSkillMDBytes)
+	}
+	if validateErr == nil {
+		validateErr = parseErr
+	}
 	if validateErr == nil {
 		validateErr = skillformat.ValidateFrontmatter(fm)
 	}
@@ -216,7 +223,10 @@ func skillObjectName(repoID, relPath string) string {
 	if fragment == "" {
 		fragment = "skill"
 	}
-	return name.SafeHashConcatName(system.SkillPrefix, repoID, fragment)
+	// Include the original relPath in the hash inputs so that paths which sanitize
+	// to the same fragment (e.g. "tools/my_skill" and "tools/my-skill") still
+	// produce distinct object names.
+	return name.SafeHashConcatName(system.SkillPrefix, repoID, fragment, relPath)
 }
 
 func sanitizeNameFragment(value string) string {

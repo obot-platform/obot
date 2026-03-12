@@ -428,15 +428,13 @@ func TestSync(t *testing.T) {
 		repo := newSkillRepository("repo1", "default")
 		c := newFakeClient(t, repo)
 
-		// Create a fetched repo with an oversized SKILL.md that will cause buildSkillsFromRepository to error
+		// Create a fetched repo with an unreadable SKILL.md that will cause buildSkillsFromRepository to error
 		root := t.TempDir()
 		skillDir := filepath.Join(root, "bad-skill")
 		require.NoError(t, os.MkdirAll(skillDir, 0o755))
-		bigContent := make([]byte, maxSkillMDBytes+1)
-		for i := range bigContent {
-			bigContent[i] = 'x'
-		}
-		require.NoError(t, os.WriteFile(filepath.Join(skillDir, "SKILL.md"), bigContent, 0o644))
+		skillFile := filepath.Join(skillDir, "SKILL.md")
+		require.NoError(t, os.WriteFile(skillFile, []byte("content"), 0o644))
+		require.NoError(t, os.Chmod(skillFile, 0o000))
 
 		h := &Handler{
 			fetcher: &mockFetcher{

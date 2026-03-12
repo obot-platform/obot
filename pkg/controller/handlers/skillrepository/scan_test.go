@@ -249,9 +249,10 @@ allowed-tools: tool1,tool2
 		bigContent := strings.Repeat("x", maxSkillMDBytes+1)
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(bigContent), 0o644))
 
-		_, err := buildSkill(dir, "big-skill", repo, commitSHA, indexedAt)
-		require.Error(t, err) // hard error, not validation
-		assert.Contains(t, err.Error(), "exceeds maximum size")
+		skill, err := buildSkill(dir, "big-skill", repo, commitSHA, indexedAt)
+		require.NoError(t, err) // validation error, not hard error
+		assert.False(t, skill.Status.Valid)
+		assert.Contains(t, skill.Status.ValidationError, "exceeds maximum size")
 	})
 }
 
@@ -437,6 +438,44 @@ func TestSkillObjectName(t *testing.T) {
 		name2 := skillObjectName("repo1", "skill-b")
 		assert.NotEqual(t, name1, name2)
 	})
+}
+
+func TestSkillObjectNameDistinguishesSimilarPaths(t *testing.T) {
+	// Paths that sanitize to the same fragment must still produce distinct object names.
+	name1 := skillObjectName("repo1", "tools/my_skill")
+	name2 := skillObjectName("repo1", "tools/my-skill")
+	assert.NotEqual(t, name1, name2, "paths that sanitize identically should still produce different object names")
+}
+
+func TestBuildSkillsFromRepositoryOversizedSkillDoesNotBlockOthers(t *testing.T) {
+	repo := testRepo("repo1", "default")
+	commitSHA := "abc123"
+	indexedAt := metav1.Now()
+
+	root := t.TempDir()
+	createSkillDir(t, root, "good-skill", "good-skill", "A valid skill")
+
+	// Create an oversized skill alongside the valid one
+	bigDir := filepath.Join(root, "big-skill")
+	require.NoError(t, os.MkdirAll(bigDir, 0o755))
+	bigContent := strings.Repeat("x", maxSkillMDBytes+1)
+	require.NoError(t, os.WriteFile(filepath.Join(bigDir, "SKILL.md"), []byte(bigContent), 0o644))
+
+	skills, err := buildSkillsFromRepository(root, repo, commitSHA, indexedAt)
+	require.NoError(t, err, "oversized SKILL.md should not fail the entire repo scan")
+	require.Len(t, skills, 2)
+
+	var validCount, invalidCount int
+	for _, s := range skills {
+		if s.Status.Valid {
+			validCount++
+		} else {
+			invalidCount++
+			assert.Contains(t, s.Status.ValidationError, "exceeds maximum size")
+		}
+	}
+	assert.Equal(t, 1, validCount)
+	assert.Equal(t, 1, invalidCount)
 }
 
 func TestSanitizeNameFragment(t *testing.T) {
