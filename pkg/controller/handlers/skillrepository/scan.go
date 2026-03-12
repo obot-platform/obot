@@ -70,11 +70,7 @@ func discoverSkillDirectories(repoRoot string) ([]string, error) {
 			return fmt.Errorf("failed to inspect %s: %w", skillPath, err)
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
-			relPath, relErr := filepath.Rel(repoRoot, skillPath)
-			if relErr != nil {
-				relPath = skillPath
-			}
-			return fmt.Errorf("symbolic links are not allowed for %s", filepath.ToSlash(relPath))
+			return nil
 		}
 		if info.IsDir() {
 			return nil
@@ -169,11 +165,7 @@ func computeInstallHash(skillDir string) (string, error) {
 			return walkErr
 		}
 		if entry.Type()&os.ModeSymlink != 0 {
-			relPath, relErr := filepath.Rel(skillDir, currentPath)
-			if relErr != nil {
-				relPath = currentPath
-			}
-			return fmt.Errorf("symbolic links are not allowed in skill contents: %s", filepath.ToSlash(relPath))
+			return nil
 		}
 		if entry.IsDir() {
 			return nil

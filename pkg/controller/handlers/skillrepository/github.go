@@ -319,7 +319,7 @@ func extractGitHubArchive(data []byte, destRoot string, maxFiles int, maxBytes i
 			return fmt.Errorf("archive entry %q escapes the repository root", file.Name)
 		}
 		if file.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("archive entry %q is a symbolic link", file.Name)
+			continue
 		}
 
 		targetPath := filepath.Join(destRoot, filepath.FromSlash(relPath))

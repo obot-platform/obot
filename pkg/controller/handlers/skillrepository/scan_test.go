@@ -89,7 +89,7 @@ func TestDiscoverSkillDirectories(t *testing.T) {
 		assert.Equal(t, realDir, dirs[0])
 	})
 
-	t.Run("symlink SKILL.md rejected", func(t *testing.T) {
+	t.Run("symlink SKILL.md skipped", func(t *testing.T) {
 		root := t.TempDir()
 		skillDir := filepath.Join(root, "my-skill")
 		require.NoError(t, os.MkdirAll(skillDir, 0o755))
@@ -103,10 +103,10 @@ func TestDiscoverSkillDirectories(t *testing.T) {
 
 		// discoverSkillDirectories uses os.Lstat, which inspects the symlink
 		// itself rather than following it. The ModeSymlink bit will be set,
-		// so the function rejects it as expected.
-		_, err := discoverSkillDirectories(root)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "symbolic links are not allowed")
+		// so the function skips the directory.
+		dirs, err := discoverSkillDirectories(root)
+		require.NoError(t, err)
+		assert.Empty(t, dirs)
 	})
 
 	t.Run("skill at root and subdirectory", func(t *testing.T) {
@@ -375,7 +375,7 @@ func TestComputeInstallHash(t *testing.T) {
 		assert.NotEmpty(t, hash)
 	})
 
-	t.Run("symlink rejected", func(t *testing.T) {
+	t.Run("symlink skipped", func(t *testing.T) {
 		dir := t.TempDir()
 		realFile := filepath.Join(dir, "real.txt")
 		require.NoError(t, os.WriteFile(realFile, []byte("real"), 0o644))
@@ -383,9 +383,17 @@ func TestComputeInstallHash(t *testing.T) {
 			t.Skip("symlinks not supported on this platform")
 		}
 
-		_, err := computeInstallHash(dir)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "symbolic links")
+		// Hash should succeed, only including the real file (not the symlink)
+		hash1, err := computeInstallHash(dir)
+		require.NoError(t, err)
+
+		// Hash should match a directory with only the real file
+		dir2 := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir2, "real.txt"), []byte("real"), 0o644))
+		hash2, err := computeInstallHash(dir2)
+		require.NoError(t, err)
+
+		assert.Equal(t, hash1, hash2)
 	})
 
 	t.Run("subdirectories included", func(t *testing.T) {

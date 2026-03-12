@@ -188,15 +188,20 @@ func TestExtractGitHubArchive(t *testing.T) {
 		assert.Contains(t, err.Error(), "escapes")
 	})
 
-	t.Run("symlink entry rejected", func(t *testing.T) {
+	t.Run("symlink entry skipped", func(t *testing.T) {
 		data := buildZipArchive(t, []zipEntry{
 			{Name: "root/", IsDir: true},
+			{Name: "root/real.txt", Body: []byte("hello")},
 			{Name: "root/link", Body: []byte("/etc/passwd"), IsSymlink: true},
 		})
 		dest := t.TempDir()
-		err := extractGitHubArchive(data, dest, 100, 1024*1024)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "symbolic link")
+		require.NoError(t, extractGitHubArchive(data, dest, 100, 1024*1024))
+
+		// Real file should be extracted
+		assert.FileExists(t, filepath.Join(dest, "real.txt"))
+		// Symlink should not be extracted
+		_, err := os.Lstat(filepath.Join(dest, "link"))
+		assert.True(t, os.IsNotExist(err))
 	})
 
 	t.Run("multiple root prefixes rejected", func(t *testing.T) {
