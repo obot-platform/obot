@@ -1,0 +1,396 @@
+# Triggers:
+# - Manual: Actions → MCP Server UI Test Suites → Run workflow
+# - Pull request: smoke-run only, builds Docker image from PR branch and runs tests
+# - Scheduled: daily at 1:00 AM UTC (regression-run only)
+
+name: MCP Server UI Test Suites
+
+on:
+  workflow_dispatch:   # manual run from GitHub Actions
+  pull_request:       # smoke-run on PR open/update (builds image from branch)
+  schedule:
+    - cron: '0 1 * * *'   # daily at 1:00 AM UTC
+
+jobs:
+  smoke-run:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    name: Smoke Run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Suite trigger reference (for clients)
+        run: |
+          echo "## Test suite triggers (for reference)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Suite | Intended trigger |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|------------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Smoke** | Pull request, manual |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Regression** | When code merges to main, daily 1 AM |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Full Test** | Manual trigger only |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache NPM Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('tests/UI_Tests/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'workflow_dispatch'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build OBOT Docker image from branch (PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          docker build -t obot-pr:${{ github.sha }} .
+
+      - name: Run OBOT container
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            IMAGE="obot-pr:${{ github.sha }}"
+          else
+            IMAGE="ghcr.io/obot-platform/obot:latest"
+          fi
+          docker run -d --name obot \
+            -p 8080:8080 \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            -e OBOT_SERVER_DISABLE_UPDATE_CHECK=true \
+            "$IMAGE"
+
+      - name: Wait for OBOT to be ready
+        run: |
+          echo "Waiting for OBOT container..."
+          for i in {1..12}; do
+            if curl -sf http://localhost:8080/api/me | grep -q '"username":"nobody"'; then
+              echo "OBOT API is ready."
+              break
+            fi
+            echo "Not ready yet... retry #$i"
+            sleep 5
+          done
+          if ! curl -sf http://localhost:8080/api/me | grep -q '"username":"nobody"'; then
+            echo "OBOT did not become ready after 12 attempts. Failing job."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: |
+          cd tests/UI_Tests
+          npm ci
+
+      - name: Run Smoke suite
+        env: ${{ secrets }}
+        run: |
+          cd tests/UI_Tests
+          export OBOT_URL=http://localhost:8080
+          npm run wdio:smoke
+
+      - name: Upload allure results (Smoke)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-smoke
+          path: tests/UI_Tests/allure-results
+          retention-days: 7
+
+      - name: Notify Slack - Smoke Run
+        if: always()
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW: ${{ github.workflow }}
+          TRIGGER: ${{ github.event_name }}
+          REF: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then exit 0; fi
+          if [ "$JOB_STATUS" = "success" ]; then
+            EMOJI=":white_check_mark:"; COLOR="good"; STATUS="Passed"
+          else
+            EMOJI=":x:"; COLOR="danger"; STATUS="Failed"
+          fi
+          payload=$(cat <<EOF
+          {
+            "blocks": [
+              {
+                "type": "header",
+                "text": { "type": "plain_text", "text": "${EMOJI} UI Tests: Smoke Run - ${STATUS}", "emoji": true }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  { "type": "mrkdwn", "text": "*Trigger:*\n${TRIGGER}" },
+                  { "type": "mrkdwn", "text": "*Branch/Ref:*\n${REF}" },
+                  { "type": "mrkdwn", "text": "*Actor:*\n${ACTOR}" },
+                  { "type": "mrkdwn", "text": "*Workflow:*\n${WORKFLOW}" }
+                ]
+              },
+              { "type": "section", "text": { "type": "mrkdwn", "text": "<${RUN_URL}|View run>" } }
+            ]
+          }
+          EOF
+          )
+          curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+
+  regression-run:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    name: Regression Run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Suite trigger reference (for clients)
+        run: |
+          echo "## Test suite triggers (for reference)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Suite | Intended trigger |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|------------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Smoke** | Pull request |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Regression** | When code merges to main |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Full Test** | Scheduled run or manual trigger |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache NPM Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('tests/UI_Tests/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run OBOT container
+        run: |
+          docker run -d --name obot \
+            -p 8080:8080 \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            -e OBOT_SERVER_DISABLE_UPDATE_CHECK=true \
+            ghcr.io/obot-platform/obot:latest
+
+      - name: Wait for OBOT to be ready
+        run: |
+          echo "Waiting for OBOT container..."
+          for i in {1..12}; do
+            if curl -sf http://localhost:8080/api/me | grep -q '"username":"nobody"'; then
+              echo "OBOT API is ready."
+              break
+            fi
+            echo "Not ready yet... retry #$i"
+            sleep 5
+          done
+          if ! curl -sf http://localhost:8080/api/me | grep -q '"username":"nobody"'; then
+            echo "OBOT did not become ready after 12 attempts. Failing job."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: |
+          cd tests/UI_Tests
+          npm ci
+
+      - name: Run Regression suite
+        env: ${{ secrets }}
+        run: |
+          cd tests/UI_Tests
+          export OBOT_URL=http://localhost:8080
+          npm run wdio:regression
+
+      - name: Upload allure results (Regression)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-regression
+          path: tests/UI_Tests/allure-results
+          retention-days: 14
+
+      - name: Notify Slack - Regression Run
+        if: always()
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW: ${{ github.workflow }}
+          TRIGGER: ${{ github.event_name }}
+          REF: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then exit 0; fi
+          if [ "$JOB_STATUS" = "success" ]; then
+            EMOJI=":white_check_mark:"; COLOR="good"; STATUS="Passed"
+          else
+            EMOJI=":x:"; COLOR="danger"; STATUS="Failed"
+          fi
+          payload=$(cat <<EOF
+          {
+            "blocks": [
+              {
+                "type": "header",
+                "text": { "type": "plain_text", "text": "${EMOJI} UI Tests: Regression Run - ${STATUS}", "emoji": true }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  { "type": "mrkdwn", "text": "*Trigger:*\n${TRIGGER}" },
+                  { "type": "mrkdwn", "text": "*Branch/Ref:*\n${REF}" },
+                  { "type": "mrkdwn", "text": "*Actor:*\n${ACTOR}" },
+                  { "type": "mrkdwn", "text": "*Workflow:*\n${WORKFLOW}" }
+                ]
+              },
+              { "type": "section", "text": { "type": "mrkdwn", "text": "<${RUN_URL}|View run>" } }
+            ]
+          }
+          EOF
+          )
+          curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+
+  full-test-run:
+    if: github.event_name == 'workflow_dispatch'
+    name: Full Test Run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Suite trigger reference (for clients)
+        run: |
+          echo "## Test suite triggers (for reference)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Suite | Intended trigger |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|------------------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Smoke** | Pull request |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Regression** | When code merges to main |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Full Test** | Scheduled run or manual trigger |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Cache NPM Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('tests/UI_Tests/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run OBOT container
+        run: |
+          docker run -d --name obot \
+            -p 8080:8080 \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            -e OBOT_SERVER_DISABLE_UPDATE_CHECK=true \
+            ghcr.io/obot-platform/obot:latest
+
+      - name: Wait for OBOT to be ready
+        run: |
+          echo "Waiting for OBOT container..."
+          for i in {1..12}; do
+            if curl -sf http://localhost:8080/api/me | grep -q '"username":"nobody"'; then
+              echo "OBOT API is ready."
+              break
+            fi
+            echo "Not ready yet... retry #$i"
+            sleep 5
+          done
+          if ! curl -sf http://localhost:8080/api/me | grep -q '"username":"nobody"'; then
+            echo "OBOT did not become ready after 12 attempts. Failing job."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: |
+          cd tests/UI_Tests
+          npm ci
+
+      - name: Run Full test suite
+        env: ${{ secrets }}
+        run: |
+          cd tests/UI_Tests
+          export OBOT_URL=http://localhost:8080
+          npm run wdio:full
+
+      - name: Upload allure results (Full)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-full
+          path: tests/UI_Tests/allure-results
+          retention-days: 30
+
+      - name: Notify Slack - Full Test Run
+        if: always()
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW: ${{ github.workflow }}
+          TRIGGER: ${{ github.event_name }}
+          REF: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then exit 0; fi
+          if [ "$JOB_STATUS" = "success" ]; then
+            EMOJI=":white_check_mark:"; COLOR="good"; STATUS="Passed"
+          else
+            EMOJI=":x:"; COLOR="danger"; STATUS="Failed"
+          fi
+          payload=$(cat <<EOF
+          {
+            "blocks": [
+              {
+                "type": "header",
+                "text": { "type": "plain_text", "text": "${EMOJI} UI Tests: Full Test Run - ${STATUS}", "emoji": true }
+              },
+              {
+                "type": "section",
+                "fields": [
+                  { "type": "mrkdwn", "text": "*Trigger:*\n${TRIGGER}" },
+                  { "type": "mrkdwn", "text": "*Branch/Ref:*\n${REF}" },
+                  { "type": "mrkdwn", "text": "*Actor:*\n${ACTOR}" },
+                  { "type": "mrkdwn", "text": "*Workflow:*\n${WORKFLOW}" }
+                ]
+              },
+              { "type": "section", "text": { "type": "mrkdwn", "text": "<${RUN_URL}|View run>" } }
+            ]
+          }
+          EOF
+          )
+          curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
