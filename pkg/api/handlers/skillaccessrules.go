@@ -7,6 +7,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -111,12 +112,16 @@ func (*SkillAccessRuleHandler) validateReferencedResources(req api.Context, reso
 	for _, resource := range resources {
 		switch resource.Type {
 		case types.SkillResourceTypeSkill:
-			if err := req.Get(&v1.Skill{}, resource.ID); err != nil {
+			if err := req.Get(&v1.Skill{}, resource.ID); apierrors.IsNotFound(err) {
 				return types.NewErrBadRequest("skill %s not found", resource.ID)
+			} else if err != nil {
+				return fmt.Errorf("failed to get skill %s: %w", resource.ID, err)
 			}
 		case types.SkillResourceTypeSkillRepository:
-			if err := req.Get(&v1.SkillRepository{}, resource.ID); err != nil {
+			if err := req.Get(&v1.SkillRepository{}, resource.ID); apierrors.IsNotFound(err) {
 				return types.NewErrBadRequest("skill repository %s not found", resource.ID)
+			} else if err != nil {
+				return fmt.Errorf("failed to get skill repository %s: %w", resource.ID, err)
 			}
 		case types.SkillResourceTypeSelector:
 			// Wildcard selectors are validated by the manifest.
