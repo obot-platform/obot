@@ -1,17 +1,30 @@
 <script lang="ts">
 	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
+	import type { PublishedArtifact } from '$lib/services/nanobot/types';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { onDestroy, type Snippet } from 'svelte';
 
 	interface Props {
-		publishedArtifactId: string;
+		publishedArtifact: PublishedArtifact;
 		onClose: () => void;
 		onSuccess: () => void;
 		children?: Snippet;
 		title: string;
+		confirmButtonText: string;
+		message?: string;
+		loadingText?: string | Snippet;
 	}
 
-	let { publishedArtifactId, onClose, onSuccess, children, title }: Props = $props();
+	let {
+		publishedArtifact,
+		onClose,
+		onSuccess,
+		children,
+		title,
+		confirmButtonText,
+		message,
+		loadingText
+	}: Props = $props();
 	let chat = $state<ChatSession | undefined>(undefined);
 	let loading = $state(false);
 	let action = $state<'update' | 'cancel'>();
@@ -24,7 +37,7 @@
 		}
 		$nanobotChat.api.getSession($nanobotChat.api.sessionId).then((existingSession) => {
 			chat = existingSession;
-			chat.installArtifact(publishedArtifactId).then((response) => {
+			chat.installArtifact(publishedArtifact.id).then((response) => {
 				if (response.installedFiles.length > 0) {
 					onSuccess?.();
 				}
@@ -38,7 +51,6 @@
 
 	$effect(() => {
 		if (chat && !chat.isLoading && !elicitation && loading) {
-			loading = false;
 			if (action === 'update') {
 				onSuccess?.();
 			} else {
@@ -77,7 +89,7 @@
 				{@render children?.()}
 			{:else}
 				<p class="my-4 text-sm">
-					{elicitation.message}
+					{message || elicitation.message}
 				</p>
 			{/if}
 			<div class="modal-action">
@@ -85,14 +97,21 @@
 					{#if loading}
 						<div class="loading loading-spinner loading-xs text-white"></div>
 					{:else}
-						Update
+						{confirmButtonText}
 					{/if}
 				</button>
 				<button class="btn btn-error" disabled={loading} onclick={cancel}>Cancel</button>
 			</div>
 		{:else}
 			<div class="my-4 flex w-full items-center justify-center">
-				<div class="loading loading-spinner loading-lg text-primary"></div>
+				<div class="flex items-center gap-1">
+					<div class="loading loading-sm loading-spinner text-primary"></div>
+					{#if typeof loadingText === 'string'}
+						{loadingText}
+					{:else}
+						{@render loadingText?.()}
+					{/if}
+				</div>
 			</div>
 		{/if}
 	</div>

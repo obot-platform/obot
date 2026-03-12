@@ -109,7 +109,7 @@
 						<span class="loading loading-spinner loading-xs"></span>
 					</div>
 				</li>
-			{:else if publishedArtifactIdToUse}
+			{:else}
 				<li>
 					<button
 						class="text-sm"
