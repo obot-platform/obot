@@ -312,7 +312,7 @@
 				{/if}
 				<th class="flex justify-end">
 					<select class="select w-42" bind:value={sortBy}>
-						<option value="" disabled selected>Sort by</option>
+						<option value="" disabled>Sort by</option>
 						<option value="created-desc">Sort by Created (Newest)</option>
 						<option value="created-asc">Sort by Created (Oldest)</option>
 						<option value="name-asc">Sort by Name (A-Z)</option>
@@ -328,13 +328,13 @@
 						class="hover:bg-base-200 cursor-pointer"
 						role="button"
 						tabindex="0"
-						onclick={() => {
-							if (workflow.createdBy === 'Me') {
-								goto(`/agent/p/${projectId}/workflows/${workflow.workflowId}`);
-							} else {
-								// download
-							}
-						}}
+						onclick={workflow.createdBy === 'Me'
+							? () => {
+									goto(
+										`/agent/p/${projectId}/workflows/${encodeURIComponent(workflow.workflowId)}`
+									);
+								}
+							: undefined}
 						onkeydown={(e) => {
 							if (e.key === 'Enter' || e.key === ' ') {
 								e.preventDefault();
@@ -445,7 +445,10 @@
 				{/each}
 			{:else}
 				<tr>
-					<td colspan="4" class="text-base-content/50 text-center text-sm font-light italic">
+					<td
+						colspan={activeTab === 'my' || showingSearchResults ? 5 : 3}
+						class="text-base-content/50 text-center text-sm font-light italic"
+					>
 						<span>No workflows found.</span>
 					</td>
 				</tr>
@@ -457,7 +460,10 @@
 {#if installingPublishedArtifactId}
 	<PublishedWorkflowInstallModal
 		publishedArtifactId={installingPublishedArtifactId}
-		onClose={() => (installingPublishedArtifactId = '')}
+		onClose={() => {
+			installing.delete(installingPublishedArtifactId);
+			installingPublishedArtifactId = '';
+		}}
 		onSuccess={() => {
 			$nanobotChat?.api.listResources().then((resources) => {
 				nanobotChat.update((data) => {

@@ -128,14 +128,6 @@ export async function getPublishedArtifact(
 	return response;
 }
 
-export async function downloadPublishedArtifact(
-	id: string,
-	opts?: { fetch?: Fetcher }
-): Promise<Blob> {
-	const response = (await doGet(`/published-artifacts/${id}/download`, opts)) as Blob;
-	return response;
-}
-
 export async function updatePublishedArtifact(
 	id: string,
 	request: PublishedArtifactUpdateRequest,

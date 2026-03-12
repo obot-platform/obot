@@ -28,7 +28,7 @@
 	let publishedArtifactIdToUse = $state<string>('');
 
 	async function handleUpdateCheck() {
-		if (!publishedArtifactId) return;
+		if (!publishedArtifactIdToUse) return;
 		onCheckForUpdates(publishedArtifactIdToUse);
 	}
 </script>
