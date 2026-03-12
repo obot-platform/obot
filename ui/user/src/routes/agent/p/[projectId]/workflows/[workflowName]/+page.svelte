@@ -174,8 +174,11 @@
 							NanobotService.updatePublishedArtifact(publishedInfo.id, {
 								visibility
 							}).then(() => {
-								if (publishedInfo) {
-									publishedInfo.visibility = visibility;
+								if (publishedInfo?.id) {
+									publishedInfo = {
+										...publishedInfo,
+										visibility
+									};
 								}
 							});
 							e.currentTarget.blur();

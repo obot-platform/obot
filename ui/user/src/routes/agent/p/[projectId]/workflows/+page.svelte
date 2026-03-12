@@ -127,11 +127,14 @@
 				return data;
 			});
 
-			goto(`/agent/p/${projectId}?tid=${sessionClient.chatId}&wid=${workflowName}`, {
-				replaceState: true,
-				noScroll: true,
-				keepFocus: true
-			});
+			goto(
+				`/agent/p/${projectId}?tid=${sessionClient.chatId}&wid=${encodeURIComponent(workflowName)}`,
+				{
+					replaceState: true,
+					noScroll: true,
+					keepFocus: true
+				}
+			);
 			sessionClient.sendMessage(`Run workflow: ${workflowName}`);
 		});
 	}
@@ -339,7 +342,9 @@
 							if (e.key === 'Enter' || e.key === ' ') {
 								e.preventDefault();
 								if (workflow.createdBy === 'Me') {
-									goto(`/agent/p/${projectId}/workflows/${workflow.workflowId}`);
+									goto(
+										`/agent/p/${projectId}/workflows/${encodeURIComponent(workflow.workflowId)}`
+									);
 								}
 							}
 						}}

@@ -25,7 +25,7 @@
 		$nanobotChat.api.getSession($nanobotChat.api.sessionId).then((existingSession) => {
 			chat = existingSession;
 			chat.installArtifact(publishedArtifactId).then((response) => {
-				if (response.message.includes('Installed')) {
+				if (response.installedFiles.length > 0) {
 					onSuccess?.();
 				}
 			});
