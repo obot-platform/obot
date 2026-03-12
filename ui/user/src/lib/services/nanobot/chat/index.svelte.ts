@@ -20,7 +20,9 @@ import {
 	type ResourceContents,
 	type ToolOutputItem,
 	type UploadedFile,
-	type UploadingFile
+	type UploadingFile,
+	type InstallArtifactResponse,
+	type PublishArtifactResponse
 } from '../types';
 import { SvelteSet } from 'svelte/reactivity';
 
@@ -67,11 +69,17 @@ async function callMCPTool<T>(
 
 		return result as T;
 	} catch (error) {
-		try {
-			errors.append(error);
-		} catch {
-			// If context is not available (e.g., during SSR), just log
-			console.error('MCP Tool Error:', error);
+		const isAbort =
+			error instanceof Error &&
+			(error.name === 'AbortError' ||
+				/signal is aborted|aborted without reason/i.test(error.message));
+		if (!isAbort) {
+			try {
+				errors.append(error);
+			} catch {
+				// If context is not available (e.g., during SSR), just log
+				console.error('MCP Tool Error:', error);
+			}
 		}
 		throw error;
 	}
@@ -144,11 +152,13 @@ export class ChatAPI {
 		);
 	}
 
-	async getSession(sessionId: string): Promise<ChatSession> {
+	async getSession(sessionId: string, skipInitialResources?: boolean): Promise<ChatSession> {
 		const client = this.#getClientSession(sessionId);
 		const agents = await this.listAgents();
-		return new ChatSession(client, { chatId: sessionId, initialAgents: agents }, () =>
-			this.listAgents()
+		return new ChatSession(
+			client,
+			{ chatId: sessionId, initialAgents: agents, skipInitialResources: skipInitialResources },
+			() => this.listAgents()
 		);
 	}
 
@@ -181,6 +191,24 @@ export class ChatAPI {
 				uri: workflowUri
 			}
 		});
+	}
+
+	async installArtifact(publishedArtifactId?: string): Promise<InstallArtifactResponse> {
+		const response = await callMCPTool<InstallArtifactResponse>(this.mcpClient, 'installArtifact', {
+			payload: {
+				id: publishedArtifactId
+			}
+		});
+		return response;
+	}
+
+	async publishArtifact(workflowId: string): Promise<PublishArtifactResponse> {
+		const response = await callMCPTool<PublishArtifactResponse>(this.mcpClient, 'publishArtifact', {
+			payload: {
+				workflowName: workflowId
+			}
+		});
+		return response;
 	}
 }
 
@@ -426,7 +454,13 @@ export class ChatSession {
 				}
 			})
 			.catch((error) => {
-				errors.append(error);
+				const isAbort =
+					error instanceof Error &&
+					(error.name === 'AbortError' ||
+						/signal is aborted|aborted without reason/i.test(error.message));
+				if (!isAbort) {
+					errors.append(error);
+				}
 			});
 	};
 
@@ -841,6 +875,20 @@ export class ChatSession {
 			abort: controller
 		});
 	};
+
+	async installArtifact(
+		publishedArtifactId: string,
+		opts?: {
+			abort?: AbortController;
+		}
+	): Promise<InstallArtifactResponse> {
+		return await callMCPTool<InstallArtifactResponse>(this.sessionClient, 'installArtifact', {
+			payload: {
+				id: publishedArtifactId
+			},
+			abort: opts?.abort
+		});
+	}
 }
 
 function now(): string {

@@ -34,3 +34,61 @@ export function parseJSON<T>(json?: string): T | null {
 		return null;
 	}
 }
+
+export function splitFrontmatter(markdown: string): { frontmatter: string; body: string } {
+	const trimmed = markdown.trimStart();
+	if (!trimmed.startsWith('---')) {
+		return { frontmatter: '', body: markdown };
+	}
+	const afterFirstFence = trimmed.slice(3);
+	const secondFenceIndex = afterFirstFence.indexOf('\n---');
+	if (secondFenceIndex === -1) {
+		return { frontmatter: '', body: markdown };
+	}
+	const fenceEnd = afterFirstFence.indexOf('\n---') + 4; // include \n---
+	const frontmatter = markdown.slice(0, markdown.length - trimmed.length + 3 + fenceEnd);
+	const body = markdown.slice(markdown.length - trimmed.length + 3 + fenceEnd).replace(/^\n?/, '');
+	return { frontmatter, body };
+}
+
+export type FrontmatterParsed = {
+	metadata?: Record<string, unknown>;
+	[name: string]: unknown;
+};
+
+export function parseFrontmatter(frontmatterYaml: string): FrontmatterParsed {
+	if (!frontmatterYaml.trim()) return {};
+	try {
+		const out: FrontmatterParsed = {};
+		const lines = frontmatterYaml.split(/\r?\n/);
+		let inMetadata = false;
+		let metadataIndent = 0;
+		for (const line of lines) {
+			const trimmed = line.trimEnd();
+			if (!trimmed) continue;
+			const indent = line.length - line.trimStart().length;
+			if (inMetadata && indent <= metadataIndent && trimmed) {
+				inMetadata = false;
+			}
+			const keyMatch = trimmed.match(/^\s*(\w[-\w]*)\s*:\s*(.*)$/);
+			if (!keyMatch) continue;
+			const [, key, value] = keyMatch;
+			const rawValue = value.trim().replace(/^["']|["']$/g, '');
+			if (key === 'metadata') {
+				inMetadata = true;
+				metadataIndent = indent;
+				out.metadata = out.metadata ?? {};
+				continue;
+			}
+			if (inMetadata && indent > metadataIndent) {
+				out.metadata = out.metadata ?? {};
+				(out.metadata as Record<string, unknown>)[key] = rawValue || value.trim();
+				continue;
+			}
+			if (!inMetadata) (out as Record<string, unknown>)[key] = rawValue || value.trim();
+		}
+		return out;
+	} catch {
+		return {};
+	}
+}
