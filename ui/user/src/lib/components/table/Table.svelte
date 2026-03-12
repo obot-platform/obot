@@ -50,6 +50,7 @@
 		sectionPrimaryTitle?: string;
 		sectionSecondaryTitle?: string;
 		disablePortal?: boolean;
+		columnMaxWidths?: Record<string, number>;
 	}
 
 	const {
@@ -78,7 +79,8 @@
 		sectionedBy,
 		sectionPrimaryTitle,
 		sectionSecondaryTitle,
-		disablePortal
+		disablePortal,
+		columnMaxWidths
 	}: Props<T> = $props();
 
 	let page = $state(0);
@@ -149,7 +151,7 @@
 		let updatedTableData = data;
 
 		if (sortedBy) {
-			updatedTableData = data.sort((a, b) => {
+			updatedTableData = [...data].sort((a, b) => {
 				if (tableSelectActions && validateSelect && sortedBy?.property === 'selectable') {
 					const aSelectable = validateSelect(a);
 					const bSelectable = validateSelect(b);
@@ -345,10 +347,14 @@
 				index < selectColOffset + fields.length;
 			if (isFieldColumn) {
 				const fieldIndex = index - selectColOffset;
+				const property = fields[fieldIndex];
 				if (isHeaderCells) {
 					width += 32; // base cell padding only for headers
 				} else {
 					width += calculateFieldPadding(fieldIndex);
+				}
+				if (columnMaxWidths?.[property] != null) {
+					width = Math.min(width, columnMaxWidths[property]);
 				}
 			}
 
@@ -921,8 +927,18 @@
 			{/if}
 		{/if}
 		{#each visibleFields as fieldName (fieldName)}
-			<td class="overflow-hidden text-sm font-light">
-				<div class={twMerge('flex h-full min-h-12 w-full items-center px-4 py-2', classes?.row)}>
+			<td
+				class="overflow-hidden text-sm font-light"
+				style={columnMaxWidths?.[fieldName] != null
+					? `max-width: ${columnMaxWidths[fieldName]}px`
+					: undefined}
+			>
+				<div
+					class={twMerge(
+						'flex h-full min-h-12 w-full min-w-0 items-center px-4 py-2',
+						classes?.row
+					)}
+				>
 					{#if onRenderColumn}
 						{@render onRenderColumn(fieldName, d)}
 					{:else}

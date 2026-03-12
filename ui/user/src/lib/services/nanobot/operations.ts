@@ -7,7 +7,8 @@ import type {
 	ProjectV2CreateRequest,
 	ProjectV2UpdateRequest,
 	PublishedArtifact,
-	PublishedArtifactUpdateRequest
+	PublishedArtifactUpdateRequest,
+	Skill
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -139,4 +140,25 @@ export async function updatePublishedArtifact(
 
 export async function deletePublishedArtifact(id: string): Promise<void> {
 	await doDelete(`/published-artifacts/${id}`);
+}
+
+export async function listSkills(opts?: {
+	fetch?: Fetcher;
+	query?: string;
+	limit?: number;
+}): Promise<Skill[]> {
+	const response = (await doGet(
+		`/skills?query=${opts?.query}&limit=${opts?.limit ?? 200}`,
+		opts
+	)) as ItemsResponse<Skill>;
+	return response.items ?? [];
+}
+
+export async function getSkill(id: string, opts?: { fetch?: Fetcher }): Promise<Skill> {
+	const response = (await doGet(`/skills/${id}`, opts)) as Skill;
+	return response;
+}
+
+export async function downloadSkill(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
+	await doGet(`/skills/${id}/download`, opts);
 }

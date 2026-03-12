@@ -1,4 +1,5 @@
 import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
+import type { Skill } from '$lib/services/nanobot/types';
 import type {
 	ModelProvider,
 	Project,
@@ -52,7 +53,11 @@ import type {
 	MCPServerOAuthCredentialStatus,
 	TokenUsageTimeRange,
 	TotalTokenUsage,
-	TokenUsage
+	TokenUsage,
+	SkillRepository,
+	SkillRepositoryManifest,
+	SkillAccessPolicy,
+	SkillAccessPolicyManifest
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -1354,4 +1359,120 @@ function unwrapTokenUsageList(response: unknown): TokenUsage[] {
 	if (Array.isArray(response)) return response;
 	const list = response as { items?: TokenUsage[] };
 	return list?.items ?? [];
+}
+
+/**
+	// Skill repositories (admin only)
+	mux.HandleFunc("GET /api/skill-repositories", skillRepositories.List)
+	mux.HandleFunc("POST /api/skill-repositories", skillRepositories.Create)
+	mux.HandleFunc("GET /api/skill-repositories/{skill_repository_id}", skillRepositories.Get)
+	mux.HandleFunc("PUT /api/skill-repositories/{skill_repository_id}", skillRepositories.Update)
+	mux.HandleFunc("DELETE /api/skill-repositories/{skill_repository_id}", skillRepositories.Delete)
+	mux.HandleFunc("POST /api/skill-repositories/{skill_repository_id}/refresh", skillRepositories.Refresh)
+
+	// Skill access rules (admin only)
+	mux.HandleFunc("GET /api/skill-access-rules", skillAccessRules.List)
+	mux.HandleFunc("POST /api/skill-access-rules", skillAccessRules.Create)
+	mux.HandleFunc("GET /api/skill-access-rules/{skill_access_rule_id}", skillAccessRules.Get)
+	mux.HandleFunc("PUT /api/skill-access-rules/{skill_access_rule_id}", skillAccessRules.Update)
+	mux.HandleFunc("DELETE /api/skill-access-rules/{skill_access_rule_id}", skillAccessRules.Delete)
+ */
+
+export async function listSkillRepositories(opts?: {
+	fetch?: Fetcher;
+}): Promise<SkillRepository[]> {
+	const response = (await doGet('/skill-repositories', opts)) as ItemsResponse<SkillRepository>;
+	return response.items ?? [];
+}
+
+export async function getSkillRepository(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SkillRepository> {
+	const response = (await doGet(`/skill-repositories/${id}`, opts)) as SkillRepository;
+	return response;
+}
+
+export async function createSkillRepository(
+	request: SkillRepositoryManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SkillRepository> {
+	const response = (await doPost('/skill-repositories', request, opts)) as SkillRepository;
+	return response;
+}
+
+export async function updateSkillRepository(
+	id: string,
+	request: SkillRepositoryManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SkillRepository> {
+	const response = (await doPut(`/skill-repositories/${id}`, request, opts)) as SkillRepository;
+	return response;
+}
+
+export async function deleteSkillRepository(
+	id: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/skill-repositories/${id}`, opts);
+}
+
+export async function refreshSkillRepository(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SkillRepository> {
+	const response = (await doPost(`/skill-repositories/${id}/refresh`, {}, opts)) as SkillRepository;
+	return response;
+}
+
+export async function listAllSkills(opts?: {
+	fetch?: Fetcher;
+	query?: string;
+	repoId?: string;
+	limit?: number;
+}): Promise<Skill[]> {
+	const response = (await doGet(
+		`/skills?all=true&query=${opts?.query}&repoId=${opts?.repoId}&limit=${opts?.limit ?? 200}`,
+		opts
+	)) as ItemsResponse<Skill>;
+	return response.items ?? [];
+}
+
+export async function listSkillAccessPolicies(opts?: {
+	fetch?: Fetcher;
+}): Promise<SkillAccessPolicy[]> {
+	const response = (await doGet('/skill-access-rules', opts)) as ItemsResponse<SkillAccessPolicy>;
+	return response.items ?? [];
+}
+
+export async function getSkillAccessPolicy(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SkillAccessPolicy> {
+	const response = (await doGet(`/skill-access-rules/${id}`, opts)) as SkillAccessPolicy;
+	return response;
+}
+
+export async function createSkillAccessPolicy(
+	request: SkillAccessPolicyManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SkillAccessPolicy> {
+	const response = (await doPost('/skill-access-rules', request, opts)) as SkillAccessPolicy;
+	return response;
+}
+
+export async function updateSkillAccessPolicy(
+	id: string,
+	request: SkillAccessPolicyManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SkillAccessPolicy> {
+	const response = (await doPut(`/skill-access-rules/${id}`, request, opts)) as SkillAccessPolicy;
+	return response;
+}
+
+export async function deleteSkillAccessPolicy(
+	id: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/skill-access-rules/${id}`, opts);
 }
