@@ -140,19 +140,14 @@ func upsertSkills(ctx context.Context, c client.Client, namespace, repoID string
 }
 
 func listSkillsForRepo(ctx context.Context, c client.Client, namespace, repoID string) (map[string]*v1.Skill, error) {
-	// TODO: can a field selector be used for this?
 	var list v1.SkillList
-	if err := c.List(ctx, &list, client.InNamespace(namespace)); err != nil {
+	if err := c.List(ctx, &list, client.InNamespace(namespace), client.MatchingFields{"spec.repoID": repoID}); err != nil {
 		return nil, fmt.Errorf("failed to list indexed skills: %w", err)
 	}
 
-	result := make(map[string]*v1.Skill)
+	result := make(map[string]*v1.Skill, len(list.Items))
 	for i := range list.Items {
-		skill := &list.Items[i]
-		if skill.Spec.RepoID != repoID {
-			continue
-		}
-		result[skill.Name] = skill
+		result[list.Items[i].Name] = &list.Items[i]
 	}
 	return result, nil
 }

@@ -173,7 +173,7 @@ func newTestHelper(t *testing.T, rules ...*v1.SkillAccessRule) *Helper {
 	t.Helper()
 
 	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, gocache.Indexers{
-		skillIDIndex: func(obj any) ([]string, error) {
+		SkillIDIndex: func(obj any) ([]string, error) {
 			rule := obj.(*v1.SkillAccessRule)
 			var results []string
 			for _, resource := range rule.Spec.Manifest.Resources {
@@ -183,7 +183,7 @@ func newTestHelper(t *testing.T, rules ...*v1.SkillAccessRule) *Helper {
 			}
 			return results, nil
 		},
-		repositoryIDIndex: func(obj any) ([]string, error) {
+		RepositoryIDIndex: func(obj any) ([]string, error) {
 			rule := obj.(*v1.SkillAccessRule)
 			var results []string
 			for _, resource := range rule.Spec.Manifest.Resources {
@@ -193,7 +193,7 @@ func newTestHelper(t *testing.T, rules ...*v1.SkillAccessRule) *Helper {
 			}
 			return results, nil
 		},
-		resourceSelectorIndex: func(obj any) ([]string, error) {
+		ResourceSelectorIndex: func(obj any) ([]string, error) {
 			rule := obj.(*v1.SkillAccessRule)
 			var results []string
 			for _, resource := range rule.Spec.Manifest.Resources {
@@ -203,7 +203,7 @@ func newTestHelper(t *testing.T, rules ...*v1.SkillAccessRule) *Helper {
 			}
 			return results, nil
 		},
-		userIDIndex: func(obj any) ([]string, error) {
+		UserIDIndex: func(obj any) ([]string, error) {
 			rule := obj.(*v1.SkillAccessRule)
 			var results []string
 			for _, subject := range rule.Spec.Manifest.Subjects {
@@ -213,7 +213,7 @@ func newTestHelper(t *testing.T, rules ...*v1.SkillAccessRule) *Helper {
 			}
 			return results, nil
 		},
-		groupIDIndex: func(obj any) ([]string, error) {
+		GroupIDIndex: func(obj any) ([]string, error) {
 			rule := obj.(*v1.SkillAccessRule)
 			var results []string
 			for _, subject := range rule.Spec.Manifest.Subjects {
@@ -223,7 +223,7 @@ func newTestHelper(t *testing.T, rules ...*v1.SkillAccessRule) *Helper {
 			}
 			return results, nil
 		},
-		subjectSelectorIndex: func(obj any) ([]string, error) {
+		SubjectSelectorIndex: func(obj any) ([]string, error) {
 			rule := obj.(*v1.SkillAccessRule)
 			var results []string
 			for _, subject := range rule.Spec.Manifest.Subjects {

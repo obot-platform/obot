@@ -11,12 +11,12 @@ import (
 )
 
 const (
-	skillIDIndex          = "skill-ids"
-	repositoryIDIndex     = "repository-ids"
-	resourceSelectorIndex = "selectors"
-	userIDIndex           = "user-ids"
-	groupIDIndex          = "group-ids"
-	subjectSelectorIndex  = "subject-selectors"
+	SkillIDIndex          = "skill-ids"
+	RepositoryIDIndex     = "repository-ids"
+	ResourceSelectorIndex = "selectors"
+	UserIDIndex           = "user-ids"
+	GroupIDIndex          = "group-ids"
+	SubjectSelectorIndex  = "subject-selectors"
 )
 
 type Helper struct {
@@ -30,27 +30,27 @@ func NewHelper(sarIndexer gocache.Indexer) *Helper {
 }
 
 func (h *Helper) GetSkillAccessRulesForSkill(namespace, skillID string) ([]v1.SkillAccessRule, error) {
-	return h.getIndexedRules(namespace, skillIDIndex, skillID, "skill")
+	return h.getIndexedRules(namespace, SkillIDIndex, skillID, "skill")
 }
 
 func (h *Helper) GetSkillAccessRulesForRepository(namespace, repoID string) ([]v1.SkillAccessRule, error) {
-	return h.getIndexedRules(namespace, repositoryIDIndex, repoID, "repository")
+	return h.getIndexedRules(namespace, RepositoryIDIndex, repoID, "repository")
 }
 
 func (h *Helper) GetSkillAccessRulesForSelector(namespace, selector string) ([]v1.SkillAccessRule, error) {
-	return h.getIndexedRules(namespace, resourceSelectorIndex, selector, "selector")
+	return h.getIndexedRules(namespace, ResourceSelectorIndex, selector, "selector")
 }
 
 func (h *Helper) GetSkillAccessRulesForUser(namespace, userID string) ([]v1.SkillAccessRule, error) {
-	return h.getIndexedRules(namespace, userIDIndex, userID, "user")
+	return h.getIndexedRules(namespace, UserIDIndex, userID, "user")
 }
 
 func (h *Helper) GetSkillAccessRulesForGroup(namespace, groupID string) ([]v1.SkillAccessRule, error) {
-	return h.getIndexedRules(namespace, groupIDIndex, groupID, "group")
+	return h.getIndexedRules(namespace, GroupIDIndex, groupID, "group")
 }
 
 func (h *Helper) GetSkillAccessRulesForSubjectSelector(namespace, selector string) ([]v1.SkillAccessRule, error) {
-	return h.getIndexedRules(namespace, subjectSelectorIndex, selector, "subject selector")
+	return h.getIndexedRules(namespace, SubjectSelectorIndex, selector, "subject selector")
 }
 
 func (h *Helper) UserHasAccessToSkill(user kuser.Info, skill *v1.Skill) (bool, error) {

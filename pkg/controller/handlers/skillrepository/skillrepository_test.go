@@ -45,6 +45,13 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 	return fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithStatusSubresource(&v1.SkillRepository{}, &v1.Skill{}).
+		WithIndex(&v1.Skill{}, "spec.repoID", func(obj kclient.Object) []string {
+			skill := obj.(*v1.Skill)
+			if skill.Spec.RepoID == "" {
+				return nil
+			}
+			return []string{skill.Spec.RepoID}
+		}).
 		WithObjects(objects...).
 		Build()
 }
