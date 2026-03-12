@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const (
@@ -72,7 +73,7 @@ type githubTreeEntry struct {
 
 func newGitHubRepositoryFetcher() *githubRepositoryFetcher {
 	return &githubRepositoryFetcher{
-		client:            http.DefaultClient,
+		client:            &http.Client{Timeout: 2 * time.Minute},
 		apiBaseURL:        defaultGitHubAPIURL,
 		token:             os.Getenv("GITHUB_AUTH_TOKEN"),
 		maxRepoSizeMB:     maxRepoSizeMB,

@@ -79,7 +79,8 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		if statusErr := h.recordFailure(req.Ctx, req.Client, namespace, repo.Name, err); statusErr != nil {
 			return statusErr
 		}
-		return fmt.Errorf("failed to persist indexed skills: %w", err)
+		resp.RetryAfter(syncInterval)
+		return nil
 	}
 
 	if err := h.recordSuccess(req.Ctx, req.Client, namespace, repo.Name, fetched.CommitSHA, len(skills)); err != nil {

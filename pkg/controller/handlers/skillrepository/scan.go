@@ -88,7 +88,16 @@ func discoverSkillDirectories(repoRoot string) ([]string, error) {
 }
 
 func buildSkill(dirPath, relPath string, repo *v1.SkillRepository, commitSHA string, indexedAt metav1.Time) (*v1.Skill, error) {
-	content, err := os.ReadFile(filepath.Join(dirPath, skillformat.SkillMainFile))
+	skillPath := filepath.Join(dirPath, skillformat.SkillMainFile)
+	f, err := os.Open(skillPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s for %s: %w", skillformat.SkillMainFile, relPath, err)
+	}
+	defer f.Close()
+
+	// Read at most maxSkillMDBytes+1 bytes so we can detect oversized files
+	// without loading arbitrarily large contents into memory.
+	content, err := io.ReadAll(io.LimitReader(f, maxSkillMDBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read %s for %s: %w", skillformat.SkillMainFile, relPath, err)
 	}
