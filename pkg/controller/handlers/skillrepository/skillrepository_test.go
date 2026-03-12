@@ -742,10 +742,10 @@ func TestMaterializeSkillSource(t *testing.T) {
 			},
 		}
 
-		// Note: os.Lstat on symlink will NOT set ModeSymlink because safeJoinWithin
-		// resolves via filepath.Abs. The Lstat in materializeSkillSource checks the
-		// resolved path. Since the symlink target is a real directory, Lstat on the
-		// symlink itself should show ModeSymlink.
+		// Note: safeJoinWithin uses filepath.Abs, which cleans and makes the path
+		// absolute but does not resolve symlinks. materializeSkillSource calls
+		// os.Lstat on the joined path, so the symlink itself is inspected and
+		// should be reported with ModeSymlink, causing this test to fail as expected.
 		_, _, err := materializeSkillSource(ctx, fetcher, skill)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "symbolic link")

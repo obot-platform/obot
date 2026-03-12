@@ -52,7 +52,6 @@ func (*SkillRepositoryHandler) Create(req api.Context) error {
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.SkillRepositoryPrefix,
 			Namespace:    req.Namespace(),
-			Finalizers:   []string{v1.SkillRepositoryFinalizer},
 		},
 		Spec: v1.SkillRepositorySpec{
 			SkillRepositoryManifest: *manifest,

@@ -101,10 +101,9 @@ func TestDiscoverSkillDirectories(t *testing.T) {
 			t.Skip("symlinks not supported on this platform")
 		}
 
-		// Note: discoverSkillDirectories uses os.Lstat on SKILL.md, but since
-		// SKILL.md is a symlink to a regular file, Lstat will show it as a symlink.
-		// The function checks info.Mode()&os.ModeSymlink != 0, which should catch this.
-		// However, os.Lstat on the symlinked SKILL.md will show the symlink mode bit.
+		// discoverSkillDirectories uses os.Lstat, which inspects the symlink
+		// itself rather than following it. The ModeSymlink bit will be set,
+		// so the function rejects it as expected.
 		_, err := discoverSkillDirectories(root)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "symbolic links are not allowed")

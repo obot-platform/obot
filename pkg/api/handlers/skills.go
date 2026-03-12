@@ -19,6 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -159,7 +160,10 @@ func (h *SkillHandler) listAccessibleSkills(req api.Context, repoID string) ([]v
 	for skillID := range skillIDs {
 		skill, err := getSkill(req, skillID)
 		if err != nil {
-			continue
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return nil, err
 		}
 		results[skill.Name] = *skill
 	}
@@ -175,7 +179,13 @@ func (h *SkillHandler) listScopedSkillsForRepo(req api.Context, repoID string, a
 	results := map[string]v1.Skill{}
 	for skillID := range allowedSkillIDs {
 		skill, err := getSkill(req, skillID)
-		if err != nil || skill.Spec.RepoID != repoID {
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return nil, err
+		}
+		if skill.Spec.RepoID != repoID {
 			continue
 		}
 		results[skill.Name] = *skill

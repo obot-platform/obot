@@ -117,9 +117,13 @@ func upsertSkills(ctx context.Context, c client.Client, namespace, repoID string
 		}
 
 		existing.Spec = skill.Spec
-		existing.Status = skill.Status
 		if err := c.Update(ctx, existing); err != nil {
 			return fmt.Errorf("failed to update skill %s: %w", skill.Name, err)
+		}
+
+		existing.Status = skill.Status
+		if err := c.Status().Update(ctx, existing); err != nil {
+			return fmt.Errorf("failed to update skill status %s: %w", skill.Name, err)
 		}
 	}
 
