@@ -48,6 +48,9 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	models := handlers.NewModelHandler(services.ModelAccessPolicyHelper)
 	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPLoader, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper)
 	accessControlRules := handlers.NewAccessControlRuleHandler()
+	skillRepositories := handlers.NewSkillRepositoryHandler()
+	skillAccessRules := handlers.NewSkillAccessRuleHandler()
+	skills := handlers.NewSkillHandler(services.SkillAccessRuleHelper)
 	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler(services.ServerURL, services.AccessControlRuleHelper)
 	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler()
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher)
@@ -615,6 +618,26 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/published-artifacts/{id}/download", publishedArtifacts.Download)
 	mux.HandleFunc("PUT /api/published-artifacts/{id}", publishedArtifacts.Update)
 	mux.HandleFunc("DELETE /api/published-artifacts/{id}", publishedArtifacts.Delete)
+
+	// Skills
+	mux.HandleFunc("GET /api/skills", skills.List)
+	mux.HandleFunc("GET /api/skills/{id}", skills.Get)
+	mux.HandleFunc("GET /api/skills/{id}/download", skills.Download)
+
+	// Skill repositories (admin only)
+	mux.HandleFunc("GET /api/skill-repositories", skillRepositories.List)
+	mux.HandleFunc("POST /api/skill-repositories", skillRepositories.Create)
+	mux.HandleFunc("GET /api/skill-repositories/{skill_repository_id}", skillRepositories.Get)
+	mux.HandleFunc("PUT /api/skill-repositories/{skill_repository_id}", skillRepositories.Update)
+	mux.HandleFunc("DELETE /api/skill-repositories/{skill_repository_id}", skillRepositories.Delete)
+	mux.HandleFunc("POST /api/skill-repositories/{skill_repository_id}/refresh", skillRepositories.Refresh)
+
+	// Skill access rules (admin only)
+	mux.HandleFunc("GET /api/skill-access-rules", skillAccessRules.List)
+	mux.HandleFunc("POST /api/skill-access-rules", skillAccessRules.Create)
+	mux.HandleFunc("GET /api/skill-access-rules/{skill_access_rule_id}", skillAccessRules.Get)
+	mux.HandleFunc("PUT /api/skill-access-rules/{skill_access_rule_id}", skillAccessRules.Update)
+	mux.HandleFunc("DELETE /api/skill-access-rules/{skill_access_rule_id}", skillAccessRules.Delete)
 
 	// MCP Servers in projects
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", projectMCP.ListServer)

@@ -33,6 +33,7 @@ const (
 	AuthProviderSyncAnnotation          = "obot.ai/auth-provider-sync"
 	FileScannerProviderSyncAnnotation   = "obot.ai/file-scanner-provider-sync"
 	MCPCatalogSyncAnnotation            = "obot.ai/mcp-catalog-sync"
+	SkillRepositorySyncAnnotation       = "obot.ai/skill-repository-sync"
 	ThreadSyncAnnotation                = "obot.ai/thread-sync"
 	MCPServerCatalogEntrySyncAnnotation = "obot.ai/mcp-server-catalog-entry-sync"
 )
