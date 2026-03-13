@@ -17,6 +17,13 @@
 	let initialMessage = $state<string | undefined>(undefined);
 	let pendingFiles = $state<UploadedFile[]>([]);
 	let browserViewerOpen = $state(false);
+	let browserAvailable = $state(false);
+
+	function browserStatusUrl(baseUrl: string) {
+		const trimmedBaseUrl = baseUrl.replace(/\/$/, '');
+		const url = new URL(`${trimmedBaseUrl}/browser/status`);
+		return url.toString();
+	}
 
 	function cancelPendingUpload(fileId: string) {
 		const entry = pendingFiles.find((f) => f.id === fileId);
@@ -35,6 +42,32 @@
 		pendingFiles = [...pendingFiles, { id, file, uri, mimeType: file.type || undefined }];
 		return { name: file.name, uri, mimeType: file.type || undefined };
 	}
+
+	$effect(() => {
+		if (!agent.connectURL || typeof EventSource === 'undefined') {
+			return;
+		}
+
+		const eventSource = new EventSource(browserStatusUrl(agent.connectURL));
+		const handleStatus = (event: Event) => {
+			try {
+				const data = JSON.parse((event as MessageEvent<string>).data) as { available?: boolean };
+				browserAvailable = !!data.available;
+				if (!browserAvailable) {
+					browserViewerOpen = false;
+				}
+			} catch {
+				// Ignore malformed status events and keep the last known state.
+			}
+		};
+
+		eventSource.addEventListener('status', handleStatus);
+
+		return () => {
+			eventSource.removeEventListener('status', handleStatus);
+			eventSource.close();
+		};
+	});
 </script>
 
 <Layout
@@ -63,6 +96,7 @@
 			agentId={agent.id}
 			{projectId}
 			browserBaseUrl={agent.connectURL}
+			{browserAvailable}
 			bind:browserViewerOpen
 			chat={{
 				sendMessage: async (message: string, attachments?: Attachment[]) => {
@@ -139,6 +173,7 @@
 		<ThreadQuickAccess
 			{projectId}
 			agentId={agent.id}
+			{browserAvailable}
 			{browserViewerOpen}
 			onToggleBrowserViewer={() => (browserViewerOpen = !browserViewerOpen)}
 		/>

@@ -25,6 +25,7 @@
 		onToggleBrowserViewer?: () => void;
 		open?: boolean;
 		browserViewerOpen?: boolean;
+		browserAvailable?: boolean;
 		sessionId?: string;
 		selectedFile?: string;
 		agentId?: string;
@@ -36,6 +37,7 @@
 		onToggleBrowserViewer,
 		open,
 		browserViewerOpen = false,
+		browserAvailable = false,
 		sessionId,
 		selectedFile,
 		agentId,
@@ -95,7 +97,7 @@
 			<Profile {agentId} {projectId} />
 		</div>
 
-		{#if onToggleBrowserViewer}
+		{#if onToggleBrowserViewer && browserAvailable}
 			{#if open}
 				<button
 					class={twMerge(

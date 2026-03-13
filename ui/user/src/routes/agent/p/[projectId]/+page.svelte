@@ -24,6 +24,7 @@
 			agentId={agent.id}
 			{projectId}
 			{browserBaseUrl}
+			browserAvailable={projectLayout.browserAvailable}
 			bind:browserViewerOpen={projectLayout.browserViewerOpen}
 			chat={displayChat}
 			onFileOpen={projectLayout.handleFileOpen}

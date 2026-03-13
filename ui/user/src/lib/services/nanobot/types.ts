@@ -446,6 +446,8 @@ export interface ProjectLayoutContext {
 	setThreadContentWidth: (w: number) => void;
 	setLayoutName: (name: string) => void;
 	setShowBackButton: (show: boolean) => void;
+	browserAvailable: boolean;
+	setBrowserAvailable: (show: boolean) => void;
 	browserViewerOpen: boolean;
 	setBrowserViewerOpen: (show: boolean) => void;
 }
