@@ -31,6 +31,7 @@
 	let layoutName = $state('');
 	let showBackButton = $state(false);
 	let browserViewerOpen = $state(false);
+	let browserAvailable = $state(false);
 	/** Session ID we already tried to refresh for when it was missing (avoids loop if listSessions never returns it). */
 	let refreshedForMissingSessionId: string | null = null;
 	let titleInterval: ReturnType<typeof setInterval> | null = null;
@@ -43,6 +44,10 @@
 		setThreadContentWidth: (w: number) => (threadContentWidth = w),
 		setLayoutName: (name: string) => (layoutName = name),
 		setShowBackButton: (show: boolean) => (showBackButton = show),
+		get browserAvailable() {
+			return browserAvailable;
+		},
+		setBrowserAvailable: (show: boolean) => (browserAvailable = show),
 		get browserViewerOpen() {
 			return browserViewerOpen;
 		},
@@ -70,6 +75,38 @@
 		layout.quickBarAccessOpen = false;
 		selectedFile = filename;
 	}
+
+	function browserStatusUrl(baseUrl: string) {
+		const trimmedBaseUrl = baseUrl.replace(/\/$/, '');
+		const url = new URL(`${trimmedBaseUrl}/browser/status`);
+		return url.toString();
+	}
+
+	$effect(() => {
+		if (!data.agent.connectURL || typeof EventSource === 'undefined') {
+			return;
+		}
+
+		const eventSource = new EventSource(browserStatusUrl(data.agent.connectURL));
+		const handleStatus = (event: Event) => {
+			try {
+				const payload = JSON.parse((event as MessageEvent<string>).data) as { available?: boolean };
+				browserAvailable = !!payload.available;
+				if (!browserAvailable) {
+					browserViewerOpen = false;
+				}
+			} catch {
+				// Ignore malformed status events and keep the last known state.
+			}
+		};
+
+		eventSource.addEventListener('status', handleStatus);
+
+		return () => {
+			eventSource.removeEventListener('status', handleStatus);
+			eventSource.close();
+		};
+	});
 
 	$effect(() => {
 		if (parentWorkflowId || workflowId) {
@@ -287,6 +324,7 @@
 			onToggle={() => (layout.quickBarAccessOpen = !layout.quickBarAccessOpen)}
 			onToggleBrowserViewer={() => (browserViewerOpen = !browserViewerOpen)}
 			open={layout.quickBarAccessOpen}
+			{browserAvailable}
 			{browserViewerOpen}
 			{sessionId}
 			{selectedFile}

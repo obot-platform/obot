@@ -36,6 +36,7 @@
 		onCancel?: () => void;
 		onContentWidthChange?: (width: number) => void;
 		browserBaseUrl?: string;
+		browserAvailable?: boolean;
 		browserViewerOpen?: boolean;
 		cancelUpload?: (fileId: string) => void;
 		uploadingFiles?: UploadingFile[];
@@ -64,6 +65,7 @@
 		onCancel,
 		onContentWidthChange,
 		browserBaseUrl = '',
+		browserAvailable = false,
 		browserViewerOpen = $bindable(false),
 		cancelUpload,
 		uploadingFiles,
@@ -130,6 +132,12 @@
 		if (isResizing) {
 			window.addEventListener('mouseup', stopResize);
 			return () => window.removeEventListener('mouseup', stopResize);
+		}
+	});
+
+	$effect(() => {
+		if (!browserAvailable && browserViewerOpen) {
+			browserViewerOpen = false;
 		}
 	});
 
@@ -522,7 +530,7 @@
 		</div>
 	</div>
 
-	{#if browserViewerOpen}
+	{#if browserViewerOpen && browserAvailable}
 		<div
 			class="bg-base-300 hover:bg-primary w-1 cursor-col-resize transition-colors"
 			onmousedown={startResize}
@@ -531,7 +539,7 @@
 		></div>
 	{/if}
 
-	{#if browserViewerOpen}
+	{#if browserViewerOpen && browserAvailable}
 		<div class="flex flex-col" style="width: {browserViewerWidth}%">
 			<BrowserViewer bind:visible={browserViewerOpen} {browserBaseUrl} />
 		</div>

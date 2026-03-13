@@ -8,6 +8,7 @@
 		projectId: string;
 		chat: ChatSession;
 		browserBaseUrl?: string;
+		browserAvailable?: boolean;
 		browserViewerOpen?: boolean;
 		onFileOpen?: (filename: string) => void;
 		suppressEmptyState?: boolean;
@@ -17,6 +18,7 @@
 	let {
 		chat,
 		browserBaseUrl = '',
+		browserAvailable = false,
 		browserViewerOpen = $bindable(false),
 		onFileOpen,
 		suppressEmptyState,
@@ -49,6 +51,7 @@
 				}}
 				{onFileOpen}
 				{browserBaseUrl}
+				{browserAvailable}
 				bind:browserViewerOpen
 				onReadResource={chat.readResource}
 				{suppressEmptyState}
