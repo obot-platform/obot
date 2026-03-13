@@ -476,11 +476,11 @@
 										e.preventDefault();
 										e.stopPropagation();
 										if (!workflow.publishedArtifactId) return;
-										const match = myPublishedWorkflows.find(
+										const match = sharedWorkflows.find(
 											(w) => w.id === workflow.publishedArtifactId
 										);
 										if (!match) {
-											errors.append('Error: Could not find related published workflow');
+											errors.append('Error: Could not find related shared workflow');
 											return;
 										}
 										handleInstallWorkflow(match);
