@@ -193,7 +193,7 @@ config:
   OBOT_ARTIFACT_AZURE_CLIENT_SECRET: ""
 
   # config.OBOT_SERVER_MCPSERVER_SEARCH_IMAGE -- The container image to use for the MCP server search functionality. Defaults to ghcr.io/obot-platform/obot-mcp-server:v0.0.1
-  OBOT_SERVER_MCPSERVER_SEARCH_IMAGE: ghcr.io/obot-platform/obot-mcp-server:v0.0.1
+  OBOT_SERVER_MCPSERVER_SEARCH_IMAGE: ghcr.io/obot-platform/obot-mcp-server:v0.0.2
 
 # extraEnv -- A map of additional environment variables to set
 extraEnv: {}
