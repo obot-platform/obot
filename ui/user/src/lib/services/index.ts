@@ -1,6 +1,7 @@
 export * from './chat/operations';
 export * from './chat/types';
 export * from './admin/types';
+export * from './admin/mcpServers';
 export { default as AdminService } from './admin';
 export { default as ApiKeysService } from './api-keys';
 export { default as ChatService } from './chat';

@@ -4,6 +4,7 @@
 	import ProjectSidebar from './ProjectSidebar.svelte';
 	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
 	import ThreadQuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
+	import AgentRestartBanner from '$lib/components/nanobot/AgentRestartBanner.svelte';
 	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
@@ -88,85 +89,88 @@
 		<ProjectSidebar projectId={projects[0].id} />
 	{/snippet}
 
-	<div
-		class="flex w-full min-w-0 grow"
-		style={threadContentWidth > 0 ? `min-width: ${threadContentWidth}px` : ''}
-	>
-		<ProjectStartThread
-			agentId={agent.id}
-			{projectId}
-			browserBaseUrl={agent.connectURL}
-			{browserAvailable}
-			bind:browserViewerOpen
-			chat={{
-				sendMessage: async (message: string, attachments?: Attachment[]) => {
-					initialMessage = message;
-					const toUpload = [...pendingFiles];
-					pendingFiles = [];
-					toUpload.forEach((p) => {
-						if (p.uri?.startsWith('blob:')) URL.revokeObjectURL(p.uri);
-					});
-
-					$nanobotChat?.api.createSession().then(async (session) => {
-						const uploadedAttachments: Attachment[] = await Promise.all(
-							toUpload.map((p) => session.uploadFile(p.file))
-						);
-						const allAttachments = [...uploadedAttachments, ...(attachments ?? [])];
-						session.sendMessage(message, allAttachments.length > 0 ? allAttachments : undefined);
-						nanobotChat.update((data) => {
-							if (data) {
-								data.projectId = projectId;
-								data.chat = session;
-								data.sessionId = session.chatId;
-							}
-							return data;
+	<div class="flex min-w-0 grow flex-col gap-3 p-3 md:p-4">
+		<AgentRestartBanner agentId={agent.id} {projectId} />
+		<div
+			class="flex w-full min-w-0 grow"
+			style={threadContentWidth > 0 ? `min-width: ${threadContentWidth}px` : ''}
+		>
+			<ProjectStartThread
+				agentId={agent.id}
+				{projectId}
+				browserBaseUrl={agent.connectURL}
+				{browserAvailable}
+				bind:browserViewerOpen
+				chat={{
+					sendMessage: async (message: string, attachments?: Attachment[]) => {
+						initialMessage = message;
+						const toUpload = [...pendingFiles];
+						pendingFiles = [];
+						toUpload.forEach((p) => {
+							if (p.uri?.startsWith('blob:')) URL.revokeObjectURL(p.uri);
 						});
 
-						goto(`/agent/p/${projectId}?tid=${session.chatId}`, {
-							replaceState: true,
-							noScroll: true,
-							keepFocus: true
+						$nanobotChat?.api.createSession().then(async (session) => {
+							const uploadedAttachments: Attachment[] = await Promise.all(
+								toUpload.map((p) => session.uploadFile(p.file))
+							);
+							const allAttachments = [...uploadedAttachments, ...(attachments ?? [])];
+							session.sendMessage(message, allAttachments.length > 0 ? allAttachments : undefined);
+							nanobotChat.update((data) => {
+								if (data) {
+									data.projectId = projectId;
+									data.chat = session;
+									data.sessionId = session.chatId;
+								}
+								return data;
+							});
+
+							goto(`/agent/p/${projectId}?tid=${session.chatId}`, {
+								replaceState: true,
+								noScroll: true,
+								keepFocus: true
+							});
 						});
-					});
-				},
-				messages: initialMessage
-					? [
-							{
-								id: crypto.randomUUID(),
-								role: 'user',
-								created: new Date().toISOString(),
-								items: [
-									{
-										id: crypto.randomUUID(),
-										type: 'text',
-										text: initialMessage
-									}
-								]
-							}
-						]
-					: [],
-				prompts: [],
-				resources: [],
-				agent: undefined,
-				agents: [],
-				selectedAgentId: '',
-				elicitations: [],
-				isLoading: false,
-				isRestoring: false,
-				chatId: '',
-				uploadFile: handleFileUpload,
-				uploadedFiles: pendingFiles,
-				uploadingFiles: [],
-				cancelUpload: cancelPendingUpload,
-				sessionClient: undefined,
-				closer: () => {},
-				history: [],
-				onChatDone: [],
-				currentRequestId: undefined,
-				subscribed: false
-			} as unknown as ChatSession}
-			onThreadContentWidth={(w) => (threadContentWidth = w)}
-		/>
+					},
+					messages: initialMessage
+						? [
+								{
+									id: crypto.randomUUID(),
+									role: 'user',
+									created: new Date().toISOString(),
+									items: [
+										{
+											id: crypto.randomUUID(),
+											type: 'text',
+											text: initialMessage
+										}
+									]
+								}
+							]
+						: [],
+					prompts: [],
+					resources: [],
+					agent: undefined,
+					agents: [],
+					selectedAgentId: '',
+					elicitations: [],
+					isLoading: false,
+					isRestoring: false,
+					chatId: '',
+					uploadFile: handleFileUpload,
+					uploadedFiles: pendingFiles,
+					uploadingFiles: [],
+					cancelUpload: cancelPendingUpload,
+					sessionClient: undefined,
+					closer: () => {},
+					history: [],
+					onChatDone: [],
+					currentRequestId: undefined,
+					subscribed: false
+				} as unknown as ChatSession}
+				onThreadContentWidth={(w) => (threadContentWidth = w)}
+			/>
+		</div>
 	</div>
 
 	{#snippet rightSidebar()}
