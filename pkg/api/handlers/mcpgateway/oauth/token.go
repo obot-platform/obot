@@ -44,6 +44,31 @@ type TokenExchangeResponse struct {
 	ExpiresIn       int    `json:"expires_in"`
 }
 
+// resolveUserGroups fetches a user's effective groups by resolving their individual role
+// merged with any group-based role assignments from their auth provider group memberships.
+// Returns the effective role groups, the auth provider group IDs (for AccessControlRule matching),
+// the user, and any error.
+func resolveUserGroups(ctx api.Context, userID string) ([]string, []string, *gwtypes.User, error) {
+	user, err := ctx.GatewayClient.UserByID(ctx.Context(), userID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	groupIDs, err := ctx.GatewayClient.ListGroupIDsForUser(ctx.Context(), user.ID)
+	if err != nil {
+		log.Warnf("failed to list group IDs for user %s: %s", userID, err.Error())
+		return user.Role.Groups(), nil, user, nil
+	}
+
+	effectiveRole, err := ctx.GatewayClient.ResolveUserEffectiveRole(ctx.Context(), user, groupIDs)
+	if err != nil {
+		log.Warnf("failed to resolve effective role for user %s: %s", userID, err.Error())
+		return user.Role.Groups(), groupIDs, user, nil
+	}
+
+	return effectiveRole.Groups(), groupIDs, user, nil
+}
+
 func (h *handler) token(req api.Context) error {
 	if err := req.ParseForm(); err != nil {
 		return types.NewErrBadRequest("failed to parse request body: %v", err)
@@ -198,7 +223,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	}
 
 	userID := fmt.Sprintf("%d", oauthAuthRequest.Spec.UserID)
-	user, err := req.GatewayClient.UserByID(req.Context(), userID)
+	userGroups, authProviderGroupIDs, user, err := resolveUserGroups(req, userID)
 	if err != nil {
 		return types.NewErrBadRequest("%v", Error{
 			Code:        ErrInvalidRequest,
@@ -216,10 +241,11 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		UserName:              user.Username,
 		UserEmail:             user.Email,
 		Picture:               user.IconURL,
-		UserGroups:            user.Role.Groups(),
+		UserGroups:            userGroups,
 		AuthProviderName:      oauthAuthRequest.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthAuthRequest.Spec.AuthProviderNamespace,
 		AuthProviderUserID:    oauthAuthRequest.Spec.AuthProviderUserID,
+		AuthProviderGroupIDs:  authProviderGroupIDs,
 		MCPID:                 oauthAuthRequest.Spec.MCPID,
 	}
 	tkn, err := h.tokenService.NewToken(req.Context(), tknCtx)
@@ -280,7 +306,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 	}
 
 	userID := fmt.Sprintf("%d", oauthToken.Spec.UserID)
-	user, err := req.GatewayClient.UserByID(req.Context(), userID)
+	userGroups, authProviderGroupIDs, user, err := resolveUserGroups(req, userID)
 	if err != nil {
 		return types.NewErrBadRequest("%v", Error{
 			Code:        ErrInvalidRequest,
@@ -312,10 +338,11 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		UserName:              user.Username,
 		UserEmail:             user.Email,
 		Picture:               user.IconURL,
-		UserGroups:            user.Role.Groups(),
+		UserGroups:            userGroups,
 		AuthProviderName:      oauthToken.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,
 		AuthProviderUserID:    oauthToken.Spec.AuthProviderUserID,
+		AuthProviderGroupIDs:  authProviderGroupIDs,
 		MCPID:                 oauthToken.Spec.MCPID,
 	}
 	tkn, err := h.tokenService.NewToken(req.Context(), tknCtx)
@@ -541,28 +568,22 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		return types.NewErrNotFound("no token exchange for %s", resource)
 	} else if system.IsSystemMCPServerID(mcpID) {
 		// Return a new token that represents the user, so that the SystemMCPServer can make API calls to Obot on behalf of the user.
-		// Preserve the user's existing groups/roles when available from the subject token,
-		// otherwise look up the user to determine their role.
-		var userGroups []string
-		if tokenCtx != nil && len(tokenCtx.UserGroups) > 0 {
-			userGroups = tokenCtx.UserGroups
-		} else {
-			user, err := req.GatewayClient.UserByID(req.Context(), userID)
-			if err != nil {
-				return fmt.Errorf("failed to look up user for token exchange: %w", err)
-			}
-			userGroups = user.Role.Groups()
+		// Always resolve effective groups from the database to ensure group-based role assignments are included.
+		userGroups, authProviderGroupIDs, _, err := resolveUserGroups(req, userID)
+		if err != nil {
+			return fmt.Errorf("failed to look up user for token exchange: %w", err)
 		}
 
 		now := time.Now()
 		expiresAt := now.Add(time.Hour)
 		token, err := h.tokenService.NewToken(req.Context(), persistent.TokenContext{
-			Audience:   h.baseURL,
-			IssuedAt:   now,
-			ExpiresAt:  expiresAt,
-			UserID:     userID,
-			UserGroups: userGroups,
-			Namespace:  system.DefaultNamespace,
+			Audience:             h.baseURL,
+			IssuedAt:             now,
+			ExpiresAt:            expiresAt,
+			UserID:               userID,
+			UserGroups:           userGroups,
+			AuthProviderGroupIDs: authProviderGroupIDs,
+			Namespace:            system.DefaultNamespace,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to generate token: %w", err)

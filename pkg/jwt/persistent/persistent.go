@@ -147,6 +147,7 @@ type TokenContext struct {
 	AuthProviderName      string
 	AuthProviderNamespace string
 	AuthProviderUserID    string
+	AuthProviderGroupIDs []string
 
 	MCPID string
 
@@ -209,6 +210,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 					"email":                   {tokenContext.UserEmail},
 					"auth_provider_name":      {tokenContext.AuthProviderName},
 					"auth_provider_namespace": {tokenContext.AuthProviderNamespace},
+					"auth_provider_groups":    tokenContext.AuthProviderGroupIDs,
 					"mcp_id":                  {tokenContext.MCPID},
 					"resource":                {tokenContext.Audience},
 					"oauthScope":              {tokenContext.OAuthScope},
@@ -252,6 +254,12 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		groups = slices.DeleteFunc(groups, func(s string) bool { return s == "" })
 	}
 
+	var authProviderGroupIDs []string
+	if apgIDs, ok := claims["AuthProviderGroupIDs"].(string); ok {
+		authProviderGroupIDs = strings.Split(apgIDs, ",")
+		authProviderGroupIDs = slices.DeleteFunc(authProviderGroupIDs, func(s string) bool { return s == "" })
+	}
+
 	var issuedAt, expiresAt time.Time
 	if iat, ok := claims["iat"].(float64); ok {
 		issuedAt = time.Unix(int64(iat), 0)
@@ -280,6 +288,7 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		AuthProviderName:      getStringClaim("AuthProviderName"),
 		AuthProviderNamespace: getStringClaim("AuthProviderNamespace"),
 		AuthProviderUserID:    getStringClaim("AuthProviderUserID"),
+		AuthProviderGroupIDs: authProviderGroupIDs,
 		MCPID:                 getStringClaim("MCPID"),
 		Namespace:             getStringClaim("Namespace"),
 		RunID:                 getStringClaim("RunID"),
@@ -319,6 +328,7 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (stri
 		"AuthProviderName":      context.AuthProviderName,
 		"AuthProviderNamespace": context.AuthProviderNamespace,
 		"AuthProviderUserID":    context.AuthProviderUserID,
+		"AuthProviderGroupIDs": strings.Join(context.AuthProviderGroupIDs, ","),
 		"MCPID":                 context.MCPID,
 		"Namespace":             context.Namespace,
 		"RunID":                 context.RunID,
