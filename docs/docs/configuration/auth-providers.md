@@ -198,6 +198,7 @@ Create one in the Auth0 Dashboard by navigating to Applications > Applications >
 
 1. Authorize the app for the **Auth0 Management API** with the following scopes:
    - `read:users`
+   - `read:roles`
    - `read:role_members`
 2. Take note of the **Client ID** and **Client Secret** for this application
 
