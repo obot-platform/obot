@@ -50,6 +50,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/proxy"
+	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/blob"
@@ -186,6 +187,9 @@ type Services struct {
 
 	// Used for indexed lookups of model access policies.
 	ModelAccessPolicyHelper *modelaccesspolicy.Helper
+
+	// Used for indexed lookups of skill access rules.
+	SkillAccessRuleHelper *skillaccessrule.Helper
 
 	WebhookHelper *mcp.WebhookHelper
 
@@ -685,6 +689,83 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	acrHelper := accesscontrolrule.NewAccessControlRuleHelper(acrInformer.GetIndexer(), r.Backend())
 
+	skillAccessRuleGVK, err := r.Backend().GroupVersionKindFor(&v1.SkillAccessRule{})
+	if err != nil {
+		return nil, err
+	}
+
+	skillAccessRuleInformer, err := r.Backend().GetInformerForKind(ctx, skillAccessRuleGVK)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = skillAccessRuleInformer.AddIndexers(map[string]gocache.IndexFunc{
+		skillaccessrule.SkillIDIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.SkillAccessRule)
+			var results []string
+			for _, resource := range rule.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.SkillResourceTypeSkill {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		skillaccessrule.RepositoryIDIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.SkillAccessRule)
+			var results []string
+			for _, resource := range rule.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.SkillResourceTypeSkillRepository {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		skillaccessrule.ResourceSelectorIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.SkillAccessRule)
+			var results []string
+			for _, resource := range rule.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.SkillResourceTypeSelector {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		skillaccessrule.UserIDIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.SkillAccessRule)
+			var results []string
+			for _, subject := range rule.Spec.Manifest.Subjects {
+				if subject.Type == apiclienttypes.SubjectTypeUser {
+					results = append(results, subject.ID)
+				}
+			}
+			return results, nil
+		},
+		skillaccessrule.GroupIDIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.SkillAccessRule)
+			var results []string
+			for _, subject := range rule.Spec.Manifest.Subjects {
+				if subject.Type == apiclienttypes.SubjectTypeGroup {
+					results = append(results, subject.ID)
+				}
+			}
+			return results, nil
+		},
+		skillaccessrule.SubjectSelectorIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.SkillAccessRule)
+			var results []string
+			for _, subject := range rule.Spec.Manifest.Subjects {
+				if subject.Type == apiclienttypes.SubjectTypeSelector {
+					results = append(results, subject.ID)
+				}
+			}
+			return results, nil
+		},
+	}); err != nil {
+		return nil, err
+	}
+
+	skillAccessRuleHelper := skillaccessrule.NewHelper(skillAccessRuleInformer.GetIndexer())
+
 	mapHelper, err := modelaccesspolicy.NewHelper(ctx, r.Backend())
 	if err != nil {
 		return nil, err
@@ -925,6 +1006,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		},
 		AccessControlRuleHelper:       acrHelper,
 		ModelAccessPolicyHelper:       mapHelper,
+		SkillAccessRuleHelper:         skillAccessRuleHelper,
 		WebhookHelper:                 webhookHelper,
 		LocalK8sConfig:                localK8sConfig,
 		MCPServerNamespace:            config.MCPNamespace,

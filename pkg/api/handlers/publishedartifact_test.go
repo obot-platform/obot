@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -453,35 +452,6 @@ func TestValidateZIP_Valid(t *testing.T) {
 	}
 }
 
-func TestValidateZIP_Symlink(t *testing.T) {
-	var buf bytes.Buffer
-	w := zip.NewWriter(&buf)
-
-	header := &zip.FileHeader{Name: "scripts/link", Method: zip.Store}
-	header.SetMode(os.ModeSymlink | 0o777)
-
-	fw, err := w.CreateHeader(header)
-	if err != nil {
-		t.Fatalf("failed to create symlink entry: %v", err)
-	}
-	if _, err := fw.Write([]byte("../outside")); err != nil {
-		t.Fatalf("failed to write symlink entry: %v", err)
-	}
-	if err := w.Close(); err != nil {
-		t.Fatalf("failed to close zip: %v", err)
-	}
-
-	r, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
-	if err != nil {
-		t.Fatalf("failed to create zip reader: %v", err)
-	}
-	if err := validateZIP(r); err == nil {
-		t.Fatal("expected error for symlink entry")
-	} else if !strings.Contains(err.Error(), "unsupported file type") {
-		t.Errorf("error = %q, want containing 'unsupported file type'", err.Error())
-	}
-}
-
 func TestCheckOwnership_ReturnsNotFoundForNonOwner(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPatch, "/api/published-artifacts/pa123", nil)
 	req.SetPathValue("id", "pa123")
@@ -511,5 +481,83 @@ func TestCheckOwnership_ReturnsNotFoundForNonOwner(t *testing.T) {
 	}
 	if !strings.Contains(errHTTP.Message, "pa123") {
 		t.Fatalf("message = %q, want artifact id", errHTTP.Message)
+	}
+}
+
+func TestValidateZIPEntryName(t *testing.T) {
+	tests := []struct {
+		name    string
+		entry   string
+		wantErr string
+	}{
+		{name: "valid simple", entry: "SKILL.md"},
+		{name: "valid nested", entry: "scripts/run.sh"},
+		{name: "absolute unix", entry: "/etc/passwd", wantErr: "absolute path"},
+		{name: "traversal unix", entry: "../etc/passwd", wantErr: "path traversal"},
+		{name: "traversal nested", entry: "foo/../../etc/passwd", wantErr: "path traversal"},
+		{name: "windows backslash traversal", entry: `..\..\evil.sh`, wantErr: "path traversal"},
+		{name: "windows drive letter", entry: `C:\tmp\evil.sh`, wantErr: "absolute path"},
+		{name: "windows drive slash", entry: "C:/tmp/evil.sh", wantErr: "absolute path"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateZIPEntryName(tt.entry)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("error = %q, want containing %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestRewriteSkillFrontmatterInZIP_EnforcesActualSize(t *testing.T) {
+	// Build a ZIP where we stuff content close to the limit to test that actual
+	// bytes are tracked. We use the Store method (no compression) so what we
+	// write is what gets decompressed.
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+
+	// SKILL.md first
+	skillContent := createSkillMDContent(t, "big", "Big skill.", nil)
+	fw, err := w.Create(skillformat.SkillMainFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fw.Write(skillContent); err != nil {
+		t.Fatal(err)
+	}
+
+	// A big file that pushes total past the limit.
+	header := &zip.FileHeader{Name: "big.bin", Method: zip.Store}
+	bw, err := w.CreateHeader(header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunk := make([]byte, 1024*1024) // 1 MB
+	for written := 0; written <= maxZIPUncompressedBytes; written += len(chunk) {
+		if _, err := bw.Write(chunk); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	fm := skillformat.Frontmatter{Name: "big", Description: "Big skill."}
+	_, err = rewriteSkillFrontmatterInZIP(buf.Bytes(), fm, "")
+	if err == nil {
+		t.Fatal("expected error for oversized content during rewrite")
+	}
+	if !strings.Contains(err.Error(), "exceeds limit") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -110,6 +110,13 @@ var (
 		"/api/storage-credentials/",
 		"/api/oauth-clients",
 		"/api/oauth-clients/",
+		"/api/skill-repositories",
+		"/api/skill-repositories/",
+		"/api/skill-access-rules",
+		"/api/skill-access-rules/",
+		"GET /api/skills",
+		"GET /api/skills/{id}",
+		"GET /api/skills/{id}/download",
 		"GET /api/eula",
 		"PUT /api/eula",
 		"PUT /api/app-preferences",
@@ -279,6 +286,11 @@ var (
 			"PUT /api/published-artifacts/{id}",
 			"DELETE /api/published-artifacts/{id}",
 
+			// Skill discovery and download are filtered in the handler.
+			"GET /api/skills",
+			"GET /api/skills/{id}",
+			"GET /api/skills/{id}/download",
+
 			// Allow basic users to create and list ProjectV2 resources
 			"POST /api/projectsv2",
 			"GET /api/projectsv2",
@@ -328,6 +340,9 @@ var (
 			"GET /api/published-artifacts",
 			"GET /api/published-artifacts/{id}",
 			"GET /api/published-artifacts/{id}/download",
+			"GET /api/skills",
+			"GET /api/skills/{id}",
+			"GET /api/skills/{id}/download",
 		},
 
 		MetricsGroup: {
