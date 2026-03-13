@@ -371,17 +371,28 @@
 {#if confirmInstallModal}
 	<PublishedWorkflowInstallModal
 		title="Update Workflow"
-		publishedArtifactId={relatedPublishedArtifactId}
+		publishedArtifact={{
+			id: relatedPublishedArtifactId,
+			displayName: (workflow?._meta?.displayName ??
+				workflow?._meta?.name ??
+				workflowName) as string,
+			created: new Date().toISOString(),
+			metadata: {},
+			name: workflowName,
+			description: '',
+			authorID: profile.current.id,
+			authorEmail: profile.current.email,
+			latestVersion: 1,
+			visibility: 'private'
+		}}
 		onClose={() => (confirmInstallModal = false)}
 		onSuccess={() => {
 			confirmInstallModal = false;
 			window.location.reload();
 		}}
-	>
-		<p class="my-4 text-sm">
-			Are you sure you want to update? Any existing changes will be overwritten.
-		</p>
-	</PublishedWorkflowInstallModal>
+		confirmButtonText="Update"
+		message="Are you sure you want to update? Any existing changes will be overwritten."
+	/>
 {/if}
 
 <svelte:head>
