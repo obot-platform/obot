@@ -679,6 +679,23 @@ def run_workflow_content_publishing_step_eval(ctx: Context) -> Result:
     return result
 
 
+def _expected_prompt_for_workflow(workflow_id: str, prompt_text: str) -> str | None:
+    """
+    Decide how to match SSE events for a conversation workflow.
+
+    - For deep_news_briefing and antv_dual_axes_viz: return None so we capture all
+      assistant content for potentially long, multi-phase prompts without relying
+      on exact echo matching.
+    - For other workflows (e.g. python_code_review): use the prompt text so we
+      associate assistant content strictly with this turn's user message.
+    """
+    if workflow_id == "deep_news_briefing":
+        return None
+    if workflow_id == "antv_dual_axes_viz":
+        return None
+    return prompt_text or None
+
+
 def run_workflow_conversation_eval(ctx: Context) -> Result:
     """
     Multi-turn conversation: send prompt → get response → run DeepEval (turn-specific criteria)
@@ -748,12 +765,9 @@ def run_workflow_conversation_eval(ctx: Context) -> Result:
                 if st != 200:
                     raise RuntimeError("chat send turn %d: status=%s" % (phase, st))
 
-            # Use expected_prompt=None so we capture any assistant content for this turn
-            # without depending on an exact echo of the prompt text in the SSE stream.
-            # With expected_prompt=prompt_text, longer or multi-phase prompts may not be
-            # echoed exactly, which would cause us to capture no assistant text at all.
+            expected_prompt = _expected_prompt_for_workflow(workflow_id, prompt_text)
             response_text, raw_sse, tools_used = mcp.get_response_from_events_async(
-                session_id, send_chat_fn=send_chat, expected_prompt=None
+                session_id, send_chat_fn=send_chat, expected_prompt=expected_prompt
             )
             response_texts.append(response_text or "")
             raw_sse_per_phase.append(raw_sse or "")

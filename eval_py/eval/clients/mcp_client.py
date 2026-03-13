@@ -166,6 +166,9 @@ class MCPClient:
         # used so we don't stop at a chat-done that only corresponds to prior history replay.
         turn_seen_prompt = expected_prompt is None
         turn_has_assistant = False
+        # When expected_prompt is None, only stop on chat-done after we've seen history-end,
+        # so we don't stop at an early chat-done that may follow history replay.
+        seen_history_end = False
         # When expected_prompt is None, server may send full history; keep only the last assistant segment
         # (content after the last user message) so multi-turn eval gets this turn's response only.
         assistant_segments: list[list[str]] = []
@@ -284,9 +287,14 @@ class MCPClient:
                 if line == "":
                     current_raw_lines.append("")
                     flush_event()
+                    if current_event == "history-end":
+                        seen_history_end = True
                     # Only stop on chat-done after we've seen assistant content for this turn.
-                    # This avoids exiting early on a chat-done that belongs to prior history.
-                    if current_event == "chat-done" and turn_has_assistant:
+                    # When expected_prompt is None, also require history-end so we don't stop at
+                    # an early chat-done that may be sent after history replay (before user 2 / assistant 2).
+                    if current_event == "chat-done" and turn_has_assistant and (
+                        expected_prompt is not None or seen_history_end
+                    ):
                         break
                     current_event = None
                     continue
