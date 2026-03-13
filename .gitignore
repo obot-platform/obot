@@ -62,3 +62,21 @@ __debug_*
 .claude/
 thoughts/
 thoughts
+
+# eval_py (Python eval framework)
+eval_py/__pycache__/
+eval_py/**/__pycache__/
+eval_py/.pytest_cache/
+eval_py/.venv/
+eval_py/venv/
+eval_py/*.egg-info/
+eval_py/.coverage
+eval_py/htmlcov/
+eval_py/eval/eval-api-log.txt
+eval_py/eval/**/eval-api-log.txt
+eval_py/**/*.pyc
+eval_py/**/.mypy_cache/
+eval_py/**/.ruff_cache/
+eval_py/eval/data/*.log
+eval_py/results.json
+eval_py/results*.json

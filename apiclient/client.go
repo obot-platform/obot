@@ -192,7 +192,7 @@ func toStream[T any](resp *http.Response) chan T {
 		lines := bufio.NewScanner(resp.Body)
 		for lines.Scan() {
 			var obj T
-			if data, ok := strings.CutPrefix(lines.Text(), "data: "); ok && eventName == "" || eventName == "message" {
+			if data, ok := strings.CutPrefix(lines.Text(), "data: "); ok && (eventName == "" || eventName == "message") {
 				if log.IsDebug() {
 					log.Fields("data", data).Debugf("Received data")
 				}

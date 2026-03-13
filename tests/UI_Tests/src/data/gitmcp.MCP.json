@@ -1,0 +1,16 @@
+{
+  "prompts": [
+    "What is the owner and repo for the library 'react'?",
+    "Fetch the documentation for the repository 'facebook/react'.",
+    "Search the documentation in 'facebook/react' for the term 'hooks'.",
+    "Search the code in 'facebook/react' for the keyword 'useState'.",
+    "Fetch the content from this URL: https://raw.githubusercontent.com/facebook/react/main/README.md"
+  ],
+  "tools": [
+    "gitmcpMatchCommonLibsOwnerRepoMapping",
+    "gitmcpFetchGenericDocumentation",
+    "gitmcpSearchGenericDocumentation",
+    "gitmcpSearchGenericCode",
+    "gitmcpFetchGenericUrlContent"
+  ]
+}
