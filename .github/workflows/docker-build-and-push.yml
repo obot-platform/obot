@@ -123,7 +123,7 @@ jobs:
           password: ${{ secrets.GHCR_TOKEN }}
 
       - name: Run Trivy
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.34.0
         with:
           image-ref: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
           skip-dirs: "**/venv"
@@ -219,7 +219,7 @@ jobs:
           password: ${{ secrets.GHCR_TOKEN }}
 
       - name: Run Trivy
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.34.0
         with:
           image-ref: ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
           skip-dirs: "**/venv"
