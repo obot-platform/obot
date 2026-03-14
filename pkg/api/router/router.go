@@ -616,6 +616,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/published-artifacts", publishedArtifacts.List)
 	mux.HandleFunc("GET /api/published-artifacts/{id}", publishedArtifacts.Get)
 	mux.HandleFunc("GET /api/published-artifacts/{id}/download", publishedArtifacts.Download)
+	mux.HandleFunc("GET /api/published-artifacts/{id}/{version}/skill", publishedArtifacts.GetSkillMD)
 	mux.HandleFunc("PUT /api/published-artifacts/{id}", publishedArtifacts.Update)
 	mux.HandleFunc("DELETE /api/published-artifacts/{id}", publishedArtifacts.Delete)
 

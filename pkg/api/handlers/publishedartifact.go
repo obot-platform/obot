@@ -360,6 +360,83 @@ func (h *PublishedArtifactHandler) Download(req api.Context) error {
 	return err
 }
 
+func (h *PublishedArtifactHandler) GetSkillMD(req api.Context) error {
+	if err := h.checkConfigured(); err != nil {
+		return err
+	}
+
+	id := req.PathValue("id")
+	var artifact v1.PublishedArtifact
+	if err := req.Get(&artifact, id); err != nil {
+		return err
+	}
+
+	if err := h.checkVisibility(&artifact, req); err != nil {
+		return err
+	}
+
+	version, err := strconv.Atoi(req.PathValue("version"))
+	if err != nil || version < 1 {
+		return types.NewErrBadRequest("invalid version: %s", req.PathValue("version"))
+	}
+
+	// Find the blob key for the requested version
+	blobKey := ""
+	for _, entry := range artifact.Status.Versions {
+		if entry.Version == version {
+			blobKey = entry.BlobKey
+			break
+		}
+	}
+	if blobKey == "" {
+		return types.NewErrNotFound("version %d not found", version)
+	}
+
+	reader, err := h.blobStore.Download(req.Context(), h.bucket, blobKey)
+	if err != nil {
+		return fmt.Errorf("failed to download artifact: %w", err)
+	}
+	defer reader.Close()
+
+	data, err := io.ReadAll(io.LimitReader(reader, maxArtifactUploadBytes+1))
+	if err != nil {
+		return fmt.Errorf("failed to read artifact blob: %w", err)
+	}
+	if len(data) > maxArtifactUploadBytes {
+		return fmt.Errorf("artifact blob exceeds maximum size")
+	}
+
+	r, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return fmt.Errorf("failed to read artifact ZIP: %w", err)
+	}
+
+	for _, f := range r.File {
+		if f.Name != skillformat.SkillMainFile {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return fmt.Errorf("failed to open %s: %w", skillformat.SkillMainFile, err)
+		}
+		defer rc.Close()
+
+		content, err := io.ReadAll(io.LimitReader(rc, maxSkillMDBytes+1))
+		if err != nil {
+			return fmt.Errorf("failed to read %s: %w", skillformat.SkillMainFile, err)
+		}
+		if len(content) > maxSkillMDBytes {
+			return fmt.Errorf("%s exceeds maximum size of %d bytes", skillformat.SkillMainFile, maxSkillMDBytes)
+		}
+
+		req.ResponseWriter.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+		_, err = req.ResponseWriter.Write(content)
+		return err
+	}
+
+	return types.NewErrNotFound("%s not found in artifact", skillformat.SkillMainFile)
+}
+
 func (h *PublishedArtifactHandler) Update(req api.Context) error {
 	if err := h.checkConfigured(); err != nil {
 		return err
