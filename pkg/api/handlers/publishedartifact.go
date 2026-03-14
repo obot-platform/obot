@@ -660,6 +660,18 @@ func randomHex(n int) (string, error) {
 }
 
 func convertPublishedArtifact(a *v1.PublishedArtifact) types.PublishedArtifact {
+	var versions []types.PublishedArtifactVersionSummary
+	if len(a.Status.Versions) > 0 {
+		versions = make([]types.PublishedArtifactVersionSummary, len(a.Status.Versions))
+		for i, v := range a.Status.Versions {
+			versions[i] = types.PublishedArtifactVersionSummary{
+				Version:     v.Version,
+				Description: v.Description,
+				CreatedAt:   v.CreatedAt,
+			}
+		}
+	}
+
 	return types.PublishedArtifact{
 		Metadata:                  MetadataFrom(a),
 		PublishedArtifactManifest: a.Spec.PublishedArtifactManifest,
@@ -667,5 +679,6 @@ func convertPublishedArtifact(a *v1.PublishedArtifact) types.PublishedArtifact {
 		AuthorID:                  a.Spec.AuthorID,
 		LatestVersion:             a.Spec.LatestVersion,
 		Visibility:                a.Spec.Visibility,
+		Versions:                  versions,
 	}
 }
