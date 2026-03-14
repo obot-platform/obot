@@ -28,11 +28,11 @@ type PublishedArtifactManifest struct {
 type PublishedArtifact struct {
 	Metadata
 	PublishedArtifactManifest
-	DisplayName   string                              `json:"displayName,omitempty"`
-	AuthorID      string                              `json:"authorID"`
-	LatestVersion int                                 `json:"latestVersion"`
-	Visibility    PublishedArtifactVisibility         `json:"visibility"`
-	Versions      []PublishedArtifactVersionSummary   `json:"versions,omitempty"`
+	DisplayName   string                            `json:"displayName,omitempty"`
+	AuthorID      string                            `json:"authorID"`
+	LatestVersion int                               `json:"latestVersion"`
+	Visibility    PublishedArtifactVisibility       `json:"visibility"`
+	Versions      []PublishedArtifactVersionSummary `json:"versions,omitempty"`
 }
 
 // PublishedArtifactVersionSummary is the public view of a version entry (no internal blob keys).
