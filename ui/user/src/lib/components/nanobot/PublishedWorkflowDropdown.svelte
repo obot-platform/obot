@@ -2,7 +2,14 @@
 	import { NanobotService } from '$lib/services';
 	import { parseFrontmatter, splitFrontmatter } from '$lib/services/nanobot/utils';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
-	import { Book, BookCopy, BookDashed, CircleArrowUp, EllipsisVertical } from 'lucide-svelte';
+	import {
+		Book,
+		BookCopy,
+		BookDashed,
+		CircleArrowUp,
+		EllipsisVertical,
+		Trash2
+	} from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
@@ -10,6 +17,7 @@
 		onPublish: () => void;
 		onUnpublish: () => void;
 		onCheckForUpdates: (publishedArtifactId: string) => void;
+		onDelete?: () => void;
 		disabled?: boolean;
 		workflowUri?: string;
 		relatedPublishedArtifactId?: string;
@@ -20,6 +28,7 @@
 		onPublish,
 		onUnpublish,
 		onCheckForUpdates,
+		onDelete,
 		disabled,
 		workflowUri,
 		relatedPublishedArtifactId
@@ -109,7 +118,7 @@
 						<span class="loading loading-spinner loading-xs"></span>
 					</div>
 				</li>
-			{:else if publishedArtifactIdToUse}
+			{:else}
 				<li>
 					<button
 						class="text-sm"
@@ -125,6 +134,21 @@
 					</button>
 				</li>
 			{/if}
+		{/if}
+		{#if onDelete}
+			<li>
+				<button
+					class="text-error hover:bg-error/10 text-sm"
+					onclick={(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						onDelete();
+					}}
+					{disabled}
+				>
+					<Trash2 class="size-4" /> Delete workflow
+				</button>
+			</li>
 		{/if}
 	</ul>
 </div>

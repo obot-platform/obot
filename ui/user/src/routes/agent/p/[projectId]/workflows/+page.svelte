@@ -2,11 +2,11 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
 	import { afterNavigate } from '$app/navigation';
-	import { Download, Play, Search, Workflow } from 'lucide-svelte';
+	import { CircleArrowUp, FolderInput, Play, Search, Workflow } from 'lucide-svelte';
 	import { getContext } from 'svelte';
 	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import { profile } from '$lib/stores/index.js';
+	import { errors, profile } from '$lib/stores/index.js';
 	import type { PublishedArtifact } from '$lib/services/nanobot/types';
 	import { formatTimeAgo } from '$lib/time.js';
 	import { NanobotService } from '$lib/services/index.js';
@@ -14,6 +14,7 @@
 	import { fly } from 'svelte/transition';
 	import PublishedWorkflowDropdown from '$lib/components/nanobot/PublishedWorkflowDropdown.svelte';
 	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
 
 	let { data } = $props();
 	let projectId = $derived(data.projects[0].id);
@@ -26,8 +27,17 @@
 	let publishing = new SvelteMap<string, boolean>();
 
 	let installing = new SvelteMap<string, boolean>();
-	let installingPublishedArtifactId = $state<string>('');
+	let installingPublishedArtifact = $state<PublishedArtifact | undefined>(undefined);
 	let installType = $state<'new' | 'update'>();
+	let confirmDeleteWorkflow = $state<
+		| {
+				id: string;
+				displayName: string;
+				uri: string;
+		  }
+		| undefined
+	>();
+	let deleting = $state(false);
 
 	let workflows = $derived(
 		$nanobotChat?.resources
@@ -38,10 +48,8 @@
 	let workflowSet = $derived(new Set(workflows.map((w) => w.name)));
 	let { sharedWorkflows, myPublishedWorkflows } = $derived({
 		sharedWorkflows: publishedWorkflows
-			.filter(
-				(w) =>
-					w.visibility === 'public' && w.authorID !== profile.current.id && !workflowSet.has(w.name)
-			)
+			.filter((w) => w.visibility === 'public' && w.authorID !== profile.current.id)
+			.map((w) => ({ ...w, isInstalled: workflowSet.has(w.name) }))
 			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()),
 		myPublishedWorkflows: publishedWorkflows
 			.filter((w) => w.authorID === profile.current.id)
@@ -55,7 +63,7 @@
 			myPublishedWorkflows.map((w) => [w.name, w])
 		);
 		return [
-			...(activeTab === 'shared' || workflowQuery.trim().length > 0
+			...(activeTab === 'shared'
 				? sharedWorkflows.map((w) => ({
 						id: w.id,
 						workflowId: w.name,
@@ -64,10 +72,11 @@
 						published: w.created,
 						visibility: w.visibility,
 						createdBy: w.authorEmail,
-						workflowUri: undefined
+						workflowUri: undefined,
+						isInstalled: w.isInstalled
 					}))
 				: []),
-			...(activeTab === 'my' || workflowQuery.trim().length > 0
+			...(activeTab === 'my'
 				? workflows.map((w) => {
 						const publishedMatch = myPublishedMap.get(w.name);
 						return {
@@ -80,7 +89,8 @@
 							published: publishedMatch?.created,
 							visibility: publishedMatch?.visibility || 'private',
 							createdBy: 'Me',
-							workflowUri: w.uri
+							workflowUri: w.uri,
+							isInstalled: true
 						};
 					})
 				: [])
@@ -166,10 +176,10 @@
 			});
 	}
 
-	function handleInstallWorkflow(id: string) {
-		installing.set(id, true);
-		installingPublishedArtifactId = id;
-		installType = 'new';
+	function handleInstallWorkflow(publishedArtifact: PublishedArtifact) {
+		installing.set(publishedArtifact.id, true);
+		installingPublishedArtifact = publishedArtifact;
+		installType = workflowSet.has(publishedArtifact.name) ? 'update' : 'new';
 	}
 
 	function refresh() {
@@ -185,6 +195,44 @@
 			})
 			.finally(() => {
 				loading = false;
+			});
+	}
+
+	const MAX_WORKFLOW_POLL_RETRIES = 5;
+	function pollAndNavigateToWorkflow(retriesLeft = MAX_WORKFLOW_POLL_RETRIES) {
+		if (!installingPublishedArtifact) return;
+		const workflowName = installingPublishedArtifact.name;
+		const clearInstalling = () => {
+			if (installingPublishedArtifact?.id) {
+				installing.delete(installingPublishedArtifact.id);
+				installingPublishedArtifact = undefined;
+			}
+		};
+		$nanobotChat?.api
+			.listResources()
+			.then((resources) => {
+				const match = resources.find((r) => r.name === workflowName);
+				nanobotChat.update((data) => {
+					if (data) {
+						data.resources = resources;
+					}
+					return data;
+				});
+				if (match && installingPublishedArtifact) {
+					clearInstalling();
+					goto(`/agent/p/${projectId}/workflows/${encodeURIComponent(workflowName)}`);
+				} else if (retriesLeft > 0) {
+					setTimeout(() => {
+						pollAndNavigateToWorkflow(retriesLeft - 1);
+					}, 1000);
+				} else {
+					clearInstalling();
+					errors.append('Error: Could not find workflow after installation');
+				}
+			})
+			.catch((error) => {
+				clearInstalling();
+				errors.append(error);
 			});
 	}
 
@@ -212,11 +260,6 @@
 	class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 md:px-8"
 	bind:this={workflowsContainer}
 >
-	<label class="input mt-1 w-full">
-		<Search class="size-6" />
-		<input type="search" required placeholder="Search workflows..." bind:value={workflowQuery} />
-	</label>
-
 	<div>
 		<div class="flex items-center gap-1">
 			<h2 class="text-2xl font-semibold">Workflows</h2>
@@ -230,76 +273,95 @@
 		</p>
 	</div>
 
-	{#if workflowQuery.trim().length === 0}
-		{#if recentlySharedToMe.length > 0}
-			<div class="list bg-base-100 rounded-box" out:fly={{ x: 100, duration: 150 }}>
-				<h3 class="px-4 pb-2 text-base font-semibold tracking-wide">Recently shared with me</h3>
-				{#each recentlySharedToMe as workflow (workflow.id)}
-					<div
-						class="list-row text-left"
-						out:fly={{ x: 100, duration: 150 }}
-						role="presentation"
-						onclick={(e) => {
-							const row = e.currentTarget as HTMLElement;
-							row.querySelector<HTMLButtonElement>('.dropdown button')?.click();
-						}}
-					>
-						<div>
-							<div class="rounded-box bg-base-300 flex size-10 items-center justify-center">
-								<Workflow class="size-6" />
-							</div>
+	{#if recentlySharedToMe.length > 0}
+		<div class="list bg-base-100 rounded-box" out:fly={{ x: 100, duration: 150 }}>
+			<h3 class="px-4 pb-2 text-base font-semibold tracking-wide">Recently shared with me</h3>
+			{#each recentlySharedToMe as workflow (workflow.id)}
+				<div
+					class="list-row text-left"
+					out:fly={{ x: 100, duration: 150 }}
+					role="presentation"
+					onclick={(e) => {
+						const row = e.currentTarget as HTMLElement;
+						row.querySelector<HTMLButtonElement>('.dropdown button')?.click();
+					}}
+				>
+					<div>
+						<div class="rounded-box bg-base-300 flex size-10 items-center justify-center">
+							<Workflow class="size-6" />
 						</div>
-						<div class="list-col-grow">
-							<div class="line-clamp-1 font-light">
-								{workflow.displayName}
-							</div>
-							<div class="text-xs opacity-40">
-								<span class="font-semibold uppercase">
-									{formatTimeAgo(workflow.created).relativeTime}
-								</span>
-								<span class="font-light">by {workflow.authorEmail}</span>
-							</div>
-						</div>
-						{#if installing.get(workflow.id)}
-							<div class="loading loading-spinner text-primary loading-sm mr-3"></div>
-						{:else}
-							<button
-								class="btn btn-ghost btn-square tooltip tooltip-left"
-								data-tip="Install workflow"
-								onclick={(e) => {
-									e.preventDefault();
-									e.stopPropagation();
-									if (!workflow.id) return;
-									handleInstallWorkflow(workflow.id);
-								}}
-							>
-								<Download class="size-4" />
-							</button>
-						{/if}
 					</div>
-				{/each}
-			</div>
+					<div class="list-col-grow">
+						<div class="line-clamp-1 font-light">
+							{workflow.displayName}
+						</div>
+						<div class="text-xs opacity-40">
+							<span class="font-semibold uppercase">
+								{formatTimeAgo(workflow.created).relativeTime}
+							</span>
+							<span class="font-light">by {workflow.authorEmail}</span>
+						</div>
+					</div>
+					{#if installing.get(workflow.id)}
+						<div class="loading loading-spinner text-primary loading-sm mr-3"></div>
+					{:else}
+						<button
+							class="btn btn-ghost btn-square tooltip tooltip-left"
+							data-tip={workflow.isInstalled ? 'Update workflow' : 'Install workflow'}
+							onclick={(e) => {
+								e.preventDefault();
+								e.stopPropagation();
+								if (!workflow.id) return;
+								handleInstallWorkflow(workflow);
+							}}
+						>
+							{#if workflow.isInstalled}
+								<CircleArrowUp class="size-5" />
+							{:else}
+								<FolderInput class="size-5" />
+							{/if}
+						</button>
+					{/if}
+				</div>
+			{/each}
+		</div>
 
-			<div class="divider my-0"></div>
-		{/if}
-
+		<div class="divider my-0"></div>
+	{/if}
+	<div class="flex flex-col gap-1">
 		<div role="tablist" class="tabs tabs-box">
 			<button
 				role="tab"
 				class="tab {activeTab === 'my' ? 'tab-active' : ''}"
-				onclick={() => (activeTab = 'my')}
+				onclick={() => {
+					activeTab = 'my';
+					workflowQuery = '';
+				}}
 			>
 				My Workflows
 			</button>
 			<button
 				role="tab"
 				class="tab {activeTab === 'shared' ? 'tab-active' : ''}"
-				onclick={() => (activeTab = 'shared')}
+				onclick={() => {
+					activeTab = 'shared';
+					workflowQuery = '';
+				}}
 			>
 				Shared With Me
 			</button>
 		</div>
-	{/if}
+
+		<label class="input mt-1 w-full">
+			<Search class="size-6" />
+			<input
+				type="search"
+				required
+				placeholder={activeTab === 'my' ? 'Search my workflows...' : 'Search shared workflows...'}
+				bind:value={workflowQuery}
+			/>
+		</label>
+	</div>
 
 	<table class="mb-8 table">
 		<!-- head -->
@@ -416,8 +478,19 @@
 										handlePublishWorkflow(workflow.workflowId, workflow.name);
 									}}
 									onCheckForUpdates={(id) => {
-										installingPublishedArtifactId = id;
+										installingPublishedArtifact = myPublishedWorkflows.find((w) => w.id === id);
 										installType = 'update';
+									}}
+									onDelete={() => {
+										if (!workflow.workflowUri) {
+											errors.append('Delete failed: Workflow uri not found');
+											return;
+										}
+										confirmDeleteWorkflow = {
+											id: workflow.workflowId,
+											displayName: workflow.name,
+											uri: workflow.workflowUri
+										};
 									}}
 								/>
 								<button
@@ -434,15 +507,26 @@
 							{:else if workflow.publishedArtifactId}
 								<button
 									class="btn btn-ghost btn-square tooltip tooltip-left"
-									data-tip="Install workflow"
+									data-tip={workflow.isInstalled ? 'Update workflow' : 'Install workflow'}
 									onclick={(e) => {
 										e.preventDefault();
 										e.stopPropagation();
 										if (!workflow.publishedArtifactId) return;
-										handleInstallWorkflow(workflow.publishedArtifactId);
+										const match = sharedWorkflows.find(
+											(w) => w.id === workflow.publishedArtifactId
+										);
+										if (!match) {
+											errors.append('Error: Could not find related shared workflow');
+											return;
+										}
+										handleInstallWorkflow(match);
 									}}
 								>
-									<Download class="size-4" />
+									{#if workflow.isInstalled}
+										<CircleArrowUp class="size-4" />
+									{:else}
+										<FolderInput class="size-4" />
+									{/if}
 								</button>
 							{/if}
 						</td>
@@ -462,34 +546,62 @@
 	</table>
 </div>
 
-{#if installingPublishedArtifactId}
+{#if installingPublishedArtifact}
 	<PublishedWorkflowInstallModal
-		publishedArtifactId={installingPublishedArtifactId}
+		publishedArtifact={installingPublishedArtifact}
 		onClose={() => {
-			installing.delete(installingPublishedArtifactId);
-			installingPublishedArtifactId = '';
+			if (installingPublishedArtifact) {
+				installing.delete(installingPublishedArtifact.id);
+			}
+			installingPublishedArtifact = undefined;
 		}}
 		onSuccess={() => {
-			$nanobotChat?.api.listResources().then((resources) => {
-				nanobotChat.update((data) => {
-					if (data) {
-						data.resources = resources;
-					}
-					return data;
-				});
-				installing.delete(installingPublishedArtifactId);
-				installingPublishedArtifactId = '';
-			});
+			pollAndNavigateToWorkflow();
 		}}
 		title={installType === 'new' ? 'Install Workflow' : 'Update Workflow'}
+		confirmButtonText={installType === 'new' ? 'Install' : 'Update'}
+		message={installType === 'update'
+			? 'Are you sure you want to update? Any existing changes will be overwritten.'
+			: undefined}
 	>
-		{#if installType === 'update'}
-			<p class="my-4 text-sm">
-				Are you sure you want to update? Any existing changes will be overwritten.
-			</p>
-		{/if}
+		{#snippet loadingText()}
+			{#if installType === 'update'}
+				Updating <i
+					>{installingPublishedArtifact?.displayName || installingPublishedArtifact?.name}...</i
+				>
+			{:else}
+				Installing <i
+					>{installingPublishedArtifact?.displayName || installingPublishedArtifact?.name}...</i
+				>
+			{/if}
+		{/snippet}
 	</PublishedWorkflowInstallModal>
 {/if}
+
+<Confirm
+	msg={`Delete ${confirmDeleteWorkflow?.displayName || 'this workflow'}?`}
+	show={confirmDeleteWorkflow !== undefined}
+	loading={deleting}
+	onsuccess={async () => {
+		if (!confirmDeleteWorkflow) return;
+		deleting = true;
+		try {
+			await $nanobotChat?.api.deleteWorkflow(confirmDeleteWorkflow.uri);
+			nanobotChat.update((data) => {
+				if (data) {
+					data.resources = data.resources.filter((r) => r.uri !== confirmDeleteWorkflow?.uri);
+				}
+				return data;
+			});
+			confirmDeleteWorkflow = undefined;
+		} catch (err) {
+			errors.append(`Failed to delete workflow: ${err}`);
+		} finally {
+			deleting = false;
+		}
+	}}
+	oncancel={() => (confirmDeleteWorkflow = undefined)}
+/>
 
 <svelte:head>
 	<title>Obot | Workflows</title>
