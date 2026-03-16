@@ -1,35 +1,63 @@
 <script lang="ts">
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
-	import { getContext } from 'svelte';
-	import type { ProjectLayoutContext, ResourceContents, Chat } from '$lib/services/nanobot/types';
+	import { getContext, untrack } from 'svelte';
+	import type {
+		ProjectLayoutContext,
+		ResourceContents,
+		Chat,
+		PublishedArtifact
+	} from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import MarkdownEditor from '$lib/components/nanobot/MarkdownEditor.svelte';
-	import { PencilLine, Play, Workflow, Eye, Trash2 } from 'lucide-svelte';
+	import { PencilLine, Play, Workflow, Eye, CircleArrowUp } from 'lucide-svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { goto } from '$lib/url';
 	import { NanobotService } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
 	import PublishedWorkflowDropdown from '$lib/components/nanobot/PublishedWorkflowDropdown.svelte';
-	import { splitFrontmatter, parseFrontmatter } from '$lib/services/nanobot/utils.js';
 	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
+	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
+	import ConfirmPublishWorkflow from '$lib/components/nanobot/ConfirmPublishWorkflow.svelte';
 
 	let { data } = $props();
 	let workflowName = $derived(data.workflowName);
 	let projectId = $derived(data.projectId);
-	let publishedInfo = $derived(data.publishedInfo);
+	let publishedWorkflows = $state<PublishedArtifact[]>(untrack(() => data.publishedWorkflows));
+	let publishedInfo = $derived(
+		publishedWorkflows.find((w) => w.name === workflowName && w.authorID === profile.current.id)
+	);
 	let workflow = $derived(
 		$nanobotChat?.resources?.length
 			? $nanobotChat.resources.find((r) => r.name === workflowName)
 			: undefined
 	);
 	let resource = $state<ResourceContents>();
-	let relatedPublishedArtifactId = $state<string>('');
 	let sessions = $state<Chat[]>([]);
 	let loading = $state(false);
 	let deletingWorkflow = $state(false);
 	let publishing = $state(false);
 	let confirmInstallModal = $state(false);
+
+	let showConfirmPublishWorkflow = $state(false);
+	let showWorkflowVersionDialog = $state(false);
+
+	let relatedPublishedArtifact = $derived(
+		publishedWorkflows.find(
+			(w) =>
+				w.authorEmail === (workflow?._meta?.['author-email'] as string) && w.name === workflow?.name
+		)
+	);
+	let hasPublishUpdate = $derived.by(() => {
+		if (!workflow) return false;
+		const versionInstalled = workflow._meta?.version as string;
+		if (!relatedPublishedArtifact || !versionInstalled) return false;
+		const latestVersion =
+			relatedPublishedArtifact.versions[
+				relatedPublishedArtifact?.versions?.length - 1
+			]?.version.toString();
+		return latestVersion !== versionInstalled;
+	});
 
 	let workflowsContainer = $state<HTMLElement | undefined>(undefined);
 	type SortOption = 'name-asc' | 'name-desc' | 'created-desc' | 'created-asc';
@@ -78,9 +106,6 @@
 				.then((result) => {
 					if (result.contents?.length) {
 						resource = result.contents[0];
-						const { frontmatter } = splitFrontmatter(resource.text || '');
-						const parsed = parseFrontmatter(frontmatter);
-						relatedPublishedArtifactId = (parsed.metadata?.id ?? '') as string;
 					}
 				})
 				.catch((error) => {
@@ -130,22 +155,8 @@
 		publishing = true;
 		$nanobotChat?.api
 			.publishArtifact(workflowName)
-			.then((response) => {
-				publishedInfo = {
-					// optimistic
-					id: response.id,
-					created: new Date().toISOString(),
-					metadata: {},
-					name: response.name,
-					displayName: (workflow?._meta?.displayName ??
-						workflow?._meta?.name ??
-						workflowName) as string,
-					description: '',
-					authorID: profile.current.id,
-					authorEmail: profile.current.email,
-					latestVersion: response.version,
-					visibility: 'private'
-				};
+			.then(async () => {
+				publishedWorkflows = await NanobotService.listPublishedWorkflows();
 			})
 			.finally(() => {
 				publishing = false;
@@ -159,10 +170,8 @@
 		bind:this={workflowsContainer}
 	>
 		<div class="mt-1 flex items-center justify-between gap-2">
-			<div>
-				{#if publishing}
-					<div class="skeleton skeleton-text">Publishing...</div>
-				{:else if publishedInfo}
+			<div class="flex items-center gap-2">
+				{#if publishedInfo}
 					<select
 						class="select w-36"
 						value={publishedInfo.visibility}
@@ -187,29 +196,39 @@
 						<option value="public">Public</option>
 						<option value="private">Private</option>
 					</select>
+				{/if}
+				{#if publishing}
+					<div class="skeleton skeleton-text">Publishing...</div>
 				{:else}
-					<button class="btn btn-primary" onclick={handlePublishWorkflow}>Publish</button>
+					<button class="btn btn-primary" onclick={() => (showConfirmPublishWorkflow = true)}
+						>Publish</button
+					>
+				{/if}
+				{#if publishedInfo}
+					<button class="btn btn-link px-2" onclick={() => (showWorkflowVersionDialog = true)}>
+						{publishedInfo.versions.length === 1
+							? '1 Version'
+							: `${publishedInfo.versions.length} Versions`}
+					</button>
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
-				{#if publishedInfo}
-					<PublishedWorkflowDropdown
-						publishedArtifactId={publishedInfo.id}
-						relatedPublishedArtifactId={relatedPublishedArtifactId || undefined}
-						onUnpublish={() => {
-							publishedInfo = undefined;
-						}}
-						onPublish={handlePublishWorkflow}
-						onCheckForUpdates={() => (confirmInstallModal = true)}
-					/>
+				{#if hasPublishUpdate}
+					<button class="btn" onclick={() => (confirmInstallModal = true)}>
+						Update <CircleArrowUp class="size-4" />
+					</button>
 				{/if}
-				<button
-					class="btn btn-error btn-soft btn-square tooltip tooltip-left"
-					data-tip="Delete workflow"
-					onclick={() => (deletingWorkflow = true)}
-				>
-					<Trash2 class="size-4" />
-				</button>
+				<PublishedWorkflowDropdown
+					publishedArtifactId={publishedInfo?.id}
+					relatedPublishedArtifactId={relatedPublishedArtifact?.id}
+					onUnpublish={() => {
+						publishedInfo = undefined;
+					}}
+					numVersions={publishedInfo?.versions?.length ?? 0}
+					onDelete={() => {
+						deletingWorkflow = true;
+					}}
+				/>
 			</div>
 		</div>
 		<button
@@ -368,11 +387,11 @@
 	oncancel={() => (deletingWorkflow = false)}
 />
 
-{#if confirmInstallModal && relatedPublishedArtifactId}
+{#if confirmInstallModal && relatedPublishedArtifact}
 	<PublishedWorkflowInstallModal
 		title="Update Workflow"
 		publishedArtifact={{
-			id: relatedPublishedArtifactId,
+			id: relatedPublishedArtifact?.id ?? '',
 			displayName: (workflow?._meta?.displayName ??
 				workflow?._meta?.name ??
 				workflowName) as string,
@@ -383,7 +402,8 @@
 			authorID: profile.current.id,
 			authorEmail: profile.current.email,
 			latestVersion: 1,
-			visibility: 'private'
+			visibility: 'private',
+			versions: []
 		}}
 		onClose={() => (confirmInstallModal = false)}
 		onSuccess={() => {
@@ -397,6 +417,31 @@
 			Updating <i>{workflow?._meta?.displayName ?? workflow?._meta?.name ?? workflowName}...</i>
 		{/snippet}
 	</PublishedWorkflowInstallModal>
+{/if}
+
+{#if showWorkflowVersionDialog}
+	<PublishedWorkflowVersionDialog
+		publishedArtifactId={publishedInfo?.id}
+		versions={publishedInfo?.versions ?? []}
+		workflowDisplayName={publishedInfo?.displayName}
+		onClose={() => (showWorkflowVersionDialog = false)}
+	/>
+{/if}
+
+{#if showConfirmPublishWorkflow}
+	<ConfirmPublishWorkflow
+		latestVersion={publishedInfo?.versions?.[publishedInfo?.versions?.length - 1]?.version ?? 0}
+		workflowUri={workflow?.uri ?? ''}
+		publishedArtifactId={publishedInfo?.id ?? ''}
+		onPublish={() => {
+			if (!showConfirmPublishWorkflow) return;
+			handlePublishWorkflow();
+			showConfirmPublishWorkflow = false;
+		}}
+		onCancel={() => {
+			showConfirmPublishWorkflow = false;
+		}}
+	/>
 {/if}
 
 <svelte:head>

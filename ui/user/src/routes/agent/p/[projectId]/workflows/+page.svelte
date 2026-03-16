@@ -9,12 +9,14 @@
 	import { errors, profile } from '$lib/stores/index.js';
 	import type { PublishedArtifact } from '$lib/services/nanobot/types';
 	import { formatTimeAgo } from '$lib/time.js';
-	import { NanobotService } from '$lib/services/index.js';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
 	import PublishedWorkflowDropdown from '$lib/components/nanobot/PublishedWorkflowDropdown.svelte';
 	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
+	import ConfirmPublishWorkflow from '$lib/components/nanobot/ConfirmPublishWorkflow.svelte';
+	import { NanobotService } from '$lib/services';
 
 	let { data } = $props();
 	let projectId = $derived(data.projects[0].id);
@@ -25,6 +27,16 @@
 	let sortBy = $state<'' | 'name-asc' | 'name-desc' | 'created-asc' | 'created-desc'>('');
 	let activeTab = $state<'my' | 'shared'>('my');
 	let publishing = new SvelteMap<string, boolean>();
+	let showConfirmPublishWorkflow = $state<
+		| {
+				latestVersion: number;
+				workflowUri: string;
+				workflowId: string;
+				workflowDisplayName: string;
+				publishedArtifactId: string;
+		  }
+		| undefined
+	>(undefined);
 
 	let installing = new SvelteMap<string, boolean>();
 	let installingPublishedArtifact = $state<PublishedArtifact | undefined>(undefined);
@@ -45,11 +57,17 @@
 			: []
 	);
 
-	let workflowSet = $derived(new Set(workflows.map((w) => w.name)));
+	let workflowSet = $derived(new Map(workflows.map((w) => [w.name, w])));
 	let { sharedWorkflows, myPublishedWorkflows } = $derived({
 		sharedWorkflows: publishedWorkflows
 			.filter((w) => w.visibility === 'public' && w.authorID !== profile.current.id)
-			.map((w) => ({ ...w, isInstalled: workflowSet.has(w.name) }))
+			.map((w) => ({
+				...w,
+				isInstalled: workflowSet.has(w.name),
+				isUpdated:
+					workflowSet.get(w.name)?._meta?.version ===
+					w.versions[w.versions?.length - 1]?.version.toString()
+			}))
 			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()),
 		myPublishedWorkflows: publishedWorkflows
 			.filter((w) => w.authorID === profile.current.id)
@@ -73,12 +91,17 @@
 						visibility: w.visibility,
 						createdBy: w.authorEmail,
 						workflowUri: undefined,
-						isInstalled: w.isInstalled
+						isInstalled: w.isInstalled,
+						isUpdated: w.isUpdated,
+						versions: []
 					}))
 				: []),
 			...(activeTab === 'my'
 				? workflows.map((w) => {
 						const publishedMatch = myPublishedMap.get(w.name);
+						const sharedMatch = sharedWorkflows.find(
+							(sw) => sw.name === w.name && sw.authorEmail === w._meta?.['author-email']
+						);
 						return {
 							id: w.name,
 							workflowId: w.name,
@@ -90,7 +113,14 @@
 							visibility: publishedMatch?.visibility || 'private',
 							createdBy: 'Me',
 							workflowUri: w.uri,
-							isInstalled: true
+							isInstalled:
+								sharedMatch &&
+								w._meta?.['author-email'] &&
+								w._meta?.['author-email'] !== profile.current.email,
+							isUpdated:
+								sharedMatch?.versions[sharedMatch?.versions?.length - 1]?.version.toString() ===
+								w._meta?.version,
+							versions: publishedMatch?.versions ?? []
 						};
 					})
 				: [])
@@ -121,6 +151,7 @@
 	);
 
 	let workflowsContainer = $state<HTMLElement | undefined>(undefined);
+	let showWorkflowVersionDialog = $state<(typeof tableData)[number] | undefined>(undefined);
 
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
 
@@ -149,27 +180,14 @@
 		});
 	}
 
-	function handlePublishWorkflow(workflowId: string, workflowDisplayName: string) {
+	function handlePublishWorkflow(workflowId: string) {
 		publishing.set(workflowId, true);
 		$nanobotChat?.api
 			.publishArtifact(workflowId)
-			.then((response) => {
-				myPublishedWorkflows = [
-					...myPublishedWorkflows,
-					{
-						// optimistic
-						id: response.id,
-						created: new Date().toISOString(),
-						metadata: {},
-						name: response.name,
-						displayName: workflowDisplayName,
-						description: '',
-						authorID: profile.current.id,
-						authorEmail: profile.current.email,
-						latestVersion: response.version,
-						visibility: 'private'
-					}
-				];
+			.then(() => {
+				NanobotService.listPublishedWorkflows().then((workflows) => {
+					myPublishedWorkflows = workflows;
+				});
 			})
 			.finally(() => {
 				publishing.delete(workflowId);
@@ -304,7 +322,7 @@
 					</div>
 					{#if installing.get(workflow.id)}
 						<div class="loading loading-spinner text-primary loading-sm mr-3"></div>
-					{:else}
+					{:else if !workflow.isInstalled || (workflow.isInstalled && !workflow.isUpdated)}
 						<button
 							class="btn btn-ghost btn-square tooltip tooltip-left"
 							data-tip={workflow.isInstalled ? 'Update workflow' : 'Install workflow'}
@@ -369,8 +387,8 @@
 			<tr>
 				<th>Name</th>
 				{#if activeTab === 'my' || showingSearchResults}
-					<th>Published</th>
-					<th>Visibility</th>
+					<th>Last Published</th>
+					<th>Versions</th>
 				{/if}
 				{#if activeTab === 'shared' || showingSearchResults}
 					<th>Owner</th>
@@ -419,46 +437,20 @@
 								{:else if workflow.published}
 									{formatTimeAgo(workflow.published).relativeTime}
 								{:else if workflow.createdBy === 'Me'}
-									<button
-										class="btn btn-link btn-sm font-light"
-										onclick={(e) => {
-											e.preventDefault();
-											e.stopPropagation();
-											handlePublishWorkflow(workflow.workflowId, workflow.name);
-										}}>Publish</button
-									>
+									-
 								{/if}
 							</td>
 							<td>
-								{#if workflow.published && workflow.createdBy === 'Me'}
-									<select
-										class="select w-36"
-										value={workflow.visibility}
-										onclick={(e) => {
-											e.preventDefault();
-											e.stopPropagation();
-										}}
-										onchange={(e) => {
-											e.preventDefault();
-											e.stopPropagation();
-											if (!workflow.publishedArtifactId) return;
-											const visibility = e.currentTarget.value as 'public' | 'private';
-											NanobotService.updatePublishedArtifact(workflow.publishedArtifactId, {
-												visibility
-											}).then(() => {
-												myPublishedWorkflows = myPublishedWorkflows.map((w) =>
-													w.id === workflow.publishedArtifactId ? { ...w, visibility } : w
-												);
-											});
-											e.currentTarget.blur();
-										}}
-									>
-										<option value="public">Public</option>
-										<option value="private">Private</option>
-									</select>
-								{:else}
-									<span> - </span>
-								{/if}
+								<button
+									class="btn btn-link"
+									onclick={(e) => {
+										e.preventDefault();
+										e.stopPropagation();
+										showWorkflowVersionDialog = workflow;
+									}}
+								>
+									{workflow.versions.length}
+								</button>
 							</td>
 						{/if}
 						{#if activeTab === 'shared' || showingSearchResults}
@@ -475,12 +467,24 @@
 										);
 									}}
 									onPublish={() => {
-										handlePublishWorkflow(workflow.workflowId, workflow.name);
+										const latestVersion =
+											workflow.versions && workflow.versions?.length > 0
+												? (workflow.versions[workflow.versions?.length - 1]?.version ?? 0)
+												: 0;
+										showConfirmPublishWorkflow = {
+											latestVersion,
+											workflowUri: workflow.workflowUri ?? '',
+											workflowId: workflow.workflowId ?? '',
+											workflowDisplayName: workflow.name ?? '',
+											publishedArtifactId: workflow.publishedArtifactId ?? ''
+										};
 									}}
-									onCheckForUpdates={(id) => {
-										installingPublishedArtifact = myPublishedWorkflows.find((w) => w.id === id);
-										installType = 'update';
-									}}
+									onCheckForUpdates={workflow.isInstalled && !workflow.isUpdated
+										? (id) => {
+												installingPublishedArtifact = myPublishedWorkflows.find((w) => w.id === id);
+												installType = 'update';
+											}
+										: undefined}
 									onDelete={() => {
 										if (!workflow.workflowUri) {
 											errors.append('Delete failed: Workflow uri not found');
@@ -492,6 +496,7 @@
 											uri: workflow.workflowUri
 										};
 									}}
+									numVersions={workflow.versions.length}
 								/>
 								<button
 									class="btn btn-ghost btn-square tooltip tooltip-top flex-shrink-0"
@@ -602,6 +607,31 @@
 	}}
 	oncancel={() => (confirmDeleteWorkflow = undefined)}
 />
+
+{#if showWorkflowVersionDialog}
+	<PublishedWorkflowVersionDialog
+		publishedArtifactId={showWorkflowVersionDialog.publishedArtifactId}
+		versions={showWorkflowVersionDialog.versions}
+		workflowDisplayName={showWorkflowVersionDialog.name}
+		onClose={() => (showWorkflowVersionDialog = undefined)}
+	/>
+{/if}
+
+{#if showConfirmPublishWorkflow}
+	<ConfirmPublishWorkflow
+		latestVersion={showConfirmPublishWorkflow.latestVersion}
+		workflowUri={showConfirmPublishWorkflow.workflowUri}
+		publishedArtifactId={showConfirmPublishWorkflow.publishedArtifactId}
+		onPublish={() => {
+			if (!showConfirmPublishWorkflow) return;
+			handlePublishWorkflow(showConfirmPublishWorkflow.workflowId);
+			showConfirmPublishWorkflow = undefined;
+		}}
+		onCancel={() => {
+			showConfirmPublishWorkflow = undefined;
+		}}
+	/>
+{/if}
 
 <svelte:head>
 	<title>Obot | Workflows</title>

@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { NanobotService } from '$lib/services';
-	import { parseFrontmatter, splitFrontmatter } from '$lib/services/nanobot/utils';
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import {
 		Book,
 		BookCopy,
@@ -14,13 +12,14 @@
 
 	interface Props {
 		publishedArtifactId?: string;
-		onPublish: () => void;
+		onPublish?: () => void;
 		onUnpublish: () => void;
-		onCheckForUpdates: (publishedArtifactId: string) => void;
+		onCheckForUpdates?: (publishedArtifactId: string) => void;
 		onDelete?: () => void;
 		disabled?: boolean;
 		workflowUri?: string;
 		relatedPublishedArtifactId?: string;
+		numVersions?: number;
 	}
 
 	let {
@@ -30,16 +29,8 @@
 		onCheckForUpdates,
 		onDelete,
 		disabled,
-		workflowUri,
-		relatedPublishedArtifactId
+		numVersions = 0
 	}: Props = $props();
-	let checkingForUpdates = $state(false);
-	let publishedArtifactIdToUse = $state<string>('');
-
-	async function handleUpdateCheck() {
-		if (!publishedArtifactIdToUse) return;
-		onCheckForUpdates(publishedArtifactIdToUse);
-	}
 </script>
 
 <div class="dropdown dropdown-left" in:fade={{ duration: 150 }}>
@@ -48,17 +39,6 @@
 		onclick={async (e) => {
 			e.preventDefault();
 			e.stopPropagation();
-			checkingForUpdates = true;
-			if (relatedPublishedArtifactId) {
-				publishedArtifactIdToUse = relatedPublishedArtifactId;
-			} else if (workflowUri) {
-				const resourceResponse = await $nanobotChat?.api.readResource(workflowUri);
-				const content = resourceResponse?.contents[0].text || '';
-				const { frontmatter } = splitFrontmatter(content);
-				const parsed = parseFrontmatter(frontmatter);
-				publishedArtifactIdToUse = (parsed.metadata?.id ?? '') as string;
-			}
-			checkingForUpdates = false;
 		}}
 		aria-label="More options"
 	>
@@ -66,20 +46,22 @@
 	</button>
 	<ul class="dropdown-content menu dropdown-menu w-52">
 		{#if publishedArtifactId}
-			<li>
-				<button
-					class="text-sm"
-					onclick={async (e) => {
-						e.preventDefault();
-						e.stopPropagation();
-						onPublish();
-						e.currentTarget.blur();
-					}}
-					{disabled}
-				>
-					<BookCopy class="size-4" /> Republish
-				</button>
-			</li>
+			{#if onPublish}
+				<li>
+					<button
+						class="text-sm"
+						onclick={async (e) => {
+							e.preventDefault();
+							e.stopPropagation();
+							onPublish();
+							e.currentTarget.blur();
+						}}
+						{disabled}
+					>
+						<BookCopy class="size-4" /> Publish
+					</button>
+				</li>
+			{/if}
 			<li>
 				<button
 					class="text-sm"
@@ -92,10 +74,11 @@
 					}}
 					{disabled}
 				>
-					<BookDashed class="size-4" /> Unpublish
+					<BookDashed class="size-4" />
+					{numVersions > 1 ? 'Unpublish All' : 'Unpublish'}
 				</button>
 			</li>
-		{:else}
+		{:else if onPublish}
 			<li>
 				<button
 					class="text-sm"
@@ -111,29 +94,22 @@
 				</button>
 			</li>
 		{/if}
-		{#if publishedArtifactIdToUse}
-			{#if checkingForUpdates}
-				<li>
-					<div>
-						<span class="loading loading-spinner loading-xs"></span>
-					</div>
-				</li>
-			{:else}
-				<li>
-					<button
-						class="text-sm"
-						{disabled}
-						onclick={(e) => {
-							e.preventDefault();
-							e.stopPropagation();
-							handleUpdateCheck();
-							e.currentTarget.blur();
-						}}
-					>
-						<CircleArrowUp class="size-4" /> Update
-					</button>
-				</li>
-			{/if}
+		{#if onCheckForUpdates}
+			<li>
+				<button
+					class="text-sm"
+					{disabled}
+					onclick={(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						if (!publishedArtifactId) return;
+						onCheckForUpdates?.(publishedArtifactId);
+						e.currentTarget.blur();
+					}}
+				>
+					<CircleArrowUp class="size-4" /> Update
+				</button>
+			</li>
 		{/if}
 		{#if onDelete}
 			<li>

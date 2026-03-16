@@ -454,6 +454,12 @@ export interface ProjectLayoutContext {
 
 export const PROJECT_LAYOUT_CONTEXT = 'nanobot-project-layout';
 
+export type PublishedArtifactVersion = {
+	version: number;
+	description: string;
+	createdAt: string;
+};
+
 export type PublishedArtifact = {
 	id: string;
 	created: string;
@@ -466,6 +472,7 @@ export type PublishedArtifact = {
 	authorEmail: string;
 	latestVersion: number;
 	visibility: 'public' | 'private';
+	versions: PublishedArtifactVersion[];
 };
 
 export interface PublishedArtifactUpdateRequest {

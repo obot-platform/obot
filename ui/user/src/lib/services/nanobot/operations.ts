@@ -160,3 +160,15 @@ export async function getSkill(id: string, opts?: { fetch?: Fetcher }): Promise<
 	const response = (await doGet(`/skills/${id}`, opts)) as Skill;
 	return response;
 }
+
+export async function getPublishedArtifactVersionContents(
+	id: string,
+	version: number,
+	opts?: { fetch?: Fetcher }
+): Promise<string> {
+	const response = (await doGet(`/published-artifacts/${id}/${version}/skill`, {
+		...opts,
+		text: true
+	})) as string;
+	return response;
+}
