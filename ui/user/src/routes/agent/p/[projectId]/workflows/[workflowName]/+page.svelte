@@ -210,9 +210,9 @@
 				{/if}
 				{#if publishedInfo}
 					<button class="btn btn-link px-2" onclick={() => (showWorkflowVersionDialog = true)}>
-						{publishedInfo.versions.length === 1
+						{publishedInfo.versions?.length === 1
 							? '1 Version'
-							: `${publishedInfo.versions.length} Versions`}
+							: `${publishedInfo.versions?.length} Versions`}
 					</button>
 				{/if}
 			</div>
@@ -224,7 +224,6 @@
 				{/if}
 				<PublishedWorkflowDropdown
 					publishedArtifactId={publishedInfo?.id}
-					relatedPublishedArtifactId={relatedPublishedArtifact?.id}
 					onUnpublish={() => {
 						publishedInfo = undefined;
 					}}

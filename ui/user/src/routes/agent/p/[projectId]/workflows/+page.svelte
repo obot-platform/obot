@@ -470,7 +470,6 @@
 							{#if workflow.createdBy === 'Me'}
 								<PublishedWorkflowDropdown
 									publishedArtifactId={workflow.publishedArtifactId}
-									workflowUri={workflow.workflowUri}
 									onUnpublish={() => {
 										myPublishedWorkflows = myPublishedWorkflows.filter(
 											(w) => w.id !== workflow.publishedArtifactId
