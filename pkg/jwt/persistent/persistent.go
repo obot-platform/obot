@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -16,12 +17,15 @@ import (
 	"github.com/MicahParks/jwkset"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
+
+var log = logger.Package()
 
 type TokenService struct {
 	lock              sync.RWMutex
@@ -200,19 +204,40 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 			},
 		}, true, nil
 	default:
+		extra := map[string][]string{
+			"email":                   {tokenContext.UserEmail},
+			"auth_provider_name":      {tokenContext.AuthProviderName},
+			"auth_provider_namespace": {tokenContext.AuthProviderNamespace},
+			"mcp_id":                  {tokenContext.MCPID},
+			"resource":                {tokenContext.Audience},
+			"oauthScope":              {tokenContext.OAuthScope},
+		}
+		groups := tokenContext.UserGroups
+
+		// Look up auth provider group memberships from the gateway DB
+		if userID, err := strconv.ParseUint(tokenContext.UserID, 10, 64); err == nil {
+			if authGroupIDs, err := t.gatewayClient.ListGroupIDsForUser(req.Context(), uint(userID)); err != nil {
+				log.Warnf("failed to list auth provider groups for user %s: %s", tokenContext.UserID, err.Error())
+			} else {
+				extra["auth_provider_groups"] = authGroupIDs
+
+				// Resolve effective role by merging individual + group roles
+				if gatewayUser, err := t.gatewayClient.UserByID(req.Context(), tokenContext.UserID); err != nil {
+					log.Warnf("failed to look up user %s for role resolution: %s", tokenContext.UserID, err.Error())
+				} else if effectiveRole, err := t.gatewayClient.ResolveUserEffectiveRole(req.Context(), gatewayUser, authGroupIDs); err != nil {
+					log.Warnf("failed to resolve effective role for user %s: %s", tokenContext.UserID, err.Error())
+				} else {
+					groups = effectiveRole.Groups()
+				}
+			}
+		}
+
 		return &authenticator.Response{
 			User: &user.DefaultInfo{
 				UID:    tokenContext.UserID,
 				Name:   tokenContext.UserName,
-				Groups: tokenContext.UserGroups,
-				Extra: map[string][]string{
-					"email":                   {tokenContext.UserEmail},
-					"auth_provider_name":      {tokenContext.AuthProviderName},
-					"auth_provider_namespace": {tokenContext.AuthProviderNamespace},
-					"mcp_id":                  {tokenContext.MCPID},
-					"resource":                {tokenContext.Audience},
-					"oauthScope":              {tokenContext.OAuthScope},
-				},
+				Groups: groups,
+				Extra:  extra,
 			},
 		}, true, nil
 	}
