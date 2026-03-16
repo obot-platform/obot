@@ -4,7 +4,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { Plus, Trash2, Vault } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { goto } from '$lib/url';
+	import { clearUrlParams, goto } from '$lib/url';
 	import { type SkillAccessPolicy } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
@@ -23,6 +23,7 @@
 	let showCreateNew = $derived(page.url.searchParams.has('new'));
 
 	async function navigateToCreated(policy: SkillAccessPolicy) {
+		clearUrlParams(['new']);
 		goto(`/admin/skill-access-policies/${policy.id}`, { replaceState: false });
 	}
 
@@ -126,7 +127,7 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<SkillAccessPolicyForm onCreate={navigateToCreated} />
+		<SkillAccessPolicyForm onCreate={navigateToCreated} readonly={isReadonly} />
 	</div>
 {/snippet}
 

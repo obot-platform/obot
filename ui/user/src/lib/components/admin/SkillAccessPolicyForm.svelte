@@ -20,6 +20,7 @@
 	import { goto } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
 	import SearchSkills from './SearchSkills.svelte';
+	import { errors } from '$lib/stores';
 
 	interface Props {
 		skillAccessPolicy?: SkillAccessPolicy;
@@ -78,9 +79,14 @@
 	);
 
 	onMount(async () => {
-		skills = await AdminService.listAllSkills();
-		skillRepositories = await AdminService.listSkillRepositories();
-		loadingSkills = false;
+		try {
+			skills = await AdminService.listAllSkills();
+			skillRepositories = await AdminService.listSkillRepositories();
+		} catch (error) {
+			errors.append(`Failed to load skills or skill repositories: ${error}`);
+		} finally {
+			loadingSkills = false;
+		}
 	});
 
 	let skillsMap = $derived(new Map(skills.map((s) => [s.id, s])));
@@ -356,7 +362,7 @@
 				>
 					{#snippet onRenderColumn(field, d)}
 						{#if field === 'name'}
-							<span class="font-medium">{d.name}</span>
+							<span class="font-light">{d.name}</span>
 						{:else}
 							{d[field as keyof typeof d]}
 						{/if}

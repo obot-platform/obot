@@ -1361,23 +1361,6 @@ function unwrapTokenUsageList(response: unknown): TokenUsage[] {
 	return list?.items ?? [];
 }
 
-/**
-	// Skill repositories (admin only)
-	mux.HandleFunc("GET /api/skill-repositories", skillRepositories.List)
-	mux.HandleFunc("POST /api/skill-repositories", skillRepositories.Create)
-	mux.HandleFunc("GET /api/skill-repositories/{skill_repository_id}", skillRepositories.Get)
-	mux.HandleFunc("PUT /api/skill-repositories/{skill_repository_id}", skillRepositories.Update)
-	mux.HandleFunc("DELETE /api/skill-repositories/{skill_repository_id}", skillRepositories.Delete)
-	mux.HandleFunc("POST /api/skill-repositories/{skill_repository_id}/refresh", skillRepositories.Refresh)
-
-	// Skill access rules (admin only)
-	mux.HandleFunc("GET /api/skill-access-rules", skillAccessRules.List)
-	mux.HandleFunc("POST /api/skill-access-rules", skillAccessRules.Create)
-	mux.HandleFunc("GET /api/skill-access-rules/{skill_access_rule_id}", skillAccessRules.Get)
-	mux.HandleFunc("PUT /api/skill-access-rules/{skill_access_rule_id}", skillAccessRules.Update)
-	mux.HandleFunc("DELETE /api/skill-access-rules/{skill_access_rule_id}", skillAccessRules.Delete)
- */
-
 export async function listSkillRepositories(opts?: {
 	fetch?: Fetcher;
 }): Promise<SkillRepository[]> {
@@ -1436,7 +1419,9 @@ export async function listAllSkills(opts?: {
 	if (opts?.query != null) params.set('q', opts.query);
 	if (opts?.repoId != null) params.set('repoID', opts.repoId);
 	if (opts?.limit != null) params.set('limit', String(opts.limit));
-	const response = (await doGet(`/skills?${params.toString()}`, opts)) as ItemsResponse<Skill>;
+	const queryString = params.toString();
+	const url = queryString ? `/skills?${queryString}` : '/skills';
+	const response = (await doGet(url, opts)) as ItemsResponse<Skill>;
 	return response.items ?? [];
 }
 

@@ -4,7 +4,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { profile } from '$lib/stores';
+	import { errors, profile } from '$lib/stores';
 	import {
 		TriangleAlert,
 		Info,
@@ -23,14 +23,18 @@
 	import { onDestroy, untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { formatTimeAgo } from '$lib/time';
-	import type { Skill } from '$lib/services/nanobot/types.js';
+	import type { Skill } from '$lib/services/nanobot/types';
 	import { page } from '$app/state';
 	import { goto } from '$lib/url.js';
 	import { resolve } from '$app/paths';
 
 	let { data } = $props();
 	let query = $derived(page.url.searchParams.get('query') ?? '');
-	let view = $state<'skills' | 'urls'>('skills');
+	let view = $derived<'skills' | 'urls'>(
+		((page.url.searchParams.get('view') as 'skills' | 'urls') ?? 'skills') === 'urls'
+			? 'urls'
+			: 'skills'
+	);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let syncing = new SvelteSet<string>();
 	let isSyncing = $derived(syncing.size > 0);
@@ -55,12 +59,13 @@
 	);
 	let skillRepositoriesMap = $derived(new Map(skillRepositories.map((d) => [d.id, d])));
 	let skillsTableData = $derived(
-		(query ? skills.filter((d) => d.name.toLowerCase().includes(query.toLowerCase())) : skills).map(
-			(d) => ({
-				...d,
-				repository: skillRepositoriesMap.get(d.repoID)?.displayName ?? ''
-			})
-		)
+		(query
+			? skills.filter((d) => d.name?.toLowerCase().includes(query.toLowerCase()))
+			: skills
+		).map((d) => ({
+			...d,
+			repository: d.repoID ? (skillRepositoriesMap.get(d.repoID)?.displayName ?? '') : ''
+		}))
 	);
 
 	let sourceDialog = $state<HTMLDialogElement | undefined>(undefined);
@@ -75,8 +80,14 @@
 	let saving = $state(false);
 
 	function switchView(newView: 'skills' | 'urls') {
-		view = newView;
 		goto(resolve(`/admin/skills?view=${newView}`), { replaceState: true });
+	}
+
+	function clearSyncInterval(id: string) {
+		if (syncInterval.get(id)) {
+			clearInterval(syncInterval.get(id));
+			syncInterval.delete(id);
+		}
 	}
 
 	function pollTillSyncComplete(id: string) {
@@ -87,14 +98,17 @@
 		syncInterval.set(
 			id,
 			setInterval(async () => {
-				const response = await AdminService.getSkillRepository(id);
-				if (response && !response.isSyncing) {
-					if (syncInterval.get(id)) {
-						clearInterval(syncInterval.get(id));
-						syncInterval.delete(id);
+				try {
+					const response = await AdminService.getSkillRepository(id);
+					if (response && !response.isSyncing) {
+						clearSyncInterval(id);
+						skillRepositories = await AdminService.listSkillRepositories();
+						skills = await AdminService.listAllSkills();
+						syncing.delete(id);
 					}
-					skillRepositories = await AdminService.listSkillRepositories();
-					skills = await AdminService.listAllSkills();
+				} catch (err) {
+					errors.append(`Failed to sync skill repository: ${err}`);
+					clearSyncInterval(id);
 					syncing.delete(id);
 				}
 			}, 5000)
@@ -109,17 +123,22 @@
 
 	async function sync(id: string) {
 		syncing.add(id);
-		const response = await AdminService.refreshSkillRepository(id);
-		if (!response.isSyncing) {
+		try {
+			const response = await AdminService.refreshSkillRepository(id);
+			if (response.isSyncing) {
+				pollTillSyncComplete(id);
+			} else {
+				syncing.delete(id);
+			}
+		} catch (err) {
+			errors.append(`Failed to retrieve skill repository sync status: ${err}`);
 			syncing.delete(id);
-		}
-		if (response.isSyncing) {
-			pollTillSyncComplete(id);
 		}
 	}
 
 	function updateSearchQuery(value: string) {
-		query = value;
+		const params = new URLSearchParams({ view, query: value });
+		goto(resolve(`/admin/skills?${params.toString()}`), { replaceState: true });
 	}
 
 	function closeSourceDialog() {
@@ -252,14 +271,14 @@
 		{#if skillRepositories.length > 0}
 			<Table
 				data={skillRepositoriesTableData}
-				fields={['displayName', 'url']}
+				fields={['displayName', 'repoURL']}
 				headers={[
 					{
 						property: 'displayName',
 						title: 'Name'
 					},
 					{
-						property: 'url',
+						property: 'repoURL',
 						title: 'URL'
 					}
 				]}
@@ -289,7 +308,7 @@
 					{/if}
 				{/snippet}
 				{#snippet onRenderColumn(property, d)}
-					{#if property === 'url'}
+					{#if property === 'repoURL'}
 						<div class="flex items-center gap-2">
 							<p>{d.repoURL}</p>
 							{#if d.syncError}
@@ -367,13 +386,18 @@
 	onsuccess={async () => {
 		if (!deletingSources) return;
 		deleting = true;
-		for (const source of deletingSources) {
-			await AdminService.deleteSkillRepository(source.id);
+		try {
+			for (const source of deletingSources) {
+				await AdminService.deleteSkillRepository(source.id);
+			}
+			skillRepositories = await AdminService.listSkillRepositories();
+			skills = await AdminService.listAllSkills();
+		} catch (error) {
+			errors.append(`Failed to delete Git Source URLs: ${error}`);
+		} finally {
+			deletingSources = undefined;
+			deleting = false;
 		}
-		skillRepositories = await AdminService.listSkillRepositories();
-		skills = await AdminService.listAllSkills();
-		deletingSources = undefined;
-		deleting = false;
 	}}
 	oncancel={() => (deletingSources = undefined)}
 	loading={deleting}
@@ -495,7 +519,7 @@
 		{/if}
 	</div>
 	<form class="dialog-backdrop">
-		<button type="button" onclick={() => sourceDialog?.close()}>close</button>
+		<button type="button" onclick={() => closeSourceDialog()}>close</button>
 	</form>
 </dialog>
 

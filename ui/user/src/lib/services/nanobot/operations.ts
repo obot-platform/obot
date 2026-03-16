@@ -149,15 +149,14 @@ export async function listSkills(opts?: {
 }): Promise<Skill[]> {
 	const params = new URLSearchParams();
 	if (opts?.query != null) params.set('q', opts.query);
-	const response = (await doGet(`/skills?${params.toString()}`, opts)) as ItemsResponse<Skill>;
+	if (opts?.limit != null) params.set('limit', opts.limit.toString());
+	const queryString = params.toString();
+	const url = queryString ? `/skills?${queryString}` : '/skills';
+	const response = (await doGet(url, opts)) as ItemsResponse<Skill>;
 	return response.items ?? [];
 }
 
 export async function getSkill(id: string, opts?: { fetch?: Fetcher }): Promise<Skill> {
 	const response = (await doGet(`/skills/${id}`, opts)) as Skill;
 	return response;
-}
-
-export async function downloadSkill(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
-	await doGet(`/skills/${id}/download`, opts);
 }

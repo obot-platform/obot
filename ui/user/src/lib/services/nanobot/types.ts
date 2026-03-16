@@ -489,23 +489,23 @@ export interface PublishArtifactResponse {
 
 export interface Skill {
 	id: string;
-	created: string;
+	created?: string;
 	deleted?: string | null;
 	type: string;
-	name: string;
-	description: string;
-	displayName: string;
-	license: string;
-	compatibility: string;
-	allowedTools: string;
-	metadata: Record<string, unknown>;
-	repoID: string;
-	repoURL: string;
-	repoRef: string;
-	commitSHA: string;
-	relativePath: string;
-	installHash: string;
-	valid: boolean;
-	validationError: string;
-	lastIndexedAt: string;
+	name?: string;
+	description?: string;
+	displayName?: string;
+	license?: string;
+	compatibility?: string;
+	allowedTools?: string;
+	metadata?: Record<string, unknown>;
+	repoID?: string;
+	repoURL?: string;
+	repoRef?: string;
+	commitSHA?: string;
+	relativePath?: string;
+	installHash?: string;
+	valid?: boolean;
+	validationError?: string;
+	lastIndexedAt?: string;
 }

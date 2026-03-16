@@ -34,6 +34,9 @@
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const skillsByRepository = new Map<string, Skill[]>();
 		for (const skill of skills) {
+			if (!skill.repoID) {
+				continue;
+			}
 			if (!skillsByRepository.has(skill.repoID)) {
 				skillsByRepository.set(skill.repoID, []);
 			}
@@ -58,7 +61,7 @@
 							type: 'skill',
 							id: s.id,
 							name: s.name,
-							description: s.description
+							description: s.description || ''
 						}))
 				);
 			}
@@ -66,8 +69,8 @@
 		return query
 			? items.filter(
 					(item) =>
-						item.name.toLowerCase().includes(query.toLowerCase()) ||
-						item.description.toLowerCase().includes(query.toLowerCase())
+						item.name?.toLowerCase().includes(query.toLowerCase()) ||
+						item.description?.toLowerCase().includes(query.toLowerCase())
 				)
 			: items;
 	});
@@ -145,11 +148,16 @@
 							'hover:bg-surface3 dark:hover:bg-surface1 flex items-center justify-between gap-4 px-4 py-3 text-left',
 							selectedSet.has(item.id) && 'dark:bg-gray-920 bg-gray-50'
 						)}
-						onclick={() =>
-							toggleSelection({
-								type: item.type as 'skillRepository' | 'skill',
-								id: item.id
-							})}
+						onclick={() => {
+							if (item.id === '*') {
+								toggleSelection({ type: 'selector', id: '*' });
+							} else {
+								toggleSelection({
+									type: item.type as 'skillRepository' | 'skill',
+									id: item.id
+								});
+							}
+						}}
 					>
 						<div class="flex items-center gap-2">
 							<div class="flex flex-col">
