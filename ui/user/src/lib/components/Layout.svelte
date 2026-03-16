@@ -41,7 +41,9 @@
 		Users,
 		Group as GroupIcon,
 		BotMessageSquare,
-		Coins
+		Coins,
+		PencilRuler,
+		Vault
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -232,6 +234,20 @@
 								href: '/admin/model-access-policies',
 								icon: LockKeyhole,
 								label: 'Model Access Policies',
+								collapsible: false
+							},
+							{
+								id: 'skills',
+								href: '/admin/skills',
+								icon: PencilRuler,
+								label: 'Skills',
+								collapsible: false
+							},
+							{
+								id: 'skill-access-policies',
+								href: '/admin/skill-access-policies',
+								icon: Vault,
+								label: 'Skill Access Policies',
 								collapsible: false
 							},
 							...(version.current.nanobotIntegration

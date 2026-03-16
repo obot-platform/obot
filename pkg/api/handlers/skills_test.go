@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -214,6 +215,94 @@ func TestSkillHandlerListFiltersByAccessAndValidity(t *testing.T) {
 	assert.Equal(t, "sk-direct", list.Items[0].ID)
 }
 
+func TestSkillHandlerListAllTrueScopeBypass(t *testing.T) {
+	// Skills in repo-1 (in scope for user1) and repo-3 (out of scope)
+	storage := newFakeStorage(t,
+		&v1.Skill{
+			ObjectMeta: metav1.ObjectMeta{Name: "sk-in-scope", Namespace: system.DefaultNamespace},
+			Spec: v1.SkillSpec{
+				SkillManifest: types.SkillManifest{Name: "in-scope-skill"},
+				RepoID:        "repo-1",
+			},
+			Status: v1.SkillStatus{Valid: true},
+		},
+		&v1.Skill{
+			ObjectMeta: metav1.ObjectMeta{Name: "sk-out-scope", Namespace: system.DefaultNamespace},
+			Spec: v1.SkillSpec{
+				SkillManifest: types.SkillManifest{Name: "out-of-scope-skill"},
+				RepoID:        "repo-3",
+			},
+			Status: v1.SkillStatus{Valid: true},
+		},
+	)
+
+	// user1 has access only to repo-1 via skill access rules
+	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
+		newSkillRule("rule-repo", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkillRepository, ID: "repo-1"}}),
+	))
+
+	listSkills := func(t *testing.T, user kuser.Info, query string) []string {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, "/api/skills"+query, nil)
+		rec := httptest.NewRecorder()
+		err := handler.List(api.Context{
+			ResponseWriter: rec,
+			Request:        req,
+			Storage:        storage,
+			User:           user,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var list types.SkillList
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
+		ids := make([]string, len(list.Items))
+		for i := range list.Items {
+			ids[i] = list.Items[i].ID
+		}
+		return ids
+	}
+
+	// Basic user: without all=true sees only in-scope; with all=true still only in-scope (no bypass)
+	t.Run("basic user without all=true sees only in-scope skills", func(t *testing.T) {
+		ids := listSkills(t, testUser("user1"), "")
+		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
+	})
+	t.Run("basic user with all=true still sees only in-scope skills", func(t *testing.T) {
+		ids := listSkills(t, testUser("user1"), "?all=true")
+		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
+	})
+
+	// Admin: without all=true sees only in-scope; with all=true sees all (bypass)
+	t.Run("admin without all=true sees only in-scope skills", func(t *testing.T) {
+		ids := listSkills(t, testUserWithRole("user1", types.GroupAdmin), "")
+		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
+	})
+	t.Run("admin with all=true sees all skills", func(t *testing.T) {
+		ids := listSkills(t, testUserWithRole("user1", types.GroupAdmin), "?all=true")
+		assert.ElementsMatch(t, []string{"sk-in-scope", "sk-out-scope"}, ids)
+	})
+
+	// Owner: same as admin for scope bypass
+	t.Run("owner without all=true sees only in-scope skills", func(t *testing.T) {
+		ids := listSkills(t, testUserWithRole("user1", types.GroupOwner), "")
+		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
+	})
+	t.Run("owner with all=true sees all skills", func(t *testing.T) {
+		ids := listSkills(t, testUserWithRole("user1", types.GroupOwner), "?all=true")
+		assert.ElementsMatch(t, []string{"sk-in-scope", "sk-out-scope"}, ids)
+	})
+
+	// Auditor: same as admin for scope bypass
+	t.Run("auditor without all=true sees only in-scope skills", func(t *testing.T) {
+		ids := listSkills(t, testUserWithRole("user1", types.GroupAuditor), "")
+		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
+	})
+	t.Run("auditor with all=true sees all skills", func(t *testing.T) {
+		ids := listSkills(t, testUserWithRole("user1", types.GroupAuditor), "?all=true")
+		assert.ElementsMatch(t, []string{"sk-in-scope", "sk-out-scope"}, ids)
+	})
+}
+
 func TestSkillHandlerGetReturnsNotFoundWhenUnauthorized(t *testing.T) {
 	storage := newFakeStorage(t, &v1.Skill{
 		ObjectMeta: metav1.ObjectMeta{Name: "sk1", Namespace: system.DefaultNamespace},
@@ -317,6 +406,22 @@ func testUser(userID string, groups ...string) kuser.Info {
 		Extra: map[string][]string{
 			"auth_provider_groups": groups,
 		},
+	}
+}
+
+// testUserWithRole returns a user with the given ID and role groups (e.g. GroupAdmin).
+// Used to test role-based behavior like ?all=true scope bypass; skill access still uses
+// access rules keyed by user ID.
+func testUserWithRole(userID string, roleGroups ...string) kuser.Info {
+	groups := make([]string, 0, len(roleGroups)+1)
+	groups = append(groups, roleGroups...)
+	if !slices.Contains(groups, types.GroupAuthenticated) {
+		groups = append(groups, types.GroupAuthenticated)
+	}
+	return &kuser.DefaultInfo{
+		Name:   userID,
+		UID:    userID,
+		Groups: groups,
 	}
 }
 
