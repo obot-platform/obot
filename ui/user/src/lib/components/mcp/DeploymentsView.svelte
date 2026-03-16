@@ -684,6 +684,9 @@
 				].filter(Boolean) as string[]}
 				{filters}
 				headers={[
+					{ title: 'Name', property: 'displayName' },
+					{ title: 'Type', property: 'type' },
+					{ title: 'Registry', property: 'registry' },
 					{ title: 'User', property: 'userName' },
 					{ title: 'Health', property: 'deploymentStatus' },
 					{ title: 'Update Status', property: 'updatesAvailable' },

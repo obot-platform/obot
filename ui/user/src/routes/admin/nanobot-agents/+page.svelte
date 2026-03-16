@@ -71,7 +71,7 @@
 					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
 					value={query}
 					onChange={updateSearchQuery}
-					placeholder="Search Obot Agents..."
+					placeholder="Search Obot agents..."
 				/>
 			</div>
 		</div>
