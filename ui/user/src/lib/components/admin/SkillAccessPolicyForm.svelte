@@ -464,9 +464,6 @@
 			)
 		];
 	}}
-	onClose={() => {
-		addSkillDialog?.close();
-	}}
 	exclude={skillAccessPolicy.resources?.map((resource) => resource.id) ?? []}
 />
 

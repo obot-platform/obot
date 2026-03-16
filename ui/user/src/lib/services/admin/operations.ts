@@ -1415,9 +1415,9 @@ export async function listAllSkills(opts?: {
 }): Promise<Skill[]> {
 	const params = new URLSearchParams();
 	params.set('all', 'true');
+	params.set('limit', String(opts?.limit ?? 1000));
 	if (opts?.query != null) params.set('q', opts.query);
 	if (opts?.repoId != null) params.set('repoID', opts.repoId);
-	if (opts?.limit != null) params.set('limit', String(opts.limit));
 	const queryString = params.toString();
 	const url = queryString ? `/skills?${queryString}` : '/skills';
 	const response = (await doGet(url, opts)) as ItemsResponse<Skill>;

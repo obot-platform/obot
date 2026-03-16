@@ -12,7 +12,6 @@
 		onAdd: (resources: SkillAccessPolicyResource[]) => void;
 		exclude?: string[];
 		title?: string;
-		onClose: () => void;
 		wildcardAvailable?: boolean;
 	}
 
@@ -20,7 +19,6 @@
 		skills,
 		skillRepositories,
 		onAdd,
-		onClose,
 		exclude = [],
 		title = 'Add Skills',
 		wildcardAvailable = true
@@ -101,7 +99,6 @@
 
 <ResponsiveDialog
 	bind:this={addSkillDialog}
-	{onClose}
 	{title}
 	class="h-full w-full overflow-visible md:h-[500px] md:max-w-md"
 	classes={{ header: 'p-4 md:pb-0', content: 'min-h-inherit p-0' }}
