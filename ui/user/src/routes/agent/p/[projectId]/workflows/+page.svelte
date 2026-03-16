@@ -14,6 +14,7 @@
 	import { fly } from 'svelte/transition';
 	import PublishedWorkflowDropdown from '$lib/components/nanobot/PublishedWorkflowDropdown.svelte';
 	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
 
 	let { data } = $props();
 	let projectId = $derived(data.projects[0].id);
@@ -28,6 +29,15 @@
 	let installing = new SvelteMap<string, boolean>();
 	let installingPublishedArtifact = $state<PublishedArtifact | undefined>(undefined);
 	let installType = $state<'new' | 'update'>();
+	let confirmDeleteWorkflow = $state<
+		| {
+				id: string;
+				displayName: string;
+				uri: string;
+		  }
+		| undefined
+	>();
+	let deleting = $state(false);
 
 	let workflows = $derived(
 		$nanobotChat?.resources
@@ -459,6 +469,17 @@
 										installingPublishedArtifact = myPublishedWorkflows.find((w) => w.id === id);
 										installType = 'update';
 									}}
+									onDelete={() => {
+										if (!workflow.workflowUri) {
+											errors.append('Delete failed: Workflow uri not found');
+											return;
+										}
+										confirmDeleteWorkflow = {
+											id: workflow.workflowId,
+											displayName: workflow.name,
+											uri: workflow.workflowUri
+										};
+									}}
 								/>
 								<button
 									class="btn btn-ghost btn-square tooltip tooltip-top flex-shrink-0"
@@ -540,6 +561,26 @@
 		{/snippet}
 	</PublishedWorkflowInstallModal>
 {/if}
+
+<Confirm
+	msg={`Delete ${confirmDeleteWorkflow?.displayName || 'this workflow'}?`}
+	show={confirmDeleteWorkflow !== undefined}
+	loading={deleting}
+	onsuccess={async () => {
+		if (!confirmDeleteWorkflow) return;
+		deleting = true;
+		await $nanobotChat?.api.deleteWorkflow(confirmDeleteWorkflow.uri);
+		nanobotChat.update((data) => {
+			if (data) {
+				data.resources = data.resources.filter((r) => r.uri !== confirmDeleteWorkflow?.uri);
+			}
+			return data;
+		});
+		deleting = false;
+		confirmDeleteWorkflow = undefined;
+	}}
+	oncancel={() => (confirmDeleteWorkflow = undefined)}
+/>
 
 <svelte:head>
 	<title>Obot | Workflows</title>
