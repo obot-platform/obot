@@ -202,6 +202,12 @@
 	function pollAndNavigateToWorkflow(retriesLeft = MAX_WORKFLOW_POLL_RETRIES) {
 		if (!installingPublishedArtifact) return;
 		const workflowName = installingPublishedArtifact.name;
+		const clearInstalling = () => {
+			if (installingPublishedArtifact?.id) {
+				installing.delete(installingPublishedArtifact.id);
+				installingPublishedArtifact = undefined;
+			}
+		};
 		$nanobotChat?.api
 			.listResources()
 			.then((resources) => {
@@ -213,23 +219,20 @@
 					return data;
 				});
 				if (match && installingPublishedArtifact) {
+					clearInstalling();
 					goto(`/agent/p/${projectId}/workflows/${encodeURIComponent(workflowName)}`);
 				} else if (retriesLeft > 0) {
 					setTimeout(() => {
 						pollAndNavigateToWorkflow(retriesLeft - 1);
 					}, 1000);
 				} else {
+					clearInstalling();
 					errors.append('Error: Could not find workflow after installation');
 				}
 			})
 			.catch((error) => {
+				clearInstalling();
 				errors.append(error);
-			})
-			.finally(() => {
-				if (installingPublishedArtifact?.id) {
-					installing.delete(installingPublishedArtifact?.id);
-					installingPublishedArtifact = undefined;
-				}
 			});
 	}
 
@@ -582,15 +585,20 @@
 	onsuccess={async () => {
 		if (!confirmDeleteWorkflow) return;
 		deleting = true;
-		await $nanobotChat?.api.deleteWorkflow(confirmDeleteWorkflow.uri);
-		nanobotChat.update((data) => {
-			if (data) {
-				data.resources = data.resources.filter((r) => r.uri !== confirmDeleteWorkflow?.uri);
-			}
-			return data;
-		});
-		deleting = false;
-		confirmDeleteWorkflow = undefined;
+		try {
+			await $nanobotChat?.api.deleteWorkflow(confirmDeleteWorkflow.uri);
+			nanobotChat.update((data) => {
+				if (data) {
+					data.resources = data.resources.filter((r) => r.uri !== confirmDeleteWorkflow?.uri);
+				}
+				return data;
+			});
+			confirmDeleteWorkflow = undefined;
+		} catch (err) {
+			errors.append(`Failed to delete workflow: ${err}`);
+		} finally {
+			deleting = false;
+		}
 	}}
 	oncancel={() => (confirmDeleteWorkflow = undefined)}
 />
