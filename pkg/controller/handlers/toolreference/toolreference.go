@@ -43,7 +43,7 @@ var (
 		types.DefaultModelAliasTypeLLM:             "gpt-5.4",
 		types.DefaultModelAliasTypeLLMMini:         "gpt-5-mini",
 		types.DefaultModelAliasTypeVision:          "gpt-5.4",
-		types.DefaultModelAliasTypeImageGeneration: "gpt-image-1.5",
+		types.DefaultModelAliasTypeImageGeneration: "dall-e-3",
 		types.DefaultModelAliasTypeTextEmbedding:   "text-embedding-3-large",
 	}
 	anthropicDefaultModelAliases = map[types.DefaultModelAliasType]string{
@@ -356,7 +356,12 @@ func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c clie
 			continue
 		}
 
-		alias.Spec.Manifest.Model = modelName(modelProviderRef.Name, defaultModelAliasMapping[types.DefaultModelAliasType(alias.Spec.Manifest.Alias)])
+		targetModel := defaultModelAliasMapping[types.DefaultModelAliasType(alias.Spec.Manifest.Alias)]
+		if targetModel == "" {
+			continue
+		}
+
+		alias.Spec.Manifest.Model = modelName(modelProviderRef.Name, targetModel)
 		if err := c.Update(ctx, &alias); err != nil {
 			return fmt.Errorf("failed to update model alias %q for model provider %q: %w", alias.Name, modelProviderName, err)
 		}

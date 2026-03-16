@@ -374,7 +374,7 @@ func getModelForAlias(ctx context.Context, client kclient.Client, namespace stri
 	return model.Spec.Manifest.TargetModel, nil
 }
 
-// resolve returns a concrete model name for a default alias.
+// resolveModel returns a concrete model name for a default alias.
 //
 // It prefers an explicitly configured alias target when one exists. If the
 // alias is unset or cannot be resolved, it falls back to active LLM models in

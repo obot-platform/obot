@@ -41,7 +41,7 @@
 		[ModelAlias.Llm]: ['gpt-5.4', 'claude-sonnet-4-6'],
 		[ModelAlias.LlmMini]: ['gpt-5-mini', 'claude-haiku-4-5'],
 		[ModelAlias.TextEmbedding]: ['text-embedding-3-large'],
-		[ModelAlias.ImageGeneration]: ['gpt-image-1.5'],
+		[ModelAlias.ImageGeneration]: ['dall-e-3'],
 		[ModelAlias.Vision]: ['gpt-5.4', 'claude-sonnet-4-6']
 	};
 
@@ -73,9 +73,7 @@
 				const suggestedModelNames = SUGGESTED_MODEL_SELECTIONS[modelAlias.alias] ?? [];
 
 				if (suggestedModelNames.length > 0) {
-					const suggestedModel = activeModelOptions.find((model) =>
-						suggestedModelNames.includes(model.name ?? '')
-					);
+					const suggestedModel = getSuggestedModel(activeModelOptions, suggestedModelNames);
 					if (suggestedModel) {
 						suggestedChanges[modelAlias.alias] = suggestedModel.id;
 					}
@@ -102,6 +100,15 @@
 
 	function filterModelsByActive(models: Model[]) {
 		return models.filter((model) => model.active);
+	}
+
+	function getSuggestedModel(activeModelOptions: Model[], suggestedModelNames: string[]) {
+		for (const suggestedModelName of suggestedModelNames) {
+			const suggestedModel = activeModelOptions.find((model) => model.name === suggestedModelName);
+			if (suggestedModel) {
+				return suggestedModel;
+			}
+		}
 	}
 
 	function filterModelsByUsage(
@@ -133,9 +140,7 @@
 		// Auto-select suggested model if available
 		const suggestedModelNames = SUGGESTED_MODEL_SELECTIONS[modelAlias.alias] ?? [];
 		if (suggestedModelNames.length > 0) {
-			const suggestedModel = activeModelOptions.find((model) =>
-				suggestedModelNames.includes(model.name ?? '')
-			);
+			const suggestedModel = getSuggestedModel(activeModelOptions, suggestedModelNames);
 			if (suggestedModel) {
 				return suggestedModel.id;
 			}
