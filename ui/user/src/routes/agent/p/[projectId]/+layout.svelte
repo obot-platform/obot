@@ -8,6 +8,7 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import FileEditor from '$lib/components/nanobot/FileEditor.svelte';
 	import QuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
+	import AgentRestartBanner from '$lib/components/nanobot/AgentRestartBanner.svelte';
 	import { afterNavigate } from '$app/navigation';
 	import { onDestroy } from 'svelte';
 	import { PROJECT_LAYOUT_CONTEXT, type ProjectLayoutContext } from '$lib/services/nanobot/types';
@@ -301,11 +302,14 @@
 		<ProjectSidebar selectedSessionId={sessionId} {projectId} />
 	{/snippet}
 
-	<div
-		class="flex w-full min-w-0 grow"
-		style={threadContentWidth > 0 ? `min-width: ${threadContentWidth}px` : ''}
-	>
-		{@render children?.()}
+	<div class="flex min-w-0 grow flex-col gap-3 p-3 md:p-4">
+		<AgentRestartBanner {agentId} {projectId} />
+		<div
+			class="flex w-full min-w-0 grow"
+			style={threadContentWidth > 0 ? `min-width: ${threadContentWidth}px` : ''}
+		>
+			{@render children?.()}
+		</div>
 	</div>
 
 	{#snippet rightSidebar()}

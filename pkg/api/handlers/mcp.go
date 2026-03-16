@@ -505,7 +505,12 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
-	server, serverConfig, err := serverForAction(req)
+	server, _, err := serverForAction(req)
+	if err != nil {
+		return err
+	}
+
+	serverConfig, err := serverConfigForExplicitUpdateAction(req, server)
 	if err != nil {
 		return err
 	}
@@ -1268,11 +1273,19 @@ func ServerForAction(req api.Context, id string) (v1.MCPServer, mcp.ServerConfig
 	return server, serverConfig, err
 }
 
+func serverConfigForExplicitUpdateAction(req api.Context, server v1.MCPServer) (mcp.ServerConfig, error) {
+	return serverConfigForActionWithOptions(req, server, true)
+}
+
 // serverConfigForAction handles both composite and non-composite server configuration.
 // For composite servers, it uses the tokenService to create an ephemeral token and constructs
 // a remote MCP server config pointing to the gateway. For non-composite servers, it retrieves
 // credentials and builds the appropriate server configuration.
 func serverConfigForAction(req api.Context, server v1.MCPServer) (mcp.ServerConfig, error) {
+	return serverConfigForActionWithOptions(req, server, false)
+}
+
+func serverConfigForActionWithOptions(req api.Context, server v1.MCPServer, useDesiredNanobotImage bool) (mcp.ServerConfig, error) {
 	if server.Spec.NeedsURL {
 		return mcp.ServerConfig{}, types.NewErrBadRequest("mcp server %s needs to update its URL", server.Name)
 	}
@@ -1309,6 +1322,10 @@ func serverConfigForAction(req api.Context, server v1.MCPServer) (mcp.ServerConf
 
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&server)
+
+	if useDesiredNanobotImage && server.Spec.NanobotAgentID != "" && server.Spec.DesiredImageOverride != "" && server.Spec.Manifest.ContainerizedConfig != nil {
+		server.Spec.Manifest.ContainerizedConfig.Image = server.Spec.DesiredImageOverride
+	}
 
 	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
@@ -2698,6 +2715,8 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
 		} else if server.Spec.PowerUserWorkspaceID != "" {
 			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
+		} else if server.Spec.UserID != "" {
+			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
 		}
 	}
 
@@ -2770,17 +2789,19 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		id     = req.PathValue("mcp_server_id")
 	)
 
+	bypassACRCheck := (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true"
+
 	if err := req.Get(&server, id); err != nil {
 		return err
 	}
 
-	// Check if server is from default catalog or workspace
-	if server.Spec.MCPCatalogID != system.DefaultCatalog && server.Spec.PowerUserWorkspaceID == "" {
+	// Non-privileged users can only access default catalog or workspace servers via this endpoint.
+	if !bypassACRCheck && !req.UserIsAdmin() && !req.UserIsAuditor() && server.Spec.MCPCatalogID != system.DefaultCatalog && server.Spec.PowerUserWorkspaceID == "" {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
 	// Authorization check.
-	if !req.UserIsAdmin() {
+	if !bypassACRCheck && !req.UserIsAdmin() && !req.UserIsAuditor() {
 		var (
 			hasAccess bool
 			err       error
@@ -2805,6 +2826,8 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)}
 	} else if server.Spec.PowerUserWorkspaceID != "" {
 		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)}
+	} else if server.Spec.UserID != "" {
+		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)}
 	}
 
 	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, server.Name)
@@ -2971,7 +2994,7 @@ func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 				continue
 			}
 
-			componentConfig, err := serverConfigForAction(req, component)
+			componentConfig, err := serverConfigForExplicitUpdateAction(req, component)
 			if err != nil {
 				return err
 			}
