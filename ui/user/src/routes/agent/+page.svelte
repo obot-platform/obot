@@ -4,7 +4,6 @@
 	import ProjectSidebar from './ProjectSidebar.svelte';
 	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
 	import ThreadQuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
-	import AgentRestartBanner from '$lib/components/nanobot/AgentRestartBanner.svelte';
 	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
@@ -90,7 +89,6 @@
 	{/snippet}
 
 	<div class="flex min-w-0 grow flex-col gap-3 p-3 md:p-4">
-		<AgentRestartBanner agentId={agent.id} {projectId} />
 		<div
 			class="flex w-full min-w-0 grow"
 			style={threadContentWidth > 0 ? `min-width: ${threadContentWidth}px` : ''}

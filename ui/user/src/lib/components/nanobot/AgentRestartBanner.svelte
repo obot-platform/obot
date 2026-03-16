@@ -23,6 +23,7 @@
 		!dismissed &&
 			!!agentServer &&
 			agentServer.userID === profile.current.id &&
+			agentServer.deploymentStatus !== 'Progressing' &&
 			(agentServer.needsUpdate || agentServer.needsK8sUpdate)
 	);
 
