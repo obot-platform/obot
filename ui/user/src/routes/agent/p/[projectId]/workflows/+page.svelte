@@ -202,26 +202,35 @@
 	function pollAndNavigateToWorkflow(retriesLeft = MAX_WORKFLOW_POLL_RETRIES) {
 		if (!installingPublishedArtifact) return;
 		const workflowName = installingPublishedArtifact.name;
-		$nanobotChat?.api.listResources().then((resources) => {
-			const match = resources.find((r) => r.name === workflowName);
-			nanobotChat.update((data) => {
-				if (data) {
-					data.resources = resources;
+		$nanobotChat?.api
+			.listResources()
+			.then((resources) => {
+				const match = resources.find((r) => r.name === workflowName);
+				nanobotChat.update((data) => {
+					if (data) {
+						data.resources = resources;
+					}
+					return data;
+				});
+				if (match && installingPublishedArtifact) {
+					goto(`/agent/p/${projectId}/workflows/${encodeURIComponent(workflowName)}`);
+				} else if (retriesLeft > 0) {
+					setTimeout(() => {
+						pollAndNavigateToWorkflow(retriesLeft - 1);
+					}, 1000);
+				} else {
+					errors.append('Error: Could not find workflow after installation');
 				}
-				return data;
+			})
+			.catch((error) => {
+				errors.append(error);
+			})
+			.finally(() => {
+				if (installingPublishedArtifact?.id) {
+					installing.delete(installingPublishedArtifact?.id);
+					installingPublishedArtifact = undefined;
+				}
 			});
-			if (match && installingPublishedArtifact) {
-				installing.delete(installingPublishedArtifact.id);
-				installingPublishedArtifact = undefined;
-				goto(`/agent/p/${projectId}/workflows/${encodeURIComponent(workflowName)}`);
-			} else if (retriesLeft > 0) {
-				setTimeout(() => {
-					pollAndNavigateToWorkflow(retriesLeft - 1);
-				}, 1000);
-			} else {
-				errors.append('Error: Could not find workflow after installation');
-			}
-		});
 	}
 
 	$effect(() => {
@@ -554,9 +563,13 @@
 	>
 		{#snippet loadingText()}
 			{#if installType === 'update'}
-				Updating <i>{installingPublishedArtifact?.displayName}...</i>
+				Updating <i
+					>{installingPublishedArtifact?.displayName || installingPublishedArtifact?.name}...</i
+				>
 			{:else}
-				Installing <i>{installingPublishedArtifact?.displayName}...</i>
+				Installing <i
+					>{installingPublishedArtifact?.displayName || installingPublishedArtifact?.name}...</i
+				>
 			{/if}
 		{/snippet}
 	</PublishedWorkflowInstallModal>

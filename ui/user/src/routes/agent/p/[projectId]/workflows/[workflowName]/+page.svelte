@@ -368,7 +368,7 @@
 	oncancel={() => (deletingWorkflow = false)}
 />
 
-{#if confirmInstallModal}
+{#if confirmInstallModal && relatedPublishedArtifactId}
 	<PublishedWorkflowInstallModal
 		title="Update Workflow"
 		publishedArtifact={{
@@ -392,7 +392,11 @@
 		}}
 		confirmButtonText="Update"
 		message="Are you sure you want to update? Any existing changes will be overwritten."
-	/>
+	>
+		{#snippet loadingText()}
+			Updating <i>{workflow?._meta?.displayName ?? workflow?._meta?.name ?? workflowName}...</i>
+		{/snippet}
+	</PublishedWorkflowInstallModal>
 {/if}
 
 <svelte:head>
