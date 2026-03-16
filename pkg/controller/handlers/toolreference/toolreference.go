@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"regexp"
 	"strings"
@@ -36,6 +37,29 @@ var (
 )
 
 const toolRecheckPeriod = time.Hour
+
+var (
+	openAIDefaultModelAliases = map[types.DefaultModelAliasType]string{
+		types.DefaultModelAliasTypeLLM:             "gpt-5.4",
+		types.DefaultModelAliasTypeLLMMini:         "gpt-5-mini",
+		types.DefaultModelAliasTypeVision:          "gpt-5.4",
+		types.DefaultModelAliasTypeImageGeneration: "gpt-image-1.5",
+		types.DefaultModelAliasTypeTextEmbedding:   "text-embedding-3-large",
+	}
+	anthropicDefaultModelAliases = map[types.DefaultModelAliasType]string{
+		types.DefaultModelAliasTypeLLM:     "claude-sonnet-4-6",
+		types.DefaultModelAliasTypeLLMMini: "claude-haiku-4-5",
+		types.DefaultModelAliasTypeVision:  "claude-sonnet-4-6",
+	}
+)
+
+func OpenAIDefaultModelAliases() map[types.DefaultModelAliasType]string {
+	return maps.Clone(openAIDefaultModelAliases)
+}
+
+func AnthropicDefaultModelAliases() map[types.DefaultModelAliasType]string {
+	return maps.Clone(anthropicDefaultModelAliases)
+}
 
 type indexEntry struct {
 	Reference string `json:"reference,omitempty"`
@@ -256,21 +280,11 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 }
 
 func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c client.Client) error {
-	return h.ensureModelProviderCredAndDefaults(ctx, c, map[types.DefaultModelAliasType]string{
-		types.DefaultModelAliasTypeLLM:             "gpt-5.2",
-		types.DefaultModelAliasTypeLLMMini:         "gpt-5-mini",
-		types.DefaultModelAliasTypeVision:          "gpt-5.2",
-		types.DefaultModelAliasTypeImageGeneration: "gpt-image-1.5",
-		types.DefaultModelAliasTypeTextEmbedding:   "text-embedding-3-large",
-	}, system.OpenAIModelProviderTool, system.OpenAIAPIKeyEnvVar)
+	return h.ensureModelProviderCredAndDefaults(ctx, c, OpenAIDefaultModelAliases(), system.OpenAIModelProviderTool, system.OpenAIAPIKeyEnvVar)
 }
 
 func (h *Handler) EnsureAnthropicCredentialAndDefaults(ctx context.Context, c client.Client) error {
-	return h.ensureModelProviderCredAndDefaults(ctx, c, map[types.DefaultModelAliasType]string{
-		types.DefaultModelAliasTypeLLM:     "claude-sonnet-4-6",
-		types.DefaultModelAliasTypeLLMMini: "claude-haiku-4-5",
-		types.DefaultModelAliasTypeVision:  "claude-sonnet-4-6",
-	}, system.AnthropicModelProviderTool, system.AnthropicAPIKeyEnvVar)
+	return h.ensureModelProviderCredAndDefaults(ctx, c, AnthropicDefaultModelAliases(), system.AnthropicModelProviderTool, system.AnthropicAPIKeyEnvVar)
 }
 
 func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c client.Client, defaultModelAliasMapping map[types.DefaultModelAliasType]string, modelProviderName, envVarName string) error {
