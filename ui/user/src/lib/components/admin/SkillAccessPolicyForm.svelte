@@ -24,8 +24,8 @@
 
 	interface Props {
 		skillAccessPolicy?: SkillAccessPolicy;
-		onCreate?: (modelAccessPolicy: SkillAccessPolicy) => void;
-		onUpdate?: (modelAccessPolicy: SkillAccessPolicy) => void;
+		onCreate?: (skillAccessPolicy: SkillAccessPolicy) => void;
+		onUpdate?: (skillAccessPolicy: SkillAccessPolicy) => void;
 		readonly?: boolean;
 	}
 
