@@ -1428,6 +1428,16 @@ func serverForAction(req api.Context) (v1.MCPServer, mcp.ServerConfig, error) {
 	return server, serverConfig, err
 }
 
+func serverForExplicitUpdateAction(req api.Context) (v1.MCPServer, mcp.ServerConfig, error) {
+	var server v1.MCPServer
+	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
+		return server, mcp.ServerConfig{}, err
+	}
+
+	serverConfig, err := serverConfigForExplicitUpdateAction(req, server)
+	return server, serverConfig, err
+}
+
 func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
 	server, serverConfig, err := serverForAction(req)
 	if err != nil {
@@ -2928,7 +2938,7 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 }
 
 func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
-	server, serverConfig, err := serverForAction(req)
+	server, serverConfig, err := serverForExplicitUpdateAction(req)
 	if err != nil {
 		return err
 	}
@@ -3104,7 +3114,7 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 	workspaceID := req.PathValue("workspace_id")
 	entryID := req.PathValue("entry_id")
 
-	server, serverConfig, err := serverForAction(req)
+	server, serverConfig, err := serverForExplicitUpdateAction(req)
 	if err != nil {
 		return err
 	}
