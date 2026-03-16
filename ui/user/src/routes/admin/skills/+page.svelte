@@ -124,14 +124,10 @@
 	async function sync(id: string) {
 		syncing.add(id);
 		try {
-			const response = await AdminService.refreshSkillRepository(id);
-			if (response.isSyncing) {
-				pollTillSyncComplete(id);
-			} else {
-				syncing.delete(id);
-			}
+			await AdminService.refreshSkillRepository(id);
+			pollTillSyncComplete(id);
 		} catch (err) {
-			errors.append(`Failed to retrieve skill repository sync status: ${err}`);
+			errors.append(`Failed to refresh skill repository sync status: ${err}`);
 			syncing.delete(id);
 		}
 	}

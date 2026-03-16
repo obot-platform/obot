@@ -1403,9 +1403,8 @@ export async function deleteSkillRepository(
 export async function refreshSkillRepository(
 	id: string,
 	opts?: { fetch?: Fetcher }
-): Promise<SkillRepository> {
-	const response = (await doPost(`/skill-repositories/${id}/refresh`, {}, opts)) as SkillRepository;
-	return response;
+): Promise<void> {
+	await doPost(`/skill-repositories/${id}/refresh`, {}, opts);
 }
 
 export async function listAllSkills(opts?: {
