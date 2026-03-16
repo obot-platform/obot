@@ -835,3 +835,43 @@ export interface TotalTokenUsage {
 export interface TotalTokenUsageByUser extends TotalTokenUsage {
 	userID: string;
 }
+
+export interface SkillRepository {
+	id: string;
+	created: string;
+	deleted?: string;
+	displayName: string;
+	repoURL: string;
+	ref: string;
+	lastSyncTime?: string;
+	isSyncing: boolean;
+	syncError?: string;
+	resolvedCommitSHA?: string;
+	discoveredSkillCount: number;
+}
+
+export interface SkillRepositoryManifest {
+	displayName: string;
+	repoURL: string;
+	ref: string;
+}
+
+export interface SkillAccessPolicyResource {
+	type: 'skill' | 'skillRepository' | 'selector';
+	id: string;
+}
+
+export interface SkillAccessPolicy {
+	id: string;
+	created: string;
+	deleted?: string;
+	displayName: string;
+	subjects: AccessControlRuleSubject[];
+	resources: SkillAccessPolicyResource[];
+}
+
+export interface SkillAccessPolicyManifest {
+	displayName: string;
+	subjects: AccessControlRuleSubject[];
+	resources: SkillAccessPolicyResource[];
+}
