@@ -17,10 +17,11 @@
 	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
 	import ConfirmPublishWorkflow from '$lib/components/nanobot/ConfirmPublishWorkflow.svelte';
 	import { NanobotService } from '$lib/services';
+	import { untrack } from 'svelte';
 
 	let { data } = $props();
 	let projectId = $derived(data.projects[0].id);
-	let publishedWorkflows = $derived(data.publishedWorkflows);
+	let publishedWorkflows = $state<PublishedArtifact[]>(untrack(() => data.publishedWorkflows));
 
 	let workflowQuery = $state('');
 	let loading = $state(false);
@@ -61,13 +62,18 @@
 	let { sharedWorkflows, myPublishedWorkflows } = $derived({
 		sharedWorkflows: publishedWorkflows
 			.filter((w) => w.visibility === 'public' && w.authorID !== profile.current.id)
-			.map((w) => ({
-				...w,
-				isInstalled: workflowSet.has(w.name),
-				isUpdated:
-					workflowSet.get(w.name)?._meta?.version ===
-					w.versions[w.versions?.length - 1]?.version.toString()
-			}))
+			.map((w) => {
+				const latestVersion =
+					w.versions && w.versions.length > 0
+						? w.versions[w.versions.length - 1]?.version
+						: undefined;
+				const latestVersionString = latestVersion != null ? String(latestVersion) : undefined;
+				return {
+					...w,
+					isInstalled: workflowSet.has(w.name),
+					isUpdated: workflowSet.get(w.name)?._meta?.version === latestVersionString
+				};
+			})
 			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()),
 		myPublishedWorkflows: publishedWorkflows
 			.filter((w) => w.authorID === profile.current.id)
@@ -93,7 +99,7 @@
 						workflowUri: undefined,
 						isInstalled: w.isInstalled,
 						isUpdated: w.isUpdated,
-						versions: []
+						versions: w.versions ?? []
 					}))
 				: []),
 			...(activeTab === 'my'
@@ -102,6 +108,12 @@
 						const sharedMatch = sharedWorkflows.find(
 							(sw) => sw.name === w.name && sw.authorEmail === w._meta?.['author-email']
 						);
+						const sharedLatestVersion =
+							sharedMatch?.versions && sharedMatch.versions.length > 0
+								? sharedMatch.versions[sharedMatch.versions.length - 1]?.version
+								: undefined;
+						const sharedLatestVersionString =
+							sharedLatestVersion != null ? String(sharedLatestVersion) : undefined;
 						return {
 							id: w.name,
 							workflowId: w.name,
@@ -117,9 +129,7 @@
 								sharedMatch &&
 								w._meta?.['author-email'] &&
 								w._meta?.['author-email'] !== profile.current.email,
-							isUpdated:
-								sharedMatch?.versions[sharedMatch?.versions?.length - 1]?.version.toString() ===
-								w._meta?.version,
+							isUpdated: sharedLatestVersionString === w._meta?.version,
 							versions: publishedMatch?.versions ?? []
 						};
 					})

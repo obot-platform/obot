@@ -27,11 +27,17 @@
 		if (!publishedArtifactId) return;
 		versionToShow = selectedVersion;
 		loadingVersion = true;
-		versionContents = await NanobotService.getPublishedArtifactVersionContents(
-			publishedArtifactId,
-			selectedVersion.version
-		);
-		loadingVersion = false;
+		versionContents = '';
+		try {
+			versionContents = await NanobotService.getPublishedArtifactVersionContents(
+				publishedArtifactId,
+				selectedVersion.version
+			);
+		} catch (error) {
+			console.error('Failed to fetch published artifact version contents', error);
+		} finally {
+			loadingVersion = false;
+		}
 	}
 </script>
 

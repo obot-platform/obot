@@ -17,8 +17,6 @@
 		onCheckForUpdates?: (publishedArtifactId: string) => void;
 		onDelete?: () => void;
 		disabled?: boolean;
-		workflowUri?: string;
-		relatedPublishedArtifactId?: string;
 		numVersions?: number;
 	}
 

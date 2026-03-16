@@ -472,7 +472,7 @@ export type PublishedArtifact = {
 	authorEmail: string;
 	latestVersion: number;
 	visibility: 'public' | 'private';
-	versions: PublishedArtifactVersion[];
+	versions?: PublishedArtifactVersion[];
 };
 
 export interface PublishedArtifactUpdateRequest {

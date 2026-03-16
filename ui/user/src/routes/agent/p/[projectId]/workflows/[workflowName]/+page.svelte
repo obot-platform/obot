@@ -52,11 +52,15 @@
 		if (!workflow) return false;
 		const versionInstalled = workflow._meta?.version as string;
 		if (!relatedPublishedArtifact || !versionInstalled) return false;
+		const versions = relatedPublishedArtifact.versions;
+
 		const latestVersion =
-			relatedPublishedArtifact.versions[
-				relatedPublishedArtifact?.versions?.length - 1
-			]?.version.toString();
-		return latestVersion !== versionInstalled;
+			relatedPublishedArtifact.latestVersion ??
+			(versions && versions.length > 0
+				? versions[versions.length - 1]?.version?.toString()
+				: undefined);
+		if (!latestVersion) return false;
+		return latestVersion.toString() !== versionInstalled;
 	});
 
 	let workflowsContainer = $state<HTMLElement | undefined>(undefined);
