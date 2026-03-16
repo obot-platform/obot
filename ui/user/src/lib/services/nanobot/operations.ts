@@ -147,10 +147,9 @@ export async function listSkills(opts?: {
 	query?: string;
 	limit?: number;
 }): Promise<Skill[]> {
-	const response = (await doGet(
-		`/skills?query=${opts?.query}&limit=${opts?.limit ?? 200}`,
-		opts
-	)) as ItemsResponse<Skill>;
+	const params = new URLSearchParams();
+	if (opts?.query != null) params.set('q', opts.query);
+	const response = (await doGet(`/skills?${params.toString()}`, opts)) as ItemsResponse<Skill>;
 	return response.items ?? [];
 }
 

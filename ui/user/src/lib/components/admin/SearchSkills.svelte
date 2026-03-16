@@ -26,7 +26,7 @@
 		wildcardAvailable = true
 	}: Props = $props();
 	let addSkillDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let search = $state('');
+	let query = $state('');
 	let selected = $state<SkillAccessPolicyResource[]>([]);
 	let selectedSet = $derived(new Set(selected.map((item) => item.id)));
 
@@ -63,7 +63,13 @@
 				);
 			}
 		}
-		return items;
+		return query
+			? items.filter(
+					(item) =>
+						item.name.toLowerCase().includes(query.toLowerCase()) ||
+						item.description.toLowerCase().includes(query.toLowerCase())
+				)
+			: items;
 	});
 
 	function toggleSelection(item: SkillAccessPolicyResource) {
@@ -81,7 +87,7 @@
 
 	export function open() {
 		selected = [];
-		search = '';
+		query = '';
 		addSkillDialog?.open();
 	}
 
@@ -102,8 +108,8 @@
 			<div class="px-4">
 				<Search
 					class="dark:bg-surface1 dark:border-surface3 shadow-inner dark:border"
-					onChange={(val) => (search = val)}
-					value={search}
+					onChange={(val) => (query = val)}
+					value={query}
 					placeholder="Search repositories & skills..."
 				/>
 			</div>
@@ -137,7 +143,7 @@
 					<button
 						class={twMerge(
 							'hover:bg-surface3 dark:hover:bg-surface1 flex items-center justify-between gap-4 px-4 py-3 text-left',
-							selectedSet.has('*') && 'dark:bg-gray-920 bg-gray-50'
+							selectedSet.has(item.id) && 'dark:bg-gray-920 bg-gray-50'
 						)}
 						onclick={() =>
 							toggleSelection({

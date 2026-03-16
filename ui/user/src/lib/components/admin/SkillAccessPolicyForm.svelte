@@ -104,8 +104,6 @@
 			promises[0] = AdminService.listUsers();
 		}
 		if (!usersAndGroups?.groups) {
-			// Include restricted groups in the results so that groups added to polcies before the group
-			// restriction was configured are still visible in the UI.
 			promises[1] = AdminService.listGroups({ includeRestricted: true });
 		}
 
@@ -200,7 +198,7 @@
 					return {
 						id: subject.id,
 						displayName: subject.id === '*' ? 'All Obot Users' : subject.id,
-						type: 'Group'
+						type: 'Selector'
 					};
 				})
 				.filter((subject) => subject !== undefined) ?? []
@@ -392,7 +390,7 @@
 					<button
 						class="button text-sm"
 						onclick={() => {
-							goto('/admin/model-access-policies');
+							goto('/admin/skill-access-policies');
 						}}
 					>
 						Cancel

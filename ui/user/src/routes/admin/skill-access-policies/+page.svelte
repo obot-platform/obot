@@ -85,7 +85,7 @@
 			const url = `/admin/skill-access-policies/${d.id}`;
 			openUrl(url, isCtrlClick);
 		}}
-		sortable={['name']}
+		sortable={['displayName']}
 	>
 		{#snippet actions(d)}
 			{#if !isReadonly}
@@ -135,7 +135,7 @@
 	show={Boolean(policyToDelete)}
 	onsuccess={async () => {
 		if (!policyToDelete) return;
-		await AdminService.deleteModelAccessPolicy(policyToDelete.id);
+		await AdminService.deleteSkillAccessPolicy(policyToDelete.id);
 		skillAccessPolicies = await AdminService.listSkillAccessPolicies();
 		policyToDelete = undefined;
 	}}

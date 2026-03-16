@@ -20,33 +20,47 @@
 	import { AdminService } from '$lib/services';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 	import type { SkillRepository } from '$lib/services/admin/types';
-	import { untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { formatTimeAgo } from '$lib/time';
+	import type { Skill } from '$lib/services/nanobot/types.js';
+	import { page } from '$app/state';
+	import { goto } from '$lib/url.js';
+	import { resolve } from '$app/paths';
 
-	let query = $state('');
+	let { data } = $props();
+	let query = $derived(page.url.searchParams.get('query') ?? '');
 	let view = $state<'skills' | 'urls'>('skills');
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let syncing = new SvelteSet<string>();
 	let isSyncing = $derived(syncing.size > 0);
 
-	let deletingSource = $state<SkillRepository | undefined>(undefined);
 	let deleting = $state(false);
+	let deletingSources = $state<SkillRepository[] | undefined>();
 
-	let { data } = $props();
+	let skills = $state<Skill[]>(untrack(() => data?.skills ?? []));
 	let skillRepositories = $state<SkillRepository[]>(untrack(() => data.skillRepositories));
 	let skillRepositoriesTableData = $derived(
-		skillRepositories.map((d) => ({
+		(query
+			? skillRepositories.filter(
+					(d) =>
+						d.displayName.toLowerCase().includes(query.toLowerCase()) ||
+						d.repoURL.toLowerCase().includes(query.toLowerCase())
+				)
+			: skillRepositories
+		).map((d) => ({
 			...d,
 			isSyncing: syncing.has(d.id)
 		}))
 	);
 	let skillRepositoriesMap = $derived(new Map(skillRepositories.map((d) => [d.id, d])));
 	let skillsTableData = $derived(
-		data.skills.map((d) => ({
-			...d,
-			repository: skillRepositoriesMap.get(d.repoID)?.displayName ?? ''
-		}))
+		(query ? skills.filter((d) => d.name.toLowerCase().includes(query.toLowerCase())) : skills).map(
+			(d) => ({
+				...d,
+				repository: skillRepositoriesMap.get(d.repoID)?.displayName ?? ''
+			})
+		)
 	);
 
 	let sourceDialog = $state<HTMLDialogElement | undefined>(undefined);
@@ -62,6 +76,7 @@
 
 	function switchView(newView: 'skills' | 'urls') {
 		view = newView;
+		goto(resolve(`/admin/skills?view=${newView}`), { replaceState: true });
 	}
 
 	function pollTillSyncComplete(id: string) {
@@ -79,11 +94,18 @@
 						syncInterval.delete(id);
 					}
 					skillRepositories = await AdminService.listSkillRepositories();
+					skills = await AdminService.listAllSkills();
 					syncing.delete(id);
 				}
 			}, 5000)
 		);
 	}
+
+	onDestroy(() => {
+		for (const interval of syncInterval.values()) {
+			clearInterval(interval);
+		}
+	});
 
 	async function sync(id: string) {
 		syncing.add(id);
@@ -173,15 +195,15 @@
 
 {#snippet skillsView()}
 	<div class="flex flex-col gap-2">
-		{#if skillsTableData.length > 0}
+		{#if skills.length > 0}
 			<Table
 				data={skillsTableData}
 				fields={['name', 'created', 'repository']}
 				noDataMessage="No skills found."
-				columnMaxWidths={{ repository: 320 }}
 				classes={{
 					root: 'rounded-none rounded-b-md shadow-none'
 				}}
+				columnMaxWidths={{ created: 240 }}
 				sortable={['name', 'created', 'repository']}
 				filterable={['repository']}
 				headers={[
@@ -205,7 +227,7 @@
 					{:else if property === 'created'}
 						{formatTimeAgo(d.created).relativeTime}
 					{:else if property === 'repository'}
-						<span class="block min-w-0 truncate" title={d.repository}>{d.repository}</span>
+						<span class="block min-w-0 truncate">{d.repository}</span>
 					{/if}
 				{/snippet}
 				{#snippet actions(_d)}
@@ -215,7 +237,7 @@
 		{:else}
 			<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<PencilRuler class="text-surface3 size-24" />
-				<h4 class="text-on-surface1 text-lg font-semibold">No current Git Source URLs.</h4>
+				<h4 class="text-on-surface1 text-lg font-semibold">No current skills.</h4>
 				<p class="text-on-surface1 text-sm font-light">
 					Once a Git Source URL has been added, the skills <br />
 					discovered will be viewable from here.
@@ -227,11 +249,15 @@
 
 {#snippet sourceUrlsView()}
 	<div class="flex flex-col gap-2">
-		{#if skillRepositoriesTableData.length > 0}
+		{#if skillRepositories.length > 0}
 			<Table
 				data={skillRepositoriesTableData}
-				fields={['url']}
+				fields={['displayName', 'url']}
 				headers={[
+					{
+						property: 'displayName',
+						title: 'Name'
+					},
 					{
 						property: 'url',
 						title: 'URL'
@@ -247,13 +273,15 @@
 				classes={{
 					root: 'rounded-none rounded-b-md shadow-none'
 				}}
+				sortable={['displayName']}
 			>
 				{#snippet actions(d)}
 					{#if !isAdminReadonly}
 						<button
 							class="icon-button hover:text-red-500"
-							onclick={() => {
-								deletingSource = d;
+							onclick={(e) => {
+								e.stopPropagation();
+								deletingSources = [d];
 							}}
 						>
 							<Trash2 class="size-4" />
@@ -266,7 +294,8 @@
 							<p>{d.repoURL}</p>
 							{#if d.syncError}
 								<button
-									onclick={() => {
+									onclick={(e) => {
+										e.stopPropagation();
 										syncError = {
 											url: d.repoURL,
 											error: d.syncError ?? ''
@@ -282,6 +311,8 @@
 								</button>
 							{/if}
 						</div>
+					{:else}
+						{d[property as keyof typeof d]}
 					{/if}
 				{/snippet}
 				{#snippet tableSelectActions(currentSelected)}
@@ -304,9 +335,7 @@
 						<button
 							class="button flex items-center gap-1 text-sm font-normal"
 							onclick={() => {
-								for (const id of Object.keys(currentSelected)) {
-									AdminService.deleteSkillRepository(id);
-								}
+								deletingSources = Object.values(currentSelected);
 							}}
 							disabled={isAdminReadonly}
 						>
@@ -329,24 +358,38 @@
 {/snippet}
 
 <Confirm
-	msg={`Delete ${deletingSource?.repoURL || 'this Git Source URL'}?`}
-	show={Boolean(deletingSource)}
+	msg={deletingSources
+		? deletingSources.length === 1
+			? `Delete ${deletingSources[0].displayName}?`
+			: `Delete the following Git Source URLs?`
+		: 'Confirm Delete'}
+	show={Boolean(deletingSources && deletingSources.length > 0)}
 	onsuccess={async () => {
-		if (!deletingSource) return;
+		if (!deletingSources) return;
 		deleting = true;
-		await AdminService.deleteSkillRepository(deletingSource.id);
+		for (const source of deletingSources) {
+			await AdminService.deleteSkillRepository(source.id);
+		}
 		skillRepositories = await AdminService.listSkillRepositories();
-		deletingSource = undefined;
+		skills = await AdminService.listAllSkills();
+		deletingSources = undefined;
 		deleting = false;
 	}}
-	oncancel={() => (deletingSource = undefined)}
+	oncancel={() => (deletingSources = undefined)}
 	loading={deleting}
 >
 	{#snippet note()}
-		<p>{deletingSource?.repoURL}</p>
+		{#if deletingSources && deletingSources.length > 1}
+			<ul class="mb-3">
+				{#each deletingSources as source (source.id)}
+					<li>{source.displayName}</li>
+				{/each}
+			</ul>
+		{/if}
 		<p>
-			Are you sure you want to delete this? This will delete all related skills and their
-			information from the system.
+			Are you sure you want to delete {deletingSources && deletingSources.length > 1
+				? 'these'
+				: 'this'}? This will delete all related skills and their information from the system.
 		</p>
 	{/snippet}
 </Confirm>
@@ -397,7 +440,7 @@
 					/>
 				</div>
 				<div class="flex flex-col gap-1">
-					<label for="catalog-source-url" class="flex-1 text-sm font-light capitalize"
+					<label for="catalog-source-ref" class="flex-1 text-sm font-light capitalize"
 						>Reference
 					</label>
 					<input id="catalog-source-ref" bind:value={editingSource.ref} class="text-input-filled" />
@@ -432,7 +475,7 @@
 
 						try {
 							const response = await AdminService.createSkillRepository({
-								displayName: editingSource.value,
+								displayName: editingSource.name,
 								repoURL: editingSource.value,
 								ref: editingSource.ref
 							});

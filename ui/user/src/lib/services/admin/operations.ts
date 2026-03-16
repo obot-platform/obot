@@ -1431,10 +1431,12 @@ export async function listAllSkills(opts?: {
 	repoId?: string;
 	limit?: number;
 }): Promise<Skill[]> {
-	const response = (await doGet(
-		`/skills?all=true&query=${opts?.query}&repoId=${opts?.repoId}&limit=${opts?.limit ?? 200}`,
-		opts
-	)) as ItemsResponse<Skill>;
+	const params = new URLSearchParams();
+	params.set('all', 'true');
+	if (opts?.query != null) params.set('q', opts.query);
+	if (opts?.repoId != null) params.set('repoID', opts.repoId);
+	if (opts?.limit != null) params.set('limit', String(opts.limit));
+	const response = (await doGet(`/skills?${params.toString()}`, opts)) as ItemsResponse<Skill>;
 	return response.items ?? [];
 }
 
