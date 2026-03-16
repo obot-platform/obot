@@ -180,6 +180,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactList":                          schema_obot_platform_obot_apiclient_types_PublishedArtifactList(ref),
 		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactManifest":                      schema_obot_platform_obot_apiclient_types_PublishedArtifactManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionEntry":                  schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionEntry(ref),
+		"github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionSummary":                schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionSummary(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryGitHubMeta":                             schema_obot_platform_obot_apiclient_types_RegistryGitHubMeta(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryMeta":                                   schema_obot_platform_obot_apiclient_types_RegistryMeta(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryObotMeta":                               schema_obot_platform_obot_apiclient_types_RegistryObotMeta(ref),
@@ -8710,12 +8711,25 @@ func schema_obot_platform_obot_apiclient_types_PublishedArtifact(ref common.Refe
 							Format:  "",
 						},
 					},
+					"versions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionSummary"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"Metadata", "PublishedArtifactManifest", "authorID", "latestVersion", "visibility"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.PublishedArtifactManifest"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.PublishedArtifactManifest", "github.com/obot-platform/obot/apiclient/types.PublishedArtifactVersionSummary"},
 	}
 }
 
@@ -8822,6 +8836,40 @@ func schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionEntry(ref
 					},
 				},
 				Required: []string{"version", "blobKey", "createdAt"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionSummary(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PublishedArtifactVersionSummary is the public view of a version entry (no internal blob keys).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"version", "createdAt"},
 			},
 		},
 		Dependencies: []string{

@@ -283,6 +283,7 @@ var (
 			"GET /api/published-artifacts",
 			"GET /api/published-artifacts/{id}",
 			"GET /api/published-artifacts/{id}/download",
+			"GET /api/published-artifacts/{id}/{version}/skill",
 			"PUT /api/published-artifacts/{id}",
 			"DELETE /api/published-artifacts/{id}",
 
@@ -340,6 +341,7 @@ var (
 			"GET /api/published-artifacts",
 			"GET /api/published-artifacts/{id}",
 			"GET /api/published-artifacts/{id}/download",
+			"GET /api/published-artifacts/{id}/{version}/skill",
 			"GET /api/skills",
 			"GET /api/skills/{id}",
 			"GET /api/skills/{id}/download",
