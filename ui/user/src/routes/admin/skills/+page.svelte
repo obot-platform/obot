@@ -154,7 +154,7 @@
 						class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
 						value={query}
 						onChange={updateSearchQuery}
-						placeholder="Search skills..."
+						placeholder={view == 'skills' ? 'Search skills...' : 'Search sources...'}
 					/>
 				</div>
 			</div>
