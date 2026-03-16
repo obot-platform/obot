@@ -237,6 +237,18 @@
 							...(version.current.nanobotIntegration
 								? [
 										{
+											id: 'nanobot-agents',
+											href: '/admin/nanobot-agents',
+											icon: Server,
+											label: 'Nanobot Agents',
+											disabled: isBootStrapUser,
+											collapsible: false
+										}
+									]
+								: []),
+							...(version.current.nanobotIntegration
+								? [
+										{
 											id: 'launch-agent-chat',
 											href: '/agent',
 											icon: BotMessageSquare,

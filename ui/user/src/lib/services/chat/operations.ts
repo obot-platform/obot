@@ -936,8 +936,10 @@ export async function getMCP(id: string, opts?: { fetch?: Fetcher }): Promise<MC
 
 export async function listMCPCatalogServers(opts?: {
 	fetch?: Fetcher;
+	all?: boolean;
 }): Promise<MCPCatalogServer[]> {
-	const response = (await doGet('/all-mcps/servers', opts)) as {
+	const path = opts?.all ? '/all-mcps/servers?all=true' : '/all-mcps/servers';
+	const response = (await doGet(path, opts)) as {
 		items: MCPCatalogServer[] | null;
 	};
 	return response.items ?? [];

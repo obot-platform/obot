@@ -1,10 +1,141 @@
 package mcpserver
 
 import (
+	"context"
 	"testing"
 
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestNanobotImageDrift(t *testing.T) {
+	tests := []struct {
+		name          string
+		manifestImage string
+		desiredImage  string
+		expectDrift   bool
+	}{
+		{
+			name:          "no drift when deployed image matches desired override",
+			manifestImage: "ghcr.io/nanobot-ai/nanobot:v1",
+			desiredImage:  "ghcr.io/nanobot-ai/nanobot:v1",
+			expectDrift:   false,
+		},
+		{
+			name:          "drift when desired override differs from deployed image",
+			manifestImage: "ghcr.io/nanobot-ai/nanobot:v1",
+			desiredImage:  "ghcr.io/nanobot-ai/nanobot:v2",
+			expectDrift:   true,
+		},
+		{
+			name:          "no drift when desired override empty and manifest used",
+			manifestImage: "ghcr.io/nanobot-ai/nanobot:v1",
+			desiredImage:  "",
+			expectDrift:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := &v1.MCPServer{
+				Spec: v1.MCPServerSpec{
+					NanobotAgentID:       "nba1test",
+					DesiredImageOverride: tt.desiredImage,
+					Manifest: types.MCPServerManifest{
+						Runtime: types.RuntimeContainerized,
+						ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+							Image: tt.manifestImage,
+						},
+					},
+				},
+			}
+
+			drifted := nanobotImageHasDrifted(server)
+			if drifted != tt.expectDrift {
+				t.Fatalf("drift = %v, want %v", drifted, tt.expectDrift)
+			}
+		})
+	}
+}
+
+func TestDetectDriftUpdatesNanobotStatus(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add scheme: %v", err)
+	}
+
+	server := &v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ms1nba1test",
+			Namespace: "default",
+		},
+		Spec: v1.MCPServerSpec{
+			NanobotAgentID:       "nba1test",
+			DesiredImageOverride: "ghcr.io/nanobot-ai/nanobot:v2",
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image: "ghcr.io/nanobot-ai/nanobot:v1",
+				},
+			},
+		},
+	}
+
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1.MCPServer{}).
+		WithObjects(server).
+		Build()
+
+	req := router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    server.DeepCopy(),
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}
+
+	if err := New(nil, nil, "").DetectDrift(req, nil); err != nil {
+		t.Fatalf("DetectDrift() error = %v", err)
+	}
+
+	var updated v1.MCPServer
+	if err := client.Get(context.Background(), kclient.ObjectKeyFromObject(server), &updated); err != nil {
+		t.Fatalf("failed to get updated server: %v", err)
+	}
+
+	if !updated.Status.NeedsUpdate {
+		t.Fatalf("expected NeedsUpdate to be true")
+	}
+
+	req.Object = updated.DeepCopy()
+	updated.Spec.Manifest.ContainerizedConfig.Image = updated.Spec.DesiredImageOverride
+	updated.Status.NeedsUpdate = true
+	if err := client.Update(context.Background(), &updated); err != nil {
+		t.Fatalf("failed to update server spec: %v", err)
+	}
+	if err := client.Status().Update(context.Background(), &updated); err != nil {
+		t.Fatalf("failed to update server status: %v", err)
+	}
+
+	req.Object = updated.DeepCopy()
+	if err := New(nil, nil, "").DetectDrift(req, nil); err != nil {
+		t.Fatalf("DetectDrift() second call error = %v", err)
+	}
+
+	if err := client.Get(context.Background(), kclient.ObjectKeyFromObject(server), &updated); err != nil {
+		t.Fatalf("failed to get updated server after second drift check: %v", err)
+	}
+
+	if updated.Status.NeedsUpdate {
+		t.Fatalf("expected NeedsUpdate to be false after deployed image catches up")
+	}
+}
 
 func TestConfigurationHasDrifted(t *testing.T) {
 	tests := []struct {

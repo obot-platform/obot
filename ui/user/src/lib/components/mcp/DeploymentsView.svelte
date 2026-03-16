@@ -11,6 +11,7 @@
 	import {
 		AdminService,
 		ChatService,
+		Group,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser,
@@ -25,7 +26,7 @@
 	import { profile, mcpServersAndEntries, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
-	import { getUserDisplayName, openUrl } from '$lib/utils';
+	import { getUserDisplayName, isNanobotServerId, openUrl } from '$lib/utils';
 	import { delay } from 'es-toolkit';
 	import {
 		Captions,
@@ -66,6 +67,7 @@
 		initSort?: InitSort;
 		noDataContent?: Snippet;
 		onlyMyServers?: boolean;
+		scope?: 'all' | 'nanobot';
 	}
 
 	const SERVER_UPGRADES_AVAILABLE = {
@@ -74,11 +76,20 @@
 		SERVER: 'Needs Config Update',
 		K8S: 'Needs Scheduling Update'
 	};
+	const NANOBOT_UPDATES_AVAILABLE = {
+		NONE: 'Up to date',
+		RESTART: 'Needs restart to apply new image',
+		APPLYING: 'Applying image update'
+	};
 	const SERVER_UPGRADES_AVAILABLE_TOOLTIP = {
 		SERVER:
 			'The configuration for this server’s registry entry has changed and can be applied to this server',
 		K8S: 'The default server scheduling rules have changed and can be applied to this server',
 		BOTH: 'The configuration for this server’s registry entry has changed and can be applied to this server\nThe default server scheduling rules have changed and can be applied to this server.'
+	};
+	const NANOBOT_UPDATES_AVAILABLE_TOOLTIP = {
+		RESTART: 'This nanobot agent is running an older image. Restart it to apply the latest image.',
+		APPLYING: 'This nanobot agent is restarting to roll out the requested image update.'
 	};
 
 	let {
@@ -94,12 +105,16 @@
 		onSort,
 		initSort = { property: 'created', order: 'desc' },
 		noDataContent,
-		onlyMyServers
+		onlyMyServers,
+		scope = 'all'
 	}: Props = $props();
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
 
 	const hasAdminAccess = $derived(profile.current.hasAdminAccess?.() ?? false);
+	const isAtLeastPowerUser = $derived(
+		hasAdminAccess || profile.current.groups.includes(Group.POWERUSER)
+	);
 
 	let loading = $state(false);
 
@@ -130,14 +145,25 @@
 
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
+	let nanobotServers = $state<MCPCatalogServer[]>([]);
+
+	function isNanobotServer(server: MCPCatalogServer) {
+		return (
+			isNanobotServerId(server.id) || server.manifest.containerizedConfig?.command === 'nanobot'
+		);
+	}
+
+	const isNanobotScope = $derived(scope === 'nanobot');
 	let serversData = $derived(
-		entity === 'workspace'
-			? mcpServersAndEntries.current.userConfiguredServers.filter((server) => !server.deleted)
-			: [
-					...deployedCatalogEntryServers.filter((server) => !server.deleted),
-					...deployedWorkspaceCatalogEntryServers.filter((server) => !server.deleted),
-					...mcpServersAndEntries.current.servers.filter((server) => !server.deleted)
-				]
+		isNanobotScope
+			? nanobotServers.filter((server) => !server.deleted)
+			: entity === 'workspace'
+				? mcpServersAndEntries.current.userConfiguredServers.filter((server) => !server.deleted)
+				: [
+						...deployedCatalogEntryServers.filter((server) => !server.deleted),
+						...deployedWorkspaceCatalogEntryServers.filter((server) => !server.deleted),
+						...mcpServersAndEntries.current.servers.filter((server) => !server.deleted)
+					]
 	);
 
 	let instancesMap = $derived(
@@ -200,7 +226,15 @@
 				let updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
 				let updateStatusTooltip: string | undefined = undefined;
 
-				if (needsUpdate && needsK8sUpdate && doesSupportK8sUpdates) {
+				if (isNanobotScope && deployment.deploymentStatus === 'Progressing') {
+					updateStatus = NANOBOT_UPDATES_AVAILABLE.APPLYING;
+					updatesAvailable = [NANOBOT_UPDATES_AVAILABLE.APPLYING];
+					updateStatusTooltip = NANOBOT_UPDATES_AVAILABLE_TOOLTIP.APPLYING;
+				} else if (isNanobotScope && needsUpdate) {
+					updateStatus = NANOBOT_UPDATES_AVAILABLE.RESTART;
+					updatesAvailable = [NANOBOT_UPDATES_AVAILABLE.RESTART];
+					updateStatusTooltip = NANOBOT_UPDATES_AVAILABLE_TOOLTIP.RESTART;
+				} else if (needsUpdate && needsK8sUpdate && doesSupportK8sUpdates) {
 					updateStatus = SERVER_UPGRADES_AVAILABLE.BOTH;
 					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER, SERVER_UPGRADES_AVAILABLE.K8S];
 					updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.BOTH;
@@ -219,10 +253,15 @@
 
 				return {
 					...deployment,
-					displayName: deployment.alias || deployment.manifest.name || '',
+					displayName: isNanobotScope
+						? deployment.alias ||
+							deployment.manifest.shortDescription ||
+							deployment.manifest.name ||
+							''
+						: deployment.alias || deployment.manifest.name || '',
 					userName: getUserDisplayName(usersMap, deployment.userID),
 					registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
-					type: getServerTypeLabel(deployment),
+					type: isNanobotScope ? 'Nanobot Agent' : getServerTypeLabel(deployment),
 					powerUserWorkspaceID,
 					compositeParentName,
 					disabled: compositeParent
@@ -252,21 +291,69 @@
 
 	let pollingInterval: number;
 	const POLL_INTERVAL_MS = 10000; // 10 seconds
+	let pollingInFlight = $state(false);
+	const POLLING_DEPLOYMENT_STATUSES = new Set(['Progressing', 'Unavailable']);
+
+	function canManageServer(server: MCPCatalogServer & { isMyServer?: boolean }) {
+		return !!server.isMyServer || (hasAdminAccess && !readonly);
+	}
+
+	function canRestartServer(server: MCPCatalogServer & { isMyServer?: boolean }) {
+		return canManageServer(server) && !!server.configured;
+	}
+
+	function shouldUseWorkspaceRestart(server: MCPCatalogServer & { isMyServer?: boolean }) {
+		return !!server.powerUserWorkspaceID && !isNanobotServerId(server.id);
+	}
+
+	function canUpgradeServer(server: MCPCatalogServer & { isMyServer?: boolean }) {
+		return !isNanobotScope && isAtLeastPowerUser && canManageServer(server) && server.needsUpdate;
+	}
+
+	function canUpgradeK8sServer(server: MCPCatalogServer & { isMyServer?: boolean }) {
+		return (
+			!isNanobotScope && isAtLeastPowerUser && canManageServer(server) && server.needsK8sUpdate
+		);
+	}
+
+	function canDeleteServer(server: MCPCatalogServer & { isMyServer?: boolean }) {
+		return !isNanobotScope && canManageServer(server);
+	}
+
+	function shouldPoll() {
+		if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+			return false;
+		}
+
+		if (isNanobotScope) {
+			return true;
+		}
+
+		return tableData.some(
+			(row) => !!row.deploymentStatus && POLLING_DEPLOYMENT_STATUSES.has(row.deploymentStatus)
+		);
+	}
 
 	async function checkAndPoll() {
-		// Check if there are any servers with Progressing status
-		const hasProgressing = tableData.some((row) => row.deploymentStatus === 'Progressing');
+		if (pollingInFlight || !shouldPoll()) {
+			return;
+		}
 
-		// Only reload if there are progressing servers
-		if (hasProgressing) {
+		pollingInFlight = true;
+		try {
 			await reload(false);
+		} catch (error) {
+			console.error('Failed to poll MCP deployments:', error);
+		} finally {
+			pollingInFlight = false;
 		}
 	}
 
 	onMount(async () => {
 		await reload(true);
-		// Start checking for progressing servers
-		pollingInterval = setInterval(() => checkAndPoll(), POLL_INTERVAL_MS);
+		pollingInterval = window.setInterval(() => {
+			void checkAndPoll();
+		}, POLL_INTERVAL_MS);
 	});
 
 	onDestroy(() => {
@@ -281,7 +368,11 @@
 			loading = true;
 		}
 
-		if (entity === 'catalog' && profile.current.hasAdminAccess?.() && id) {
+		if (isNanobotScope) {
+			nanobotServers = (await ChatService.listMCPCatalogServers({ all: true })).filter(
+				isNanobotServer
+			);
+		} else if (entity === 'catalog' && profile.current.hasAdminAccess?.() && id) {
 			deployedCatalogEntryServers =
 				await AdminService.listAllCatalogDeployedSingleRemoteServers(id);
 			deployedWorkspaceCatalogEntryServers =
@@ -304,7 +395,7 @@
 	async function handleBulkUpdate() {
 		for (const id of Object.keys(selected)) {
 			// if doesn't need update or is child server of composite mcp
-			if (!selected[id].needsUpdate || (selected[id].needsUpdate && selected[id].compositeName)) {
+			if (!canUpgradeServer(selected[id]) || selected[id].compositeName) {
 				continue;
 			}
 			updating[id] = { inProgress: true, error: '' };
@@ -328,7 +419,7 @@
 
 	async function handleK8sBulkUpdate(selections: typeof selected) {
 		const serversToUpdate = Object.values(selections).filter(
-			(server) => server.needsK8sUpdate && !server.compositeName
+			(server) => canUpgradeK8sServer(server) && !server.compositeName
 		);
 		return Promise.all(serversToUpdate.map((server) => updateK8sSettings(server)));
 	}
@@ -337,15 +428,16 @@
 		restarting = true;
 		try {
 			for (const id of Object.keys(selected)) {
-				if (!selected[id].configured) {
+				if (!canRestartServer(selected[id])) {
 					// skip unconfigured servers
 					continue;
 				}
-				if (selected[id].powerUserWorkspaceID) {
-					await ChatService.restartWorkspaceK8sServerDeployment(
-						selected[id].powerUserWorkspaceID,
-						id
-					);
+				if (shouldUseWorkspaceRestart(selected[id])) {
+					const workspaceId = selected[id].powerUserWorkspaceID;
+					if (!workspaceId) {
+						continue;
+					}
+					await ChatService.restartWorkspaceK8sServerDeployment(workspaceId, id);
 				} else {
 					await AdminService.restartK8sDeployment(id);
 				}
@@ -353,6 +445,7 @@
 		} catch (err) {
 			console.error('Failed to restart deployments:', err);
 		} finally {
+			await reload(false);
 			restarting = false;
 			selected = {};
 			tableRef?.clearSelectAll();
@@ -452,7 +545,7 @@
 	async function handleBulkDelete() {
 		for (const id of Object.keys(selected)) {
 			// Skip descendants of composite servers; they cannot be deleted directly
-			if (selected[id].compositeName) continue;
+			if (selected[id].compositeName || !canDeleteServer(selected[id])) continue;
 			await handleSingleDelete(selected[id]);
 		}
 		selected = {};
@@ -494,6 +587,17 @@
 	}
 
 	function getMcpCatalogUrl(d: MCPCatalogServer) {
+		if (isNanobotServer(d)) {
+			return d.powerUserWorkspaceID
+				? resolve('/admin/mcp-servers/w/[wid]/s/[id]/details', {
+						id: d.id,
+						wid: d.powerUserWorkspaceID
+					})
+				: resolve('/admin/mcp-servers/s/[id]/details', {
+						id: d.id
+					});
+		}
+
 		// If this is a component of a composite server, link to the parent composite server
 		if (d.compositeName) {
 			const parent = compositeMapping[d.compositeName];
@@ -535,42 +639,51 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	{#if loading || mcpServersAndEntries.current.loading}
+	{#if loading || (!isNanobotScope && mcpServersAndEntries.current.loading)}
 		<div class="my-2 flex items-center justify-center">
 			<LoaderCircle class="size-6 animate-spin" />
 		</div>
 	{:else}
-		{#if entity === 'catalog' && profile.current.hasAdminAccess?.()}
+		{#if !isNanobotScope && entity === 'catalog' && profile.current.hasAdminAccess?.()}
 			<CapacityBanner bind:this={capacityBanner} />
 		{/if}
 		{#if tableData.length > 0}
 			<Table
 				bind:this={tableRef}
 				data={tableData}
-				fields={entity === 'workspace'
+				fields={isNanobotScope
 					? [
 							'displayName',
 							'type',
 							...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
 							'updatesAvailable',
+							'userName',
 							'created'
 						]
-					: [
-							'displayName',
-							'type',
-							...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
-							'updatesAvailable',
-							'userName',
-							'registry',
-							'created'
-						]}
+					: entity === 'workspace'
+						? [
+								'displayName',
+								'type',
+								...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
+								'updatesAvailable',
+								'created'
+							]
+						: [
+								'displayName',
+								'type',
+								...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
+								'updatesAvailable',
+								'userName',
+								'registry',
+								'created'
+							]}
 				filterable={[
 					'displayName',
 					'type',
 					'deploymentStatus',
 					'updatesAvailable',
 					'userName',
-					'registry'
+					...(isNanobotScope ? [] : ['registry'])
 				].filter(Boolean) as string[]}
 				{filters}
 				headers={[
@@ -590,8 +703,17 @@
 				{onClearAllFilters}
 				{onSort}
 				{initSort}
-				sortable={['displayName', 'type', 'updatesAvailable', 'userName', 'registry', 'created']}
-				noDataMessage="No catalog servers added."
+				sortable={[
+					'displayName',
+					'type',
+					'updatesAvailable',
+					'userName',
+					...(isNanobotScope ? [] : ['registry']),
+					'created'
+				]}
+				noDataMessage={isNanobotScope
+					? 'No nanobot agents are currently running.'
+					: 'No catalog servers added.'}
 				classes={{
 					root: 'rounded-none rounded-b-md shadow-none',
 					thead: classes?.tableHeader
@@ -600,6 +722,10 @@
 				sectionPrimaryTitle="My Deployments"
 				sectionSecondaryTitle="All Deployments"
 				setRowClasses={(d) => {
+					if (isNanobotScope && d.needsUpdate) {
+						return 'bg-primary/5 hover:bg-primary/10 border-primary/20';
+					}
+
 					if (d.needsUpdate && d.needsK8sUpdate) {
 						return 'bg-orange-500/5 hover:bg-orange-500/10 border-orange-500/20';
 					}
@@ -726,7 +852,7 @@
 										{/if}
 									</span>
 								</a>
-								{#if d.needsUpdate && (d.isMyServer || (hasAdminAccess && !readonly))}
+								{#if canUpgradeServer(d)}
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -775,7 +901,7 @@
 									</button>
 								{/if}
 
-								{#if (d.isMyServer || (hasAdminAccess && !readonly)) && d.needsK8sUpdate}
+								{#if canUpgradeK8sServer(d)}
 									<button
 										class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -797,23 +923,23 @@
 									</button>
 								{/if}
 
-								{#if d.isMyServer || (hasAdminAccess && !readonly)}
+								{#if canManageServer(d)}
 									<button
 										class="menu-button"
 										disabled={restarting}
 										onclick={async (e) => {
 											e.stopPropagation();
 											restarting = true;
-											if (d.powerUserWorkspaceID) {
-												await ChatService.restartWorkspaceK8sServerDeployment(
-													d.powerUserWorkspaceID,
-													d.id
-												);
+											if (shouldUseWorkspaceRestart(d)) {
+												const workspaceId = d.powerUserWorkspaceID;
+												if (!workspaceId) return;
+												await ChatService.restartWorkspaceK8sServerDeployment(workspaceId, d.id);
 											} else {
 												await AdminService.restartK8sDeployment(d.id);
 											}
 
 											await delay(1000);
+											await reload(false);
 
 											toggle((restarting = false));
 										}}
@@ -844,7 +970,7 @@
 									{/if}
 								</button>
 
-								{#if d.isMyServer || (hasAdminAccess && !readonly)}
+								{#if canDeleteServer(d)}
 									<button
 										class="menu-button-destructive"
 										onclick={async (e) => {
@@ -874,17 +1000,17 @@
 				{/snippet}
 
 				{#snippet tableSelectActions(currentSelected)}
-					{@const restartableCount = Object.values(currentSelected).filter(
-						(s) => s.configured
+					{@const restartableCount = Object.values(currentSelected).filter((s) =>
+						canRestartServer(s)
 					).length}
 					{@const upgradeableCount = Object.values(currentSelected).filter(
-						(s) => s.needsUpdate && !s.compositeName
+						(s) => canUpgradeServer(s) && !s.compositeName
 					).length}
 					{@const k8sUpgradeableCount = Object.values(currentSelected).filter(
-						(s) => s.needsK8sUpdate && !s.compositeName
+						(s) => canUpgradeK8sServer(s) && !s.compositeName
 					).length}
 					{@const deletableCount = Object.values(currentSelected).filter(
-						(s) => !s.compositeName
+						(s) => canDeleteServer(s) && !s.compositeName
 					).length}
 
 					<div class="flex grow items-center justify-end gap-2 px-4 py-2">
@@ -907,70 +1033,74 @@
 								</span>
 							{/if}
 						</button>
-						<button
-							class="button flex items-center gap-1 text-sm font-normal"
-							onclick={() => {
-								selected = currentSelected;
-								showUpgradeConfirm = {
-									type: 'multi',
-									onConfirm: () => {
-										reload();
-									}
-								};
-							}}
-							disabled={readonly || upgradeableCount === 0}
-						>
-							<CircleFadingArrowUp class="size-4" /> Upgrade
-							{#if upgradeableCount > 0 && !readonly}
-								<span class="pill-primary">
-									{upgradeableCount}
-								</span>
-							{/if}
-						</button>
-						<button
-							class="button flex items-center gap-1 text-sm font-normal"
-							onclick={() => {
-								selected = currentSelected;
-								const type = Object.keys(selected).length > 1 ? 'multi' : 'single';
+						{#if !isNanobotScope && isAtLeastPowerUser}
+							<button
+								class="button flex items-center gap-1 text-sm font-normal"
+								onclick={() => {
+									selected = currentSelected;
+									showUpgradeConfirm = {
+										type: 'multi',
+										onConfirm: () => {
+											reload();
+										}
+									};
+								}}
+								disabled={readonly || upgradeableCount === 0}
+							>
+								<CircleFadingArrowUp class="size-4" /> Upgrade
+								{#if upgradeableCount > 0 && !readonly}
+									<span class="pill-primary">
+										{upgradeableCount}
+									</span>
+								{/if}
+							</button>
+							<button
+								class="button flex items-center gap-1 text-sm font-normal"
+								onclick={() => {
+									selected = currentSelected;
+									const type = Object.keys(selected).length > 1 ? 'multi' : 'single';
 
-								if (type === 'multi') {
-									showK8sUpgradeConfirm = {
+									if (type === 'multi') {
+										showK8sUpgradeConfirm = {
+											type: 'multi'
+										};
+									} else {
+										const server = type === 'single' ? Object.values(selected)[0] : undefined;
+										showK8sUpgradeConfirm = {
+											type: 'single',
+											server: server!
+										};
+									}
+								}}
+								disabled={readonly || k8sUpgradeableCount === 0}
+							>
+								<CircleFadingArrowUp class="size-4" /> Kubernetes Upgrade
+								{#if k8sUpgradeableCount > 0 && !readonly}
+									<span class="pill-primary">
+										{k8sUpgradeableCount}
+									</span>
+								{/if}
+							</button>
+						{/if}
+						{#if !isNanobotScope}
+							<button
+								class="button flex items-center gap-1 text-sm font-normal"
+								onclick={() => {
+									selected = currentSelected;
+									showDeleteConfirm = {
 										type: 'multi'
 									};
-								} else {
-									const server = type === 'single' ? Object.values(selected)[0] : undefined;
-									showK8sUpgradeConfirm = {
-										type: 'single',
-										server: server!
-									};
-								}
-							}}
-							disabled={readonly || k8sUpgradeableCount === 0}
-						>
-							<CircleFadingArrowUp class="size-4" /> Kubernetes Upgrade
-							{#if k8sUpgradeableCount > 0 && !readonly}
-								<span class="pill-primary">
-									{k8sUpgradeableCount}
-								</span>
-							{/if}
-						</button>
-						<button
-							class="button flex items-center gap-1 text-sm font-normal"
-							onclick={() => {
-								selected = currentSelected;
-								showDeleteConfirm = {
-									type: 'multi'
-								};
-							}}
-							disabled={readonly || deletableCount === 0}
-						>
-							<Trash2 class="size-4" /> Delete
-							{#if deletableCount > 0 && !readonly}
-								<span class="pill-primary">
-									{deletableCount}
-								</span>
-							{/if}
-						</button>
+								}}
+								disabled={readonly || deletableCount === 0}
+							>
+								<Trash2 class="size-4" /> Delete
+								{#if deletableCount > 0 && !readonly}
+									<span class="pill-primary">
+										{deletableCount}
+									</span>
+								{/if}
+							</button>
+						{/if}
 					</div>
 				{/snippet}
 			</Table>

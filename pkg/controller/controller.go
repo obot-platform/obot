@@ -95,6 +95,56 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		if err := c.ensureObotMCPServer(ctx); err != nil {
 			return fmt.Errorf("failed to ensure obot MCP server: %w", err)
 		}
+		if err := c.ensureNanobotAgentDesiredImages(ctx); err != nil {
+			return fmt.Errorf("failed to ensure nanobot agent desired images: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) ensureNanobotAgentDesiredImages(ctx context.Context) error {
+	var servers v1.MCPServerList
+	if err := c.services.StorageClient.List(ctx, &servers, kclient.InNamespace(system.DefaultNamespace)); err != nil {
+		return err
+	}
+
+	for _, server := range servers.Items {
+		if server.Spec.NanobotAgentID == "" {
+			continue
+		}
+
+		deployedImage := ""
+		if server.Spec.Manifest.ContainerizedConfig != nil {
+			deployedImage = server.Spec.Manifest.ContainerizedConfig.Image
+		}
+		needsStatusUpdate := server.Status.NeedsUpdate != (deployedImage != "" && deployedImage != c.services.NanobotAgentImage)
+
+		if server.Spec.DesiredImageOverride == c.services.NanobotAgentImage {
+			if needsStatusUpdate {
+				server.Status.NeedsUpdate = deployedImage != "" && deployedImage != c.services.NanobotAgentImage
+				if err := c.services.StorageClient.Status().Update(ctx, &server); err != nil {
+					return fmt.Errorf("failed to update desired image status for nanobot MCP server %s: %w", server.Name, err)
+				}
+			}
+			continue
+		}
+
+		server.Spec.DesiredImageOverride = c.services.NanobotAgentImage
+		if err := c.services.StorageClient.Update(ctx, &server); err != nil {
+			return fmt.Errorf("failed to update desired image for nanobot MCP server %s: %w", server.Name, err)
+		}
+
+		if err := c.services.StorageClient.Get(ctx, kclient.ObjectKeyFromObject(&server), &server); err != nil {
+			return fmt.Errorf("failed to refresh nanobot MCP server %s after desired image update: %w", server.Name, err)
+		}
+
+		server.Status.NeedsUpdate = deployedImage != "" && deployedImage != c.services.NanobotAgentImage
+		if err := c.services.StorageClient.Status().Update(ctx, &server); err != nil {
+			return fmt.Errorf("failed to update desired image status for nanobot MCP server %s: %w", server.Name, err)
+		}
+
+		log.Infof("Updated nanobot MCP server desired image: server=%s image=%s", server.Name, c.services.NanobotAgentImage)
 	}
 
 	return nil
@@ -536,7 +586,7 @@ func (c *Controller) setupLocalK8sRoutes() {
 		return
 	}
 
-	deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend())
+	deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend(), c.services.NanobotAgentImage)
 	c.localK8sRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
 	c.localK8sRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)
 

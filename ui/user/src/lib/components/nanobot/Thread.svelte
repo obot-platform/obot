@@ -531,12 +531,12 @@
 	</div>
 
 	{#if browserViewerOpen && browserAvailable}
-		<div
+		<button
+			type="button"
 			class="bg-base-300 hover:bg-primary w-1 cursor-col-resize transition-colors"
 			onmousedown={startResize}
-			role="separator"
 			aria-label="Resize browser viewer"
-		></div>
+		></button>
 	{/if}
 
 	{#if browserViewerOpen && browserAvailable}

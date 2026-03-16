@@ -29,7 +29,7 @@
 	import { resolve } from '$app/paths';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import DeploymentLogs from './DeploymentLogs.svelte';
-	import { isOwnSingleUserServer } from '$lib/utils';
+	import { isOwnSingleUserServer, isNanobotServerId } from '$lib/utils';
 
 	interface Props {
 		id?: string;
@@ -91,6 +91,9 @@
 
 	const eventStream = new EventStreamService<string>();
 	const dontLogErrors = true;
+	const shouldUseWorkspaceRestart = $derived(
+		entity === 'workspace' && !!entityId && !isNanobotServerId(mcpServerId)
+	);
 
 	function handleScroll() {
 		deploymentLogsInstance?.scroll();
@@ -168,7 +171,7 @@
 	async function handleRestart() {
 		restarting = true;
 		try {
-			await (entity === 'workspace' && entityId
+			await (shouldUseWorkspaceRestart && entityId
 				? catalogEntry?.id
 					? ChatService.restartWorkspaceCatalogEntryServerDeployment(
 							entityId,
