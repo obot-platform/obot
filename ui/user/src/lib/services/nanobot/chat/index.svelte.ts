@@ -180,9 +180,7 @@ export class ChatAPI {
 	}
 
 	async readResource(uri: string): Promise<{ contents: ResourceContents[] }> {
-		return (await this.mcpClient.exchange('resources/read', { uri })) as {
-			contents: ResourceContents[];
-		};
+		return this.mcpClient.readResource(uri);
 	}
 
 	async deleteWorkflow(workflowUri: string): Promise<void> {
@@ -469,9 +467,7 @@ export class ChatSession {
 	};
 
 	readResource = async (uri: string) => {
-		return (await this.sessionClient.exchange('resources/read', { uri })) as {
-			contents: ResourceContents[];
-		};
+		return this.sessionClient.readResource(uri);
 	};
 
 	register(
