@@ -3,19 +3,21 @@
 	import { darkMode, errors } from '$lib/stores';
 	import { initLayout } from '$lib/context/nanobotLayout.svelte';
 	import 'devicon/devicon.min.css';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { NanobotService } from '$lib/services';
 	import { ChatAPI } from '$lib/services/nanobot/chat/index.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { get } from 'svelte/store';
-	import type { Chat, Resource } from '$lib/services/nanobot/types.js';
+	import type { Chat, Resource } from '$lib/services/nanobot/types';
 
 	let { children, data } = $props();
-	let loading = $state(false);
 	let projects = $derived(data.projects);
 	let agent = $derived(data.agent);
 	let isNewAgent = $derived(data.isNewAgent);
 	const chatApi = $derived(new ChatAPI(agent.connectURL));
+
+	const initialChat = get(nanobotChat);
+	let loading = $state(untrack(() => !initialChat || data.isNewAgent));
 
 	const tid = $derived(page.url.searchParams.get('tid'));
 	const projectIdFromPath = $derived(page.params.projectId);
