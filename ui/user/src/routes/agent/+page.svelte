@@ -8,6 +8,7 @@
 	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
+	import { randomUUID } from '$lib/utils';
 	import type { Attachment, UploadedFile } from '$lib/services/nanobot/types';
 
 	let { data } = $props();
@@ -38,7 +39,7 @@
 		file: File,
 		_opts?: { controller?: AbortController }
 	): Promise<Attachment> {
-		const id = crypto.randomUUID();
+		const id = randomUUID();
 		const uri = URL.createObjectURL(file);
 		pendingFiles = [...pendingFiles, { id, file, uri, mimeType: file.type || undefined }];
 		return { name: file.name, uri, mimeType: file.type || undefined };
@@ -135,12 +136,12 @@
 					messages: initialMessage
 						? [
 								{
-									id: crypto.randomUUID(),
+									id: randomUUID(),
 									role: 'user',
 									created: new Date().toISOString(),
 									items: [
 										{
-											id: crypto.randomUUID(),
+											id: randomUUID(),
 											type: 'text',
 											text: initialMessage
 										}

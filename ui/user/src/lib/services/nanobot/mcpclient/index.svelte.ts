@@ -1,3 +1,4 @@
+import { randomUUID } from '$lib/utils';
 import { type InitializationResult, type ResourceContents, type Resources } from '../types';
 
 interface JSONRPCRequest {
@@ -165,7 +166,7 @@ export class SimpleClient {
 				// Step 1: Send initialize request
 				const initRequest: JSONRPCRequest = {
 					jsonrpc: '2.0',
-					id: crypto.randomUUID(),
+					id: randomUUID(),
 					method: 'initialize',
 					params: {
 						protocolVersion: '2024-11-05',
@@ -215,7 +216,7 @@ export class SimpleClient {
 				// Step 2: Send initialized notification
 				const initializedRequest: JSONRPCRequest = {
 					jsonrpc: '2.0',
-					id: crypto.randomUUID(),
+					id: randomUUID(),
 					method: 'notifications/initialized',
 					params: {}
 				};
@@ -317,7 +318,7 @@ export class SimpleClient {
 
 		const request: JSONRPCRequest = {
 			jsonrpc: '2.0',
-			id: crypto.randomUUID(),
+			id: randomUUID(),
 			method,
 			params
 		};
