@@ -13,8 +13,6 @@
 	import { fly } from 'svelte/transition';
 	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
-	import { NanobotService } from '$lib/services';
 	import { untrack } from 'svelte';
 	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -27,17 +25,6 @@
 	let loading = $state(false);
 	let sortBy = $state<'' | 'name-asc' | 'name-desc' | 'created-asc' | 'created-desc'>('');
 	let activeTab = $state<'my' | 'shared'>('my');
-	let publishing = new SvelteMap<string, boolean>();
-	let showConfirmPublishWorkflow = $state<
-		| {
-				latestVersion: number;
-				workflowUri: string;
-				workflowId: string;
-				workflowDisplayName: string;
-				publishedArtifactId: string;
-		  }
-		| undefined
-	>(undefined);
 	let showConfirmUpdateWorkflow = $state<
 		| {
 				latestVersion: number;
@@ -71,11 +58,7 @@
 		sharedWorkflows: publishedWorkflows
 			.filter((w) => w.visibility === 'public' && w.authorID !== profile.current.id)
 			.map((w) => {
-				const latestVersion =
-					w.versions && w.versions.length > 0
-						? w.versions[w.versions.length - 1]?.version
-						: undefined;
-				const latestVersionString = latestVersion != null ? String(latestVersion) : undefined;
+				const latestVersionString = w.latestVersion != null ? String(w.latestVersion) : undefined;
 				return {
 					...w,
 					isInstalled: workflowSet.has(w.name),
@@ -108,17 +91,15 @@
 					isInstalled: w.isInstalled,
 					isInstalledFrom: undefined,
 					isUpdated: w.isUpdated,
-					versions: w.versions ?? []
+					versions: w.versions ?? [],
+					latestVersion: w.latestVersion ?? 0
 				}))
 			: workflows.map((w) => {
 					const publishedMatch = myPublishedMap.get(w.name);
 					const sharedMatch = sharedWorkflows.find(
 						(sw) => sw.name === w.name && sw.authorEmail === w._meta?.['author-email']
 					);
-					const sharedLatestVersion =
-						sharedMatch?.versions && sharedMatch.versions.length > 0
-							? sharedMatch.versions[sharedMatch.versions.length - 1]?.version
-							: undefined;
+					const sharedLatestVersion = sharedMatch?.latestVersion;
 					const sharedLatestVersionString =
 						sharedLatestVersion != null ? String(sharedLatestVersion) : undefined;
 					const isInstalledFrom = sharedMatch && w._meta?.['author-email'];
@@ -139,7 +120,8 @@
 						isInstalled,
 						isInstalledFrom,
 						isUpdated: sharedLatestVersionString === w._meta?.version,
-						versions: publishedMatch?.versions ?? []
+						versions: publishedMatch?.versions ?? [],
+						latestVersion: publishedMatch?.latestVersion ?? 0
 					};
 				});
 	});
@@ -168,8 +150,6 @@
 	);
 
 	let workflowsContainer = $state<HTMLElement | undefined>(undefined);
-	let showWorkflowVersionDialog = $state<(typeof tableData)[number] | undefined>(undefined);
-
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
 
 	function handleSelectWorkflow(workflowName: string) {
@@ -195,20 +175,6 @@
 			);
 			sessionClient.sendMessage(`Run workflow: ${workflowName}`);
 		});
-	}
-
-	function handlePublishWorkflow(workflowId: string) {
-		publishing.set(workflowId, true);
-		$nanobotChat?.api
-			.publishArtifact(workflowId)
-			.then(() => {
-				NanobotService.listPublishedWorkflows().then((workflows) => {
-					publishedWorkflows = workflows;
-				});
-			})
-			.finally(() => {
-				publishing.delete(workflowId);
-			});
 	}
 
 	function handleInstallWorkflow(publishedArtifact: PublishedArtifact) {
@@ -349,14 +315,18 @@
 										: 'tooltip tooltip-left btn-warning btn-soft'
 									: 'btn-ghost tooltip tooltip-left'
 							)}
-							data-tip={workflow.isInstalled ? 'An update is available' : 'Install workflow'}
+							data-tip={workflow.isInstalled
+								? workflow.isUpdated
+									? ''
+									: 'An update is available'
+								: 'Install workflow'}
 							onclick={(e) => {
 								e.preventDefault();
 								e.stopPropagation();
 								if (!workflow.id) return;
 								if (workflow.isInstalled) {
 									showConfirmUpdateWorkflow = {
-										latestVersion: workflow.versions?.[workflow.versions.length - 1]?.version ?? 0,
+										latestVersion: workflow.latestVersion,
 										workflowUri: workflow.workflowUri ?? '',
 										publishedArtifact: workflow
 									};
@@ -460,9 +430,7 @@
 						<td>{workflow.name}</td>
 						{#if activeTab === 'my' || showingSearchResults}
 							<td class="capitalize">
-								{#if publishing.get(workflow.workflowId)}
-									<div class="loading loading-spinner text-primary loading-sm ml-3"></div>
-								{:else if workflow.published}
+								{#if workflow.published}
 									{formatTimeAgo(workflow.published).relativeTime}
 								{:else if workflow.createdBy === 'Me'}
 									-
@@ -498,7 +466,7 @@
 												return;
 											}
 											showConfirmUpdateWorkflow = {
-												latestVersion: match.versions?.[match.versions.length - 1]?.version ?? 0,
+												latestVersion: match.latestVersion ?? 0,
 												workflowUri: workflow.workflowUri ?? '',
 												publishedArtifact: match
 											};
@@ -548,7 +516,11 @@
 												: 'tooltip tooltip-left btn-warning btn-soft'
 											: 'btn-ghost tooltip tooltip-left'
 									)}
-									data-tip={workflow.isInstalled ? 'An update is available' : 'Install workflow'}
+									data-tip={workflow.isInstalled
+										? workflow.isUpdated
+											? ''
+											: 'An update is available'
+										: 'Install workflow'}
 									onclick={(e) => {
 										e.preventDefault();
 										e.stopPropagation();
@@ -562,8 +534,7 @@
 										}
 										if (workflow.isInstalled) {
 											showConfirmUpdateWorkflow = {
-												latestVersion:
-													workflow.versions?.[workflow.versions.length - 1]?.version ?? 0,
+												latestVersion: workflow.latestVersion ?? 0,
 												workflowUri: workflow.workflowUri ?? '',
 												publishedArtifact: match
 											};
@@ -650,15 +621,6 @@
 	oncancel={() => (confirmDeleteWorkflow = undefined)}
 />
 
-{#if showWorkflowVersionDialog}
-	<PublishedWorkflowVersionDialog
-		publishedArtifactId={showWorkflowVersionDialog.publishedArtifactId}
-		versions={showWorkflowVersionDialog.versions}
-		workflowDisplayName={showWorkflowVersionDialog.name}
-		onClose={() => (showWorkflowVersionDialog = undefined)}
-	/>
-{/if}
-
 {#if showConfirmUpdateWorkflow}
 	<ConfirmDiffWorkflow
 		latestVersion={showConfirmUpdateWorkflow.latestVersion}
@@ -672,22 +634,6 @@
 		variant="update"
 		onCancel={() => {
 			showConfirmUpdateWorkflow = undefined;
-		}}
-	/>
-{/if}
-
-{#if showConfirmPublishWorkflow}
-	<ConfirmDiffWorkflow
-		latestVersion={showConfirmPublishWorkflow.latestVersion}
-		workflowUri={showConfirmPublishWorkflow.workflowUri}
-		publishedArtifactId={showConfirmPublishWorkflow.publishedArtifactId}
-		onSubmit={() => {
-			if (!showConfirmPublishWorkflow) return;
-			handlePublishWorkflow(showConfirmPublishWorkflow.workflowId);
-			showConfirmPublishWorkflow = undefined;
-		}}
-		onCancel={() => {
-			showConfirmPublishWorkflow = undefined;
 		}}
 	/>
 {/if}
