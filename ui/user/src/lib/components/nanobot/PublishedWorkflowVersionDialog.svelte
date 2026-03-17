@@ -69,7 +69,6 @@
 		{#if versions.length === 0}
 			<div class="text-base-content/50 my-4 text-center text-sm">
 				<p class="font-medium">No versions found.</p>
-				<p class="mt-2 font-light">Click "Publish" below to allow users access to your workflow.</p>
 			</div>
 		{:else}
 			<ul class="timeline timeline-snap-icon timeline-compact timeline-vertical mt-4 pr-2">

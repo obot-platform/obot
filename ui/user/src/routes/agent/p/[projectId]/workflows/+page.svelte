@@ -123,6 +123,11 @@
 								: undefined;
 						const sharedLatestVersionString =
 							sharedLatestVersion != null ? String(sharedLatestVersion) : undefined;
+						const isInstalledFromShared = !!(
+							sharedMatch &&
+							w._meta?.['author-email'] &&
+							w._meta?.['author-email'] !== profile.current.email
+						);
 						return {
 							id: w.name,
 							workflowId: w.name,
@@ -134,10 +139,7 @@
 							visibility: publishedMatch?.visibility || 'private',
 							createdBy: 'Me',
 							workflowUri: w.uri,
-							isInstalled:
-								sharedMatch &&
-								w._meta?.['author-email'] &&
-								w._meta?.['author-email'] !== profile.current.email,
+							isInstalled: isInstalledFromShared,
 							isUpdated: sharedLatestVersionString === w._meta?.version,
 							versions: publishedMatch?.versions ?? []
 						};
@@ -205,7 +207,7 @@
 			.publishArtifact(workflowId)
 			.then(() => {
 				NanobotService.listPublishedWorkflows().then((workflows) => {
-					myPublishedWorkflows = workflows;
+					publishedWorkflows = workflows;
 				});
 			})
 			.finally(() => {
@@ -468,16 +470,20 @@
 								{/if}
 							</td>
 							<td>
-								<button
-									class="btn btn-link"
-									onclick={(e) => {
-										e.preventDefault();
-										e.stopPropagation();
-										showWorkflowVersionDialog = workflow;
-									}}
-								>
-									{workflow.versions.length}
-								</button>
+								{#if workflow.published}
+									<button
+										class="btn btn-link"
+										onclick={(e) => {
+											e.preventDefault();
+											e.stopPropagation();
+											showWorkflowVersionDialog = workflow;
+										}}
+									>
+										{workflow.versions.length}
+									</button>
+								{:else}
+									<div class="px-4">-</div>
+								{/if}
 							</td>
 						{/if}
 						{#if activeTab === 'shared' || showingSearchResults}
@@ -488,7 +494,7 @@
 								<PublishedWorkflowDropdown
 									publishedArtifactId={workflow.publishedArtifactId}
 									onUnpublish={() => {
-										myPublishedWorkflows = myPublishedWorkflows.filter(
+										publishedWorkflows = publishedWorkflows.filter(
 											(w) => w.id !== workflow.publishedArtifactId
 										);
 									}}
@@ -507,7 +513,6 @@
 									}}
 									onCheckForUpdates={workflow.isInstalled && !workflow.isUpdated
 										? () => {
-												console.log(workflow);
 												const originalWorkflow = workflows.find(
 													(w) => w.name === workflow.workflowId
 												);
