@@ -91,11 +91,7 @@
 	}
 
 	function toOpenPath(uri: string, sessionId?: string): string {
-		if (
-			uri.startsWith('file:///sessions/') ||
-			uri.startsWith('file:///workflows/') ||
-			!sessionId
-		) {
+		if (uri.startsWith('file:///sessions/') || uri.startsWith('file:///workflows/') || !sessionId) {
 			return uri;
 		}
 
@@ -104,16 +100,13 @@
 
 	const files = $derived.by(() => {
 		const threadResources = chatForSession?.resources ?? [];
-		const workflowResources = workflowName
-			? (chatForSession?.resources ?? $nanobotChat?.resources ?? [])
-			: [];
-		const deduped = new Map<
-			string,
-			(
-				| (typeof threadResources)[number]
-				| (typeof workflowResources)[number]
-			) & { openPath: string; sortName: string }
-		>();
+		const workflowResources = workflowName ? ($nanobotChat?.resources ?? []) : [];
+		const deduped: Array<
+			((typeof threadResources)[number] | (typeof workflowResources)[number]) & {
+				openPath: string;
+				sortName: string;
+			}
+		> = [];
 
 		for (const resource of [...threadResources, ...workflowResources]) {
 			if (!resource.uri.startsWith('file:///')) {
@@ -124,18 +117,18 @@
 			}
 
 			const openPath = toOpenPath(resource.uri, sessionId);
-			if (deduped.has(openPath)) {
+			if (deduped.some((file) => file.openPath === openPath)) {
 				continue;
 			}
 
-			deduped.set(openPath, {
+			deduped.push({
 				...resource,
 				openPath,
 				sortName: resource.name ?? resource.uri
 			});
 		}
 
-		return [...deduped.values()].sort((a, b) => {
+		return deduped.sort((a, b) => {
 			const aIsWorkflow = a.uri.startsWith('file:///workflows/');
 			const bIsWorkflow = b.uri.startsWith('file:///workflows/');
 
