@@ -37,12 +37,12 @@
 	let loading = $state(false);
 	let showSkip = $state(false);
 
-	const SUGGESTED_MODEL_SELECTIONS: Record<ModelAlias, string> = {
-		[ModelAlias.Llm]: 'gpt-5.2',
-		[ModelAlias.LlmMini]: 'gpt-5-mini',
-		[ModelAlias.TextEmbedding]: 'text-embedding-3-large',
-		[ModelAlias.ImageGeneration]: 'gpt-image-1.5',
-		[ModelAlias.Vision]: 'gpt-5.2'
+	const SUGGESTED_MODEL_SELECTIONS: Record<ModelAlias, string[]> = {
+		[ModelAlias.Llm]: ['gpt-5.4', 'claude-sonnet-4-6'],
+		[ModelAlias.LlmMini]: ['gpt-5-mini', 'claude-haiku-4-5'],
+		[ModelAlias.TextEmbedding]: ['text-embedding-3-large'],
+		[ModelAlias.ImageGeneration]: ['dall-e-3'],
+		[ModelAlias.Vision]: ['gpt-5.4', 'claude-sonnet-4-6']
 	};
 
 	export function open(updateShowSkip = false) {
@@ -70,12 +70,10 @@
 				const activeModelOptions = filterModelsByActive(
 					filterModelsByUsage(availableModels, usage)
 				);
-				const suggestedModelName = SUGGESTED_MODEL_SELECTIONS[modelAlias.alias];
+				const suggestedModelNames = SUGGESTED_MODEL_SELECTIONS[modelAlias.alias] ?? [];
 
-				if (suggestedModelName) {
-					const suggestedModel = activeModelOptions.find(
-						(model) => model.name === suggestedModelName
-					);
+				if (suggestedModelNames.length > 0) {
+					const suggestedModel = getSuggestedModel(activeModelOptions, suggestedModelNames);
 					if (suggestedModel) {
 						suggestedChanges[modelAlias.alias] = suggestedModel.id;
 					}
@@ -102,6 +100,15 @@
 
 	function filterModelsByActive(models: Model[]) {
 		return models.filter((model) => model.active);
+	}
+
+	function getSuggestedModel(activeModelOptions: Model[], suggestedModelNames: string[]) {
+		for (const suggestedModelName of suggestedModelNames) {
+			const suggestedModel = activeModelOptions.find((model) => model.name === suggestedModelName);
+			if (suggestedModel) {
+				return suggestedModel;
+			}
+		}
 	}
 
 	function filterModelsByUsage(
@@ -131,9 +138,9 @@
 		}
 
 		// Auto-select suggested model if available
-		const suggestedModelName = SUGGESTED_MODEL_SELECTIONS[modelAlias.alias];
-		if (suggestedModelName) {
-			const suggestedModel = activeModelOptions.find((model) => model.name === suggestedModelName);
+		const suggestedModelNames = SUGGESTED_MODEL_SELECTIONS[modelAlias.alias] ?? [];
+		if (suggestedModelNames.length > 0) {
+			const suggestedModel = getSuggestedModel(activeModelOptions, suggestedModelNames);
 			if (suggestedModel) {
 				return suggestedModel.id;
 			}
@@ -196,10 +203,9 @@
 					class="bg-surface1 dark:bg-surface2 dark:border-surface3 flex-1 border border-transparent shadow-inner"
 					options={activeModelOptions
 						.map((model) => ({
-							label:
-								SUGGESTED_MODEL_SELECTIONS[modelAlias.alias] === model.name
-									? `${model.name ?? ''} (Suggested)`
-									: (model.name ?? ''),
+							label: (SUGGESTED_MODEL_SELECTIONS[modelAlias.alias] ?? []).includes(model.name ?? '')
+								? `${model.name ?? ''} (Suggested)`
+								: (model.name ?? ''),
 							id: model.id
 						}))
 						.sort((a, b) => {
