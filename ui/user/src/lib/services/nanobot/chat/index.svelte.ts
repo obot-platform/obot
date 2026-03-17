@@ -1,4 +1,5 @@
 import { errors } from '$lib/stores';
+import { randomUUID } from '$lib/utils';
 import { SimpleClient } from '../mcpclient/index.svelte';
 import {
 	ChatPath,
@@ -695,7 +696,7 @@ export class ChatSession {
 		}
 		const toolName = `chat-with-${effectiveAgentId}`;
 
-		this.currentRequestId = crypto.randomUUID();
+		this.currentRequestId = randomUUID();
 		const allAttachments = [...this.uploadedFiles, ...(attachments || [])];
 		const optimisticUserMessage: ChatMessage = {
 			id: this.currentRequestId,
@@ -748,12 +749,12 @@ export class ChatSession {
 			this.isLoading = false;
 			this.currentRequestId = undefined;
 			this.messages = appendMessage(this.messages, {
-				id: crypto.randomUUID(),
+				id: randomUUID(),
 				role: 'assistant',
 				created: now(),
 				items: [
 					{
-						id: crypto.randomUUID(),
+						id: randomUUID(),
 						type: 'text',
 						text: `Sorry, I couldn't send your message. Please try again. Error: ${error}`
 					}
@@ -804,7 +805,7 @@ export class ChatSession {
 			controller?: AbortController;
 		}
 	): Promise<Attachment> => {
-		const fileId = crypto.randomUUID();
+		const fileId = randomUUID();
 		const controller = opts?.controller || new AbortController();
 
 		this.uploadingFiles.push({
