@@ -256,7 +256,7 @@
 											id: 'nanobot-agents',
 											href: '/admin/nanobot-agents',
 											icon: Server,
-											label: 'Nanobot Agents',
+											label: 'Obot Agents',
 											disabled: isBootStrapUser,
 											collapsible: false
 										}

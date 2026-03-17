@@ -164,6 +164,9 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 					mcpServer.Status.NeedsK8sUpdate = true
 					needsUpdate = true
 				}
+			} else if k8sSettingsHash == currentHash {
+				mcpServer.Status.NeedsK8sUpdate = false
+				needsUpdate = true
 			}
 		}
 	} else {
