@@ -301,7 +301,7 @@
 		<ProjectSidebar selectedSessionId={sessionId} {projectId} />
 	{/snippet}
 
-	<div class="flex min-w-0 grow flex-col gap-3 p-3 md:p-4">
+	<div class="flex min-w-0 grow flex-col gap-3">
 		<div
 			class="flex w-full min-w-0 grow"
 			style={threadContentWidth > 0 ? `min-width: ${threadContentWidth}px` : ''}
