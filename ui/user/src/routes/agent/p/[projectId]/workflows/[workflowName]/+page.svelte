@@ -9,7 +9,7 @@
 	} from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import MarkdownEditor from '$lib/components/nanobot/MarkdownEditor.svelte';
-	import { PencilLine, Play, Workflow, Eye, CircleArrowUp } from 'lucide-svelte';
+	import { PencilLine, Play, Workflow, Eye, FolderInput } from 'lucide-svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { goto } from '$lib/url';
@@ -19,6 +19,7 @@
 	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
 	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
 	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	let { data } = $props();
 	let workflowName = $derived(data.workflowName);
@@ -218,9 +219,19 @@
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
-				{#if hasPublishUpdate}
-					<button class="btn" onclick={() => (showConfirmUpdateWorkflow = true)}>
-						Update <CircleArrowUp class="size-4" />
+				{#if relatedPublishedArtifact}
+					<button
+						class={twMerge(
+							'btn',
+							hasPublishUpdate
+								? 'btn-warning btn-soft tooltip tooltip-left'
+								: 'btn-disabled btn-ghost'
+						)}
+						onclick={() => (showConfirmUpdateWorkflow = true)}
+						disabled={!hasPublishUpdate}
+						data-tip="An update is available"
+					>
+						<FolderInput class="size-4" />
 					</button>
 				{/if}
 				<PublishedWorkflowDropdown

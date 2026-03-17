@@ -30,7 +30,9 @@
 	let loading = $state(false);
 	let workflowDiff = $derived(
 		latestVersionContents && currentWorkflowContents
-			? generateLineDiff(currentWorkflowContents, latestVersionContents)
+			? variant === 'publish'
+				? generateLineDiff(latestVersionContents, currentWorkflowContents)
+				: generateLineDiff(currentWorkflowContents, latestVersionContents)
 			: null
 	);
 	let currentHighlightedHtml = $derived(
@@ -88,69 +90,40 @@
 		</h3>
 		{#if latestVersion > 0}
 			<div class="flex w-full flex-col gap-2 md:flex-row">
-				{#if variant === 'publish'}
-					<div class="w-full md:w-1/2">
-						<h4 class="text-md font-semibold">Most Recent Version</h4>
-						<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
-							{#if loading}
-								<div class="flex items-center justify-center gap-2 py-8">
-									<span class="loading loading-sm loading-spinner"></span>
-								</div>
-							{:else if workflowDiff}
-								<div class="py-1">{@html latestHighlightedHtml}</div>
-							{:else}
-								<MarkdownEditor value={latestVersionContents} readonly />
-							{/if}
+				<div class="w-full md:w-1/2">
+					<h4 class="text-md font-semibold">
+						{variant === 'publish' ? 'Most Recent Version' : 'Current Workflow'}
+					</h4>
+					{#if loading}
+						<div class="flex items-center justify-center gap-2 py-8">
+							<span class="loading loading-sm loading-spinner"></span>
 						</div>
-					</div>
-					<div class="w-full md:w-1/2">
-						<h4 class="text-md font-semibold">Current</h4>
+					{:else if workflowDiff}
+						<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
+							<div class="py-1">{@html currentHighlightedHtml}</div>
+						</div>
+					{:else}
+						<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
+							<MarkdownEditor value={currentWorkflowContents} readonly />
+						</div>
+					{/if}
+				</div>
+				<div class="w-full md:w-1/2">
+					<h4 class="text-md font-semibold">
+						{variant === 'publish' ? 'Current' : `Version ${latestVersion.toFixed(1)}`}
+					</h4>
+					<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
 						{#if loading}
 							<div class="flex items-center justify-center gap-2 py-8">
 								<span class="loading loading-sm loading-spinner"></span>
 							</div>
 						{:else if workflowDiff}
-							<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
-								<div class="py-1">{@html currentHighlightedHtml}</div>
-							</div>
+							<div class="py-1">{@html latestHighlightedHtml}</div>
 						{:else}
-							<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
-								<MarkdownEditor value={currentWorkflowContents} readonly />
-							</div>
+							<MarkdownEditor value={latestVersionContents} readonly />
 						{/if}
 					</div>
-				{:else}
-					<div class="w-full md:w-1/2">
-						<h4 class="text-md font-semibold">Current Workflow</h4>
-						<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
-							{#if loading}
-								<div class="flex items-center justify-center gap-2 py-8">
-									<span class="loading loading-sm loading-spinner"></span>
-								</div>
-							{:else if workflowDiff}
-								<div class="py-1">{@html currentHighlightedHtml}</div>
-							{:else}
-								<MarkdownEditor value={currentWorkflowContents} readonly />
-							{/if}
-						</div>
-					</div>
-					<div class="w-full md:w-1/2">
-						<h4 class="text-md font-semibold">Version {latestVersion.toFixed(1)}</h4>
-						{#if loading}
-							<div class="flex items-center justify-center gap-2 py-8">
-								<span class="loading loading-sm loading-spinner"></span>
-							</div>
-						{:else if workflowDiff}
-							<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
-								<div class="py-1">{@html latestHighlightedHtml}</div>
-							</div>
-						{:else}
-							<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
-								<MarkdownEditor value={latestVersionContents} readonly />
-							</div>
-						{/if}
-					</div>
-				{/if}
+				</div>
 			</div>
 		{:else}
 			<p>
