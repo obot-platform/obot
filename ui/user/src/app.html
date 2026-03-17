@@ -21,24 +21,25 @@
 				display: flex;
 				align-items: center;
 				justify-content: center;
-				background: var(--background);
+				background: var(--background, #ffffff);
 				z-index: 9999;
 				transition: opacity 0.15s ease-out;
 			}
 			html.dark #initial-loader {
-				background: #0a0a0a;
+				background: var(--background, #0a0a0a);
 			}
 			#initial-loader .spinner {
+				box-sizing: border-box;
 				width: 32px;
 				height: 32px;
-				border: 3px solid var(--surface1);
-				border-top-color: var(--primary);
+				border: 3px solid var(--surface1, #e5e7eb);
+				border-top-color: var(--primary, #4f7ef3);
 				border-radius: 50%;
 				animation: spin 0.8s linear infinite;
 			}
 			html.dark #initial-loader .spinner {
-				border-color: var(--surface1);
-				border-top-color: var(--primary);
+				border-color: var(--surface1, #27272a);
+				border-top-color: var(--primary, #4f7ef3);
 			}
 			@keyframes spin {
 				to {

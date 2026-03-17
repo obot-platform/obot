@@ -1,76 +1,97 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { darkMode, errors } from '$lib/stores';
 	import { initLayout } from '$lib/context/nanobotLayout.svelte';
 	import 'devicon/devicon.min.css';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { NanobotService } from '$lib/services';
 	import { ChatAPI } from '$lib/services/nanobot/chat/index.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { get } from 'svelte/store';
+	import type { Chat, Resource } from '$lib/services/nanobot/types';
 
 	let { children, data } = $props();
-	let loading = $state(true);
 	let projects = $derived(data.projects);
 	let agent = $derived(data.agent);
 	let isNewAgent = $derived(data.isNewAgent);
 	const chatApi = $derived(new ChatAPI(agent.connectURL));
 
+	const initialChat = get(nanobotChat);
+	let loading = $state(untrack(() => !initialChat || data.isNewAgent));
+
+	const tid = $derived(page.url.searchParams.get('tid'));
+	const projectIdFromPath = $derived(page.params.projectId);
+	const skipLoadingForStoredThread = $derived(
+		!!(
+			tid &&
+			projectIdFromPath &&
+			$nanobotChat?.projectId === projectIdFromPath &&
+			$nanobotChat?.sessionId === tid
+		)
+	);
+	const showLoading = $derived(loading && !skipLoadingForStoredThread);
+
 	// Initialize layout context for all nanobot child routes
 	initLayout();
 
 	async function initNanobotStore() {
-		const storedChat = get(nanobotChat);
-		if (storedChat && !storedChat.isThreadsLoading) {
-			return;
-		}
+		nanobotChat.set({
+			isThreadsLoading: true,
+			projectId: projects[0].id,
+			sessionId: undefined,
+			sessions: [],
+			resources: [],
+			api: chatApi
+		});
 
-		if (!storedChat) {
-			nanobotChat.set({
-				isThreadsLoading: true,
-				projectId: projects[0].id,
-				sessionId: undefined,
-				sessions: [],
-				resources: [],
-				api: chatApi
+		let sessions: Chat[] = [];
+		let resources: Resource[] = [];
+
+		try {
+			sessions = await chatApi.listSessions();
+			resources = await chatApi.listResources();
+		} catch (error) {
+			console.error(`Error listing sessions or resources`, error);
+			errors.append(error);
+		} finally {
+			nanobotChat.update((data) => {
+				if (data) {
+					data.sessions = sessions;
+					data.resources = resources;
+					data.isThreadsLoading = false;
+				}
+				return data;
 			});
 		}
-
-		const sessions = await chatApi.listSessions();
-		const resources = await chatApi.listResources();
-
-		nanobotChat.update((data) => {
-			if (data) {
-				data.sessions = sessions ?? [];
-				data.resources = resources ?? [];
-				data.isThreadsLoading = false;
-			}
-			return data;
-		});
 	}
 
 	onMount(async () => {
-		loading = true;
-		if (isNewAgent) {
-			try {
-				await NanobotService.launchProjectV2Agent(projects[0].id, agent.id);
-			} catch (error) {
-				console.error(error);
-				errors.append(error);
-			} finally {
-				loading = false;
+		const storedChat = get(nanobotChat);
+		if (!storedChat || isNewAgent) {
+			loading = true;
+			if (isNewAgent) {
+				try {
+					await NanobotService.launchProjectV2Agent(projects[0].id, agent.id);
+				} catch (error) {
+					console.error(error);
+					errors.append(error);
+				}
 			}
-		}
 
-		try {
-			await initNanobotStore();
-		} finally {
+			if (!storedChat) {
+				try {
+					await initNanobotStore();
+				} catch (error) {
+					console.error(`Error initializing nanobot store`, error);
+				}
+			}
 			loading = false;
 		}
 	});
 </script>
 
 <div class="nanobot" data-theme={darkMode.isDark ? 'nanobotdark' : 'nanobotlight'}>
-	{#if loading}
+	{#if showLoading}
 		<div class="h-[100dvh] w-full px-4">
 			<div class="absolute top-1/2 left-1/2 w-full -translate-x-1/2 -translate-y-1/2 md:w-4xl">
 				<div class="flex flex-col items-center gap-4 px-5 pb-5 md:pb-0">
