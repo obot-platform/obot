@@ -13,6 +13,33 @@ export function parseToolFilePath(item: ChatMessageItemToolCall) {
 	return parseJSON<{ file_path: string }>(item.arguments)?.file_path ?? null;
 }
 
+export function normalizeResourceReadURI(uri: string): string {
+	if (!uri) return uri;
+
+	const fileURIPrefix = 'file:///';
+	const homePrefix = '/home/nanobot/';
+	const isFileURI = uri.startsWith(fileURIPrefix);
+	const isWorkspacePath = uri.startsWith(homePrefix);
+
+	if (!isFileURI && !isWorkspacePath) {
+		return uri;
+	}
+
+	const rawPath = isFileURI ? uri.slice(fileURIPrefix.length) : uri.slice(homePrefix.length);
+	const normalizedPath = rawPath
+		.split('/')
+		.map((segment) => {
+			try {
+				return encodeURIComponent(decodeURIComponent(segment));
+			} catch {
+				return encodeURIComponent(segment);
+			}
+		})
+		.join('/');
+
+	return `${fileURIPrefix}${normalizedPath}`;
+}
+
 const SAFE_IMAGE_MIME_TYPES = new Set<string>([
 	'image/png',
 	'image/jpeg',

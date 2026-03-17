@@ -1,5 +1,6 @@
 import { randomUUID } from '$lib/utils';
 import { type InitializationResult, type ResourceContents, type Resources } from '../types';
+import { normalizeResourceReadURI } from '../utils';
 
 interface JSONRPCRequest {
 	jsonrpc: '2.0';
@@ -491,7 +492,11 @@ export class SimpleClient {
 		uri: string,
 		opts?: { abort?: AbortController }
 	): Promise<{ contents: ResourceContents[] }> {
-		const result = await this.exchange('resources/read', { uri }, { abort: opts?.abort });
+		const result = await this.exchange(
+			'resources/read',
+			{ uri: normalizeResourceReadURI(uri) },
+			{ abort: opts?.abort }
+		);
 		return result as { contents: ResourceContents[] };
 	}
 
