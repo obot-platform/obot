@@ -27,6 +27,8 @@ function getAuthHeaders(): Record<string, string> {
 
 interface GetOptions {
 	blob?: boolean;
+	/** When true, return response body as plain text (e.g. for text/markdown). */
+	text?: boolean;
 	fetch?: typeof fetch;
 	dontLogErrors?: boolean;
 	signal?: AbortSignal;
@@ -78,6 +80,10 @@ export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
 
 	if (opts?.blob) {
 		return await resp.blob();
+	}
+
+	if (opts?.text) {
+		return await resp.text();
 	}
 
 	return await resp.json();
