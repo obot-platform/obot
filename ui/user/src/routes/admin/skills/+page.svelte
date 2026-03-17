@@ -60,7 +60,11 @@
 	let skillRepositoriesMap = $derived(new Map(skillRepositories.map((d) => [d.id, d])));
 	let skillsTableData = $derived(
 		(query
-			? skills.filter((d) => d.name?.toLowerCase().includes(query.toLowerCase()))
+			? skills.filter(
+					(d) =>
+						d.name?.toLowerCase().includes(query.toLowerCase()) ||
+						d.description?.toLowerCase().includes(query.toLowerCase())
+				)
 			: skills
 		).map((d) => ({
 			...d,
@@ -134,7 +138,10 @@
 
 	function updateSearchQuery(value: string) {
 		const params = new URLSearchParams({ view, query: value });
-		goto(resolve(`/admin/skills?${params.toString()}`), { replaceState: true });
+		goto(resolve(`/admin/skills?${params.toString()}`), {
+			replaceState: true,
+			keepFocus: true
+		});
 	}
 
 	function closeSourceDialog() {
@@ -213,36 +220,28 @@
 		{#if skills.length > 0}
 			<Table
 				data={skillsTableData}
-				fields={['name', 'created', 'repository']}
+				fields={['displayName', 'description', 'created', 'repository']}
 				noDataMessage="No skills found."
 				classes={{
 					root: 'rounded-none rounded-b-md shadow-none'
 				}}
 				columnMaxWidths={{ created: 240 }}
-				sortable={['name', 'created', 'repository']}
+				sortable={['displayName', 'created', 'repository']}
 				filterable={['repository']}
 				headers={[
 					{
 						title: 'Name',
-						property: 'name'
-					},
-					{
-						title: 'Created',
-						property: 'created'
-					},
-					{
-						title: 'Repository',
-						property: 'repository'
+						property: 'displayName'
 					}
 				]}
 			>
 				{#snippet onRenderColumn(property, d)}
-					{#if property === 'name'}
-						{d.name}
-					{:else if property === 'created'}
+					{#if property === 'created'}
 						{formatTimeAgo(d.created).relativeTime}
 					{:else if property === 'repository'}
 						<span class="block min-w-0 truncate">{d.repository}</span>
+					{:else}
+						{d[property as keyof typeof d]}
 					{/if}
 				{/snippet}
 				{#snippet actions(_d)}
