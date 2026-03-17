@@ -11,7 +11,6 @@
 	import { formatTimeAgo } from '$lib/time.js';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
-	import PublishedWorkflowDropdown from '$lib/components/nanobot/PublishedWorkflowDropdown.svelte';
 	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
