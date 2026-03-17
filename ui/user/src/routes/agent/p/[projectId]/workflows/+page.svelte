@@ -15,9 +15,9 @@
 	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
-	import ConfirmPublishWorkflow from '$lib/components/nanobot/ConfirmPublishWorkflow.svelte';
 	import { NanobotService } from '$lib/services';
 	import { untrack } from 'svelte';
+	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
 
 	let { data } = $props();
 	let projectId = $derived(data.projects[0].id);
@@ -35,6 +35,14 @@
 				workflowId: string;
 				workflowDisplayName: string;
 				publishedArtifactId: string;
+		  }
+		| undefined
+	>(undefined);
+	let showConfirmUpdateWorkflow = $state<
+		| {
+				latestVersion: number;
+				workflowUri: string;
+				publishedArtifact: PublishedArtifact;
 		  }
 		| undefined
 	>(undefined);
@@ -71,7 +79,8 @@
 				return {
 					...w,
 					isInstalled: workflowSet.has(w.name),
-					isUpdated: workflowSet.get(w.name)?._meta?.version === latestVersionString
+					isUpdated: workflowSet.get(w.name)?._meta?.version === latestVersionString,
+					workflowUri: workflowSet.get(w.name)?.uri ?? ''
 				};
 			})
 			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()),
@@ -96,7 +105,7 @@
 						published: w.created,
 						visibility: w.visibility,
 						createdBy: w.authorEmail,
-						workflowUri: undefined,
+						workflowUri: w.workflowUri ?? '',
 						isInstalled: w.isInstalled,
 						isUpdated: w.isUpdated,
 						versions: w.versions ?? []
@@ -340,7 +349,15 @@
 								e.preventDefault();
 								e.stopPropagation();
 								if (!workflow.id) return;
-								handleInstallWorkflow(workflow);
+								if (workflow.isInstalled) {
+									showConfirmUpdateWorkflow = {
+										latestVersion: workflow.versions?.[workflow.versions.length - 1]?.version ?? 0,
+										workflowUri: workflow.workflowUri ?? '',
+										publishedArtifact: workflow
+									};
+								} else {
+									handleInstallWorkflow(workflow);
+								}
 							}}
 						>
 							{#if workflow.isInstalled}
@@ -489,9 +506,24 @@
 										};
 									}}
 									onCheckForUpdates={workflow.isInstalled && !workflow.isUpdated
-										? (id) => {
-												installingPublishedArtifact = myPublishedWorkflows.find((w) => w.id === id);
-												installType = 'update';
+										? () => {
+												console.log(workflow);
+												const originalWorkflow = workflows.find(
+													(w) => w.name === workflow.workflowId
+												);
+												if (!originalWorkflow) return;
+												const sharedMatch = sharedWorkflows.find(
+													(sw) =>
+														sw.name === originalWorkflow.name &&
+														originalWorkflow._meta?.['author-email'] === sw.authorEmail
+												);
+												if (!sharedMatch) return;
+												showConfirmUpdateWorkflow = {
+													latestVersion:
+														sharedMatch.versions?.[sharedMatch.versions.length - 1]?.version ?? 0,
+													workflowUri: originalWorkflow.uri ?? '',
+													publishedArtifact: sharedMatch
+												};
 											}
 										: undefined}
 									onDelete={() => {
@@ -626,12 +658,29 @@
 	/>
 {/if}
 
+{#if showConfirmUpdateWorkflow}
+	<ConfirmDiffWorkflow
+		latestVersion={showConfirmUpdateWorkflow.latestVersion}
+		workflowUri={showConfirmUpdateWorkflow.workflowUri}
+		publishedArtifactId={showConfirmUpdateWorkflow.publishedArtifact.id}
+		onSubmit={() => {
+			if (!showConfirmUpdateWorkflow) return;
+			handleInstallWorkflow(showConfirmUpdateWorkflow.publishedArtifact);
+			showConfirmUpdateWorkflow = undefined;
+		}}
+		variant="update"
+		onCancel={() => {
+			showConfirmUpdateWorkflow = undefined;
+		}}
+	/>
+{/if}
+
 {#if showConfirmPublishWorkflow}
-	<ConfirmPublishWorkflow
+	<ConfirmDiffWorkflow
 		latestVersion={showConfirmPublishWorkflow.latestVersion}
 		workflowUri={showConfirmPublishWorkflow.workflowUri}
 		publishedArtifactId={showConfirmPublishWorkflow.publishedArtifactId}
-		onPublish={() => {
+		onSubmit={() => {
 			if (!showConfirmPublishWorkflow) return;
 			handlePublishWorkflow(showConfirmPublishWorkflow.workflowId);
 			showConfirmPublishWorkflow = undefined;

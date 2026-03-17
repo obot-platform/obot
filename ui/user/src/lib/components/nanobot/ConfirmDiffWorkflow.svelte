@@ -10,8 +10,9 @@
 		workflowUri: string;
 		publishedArtifactId: string;
 		contentsToCompare?: string;
-		onPublish: () => void;
+		onSubmit: () => void;
 		onCancel: () => void;
+		variant?: 'update' | 'publish';
 	}
 
 	let {
@@ -19,7 +20,8 @@
 		workflowUri,
 		publishedArtifactId,
 		contentsToCompare,
-		onPublish,
+		variant = 'publish',
+		onSubmit,
 		onCancel
 	}: Props = $props();
 	let latestVersionContents = $state<string>('');
@@ -69,40 +71,75 @@
 				>✕</button
 			>
 		</form>
-		<h3 class="mb-2 text-xl font-semibold">Publish Workflow</h3>
+		<h3 class="mb-2 text-xl font-semibold">
+			{variant === 'publish' ? 'Publish Workflow' : 'Update Workflow'}
+		</h3>
 		{#if latestVersion > 0}
 			<div class="flex w-full flex-col gap-2 md:flex-row">
-				<div class="w-full md:w-1/2">
-					<h4 class="text-md font-semibold">Most Recent Version</h4>
-					<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
+				{#if variant === 'publish'}
+					<div class="w-full md:w-1/2">
+						<h4 class="text-md font-semibold">Most Recent Version</h4>
+						<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
+							{#if loading}
+								<div class="flex items-center justify-center gap-2 py-8">
+									<span class="loading loading-sm loading-spinner"></span>
+								</div>
+							{:else}
+								<MarkdownEditor value={latestVersionContents} readonly />
+							{/if}
+						</div>
+					</div>
+					<div class="w-full md:w-1/2">
+						<h4 class="text-md font-semibold">Current</h4>
 						{#if loading}
 							<div class="flex items-center justify-center gap-2 py-8">
 								<span class="loading loading-sm loading-spinner"></span>
 							</div>
 						{:else}
-							<MarkdownEditor value={latestVersionContents} readonly />
+							<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
+								<MarkdownEditor value={currentWorkflowContents} readonly />
+							</div>
 						{/if}
 					</div>
-				</div>
-				<div class="w-full md:w-1/2">
-					<h4 class="text-md font-semibold">Current</h4>
-					{#if loading}
-						<div class="flex items-center justify-center gap-2 py-8">
-							<span class="loading loading-sm loading-spinner"></span>
-						</div>
-					{:else}
+				{:else}
+					<div class="w-full md:w-1/2">
+						<h4 class="text-md font-semibold">Current Workflow</h4>
 						<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
-							<MarkdownEditor value={currentWorkflowContents} readonly />
+							{#if loading}
+								<div class="flex items-center justify-center gap-2 py-8">
+									<span class="loading loading-sm loading-spinner"></span>
+								</div>
+							{:else}
+								<MarkdownEditor value={currentWorkflowContents} readonly />
+							{/if}
 						</div>
-					{/if}
-				</div>
+					</div>
+					<div class="w-full md:w-1/2">
+						<h4 class="text-md font-semibold">Version {latestVersion.toFixed(1)}</h4>
+						{#if loading}
+							<div class="flex items-center justify-center gap-2 py-8">
+								<span class="loading loading-sm loading-spinner"></span>
+							</div>
+						{:else}
+							<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
+								<MarkdownEditor value={latestVersionContents} readonly />
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</div>
 		{:else}
-			<p>Would you like to publish this workflow?</p>
+			<p>
+				{variant === 'publish'
+					? 'Would you like to publish this workflow?'
+					: 'Would you like to update this workflow?'}
+			</p>
 		{/if}
 		<div class="flex grow"></div>
 		<div class="modal-action">
-			<button class="btn btn-primary" onclick={onPublish}>Publish</button>
+			<button class="btn btn-primary" onclick={onSubmit}>
+				{variant === 'publish' ? 'Publish' : 'Update'}
+			</button>
 			<button class="btn btn-secondary" onclick={onCancel}>Cancel</button>
 		</div>
 	</div>

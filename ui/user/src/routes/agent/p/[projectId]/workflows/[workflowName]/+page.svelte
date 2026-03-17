@@ -18,7 +18,7 @@
 	import PublishedWorkflowDropdown from '$lib/components/nanobot/PublishedWorkflowDropdown.svelte';
 	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
 	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
-	import ConfirmPublishWorkflow from '$lib/components/nanobot/ConfirmPublishWorkflow.svelte';
+	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
 
 	let { data } = $props();
 	let workflowName = $derived(data.workflowName);
@@ -41,6 +41,7 @@
 
 	let showConfirmPublishWorkflow = $state(false);
 	let showWorkflowVersionDialog = $state(false);
+	let showConfirmUpdateWorkflow = $state(false);
 
 	let relatedPublishedArtifact = $derived(
 		publishedWorkflows.find(
@@ -218,7 +219,7 @@
 			</div>
 			<div class="flex items-center gap-2">
 				{#if hasPublishUpdate}
-					<button class="btn" onclick={() => (confirmInstallModal = true)}>
+					<button class="btn" onclick={() => (showConfirmUpdateWorkflow = true)}>
 						Update <CircleArrowUp class="size-4" />
 					</button>
 				{/if}
@@ -406,7 +407,7 @@
 			authorEmail: profile.current.email,
 			latestVersion: 1,
 			visibility: 'private',
-			versions: []
+			versions: relatedPublishedArtifact.versions ?? []
 		}}
 		onClose={() => (confirmInstallModal = false)}
 		onSuccess={() => {
@@ -432,11 +433,11 @@
 {/if}
 
 {#if showConfirmPublishWorkflow}
-	<ConfirmPublishWorkflow
+	<ConfirmDiffWorkflow
 		latestVersion={publishedInfo?.versions?.[publishedInfo?.versions?.length - 1]?.version ?? 0}
 		workflowUri={workflow?.uri ?? ''}
 		publishedArtifactId={publishedInfo?.id ?? ''}
-		onPublish={() => {
+		onSubmit={() => {
 			if (!showConfirmPublishWorkflow) return;
 			handlePublishWorkflow();
 			showConfirmPublishWorkflow = false;
@@ -444,6 +445,23 @@
 		onCancel={() => {
 			showConfirmPublishWorkflow = false;
 		}}
+	/>
+{/if}
+
+{#if showConfirmUpdateWorkflow && relatedPublishedArtifact}
+	<ConfirmDiffWorkflow
+		latestVersion={relatedPublishedArtifact?.latestVersion ?? 0}
+		workflowUri={workflow?.uri ?? ''}
+		publishedArtifactId={relatedPublishedArtifact?.id ?? ''}
+		onSubmit={() => {
+			if (!showConfirmUpdateWorkflow) return;
+			confirmInstallModal = true;
+			showConfirmPublishWorkflow = false;
+		}}
+		onCancel={() => {
+			showConfirmPublishWorkflow = false;
+		}}
+		variant="update"
 	/>
 {/if}
 

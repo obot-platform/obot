@@ -14,7 +14,7 @@
 		publishedArtifactId?: string;
 		onPublish?: () => void;
 		onUnpublish: () => void;
-		onCheckForUpdates?: (publishedArtifactId: string) => void;
+		onCheckForUpdates?: () => void;
 		onDelete?: () => void;
 		disabled?: boolean;
 		numVersions?: number;
@@ -100,8 +100,7 @@
 					onclick={(e) => {
 						e.preventDefault();
 						e.stopPropagation();
-						if (!publishedArtifactId) return;
-						onCheckForUpdates?.(publishedArtifactId);
+						onCheckForUpdates?.();
 						e.currentTarget.blur();
 					}}
 				>
