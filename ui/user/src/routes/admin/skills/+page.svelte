@@ -27,6 +27,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$lib/url.js';
 	import { resolve } from '$app/paths';
+	import { openUrl } from '$lib/utils.js';
 
 	let { data } = $props();
 	let query = $derived(page.url.searchParams.get('query') ?? '');
@@ -234,9 +235,30 @@
 						property: 'displayName'
 					}
 				]}
+				onClickRow={(d, isCtrlClick) => {
+					if (d.valid) {
+						const url = `/admin/skills/${d.id}`;
+						openUrl(url, isCtrlClick);
+					}
+				}}
+				setRowClasses={(d) => {
+					if (d.validationError) {
+						return 'opacity-50 cursor-default dark:hover:bg-transparent hover:bg-transparent';
+					}
+					return '';
+				}}
 			>
 				{#snippet onRenderColumn(property, d)}
-					{#if property === 'created'}
+					{#if property === 'displayName'}
+						<span class="flex items-center gap-2">
+							{d.displayName}
+							{#if d.validationError}
+								<div use:tooltip={{ text: d.validationError }}>
+									<TriangleAlert class="size-3 text-yellow-500" />
+								</div>
+							{/if}
+						</span>
+					{:else if property === 'created'}
 						{formatTimeAgo(d.created).relativeTime}
 					{:else if property === 'repository'}
 						<span class="block min-w-0 truncate">{d.repository}</span>
