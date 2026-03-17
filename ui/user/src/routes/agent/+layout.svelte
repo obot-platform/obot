@@ -8,16 +8,17 @@
 	import { ChatAPI } from '$lib/services/nanobot/chat/index.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { get } from 'svelte/store';
+	import type { Chat, Resource } from '$lib/services/nanobot/types.js';
 
 	let { children, data } = $props();
-	let loading = $state(true);
+	let loading = $state(false);
 	let projects = $derived(data.projects);
 	let agent = $derived(data.agent);
 	let isNewAgent = $derived(data.isNewAgent);
 	const chatApi = $derived(new ChatAPI(agent.connectURL));
 
 	const tid = $derived(page.url.searchParams.get('tid'));
-	const projectIdFromPath = $derived(page.url.pathname.match(/^\/agent\/p\/([^/]+)/)?.[1]);
+	const projectIdFromPath = $derived(page.params.projectId);
 	const skipLoadingForStoredThread = $derived(
 		!!(
 			tid &&
@@ -32,40 +33,40 @@
 	initLayout();
 
 	async function initNanobotStore() {
-		const storedChat = get(nanobotChat);
-		if (storedChat && !storedChat.isThreadsLoading) {
-			return;
-		}
+		nanobotChat.set({
+			isThreadsLoading: true,
+			projectId: projects[0].id,
+			sessionId: undefined,
+			sessions: [],
+			resources: [],
+			api: chatApi
+		});
 
-		if (!storedChat) {
-			nanobotChat.set({
-				isThreadsLoading: true,
-				projectId: projects[0].id,
-				sessionId: undefined,
-				sessions: [],
-				resources: [],
-				api: chatApi
+		let sessions: Chat[] = [];
+		let resources: Resource[] = [];
+
+		try {
+			sessions = await chatApi.listSessions();
+			resources = await chatApi.listResources();
+		} catch (error) {
+			console.error(`Error listing sessions or resources`, error);
+			errors.append(error);
+		} finally {
+			nanobotChat.update((data) => {
+				if (data) {
+					data.sessions = sessions;
+					data.resources = resources;
+					data.isThreadsLoading = false;
+				}
+				return data;
 			});
 		}
-
-		const sessions = await chatApi.listSessions();
-		const resources = await chatApi.listResources();
-
-		nanobotChat.update((data) => {
-			if (data) {
-				data.sessions = sessions ?? [];
-				data.resources = resources ?? [];
-				data.isThreadsLoading = false;
-			}
-			return data;
-		});
 	}
 
 	onMount(async () => {
 		const storedChat = get(nanobotChat);
 		if (!storedChat || isNewAgent) {
 			loading = true;
-			await initNanobotStore();
 			if (isNewAgent) {
 				loading = true;
 				try {
@@ -76,8 +77,12 @@
 				}
 			}
 
-			if (!get(nanobotChat)) {
-				await initNanobotStore();
+			if (!storedChat) {
+				try {
+					await initNanobotStore();
+				} catch (error) {
+					console.error(`Error initializing nanobot store`, error);
+				}
 			}
 			loading = false;
 		}
