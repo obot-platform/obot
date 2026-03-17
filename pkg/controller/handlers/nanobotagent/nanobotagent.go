@@ -1,9 +1,11 @@
 package nanobotagent
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/alias"
+	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -244,11 +247,11 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		}
 	}
 
-	llmModel, err := getModelForAlias(ctx, req.Client, req.Namespace, types.DefaultModelAliasTypeLLM)
+	llmModel, err := resolveModel(ctx, req.Client, req.Namespace, types.DefaultModelAliasTypeLLM)
 	if err != nil {
 		return err
 	}
-	miniModel, err := getModelForAlias(ctx, req.Client, req.Namespace, types.DefaultModelAliasTypeLLMMini)
+	miniModel, err := resolveModel(ctx, req.Client, req.Namespace, types.DefaultModelAliasTypeLLMMini)
 	if err != nil {
 		return err
 	}
@@ -369,6 +372,88 @@ func getModelForAlias(ctx context.Context, client kclient.Client, namespace stri
 	}
 
 	return model.Spec.Manifest.TargetModel, nil
+}
+
+// resolveModel returns a concrete model name for a default alias.
+//
+// It prefers an explicitly configured alias target when one exists. If the
+// alias is unset or cannot be resolved, it falls back to active LLM models in
+// the namespace by first checking a short ordered list of preferred model names
+// for that alias. The llm-mini alias falls back to the resolved llm model when
+// no preferred mini model is available. All other aliases fall back to the
+// first active LLM model available.
+func resolveModel(ctx context.Context, client kclient.Client, namespace string, aliasName types.DefaultModelAliasType) (string, error) {
+	if model, err := getModelForAlias(ctx, client, namespace, aliasName); err == nil && strings.TrimSpace(model) != "" {
+		return model, nil
+	}
+
+	models, err := listActiveLLMModels(ctx, client, namespace)
+	if err != nil {
+		return "", err
+	}
+
+	return chooseModel(ctx, client, namespace, models, aliasName)
+}
+
+func listActiveLLMModels(ctx context.Context, client kclient.Client, namespace string) ([]v1.Model, error) {
+	var models v1.ModelList
+	if err := client.List(ctx, &models, &kclient.ListOptions{Namespace: namespace}); err != nil {
+		return nil, fmt.Errorf("failed to list models: %w", err)
+	}
+
+	result := make([]v1.Model, 0, len(models.Items))
+	for _, model := range models.Items {
+		if !model.Spec.Manifest.Active || model.Spec.Manifest.Usage != types.ModelUsageLLM {
+			continue
+		}
+		if strings.TrimSpace(model.Spec.Manifest.TargetModel) == "" {
+			continue
+		}
+		result = append(result, model)
+	}
+
+	slices.SortFunc(result, func(a, b v1.Model) int {
+		return cmp.Or(
+			cmp.Compare(a.Spec.Manifest.TargetModel, b.Spec.Manifest.TargetModel),
+			cmp.Compare(a.Spec.Manifest.Name, b.Spec.Manifest.Name),
+		)
+	})
+
+	return result, nil
+}
+
+func chooseModel(ctx context.Context, client kclient.Client, namespace string, models []v1.Model, aliasName types.DefaultModelAliasType) (string, error) {
+	preferred := preferredModelsForAlias(aliasName)
+	for _, preferredName := range preferred {
+		for _, model := range models {
+			if model.Spec.Manifest.TargetModel == preferredName || model.Spec.Manifest.Name == preferredName {
+				return model.Spec.Manifest.TargetModel, nil
+			}
+		}
+	}
+
+	if aliasName == types.DefaultModelAliasTypeLLMMini {
+		return resolveModel(ctx, client, namespace, types.DefaultModelAliasTypeLLM)
+	}
+
+	if len(models) > 0 {
+		return models[0].Spec.Manifest.TargetModel, nil
+	}
+
+	return "", fmt.Errorf("failed to resolve default model for alias %s: no active llm models available", aliasName)
+}
+
+func preferredModelsForAlias(aliasName types.DefaultModelAliasType) []string {
+	preferred := make([]string, 0, 2)
+	for _, defaults := range []map[types.DefaultModelAliasType]string{
+		toolreference.OpenAIDefaultModelAliases(),
+		toolreference.AnthropicDefaultModelAliases(),
+	} {
+		if model := strings.TrimSpace(defaults[aliasName]); model != "" {
+			preferred = append(preferred, model)
+		}
+	}
+	return preferred
 }
 
 func (h *Handler) DeleteMCPServer(req router.Request, _ router.Response) error {

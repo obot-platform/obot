@@ -14,9 +14,6 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-//go:embed default-models.yaml
-var defaultModelsData []byte
-
 //go:embed default-model-aliases.yaml
 var defaultModelAliasesData []byte
 
@@ -24,18 +21,6 @@ var defaultModelAliasesData []byte
 var everythingAccessControlRuleData []byte
 
 func Data(ctx context.Context, c kclient.Client, agentDir string) error {
-	var defaultModels v1.ModelList
-	if err := yaml.Unmarshal(defaultModelsData, &defaultModels); err != nil {
-		return fmt.Errorf("failed to unmarshal default models: %w", err)
-	}
-
-	for _, model := range defaultModels.Items {
-		// Delete these old default models
-		if err := kclient.IgnoreNotFound(c.Delete(ctx, &model)); err != nil {
-			return err
-		}
-	}
-
 	var defaultModelAliases v1.DefaultModelAliasList
 	if err := yaml.Unmarshal(defaultModelAliasesData, &defaultModelAliases); err != nil {
 		return fmt.Errorf("failed to unmarshal default model aliases: %w", err)
