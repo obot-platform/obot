@@ -27,6 +27,7 @@
 		browserViewerOpen?: boolean;
 		browserAvailable?: boolean;
 		sessionId?: string;
+		workflowName?: string;
 		selectedFile?: string;
 		agentId?: string;
 		projectId?: string;
@@ -39,6 +40,7 @@
 		browserViewerOpen = false,
 		browserAvailable = false,
 		sessionId,
+		workflowName,
 		selectedFile,
 		agentId,
 		projectId
@@ -58,9 +60,94 @@
 		$nanobotChat?.chat?.chatId === sessionId ? ($nanobotChat?.chat ?? null) : null
 	);
 
-	const files = $derived(
-		chatForSession?.resources?.filter((r) => r.uri.startsWith('file:///')) ?? []
-	);
+	function getScopedSessionId(uri: string): string | undefined {
+		return uri.match(/^file:\/\/\/sessions\/([^/]+)\//)?.[1];
+	}
+
+	function isWorkflowSupportFile(uri: string, workflowName?: string): boolean {
+		return !!workflowName && uri.startsWith(`file:///workflows/${workflowName}/`);
+	}
+
+	function isPlainThreadFile(uri: string): boolean {
+		return (
+			uri.startsWith('file:///') &&
+			!uri.startsWith('file:///sessions/') &&
+			!uri.startsWith('file:///workflows/') &&
+			!uri.startsWith('file:///skills/')
+		);
+	}
+
+	function shouldShowFile(uri: string, sessionId?: string, workflowName?: string): boolean {
+		if (isWorkflowSupportFile(uri, workflowName)) {
+			return true;
+		}
+
+		const scopedSessionId = getScopedSessionId(uri);
+		if (scopedSessionId) {
+			return scopedSessionId === sessionId;
+		}
+
+		return !!sessionId && isPlainThreadFile(uri);
+	}
+
+	function toOpenPath(uri: string, sessionId?: string): string {
+		if (
+			uri.startsWith('file:///sessions/') ||
+			uri.startsWith('file:///workflows/') ||
+			!sessionId
+		) {
+			return uri;
+		}
+
+		return uri.replace('file:///', `file:///sessions/${sessionId}/`);
+	}
+
+	const files = $derived.by(() => {
+		const threadResources = chatForSession?.resources ?? [];
+		const workflowResources = workflowName
+			? (chatForSession?.resources ?? $nanobotChat?.resources ?? [])
+			: [];
+		const deduped = new Map<
+			string,
+			(
+				| (typeof threadResources)[number]
+				| (typeof workflowResources)[number]
+			) & { openPath: string; sortName: string }
+		>();
+
+		for (const resource of [...threadResources, ...workflowResources]) {
+			if (!resource.uri.startsWith('file:///')) {
+				continue;
+			}
+			if (!shouldShowFile(resource.uri, sessionId, workflowName)) {
+				continue;
+			}
+
+			const openPath = toOpenPath(resource.uri, sessionId);
+			if (deduped.has(openPath)) {
+				continue;
+			}
+
+			deduped.set(openPath, {
+				...resource,
+				openPath,
+				sortName: resource.name ?? resource.uri
+			});
+		}
+
+		return [...deduped.values()].sort((a, b) => {
+			const aIsWorkflow = a.uri.startsWith('file:///workflows/');
+			const bIsWorkflow = b.uri.startsWith('file:///workflows/');
+
+			if (aIsWorkflow !== bIsWorkflow) {
+				return aIsWorkflow ? -1 : 1;
+			}
+
+			return a.sortName.localeCompare(b.sortName);
+		});
+	});
+
+	const hasSidebarContent = $derived(!!sessionId || !!workflowName || files.length > 0);
 
 	$effect(() => {
 		const chat = chatForSession;
@@ -124,61 +211,63 @@
 			{/if}
 		{/if}
 
-		{#if !!sessionId}
+		{#if hasSidebarContent}
 			{#if open}
 				<div in:fly={{ x: 100, duration: 150 }} class="flex flex-col gap-4">
-					<div
-						class="rounded-selector bg-base-200 dark:border-base-300 flex flex-col gap-2 border border-transparent p-4"
-					>
-						<h4 class="flex w-full items-center justify-between gap-2 text-sm font-semibold">
-							To Do List
-							<button
-								class="btn btn-ghost btn-xs tooltip tooltip-left"
-								data-tip={showTodoList ? 'Hide To Do List' : 'Show To Do List'}
-								onclick={() => (showTodoList = !showTodoList)}
-							>
-								{#if showTodoList}
-									<ChevronUp class="size-4" />
-								{:else}
-									<ChevronDown class="size-4" />
-								{/if}
-							</button>
-						</h4>
-						{#if showTodoList}
-							<ul class="flex flex-col gap-1.5">
-								{#if todoItems.length > 0}
-									{#each todoItems as item, i (i)}
-										<li class="flex min-w-0 items-start gap-2 text-sm font-light">
-											{#if item.status === 'completed' || item.status === 'cancelled'}
-												<CheckCircle2 class="text-success mt-0.5 size-4 shrink-0" />
-											{:else if item.status === 'in_progress'}
-												<Loader2 class="text-primary mt-0.5 size-4 shrink-0 animate-spin" />
-											{:else}
-												<Circle class="text-base-content/40 mt-0.5 size-4 shrink-0" />
-											{/if}
-											<span
-												class="min-w-0 truncate"
-												class:line-through={item.status === 'completed' ||
-													item.status === 'cancelled'}
-												class:opacity-50={item.status === 'cancelled'}
-											>
-												{item.content}
-											</span>
-										</li>
-									{/each}
-								{:else}
-									<li
-										class="text-base-content/50 flex min-w-0 items-start gap-2 text-xs font-light italic"
-									>
-										<span class="min-w-0 truncate"
-											>Running to-dos for longer tasks will display here. You do not currently have
-											any running to-dos.</span
+					{#if !!sessionId}
+						<div
+							class="rounded-selector bg-base-200 dark:border-base-300 flex flex-col gap-2 border border-transparent p-4"
+						>
+							<h4 class="flex w-full items-center justify-between gap-2 text-sm font-semibold">
+								To Do List
+								<button
+									class="btn btn-ghost btn-xs tooltip tooltip-left"
+									data-tip={showTodoList ? 'Hide To Do List' : 'Show To Do List'}
+									onclick={() => (showTodoList = !showTodoList)}
+								>
+									{#if showTodoList}
+										<ChevronUp class="size-4" />
+									{:else}
+										<ChevronDown class="size-4" />
+									{/if}
+								</button>
+							</h4>
+							{#if showTodoList}
+								<ul class="flex flex-col gap-1.5">
+									{#if todoItems.length > 0}
+										{#each todoItems as item, i (i)}
+											<li class="flex min-w-0 items-start gap-2 text-sm font-light">
+												{#if item.status === 'completed' || item.status === 'cancelled'}
+													<CheckCircle2 class="text-success mt-0.5 size-4 shrink-0" />
+												{:else if item.status === 'in_progress'}
+													<Loader2 class="text-primary mt-0.5 size-4 shrink-0 animate-spin" />
+												{:else}
+													<Circle class="text-base-content/40 mt-0.5 size-4 shrink-0" />
+												{/if}
+												<span
+													class="min-w-0 truncate"
+													class:line-through={item.status === 'completed' ||
+														item.status === 'cancelled'}
+													class:opacity-50={item.status === 'cancelled'}
+												>
+													{item.content}
+												</span>
+											</li>
+										{/each}
+									{:else}
+										<li
+											class="text-base-content/50 flex min-w-0 items-start gap-2 text-xs font-light italic"
 										>
-									</li>
-								{/if}
-							</ul>
-						{/if}
-					</div>
+											<span class="min-w-0 truncate"
+												>Running to-dos for longer tasks will display here. You do not currently
+												have any running to-dos.</span
+											>
+										</li>
+									{/if}
+								</ul>
+							{/if}
+						</div>
+					{/if}
 					<div class="flex flex-col gap-2">
 						{@render listThreadFiles(false)}
 					</div>
@@ -224,10 +313,8 @@
 </div>
 
 {#snippet listThreadFiles(compact?: boolean)}
-	{#each files ?? [] as file (file.uri)}
-		{@const openPath = file.uri.startsWith('file:///workflows/')
-			? file.uri
-			: file.uri.replace('file:///', `file:///sessions/${sessionId}/`)}
+	{#each files ?? [] as file (file.openPath)}
+		{@const openPath = file.openPath}
 		{@const isSelected = selectedFile === openPath}
 		<FileItem
 			uri={openPath}
