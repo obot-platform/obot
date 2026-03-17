@@ -1,8 +1,12 @@
 package mcp
 
 import (
+	"context"
+	"strings"
 	"testing"
 
+	"github.com/obot-platform/nah/pkg/name"
+	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
@@ -327,5 +331,115 @@ func TestRestartServerPatchesImageWhenDifferent(t *testing.T) {
 
 	if updated.Annotations["obot.ai/k8s-settings-hash"] == "" {
 		t.Fatal("expected K8s settings hash annotation to be patched onto deployment")
+	}
+}
+
+func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
+	k := newTestKubernetesBackend(t)
+
+	objs, err := k.k8sObjects(context.Background(), ServerConfig{
+		Runtime:              types.RuntimeContainerized,
+		MCPServerName:        "nanobot-agent-server",
+		MCPServerDisplayName: "Nanobot Agent Server",
+		UserID:               "user-1",
+		ContainerImage:       "ghcr.io/nanobot-ai/nanobot:latest",
+		ContainerPort:        8080,
+		ContainerPath:        "/mcp",
+		Command:              "nanobot",
+		Args:                 []string{"run"},
+		NanobotAgentName:     "agent-1",
+		AuditLogToken:        "audit-token",
+		AuditLogEndpoint:     "https://obot.example.com/api/mcp-audit-logs",
+		AuditLogMetadata:     "mcpID=server-1",
+	}, nil)
+	if err != nil {
+		t.Fatalf("k8sObjects() error = %v", err)
+	}
+
+	configSecret := findSecret(t, objs, name.SafeConcatName("nanobot-agent-server", "config"))
+	assertNoAuditLogEnv(t, configSecret.StringData)
+}
+
+func TestK8sObjects_NonAgentShimKeepsAuditLogConfig(t *testing.T) {
+	k := newTestKubernetesBackend(t)
+
+	objs, err := k.k8sObjects(context.Background(), ServerConfig{
+		Runtime:              types.RuntimeContainerized,
+		MCPServerName:        "standard-server",
+		MCPServerDisplayName: "Standard Server",
+		UserID:               "user-1",
+		ContainerImage:       "ghcr.io/obot-platform/mcp-images/phat:main",
+		ContainerPort:        8080,
+		ContainerPath:        "/mcp",
+		Command:              "server",
+		Args:                 []string{"run"},
+		AuditLogToken:        "audit-token",
+		AuditLogEndpoint:     "https://obot.example.com/api/mcp-audit-logs",
+		AuditLogMetadata:     "mcpID=server-1",
+	}, nil)
+	if err != nil {
+		t.Fatalf("k8sObjects() error = %v", err)
+	}
+
+	shimConfigSecret := findSecret(t, objs, name.SafeConcatName("standard-server", "config", "shim"))
+	assertHasAuditLogEnv(t, shimConfigSecret.StringData)
+}
+
+func newTestKubernetesBackend(t *testing.T) *kubernetesBackend {
+	t.Helper()
+
+	scheme := runtime.NewScheme()
+	if err := v1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme() error = %v", err)
+	}
+
+	return &kubernetesBackend{
+		baseImage:            "ghcr.io/obot-platform/mcp-images/phat:main",
+		httpWebhookBaseImage: "ghcr.io/obot-platform/http-webhook:main",
+		remoteShimBaseImage:  "ghcr.io/obot-platform/remote-shim:main",
+		mcpNamespace:         "obot-mcp",
+		obotClient:           fake.NewClientBuilder().WithScheme(scheme).Build(),
+	}
+}
+
+func findSecret(t *testing.T, objs []kclient.Object, secretName string) *corev1.Secret {
+	t.Helper()
+
+	for _, obj := range objs {
+		secret, ok := obj.(*corev1.Secret)
+		if ok && secret.Name == secretName {
+			return secret
+		}
+	}
+
+	t.Fatalf("secret %q not found", secretName)
+	return nil
+}
+
+func assertNoAuditLogEnv(t *testing.T, env map[string]string) {
+	t.Helper()
+
+	for key := range env {
+		if strings.HasPrefix(key, "NANOBOT_RUN_AUDIT_LOG_") {
+			t.Fatalf("unexpected audit log env %q present", key)
+		}
+	}
+}
+
+func assertHasAuditLogEnv(t *testing.T, env map[string]string) {
+	t.Helper()
+
+	expected := []string{
+		"NANOBOT_RUN_AUDIT_LOG_TOKEN",
+		"NANOBOT_RUN_AUDIT_LOG_SEND_URL",
+		"NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE",
+		"NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS",
+		"NANOBOT_RUN_AUDIT_LOG_METADATA",
+	}
+
+	for _, key := range expected {
+		if _, ok := env[key]; !ok {
+			t.Fatalf("expected audit log env %q to be present", key)
+		}
 	}
 }
