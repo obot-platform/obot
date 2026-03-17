@@ -456,10 +456,10 @@
 		onSubmit={() => {
 			if (!showConfirmUpdateWorkflow) return;
 			confirmInstallModal = true;
-			showConfirmPublishWorkflow = false;
+			showConfirmUpdateWorkflow = false;
 		}}
 		onCancel={() => {
-			showConfirmPublishWorkflow = false;
+			showConfirmUpdateWorkflow = false;
 		}}
 		variant="update"
 	/>
