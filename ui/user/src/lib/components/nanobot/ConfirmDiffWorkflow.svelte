@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import MarkdownEditor from './MarkdownEditor.svelte';
+	import { generateLineDiff, formatTextWithDiffHighlighting } from '$lib/diff';
 	import { NanobotService } from '$lib/services';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -27,6 +28,17 @@
 	let latestVersionContents = $state<string>('');
 	let currentWorkflowContents = $state<string>('');
 	let loading = $state(false);
+	let workflowDiff = $derived(
+		latestVersionContents && currentWorkflowContents
+			? generateLineDiff(currentWorkflowContents, latestVersionContents)
+			: null
+	);
+	let currentHighlightedHtml = $derived(
+		workflowDiff ? formatTextWithDiffHighlighting(workflowDiff, true) : ''
+	);
+	let latestHighlightedHtml = $derived(
+		workflowDiff ? formatTextWithDiffHighlighting(workflowDiff, false) : ''
+	);
 
 	onMount(async () => {
 		loading = true;
@@ -84,6 +96,8 @@
 								<div class="flex items-center justify-center gap-2 py-8">
 									<span class="loading loading-sm loading-spinner"></span>
 								</div>
+							{:else if workflowDiff}
+								<div class="py-1">{@html latestHighlightedHtml}</div>
 							{:else}
 								<MarkdownEditor value={latestVersionContents} readonly />
 							{/if}
@@ -94,6 +108,10 @@
 						{#if loading}
 							<div class="flex items-center justify-center gap-2 py-8">
 								<span class="loading loading-sm loading-spinner"></span>
+							</div>
+						{:else if workflowDiff}
+							<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
+								<div class="py-1">{@html currentHighlightedHtml}</div>
 							</div>
 						{:else}
 							<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
@@ -109,6 +127,8 @@
 								<div class="flex items-center justify-center gap-2 py-8">
 									<span class="loading loading-sm loading-spinner"></span>
 								</div>
+							{:else if workflowDiff}
+								<div class="py-1">{@html currentHighlightedHtml}</div>
 							{:else}
 								<MarkdownEditor value={currentWorkflowContents} readonly />
 							{/if}
@@ -119,6 +139,10 @@
 						{#if loading}
 							<div class="flex items-center justify-center gap-2 py-8">
 								<span class="loading loading-sm loading-spinner"></span>
+							</div>
+						{:else if workflowDiff}
+							<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
+								<div class="py-1">{@html latestHighlightedHtml}</div>
 							</div>
 						{:else}
 							<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
