@@ -1,24 +1,22 @@
-import { AdminService, ChatService, getProfile, type AuthProvider } from '$lib/services';
+import { AdminService, ChatService, type AuthProvider } from '$lib/services';
 import { Group, type BootstrapStatus } from '$lib/services/admin/types';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
-export const load: PageLoad = async ({ fetch, url }) => {
+export const load: PageLoad = async ({ fetch, url, parent }) => {
+	const { profile, version } = await parent();
+	const loggedIn = profile?.loaded ?? false;
+
 	let bootstrapStatus: BootstrapStatus | undefined;
 	let authProviders: AuthProvider[] = [];
-	let profile;
-
-	try {
-		profile = await getProfile({ fetch });
-	} catch (_err) {
+	if (!loggedIn) {
 		[bootstrapStatus, authProviders] = await Promise.all([
 			AdminService.getBootstrapStatus(),
 			ChatService.listAuthProviders({ fetch })
 		]);
 	}
-
-	const loggedIn = profile?.loaded ?? false;
-	const isAdmin = profile?.groups.includes(Group.ADMIN);
+	const isAdminOrOwner =
+		profile?.groups.includes(Group.ADMIN) || profile?.groups.includes(Group.OWNER);
 
 	if (loggedIn) {
 		const redirectRoute = url.searchParams.get('rd');
@@ -26,8 +24,12 @@ export const load: PageLoad = async ({ fetch, url }) => {
 			throw redirect(302, redirectRoute);
 		}
 
-		// Redirect to appropriate dashboard
-		throw redirect(302, isAdmin ? '/admin/mcp-servers' : '/mcp-servers');
+		const defaultRoute = isAdminOrOwner
+			? '/admin/mcp-servers'
+			: version?.nanobotIntegration
+				? '/agent'
+				: '/mcp-servers';
+		throw redirect(302, defaultRoute);
 	}
 
 	if (bootstrapStatus?.enabled && authProviders.length === 0) {

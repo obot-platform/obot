@@ -18,6 +18,7 @@
 	import { AlertTriangle } from 'lucide-svelte';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { profile } from '$lib/stores/index.js';
+	import { version } from '$lib/stores';
 
 	let { data } = $props();
 	let modelProviders = $state(untrack(() => data.modelProviders));
@@ -40,6 +41,8 @@
 				)
 	);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let isLegacyDisabled = $derived(version.current.disableLegacyChat);
+	const nanobotIntegratedModels = [CommonModelProviderIds.OPENAI, CommonModelProviderIds.ANTHROPIC];
 
 	initModels([]);
 	const adminModels = getAdminModels();
@@ -58,7 +61,7 @@
 		);
 	}
 
-	let sortedModelProviders = $derived(sortModelProviders(modelProvidersToShow));
+	let sortedModelProviders = $derived(sortModelProviders(modelProvidersToShow, isLegacyDisabled));
 
 	// waitForProviderReady blocks until the models of the model provider with the given providerID
 	// are back populated.
@@ -148,7 +151,7 @@
 				<ProviderCard
 					provider={modelProvider}
 					deprecated={modelProvider.id === CommonModelProviderIds.ANTHROPIC_BEDROCK}
-					recommended={RecommendedModelProviders.includes(modelProvider.id)}
+					recommended={!isLegacyDisabled && RecommendedModelProviders.includes(modelProvider.id)}
 					onConfigure={async () => {
 						configuringModelProvider = modelProvider;
 						try {
@@ -169,6 +172,7 @@
 						adminConfigStore.updateModelProviders(modelProviders);
 					}}
 					readonly={isAdminReadonly}
+					isComingSoon={isLegacyDisabled && !nanobotIntegratedModels.includes(modelProvider.id)}
 				>
 					{#snippet configuredActions(provider)}
 						<ListModels {provider} readonly={isAdminReadonly} />
