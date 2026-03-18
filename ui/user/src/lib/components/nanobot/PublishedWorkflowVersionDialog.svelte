@@ -34,7 +34,6 @@
 	let versionContents = $state<string>('');
 
 	let changingStatus = $state<'public' | 'private' | undefined>(undefined);
-	let confirmUnpublish = $state(false);
 
 	let sortedVersions = $derived([...versions].sort((a, b) => b.version - a.version));
 
@@ -71,7 +70,7 @@
 	}
 </script>
 
-{#if !confirmUnpublish && !changingStatus}
+{#if !changingStatus}
 	<dialog class="modal-open modal flex items-center justify-center gap-4">
 		{#if responsive.isMobile}
 			{#if versionToShow}
