@@ -1143,6 +1143,12 @@
 		}
 	}
 
+	.paper .text-input-filled {
+		.dark & {
+			background-color: var(--background);
+		}
+	}
+
 	.menu-button-destructive {
 		display: flex;
 		min-height: 2.5rem;

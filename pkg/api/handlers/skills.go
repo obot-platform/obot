@@ -127,6 +127,10 @@ func (h *SkillHandler) getAccessibleSkill(req api.Context, id string) (*v1.Skill
 		return nil, types.NewErrNotFound("skill %s not found", id)
 	}
 
+	if req.UserIsAdmin() || req.UserIsOwner() || req.UserIsAuditor() {
+		return &skill, nil
+	}
+
 	hasAccess, err := h.skillAccessRuleHelper.UserHasAccessToSkill(req.User, &skill)
 	if err != nil {
 		return nil, err
