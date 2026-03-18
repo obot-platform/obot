@@ -53,16 +53,17 @@
 <button
 	use:ref
 	class="flex grow items-center px-2 py-3"
-	use:tooltip={'Filter columns'}
+	use:tooltip={{ disablePortal, text: 'Filter columns' }}
 	onclick={() => toggle()}
 >
 	<Columns3Cog class="size-4 flex-shrink-0" />
 </button>
 <div use:tooltipRef={{ disablePortal }} class="popover w-xs rounded-xs">
 	<Select
-		class="rounded-xs border border-transparent shadow-inner"
+		class="rounded-xs border border-transparent font-normal shadow-inner"
 		classes={{
-			root: 'flex grow'
+			root: 'flex grow',
+			option: 'font-normal bg-background'
 		}}
 		options={fields.map((f) => ({
 			label: getFieldLabel(f),
