@@ -100,18 +100,6 @@
 						disabled
 					/>
 				</div>
-
-				<div class="flex flex-col gap-2">
-					<label for="skill-install-hash" class="flex-1 text-sm font-light capitalize">
-						Install Hash
-					</label>
-					<input
-						id="skill-install-hash"
-						value={skill.installHash}
-						class="text-input-filled mt-0.5"
-						disabled
-					/>
-				</div>
 			</div>
 		</div>
 
