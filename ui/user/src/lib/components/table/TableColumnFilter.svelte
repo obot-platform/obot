@@ -60,7 +60,7 @@
 </button>
 <div use:tooltipRef={{ disablePortal }} class="popover w-xs rounded-xs">
 	<Select
-		class="rounded-xs border border-transparent shadow-inner font-normal"
+		class="rounded-xs border border-transparent font-normal shadow-inner"
 		classes={{
 			root: 'flex grow',
 			option: 'font-normal bg-background'
