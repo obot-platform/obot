@@ -223,7 +223,7 @@
 				<PublishedWorkflowDropdown
 					publishedArtifactId={publishedInfo?.id}
 					onUnpublish={() => {
-						publishedInfo = undefined;
+						confirmUnpublish = true;
 					}}
 					numVersions={publishedInfo?.versions?.length ?? 0}
 					onDelete={() => {
