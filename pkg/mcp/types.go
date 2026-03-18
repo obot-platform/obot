@@ -113,6 +113,18 @@ func applyPrefix(value, prefix string) string {
 	return prefix + value
 }
 
+func desiredContainerImage(mcpServer v1.MCPServer) string {
+	if mcpServer.Spec.NanobotAgentID != "" && mcpServer.Spec.DesiredImageOverride != "" {
+		return mcpServer.Spec.DesiredImageOverride
+	}
+
+	if mcpServer.Spec.Manifest.ContainerizedConfig == nil {
+		return ""
+	}
+
+	return mcpServer.Spec.Manifest.ContainerizedConfig.Image
+}
+
 func legacyServerToServerConfig(mcpServer v1.MCPServer, userID, scope string, credEnv map[string]string, fileEnvVars map[string]struct{}) (ServerConfig, []string, error) {
 	// Expand environment variables in command, args, and URL
 	command := expandEnvVars(mcpServer.Spec.Manifest.Command, credEnv, fileEnvVars)
@@ -353,7 +365,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		}
 	case types.RuntimeContainerized:
 		if mcpServer.Spec.Manifest.ContainerizedConfig != nil {
-			serverConfig.ContainerImage = expandEnvVars(mcpServer.Spec.Manifest.ContainerizedConfig.Image, credEnv, fileEnvVars)
+			serverConfig.ContainerImage = expandEnvVars(desiredContainerImage(mcpServer), credEnv, fileEnvVars)
 			serverConfig.ContainerPort = mcpServer.Spec.Manifest.ContainerizedConfig.Port
 			serverConfig.ContainerPath = mcpServer.Spec.Manifest.ContainerizedConfig.Path
 			serverConfig.Command = expandEnvVars(mcpServer.Spec.Manifest.ContainerizedConfig.Command, credEnv, fileEnvVars)

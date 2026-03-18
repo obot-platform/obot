@@ -640,3 +640,46 @@ func TestServerToServerConfig_StaticHeaders_EdgeCases(t *testing.T) {
 		})
 	}
 }
+
+func TestServerToServerConfig_UsesDesiredNanobotImageOverride(t *testing.T) {
+	baseURL := "http://localhost:8080"
+	mcpServer := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			NanobotAgentID:       "agent-test",
+			DesiredImageOverride: "ghcr.io/nanobot-ai/nanobot:v2",
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image:   "ghcr.io/nanobot-ai/nanobot:v1",
+					Command: "nanobot",
+					Args:    []string{"run"},
+					Port:    8080,
+					Path:    "/mcp",
+				},
+			},
+		},
+	}
+	mcpServer.Name = "mcp-agent-test"
+
+	config, missing, err := ServerToServerConfig(
+		mcpServer,
+		mcpServer.ValidConnectURLs(baseURL),
+		baseURL,
+		"test-user-id",
+		"test-scope",
+		"test-catalog",
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(missing) != 0 {
+		t.Fatalf("expected no missing config, got %v", missing)
+	}
+
+	if config.ContainerImage != mcpServer.Spec.DesiredImageOverride {
+		t.Fatalf("expected container image %q, got %q", mcpServer.Spec.DesiredImageOverride, config.ContainerImage)
+	}
+}
