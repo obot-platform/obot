@@ -40,6 +40,8 @@ To manage skill sources, go to **Obot Agent Management > Skills** and select the
 
 After saving, Obot fetches the repository and discovers skills. The sync status appears next to the source entry, showing whether the sync is in progress, how many skills were found, or any errors that occurred.
 
+> Try out `https://github.com/obot-platform/skills` to access some examples.
+
 ### Refreshing a Source
 
 Sources sync automatically every hour, but you can trigger an immediate sync by selecting a source and clicking the **Sync** button. This is useful after pushing changes to a skill repository.
