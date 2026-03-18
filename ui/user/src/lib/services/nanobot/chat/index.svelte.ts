@@ -600,7 +600,11 @@ export class ChatSession {
 				} else if (event.type === 'history-start') {
 					this.history = [];
 				} else if (event.type === 'history-end') {
-					this.messages = this.history || [];
+					const fromServer = this.history || [];
+					// eslint-disable-next-line svelte/prefer-svelte-reactivity
+					const historyIds = new Set(fromServer.map((m) => m.id));
+					const preserved = this.messages.filter((m) => !historyIds.has(m.id));
+					this.messages = [...fromServer, ...preserved];
 					this.history = undefined;
 					this.isRestoring = false;
 				} else if (event.type === 'chat-in-progress') {

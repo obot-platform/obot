@@ -226,6 +226,7 @@
 			});
 			selectServerDialog?.close();
 		}}
+		disablePortal
 	>
 		{#snippet onRenderColumn(property, d)}
 			{#if property === 'name'}
