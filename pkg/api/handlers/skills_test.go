@@ -262,7 +262,6 @@ func TestSkillHandlerListAllTrueScopeBypass(t *testing.T) {
 		return ids
 	}
 
-	// Basic user: without all=true sees only in-scope; with all=true still only in-scope (no bypass)
 	t.Run("basic user without all=true sees only in-scope skills", func(t *testing.T) {
 		ids := listSkills(t, testUser("user1"), "")
 		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
@@ -272,7 +271,6 @@ func TestSkillHandlerListAllTrueScopeBypass(t *testing.T) {
 		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
 	})
 
-	// Admin: without all=true sees only in-scope; with all=true sees all (bypass)
 	t.Run("admin without all=true sees only in-scope skills", func(t *testing.T) {
 		ids := listSkills(t, testUserWithRole("user1", types.GroupAdmin), "")
 		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
@@ -282,7 +280,6 @@ func TestSkillHandlerListAllTrueScopeBypass(t *testing.T) {
 		assert.ElementsMatch(t, []string{"sk-in-scope", "sk-out-scope"}, ids)
 	})
 
-	// Owner: same as admin for scope bypass
 	t.Run("owner without all=true sees only in-scope skills", func(t *testing.T) {
 		ids := listSkills(t, testUserWithRole("user1", types.GroupOwner), "")
 		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
@@ -292,7 +289,6 @@ func TestSkillHandlerListAllTrueScopeBypass(t *testing.T) {
 		assert.ElementsMatch(t, []string{"sk-in-scope", "sk-out-scope"}, ids)
 	})
 
-	// Auditor: same as admin for scope bypass
 	t.Run("auditor without all=true sees only in-scope skills", func(t *testing.T) {
 		ids := listSkills(t, testUserWithRole("user1", types.GroupAuditor), "")
 		assert.ElementsMatch(t, []string{"sk-in-scope"}, ids)
@@ -326,6 +322,100 @@ func TestSkillHandlerGetReturnsNotFoundWhenUnauthorized(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.True(t, types.IsNotFound(err))
+}
+
+func TestSkillHandlerGetACRBypass(t *testing.T) {
+	storage := newFakeStorage(t, &v1.Skill{
+		ObjectMeta: metav1.ObjectMeta{Name: "sk1", Namespace: system.DefaultNamespace},
+		Spec: v1.SkillSpec{
+			SkillManifest: types.SkillManifest{
+				Name:        "acr-bypass-skill",
+				DisplayName: "ACR Bypass Skill",
+			},
+			RepoID: "repo-1",
+		},
+		Status: v1.SkillStatus{Valid: true},
+	})
+
+	handler := NewSkillHandler(newSkillAccessRuleHelper(t))
+
+	doGet := func(t *testing.T, user kuser.Info) (int, *types.Skill) {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, "/api/skills/sk1", nil)
+		req.SetPathValue("id", "sk1")
+		rec := httptest.NewRecorder()
+		err := handler.Get(api.Context{
+			ResponseWriter: rec,
+			Request:        req,
+			Storage:        storage,
+			User:           user,
+		})
+		if err != nil {
+			assert.True(t, types.IsNotFound(err), "expected NotFound, got %v", err)
+			return 0, nil
+		}
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var skill types.Skill
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &skill))
+		return rec.Code, &skill
+	}
+
+	t.Run("admin bypasses ACR and gets skill", func(t *testing.T) {
+		code, skill := doGet(t, testUserWithRole("admin1", types.GroupAdmin))
+		require.Equal(t, http.StatusOK, code)
+		require.NotNil(t, skill)
+		assert.Equal(t, "sk1", skill.ID)
+		assert.Equal(t, "ACR Bypass Skill", skill.DisplayName)
+	})
+	t.Run("owner bypasses ACR and gets skill", func(t *testing.T) {
+		code, skill := doGet(t, testUserWithRole("owner1", types.GroupOwner))
+		require.Equal(t, http.StatusOK, code)
+		require.NotNil(t, skill)
+		assert.Equal(t, "sk1", skill.ID)
+	})
+	t.Run("auditor bypasses ACR and gets skill", func(t *testing.T) {
+		code, skill := doGet(t, testUserWithRole("auditor1", types.GroupAuditor))
+		require.Equal(t, http.StatusOK, code)
+		require.NotNil(t, skill)
+		assert.Equal(t, "sk1", skill.ID)
+	})
+	t.Run("basic user without ACR gets NotFound", func(t *testing.T) {
+		code, skill := doGet(t, testUser("user1"))
+		require.Equal(t, 0, code)
+		require.Nil(t, skill)
+	})
+}
+
+func TestSkillHandlerGetWithACRAccess(t *testing.T) {
+	storage := newFakeStorage(t, &v1.Skill{
+		ObjectMeta: metav1.ObjectMeta{Name: "sk1", Namespace: system.DefaultNamespace},
+		Spec: v1.SkillSpec{
+			SkillManifest: types.SkillManifest{Name: "allowed-skill"},
+			RepoID:        "repo-1",
+		},
+		Status: v1.SkillStatus{Valid: true},
+	})
+
+	handler := NewSkillHandler(newSkillAccessRuleHelper(t,
+		newSkillRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}),
+	))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/skills/sk1", nil)
+	req.SetPathValue("id", "sk1")
+	rec := httptest.NewRecorder()
+	err := handler.Get(api.Context{
+		ResponseWriter: rec,
+		Request:        req,
+		Storage:        storage,
+		User:           testUser("user1"),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	var skill types.Skill
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &skill))
+	assert.Equal(t, "sk1", skill.ID)
+	assert.Equal(t, "allowed-skill", skill.Name)
 }
 
 func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
