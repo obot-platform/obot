@@ -6,6 +6,7 @@
 	import { page } from '$app/state';
 	import { setContext, untrack } from 'svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import { get } from 'svelte/store';
 	import FileEditor from '$lib/components/nanobot/FileEditor.svelte';
 	import QuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
 	import { afterNavigate } from '$app/navigation';
@@ -237,6 +238,15 @@
 					existingSession.close();
 					return;
 				}
+				const current = get(nanobotChat);
+				if (
+					current?.chat &&
+					current.chat.chatId === currentSessionId &&
+					current.chat !== existingSession
+				) {
+					existingSession.close();
+					return;
+				}
 				chat = existingSession;
 				nanobotChat.update((data) => {
 					if (data) {
@@ -247,19 +257,21 @@
 				});
 			});
 		} else {
-			nanobotChat.update((data) => {
-				if (data) {
-					data.chat = undefined;
-					data.sessionId = undefined;
-				}
-				return data;
-			});
+			if (prevSessionId !== undefined) {
+				nanobotChat.update((data) => {
+					if (data) {
+						data.chat = undefined;
+						data.sessionId = undefined;
+					}
+					return data;
+				});
+			}
 		}
 
 		return () => {
 			untrack(() => {
 				const nextTid = sessionId;
-				if (chat && nextTid !== chat.chatId) {
+				if (chat && nextTid !== undefined && nextTid !== chat.chatId) {
 					chat.close();
 					chat = null;
 				}

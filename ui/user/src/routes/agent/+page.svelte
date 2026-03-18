@@ -6,6 +6,7 @@
 	import ThreadQuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
 	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import { get } from 'svelte/store';
 	import { goto } from '$lib/url';
 	import { randomUUID } from '$lib/utils';
 	import type { Attachment, UploadedFile } from '$lib/services/nanobot/types';
@@ -115,13 +116,15 @@
 							);
 							const allAttachments = [...uploadedAttachments, ...(attachments ?? [])];
 							session.sendMessage(message, allAttachments.length > 0 ? allAttachments : undefined);
-							nanobotChat.update((data) => {
-								if (data) {
-									data.projectId = projectId;
-									data.chat = session;
-									data.sessionId = session.chatId;
-								}
-								return data;
+							const current = get(nanobotChat);
+							nanobotChat.set({
+								projectId,
+								chat: session,
+								sessionId: session.chatId,
+								api: $nanobotChat?.api,
+								sessions: current?.sessions ?? [],
+								isThreadsLoading: current?.isThreadsLoading ?? false,
+								resources: current?.resources ?? []
 							});
 
 							goto(`/agent/p/${projectId}?tid=${session.chatId}`, {
