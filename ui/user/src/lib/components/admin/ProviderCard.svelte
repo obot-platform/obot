@@ -48,7 +48,7 @@
 		</div>
 
 		<div class="flex translate-x-2 items-center gap-1">
-			{#if provider.configured}
+			{#if provider.configured && !isComingSoon}
 				{#if configuredActions}
 					{@render configuredActions(provider)}
 				{/if}

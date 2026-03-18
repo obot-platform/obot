@@ -3,7 +3,8 @@ import { Group, type BootstrapStatus } from '$lib/services/admin/types';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
-export const load: PageLoad = async ({ fetch, url }) => {
+export const load: PageLoad = async ({ fetch, url, parent }) => {
+	const { version } = await parent();
 	let bootstrapStatus: BootstrapStatus | undefined;
 	let authProviders: AuthProvider[] = [];
 	let profile;
@@ -27,8 +28,12 @@ export const load: PageLoad = async ({ fetch, url }) => {
 			throw redirect(302, redirectRoute);
 		}
 
-		// Redirect to appropriate dashboard
-		throw redirect(302, isAdminOrOwner ? '/admin/mcp-servers' : '/agent');
+		const defaultRoute = isAdminOrOwner
+			? '/admin/mcp-servers'
+			: version?.nanobotIntegration
+				? '/agent'
+				: '/mcp-servers';
+		throw redirect(302, defaultRoute);
 	}
 
 	if (bootstrapStatus?.enabled && authProviders.length === 0) {
