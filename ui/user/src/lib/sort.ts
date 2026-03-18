@@ -46,23 +46,39 @@ export const sortByCreatedDate = <T extends { created: string }>(a: T, b: T) => 
 	return new Date(b.created).getTime() - new Date(a.created).getTime();
 };
 
-export const sortModelProviders = (modelProviders: ModelProvider[]) => {
+export const sortModelProviders = (modelProviders: ModelProvider[], isLegacyDisabled?: boolean) => {
 	return [...modelProviders].sort((a, b) => {
-		const preferredOrder = [
-			CommonModelProviderIds.OPENAI,
-			CommonModelProviderIds.AZURE_OPENAI,
-			CommonModelProviderIds.ANTHROPIC,
-			CommonModelProviderIds.AMAZON_BEDROCK,
-			CommonModelProviderIds.ANTHROPIC_BEDROCK,
-			CommonModelProviderIds.XAI,
-			CommonModelProviderIds.OLLAMA,
-			CommonModelProviderIds.VOYAGE,
-			CommonModelProviderIds.GROQ,
-			CommonModelProviderIds.VLLM,
-			CommonModelProviderIds.DEEPSEEK,
-			CommonModelProviderIds.GEMINI_VERTEX,
-			CommonModelProviderIds.GENERIC_OPENAI
-		];
+		const preferredOrder = isLegacyDisabled
+			? [
+					CommonModelProviderIds.OPENAI,
+					CommonModelProviderIds.ANTHROPIC,
+					CommonModelProviderIds.AZURE_OPENAI,
+					CommonModelProviderIds.AMAZON_BEDROCK,
+					CommonModelProviderIds.ANTHROPIC_BEDROCK,
+					CommonModelProviderIds.XAI,
+					CommonModelProviderIds.OLLAMA,
+					CommonModelProviderIds.VOYAGE,
+					CommonModelProviderIds.GROQ,
+					CommonModelProviderIds.VLLM,
+					CommonModelProviderIds.DEEPSEEK,
+					CommonModelProviderIds.GEMINI_VERTEX,
+					CommonModelProviderIds.GENERIC_OPENAI
+				]
+			: [
+					CommonModelProviderIds.OPENAI,
+					CommonModelProviderIds.AZURE_OPENAI,
+					CommonModelProviderIds.ANTHROPIC,
+					CommonModelProviderIds.AMAZON_BEDROCK,
+					CommonModelProviderIds.ANTHROPIC_BEDROCK,
+					CommonModelProviderIds.XAI,
+					CommonModelProviderIds.OLLAMA,
+					CommonModelProviderIds.VOYAGE,
+					CommonModelProviderIds.GROQ,
+					CommonModelProviderIds.VLLM,
+					CommonModelProviderIds.DEEPSEEK,
+					CommonModelProviderIds.GEMINI_VERTEX,
+					CommonModelProviderIds.GENERIC_OPENAI
+				];
 		const aIndex = preferredOrder.indexOf(a.id);
 		const bIndex = preferredOrder.indexOf(b.id);
 

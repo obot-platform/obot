@@ -18,7 +18,8 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	}
 
 	const loggedIn = profile?.loaded ?? false;
-	const isAdmin = profile?.groups.includes(Group.ADMIN);
+	const isAdminOrOwner =
+		profile?.groups.includes(Group.ADMIN) || profile?.groups.includes(Group.OWNER);
 
 	if (loggedIn) {
 		const redirectRoute = url.searchParams.get('rd');
@@ -27,7 +28,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 		}
 
 		// Redirect to appropriate dashboard
-		throw redirect(302, isAdmin ? '/admin/mcp-servers' : '/mcp-servers');
+		throw redirect(302, isAdminOrOwner ? '/admin/mcp-servers' : '/agent');
 	}
 
 	if (bootstrapStatus?.enabled && authProviders.length === 0) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CircleSlash, CircleCheck } from 'lucide-svelte';
+	import { CircleSlash, CircleCheck, Construction } from 'lucide-svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 	import { darkMode } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
@@ -16,6 +16,7 @@
 		deprecated?: boolean;
 		readonly?: boolean;
 		disableConfigure?: boolean;
+		isComingSoon?: boolean;
 	}
 
 	const {
@@ -26,16 +27,20 @@
 		configuredActions,
 		deprecated,
 		readonly,
-		disableConfigure
+		disableConfigure,
+		isComingSoon
 	}: Props = $props();
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 bg-background flex w-full flex-col items-center justify-center gap-4 rounded-lg border border-transparent p-4 pt-2 shadow-sm"
+	class={twMerge(
+		'dark:bg-surface1 dark:border-surface3 bg-background flex w-full flex-col items-center justify-center gap-4 rounded-lg border border-transparent p-4 pt-2 shadow-sm',
+		isComingSoon && 'opacity-50'
+	)}
 >
 	<div class="flex min-h-9 w-full items-center justify-between">
 		<div>
-			{#if recommended}
+			{#if recommended && !isComingSoon}
 				<span class="bg-primary rounded-md px-2 py-1 text-[11px] font-semibold text-white"
 					>Recommended</span
 				>
@@ -92,18 +97,29 @@
 	</div>
 
 	<div class="mt-auto w-full">
-		<button
-			onclick={onConfigure}
-			class={twMerge('w-full border-0 text-sm', provider.configured ? 'button' : 'button-primary')}
-			disabled={disableConfigure}
-		>
-			{#if readonly}
-				View
-			{:else if provider.configured}
-				Modify
-			{:else}
-				Configure
-			{/if}
-		</button>
+		{#if isComingSoon}
+			<div
+				class="bg-surface1 dark:bg-surface2/50 text-on-surface1 flex items-center justify-center gap-1 rounded-xs px-4 py-2 text-sm"
+			>
+				<Construction class="size-4" /> Coming Soon
+			</div>
+		{:else}
+			<button
+				onclick={onConfigure}
+				class={twMerge(
+					'w-full border-0 text-sm',
+					provider.configured ? 'button' : 'button-primary'
+				)}
+				disabled={disableConfigure}
+			>
+				{#if readonly}
+					View
+				{:else if provider.configured}
+					Modify
+				{:else}
+					Configure
+				{/if}
+			</button>
+		{/if}
 	</div>
 </div>
