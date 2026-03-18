@@ -7,7 +7,7 @@
 		show: boolean;
 		msg?: string;
 		onsuccess?: () => void;
-		oncancel?: () => void;
+		oncancel: () => void;
 		loading?: boolean;
 		note?: Snippet | string;
 		msgContent?: Snippet;
@@ -111,11 +111,9 @@
 						{/if}
 					</button>
 				{/if}
-				{#if oncancel}
-					<button onclick={oncancel} type="button" class="button w-full justify-center"
-						>{cancelText}</button
-					>
-				{/if}
+				<button onclick={oncancel} type="button" class="button w-full justify-center"
+					>{cancelText}</button
+				>
 			</div>
 		</div>
 	</div>

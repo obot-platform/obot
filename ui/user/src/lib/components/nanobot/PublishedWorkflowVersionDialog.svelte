@@ -57,12 +57,17 @@
 
 	async function handleStatusChange() {
 		if (!publishedArtifactId || !changingStatus) return;
-		await NanobotService.updatePublishedArtifact(publishedArtifactId, {
-			visibility: changingStatus
-		}).then(() => {
+
+		try {
+			await NanobotService.updatePublishedArtifact(publishedArtifactId, {
+				visibility: changingStatus
+			});
 			onChangeStatus?.(changingStatus as 'public' | 'private');
+		} catch (err) {
+			console.error('Failed to update published artifact status', err);
+		} finally {
 			changingStatus = undefined;
-		});
+		}
 	}
 </script>
 

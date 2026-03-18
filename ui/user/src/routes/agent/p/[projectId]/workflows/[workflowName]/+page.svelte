@@ -28,9 +28,8 @@
 	let publishedInfo = $derived(
 		publishedWorkflows.find((w) => w.name === workflowName && w.authorID === profile.current.id)
 	);
-	let latestVersion = $derived(
-		publishedInfo?.versions?.[publishedInfo?.versions?.length - 1]?.version ?? 0
-	);
+	let latestVersion = $derived(publishedInfo?.latestVersion ?? 0);
+
 	let workflow = $derived(
 		$nanobotChat?.resources?.length
 			? $nanobotChat.resources.find((r) => r.name === workflowName)
@@ -495,7 +494,7 @@
 {/if}
 
 <Confirm
-	msg={`Workflow ${workflowDisplayName} has been published.`}
+	msg={`Workflow ${workflowDisplayName ?? workflowName} has been published.`}
 	title="Workflow Published"
 	cancelText="Close"
 	show={showPublishSuccess}
@@ -504,7 +503,7 @@
 >
 	{#snippet note()}
 		<p>
-			{workflowDisplayName} has been published to version
+			{workflowDisplayName ?? workflowName} has been published to version
 			<b class="font-semibold">{publishedInfo?.latestVersion?.toFixed(1)}</b>.
 		</p>
 	{/snippet}
