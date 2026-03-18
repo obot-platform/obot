@@ -6,7 +6,7 @@
 	interface Props {
 		show: boolean;
 		msg?: string;
-		onsuccess: () => void;
+		onsuccess?: () => void;
 		oncancel: () => void;
 		loading?: boolean;
 		note?: Snippet | string;
@@ -20,6 +20,8 @@
 		title?: string;
 		type?: 'delete' | 'info';
 		disabled?: boolean;
+		submitText?: string;
+		cancelText?: string;
 	}
 
 	let {
@@ -33,7 +35,9 @@
 		classes,
 		title = 'Confirm Delete',
 		type = 'delete',
-		disabled
+		disabled,
+		submitText = "Yes, I'm sure",
+		cancelText = 'Cancel'
 	}: Props = $props();
 
 	let dialog = $state<HTMLDialogElement>();
@@ -89,23 +93,26 @@
 			<div
 				class="flex w-full flex-col items-center justify-center gap-2 md:flex-row md:justify-end"
 			>
-				<button
-					onclick={onsuccess}
-					type="button"
-					class={twMerge(
-						'flex w-full justify-center p-3',
-						type === 'delete' ? 'button-destructive' : 'button-primary',
-						classes?.confirm
-					)}
-					disabled={loading || disabled}
-				>
-					{#if loading}
-						<LoaderCircle class="size-4 animate-spin" />
-					{:else}
-						Yes, I'm sure
-					{/if}
-				</button>
-				<button onclick={oncancel} type="button" class="button w-full justify-center">Cancel</button
+				{#if onsuccess}
+					<button
+						onclick={onsuccess}
+						type="button"
+						class={twMerge(
+							'flex w-full justify-center p-3',
+							type === 'delete' ? 'button-destructive' : 'button-primary',
+							classes?.confirm
+						)}
+						disabled={loading || disabled}
+					>
+						{#if loading}
+							<LoaderCircle class="size-4 animate-spin" />
+						{:else}
+							{submitText}
+						{/if}
+					</button>
+				{/if}
+				<button onclick={oncancel} type="button" class="button w-full justify-center"
+					>{cancelText}</button
 				>
 			</div>
 		</div>

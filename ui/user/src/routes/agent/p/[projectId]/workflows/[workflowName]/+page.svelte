@@ -28,11 +28,15 @@
 	let publishedInfo = $derived(
 		publishedWorkflows.find((w) => w.name === workflowName && w.authorID === profile.current.id)
 	);
+	let latestVersion = $derived(publishedInfo?.latestVersion ?? 0);
+
 	let workflow = $derived(
 		$nanobotChat?.resources?.length
 			? $nanobotChat.resources.find((r) => r.name === workflowName)
 			: undefined
 	);
+	let workflowDisplayName = $derived(workflow?._meta?.displayName ?? workflow?._meta?.name);
+
 	let resource = $state<ResourceContents>();
 	let sessions = $state<Chat[]>([]);
 	let loading = $state(false);
@@ -43,6 +47,8 @@
 	let showConfirmPublishWorkflow = $state(false);
 	let showWorkflowVersionDialog = $state(false);
 	let showConfirmUpdateWorkflow = $state(false);
+	let showPublishSuccess = $state(false);
+	let confirmUnpublish = $state(false);
 
 	let relatedPublishedArtifact = $derived(
 		publishedWorkflows.find(
@@ -163,10 +169,18 @@
 			.publishArtifact(workflowName)
 			.then(async () => {
 				publishedWorkflows = await NanobotService.listPublishedWorkflows();
+				showPublishSuccess = true;
 			})
 			.finally(() => {
 				publishing = false;
 			});
+	}
+
+	async function handleUnpublish() {
+		if (!publishedInfo?.id) return;
+		await NanobotService.deletePublishedArtifact(publishedInfo.id);
+		publishedWorkflows = await NanobotService.listPublishedWorkflows();
+		confirmUnpublish = false;
 	}
 </script>
 
@@ -177,32 +191,6 @@
 	>
 		<div class="mt-1 flex items-center justify-between gap-2">
 			<div class="flex items-center gap-2">
-				{#if publishedInfo}
-					<select
-						class="select w-36"
-						value={publishedInfo.visibility}
-						onchange={(e) => {
-							e.preventDefault();
-							e.stopPropagation();
-							if (!publishedInfo) return;
-							const visibility = e.currentTarget.value as 'public' | 'private';
-							NanobotService.updatePublishedArtifact(publishedInfo.id, {
-								visibility
-							}).then(() => {
-								if (publishedInfo?.id) {
-									publishedInfo = {
-										...publishedInfo,
-										visibility
-									};
-								}
-							});
-							e.currentTarget.blur();
-						}}
-					>
-						<option value="public">Public</option>
-						<option value="private">Private</option>
-					</select>
-				{/if}
 				{#if publishing}
 					<div class="skeleton skeleton-text">Publishing...</div>
 				{:else}
@@ -212,9 +200,7 @@
 				{/if}
 				{#if publishedInfo}
 					<button class="btn btn-link px-2" onclick={() => (showWorkflowVersionDialog = true)}>
-						{publishedInfo.versions?.length === 1
-							? '1 Version'
-							: `${publishedInfo.versions?.length} Versions`}
+						Manage Published Versions
 					</button>
 				{/if}
 			</div>
@@ -237,7 +223,7 @@
 				<PublishedWorkflowDropdown
 					publishedArtifactId={publishedInfo?.id}
 					onUnpublish={() => {
-						publishedInfo = undefined;
+						confirmUnpublish = true;
 					}}
 					numVersions={publishedInfo?.versions?.length ?? 0}
 					onDelete={() => {
@@ -386,7 +372,7 @@
 {/if}
 
 <Confirm
-	msg={`Delete ${workflowName || 'this workflow'}?`}
+	msg={`Delete ${workflowDisplayName || 'this workflow'}?`}
 	show={deletingWorkflow}
 	onsuccess={async () => {
 		if (!workflow) return;
@@ -407,9 +393,7 @@
 		title="Update Workflow"
 		publishedArtifact={{
 			id: relatedPublishedArtifact?.id ?? '',
-			displayName: (workflow?._meta?.displayName ??
-				workflow?._meta?.name ??
-				workflowName) as string,
+			displayName: (workflowDisplayName ?? workflowName) as string,
 			created: new Date().toISOString(),
 			metadata: {},
 			name: workflowName,
@@ -440,6 +424,19 @@
 		versions={publishedInfo?.versions ?? []}
 		workflowDisplayName={publishedInfo?.displayName}
 		onClose={() => (showWorkflowVersionDialog = false)}
+		status={publishedInfo?.visibility}
+		onChangeStatus={(status) => {
+			if (!publishedInfo) return;
+			publishedInfo = {
+				...publishedInfo,
+				id: publishedInfo.id ?? '',
+				visibility: status
+			};
+		}}
+		onUnpublish={() => {
+			showWorkflowVersionDialog = false;
+			confirmUnpublish = true;
+		}}
 	/>
 {/if}
 
@@ -476,8 +473,44 @@
 	/>
 {/if}
 
+{#if publishedInfo && latestVersion > 0}
+	<Confirm
+		show={confirmUnpublish}
+		onsuccess={handleUnpublish}
+		oncancel={() => (confirmUnpublish = false)}
+		msg={latestVersion > 1 ? 'Unpublish All Versions?' : 'Unpublish Workflow?'}
+		type="info"
+		title="Confirm Unpublish"
+	>
+		{#snippet note()}
+			<p>
+				Are you sure you want to unpublish {latestVersion > 1 ? 'all versions' : 'this version'}? {latestVersion >
+				1
+					? 'All versions'
+					: 'This version'} will be unpublished and will no longer be visible to other users.
+			</p>
+		{/snippet}
+	</Confirm>
+{/if}
+
+<Confirm
+	msg={`Workflow ${workflowDisplayName ?? workflowName} has been published.`}
+	title="Workflow Published"
+	cancelText="Close"
+	show={showPublishSuccess}
+	oncancel={() => (showPublishSuccess = false)}
+	type="info"
+>
+	{#snippet note()}
+		<p>
+			{workflowDisplayName ?? workflowName} has been published to version
+			<b class="font-semibold">{publishedInfo?.latestVersion?.toFixed(1)}</b>.
+		</p>
+	{/snippet}
+</Confirm>
+
 <svelte:head>
-	<title>Obot | {workflow?._meta?.displayName ?? workflow?._meta?.name ?? workflowName}</title>
+	<title>Obot | {workflowDisplayName ?? workflowName}</title>
 </svelte:head>
 
 <style lang="postcss">
