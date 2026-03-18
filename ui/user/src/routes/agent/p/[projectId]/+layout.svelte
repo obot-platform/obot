@@ -21,6 +21,7 @@
 			undefined
 	);
 	let workflowId = $derived(page.url.searchParams.get('wid') ?? undefined);
+	let activeWorkflowName = $derived(parentWorkflowId ?? workflowId);
 
 	let chat = $state<ChatSession | null>(null);
 	let sessionId = $derived(page.url.searchParams.get('tid') ?? undefined);
@@ -329,6 +330,7 @@
 			{browserAvailable}
 			{browserViewerOpen}
 			{sessionId}
+			workflowName={activeWorkflowName}
 			{selectedFile}
 			{agentId}
 			{projectId}
