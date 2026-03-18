@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { NanobotService } from '$lib/services';
 	import {
 		Book,
 		BookCopy,
@@ -66,7 +65,6 @@
 					onclick={async (e) => {
 						e.preventDefault();
 						e.stopPropagation();
-						await NanobotService.deletePublishedArtifact(publishedArtifactId);
 						onUnpublish();
 						e.currentTarget.blur();
 					}}
