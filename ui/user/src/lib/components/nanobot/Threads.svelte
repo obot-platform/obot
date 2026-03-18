@@ -41,10 +41,7 @@
 			}
 		}
 		return sessions.filter(
-			(t) =>
-				!sessionIdsToFilter.has(t.id) &&
-				t.id !== $nanobotChat?.api?.sessionId &&
-				(t.title || isRecent(t.created))
+			(t) => !sessionIdsToFilter.has(t.id) && t.id !== $nanobotChat?.api?.sessionId
 		);
 	});
 
