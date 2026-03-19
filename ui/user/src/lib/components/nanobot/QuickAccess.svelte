@@ -139,13 +139,6 @@
 
 	const hasSidebarContent = $derived(!!sessionId || !!workflowName || files.length > 0);
 
-	/** Todo item shape from todo:///list resource or todo_write tool (application/json) */
-	interface TodoItem {
-		content: string;
-		status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
-		activeForm?: string;
-	}
-
 	const TODO_WRITE_NAMES = ['todo_write', 'todoWrite'];
 
 	function parseTodoItem(raw: unknown): TodoItem | null {
