@@ -287,13 +287,13 @@
 			deployedWorkspaceCatalogEntryServers =
 				await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
 			// Refresh multi-user servers too
-			mcpServersAndEntries.refreshAll();
+			await mcpServersAndEntries.refreshAll();
 			// Refresh capacity banner when server list changes
 			if (!isInitialLoad) {
 				capacityBanner?.refresh();
 			}
 		} else if (!isInitialLoad && entity === 'workspace') {
-			mcpServersAndEntries.refreshAll();
+			await mcpServersAndEntries.refreshAll();
 		}
 
 		if (isInitialLoad) {
@@ -535,7 +535,7 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	{#if loading || mcpServersAndEntries.current.loading}
+	{#if loading}
 		<div class="my-2 flex items-center justify-center">
 			<LoaderCircle class="size-6 animate-spin" />
 		</div>
