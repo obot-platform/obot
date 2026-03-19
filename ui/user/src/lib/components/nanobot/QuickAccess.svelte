@@ -15,10 +15,9 @@
 	import { fly } from 'svelte/transition';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { getContext } from 'svelte';
-	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
+	import type { ChatMessageItemToolCall, ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
-	import { parseJSON } from '$lib/services/nanobot/utils';
 
 	interface Props {
 		onToggle?: () => void;
@@ -54,8 +53,6 @@
 	}
 
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
-	let todoItems = $state<TodoItem[]>([]);
-
 	const chatForSession = $derived(
 		$nanobotChat?.chat?.chatId === sessionId ? ($nanobotChat?.chat ?? null) : null
 	);
@@ -142,20 +139,85 @@
 
 	const hasSidebarContent = $derived(!!sessionId || !!workflowName || files.length > 0);
 
-	$effect(() => {
-		const chat = chatForSession;
-		if (!sessionId || !chat) {
-			return;
+	/** Todo item shape from todo:///list resource or todo_write tool (application/json) */
+	interface TodoItem {
+		content: string;
+		status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+		activeForm?: string;
+	}
+
+	const TODO_WRITE_NAMES = ['todo_write', 'todoWrite'];
+
+	function parseTodoItem(raw: unknown): TodoItem | null {
+		if (!raw || typeof raw !== 'object') return null;
+		const o = raw as Record<string, unknown>;
+		const content = typeof o.content === 'string' ? o.content : '';
+		const status = o.status;
+		const validStatus =
+			status === 'pending' ||
+			status === 'in_progress' ||
+			status === 'completed' ||
+			status === 'cancelled'
+				? status
+				: 'pending';
+		return { content, status: validStatus, activeForm: o.activeForm as string | undefined };
+	}
+
+	function parseTodosFromToolCall(item: ChatMessageItemToolCall): TodoItem[] {
+		const out: TodoItem[] = [];
+		// Prefer tool output (structuredContent or content with resource) when present
+		const output = item.output;
+		if (
+			output?.structuredContent &&
+			Array.isArray((output.structuredContent as { todos?: unknown[] }).todos)
+		) {
+			const todos = (output.structuredContent as { todos: unknown[] }).todos;
+			for (const t of todos) {
+				const parsed = parseTodoItem(t);
+				if (parsed) out.push(parsed);
+			}
+			if (out.length > 0) return out;
 		}
-		const unwatch = chat.watchResource('todo:///list', (resource) => {
-			todoItems = parseJSON<TodoItem[]>(resource.text) ?? [];
-		});
-		chat.readResource('todo:///list').then((resource) => {
-			todoItems = parseJSON<TodoItem[]>(resource.contents[0].text) ?? [];
-		});
-		return () => {
-			unwatch();
-		};
+		if (output?.structuredContent && Array.isArray(output.structuredContent)) {
+			for (const t of output.structuredContent as unknown[]) {
+				const parsed = parseTodoItem(t);
+				if (parsed) out.push(parsed);
+			}
+			if (out.length > 0) return out;
+		}
+		// Parse tool input (arguments): agent sends { merge, todos } or just { todos }
+		if (!item.arguments) return [];
+		try {
+			const args = JSON.parse(item.arguments) as { todos?: unknown[] };
+			if (Array.isArray(args.todos)) {
+				for (const t of args.todos) {
+					const parsed = parseTodoItem(t);
+					if (parsed) out.push(parsed);
+				}
+			}
+		} catch {
+			// ignore
+		}
+		return out;
+	}
+
+	/** Todo list derived from latest todo_write / todoWrite tool call in messages (works even when server doesn't push resource updates) */
+	let todoItems = $derived.by((): TodoItem[] => {
+		const messages = chatForSession?.messages;
+		if (!messages?.length) return [];
+		let latest: TodoItem[] = [];
+		for (const msg of messages) {
+			if (msg.role !== 'assistant' || !msg.items) continue;
+			for (const item of msg.items) {
+				if (item.type !== 'tool') continue;
+				const tool = item as ChatMessageItemToolCall;
+				if (tool.name && TODO_WRITE_NAMES.includes(tool.name)) {
+					const parsed = parseTodosFromToolCall(tool);
+					if (parsed.length > 0) latest = parsed;
+				}
+			}
+		}
+		return latest;
 	});
 
 	let showTodoList = $state(true);
@@ -229,7 +291,7 @@
 								<ul class="flex flex-col gap-1.5">
 									{#if todoItems.length > 0}
 										{#each todoItems as item, i (i)}
-											<li class="flex min-w-0 items-start gap-2 text-sm font-light">
+											<li class="flex items-start gap-2 text-sm font-light">
 												{#if item.status === 'completed' || item.status === 'cancelled'}
 													<CheckCircle2 class="text-success mt-0.5 size-4 shrink-0" />
 												{:else if item.status === 'in_progress'}
@@ -238,7 +300,6 @@
 													<Circle class="text-base-content/40 mt-0.5 size-4 shrink-0" />
 												{/if}
 												<span
-													class="min-w-0 truncate"
 													class:line-through={item.status === 'completed' ||
 														item.status === 'cancelled'}
 													class:opacity-50={item.status === 'cancelled'}
