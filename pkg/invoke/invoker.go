@@ -750,6 +750,11 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		return fmt.Errorf("no tool specified")
 	}
 
+	// Create a cancellable context for the run so that watchThreadAbort can cancel
+	// the gptClient.Run/Evaluate calls (not just the stream).
+	runCtx, cancelRun := context.WithCancelCause(ctx)
+	defer cancelRun(nil)
+
 	var (
 		runResp    *gptscript.Run
 		toolDef    gptscript.ToolDef
@@ -761,11 +766,11 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		if err := json.Unmarshal([]byte(run.Spec.Tool), &toolString); err != nil {
 			return fmt.Errorf("invalid tool definition: %s: %w", run.Spec.Tool, err)
 		}
-		toolRef, err := render.ResolveToolReference(ctx, c, run.Spec.ToolReferenceType, run.Namespace, toolString)
+		toolRef, err := render.ResolveToolReference(runCtx, c, run.Spec.ToolReferenceType, run.Namespace, toolString)
 		if err != nil {
 			return fmt.Errorf("failed to resolve tool reference: %w", err)
 		}
-		runResp, err = gptClient.Run(ctx, toolRef, options)
+		runResp, err = gptClient.Run(runCtx, toolRef, options)
 		if err != nil {
 			return fmt.Errorf("failed to run tool: %w", err)
 		}
@@ -773,7 +778,7 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		if err := json.Unmarshal([]byte(run.Spec.Tool), &toolDefs); err != nil {
 			return fmt.Errorf("invalid tool definition: %s: %w", run.Spec.Tool, err)
 		}
-		runResp, err = gptClient.Evaluate(ctx, options, toolDefs...)
+		runResp, err = gptClient.Evaluate(runCtx, options, toolDefs...)
 		if err != nil {
 			return fmt.Errorf("failed to evaluate tool: %w", err)
 		}
@@ -781,7 +786,7 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		if err := json.Unmarshal([]byte(run.Spec.Tool), &toolDef); err != nil {
 			return fmt.Errorf("invalid tool definition: %s: %w", run.Spec.Tool, err)
 		}
-		runResp, err = gptClient.Evaluate(ctx, options, toolDef)
+		runResp, err = gptClient.Evaluate(runCtx, options, toolDef)
 		if err != nil {
 			return fmt.Errorf("failed to evaluate tool: %w", err)
 		}
@@ -789,7 +794,12 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		return fmt.Errorf("invalid tool definition: %s", run.Spec.Tool)
 	}
 
-	if err := i.stream(ctx, gptClient, c, thread, run, runResp); err != nil {
+	// Start watching for thread abort only after the run is successfully launched.
+	if !isEphemeral(run) {
+		go i.watchThreadAbort(runCtx, c, thread, cancelRun)
+	}
+
+	if err := i.stream(runCtx, cancelRun, gptClient, c, thread, run, runResp); err != nil {
 		return fmt.Errorf("failed to stream: %w", err)
 	}
 
@@ -1037,7 +1047,7 @@ func getCredentialCallingTool(runResp *gptscript.Run) (result gptscript.Tool) {
 	return
 }
 
-func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c kclient.WithWatch, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run) (retErr error) {
+func (i *Invoker) stream(runCtx context.Context, cancelRun context.CancelCauseFunc, gptClient *gptscript.GPTScript, c kclient.WithWatch, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run) (retErr error) {
 	var (
 		runEvent = runResp.Events()
 		wg       sync.WaitGroup
@@ -1059,8 +1069,8 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 
 	defer wg.Wait()
 
-	saveCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	saveCtx, saveCancelFunc := context.WithCancel(runCtx)
+	defer saveCancelFunc()
 
 	wg.Add(1)
 	go func() {
@@ -1070,7 +1080,7 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 			case <-saveCtx.Done():
 				return
 			case <-time.After(time.Second):
-				_ = i.saveState(ctx, c, thread, run, runResp, nil)
+				_ = i.saveState(saveCtx, c, thread, run, runResp, nil)
 			}
 		}
 	}()
@@ -1083,19 +1093,13 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		}
 	}()
 
-	runCtx, cancelRun := context.WithCancelCause(ctx)
-	defer cancelRun(retErr)
+	defer func() { cancelRun(retErr) }()
 
 	timeout := 10 * time.Minute
 	if run.Spec.Timeout.Duration > 0 {
 		timeout = run.Spec.Timeout.Duration
 	}
 	go timeoutAfter(runCtx, cancelRun, timeout)
-
-	if !isEphemeral(run) {
-		// Don't watch thread abort for ephemeral runs
-		go i.watchThreadAbort(runCtx, c, thread, cancelRun)
-	}
 
 	var (
 		abortTimeout = func() {}
@@ -1166,7 +1170,7 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 						return err
 					}
 				}
-				timeoutCtx, timeoutCancel := context.WithCancel(ctx)
+				timeoutCtx, timeoutCancel := context.WithCancel(runCtx)
 				abortTimeout = timeoutCancel
 				go func() {
 					defer timeoutCancel()
@@ -1190,7 +1194,7 @@ func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c 
 					// Fetch the latest approved tools in case they've changed since the run was started.
 					// This can happen when there are multiple tools awaiting approval, and the user approves
 					// with an "allow all X" option.
-					if c.Get(ctx, router.Key(thread.Namespace, thread.Name), &latestThread) != nil {
+					if c.Get(runCtx, router.Key(thread.Namespace, thread.Name), &latestThread) != nil {
 						log.Warnf("Using stale approved tools for thread %s", thread.Name)
 						latestThread = *thread.DeepCopy()
 					}
