@@ -292,7 +292,7 @@ func (h *SystemMCPServerHandler) RestartNanobotAgentDeployments(req api.Context)
 			continue
 		}
 
-		serverConfig, err := serverConfigForExplicitUpdateAction(req, server)
+		serverConfig, err := serverConfigForAction(req, server)
 		if err != nil {
 			failed = append(failed, map[string]string{
 				"serverID": server.Name,

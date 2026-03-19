@@ -43,18 +43,6 @@ func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, 
 func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
 
-	if server.Spec.NanobotAgentID != "" {
-		drifted := nanobotImageHasDrifted(server)
-
-		if server.Status.NeedsUpdate != drifted {
-			log.Infof("Nanobot MCP server image drift status changed: server=%s needsUpdate=%v", server.Name, drifted)
-			server.Status.NeedsUpdate = drifted
-			return req.Client.Status().Update(req.Ctx, server)
-		}
-
-		return nil
-	}
-
 	if server.Spec.MCPServerCatalogEntryName == "" || server.Spec.CompositeName != "" {
 		return nil
 	}
@@ -110,23 +98,6 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 	}
 
 	return nil
-}
-
-func nanobotImageHasDrifted(server *v1.MCPServer) bool {
-	if server == nil || server.Spec.Manifest.ContainerizedConfig == nil {
-		return false
-	}
-
-	desiredImage := strings.TrimSpace(server.Spec.DesiredImageOverride)
-	if desiredImage == "" {
-		desiredImage = strings.TrimSpace(server.Spec.Manifest.ContainerizedConfig.Image)
-	}
-
-	if desiredImage == "" {
-		return false
-	}
-
-	return strings.TrimSpace(server.Spec.Manifest.ContainerizedConfig.Image) != desiredImage
 }
 
 func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest) (bool, error) {

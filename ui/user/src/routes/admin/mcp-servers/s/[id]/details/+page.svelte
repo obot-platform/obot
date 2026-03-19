@@ -2,9 +2,8 @@
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, type MCPServerInstance, type OrgUser } from '$lib/services';
-	import { isNanobotServerId } from '$lib/utils';
 	import { profile } from '$lib/stores/index.js';
 	import { LoaderCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -20,15 +19,10 @@
 	onMount(async () => {
 		if (!mcpServer) return;
 		loading = true;
-		const isNanobotServer =
-			isNanobotServerId(mcpServer.id) ||
-			mcpServer.manifest.containerizedConfig?.command === 'nanobot';
-		if (!isNanobotServer) {
-			instances = await AdminService.listMcpCatalogServerInstances(
-				mcpServer.mcpCatalogID || 'default',
-				mcpServer.id
-			);
-		}
+		instances = await AdminService.listMcpCatalogServerInstances(
+			DEFAULT_MCP_CATALOG_ID,
+			mcpServer.id
+		);
 		users = await AdminService.listUsersIncludeDeleted();
 		loading = false;
 	});
@@ -49,7 +43,7 @@
 			<div class="flex flex-col gap-6">
 				{#if mcpServer}
 					<McpServerK8sInfo
-						id={mcpServer.mcpCatalogID || 'default'}
+						id={DEFAULT_MCP_CATALOG_ID}
 						entity="catalog"
 						mcpServerId={mcpServer.id}
 						name={mcpServer.manifest.name || ''}

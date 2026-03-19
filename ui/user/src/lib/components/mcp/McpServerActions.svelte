@@ -31,7 +31,6 @@
 	import { goto } from '$lib/url';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { isNanobotServerId } from '$lib/utils';
 
 	type ServerSelectMode =
 		| 'connect'
@@ -180,28 +179,6 @@
 		selectServerDialog?.open();
 		selectServerMode = mode;
 	}
-
-	function useDirectServerActions(targetServer: MCPCatalogServer) {
-		return isNanobotServerId(targetServer.id) || !targetServer.catalogEntryID;
-	}
-
-	function getAdminServerDetailsUrl(targetServer: MCPCatalogServer) {
-		if (useDirectServerActions(targetServer)) {
-			return targetServer.powerUserWorkspaceID
-				? `/admin/mcp-servers/w/${targetServer.powerUserWorkspaceID}/s/${targetServer.id}`
-				: `/admin/mcp-servers/s/${targetServer.id}`;
-		}
-
-		return targetServer.powerUserWorkspaceID
-			? `/admin/mcp-servers/w/${targetServer.powerUserWorkspaceID}/c/${targetServer.catalogEntryID}/instance/${targetServer.id}`
-			: `/admin/mcp-servers/c/${targetServer.catalogEntryID}/instance/${targetServer.id}`;
-	}
-
-	function getUserServerDetailsUrl(targetServer: MCPCatalogServer) {
-		return useDirectServerActions(targetServer)
-			? `/mcp-servers/s/${targetServer.id}`
-			: `/mcp-servers/c/${targetServer.catalogEntryID}/instance/${targetServer.id}`;
-	}
 </script>
 
 <!-- Use class:hidden to avoid Svelte 5 production build with conditional DOM cleanup -->
@@ -286,9 +263,16 @@
 				}
 				case 'server-details': {
 					if (profile.current?.hasAdminAccess?.()) {
-						goto(getAdminServerDetailsUrl(d), { replaceState: true });
+						goto(
+							resolve(
+								entry?.powerUserWorkspaceID
+									? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}`
+									: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`
+							),
+							{ replaceState: true }
+						);
 					} else {
-						goto(getUserServerDetailsUrl(d));
+						goto(resolve(`/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`));
 					}
 					break;
 				}
@@ -307,11 +291,7 @@
 					break;
 				}
 				case 'restart': {
-					if (profile.current?.hasAdminAccess?.() && useDirectServerActions(d)) {
-						AdminService.restartK8sDeployment(d.id);
-					} else {
-						ChatService.restartMcpServer(d.id);
-					}
+					ChatService.restartMcpServer(d.id);
 					mcpServersAndEntries.refreshUserConfiguredServers();
 					break;
 				}
@@ -455,11 +435,7 @@
 						e.stopPropagation();
 						restarting = true;
 						try {
-							if (profile.current?.hasAdminAccess?.() && useDirectServerActions(server)) {
-								await AdminService.restartK8sDeployment(server.id);
-							} else {
-								await ChatService.restartMcpServer(server.id);
-							}
+							await ChatService.restartMcpServer(server.id);
 							refresh();
 						} finally {
 							restarting = false;
@@ -630,11 +606,16 @@
 				onclick={() => {
 					if (configuredServers.length === 1) {
 						if (profile.current.hasAdminAccess?.()) {
-							goto(getAdminServerDetailsUrl(configuredServers[0]), {
-								replaceState: true
-							});
+							goto(
+								resolve(
+									entry?.powerUserWorkspaceID
+										? `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}/instance/${configuredServers[0].id}`
+										: `/admin/mcp-servers/c/${entry.id}/instance/${configuredServers[0].id}`
+								),
+								{ replaceState: true }
+							);
 						} else {
-							goto(getUserServerDetailsUrl(configuredServers[0]), {
+							goto(resolve(`/mcp-servers/c/${entry.id}/instance/${configuredServers[0].id}`), {
 								replaceState: true
 							});
 						}
