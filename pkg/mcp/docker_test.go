@@ -78,7 +78,7 @@ func TestFileEnvKeysHashChangesWithKeySet(t *testing.T) {
 
 func TestApplyServerConfigToContainerConfigOverridesImageAndLabels(t *testing.T) {
 	config := &container.Config{
-		Image:  "ghcr.io/nanobot-ai/nanobot:v0.0.60",
+		Image:  "ghcr.io/nanobot-ai/nanobot:v0.0.59",
 		Labels: nil,
 	}
 
