@@ -62,6 +62,42 @@
 	let selectedResources = $state<Resource[]>([]);
 	const showAgentDropdown = $derived(agents.length > 1);
 
+	function mimeMatchesPattern(fileType: string, pattern: string): boolean {
+		if (pattern.endsWith('/*')) {
+			const base = pattern.slice(0, -2);
+			return fileType.startsWith(`${base}/`);
+		}
+		return fileType === pattern;
+	}
+
+	function isAcceptedUpload(file: File): boolean {
+		if (!file.type) return false;
+		return supportedMimeTypes.some((p) => mimeMatchesPattern(file.type, p));
+	}
+
+	function clipboardFiles(e: ClipboardEvent): File[] {
+		const cd = e.clipboardData;
+		if (!cd) return [];
+		const out: File[] = [];
+		for (let i = 0; i < cd.items.length; i++) {
+			const item = cd.items[i];
+			if (item.kind === 'file') {
+				const f = item.getAsFile();
+				if (f) out.push(f);
+			}
+		}
+		if (out.length === 0 && cd.files.length > 0) {
+			out.push(...Array.from(cd.files));
+		}
+		return out;
+	}
+
+	async function uploadFile(file: File) {
+		if (!onFileUpload) return;
+		const controller = new AbortController();
+		await onFileUpload(file, { controller });
+	}
+
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		if (message.trim() && onSend) {
@@ -82,15 +118,29 @@
 
 		if (!file || !onFileUpload) return;
 
-		const controller = new AbortController();
-
 		isUploading = true;
-
 		try {
-			await onFileUpload(file, { controller });
+			await uploadFile(file);
 		} finally {
 			isUploading = false;
 			target.value = '';
+		}
+	}
+
+	async function handlePaste(e: ClipboardEvent) {
+		if (!onFileUpload || disabled || isUploading) return;
+
+		const toUpload = clipboardFiles(e).filter(isAcceptedUpload);
+		if (toUpload.length === 0) return;
+
+		e.preventDefault();
+		isUploading = true;
+		try {
+			for (const file of toUpload) {
+				await uploadFile(file);
+			}
+		} finally {
+			isUploading = false;
 		}
 	}
 
@@ -161,6 +211,7 @@
 			<textarea
 				bind:value={message}
 				onkeydown={handleKeydown}
+				onpaste={handlePaste}
 				oninput={autoResize}
 				{placeholder}
 				class="placeholder:text-base-content/50 max-h-32 min-h-[2.5rem] w-full resize-none bg-transparent p-1 text-sm leading-6 outline-none"
