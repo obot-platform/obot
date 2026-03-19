@@ -42,6 +42,8 @@ The only functional difference between Owners and Admins is that Owners can assi
 | Filters | | | | ✓ |
 | Server Scheduling | | | | ✓ |
 | **Obot Agent Management** | | | | ✓ |
+| Skills | | | | ✓ |
+| Skill Access Policies | | | | ✓ |
 | **User Management** | | | | ✓ |
 | API Keys (admin) | | | | ✓ |
 | **API Keys** | ✓ | ✓ | ✓ | ✓ |
@@ -57,6 +59,8 @@ The only functional difference between Owners and Admins is that Owners can assi
 - [Audit Logs and Usage](../audit-logs-and-usage/) - Monitor activity and track consumption
 - [Filters](../filters/) - Inspect and control MCP traffic
 - [Server Scheduling](../server-scheduling/) - Define server availability windows
+- [Skills](../skills/) - Manage skill sources and browse discoverable skills for agents
+- [Skill Access Policies](../skill-access-policies/) - Control which users and groups can access which skills
 - [Obot Agent Management](../obot-agent-management/) - Configure default agent, conversation, and workflow settings, and monitor activity
 - [User Management](../user-management/) - Manage users, roles, and authentication
 - [API Keys](../api-keys/) - Create and manage API keys for programmatic MCP server access
