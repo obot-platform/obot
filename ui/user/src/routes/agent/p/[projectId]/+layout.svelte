@@ -258,15 +258,13 @@
 				});
 			});
 		} else {
-			if (prevSessionId !== undefined) {
-				nanobotChat.update((data) => {
-					if (data) {
-						data.chat = undefined;
-						data.sessionId = undefined;
-					}
-					return data;
-				});
-			}
+			nanobotChat.update((data) => {
+				if (data) {
+					data.chat = undefined;
+					data.sessionId = undefined;
+				}
+				return data;
+			});
 		}
 
 		return () => {
