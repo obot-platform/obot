@@ -16260,13 +16260,6 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
-					"desiredImageOverride": {
-						SchemaProps: spec.SchemaProps{
-							Description: "DesiredImageOverride stores the desired image for nanobot agents without mutating the deployed manifest.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 				},
 				Required: []string{"manifest"},
 			},

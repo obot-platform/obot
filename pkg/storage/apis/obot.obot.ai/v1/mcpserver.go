@@ -123,8 +123,6 @@ type MCPServerSpec struct {
 	CompositeName string `json:"compositeName,omitempty"`
 	// NanobotAgentID is the name of the NanobotAgent that created this MCP server, if there is one.
 	NanobotAgentID string `json:"nanobotAgentID,omitempty"`
-	// DesiredImageOverride stores the desired image for nanobot agents without mutating the deployed manifest.
-	DesiredImageOverride string `json:"desiredImageOverride,omitempty"`
 }
 
 type MCPServerStatus struct {

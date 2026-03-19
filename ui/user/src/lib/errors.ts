@@ -1,20 +1,6 @@
 import type { Profile } from '$lib/services';
 import { error, redirect } from '@sveltejs/kit';
 
-export function isNotFoundError(e: unknown) {
-	if (!(e instanceof Error)) {
-		return false;
-	}
-
-	const { status } = parseErrorContent(e);
-	if (status === 404) {
-		return true;
-	}
-
-	const message = e.message.toLowerCase();
-	return message.includes('404') || message.includes('not found');
-}
-
 export function handleRouteError(e: unknown, path: string, profile?: Profile) {
 	if (!(e instanceof Error)) {
 		throw new Error('Unknown error occurred');
@@ -31,7 +17,7 @@ export function handleRouteError(e: unknown, path: string, profile?: Profile) {
 		throw redirect(303, `/?rd=${path}`);
 	}
 
-	if (isNotFoundError(e)) {
+	if (e.message?.includes('404') || e.message?.includes('not found')) {
 		if (path.includes('/s/')) {
 			throw error(404, `The chatbot at ${path} does not exist`);
 		}

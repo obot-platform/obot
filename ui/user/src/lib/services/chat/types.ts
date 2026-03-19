@@ -383,7 +383,6 @@ export interface MCP {
 
 export interface MCPServer {
 	description?: string;
-	shortDescription?: string;
 	icon?: string;
 	name?: string;
 	env?: MCPSubField[];

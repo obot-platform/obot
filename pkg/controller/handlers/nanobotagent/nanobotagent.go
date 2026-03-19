@@ -86,6 +86,12 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 			needsUpdate = true
 		}
 
+		// Check the image
+		if existing.Spec.Manifest.ContainerizedConfig.Image != h.nanobotImage {
+			existing.Spec.Manifest.ContainerizedConfig.Image = h.nanobotImage
+			needsUpdate = true
+		}
+
 		// Check if default agent changed
 		expectedArgs := []string{"run", "--state", ".nanobot/state/nanobot.db"}
 		if agent.Spec.DefaultAgent != "" {
@@ -122,11 +128,6 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 			needsUpdate = true
 		}
 
-		if existing.Spec.DesiredImageOverride != h.nanobotImage {
-			existing.Spec.DesiredImageOverride = h.nanobotImage
-			needsUpdate = true
-		}
-
 		if needsUpdate {
 			log.Debugf("Updating nanobot MCP server config: agent=%s mcpServer=%s", agent.Name, mcpServerName)
 			existing.Spec.Manifest.ContainerizedConfig.Args = expectedArgs
@@ -159,9 +160,8 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 			Namespace: agent.Namespace,
 		},
 		Spec: v1.MCPServerSpec{
-			UserID:               agent.Spec.UserID,
-			NanobotAgentID:       agent.Name,
-			DesiredImageOverride: h.nanobotImage,
+			UserID:         agent.Spec.UserID,
+			NanobotAgentID: agent.Name,
 			Manifest: types.MCPServerManifest{
 				Name:             agent.Name,
 				ShortDescription: agent.Spec.DisplayName,
