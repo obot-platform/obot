@@ -29,6 +29,8 @@ const sidebars = {
         "functionality/obot-agent-management",
         "functionality/chat-management",
         "functionality/model-access-policies",
+        "functionality/skills",
+        "functionality/skill-access-policies",
         "functionality/user-management",
         "functionality/api-keys",
         "functionality/branding",
