@@ -72,7 +72,7 @@ func (c *Controller) setupRoutes() {
 	runstates := runstates.NewHandler(c.services.GatewayClient)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper)
-	skillRepository := skillrepository.New(c.services.DefaultSkillRepoURL, c.services.DefaultSkillRepoRef)
+	skillRepository := skillrepository.New()
 	mcpSession := mcpsession.New(c.services.GPTClient)
 	mcpserver := mcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
@@ -344,6 +344,5 @@ func (c *Controller) setupRoutes() {
 
 	c.toolRefHandler = toolRef
 	c.mcpCatalogHandler = mcpCatalog
-	c.skillRepoHandler = skillRepository
 	c.adminWorkspaceHandler = adminWorkspaceHandler
 }
