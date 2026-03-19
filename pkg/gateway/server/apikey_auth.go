@@ -58,6 +58,17 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 		return nil, false, nil
 	}
 
+	extra := map[string][]string{
+		"email": {u.Email},
+	}
+
+	// Look up auth provider group memberships so that group-based access
+	// rules (e.g. skill access policies) work for API-key-authenticated
+	// requests such as those made by nanobot.
+	if authGroupIDs, err := a.client.ListGroupIDsForUser(req.Context(), u.ID); err == nil {
+		extra["auth_provider_groups"] = authGroupIDs
+	}
+
 	// IMPORTANT: API key users only get GroupAPIKey, not the full user groups.
 	// This restricts them to MCP-connect routes and /api/me only.
 	return &authenticator.Response{
@@ -65,9 +76,7 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 			Name:   u.Username,
 			UID:    fmt.Sprintf("%d", u.ID),
 			Groups: []string{types2.GroupAPIKey},
-			Extra: map[string][]string{
-				"email": {u.Email},
-			},
+			Extra:  extra,
 		},
 	}, true, nil
 }
