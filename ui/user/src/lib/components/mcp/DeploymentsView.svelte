@@ -88,8 +88,8 @@
 		BOTH: 'The configuration for this server’s registry entry has changed and can be applied to this server\nThe default server scheduling rules have changed and can be applied to this server.'
 	};
 	const NANOBOT_UPDATES_AVAILABLE_TOOLTIP = {
-		RESTART: 'This Obot Agent is running an older image. Restart it to apply the latest image.',
-		APPLYING: 'This Obot Agent is restarting to roll out the requested image update.'
+		RESTART: 'This nanobot agent is running an older image. Restart it to apply the latest image.',
+		APPLYING: 'This nanobot agent is restarting to roll out the requested image update.'
 	};
 
 	let {
@@ -261,7 +261,7 @@
 						: deployment.alias || deployment.manifest.name || '',
 					userName: getUserDisplayName(usersMap, deployment.userID),
 					registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
-					type: isNanobotScope ? 'Obot Agent' : getServerTypeLabel(deployment),
+					type: isNanobotScope ? 'Nanobot Agent' : getServerTypeLabel(deployment),
 					powerUserWorkspaceID,
 					compositeParentName,
 					disabled: compositeParent
@@ -653,6 +653,8 @@
 				data={tableData}
 				fields={isNanobotScope
 					? [
+							'displayName',
+							'type',
 							...(doesSupportK8sUpdates ? ['deploymentStatus'] : []),
 							'updatesAvailable',
 							'userName',
@@ -676,7 +678,8 @@
 								'created'
 							]}
 				filterable={[
-					...(isNanobotScope ? [] : ['displayName', 'type']),
+					'displayName',
+					'type',
 					'deploymentStatus',
 					'updatesAvailable',
 					'userName',
@@ -685,22 +688,10 @@
 				{filters}
 				headers={[
 					{ title: 'Name', property: 'displayName' },
-					{ title: 'Type', property: 'type' },
-					{ title: 'Registry', property: 'registry' },
 					{ title: 'User', property: 'userName' },
 					{ title: 'Health', property: 'deploymentStatus' },
-					{ title: 'Update Status', property: 'updatesAvailable' },
-					{ title: 'Created', property: 'created' }
+					{ title: 'Update Status', property: 'updatesAvailable' }
 				]}
-				headerClasses={isNanobotScope
-					? [
-							{ property: 'userName', class: 'w-[28%]' },
-							{ property: 'deploymentStatus', class: 'w-[18%]' },
-							{ property: 'updatesAvailable', class: 'w-[34%]' },
-							{ property: 'created', class: 'w-[16%]' },
-							{ property: 'actions', class: 'w-[4%]' }
-						]
-					: undefined}
 				onClickRow={(d, isCtrlClick) => {
 					setLastVisitedMcpServer(d);
 
@@ -713,13 +704,15 @@
 				{onSort}
 				{initSort}
 				sortable={[
+					'displayName',
+					'type',
 					'updatesAvailable',
 					'userName',
 					...(isNanobotScope ? [] : ['registry']),
 					'created'
 				]}
 				noDataMessage={isNanobotScope
-					? 'No Obot Agents are currently running.'
+					? 'No nanobot agents are currently running.'
 					: 'No catalog servers added.'}
 				classes={{
 					root: 'rounded-none rounded-b-md shadow-none',
