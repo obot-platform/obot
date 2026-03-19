@@ -59,7 +59,7 @@
 	}
 </script>
 
-<Layout title="Obot Agents" classes={{ navbar: 'bg-surface1' }}>
+<Layout title="Nanobot Agents" classes={{ navbar: 'bg-surface1' }}>
 	<div
 		class="flex min-h-full flex-col"
 		in:fly={{ x: 100, delay: PAGE_TRANSITION_DURATION, duration: PAGE_TRANSITION_DURATION }}
@@ -71,7 +71,7 @@
 					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
 					value={query}
 					onChange={updateSearchQuery}
-					placeholder="Search Obot agents..."
+					placeholder="Search nanobot agents..."
 				/>
 			</div>
 		</div>
@@ -91,14 +91,14 @@
 					<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 						<Server class="text-on-surface1 size-24 opacity-25" />
 						{#if !query && Object.keys(urlFilters).length === 0}
-							<h4 class="text-on-surface1 text-lg font-semibold">No Obot Agents running</h4>
+							<h4 class="text-on-surface1 text-lg font-semibold">No nanobot agents running</h4>
 							<p class="text-on-surface1 text-sm font-light">
-								No Obot Agent deployments were found.
+								No nanobot-backed MCP server deployments were found.
 							</p>
 						{:else}
 							<h4 class="text-on-surface1 text-lg font-semibold">No results found</h4>
 							<p class="text-on-surface1 text-sm font-light">
-								No Obot Agent deployments match your search or filters.
+								No nanobot-backed MCP server deployments match your search or filters.
 							</p>
 						{/if}
 					</div>
@@ -109,5 +109,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | Obot Agents</title>
+	<title>Obot | Nanobot Agents</title>
 </svelte:head>
