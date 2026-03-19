@@ -24,7 +24,7 @@ const versionsConfig = Object.fromEntries(
       path: version,
       noIndex: true,
     },
-  ])
+  ]),
 );
 
 // Generate sitemap ignore patterns for older and unreleased versions
@@ -43,12 +43,6 @@ const config: Config = {
   organizationName: "obot-platform",
   projectName: "obot",
   onBrokenLinks: "throw",
-
-  markdown: {
-    hooks: {
-      onBrokenMarkdownLinks: "warn",
-    },
-  },
 
   i18n: {
     defaultLocale: "en",
