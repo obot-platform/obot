@@ -133,12 +133,12 @@ async function fetchData(forceRefresh = false) {
 	}
 }
 
-function refreshAll() {
-	fetchData(true);
+async function refreshAll() {
+	await fetchData(true);
 }
 
-function initialize(forceRefresh = false) {
-	fetchData(forceRefresh);
+async function initialize(forceRefresh = false) {
+	await fetchData(forceRefresh);
 }
 
 async function refreshUserConfiguredServers() {
