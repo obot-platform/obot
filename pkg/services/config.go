@@ -121,7 +121,7 @@ type Config struct {
 	DisableLegacyChat       bool   `usage:"Disable legacy chat" default:"true"`
 	NanobotIntegration      bool   `usage:"Enable Nanobot integration" default:"true"`
 	MCPServerSearchImage    string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.0.2"`
-	NanobotAgentImage       string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/nanobot-ai/nanobot:v0.0.58"`
+	NanobotAgentImage       string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/nanobot-ai/nanobot-agent:v0.0.60"`
 
 	// Published artifact storage
 	ArtifactStorageProvider       string `usage:"Storage provider for published artifacts (s3, gcs, azure, custom)" name:"artifact-storage-provider" env:"OBOT_ARTIFACT_STORAGE_PROVIDER"`
