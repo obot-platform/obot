@@ -57,7 +57,7 @@ Click any policy in the list to view and modify its name, users and groups, or s
 
 Deleting a policy removes skill access for the affected users. If a user loses access to all skills as a result, agents acting on their behalf will no longer be able to search for or install skills until another policy grants them access.
 
-Skills that were already installed before losing access remain available locally.
+Skills that were already installed before losing access remain available in the agent session.
 
 ## Example: Data Science Team
 
