@@ -223,6 +223,7 @@
 					class="btn btn-ghost btn-error btn-square tooltip tooltip-left"
 					data-tip="Delete workflow"
 					onclick={() => (deletingWorkflow = true)}
+					aria-label="Delete workflow"
 				>
 					<Trash2 class="size-4" />
 				</button>
