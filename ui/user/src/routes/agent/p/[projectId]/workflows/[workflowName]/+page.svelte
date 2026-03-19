@@ -9,13 +9,12 @@
 	} from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import MarkdownEditor from '$lib/components/nanobot/MarkdownEditor.svelte';
-	import { PencilLine, Play, Workflow, Eye, FolderInput } from 'lucide-svelte';
+	import { PencilLine, Play, Workflow, Eye, FolderInput, Trash2 } from 'lucide-svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { goto } from '$lib/url';
 	import { NanobotService } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
-	import PublishedWorkflowDropdown from '$lib/components/nanobot/PublishedWorkflowDropdown.svelte';
 	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
 	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
 	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
@@ -220,16 +219,14 @@
 						<FolderInput class="size-4" />
 					</button>
 				{/if}
-				<PublishedWorkflowDropdown
-					publishedArtifactId={publishedInfo?.id}
-					onUnpublish={() => {
-						confirmUnpublish = true;
-					}}
-					numVersions={publishedInfo?.versions?.length ?? 0}
-					onDelete={() => {
-						deletingWorkflow = true;
-					}}
-				/>
+				<button
+					class="btn btn-ghost btn-error btn-square tooltip tooltip-left"
+					data-tip="Delete workflow"
+					onclick={() => (deletingWorkflow = true)}
+					aria-label="Delete workflow"
+				>
+					<Trash2 class="size-4" />
+				</button>
 			</div>
 		</div>
 		<button
