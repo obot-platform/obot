@@ -379,7 +379,7 @@ export async function convertCompositeInfoToLaunchFormData(
 				: (m.env ?? []).map((e) => ({
 						...(e as unknown as Record<string, unknown>),
 						key: e.key,
-						value: init?.config?.[e.key] ?? ''
+						value: init?.config?.[e.key] ?? e.value ?? ''
 					})),
 			headers: isMultiUser
 				? []
