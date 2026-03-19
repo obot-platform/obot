@@ -257,16 +257,14 @@
 					return data;
 				});
 			});
-		} else {
-			if (prevSessionId !== undefined) {
-				nanobotChat.update((data) => {
-					if (data) {
-						data.chat = undefined;
-						data.sessionId = undefined;
-					}
-					return data;
-				});
-			}
+		} else if (storedChat?.chat) {
+			nanobotChat.update((data) => {
+				if (data) {
+					data.chat = undefined;
+					data.sessionId = undefined;
+				}
+				return data;
+			});
 		}
 
 		return () => {
