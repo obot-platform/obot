@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
@@ -115,6 +116,9 @@ func Data(ctx context.Context, c kclient.Client, gwc *gatewayclient.Client, agen
 }
 
 func createDefaultSkillRepository(ctx context.Context, c kclient.Client, repoURL, ref string) error {
+	repoURL = strings.TrimSpace(repoURL)
+	ref = strings.TrimSpace(ref)
+
 	if repoURL == "" {
 		return nil
 	}
