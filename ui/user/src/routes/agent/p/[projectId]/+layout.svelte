@@ -257,7 +257,7 @@
 					return data;
 				});
 			});
-		} else {
+		} else if (storedChat?.chat) {
 			nanobotChat.update((data) => {
 				if (data) {
 					data.chat = undefined;
