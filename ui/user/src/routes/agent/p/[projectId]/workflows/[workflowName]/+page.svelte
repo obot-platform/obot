@@ -19,6 +19,8 @@
 	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
 	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+	import { formatFileSize, formatFileTime } from '$lib/utils';
 
 	let { data } = $props();
 	let workflowName = $derived(data.workflowName);
@@ -35,6 +37,15 @@
 			: undefined
 	);
 	let workflowDisplayName = $derived(workflow?._meta?.displayName ?? workflow?._meta?.name);
+	let workflowResources = $derived(
+		$nanobotChat?.resources?.filter((r) =>
+			r.uri.startsWith(`file:///workflows/${workflowName}/`)
+		) ?? []
+	);
+
+	$effect(() => {
+		console.log(workflowResources);
+	});
 
 	let resource = $state<ResourceContents>();
 	let sessions = $state<Chat[]>([]);
@@ -181,6 +192,10 @@
 		publishedWorkflows = await NanobotService.listPublishedWorkflows();
 		confirmUnpublish = false;
 	}
+
+	function onFileOpen(filename: string) {
+		projectLayout?.handleFileOpen(filename);
+	}
 </script>
 
 <div class="w-full">
@@ -253,6 +268,69 @@
 				</div>
 			</div>
 		</button>
+
+		{#if workflowResources.length > 0}
+			<div class="divider"></div>
+			<h2 class="text-xl font-semibold">Workflow Files</h2>
+
+			<table class="table w-full table-fixed">
+				<thead>
+					<tr>
+						<th>Name</th>
+						<th>Size</th>
+						<th>Last Modified</th>
+						<th>Location</th>
+					</tr>
+				</thead>
+				<tbody>
+					{#each workflowResources as resource (resource.uri)}
+						<tr
+							onclick={() => {
+								onFileOpen?.(resource.uri);
+							}}
+							class="hover:bg-base-200 cursor-pointer"
+							role="button"
+							tabindex="0"
+							onkeydown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault();
+									onFileOpen?.(resource.uri);
+								}
+							}}
+						>
+							<td>
+								<div class="flex items-center gap-2">
+									<FileItem uri={resource.uri} classes={{ icon: 'size-4' }} compact />
+									<span class="min-w-0 truncate font-normal">
+										{resource.name}
+									</span>
+								</div>
+							</td>
+							<td>
+								<p class="truncate text-nowrap break-all">
+									{formatFileSize(resource.size ?? 0)}
+								</p>
+							</td>
+							<td
+								><p class="truncate text-nowrap break-all">
+									{formatFileTime(resource.annotations?.lastModified).formatted || '-'}
+								</p></td
+							>
+							<td>
+								<div class="w-full min-w-0">
+									<p
+										class="text-base-content/50 w-full min-w-0 truncate text-sm font-light break-all italic"
+									>
+										{resource.uri}
+									</p>
+								</div>
+							</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		{/if}
+
 		<div class="divider"></div>
 
 		<div class="flex items-center justify-between">
