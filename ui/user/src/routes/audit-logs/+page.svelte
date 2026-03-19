@@ -27,3 +27,7 @@
 		</div>
 	</div>
 </Layout>
+
+<svelte:head>
+	<title>Obot | Audit Logs</title>
+</svelte:head>
