@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,14 +26,18 @@ type repositoryFetcher interface {
 }
 
 type Handler struct {
-	fetcher repositoryFetcher
-	now     func() time.Time
+	fetcher             repositoryFetcher
+	now                 func() time.Time
+	defaultSkillRepoURL string
+	defaultSkillRepoRef string
 }
 
-func New() *Handler {
+func New(defaultSkillRepoURL, defaultSkillRepoRef string) *Handler {
 	return &Handler{
-		fetcher: newGitHubRepositoryFetcher(),
-		now:     time.Now,
+		fetcher:             newGitHubRepositoryFetcher(),
+		now:                 time.Now,
+		defaultSkillRepoURL: defaultSkillRepoURL,
+		defaultSkillRepoRef: defaultSkillRepoRef,
 	}
 }
 
@@ -211,6 +217,40 @@ func clearSyncAnnotation(ctx context.Context, c client.Client, namespace, name s
 
 	delete(repo.Annotations, v1.SkillRepositorySyncAnnotation)
 	return c.Update(ctx, &repo)
+}
+
+func (h *Handler) SetUpDefaultSkillRepository(ctx context.Context, c client.Client) error {
+	var existing v1.SkillRepository
+	if err := c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultSkillRepository), &existing); err == nil {
+		return nil
+	}
+
+	if h.defaultSkillRepoURL == "" {
+		return nil
+	}
+
+	if err := ValidateRepositoryURL(h.defaultSkillRepoURL); err != nil {
+		return fmt.Errorf("invalid default skill repository URL: %w", err)
+	}
+
+	if err := c.Create(ctx, &v1.SkillRepository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      system.DefaultSkillRepository,
+			Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.SkillRepositorySpec{
+			SkillRepositoryManifest: types.SkillRepositoryManifest{
+				DisplayName: "Default",
+				RepoURL:     h.defaultSkillRepoURL,
+				Ref:         h.defaultSkillRepoRef,
+			},
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to create default skill repository: %w", err)
+	}
+
+	log.Infof("Created default skill repository: url=%s ref=%s", h.defaultSkillRepoURL, h.defaultSkillRepoRef)
+	return nil
 }
 
 func materializeSkillSource(ctx context.Context, fetcher repositoryFetcher, skill *v1.Skill) (*fetchedRepository, string, error) {

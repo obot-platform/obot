@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/deployment"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/secret"
+	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/services"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -38,6 +39,7 @@ type Controller struct {
 	services              *services.Services
 	toolRefHandler        *toolreference.Handler
 	mcpCatalogHandler     *mcpcatalog.Handler
+	skillRepoHandler      *skillrepository.Handler
 	adminWorkspaceHandler *adminworkspace.Handler
 }
 
@@ -66,7 +68,7 @@ func New(services *services.Services) (*Controller, error) {
 }
 
 func (c *Controller) PreStart(ctx context.Context) error {
-	if err := data.Data(ctx, c.services.StorageClient, c.services.AgentsDir); err != nil {
+	if err := data.Data(ctx, c.services.StorageClient, c.services.GatewayClient, c.services.AgentsDir); err != nil {
 		return fmt.Errorf("failed to apply data: %w", err)
 	}
 
@@ -239,6 +241,10 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 
 	if err := c.mcpCatalogHandler.SetUpDefaultMCPCatalog(ctx, client); err != nil {
 		panic(fmt.Errorf("failed to set up default mcp catalog: %w", err))
+	}
+
+	if err := c.skillRepoHandler.SetUpDefaultSkillRepository(ctx, client); err != nil {
+		panic(fmt.Errorf("failed to set up default skill repository: %w", err))
 	}
 
 	// Re-trigger all MCPServerCatalogEntries after startup to ensure MCPServers

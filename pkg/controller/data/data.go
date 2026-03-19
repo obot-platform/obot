@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -20,7 +22,10 @@ var defaultModelAliasesData []byte
 //go:embed everything-access-control-rule.yaml
 var everythingAccessControlRuleData []byte
 
-func Data(ctx context.Context, c kclient.Client, agentDir string) error {
+//go:embed everything-skill-access-rule.yaml
+var everythingSkillAccessRuleData []byte
+
+func Data(ctx context.Context, c kclient.Client, gwc *gatewayclient.Client, agentDir string) error {
 	var defaultModelAliases v1.DefaultModelAliasList
 	if err := yaml.Unmarshal(defaultModelAliasesData, &defaultModelAliases); err != nil {
 		return fmt.Errorf("failed to unmarshal default model aliases: %w", err)
@@ -85,5 +90,41 @@ func Data(ctx context.Context, c kclient.Client, agentDir string) error {
 		return err
 	}
 
+	var everythingSkillAccessRule v1.SkillAccessRule
+	if err := yaml.Unmarshal(everythingSkillAccessRuleData, &everythingSkillAccessRule); err != nil {
+		return fmt.Errorf("failed to unmarshal everything skill access rule: %w", err)
+	}
+
+	// Only create the "everything" skill access rule on first-time setup.
+	// We detect first-time setup by checking whether any non-bootstrap owner user exists.
+	// We don't want to recreate this skill access rule if an admin deleted it.
+	if firstTime, err := isFirstTimeSetup(ctx, gwc); err != nil {
+		return err
+	} else if firstTime {
+		if err := kclient.IgnoreAlreadyExists(c.Create(ctx, &everythingSkillAccessRule)); err != nil {
+			return err
+		}
+	}
+
 	return addAgents(ctx, c, agentDir)
+}
+
+// isFirstTimeSetup checks whether this is a first-time server setup by querying for
+// owner users. If no non-bootstrap owner with an email exists, the server hasn't been
+// fully set up yet.
+func isFirstTimeSetup(ctx context.Context, gwc *gatewayclient.Client) (bool, error) {
+	owners, err := gwc.Users(ctx, gwtypes.UserQuery{
+		Role: types.RoleOwner,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to query owner users: %w", err)
+	}
+
+	for _, u := range owners {
+		if u.Username != "bootstrap" && u.Email != "" {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
