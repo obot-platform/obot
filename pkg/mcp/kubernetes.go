@@ -1191,24 +1191,6 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 			return fmt.Errorf("failed to get deployment %s: %w", id, err)
 		}
 
-		desiredImage := strings.TrimSpace(server.ContainerImage)
-		if desiredImage != "" {
-			containerName, deployedImage := getDeploymentMCPContainerImage(&deployment)
-			if deployedImage != desiredImage {
-				if err := k.patchDeploymentMCPContainerImage(ctx, &deployment, containerName, desiredImage); err != nil {
-					if apierrors.IsConflict(err) {
-						olog.Debugf("conflict patching deployment image %s on attempt %d, retrying", id, attempt+1)
-						continue
-					}
-					return err
-				}
-
-				if err := k.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: k.mcpNamespace}, &deployment); err != nil {
-					return fmt.Errorf("failed to get deployment %s after image patch: %w", id, err)
-				}
-			}
-		}
-
 		// Check if deployment already matches the desired state
 		if k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel) {
 			olog.Debugf("deployment %s matches desired K8s settings after %d patch attempt(s)", id, attempt)
@@ -1258,55 +1240,6 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 	// NeedsK8sUpdate flag remains set and another reconciliation will be triggered.
 	olog.Warnf("deployment %s failed to fully reconcile K8s settings after %d attempts, hash not updated", id, maxPatchRetries)
 	return fmt.Errorf("failed to fully apply K8s settings to deployment %s after %d attempts", id, maxPatchRetries)
-}
-
-func getDeploymentMCPContainerImage(deployment *appsv1.Deployment) (string, string) {
-	for _, container := range deployment.Spec.Template.Spec.Containers {
-		if container.Name == "mcp" {
-			return container.Name, container.Image
-		}
-	}
-
-	if len(deployment.Spec.Template.Spec.Containers) > 0 {
-		return deployment.Spec.Template.Spec.Containers[0].Name, deployment.Spec.Template.Spec.Containers[0].Image
-	}
-
-	return "", ""
-}
-
-func (k *kubernetesBackend) patchDeploymentMCPContainerImage(ctx context.Context, deployment *appsv1.Deployment, containerName, image string) error {
-	if containerName == "" {
-		return fmt.Errorf("failed to patch deployment %s image: no target container found", deployment.Name)
-	}
-
-	patch := map[string]any{
-		"spec": map[string]any{
-			"template": map[string]any{
-				"metadata": map[string]any{
-					"annotations": map[string]string{
-						"kubectl.kubernetes.io/restartedAt": time.Now().Format(time.RFC3339),
-					},
-				},
-				"spec": map[string]any{
-					"containers": []map[string]any{{
-						"name":  containerName,
-						"image": image,
-					}},
-				},
-			},
-		},
-	}
-
-	patchBytes, err := json.Marshal(patch)
-	if err != nil {
-		return fmt.Errorf("failed to marshal image patch: %w", err)
-	}
-
-	if err := k.client.Patch(ctx, deployment, kclient.RawPatch(ktypes.StrategicMergePatchType, patchBytes)); err != nil {
-		return fmt.Errorf("failed to patch deployment %s image: %w", deployment.Name, err)
-	}
-
-	return nil
 }
 
 // patchDeploymentWithK8sSettings applies the K8s settings patch to the deployment

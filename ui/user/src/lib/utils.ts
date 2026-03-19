@@ -41,12 +41,6 @@ export function isOwnSingleUserServer(
 	return !server.isCatalogEntry && server.userID === userId && !server.powerUserWorkspaceID;
 }
 
-export const NANOBOT_MCP_SERVER_ID_PREFIX = 'ms1nba1';
-
-export function isNanobotServerId(serverID: string): boolean {
-	return serverID.startsWith(NANOBOT_MCP_SERVER_ID_PREFIX);
-}
-
 export function randomUUID(): string {
 	const cryptoObject = globalThis.crypto;
 	if (typeof cryptoObject?.randomUUID === 'function') {
@@ -68,7 +62,6 @@ export function randomUUID(): string {
 	const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
-
 // Simple delay function
 export function delay(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
