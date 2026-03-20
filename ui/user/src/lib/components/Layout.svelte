@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { columnResize } from '$lib/actions/resize';
-	import { profile, responsive, version } from '$lib/stores';
+	import { defaultModelAliases, profile, responsive, version } from '$lib/stores';
 	import {
 		initLayout as defaultInitLayout,
 		getLayout as defaultGetLayout,
@@ -53,7 +53,7 @@
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
 	import { Render } from './ui/render';
-	import { Group } from '$lib/services';
+	import { Group, ModelAlias } from '$lib/services';
 	import { page } from '$app/state';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
@@ -121,6 +121,13 @@
 	let collapsed = $state<Record<string, boolean>>({});
 	let pathname = $derived(page.url.pathname);
 
+	let agentLinkEnabled = $derived(
+		defaultModelAliases.current.length > 0 &&
+			!!defaultModelAliases.current.find(
+				(defaultModelAlias) => defaultModelAlias.alias === ModelAlias.Llm
+			)?.model
+	);
+
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
@@ -143,9 +150,11 @@
 						id: 'agent-chat',
 						href: '/agent',
 						icon: BotMessageSquare,
-						disabled: isBootStrapUser,
+						disabled: !agentLinkEnabled,
 						label: 'Launch Agent',
-						collapsible: false
+						collapsible: false,
+						noteIcon: !agentLinkEnabled ? LockOpen : undefined,
+						note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
 					}
 				]
 			: [])
@@ -261,7 +270,7 @@
 											href: '/agent',
 											icon: BotMessageSquare,
 											label: 'Launch Agent',
-											disabled: isBootStrapUser,
+											disabled: !agentLinkEnabled,
 											collapsible: false
 										}
 									]
@@ -572,9 +581,11 @@
 														)}
 													></div>
 													{#if item.disabled}
-														<div class="sidebar-link disabled">
-															<item.icon class="size-4" />
-															{item.label}
+														<div class="sidebar-link">
+															<div class="flex items-center gap-1 opacity-50">
+																<item.icon class="size-4" />
+																{item.label}
+															</div>
 														</div>
 													{:else if item.href}
 														<a
@@ -592,6 +603,11 @@
 															<item.icon class="size-4" />
 															{item.label}
 														</div>
+													{/if}
+													{#if link.noteIcon && link.note}
+														<InfoTooltip icon={link.noteIcon} interactive>
+															{@render link.note()}
+														</InfoTooltip>
 													{/if}
 												</div>
 											{/each}
@@ -747,6 +763,16 @@
 				target="_blank"
 				class="text-link">here</a
 			> for details.
+		</p>
+	{/if}
+{/snippet}
+
+{#snippet renderAgentDisabledNote()}
+	{#if !agentLinkEnabled}
+		<p class="mt-1 text-sm">
+			{profile.current.isAdmin?.()
+				? 'Set up a model provider and default Language & Language (Fast) models to access this page.'
+				: 'Agent is currently disabled. Contact your administrator to enable it.'}
 		</p>
 	{/if}
 {/snippet}

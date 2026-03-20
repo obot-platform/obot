@@ -6,18 +6,18 @@
 		type Model,
 		type DefaultModelAlias,
 		ModelAliasToUsageMap,
-		NanobotModelAlias
+		NanobotModelAlias,
+		ChatService
 	} from '$lib/services';
-	import { onMount } from 'svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { AdminService } from '$lib/services';
 	import Select from '../Select.svelte';
 	import { LoaderCircle } from 'lucide-svelte';
-	import { version } from '$lib/stores';
+	import { version, defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 
 	let { availableModels, readonly }: { availableModels: Model[]; readonly?: boolean } = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let defaultModelAliases = $state<DefaultModelAlias[]>([]);
+	let defaultModelAliases = $derived(defaultModelAliasesStore.current);
 	let sortedModelAliases = $derived(
 		(version.current.disableLegacyChat === true
 			? Object.values(NanobotModelAlias)
@@ -50,10 +50,6 @@
 		showSkip = updateShowSkip;
 		dialog?.open();
 	}
-
-	onMount(async () => {
-		defaultModelAliases = await AdminService.listDefaultModelAliases();
-	});
 
 	function setSuggestedModels() {
 		if (!defaultModelAliases.length || !availableModels.length) return;
@@ -160,7 +156,7 @@
 				})
 			)
 		);
-		defaultModelAliases = await AdminService.listDefaultModelAliases();
+		defaultModelAliasesStore.current = await ChatService.listDefaultModelAliases();
 		changes = {};
 		loading = false;
 		dialog?.close();

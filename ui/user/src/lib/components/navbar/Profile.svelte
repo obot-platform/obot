@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
-	import { profile, responsive, darkMode, errors } from '$lib/stores';
+	import { profile, responsive, darkMode, errors, defaultModelAliases } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { getUserRoleLabel } from '$lib/utils';
 	import {
@@ -20,13 +20,20 @@
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { AdminService, ChatService, EditorService, NanobotService } from '$lib/services';
+	import {
+		AdminService,
+		ChatService,
+		EditorService,
+		ModelAlias,
+		NanobotService
+	} from '$lib/services';
 	import { goto } from '$lib/url';
 	import PageLoading from '../PageLoading.svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import MyAccount from '../profile/MyAccount.svelte';
 	import Confirm from '../Confirm.svelte';
+	import InfoTooltip from '../InfoTooltip.svelte';
 
 	interface Props {
 		agentId?: string;
@@ -50,6 +57,13 @@
 	);
 	let showRestartOption = $derived(
 		page.url.pathname.startsWith('/agent') && !!agentId && !!projectId
+	);
+
+	let agentLinkEnabled = $derived(
+		defaultModelAliases.current.length > 0 &&
+			!!defaultModelAliases.current.find(
+				(defaultModelAlias) => defaultModelAlias.alias === ModelAlias.Llm
+			)?.model
 	);
 
 	let showRestartAgentConfirm = $state(false);
@@ -214,14 +228,27 @@
 			{/if}
 		</div>
 		<div class="mt-2 p-2">
-			{#if showChatLink && version.current.nanobotIntegration}
+			{#if showChatLink}
 				<button
-					class="dropdown-link"
+					class={twMerge(
+						'dropdown-link',
+						!agentLinkEnabled && 'cursor-default hover:bg-transparent dark:hover:bg-transparent'
+					)}
 					onclick={async (event) => {
+						if (!agentLinkEnabled) return;
 						navigateTo('/agent', event?.ctrlKey || event?.metaKey);
 					}}
 				>
-					<BotMessageSquare class="size-4" /> Launch Agent
+					<span class={twMerge('flex items-center gap-1', !agentLinkEnabled && 'opacity-50')}>
+						<BotMessageSquare class="size-4" /> Launch Agent
+					</span>
+					{#if !agentLinkEnabled}
+						<InfoTooltip
+							text={profile.current.isAdmin?.()
+								? 'Set up a model provider and default LLM model to access this page.'
+								: 'Agent is currently disabled. Contact your administrator to enable it.'}
+						/>
+					{/if}
 				</button>
 			{/if}
 			{#if showChatLink && version.current.disableLegacyChat !== true}
