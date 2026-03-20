@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { ResourceContents } from '$lib/services/nanobot/types';
 	import { Download, X } from 'lucide-svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import MarkdownEditor from './MarkdownEditor.svelte';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 	import { tryDecodeURIComponent } from '$lib/url';
