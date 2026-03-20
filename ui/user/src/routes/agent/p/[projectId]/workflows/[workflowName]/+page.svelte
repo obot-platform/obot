@@ -43,10 +43,6 @@
 		) ?? []
 	);
 
-	$effect(() => {
-		console.log(workflowResources);
-	});
-
 	let resource = $state<ResourceContents>();
 	let sessions = $state<Chat[]>([]);
 	let loading = $state(false);
