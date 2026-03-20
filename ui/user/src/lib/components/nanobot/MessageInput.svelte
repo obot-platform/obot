@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Paperclip, Send, Square } from 'lucide-svelte';
+	import { CircleAlert, Paperclip, Send, Square, X } from 'lucide-svelte';
 	import MessageAttachments from './MessageAttachments.svelte';
 	import type MessageSlashPromptsType from './MessageSlashPrompts.svelte';
 	import MessageSlashPrompts from './MessageSlashPrompts.svelte';
@@ -12,6 +12,7 @@
 		UploadedFile,
 		UploadingFile
 	} from '$lib/services/nanobot/types';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		onSend?: (message: string, attachments?: Attachment[]) => Promise<ChatResult | void>;
@@ -58,9 +59,46 @@
 	let textareaRef: HTMLTextAreaElement;
 	let slashInput: MessageSlashPromptsType;
 	let isUploading = $state(false);
+	let uploadErrors = $state<string[]>([]);
 
 	let selectedResources = $state<Resource[]>([]);
 	const showAgentDropdown = $derived(agents.length > 1);
+
+	function mimeMatchesPattern(fileType: string, pattern: string): boolean {
+		if (pattern.endsWith('/*')) {
+			const base = pattern.slice(0, -2);
+			return fileType.startsWith(`${base}/`);
+		}
+		return fileType === pattern;
+	}
+
+	function isAcceptedUpload(file: File): boolean {
+		if (!file.type) return false;
+		return supportedMimeTypes.some((p) => mimeMatchesPattern(file.type, p));
+	}
+
+	function clipboardFiles(e: ClipboardEvent): File[] {
+		const cd = e.clipboardData;
+		if (!cd) return [];
+		const out: File[] = [];
+		for (let i = 0; i < cd.items.length; i++) {
+			const item = cd.items[i];
+			if (item.kind === 'file') {
+				const f = item.getAsFile();
+				if (f) out.push(f);
+			}
+		}
+		if (out.length === 0 && cd.files.length > 0) {
+			out.push(...Array.from(cd.files));
+		}
+		return out;
+	}
+
+	async function uploadFile(file: File) {
+		if (!onFileUpload) return;
+		const controller = new AbortController();
+		await onFileUpload(file, { controller });
+	}
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
@@ -82,19 +120,46 @@
 
 		if (!file || !onFileUpload) return;
 
-		const controller = new AbortController();
-
 		isUploading = true;
-
 		try {
-			await onFileUpload(file, { controller });
+			await uploadFile(file);
 		} finally {
 			isUploading = false;
 			target.value = '';
 		}
 	}
 
+	async function handlePaste(e: ClipboardEvent) {
+		if (!onFileUpload || disabled || isUploading) return;
+
+		const toUpload = clipboardFiles(e).filter(isAcceptedUpload);
+		const invalidUploads = clipboardFiles(e).filter((f) => !isAcceptedUpload(f));
+		if (invalidUploads.length > 0) {
+			uploadErrors =
+				invalidUploads.length === 1
+					? [`${invalidUploads[0].name} is not a supported file type and cannot be uploaded.`]
+					: [
+							`${invalidUploads.map((f) => f.name).join(', ')} are not supported files types and cannot be uploaded.`
+						];
+		}
+		if (toUpload.length === 0) {
+			return;
+		}
+
+		e.preventDefault();
+		isUploading = true;
+		try {
+			for (const file of toUpload) {
+				await uploadFile(file);
+			}
+		} finally {
+			isUploading = false;
+		}
+	}
+
 	function handleKeydown(e: KeyboardEvent) {
+		uploadErrors = [];
+
 		if (slashInput.handleKeydown(e)) {
 			return;
 		}
@@ -161,12 +226,36 @@
 			<textarea
 				bind:value={message}
 				onkeydown={handleKeydown}
+				onpaste={handlePaste}
 				oninput={autoResize}
 				{placeholder}
 				class="placeholder:text-base-content/50 max-h-32 min-h-[2.5rem] w-full resize-none bg-transparent p-1 text-sm leading-6 outline-none"
 				rows="1"
 				bind:this={textareaRef}
 			></textarea>
+
+			{#if uploadErrors.length > 0}
+				<div
+					class="alert alert-error alert-soft flex justify-between px-2 py-1 text-xs"
+					transition:slide={{ axis: 'y', duration: 150 }}
+				>
+					<div class="flex items-center gap-1">
+						<CircleAlert class="text-error size-3 flex-shrink-0" />
+						<div class="flex flex-col gap-1">
+							{#each uploadErrors as error, i (i)}
+								{error}
+							{/each}
+						</div>
+					</div>
+
+					<button
+						class="btn btn-xs btn-error btn-circle size-4 p-0.5"
+						onclick={() => (uploadErrors = [])}
+					>
+						<X class="size-3" />
+					</button>
+				</div>
+			{/if}
 
 			{#if showAgentDropdown}
 				<MessageAttachments
