@@ -1,4 +1,0 @@
-# This file previously contained DeepEval telemetry/state data.
-# Generated DeepEval artifacts should not be committed to version control.
-# The contents have been removed; consider deleting this file from the repo
-# and adding `.deepeval/` to .gitignore to prevent future churn.
