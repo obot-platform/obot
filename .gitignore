@@ -69,6 +69,8 @@ eval_py/**/__pycache__/
 eval_py/.pytest_cache/
 eval_py/.venv/
 eval_py/venv/
+eval_py/.deepeval/
+eval_py/eval/.deepeval/
 eval_py/*.egg-info/
 eval_py/.coverage
 eval_py/htmlcov/

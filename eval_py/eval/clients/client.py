@@ -8,7 +8,12 @@ import requests
 from ..helper import api_log
 
 MCP_SERVER_PREFIX = "ms1"
-DEFAULT_TIMEOUT = 30
+# requests.Session has no default timeout; always pass explicit per-request timeout.
+# Use separate connect/read bounds so connect failures fail fast while allowing
+# moderately long API responses.
+DEFAULT_CONNECT_TIMEOUT = 10
+DEFAULT_READ_TIMEOUT = 30
+DEFAULT_TIMEOUT = (DEFAULT_CONNECT_TIMEOUT, DEFAULT_READ_TIMEOUT)
 
 
 def _apply_auth(headers: dict, auth_header: str) -> None:
@@ -27,7 +32,6 @@ class Client:
         self.base_url = base_url.rstrip("/")
         self.auth_header = auth_header
         self._session = requests.Session()
-        self._session.timeout = DEFAULT_TIMEOUT
         self._session.headers["Accept"] = "application/json"
 
     def _do(self, method: str, path: str, body: Any = None) -> tuple[bytes, int]:
@@ -37,7 +41,9 @@ class Client:
             headers["Content-Type"] = "application/json"
         _apply_auth(headers, self.auth_header)
         req_body = json.dumps(body).encode() if body is not None else b""
-        resp = self._session.request(method, url, data=req_body or None, headers=headers)
+        resp = self._session.request(
+            method, url, data=req_body or None, headers=headers, timeout=DEFAULT_TIMEOUT
+        )
         resp_body = resp.content
         api_log.log_api_call(method, url, req_body, resp.status_code, resp_body)
         return resp_body, resp.status_code
