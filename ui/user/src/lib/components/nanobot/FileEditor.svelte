@@ -354,9 +354,9 @@
 				{#if canDownload}
 					<button
 						type="button"
-						class="btn btn-sm btn-square"
+						class="btn btn-sm btn-square tooltip tooltip-left"
 						onclick={downloadResourceContents}
-						use:tooltip={'Download file'}
+						data-tip="Download file"
 						aria-label="Download file"
 					>
 						<Download class="size-4" />
