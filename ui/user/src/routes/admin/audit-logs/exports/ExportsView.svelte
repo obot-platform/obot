@@ -8,6 +8,7 @@
 	import type { AuditLogExport } from '$lib/services/admin/types';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { goto } from '$lib/url';
+	import { formatFileSize } from '$lib/utils';
 
 	interface Props {
 		query?: string;
@@ -69,19 +70,6 @@
 			console.error('Failed to load exports:', error);
 			return [];
 		}
-	}
-
-	function formatFileSize(bytes: number): string {
-		const units = ['B', 'KB', 'MB', 'GB'];
-		let size = bytes;
-		let unitIndex = 0;
-
-		while (size >= 1024 && unitIndex < units.length - 1) {
-			size /= 1024;
-			unitIndex++;
-		}
-
-		return `${size.toFixed(1)} ${units[unitIndex]}`;
 	}
 
 	function getStatusBadgeClass(status: string): string {
