@@ -132,4 +132,3 @@ func createDefaultSkillRepository(ctx context.Context, c kclient.Client, repoURL
 		},
 	}))
 }
-
