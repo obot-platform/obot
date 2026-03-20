@@ -131,7 +131,7 @@
 	{:else}
 		<button
 			class={twMerge(
-				'rounded-selector flex items-center gap-2 border border-transparent px-4 py-2',
+				'rounded-selector flex items-center gap-2 border border-transparent px-4 py-2 text-left',
 				isSelected ? 'bg-base-200' : 'hover:bg-base-300 '
 			)}
 			onclick={() => onClick?.()}
