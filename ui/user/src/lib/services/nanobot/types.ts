@@ -516,3 +516,8 @@ export interface Skill {
 	validationError?: string;
 	lastIndexedAt?: string;
 }
+
+export interface FileTimeResult {
+	date?: Date;
+	formatted: string;
+}

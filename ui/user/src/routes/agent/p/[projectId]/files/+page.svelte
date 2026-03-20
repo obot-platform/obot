@@ -13,44 +13,11 @@
 	import { twMerge } from 'tailwind-merge';
 	import { getContext } from 'svelte';
 	import { tryDecodeURIComponent } from '$lib/url';
-	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
+	import type { FileTimeResult, ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
 	import { afterNavigate } from '$app/navigation';
-
-	interface FileTimeResult {
-		date?: Date;
-		formatted: string;
-	}
-
-	function formatFileTime(timestamp: unknown): FileTimeResult {
-		if (typeof timestamp !== 'string') return { date: undefined, formatted: '' };
-
-		const value = timestamp.trim();
-		if (!value) return { date: undefined, formatted: '' };
-
-		const date = new Date(value);
-		if (Number.isNaN(date.getTime())) return { date: undefined, formatted: '' };
-
-		let formatted = '';
-		try {
-			formatted = date
-				.toLocaleString(undefined, {
-					year: 'numeric',
-					month: 'numeric',
-					day: 'numeric',
-					hour: '2-digit',
-					minute: '2-digit',
-					hour12: false
-				})
-				.replace(/\//g, '-')
-				.replace(/,/g, '');
-		} catch {
-			return { date: undefined, formatted: '' };
-		}
-
-		return { date, formatted };
-	}
+	import { formatFileSize, formatFileTime } from '$lib/utils';
 
 	let resourceFiles = $derived(
 		$nanobotChat?.resources
@@ -134,13 +101,6 @@
 		}
 		sortNodes(root.children);
 		return root.children;
-	}
-
-	function formatFileSize(bytes?: number): string {
-		if (bytes == undefined) return '0 B';
-		if (bytes < 1024) return `${bytes} B`;
-		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-		return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 	}
 
 	function toNumberOrUndefined(value: unknown): number | undefined {
@@ -402,7 +362,11 @@
 										</span>
 									</div>
 								</td>
-								<td><p class="truncate text-nowrap break-all">{formatFileSize(node.size)}</p></td>
+								<td
+									><p class="truncate text-nowrap break-all">
+										{formatFileSize(node.size ?? 0)}
+									</p></td
+								>
 								<td
 									><p class="truncate text-nowrap break-all">
 										{node.lastModified?.formatted || '-'}
