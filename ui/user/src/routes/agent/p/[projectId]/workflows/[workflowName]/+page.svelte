@@ -373,6 +373,10 @@
 	show={deletingWorkflow}
 	onsuccess={async () => {
 		if (!workflow) return;
+		if (publishedInfo) {
+			await NanobotService.deletePublishedArtifact(publishedInfo.id);
+			publishedWorkflows = await NanobotService.listPublishedWorkflows();
+		}
 		await $nanobotChat?.api.deleteWorkflow(workflow.uri);
 		nanobotChat.update((data) => {
 			if (data) {
