@@ -183,7 +183,8 @@ export const Role = {
 	ADMIN: 16,
 	AUDITOR: 32,
 	POWERUSER_PLUS: 64,
-	POWERUSER: 128
+	POWERUSER: 128,
+	USER_IMPERSONATION: 256
 };
 
 export const Group = {
@@ -192,7 +193,8 @@ export const Group = {
 	POWERUSER_PLUS: 'power-user-plus',
 	POWERUSER: 'power-user',
 	USER: 'user',
-	AUDITOR: 'auditor'
+	AUDITOR: 'auditor',
+	USER_IMPERSONATION: 'user-impersonation'
 };
 
 export interface ProviderParameter {
