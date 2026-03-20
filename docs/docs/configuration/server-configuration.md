@@ -68,3 +68,5 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_ARTIFACT_AZURE_TENANT_ID` | Azure tenant ID for published workflow storage when using explicit Azure credentials. | - |
 | `OBOT_ARTIFACT_AZURE_CLIENT_ID` | Azure client ID for published workflow storage when using explicit Azure credentials. | - |
 | `OBOT_ARTIFACT_AZURE_CLIENT_SECRET` | Azure client secret for published workflow storage when using explicit Azure credentials. | - |
+| `OBOT_DEFAULT_SKILL_REPO_URL` | The default skill repository URL. Must be a full HTTPS GitHub URL (e.g. `https://github.com/org/repo`). Only used on first-time setup (before the first owner user is created). A SkillRepository resource will be created from this URL and synced automatically. | `https://github.com/obot-platform/skills` |
+| `OBOT_DEFAULT_SKILL_REPO_REF` | The ref (branch, tag, or commit SHA) for the default skill repository. If empty, the repository's default branch is used. Only used on first-time setup. | - |
