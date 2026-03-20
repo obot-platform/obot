@@ -3,6 +3,7 @@
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import { tryDecodeURIComponent } from '$lib/url';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		uri?: string;
@@ -114,12 +115,16 @@
 	{#if compact}
 		<button
 			class={twMerge(
-				'btn btn-ghost btn-circle tooltip tooltip-left text-base-content/50 size-10 self-center',
+				'btn btn-ghost btn-circle text-base-content/50 size-10 self-center',
 				isSelected ? 'bg-base-200 hover:bg-base-200 hover:border-base-200' : 'hover:bg-base-300'
 			)}
+			use:tooltip={{
+				text: isSelected ? (name ?? '') : `Open ${name ?? ''}`,
+				placement: 'left',
+				variant: 'daisy'
+			}}
 			in:fly={{ x: 100, duration: 150 }}
 			onclick={() => onClick?.()}
-			data-tip={isSelected ? name : `Open ${name}`}
 		>
 			{@render icon()}
 		</button>
