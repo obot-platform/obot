@@ -195,6 +195,11 @@ config:
   # config.OBOT_SERVER_MCPSERVER_SEARCH_IMAGE -- The container image to use for the MCP server search functionality. Defaults to ghcr.io/obot-platform/obot-mcp-server:v0.1.0
   OBOT_SERVER_MCPSERVER_SEARCH_IMAGE: ghcr.io/obot-platform/obot-mcp-server:v0.1.0
 
+  # config.OBOT_DEFAULT_SKILL_REPO_URL -- The default skill repository URL. Must be a full HTTPS GitHub URL. Defaults to https://github.com/obot-platform/skills. Only used on first-time setup (before the first owner user is created). Set to an empty string to disable.
+  # OBOT_DEFAULT_SKILL_REPO_URL: ""
+  # config.OBOT_DEFAULT_SKILL_REPO_REF -- The ref (branch, tag, or commit SHA) for the default skill repository. If empty, the repository's default branch is used. Only used on first-time setup.
+  # OBOT_DEFAULT_SKILL_REPO_REF: ""
+
 # extraEnv -- A map of additional environment variables to set
 extraEnv: {}
 

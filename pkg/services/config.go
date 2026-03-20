@@ -112,6 +112,8 @@ type Config struct {
 	StaticDir                  string   `usage:"The directory to serve static files from"`
 	RetentionPolicyHours       int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
 	DefaultMCPCatalogPath      string   `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
+	DefaultSkillRepoURL        string   `usage:"The default skill repository URL (must be HTTPS GitHub URL)" default:"https://github.com/obot-platform/skills" env:"OBOT_DEFAULT_SKILL_REPO_URL"`
+	DefaultSkillRepoRef        string   `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
 	DisableUpdateCheck         bool     `usage:"Disable Obot server update checks"`
 	EnableAutonomousToolUse    bool     `usage:"Allow all chat sessions to use tools without requesting user approval" default:"false" env:"OBOT_SERVER_ENABLE_AUTONOMOUS_TOOL_USE"`
 	// Sendgrid webhook
@@ -172,6 +174,8 @@ type Services struct {
 	SupportDocker              bool
 	AuthEnabled                bool
 	DefaultMCPCatalogPath      string
+	DefaultSkillRepoURL        string
+	DefaultSkillRepoRef        string
 	AgentsDir                  string
 	GeminiClient               *gemini.Client
 	Otel                       *Otel
@@ -989,6 +993,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		PostgresDSN:                postgresDSN,
 		RetentionPolicy:            retentionPolicy,
 		DefaultMCPCatalogPath:      config.DefaultMCPCatalogPath,
+		DefaultSkillRepoURL:        config.DefaultSkillRepoURL,
+		DefaultSkillRepoRef:        config.DefaultSkillRepoRef,
 		MCPLoader:                  mcpSessionManager,
 		MCPOAuthTokenStorage:       mcpOAuthTokenStorage,
 		OAuthServerConfig: handlers.OAuthAuthorizationServerConfig{
