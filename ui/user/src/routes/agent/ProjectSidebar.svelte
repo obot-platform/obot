@@ -5,6 +5,7 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
 	import {
+		Clock3,
 		Folders,
 		FoldersIcon,
 		Plus,
@@ -16,7 +17,6 @@
 	import { get } from 'svelte/store';
 	import { twMerge } from 'tailwind-merge';
 	import { fly, slide } from 'svelte/transition';
-	import { resolve } from '$app/paths';
 	import { errors } from '$lib/stores';
 
 	interface Props {
@@ -122,19 +122,29 @@
 					class="flex min-h-0 min-w-0 grow flex-col gap-4 overflow-x-hidden overflow-y-auto"
 					in:fly={{ x: -100, duration: 150 }}
 				>
-					<a
-						href={resolve(`/agent/p/${projectId}/workflows`)}
+					<button
+						type="button"
 						class="btn btn-ghost text-base-content/50 text-md justify-between rounded-none"
+						onclick={() => goto(`/agent/p/${projectId}/workflows`)}
 					>
 						Workflows <WorkflowIcon class="size-6" />
-					</a>
+					</button>
 
-					<a
-						href={resolve(`/agent/p/${projectId}/files`)}
+					<button
+						type="button"
 						class="btn btn-ghost text-base-content/50 text-md justify-between rounded-none"
+						onclick={() => goto(`/agent/p/${projectId}/scheduler`)}
+					>
+						Scheduler <Clock3 class="size-6" />
+					</button>
+
+					<button
+						type="button"
+						class="btn btn-ghost text-base-content/50 text-md justify-between rounded-none"
+						onclick={() => goto(`/agent/p/${projectId}/files`)}
 					>
 						Files <FoldersIcon class="size-6" />
-					</a>
+					</button>
 
 					<Threads
 						sessions={$nanobotChat?.sessions ?? []}
@@ -155,6 +165,16 @@
 							onclick={() => goto(`/agent/p/${projectId}/workflows`)}
 						>
 							<Workflow class="text-base-content/50 size-6" />
+						</button>
+					</div>
+					<div class="w-fit">
+						<button
+							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
+							aria-label="Go to scheduler"
+							data-tip="Go to scheduler"
+							onclick={() => goto(`/agent/p/${projectId}/scheduler`)}
+						>
+							<Clock3 class="text-base-content/50 size-6" />
 						</button>
 					</div>
 					<div class="w-fit">

@@ -22,6 +22,7 @@
 			page.url.searchParams.get('pwid') ??
 			undefined
 	);
+	let taskId = $derived((page.data as { taskId?: string } | undefined)?.taskId ?? undefined);
 	let workflowId = $derived(page.url.searchParams.get('wid') ?? undefined);
 	let activeWorkflowName = $derived(parentWorkflowId ?? workflowId);
 
@@ -112,7 +113,10 @@
 	});
 
 	$effect(() => {
-		if (parentWorkflowId || workflowId) {
+		if (taskId) {
+			projectLayoutContext.setLayoutName('');
+			projectLayoutContext.setShowBackButton(true);
+		} else if (parentWorkflowId || workflowId) {
 			const workflow = $nanobotChat?.resources?.find((r) =>
 				parentWorkflowId
 					? r.uri === `workflow:///${parentWorkflowId}`
