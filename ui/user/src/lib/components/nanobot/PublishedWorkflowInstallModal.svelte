@@ -5,7 +5,7 @@
 	import { onDestroy, type Snippet } from 'svelte';
 
 	interface Props {
-		publishedArtifact: PublishedArtifact;
+		data: PublishedArtifact & { selectedVersion?: number };
 		onClose: () => void;
 		onSuccess: () => void;
 		children?: Snippet;
@@ -16,7 +16,7 @@
 	}
 
 	let {
-		publishedArtifact,
+		data,
 		onClose,
 		onSuccess,
 		children,
@@ -37,11 +37,16 @@
 		}
 		$nanobotChat.api.getSession($nanobotChat.api.sessionId).then((existingSession) => {
 			chat = existingSession;
-			chat.installArtifact(publishedArtifact.id).then((response) => {
-				if (response.installedFiles.length > 0) {
-					onSuccess?.();
-				}
-			});
+			chat
+				.installArtifact(
+					data.id,
+					typeof data.selectedVersion !== 'undefined' ? data.selectedVersion : data.latestVersion
+				)
+				.then((response) => {
+					if (response.installedFiles && response.installedFiles.length > 0) {
+						onSuccess?.();
+					}
+				});
 		});
 	});
 

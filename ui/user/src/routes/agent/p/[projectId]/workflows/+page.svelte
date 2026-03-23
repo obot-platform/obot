@@ -4,7 +4,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import { FolderInput, Play, Search, Trash2, Workflow } from 'lucide-svelte';
 	import { getContext } from 'svelte';
-	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
+	import type { ProjectLayoutContext, PublishedArtifactVersion } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import { errors, profile } from '$lib/stores/index.js';
 	import type { PublishedArtifact } from '$lib/services/nanobot/types';
@@ -31,12 +31,16 @@
 				latestVersion: number;
 				workflowUri: string;
 				publishedArtifact: PublishedArtifact;
+				versions: PublishedArtifactVersion[];
+				currentInstalledVersion?: string;
 		  }
 		| undefined
 	>(undefined);
 
 	let installing = new SvelteMap<string, boolean>();
-	let installingPublishedArtifact = $state<PublishedArtifact | undefined>(undefined);
+	let installingPublishedArtifact = $state<
+		(PublishedArtifact & { selectedVersion?: number }) | undefined
+	>(undefined);
 	let installType = $state<'new' | 'update'>();
 	let confirmDeleteWorkflow = $state<
 		| {
@@ -60,10 +64,14 @@
 			.filter((w) => w.visibility === 'public' && w.authorID !== profile.current.id)
 			.map((w) => {
 				const latestVersionString = w.latestVersion != null ? String(w.latestVersion) : undefined;
+				const currentInstalledVersion = workflowSet.get(w.name)?._meta?.version as
+					| string
+					| undefined;
 				return {
 					...w,
+					currentInstalledVersion,
 					isInstalled: workflowSet.has(w.name),
-					isUpdated: workflowSet.get(w.name)?._meta?.version === latestVersionString,
+					isUpdated: currentInstalledVersion === latestVersionString,
 					workflowUri: workflowSet.get(w.name)?.uri ?? ''
 				};
 			})
@@ -93,7 +101,8 @@
 					isInstalledFrom: undefined,
 					isUpdated: w.isUpdated,
 					versions: w.versions ?? [],
-					latestVersion: w.latestVersion ?? 0
+					latestVersion: w.latestVersion ?? 0,
+					currentInstalledVersion: w.currentInstalledVersion
 				}))
 			: workflows.map((w) => {
 					const publishedMatch = myPublishedMap.get(w.name);
@@ -122,7 +131,8 @@
 						isInstalledFrom,
 						isUpdated: sharedLatestVersionString === w._meta?.version,
 						versions: publishedMatch?.versions ?? [],
-						latestVersion: publishedMatch?.latestVersion ?? 0
+						latestVersion: publishedMatch?.latestVersion ?? 0,
+						currentInstalledVersion: w._meta?.version as string | undefined
 					};
 				});
 	});
@@ -178,9 +188,9 @@
 		});
 	}
 
-	function handleInstallWorkflow(publishedArtifact: PublishedArtifact) {
+	function handleInstallWorkflow(publishedArtifact: PublishedArtifact, version?: number) {
 		installing.set(publishedArtifact.id, true);
-		installingPublishedArtifact = publishedArtifact;
+		installingPublishedArtifact = { ...publishedArtifact, selectedVersion: version };
 		installType = workflowSet.has(publishedArtifact.name) ? 'update' : 'new';
 	}
 
@@ -309,16 +319,12 @@
 					{:else}
 						<button
 							class={twMerge(
-								'btn btn-ghost btn-square',
-								workflow.isInstalled
-									? workflow.isUpdated
-										? 'btn-disabled btn-ghost'
-										: 'tooltip tooltip-left btn-warning btn-soft'
-									: 'btn-ghost tooltip tooltip-left'
+								'btn btn-ghost btn-square tooltip tooltip-left',
+								workflow.isInstalled && !workflow.isUpdated ? 'btn-warning btn-soft' : 'btn-ghost '
 							)}
 							data-tip={workflow.isInstalled
 								? workflow.isUpdated
-									? ''
+									? 'Select different version'
 									: 'An update is available'
 								: 'Install workflow'}
 							onclick={(e) => {
@@ -329,13 +335,14 @@
 									showConfirmUpdateWorkflow = {
 										latestVersion: workflow.latestVersion,
 										workflowUri: workflow.workflowUri ?? '',
-										publishedArtifact: workflow
+										publishedArtifact: workflow,
+										versions: workflow.versions ?? [],
+										currentInstalledVersion: workflow.currentInstalledVersion
 									};
 								} else {
 									handleInstallWorkflow(workflow);
 								}
 							}}
-							disabled={workflow.isInstalled && workflow.isUpdated}
 						>
 							<FolderInput class="size-5" />
 						</button>
@@ -451,7 +458,9 @@
 												? 'btn-warning btn-soft'
 												: 'btn-ghost'
 										)}
-										data-tip="An update is available"
+										data-tip={workflow.isUpdated
+											? 'Select different version'
+											: 'An update is available'}
 										onclick={(e) => {
 											e.preventDefault();
 											e.stopPropagation();
@@ -469,10 +478,11 @@
 											showConfirmUpdateWorkflow = {
 												latestVersion: match.latestVersion ?? 0,
 												workflowUri: workflow.workflowUri ?? '',
-												publishedArtifact: match
+												publishedArtifact: match,
+												versions: match.versions ?? [],
+												currentInstalledVersion: workflow.currentInstalledVersion
 											};
 										}}
-										disabled={workflow.isInstalled && workflow.isUpdated}
 									>
 										<FolderInput class="size-4" />
 									</button>
@@ -510,16 +520,14 @@
 							{:else}
 								<button
 									class={twMerge(
-										'btn btn-ghost btn-square',
-										workflow.isInstalled
-											? workflow.isUpdated
-												? 'btn-disabled btn-ghost'
-												: 'tooltip tooltip-left btn-warning btn-soft'
-											: 'btn-ghost tooltip tooltip-left'
+										'btn btn-ghost btn-square tooltip tooltip-left ',
+										workflow.isInstalled && !workflow.isUpdated
+											? 'btn-warning btn-soft'
+											: 'btn-ghost'
 									)}
 									data-tip={workflow.isInstalled
 										? workflow.isUpdated
-											? ''
+											? 'Select different version'
 											: 'An update is available'
 										: 'Install workflow'}
 									onclick={(e) => {
@@ -537,13 +545,14 @@
 											showConfirmUpdateWorkflow = {
 												latestVersion: workflow.latestVersion ?? 0,
 												workflowUri: workflow.workflowUri ?? '',
-												publishedArtifact: match
+												publishedArtifact: match,
+												versions: match.versions ?? [],
+												currentInstalledVersion: workflow.currentInstalledVersion
 											};
 										} else {
 											handleInstallWorkflow(match);
 										}
 									}}
-									disabled={workflow.isInstalled && workflow.isUpdated}
 								>
 									<FolderInput class="size-5" />
 								</button>
@@ -567,7 +576,7 @@
 
 {#if installingPublishedArtifact}
 	<PublishedWorkflowInstallModal
-		publishedArtifact={installingPublishedArtifact}
+		data={installingPublishedArtifact}
 		onClose={() => {
 			if (installingPublishedArtifact) {
 				installing.delete(installingPublishedArtifact.id);
@@ -634,15 +643,17 @@
 		latestVersion={showConfirmUpdateWorkflow.latestVersion}
 		workflowUri={showConfirmUpdateWorkflow.workflowUri}
 		publishedArtifactId={showConfirmUpdateWorkflow.publishedArtifact.id}
-		onSubmit={() => {
+		onSubmit={(version) => {
 			if (!showConfirmUpdateWorkflow) return;
-			handleInstallWorkflow(showConfirmUpdateWorkflow.publishedArtifact);
+			handleInstallWorkflow(showConfirmUpdateWorkflow.publishedArtifact, version);
 			showConfirmUpdateWorkflow = undefined;
 		}}
 		variant="update"
 		onCancel={() => {
 			showConfirmUpdateWorkflow = undefined;
 		}}
+		versions={showConfirmUpdateWorkflow.versions}
+		currentInstalledVersion={showConfirmUpdateWorkflow.currentInstalledVersion}
 	/>
 {/if}
 

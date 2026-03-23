@@ -879,13 +879,15 @@ export class ChatSession {
 
 	async installArtifact(
 		publishedArtifactId: string,
+		version?: number,
 		opts?: {
 			abort?: AbortController;
 		}
 	): Promise<InstallArtifactResponse> {
 		return await callMCPTool<InstallArtifactResponse>(this.sessionClient, 'installArtifact', {
 			payload: {
-				id: publishedArtifactId
+				id: publishedArtifactId,
+				...(version !== undefined && { version })
 			},
 			abort: opts?.abort
 		});

@@ -1,19 +1,22 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import MarkdownEditor from './MarkdownEditor.svelte';
 	import { generateLineDiff, formatTextWithDiffHighlighting } from '$lib/diff';
 	import { NanobotService } from '$lib/services';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import type { PublishedArtifactVersion } from '$lib/services/nanobot/types';
 
 	interface Props {
 		latestVersion: number;
 		workflowUri: string;
 		publishedArtifactId: string;
 		contentsToCompare?: string;
-		onSubmit: () => void;
+		onSubmit: (version?: number) => void;
 		onCancel: () => void;
 		variant?: 'update' | 'publish';
+		versions?: PublishedArtifactVersion[];
+		currentInstalledVersion?: string;
 	}
 
 	let {
@@ -23,11 +26,18 @@
 		contentsToCompare,
 		variant = 'publish',
 		onSubmit,
-		onCancel
+		onCancel,
+		versions,
+		currentInstalledVersion
 	}: Props = $props();
 	let latestVersionContents = $state<string>('');
 	let currentWorkflowContents = $state<string>('');
 	let loading = $state(false);
+	let selectedVersion = $state(untrack(() => latestVersion));
+
+	let sortedVersions = $derived(
+		versions ? [...versions].sort((a, b) => b.version - a.version) : []
+	);
 	let workflowDiff = $derived(
 		latestVersionContents && currentWorkflowContents
 			? variant === 'publish'
@@ -42,26 +52,30 @@
 		workflowDiff ? formatTextWithDiffHighlighting(workflowDiff, false) : ''
 	);
 
+	async function getVersionContents(version: number) {
+		latestVersionContents = await NanobotService.getPublishedArtifactVersionContents(
+			publishedArtifactId,
+			version
+		);
+
+		if (contentsToCompare) {
+			currentWorkflowContents = contentsToCompare;
+		} else {
+			const result = await $nanobotChat?.api.readResource(workflowUri);
+			if (result?.contents?.length) {
+				currentWorkflowContents = result.contents[0]?.text ?? '';
+			}
+		}
+	}
+
 	onMount(async () => {
 		loading = true;
 
 		if (latestVersion > 0) {
 			try {
-				latestVersionContents = await NanobotService.getPublishedArtifactVersionContents(
-					publishedArtifactId,
-					latestVersion
-				);
-
-				if (contentsToCompare) {
-					currentWorkflowContents = contentsToCompare;
-				} else {
-					const result = await $nanobotChat?.api.readResource(workflowUri);
-					if (result?.contents?.length) {
-						currentWorkflowContents = result.contents[0]?.text ?? '';
-					}
-				}
+				await getVersionContents(latestVersion);
 			} catch (err) {
-				console.error(err);
+				console.error('Failed to initialize with latest workflow version contents', err);
 			} finally {
 				loading = false;
 			}
@@ -69,6 +83,17 @@
 			loading = false;
 		}
 	});
+
+	function handleSelectVersion(version: number) {
+		loading = true;
+		getVersionContents(version)
+			.catch((err) => {
+				console.error(`Failed to get version ${version} contents`, err);
+			})
+			.finally(() => {
+				loading = false;
+			});
+	}
 </script>
 
 <dialog class="modal-open modal">
@@ -133,11 +158,42 @@
 			</p>
 		{/if}
 		<div class="flex grow"></div>
-		<div class="modal-action">
-			<button class="btn btn-primary" onclick={onSubmit}>
-				{variant === 'publish' ? 'Publish' : 'Update'}
-			</button>
-			<button class="btn btn-secondary" onclick={onCancel}>Cancel</button>
+		<div class="modal-action flex gap-4">
+			{#if variant === 'update'}
+				<select
+					class="select select-bordered flex grow"
+					onchange={(e) => {
+						const version = Number((e.target as HTMLSelectElement).value);
+						if (isNaN(version)) return;
+						handleSelectVersion(version);
+					}}
+					bind:value={selectedVersion}
+				>
+					{#each sortedVersions as version (version.version)}
+						<option value={version.version}>
+							{version.version.toFixed(1)}
+							{#if version.version === latestVersion}
+								(latest)
+							{/if}
+						</option>
+					{/each}
+				</select>
+			{/if}
+
+			{#if currentInstalledVersion === selectedVersion.toString()}
+				<button class="btn w-64" disabled>
+					{currentInstalledVersion === latestVersion.toString()
+						? 'Currently up-to-date'
+						: 'Currently installed'}
+				</button>
+			{:else}
+				<button
+					class={twMerge('btn btn-primary', variant === 'update' ? 'w-64' : 'w-full')}
+					onclick={() => onSubmit(variant === 'publish' ? undefined : selectedVersion)}
+				>
+					{variant === 'publish' ? 'Publish' : `Update to ${selectedVersion.toFixed(1)}`}
+				</button>
+			{/if}
 		</div>
 	</div>
 </dialog>
