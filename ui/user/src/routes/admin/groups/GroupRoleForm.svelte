@@ -7,8 +7,10 @@
 	interface Props {
 		roleId: number;
 		hasAuditorPrivilege?: boolean;
+		hasUserImpersonationPrivilege?: boolean;
 		onRoleChange?: (roleId: number) => void;
 		onAuditorChange?: (hasAuditor: boolean) => void;
+		onUserImpersonationChange?: (hasUserImpersonation: boolean) => void;
 	}
 
 	interface RoleOption {
@@ -19,8 +21,10 @@
 	let {
 		roleId = $bindable(),
 		hasAuditorPrivilege = $bindable(false),
+		hasUserImpersonationPrivilege = $bindable(false),
 		onRoleChange,
-		onAuditorChange
+		onAuditorChange,
+		onUserImpersonationChange
 	}: Props = $props();
 
 	const canAssignOwner = $derived(profile.current.groups.includes(Group.OWNER));
@@ -52,6 +56,17 @@
 	function handleAuditorChange() {
 		onAuditorChange?.(hasAuditorPrivilege);
 	}
+
+	function handleUserImpersonationChange() {
+		onUserImpersonationChange?.(hasUserImpersonationPrivilege);
+	}
+
+	// Auto-clear user impersonation when base role is not Admin or Owner
+	$effect(() => {
+		if (roleId !== Role.ADMIN && roleId !== Role.OWNER) {
+			hasUserImpersonationPrivilege = false;
+		}
+	});
 </script>
 
 {#snippet roleUi(role: RoleOption)}
@@ -113,6 +128,29 @@
 						All group members will gain access to additional details such as response, request, and
 						header information in the audit logs.
 					{/if}
+				</p>
+			</div>
+		</label>
+		{@const isUserImpersonationDisabled =
+			isDisabled || (roleId !== Role.ADMIN && roleId !== Role.OWNER)}
+		<label
+			class={twMerge(
+				'border-surface3 hover:bg-background/2 active:bg-background/5 my-4 flex cursor-pointer gap-4 rounded-lg border p-3',
+				isUserImpersonationDisabled ? 'pointer-events-none opacity-50' : ''
+			)}
+			aria-disabled={isUserImpersonationDisabled}
+		>
+			<input
+				type="checkbox"
+				bind:checked={hasUserImpersonationPrivilege}
+				onchange={handleUserImpersonationChange}
+				disabled={isUserImpersonationDisabled}
+			/>
+			<div class="flex flex-col">
+				<div class="w-28 flex-shrink-0 font-semibold">User Impersonation</div>
+				<p class="text-on-surface1 text-xs">
+					All group members will be able to connect to other users' Obot Agents. Must be combined
+					with Admin or Owner.
 				</p>
 			</div>
 		</label>
