@@ -401,7 +401,19 @@
 								label: 'API Keys',
 								disabled: !version.current.authEnabled,
 								collapsible: false
-							}
+							},
+							...(profile.current.canImpersonate?.()
+								? [
+										{
+											id: 'user-impersonation',
+											href: '/admin/user-impersonation',
+											icon: UserCog,
+											label: 'Impersonation',
+											collapsible: false,
+											disabled: !version.current.authEnabled
+										}
+									]
+								: [])
 						]
 					},
 					{

@@ -31,6 +31,23 @@ func NewNanobotAgentHandler(sessionManager *mcp.SessionManager, serverURL string
 	}
 }
 
+func (h *NanobotAgentHandler) ListAll(req api.Context) error {
+	if !req.UserCanImpersonate() || !req.UserIsAdmin() {
+		return types.NewErrHTTP(http.StatusForbidden, "user is not authorized to list all nanobot agents")
+	}
+
+	var agents v1.NanobotAgentList
+	if err := req.List(&agents); err != nil {
+		return err
+	}
+
+	items := make([]types.NanobotAgent, 0, len(agents.Items))
+	for _, agent := range agents.Items {
+		items = append(items, h.convertNanobotAgent(agent))
+	}
+	return req.Write(types.NanobotAgentList{Items: items})
+}
+
 func (h *NanobotAgentHandler) List(req api.Context) error {
 	var agents v1.NanobotAgentList
 	if err := req.List(&agents, kclient.MatchingFields{
