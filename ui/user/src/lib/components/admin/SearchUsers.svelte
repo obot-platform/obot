@@ -66,6 +66,7 @@
 	}, 500);
 
 	export function open() {
+		searchNames = '';
 		addUserGroupDialog?.open();
 	}
 
@@ -105,6 +106,7 @@
 		<div class="px-4">
 			<Search
 				class="dark:bg-surface1 dark:border-surface3 shadow-inner dark:border"
+				value={searchNames}
 				onChange={(val) => {
 					searchNames = val;
 					handleSearch();
