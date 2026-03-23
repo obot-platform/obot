@@ -90,6 +90,96 @@ func TestSkillRouteAuthorization(t *testing.T) {
 			},
 			allowed: false,
 		},
+		{
+			name:   "auditor can access skills list",
+			method: http.MethodGet,
+			path:   "/api/skills",
+			user: &user.DefaultInfo{
+				Name:   "auditor",
+				Groups: []string{types.GroupAuditor, types.GroupAuthenticated},
+			},
+			allowed: true,
+		},
+		{
+			name:   "auditor can access skill detail",
+			method: http.MethodGet,
+			path:   "/api/skills/some-skill-id",
+			user: &user.DefaultInfo{
+				Name:   "auditor",
+				Groups: []string{types.GroupAuditor, types.GroupAuthenticated},
+			},
+			allowed: true,
+		},
+		{
+			name:   "auditor can download skill",
+			method: http.MethodGet,
+			path:   "/api/skills/some-skill-id/download",
+			user: &user.DefaultInfo{
+				Name:   "auditor",
+				Groups: []string{types.GroupAuditor, types.GroupAuthenticated},
+			},
+			allowed: true,
+		},
+		{
+			name:   "auditor can access skill repositories",
+			method: http.MethodGet,
+			path:   "/api/skill-repositories",
+			user: &user.DefaultInfo{
+				Name:   "auditor",
+				Groups: []string{types.GroupAuditor, types.GroupAuthenticated},
+			},
+			allowed: true,
+		},
+		{
+			name:   "auditor can access skill repository detail",
+			method: http.MethodGet,
+			path:   "/api/skill-repositories/some-repo-id",
+			user: &user.DefaultInfo{
+				Name:   "auditor",
+				Groups: []string{types.GroupAuditor, types.GroupAuthenticated},
+			},
+			allowed: true,
+		},
+		{
+			name:   "auditor can access skill access rules",
+			method: http.MethodGet,
+			path:   "/api/skill-access-rules",
+			user: &user.DefaultInfo{
+				Name:   "auditor",
+				Groups: []string{types.GroupAuditor, types.GroupAuthenticated},
+			},
+			allowed: true,
+		},
+		{
+			name:   "auditor can access skill access rule detail",
+			method: http.MethodGet,
+			path:   "/api/skill-access-rules/some-rule-id",
+			user: &user.DefaultInfo{
+				Name:   "auditor",
+				Groups: []string{types.GroupAuditor, types.GroupAuthenticated},
+			},
+			allowed: true,
+		},
+		{
+			name:   "auditor cannot POST skill repositories",
+			method: http.MethodPost,
+			path:   "/api/skill-repositories",
+			user: &user.DefaultInfo{
+				Name:   "auditor",
+				Groups: []string{types.GroupAuditor, types.GroupAuthenticated},
+			},
+			allowed: false,
+		},
+		{
+			name:   "auditor cannot POST skill access rules",
+			method: http.MethodPost,
+			path:   "/api/skill-access-rules",
+			user: &user.DefaultInfo{
+				Name:   "auditor",
+				Groups: []string{types.GroupAuditor, types.GroupAuthenticated},
+			},
+			allowed: false,
+		},
 	}
 
 	for _, tt := range tests {

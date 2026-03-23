@@ -185,6 +185,13 @@ var (
 			"/api/scheduled-audit-log-exports/{id}",
 			"/api/storage-credentials",
 			"/api/storage-credentials/",
+			"GET /api/skill-repositories",
+			"GET /api/skill-repositories/",
+			"GET /api/skill-access-rules",
+			"GET /api/skill-access-rules/",
+			"GET /api/skills",
+			"GET /api/skills/{id}",
+			"GET /api/skills/{id}/download",
 		},
 		anyGroup: {
 			// Allow access to the oauth2 endpoints
