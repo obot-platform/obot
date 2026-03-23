@@ -180,9 +180,10 @@ func (s *Server) triggerReconciliationForGroup(apiContext api.Context, groupName
 
 // validateRoleForUser checks if the requester is authorized to assign the given role
 func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) error {
-	// Extract base role and auditor flag
+	// Extract base role and add-on role flags
 	baseRole := role.ExtractBaseRole()
 	hasAuditor := role.HasAuditorRole()
+	hasUserImpersonation := role.HasUserImpersonationRole()
 
 	// If role includes Owner, only Owners can assign it
 	if baseRole == types2.RoleOwner {
@@ -197,6 +198,22 @@ func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) e
 		if !apiContext.UserIsOwner() {
 			pkgLog.Infof("Denied group role assignment request: requestedRole=%d reason=auditor_role_requires_owner", role)
 			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the auditor role to groups")
+		}
+	}
+
+	// If role includes User Impersonation, only Owners can assign it and it must be combined with Owner or Admin
+	if hasUserImpersonation {
+		if !apiContext.UserIsOwner() {
+			pkgLog.Infof("Denied group role assignment request: requestedRole=%d reason=user_impersonation_role_requires_owner", role)
+			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the user impersonation role to groups")
+		}
+
+		if baseRole != types2.RoleOwner && baseRole != types2.RoleAdmin {
+			pkgLog.Infof("Denied group role assignment request: requestedRole=%d reason=user_impersonation_can_only_be_combined_with_owner_or_admin", role)
+			return types2.NewErrBadRequest(
+				"user impersonation role can only be combined with owner (%d) or admin (%d)",
+				types2.RoleOwner, types2.RoleAdmin,
+			)
 		}
 	}
 

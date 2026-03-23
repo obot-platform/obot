@@ -201,8 +201,16 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		}
 		if originalUser.Role.HasRole(types2.RoleAuditor) != user.Role.HasRole(types2.RoleAuditor) {
 			pkgLog.Infof("Denied user role update: targetUserID=%s reason=auditor_role_change_requires_owner", userID)
-			return types2.NewErrHTTP(http.StatusForbidden, "only owner can remove admin role")
+			return types2.NewErrHTTP(http.StatusForbidden, "only owner can add or remove auditor role")
 		}
+		if originalUser.Role.HasRole(types2.RoleUserImpersonation) != user.Role.HasRole(types2.RoleUserImpersonation) {
+			pkgLog.Infof("Denied user role update: targetUserID=%s reason=user_impersonation_role_change_requires_owner", userID)
+			return types2.NewErrHTTP(http.StatusForbidden, "only owner can add or remove user impersonation role")
+		}
+	}
+
+	if user.Role.HasUserImpersonationRole() && !user.Role.HasRole(types2.RoleAdmin) && !user.Role.HasRole(types2.RoleOwner) {
+		return types2.NewErrHTTP(http.StatusBadRequest, "user impersonation role can only be combined with admin or owner")
 	}
 
 	status := http.StatusInternalServerError
@@ -290,6 +298,10 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 		if existingUser.Role.HasRole(types2.RoleAuditor) {
 			pkgLog.Infof("Denied user deletion: targetUserID=%s reason=auditor_delete_requires_owner", userID)
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can delete an auditor")
+		}
+		if existingUser.Role.HasRole(types2.RoleUserImpersonation) {
+			pkgLog.Infof("Denied user deletion: targetUserID=%s reason=user_impersonation_delete_requires_owner", userID)
+			return types2.NewErrHTTP(http.StatusForbidden, "only owner can delete a user with user impersonation role")
 		}
 	}
 
@@ -399,7 +411,7 @@ func (s *Server) restrictGroups(ctx context.Context, gptscriptClient *gptscript.
 func userIsBasicOrPower(u user.Info) bool {
 	for _, group := range u.GetGroups() {
 		switch group {
-		case types2.GroupPowerUserPlus, types2.GroupAuditor, types2.GroupAdmin, types2.GroupOwner:
+		case types2.GroupPowerUserPlus, types2.GroupAuditor, types2.GroupUserImpersonation, types2.GroupAdmin, types2.GroupOwner:
 			return false
 		}
 	}

@@ -133,9 +133,9 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) (*types.User, er
 		if existingUser.Role.HasRole(types2.RoleOwner) {
 			// Can't delete the user if they're an owner and there are no other owners
 			var ownerCount int64
-			if err := tx.Model(new(types.User)).Where("id != ? AND role IN ? AND hashed_email != '' AND deleted_at IS NULL",
+			if err := tx.Model(new(types.User)).Where("id != ? AND (role & ?) != 0 AND hashed_email != '' AND deleted_at IS NULL",
 				userID,
-				[]types2.Role{types2.RoleOwner, types2.RoleOwner | types2.RoleAuditor},
+				types2.RoleOwner,
 			).Count(&ownerCount).Error; err != nil {
 				return err
 			}
@@ -146,9 +146,10 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) (*types.User, er
 		} else if existingUser.Role.HasRole(types2.RoleAdmin) {
 			// Can't delete the user if they're an admin and there are no other owners or admins
 			var adminCount int64
-			if err := tx.Model(new(types.User)).Where("id != ? AND role IN ? AND hashed_email != '' AND deleted_at IS NULL",
+			if err := tx.Model(new(types.User)).Where("id != ? AND ((role & ?) != 0 OR (role & ?) != 0) AND hashed_email != '' AND deleted_at IS NULL",
 				userID,
-				[]types2.Role{types2.RoleOwner, types2.RoleAdmin, types2.RoleOwner | types2.RoleAuditor, types2.RoleAdmin | types2.RoleAuditor},
+				types2.RoleOwner,
+				types2.RoleAdmin,
 			).Count(&adminCount).Error; err != nil {
 				return err
 			}
@@ -249,9 +250,9 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 					if removingOwner {
 						// Can't change role from owner if there are no other owners
 						var ownerCount int64
-						if err := tx.Model(new(types.User)).Where("id != ? AND role IN ? AND hashed_email != '' AND deleted_at IS NULL",
+						if err := tx.Model(new(types.User)).Where("id != ? AND (role & ?) != 0 AND hashed_email != '' AND deleted_at IS NULL",
 							userID,
-							[]types2.Role{types2.RoleOwner, types2.RoleOwner | types2.RoleAuditor},
+							types2.RoleOwner,
 						).Count(&ownerCount).Error; err != nil {
 							return err
 						}
@@ -262,9 +263,10 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 					} else if removingAdmin {
 						// Can't change role from admin if there are no other owners or admins
 						var adminCount int64
-						if err := tx.Model(new(types.User)).Where("id != ? AND role IN ? AND hashed_email != '' AND deleted_at IS NULL",
+						if err := tx.Model(new(types.User)).Where("id != ? AND ((role & ?) != 0 OR (role & ?) != 0) AND hashed_email != '' AND deleted_at IS NULL",
 							userID,
-							[]types2.Role{types2.RoleOwner, types2.RoleAdmin, types2.RoleOwner | types2.RoleAuditor, types2.RoleAdmin | types2.RoleAuditor},
+							types2.RoleOwner,
+							types2.RoleAdmin,
 						).Count(&adminCount).Error; err != nil {
 							return err
 						}
