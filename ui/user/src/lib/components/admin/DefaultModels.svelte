@@ -35,7 +35,7 @@
 			})
 	);
 	let loading = $state(false);
-	let showSkip = $state(false);
+	let required = $state(false);
 
 	const SUGGESTED_MODEL_SELECTIONS: Record<ModelAlias, string[]> = {
 		[ModelAlias.Llm]: ['gpt-5.4', 'claude-sonnet-4-6'],
@@ -45,9 +45,9 @@
 		[ModelAlias.Vision]: ['gpt-5.4', 'claude-sonnet-4-6']
 	};
 
-	export function open(updateShowSkip = false) {
+	export function open(updateRequired = false) {
 		setSuggestedModels();
-		showSkip = updateShowSkip;
+		required = updateRequired;
 		dialog?.open();
 	}
 
@@ -180,6 +180,12 @@
 	class="overflow-visible"
 	bind:this={dialog}
 	title="Default Model Aliases"
+	onClickOutside={() => {
+		if (!required) {
+			onClose();
+		}
+	}}
+	hideClose={required}
 >
 	<p class="text-on-surface1 pb-4 font-light">
 		When no model is specified, a default model is used for creating a new project, running user
@@ -240,7 +246,7 @@
 					Save Changes
 				{/if}
 			</button>
-			{#if showSkip}
+			{#if !required}
 				<button class="button w-full text-sm font-normal" onclick={() => dialog?.close()}>
 					Skip
 				</button>
