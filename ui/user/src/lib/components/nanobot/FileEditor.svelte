@@ -241,7 +241,10 @@
 
 	function resolveDownloadFilename(basename: string): string {
 		if (basename.includes('.')) return basename;
-		return `${basename}.${extension}`;
+		if (extension) {
+			return `${basename}.${extension}`;
+		}
+		return basename;
 	}
 
 	function base64ToBlob(base64: string, type: string): Blob {
