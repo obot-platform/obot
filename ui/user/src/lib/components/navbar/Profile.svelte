@@ -228,7 +228,7 @@
 			{/if}
 		</div>
 		<div class="mt-2 p-2">
-			{#if showChatLink}
+			{#if showChatLink && version.current.nanobotIntegration}
 				<button
 					class={twMerge(
 						'dropdown-link',
@@ -238,6 +238,7 @@
 						if (!agentLinkEnabled) return;
 						navigateTo('/agent', event?.ctrlKey || event?.metaKey);
 					}}
+					aria-disabled={!agentLinkEnabled}
 				>
 					<span class={twMerge('flex items-center gap-1', !agentLinkEnabled && 'opacity-50')}>
 						<BotMessageSquare class="size-4" /> Launch Agent

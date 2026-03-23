@@ -16,9 +16,12 @@ async function initialize(defaultModelAliases?: DefaultModelAlias[]) {
 		store.current = defaultModelAliases;
 	} else {
 		store.loading = true;
-		const defaultModelAliases = await ChatService.listDefaultModelAliases();
-		store.current = defaultModelAliases;
-		store.loading = false;
+		try {
+			const defaultModelAliases = await ChatService.listDefaultModelAliases();
+			store.current = defaultModelAliases;
+		} finally {
+			store.loading = false;
+		}
 	}
 }
 

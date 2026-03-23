@@ -150,7 +150,7 @@
 						id: 'agent-chat',
 						href: '/agent',
 						icon: BotMessageSquare,
-						disabled: !agentLinkEnabled,
+						disabled: isBootStrapUser || !agentLinkEnabled,
 						label: 'Launch Agent',
 						collapsible: false,
 						noteIcon: !agentLinkEnabled ? LockOpen : undefined,
