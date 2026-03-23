@@ -16,6 +16,7 @@
 	import { untrack } from 'svelte';
 	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import { NanobotService } from '$lib/services/index.js';
 
 	let { data } = $props();
 	let projectId = $derived(data.projects[0].id);
@@ -604,6 +605,13 @@
 		if (!confirmDeleteWorkflow) return;
 		deleting = true;
 		try {
+			const matchingPublishedArtifact = publishedWorkflows.find(
+				(w) => w.name === confirmDeleteWorkflow?.id && w.authorID === profile.current.id
+			);
+			if (matchingPublishedArtifact) {
+				await NanobotService.deletePublishedArtifact(matchingPublishedArtifact.id);
+				publishedWorkflows = await NanobotService.listPublishedWorkflows();
+			}
 			await $nanobotChat?.api.deleteWorkflow(confirmDeleteWorkflow.uri);
 			nanobotChat.update((data) => {
 				if (data) {

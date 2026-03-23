@@ -16,6 +16,7 @@ interface TooltipOptions {
 	hover?: boolean;
 	disablePortal?: boolean;
 	el?: Element;
+	enterTransition?: 'daisy';
 }
 
 interface Popover {
@@ -139,14 +140,16 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			'transform',
 			'hidden',
 			'opacity-0',
-			'duration-300'
+			'duration-300',
+			'tooltip-portal-daisy-host--inactive'
 		);
 
 		// Reset positioning styles
 		tooltip.style.removeProperty('left');
 		tooltip.style.removeProperty('top');
 
-		tooltip.classList.add(options?.fixed ? 'fixed' : 'absolute');
+		const useFixedLayer = options?.strategy === 'fixed' || options?.fixed;
+		tooltip.classList.add(useFixedLayer ? 'fixed' : 'absolute');
 		// Always move tooltip to document.body unless disablePortal is enabled
 		if (tooltip.parentElement !== document.body && !options?.disablePortal) {
 			document.body.appendChild(tooltip);
@@ -154,13 +157,21 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			options.el.appendChild(tooltip);
 		}
 
-		if (options?.slide) {
+		const motion = options?.slide
+			? 'slide'
+			: options?.enterTransition === 'daisy'
+				? 'daisy'
+				: 'fade';
+
+		if (motion === 'slide') {
 			tooltip.classList.add(
 				'transition-all',
 				'duration-300',
 				options.slide === 'left' ? 'translate-x-full' : 'translate-y-full',
 				'opacity-0'
 			);
+		} else if (motion === 'daisy') {
+			tooltip.classList.add('opacity-0', 'tooltip-portal-daisy-host--inactive');
 		} else {
 			tooltip.classList.add('hidden', 'transition-opacity', 'duration-300', 'opacity-0');
 		}
@@ -174,8 +185,23 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 
 		// Handle visibility and positioning
 		if (open) {
-			tick().then(() => {
-				if (options?.slide) {
+			tick().then(async () => {
+				if (motion === 'daisy') {
+					if (!shouldSkipAutoPosition()) {
+						await updatePosition();
+					}
+					await tick();
+					await new Promise<void>((resolve) =>
+						requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+					);
+					tooltip.classList.remove('tooltip-portal-daisy-host--inactive', 'opacity-0');
+					if (!shouldSkipAutoPosition()) {
+						close = autoUpdate(ref, tooltip, updatePosition);
+					}
+					return;
+				}
+
+				if (motion === 'slide') {
 					tooltip.classList.remove(
 						options.slide === 'left' ? 'translate-x-full' : 'translate-y-full'
 					);
@@ -185,7 +211,7 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 				}
 				tooltip.classList.remove('opacity-0');
 
-				if (!options?.fixed) {
+				if (!shouldSkipAutoPosition()) {
 					updatePosition().then(() => {
 						close = autoUpdate(ref, tooltip, updatePosition);
 					});
@@ -193,18 +219,27 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			});
 		} else {
 			close?.();
-			if (options?.slide) {
+			if (motion === 'slide') {
 				tooltip.classList.add(options.slide === 'left' ? 'translate-x-full' : 'translate-y-full');
+			} else if (motion === 'daisy') {
+				tooltip.classList.add('tooltip-portal-daisy-host--inactive', 'opacity-0');
 			} else {
 				tooltip.classList.add('hidden');
 			}
-			tooltip.classList.add('opacity-0');
+			if (motion !== 'daisy') {
+				tooltip.classList.add('opacity-0');
+			}
 			close = null;
 		}
 	});
 
+	function shouldSkipAutoPosition(): boolean {
+		// Menu passes fixed: true for manually laid-out dropdowns; still run when using Floating UI fixed strategy.
+		return !!(options?.fixed && options?.strategy !== 'fixed');
+	}
+
 	async function updatePosition() {
-		if (!ref || !tooltip || options?.fixed) return;
+		if (!ref || !tooltip || shouldSkipAutoPosition()) return;
 
 		const offsetSize = options?.offset ?? 4;
 		const { x, y } = await computePosition(ref, tooltip, {

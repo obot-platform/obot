@@ -18,6 +18,7 @@
 	import type { ChatMessageItemToolCall, ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		onToggle?: () => void;
@@ -218,8 +219,8 @@
 
 <div
 	class={twMerge(
-		'bg-base-100 border-base-300 h-[100dvh] w-18 min-w-18 border-l ',
-		open ? 'w-sm min-w-sm overflow-y-auto' : 'overflow-y-visible'
+		'bg-base-100 border-base-300 h-[100dvh] w-18 min-w-18 overflow-y-auto border-l',
+		open && 'w-sm min-w-sm'
 	)}
 >
 	<div
@@ -247,12 +248,16 @@
 			{:else}
 				<button
 					class={twMerge(
-						'btn btn-circle tooltip tooltip-left size-10 self-center',
+						'btn btn-circle size-10 self-center',
 						browserViewerOpen ? 'btn-neutral' : 'btn-ghost'
 					)}
+					use:tooltip={{
+						text: browserViewerOpen ? 'Hide browser view' : 'Show browser view',
+						placement: 'left',
+						variant: 'daisy'
+					}}
 					onclick={onToggleBrowserViewer}
 					aria-label={browserViewerOpen ? 'Hide browser view' : 'Show browser view'}
-					data-tip={browserViewerOpen ? 'Hide browser view' : 'Show browser view'}
 				>
 					<Monitor class="size-5" />
 				</button>
@@ -269,8 +274,12 @@
 							<h4 class="flex w-full items-center justify-between gap-2 text-sm font-semibold">
 								To Do List
 								<button
-									class="btn btn-ghost btn-xs tooltip tooltip-left"
-									data-tip={showTodoList ? 'Hide To Do List' : 'Show To Do List'}
+									class="btn btn-ghost btn-xs"
+									use:tooltip={{
+										text: showTodoList ? 'Hide To Do List' : 'Show To Do List',
+										placement: 'left',
+										variant: 'daisy'
+									}}
 									onclick={() => (showTodoList = !showTodoList)}
 								>
 									{#if showTodoList}
@@ -321,10 +330,10 @@
 				</div>
 			{:else if onToggle}
 				<button
-					class="btn btn-ghost btn-circle tooltip tooltip-left size-10 self-center"
+					class="btn btn-ghost btn-circle size-10 self-center"
+					use:tooltip={{ text: 'Expand to show to-do list', placement: 'left', variant: 'daisy' }}
 					onclick={() => onToggle()}
 					aria-label="Expand to show to-do list"
-					data-tip="Expand to show to-do list"
 				>
 					<ListCheck class="text-base-content/50 size-5" />
 				</button>
@@ -340,12 +349,13 @@
 					)}
 				>
 					<button
-						class={twMerge(
-							'btn btn-ghost btn-circle tooltip',
-							open ? 'tooltip-right' : 'tooltip-left'
-						)}
+						class="btn btn-ghost btn-circle"
+						use:tooltip={{
+							text: open ? 'Close to-do & file list' : 'Open to-do & file list',
+							placement: 'left',
+							variant: 'daisy'
+						}}
 						onclick={() => onToggle()}
-						data-tip={open ? 'Close to-do & file list' : 'Open to-do & file list'}
 					>
 						{#if open}
 							<SidebarOpen class="text-base-content/50 size-6" />

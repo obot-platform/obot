@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ResourceContents } from '$lib/services/nanobot/types';
-	import { X } from 'lucide-svelte';
+	import { Download, X } from 'lucide-svelte';
 	import MarkdownEditor from './MarkdownEditor.svelte';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 	import { tryDecodeURIComponent } from '$lib/url';
@@ -239,6 +239,51 @@
 	const visible = $derived(mounted && open);
 	let justOpened = $state(false);
 
+	function resolveDownloadFilename(basename: string): string {
+		if (basename.includes('.')) return basename;
+		if (extension) {
+			return `${basename}.${extension}`;
+		}
+		return basename;
+	}
+
+	function base64ToBlob(base64: string, type: string): Blob {
+		const binary = atob(base64);
+		const bytes = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i++) {
+			bytes[i] = binary.charCodeAt(i);
+		}
+		return new Blob([bytes], { type });
+	}
+
+	let canDownload = $derived(
+		!loading &&
+			!error &&
+			resource !== null &&
+			(Boolean(resource.blob) || resource.text !== undefined)
+	);
+
+	function downloadResourceContents() {
+		if (!resource || !canDownload) return;
+
+		const downloadName = resolveDownloadFilename(name);
+		let blob: Blob;
+
+		if (resource.blob) {
+			blob = base64ToBlob(resource.blob, mimeType);
+		} else {
+			blob = new Blob([resource.text ?? ''], { type: mimeType });
+		}
+
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = downloadName;
+		a.rel = 'noopener';
+		a.click();
+		URL.revokeObjectURL(url);
+	}
+
 	function getPanelDimensionsPx(): { width: number; minWidth: number; maxWidth: number } {
 		if (!visible) {
 			return { width: 0, minWidth: 0, maxWidth: 0 };
@@ -307,15 +352,28 @@
 					</div>
 				{/if}
 			</div>
-			{#if onClose}
-				<button
-					class="btn btn-sm btn-square tooltip tooltip-left"
-					data-tip="Close"
-					onclick={onClose}
-				>
-					<X class="size-4" />
-				</button>
-			{/if}
+			<div class="flex shrink-0 items-center gap-1">
+				{#if canDownload}
+					<button
+						type="button"
+						class="btn btn-sm btn-square tooltip tooltip-left"
+						onclick={downloadResourceContents}
+						data-tip="Download file"
+						aria-label="Download file"
+					>
+						<Download class="size-4" />
+					</button>
+				{/if}
+				{#if onClose}
+					<button
+						class="btn btn-sm btn-square tooltip tooltip-left"
+						data-tip="Close"
+						onclick={onClose}
+					>
+						<X class="size-4" />
+					</button>
+				{/if}
+			</div>
 		</div>
 
 		<div class={twMerge('flex-1 overflow-auto', isMarkdown ? 'p-4 pt-0' : '')}>
