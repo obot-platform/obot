@@ -395,7 +395,8 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 		// Ensure deterministic subset when using DISTINCT + LIMIT by ordering on the same option
 		db = db.Order(option).Limit(opts.Limit)
 	}
-	return result, db.Select(option).Scan(&result).Error
+	err := db.Select(option).Scan(&result).Error
+	return result, err
 }
 
 // GetMCPUsageStats retrieves usage statistics for MCP servers
