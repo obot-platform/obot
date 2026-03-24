@@ -14,6 +14,7 @@ interface TooltipOptions {
 	slide?: 'left' | 'up';
 	fixed?: boolean;
 	hover?: boolean;
+	interactiveHover?: boolean;
 	disablePortal?: boolean;
 	el?: Element;
 	enterTransition?: 'daisy';
@@ -93,7 +94,19 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 	$effect(() => {
 		if (!ready || !options?.hover) return;
 
-		const onEnter = () => {
+		const interactive = options.interactiveHover ?? false;
+		const closeDelayMs = 280;
+		let closeTimer: ReturnType<typeof setTimeout> | null = null;
+
+		const clearCloseTimer = () => {
+			if (closeTimer != null) {
+				clearTimeout(closeTimer);
+				closeTimer = null;
+			}
+		};
+
+		const onRefEnter = () => {
+			clearCloseTimer();
 			if (hoverTimeout) return;
 			hoverTimeout = setTimeout(() => {
 				hoverTimeout = null;
@@ -104,22 +117,52 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			}, options.delay ?? 150);
 		};
 
-		const onLeave = () => {
+		const onRefLeave = () => {
 			if (hoverTimeout) {
 				clearTimeout(hoverTimeout);
 				hoverTimeout = null;
 			}
+			if (!open) return;
+			if (interactive) {
+				clearCloseTimer();
+				closeTimer = setTimeout(() => {
+					closeTimer = null;
+					open = false;
+					options.onOpenChange?.(open);
+				}, closeDelayMs);
+			} else {
+				open = false;
+				options.onOpenChange?.(open);
+			}
+		};
+
+		const onTooltipEnter = () => {
+			clearCloseTimer();
+		};
+
+		const onTooltipLeave = () => {
 			if (open) {
 				open = false;
 				options.onOpenChange?.(open);
 			}
 		};
 
-		ref.addEventListener('mouseenter', onEnter);
-		ref.addEventListener('mouseleave', onLeave);
+		ref.addEventListener('mouseenter', onRefEnter);
+		ref.addEventListener('mouseleave', onRefLeave);
+
+		const tooltipCleanups: (() => void)[] = [];
+		if (interactive) {
+			tooltip.addEventListener('mouseenter', onTooltipEnter);
+			tooltip.addEventListener('mouseleave', onTooltipLeave);
+			tooltipCleanups.push(() => tooltip.removeEventListener('mouseenter', onTooltipEnter));
+			tooltipCleanups.push(() => tooltip.removeEventListener('mouseleave', onTooltipLeave));
+		}
+
 		return () => {
-			ref.removeEventListener('mouseenter', onEnter);
-			ref.removeEventListener('mouseleave', onLeave);
+			clearCloseTimer();
+			ref.removeEventListener('mouseenter', onRefEnter);
+			ref.removeEventListener('mouseleave', onRefLeave);
+			for (const u of tooltipCleanups) u();
 		};
 	});
 
@@ -278,7 +321,7 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			return {
 				update(newParams?: TooltipOptions) {
 					if (newParams) {
-						Object.assign(options, newParams);
+						options = { ...options, ...newParams };
 					}
 				},
 				destroy() {

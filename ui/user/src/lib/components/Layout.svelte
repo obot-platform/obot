@@ -465,10 +465,6 @@
 					]
 	);
 
-	const tooltips = {
-		'/admin/auth-providers': 'Enable authentication to access this page.'
-	};
-
 	$effect(() => {
 		if (responsive.isMobile) {
 			layout.sidebarOpen = false;
@@ -540,8 +536,11 @@
 											{link.label}
 										</div>
 									{/if}
-									{#if !version.current.authEnabled && tooltips[link.href as keyof typeof tooltips]}
-										<InfoTooltip text={tooltips[link.href as keyof typeof tooltips]} />
+
+									{#if link.noteIcon && link.note}
+										<InfoTooltip icon={link.noteIcon} interactive>
+											{@render link.note()}
+										</InfoTooltip>
 									{/if}
 								</div>
 								{#if link.collapsible}
