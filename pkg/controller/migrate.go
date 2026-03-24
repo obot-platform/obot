@@ -2,12 +2,18 @@ package controller
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const mcpServerManifestValuesCredentialMigrationName = "mcp_server_manifest_values_to_credentials"
 
 func addCatalogIDToAccessControlRules(ctx context.Context, client kclient.Client) error {
 	var acRules v1.AccessControlRuleList
@@ -66,4 +72,93 @@ func migratePublishedArtifactVisibility(ctx context.Context, client kclient.Clie
 	}
 
 	return nil
+}
+
+func migrateMCPServerManifestValuesToCredentialsOnce(ctx context.Context, gatewayClient *gatewayclient.Client, client kclient.Client, gptClient *gptscript.GPTScript) error {
+	return gatewayClient.MigrateIfEntryNotFoundInMigrationsTable(ctx, mcpServerManifestValuesCredentialMigrationName, func(ctx context.Context) error {
+		return migrateMCPServerManifestValuesToCredentials(ctx, client, gptClient)
+	})
+}
+
+func migrateMCPServerManifestValuesToCredentials(ctx context.Context, client kclient.Client, gptClient *gptscript.GPTScript) error {
+	var servers v1.MCPServerList
+	if err := client.List(ctx, &servers); err != nil {
+		return err
+	}
+
+	for i := range servers.Items {
+		server := &servers.Items[i]
+		credCtx := mcpServerCredentialContext(*server)
+		if credCtx == "" {
+			continue
+		}
+
+		configValues, changed := extractAndClearMCPServerConfigValues(&server.Spec.Manifest)
+		if !changed {
+			continue
+		}
+
+		if len(configValues) > 0 {
+			if _, err := gptClient.RevealCredential(ctx, []string{credCtx}, server.Name); err != nil {
+				if !errors.As(err, &gptscript.ErrNotFound{}) {
+					return fmt.Errorf("failed to find credential for MCP server %s: %w", server.Name, err)
+				}
+
+				if err := gptClient.CreateCredential(ctx, gptscript.Credential{
+					Context:  credCtx,
+					ToolName: server.Name,
+					Type:     gptscript.CredentialTypeTool,
+					Env:      configValues,
+				}); err != nil {
+					return fmt.Errorf("failed to create credential for MCP server %s: %w", server.Name, err)
+				}
+			}
+		}
+
+		if err := client.Update(ctx, server); err != nil {
+			return fmt.Errorf("failed to clear manifest config values for MCP server %s: %w", server.Name, err)
+		}
+	}
+
+	return nil
+}
+
+func mcpServerCredentialContext(server v1.MCPServer) string {
+	switch {
+	case server.Spec.MCPCatalogID != "":
+		return fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
+	case server.Spec.PowerUserWorkspaceID != "":
+		return fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)
+	default:
+		return ""
+	}
+}
+
+func extractAndClearMCPServerConfigValues(manifest *types.MCPServerManifest) (map[string]string, bool) {
+	configValues := make(map[string]string)
+	var changed bool
+
+	for i := range manifest.Env {
+		if manifest.Env[i].Value != "" {
+			if manifest.Env[i].Key != "" {
+				configValues[manifest.Env[i].Key] = manifest.Env[i].Value
+			}
+			manifest.Env[i].Value = ""
+			changed = true
+		}
+	}
+
+	if manifest.RemoteConfig != nil {
+		for i := range manifest.RemoteConfig.Headers {
+			if manifest.RemoteConfig.Headers[i].Value != "" {
+				if manifest.RemoteConfig.Headers[i].Key != "" {
+					configValues[manifest.RemoteConfig.Headers[i].Key] = manifest.RemoteConfig.Headers[i].Value
+				}
+				manifest.RemoteConfig.Headers[i].Value = ""
+				changed = true
+			}
+		}
+	}
+
+	return configValues, changed
 }

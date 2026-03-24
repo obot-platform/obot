@@ -12,6 +12,7 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"gorm.io/gorm"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -24,7 +25,7 @@ const (
 type Client struct {
 	db                      *db.DB
 	encryptionConfig        *encryptionconfig.EncryptionConfiguration
-	emailsWithExplictRoles  map[string]types2.Role
+	emailsWithExplicitRoles map[string]types2.Role
 	auditLock               sync.Mutex
 	auditBuffer             []types.MCPAuditLog
 	kickAuditPersist        chan struct{}
@@ -53,7 +54,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	c := &Client{
 		db:                      db,
 		encryptionConfig:        encryptionConfig,
-		emailsWithExplictRoles:  explicitRoleEmailsSet,
+		emailsWithExplicitRoles: explicitRoleEmailsSet,
 		auditBuffer:             make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
 		kickAuditPersist:        make(chan struct{}),
 		storageClient:           storageClient,
@@ -81,13 +82,23 @@ func (c *Client) Close() error {
 	return errors.Join(append(errs, c.db.Close())...)
 }
 
+// MigrateIfEntryNotFoundInMigrationsTable runs f only when the named migration
+// has not already been recorded in the migrations table.
+func (c *Client) MigrateIfEntryNotFoundInMigrationsTable(ctx context.Context, name string, f func(context.Context) error) error {
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return db.MigrateIfEntryNotFoundInMigrationsTable(tx, name, func(*gorm.DB) error {
+			return f(ctx)
+		})
+	})
+}
+
 func (c *Client) HasExplicitRole(email string) types2.Role {
-	return c.emailsWithExplictRoles[strings.ToLower(email)]
+	return c.emailsWithExplicitRoles[strings.ToLower(email)]
 }
 
 // GetExplicitRoleEmails returns a copy of all emails with explicit roles.
 // Used by setup endpoints to list Owner and Admin emails.
 func (c *Client) GetExplicitRoleEmails() map[string]types2.Role {
 	// No lock needed - map is immutable after construction
-	return maps.Clone(c.emailsWithExplictRoles)
+	return maps.Clone(c.emailsWithExplicitRoles)
 }

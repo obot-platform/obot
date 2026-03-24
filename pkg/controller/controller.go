@@ -103,6 +103,10 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to migrate published artifact visibility: %w", err)
 	}
 
+	if err := migrateMCPServerManifestValuesToCredentialsOnce(ctx, c.services.GatewayClient, c.services.StorageClient, c.services.GPTClient); err != nil {
+		return fmt.Errorf("failed to migrate MCP server manifest values to credentials: %w", err)
+	}
+
 	// Ensure PowerUserWorkspaces exist for all admin users on startup
 	if err := c.adminWorkspaceHandler.EnsureAllAdminAndOwnerWorkspaces(ctx, c.services.StorageClient, system.DefaultNamespace); err != nil {
 		return fmt.Errorf("failed to ensure admin workspaces: %w", err)
