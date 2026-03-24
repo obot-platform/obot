@@ -135,7 +135,14 @@
 				</div>
 				<div class="w-full md:w-1/2">
 					<h4 class="text-md font-semibold">
-						{variant === 'publish' ? 'Current' : `Version ${latestVersion.toFixed(1)}`}
+						{#if variant === 'publish'}
+							Current
+						{:else}
+							Version {selectedVersion.toFixed(1)}
+							{#if selectedVersion === latestVersion}
+								<span class="text-base-content/50 text-xs font-light">(latest)</span>
+							{/if}
+						{/if}
 					</h4>
 					<div class="bg-base-200 h-[calc(100dvh-16rem)] overflow-y-auto rounded-lg px-2">
 						{#if loading}
