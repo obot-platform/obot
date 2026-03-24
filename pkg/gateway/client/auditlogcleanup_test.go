@@ -56,19 +56,24 @@ func TestDeleteOldAuditLogs(t *testing.T) {
 	ctx := context.Background()
 
 	now := time.Now().UTC()
-	insertAuditLog(t, c, now.AddDate(0, 0, -100)) // old - should be deleted
-	insertAuditLog(t, c, now.AddDate(0, 0, -91))  // old - should be deleted
-	insertAuditLog(t, c, now.AddDate(0, 0, -90))  // exactly at boundary - should be deleted (90 days old = at retention limit)
-	insertAuditLog(t, c, now.AddDate(0, 0, -89))  // recent - should be kept
-	insertAuditLog(t, c, now.AddDate(0, 0, -1))   // recent - should be kept
-	insertAuditLog(t, c, now)                     // recent - should be kept
+	today := now.Truncate(24 * time.Hour)
+	cutoff := today.AddDate(0, 0, -90)
+
+	insertAuditLog(t, c, now.AddDate(0, 0, -100))  // old - should be deleted
+	insertAuditLog(t, c, now.AddDate(0, 0, -91))   // old - should be deleted
+	insertAuditLog(t, c, cutoff.Add(-time.Second)) // one second before cutoff - should be deleted
+	insertAuditLog(t, c, cutoff)                   // exactly at cutoff boundary - should be kept (< not <=)
+	insertAuditLog(t, c, now.AddDate(0, 0, -90))   // same day as cutoff but later in the day - should be kept
+	insertAuditLog(t, c, now.AddDate(0, 0, -89))   // recent - should be kept
+	insertAuditLog(t, c, now.AddDate(0, 0, -1))    // recent - should be kept
+	insertAuditLog(t, c, now)                      // recent - should be kept
 
 	if err := c.deleteOldAuditLogs(ctx, now, 90); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got := countAuditLogs(t, c); got != 3 {
-		t.Errorf("expected 3 audit logs after cleanup, got %d", got)
+	if got := countAuditLogs(t, c); got != 5 {
+		t.Errorf("expected 5 audit logs after cleanup, got %d", got)
 	}
 }
 

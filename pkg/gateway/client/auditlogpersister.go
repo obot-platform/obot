@@ -87,8 +87,8 @@ func (c *Client) deleteOldAuditLogs(ctx context.Context, now time.Time, retentio
 		return ctx.Err()
 	}
 
-	cutoff := now.AddDate(0, 0, -retentionDays)
-	return c.db.WithContext(ctx).Where("created_at <= ?", cutoff).Delete(&types.MCPAuditLog{}).Error
+	cutoff := now.Truncate(24*time.Hour).AddDate(0, 0, -retentionDays)
+	return c.db.WithContext(ctx).Where("created_at < ?", cutoff).Delete(&types.MCPAuditLog{}).Error
 }
 
 func (c *Client) persistAuditLogs() error {
