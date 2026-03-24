@@ -676,12 +676,17 @@
 	loading={deletingOrphanedWorkflows}
 	onsuccess={async () => {
 		deletingOrphanedWorkflows = true;
-		for (const workflow of orphanedWorkflows) {
-			await NanobotService.deletePublishedArtifact(workflow.id);
+		try {
+			for (const workflow of orphanedWorkflows) {
+				await NanobotService.deletePublishedArtifact(workflow.id);
+			}
+			publishedWorkflows = await NanobotService.listPublishedWorkflows();
+		} catch (err) {
+			errors.append(`Failed to clean up orphaned workflows: ${err}`);
+		} finally {
+			deletingOrphanedWorkflows = false;
+			showReviewOrphanedWorkflows = false;
 		}
-		publishedWorkflows = await NanobotService.listPublishedWorkflows();
-		deletingOrphanedWorkflows = false;
-		showReviewOrphanedWorkflows = false;
 	}}
 	oncancel={() => {
 		showReviewOrphanedWorkflows = false;
