@@ -43,7 +43,9 @@
 		BotMessageSquare,
 		Coins,
 		PencilRuler,
-		Vault
+		Vault,
+		LockOpen,
+		CircleQuestionMark
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -65,6 +67,8 @@
 		disabled?: boolean;
 		collapsible?: boolean;
 		items?: NavLink[];
+		noteIcon?: Component | typeof CircleQuestionMark;
+		note?: Snippet;
 	};
 
 	interface Props {
@@ -318,8 +322,10 @@
 						id: 'user-management',
 						icon: Users,
 						label: 'User Management',
-						disabled: false,
+						disabled: !version.current.authEnabled,
 						collapsible: true,
+						noteIcon: LockOpen,
+						note: renderAuthDisabledNote,
 						items: [
 							{
 								id: 'users',
@@ -730,6 +736,19 @@
 		>
 			{title}
 		</h1>
+	{/if}
+{/snippet}
+
+{#snippet renderAuthDisabledNote()}
+	{#if !version.current.authEnabled}
+		<p class="mt-1 text-sm">
+			Obot is running with authentication disabled. Click <a
+				href="https://docs.obot.ai/installation/enabling-authentication/"
+				rel="external"
+				target="_blank"
+				class="text-link">here</a
+			> for details.
+		</p>
 	{/if}
 {/snippet}
 
