@@ -89,7 +89,9 @@
 			// Exclude the current filterId from the filters sent to the endpoint,
 			// so the backend can return all distinct values for this field
 			// given the *other* active filters.
-			const { [filterId]: _omit, ...otherFilters } = filters ?? {};
+			const otherFilters = Object.fromEntries(
+				Object.entries(filters ?? {}).filter(([k]) => k !== filterId)
+			);
 			const response = await endpoint(filterId, otherFilters);
 
 			if (['user_id', 'user_ids'].includes(filterId)) {
