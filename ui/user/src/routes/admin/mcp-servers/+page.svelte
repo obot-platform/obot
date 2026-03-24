@@ -105,6 +105,11 @@
 				return;
 			}
 
+			// If coming from outside /admin/mcp-servers, clear stale search queries
+			if (!from?.url?.pathname.startsWith('/admin/mcp-servers')) {
+				clearQueryFromLocalStorage();
+			}
+
 			const createNewType = page.url.searchParams.get('new') as LaunchServerType;
 			if (createNewType) {
 				selectServerType(createNewType, false);
