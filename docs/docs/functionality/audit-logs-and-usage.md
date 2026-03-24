@@ -49,9 +49,13 @@ Filter logs by:
 - Operation type
 - Status
 
+### Retention
+
+Audit logs are automatically deleted after **90 days** by default. To preserve logs beyond this period, use the export functionality before they are deleted. See [Server Configuration](/configuration/server-configuration) for retention settings.
+
 ### Exporting Audit Logs
 
-Audit logs can be exported for external analysis or compliance requirements. See [Audit Log Export](/configuration/audit-log-export/) for configuration options.
+Audit logs can be exported for external analysis, compliance requirements, or long-term retention. See [Audit Log Export](/configuration/audit-log-export/) for configuration options.
 
 ## Usage
 
@@ -96,7 +100,7 @@ Navigate to **MCP Management > Usage** in the MCP Platform.
 
 Audit logs may contain sensitive information from MCP requests and responses. Consider:
 
-- **Data retention**: Configure how long logs are kept
+- **Data retention**: Logs are kept for 90 days by default. See [Server Configuration](/configuration/server-configuration) to adjust, and [Audit Log Export](/configuration/audit-log-export/) for long-term archival
 - **Access control**: Limit who can view detailed logs
 - **Export security**: Secure any exported log data
 - **Compliance**: Ensure logging meets regulatory requirements
