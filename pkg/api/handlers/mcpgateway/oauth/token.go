@@ -21,6 +21,7 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/selectors"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/crypto/bcrypt"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -99,6 +100,12 @@ func (h *handler) token(req api.Context) error {
 
 	var client v1.OAuthClient
 	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: clientNamespace, Name: clientName}, &client); err != nil {
+		if apierrors.IsNotFound(err) {
+			return types.NewErrHTTP(http.StatusUnauthorized, Error{
+				Code:        ErrInvalidClient,
+				Description: "client not found, re-registration required",
+			}.Error())
+		}
 		return err
 	}
 

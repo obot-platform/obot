@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/auth"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -33,6 +34,7 @@ const (
 	ErrServerError             ErrorCode = "server_error"
 	ErrTemporarilyUnavailable  ErrorCode = "temporarily_unavailable"
 	ErrInvalidClientMetadata   ErrorCode = "invalid_client_metadata"
+	ErrInvalidClient           ErrorCode = "invalid_client"
 )
 
 // Error represents an OAuth 2.0 error response.
@@ -123,6 +125,13 @@ func (h *handler) authorize(req api.Context) error {
 
 	var oauthClient v1.OAuthClient
 	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: clientNamespace, Name: clientName}, &oauthClient); err != nil {
+		if apierrors.IsNotFound(err) {
+			return types.NewErrHTTP(http.StatusUnauthorized, Error{
+				Code:        ErrInvalidClient,
+				Description: "client not found, re-registration required",
+				State:       state,
+			}.Error())
+		}
 		return err
 	}
 
