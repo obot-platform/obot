@@ -1,0 +1,128 @@
+package client
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	"github.com/obot-platform/obot/pkg/gateway/types"
+	sservices "github.com/obot-platform/obot/pkg/storage/services"
+)
+
+func newTestClient(t *testing.T) *Client {
+	t.Helper()
+
+	services, err := sservices.New(sservices.Config{
+		DSN: "sqlite://:memory:",
+	})
+	if err != nil {
+		t.Fatalf("failed to create storage services: %v", err)
+	}
+
+	db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
+	if err != nil {
+		t.Fatalf("failed to create gateway db: %v", err)
+	}
+	if err := db.AutoMigrate(); err != nil {
+		t.Fatalf("failed to auto-migrate: %v", err)
+	}
+
+	return &Client{
+		db:                      db,
+		auditLogCleanupInterval: 50 * time.Millisecond,
+	}
+}
+
+func insertAuditLog(t *testing.T, c *Client, createdAt time.Time) {
+	t.Helper()
+	entry := types.MCPAuditLog{CreatedAt: createdAt}
+	if err := c.db.WithContext(context.Background()).Create(&entry).Error; err != nil {
+		t.Fatalf("failed to insert audit log: %v", err)
+	}
+}
+
+func countAuditLogs(t *testing.T, c *Client) int64 {
+	t.Helper()
+	var count int64
+	if err := c.db.WithContext(context.Background()).Model(&types.MCPAuditLog{}).Count(&count).Error; err != nil {
+		t.Fatalf("failed to count audit logs: %v", err)
+	}
+	return count
+}
+
+func TestDeleteOldAuditLogs(t *testing.T) {
+	c := newTestClient(t)
+	ctx := context.Background()
+
+	now := time.Now().UTC()
+	insertAuditLog(t, c, now.AddDate(0, 0, -100)) // old - should be deleted
+	insertAuditLog(t, c, now.AddDate(0, 0, -91))  // old - should be deleted
+	insertAuditLog(t, c, now.AddDate(0, 0, -90))  // exactly at boundary - should be deleted
+	insertAuditLog(t, c, now.AddDate(0, 0, -89))  // recent - should be kept
+	insertAuditLog(t, c, now.AddDate(0, 0, -1))   // recent - should be kept
+	insertAuditLog(t, c, now)                     // recent - should be kept
+
+	if err := c.deleteOldAuditLogs(ctx, 90); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got := countAuditLogs(t, c); got != 3 {
+		t.Errorf("expected 3 audit logs after cleanup, got %d", got)
+	}
+}
+
+func TestDeleteOldAuditLogsDisabled(t *testing.T) {
+	c := newTestClient(t)
+	ctx := context.Background()
+
+	now := time.Now().UTC()
+	insertAuditLog(t, c, now.AddDate(0, 0, -200))
+	insertAuditLog(t, c, now.AddDate(0, 0, -100))
+
+	// retentionDays=0 should be a no-op
+	if err := c.deleteOldAuditLogs(ctx, 0); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got := countAuditLogs(t, c); got != 2 {
+		t.Errorf("expected 2 audit logs (cleanup disabled), got %d", got)
+	}
+}
+
+func TestRunAuditLogCleanup(t *testing.T) {
+	c := newTestClient(t)
+
+	now := time.Now().UTC()
+	insertAuditLog(t, c, now.AddDate(0, 0, -100)) // old
+	insertAuditLog(t, c, now.AddDate(0, 0, -1))   // recent
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go c.runAuditLogCleanup(ctx, 90)
+
+	// Wait for at least two ticks to confirm the loop keeps running
+	time.Sleep(200 * time.Millisecond)
+	cancel()
+
+	if got := countAuditLogs(t, c); got != 1 {
+		t.Errorf("expected 1 audit log after cleanup loop, got %d", got)
+	}
+}
+
+func TestRunAuditLogCleanupDisabled(t *testing.T) {
+	c := newTestClient(t)
+
+	now := time.Now().UTC()
+	insertAuditLog(t, c, now.AddDate(0, 0, -100))
+	insertAuditLog(t, c, now.AddDate(0, 0, -1))
+
+	// retentionDays=0 means the function returns immediately without cleanup.
+	// Call synchronously — if it ever blocks, the test timeout will catch it.
+	c.runAuditLogCleanup(t.Context(), 0)
+
+	if got := countAuditLogs(t, c); got != 2 {
+		t.Errorf("expected 2 audit logs (cleanup disabled), got %d", got)
+	}
+}

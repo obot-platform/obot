@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/obot-platform/obot/logger"
@@ -50,6 +51,44 @@ func (c *Client) runPersistenceLoop(ctx context.Context, flushInterval time.Dura
 
 		timer.Reset(flushInterval)
 	}
+}
+
+func (c *Client) runAuditLogCleanup(ctx context.Context, retentionDays int) {
+	if retentionDays <= 0 {
+		return
+	}
+
+	err := c.deleteOldAuditLogs(ctx, retentionDays)
+	if err != nil && !errors.Is(err, context.Canceled) {
+		log.Errorf("Failed to delete old audit logs: %v", err)
+	}
+
+	ticker := time.NewTicker(c.auditLogCleanupInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			err = c.deleteOldAuditLogs(ctx, retentionDays)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				log.Errorf("Failed to delete old audit logs: %v", err)
+			}
+		}
+	}
+}
+
+func (c *Client) deleteOldAuditLogs(ctx context.Context, retentionDays int) error {
+	if retentionDays <= 0 {
+		return nil
+	}
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	cutoff := time.Now().UTC().AddDate(0, 0, -retentionDays)
+	return c.db.WithContext(ctx).Where("created_at < ?", cutoff).Delete(&types.MCPAuditLog{}).Error
 }
 
 func (c *Client) persistAuditLogs() error {

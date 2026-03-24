@@ -17,19 +17,20 @@ import (
 )
 
 type Client struct {
-	db                     *db.DB
-	encryptionConfig       *encryptionconfig.EncryptionConfiguration
-	emailsWithExplictRoles map[string]types2.Role
-	auditLock              sync.Mutex
-	auditBuffer            []types.MCPAuditLog
-	kickAuditPersist       chan struct{}
-	storageClient          kclient.Client
-	apiKeyCacheLock        sync.RWMutex
-	apiKeyCache            map[[32]byte]apiKeyValidationCacheEntry
-	apiKeyCacheTTL         time.Duration
+	db                      *db.DB
+	encryptionConfig        *encryptionconfig.EncryptionConfiguration
+	emailsWithExplictRoles  map[string]types2.Role
+	auditLock               sync.Mutex
+	auditBuffer             []types.MCPAuditLog
+	kickAuditPersist        chan struct{}
+	storageClient           kclient.Client
+	apiKeyCacheLock         sync.RWMutex
+	apiKeyCache             map[[32]byte]apiKeyValidationCacheEntry
+	apiKeyCacheTTL          time.Duration
+	auditLogCleanupInterval time.Duration
 }
 
-func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int) *Client {
+func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays int) *Client {
 	explicitRoleEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
 	for _, email := range adminEmails {
 		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleAdmin
@@ -39,19 +40,21 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleOwner
 	}
 	c := &Client{
-		db:                     db,
-		encryptionConfig:       encryptionConfig,
-		emailsWithExplictRoles: explicitRoleEmailsSet,
-		auditBuffer:            make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
-		kickAuditPersist:       make(chan struct{}),
-		storageClient:          storageClient,
-		apiKeyCache:            make(map[[32]byte]apiKeyValidationCacheEntry),
-		apiKeyCacheTTL:         apiKeyValidationCacheTTL,
+		db:                      db,
+		encryptionConfig:        encryptionConfig,
+		emailsWithExplictRoles:  explicitRoleEmailsSet,
+		auditBuffer:             make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
+		kickAuditPersist:        make(chan struct{}),
+		storageClient:           storageClient,
+		apiKeyCache:             make(map[[32]byte]apiKeyValidationCacheEntry),
+		apiKeyCacheTTL:          apiKeyValidationCacheTTL,
+		auditLogCleanupInterval: 24 * time.Hour,
 	}
 
 	go c.runPersistenceLoop(ctx, auditLogPersistenceInterval)
 	go c.runPendingStateCleanup(ctx)
 	go c.runAPIKeyCacheCleanup(ctx)
+	go c.runAuditLogCleanup(ctx, auditLogRetentionDays)
 	return c
 }
 
