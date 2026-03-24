@@ -12,6 +12,7 @@
 	import { X } from 'lucide-svelte';
 	import type { AuditLogURLFilters } from '$lib/services/admin/types';
 	import { AdminService } from '$lib/services';
+	import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from '$lib/services/admin/operations';
 	import AuditFilter, { type FilterInput, type FilterOption } from './FilterField.svelte';
 	import type { FilterOptionsEndpoint } from './types';
 
@@ -53,6 +54,12 @@
 			acc[filterId] = {
 				property: filterId,
 				label: getFilterDisplayLabel?.(filterId) ?? filterId.replace(/_(\w)/, ' $1'),
+				get tooltip() {
+					const count = filtersOptions[filterId]?.length ?? 0;
+					return count >= AUDIT_LOG_FILTER_OPTIONS_LIMIT
+						? `Showing first ${AUDIT_LOG_FILTER_OPTIONS_LIMIT} results`
+						: undefined;
+				},
 				get selected() {
 					return filters?.[filterId];
 				},

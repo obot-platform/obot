@@ -850,7 +850,7 @@ export async function listAuditLogUsageStats(
 	return response;
 }
 
-const AUDIT_LOG_FILTER_OPTIONS_LIMIT = 1000;
+export const AUDIT_LOG_FILTER_OPTIONS_LIMIT = 1000;
 
 export async function listAuditLogFilterOptions(
 	filterId: string,
