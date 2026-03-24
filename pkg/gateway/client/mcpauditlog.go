@@ -34,6 +34,9 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 	responseOnlyLogs := make([]types.MCPAuditLog, 0, len(logs)/2)
 
 	for _, log := range logs {
+		// Convert timestamp to UTC for consistency
+		log.CreatedAt = log.CreatedAt.UTC()
+
 		if !log.ResponseReceived {
 			// Request-only logs
 			toInsert = append(toInsert, log)
@@ -223,10 +226,10 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 		db = db.Where("processing_time_ms <= ?", opts.ProcessingTimeMax)
 	}
 	if !opts.StartTime.IsZero() {
-		db = db.Where("created_at >= ?", opts.StartTime.Local())
+		db = db.Where("created_at >= ?", opts.StartTime.UTC())
 	}
 	if !opts.EndTime.IsZero() {
-		db = db.Where("created_at < ?", opts.EndTime.Local())
+		db = db.Where("created_at < ?", opts.EndTime.UTC())
 	}
 
 	// Get the total before applying the limit
@@ -378,10 +381,10 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 		db = db.Where(strings.Join(conditions, " OR "), args...)
 	}
 	if !opts.StartTime.IsZero() {
-		db = db.Where("created_at >= ?", opts.StartTime.Local())
+		db = db.Where("created_at >= ?", opts.StartTime.UTC())
 	}
 	if !opts.EndTime.IsZero() {
-		db = db.Where("created_at < ?", opts.EndTime.Local())
+		db = db.Where("created_at < ?", opts.EndTime.UTC())
 	}
 
 	var result []string
