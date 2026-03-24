@@ -102,11 +102,23 @@ func TestRunAuditLogCleanup(t *testing.T) {
 
 	go c.runAuditLogCleanup(ctx, 90)
 
-	// Wait for at least two ticks to confirm the loop keeps running
-	time.Sleep(200 * time.Millisecond)
+	// Wait until the cleanup has deleted old logs, or time out.
+	deadline := time.Now().Add(2 * time.Second)
+	var got int64
+	for {
+		got = countAuditLogs(t, c)
+		if got == 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for audit log cleanup, got %d logs", got)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
 	cancel()
 
-	if got := countAuditLogs(t, c); got != 1 {
+	if got != 1 {
 		t.Errorf("expected 1 audit log after cleanup loop, got %d", got)
 	}
 }

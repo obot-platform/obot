@@ -57,7 +57,7 @@
 				get tooltip() {
 					const count = filtersOptions[filterId]?.length ?? 0;
 					return count >= AUDIT_LOG_FILTER_OPTIONS_LIMIT
-						? `Showing first ${AUDIT_LOG_FILTER_OPTIONS_LIMIT} results`
+						? `Showing up to ${AUDIT_LOG_FILTER_OPTIONS_LIMIT} results`
 						: undefined;
 				},
 				get selected() {
@@ -86,7 +86,11 @@
 
 	$effect(() => {
 		const processLog = async (filterId: keyof AuditLogURLFilters) => {
-			const response = await endpoint(filterId, { ...filters });
+			// Exclude the current filterId from the filters sent to the endpoint,
+			// so the backend can return all distinct values for this field
+			// given the *other* active filters.
+			const { [filterId]: _omit, ...otherFilters } = filters ?? {};
+			const response = await endpoint(filterId, otherFilters);
 
 			if (['user_id', 'user_ids'].includes(filterId)) {
 				return (

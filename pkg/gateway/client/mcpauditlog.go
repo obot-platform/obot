@@ -392,7 +392,8 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 		db = db.Where(option+" NOT IN ?", exclude)
 	}
 	if opts.Limit > 0 {
-		db = db.Limit(opts.Limit)
+		// Ensure deterministic subset when using DISTINCT + LIMIT by ordering on the same option
+		db = db.Order(option).Limit(opts.Limit)
 	}
 	return result, db.Select(option).Scan(&result).Error
 }
