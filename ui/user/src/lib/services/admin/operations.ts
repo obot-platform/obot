@@ -850,8 +850,16 @@ export async function listAuditLogUsageStats(
 	return response;
 }
 
-export async function listAuditLogFilterOptions(filterId: string, opts?: { fetch?: Fetcher }) {
-	const response = (await doGet(`/mcp-audit-logs/filter-options/${filterId}`, opts)) as {
+export async function listAuditLogFilterOptions(
+	filterId: string,
+	opts?: { fetch?: Fetcher; start_time?: string; end_time?: string }
+) {
+	const { fetch: fetchFn, ...filters } = opts ?? {};
+	const queryString = buildQueryString(filters);
+	const response = (await doGet(
+		`/mcp-audit-logs/filter-options/${filterId}${queryString ? `?${queryString}` : ''}`,
+		{ fetch: fetchFn }
+	)) as {
 		options: string[];
 	};
 	return response;

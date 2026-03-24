@@ -734,18 +734,31 @@
 			{getFilterDisplayLabel}
 			getDefaultValue={(filter) => defaultSearchParams[filter]}
 			endpoint={async (filterId: string, ...args) => {
+				const timeFilters = {
+					start_time: timeRangeFilters.startTime.toISOString(),
+					end_time: timeRangeFilters.endTime?.toISOString()
+				};
 				if (filterId !== 'mcp_id') {
-					return await AdminService.listAuditLogFilterOptions(filterId, ...args);
+					return await AdminService.listAuditLogFilterOptions(filterId, {
+						...args[0],
+						...timeFilters
+					});
 				}
 
 				if (mcpId) {
-					const response = await AdminService.listAuditLogFilterOptions(filterId, ...args);
+					const response = await AdminService.listAuditLogFilterOptions(filterId, {
+						...args[0],
+						...timeFilters
+					});
 
 					return { options: response?.options.filter((option) => option.endsWith(mcpId)) ?? [] };
 				}
 
 				if (!id || !mcpServerCatalogEntryName) {
-					return await AdminService.listAuditLogFilterOptions(filterId, ...args);
+					return await AdminService.listAuditLogFilterOptions(filterId, {
+						...args[0],
+						...timeFilters
+					});
 				}
 
 				const items =
