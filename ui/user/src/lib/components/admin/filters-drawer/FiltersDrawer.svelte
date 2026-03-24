@@ -79,7 +79,7 @@
 
 	$effect(() => {
 		const processLog = async (filterId: keyof AuditLogURLFilters) => {
-			const response = await endpoint(filterId);
+			const response = await endpoint(filterId, { ...filters });
 
 			if (['user_id', 'user_ids'].includes(filterId)) {
 				return (

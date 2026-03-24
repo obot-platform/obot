@@ -852,7 +852,7 @@ export async function listAuditLogUsageStats(
 
 export async function listAuditLogFilterOptions(
 	filterId: string,
-	opts?: { fetch?: Fetcher; start_time?: string; end_time?: string }
+	opts?: { fetch?: Fetcher } & Partial<AuditLogURLFilters>
 ) {
 	const { fetch: fetchFn, ...filters } = opts ?? {};
 	const queryString = buildQueryString(filters);
