@@ -58,7 +58,7 @@ func (c *Client) runAuditLogCleanup(ctx context.Context, retentionDays int) {
 		return
 	}
 
-	err := c.deleteOldAuditLogs(ctx, retentionDays)
+	err := c.deleteOldAuditLogs(ctx, time.Now().UTC(), retentionDays)
 	if err != nil && !errors.Is(err, context.Canceled) {
 		log.Errorf("Failed to delete old audit logs: %v", err)
 	}
@@ -71,7 +71,7 @@ func (c *Client) runAuditLogCleanup(ctx context.Context, retentionDays int) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			err = c.deleteOldAuditLogs(ctx, retentionDays)
+			err = c.deleteOldAuditLogs(ctx, time.Now().UTC(), retentionDays)
 			if err != nil && !errors.Is(err, context.Canceled) {
 				log.Errorf("Failed to delete old audit logs: %v", err)
 			}
@@ -79,7 +79,7 @@ func (c *Client) runAuditLogCleanup(ctx context.Context, retentionDays int) {
 	}
 }
 
-func (c *Client) deleteOldAuditLogs(ctx context.Context, retentionDays int) error {
+func (c *Client) deleteOldAuditLogs(ctx context.Context, now time.Time, retentionDays int) error {
 	if retentionDays <= 0 {
 		return nil
 	}
@@ -87,8 +87,8 @@ func (c *Client) deleteOldAuditLogs(ctx context.Context, retentionDays int) erro
 		return ctx.Err()
 	}
 
-	cutoff := time.Now().UTC().AddDate(0, 0, -retentionDays)
-	return c.db.WithContext(ctx).Where("created_at < ?", cutoff).Delete(&types.MCPAuditLog{}).Error
+	cutoff := now.AddDate(0, 0, -retentionDays)
+	return c.db.WithContext(ctx).Where("created_at <= ?", cutoff).Delete(&types.MCPAuditLog{}).Error
 }
 
 func (c *Client) persistAuditLogs() error {

@@ -58,12 +58,12 @@ func TestDeleteOldAuditLogs(t *testing.T) {
 	now := time.Now().UTC()
 	insertAuditLog(t, c, now.AddDate(0, 0, -100)) // old - should be deleted
 	insertAuditLog(t, c, now.AddDate(0, 0, -91))  // old - should be deleted
-	insertAuditLog(t, c, now.AddDate(0, 0, -90))  // exactly at boundary - should be deleted
+	insertAuditLog(t, c, now.AddDate(0, 0, -90))  // exactly at boundary - should be deleted (90 days old = at retention limit)
 	insertAuditLog(t, c, now.AddDate(0, 0, -89))  // recent - should be kept
 	insertAuditLog(t, c, now.AddDate(0, 0, -1))   // recent - should be kept
 	insertAuditLog(t, c, now)                     // recent - should be kept
 
-	if err := c.deleteOldAuditLogs(ctx, 90); err != nil {
+	if err := c.deleteOldAuditLogs(ctx, now, 90); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -81,7 +81,7 @@ func TestDeleteOldAuditLogsDisabled(t *testing.T) {
 	insertAuditLog(t, c, now.AddDate(0, 0, -100))
 
 	// retentionDays=0 should be a no-op
-	if err := c.deleteOldAuditLogs(ctx, 0); err != nil {
+	if err := c.deleteOldAuditLogs(ctx, now, 0); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
