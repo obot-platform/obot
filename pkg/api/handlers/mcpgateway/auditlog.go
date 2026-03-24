@@ -422,6 +422,12 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 		return types.NewErrBadRequest("invalid option: %s", filter)
 	}
 
+	if limitStr := query.Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			opts.Limit = l
+		}
+	}
+
 	options, err := req.GatewayClient.GetAuditLogFilterOptions(req.Context(), filter, opts, exclude)
 	if err != nil {
 		return err

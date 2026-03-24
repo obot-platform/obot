@@ -328,7 +328,7 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, opts MCPAuditLogOptions, exclude ...any) ([]string, error) {
 	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Distinct(option)
 
-	// Apply the same filters as GetMCPAuditLogs (excluding sorting, limit, offset)
+	// Apply the same filters as GetMCPAuditLogs (excluding sorting, offset)
 	if len(opts.UserID) > 0 {
 		db = db.Where("user_id IN (?)", opts.UserID)
 	}
@@ -390,6 +390,9 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 	var result []string
 	if len(exclude) != 0 {
 		db = db.Where(option+" NOT IN ?", exclude)
+	}
+	if opts.Limit > 0 {
+		db = db.Limit(opts.Limit)
 	}
 	return result, db.Select(option).Scan(&result).Error
 }
