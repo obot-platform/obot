@@ -544,11 +544,15 @@
 				// Also check for sticky descendants within the sibling
 				const stickyDescendants = sibling.querySelectorAll('*');
 				for (const desc of stickyDescendants) {
+					const el = desc as HTMLElement;
+					const otherTableRoot = el.closest('[data-table-root]');
+					if (otherTableRoot && otherTableRoot !== wrapper) continue;
+
 					const descStyle = getComputedStyle(desc);
 					if (descStyle.position === 'sticky') {
 						const top = parseFloat(descStyle.top) || 0;
 						if (top >= 0 && top < 200) {
-							maxStickyBottom = Math.max(maxStickyBottom, top + (desc as HTMLElement).offsetHeight);
+							maxStickyBottom = Math.max(maxStickyBottom, top + el.offsetHeight);
 						}
 					}
 				}
@@ -581,7 +585,7 @@
 	});
 </script>
 
-<div bind:this={wrapperRef}>
+<div bind:this={wrapperRef} data-table-root>
 	<div
 		class={twMerge('dark:bg-surface1 bg-surface2 sticky left-0 z-40 w-full', classes?.thead)}
 		style="top: {stickyTop}px;"

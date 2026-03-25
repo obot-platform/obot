@@ -80,8 +80,12 @@
 			}
 		}}
 		onSelect={(_option, value) => {
-			if (typeof value === 'string') {
-				const selectedFieldIds = value.split(',').filter(Boolean);
+			if (typeof value !== 'string') return;
+			const selectedFieldIds = value.split(',').filter(Boolean);
+
+			if (selectedFieldIds.length === 0) {
+				onReset?.();
+			} else {
 				handleVisibilityChange(selectedFieldIds);
 			}
 		}}
