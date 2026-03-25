@@ -1,12 +1,16 @@
 import popover from '$lib/actions/popover.svelte';
+import SnippetComponent from '$lib/components/primitives/Snippet.svelte';
 import type { Placement } from '@floating-ui/dom';
+import { mount, unmount, type Snippet } from 'svelte';
 
 const DEFAULT_LAYOUT_CLASSES = ['max-w-64', 'break-words', 'whitespace-pre-wrap'] as const;
 
 export type TooltipVariant = 'default' | 'daisy';
 
 export interface TooltipOptions {
-	text: string;
+	text?: string;
+	snippet?: Snippet;
+	interactive?: boolean;
 	disablePortal?: boolean;
 	classes?: string[];
 	placement?: Placement;
@@ -34,9 +38,21 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 	let tt: ReturnType<typeof popover> | null = null;
 	let portalRoot: HTMLElement | null = null;
 	let isEnabled = false;
+	let snippetMount: ReturnType<typeof mount> | null = null;
+	let popoverTooltipParams: { update: (p?: Record<string, unknown>) => void } | null = null;
+
+	function capturePopoverTooltipHandle(ret: unknown) {
+		popoverTooltipParams =
+			ret && typeof ret === 'object' && 'update' in ret
+				? (ret as { update: (p?: Record<string, unknown>) => void })
+				: null;
+	}
 
 	const hasText = (opts: TooltipOptions | string | undefined) => {
-		return typeof opts === 'string' ? opts.trim() !== '' : !!opts?.text?.trim();
+		if (typeof opts === 'string') return opts.trim() !== '';
+		if (!opts) return false;
+		if (opts.snippet) return true;
+		return !!opts.text?.trim();
 	};
 
 	function applyLookClasses(el: HTMLElement, o: TooltipOptions | string | undefined) {
@@ -67,7 +83,7 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 
 	function buildDaisyPortal(): HTMLElement {
 		const host = document.createElement('div');
-		const bubble = document.createElement('span');
+		const bubble = document.createElement('div');
 		const caret = document.createElement('span');
 		bubble.className = 'tooltip-portal-daisy-host__bubble';
 		caret.className = 'tooltip-portal-daisy-host__caret';
@@ -94,7 +110,7 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 			applyLookClasses(portalRoot, init);
 			if (typeof init === 'object') syncDaisyPortal(node, portalRoot, init);
 		} else {
-			portalRoot = document.createElement('p');
+			portalRoot = document.createElement('div');
 			portalRoot.classList.add('hidden');
 			applyLookClasses(portalRoot, init);
 		}
@@ -106,17 +122,29 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 		}
 
 		tt.ref(node);
-		tt.tooltip(portalRoot, {
-			hover: true,
-			disablePortal: typeof init === 'object' ? init.disablePortal : false,
-			enterTransition: isDaisyVariant(init) ? 'daisy' : undefined
-		});
+		capturePopoverTooltipHandle(
+			tt.tooltip(portalRoot, {
+				hover: true,
+				disablePortal: typeof init === 'object' ? init.disablePortal : false,
+				interactiveHover: typeof init === 'object' ? !!init.interactive : false,
+				enterTransition: isDaisyVariant(init) ? 'daisy' : undefined
+			})
+		);
 
 		isEnabled = true;
 	};
 
+	const clearSnippetMount = () => {
+		if (snippetMount) {
+			unmount(snippetMount);
+			snippetMount = null;
+		}
+	};
+
 	const disable = () => {
 		if (!isEnabled) return;
+		clearSnippetMount();
+		popoverTooltipParams = null;
 		portalRoot?.remove();
 		portalRoot = null;
 		tt = null;
@@ -125,8 +153,19 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 
 	const updateContent = (o: TooltipOptions | string | undefined) => {
 		if (!portalRoot) return;
-		const text = typeof o === 'string' ? o : (o?.text ?? '');
 		const bubble = portalRoot.querySelector('.tooltip-portal-daisy-host__bubble');
+		if (typeof o === 'object' && o?.snippet) {
+			clearSnippetMount();
+			const target = (bubble ?? portalRoot) as HTMLElement;
+			target.replaceChildren();
+			snippetMount = mount(SnippetComponent, {
+				target,
+				props: { children: o.snippet }
+			});
+			return;
+		}
+		clearSnippetMount();
+		const text = typeof o === 'string' ? o : (o?.text ?? '');
 		if (bubble) {
 			bubble.textContent = text;
 		} else {
@@ -160,6 +199,13 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 			applyLookClasses(portalRoot, o);
 		} else if (portalRoot) {
 			applyLookClasses(portalRoot, o);
+		}
+
+		if (typeof o === 'object') {
+			popoverTooltipParams?.update({
+				disablePortal: o.disablePortal,
+				interactiveHover: !!o.interactive
+			});
 		}
 
 		updateContent(o);

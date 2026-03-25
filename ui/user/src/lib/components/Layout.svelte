@@ -43,7 +43,9 @@
 		BotMessageSquare,
 		Coins,
 		PencilRuler,
-		Vault
+		Vault,
+		LockOpen,
+		CircleQuestionMark
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -65,6 +67,8 @@
 		disabled?: boolean;
 		collapsible?: boolean;
 		items?: NavLink[];
+		noteIcon?: Component | typeof CircleQuestionMark;
+		note?: Snippet;
 	};
 
 	interface Props {
@@ -318,8 +322,10 @@
 						id: 'user-management',
 						icon: Users,
 						label: 'User Management',
-						disabled: false,
+						disabled: !version.current.authEnabled,
 						collapsible: true,
+						noteIcon: !version.current.authEnabled ? LockOpen : undefined,
+						note: !version.current.authEnabled ? renderAuthDisabledNote : undefined,
 						items: [
 							{
 								id: 'users',
@@ -459,10 +465,6 @@
 					]
 	);
 
-	const tooltips = {
-		'/admin/auth-providers': 'Enable authentication to access this page.'
-	};
-
 	$effect(() => {
 		if (responsive.isMobile) {
 			layout.sidebarOpen = false;
@@ -534,8 +536,11 @@
 											{link.label}
 										</div>
 									{/if}
-									{#if !version.current.authEnabled && tooltips[link.href as keyof typeof tooltips]}
-										<InfoTooltip text={tooltips[link.href as keyof typeof tooltips]} />
+
+									{#if link.noteIcon && link.note}
+										<InfoTooltip icon={link.noteIcon} interactive>
+											{@render link.note()}
+										</InfoTooltip>
 									{/if}
 								</div>
 								{#if link.collapsible}
@@ -730,6 +735,19 @@
 		>
 			{title}
 		</h1>
+	{/if}
+{/snippet}
+
+{#snippet renderAuthDisabledNote()}
+	{#if !version.current.authEnabled}
+		<p class="mt-1 text-sm">
+			Obot is running with authentication disabled. Click <a
+				href="https://docs.obot.ai/installation/enabling-authentication/"
+				rel="external noopener noreferrer"
+				target="_blank"
+				class="text-link">here</a
+			> for details.
+		</p>
 	{/if}
 {/snippet}
 
