@@ -84,12 +84,19 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 
+	deletedServers := 0
 	for _, server := range servers.Items {
+		// Skip multi-user servers in the default MCPCatalog — they should persist after user deletion.
+		// Servers in a PowerUserWorkspace should still be deleted.
+		if server.Spec.MCPCatalogID == system.DefaultCatalog && server.Spec.PowerUserWorkspaceID == "" {
+			continue
+		}
 		if err := kclient.IgnoreNotFound(req.Delete(&server)); err != nil {
 			return err
 		}
+		deletedServers++
 	}
-	log.Infof("Deleted MCP servers during user cleanup: userID=%s servers=%d", userID, len(servers.Items))
+	log.Infof("Deleted MCP servers during user cleanup: userID=%s servers=%d (skipped=%d)", userID, deletedServers, len(servers.Items)-deletedServers)
 
 	// DeleteRefs should handle cleaning up most of the user's MCPServerInstances.
 	// But there still might be MCPServerInstances pointing to multi-user servers that we need to delete.
