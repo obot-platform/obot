@@ -100,6 +100,7 @@ func parseAuditLogOpts(query url.Values) gateway.MCPAuditLogOptions {
 		ClientIP:                  parseMultiValueParam(query, "client_ip"),
 		SortBy:                    query.Get("sort_by"),
 		SortOrder:                 query.Get("sort_order"),
+		Query:                     strings.TrimSpace(query.Get("query")),
 	}
 
 	if startTime := query.Get("start_time"); startTime != "" {
@@ -123,6 +124,18 @@ func parseAuditLogOpts(query url.Values) gateway.MCPAuditLogOptions {
 	if offsetStr := query.Get("offset"); offsetStr != "" {
 		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
 			opts.Offset = o
+		}
+	}
+
+	if processingTimeMin := query.Get("processing_time_min"); processingTimeMin != "" {
+		if minVal, err := strconv.ParseInt(processingTimeMin, 10, 64); err == nil && minVal >= 0 {
+			opts.ProcessingTimeMin = minVal
+		}
+	}
+
+	if processingTimeMax := query.Get("processing_time_max"); processingTimeMax != "" {
+		if maxVal, err := strconv.ParseInt(processingTimeMax, 10, 64); err == nil && maxVal >= 0 {
+			opts.ProcessingTimeMax = maxVal
 		}
 	}
 
@@ -218,7 +231,6 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	if opts.Limit == 0 {
 		opts.Limit = 100
 	}
-	opts.Query = strings.TrimSpace(query.Get("query"))
 
 	// Apply scope filtering based on user role
 	if !req.UserIsAdmin() && !req.UserIsAuditor() {
@@ -248,19 +260,6 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	// Handle path parameter for mcp_id (takes precedence over query parameter)
 	if pathMcpID := req.PathValue("mcp_id"); pathMcpID != "" {
 		opts.MCPID = []string{pathMcpID}
-	}
-
-	// Parse processing time range
-	if processingTimeMin := query.Get("processing_time_min"); processingTimeMin != "" {
-		if minVal, err := strconv.ParseInt(processingTimeMin, 10, 64); err == nil && minVal >= 0 {
-			opts.ProcessingTimeMin = minVal
-		}
-	}
-
-	if processingTimeMax := query.Get("processing_time_max"); processingTimeMax != "" {
-		if maxVal, err := strconv.ParseInt(processingTimeMax, 10, 64); err == nil && maxVal >= 0 {
-			opts.ProcessingTimeMax = maxVal
-		}
 	}
 
 	// Get audit logs
