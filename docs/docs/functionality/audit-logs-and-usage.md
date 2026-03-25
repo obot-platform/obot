@@ -100,7 +100,7 @@ Navigate to **MCP Management > Usage** in the MCP Platform.
 
 Audit logs may contain sensitive information from MCP requests and responses. Consider:
 
-- **Data retention**: Logs are kept for 90 days by default. See [Server Configuration](/configuration/server-configuration/) to adjust, and [Audit Log Export](/configuration/audit-log-export/) for long-term archival
+- **Data retention**: Configure how long logs are kept (see [Retention](#retention))
 - **Access control**: Limit who can view detailed logs
 - **Export security**: Secure any exported log data
 - **Compliance**: Ensure logging meets regulatory requirements
