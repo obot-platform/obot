@@ -332,7 +332,7 @@
 					bind:catalog={defaultCatalog}
 					readonly={isAdminReadonly}
 					{usersMap}
-					query={localStorageViewQuery.current?.['registry'] || ''}
+					{query}
 					{urlFilters}
 					onFilter={handleFilter}
 					onClearAllFilters={handleClearAllFilters}
@@ -352,7 +352,7 @@
 				<SourceUrlsView
 					catalog={defaultCatalog}
 					readonly={isAdminReadonly}
-					query={localStorageViewQuery.current?.['urls'] || ''}
+					{query}
 					{syncing}
 					onSync={sync}
 				/>
@@ -361,7 +361,7 @@
 					id={defaultCatalogId}
 					readonly={isAdminReadonly}
 					{usersMap}
-					query={localStorageViewQuery.current?.['deployments'] || ''}
+					{query}
 					{urlFilters}
 					onFilter={handleFilter}
 					onClearAllFilters={handleClearAllFilters}

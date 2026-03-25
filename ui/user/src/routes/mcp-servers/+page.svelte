@@ -88,6 +88,10 @@
 	let urlFilters = $state(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort());
 
+	let registrySearchQuery = $derived(
+		page.url.searchParams.get('query') || localStorageViewQuery.current?.registry || ''
+	);
+
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	onMount(async () => {
@@ -174,7 +178,7 @@
 			<div class="mb-2">
 				<Search
 					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
-					value={localStorageViewQuery.current?.registry || ''}
+					value={registrySearchQuery}
 					onChange={updateSearchQuery}
 					placeholder="Search servers..."
 				/>
@@ -184,7 +188,7 @@
 			<ConnectorsView
 				id={workspaceId}
 				entity="workspace"
-				query={localStorageViewQuery.current?.['registry'] || ''}
+				query={registrySearchQuery}
 				{urlFilters}
 				onFilter={handleFilter}
 				onClearAllFilters={handleClearAllFilters}
