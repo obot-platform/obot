@@ -733,21 +733,21 @@
 			getUserDisplayName={(...args) => getUserDisplayName(users, ...args)}
 			{getFilterDisplayLabel}
 			getDefaultValue={(filter) => defaultSearchParams[filter]}
-			endpoint={async (filterId: string, ...args) => {
+			endpoint={async (filterId: string, opts) => {
 				const timeFilters = {
 					start_time: timeRangeFilters.startTime.toISOString(),
 					end_time: timeRangeFilters.endTime?.toISOString()
 				};
 				if (filterId !== 'mcp_id') {
 					return await AdminService.listAuditLogFilterOptions(filterId, {
-						...args[0],
+						...opts,
 						...timeFilters
 					});
 				}
 
 				if (mcpId) {
 					const response = await AdminService.listAuditLogFilterOptions(filterId, {
-						...args[0],
+						...opts,
 						...timeFilters
 					});
 
@@ -756,7 +756,7 @@
 
 				if (!id || !mcpServerCatalogEntryName) {
 					return await AdminService.listAuditLogFilterOptions(filterId, {
-						...args[0],
+						...opts,
 						...timeFilters
 					});
 				}
