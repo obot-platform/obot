@@ -1,6 +1,13 @@
 <script lang="ts">
 	import '../app.css';
-	import { darkMode, profile, appPreferences, version, mcpServersAndEntries } from '$lib/stores';
+	import {
+		darkMode,
+		profile,
+		appPreferences,
+		version,
+		mcpServersAndEntries,
+		defaultModelAliases
+	} from '$lib/stores';
 	import { untrack } from 'svelte';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
@@ -31,6 +38,10 @@
 
 		if (data.version) {
 			version.initialize(data.version);
+		}
+
+		if (data.defaultModelAliases) {
+			untrack(() => defaultModelAliases.initialize(data.defaultModelAliases));
 		}
 	});
 

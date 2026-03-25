@@ -8,7 +8,8 @@ import {
 	type CompositeRuntimeConfig,
 	type Task,
 	type ToolOverride,
-	type Schedule
+	type Schedule,
+	ModelAlias
 } from '../chat/types';
 
 export interface MCPCatalogManifest {
@@ -279,20 +280,10 @@ export const ModelUsageLabels = {
 	[ModelUsage.Unknown]: 'Unknown'
 } as const;
 
-export const ModelAlias = {
-	Llm: 'llm',
-	LlmMini: 'llm-mini',
-	TextEmbedding: 'text-embedding',
-	ImageGeneration: 'image-generation',
-	Vision: 'vision'
-} as const;
-
 export const NanobotModelAlias = {
 	Llm: 'llm',
 	LlmMini: 'llm-mini'
 } as const;
-
-export type ModelAlias = (typeof ModelAlias)[keyof typeof ModelAlias];
 
 export const ModelAliasLabels = {
 	[ModelAlias.Llm]: 'Language Model (Chat)',
@@ -309,11 +300,6 @@ export const ModelAliasToUsageMap = {
 	[ModelAlias.ImageGeneration]: ModelUsage.ImageGeneration,
 	[ModelAlias.Vision]: ModelUsage.Vision
 } as const;
-
-export interface DefaultModelAlias {
-	alias: ModelAlias;
-	model: string;
-}
 
 export interface AccessControlRuleResource {
 	type: 'mcpServerCatalogEntry' | 'mcpServer' | 'selector';

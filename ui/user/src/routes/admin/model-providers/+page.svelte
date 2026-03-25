@@ -18,7 +18,7 @@
 	import { AlertTriangle } from 'lucide-svelte';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { profile } from '$lib/stores/index.js';
-	import { version } from '$lib/stores';
+	import { version, defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 
 	let { data } = $props();
 	let modelProviders = $state(untrack(() => data.modelProviders));
@@ -43,6 +43,7 @@
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let isLegacyDisabled = $derived(version.current.disableLegacyChat);
 	const nanobotIntegratedModels = [CommonModelProviderIds.OPENAI, CommonModelProviderIds.ANTHROPIC];
+	const defaultModelAliases = $derived(defaultModelAliasesStore.current);
 
 	initModels([]);
 	const adminModels = getAdminModels();
@@ -111,7 +112,9 @@
 				providerConfigure?.close();
 				if (!isAlreadyConfigured) {
 					// if first time configuring, open the default models dialog
-					defaultModelsDialog?.open(true);
+					const required =
+						defaultModelAliases.length === 0 || defaultModelAliases.every((alias) => !alias.model);
+					defaultModelsDialog?.open(required);
 				}
 			} catch (err: unknown) {
 				if (err instanceof Error) {

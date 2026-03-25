@@ -945,3 +945,17 @@ export interface DebugRun {
 }
 
 export type LaunchServerType = 'single' | 'multi' | 'remote' | 'composite';
+
+export const ModelAlias = {
+	Llm: 'llm',
+	LlmMini: 'llm-mini',
+	TextEmbedding: 'text-embedding',
+	ImageGeneration: 'image-generation',
+	Vision: 'vision'
+} as const;
+
+export type ModelAlias = (typeof ModelAlias)[keyof typeof ModelAlias];
+export interface DefaultModelAlias {
+	alias: ModelAlias;
+	model: string;
+}

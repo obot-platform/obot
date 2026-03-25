@@ -3,14 +3,14 @@
 	import Search from '../Search.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import { ModelUsageLabels, type ModelUsage, ModelAliasLabels } from '$lib/services/admin/types';
 	import {
-		ModelUsageLabels,
-		type ModelUsage,
+		AdminService,
+		type Model,
+		type ModelProvider,
 		ModelAlias,
-		ModelAliasLabels,
 		type DefaultModelAlias
-	} from '$lib/services/admin/types';
-	import { AdminService, type Model, type ModelProvider } from '$lib/services';
+	} from '$lib/services';
 	import { sortModelProviders } from '$lib/sort';
 	import Logo from '../Logo.svelte';
 	import { onMount } from 'svelte';

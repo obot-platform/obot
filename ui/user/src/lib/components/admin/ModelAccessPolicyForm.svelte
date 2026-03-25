@@ -10,11 +10,9 @@
 		type OrgGroup,
 		ModelUsage,
 		ModelUsageLabels,
-		ModelAlias,
-		ModelAliasLabels,
-		type DefaultModelAlias
+		ModelAliasLabels
 	} from '$lib/services/admin/types';
-	import type { Model } from '$lib/services/chat/types';
+	import type { Model, ModelAlias } from '$lib/services/chat/types';
 	import { LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -25,6 +23,7 @@
 	import { goto } from '$lib/url';
 	import SearchModels from './SearchModels.svelte';
 	import { getUserDisplayName } from '$lib/utils';
+	import { defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 
 	interface Props {
 		modelAccessPolicy?: ModelAccessPolicy;
@@ -57,7 +56,7 @@
 	let usersAndGroups = $state<{ users: OrgUser[]; groups: OrgGroup[] }>();
 	let loadingUsersAndGroups = $state(false);
 	let models = $state<Model[]>([]);
-	let defaultModelAliases = $state<DefaultModelAlias[]>([]);
+	let defaultModelAliases = $derived(defaultModelAliasesStore.current);
 	let loadingModels = $state(true);
 
 	let addUserGroupDialog = $state<ReturnType<typeof SearchUsers>>();
@@ -83,13 +82,9 @@
 	);
 
 	onMount(async () => {
-		const [fetchedModels, fetchedAliases] = await Promise.all([
-			AdminService.listModels({ all: true }),
-			AdminService.listDefaultModelAliases()
-		]);
+		const fetchedModels = await AdminService.listModels({ all: true });
 
 		models = fetchedModels;
-		defaultModelAliases = fetchedAliases;
 		loadingModels = false;
 	});
 
