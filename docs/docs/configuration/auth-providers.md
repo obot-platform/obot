@@ -266,13 +266,12 @@ resource "okta_app_oauth_role_assignment" "obot_api" {
 }
 
 output "obot" {
-  description = "This variable contains Client ID and secret for both OAuth applications created in Okta"
+  description = "This variable contains Client IDs and secret for the OAuth applications created in Okta"
   sensitive = true
   value = {
     obot_client_id       = okta_app_oauth.obot.client_id
     obot_client_secret   = okta_app_oauth.obot.client_secret
     obot_api_client_id   = okta_app_oauth.obot_api.client_id
-    obot_api_private_key = tls_private_key.obot_api.private_key_pem
   }
 }
 ```
