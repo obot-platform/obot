@@ -740,6 +740,7 @@
 													reload();
 												}
 											};
+											toggle(false);
 										}}
 										use:tooltip={d.compositeName
 											? {
@@ -769,6 +770,7 @@
 											existingServer = d;
 											updatedServer = entriesMap[d.catalogEntryID];
 											diffDialog?.open();
+											toggle(false);
 										}}
 									>
 										<GitCompare class="size-4" /> View Diff
@@ -786,6 +788,7 @@
 												type: 'single',
 												server: d
 											};
+											toggle(false);
 										}}
 									>
 										{#if updating[d.id]?.inProgress}
