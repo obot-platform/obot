@@ -157,7 +157,7 @@ in addition to the Client ID for this app. When you are done with that, the `Cli
 
 #### Configuring Okta using terraform
 
-To configure Okta using `terraform`, you can use below example code
+To configure Okta using Terraform, you can use the example code below.
 
 ```terraform
 
