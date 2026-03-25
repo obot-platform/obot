@@ -2,7 +2,7 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
 	import { afterNavigate } from '$app/navigation';
-	import { FolderInput, Play, Search, Trash2, Workflow } from 'lucide-svelte';
+	import { CircleAlert, FolderInput, Play, Search, Trash2, Workflow } from 'lucide-svelte';
 	import { getContext } from 'svelte';
 	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
@@ -47,6 +47,8 @@
 		| undefined
 	>();
 	let deleting = $state(false);
+	let showReviewOrphanedWorkflows = $state(false);
+	let deletingOrphanedWorkflows = $state(false);
 
 	let workflows = $derived(
 		$nanobotChat?.resources
@@ -70,10 +72,15 @@
 			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()),
 		myPublishedWorkflows: publishedWorkflows
 			.filter((w) => w.authorID === profile.current.id)
+			.map((w) => ({
+				...w,
+				orphaned: !workflowSet.has(w.name)
+			}))
 			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
 	});
 	let recentlySharedToMe = $derived(sharedWorkflows.slice(0, 3));
 	let showingSearchResults = $derived(workflowQuery.trim().length > 0);
+	let orphanedWorkflows = $derived(myPublishedWorkflows.filter((w) => w.orphaned));
 
 	let tableData = $derived.by(() => {
 		const myPublishedMap = new Map<string, PublishedArtifact>(
@@ -346,6 +353,22 @@
 
 		<div class="divider my-0"></div>
 	{/if}
+
+	{#if orphanedWorkflows.length > 0}
+		<button
+			class="alert alert-warning alert-soft hover:bg-warning/20 transition-colors"
+			onclick={() => (showReviewOrphanedWorkflows = true)}
+		>
+			<div class="flex items-center gap-2">
+				<CircleAlert class="size-4" />
+				<span>
+					{orphanedWorkflows.length > 1 ? 'Some workflows were' : 'A workflow was'} shared then deleted
+					but was not properly cleaned up. Click here to address the issue.
+				</span>
+			</div>
+		</button>
+	{/if}
+
 	<div class="flex flex-col gap-1">
 		<div role="tablist" class="tabs tabs-box">
 			<button
@@ -645,6 +668,42 @@
 		}}
 	/>
 {/if}
+
+<Confirm
+	msg="Clean up orphaned shared workflows?"
+	title="Confirm Cleanup"
+	show={showReviewOrphanedWorkflows}
+	loading={deletingOrphanedWorkflows}
+	onsuccess={async () => {
+		deletingOrphanedWorkflows = true;
+		try {
+			for (const workflow of orphanedWorkflows) {
+				await NanobotService.deletePublishedArtifact(workflow.id);
+			}
+			publishedWorkflows = await NanobotService.listPublishedWorkflows();
+		} catch (err) {
+			errors.append(`Failed to clean up orphaned workflows: ${err}`);
+		} finally {
+			deletingOrphanedWorkflows = false;
+			showReviewOrphanedWorkflows = false;
+		}
+	}}
+	oncancel={() => {
+		showReviewOrphanedWorkflows = false;
+	}}
+	type="info"
+>
+	{#snippet note()}
+		<p class="max-w-xs text-left text-sm">
+			The following workflows were not properly cleaned up after deletion:
+		</p>
+		<ul class="mt-2 list-inside list-disc">
+			{#each orphanedWorkflows as workflow (workflow.id)}
+				<li>{workflow.displayName}</li>
+			{/each}
+		</ul>
+	{/snippet}
+</Confirm>
 
 <svelte:head>
 	<title>Obot | Workflows</title>
