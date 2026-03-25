@@ -180,27 +180,27 @@ terraform {
 locals {
   obot_domain   = "https://obot.example.com/"
   obot_api_jwks = jsondecode(data.jwks_from_key.obot_api.jwks)
-  okta_domain   = "https://exammple.okta.com"
+  okta_domain   = "https://example.okta.com"
 }
 
 resource "okta_app_oauth" "obot" {
-  accessibility_self_service = "false"
+  accessibility_self_service = false
   app_links_json             = "{\"oidc_client_link\":true}"
   app_settings_json = jsonencode({
     app                = {}
     manualProvisioning = false
   })
-  auto_key_rotation          = "true"
-  auto_submit_toolbar        = "false"
+  auto_key_rotation          = true
+  auto_submit_toolbar        = false
   grant_types                = ["authorization_code"]
-  hide_ios                   = "true"
-  hide_web                   = "false"
-  implicit_assignment        = "false"
+  hide_ios                   = true
+  hide_web                   = false
+  implicit_assignment        = false
   issuer_mode                = "DYNAMIC"
   label                      = "Obot"
   login_mode                 = "SPEC"
   login_uri                  = local.obot_domain
-  pkce_required              = "false"
+  pkce_required              = false
   redirect_uris              = [local.obot_domain]
   response_types             = ["code"]
   status                     = "ACTIVE"
