@@ -733,7 +733,7 @@
 			getUserDisplayName={(...args) => getUserDisplayName(users, ...args)}
 			{getFilterDisplayLabel}
 			getDefaultValue={(filter) => defaultSearchParams[filter]}
-			endpoint={async (filterId: string, opts) => {
+			endpoint={async (filterId: string, opts = {}) => {
 				const timeFilters = {
 					start_time: timeRangeFilters.startTime.toISOString(),
 					end_time: timeRangeFilters.endTime?.toISOString()
