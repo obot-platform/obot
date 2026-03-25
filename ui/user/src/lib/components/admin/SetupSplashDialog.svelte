@@ -7,6 +7,7 @@
 	import { CircleCheckBig, LoaderCircle } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { goto } from '$lib/url';
+	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -65,17 +66,16 @@
 				<p>Before using Obot, you'll need to:</p>
 			{:else}
 				<p class="text-center">
-					You're halfway there! You just need to configure your model provider.
+					You're almost there! You just need to configure your model provider.
 				</p>
 			{/if}
 
 			<ul class="checklist">
-				{#if version.current.authEnabled}
-					{@render renderChecklistItem(
-						'Setup an Authentication Provider',
-						isAuthProviderConfigured
-					)}
-				{/if}
+				{@render renderChecklistItem(
+					'Setup an Authentication Provider',
+					isAuthProviderConfigured,
+					authDisabledNote
+				)}
 				{@render renderChecklistItem('Setup a Model Provider', storeData.modelProviderConfigured)}
 			</ul>
 		{/if}
@@ -135,7 +135,21 @@
 	{/if}
 </ResponsiveDialog>
 
-{#snippet renderChecklistItem(label: string, isChecked: boolean)}
+{#snippet authDisabledNote()}
+	{#if !version.current.authEnabled}
+		<p class="mt-1 text-sm">
+			<span class="text-on-surface1">Auth is disabled.</span>
+			<a
+				href="https://docs.obot.ai/installation/enabling-authentication"
+				rel="external noopener noreferrer"
+				target="_blank"
+				class="text-link">Learn more</a
+			>
+		</p>
+	{/if}
+{/snippet}
+
+{#snippet renderChecklistItem(label: string, isChecked: boolean, note?: Snippet)}
 	<li>
 		<span
 			class={twMerge('flex items-center gap-1', isChecked ? 'text-on-surface1 line-through' : '')}
@@ -145,6 +159,9 @@
 				<CircleCheckBig class="size-5 text-green-500" />
 			{/if}
 		</span>
+		{#if note}
+			{@render note()}
+		{/if}
 	</li>
 {/snippet}
 
