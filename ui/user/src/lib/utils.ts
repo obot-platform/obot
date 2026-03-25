@@ -1,4 +1,4 @@
-import { Role, type OrgUser, Group } from './services';
+import { Role, type OrgUser, Group, type DefaultModelAlias, ModelAlias } from './services';
 import type { FileTimeResult } from './services/nanobot/types';
 import { goto } from './url';
 
@@ -354,3 +354,9 @@ export function formatFileTime(timestamp: unknown): FileTimeResult {
 
 	return { date, formatted };
 }
+
+export const isAgentEnabled = (defaultModelAliases?: DefaultModelAlias[]) =>
+	defaultModelAliases &&
+	defaultModelAliases.length > 0 &&
+	!!defaultModelAliases.find((alias) => alias.alias === ModelAlias.Llm)?.model &&
+	!!defaultModelAliases.find((alias) => alias.alias === ModelAlias.LlmMini)?.model;

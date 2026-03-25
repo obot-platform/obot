@@ -2,7 +2,7 @@
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { profile, responsive, darkMode, errors, defaultModelAliases } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { getUserRoleLabel } from '$lib/utils';
+	import { getUserRoleLabel, isAgentEnabled } from '$lib/utils';
 	import {
 		Book,
 		LogOut,
@@ -15,18 +15,13 @@
 		LayoutDashboard,
 		KeyRound,
 		BotMessageSquare,
-		Power
+		Power,
+		LockOpen
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import {
-		AdminService,
-		ChatService,
-		EditorService,
-		ModelAlias,
-		NanobotService
-	} from '$lib/services';
+	import { AdminService, ChatService, EditorService, NanobotService } from '$lib/services';
 	import { goto } from '$lib/url';
 	import PageLoading from '../PageLoading.svelte';
 	import { resolve } from '$app/paths';
@@ -34,6 +29,7 @@
 	import MyAccount from '../profile/MyAccount.svelte';
 	import Confirm from '../Confirm.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
+	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
 
 	interface Props {
 		agentId?: string;
@@ -59,12 +55,7 @@
 		page.url.pathname.startsWith('/agent') && !!agentId && !!projectId
 	);
 
-	let agentLinkEnabled = $derived(
-		defaultModelAliases.current.length > 0 &&
-			!!defaultModelAliases.current.find(
-				(defaultModelAlias) => defaultModelAlias.alias === ModelAlias.Llm
-			)?.model
-	);
+	let agentLinkEnabled = $derived(isAgentEnabled(defaultModelAliases.current));
 
 	let showRestartAgentConfirm = $state(false);
 	let restartingAgent = $state(false);
@@ -246,8 +237,9 @@
 					{#if !agentLinkEnabled}
 						<InfoTooltip
 							text={profile.current.isAdmin?.()
-								? 'Set up a model provider and default LLM model to access this page.'
-								: 'Agent is currently disabled. Contact your administrator to enable it.'}
+								? ADMIN_AGENT_DISABLED_MESSAGE
+								: USER_AGENT_DISABLED_MESSAGE}
+							icon={LockOpen}
 						/>
 					{/if}
 				</button>

@@ -53,11 +53,13 @@
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
 	import { Render } from './ui/render';
-	import { Group, ModelAlias } from '$lib/services';
+	import { Group } from '$lib/services';
 	import { page } from '$app/state';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { resolve } from '$app/paths';
+	import { isAgentEnabled } from '$lib/utils';
+	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
 
 	type NavLink = {
 		id: string;
@@ -121,12 +123,7 @@
 	let collapsed = $state<Record<string, boolean>>({});
 	let pathname = $derived(page.url.pathname);
 
-	let agentLinkEnabled = $derived(
-		defaultModelAliases.current.length > 0 &&
-			!!defaultModelAliases.current.find(
-				(defaultModelAlias) => defaultModelAlias.alias === ModelAlias.Llm
-			)?.model
-	);
+	let agentLinkEnabled = $derived(isAgentEnabled(defaultModelAliases.current));
 
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
@@ -270,8 +267,10 @@
 											href: '/agent',
 											icon: BotMessageSquare,
 											label: 'Launch Agent',
-											disabled: !agentLinkEnabled,
-											collapsible: false
+											disabled: isBootStrapUser || !agentLinkEnabled,
+											collapsible: false,
+											noteIcon: !agentLinkEnabled ? LockOpen : undefined,
+											note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
 										}
 									]
 								: [])
@@ -573,7 +572,7 @@
 									{#if link.items}
 										<div class="flex flex-col px-7 text-sm font-light">
 											{#each link.items as item (item.href)}
-												<div class="relative">
+												<div class="relative flex items-center gap-2">
 													<div
 														class={twMerge(
 															'bg-surface3 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
@@ -581,7 +580,7 @@
 														)}
 													></div>
 													{#if item.disabled}
-														<div class="sidebar-link">
+														<div class="sidebar-link disabled">
 															<div class="flex items-center gap-1 opacity-50">
 																<item.icon class="size-4" />
 																{item.label}
@@ -604,9 +603,9 @@
 															{item.label}
 														</div>
 													{/if}
-													{#if link.noteIcon && link.note}
-														<InfoTooltip icon={link.noteIcon} interactive>
-															{@render link.note()}
+													{#if item.noteIcon && item.note}
+														<InfoTooltip icon={item.noteIcon} interactive>
+															{@render item.note()}
 														</InfoTooltip>
 													{/if}
 												</div>
@@ -770,9 +769,7 @@
 {#snippet renderAgentDisabledNote()}
 	{#if !agentLinkEnabled}
 		<p class="mt-1 text-sm">
-			{profile.current.isAdmin?.()
-				? 'Set up a model provider and default Language & Language (Fast) models to access this page.'
-				: 'Agent is currently disabled. Contact your administrator to enable it.'}
+			{profile.current.isAdmin?.() ? ADMIN_AGENT_DISABLED_MESSAGE : USER_AGENT_DISABLED_MESSAGE}
 		</p>
 	{/if}
 {/snippet}
