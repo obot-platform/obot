@@ -141,7 +141,7 @@
 			<span class="text-on-surface1">Auth is disabled.</span>
 			<a
 				href="https://docs.obot.ai/installation/enabling-authentication"
-				rel="external"
+				rel="external noopener noreferrer"
 				target="_blank"
 				class="text-link">Learn more</a
 			>

@@ -324,8 +324,8 @@
 						label: 'User Management',
 						disabled: !version.current.authEnabled,
 						collapsible: true,
-						noteIcon: LockOpen,
-						note: renderAuthDisabledNote,
+						noteIcon: !version.current.authEnabled ? LockOpen : undefined,
+						note: !version.current.authEnabled ? renderAuthDisabledNote : undefined,
 						items: [
 							{
 								id: 'users',
@@ -743,7 +743,7 @@
 		<p class="mt-1 text-sm">
 			Obot is running with authentication disabled. Click <a
 				href="https://docs.obot.ai/installation/enabling-authentication/"
-				rel="external"
+				rel="external noopener noreferrer"
 				target="_blank"
 				class="text-link">here</a
 			> for details.

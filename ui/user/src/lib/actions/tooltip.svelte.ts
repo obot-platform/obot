@@ -83,7 +83,7 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 
 	function buildDaisyPortal(): HTMLElement {
 		const host = document.createElement('div');
-		const bubble = document.createElement('span');
+		const bubble = document.createElement('div');
 		const caret = document.createElement('span');
 		bubble.className = 'tooltip-portal-daisy-host__bubble';
 		caret.className = 'tooltip-portal-daisy-host__caret';
