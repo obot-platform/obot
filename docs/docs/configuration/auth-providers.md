@@ -163,7 +163,7 @@ To configure Okta using `terraform`, you can use below example code
 locals {
   obot_domain   = "https://obot.example.com/"
   obot_api_jwks = jsondecode(data.jwks_from_key.obot_api.jwks)
-  okta_domain   = "https://exammple.okta.com"
+  okta_domain   = "https://example.okta.com"
 }
 
 resource "okta_app_oauth" "obot" {
