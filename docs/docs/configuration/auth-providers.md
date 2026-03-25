@@ -205,22 +205,22 @@ data "jwks_from_key" "obot_api" {
 }
 
 resource "okta_app_oauth" "obot_api" {
-  accessibility_self_service = "false"
+  accessibility_self_service = false
   app_links_json             = "{\"oidc_client_link\":true}"
   app_settings_json = jsonencode({
     app                = {}
     manualProvisioning = false
   })
-  auto_key_rotation          = "true"
-  auto_submit_toolbar        = "false"
+  auto_key_rotation          = true
+  auto_submit_toolbar        = false
   grant_types                = ["client_credentials"]
-  hide_ios                   = "true"
-  hide_web                   = "true"
-  implicit_assignment        = "false"
+  hide_ios                   = true
+  hide_web                   = true
+  implicit_assignment        = false
   issuer_mode                = "DYNAMIC"
   label                      = "Obot API"
   login_mode                 = "DISABLED"
-  pkce_required              = "false"
+  pkce_required              = false
   response_types             = ["token"]
   status                     = "ACTIVE"
   token_endpoint_auth_method = "private_key_jwt"
