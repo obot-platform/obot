@@ -89,3 +89,9 @@ export const MCP_PUBLISHER_ALL_OPTION = {
 };
 
 export const TASK_NEW_ID = 'new-task';
+
+export const ADMIN_AGENT_DISABLED_MESSAGE =
+	'Set up a model provider w/ default Language Model & Language Model (Fast) models to access this page.';
+
+export const USER_AGENT_DISABLED_MESSAGE =
+	'Agent is currently disabled. Contact your administrator to enable it.';

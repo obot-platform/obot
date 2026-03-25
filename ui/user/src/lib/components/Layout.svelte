@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { columnResize } from '$lib/actions/resize';
-	import { profile, responsive, version } from '$lib/stores';
+	import { defaultModelAliases, profile, responsive, version } from '$lib/stores';
 	import {
 		initLayout as defaultInitLayout,
 		getLayout as defaultGetLayout,
@@ -58,6 +58,8 @@
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { resolve } from '$app/paths';
+	import { isAgentEnabled } from '$lib/utils';
+	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
 
 	type NavLink = {
 		id: string;
@@ -121,6 +123,8 @@
 	let collapsed = $state<Record<string, boolean>>({});
 	let pathname = $derived(page.url.pathname);
 
+	let agentLinkEnabled = $derived(isAgentEnabled(defaultModelAliases.current));
+
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
@@ -143,9 +147,11 @@
 						id: 'agent-chat',
 						href: '/agent',
 						icon: BotMessageSquare,
-						disabled: isBootStrapUser,
+						disabled: isBootStrapUser || !agentLinkEnabled,
 						label: 'Launch Agent',
-						collapsible: false
+						collapsible: false,
+						noteIcon: !agentLinkEnabled ? LockOpen : undefined,
+						note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
 					}
 				]
 			: [])
@@ -261,8 +267,10 @@
 											href: '/agent',
 											icon: BotMessageSquare,
 											label: 'Launch Agent',
-											disabled: isBootStrapUser,
-											collapsible: false
+											disabled: isBootStrapUser || !agentLinkEnabled,
+											collapsible: false,
+											noteIcon: !agentLinkEnabled ? LockOpen : undefined,
+											note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
 										}
 									]
 								: [])
@@ -564,7 +572,7 @@
 									{#if link.items}
 										<div class="flex flex-col px-7 text-sm font-light">
 											{#each link.items as item (item.href)}
-												<div class="relative">
+												<div class="relative flex items-center gap-2">
 													<div
 														class={twMerge(
 															'bg-surface3 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
@@ -573,8 +581,10 @@
 													></div>
 													{#if item.disabled}
 														<div class="sidebar-link disabled">
-															<item.icon class="size-4" />
-															{item.label}
+															<div class="flex items-center gap-1 opacity-50">
+																<item.icon class="size-4" />
+																{item.label}
+															</div>
 														</div>
 													{:else if item.href}
 														<a
@@ -592,6 +602,11 @@
 															<item.icon class="size-4" />
 															{item.label}
 														</div>
+													{/if}
+													{#if item.noteIcon && item.note}
+														<InfoTooltip icon={item.noteIcon} interactive>
+															{@render item.note()}
+														</InfoTooltip>
 													{/if}
 												</div>
 											{/each}
@@ -747,6 +762,14 @@
 				target="_blank"
 				class="text-link">here</a
 			> for details.
+		</p>
+	{/if}
+{/snippet}
+
+{#snippet renderAgentDisabledNote()}
+	{#if !agentLinkEnabled}
+		<p class="mt-1 text-sm">
+			{profile.current.isAdmin?.() ? ADMIN_AGENT_DISABLED_MESSAGE : USER_AGENT_DISABLED_MESSAGE}
 		</p>
 	{/if}
 {/snippet}

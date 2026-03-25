@@ -6,18 +6,18 @@
 		type Model,
 		type DefaultModelAlias,
 		ModelAliasToUsageMap,
-		NanobotModelAlias
+		NanobotModelAlias,
+		ChatService
 	} from '$lib/services';
-	import { onMount } from 'svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { AdminService } from '$lib/services';
 	import Select from '../Select.svelte';
 	import { LoaderCircle } from 'lucide-svelte';
-	import { version } from '$lib/stores';
+	import { version, defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 
 	let { availableModels, readonly }: { availableModels: Model[]; readonly?: boolean } = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let defaultModelAliases = $state<DefaultModelAlias[]>([]);
+	let defaultModelAliases = $derived(defaultModelAliasesStore.current);
 	let sortedModelAliases = $derived(
 		(version.current.disableLegacyChat === true
 			? Object.values(NanobotModelAlias)
@@ -35,7 +35,7 @@
 			})
 	);
 	let loading = $state(false);
-	let showSkip = $state(false);
+	let required = $state(false);
 
 	const SUGGESTED_MODEL_SELECTIONS: Record<ModelAlias, string[]> = {
 		[ModelAlias.Llm]: ['gpt-5.4', 'claude-sonnet-4-6'],
@@ -45,15 +45,11 @@
 		[ModelAlias.Vision]: ['gpt-5.4', 'claude-sonnet-4-6']
 	};
 
-	export function open(updateShowSkip = false) {
+	export function open(updateRequired = false) {
 		setSuggestedModels();
-		showSkip = updateShowSkip;
+		required = updateRequired;
 		dialog?.open();
 	}
-
-	onMount(async () => {
-		defaultModelAliases = await AdminService.listDefaultModelAliases();
-	});
 
 	function setSuggestedModels() {
 		if (!defaultModelAliases.length || !availableModels.length) return;
@@ -160,7 +156,7 @@
 				})
 			)
 		);
-		defaultModelAliases = await AdminService.listDefaultModelAliases();
+		defaultModelAliasesStore.current = await ChatService.listDefaultModelAliases();
 		changes = {};
 		loading = false;
 		dialog?.close();
@@ -184,6 +180,12 @@
 	class="overflow-visible"
 	bind:this={dialog}
 	title="Default Model Aliases"
+	onClickOutside={() => {
+		if (!required) {
+			onClose();
+		}
+	}}
+	hideClose={required}
 >
 	<p class="text-on-surface1 pb-4 font-light">
 		When no model is specified, a default model is used for creating a new project, running user
@@ -244,7 +246,7 @@
 					Save Changes
 				{/if}
 			</button>
-			{#if showSkip}
+			{#if !required}
 				<button class="button w-full text-sm font-normal" onclick={() => dialog?.close()}>
 					Skip
 				</button>

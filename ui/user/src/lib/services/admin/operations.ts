@@ -6,7 +6,9 @@ import type {
 	MCPCatalogServer,
 	MCPServerInstance,
 	Model,
-	DebugRun
+	DebugRun,
+	ModelAlias,
+	DefaultModelAlias
 } from '../chat/types';
 import { doDelete, doGet, doPatch, doPost, doPut, handleResponse, type Fetcher } from '../http';
 import type {
@@ -20,8 +22,6 @@ import type {
 	OrgGroup,
 	ProjectThread,
 	MCPCatalogServerManifest,
-	DefaultModelAlias,
-	ModelAlias,
 	AccessControlRule,
 	AccessControlRuleManifest,
 	ModelAccessPolicy,
@@ -626,16 +626,6 @@ export async function getFileScannerConfig(opts?: { fetch?: Fetcher }): Promise<
 
 export async function deleteProject(assistantID: string, projectID: string): Promise<void> {
 	await doDelete(`/assistants/${assistantID}/projects/${projectID}`);
-}
-
-export async function listDefaultModelAliases(opts?: {
-	fetch?: Fetcher;
-}): Promise<DefaultModelAlias[]> {
-	const response = (await doGet(
-		'/default-model-aliases',
-		opts
-	)) as ItemsResponse<DefaultModelAlias>;
-	return response.items ?? [];
 }
 
 export async function updateDefaultModelAlias(

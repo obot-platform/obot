@@ -19,6 +19,7 @@ import {
 	type Assistants,
 	type AssistantToolList,
 	type ChatModelList,
+	type DefaultModelAlias,
 	type Files,
 	type InvokeInput,
 	type KnowledgeFile,
@@ -2226,4 +2227,14 @@ export async function deleteWorkspaceMCPCatalogEntryOAuthCredentials(
 	opts?: { signal?: AbortSignal }
 ): Promise<void> {
 	await doDelete(`/workspaces/${workspaceID}/entries/${entryID}/oauth-credentials`, opts);
+}
+
+export async function listDefaultModelAliases(opts?: {
+	fetch?: Fetcher;
+}): Promise<DefaultModelAlias[]> {
+	const response = (await doGet(
+		'/default-model-aliases',
+		opts
+	)) as ItemsResponse<DefaultModelAlias>;
+	return response.items ?? [];
 }

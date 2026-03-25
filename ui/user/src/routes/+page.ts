@@ -1,10 +1,11 @@
 import { AdminService, ChatService, type AuthProvider } from '$lib/services';
 import { Group, type BootstrapStatus } from '$lib/services/admin/types';
+import { isAgentEnabled } from '$lib/utils';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
 export const load: PageLoad = async ({ fetch, url, parent }) => {
-	const { profile, version } = await parent();
+	const { profile, version, defaultModelAliases } = await parent();
 	const loggedIn = profile?.loaded ?? false;
 
 	let bootstrapStatus: BootstrapStatus | undefined;
@@ -24,9 +25,10 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 			throw redirect(302, redirectRoute);
 		}
 
+		const agentLinkEnabled = isAgentEnabled(defaultModelAliases);
 		const defaultRoute = isAdminOrOwner
 			? '/admin/mcp-servers'
-			: version?.nanobotIntegration
+			: version?.nanobotIntegration && agentLinkEnabled
 				? '/agent'
 				: '/mcp-servers';
 		throw redirect(302, defaultRoute);

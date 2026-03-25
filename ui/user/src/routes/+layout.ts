@@ -3,6 +3,7 @@ import {
 	AdminService,
 	ChatService,
 	type AppPreferences,
+	type DefaultModelAlias,
 	type Profile,
 	type Version
 } from '$lib/services';
@@ -16,6 +17,7 @@ export const load: LayoutLoad = async ({ fetch }) => {
 	let appPreferences: AppPreferences | undefined;
 	let profile: Profile | undefined;
 	let version: Version | undefined;
+	let defaultModelAliases: DefaultModelAlias[] | undefined;
 
 	try {
 		version = await ChatService.getVersion({ fetch });
@@ -49,9 +51,18 @@ export const load: LayoutLoad = async ({ fetch }) => {
 		};
 	}
 
+	if (!profile.unauthorized) {
+		try {
+			defaultModelAliases = await ChatService.listDefaultModelAliases({ fetch });
+		} catch {
+			defaultModelAliases = undefined;
+		}
+	}
+
 	return {
 		appPreferences,
 		profile,
-		version
+		version,
+		defaultModelAliases
 	};
 };

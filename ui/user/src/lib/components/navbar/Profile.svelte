@@ -1,8 +1,8 @@
 <script lang="ts">
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
-	import { profile, responsive, darkMode, errors } from '$lib/stores';
+	import { profile, responsive, darkMode, errors, defaultModelAliases } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { getUserRoleLabel } from '$lib/utils';
+	import { getUserRoleLabel, isAgentEnabled } from '$lib/utils';
 	import {
 		Book,
 		LogOut,
@@ -15,7 +15,8 @@
 		LayoutDashboard,
 		KeyRound,
 		BotMessageSquare,
-		Power
+		Power,
+		LockOpen
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
@@ -27,6 +28,8 @@
 	import { page } from '$app/state';
 	import MyAccount from '../profile/MyAccount.svelte';
 	import Confirm from '../Confirm.svelte';
+	import InfoTooltip from '../InfoTooltip.svelte';
+	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
 
 	interface Props {
 		agentId?: string;
@@ -51,6 +54,8 @@
 	let showRestartOption = $derived(
 		page.url.pathname.startsWith('/agent') && !!agentId && !!projectId
 	);
+
+	let agentLinkEnabled = $derived(isAgentEnabled(defaultModelAliases.current));
 
 	let showRestartAgentConfirm = $state(false);
 	let restartingAgent = $state(false);
@@ -216,12 +221,27 @@
 		<div class="mt-2 p-2">
 			{#if showChatLink && version.current.nanobotIntegration}
 				<button
-					class="dropdown-link"
+					class={twMerge(
+						'dropdown-link',
+						!agentLinkEnabled && 'cursor-default hover:bg-transparent dark:hover:bg-transparent'
+					)}
 					onclick={async (event) => {
+						if (!agentLinkEnabled) return;
 						navigateTo('/agent', event?.ctrlKey || event?.metaKey);
 					}}
+					aria-disabled={!agentLinkEnabled}
 				>
-					<BotMessageSquare class="size-4" /> Launch Agent
+					<span class={twMerge('flex items-center gap-1', !agentLinkEnabled && 'opacity-50')}>
+						<BotMessageSquare class="size-4" /> Launch Agent
+					</span>
+					{#if !agentLinkEnabled}
+						<InfoTooltip
+							text={profile.current.isAdmin?.()
+								? ADMIN_AGENT_DISABLED_MESSAGE
+								: USER_AGENT_DISABLED_MESSAGE}
+							icon={LockOpen}
+						/>
+					{/if}
 				</button>
 			{/if}
 			{#if showChatLink && version.current.disableLegacyChat !== true}
