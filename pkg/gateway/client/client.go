@@ -16,6 +16,11 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	defaultAuditLogCleanupInterval = 24 * time.Hour
+	defaultAuditLogDeleteBatchSize = 1000
+)
+
 type Client struct {
 	db                      *db.DB
 	encryptionConfig        *encryptionconfig.EncryptionConfiguration
@@ -28,6 +33,7 @@ type Client struct {
 	apiKeyCache             map[[32]byte]apiKeyValidationCacheEntry
 	apiKeyCacheTTL          time.Duration
 	auditLogCleanupInterval time.Duration
+	auditLogDeleteBatchSize int
 }
 
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays int) *Client {
@@ -48,7 +54,8 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		storageClient:           storageClient,
 		apiKeyCache:             make(map[[32]byte]apiKeyValidationCacheEntry),
 		apiKeyCacheTTL:          apiKeyValidationCacheTTL,
-		auditLogCleanupInterval: 24 * time.Hour,
+		auditLogCleanupInterval: defaultAuditLogCleanupInterval,
+		auditLogDeleteBatchSize: defaultAuditLogDeleteBatchSize,
 	}
 
 	go c.runPersistenceLoop(ctx, auditLogPersistenceInterval)

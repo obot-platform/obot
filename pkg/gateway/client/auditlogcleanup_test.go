@@ -31,6 +31,7 @@ func newTestClient(t *testing.T) *Client {
 	return &Client{
 		db:                      db,
 		auditLogCleanupInterval: 50 * time.Millisecond,
+		auditLogDeleteBatchSize: 3,
 	}
 }
 
@@ -92,6 +93,27 @@ func TestDeleteOldAuditLogsDisabled(t *testing.T) {
 
 	if got := countAuditLogs(t, c); got != 2 {
 		t.Errorf("expected 2 audit logs (cleanup disabled), got %d", got)
+	}
+}
+
+func TestDeleteOldAuditLogsBatching(t *testing.T) {
+	c := newTestClient(t) // auditLogDeleteBatchSize = 3
+	ctx := context.Background()
+
+	now := time.Now().UTC()
+	// Insert 7 old logs (requires 3 batches: 3+3+1) and 2 recent ones.
+	for range 7 {
+		insertAuditLog(t, c, now.AddDate(0, 0, -100))
+	}
+	insertAuditLog(t, c, now.AddDate(0, 0, -1))
+	insertAuditLog(t, c, now)
+
+	if err := c.deleteOldAuditLogs(ctx, now, 90); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got := countAuditLogs(t, c); got != 2 {
+		t.Errorf("expected 2 audit logs after batched cleanup, got %d", got)
 	}
 }
 

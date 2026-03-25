@@ -88,7 +88,23 @@ func (c *Client) deleteOldAuditLogs(ctx context.Context, now time.Time, retentio
 	}
 
 	cutoff := now.Truncate(24*time.Hour).AddDate(0, 0, -retentionDays)
-	return c.db.WithContext(ctx).Where("created_at < ?", cutoff).Delete(&types.MCPAuditLog{}).Error
+
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		result := c.db.WithContext(ctx).Exec(
+			"DELETE FROM mcp_audit_logs WHERE id IN (SELECT id FROM mcp_audit_logs WHERE created_at < ? LIMIT ?)",
+			cutoff, c.auditLogDeleteBatchSize,
+		)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected < int64(c.auditLogDeleteBatchSize) {
+			return nil
+		}
+	}
 }
 
 func (c *Client) persistAuditLogs() error {
