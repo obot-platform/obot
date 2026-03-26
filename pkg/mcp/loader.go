@@ -352,7 +352,7 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 }
 
 func clientID(server ServerConfig) string {
-	// The user ID and scope is not part of the client ID.
+	// The user ID is not part of the client ID.
 	server.UserID = ""
 
 	// File values are dynamic and can be updated in place.

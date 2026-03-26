@@ -176,6 +176,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 			MCPServerDisplayName: server.MCPServerDisplayName,
 			Scope:                podName,
 			UserID:               server.UserID,
+			OwnerUserID:          server.OwnerUserID,
 			Runtime:              types.RuntimeRemote,
 			Issuer:               server.Issuer,
 			ContainerPort:        server.ContainerPort,
@@ -195,6 +196,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		MCPServerDisplayName: server.MCPServerDisplayName,
 		Scope:                podName,
 		UserID:               server.UserID,
+		OwnerUserID:          server.OwnerUserID,
 		Runtime:              types.RuntimeRemote,
 		Issuer:               server.Issuer,
 		ContainerPort:        server.ContainerPort,
@@ -381,7 +383,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		annotations = map[string]string{
 			"mcp-server-display-name": server.MCPServerDisplayName,
 			"mcp-server-scope":        server.MCPServerName,
-			"mcp-user-id":             server.UserID,
+			"mcp-user-id":             server.OwnerUserID,
 		}
 
 		fileMapping            = make(map[string]string, len(server.Files))
@@ -799,7 +801,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Annotations: annotations,
 			Labels: map[string]string{
 				"app":         server.MCPServerName,
-				"mcp-user-id": server.UserID,
+				"mcp-user-id": server.OwnerUserID,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -814,7 +816,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					Annotations: annotations,
 					Labels: map[string]string{
 						"app":         server.MCPServerName,
-						"mcp-user-id": server.UserID,
+						"mcp-user-id": server.OwnerUserID,
 					},
 				},
 				Spec: corev1.PodSpec{
