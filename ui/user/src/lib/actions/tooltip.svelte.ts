@@ -173,7 +173,7 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 		}
 	};
 
-	const update = (o: TooltipOptions | string | undefined) => {
+	const applyOptions = (o: TooltipOptions | string | undefined) => {
 		if (!hasText(o)) {
 			disable();
 			return;
@@ -211,12 +211,35 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 		updateContent(o);
 	};
 
-	$effect(() => {
-		update(opts);
-	});
+	function tooltipOptionsEqual(
+		a: TooltipOptions | string | undefined,
+		b: TooltipOptions | string | undefined
+	): boolean {
+		if (a === b) return true;
+		if (typeof a === 'string' || typeof b === 'string') return a === b;
+		if (!a || !b) return !a && !b;
+		const ao = a as TooltipOptions;
+		const bo = b as TooltipOptions;
+		return (
+			ao.text === bo.text &&
+			ao.placement === bo.placement &&
+			ao.variant === bo.variant &&
+			ao.interactive === bo.interactive &&
+			ao.disablePortal === bo.disablePortal &&
+			ao.snippet === bo.snippet &&
+			JSON.stringify(ao.classes ?? []) === JSON.stringify(bo.classes ?? [])
+		);
+	}
+
+	let lastOpts: TooltipOptions | string | undefined = opts;
+	applyOptions(opts);
 
 	return {
-		update,
+		update(newOpts: TooltipOptions | string | undefined) {
+			if (tooltipOptionsEqual(lastOpts, newOpts)) return;
+			lastOpts = newOpts;
+			applyOptions(newOpts);
+		},
 		destroy: () => {
 			disable();
 		}
