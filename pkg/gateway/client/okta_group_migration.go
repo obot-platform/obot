@@ -73,24 +73,28 @@ func (c *Client) migrateOktaGroupIDs(ctx context.Context, authProviderURL, authP
 
 	log.Infof("Running Okta group ID migration")
 
-	// Run the DB migration in a transaction.
-	// We use GORM's OnConflict{DoNothing: true} on the migrations row as a cross-replica lock:
-	// only the replica whose insert succeeds (RowsAffected == 1) proceeds with the migration.
-	// This is safe in multi-replica setups because the migrations row acts as an atomic claim.
-	migrationRan := false
+	// Claim the migration in a short transaction so other replicas see the row immediately
+	// and don't block waiting for the data migration to finish.
+	claimed := false
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Attempt to claim the migration. OnConflict DoNothing means only one replica wins.
 		result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&types.Migration{Name: oktaGroupMigrationName})
 		if result.Error != nil {
 			return fmt.Errorf("okta migration error: failed to claim migration: %w", result.Error)
 		}
-		if result.RowsAffected == 0 {
-			// Another replica already completed or is completing the migration
-			return nil
-		}
+		claimed = result.RowsAffected == 1
+		return nil
+	}); err != nil {
+		return err
+	}
 
-		// We claimed the migration — proceed with the data migration.
+	if !claimed {
+		// Another replica already completed or is completing the migration
+		return nil
+	}
 
+	// Run the data migration in a separate transaction.
+	// If this fails, we delete the claim row so it can be retried.
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Load existing okta groups for this auth provider
 		var groups []types.Group
 		if err := tx.Where("auth_provider_namespace = ? AND auth_provider_name = ?",
@@ -105,7 +109,16 @@ func (c *Client) migrateOktaGroupIDs(ctx context.Context, authProviderURL, authP
 				continue
 			}
 
-			// Update group_memberships to point to the new group ID
+			// Update group_memberships to point to the new group ID.
+			// If a user already has a new-format membership (e.g. they logged in after the
+			// auth provider was updated), delete the old-format row instead of updating
+			// to avoid (user_id, group_id) primary key conflicts.
+			if err := tx.Where("group_id = ? AND user_id IN (?)",
+				group.ID,
+				tx.Table("group_memberships").Select("user_id").Where("group_id = ?", newID),
+			).Delete(&types.GroupMemberships{}).Error; err != nil {
+				return fmt.Errorf("okta migration error: failed to delete duplicate group_memberships for %s: %w", group.ID, err)
+			}
 			if err := tx.Model(&types.GroupMemberships{}).
 				Where("group_id = ?", group.ID).
 				Update("group_id", newID).Error; err != nil {
@@ -156,16 +169,17 @@ func (c *Client) migrateOktaGroupIDs(ctx context.Context, authProviderURL, authP
 			}
 		}
 
-		migrationRan = true
 		return nil
 	}); err != nil {
+		// Data migration failed — delete the claim row so it can be retried
+		if delErr := c.db.WithContext(ctx).Where("name = ?", oktaGroupMigrationName).Delete(&types.Migration{}).Error; delErr != nil {
+			log.Warnf("Okta group migration: failed to delete migration claim after error: %v", delErr)
+		}
 		return err
 	}
 
 	// Update CRDs (best-effort after DB migration succeeds)
-	if migrationRan {
-		c.migrateOktaGroupIDsInCRDs(ctx, idMap)
-	}
+	c.migrateOktaGroupIDsInCRDs(ctx, idMap)
 
 	return nil
 }
