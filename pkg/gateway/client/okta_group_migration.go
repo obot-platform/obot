@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const oktaGroupMigrationName = "okta_group_id_migration"
@@ -73,13 +74,13 @@ func (c *Client) migrateOktaGroupIDs(ctx context.Context, authProviderURL, authP
 	log.Infof("Running Okta group ID migration")
 
 	// Run the DB migration in a transaction.
-	// We use INSERT ... ON CONFLICT DO NOTHING on the migrations row as a cross-replica lock:
+	// We use GORM's OnConflict{DoNothing: true} on the migrations row as a cross-replica lock:
 	// only the replica whose insert succeeds (RowsAffected == 1) proceeds with the migration.
 	// This is safe in multi-replica setups because the migrations row acts as an atomic claim.
 	migrationRan := false
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Attempt to claim the migration. ON CONFLICT DO NOTHING means only one replica wins.
-		result := tx.Exec("INSERT INTO migrations (name) VALUES (?) ON CONFLICT DO NOTHING", oktaGroupMigrationName)
+		// Attempt to claim the migration. OnConflict DoNothing means only one replica wins.
+		result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&types.Migration{Name: oktaGroupMigrationName})
 		if result.Error != nil {
 			return fmt.Errorf("okta migration error: failed to claim migration: %w", result.Error)
 		}
@@ -111,12 +112,17 @@ func (c *Client) migrateOktaGroupIDs(ctx context.Context, authProviderURL, authP
 				return fmt.Errorf("okta migration error: failed to update group_memberships for %s: %w", group.ID, err)
 			}
 
-			// Insert a new group row with the new ID, then delete the old one.
-			// We insert-then-delete instead of update because the ID is part of the composite PK.
+			// Upsert the new group row, then delete the old one.
+			// We upsert instead of plain create to handle cases where a new-format group
+			// was already created (e.g. a user logged in after the auth provider was updated
+			// but before the migration ran).
 			newGroup := group
 			newGroup.ID = newID
-			if err := tx.Create(&newGroup).Error; err != nil {
-				return fmt.Errorf("okta migration error: failed to create new group %s: %w", newID, err)
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "id"}, {Name: "auth_provider_name"}, {Name: "auth_provider_namespace"}},
+				DoUpdates: clause.AssignmentColumns([]string{"name", "icon_url"}),
+			}).Create(&newGroup).Error; err != nil {
+				return fmt.Errorf("okta migration error: failed to upsert new group %s: %w", newID, err)
 			}
 			if err := tx.Where("id = ? AND auth_provider_namespace = ? AND auth_provider_name = ?",
 				group.ID, group.AuthProviderNamespace, group.AuthProviderName).
@@ -128,7 +134,15 @@ func (c *Client) migrateOktaGroupIDs(ctx context.Context, authProviderURL, authP
 		// Update group_role_assignments directly from the mapping.
 		// This catches assignments for groups that don't exist in the groups table
 		// (e.g. when an admin assigned a role to a group but no user from that group has logged in).
+		// If a new-format assignment already exists, delete the old one instead of updating
+		// to avoid primary key conflicts.
 		for oldID, newID := range idMap {
+			var existingNew types.GroupRoleAssignment
+			if err := tx.Where("group_name = ?", newID).First(&existingNew).Error; err == nil {
+				// New-format assignment already exists — just delete the old one
+				tx.Where("group_name = ?", oldID).Delete(&types.GroupRoleAssignment{})
+				continue
+			}
 			if err := tx.Model(&types.GroupRoleAssignment{}).
 				Where("group_name = ?", oldID).
 				Update("group_name", newID).Error; err != nil {
