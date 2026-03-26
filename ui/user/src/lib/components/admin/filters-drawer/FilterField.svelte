@@ -6,6 +6,7 @@
 
 	export type FilterInput = {
 		label: string;
+		tooltip?: string;
 		property: FilterKey;
 		selected?: string | number | null;
 		default?: string | number | null;
@@ -19,6 +20,7 @@
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import Select, { type SelectProps } from '$lib/components/Select.svelte';
+	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import type { FilterKey } from './FiltersDrawer.svelte';
 
 	interface Props {
@@ -86,9 +88,14 @@
 	)}
 >
 	<div class="flex items-center justify-between">
-		<label for={filter.property} class="text-md font-light">
-			By {filter.label}
-		</label>
+		<div class="flex items-center gap-1">
+			<label for={filter.property} class="text-md font-light">
+				By {filter.label}
+			</label>
+			{#if filter.tooltip}
+				<InfoTooltip text={filter.tooltip} popoverWidth="fit" />
+			{/if}
+		</div>
 
 		<flex class="flex gap-4">
 			{#each actions as action (action.id)}

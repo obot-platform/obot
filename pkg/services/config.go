@@ -538,6 +538,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.AuthAdminEmails,
 		time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second,
 		config.MCPAuditLogsPersistBatchSize,
+		config.MCPAuditLogRetentionDays,
 	)
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 

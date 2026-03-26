@@ -13,7 +13,7 @@
 			icon?: string;
 		};
 		placement?: Placement;
-		popoverWidth?: 'sm' | 'md' | 'lg';
+		popoverWidth?: 'sm' | 'md' | 'lg' | 'fit';
 		icon?: Component | typeof CircleQuestionMark;
 		interactive?: boolean;
 	}
@@ -37,6 +37,8 @@
 				return 'w-64';
 			case 'lg':
 				return 'w-96';
+			case 'fit':
+				return 'w-fit';
 			default:
 				return 'w-64';
 		}
