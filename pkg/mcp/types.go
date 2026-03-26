@@ -49,6 +49,7 @@ type ServerConfig struct {
 
 	Scope                string `json:"scope"`
 	UserID               string `json:"userID"`
+	OwnerUserID          string `json:"ownerUserID"`
 	MCPServerNamespace   string `json:"mcpServerNamespace"`
 	MCPServerName        string `json:"mcpServerName"`
 	MCPCatalogName       string `json:"mcpCatalogName"`
@@ -218,6 +219,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 	serverConfig := ServerConfig{
 		Env:                       make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
 		UserID:                    userID,
+		OwnerUserID:               mcpServer.Spec.UserID,
 		Scope:                     fmt.Sprintf("%s-%s", mcpServer.Name, scope),
 		MCPServerNamespace:        mcpServer.Namespace,
 		MCPServerName:             mcpServer.Name,
@@ -363,6 +365,7 @@ func ProjectServerToConfig(projectMCPServer v1.ProjectMCPServer, publicBaseURL, 
 	return ServerConfig{
 		URL:                projectMCPServer.ConnectURL(internalBaseURL),
 		UserID:             userID,
+		OwnerUserID:        projectMCPServer.Spec.UserID,
 		MCPServerNamespace: projectMCPServer.Namespace,
 		MCPServerName:      projectMCPServer.Spec.Manifest.MCPID,
 		Scope:              fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
