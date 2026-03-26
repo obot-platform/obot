@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/obot-platform/obot/logger"
@@ -49,6 +50,60 @@ func (c *Client) runPersistenceLoop(ctx context.Context, flushInterval time.Dura
 		}
 
 		timer.Reset(flushInterval)
+	}
+}
+
+func (c *Client) runAuditLogCleanup(ctx context.Context, retentionDays int) {
+	if retentionDays <= 0 {
+		return
+	}
+
+	err := c.deleteOldAuditLogs(ctx, time.Now().UTC(), retentionDays)
+	if err != nil && !errors.Is(err, context.Canceled) {
+		log.Errorf("Failed to delete old audit logs: %v", err)
+	}
+
+	ticker := time.NewTicker(c.auditLogCleanupInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			err = c.deleteOldAuditLogs(ctx, time.Now().UTC(), retentionDays)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				log.Errorf("Failed to delete old audit logs: %v", err)
+			}
+		}
+	}
+}
+
+func (c *Client) deleteOldAuditLogs(ctx context.Context, now time.Time, retentionDays int) error {
+	if retentionDays <= 0 {
+		return nil
+	}
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	cutoff := now.Truncate(24*time.Hour).AddDate(0, 0, -retentionDays)
+
+	for {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
+		result := c.db.WithContext(ctx).Exec(
+			"DELETE FROM mcp_audit_logs WHERE id IN (SELECT id FROM mcp_audit_logs WHERE created_at < ? LIMIT ?)",
+			cutoff, c.auditLogDeleteBatchSize,
+		)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected < int64(c.auditLogDeleteBatchSize) {
+			return nil
+		}
 	}
 }
 

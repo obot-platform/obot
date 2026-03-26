@@ -3,6 +3,7 @@ package mcpgateway
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"sort"
 	"strconv"
@@ -80,6 +81,65 @@ type auditLogInput struct {
 	gatewaytypes.MCPAuditLog `json:",inline"`
 	Metadata                 map[string]string `json:"metadata"`
 	Subject                  string            `json:"subject"`
+}
+
+// parseAuditLogOpts parses the query parameters common to ListAuditLogs and ListAuditLogFilterOptions.
+// Callers are responsible for setting any additional fields (e.g. default Limit, WithRequestAndResponse).
+func parseAuditLogOpts(query url.Values) gateway.MCPAuditLogOptions {
+	opts := gateway.MCPAuditLogOptions{
+		UserID:                    parseMultiValueParam(query, "user_id"),
+		MCPID:                     parseMultiValueParam(query, "mcp_id"),
+		MCPServerDisplayName:      parseMultiValueParam(query, "mcp_server_display_name"),
+		MCPServerCatalogEntryName: parseMultiValueParam(query, "mcp_server_catalog_entry_name"),
+		CallType:                  parseMultiValueParam(query, "call_type"),
+		CallIdentifier:            parseMultiValueParam(query, "call_identifier"),
+		SessionID:                 parseMultiValueParam(query, "session_id"),
+		ClientName:                parseMultiValueParam(query, "client_name"),
+		ClientVersion:             parseMultiValueParam(query, "client_version"),
+		ResponseStatus:            parseMultiValueParam(query, "response_status"),
+		ClientIP:                  parseMultiValueParam(query, "client_ip"),
+		SortBy:                    query.Get("sort_by"),
+		SortOrder:                 query.Get("sort_order"),
+		Query:                     strings.TrimSpace(query.Get("query")),
+	}
+
+	if startTime := query.Get("start_time"); startTime != "" {
+		if t, err := time.Parse(time.RFC3339, startTime); err == nil {
+			opts.StartTime = t
+		}
+	}
+
+	if endTime := query.Get("end_time"); endTime != "" {
+		if t, err := time.Parse(time.RFC3339, endTime); err == nil {
+			opts.EndTime = t
+		}
+	}
+
+	if limitStr := query.Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			opts.Limit = l
+		}
+	}
+
+	if offsetStr := query.Get("offset"); offsetStr != "" {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
+			opts.Offset = o
+		}
+	}
+
+	if processingTimeMin := query.Get("processing_time_min"); processingTimeMin != "" {
+		if minVal, err := strconv.ParseInt(processingTimeMin, 10, 64); err == nil && minVal >= 0 {
+			opts.ProcessingTimeMin = minVal
+		}
+	}
+
+	if processingTimeMax := query.Get("processing_time_max"); processingTimeMax != "" {
+		if maxVal, err := strconv.ParseInt(processingTimeMax, 10, 64); err == nil && maxVal >= 0 {
+			opts.ProcessingTimeMax = maxVal
+		}
+	}
+
+	return opts
 }
 
 // SubmitAuditLogs handles POST /api/mcp-audit-logs
@@ -162,26 +222,14 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	query := req.URL.Query()
 
-	// Parse query parameters with support for multiple values
-	opts := gateway.MCPAuditLogOptions{
-		// Always exclude request/response bodies from list responses for performance
-		WithRequestAndResponse: false,
-		// Default limit is 100.
-		Limit: 100,
-		// Any of these filters that can be passed via query parameter need to be available in the "filter options" API.
-		// In order for that to be the case, the map in the GetAuditLogFilterOptions method should be updated.
-		UserID:                    parseMultiValueParam(query, "user_id"),
-		MCPID:                     parseMultiValueParam(query, "mcp_id"),
-		MCPServerDisplayName:      parseMultiValueParam(query, "mcp_server_display_name"),
-		MCPServerCatalogEntryName: parseMultiValueParam(query, "mcp_server_catalog_entry_name"),
-		CallType:                  parseMultiValueParam(query, "call_type"),
-		CallIdentifier:            parseMultiValueParam(query, "call_identifier"),
-		SessionID:                 parseMultiValueParam(query, "session_id"),
-		ClientName:                parseMultiValueParam(query, "client_name"),
-		ClientVersion:             parseMultiValueParam(query, "client_version"),
-		ResponseStatus:            parseMultiValueParam(query, "response_status"),
-		ClientIP:                  parseMultiValueParam(query, "client_ip"),
-		Query:                     strings.TrimSpace(query.Get("query")),
+	// Any filters parsed here need to be available in the "filter options" API.
+	// In order for that to be the case, the map in the GetAuditLogFilterOptions method should be updated.
+	opts := parseAuditLogOpts(query)
+	// Always exclude request/response bodies from list responses for performance.
+	opts.WithRequestAndResponse = false
+	// Default limit is 100; overridden by the parsed value if present.
+	if opts.Limit == 0 {
+		opts.Limit = 100
 	}
 
 	// Apply scope filtering based on user role
@@ -213,49 +261,6 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	if pathMcpID := req.PathValue("mcp_id"); pathMcpID != "" {
 		opts.MCPID = []string{pathMcpID}
 	}
-
-	// Parse processing time range
-	if processingTimeMin := query.Get("processing_time_min"); processingTimeMin != "" {
-		if minVal, err := strconv.ParseInt(processingTimeMin, 10, 64); err == nil && minVal >= 0 {
-			opts.ProcessingTimeMin = minVal
-		}
-	}
-
-	if processingTimeMax := query.Get("processing_time_max"); processingTimeMax != "" {
-		if maxVal, err := strconv.ParseInt(processingTimeMax, 10, 64); err == nil && maxVal >= 0 {
-			opts.ProcessingTimeMax = maxVal
-		}
-	}
-
-	// Parse time range
-	if startTime := query.Get("start_time"); startTime != "" {
-		if t, err := time.Parse(time.RFC3339, startTime); err == nil {
-			opts.StartTime = t
-		}
-	}
-
-	if endTime := query.Get("end_time"); endTime != "" {
-		if t, err := time.Parse(time.RFC3339, endTime); err == nil {
-			opts.EndTime = t
-		}
-	}
-
-	// Parse pagination
-	if limit := query.Get("limit"); limit != "" {
-		if l, err := strconv.Atoi(limit); err == nil && l > 0 {
-			opts.Limit = l
-		}
-	}
-
-	if offset := query.Get("offset"); offset != "" {
-		if o, err := strconv.Atoi(offset); err == nil && o >= 0 {
-			opts.Offset = o
-		}
-	}
-
-	// Parse sorting parameters
-	opts.SortBy = query.Get("sort_by")
-	opts.SortOrder = query.Get("sort_order")
 
 	// Get audit logs
 	logs, total, err := req.GatewayClient.GetMCPAuditLogs(req.Context(), opts)
@@ -367,20 +372,7 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 	}
 
 	query := req.URL.Query()
-	// Parse field filters (same as ListAuditLogs, excluding sorting)
-	opts := gateway.MCPAuditLogOptions{
-		UserID:                    parseMultiValueParam(query, "user_id"),
-		MCPID:                     parseMultiValueParam(query, "mcp_id"),
-		MCPServerDisplayName:      parseMultiValueParam(query, "mcp_server_display_name"),
-		MCPServerCatalogEntryName: parseMultiValueParam(query, "mcp_server_catalog_entry_name"),
-		CallType:                  parseMultiValueParam(query, "call_type"),
-		CallIdentifier:            parseMultiValueParam(query, "call_identifier"),
-		SessionID:                 parseMultiValueParam(query, "session_id"),
-		ClientName:                parseMultiValueParam(query, "client_name"),
-		ClientVersion:             parseMultiValueParam(query, "client_version"),
-		ResponseStatus:            parseMultiValueParam(query, "response_status"),
-		ClientIP:                  parseMultiValueParam(query, "client_ip"),
-	}
+	opts := parseAuditLogOpts(query)
 
 	// Apply scope filtering based on user role
 	if !req.UserIsAdmin() && !req.UserIsAuditor() {
@@ -401,19 +393,6 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 			return req.Write(map[string]any{
 				"options": []string{},
 			})
-		}
-	}
-
-	// Parse time range
-	if startTime := query.Get("start_time"); startTime != "" {
-		if t, err := time.Parse(time.RFC3339, startTime); err == nil {
-			opts.StartTime = t
-		}
-	}
-
-	if endTime := query.Get("end_time"); endTime != "" {
-		if t, err := time.Parse(time.RFC3339, endTime); err == nil {
-			opts.EndTime = t
 		}
 	}
 

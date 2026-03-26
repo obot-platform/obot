@@ -50,6 +50,7 @@ type Options struct {
 	// Audit log configuration
 	MCPAuditLogPersistIntervalSeconds int `usage:"The interval in seconds to persist MCP audit logs to the database" default:"5"`
 	MCPAuditLogsPersistBatchSize      int `usage:"The number of MCP audit logs to persist in a single batch" default:"1000"`
+	MCPAuditLogRetentionDays          int `usage:"The number of days to retain MCP audit logs (0 to disable cleanup)" default:"90"`
 
 	// Pod Security Admission configuration for MCP namespace
 	MCPPodSecurityEnabled        bool   `usage:"Enable Pod Security Admission labels on the MCP namespace" default:"true"`
