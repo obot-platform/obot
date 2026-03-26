@@ -777,6 +777,7 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 
 	return ServerConfig{
 		URL:                       url,
+		ContainerPort:             containerPort,
 		MCPServerNamespace:        server.MCPServerNamespace,
 		MCPServerName:             server.MCPServerName,
 		MCPServerDisplayName:      server.MCPServerDisplayName,
