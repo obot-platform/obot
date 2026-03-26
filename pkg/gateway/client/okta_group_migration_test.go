@@ -8,11 +8,11 @@ import (
 
 func TestUpdateSubjects(t *testing.T) {
 	tests := []struct {
-		name            string
-		subjects        []types2.Subject
-		idMap           map[string]string
-		expectChanged   bool
-		expectSubjects  []types2.Subject
+		name           string
+		subjects       []types2.Subject
+		idMap          map[string]string
+		expectChanged  bool
+		expectSubjects []types2.Subject
 	}{
 		{
 			name: "no group subjects",
