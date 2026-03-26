@@ -113,83 +113,6 @@ func applyPrefix(value, prefix string) string {
 	return prefix + value
 }
 
-func legacyServerToServerConfig(mcpServer v1.MCPServer, userID, scope string, credEnv map[string]string, fileEnvVars map[string]struct{}) (ServerConfig, []string, error) {
-	// Expand environment variables in command, args, and URL
-	command := expandEnvVars(mcpServer.Spec.Manifest.Command, credEnv, fileEnvVars)
-	url := expandEnvVars(mcpServer.Spec.Manifest.URL, credEnv, fileEnvVars)
-
-	args := make([]string, len(mcpServer.Spec.Manifest.Args))
-	for i, arg := range mcpServer.Spec.Manifest.Args {
-		args[i] = expandEnvVars(arg, credEnv, fileEnvVars)
-	}
-
-	serverConfig := ServerConfig{
-		Command: command,
-		Args:    args,
-		Env:     make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
-		URL:     url,
-		UserID:  userID,
-		Headers: make([]string, 0, len(mcpServer.Spec.Manifest.Headers)),
-		Scope:   fmt.Sprintf("%s-%s", mcpServer.Name, scope),
-	}
-
-	var missingRequiredNames []string
-	for _, env := range mcpServer.Spec.Manifest.Env {
-		val, ok := credEnv[env.Key]
-		if !ok && env.Required {
-			missingRequiredNames = append(missingRequiredNames, env.Key)
-			continue
-		}
-
-		// Apply prefix if specified (e.g., "Bearer ", "sk-")
-		val = applyPrefix(val, env.Prefix)
-
-		if !env.File {
-			serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))
-			continue
-		}
-
-		serverConfig.Files = append(serverConfig.Files, File{
-			Data:    val,
-			EnvKey:  env.Key,
-			Dynamic: env.DynamicFile,
-		})
-	}
-
-	for _, header := range mcpServer.Spec.Manifest.Headers {
-		var (
-			val      string
-			hasValue bool
-		)
-
-		// Check for static value first
-		if header.Value != "" {
-			val = header.Value
-			hasValue = true
-		} else {
-			// Fall back to user-configured value from credentials
-			val, hasValue = credEnv[header.Key]
-		}
-
-		if !hasValue {
-			if header.Required {
-				missingRequiredNames = append(missingRequiredNames, header.Key)
-			}
-			continue
-		}
-
-		// Apply prefix if specified (e.g., "Bearer ", "Token ")
-		// Only apply to user-supplied values, not static values
-		if header.Value == "" {
-			val = applyPrefix(val, header.Prefix)
-		}
-
-		serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
-	}
-
-	return serverConfig, missingRequiredNames, nil
-}
-
 func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, issuer, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
 	config, missing, err := ServerToServerConfig(mcpServer, audiences, issuer, userID, scope, mcpCatalogName, credEnv, tokenExchangeCredEnv)
 	if err != nil {
@@ -280,9 +203,6 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		if file.File {
 			fileEnvVars[file.Key] = struct{}{}
 		}
-	}
-	if string(mcpServer.Spec.Manifest.Runtime) == "" {
-		return legacyServerToServerConfig(mcpServer, userID, scope, credEnv, fileEnvVars)
 	}
 
 	displayName := mcpServer.Spec.Manifest.Name
