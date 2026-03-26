@@ -138,9 +138,15 @@ func (c *Client) migrateOktaGroupIDs(ctx context.Context, authProviderURL, authP
 		// to avoid primary key conflicts.
 		for oldID, newID := range idMap {
 			var existingNew types.GroupRoleAssignment
-			if err := tx.Where("group_name = ?", newID).First(&existingNew).Error; err == nil {
+			err := tx.Where("group_name = ?", newID).First(&existingNew).Error
+			if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				return fmt.Errorf("okta migration error: failed to check existing group_role_assignment for %s: %w", newID, err)
+			}
+			if err == nil {
 				// New-format assignment already exists — just delete the old one
-				tx.Where("group_name = ?", oldID).Delete(&types.GroupRoleAssignment{})
+				if delErr := tx.Where("group_name = ?", oldID).Delete(&types.GroupRoleAssignment{}).Error; delErr != nil {
+					return fmt.Errorf("okta migration error: failed to delete old group_role_assignment for %s: %w", oldID, delErr)
+				}
 				continue
 			}
 			if err := tx.Model(&types.GroupRoleAssignment{}).
