@@ -1,11 +1,12 @@
 import { ChatService, NanobotService } from '$lib/services';
 import type { ProjectV2Agent } from '$lib/services/nanobot/types';
 import type { LayoutLoad } from './$types';
-import { redirect } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
 
 export const ssr = false;
 
-export const load: LayoutLoad = async ({ fetch, url }) => {
+export const load: LayoutLoad = async ({ fetch, url, parent }) => {
+	const { profile } = await parent();
 	const version = await ChatService.getVersion({ fetch });
 	if (!version.nanobotIntegration) {
 		throw redirect(302, '/');
@@ -29,6 +30,10 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
 			agent = agents.find((a) => a.id === targetAgentId) || agents[0];
 		} else {
 			agent = agents[0];
+		}
+
+		if (agent.userID !== profile.id && !profile.canImpersonate?.()) {
+			throw error(403, 'You do not have permission to view this agent.');
 		}
 
 		return { projects: [project], agent, isNewAgent: false };

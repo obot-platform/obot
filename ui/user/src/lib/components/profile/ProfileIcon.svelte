@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { profile } from '$lib/stores';
-	import { ShieldUser } from 'lucide-svelte';
+	import { HatGlasses, ShieldUser } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		class?: string;
+		impersonating?: boolean;
 	}
 
-	let { class: klass }: Props = $props();
+	let { class: klass, impersonating }: Props = $props();
 
 	let initials = $state('?');
 
@@ -25,17 +26,32 @@
 	});
 </script>
 
-{#if profile.current.iconURL}
-	<img
-		class={twMerge('size-8 rounded-full', klass)}
-		src={profile.current.iconURL}
-		alt="profile"
-		referrerpolicy="no-referrer"
-	/>
-{:else if profile.current.isBootstrapUser?.()}
-	<ShieldUser class="text-on-surface1 size-8 rounded-full" />
-{:else}
-	<div class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-600 text-white">
-		{initials}
+{#if impersonating}
+	<div class={twMerge('relative size-8', klass)}>
+		<div
+			class="bg-primary absolute top-1/2 left-1/2 z-10 flex size-full -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full opacity-65"
+		>
+			<HatGlasses class="size-6 text-white" />
+		</div>
+		{@render profileImage()}
 	</div>
+{:else}
+	{@render profileImage()}
 {/if}
+
+{#snippet profileImage()}
+	{#if profile.current.iconURL}
+		<img
+			class={twMerge('size-8 rounded-full', klass)}
+			src={profile.current.iconURL}
+			alt="profile"
+			referrerpolicy="no-referrer"
+		/>
+	{:else if profile.current.isBootstrapUser?.()}
+		<ShieldUser class="text-on-surface1 size-8 rounded-full" />
+	{:else}
+		<div class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-600 text-white">
+			{initials}
+		</div>
+	{/if}
+{/snippet}

@@ -13,11 +13,13 @@
 	import { onDestroy } from 'svelte';
 	import { PROJECT_LAYOUT_CONTEXT, type ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { clampThreadContentReportedWidth } from '$lib/utils';
-	import { responsive } from '$lib/stores';
+	import { responsive, profile } from '$lib/stores';
 	import MobileDock from '../../MobileDock.svelte';
 	import { Menu, MessageCirclePlus, X } from 'lucide-svelte';
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import { resolve } from '$app/paths';
+	import ImpersonateBanner from '../../ImpersonateBanner.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	let { data, children } = $props();
 	let projectId = $derived(data.projects[0].id);
@@ -312,6 +314,8 @@
 			layout.quickBarAccessOpen = false;
 		}
 	});
+
+	const impersonating = $derived(data.agent.userID !== profile.current.id);
 </script>
 
 <Layout
@@ -347,6 +351,9 @@
 			{/if}
 		{/if}
 	{/snippet}
+	{#snippet banner()}
+		<ImpersonateBanner agent={data.agent} />
+	{/snippet}
 	{#snippet leftSidebar()}
 		{#if !responsive.isMobile}
 			<ProjectSidebar selectedSessionId={sessionId} {projectId} />
@@ -354,7 +361,7 @@
 	{/snippet}
 
 	<div
-		class="flex w-full min-w-0 grow"
+		class={twMerge('flex w-full min-w-0 grow', impersonating && !sessionId && 'pt-8')}
 		class:pb-12={responsive.isMobile}
 		style={threadContentWidth > 0 ? `min-width: min(${threadContentWidth}px, 100%)` : ''}
 	>
@@ -384,6 +391,7 @@
 			{selectedFile}
 			{agentId}
 			{projectId}
+			{impersonating}
 		/>
 	{/snippet}
 

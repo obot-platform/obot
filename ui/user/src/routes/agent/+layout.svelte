@@ -1,11 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { resolve } from '$app/paths';
-	import { darkMode, errors, profile } from '$lib/stores';
+	import { darkMode, errors } from '$lib/stores';
 	import { initLayout } from '$lib/context/nanobotLayout.svelte';
 	import 'devicon/devicon.min.css';
 	import { onMount, untrack } from 'svelte';
-	import { AdminService, NanobotService } from '$lib/services';
+	import { NanobotService } from '$lib/services';
 	import { ChatAPI } from '$lib/services/nanobot/chat/index.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { get } from 'svelte/store';
@@ -16,24 +15,6 @@
 	let agent = $derived(data.agent);
 	let isNewAgent = $derived(data.isNewAgent);
 	const chatApi = $derived(new ChatAPI(agent.connectURL));
-
-	// Detect impersonation by comparing agent owner to current user.
-	const impersonating = $derived(
-		!!profile.current?.id && !!agent.userID && agent.userID !== profile.current.id
-	);
-
-	let ownerEmail = $state('');
-	$effect(() => {
-		if (impersonating && agent.userID) {
-			AdminService.getUser(agent.userID)
-				.then((owner) => {
-					ownerEmail = owner.email || owner.username || agent.userID;
-				})
-				.catch(() => {
-					ownerEmail = agent.userID;
-				});
-		}
-	});
 
 	const initialChat = get(nanobotChat);
 	let loading = $state(untrack(() => !initialChat || data.isNewAgent));
@@ -111,14 +92,6 @@
 </script>
 
 <div class="nanobot" data-theme={darkMode.isDark ? 'nanobotdark' : 'nanobotlight'}>
-	{#if impersonating}
-		<div
-			class="bg-warning/20 border-warning flex items-center justify-center gap-2 border-b px-4 py-2 text-sm font-medium"
-		>
-			Impersonating: Viewing another user's agent (owner: {ownerEmail})
-			<a href={resolve('/admin/user-impersonation')} class="text-accent underline">Back to list</a>
-		</div>
-	{/if}
 	{#if showLoading}
 		<div class="h-[100dvh] w-full px-4">
 			<div class="absolute top-1/2 left-1/2 w-full -translate-x-1/2 -translate-y-1/2 md:w-4xl">

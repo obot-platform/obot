@@ -47,7 +47,7 @@
 		<LoaderCircle class="size-5 animate-spin" />
 	</div>
 {:else if capacityInfo && !capacityInfo.error}
-	<div class="bg-surface2 dark:bg-surface1 mb-4 rounded-md p-4 shadow-sm">
+	<div class="bg-surface2 dark:bg-surface1 p-4 shadow-sm">
 		<div class="mb-3 flex items-center gap-1">
 			<h3 class="text-sm font-semibold">MCP Requested Resources</h3>
 			{#if capacityInfo.source === 'resourceQuota'}
