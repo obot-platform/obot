@@ -221,13 +221,8 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 		existingGroups[group.ID] = group
 	}
 
-	seen := make(map[string]struct{}, len(identity.AuthProviderGroups))
 	var toUpsert []types.Group
 	for _, group := range identity.AuthProviderGroups {
-		if _, dup := seen[group.ID]; dup {
-			continue
-		}
-		seen[group.ID] = struct{}{}
 		if existing, ok := existingGroups[group.ID]; ok && existing.Name == group.Name && existing.IconURL == group.IconURL {
 			// The group already exists and is up to date, skip
 			continue
