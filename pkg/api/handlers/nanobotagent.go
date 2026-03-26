@@ -15,6 +15,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -32,7 +33,7 @@ func NewNanobotAgentHandler(sessionManager *mcp.SessionManager, serverURL string
 }
 
 func (h *NanobotAgentHandler) ListAll(req api.Context) error {
-	if !req.UserCanImpersonate() || !req.UserIsAdmin() {
+	if !req.UserIsOwner() && !req.UserIsAdmin() && !req.UserIsAuditor() {
 		return types.NewErrHTTP(http.StatusForbidden, "user is not authorized to list all nanobot agents")
 	}
 
@@ -43,7 +44,11 @@ func (h *NanobotAgentHandler) ListAll(req api.Context) error {
 
 	items := make([]types.NanobotAgent, 0, len(agents.Items))
 	for _, agent := range agents.Items {
-		items = append(items, h.convertNanobotAgent(agent))
+		server, err := loadNanobotAgentMCPServer(req, agent)
+		if err != nil {
+			return err
+		}
+		items = append(items, h.convertNanobotAgent(agent, server))
 	}
 	return req.Write(types.NanobotAgentList{Items: items})
 }
@@ -58,7 +63,11 @@ func (h *NanobotAgentHandler) List(req api.Context) error {
 
 	items := make([]types.NanobotAgent, 0, len(agents.Items))
 	for _, agent := range agents.Items {
-		items = append(items, h.convertNanobotAgent(agent))
+		server, err := loadNanobotAgentMCPServer(req, agent)
+		if err != nil {
+			return err
+		}
+		items = append(items, h.convertNanobotAgent(agent, server))
 	}
 	return req.Write(types.NanobotAgentList{Items: items})
 }
@@ -85,7 +94,11 @@ func (h *NanobotAgentHandler) Create(req api.Context) error {
 		return err
 	}
 
-	return req.WriteCreated(h.convertNanobotAgent(agent))
+	server, err := loadNanobotAgentMCPServer(req, agent)
+	if err != nil {
+		return err
+	}
+	return req.WriteCreated(h.convertNanobotAgent(agent, server))
 }
 
 func (h *NanobotAgentHandler) ByID(req api.Context) error {
@@ -99,7 +112,11 @@ func (h *NanobotAgentHandler) ByID(req api.Context) error {
 		return types.NewErrNotFound("nanobot agent not found")
 	}
 
-	return req.Write(h.convertNanobotAgent(agent))
+	server, err := loadNanobotAgentMCPServer(req, agent)
+	if err != nil {
+		return err
+	}
+	return req.Write(h.convertNanobotAgent(agent, server))
 }
 
 func (h *NanobotAgentHandler) Update(req api.Context) error {
@@ -127,7 +144,11 @@ func (h *NanobotAgentHandler) Update(req api.Context) error {
 		return err
 	}
 
-	return req.Write(h.convertNanobotAgent(agent))
+	server, err := loadNanobotAgentMCPServer(req, agent)
+	if err != nil {
+		return err
+	}
+	return req.Write(h.convertNanobotAgent(agent, server))
 }
 
 func (h *NanobotAgentHandler) Delete(req api.Context) error {
@@ -220,12 +241,31 @@ func (h *NanobotAgentHandler) Launch(req api.Context) error {
 	return nil
 }
 
-func (h *NanobotAgentHandler) convertNanobotAgent(agent v1.NanobotAgent) types.NanobotAgent {
-	return types.NanobotAgent{
+func loadNanobotAgentMCPServer(req api.Context, agent v1.NanobotAgent) (*v1.MCPServer, error) {
+	var server v1.MCPServer
+	err := req.Get(&server, system.MCPServerPrefix+agent.Name)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &server, nil
+}
+
+func (h *NanobotAgentHandler) convertNanobotAgent(agent v1.NanobotAgent, mcpServer *v1.MCPServer) types.NanobotAgent {
+	out := types.NanobotAgent{
 		Metadata:             MetadataFrom(&agent),
 		NanobotAgentManifest: agent.Spec.NanobotAgentManifest,
 		UserID:               agent.Spec.UserID,
 		ProjectV2ID:          agent.Spec.ProjectV2ID,
 		ConnectURL:           system.NanobotAgentConnectURL(h.serverURL, agent.Name),
 	}
+	if mcpServer != nil {
+		out.NeedsURL = mcpServer.Spec.NeedsURL
+		out.NeedsUpdate = mcpServer.Status.NeedsUpdate
+		out.NeedsK8sUpdate = mcpServer.Status.NeedsK8sUpdate
+		out.DeploymentStatus = mcpServer.Status.DeploymentStatus
+	}
+	return out
 }
