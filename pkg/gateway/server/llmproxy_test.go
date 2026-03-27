@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/obot-platform/obot/pkg/messagepolicy"
 )
 
 func TestModifyResponse_PathFiltering(t *testing.T) {
@@ -327,5 +329,320 @@ func TestLLMTransformRequest_RemovesAcceptEncoding(t *testing.T) {
 
 	if got := req.Header.Get("Accept-Encoding"); got != "" {
 		t.Fatalf("Accept-Encoding = %q, want empty", got)
+	}
+}
+
+func TestExtractContentString(t *testing.T) {
+	tests := []struct {
+		name    string
+		content any
+		want    string
+	}{
+		{"plain string", "Hello world", "Hello world"},
+		{"nil", nil, ""},
+		{"integer", 42, ""},
+		{"empty string", "", ""},
+		{
+			"array with single text part",
+			[]any{
+				map[string]any{"type": "text", "text": "Hello"},
+			},
+			"Hello",
+		},
+		{
+			"array with multiple text parts",
+			[]any{
+				map[string]any{"type": "text", "text": "Hello"},
+				map[string]any{"type": "text", "text": "World"},
+			},
+			"Hello\nWorld",
+		},
+		{
+			"array with mixed content types",
+			[]any{
+				map[string]any{"type": "text", "text": "Describe this image"},
+				map[string]any{"type": "image_url", "image_url": map[string]any{"url": "https://example.com/img.png"}},
+			},
+			"Describe this image",
+		},
+		{
+			"array with no text parts",
+			[]any{
+				map[string]any{"type": "image_url", "image_url": map[string]any{"url": "https://example.com/img.png"}},
+			},
+			"",
+		},
+		{"empty array", []any{}, ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractContentString(tt.content)
+			if got != tt.want {
+				t.Errorf("extractContentString() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseMessagesFromBody_SimpleConversation(t *testing.T) {
+	raw := []any{
+		map[string]any{"role": "system", "content": "You are a helpful assistant."},
+		map[string]any{"role": "user", "content": "Hello"},
+		map[string]any{"role": "assistant", "content": "Hi there!"},
+		map[string]any{"role": "user", "content": "Book me a flight"},
+	}
+
+	history, lastMsg, lastIdx := parseMessagesFromBody(raw)
+
+	if len(history) != 4 {
+		t.Fatalf("expected 4 messages, got %d", len(history))
+	}
+	if lastMsg != "Book me a flight" {
+		t.Errorf("lastUserMessage = %q, want %q", lastMsg, "Book me a flight")
+	}
+	if lastIdx != 3 {
+		t.Errorf("lastUserIdx = %d, want 3", lastIdx)
+	}
+	if history[0].Role != "system" || history[0].Content != "You are a helpful assistant." {
+		t.Errorf("unexpected system message: %+v", history[0])
+	}
+}
+
+func TestParseMessagesFromBody_WithToolCalls(t *testing.T) {
+	raw := []any{
+		map[string]any{"role": "user", "content": "Search for flights"},
+		map[string]any{
+			"role":    "assistant",
+			"content": "Let me search.",
+			"tool_calls": []any{
+				map[string]any{
+					"id":   "call_1",
+					"type": "function",
+					"function": map[string]any{
+						"name":      "search_flights",
+						"arguments": `{"to":"NYC"}`,
+					},
+				},
+			},
+		},
+		map[string]any{
+			"role":         "tool",
+			"content":      `{"flights": [{"price": 500}]}`,
+			"tool_call_id": "call_1",
+		},
+		map[string]any{"role": "user", "content": "Book the cheapest one"},
+	}
+
+	history, lastMsg, lastIdx := parseMessagesFromBody(raw)
+
+	if len(history) != 4 {
+		t.Fatalf("expected 4 messages, got %d", len(history))
+	}
+
+	// Check assistant tool calls parsed correctly
+	assistant := history[1]
+	if assistant.Content != "Let me search." {
+		t.Errorf("assistant content = %q, want %q", assistant.Content, "Let me search.")
+	}
+	if len(assistant.ToolCalls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(assistant.ToolCalls))
+	}
+	if assistant.ToolCalls[0].Name != "search_flights" {
+		t.Errorf("tool call name = %q, want %q", assistant.ToolCalls[0].Name, "search_flights")
+	}
+	if assistant.ToolCalls[0].Arguments != `{"to":"NYC"}` {
+		t.Errorf("tool call arguments = %q, want %q", assistant.ToolCalls[0].Arguments, `{"to":"NYC"}`)
+	}
+
+	// Check tool message
+	toolMsg := history[2]
+	if toolMsg.ToolCallID != "call_1" {
+		t.Errorf("tool_call_id = %q, want %q", toolMsg.ToolCallID, "call_1")
+	}
+
+	if lastMsg != "Book the cheapest one" {
+		t.Errorf("lastUserMessage = %q, want %q", lastMsg, "Book the cheapest one")
+	}
+	if lastIdx != 3 {
+		t.Errorf("lastUserIdx = %d, want 3", lastIdx)
+	}
+}
+
+func TestParseMessagesFromBody_NoUserMessage(t *testing.T) {
+	raw := []any{
+		map[string]any{"role": "system", "content": "System prompt"},
+		map[string]any{"role": "assistant", "content": "Hello!"},
+	}
+
+	_, lastMsg, lastIdx := parseMessagesFromBody(raw)
+
+	if lastIdx != -1 {
+		t.Errorf("lastUserIdx = %d, want -1", lastIdx)
+	}
+	if lastMsg != "" {
+		t.Errorf("lastUserMessage = %q, want empty", lastMsg)
+	}
+}
+
+func TestParseMessagesFromBody_EmptyMessages(t *testing.T) {
+	history, lastMsg, lastIdx := parseMessagesFromBody(nil)
+
+	if len(history) != 0 {
+		t.Errorf("expected empty history, got %d messages", len(history))
+	}
+	if lastIdx != -1 {
+		t.Errorf("lastUserIdx = %d, want -1", lastIdx)
+	}
+	if lastMsg != "" {
+		t.Errorf("lastUserMessage = %q, want empty", lastMsg)
+	}
+}
+
+func TestParseMessagesFromBody_ArrayContent(t *testing.T) {
+	raw := []any{
+		map[string]any{
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "What is in this image?"},
+				map[string]any{"type": "image_url", "image_url": map[string]any{"url": "https://example.com/img.png"}},
+			},
+		},
+	}
+
+	history, lastMsg, lastIdx := parseMessagesFromBody(raw)
+
+	if len(history) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(history))
+	}
+	if history[0].Content != "What is in this image?" {
+		t.Errorf("content = %q, want %q", history[0].Content, "What is in this image?")
+	}
+	if lastMsg != "What is in this image?" {
+		t.Errorf("lastUserMessage = %q, want %q", lastMsg, "What is in this image?")
+	}
+	if lastIdx != 0 {
+		t.Errorf("lastUserIdx = %d, want 0", lastIdx)
+	}
+}
+
+func TestParseMessagesFromBody_MultipleToolCalls(t *testing.T) {
+	raw := []any{
+		map[string]any{
+			"role": "assistant",
+			"tool_calls": []any{
+				map[string]any{
+					"id":   "call_1",
+					"type": "function",
+					"function": map[string]any{
+						"name":      "get_weather",
+						"arguments": `{"city":"NYC"}`,
+					},
+				},
+				map[string]any{
+					"id":   "call_2",
+					"type": "function",
+					"function": map[string]any{
+						"name":      "get_time",
+						"arguments": `{"tz":"EST"}`,
+					},
+				},
+			},
+		},
+	}
+
+	history, _, _ := parseMessagesFromBody(raw)
+
+	if len(history) != 1 {
+		t.Fatalf("expected 1 message, got %d", len(history))
+	}
+	if len(history[0].ToolCalls) != 2 {
+		t.Fatalf("expected 2 tool calls, got %d", len(history[0].ToolCalls))
+	}
+	if history[0].ToolCalls[0].Name != "get_weather" {
+		t.Errorf("first tool call name = %q, want %q", history[0].ToolCalls[0].Name, "get_weather")
+	}
+	if history[0].ToolCalls[1].Name != "get_time" {
+		t.Errorf("second tool call name = %q, want %q", history[0].ToolCalls[1].Name, "get_time")
+	}
+}
+
+func TestParseMessagesFromBody_InvalidEntries(t *testing.T) {
+	raw := []any{
+		"not a map",
+		42,
+		map[string]any{"role": "user", "content": "Valid message"},
+	}
+
+	history, lastMsg, lastIdx := parseMessagesFromBody(raw)
+
+	// Invalid entries should be skipped
+	if len(history) != 1 {
+		t.Fatalf("expected 1 message (skipping invalid), got %d", len(history))
+	}
+	if lastMsg != "Valid message" {
+		t.Errorf("lastUserMessage = %q, want %q", lastMsg, "Valid message")
+	}
+	// lastIdx should point to the raw array index, not the history index
+	if lastIdx != 2 {
+		t.Errorf("lastUserIdx = %d, want 2", lastIdx)
+	}
+}
+
+func TestParseMessagesFromBody_ConversationHistoryForPolicyEval(t *testing.T) {
+	// Verify that parsed messages integrate correctly with BuildConversationContext
+	raw := []any{
+		map[string]any{"role": "system", "content": "You are a travel agent."},
+		map[string]any{"role": "user", "content": "Find flights to NYC"},
+		map[string]any{
+			"role":    "assistant",
+			"content": "Searching now.",
+			"tool_calls": []any{
+				map[string]any{
+					"id":   "call_1",
+					"type": "function",
+					"function": map[string]any{
+						"name":      "search_flights",
+						"arguments": `{"to":"NYC"}`,
+					},
+				},
+			},
+		},
+		map[string]any{
+			"role":         "tool",
+			"content":      `[{"flight":"AA100","price":500}]`,
+			"tool_call_id": "call_1",
+		},
+		map[string]any{"role": "assistant", "content": "Found a flight for $500."},
+		map[string]any{"role": "user", "content": "Book it in first class"},
+	}
+
+	history, lastMsg, _ := parseMessagesFromBody(raw)
+
+	// Verify the conversation context is built correctly
+	ctx := messagepolicy.BuildConversationContext(history)
+
+	if lastMsg != "Book it in first class" {
+		t.Errorf("lastUserMessage = %q, want %q", lastMsg, "Book it in first class")
+	}
+
+	// System messages should be excluded
+	if strings.Contains(ctx, "travel agent") {
+		t.Error("conversation context should not contain system messages")
+	}
+	// Tool outputs should be redacted
+	if strings.Contains(ctx, "AA100") {
+		t.Error("conversation context should redact tool outputs")
+	}
+	if !strings.Contains(ctx, "[tool output redacted]") {
+		t.Error("conversation context should contain redaction placeholder")
+	}
+	// Tool call info should be present
+	if !strings.Contains(ctx, "search_flights") {
+		t.Error("conversation context should contain tool call names")
+	}
+	// User messages should be present
+	if !strings.Contains(ctx, "Find flights to NYC") {
+		t.Error("conversation context should contain user messages")
 	}
 }
