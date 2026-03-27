@@ -84,7 +84,7 @@ func TestApplyServerConfigToContainerConfigOverridesImageAndLabels(t *testing.T)
 
 	server := ServerConfig{
 		MCPServerName:  "mcp-server-abc",
-		ContainerImage: "ghcr.io/nanobot-ai/nanobot:v0.0.60",
+		ContainerImage: "ghcr.io/nanobot-ai/nanobot:v0.0.61",
 		Runtime:        "containerized",
 		Files: []File{{
 			EnvKey:  "NANOBOT_ENV_FILE",
@@ -110,7 +110,7 @@ func TestApplyServerConfigToContainerConfigOverridesImageAndLabels(t *testing.T)
 
 func TestApplyServerConfigToContainerConfigNoImageNoChanges(t *testing.T) {
 	config := &container.Config{
-		Image: "ghcr.io/nanobot-ai/nanobot:v0.0.60",
+		Image: "ghcr.io/nanobot-ai/nanobot:v0.0.61",
 		Labels: map[string]string{
 			"existing": "label",
 		},
