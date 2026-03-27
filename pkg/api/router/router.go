@@ -56,6 +56,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.Invoker)
 	modelAccessPolicies := handlers.NewModelAccessPolicyHandler()
+	messagePolicies := handlers.NewMessagePolicyHandler()
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN)
 	fileScannerProviders := handlers.NewFileScannerProviderHandler(services.ProviderDispatcher, services.Invoker)
 	prompt := handlers.NewPromptHandler()
@@ -754,6 +755,13 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/model-access-policies", modelAccessPolicies.Create)
 	mux.HandleFunc("PUT /api/model-access-policies/{id}", modelAccessPolicies.Update)
 	mux.HandleFunc("DELETE /api/model-access-policies/{id}", modelAccessPolicies.Delete)
+
+	// Message Policies
+	mux.HandleFunc("GET /api/message-policies", messagePolicies.List)
+	mux.HandleFunc("GET /api/message-policies/{id}", messagePolicies.Get)
+	mux.HandleFunc("POST /api/message-policies", messagePolicies.Create)
+	mux.HandleFunc("PUT /api/message-policies/{id}", messagePolicies.Update)
+	mux.HandleFunc("DELETE /api/message-policies/{id}", messagePolicies.Delete)
 
 	// Available Models
 	mux.HandleFunc("GET /api/available-models", availableModels.List)
