@@ -606,7 +606,9 @@
 
 								{#if schema.description}
 									{@const optional = !elicitation.requestedSchema?.required?.includes(key)}
-									<div class="tooltip border-transparent bg-transparent p-0 shadow-none">
+									<div
+										class="tooltip tooltip-right border-transparent bg-transparent p-0 shadow-none"
+									>
 										<div class="tooltip-content text-left break-words">
 											<p class="text-xs font-light">{schema.description}</p>
 										</div>
