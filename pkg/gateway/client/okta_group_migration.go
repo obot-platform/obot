@@ -44,7 +44,7 @@ func (c *Client) runOktaGroupIDMigrationOnce(ctx context.Context, authProviderUR
 }
 
 // migrateOktaGroupIDs performs the one-time migration of Okta group IDs from
-// "okta/{name}" to "okta/{name}_{id}" format across all data stores.
+// "okta/{name}" format to "okta/{group ID}" format across all data stores.
 func (c *Client) migrateOktaGroupIDs(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName string) error {
 	// Fast path: check if migration has already been completed (avoids fetching the mapping)
 	var migration types.Migration
