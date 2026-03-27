@@ -42,11 +42,37 @@
 		queueMicrotask(() => node.focus());
 	}
 
-	// Initialize form data with defaults
+	function formDefaultsSignature(
+		props: Record<string, PrimitiveSchemaDefinition> | undefined
+	): string {
+		if (!props || Object.keys(props).length === 0) return '';
+		const keys = Object.keys(props).sort();
+		const parts: string[] = [];
+		for (const key of keys) {
+			const schema = props[key];
+			let part = `${key}:${schema.type}`;
+			if ('default' in schema && schema.default !== undefined) {
+				part += `:d:${JSON.stringify(schema.default)}`;
+			}
+			if ('enum' in schema && schema.enum) part += `:e:${JSON.stringify(schema.enum)}`;
+			parts.push(part);
+		}
+		return parts.join('|');
+	}
+
+	let lastFormDefaultsSig: string | null = null;
+
 	$effect(() => {
+		const props = elicitation.requestedSchema?.properties as
+			| Record<string, PrimitiveSchemaDefinition>
+			| undefined;
+		const sig = formDefaultsSignature(props);
+		if (lastFormDefaultsSig !== null && sig === lastFormDefaultsSig) return;
+		lastFormDefaultsSig = sig;
+
 		const newFormData: { [key: string]: string | number | boolean } = {};
 
-		for (const [key, schema] of Object.entries(elicitation.requestedSchema?.properties ?? {})) {
+		for (const [key, schema] of Object.entries(props ?? {})) {
 			if (schema.type === 'boolean' && schema.default !== undefined) {
 				newFormData[key] = schema.default;
 			} else if (

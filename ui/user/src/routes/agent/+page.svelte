@@ -35,6 +35,10 @@
 		pendingFiles = pendingFiles.filter((f) => f.id !== fileId);
 	}
 
+	function handleThreadContentWidth(w: number) {
+		threadContentWidth = w;
+	}
+
 	async function handleFileUpload(
 		file: File,
 		_opts?: { controller?: AbortController }
@@ -169,7 +173,7 @@
 				currentRequestId: undefined,
 				subscribed: false
 			} as unknown as ChatSession}
-			onThreadContentWidth={(w) => (threadContentWidth = w)}
+			onThreadContentWidth={handleThreadContentWidth}
 		/>
 	</div>
 

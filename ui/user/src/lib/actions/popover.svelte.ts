@@ -167,8 +167,11 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 	});
 
 	let close: (() => void) | null;
+	let visibilityLayoutGen = 0;
 	$effect(() => {
 		if (!ready) return;
+
+		const gen = ++visibilityLayoutGen;
 
 		// Remove all dynamically added classes for proper reset
 		tooltip.classList.remove(
@@ -229,14 +232,18 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 		// Handle visibility and positioning
 		if (open) {
 			tick().then(async () => {
+				if (gen !== visibilityLayoutGen) return;
 				if (motion === 'daisy') {
 					if (!shouldSkipAutoPosition()) {
 						await updatePosition();
 					}
+					if (gen !== visibilityLayoutGen) return;
 					await tick();
+					if (gen !== visibilityLayoutGen) return;
 					await new Promise<void>((resolve) =>
 						requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
 					);
+					if (gen !== visibilityLayoutGen) return;
 					tooltip.classList.remove('tooltip-portal-daisy-host--inactive', 'opacity-0');
 					if (!shouldSkipAutoPosition()) {
 						close = autoUpdate(ref, tooltip, updatePosition);
@@ -255,9 +262,9 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 				tooltip.classList.remove('opacity-0');
 
 				if (!shouldSkipAutoPosition()) {
-					updatePosition().then(() => {
-						close = autoUpdate(ref, tooltip, updatePosition);
-					});
+					await updatePosition();
+					if (gen !== visibilityLayoutGen) return;
+					close = autoUpdate(ref, tooltip, updatePosition);
 				}
 			});
 		} else {
