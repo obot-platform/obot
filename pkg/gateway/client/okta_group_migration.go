@@ -9,11 +9,12 @@ import (
 	"net/http"
 	"strings"
 
-	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const oktaGroupMigrationName = "okta_group_id_migration"
@@ -167,71 +168,19 @@ func (c *Client) migrateOktaGroupIDs(ctx context.Context, authProviderURL, authP
 		return err
 	}
 
-	// Update CRDs (best-effort after DB migration succeeds)
-	c.migrateOktaGroupIDsInCRDs(ctx, idMap)
+	// Create an OktaGroupMigration task object so the controller handler
+	// migrates the CRDs with automatic retries on failure.
+	if err := c.storageClient.Create(ctx, &v1.OktaGroupMigration{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: system.OktaGroupMigrationPrefix,
+			Namespace:    system.DefaultNamespace,
+		},
+		Spec: v1.OktaGroupMigrationSpec{IDMapping: idMap},
+	}); err != nil {
+		return fmt.Errorf("failed to create OktaGroupMigration task: %w", err)
+	}
 
 	return nil
-}
-
-// migrateOktaGroupIDsInCRDs updates group subject IDs in AccessControlRule, SkillAccessRule, and ModelAccessPolicy CRDs.
-func (c *Client) migrateOktaGroupIDsInCRDs(ctx context.Context, idMap map[string]string) {
-	// Migrate AccessControlRules
-	var acrList v1.AccessControlRuleList
-	if err := c.storageClient.List(ctx, &acrList); err != nil {
-		log.Warnf("Okta group migration: failed to list AccessControlRules: %v", err)
-	} else {
-		for i := range acrList.Items {
-			if updateSubjects(acrList.Items[i].Spec.Manifest.Subjects, idMap) {
-				if err := c.storageClient.Update(ctx, &acrList.Items[i]); err != nil {
-					log.Warnf("Okta group migration: failed to update AccessControlRule %s: %v", acrList.Items[i].Name, err)
-				}
-			}
-		}
-	}
-
-	// Migrate SkillAccessRules
-	var sarList v1.SkillAccessRuleList
-	if err := c.storageClient.List(ctx, &sarList); err != nil {
-		log.Warnf("Okta group migration: failed to list SkillAccessRules: %v", err)
-	} else {
-		for i := range sarList.Items {
-			if updateSubjects(sarList.Items[i].Spec.Manifest.Subjects, idMap) {
-				if err := c.storageClient.Update(ctx, &sarList.Items[i]); err != nil {
-					log.Warnf("Okta group migration: failed to update SkillAccessRule %s: %v", sarList.Items[i].Name, err)
-				}
-			}
-		}
-	}
-
-	// Migrate ModelAccessPolicies
-	var mapList v1.ModelAccessPolicyList
-	if err := c.storageClient.List(ctx, &mapList); err != nil {
-		log.Warnf("Okta group migration: failed to list ModelAccessPolicies: %v", err)
-	} else {
-		for i := range mapList.Items {
-			if updateSubjects(mapList.Items[i].Spec.Manifest.Subjects, idMap) {
-				if err := c.storageClient.Update(ctx, &mapList.Items[i]); err != nil {
-					log.Warnf("Okta group migration: failed to update ModelAccessPolicy %s: %v", mapList.Items[i].Name, err)
-				}
-			}
-		}
-	}
-}
-
-// updateSubjects replaces old-format group IDs with new-format IDs in a subject list.
-// Returns true if any subjects were modified.
-func updateSubjects(subjects []types2.Subject, idMap map[string]string) bool {
-	changed := false
-	for i, s := range subjects {
-		if s.Type != types2.SubjectTypeGroup {
-			continue
-		}
-		if newID, ok := idMap[s.ID]; ok {
-			subjects[i].ID = newID
-			changed = true
-		}
-	}
-	return changed
 }
 
 // fetchGroupMigrationMapping fetches the old→new group ID mapping from the auth provider.

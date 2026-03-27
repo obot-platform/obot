@@ -22,6 +22,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpsession"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/controller/handlers/nanobotagent"
+	"github.com/obot-platform/obot/pkg/controller/handlers/oktagroupmigration"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthclients"
 	"github.com/obot-platform/obot/pkg/controller/handlers/poweruserworkspace"
@@ -311,6 +312,10 @@ func (c *Controller) setupRoutes() {
 
 	// GroupRoleChange
 	root.Type(&v1.GroupRoleChange{}).HandlerFunc(powerUserWorkspaceHandler.HandleGroupRoleChange)
+
+	// OktaGroupMigration
+	oktaGroupMigrationHandler := oktagroupmigration.New()
+	root.Type(&v1.OktaGroupMigration{}).HandlerFunc(oktaGroupMigrationHandler.Migrate)
 
 	// PowerUserWorkspace
 	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(powerUserWorkspaceHandler.CreateACR)
