@@ -83,6 +83,26 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 		}
 	}
 
+	// Check for output (LLM response) policies that apply to this user.
+	var (
+		outputPolicies      []types2.MessagePolicyManifest
+		conversationHistory []messagepolicy.ConversationMessage
+	)
+	if s.messagePolicyHelper != nil && token.UserID != "" {
+		userInfo, err := s.buildUserInfo(req, token)
+		if err != nil {
+			return err
+		}
+		outputPolicies, err = s.messagePolicyHelper.GetApplicablePolicies(userInfo, types2.PolicyDirectionLLMResponse)
+		if err != nil {
+			return err
+		}
+		if len(outputPolicies) > 0 {
+			rawMessages, _ := body["messages"].([]any)
+			conversationHistory, _, _ = parseMessagesFromBody(rawMessages)
+		}
+	}
+
 	// If the model string is different from the model, then we need to look up the model in our database to get the
 	// correct model and model provider information.
 	var modelID string
@@ -172,8 +192,18 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	}
 
 	(&httputil.ReverseProxy{
-		Director:       llmTransformRequest(u, credEnv),
-		ModifyResponse: (&responseModifier{userID: token.UserID, runID: token.RunID, model: model, client: req.GatewayClient, personalToken: personalToken}).modifyResponse,
+		Director: llmTransformRequest(u, credEnv),
+		ModifyResponse: (&responseModifier{
+			userID:              token.UserID,
+			runID:               token.RunID,
+			model:               model,
+			client:              req.GatewayClient,
+			personalToken:       personalToken,
+			ctx:                 req.Context(),
+			messagePolicyHelper: s.messagePolicyHelper,
+			outputPolicies:      outputPolicies,
+			conversationHistory: conversationHistory,
+		}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil
@@ -310,6 +340,15 @@ type responseModifier struct {
 	c                                           io.Closer
 	stream                                      bool
 	leftover                                    []byte
+
+	// Output policy evaluation fields.
+	ctx                 context.Context // TODO(g-linville): is it possible to avoid storing Context in the struct?
+	messagePolicyHelper *messagepolicy.Helper
+	outputPolicies      []types2.MessagePolicyManifest
+	conversationHistory []messagepolicy.ConversationMessage
+	resp                *http.Response // stored reference for header modification
+	evaluated           bool           // true after output policy evaluation has run
+	evaluatedBuf        *bytes.Reader  // buffered (possibly replaced) response to serve
 }
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
@@ -320,12 +359,24 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 	r.c = resp.Body
 	r.b = bufio.NewReader(resp.Body)
 	r.stream = strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")
+	r.resp = resp
 	resp.Body = r
 
 	return nil
 }
 
 func (r *responseModifier) Read(p []byte) (int, error) {
+	// If output policies are active and we haven't evaluated yet, buffer the entire response first.
+	if len(r.outputPolicies) > 0 && !r.evaluated {
+		r.evaluated = true
+		r.bufferAndEvaluateResponse()
+	}
+
+	// If serving from the evaluated buffer, read from it.
+	if r.evaluatedBuf != nil {
+		return r.evaluatedBuf.Read(p)
+	}
+
 	if len(r.leftover) > 0 {
 		n := copy(p, r.leftover)
 		r.leftover = r.leftover[n:]
@@ -352,6 +403,25 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 		line = rest
 	}
 
+	r.extractTokenUsage(line)
+
+	n := copy(p, prefix)
+	if n < len(prefix) {
+		// We couldn't copy the entire prefix, so save the leftover for the next read and return.
+		r.leftover = append(prefix[n:], line...)
+		return n, nil
+	}
+
+	n += copy(p[n:], line)
+
+	// If we didn't copy the entire line, then save the leftover for the next read.
+	r.leftover = line[n-len(prefix):]
+
+	return n, nil
+}
+
+// extractTokenUsage extracts token counts from a JSON line (with data: prefix already stripped).
+func (r *responseModifier) extractTokenUsage(line []byte) {
 	// Extract token usage from all known locations.
 	// Providers nest usage differently:
 	//   - OpenAI Chat Completions: top-level "usage"
@@ -383,20 +453,172 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 		r.totalTokens = max(r.totalTokens, int(totalTokens))
 		r.lock.Unlock()
 	}
+}
 
-	n := copy(p, prefix)
-	if n < len(prefix) {
-		// We couldn't copy the entire prefix, so save the leftover for the next read and return.
-		r.leftover = append(prefix[n:], line...)
-		return n, nil
+// bufferAndEvaluateResponse reads the entire upstream response, extracts token usage and
+// assistant content, evaluates output policies, and replaces the response if violations are found.
+func (r *responseModifier) bufferAndEvaluateResponse() {
+	// Read all lines from the upstream response.
+	var (
+		allLines  [][]byte // raw lines for pass-through
+		jsonLines [][]byte // JSON payloads (data: prefix stripped) for content extraction
+	)
+
+	for {
+		line, err := r.b.ReadBytes('\n')
+		if len(line) > 0 {
+			allLines = append(allLines, line)
+
+			jsonLine := line
+			if r.stream {
+				if rest, ok := bytes.CutPrefix(line, []byte("data: ")); ok {
+					jsonLine = rest
+				} else {
+					// Not a data line (e.g., empty line, event: line), skip JSON parsing.
+					continue
+				}
+			}
+
+			r.extractTokenUsage(jsonLine)
+			jsonLines = append(jsonLines, jsonLine)
+		}
+
+		if err != nil {
+			break
+		}
 	}
 
-	n += copy(p[n:], line)
+	// Extract assistant content from the response.
+	targetMessage := r.extractAssistantContent(jsonLines)
+	if targetMessage == "" {
+		// Nothing to evaluate — serve original response.
+		r.evaluatedBuf = bytes.NewReader(bytes.Join(allLines, nil))
+		return
+	}
 
-	// If we didn't copy the entire line, then save the leftover for the next read.
-	r.leftover = line[n-len(prefix):]
+	// Evaluate output policies.
+	violations := r.messagePolicyHelper.EvaluateMessage(r.ctx, r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionLLMResponse)
+	if len(violations) == 0 {
+		// No violations — serve original response.
+		r.evaluatedBuf = bytes.NewReader(bytes.Join(allLines, nil))
+		return
+	}
 
-	return n, nil
+	// Build replacement response.
+	var explanations []string
+	for _, v := range violations {
+		explanations = append(explanations, v.Explanation)
+	}
+
+	replacement := fmt.Sprintf(
+		"<system_notification>The assistant's response was blocked for violating a policy. The following explanation is for the user: %s</system_notification>",
+		strings.Join(explanations, "\n"),
+	)
+
+	replacementBody := buildReplacementResponse(replacement, r.model)
+
+	// Update response headers to reflect non-streaming JSON.
+	if r.resp != nil {
+		r.resp.Header.Set("Content-Type", "application/json")
+		r.resp.Header.Del("Transfer-Encoding")
+		r.resp.ContentLength = int64(len(replacementBody))
+	}
+
+	r.evaluatedBuf = bytes.NewReader(replacementBody)
+}
+
+// extractAssistantContent extracts the assistant's text content and tool calls from response JSON lines.
+// For non-streaming responses, it parses choices[0].message.
+// For streaming responses, it accumulates delta.content chunks and delta.tool_calls.
+func (r *responseModifier) extractAssistantContent(jsonLines [][]byte) string {
+	var contentParts []string
+	var toolCalls []messagepolicy.ToolCallInfo
+
+	if !r.stream {
+		// Non-streaming: single JSON response.
+		for _, line := range jsonLines {
+			content := gjson.GetBytes(line, "choices.0.message.content").String()
+			if content != "" {
+				contentParts = append(contentParts, content)
+			}
+
+			gjson.GetBytes(line, "choices.0.message.tool_calls").ForEach(func(_, tc gjson.Result) bool {
+				toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{
+					Name:      tc.Get("function.name").String(),
+					Arguments: tc.Get("function.arguments").String(),
+				})
+				return true
+			})
+		}
+	} else {
+		// Streaming: accumulate deltas across SSE chunks.
+		for _, line := range jsonLines {
+			delta := gjson.GetBytes(line, "choices.0.delta")
+			if !delta.Exists() {
+				continue
+			}
+
+			if content := delta.Get("content").String(); content != "" {
+				contentParts = append(contentParts, content)
+			}
+
+			delta.Get("tool_calls").ForEach(func(_, tc gjson.Result) bool {
+				name := tc.Get("function.name").String()
+				args := tc.Get("function.arguments").String()
+				idx := int(tc.Get("index").Int())
+
+				// Tool calls in streaming come as incremental chunks indexed by position.
+				for len(toolCalls) <= idx {
+					toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{})
+				}
+				if name != "" {
+					toolCalls[idx].Name += name
+				}
+				if args != "" {
+					toolCalls[idx].Arguments += args
+				}
+				return true
+			})
+		}
+	}
+
+	// Build the target message string for the policy judge.
+	var sb strings.Builder
+	if text := strings.Join(contentParts, ""); text != "" {
+		sb.WriteString(text)
+	}
+	for _, tc := range toolCalls {
+		if sb.Len() > 0 {
+			sb.WriteString("\n")
+		}
+		fmt.Fprintf(&sb, "[called tool %q with args: %s]", tc.Name, tc.Arguments)
+	}
+
+	return sb.String()
+}
+
+// buildReplacementResponse constructs a minimal OpenAI-format chat completion response
+// with the given content replacing the assistant's message.
+func buildReplacementResponse(content, model string) []byte {
+	resp := map[string]any{
+		"id":     "policy-violation",
+		"object": "chat.completion",
+		"model":  model,
+		"choices": []map[string]any{
+			{
+				"index": 0,
+				"message": map[string]any{
+					"role":    "assistant",
+					"content": content,
+				},
+				"finish_reason": "stop",
+			},
+		},
+	}
+
+	b, _ := json.Marshal(resp)
+	// Add trailing newline for consistency.
+	return append(b, '\n')
 }
 
 func (r *responseModifier) Close() error {
@@ -442,26 +664,34 @@ func llmTransformRequest(u url.URL, credEnv map[string]string) func(req *http.Re
 	}
 }
 
-// evaluateUserMessagePolicies checks the last user message against applicable message policies.
-// If a violation is detected, the last user message content in body["messages"] is replaced with
-// a system notification instructing the LLM to inform the user about the policy violation.
-func (s *Server) evaluateUserMessagePolicies(req api.Context, token *persistent.TokenContext, body map[string]any) error {
+// buildUserInfo constructs a user.DefaultInfo from the token and request context for policy evaluation.
+func (s *Server) buildUserInfo(req api.Context, token *persistent.TokenContext) (*user.DefaultInfo, error) {
 	userID, err := strconv.ParseUint(token.UserID, 10, 64)
 	if err != nil {
-		return fmt.Errorf("failed to parse user ID: %w", err)
+		return nil, fmt.Errorf("failed to parse user ID: %w", err)
 	}
 
 	authProviderGroups, err := req.GatewayClient.ListGroupIDsForUser(req.Context(), uint(userID))
 	if err != nil {
-		return fmt.Errorf("failed to get user groups: %w", err)
+		return nil, fmt.Errorf("failed to get user groups: %w", err)
 	}
 
-	userInfo := &user.DefaultInfo{
+	return &user.DefaultInfo{
 		UID:    token.UserID,
 		Groups: token.UserGroups,
 		Extra: map[string][]string{
 			"auth_provider_groups": authProviderGroups,
 		},
+	}, nil
+}
+
+// evaluateUserMessagePolicies checks the last user message against applicable message policies.
+// If a violation is detected, the last user message content in body["messages"] is replaced with
+// a system notification instructing the LLM to inform the user about the policy violation.
+func (s *Server) evaluateUserMessagePolicies(req api.Context, token *persistent.TokenContext, body map[string]any) error {
+	userInfo, err := s.buildUserInfo(req, token)
+	if err != nil {
+		return err
 	}
 
 	policies, err := s.messagePolicyHelper.GetApplicablePolicies(userInfo, types2.PolicyDirectionUserMessage)
@@ -508,9 +738,9 @@ func (s *Server) evaluateUserMessagePolicies(req api.Context, token *persistent.
 // the last user message content, and its index in the raw array (-1 if not found).
 func parseMessagesFromBody(rawMessages []any) ([]messagepolicy.ConversationMessage, string, int) {
 	var (
-		history        []messagepolicy.ConversationMessage
-		lastUserMsg    string
-		lastUserIdx    = -1
+		history     []messagepolicy.ConversationMessage
+		lastUserMsg string
+		lastUserIdx = -1
 	)
 
 	for i, raw := range rawMessages {
