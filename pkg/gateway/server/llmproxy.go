@@ -25,6 +25,8 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/jwt/persistent"
+	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -72,6 +74,13 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	modelStr, ok := body["model"].(string)
 	if !ok {
 		return fmt.Errorf("missing model in body")
+	}
+
+	// Evaluate user message against applicable message policies.
+	if s.messagePolicyHelper != nil && token.UserID != "" {
+		if err := s.evaluateUserMessagePolicies(req, token, body); err != nil {
+			return err
+		}
 	}
 
 	// If the model string is different from the model, then we need to look up the model in our database to get the
@@ -430,6 +439,153 @@ func llmTransformRequest(u url.URL, credEnv map[string]string) func(req *http.Re
 		// If we forward Accept-Encoding from the client, net/http transport will not
 		// auto-decompress and token usage parsing can see compressed bytes.
 		req.Header.Del("Accept-Encoding")
+	}
+}
+
+// evaluateUserMessagePolicies checks the last user message against applicable message policies.
+// If a violation is detected, the last user message content in body["messages"] is replaced with
+// a system notification instructing the LLM to inform the user about the policy violation.
+func (s *Server) evaluateUserMessagePolicies(req api.Context, token *persistent.TokenContext, body map[string]any) error {
+	userID, err := strconv.ParseUint(token.UserID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse user ID: %w", err)
+	}
+
+	authProviderGroups, err := req.GatewayClient.ListGroupIDsForUser(req.Context(), uint(userID))
+	if err != nil {
+		return fmt.Errorf("failed to get user groups: %w", err)
+	}
+
+	userInfo := &user.DefaultInfo{
+		UID:    token.UserID,
+		Groups: token.UserGroups,
+		Extra: map[string][]string{
+			"auth_provider_groups": authProviderGroups,
+		},
+	}
+
+	policies, err := s.messagePolicyHelper.GetApplicablePolicies(userInfo, types2.PolicyDirectionUserMessage)
+	if err != nil || len(policies) == 0 {
+		return nil
+	}
+
+	rawMessages, _ := body["messages"].([]any)
+	if len(rawMessages) == 0 {
+		return nil
+	}
+
+	conversationHistory, lastUserMessage, lastUserIdx := parseMessagesFromBody(rawMessages)
+	if lastUserIdx < 0 {
+		return nil
+	}
+
+	violations := s.messagePolicyHelper.EvaluateMessage(req.Context(), policies, conversationHistory, lastUserMessage, types2.PolicyDirectionUserMessage)
+	if len(violations) == 0 {
+		return nil
+	}
+
+	// Combine all violation explanations.
+	var explanations []string
+	for _, v := range violations {
+		explanations = append(explanations, v.Explanation)
+	}
+
+	replacement := fmt.Sprintf(
+		"<system_notification>This message was removed by the system for violating policies. Inform the user that you cannot complete their requested action due to a policy violation. The following explanation was generated for you to relay to the user: %s</system_notification>",
+		strings.Join(explanations, "\n"),
+	)
+
+	// Replace the last user message content in the body.
+	if msgMap, ok := rawMessages[lastUserIdx].(map[string]any); ok {
+		msgMap["content"] = replacement
+	}
+
+	return nil
+}
+
+// parseMessagesFromBody converts the raw messages array from the request body into
+// ConversationMessages for policy evaluation. Returns the conversation history,
+// the last user message content, and its index in the raw array (-1 if not found).
+func parseMessagesFromBody(rawMessages []any) ([]messagepolicy.ConversationMessage, string, int) {
+	var (
+		history        []messagepolicy.ConversationMessage
+		lastUserMsg    string
+		lastUserIdx    = -1
+	)
+
+	for i, raw := range rawMessages {
+		msg, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		role, _ := msg["role"].(string)
+		content := extractContentString(msg["content"])
+
+		cm := messagepolicy.ConversationMessage{
+			Role:    role,
+			Content: content,
+		}
+
+		// Parse tool_call_id for tool messages.
+		if toolCallID, ok := msg["tool_call_id"].(string); ok {
+			cm.ToolCallID = toolCallID
+		}
+
+		// Parse tool_calls for assistant messages.
+		if toolCalls, ok := msg["tool_calls"].([]any); ok {
+			for _, tc := range toolCalls {
+				tcMap, ok := tc.(map[string]any)
+				if !ok {
+					continue
+				}
+				fn, _ := tcMap["function"].(map[string]any)
+				if fn == nil {
+					continue
+				}
+				name, _ := fn["name"].(string)
+				arguments, _ := fn["arguments"].(string)
+				cm.ToolCalls = append(cm.ToolCalls, messagepolicy.ToolCallInfo{
+					Name:      name,
+					Arguments: arguments,
+				})
+			}
+		}
+
+		history = append(history, cm)
+
+		if role == "user" {
+			lastUserMsg = content
+			lastUserIdx = i
+		}
+	}
+
+	return history, lastUserMsg, lastUserIdx
+}
+
+// extractContentString extracts a text string from the OpenAI message content field,
+// which can be either a plain string or an array of content parts.
+func extractContentString(content any) string {
+	switch c := content.(type) {
+	case string:
+		return c
+	case []any:
+		// Array of content parts — extract text parts.
+		var parts []string
+		for _, part := range c {
+			partMap, ok := part.(map[string]any)
+			if !ok {
+				continue
+			}
+			if partMap["type"] == "text" {
+				if text, ok := partMap["text"].(string); ok {
+					parts = append(parts, text)
+				}
+			}
+		}
+		return strings.Join(parts, "\n")
+	default:
+		return ""
 	}
 }
 
