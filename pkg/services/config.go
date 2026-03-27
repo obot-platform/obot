@@ -780,7 +780,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	msgPolicyHelper, err := messagepolicy.NewHelper(ctx, r.Backend())
+	msgPolicyHelper, err := messagepolicy.NewHelper(ctx, r.Backend(), storageClient, providerDispatcher, credOnlyGPTscriptClient)
 	if err != nil {
 		return nil, err
 	}
