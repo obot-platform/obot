@@ -8,7 +8,7 @@
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { get } from 'svelte/store';
 	import { goto } from '$lib/url';
-	import { randomUUID } from '$lib/utils';
+	import { clampThreadContentReportedWidth, randomUUID } from '$lib/utils';
 	import type { Attachment, UploadedFile } from '$lib/services/nanobot/types';
 
 	let { data } = $props();
@@ -36,7 +36,7 @@
 	}
 
 	function handleThreadContentWidth(w: number) {
-		threadContentWidth = w;
+		threadContentWidth = clampThreadContentReportedWidth(w);
 	}
 
 	async function handleFileUpload(
@@ -96,7 +96,7 @@
 
 	<div
 		class="flex w-full min-w-0 grow"
-		style={threadContentWidth > 0 ? `min-width: ${threadContentWidth}px` : ''}
+		style={threadContentWidth > 0 ? `min-width: min(${threadContentWidth}px, 100%)` : ''}
 	>
 		<ProjectStartThread
 			agentId={agent.id}

@@ -23,6 +23,7 @@
 	import { untrack, type Snippet } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
+	import { clampThreadContentReportedWidth } from '$lib/utils';
 
 	interface Props {
 		messages: ChatMessage[];
@@ -241,7 +242,6 @@
 		const container = messagesContainer;
 		const inner = messagesContentInner ?? container;
 		if (!container || !inner) return;
-		void lastMessageContentKey;
 
 		let scrollRaf = 0;
 		const ro = new ResizeObserver(() => {
@@ -254,9 +254,13 @@
 					scrollToBottomWhenReady = false;
 				}
 				if (disabledAutoScroll) return;
-				if (isLoading || isNearBottom()) {
-					container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
-				}
+				if (!isLoading && !isNearBottom()) return;
+				const sh = container.scrollHeight;
+				const ch = container.clientHeight;
+				const st = container.scrollTop;
+				const gap = sh - ch - st;
+				if (gap <= SCROLL_THRESHOLD) return;
+				container.scrollTo({ top: sh, behavior: 'auto' });
 			});
 		});
 		ro.observe(inner);
@@ -270,7 +274,7 @@
 		const inner = messagesContentInner;
 		if (!inner) return;
 
-		const notify = untrack(() => onContentWidthChange);
+		const notify = onContentWidthChange;
 		if (!notify) return;
 
 		let lastRounded = -1;
@@ -278,13 +282,13 @@
 
 		const flushWidth = () => {
 			widthRaf = 0;
-			const rounded = Math.round(inner.getBoundingClientRect().width);
+			const capped = clampThreadContentReportedWidth(inner.getBoundingClientRect().width);
 			if (lastRounded >= 0) {
-				if (rounded === lastRounded) return;
-				if (Math.abs(rounded - lastRounded) < CONTENT_WIDTH_NOTIFY_EPSILON) return;
+				if (capped === lastRounded) return;
+				if (Math.abs(capped - lastRounded) < CONTENT_WIDTH_NOTIFY_EPSILON) return;
 			}
-			lastRounded = rounded;
-			notify(rounded);
+			lastRounded = capped;
+			untrack(() => notify?.(capped));
 		};
 
 		const ro = new ResizeObserver(() => {
@@ -563,8 +567,21 @@
 		<div
 			class="bg-base-300 hover:bg-primary w-1 cursor-col-resize transition-colors"
 			onmousedown={startResize}
-			aria-label="Resize browser viewer"
-			role="presentation"
+			aria-label="Resize browser viewer panel"
+			role="button"
+			tabindex="0"
+			onkeydown={(event) => {
+				if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+					event.preventDefault();
+					const delta = event.key === 'ArrowLeft' ? -5 : 5;
+					const minWidth = 5;
+					const maxWidth = 95;
+					let nextWidth = browserViewerWidth + delta;
+					if (nextWidth < minWidth) nextWidth = minWidth;
+					if (nextWidth > maxWidth) nextWidth = maxWidth;
+					browserViewerWidth = nextWidth;
+				}
+			}}
 		></div>
 	{/if}
 
