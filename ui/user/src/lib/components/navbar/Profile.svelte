@@ -139,7 +139,7 @@
 	fixed={responsive.isMobile}
 	classes={{
 		menu: twMerge(
-			'p-0 md:w-fit overflow-hidden',
+			'p-0 md:w-fit overflow-hidden z-50',
 			responsive.isMobile &&
 				'rounded-none h-[calc(100vh-64px)] left-0 top-[64px] !rounded-none w-full h-full'
 		)

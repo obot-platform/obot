@@ -37,6 +37,23 @@ interface PopoverOptions extends Partial<ComputePositionConfig> {
 
 let id = 0;
 
+function tooltipOverlayUnchanged(
+	prev: PopoverOptions & TooltipOptions,
+	merged: PopoverOptions & TooltipOptions
+): boolean {
+	return (
+		prev.slide === merged.slide &&
+		prev.fixed === merged.fixed &&
+		prev.hover === merged.hover &&
+		prev.interactiveHover === merged.interactiveHover &&
+		prev.disablePortal === merged.disablePortal &&
+		prev.enterTransition === merged.enterTransition &&
+		prev.strategy === merged.strategy &&
+		prev.placement === merged.placement &&
+		prev.offset === merged.offset
+	);
+}
+
 export default function popover(initialOptions?: PopoverOptions): Popover {
 	let ref: HTMLElement;
 	let tooltip: HTMLElement;
@@ -328,7 +345,11 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			return {
 				update(newParams?: TooltipOptions) {
 					if (newParams) {
-						options = { ...options, ...newParams };
+						const merged = { ...options, ...newParams };
+						if (tooltipOverlayUnchanged(options, merged)) {
+							return;
+						}
+						options = merged;
 					}
 				},
 				destroy() {
