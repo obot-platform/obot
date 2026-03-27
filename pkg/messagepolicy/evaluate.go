@@ -50,9 +50,12 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []types.MessagePo
 		return nil
 	}
 
+	log.Debugf("Evaluating %d message policies for direction=%s", len(policies), direction)
+
 	// Resolve model once for all policy evaluations.
 	resolved, err := h.resolveModel(ctx)
 	if err != nil {
+		log.Errorf("Failed to resolve llm-mini model for policy evaluation, failing closed: %v", err)
 		// If we can't resolve the model, fail closed: report a validation error for each policy.
 		var violations []PolicyViolation
 		for _, p := range policies {
@@ -63,6 +66,8 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []types.MessagePo
 		}
 		return violations
 	}
+
+	log.Debugf("Resolved llm-mini to model=%s provider=%s", resolved.targetModel, resolved.providerURL)
 
 	conversationContext := BuildConversationContext(conversationHistory)
 
@@ -79,6 +84,7 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []types.MessagePo
 
 			compliant := h.checkCompliance(ctx, resolved, p, conversationContext, targetMessage)
 			if !compliant {
+				log.Warnf("Policy violation detected: policy=%q", p.DisplayName)
 				explanation := h.generateExplanation(ctx, resolved, p, targetMessage, direction)
 
 				mu.Lock()
@@ -87,16 +93,27 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []types.MessagePo
 					Explanation: explanation,
 				})
 				mu.Unlock()
+			} else {
+				log.Debugf("Message compliant with policy=%q", p.DisplayName)
 			}
 		}(policy)
 	}
 
 	wg.Wait()
+
+	if len(violations) > 0 {
+		log.Infof("Policy evaluation complete: %d violation(s) found", len(violations))
+	} else {
+		log.Debugf("Policy evaluation complete: no violations found")
+	}
+
 	return violations
 }
 
 // resolveModel resolves the llm-mini alias to get the target model name, provider URL, and credential headers.
 func (h *Helper) resolveModel(ctx context.Context) (*resolvedModel, error) {
+	log.Debugf("Resolving model alias %s", types.DefaultModelAliasTypeLLMMini)
+
 	m, err := alias.GetFromScope(ctx, h.client, "Model", system.DefaultNamespace, string(types.DefaultModelAliasTypeLLMMini))
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve llm-mini alias: %w", err)
@@ -157,24 +174,30 @@ func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages 
 
 	client := openai.NewClientWithConfig(cfg)
 
+	log.Debugf("Making LLM call to model=%s", resolved.targetModel)
+
 	resp, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		Model:    resolved.targetModel,
 		Messages: messages,
 	}, resolved.credHeaders)
 	if err != nil {
+		log.Errorf("LLM call to model=%s failed: %v", resolved.targetModel, err)
 		return "", fmt.Errorf("LLM call failed: %w", err)
 	}
 
 	if len(resp.Choices) == 0 {
+		log.Errorf("LLM call to model=%s returned no choices", resolved.targetModel)
 		return "", fmt.Errorf("LLM returned no choices")
 	}
 
+	log.Debugf("LLM call to model=%s succeeded", resolved.targetModel)
 	return resp.Choices[0].Message.Content, nil
 }
 
 // checkCompliance performs Stage 1: a yes/no compliance check. Returns true if compliant.
 // Fails closed: any error or ambiguous response is treated as a violation.
 func (h *Helper) checkCompliance(ctx context.Context, resolved *resolvedModel, policy types.MessagePolicyManifest, conversationContext, targetMessage string) bool {
+	log.Debugf("Checking compliance for policy=%q", policy.DisplayName)
 	var userContent strings.Builder
 	fmt.Fprintf(&userContent, "Policy: %s\n\n---\n\n", policy.Definition)
 
@@ -197,15 +220,22 @@ func (h *Helper) checkCompliance(ctx context.Context, resolved *resolvedModel, p
 
 	result, err := h.callLLM(ctx, resolved, messages)
 	if err != nil {
+		log.Warnf("Compliance check LLM call failed for policy=%q, failing closed: %v", policy.DisplayName, err)
 		return false // fail closed
 	}
 
-	return strings.TrimSpace(strings.ToLower(result)) == "yes"
+	answer := strings.TrimSpace(strings.ToLower(result))
+	if answer != "yes" && answer != "no" {
+		log.Warnf("Unexpected compliance check response for policy=%q: %q, treating as violation", policy.DisplayName, result)
+	}
+
+	return answer == "yes"
 }
 
 // generateExplanation performs Stage 2: generates a human-readable explanation for a violation.
 // On error, returns a generic explanation.
 func (h *Helper) generateExplanation(ctx context.Context, resolved *resolvedModel, policy types.MessagePolicyManifest, targetMessage string, direction types.PolicyDirection) string {
+	log.Debugf("Generating violation explanation for policy=%q direction=%s", policy.DisplayName, direction)
 	var audienceInstruction string
 	switch direction {
 	case types.PolicyDirectionLLMResponse:
@@ -229,9 +259,11 @@ func (h *Helper) generateExplanation(ctx context.Context, resolved *resolvedMode
 
 	result, err := h.callLLM(ctx, resolved, messages)
 	if err != nil {
+		log.Warnf("Explanation generation LLM call failed for policy=%q, using generic explanation: %v", policy.DisplayName, err)
 		return fmt.Sprintf("This message was blocked for violating the policy: %s", policy.DisplayName)
 	}
 
+	log.Debugf("Generated explanation for policy=%q", policy.DisplayName)
 	return result
 }
 
