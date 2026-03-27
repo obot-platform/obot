@@ -392,7 +392,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenStatus":              schema_storage_apis_obotobotai_v1_OAuthTokenStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OktaGroupMigration":            schema_storage_apis_obotobotai_v1_OktaGroupMigration(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OktaGroupMigrationList":        schema_storage_apis_obotobotai_v1_OktaGroupMigrationList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OktaGroupMigrationMapping":     schema_storage_apis_obotobotai_v1_OktaGroupMigrationMapping(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OktaGroupMigrationSpec":        schema_storage_apis_obotobotai_v1_OktaGroupMigrationSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PodSecurityAdmissionSettings":  schema_storage_apis_obotobotai_v1_PodSecurityAdmissionSettings(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspace":            schema_storage_apis_obotobotai_v1_PowerUserWorkspace(ref),
@@ -18184,44 +18183,23 @@ func schema_storage_apis_obotobotai_v1_OktaGroupMigrationList(ref common.Referen
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_OktaGroupMigrationMapping(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"oldID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"newID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func schema_storage_apis_obotobotai_v1_OktaGroupMigrationSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"mappings": {
+					"idMapping": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
+							Description: "IDMapping maps old group IDs to new group IDs.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OktaGroupMigrationMapping"),
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
 									},
 								},
 							},
@@ -18230,8 +18208,6 @@ func schema_storage_apis_obotobotai_v1_OktaGroupMigrationSpec(ref common.Referen
 				},
 			},
 		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OktaGroupMigrationMapping"},
 	}
 }
 
