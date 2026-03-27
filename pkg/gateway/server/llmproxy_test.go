@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 )
 
@@ -586,6 +588,243 @@ func TestParseMessagesFromBody_InvalidEntries(t *testing.T) {
 	// lastIdx should point to the raw array index, not the history index
 	if lastIdx != 2 {
 		t.Errorf("lastUserIdx = %d, want 2", lastIdx)
+	}
+}
+
+func TestExtractAssistantContent_NonStreamingTextOnly(t *testing.T) {
+	jsonBody := `{"choices":[{"message":{"role":"assistant","content":"Hello, how can I help?"}}]}`
+	r := &responseModifier{stream: false}
+	result := r.extractAssistantContent([][]byte{[]byte(jsonBody)})
+	if result != "Hello, how can I help?" {
+		t.Errorf("got %q, want %q", result, "Hello, how can I help?")
+	}
+}
+
+func TestExtractAssistantContent_NonStreamingToolCalls(t *testing.T) {
+	jsonBody := `{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"function":{"name":"search_flights","arguments":"{\"to\":\"NYC\"}"}}]}}]}`
+	r := &responseModifier{stream: false}
+	result := r.extractAssistantContent([][]byte{[]byte(jsonBody)})
+	expected := `[called tool "search_flights" with args: {"to":"NYC"}]`
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+}
+
+func TestExtractAssistantContent_NonStreamingTextAndToolCalls(t *testing.T) {
+	jsonBody := `{"choices":[{"message":{"role":"assistant","content":"Let me search.","tool_calls":[{"function":{"name":"book_flight","arguments":"{\"class\":\"first\"}"}}]}}]}`
+	r := &responseModifier{stream: false}
+	result := r.extractAssistantContent([][]byte{[]byte(jsonBody)})
+	if !strings.Contains(result, "Let me search.") {
+		t.Error("expected text content in result")
+	}
+	if !strings.Contains(result, `[called tool "book_flight"`) {
+		t.Error("expected tool call in result")
+	}
+}
+
+func TestExtractAssistantContent_StreamingTextOnly(t *testing.T) {
+	lines := [][]byte{
+		[]byte(`{"choices":[{"delta":{"role":"assistant"}}]}`),
+		[]byte(`{"choices":[{"delta":{"content":"Hello"}}]}`),
+		[]byte(`{"choices":[{"delta":{"content":", world!"}}]}`),
+		[]byte(`{"choices":[{"delta":{}}]}`),
+	}
+	r := &responseModifier{stream: true}
+	result := r.extractAssistantContent(lines)
+	if result != "Hello, world!" {
+		t.Errorf("got %q, want %q", result, "Hello, world!")
+	}
+}
+
+func TestExtractAssistantContent_StreamingToolCalls(t *testing.T) {
+	lines := [][]byte{
+		[]byte(`{"choices":[{"delta":{"role":"assistant","tool_calls":[{"index":0,"function":{"name":"get_weather","arguments":""}}]}}]}`),
+		[]byte(`{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"city\":"}}]}}]}`),
+		[]byte(`{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"NYC\"}"}}]}}]}`),
+	}
+	r := &responseModifier{stream: true}
+	result := r.extractAssistantContent(lines)
+	expected := `[called tool "get_weather" with args: {"city":"NYC"}]`
+	if result != expected {
+		t.Errorf("got %q, want %q", result, expected)
+	}
+}
+
+func TestExtractAssistantContent_StreamingMultipleToolCalls(t *testing.T) {
+	lines := [][]byte{
+		[]byte(`{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"tool_a","arguments":"{}"}}]}}]}`),
+		[]byte(`{"choices":[{"delta":{"tool_calls":[{"index":1,"function":{"name":"tool_b","arguments":"{}"}}]}}]}`),
+	}
+	r := &responseModifier{stream: true}
+	result := r.extractAssistantContent(lines)
+	if !strings.Contains(result, `"tool_a"`) || !strings.Contains(result, `"tool_b"`) {
+		t.Errorf("expected both tool calls, got %q", result)
+	}
+}
+
+func TestExtractAssistantContent_EmptyResponse(t *testing.T) {
+	r := &responseModifier{stream: false}
+	result := r.extractAssistantContent(nil)
+	if result != "" {
+		t.Errorf("got %q, want empty", result)
+	}
+}
+
+func TestExtractAssistantContent_NoContent(t *testing.T) {
+	jsonBody := `{"choices":[{"message":{"role":"assistant"}}]}`
+	r := &responseModifier{stream: false}
+	result := r.extractAssistantContent([][]byte{[]byte(jsonBody)})
+	if result != "" {
+		t.Errorf("got %q, want empty", result)
+	}
+}
+
+func TestBuildReplacementResponse_ValidJSON(t *testing.T) {
+	result := buildReplacementResponse("Policy violation explanation", "gpt-4o")
+
+	var parsed map[string]any
+	if err := json.Unmarshal(result, &parsed); err != nil {
+		t.Fatalf("replacement response is not valid JSON: %v", err)
+	}
+
+	if parsed["object"] != "chat.completion" {
+		t.Errorf("object = %v, want chat.completion", parsed["object"])
+	}
+	if parsed["model"] != "gpt-4o" {
+		t.Errorf("model = %v, want gpt-4o", parsed["model"])
+	}
+
+	choices, ok := parsed["choices"].([]any)
+	if !ok || len(choices) != 1 {
+		t.Fatal("expected exactly 1 choice")
+	}
+	choice := choices[0].(map[string]any)
+	msg := choice["message"].(map[string]any)
+	if msg["role"] != "assistant" {
+		t.Errorf("role = %v, want assistant", msg["role"])
+	}
+	if msg["content"] != "Policy violation explanation" {
+		t.Errorf("content = %v, want %q", msg["content"], "Policy violation explanation")
+	}
+	if choice["finish_reason"] != "stop" {
+		t.Errorf("finish_reason = %v, want stop", choice["finish_reason"])
+	}
+}
+
+func TestBuildReplacementResponse_NoToolCalls(t *testing.T) {
+	result := buildReplacementResponse("blocked", "model")
+
+	var parsed map[string]any
+	if err := json.Unmarshal(result, &parsed); err != nil {
+		t.Fatalf("not valid JSON: %v", err)
+	}
+
+	choices := parsed["choices"].([]any)
+	choice := choices[0].(map[string]any)
+	msg := choice["message"].(map[string]any)
+
+	// Should have no tool_calls key at all — this ensures the agentic loop stops.
+	if _, exists := msg["tool_calls"]; exists {
+		t.Error("replacement response should not contain tool_calls")
+	}
+}
+
+func TestBufferAndEvaluateResponse_NoOutputPolicies_StreamsNormally(t *testing.T) {
+	// When no output policies, Read should stream line-by-line (not buffer).
+	stream := "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n"
+	r := &responseModifier{
+		stream: true,
+		b:      bufio.NewReader(strings.NewReader(stream)),
+		c:      io.NopCloser(strings.NewReader("")),
+		// No outputPolicies — should behave like normal streaming.
+	}
+
+	buf := make([]byte, 4096)
+	n, err := r.Read(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := string(buf[:n])
+	if !strings.Contains(got, "hi") {
+		t.Errorf("expected streamed content, got %q", got)
+	}
+	if r.evaluated {
+		t.Error("should not have triggered output policy evaluation")
+	}
+	if r.evaluatedBuf != nil {
+		t.Error("evaluatedBuf should be nil when no policies")
+	}
+}
+
+func TestBufferAndEvaluateResponse_NonStreaming_PassThrough(t *testing.T) {
+	// Simulate a non-streaming response with output policies but no helper (nil),
+	// which means bufferAndEvaluateResponse will buffer but extractAssistantContent
+	// returns empty → no evaluation needed → pass through.
+	body := `{"choices":[{"message":{"role":"assistant","content":""}}]}` + "\n"
+
+	r := &responseModifier{
+		stream:         false,
+		b:              bufio.NewReader(strings.NewReader(body)),
+		c:              io.NopCloser(strings.NewReader("")),
+		outputPolicies: []types2.MessagePolicyManifest{{DisplayName: "test"}},
+		// messagePolicyHelper is nil — won't be reached because content is empty
+	}
+
+	buf := make([]byte, 4096)
+	n, err := r.Read(buf)
+	if err != nil && err != io.EOF {
+		t.Fatal(err)
+	}
+
+	if !r.evaluated {
+		t.Error("should have triggered evaluation")
+	}
+	// Empty content → no evaluation → original response passed through.
+	got := string(buf[:n])
+	if !strings.Contains(got, "choices") {
+		t.Errorf("expected original response, got %q", got)
+	}
+}
+
+func TestExtractTokenUsage_DuringBuffering(t *testing.T) {
+	// Verify that token usage is still extracted even when response is buffered for policy evaluation.
+	body := `{"choices":[{"message":{"role":"assistant","content":""}}],"usage":{"prompt_tokens":42,"completion_tokens":17,"total_tokens":59}}` + "\n"
+
+	r := &responseModifier{
+		stream:         false,
+		b:              bufio.NewReader(strings.NewReader(body)),
+		c:              io.NopCloser(strings.NewReader("")),
+		outputPolicies: []types2.MessagePolicyManifest{{DisplayName: "test"}},
+	}
+
+	buf := make([]byte, 4096)
+	if _, err := r.Read(buf); err != nil && err != io.EOF {
+		t.Fatal(err)
+	}
+
+	if r.promptTokens != 42 {
+		t.Errorf("promptTokens = %d, want 42", r.promptTokens)
+	}
+	if r.completionTokens != 17 {
+		t.Errorf("completionTokens = %d, want 17", r.completionTokens)
+	}
+	if r.totalTokens != 59 {
+		t.Errorf("totalTokens = %d, want 59", r.totalTokens)
+	}
+}
+
+func TestExtractAssistantContent_StreamingTokenUsageLinesIgnored(t *testing.T) {
+	// Lines with only usage info and no delta should not contribute to content.
+	lines := [][]byte{
+		[]byte(`{"choices":[{"delta":{"content":"Hello"}}]}`),
+		[]byte(`{"choices":[{"delta":{}}],"usage":{"prompt_tokens":10}}`),
+		[]byte(`[DONE]`),
+	}
+	r := &responseModifier{stream: true}
+	result := r.extractAssistantContent(lines)
+	if result != "Hello" {
+		t.Errorf("got %q, want %q", result, "Hello")
 	}
 }
 
