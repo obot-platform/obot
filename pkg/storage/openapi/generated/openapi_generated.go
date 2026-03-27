@@ -6108,8 +6108,9 @@ func schema_obot_platform_obot_apiclient_types_MessagePolicy(ref common.Referenc
 					},
 					"displayName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
 					"description": {
@@ -6146,7 +6147,7 @@ func schema_obot_platform_obot_apiclient_types_MessagePolicy(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"created", "definition", "direction"},
+				Required: []string{"created", "displayName", "definition", "direction"},
 			},
 		},
 		Dependencies: []string{
@@ -6190,8 +6191,9 @@ func schema_obot_platform_obot_apiclient_types_MessagePolicyManifest(ref common.
 				Properties: map[string]spec.Schema{
 					"displayName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
 					"description": {
@@ -6228,7 +6230,7 @@ func schema_obot_platform_obot_apiclient_types_MessagePolicyManifest(ref common.
 						},
 					},
 				},
-				Required: []string{"definition", "direction"},
+				Required: []string{"displayName", "definition", "direction"},
 			},
 		},
 		Dependencies: []string{

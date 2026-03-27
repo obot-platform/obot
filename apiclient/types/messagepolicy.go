@@ -8,7 +8,7 @@ type MessagePolicy struct {
 }
 
 type MessagePolicyManifest struct {
-	DisplayName string          `json:"displayName,omitempty"`
+	DisplayName string          `json:"displayName"`
 	Description string          `json:"description,omitempty"`
 	Definition  string          `json:"definition"`
 	Direction   PolicyDirection `json:"direction"`
@@ -24,6 +24,10 @@ const (
 )
 
 func (m MessagePolicyManifest) Validate() error {
+	if m.DisplayName == "" {
+		return fmt.Errorf("displayName is required")
+	}
+
 	if m.Definition == "" {
 		return fmt.Errorf("definition is required")
 	}
