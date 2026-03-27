@@ -73,28 +73,21 @@ func (c *Client) migrateOktaGroupIDs(ctx context.Context, authProviderURL, authP
 
 	log.Infof("Running Okta group ID migration")
 
-	// Claim the migration in a short transaction so other replicas see the row immediately
-	// and don't block waiting for the data migration to finish.
-	claimed := false
+	// Claim and run the data migration in a single transaction.
+	// With PostgreSQL READ COMMITTED, another replica trying to INSERT the same claim row
+	// will block until this transaction commits or rolls back:
+	//   - On commit: the other replica's INSERT gets DO NOTHING and it skips the migration.
+	//   - On rollback (crash/error): the claim disappears and the other replica retries.
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&types.Migration{Name: oktaGroupMigrationName})
 		if result.Error != nil {
 			return fmt.Errorf("okta migration error: failed to claim migration: %w", result.Error)
 		}
-		claimed = result.RowsAffected == 1
-		return nil
-	}); err != nil {
-		return err
-	}
+		if result.RowsAffected == 0 {
+			// Another replica already completed the migration
+			return nil
+		}
 
-	if !claimed {
-		// Another replica already completed or is completing the migration
-		return nil
-	}
-
-	// Run the data migration in a separate transaction.
-	// If this fails, we delete the claim row so it can be retried.
-	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Load existing okta groups for this auth provider
 		var groups []types.Group
 		if err := tx.Where("auth_provider_namespace = ? AND auth_provider_name = ?",
@@ -171,10 +164,6 @@ func (c *Client) migrateOktaGroupIDs(ctx context.Context, authProviderURL, authP
 
 		return nil
 	}); err != nil {
-		// Data migration failed — delete the claim row so it can be retried
-		if delErr := c.db.WithContext(ctx).Where("name = ?", oktaGroupMigrationName).Delete(&types.Migration{}).Error; delErr != nil {
-			log.Warnf("Okta group migration: failed to delete migration claim after error: %v", delErr)
-		}
 		return err
 	}
 
