@@ -347,6 +347,31 @@ export interface ModelAccessPolicy extends Omit<ModelAccessPolicyManifest, 'id'>
 	metadata?: Record<string, string>;
 }
 
+export type PolicyDirection = 'user-message' | 'llm-response' | 'both';
+
+export const PolicyDirectionLabels: Record<PolicyDirection, string> = {
+	'user-message': 'User Message',
+	'llm-response': 'LLM Response',
+	both: 'Both'
+};
+
+export interface MessagePolicyManifest {
+	id?: string;
+	displayName: string;
+	description?: string;
+	definition: string;
+	direction: PolicyDirection;
+	subjects?: AccessControlRuleSubject[];
+}
+
+export interface MessagePolicy extends Omit<MessagePolicyManifest, 'id'> {
+	id: string;
+	created: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+}
+
 export interface BootstrapStatus {
 	enabled: boolean;
 }
