@@ -87,8 +87,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	deletedServers := 0
 	for _, server := range servers.Items {
 		// Skip multi-user servers in the default MCPCatalog — they should persist after user deletion.
-		// Servers in a PowerUserWorkspace should still be deleted.
-		if server.Spec.MCPCatalogID == system.DefaultCatalog && server.Spec.PowerUserWorkspaceID == "" {
+		if server.Spec.MCPCatalogID == system.DefaultCatalog {
 			continue
 		}
 		if err := kclient.IgnoreNotFound(req.Delete(&server)); err != nil {
