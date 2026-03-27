@@ -48,6 +48,7 @@ import (
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/logutil"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
@@ -191,6 +192,9 @@ type Services struct {
 
 	// Used for indexed lookups of model access policies.
 	ModelAccessPolicyHelper *modelaccesspolicy.Helper
+
+	// Used for indexed lookups of message policies.
+	MessagePolicyHelper *messagepolicy.Helper
 
 	// Used for indexed lookups of skill access rules.
 	SkillAccessRuleHelper *skillaccessrule.Helper
@@ -776,6 +780,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
+	msgPolicyHelper, err := messagepolicy.NewHelper(ctx, r.Backend())
+	if err != nil {
+		return nil, err
+	}
+
 	// Set up MCPWebhookValidation indexer
 	mcpWebhookValidationGVK, err := r.Backend().GroupVersionKindFor(&v1.MCPWebhookValidation{})
 	if err != nil {
@@ -1013,6 +1022,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		},
 		AccessControlRuleHelper:       acrHelper,
 		ModelAccessPolicyHelper:       mapHelper,
+		MessagePolicyHelper:           msgPolicyHelper,
 		SkillAccessRuleHelper:         skillAccessRuleHelper,
 		WebhookHelper:                 webhookHelper,
 		LocalK8sConfig:                localK8sConfig,
