@@ -199,7 +199,6 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 			model:               model,
 			client:              req.GatewayClient,
 			personalToken:       personalToken,
-			ctx:                 req.Context(),
 			messagePolicyHelper: s.messagePolicyHelper,
 			outputPolicies:      outputPolicies,
 			conversationHistory: conversationHistory,
@@ -342,7 +341,6 @@ type responseModifier struct {
 	leftover                                    []byte
 
 	// Output policy evaluation fields.
-	ctx                 context.Context // TODO(g-linville): is it possible to avoid storing Context in the struct?
 	messagePolicyHelper *messagepolicy.Helper
 	outputPolicies      []types2.MessagePolicyManifest
 	conversationHistory []messagepolicy.ConversationMessage
@@ -497,7 +495,7 @@ func (r *responseModifier) bufferAndEvaluateResponse() {
 	}
 
 	// Evaluate output policies.
-	violations := r.messagePolicyHelper.EvaluateMessage(r.ctx, r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionLLMResponse)
+	violations := r.messagePolicyHelper.EvaluateMessage(context.Background(), r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionLLMResponse)
 	if len(violations) == 0 {
 		// No violations — serve original response.
 		r.evaluatedBuf = bytes.NewReader(bytes.Join(allLines, nil))
