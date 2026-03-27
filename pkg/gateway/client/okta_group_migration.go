@@ -163,21 +163,24 @@ func (c *Client) migrateOktaGroupIDs(ctx context.Context, authProviderURL, authP
 			}
 		}
 
+		// Create an OktaGroupMigration task object so the controller handler
+		// migrates the CRDs with automatic retries on failure.
+		// This is inside the transaction so that only the replica holding the lock
+		// creates the object, and if creation fails the claim row is rolled back,
+		// allowing a retry on the next authentication request.
+		if err := c.storageClient.Create(ctx, &v1.OktaGroupMigration{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: system.OktaGroupMigrationPrefix,
+				Namespace:    system.DefaultNamespace,
+			},
+			Spec: v1.OktaGroupMigrationSpec{IDMapping: idMap},
+		}); err != nil {
+			return fmt.Errorf("failed to create OktaGroupMigration task: %w", err)
+		}
+
 		return nil
 	}); err != nil {
 		return err
-	}
-
-	// Create an OktaGroupMigration task object so the controller handler
-	// migrates the CRDs with automatic retries on failure.
-	if err := c.storageClient.Create(ctx, &v1.OktaGroupMigration{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.OktaGroupMigrationPrefix,
-			Namespace:    system.DefaultNamespace,
-		},
-		Spec: v1.OktaGroupMigrationSpec{IDMapping: idMap},
-	}); err != nil {
-		return fmt.Errorf("failed to create OktaGroupMigration task: %w", err)
 	}
 
 	return nil
