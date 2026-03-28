@@ -11,7 +11,7 @@
 		PolicyDirectionLabels
 	} from '$lib/services/admin/types';
 	import { LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
-	import { onMount, untrack } from 'svelte';
+	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '../table/Table.svelte';
@@ -27,12 +27,7 @@
 		readonly?: boolean;
 	}
 
-	let {
-		messagePolicy: initialMessagePolicy,
-		onCreate,
-		onUpdate,
-		readonly
-	}: Props = $props();
+	let { messagePolicy: initialMessagePolicy, onCreate, onUpdate, readonly }: Props = $props();
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let messagePolicy = $state(
@@ -169,9 +164,7 @@
 		return (
 			policy.displayName.length > 0 &&
 			policy.definition.length > 0 &&
-			(['user-message', 'tool-calls', 'both'] as PolicyDirection[]).includes(
-				policy.direction
-			) &&
+			(['user-message', 'tool-calls', 'both'] as PolicyDirection[]).includes(policy.direction) &&
 			(policy.subjects?.length ?? 0) > 0
 		);
 	}
@@ -263,7 +256,7 @@
 						class="text-input-filled mt-0.5"
 						disabled={readonly}
 					>
-						{#each directionOptions as option}
+						{#each directionOptions as option (option.value)}
 							<option value={option.value}>{option.label}</option>
 						{/each}
 					</select>
@@ -399,9 +392,7 @@
 	bind:this={addUserGroupDialog}
 	filterIds={messagePolicy.subjects?.map((subject) => subject.id) ?? []}
 	onAdd={async (users: OrgUser[], groups: OrgGroup[]) => {
-		const existingSubjectIds = new Set(
-			messagePolicy.subjects?.map((subject) => subject.id) ?? []
-		);
+		const existingSubjectIds = new Set(messagePolicy.subjects?.map((subject) => subject.id) ?? []);
 		const newSubjects = [
 			...users
 				.filter((user: OrgUser) => !existingSubjectIds.has(user.id))

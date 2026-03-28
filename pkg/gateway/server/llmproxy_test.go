@@ -591,89 +591,30 @@ func TestParseMessagesFromBody_InvalidEntries(t *testing.T) {
 	}
 }
 
-func TestExtractAssistantContent_NonStreamingTextOnly(t *testing.T) {
-	jsonBody := `{"choices":[{"message":{"role":"assistant","content":"Hello, how can I help?"}}]}`
-	r := &responseModifier{stream: false}
-	result := r.extractAssistantContent([][]byte{[]byte(jsonBody)})
-	if result != "Hello, how can I help?" {
-		t.Errorf("got %q, want %q", result, "Hello, how can I help?")
+func TestBuildToolCallTargetMessage_SingleToolCall(t *testing.T) {
+	toolCalls := []messagepolicy.ToolCallInfo{
+		{Name: "search_flights", Arguments: `{"to":"NYC"}`},
 	}
-}
-
-func TestExtractAssistantContent_NonStreamingToolCalls(t *testing.T) {
-	jsonBody := `{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[{"function":{"name":"search_flights","arguments":"{\"to\":\"NYC\"}"}}]}}]}`
-	r := &responseModifier{stream: false}
-	result := r.extractAssistantContent([][]byte{[]byte(jsonBody)})
+	result := buildToolCallTargetMessage(toolCalls)
 	expected := `[called tool "search_flights" with args: {"to":"NYC"}]`
 	if result != expected {
 		t.Errorf("got %q, want %q", result, expected)
 	}
 }
 
-func TestExtractAssistantContent_NonStreamingTextAndToolCalls(t *testing.T) {
-	jsonBody := `{"choices":[{"message":{"role":"assistant","content":"Let me search.","tool_calls":[{"function":{"name":"book_flight","arguments":"{\"class\":\"first\"}"}}]}}]}`
-	r := &responseModifier{stream: false}
-	result := r.extractAssistantContent([][]byte{[]byte(jsonBody)})
-	if !strings.Contains(result, "Let me search.") {
-		t.Error("expected text content in result")
+func TestBuildToolCallTargetMessage_MultipleToolCalls(t *testing.T) {
+	toolCalls := []messagepolicy.ToolCallInfo{
+		{Name: "tool_a", Arguments: "{}"},
+		{Name: "tool_b", Arguments: "{}"},
 	}
-	if !strings.Contains(result, `[called tool "book_flight"`) {
-		t.Error("expected tool call in result")
-	}
-}
-
-func TestExtractAssistantContent_StreamingTextOnly(t *testing.T) {
-	lines := [][]byte{
-		[]byte(`{"choices":[{"delta":{"role":"assistant"}}]}`),
-		[]byte(`{"choices":[{"delta":{"content":"Hello"}}]}`),
-		[]byte(`{"choices":[{"delta":{"content":", world!"}}]}`),
-		[]byte(`{"choices":[{"delta":{}}]}`),
-	}
-	r := &responseModifier{stream: true}
-	result := r.extractAssistantContent(lines)
-	if result != "Hello, world!" {
-		t.Errorf("got %q, want %q", result, "Hello, world!")
-	}
-}
-
-func TestExtractAssistantContent_StreamingToolCalls(t *testing.T) {
-	lines := [][]byte{
-		[]byte(`{"choices":[{"delta":{"role":"assistant","tool_calls":[{"index":0,"function":{"name":"get_weather","arguments":""}}]}}]}`),
-		[]byte(`{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"city\":"}}]}}]}`),
-		[]byte(`{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"NYC\"}"}}]}}]}`),
-	}
-	r := &responseModifier{stream: true}
-	result := r.extractAssistantContent(lines)
-	expected := `[called tool "get_weather" with args: {"city":"NYC"}]`
-	if result != expected {
-		t.Errorf("got %q, want %q", result, expected)
-	}
-}
-
-func TestExtractAssistantContent_StreamingMultipleToolCalls(t *testing.T) {
-	lines := [][]byte{
-		[]byte(`{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"tool_a","arguments":"{}"}}]}}]}`),
-		[]byte(`{"choices":[{"delta":{"tool_calls":[{"index":1,"function":{"name":"tool_b","arguments":"{}"}}]}}]}`),
-	}
-	r := &responseModifier{stream: true}
-	result := r.extractAssistantContent(lines)
+	result := buildToolCallTargetMessage(toolCalls)
 	if !strings.Contains(result, `"tool_a"`) || !strings.Contains(result, `"tool_b"`) {
 		t.Errorf("expected both tool calls, got %q", result)
 	}
 }
 
-func TestExtractAssistantContent_EmptyResponse(t *testing.T) {
-	r := &responseModifier{stream: false}
-	result := r.extractAssistantContent(nil)
-	if result != "" {
-		t.Errorf("got %q, want empty", result)
-	}
-}
-
-func TestExtractAssistantContent_NoContent(t *testing.T) {
-	jsonBody := `{"choices":[{"message":{"role":"assistant"}}]}`
-	r := &responseModifier{stream: false}
-	result := r.extractAssistantContent([][]byte{[]byte(jsonBody)})
+func TestBuildToolCallTargetMessage_Empty(t *testing.T) {
+	result := buildToolCallTargetMessage(nil)
 	if result != "" {
 		t.Errorf("got %q, want empty", result)
 	}
@@ -729,8 +670,8 @@ func TestBuildReplacementResponse_NoToolCalls(t *testing.T) {
 	}
 }
 
-func TestBufferAndEvaluateResponse_NoOutputPolicies_StreamsNormally(t *testing.T) {
-	// When no output policies, Read should stream line-by-line (not buffer).
+func TestNoOutputPolicies_StreamsNormally(t *testing.T) {
+	// When no output policies, Read should stream line-by-line (no pipe).
 	stream := "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n"
 	r := &responseModifier{
 		stream: true,
@@ -749,48 +690,41 @@ func TestBufferAndEvaluateResponse_NoOutputPolicies_StreamsNormally(t *testing.T
 	if !strings.Contains(got, "hi") {
 		t.Errorf("expected streamed content, got %q", got)
 	}
-	if r.evaluated {
-		t.Error("should not have triggered output policy evaluation")
-	}
-	if r.evaluatedBuf != nil {
-		t.Error("evaluatedBuf should be nil when no policies")
+	if r.pipeReader != nil {
+		t.Error("pipeReader should be nil when no policies")
 	}
 }
 
-func TestBufferAndEvaluateResponse_NonStreaming_PassThrough(t *testing.T) {
-	// Simulate a non-streaming response with output policies but no helper (nil),
-	// which means bufferAndEvaluateResponse will buffer but extractAssistantContent
-	// returns empty → no evaluation needed → pass through.
-	body := `{"choices":[{"message":{"role":"assistant","content":""}}]}` + "\n"
+func TestStreamAndEvaluateToolCallsJSON_NoToolCalls_PassThrough(t *testing.T) {
+	// Non-streaming response with no tool calls should pass through unchanged.
+	body := `{"choices":[{"message":{"role":"assistant","content":"Hello"}}]}` + "\n"
 
+	pr, pw := io.Pipe()
 	r := &responseModifier{
 		stream:         false,
 		b:              bufio.NewReader(strings.NewReader(body)),
 		c:              io.NopCloser(strings.NewReader("")),
 		outputPolicies: []types2.MessagePolicyManifest{{DisplayName: "test"}},
-		// messagePolicyHelper is nil — won't be reached because content is empty
 	}
 
-	buf := make([]byte, 4096)
-	n, err := r.Read(buf)
-	if err != nil && err != io.EOF {
+	go r.streamAndEvaluateToolCalls(pw)
+
+	result, err := io.ReadAll(pr)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !r.evaluated {
-		t.Error("should have triggered evaluation")
-	}
-	// Empty content → no evaluation → original response passed through.
-	got := string(buf[:n])
-	if !strings.Contains(got, "choices") {
+	got := string(result)
+	if !strings.Contains(got, "Hello") {
 		t.Errorf("expected original response, got %q", got)
 	}
 }
 
-func TestExtractTokenUsage_DuringBuffering(t *testing.T) {
-	// Verify that token usage is still extracted even when response is buffered for policy evaluation.
-	body := `{"choices":[{"message":{"role":"assistant","content":""}}],"usage":{"prompt_tokens":42,"completion_tokens":17,"total_tokens":59}}` + "\n"
+func TestStreamAndEvaluateToolCallsJSON_TokenUsageExtracted(t *testing.T) {
+	// Verify that token usage is extracted from non-streaming responses during tool call evaluation.
+	body := `{"choices":[{"message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":42,"completion_tokens":17,"total_tokens":59}}` + "\n"
 
+	pr, pw := io.Pipe()
 	r := &responseModifier{
 		stream:         false,
 		b:              bufio.NewReader(strings.NewReader(body)),
@@ -798,8 +732,9 @@ func TestExtractTokenUsage_DuringBuffering(t *testing.T) {
 		outputPolicies: []types2.MessagePolicyManifest{{DisplayName: "test"}},
 	}
 
-	buf := make([]byte, 4096)
-	if _, err := r.Read(buf); err != nil && err != io.EOF {
+	go r.streamAndEvaluateToolCalls(pw)
+
+	if _, err := io.ReadAll(pr); err != nil {
 		t.Fatal(err)
 	}
 
@@ -814,17 +749,52 @@ func TestExtractTokenUsage_DuringBuffering(t *testing.T) {
 	}
 }
 
-func TestExtractAssistantContent_StreamingTokenUsageLinesIgnored(t *testing.T) {
-	// Lines with only usage info and no delta should not contribute to content.
-	lines := [][]byte{
-		[]byte(`{"choices":[{"delta":{"content":"Hello"}}]}`),
-		[]byte(`{"choices":[{"delta":{}}],"usage":{"prompt_tokens":10}}`),
-		[]byte(`[DONE]`),
+func TestStreamAndEvaluateToolCallsSSE_TextOnly_StreamsThrough(t *testing.T) {
+	// Streaming response with only text deltas should stream through unchanged.
+	stream := "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\n" +
+		"data: {\"choices\":[{\"delta\":{\"content\":\", world!\"}}]}\n\n" +
+		"data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n" +
+		"data: [DONE]\n\n"
+
+	pr, pw := io.Pipe()
+	r := &responseModifier{
+		stream:         true,
+		b:              bufio.NewReader(strings.NewReader(stream)),
+		c:              io.NopCloser(strings.NewReader("")),
+		outputPolicies: []types2.MessagePolicyManifest{{DisplayName: "test"}},
 	}
-	r := &responseModifier{stream: true}
-	result := r.extractAssistantContent(lines)
-	if result != "Hello" {
-		t.Errorf("got %q, want %q", result, "Hello")
+
+	go r.streamAndEvaluateToolCalls(pw)
+
+	result, err := io.ReadAll(pr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := string(result)
+	if !strings.Contains(got, "Hello") || !strings.Contains(got, "world!") {
+		t.Errorf("expected streamed text content, got %q", got)
+	}
+	if !strings.Contains(got, "finish_reason") {
+		t.Errorf("expected finish line to be forwarded, got %q", got)
+	}
+}
+
+func TestBuildStreamingNotificationChunks_ValidSSE(t *testing.T) {
+	chunks := buildStreamingNotificationChunks("policy violation explanation", "gpt-4o")
+	got := string(chunks)
+
+	if !strings.Contains(got, "data: ") {
+		t.Error("expected SSE data: prefix")
+	}
+	if !strings.Contains(got, "policy violation explanation") {
+		t.Error("expected notification content in chunks")
+	}
+	if !strings.Contains(got, `"finish_reason":"stop"`) {
+		t.Error("expected stop finish_reason in chunks")
+	}
+	if !strings.Contains(got, "[DONE]") {
+		t.Error("expected [DONE] terminator")
 	}
 }
 

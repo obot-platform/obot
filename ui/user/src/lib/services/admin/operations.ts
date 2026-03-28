@@ -719,9 +719,7 @@ export async function deleteModelAccessPolicy(id: string): Promise<void> {
 	await doDelete(`/model-access-policies/${id}`);
 }
 
-export async function listMessagePolicies(opts?: {
-	fetch?: Fetcher;
-}): Promise<MessagePolicy[]> {
+export async function listMessagePolicies(opts?: { fetch?: Fetcher }): Promise<MessagePolicy[]> {
 	const response = (await doGet('/message-policies', opts)) as ItemsResponse<MessagePolicy>;
 	return response.items ?? [];
 }
@@ -733,9 +731,7 @@ export async function getMessagePolicy(
 	return (await doGet(`/message-policies/${id}`, opts)) as MessagePolicy;
 }
 
-export async function createMessagePolicy(
-	manifest: MessagePolicyManifest
-): Promise<MessagePolicy> {
+export async function createMessagePolicy(manifest: MessagePolicyManifest): Promise<MessagePolicy> {
 	return (await doPost('/message-policies', manifest)) as MessagePolicy;
 }
 

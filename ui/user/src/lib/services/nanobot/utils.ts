@@ -71,9 +71,7 @@ export function extractPolicyExplanation(content: string): string {
 	const match = content.match(/<system_notification>([\s\S]*?)<\/system_notification>/);
 	if (!match) return content;
 	const inner = match[1].trim();
-	const explanationMatch = inner.match(
-		/(?:for the user|relay to the user):\s*([\s\S]*)/i
-	);
+	const explanationMatch = inner.match(/(?:for the user|relay to the user):\s*([\s\S]*)/i);
 	return explanationMatch ? explanationMatch[1].trim() : inner;
 }
 

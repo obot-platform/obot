@@ -469,6 +469,8 @@ func (r *responseModifier) streamAndEvaluateToolCalls(pw *io.PipeWriter) {
 
 // streamAndEvaluateToolCallsSSE handles streaming (SSE) responses.
 // Text delta chunks are forwarded immediately; tool call chunks are buffered for evaluation.
+// Write errors on pw are intentionally discarded: the pipe reader will surface any errors,
+// and a broken pipe simply means the client disconnected.
 func (r *responseModifier) streamAndEvaluateToolCallsSSE(pw *io.PipeWriter) {
 	var (
 		toolCallChunks [][]byte // raw SSE lines containing tool_call deltas (held back)
@@ -485,7 +487,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(pw *io.PipeWriter) {
 		rest, isData := bytes.CutPrefix(line, []byte("data: "))
 		if !isData {
 			// Non-data lines (empty lines, event: lines) — pass through.
-			pw.Write(line)
+			_, _ = pw.Write(line)
 			if err != nil {
 				break
 			}
@@ -526,7 +528,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(pw *io.PipeWriter) {
 			finishLine = append([]byte(nil), line...)
 		} else {
 			// Text content or other non-tool-call data — forward immediately.
-			pw.Write(line)
+			_, _ = pw.Write(line)
 		}
 
 		if err != nil {
@@ -540,7 +542,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(pw *io.PipeWriter) {
 		// No tool calls — forward the finish line and done.
 		logger.Debugf("No tool calls in response for user=%s, skipping policy evaluation", r.userID)
 		if len(finishLine) > 0 {
-			pw.Write(finishLine)
+			_, _ = pw.Write(finishLine)
 		}
 		return
 	}
@@ -554,10 +556,10 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(pw *io.PipeWriter) {
 		// No violations — flush all buffered tool call chunks + finish line.
 		logger.Debugf("Tool call policy evaluation passed for user=%s, forwarding %d tool calls", r.userID, len(toolCalls))
 		for _, chunk := range toolCallChunks {
-			pw.Write(chunk)
+			_, _ = pw.Write(chunk)
 		}
 		if len(finishLine) > 0 {
-			pw.Write(finishLine)
+			_, _ = pw.Write(finishLine)
 		}
 		return
 	}
@@ -574,14 +576,15 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(pw *io.PipeWriter) {
 		strings.Join(explanations, "\n"),
 	)
 
-	pw.Write(buildStreamingNotificationChunks(notification, r.model))
+	_, _ = pw.Write(buildStreamingNotificationChunks(notification, r.model))
 }
 
 // streamAndEvaluateToolCallsJSON handles non-streaming (single JSON) responses.
 func (r *responseModifier) streamAndEvaluateToolCallsJSON(pw *io.PipeWriter) {
-	// Read the entire response body.
+	// Read the entire response body. Error is discarded because the upstream
+	// response may legitimately EOF, and partial reads are handled gracefully.
 	var buf bytes.Buffer
-	io.Copy(&buf, r.b)
+	_, _ = io.Copy(&buf, r.b)
 	body := buf.Bytes()
 
 	r.extractTokenUsage(body)
@@ -591,7 +594,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsJSON(pw *io.PipeWriter) {
 	if !tcResult.Exists() || len(tcResult.Array()) == 0 {
 		// No tool calls — pass through unchanged.
 		logger.Debugf("No tool calls in response for user=%s, skipping policy evaluation", r.userID)
-		pw.Write(body)
+		_, _ = pw.Write(body)
 		return
 	}
 
@@ -612,7 +615,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsJSON(pw *io.PipeWriter) {
 	if len(violations) == 0 {
 		// No violations — pass through unchanged.
 		logger.Debugf("Tool call policy evaluation passed for user=%s, forwarding %d tool calls", r.userID, len(toolCalls))
-		pw.Write(body)
+		_, _ = pw.Write(body)
 		return
 	}
 
@@ -628,7 +631,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsJSON(pw *io.PipeWriter) {
 		strings.Join(explanations, "\n"),
 	)
 
-	pw.Write(buildReplacementResponse(notification, r.model))
+	_, _ = pw.Write(buildReplacementResponse(notification, r.model))
 }
 
 // buildToolCallTargetMessage formats tool calls into the target message string for the policy judge.
