@@ -309,6 +309,9 @@ type responseModifier struct {
 	stream                                      bool
 	leftover                                    []byte
 
+	// Input policy violation: replacement text to send back via response header.
+	inputPolicyReplacement string
+
 	// Output (tool-call) policy evaluation fields.
 	messagePolicyHelper *messagepolicy.Helper
 	outputPolicies      []types2.MessagePolicyManifest
@@ -317,6 +320,10 @@ type responseModifier struct {
 }
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
+	if r.inputPolicyReplacement != "" {
+		resp.Header.Set("X-Obot-Message-Policy-Replacement", r.inputPolicyReplacement)
+	}
+
 	if resp.StatusCode != http.StatusOK || (resp.Request.URL.Path != "/v1/chat/completions" && resp.Request.URL.Path != "/v1/messages" && resp.Request.URL.Path != "/v1/responses") {
 		return nil
 	}
@@ -880,9 +887,10 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 
 	// Evaluate message policies if the helper is available and we have a user.
 	var (
-		outputPolicies      []types2.MessagePolicyManifest
-		conversationHistory []messagepolicy.ConversationMessage
-		bodyModified        bool
+		outputPolicies         []types2.MessagePolicyManifest
+		conversationHistory    []messagepolicy.ConversationMessage
+		bodyModified           bool
+		inputPolicyReplacement string
 	)
 	if l.messagePolicyHelper != nil && req.User.GetUID() != "" {
 		var bodyMap map[string]any
@@ -907,6 +915,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 							if msgMap, ok := rawMessages[lastUserIdx].(map[string]any); ok {
 								msgMap["content"] = replacement
 								bodyModified = true
+								inputPolicyReplacement = replacement
 							}
 						}
 					}
@@ -960,12 +969,13 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 	(&httputil.ReverseProxy{
 		Director: llmTransformRequest(l.u, nil),
 		ModifyResponse: (&responseModifier{
-			userID:              req.User.GetUID(),
-			model:               targetModel,
-			client:              req.GatewayClient,
-			messagePolicyHelper: l.messagePolicyHelper,
-			outputPolicies:      outputPolicies,
-			conversationHistory: conversationHistory,
+			userID:                 req.User.GetUID(),
+			model:                  targetModel,
+			client:                 req.GatewayClient,
+			inputPolicyReplacement: inputPolicyReplacement,
+			messagePolicyHelper:    l.messagePolicyHelper,
+			outputPolicies:         outputPolicies,
+			conversationHistory:    conversationHistory,
 		}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
