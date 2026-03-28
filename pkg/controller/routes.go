@@ -88,6 +88,7 @@ func (c *Controller) setupRoutes() {
 	projectMCPServerHandler := projectmcpserver.NewHandler()
 	systemMCPServerHandler := systemmcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
 	nanobotAgentHandler := nanobotagent.New(c.services.GPTClient, c.services.PersistentTokenServer, c.services.GatewayClient, c.localK8sRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPLoader)
+	oktaGroupMigrationHandler := oktagroupmigration.New()
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -314,7 +315,6 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.GroupRoleChange{}).HandlerFunc(powerUserWorkspaceHandler.HandleGroupRoleChange)
 
 	// OktaGroupMigration
-	oktaGroupMigrationHandler := oktagroupmigration.New()
 	root.Type(&v1.OktaGroupMigration{}).HandlerFunc(oktaGroupMigrationHandler.Migrate)
 
 	// PowerUserWorkspace
