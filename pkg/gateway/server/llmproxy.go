@@ -25,7 +25,6 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -74,33 +73,6 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	modelStr, ok := body["model"].(string)
 	if !ok {
 		return fmt.Errorf("missing model in body")
-	}
-
-	// Evaluate user message against applicable message policies.
-	if s.messagePolicyHelper != nil && token.UserID != "" {
-		if err := s.evaluateUserMessagePolicies(req, token, body); err != nil {
-			return err
-		}
-	}
-
-	// Check for output (LLM response) policies that apply to this user.
-	var (
-		outputPolicies      []types2.MessagePolicyManifest
-		conversationHistory []messagepolicy.ConversationMessage
-	)
-	if s.messagePolicyHelper != nil && token.UserID != "" {
-		userInfo, err := s.buildUserInfo(req, token)
-		if err != nil {
-			return err
-		}
-		outputPolicies, err = s.messagePolicyHelper.GetApplicablePolicies(userInfo, types2.PolicyDirectionToolCalls)
-		if err != nil {
-			return err
-		}
-		if len(outputPolicies) > 0 {
-			rawMessages, _ := body["messages"].([]any)
-			conversationHistory, _, _ = parseMessagesFromBody(rawMessages)
-		}
 	}
 
 	// If the model string is different from the model, then we need to look up the model in our database to get the
@@ -194,14 +166,11 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	(&httputil.ReverseProxy{
 		Director: llmTransformRequest(u, credEnv),
 		ModifyResponse: (&responseModifier{
-			userID:              token.UserID,
-			runID:               token.RunID,
-			model:               model,
-			client:              req.GatewayClient,
-			personalToken:       personalToken,
-			messagePolicyHelper: s.messagePolicyHelper,
-			outputPolicies:      outputPolicies,
-			conversationHistory: conversationHistory,
+			userID:        token.UserID,
+			runID:         token.RunID,
+			model:         model,
+			client:        req.GatewayClient,
+			personalToken: personalToken,
 		}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
@@ -748,75 +717,6 @@ func llmTransformRequest(u url.URL, credEnv map[string]string) func(req *http.Re
 	}
 }
 
-// buildUserInfo constructs a user.DefaultInfo from the token and request context for policy evaluation.
-func (s *Server) buildUserInfo(req api.Context, token *persistent.TokenContext) (*user.DefaultInfo, error) {
-	userID, err := strconv.ParseUint(token.UserID, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse user ID: %w", err)
-	}
-
-	authProviderGroups, err := req.GatewayClient.ListGroupIDsForUser(req.Context(), uint(userID))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user groups: %w", err)
-	}
-
-	return &user.DefaultInfo{
-		UID:    token.UserID,
-		Groups: token.UserGroups,
-		Extra: map[string][]string{
-			"auth_provider_groups": authProviderGroups,
-		},
-	}, nil
-}
-
-// evaluateUserMessagePolicies checks the last user message against applicable message policies.
-// If a violation is detected, the last user message content in body["messages"] is replaced with
-// a system notification instructing the LLM to inform the user about the policy violation.
-func (s *Server) evaluateUserMessagePolicies(req api.Context, token *persistent.TokenContext, body map[string]any) error {
-	userInfo, err := s.buildUserInfo(req, token)
-	if err != nil {
-		return err
-	}
-
-	policies, err := s.messagePolicyHelper.GetApplicablePolicies(userInfo, types2.PolicyDirectionUserMessage)
-	if err != nil || len(policies) == 0 {
-		return nil
-	}
-
-	rawMessages, _ := body["messages"].([]any)
-	if len(rawMessages) == 0 {
-		return nil
-	}
-
-	conversationHistory, lastUserMessage, lastUserIdx := parseMessagesFromBody(rawMessages)
-	if lastUserIdx < 0 {
-		return nil
-	}
-
-	violations := s.messagePolicyHelper.EvaluateMessage(req.Context(), policies, conversationHistory, lastUserMessage, types2.PolicyDirectionUserMessage)
-	if len(violations) == 0 {
-		return nil
-	}
-
-	// Combine all violation explanations.
-	var explanations []string
-	for _, v := range violations {
-		explanations = append(explanations, v.Explanation)
-	}
-
-	replacement := fmt.Sprintf(
-		"<system_notification>This message was removed by the system for violating policies. Inform the user that you cannot complete their requested action due to a policy violation. The following explanation was generated for you to relay to the user: %s</system_notification>",
-		strings.Join(explanations, "\n"),
-	)
-
-	// Replace the last user message content in the body.
-	if msgMap, ok := rawMessages[lastUserIdx].(map[string]any); ok {
-		msgMap["content"] = replacement
-	}
-
-	return nil
-}
-
 // parseMessagesFromBody converts the raw messages array from the request body into
 // ConversationMessages for policy evaluation. Returns the conversation history,
 // the last user message content, and its index in the raw array (-1 if not found).
@@ -1011,6 +911,8 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 						}
 					}
 				}
+			} else if err != nil {
+				return fmt.Errorf("failed to get applicable input policies: %w", err)
 			}
 
 			// Check for output (tool-call) policies.
