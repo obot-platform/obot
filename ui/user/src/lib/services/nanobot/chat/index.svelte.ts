@@ -527,13 +527,19 @@ export class ChatSession {
 						| 'history-end'
 						| 'chat-in-progress'
 						| 'chat-done'
+						| 'input-replaced'
 						| 'elicitation/create'
 						| 'error',
 					data: JSON.parse(e.data)
 				};
 
 				// Certain events should be processed immediately (not batched)
-				if (type === 'history-start' || type === 'history-end' || type === 'chat-done') {
+				if (
+					type === 'history-start' ||
+					type === 'history-end' ||
+					type === 'chat-done' ||
+					type === 'input-replaced'
+				) {
 					// Flush any pending events first
 					flushBuffer();
 					if (batchTimer !== null) {
@@ -609,6 +615,27 @@ export class ChatSession {
 					this.isRestoring = false;
 				} else if (event.type === 'chat-in-progress') {
 					this.isLoading = true;
+				} else if (event.type === 'input-replaced') {
+					const replacement = (event.data as { replacement?: string })?.replacement;
+					if (replacement) {
+						// Find the last user message and replace its text content
+						for (let i = this.messages.length - 1; i >= 0; i--) {
+							if (this.messages[i].role === 'user') {
+								this.messages[i] = {
+									...this.messages[i],
+									items: [
+										{
+											id: this.messages[i].id + '_0',
+											type: 'text',
+											text: replacement
+										}
+									]
+								};
+								this.messages = [...this.messages];
+								break;
+							}
+						}
+					}
 				} else if (event.type === 'chat-done') {
 					this.isLoading = false;
 					for (const waiting of this.onChatDone) {
@@ -639,6 +666,7 @@ export class ChatSession {
 					'history-end',
 					'chat-in-progress',
 					'chat-done',
+					'input-replaced',
 					'elicitation/create'
 				]
 			}
