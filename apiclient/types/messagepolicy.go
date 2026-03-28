@@ -19,7 +19,7 @@ type PolicyDirection string
 
 const (
 	PolicyDirectionUserMessage PolicyDirection = "user-message"
-	PolicyDirectionLLMResponse PolicyDirection = "llm-response"
+	PolicyDirectionToolCalls   PolicyDirection = "tool-calls"
 	PolicyDirectionBoth        PolicyDirection = "both"
 )
 
@@ -33,10 +33,10 @@ func (m MessagePolicyManifest) Validate() error {
 	}
 
 	switch m.Direction {
-	case PolicyDirectionUserMessage, PolicyDirectionLLMResponse, PolicyDirectionBoth:
+	case PolicyDirectionUserMessage, PolicyDirectionToolCalls, PolicyDirectionBoth:
 	default:
 		return fmt.Errorf("invalid direction %q: must be one of %q, %q, %q",
-			m.Direction, PolicyDirectionUserMessage, PolicyDirectionLLMResponse, PolicyDirectionBoth)
+			m.Direction, PolicyDirectionUserMessage, PolicyDirectionToolCalls, PolicyDirectionBoth)
 	}
 
 	if len(m.Subjects) == 0 {

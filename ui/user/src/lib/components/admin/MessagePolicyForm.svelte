@@ -169,7 +169,7 @@
 		return (
 			policy.displayName.length > 0 &&
 			policy.definition.length > 0 &&
-			(['user-message', 'llm-response', 'both'] as PolicyDirection[]).includes(
+			(['user-message', 'tool-calls', 'both'] as PolicyDirection[]).includes(
 				policy.direction
 			) &&
 			(policy.subjects?.length ?? 0) > 0

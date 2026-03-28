@@ -93,7 +93,7 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 		if err != nil {
 			return err
 		}
-		outputPolicies, err = s.messagePolicyHelper.GetApplicablePolicies(userInfo, types2.PolicyDirectionLLMResponse)
+		outputPolicies, err = s.messagePolicyHelper.GetApplicablePolicies(userInfo, types2.PolicyDirectionToolCalls)
 		if err != nil {
 			return err
 		}
@@ -340,13 +340,11 @@ type responseModifier struct {
 	stream                                      bool
 	leftover                                    []byte
 
-	// Output policy evaluation fields.
+	// Output (tool-call) policy evaluation fields.
 	messagePolicyHelper *messagepolicy.Helper
 	outputPolicies      []types2.MessagePolicyManifest
 	conversationHistory []messagepolicy.ConversationMessage
-	resp                *http.Response // stored reference for header modification
-	evaluated           bool           // true after output policy evaluation has run
-	evaluatedBuf        *bytes.Reader  // buffered (possibly replaced) response to serve
+	pipeReader          *io.PipeReader // set when output policies are active; Read() reads from this
 }
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
@@ -357,22 +355,23 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 	r.c = resp.Body
 	r.b = bufio.NewReader(resp.Body)
 	r.stream = strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")
-	r.resp = resp
 	resp.Body = r
+
+	// When tool-call output policies are active, launch a goroutine that streams text through
+	// while buffering tool call chunks for policy evaluation.
+	if len(r.outputPolicies) > 0 {
+		pr, pw := io.Pipe()
+		r.pipeReader = pr
+		go r.streamAndEvaluateToolCalls(pw)
+	}
 
 	return nil
 }
 
 func (r *responseModifier) Read(p []byte) (int, error) {
-	// If output policies are active and we haven't evaluated yet, buffer the entire response first.
-	if len(r.outputPolicies) > 0 && !r.evaluated {
-		r.evaluated = true
-		r.bufferAndEvaluateResponse()
-	}
-
-	// If serving from the evaluated buffer, read from it.
-	if r.evaluatedBuf != nil {
-		return r.evaluatedBuf.Read(p)
+	// When output policies are active, the goroutine handles everything via the pipe.
+	if r.pipeReader != nil {
+		return r.pipeReader.Read(p)
 	}
 
 	if len(r.leftover) > 0 {
@@ -453,119 +452,64 @@ func (r *responseModifier) extractTokenUsage(line []byte) {
 	}
 }
 
-// bufferAndEvaluateResponse reads the entire upstream response, extracts token usage and
-// assistant content, evaluates output policies, and replaces the response if violations are found.
-func (r *responseModifier) bufferAndEvaluateResponse() {
-	// Read all lines from the upstream response.
+// streamAndEvaluateToolCalls reads the upstream response, streams text through immediately,
+// buffers tool call chunks, and evaluates policies only against tool calls.
+// For non-streaming responses, it buffers the entire response and evaluates inline.
+func (r *responseModifier) streamAndEvaluateToolCalls(pw *io.PipeWriter) {
+	defer pw.Close()
+
+	logger.Debugf("Output tool-call policies active for user=%s, streaming text while collecting tool calls", r.userID)
+
+	if r.stream {
+		r.streamAndEvaluateToolCallsSSE(pw)
+	} else {
+		r.streamAndEvaluateToolCallsJSON(pw)
+	}
+}
+
+// streamAndEvaluateToolCallsSSE handles streaming (SSE) responses.
+// Text delta chunks are forwarded immediately; tool call chunks are buffered for evaluation.
+func (r *responseModifier) streamAndEvaluateToolCallsSSE(pw *io.PipeWriter) {
 	var (
-		allLines  [][]byte // raw lines for pass-through
-		jsonLines [][]byte // JSON payloads (data: prefix stripped) for content extraction
+		toolCallChunks [][]byte // raw SSE lines containing tool_call deltas (held back)
+		toolCalls      []messagepolicy.ToolCallInfo
+		finishLine     []byte // the line containing finish_reason (held until evaluation)
 	)
 
 	for {
 		line, err := r.b.ReadBytes('\n')
-		if len(line) > 0 {
-			allLines = append(allLines, line)
-
-			jsonLine := line
-			if r.stream {
-				if rest, ok := bytes.CutPrefix(line, []byte("data: ")); ok {
-					jsonLine = rest
-				} else {
-					// Not a data line (e.g., empty line, event: line), skip JSON parsing.
-					continue
-				}
-			}
-
-			r.extractTokenUsage(jsonLine)
-			jsonLines = append(jsonLines, jsonLine)
-		}
-
-		if err != nil {
+		if len(line) == 0 && err != nil {
 			break
 		}
-	}
 
-	// Extract assistant content from the response.
-	targetMessage := r.extractAssistantContent(jsonLines)
-	if targetMessage == "" {
-		// Nothing to evaluate — serve original response.
-		r.evaluatedBuf = bytes.NewReader(bytes.Join(allLines, nil))
-		return
-	}
-
-	// Evaluate output policies.
-	violations := r.messagePolicyHelper.EvaluateMessage(context.Background(), r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionLLMResponse)
-	if len(violations) == 0 {
-		// No violations — serve original response.
-		r.evaluatedBuf = bytes.NewReader(bytes.Join(allLines, nil))
-		return
-	}
-
-	// Build replacement response.
-	var explanations []string
-	for _, v := range violations {
-		explanations = append(explanations, v.Explanation)
-	}
-
-	replacement := fmt.Sprintf(
-		"<system_notification>The assistant's response was blocked for violating a policy. The following explanation is for the user: %s</system_notification>",
-		strings.Join(explanations, "\n"),
-	)
-
-	replacementBody := buildReplacementResponse(replacement, r.model)
-
-	// Update response headers to reflect non-streaming JSON.
-	if r.resp != nil {
-		r.resp.Header.Set("Content-Type", "application/json")
-		r.resp.Header.Del("Transfer-Encoding")
-		r.resp.ContentLength = int64(len(replacementBody))
-	}
-
-	r.evaluatedBuf = bytes.NewReader(replacementBody)
-}
-
-// extractAssistantContent extracts the assistant's text content and tool calls from response JSON lines.
-// For non-streaming responses, it parses choices[0].message.
-// For streaming responses, it accumulates delta.content chunks and delta.tool_calls.
-func (r *responseModifier) extractAssistantContent(jsonLines [][]byte) string {
-	var contentParts []string
-	var toolCalls []messagepolicy.ToolCallInfo
-
-	if !r.stream {
-		// Non-streaming: single JSON response.
-		for _, line := range jsonLines {
-			content := gjson.GetBytes(line, "choices.0.message.content").String()
-			if content != "" {
-				contentParts = append(contentParts, content)
+		rest, isData := bytes.CutPrefix(line, []byte("data: "))
+		if !isData {
+			// Non-data lines (empty lines, event: lines) — pass through.
+			pw.Write(line)
+			if err != nil {
+				break
 			}
-
-			gjson.GetBytes(line, "choices.0.message.tool_calls").ForEach(func(_, tc gjson.Result) bool {
-				toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{
-					Name:      tc.Get("function.name").String(),
-					Arguments: tc.Get("function.arguments").String(),
-				})
-				return true
-			})
+			continue
 		}
-	} else {
-		// Streaming: accumulate deltas across SSE chunks.
-		for _, line := range jsonLines {
-			delta := gjson.GetBytes(line, "choices.0.delta")
-			if !delta.Exists() {
-				continue
-			}
 
-			if content := delta.Get("content").String(); content != "" {
-				contentParts = append(contentParts, content)
-			}
+		// Extract token usage from every data line.
+		r.extractTokenUsage(rest)
 
+		// Check if this chunk contains tool_calls or a finish_reason.
+		delta := gjson.GetBytes(rest, "choices.0.delta")
+		hasToolCalls := delta.Get("tool_calls").Exists()
+		finishReason := gjson.GetBytes(rest, "choices.0.finish_reason")
+
+		if hasToolCalls {
+			// Buffer tool call chunks — do not send to client yet.
+			toolCallChunks = append(toolCallChunks, append([]byte(nil), line...))
+
+			// Accumulate tool call info for policy evaluation.
 			delta.Get("tool_calls").ForEach(func(_, tc gjson.Result) bool {
 				name := tc.Get("function.name").String()
 				args := tc.Get("function.arguments").String()
 				idx := int(tc.Get("index").Int())
 
-				// Tool calls in streaming come as incremental chunks indexed by position.
 				for len(toolCalls) <= idx {
 					toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{})
 				}
@@ -577,26 +521,166 @@ func (r *responseModifier) extractAssistantContent(jsonLines [][]byte) string {
 				}
 				return true
 			})
+		} else if finishReason.Exists() && finishReason.Type != gjson.Null {
+			// Hold the finish line until we decide whether to forward or replace.
+			finishLine = append([]byte(nil), line...)
+		} else {
+			// Text content or other non-tool-call data — forward immediately.
+			pw.Write(line)
+		}
+
+		if err != nil {
+			break
 		}
 	}
 
-	// Build the target message string for the policy judge.
-	var sb strings.Builder
-	if text := strings.Join(contentParts, ""); text != "" {
-		sb.WriteString(text)
+	logger.Debugf("Response complete for user=%s: %d tool calls detected", r.userID, len(toolCalls))
+
+	if len(toolCalls) == 0 {
+		// No tool calls — forward the finish line and done.
+		logger.Debugf("No tool calls in response for user=%s, skipping policy evaluation", r.userID)
+		if len(finishLine) > 0 {
+			pw.Write(finishLine)
+		}
+		return
 	}
-	for _, tc := range toolCalls {
-		if sb.Len() > 0 {
+
+	// Evaluate policies against tool calls only.
+	targetMessage := buildToolCallTargetMessage(toolCalls)
+	logger.Debugf("Evaluating %d tool-call policies against %d tool calls for user=%s", len(r.outputPolicies), len(toolCalls), r.userID)
+	violations := r.messagePolicyHelper.EvaluateMessage(context.Background(), r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionToolCalls)
+
+	if len(violations) == 0 {
+		// No violations — flush all buffered tool call chunks + finish line.
+		logger.Debugf("Tool call policy evaluation passed for user=%s, forwarding %d tool calls", r.userID, len(toolCalls))
+		for _, chunk := range toolCallChunks {
+			pw.Write(chunk)
+		}
+		if len(finishLine) > 0 {
+			pw.Write(finishLine)
+		}
+		return
+	}
+
+	// Violation — suppress tool calls, emit notification.
+	logger.Infof("Tool call policy violation detected for user=%s, suppressing %d tool calls", r.userID, len(toolCalls))
+	var explanations []string
+	for _, v := range violations {
+		explanations = append(explanations, v.Explanation)
+	}
+
+	notification := fmt.Sprintf(
+		"<system_notification>Your tool call(s) were blocked by the system for violating policies. Inform the user that you cannot complete their requested action due to a policy violation. The following explanation was generated for you to relay to the user: %s</system_notification>",
+		strings.Join(explanations, "\n"),
+	)
+
+	pw.Write(buildStreamingNotificationChunks(notification, r.model))
+}
+
+// streamAndEvaluateToolCallsJSON handles non-streaming (single JSON) responses.
+func (r *responseModifier) streamAndEvaluateToolCallsJSON(pw *io.PipeWriter) {
+	// Read the entire response body.
+	var buf bytes.Buffer
+	io.Copy(&buf, r.b)
+	body := buf.Bytes()
+
+	r.extractTokenUsage(body)
+
+	// Check if the response contains tool calls.
+	tcResult := gjson.GetBytes(body, "choices.0.message.tool_calls")
+	if !tcResult.Exists() || len(tcResult.Array()) == 0 {
+		// No tool calls — pass through unchanged.
+		logger.Debugf("No tool calls in response for user=%s, skipping policy evaluation", r.userID)
+		pw.Write(body)
+		return
+	}
+
+	// Extract tool call info for policy evaluation.
+	var toolCalls []messagepolicy.ToolCallInfo
+	tcResult.ForEach(func(_, tc gjson.Result) bool {
+		toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{
+			Name:      tc.Get("function.name").String(),
+			Arguments: tc.Get("function.arguments").String(),
+		})
+		return true
+	})
+
+	targetMessage := buildToolCallTargetMessage(toolCalls)
+	logger.Debugf("Evaluating %d tool-call policies against %d tool calls for user=%s", len(r.outputPolicies), len(toolCalls), r.userID)
+	violations := r.messagePolicyHelper.EvaluateMessage(context.Background(), r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionToolCalls)
+
+	if len(violations) == 0 {
+		// No violations — pass through unchanged.
+		logger.Debugf("Tool call policy evaluation passed for user=%s, forwarding %d tool calls", r.userID, len(toolCalls))
+		pw.Write(body)
+		return
+	}
+
+	// Violation — build replacement response without tool calls.
+	logger.Infof("Tool call policy violation detected for user=%s, suppressing %d tool calls", r.userID, len(toolCalls))
+	var explanations []string
+	for _, v := range violations {
+		explanations = append(explanations, v.Explanation)
+	}
+
+	notification := fmt.Sprintf(
+		"<system_notification>Your tool call(s) were blocked by the system for violating policies. Inform the user that you cannot complete their requested action due to a policy violation. The following explanation was generated for you to relay to the user: %s</system_notification>",
+		strings.Join(explanations, "\n"),
+	)
+
+	pw.Write(buildReplacementResponse(notification, r.model))
+}
+
+// buildToolCallTargetMessage formats tool calls into the target message string for the policy judge.
+func buildToolCallTargetMessage(toolCalls []messagepolicy.ToolCallInfo) string {
+	var sb strings.Builder
+	for i, tc := range toolCalls {
+		if i > 0 {
 			sb.WriteString("\n")
 		}
 		fmt.Fprintf(&sb, "[called tool %q with args: %s]", tc.Name, tc.Arguments)
 	}
-
 	return sb.String()
 }
 
+// buildStreamingNotificationChunks produces SSE chunks that send a text delta with the
+// notification content, followed by a stop finish chunk and [DONE].
+func buildStreamingNotificationChunks(notification, model string) []byte {
+	textDelta, _ := json.Marshal(map[string]any{
+		"id":     "policy-violation",
+		"object": "chat.completion.chunk",
+		"model":  model,
+		"choices": []map[string]any{
+			{
+				"index":         0,
+				"delta":         map[string]any{"content": notification},
+				"finish_reason": nil,
+			},
+		},
+	})
+
+	stopDelta, _ := json.Marshal(map[string]any{
+		"id":     "policy-violation",
+		"object": "chat.completion.chunk",
+		"model":  model,
+		"choices": []map[string]any{
+			{
+				"index":         0,
+				"delta":         map[string]any{},
+				"finish_reason": "stop",
+			},
+		},
+	})
+
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "data: %s\n\n", textDelta)
+	fmt.Fprintf(&buf, "data: %s\n\n", stopDelta)
+	buf.WriteString("data: [DONE]\n\n")
+	return buf.Bytes()
+}
+
 // buildReplacementResponse constructs a minimal OpenAI-format chat completion response
-// with the given content replacing the assistant's message.
+// with the given content replacing the assistant's message (no tool calls).
 func buildReplacementResponse(content, model string) []byte {
 	resp := map[string]any{
 		"id":     "policy-violation",
@@ -615,7 +699,6 @@ func buildReplacementResponse(content, model string) []byte {
 	}
 
 	b, _ := json.Marshal(resp)
-	// Add trailing newline for consistency.
 	return append(b, '\n')
 }
 

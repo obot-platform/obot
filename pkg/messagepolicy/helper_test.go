@@ -52,7 +52,7 @@ func TestGetApplicablePoliciesDirectionFiltering(t *testing.T) {
 	helper := newTestHelper(t,
 		newPolicy("p-input", "Input only", types.PolicyDirectionUserMessage,
 			[]types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}),
-		newPolicy("p-output", "Output only", types.PolicyDirectionLLMResponse,
+		newPolicy("p-output", "Output only", types.PolicyDirectionToolCalls,
 			[]types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}),
 		newPolicy("p-both", "Both directions", types.PolicyDirectionBoth,
 			[]types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}),
@@ -72,7 +72,7 @@ func TestGetApplicablePoliciesDirectionFiltering(t *testing.T) {
 	assert.False(t, defs["Output only"])
 
 	// Query for llm-response direction: should get output + both
-	policies, err = helper.GetApplicablePolicies(testUser("user1"), types.PolicyDirectionLLMResponse)
+	policies, err = helper.GetApplicablePolicies(testUser("user1"), types.PolicyDirectionToolCalls)
 	require.NoError(t, err)
 	require.Len(t, policies, 2)
 

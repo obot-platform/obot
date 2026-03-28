@@ -236,13 +236,7 @@ func (h *Helper) checkCompliance(ctx context.Context, resolved *resolvedModel, p
 // On error, returns a generic explanation.
 func (h *Helper) generateExplanation(ctx context.Context, resolved *resolvedModel, policy types.MessagePolicyManifest, targetMessage string, direction types.PolicyDirection) string {
 	log.Debugf("Generating violation explanation for policy=%q direction=%s", policy.DisplayName, direction)
-	var audienceInstruction string
-	switch direction {
-	case types.PolicyDirectionLLMResponse:
-		audienceInstruction = "Write the explanation directly for the end user."
-	default:
-		audienceInstruction = "Write the explanation for an AI assistant to relay to the user."
-	}
+	audienceInstruction := "Write the explanation for an AI assistant to relay to the user."
 
 	userContent := fmt.Sprintf("Policy: %s\n\nMessage that was blocked:\n%s", policy.Definition, targetMessage)
 

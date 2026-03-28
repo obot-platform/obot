@@ -347,11 +347,11 @@ export interface ModelAccessPolicy extends Omit<ModelAccessPolicyManifest, 'id'>
 	metadata?: Record<string, string>;
 }
 
-export type PolicyDirection = 'user-message' | 'llm-response' | 'both';
+export type PolicyDirection = 'user-message' | 'tool-calls' | 'both';
 
 export const PolicyDirectionLabels: Record<PolicyDirection, string> = {
 	'user-message': 'User Message',
-	'llm-response': 'LLM Response',
+	'tool-calls': 'Tool Calls',
 	both: 'Both'
 };
 
