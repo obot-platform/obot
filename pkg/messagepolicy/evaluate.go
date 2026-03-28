@@ -1,17 +1,22 @@
 package messagepolicy
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"sync"
 
-	openai "github.com/gptscript-ai/chat-completion-client"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/tidwall/gjson"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -160,6 +165,11 @@ func (h *Helper) resolveModel(ctx context.Context) (*resolvedModel, error) {
 		credHeaders[fmt.Sprintf("X-Obot-%s", k)] = v
 	}
 
+	// Mirror the path logic from dispatcher.TransformRequest: only add /v1 if the URL has no path.
+	if providerURL.Path == "" {
+		providerURL.Path = "/v1"
+	}
+
 	return &resolvedModel{
 		targetModel: model.Spec.Manifest.TargetModel,
 		providerURL: providerURL.String(),
@@ -167,31 +177,91 @@ func (h *Helper) resolveModel(ctx context.Context) (*resolvedModel, error) {
 	}, nil
 }
 
-// callLLM makes a chat completion call to the resolved model provider.
-func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages []openai.ChatCompletionMessage) (string, error) {
-	cfg := openai.DefaultConfig("")
-	cfg.BaseURL = resolved.providerURL + "/v1"
+// chatMessage is a minimal OpenAI-format chat message for policy evaluation requests.
+type chatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
 
-	client := openai.NewClientWithConfig(cfg)
+// chatCompletionRequest is the request body for OpenAI-format chat completions.
+// Stream is always set to true to match normal Obot proxy usage patterns.
+type chatCompletionRequest struct {
+	Model    string        `json:"model"`
+	Messages []chatMessage `json:"messages"`
+	Stream   bool          `json:"stream"`
+}
 
-	log.Debugf("Making LLM call to model=%s", resolved.targetModel)
-
-	resp, err := client.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+// callLLM makes a streaming chat completion call to the resolved model provider.
+// It uses streaming because that matches normal Obot request patterns through
+// the model provider proxies.
+func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
+	reqBody := chatCompletionRequest{
 		Model:    resolved.targetModel,
 		Messages: messages,
-	}, resolved.credHeaders)
+		Stream:   true,
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	reqURL := resolved.providerURL + "/chat/completions"
+	log.Debugf("Making LLM call to model=%s url=%s", resolved.targetModel, reqURL)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	for k, v := range resolved.credHeaders {
+		req.Header.Set(k, v)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		log.Errorf("LLM call to model=%s failed: %v", resolved.targetModel, err)
 		return "", fmt.Errorf("LLM call failed: %w", err)
 	}
+	defer resp.Body.Close()
 
-	if len(resp.Choices) == 0 {
-		log.Errorf("LLM call to model=%s returned no choices", resolved.targetModel)
-		return "", fmt.Errorf("LLM returned no choices")
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		log.Errorf("LLM call to model=%s returned status %d: %s", resolved.targetModel, resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("LLM call returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	log.Debugf("LLM call to model=%s succeeded", resolved.targetModel)
-	return resp.Choices[0].Message.Content, nil
+	return readStreamingResponse(resp.Body)
+}
+
+// readStreamingResponse reads an SSE stream of OpenAI chat completion chunks
+// and accumulates the content delta text into a single string.
+func readStreamingResponse(r io.Reader) (string, error) {
+	var content strings.Builder
+	scanner := bufio.NewScanner(r)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		data := strings.TrimPrefix(line, "data: ")
+		if data == "[DONE]" {
+			break
+		}
+
+		delta := gjson.Get(data, "choices.0.delta.content")
+		if delta.Exists() {
+			content.WriteString(delta.String())
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("failed to read SSE stream: %w", err)
+	}
+
+	return content.String(), nil
 }
 
 // checkCompliance performs Stage 1: a yes/no compliance check. Returns true if compliant.
@@ -207,13 +277,13 @@ func (h *Helper) checkCompliance(ctx context.Context, resolved *resolvedModel, p
 
 	fmt.Fprintf(&userContent, "Message to evaluate:\n%s", targetMessage)
 
-	messages := []openai.ChatCompletionMessage{
+	messages := []chatMessage{
 		{
-			Role:    openai.ChatMessageRoleSystem,
+			Role:    "system",
 			Content: "You are a policy compliance checker. You must determine whether the following message violates the given policy. Respond with exactly \"yes\" if the message is compliant, or \"no\" if it violates the policy. Do not explain your reasoning.",
 		},
 		{
-			Role:    openai.ChatMessageRoleUser,
+			Role:    "user",
 			Content: userContent.String(),
 		},
 	}
@@ -240,13 +310,13 @@ func (h *Helper) generateExplanation(ctx context.Context, resolved *resolvedMode
 
 	userContent := fmt.Sprintf("Policy: %s\n\nMessage that was blocked:\n%s", policy.Definition, targetMessage)
 
-	messages := []openai.ChatCompletionMessage{
+	messages := []chatMessage{
 		{
-			Role:    openai.ChatMessageRoleSystem,
+			Role:    "system",
 			Content: fmt.Sprintf("A message was blocked for violating a policy. Write a brief explanation of why the message was blocked. %s", audienceInstruction),
 		},
 		{
-			Role:    openai.ChatMessageRoleUser,
+			Role:    "user",
 			Content: userContent,
 		},
 	}

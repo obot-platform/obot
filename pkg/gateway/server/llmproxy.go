@@ -910,6 +910,7 @@ type llmProviderProxy struct {
 	modelProviderName                  string
 	modelProvider                      *v1.ToolReference
 	mapHelper                          *modelaccesspolicy.Helper
+	messagePolicyHelper                *messagepolicy.Helper
 	lock                               sync.RWMutex
 }
 
@@ -920,6 +921,7 @@ func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmP
 		u:                                  *u,
 		modelProviderName:                  modelProviderName,
 		mapHelper:                          s.mapHelper,
+		messagePolicyHelper:                s.messagePolicyHelper,
 	}
 }
 
@@ -976,6 +978,60 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		}
 	}
 
+	// Evaluate message policies if the helper is available and we have a user.
+	var (
+		outputPolicies      []types2.MessagePolicyManifest
+		conversationHistory []messagepolicy.ConversationMessage
+		bodyModified        bool
+	)
+	if l.messagePolicyHelper != nil && req.User.GetUID() != "" {
+		var bodyMap map[string]any
+		if err := json.Unmarshal(body, &bodyMap); err == nil {
+			// Evaluate user message against applicable input policies.
+			inputPolicies, err := l.messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionUserMessage)
+			if err == nil && len(inputPolicies) > 0 {
+				rawMessages, _ := bodyMap["messages"].([]any)
+				if len(rawMessages) > 0 {
+					history, lastUserMsg, lastUserIdx := parseMessagesFromBody(rawMessages)
+					if lastUserIdx >= 0 {
+						violations := l.messagePolicyHelper.EvaluateMessage(req.Context(), inputPolicies, history, lastUserMsg, types2.PolicyDirectionUserMessage)
+						if len(violations) > 0 {
+							var explanations []string
+							for _, v := range violations {
+								explanations = append(explanations, v.Explanation)
+							}
+							replacement := fmt.Sprintf(
+								"<system_notification>This message was removed by the system for violating policies. Inform the user that you cannot complete their requested action due to a policy violation. The following explanation was generated for you to relay to the user: %s</system_notification>",
+								strings.Join(explanations, "\n"),
+							)
+							if msgMap, ok := rawMessages[lastUserIdx].(map[string]any); ok {
+								msgMap["content"] = replacement
+								bodyModified = true
+							}
+						}
+					}
+				}
+			}
+
+			// Check for output (tool-call) policies.
+			outputPolicies, _ = l.messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionToolCalls)
+			if len(outputPolicies) > 0 {
+				rawMessages, _ := bodyMap["messages"].([]any)
+				conversationHistory, _, _ = parseMessagesFromBody(rawMessages)
+			}
+
+			// Re-serialize the body if input policies modified it.
+			if bodyModified {
+				b, err := json.Marshal(bodyMap)
+				if err != nil {
+					return fmt.Errorf("failed to marshal modified body: %w", err)
+				}
+				req.Request.Body = io.NopCloser(bytes.NewReader(b))
+				req.ContentLength = int64(len(b))
+			}
+		}
+	}
+
 	remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(req.Context(), req.User.GetUID(), tokenUsageTimePeriod, l.dailyUserTokenPromptTokenLimit, l.dailyUserTokenCompletionTokenLimit)
 	if err != nil {
 		return err
@@ -1000,8 +1056,15 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 	}
 
 	(&httputil.ReverseProxy{
-		Director:       llmTransformRequest(l.u, nil),
-		ModifyResponse: (&responseModifier{userID: req.User.GetUID(), model: targetModel, client: req.GatewayClient}).modifyResponse,
+		Director: llmTransformRequest(l.u, nil),
+		ModifyResponse: (&responseModifier{
+			userID:              req.User.GetUID(),
+			model:               targetModel,
+			client:              req.GatewayClient,
+			messagePolicyHelper: l.messagePolicyHelper,
+			outputPolicies:      outputPolicies,
+			conversationHistory: conversationHistory,
+		}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil
