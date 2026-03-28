@@ -908,14 +908,24 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 							for _, v := range violations {
 								explanations = append(explanations, v.Explanation)
 							}
-							replacement := fmt.Sprintf(
-								"<system_notification>This message was removed by the system for violating policies. Inform the user that you cannot complete their requested action due to a policy violation. The following explanation was generated for you to relay to the user: %s</system_notification>",
+
+							// Message for the LLM: instruct it to respond with a
+							// short refusal so the user sees a clear denial.
+							llmReplacement := `Please respond to the user with exactly: "Sorry, I can't help with that."`
+
+							// Message for the user: shown directly in the UI's
+							// "Policy Violation" box with the explanation.
+							// The [policy-violation] prefix is used by the frontend
+							// to detect and style this as a policy violation.
+							userReplacement := fmt.Sprintf(
+								"[policy-violation] %s",
 								strings.Join(explanations, "\n"),
 							)
+
 							if msgMap, ok := rawMessages[lastUserIdx].(map[string]any); ok {
-								msgMap["content"] = replacement
+								msgMap["content"] = llmReplacement
 								bodyModified = true
-								inputPolicyReplacement = replacement
+								inputPolicyReplacement = userReplacement
 							}
 						}
 					}

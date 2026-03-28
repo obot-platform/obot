@@ -64,15 +64,11 @@ export function parseJSON<T>(json?: string): T | null {
 
 export function isPolicyViolation(content: string | undefined): boolean {
 	if (!content) return false;
-	return content.includes('<system_notification>');
+	return content.startsWith('[policy-violation]');
 }
 
 export function extractPolicyExplanation(content: string): string {
-	const match = content.match(/<system_notification>([\s\S]*?)<\/system_notification>/);
-	if (!match) return content;
-	const inner = match[1].trim();
-	const explanationMatch = inner.match(/(?:for the user|relay to the user):\s*([\s\S]*)/i);
-	return explanationMatch ? explanationMatch[1].trim() : inner;
+	return content.replace(/^\[policy-violation]\s*/, '');
 }
 
 export function splitFrontmatter(markdown: string): { frontmatter: string; body: string } {

@@ -306,14 +306,17 @@ func (h *Helper) checkCompliance(ctx context.Context, resolved *resolvedModel, p
 // On error, returns a generic explanation.
 func (h *Helper) generateExplanation(ctx context.Context, resolved *resolvedModel, policy types.MessagePolicyManifest, targetMessage string, direction types.PolicyDirection) string {
 	log.Debugf("Generating violation explanation for policy=%q direction=%s", policy.DisplayName, direction)
-	audienceInstruction := "Write the explanation for an AI assistant to relay to the user."
 
 	userContent := fmt.Sprintf("Policy: %s\n\nMessage that was blocked:\n%s", policy.Definition, targetMessage)
 
 	messages := []chatMessage{
 		{
-			Role:    "system",
-			Content: fmt.Sprintf("A message was blocked for violating a policy. Write a brief explanation of why the message was blocked. %s", audienceInstruction),
+			Role: "system",
+			Content: "A message was blocked for violating a policy. " +
+				"Write a short error message that will be displayed directly to the user in a \"Policy Violation\" notice. " +
+				"Address the user directly (use \"your message\", not \"the message\"). " +
+				"Do not use phrases like \"I'd explain\" or wrap your output in quotes. " +
+				"Just output the exact text to display.",
 		},
 		{
 			Role:    "user",
