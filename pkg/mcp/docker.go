@@ -349,9 +349,9 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 				return ServerConfig{}, fmt.Errorf("failed syncing container files: %w", err)
 			}
 
-			containerPort := server.ContainerPort
-			if containerPort == 0 {
-				containerPort = defaultContainerPort
+			containerPort := defaultContainerPort
+			if server.Runtime == otypes.RuntimeContainerized && server.ContainerPort != 0 {
+				containerPort = server.ContainerPort
 			}
 
 			if err = d.ensureServerReady(ctx, existing, server, containerPort); err != nil {
@@ -383,21 +383,18 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 }
 
 func (d *dockerBackend) transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error) {
+	containerPort := defaultContainerPort
 	containerName := serverConfig.MCPServerName
-	if serverConfig.Runtime == otypes.RuntimeContainerized {
-		// For containerized runtimes, we want to communicate with the shim.
+	if serverConfig.Runtime != otypes.RuntimeRemote && serverConfig.NanobotAgentName == "" && !strings.HasSuffix(containerName, "-shim") {
 		containerName += "-shim"
+	} else if serverConfig.Runtime == otypes.RuntimeContainerized && serverConfig.NanobotAgentName != "" {
+		containerPort = serverConfig.ContainerPort
 	}
 
 	existing, err := d.getContainer(ctx, containerName)
 	if err != nil || existing == nil || existing.State != "running" {
 		// Container doesn't exist or isn't running, config can't be transformed
 		return nil, nil
-	}
-
-	containerPort := serverConfig.ContainerPort
-	if containerPort == 0 {
-		containerPort = defaultContainerPort
 	}
 
 	transformed, err := d.buildServerConfig(serverConfig, existing, containerPort, d.containerEnv)
@@ -588,7 +585,12 @@ func (d *dockerBackend) shutdownServer(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to remove objects for container %s: %w", id, err)
 	}
 
-	c, err = d.getContainer(ctx, id+"-shim")
+	id, ok := strings.CutSuffix(id, "-shim")
+	if !ok {
+		id = id + "-shim"
+	}
+
+	c, err = d.getContainer(ctx, id)
 	if err != nil && !cerrdefs.IsNotFound(err) {
 		return fmt.Errorf("failed to check for shim container %s for shutdown: %w", id, err)
 	} else if err == nil {
