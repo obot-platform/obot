@@ -590,6 +590,39 @@ func TestParseMessagesFromBody_InvalidEntries(t *testing.T) {
 	}
 }
 
+func TestParseMessagesFromBody_AnthropicToolResultNotLastUser(t *testing.T) {
+	// In Anthropic format, tool_result messages have role "user" but contain
+	// no text content. They should NOT be treated as the last user message.
+	raw := []any{
+		map[string]any{"role": "user", "content": "Create a bar chart"},
+		map[string]any{
+			"role": "assistant",
+			"content": []any{
+				map[string]any{"type": "text", "text": "I'll create that chart."},
+				map[string]any{"type": "tool_use", "id": "toolu_01S", "name": "create_chart", "input": map[string]any{"data": "test"}},
+			},
+		},
+		map[string]any{
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "tool_result", "tool_use_id": "toolu_01S", "content": []any{
+					map[string]any{"type": "text", "text": "Chart created"},
+				}},
+			},
+		},
+	}
+
+	_, lastMsg, lastIdx := parseMessagesFromBody(raw)
+
+	// The last user message should be the actual user text, not the tool_result.
+	if lastMsg != "Create a bar chart" {
+		t.Errorf("lastUserMessage = %q, want %q", lastMsg, "Create a bar chart")
+	}
+	if lastIdx != 0 {
+		t.Errorf("lastUserIdx = %d, want 0", lastIdx)
+	}
+}
+
 func TestBuildToolCallTargetMessage_SingleToolCall(t *testing.T) {
 	toolCalls := []messagepolicy.ToolCallInfo{
 		{Name: "search_flights", Arguments: `{"to":"NYC"}`},

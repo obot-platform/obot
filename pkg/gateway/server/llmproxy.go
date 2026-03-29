@@ -796,7 +796,7 @@ func parseMessagesFromBody(rawMessages []any) ([]messagepolicy.ConversationMessa
 
 		history = append(history, cm)
 
-		if role == "user" {
+		if role == "user" && content != "" {
 			lastUserMsg = content
 			lastUserIdx = i
 		}
