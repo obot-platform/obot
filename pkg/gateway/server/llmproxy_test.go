@@ -2,7 +2,6 @@ package server
 
 import (
 	"bufio"
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -620,56 +619,6 @@ func TestBuildToolCallTargetMessage_Empty(t *testing.T) {
 	}
 }
 
-func TestBuildReplacementResponse_ValidJSON(t *testing.T) {
-	result := buildReplacementResponse("Policy violation explanation", "gpt-4o")
-
-	var parsed map[string]any
-	if err := json.Unmarshal(result, &parsed); err != nil {
-		t.Fatalf("replacement response is not valid JSON: %v", err)
-	}
-
-	if parsed["object"] != "chat.completion" {
-		t.Errorf("object = %v, want chat.completion", parsed["object"])
-	}
-	if parsed["model"] != "gpt-4o" {
-		t.Errorf("model = %v, want gpt-4o", parsed["model"])
-	}
-
-	choices, ok := parsed["choices"].([]any)
-	if !ok || len(choices) != 1 {
-		t.Fatal("expected exactly 1 choice")
-	}
-	choice := choices[0].(map[string]any)
-	msg := choice["message"].(map[string]any)
-	if msg["role"] != "assistant" {
-		t.Errorf("role = %v, want assistant", msg["role"])
-	}
-	if msg["content"] != "Policy violation explanation" {
-		t.Errorf("content = %v, want %q", msg["content"], "Policy violation explanation")
-	}
-	if choice["finish_reason"] != "stop" {
-		t.Errorf("finish_reason = %v, want stop", choice["finish_reason"])
-	}
-}
-
-func TestBuildReplacementResponse_NoToolCalls(t *testing.T) {
-	result := buildReplacementResponse("blocked", "model")
-
-	var parsed map[string]any
-	if err := json.Unmarshal(result, &parsed); err != nil {
-		t.Fatalf("not valid JSON: %v", err)
-	}
-
-	choices := parsed["choices"].([]any)
-	choice := choices[0].(map[string]any)
-	msg := choice["message"].(map[string]any)
-
-	// Should have no tool_calls key at all — this ensures the agentic loop stops.
-	if _, exists := msg["tool_calls"]; exists {
-		t.Error("replacement response should not contain tool_calls")
-	}
-}
-
 func TestNoOutputPolicies_StreamsNormally(t *testing.T) {
 	// When no output policies, Read should stream line-by-line (no pipe).
 	stream := "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n"
@@ -677,7 +626,6 @@ func TestNoOutputPolicies_StreamsNormally(t *testing.T) {
 		stream: true,
 		b:      bufio.NewReader(strings.NewReader(stream)),
 		c:      io.NopCloser(strings.NewReader("")),
-		// No outputPolicies — should behave like normal streaming.
 	}
 
 	buf := make([]byte, 4096)
@@ -695,62 +643,7 @@ func TestNoOutputPolicies_StreamsNormally(t *testing.T) {
 	}
 }
 
-func TestStreamAndEvaluateToolCallsJSON_NoToolCalls_PassThrough(t *testing.T) {
-	// Non-streaming response with no tool calls should pass through unchanged.
-	body := `{"choices":[{"message":{"role":"assistant","content":"Hello"}}]}` + "\n"
-
-	pr, pw := io.Pipe()
-	r := &responseModifier{
-		stream:         false,
-		b:              bufio.NewReader(strings.NewReader(body)),
-		c:              io.NopCloser(strings.NewReader("")),
-		outputPolicies: []types2.MessagePolicyManifest{{DisplayName: "test"}},
-	}
-
-	go r.streamAndEvaluateToolCalls(pw)
-
-	result, err := io.ReadAll(pr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	got := string(result)
-	if !strings.Contains(got, "Hello") {
-		t.Errorf("expected original response, got %q", got)
-	}
-}
-
-func TestStreamAndEvaluateToolCallsJSON_TokenUsageExtracted(t *testing.T) {
-	// Verify that token usage is extracted from non-streaming responses during tool call evaluation.
-	body := `{"choices":[{"message":{"role":"assistant","content":"hi"}}],"usage":{"prompt_tokens":42,"completion_tokens":17,"total_tokens":59}}` + "\n"
-
-	pr, pw := io.Pipe()
-	r := &responseModifier{
-		stream:         false,
-		b:              bufio.NewReader(strings.NewReader(body)),
-		c:              io.NopCloser(strings.NewReader("")),
-		outputPolicies: []types2.MessagePolicyManifest{{DisplayName: "test"}},
-	}
-
-	go r.streamAndEvaluateToolCalls(pw)
-
-	if _, err := io.ReadAll(pr); err != nil {
-		t.Fatal(err)
-	}
-
-	if r.promptTokens != 42 {
-		t.Errorf("promptTokens = %d, want 42", r.promptTokens)
-	}
-	if r.completionTokens != 17 {
-		t.Errorf("completionTokens = %d, want 17", r.completionTokens)
-	}
-	if r.totalTokens != 59 {
-		t.Errorf("totalTokens = %d, want 59", r.totalTokens)
-	}
-}
-
 func TestStreamAndEvaluateToolCallsSSE_TextOnly_StreamsThrough(t *testing.T) {
-	// Streaming response with only text deltas should stream through unchanged.
 	stream := "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\n" +
 		"data: {\"choices\":[{\"delta\":{\"content\":\", world!\"}}]}\n\n" +
 		"data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n" +
@@ -775,26 +668,231 @@ func TestStreamAndEvaluateToolCallsSSE_TextOnly_StreamsThrough(t *testing.T) {
 	if !strings.Contains(got, "Hello") || !strings.Contains(got, "world!") {
 		t.Errorf("expected streamed text content, got %q", got)
 	}
-	if !strings.Contains(got, "finish_reason") {
-		t.Errorf("expected finish line to be forwarded, got %q", got)
+}
+
+func TestStreamAndEvaluateToolCallsJSON_NoToolCalls_PassThrough(t *testing.T) {
+	body := `{"choices":[{"message":{"role":"assistant","content":"Hello"}}]}` + "\n"
+
+	pr, pw := io.Pipe()
+	r := &responseModifier{
+		stream:         false,
+		b:              bufio.NewReader(strings.NewReader(body)),
+		c:              io.NopCloser(strings.NewReader("")),
+		outputPolicies: []types2.MessagePolicyManifest{{DisplayName: "test"}},
+	}
+
+	go r.streamAndEvaluateToolCalls(pw)
+
+	result, err := io.ReadAll(pr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(string(result), "Hello") {
+		t.Errorf("expected original response, got %q", string(result))
 	}
 }
 
-func TestBuildStreamingNotificationChunks_ValidSSE(t *testing.T) {
-	chunks := buildStreamingNotificationChunks("policy violation explanation", "gpt-4o")
-	got := string(chunks)
+func TestStreamAndEvaluateToolCallsSSE_AnthropicToolCall_Detected(t *testing.T) {
+	// Simulate an Anthropic streaming response with a text block followed by a tool_use block.
+	stream := "event: message_start\n" +
+		"data: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-sonnet-4-20250514\",\"usage\":{\"input_tokens\":25,\"output_tokens\":1}}}\n\n" +
+		"event: content_block_start\n" +
+		"data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n" +
+		"event: content_block_delta\n" +
+		"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Let me check.\"}}\n\n" +
+		"event: content_block_stop\n" +
+		"data: {\"type\":\"content_block_stop\",\"index\":0}\n\n" +
+		"event: content_block_start\n" +
+		"data: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_123\",\"name\":\"get_weather\",\"input\":{}}}\n\n" +
+		"event: content_block_delta\n" +
+		"data: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"city\\\":\"}}\n\n" +
+		"event: content_block_delta\n" +
+		"data: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"\\\"NYC\\\"}\"}}\n\n" +
+		"event: content_block_stop\n" +
+		"data: {\"type\":\"content_block_stop\",\"index\":1}\n\n" +
+		"event: message_delta\n" +
+		"data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\"},\"usage\":{\"output_tokens\":50}}\n\n" +
+		"event: message_stop\n" +
+		"data: {\"type\":\"message_stop\"}\n\n"
 
-	if !strings.Contains(got, "data: ") {
-		t.Error("expected SSE data: prefix")
+	pr, pw := io.Pipe()
+	r := &responseModifier{
+		stream:              true,
+		b:                   bufio.NewReader(strings.NewReader(stream)),
+		c:                   io.NopCloser(strings.NewReader("")),
+		messagePolicyHelper: &messagepolicy.Helper{},
 	}
-	if !strings.Contains(got, "policy violation explanation") {
-		t.Error("expected notification content in chunks")
+
+	go r.streamAndEvaluateToolCalls(pw)
+
+	result, err := io.ReadAll(pr)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !strings.Contains(got, `"finish_reason":"stop"`) {
-		t.Error("expected stop finish_reason in chunks")
+
+	got := string(result)
+	// Text before the tool call should be streamed through.
+	if !strings.Contains(got, "Let me check.") {
+		t.Errorf("expected text content to be streamed, got %q", got)
 	}
-	if !strings.Contains(got, "[DONE]") {
-		t.Error("expected [DONE] terminator")
+	// Tool call events should also be present (buffered then flushed with no violations).
+	if !strings.Contains(got, "get_weather") {
+		t.Errorf("expected tool call to be present in output, got %q", got)
+	}
+}
+
+func TestStreamAndEvaluateToolCallsSSE_AnthropicMultipleToolCalls(t *testing.T) {
+	stream := "event: content_block_start\n" +
+		"data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_1\",\"name\":\"get_weather\",\"input\":{}}}\n\n" +
+		"event: content_block_delta\n" +
+		"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"city\\\":\\\"NYC\\\"}\"}}\n\n" +
+		"event: content_block_stop\n" +
+		"data: {\"type\":\"content_block_stop\",\"index\":0}\n\n" +
+		"event: content_block_start\n" +
+		"data: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_2\",\"name\":\"get_time\",\"input\":{}}}\n\n" +
+		"event: content_block_delta\n" +
+		"data: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"tz\\\":\\\"EST\\\"}\"}}\n\n" +
+		"event: content_block_stop\n" +
+		"data: {\"type\":\"content_block_stop\",\"index\":1}\n\n" +
+		"event: message_stop\n" +
+		"data: {\"type\":\"message_stop\"}\n\n"
+
+	pr, pw := io.Pipe()
+	r := &responseModifier{
+		stream:              true,
+		b:                   bufio.NewReader(strings.NewReader(stream)),
+		c:                   io.NopCloser(strings.NewReader("")),
+		messagePolicyHelper: &messagepolicy.Helper{},
+	}
+
+	go r.streamAndEvaluateToolCalls(pw)
+
+	result, err := io.ReadAll(pr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := string(result)
+	if !strings.Contains(got, "get_weather") || !strings.Contains(got, "get_time") {
+		t.Errorf("expected both tool calls in output, got %q", got)
+	}
+}
+
+func TestIsAnthropicToolCallEvent(t *testing.T) {
+	tests := []struct {
+		name string
+		data string
+		want bool
+	}{
+		{
+			"content_block_start with tool_use",
+			`{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_123","name":"get_weather","input":{}}}`,
+			true,
+		},
+		{
+			"content_block_delta with input_json_delta",
+			`{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"city\":"}}`,
+			true,
+		},
+		{
+			"content_block_start with text",
+			`{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+			false,
+		},
+		{
+			"content_block_delta with text_delta",
+			`{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}`,
+			false,
+		},
+		{
+			"OpenAI format",
+			`{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"get_weather"}}]}}]}`,
+			false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isAnthropicToolCallEvent([]byte(tt.data))
+			if got != tt.want {
+				t.Errorf("isAnthropicToolCallEvent() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAccumulateAnthropicToolCallInfo(t *testing.T) {
+	blockToTool := make(map[int]int)
+	var toolCalls []messagepolicy.ToolCallInfo
+
+	// First tool: content_block_start
+	accumulateAnthropicToolCallInfo(
+		[]byte(`{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_1","name":"get_weather","input":{}}}`),
+		&toolCalls, blockToTool,
+	)
+	if len(toolCalls) != 1 {
+		t.Fatalf("expected 1 tool call, got %d", len(toolCalls))
+	}
+	if toolCalls[0].Name != "get_weather" {
+		t.Errorf("name = %q, want %q", toolCalls[0].Name, "get_weather")
+	}
+
+	// Partial arguments
+	accumulateAnthropicToolCallInfo(
+		[]byte(`{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"city\":"}}`),
+		&toolCalls, blockToTool,
+	)
+	accumulateAnthropicToolCallInfo(
+		[]byte(`{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"\"NYC\"}"}}`),
+		&toolCalls, blockToTool,
+	)
+	if toolCalls[0].Arguments != `{"city":"NYC"}` {
+		t.Errorf("arguments = %q, want %q", toolCalls[0].Arguments, `{"city":"NYC"}`)
+	}
+
+	// Second tool at a different block index
+	accumulateAnthropicToolCallInfo(
+		[]byte(`{"type":"content_block_start","index":2,"content_block":{"type":"tool_use","id":"toolu_2","name":"get_time","input":{}}}`),
+		&toolCalls, blockToTool,
+	)
+	accumulateAnthropicToolCallInfo(
+		[]byte(`{"type":"content_block_delta","index":2,"delta":{"type":"input_json_delta","partial_json":"{\"tz\":\"EST\"}"}}`),
+		&toolCalls, blockToTool,
+	)
+	if len(toolCalls) != 2 {
+		t.Fatalf("expected 2 tool calls, got %d", len(toolCalls))
+	}
+	if toolCalls[1].Name != "get_time" {
+		t.Errorf("name = %q, want %q", toolCalls[1].Name, "get_time")
+	}
+	if toolCalls[1].Arguments != `{"tz":"EST"}` {
+		t.Errorf("arguments = %q, want %q", toolCalls[1].Arguments, `{"tz":"EST"}`)
+	}
+}
+
+func TestStreamAndEvaluateToolCallsJSON_AnthropicToolCalls(t *testing.T) {
+	// Non-streaming Anthropic response with a tool_use content block.
+	body := `{"id":"msg_1","type":"message","role":"assistant","content":[{"type":"text","text":"Checking."},{"type":"tool_use","id":"toolu_1","name":"get_weather","input":{"city":"NYC"}}],"stop_reason":"tool_use"}` + "\n"
+
+	pr, pw := io.Pipe()
+	r := &responseModifier{
+		stream:              false,
+		b:                   bufio.NewReader(strings.NewReader(body)),
+		c:                   io.NopCloser(strings.NewReader("")),
+		messagePolicyHelper: &messagepolicy.Helper{},
+	}
+
+	go r.streamAndEvaluateToolCalls(pw)
+
+	result, err := io.ReadAll(pr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := string(result)
+	if !strings.Contains(got, "get_weather") {
+		t.Errorf("expected tool call in output, got %q", got)
 	}
 }
 

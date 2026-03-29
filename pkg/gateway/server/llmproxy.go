@@ -333,8 +333,8 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 	r.stream = strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")
 	resp.Body = r
 
-	// When tool-call output policies are active, launch a goroutine that streams text through
-	// while buffering tool call chunks for policy evaluation.
+	// When tool-call output policies are active, launch a goroutine that streams text
+	// through immediately while buffering tool call chunks for policy evaluation.
 	if len(r.outputPolicies) > 0 {
 		pr, pw := io.Pipe()
 		r.pipeReader = pr
@@ -434,8 +434,6 @@ func (r *responseModifier) extractTokenUsage(line []byte) {
 func (r *responseModifier) streamAndEvaluateToolCalls(pw *io.PipeWriter) {
 	defer pw.Close()
 
-	logger.Debugf("Output tool-call policies active for user=%s, streaming text while collecting tool calls", r.userID)
-
 	if r.stream {
 		r.streamAndEvaluateToolCallsSSE(pw)
 	} else {
@@ -444,14 +442,17 @@ func (r *responseModifier) streamAndEvaluateToolCalls(pw *io.PipeWriter) {
 }
 
 // streamAndEvaluateToolCallsSSE handles streaming (SSE) responses.
-// Text delta chunks are forwarded immediately; tool call chunks are buffered for evaluation.
-// Write errors on pw are intentionally discarded: the pipe reader will surface any errors,
-// and a broken pipe simply means the client disconnected.
+// Text delta chunks are forwarded immediately; once the first tool_call chunk appears,
+// all remaining lines are buffered until the stream ends. After policy evaluation,
+// the buffered lines (including tool calls) are forwarded unmodified, and a violation
+// marker is injected if a policy was violated. The downstream client (nanobot) detects
+// this marker and returns error tool_results instead of executing the tools.
 func (r *responseModifier) streamAndEvaluateToolCallsSSE(pw *io.PipeWriter) {
 	var (
-		toolCallChunks [][]byte // raw SSE lines containing tool_call deltas (held back)
-		toolCalls      []messagepolicy.ToolCallInfo
-		finishLine     []byte // the line containing finish_reason (held until evaluation)
+		buffered             [][]byte // all lines from the first tool_call onward, in original order
+		toolCalls            []messagepolicy.ToolCallInfo
+		seenToolCalls        bool
+		anthropicBlockToTool map[int]int // maps Anthropic content block index → toolCalls slice index
 	)
 
 	for {
@@ -460,9 +461,31 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(pw *io.PipeWriter) {
 			break
 		}
 
+		// Once we see the first tool_call chunk, buffer everything remaining
+		// so we can evaluate policies before deciding what to send.
+		if seenToolCalls {
+			buffered = append(buffered, append([]byte(nil), line...))
+
+			rest, isData := bytes.CutPrefix(line, []byte("data: "))
+			if isData {
+				r.extractTokenUsage(rest)
+				// OpenAI format: choices.0.delta.tool_calls
+				delta := gjson.GetBytes(rest, "choices.0.delta")
+				if delta.Get("tool_calls").Exists() {
+					accumulateToolCallInfo(delta, &toolCalls)
+				}
+				// Anthropic format: content_block_start/content_block_delta
+				accumulateAnthropicToolCallInfo(rest, &toolCalls, anthropicBlockToTool)
+			}
+
+			if err != nil {
+				break
+			}
+			continue
+		}
+
 		rest, isData := bytes.CutPrefix(line, []byte("data: "))
 		if !isData {
-			// Non-data lines (empty lines, event: lines) — pass through.
 			_, _ = pw.Write(line)
 			if err != nil {
 				break
@@ -470,40 +493,21 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(pw *io.PipeWriter) {
 			continue
 		}
 
-		// Extract token usage from every data line.
 		r.extractTokenUsage(rest)
 
-		// Check if this chunk contains tool_calls or a finish_reason.
+		// Check for OpenAI-format tool calls (choices.0.delta.tool_calls).
 		delta := gjson.GetBytes(rest, "choices.0.delta")
-		hasToolCalls := delta.Get("tool_calls").Exists()
-		finishReason := gjson.GetBytes(rest, "choices.0.finish_reason")
-
-		if hasToolCalls {
-			// Buffer tool call chunks — do not send to client yet.
-			toolCallChunks = append(toolCallChunks, append([]byte(nil), line...))
-
-			// Accumulate tool call info for policy evaluation.
-			delta.Get("tool_calls").ForEach(func(_, tc gjson.Result) bool {
-				name := tc.Get("function.name").String()
-				args := tc.Get("function.arguments").String()
-				idx := int(tc.Get("index").Int())
-
-				for len(toolCalls) <= idx {
-					toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{})
-				}
-				if name != "" {
-					toolCalls[idx].Name += name
-				}
-				if args != "" {
-					toolCalls[idx].Arguments += args
-				}
-				return true
-			})
-		} else if finishReason.Exists() && finishReason.Type != gjson.Null {
-			// Hold the finish line until we decide whether to forward or replace.
-			finishLine = append([]byte(nil), line...)
+		if delta.Get("tool_calls").Exists() {
+			seenToolCalls = true
+			buffered = append(buffered, append([]byte(nil), line...))
+			accumulateToolCallInfo(delta, &toolCalls)
+		} else if isAnthropicToolCallEvent(rest) {
+			// Anthropic-format tool calls (content_block_start with type "tool_use").
+			seenToolCalls = true
+			anthropicBlockToTool = make(map[int]int)
+			buffered = append(buffered, append([]byte(nil), line...))
+			accumulateAnthropicToolCallInfo(rest, &toolCalls, anthropicBlockToTool)
 		} else {
-			// Text content or other non-tool-call data — forward immediately.
 			_, _ = pw.Write(line)
 		}
 
@@ -512,102 +516,178 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(pw *io.PipeWriter) {
 		}
 	}
 
-	logger.Debugf("Response complete for user=%s: %d tool calls detected", r.userID, len(toolCalls))
-
 	if len(toolCalls) == 0 {
-		// No tool calls — forward the finish line and done.
-		logger.Debugf("No tool calls in response for user=%s, skipping policy evaluation", r.userID)
-		if len(finishLine) > 0 {
-			_, _ = pw.Write(finishLine)
+		for _, line := range buffered {
+			_, _ = pw.Write(line)
 		}
 		return
 	}
 
-	// Evaluate policies against tool calls only.
+	// Evaluate policies against tool calls.
 	targetMessage := buildToolCallTargetMessage(toolCalls)
-	logger.Debugf("Evaluating %d tool-call policies against %d tool calls for user=%s", len(r.outputPolicies), len(toolCalls), r.userID)
+	logger.Infof("evaluating %d tool calls against %d policies", len(toolCalls), len(r.outputPolicies))
 	violations := r.messagePolicyHelper.EvaluateMessage(context.Background(), r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionToolCalls)
 
 	if len(violations) == 0 {
-		// No violations — flush all buffered tool call chunks + finish line.
-		logger.Debugf("Tool call policy evaluation passed for user=%s, forwarding %d tool calls", r.userID, len(toolCalls))
-		for _, chunk := range toolCallChunks {
-			_, _ = pw.Write(chunk)
-		}
-		if len(finishLine) > 0 {
-			_, _ = pw.Write(finishLine)
+		for _, line := range buffered {
+			_, _ = pw.Write(line)
 		}
 		return
 	}
 
-	// Violation — suppress tool calls, emit notification.
-	logger.Infof("Tool call policy violation detected for user=%s, suppressing %d tool calls", r.userID, len(toolCalls))
+	// Violation — forward tool calls (to keep conversation history valid)
+	// and inject a violation marker that nanobot can detect.
 	var explanations []string
 	for _, v := range violations {
 		explanations = append(explanations, v.Explanation)
 	}
-
 	notification := fmt.Sprintf(
-		"<system_notification>Your tool call(s) were blocked by the system for violating policies. Inform the user that you cannot complete their requested action due to a policy violation. The following explanation was generated for you to relay to the user: %s</system_notification>",
+		"This tool call was blocked due to a policy violation. Please inform the user that you cannot complete their requested action. Explanation: %s",
 		strings.Join(explanations, "\n"),
 	)
+	violationJSON, _ := json.Marshal(map[string]string{
+		"obot_tool_call_policy_violation": notification,
+	})
+	violationLine := fmt.Sprintf("data: %s\n\n", violationJSON)
 
-	_, _ = pw.Write(buildStreamingNotificationChunks(notification, r.model))
+	// Flush buffered lines, injecting the violation marker before [DONE].
+	injected := false
+	for _, line := range buffered {
+		if !injected {
+			rest, isData := bytes.CutPrefix(line, []byte("data: "))
+			if isData && bytes.Equal(bytes.TrimSpace(rest), []byte("[DONE]")) {
+				_, _ = pw.Write([]byte(violationLine))
+				injected = true
+			}
+		}
+		_, _ = pw.Write(line)
+	}
+	if !injected {
+		_, _ = pw.Write([]byte(violationLine))
+	}
 }
 
 // streamAndEvaluateToolCallsJSON handles non-streaming (single JSON) responses.
 func (r *responseModifier) streamAndEvaluateToolCallsJSON(pw *io.PipeWriter) {
-	// Read the entire response body. Error is discarded because the upstream
-	// response may legitimately EOF, and partial reads are handled gracefully.
 	var buf bytes.Buffer
 	_, _ = io.Copy(&buf, r.b)
 	body := buf.Bytes()
 
 	r.extractTokenUsage(body)
 
-	// Check if the response contains tool calls.
+	// OpenAI format: choices.0.message.tool_calls
 	tcResult := gjson.GetBytes(body, "choices.0.message.tool_calls")
-	if !tcResult.Exists() || len(tcResult.Array()) == 0 {
-		// No tool calls — pass through unchanged.
-		logger.Debugf("No tool calls in response for user=%s, skipping policy evaluation", r.userID)
+	// Anthropic format: content array with type "tool_use"
+	anthropicContent := gjson.GetBytes(body, "content")
+
+	var toolCalls []messagepolicy.ToolCallInfo
+	if tcResult.Exists() && len(tcResult.Array()) > 0 {
+		tcResult.ForEach(func(_, tc gjson.Result) bool {
+			toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{
+				Name:      tc.Get("function.name").String(),
+				Arguments: tc.Get("function.arguments").String(),
+			})
+			return true
+		})
+	} else if anthropicContent.Exists() {
+		anthropicContent.ForEach(func(_, block gjson.Result) bool {
+			if block.Get("type").String() == "tool_use" {
+				input := block.Get("input").Raw
+				if input == "" {
+					input = "{}"
+				}
+				toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{
+					Name:      block.Get("name").String(),
+					Arguments: input,
+				})
+			}
+			return true
+		})
+	}
+
+	if len(toolCalls) == 0 {
 		_, _ = pw.Write(body)
 		return
 	}
 
-	// Extract tool call info for policy evaluation.
-	var toolCalls []messagepolicy.ToolCallInfo
-	tcResult.ForEach(func(_, tc gjson.Result) bool {
-		toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{
-			Name:      tc.Get("function.name").String(),
-			Arguments: tc.Get("function.arguments").String(),
-		})
-		return true
-	})
-
 	targetMessage := buildToolCallTargetMessage(toolCalls)
-	logger.Debugf("Evaluating %d tool-call policies against %d tool calls for user=%s", len(r.outputPolicies), len(toolCalls), r.userID)
 	violations := r.messagePolicyHelper.EvaluateMessage(context.Background(), r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionToolCalls)
 
 	if len(violations) == 0 {
-		// No violations — pass through unchanged.
-		logger.Debugf("Tool call policy evaluation passed for user=%s, forwarding %d tool calls", r.userID, len(toolCalls))
 		_, _ = pw.Write(body)
 		return
 	}
 
-	// Violation — build replacement response without tool calls.
-	logger.Infof("Tool call policy violation detected for user=%s, suppressing %d tool calls", r.userID, len(toolCalls))
+	// Violation — keep tool calls but add violation marker to the JSON.
 	var explanations []string
 	for _, v := range violations {
 		explanations = append(explanations, v.Explanation)
 	}
-
 	notification := fmt.Sprintf(
-		"<system_notification>Your tool call(s) were blocked by the system for violating policies. Inform the user that you cannot complete their requested action due to a policy violation. The following explanation was generated for you to relay to the user: %s</system_notification>",
+		"This tool call was blocked due to a policy violation. Please inform the user that you cannot complete their requested action. Explanation: %s",
 		strings.Join(explanations, "\n"),
 	)
 
-	_, _ = pw.Write(buildReplacementResponse(notification, r.model))
+	var bodyMap map[string]any
+	if err := json.Unmarshal(body, &bodyMap); err != nil {
+		_, _ = pw.Write(body)
+		return
+	}
+	bodyMap["obot_tool_call_policy_violation"] = notification
+	modified, err := json.Marshal(bodyMap)
+	if err != nil {
+		_, _ = pw.Write(body)
+		return
+	}
+	_, _ = pw.Write(append(modified, '\n'))
+}
+
+// accumulateToolCallInfo extracts tool call name/arguments from a delta and appends to the slice.
+func accumulateToolCallInfo(delta gjson.Result, toolCalls *[]messagepolicy.ToolCallInfo) {
+	delta.Get("tool_calls").ForEach(func(_, tc gjson.Result) bool {
+		name := tc.Get("function.name").String()
+		args := tc.Get("function.arguments").String()
+		idx := int(tc.Get("index").Int())
+		for len(*toolCalls) <= idx {
+			*toolCalls = append(*toolCalls, messagepolicy.ToolCallInfo{})
+		}
+		if name != "" {
+			(*toolCalls)[idx].Name += name
+		}
+		if args != "" {
+			(*toolCalls)[idx].Arguments += args
+		}
+		return true
+	})
+}
+
+// isAnthropicToolCallEvent checks if an SSE data payload is an Anthropic tool-call-related event
+// (content_block_start with type "tool_use", or content_block_delta with type "input_json_delta").
+func isAnthropicToolCallEvent(data []byte) bool {
+	eventType := gjson.GetBytes(data, "type").String()
+	return (eventType == "content_block_start" && gjson.GetBytes(data, "content_block.type").String() == "tool_use") ||
+		(eventType == "content_block_delta" && gjson.GetBytes(data, "delta.type").String() == "input_json_delta")
+}
+
+// accumulateAnthropicToolCallInfo extracts tool call name/arguments from Anthropic SSE events.
+// content_block_start events with type "tool_use" create new entries;
+// content_block_delta events with type "input_json_delta" append partial arguments.
+func accumulateAnthropicToolCallInfo(data []byte, toolCalls *[]messagepolicy.ToolCallInfo, blockToTool map[int]int) {
+	eventType := gjson.GetBytes(data, "type").String()
+	switch {
+	case eventType == "content_block_start" && gjson.GetBytes(data, "content_block.type").String() == "tool_use":
+		blockIdx := int(gjson.GetBytes(data, "index").Int())
+		toolIdx := len(*toolCalls)
+		blockToTool[blockIdx] = toolIdx
+		*toolCalls = append(*toolCalls, messagepolicy.ToolCallInfo{
+			Name: gjson.GetBytes(data, "content_block.name").String(),
+		})
+	case eventType == "content_block_delta" && gjson.GetBytes(data, "delta.type").String() == "input_json_delta":
+		blockIdx := int(gjson.GetBytes(data, "index").Int())
+		if toolIdx, ok := blockToTool[blockIdx]; ok && toolIdx < len(*toolCalls) {
+			(*toolCalls)[toolIdx].Arguments += gjson.GetBytes(data, "delta.partial_json").String()
+		}
+	}
 }
 
 // buildToolCallTargetMessage formats tool calls into the target message string for the policy judge.
@@ -620,65 +700,6 @@ func buildToolCallTargetMessage(toolCalls []messagepolicy.ToolCallInfo) string {
 		fmt.Fprintf(&sb, "[called tool %q with args: %s]", tc.Name, tc.Arguments)
 	}
 	return sb.String()
-}
-
-// buildStreamingNotificationChunks produces SSE chunks that send a text delta with the
-// notification content, followed by a stop finish chunk and [DONE].
-func buildStreamingNotificationChunks(notification, model string) []byte {
-	textDelta, _ := json.Marshal(map[string]any{
-		"id":     "policy-violation",
-		"object": "chat.completion.chunk",
-		"model":  model,
-		"choices": []map[string]any{
-			{
-				"index":         0,
-				"delta":         map[string]any{"content": notification},
-				"finish_reason": nil,
-			},
-		},
-	})
-
-	stopDelta, _ := json.Marshal(map[string]any{
-		"id":     "policy-violation",
-		"object": "chat.completion.chunk",
-		"model":  model,
-		"choices": []map[string]any{
-			{
-				"index":         0,
-				"delta":         map[string]any{},
-				"finish_reason": "stop",
-			},
-		},
-	})
-
-	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "data: %s\n\n", textDelta)
-	fmt.Fprintf(&buf, "data: %s\n\n", stopDelta)
-	buf.WriteString("data: [DONE]\n\n")
-	return buf.Bytes()
-}
-
-// buildReplacementResponse constructs a minimal OpenAI-format chat completion response
-// with the given content replacing the assistant's message (no tool calls).
-func buildReplacementResponse(content, model string) []byte {
-	resp := map[string]any{
-		"id":     "policy-violation",
-		"object": "chat.completion",
-		"model":  model,
-		"choices": []map[string]any{
-			{
-				"index": 0,
-				"message": map[string]any{
-					"role":    "assistant",
-					"content": content,
-				},
-				"finish_reason": "stop",
-			},
-		},
-	}
-
-	b, _ := json.Marshal(resp)
-	return append(b, '\n')
 }
 
 func (r *responseModifier) Close() error {

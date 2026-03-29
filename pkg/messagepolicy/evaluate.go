@@ -74,7 +74,13 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []types.MessagePo
 
 	log.Debugf("Resolved llm-mini to model=%s provider=%s", resolved.targetModel, resolved.providerURL)
 
-	conversationContext := BuildConversationContext(conversationHistory)
+	// For tool call evaluation, limit context to the last user message to avoid
+	// earlier (possibly blocked) turns biasing the judge.
+	contextMessages := conversationHistory
+	if direction == types.PolicyDirectionToolCalls {
+		contextMessages = lastUserTurn(conversationHistory)
+	}
+	conversationContext := BuildConversationContext(contextMessages)
 
 	var (
 		mu         sync.Mutex
@@ -332,6 +338,18 @@ func (h *Helper) generateExplanation(ctx context.Context, resolved *resolvedMode
 
 	log.Debugf("Generated explanation for policy=%q", policy.DisplayName)
 	return result
+}
+
+// lastUserTurn returns only the last user message from the conversation history.
+// This prevents earlier turns (especially previously blocked requests) from biasing
+// the policy judge when evaluating new tool calls.
+func lastUserTurn(messages []ConversationMessage) []ConversationMessage {
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == "user" {
+			return []ConversationMessage{messages[i]}
+		}
+	}
+	return nil
 }
 
 // BuildConversationContext formats conversation history for the policy judge.
