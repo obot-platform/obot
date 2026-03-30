@@ -52,6 +52,7 @@ const (
 	ScheduledAuditLogExportPrefix = "sael1"
 	SystemMCPServerPrefix         = "sms1"
 	ModelAccessPolicyPrefix       = "map1"
+	MessagePolicyPrefix           = "mp1"
 	NanobotAgentPrefix            = "nba1"
 	ProjectV2Prefix               = "pv21"
 	PublishedArtifactPrefix       = "pa1"

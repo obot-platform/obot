@@ -121,6 +121,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&SystemMCPServerList{},
 		&ModelAccessPolicy{},
 		&ModelAccessPolicyList{},
+		&MessagePolicy{},
+		&MessagePolicyList{},
 		&NanobotAgent{},
 		&NanobotAgentList{},
 		&ProjectV2{},

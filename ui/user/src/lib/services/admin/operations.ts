@@ -57,7 +57,9 @@ import type {
 	SkillRepository,
 	SkillRepositoryManifest,
 	SkillAccessPolicy,
-	SkillAccessPolicyManifest
+	SkillAccessPolicyManifest,
+	MessagePolicy,
+	MessagePolicyManifest
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -715,6 +717,33 @@ export async function updateModelAccessPolicy(
 
 export async function deleteModelAccessPolicy(id: string): Promise<void> {
 	await doDelete(`/model-access-policies/${id}`);
+}
+
+export async function listMessagePolicies(opts?: { fetch?: Fetcher }): Promise<MessagePolicy[]> {
+	const response = (await doGet('/message-policies', opts)) as ItemsResponse<MessagePolicy>;
+	return response.items ?? [];
+}
+
+export async function getMessagePolicy(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MessagePolicy> {
+	return (await doGet(`/message-policies/${id}`, opts)) as MessagePolicy;
+}
+
+export async function createMessagePolicy(manifest: MessagePolicyManifest): Promise<MessagePolicy> {
+	return (await doPost('/message-policies', manifest)) as MessagePolicy;
+}
+
+export async function updateMessagePolicy(
+	id: string,
+	manifest: MessagePolicyManifest
+): Promise<MessagePolicy> {
+	return (await doPut(`/message-policies/${id}`, manifest)) as MessagePolicy;
+}
+
+export async function deleteMessagePolicy(id: string): Promise<void> {
+	await doDelete(`/message-policies/${id}`);
 }
 
 export async function listAuthProviders(opts?: { fetch?: Fetcher }): Promise<AuthProvider[]> {

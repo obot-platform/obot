@@ -45,7 +45,8 @@
 		PencilRuler,
 		Vault,
 		LockOpen,
-		CircleQuestionMark
+		CircleQuestionMark,
+		ShieldAlert
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -260,6 +261,17 @@
 								label: 'Skill Access Policies',
 								collapsible: false
 							},
+							...(version.current.messagePoliciesEnabled
+								? [
+										{
+											id: 'message-policies',
+											href: '/admin/message-policies',
+											icon: ShieldAlert,
+											label: 'Message Policies',
+											collapsible: false
+										}
+									]
+								: []),
 							...(version.current.nanobotIntegration
 								? [
 										{

@@ -12,7 +12,8 @@
 	import MessageItemResource from './MessageItemResource.svelte';
 	import MessageItemTool from './MessageItemTool.svelte';
 	import MessageItemFile from './MessageItemFile.svelte';
-	import { parseToolFilePath } from '$lib/services/nanobot/utils';
+	import MessageItemPolicyViolation from './MessageItemPolicyViolation.svelte';
+	import { parseToolFilePath, isPolicyViolation } from '$lib/services/nanobot/utils';
 
 	interface Props {
 		item: ChatMessageItem;
@@ -25,7 +26,9 @@
 	let { item, role, onSend, onFileOpen, onReadResource }: Props = $props();
 </script>
 
-{#if item.type === 'text'}
+{#if item.type === 'text' && isPolicyViolation(item.text)}
+	<MessageItemPolicyViolation {item} {role} />
+{:else if item.type === 'text'}
 	<MessageItemText {item} {role} />
 {:else if item.type === 'image'}
 	<MessageItemImage {item} />

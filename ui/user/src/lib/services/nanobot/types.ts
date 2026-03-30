@@ -145,6 +145,7 @@ export interface Event {
 		| 'history-end'
 		| 'chat-in-progress'
 		| 'chat-done'
+		| 'input-replaced'
 		| 'error'
 		| 'elicitation/create';
 	message?: ChatMessage;

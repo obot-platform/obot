@@ -25,6 +25,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -163,8 +164,14 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	}
 
 	(&httputil.ReverseProxy{
-		Director:       llmTransformRequest(u, credEnv),
-		ModifyResponse: (&responseModifier{userID: token.UserID, runID: token.RunID, model: model, client: req.GatewayClient, personalToken: personalToken}).modifyResponse,
+		Director: llmTransformRequest(u, credEnv),
+		ModifyResponse: (&responseModifier{
+			userID:        token.UserID,
+			runID:         token.RunID,
+			model:         model,
+			client:        req.GatewayClient,
+			personalToken: personalToken,
+		}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil
@@ -301,9 +308,22 @@ type responseModifier struct {
 	c                                           io.Closer
 	stream                                      bool
 	leftover                                    []byte
+
+	// Input policy violation: replacement text to send back via response header.
+	inputPolicyReplacement string
+
+	// Output (tool-call) policy evaluation fields.
+	messagePolicyHelper *messagepolicy.Helper
+	outputPolicies      []types2.MessagePolicyManifest
+	conversationHistory []messagepolicy.ConversationMessage
+	pipeReader          *io.PipeReader // set when output policies are active; Read() reads from this
 }
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
+	if r.inputPolicyReplacement != "" {
+		resp.Header.Set("X-Obot-Message-Policy-Replacement", r.inputPolicyReplacement)
+	}
+
 	if resp.StatusCode != http.StatusOK || (resp.Request.URL.Path != "/v1/chat/completions" && resp.Request.URL.Path != "/v1/messages" && resp.Request.URL.Path != "/v1/responses") {
 		return nil
 	}
@@ -313,10 +333,23 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 	r.stream = strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")
 	resp.Body = r
 
+	// When tool-call output policies are active, launch a goroutine that streams text
+	// through immediately while buffering tool call chunks for policy evaluation.
+	if len(r.outputPolicies) > 0 {
+		pr, pw := io.Pipe()
+		r.pipeReader = pr
+		go r.streamAndEvaluateToolCalls(resp.Request.Context(), pw)
+	}
+
 	return nil
 }
 
 func (r *responseModifier) Read(p []byte) (int, error) {
+	// When output policies are active, the goroutine handles everything via the pipe.
+	if r.pipeReader != nil {
+		return r.pipeReader.Read(p)
+	}
+
 	if len(r.leftover) > 0 {
 		n := copy(p, r.leftover)
 		r.leftover = r.leftover[n:]
@@ -343,6 +376,25 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 		line = rest
 	}
 
+	r.extractTokenUsage(line)
+
+	n := copy(p, prefix)
+	if n < len(prefix) {
+		// We couldn't copy the entire prefix, so save the leftover for the next read and return.
+		r.leftover = append(prefix[n:], line...)
+		return n, nil
+	}
+
+	n += copy(p[n:], line)
+
+	// If we didn't copy the entire line, then save the leftover for the next read.
+	r.leftover = line[n-len(prefix):]
+
+	return n, nil
+}
+
+// extractTokenUsage extracts token counts from a JSON line (with data: prefix already stripped).
+func (r *responseModifier) extractTokenUsage(line []byte) {
 	// Extract token usage from all known locations.
 	// Providers nest usage differently:
 	//   - OpenAI Chat Completions: top-level "usage"
@@ -374,20 +426,280 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 		r.totalTokens = max(r.totalTokens, int(totalTokens))
 		r.lock.Unlock()
 	}
+}
 
-	n := copy(p, prefix)
-	if n < len(prefix) {
-		// We couldn't copy the entire prefix, so save the leftover for the next read and return.
-		r.leftover = append(prefix[n:], line...)
-		return n, nil
+// streamAndEvaluateToolCalls reads the upstream response, streams text through immediately,
+// buffers tool call chunks, and evaluates policies only against tool calls.
+// For non-streaming responses, it buffers the entire response and evaluates inline.
+func (r *responseModifier) streamAndEvaluateToolCalls(ctx context.Context, pw *io.PipeWriter) {
+	defer pw.Close()
+
+	if r.stream {
+		r.streamAndEvaluateToolCallsSSE(ctx, pw)
+	} else {
+		r.streamAndEvaluateToolCallsJSON(ctx, pw)
+	}
+}
+
+// streamAndEvaluateToolCallsSSE handles streaming (SSE) responses.
+// Text delta chunks are forwarded immediately; once the first tool_call chunk appears,
+// all remaining lines are buffered until the stream ends. After policy evaluation,
+// the buffered lines (including tool calls) are forwarded unmodified, and a violation
+// marker is injected if a policy was violated. The downstream client (nanobot) detects
+// this marker and returns error tool_results instead of executing the tools.
+func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw *io.PipeWriter) {
+	var (
+		buffered             [][]byte // all lines from the first tool_call onward, in original order
+		toolCalls            []messagepolicy.ToolCallInfo
+		seenToolCalls        bool
+		anthropicBlockToTool map[int]int // maps Anthropic content block index → toolCalls slice index
+	)
+
+	for {
+		line, err := r.b.ReadBytes('\n')
+		if len(line) == 0 && err != nil {
+			break
+		}
+
+		// Once we see the first tool_call chunk, buffer everything remaining
+		// so we can evaluate policies before deciding what to send.
+		if seenToolCalls {
+			buffered = append(buffered, append([]byte(nil), line...))
+
+			rest, isData := bytes.CutPrefix(line, []byte("data: "))
+			if isData {
+				r.extractTokenUsage(rest)
+				// OpenAI format: choices.0.delta.tool_calls
+				delta := gjson.GetBytes(rest, "choices.0.delta")
+				if delta.Get("tool_calls").Exists() {
+					accumulateToolCallInfo(delta, &toolCalls)
+				}
+				// Anthropic format: content_block_start/content_block_delta
+				accumulateAnthropicToolCallInfo(rest, &toolCalls, anthropicBlockToTool)
+			}
+
+			if err != nil {
+				break
+			}
+			continue
+		}
+
+		rest, isData := bytes.CutPrefix(line, []byte("data: "))
+		if !isData {
+			_, _ = pw.Write(line)
+			if err != nil {
+				break
+			}
+			continue
+		}
+
+		r.extractTokenUsage(rest)
+
+		// Check for OpenAI-format tool calls (choices.0.delta.tool_calls).
+		delta := gjson.GetBytes(rest, "choices.0.delta")
+		if delta.Get("tool_calls").Exists() {
+			seenToolCalls = true
+			buffered = append(buffered, append([]byte(nil), line...))
+			accumulateToolCallInfo(delta, &toolCalls)
+		} else if isAnthropicToolCallEvent(rest) {
+			// Anthropic-format tool calls (content_block_start with type "tool_use").
+			seenToolCalls = true
+			anthropicBlockToTool = make(map[int]int)
+			buffered = append(buffered, append([]byte(nil), line...))
+			accumulateAnthropicToolCallInfo(rest, &toolCalls, anthropicBlockToTool)
+		} else {
+			_, _ = pw.Write(line)
+		}
+
+		if err != nil {
+			break
+		}
 	}
 
-	n += copy(p[n:], line)
+	if len(toolCalls) == 0 {
+		for _, line := range buffered {
+			_, _ = pw.Write(line)
+		}
+		return
+	}
 
-	// If we didn't copy the entire line, then save the leftover for the next read.
-	r.leftover = line[n-len(prefix):]
+	// Evaluate policies against tool calls.
+	targetMessage := buildToolCallTargetMessage(toolCalls)
+	logger.Infof("evaluating %d tool calls against %d policies", len(toolCalls), len(r.outputPolicies))
+	violations := r.messagePolicyHelper.EvaluateMessage(ctx, r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionToolCalls)
 
-	return n, nil
+	if len(violations) == 0 {
+		for _, line := range buffered {
+			_, _ = pw.Write(line)
+		}
+		return
+	}
+
+	// Violation — forward tool calls (to keep conversation history valid)
+	// and inject a violation marker that nanobot can detect.
+	var explanations []string
+	for _, v := range violations {
+		explanations = append(explanations, v.Explanation)
+	}
+	notification := fmt.Sprintf(
+		"This tool call was blocked due to a policy violation. Please inform the user that you cannot complete their requested action. Explanation: %s",
+		strings.Join(explanations, "\n"),
+	)
+	violationJSON, _ := json.Marshal(map[string]string{
+		"obot_tool_call_policy_violation": notification,
+	})
+	violationLine := fmt.Sprintf("data: %s\n\n", violationJSON)
+
+	// Flush buffered lines, injecting the violation marker before [DONE].
+	injected := false
+	for _, line := range buffered {
+		if !injected {
+			rest, isData := bytes.CutPrefix(line, []byte("data: "))
+			if isData && bytes.Equal(bytes.TrimSpace(rest), []byte("[DONE]")) {
+				_, _ = pw.Write([]byte(violationLine))
+				injected = true
+			}
+		}
+		_, _ = pw.Write(line)
+	}
+	if !injected {
+		_, _ = pw.Write([]byte(violationLine))
+	}
+}
+
+// streamAndEvaluateToolCallsJSON handles non-streaming (single JSON) responses.
+func (r *responseModifier) streamAndEvaluateToolCallsJSON(ctx context.Context, pw *io.PipeWriter) {
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, r.b)
+	body := buf.Bytes()
+
+	r.extractTokenUsage(body)
+
+	// OpenAI format: choices.0.message.tool_calls
+	tcResult := gjson.GetBytes(body, "choices.0.message.tool_calls")
+	// Anthropic format: content array with type "tool_use"
+	anthropicContent := gjson.GetBytes(body, "content")
+
+	var toolCalls []messagepolicy.ToolCallInfo
+	if tcResult.Exists() && len(tcResult.Array()) > 0 {
+		tcResult.ForEach(func(_, tc gjson.Result) bool {
+			toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{
+				Name:      tc.Get("function.name").String(),
+				Arguments: tc.Get("function.arguments").String(),
+			})
+			return true
+		})
+	} else if anthropicContent.Exists() {
+		anthropicContent.ForEach(func(_, block gjson.Result) bool {
+			if block.Get("type").String() == "tool_use" {
+				input := block.Get("input").Raw
+				if input == "" {
+					input = "{}"
+				}
+				toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{
+					Name:      block.Get("name").String(),
+					Arguments: input,
+				})
+			}
+			return true
+		})
+	}
+
+	if len(toolCalls) == 0 {
+		_, _ = pw.Write(body)
+		return
+	}
+
+	targetMessage := buildToolCallTargetMessage(toolCalls)
+	violations := r.messagePolicyHelper.EvaluateMessage(ctx, r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionToolCalls)
+
+	if len(violations) == 0 {
+		_, _ = pw.Write(body)
+		return
+	}
+
+	// Violation — keep tool calls but add violation marker to the JSON.
+	var explanations []string
+	for _, v := range violations {
+		explanations = append(explanations, v.Explanation)
+	}
+	notification := fmt.Sprintf(
+		"This tool call was blocked due to a policy violation. Please inform the user that you cannot complete their requested action. Explanation: %s",
+		strings.Join(explanations, "\n"),
+	)
+
+	var bodyMap map[string]any
+	if err := json.Unmarshal(body, &bodyMap); err != nil {
+		_, _ = pw.Write(body)
+		return
+	}
+	bodyMap["obot_tool_call_policy_violation"] = notification
+	modified, err := json.Marshal(bodyMap)
+	if err != nil {
+		_, _ = pw.Write(body)
+		return
+	}
+	_, _ = pw.Write(append(modified, '\n'))
+}
+
+// accumulateToolCallInfo extracts tool call name/arguments from a delta and appends to the slice.
+func accumulateToolCallInfo(delta gjson.Result, toolCalls *[]messagepolicy.ToolCallInfo) {
+	delta.Get("tool_calls").ForEach(func(_, tc gjson.Result) bool {
+		name := tc.Get("function.name").String()
+		args := tc.Get("function.arguments").String()
+		idx := int(tc.Get("index").Int())
+		for len(*toolCalls) <= idx {
+			*toolCalls = append(*toolCalls, messagepolicy.ToolCallInfo{})
+		}
+		if name != "" {
+			(*toolCalls)[idx].Name += name
+		}
+		if args != "" {
+			(*toolCalls)[idx].Arguments += args
+		}
+		return true
+	})
+}
+
+// isAnthropicToolCallEvent checks if an SSE data payload is an Anthropic tool-call-related event
+// (content_block_start with type "tool_use", or content_block_delta with type "input_json_delta").
+func isAnthropicToolCallEvent(data []byte) bool {
+	eventType := gjson.GetBytes(data, "type").String()
+	return (eventType == "content_block_start" && gjson.GetBytes(data, "content_block.type").String() == "tool_use") ||
+		(eventType == "content_block_delta" && gjson.GetBytes(data, "delta.type").String() == "input_json_delta")
+}
+
+// accumulateAnthropicToolCallInfo extracts tool call name/arguments from Anthropic SSE events.
+// content_block_start events with type "tool_use" create new entries;
+// content_block_delta events with type "input_json_delta" append partial arguments.
+func accumulateAnthropicToolCallInfo(data []byte, toolCalls *[]messagepolicy.ToolCallInfo, blockToTool map[int]int) {
+	eventType := gjson.GetBytes(data, "type").String()
+	switch {
+	case eventType == "content_block_start" && gjson.GetBytes(data, "content_block.type").String() == "tool_use":
+		blockIdx := int(gjson.GetBytes(data, "index").Int())
+		toolIdx := len(*toolCalls)
+		blockToTool[blockIdx] = toolIdx
+		*toolCalls = append(*toolCalls, messagepolicy.ToolCallInfo{
+			Name: gjson.GetBytes(data, "content_block.name").String(),
+		})
+	case eventType == "content_block_delta" && gjson.GetBytes(data, "delta.type").String() == "input_json_delta":
+		blockIdx := int(gjson.GetBytes(data, "index").Int())
+		if toolIdx, ok := blockToTool[blockIdx]; ok && toolIdx < len(*toolCalls) {
+			(*toolCalls)[toolIdx].Arguments += gjson.GetBytes(data, "delta.partial_json").String()
+		}
+	}
+}
+
+// buildToolCallTargetMessage formats tool calls into the target message string for the policy judge.
+func buildToolCallTargetMessage(toolCalls []messagepolicy.ToolCallInfo) string {
+	var sb strings.Builder
+	for i, tc := range toolCalls {
+		if i > 0 {
+			sb.WriteString("\n")
+		}
+		fmt.Fprintf(&sb, "[called tool %q with args: %s]", tc.Name, tc.Arguments)
+	}
+	return sb.String()
 }
 
 func (r *responseModifier) Close() error {
@@ -433,6 +745,92 @@ func llmTransformRequest(u url.URL, credEnv map[string]string) func(req *http.Re
 	}
 }
 
+// parseMessagesFromBody converts the raw messages array from the request body into
+// ConversationMessages for policy evaluation. Returns the conversation history,
+// the last user message content, and its index in the raw array (-1 if not found).
+func parseMessagesFromBody(rawMessages []any) ([]messagepolicy.ConversationMessage, string, int) {
+	var (
+		history     []messagepolicy.ConversationMessage
+		lastUserMsg string
+		lastUserIdx = -1
+	)
+
+	for i, raw := range rawMessages {
+		msg, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		role, _ := msg["role"].(string)
+		content := extractContentString(msg["content"])
+
+		cm := messagepolicy.ConversationMessage{
+			Role:    role,
+			Content: content,
+		}
+
+		// Parse tool_call_id for tool messages.
+		if toolCallID, ok := msg["tool_call_id"].(string); ok {
+			cm.ToolCallID = toolCallID
+		}
+
+		// Parse tool_calls for assistant messages.
+		if toolCalls, ok := msg["tool_calls"].([]any); ok {
+			for _, tc := range toolCalls {
+				tcMap, ok := tc.(map[string]any)
+				if !ok {
+					continue
+				}
+				fn, _ := tcMap["function"].(map[string]any)
+				if fn == nil {
+					continue
+				}
+				name, _ := fn["name"].(string)
+				arguments, _ := fn["arguments"].(string)
+				cm.ToolCalls = append(cm.ToolCalls, messagepolicy.ToolCallInfo{
+					Name:      name,
+					Arguments: arguments,
+				})
+			}
+		}
+
+		history = append(history, cm)
+
+		if role == "user" && content != "" {
+			lastUserMsg = content
+			lastUserIdx = i
+		}
+	}
+
+	return history, lastUserMsg, lastUserIdx
+}
+
+// extractContentString extracts a text string from the OpenAI message content field,
+// which can be either a plain string or an array of content parts.
+func extractContentString(content any) string {
+	switch c := content.(type) {
+	case string:
+		return c
+	case []any:
+		// Array of content parts — extract text parts.
+		var parts []string
+		for _, part := range c {
+			partMap, ok := part.(map[string]any)
+			if !ok {
+				continue
+			}
+			if partMap["type"] == "text" {
+				if text, ok := partMap["text"].(string); ok {
+					parts = append(parts, text)
+				}
+			}
+		}
+		return strings.Join(parts, "\n")
+	default:
+		return ""
+	}
+}
+
 type llmProviderProxy struct {
 	dailyUserTokenPromptTokenLimit     int
 	dailyUserTokenCompletionTokenLimit int
@@ -440,6 +838,7 @@ type llmProviderProxy struct {
 	modelProviderName                  string
 	modelProvider                      *v1.ToolReference
 	mapHelper                          *modelaccesspolicy.Helper
+	messagePolicyHelper                *messagepolicy.Helper
 	lock                               sync.RWMutex
 }
 
@@ -450,6 +849,7 @@ func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmP
 		u:                                  *u,
 		modelProviderName:                  modelProviderName,
 		mapHelper:                          s.mapHelper,
+		messagePolicyHelper:                s.messagePolicyHelper,
 	}
 }
 
@@ -506,6 +906,77 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		}
 	}
 
+	// Evaluate message policies if the helper is available and we have a user.
+	var (
+		outputPolicies         []types2.MessagePolicyManifest
+		conversationHistory    []messagepolicy.ConversationMessage
+		bodyModified           bool
+		inputPolicyReplacement string
+	)
+	if l.messagePolicyHelper != nil && req.User.GetUID() != "" {
+		var bodyMap map[string]any
+		if err := json.Unmarshal(body, &bodyMap); err == nil {
+			// Evaluate user message against applicable input policies.
+			inputPolicies, err := l.messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionUserMessage)
+			if err == nil && len(inputPolicies) > 0 {
+				rawMessages, _ := bodyMap["messages"].([]any)
+				if len(rawMessages) > 0 {
+					history, lastUserMsg, lastUserIdx := parseMessagesFromBody(rawMessages)
+					if lastUserIdx >= 0 {
+						violations := l.messagePolicyHelper.EvaluateMessage(req.Context(), inputPolicies, history, lastUserMsg, types2.PolicyDirectionUserMessage)
+						if len(violations) > 0 {
+							var explanations []string
+							for _, v := range violations {
+								explanations = append(explanations, v.Explanation)
+							}
+
+							// Message for the LLM: instruct it to respond with a
+							// short refusal so the user sees a clear denial.
+							llmReplacement := `Please respond to the user with exactly: "Sorry, I can't help with that."`
+
+							// Message for the user: shown directly in the UI's
+							// "Policy Violation" box with the explanation.
+							// The [policy-violation] prefix is used by the frontend
+							// to detect and style this as a policy violation.
+							userReplacement := fmt.Sprintf(
+								"[policy-violation] %s",
+								strings.Join(explanations, "\n"),
+							)
+
+							if msgMap, ok := rawMessages[lastUserIdx].(map[string]any); ok {
+								msgMap["content"] = llmReplacement
+								bodyModified = true
+								inputPolicyReplacement = userReplacement
+							}
+						}
+					}
+				}
+			} else if err != nil {
+				return fmt.Errorf("failed to get applicable input policies: %w", err)
+			}
+
+			// Check for output (tool-call) policies.
+			outputPolicies, err = l.messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionToolCalls)
+			if err != nil {
+				return fmt.Errorf("failed to get applicable output policies: %w", err)
+			}
+			if len(outputPolicies) > 0 {
+				rawMessages, _ := bodyMap["messages"].([]any)
+				conversationHistory, _, _ = parseMessagesFromBody(rawMessages)
+			}
+
+			// Re-serialize the body if input policies modified it.
+			if bodyModified {
+				b, err := json.Marshal(bodyMap)
+				if err != nil {
+					return fmt.Errorf("failed to marshal modified body: %w", err)
+				}
+				req.Request.Body = io.NopCloser(bytes.NewReader(b))
+				req.ContentLength = int64(len(b))
+			}
+		}
+	}
+
 	remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(req.Context(), req.User.GetUID(), tokenUsageTimePeriod, l.dailyUserTokenPromptTokenLimit, l.dailyUserTokenCompletionTokenLimit)
 	if err != nil {
 		return err
@@ -530,8 +1001,16 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 	}
 
 	(&httputil.ReverseProxy{
-		Director:       llmTransformRequest(l.u, nil),
-		ModifyResponse: (&responseModifier{userID: req.User.GetUID(), model: targetModel, client: req.GatewayClient}).modifyResponse,
+		Director: llmTransformRequest(l.u, nil),
+		ModifyResponse: (&responseModifier{
+			userID:                 req.User.GetUID(),
+			model:                  targetModel,
+			client:                 req.GatewayClient,
+			inputPolicyReplacement: inputPolicyReplacement,
+			messagePolicyHelper:    l.messagePolicyHelper,
+			outputPolicies:         outputPolicies,
+			conversationHistory:    conversationHistory,
+		}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil
