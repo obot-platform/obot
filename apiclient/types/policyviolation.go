@@ -36,9 +36,9 @@ type PolicyViolationStats struct {
 }
 
 type PolicyViolationTimeBucket struct {
-	Time       time.Time `json:"time"`
-	PolicyName string    `json:"policyName"`
-	Count      int64     `json:"count"`
+	Time     time.Time `json:"time"`
+	Category string    `json:"category"`
+	Count    int64     `json:"count"`
 }
 
 type PolicyViolationPolicyCount struct {

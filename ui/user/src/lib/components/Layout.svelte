@@ -46,7 +46,8 @@
 		Vault,
 		LockOpen,
 		CircleQuestionMark,
-		ShieldAlert
+		ShieldAlert,
+		ShieldX
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -273,8 +274,8 @@
 										{
 											id: 'policy-violations',
 											href: '/admin/policy-violations',
-											icon: ShieldAlert,
-											label: 'Policy Violations',
+											icon: ShieldX,
+											label: 'Message Policy Violations',
 											collapsible: false
 										}
 									]

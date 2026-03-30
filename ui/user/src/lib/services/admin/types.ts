@@ -916,11 +916,12 @@ export interface PolicyViolationFilters {
 	offset?: number | null;
 	sort_by?: string | null;
 	sort_order?: string | null;
+	time_group_by?: string | null;
 }
 
 export interface PolicyViolationTimeBucket {
 	time: string;
-	policyName: string;
+	category: string;
 	count: number;
 }
 

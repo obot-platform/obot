@@ -198,6 +198,11 @@ var (
 			"GET /api/skills",
 			"GET /api/skills/{id}",
 			"GET /api/skills/{id}/download",
+			"GET /api/policy-violations",
+			"GET /api/policy-violations/",
+			"GET /api/policy-violations/filter-options/{filter}",
+			"GET /api/policy-violations/{id}",
+			"GET /api/policy-violation-stats",
 		},
 		anyGroup: {
 			// Allow access to the oauth2 endpoints

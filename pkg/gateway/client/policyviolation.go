@@ -36,18 +36,19 @@ func (c *Client) LogPolicyViolation(ctx context.Context, v *types.PolicyViolatio
 
 // PolicyViolationOptions represents options for querying policy violations.
 type PolicyViolationOptions struct {
-	UserID    []string
-	PolicyID  []string
-	Direction []string
-	ProjectID []string
-	ThreadID  []string
-	Query     string
-	StartTime time.Time
-	EndTime   time.Time
-	Limit     int
-	Offset    int
-	SortBy    string
-	SortOrder string
+	UserID      []string
+	PolicyID    []string
+	Direction   []string
+	ProjectID   []string
+	ThreadID    []string
+	Query       string
+	StartTime   time.Time
+	EndTime     time.Time
+	Limit       int
+	Offset      int
+	SortBy      string
+	SortOrder   string
+	TimeGroupBy string // "user" or "policy" (default)
 }
 
 // GetPolicyViolations retrieves policy violations with optional filters.
@@ -135,9 +136,9 @@ type PolicyViolationStats struct {
 }
 
 type PolicyViolationTimeBucket struct {
-	Time       time.Time `json:"time"`
-	PolicyName string    `json:"policyName"`
-	Count      int64     `json:"count"`
+	Time     time.Time `json:"time"`
+	Category string    `json:"category"`
+	Count    int64     `json:"count"`
 }
 
 type PolicyViolationPolicyCount struct {
@@ -233,23 +234,28 @@ func (c *Client) getPolicyViolationTimeBuckets(base *gorm.DB, opts PolicyViolati
 		bucketDuration = 7 * 24 * time.Hour
 	}
 
+	groupCol := "policy_name"
+	if opts.TimeGroupBy == "user" {
+		groupCol = "user_id"
+	}
+
 	var buckets []PolicyViolationTimeBucket
 	for t := startTime.Truncate(bucketDuration); t.Before(endTime); t = t.Add(bucketDuration) {
 		bucketEnd := t.Add(bucketDuration)
 		var rows []struct {
-			PolicyName string
-			Count      int64
+			Category string
+			Count    int64
 		}
 		base.Session(&gorm.Session{}).
-			Select("policy_name, COUNT(*) as count").
+			Select(groupCol+" as category, COUNT(*) as count").
 			Where("created_at >= ? AND created_at < ?", t.UTC(), bucketEnd.UTC()).
-			Group("policy_name").
+			Group(groupCol).
 			Scan(&rows)
 		for _, row := range rows {
 			buckets = append(buckets, PolicyViolationTimeBucket{
-				Time:       t,
-				PolicyName: row.PolicyName,
-				Count:      row.Count,
+				Time:     t,
+				Category: row.Category,
+				Count:    row.Count,
 			})
 		}
 	}

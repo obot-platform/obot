@@ -71,7 +71,7 @@ func (*PolicyViolationHandler) Get(req api.Context) error {
 		return err
 	}
 
-	return req.Write(types.PolicyViolation{
+	result := types.PolicyViolation{
 		ID:                   v.ID,
 		CreatedAt:            *types.NewTime(v.CreatedAt),
 		UserID:               v.UserID,
@@ -80,10 +80,16 @@ func (*PolicyViolationHandler) Get(req api.Context) error {
 		PolicyDefinition:     v.PolicyDefinition,
 		Direction:            v.Direction,
 		ViolationExplanation: v.ViolationExplanation,
-		BlockedContent:       v.BlockedContent,
 		ProjectID:            v.ProjectID,
 		ThreadID:             v.ThreadID,
-	})
+	}
+
+	// Only Auditors can see blocked content
+	if req.UserIsAuditor() {
+		result.BlockedContent = v.BlockedContent
+	}
+
+	return req.Write(result)
 }
 
 // ListFilterOptions handles GET /api/policy-violations/filter-options/{filter}
@@ -142,9 +148,10 @@ func parsePolicyViolationOpts(query url.Values) gateway.PolicyViolationOptions {
 		Direction: parseMultiValue(query, "direction"),
 		ProjectID: parseMultiValue(query, "project_id"),
 		ThreadID:  parseMultiValue(query, "thread_id"),
-		SortBy:    query.Get("sort_by"),
-		SortOrder: query.Get("sort_order"),
-		Query:     strings.TrimSpace(query.Get("query")),
+		SortBy:      query.Get("sort_by"),
+		SortOrder:   query.Get("sort_order"),
+		Query:       strings.TrimSpace(query.Get("query")),
+		TimeGroupBy: query.Get("time_group_by"),
 	}
 
 	if startTime := query.Get("start_time"); startTime != "" {
@@ -199,7 +206,7 @@ func parseMultiValue(queryValues url.Values, key string) []string {
 func convertTimeBuckets(buckets []gateway.PolicyViolationTimeBucket) []types.PolicyViolationTimeBucket {
 	result := make([]types.PolicyViolationTimeBucket, len(buckets))
 	for i, b := range buckets {
-		result[i] = types.PolicyViolationTimeBucket{Time: b.Time, PolicyName: b.PolicyName, Count: b.Count}
+		result[i] = types.PolicyViolationTimeBucket{Time: b.Time, Category: b.Category, Count: b.Count}
 	}
 	return result
 }

@@ -7,15 +7,15 @@
 		PolicyViolationFilters,
 		PolicyViolationStats
 	} from '$lib/services/admin/types';
-	import { PolicyDirectionLabels } from '$lib/services/admin/types';
+	import { PolicyDirectionLabels, Group } from '$lib/services/admin/types';
 	import type { PolicyDirection } from '$lib/services/admin/types';
+	import { profile } from '$lib/stores';
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { subDays, set } from 'date-fns';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
-	import HorizontalBarGraph from '$lib/components/graph/HorizontalBarGraph.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { fade } from 'svelte/transition';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -27,6 +27,8 @@
 	import { getUserDisplayName } from '$lib/utils';
 
 	const duration = PAGE_TRANSITION_DURATION;
+
+	let isAuditor = $derived(profile.current.groups.includes(Group.AUDITOR));
 
 	let violations = $state<PolicyViolation[]>([]);
 	let stats = $state<PolicyViolationStats | null>(null);
@@ -46,6 +48,8 @@
 	let showFilters = $state(false);
 	let userFilterOptions = $state<string[]>([]);
 	let policyFilterOptions = $state<{ id: string; name: string }[]>([]);
+
+	let groupBy = $state('group_by_policy');
 
 	let pageOffset = $state(0);
 	const pageLimit = 100;
@@ -79,9 +83,13 @@
 		loading = true;
 		try {
 			const filters = buildFilters();
+			const statsFilters = {
+				...filters,
+				time_group_by: groupBy === 'group_by_user' ? 'user' : 'policy'
+			};
 			const [violationsResp, statsResp] = await Promise.all([
 				AdminService.listPolicyViolations(filters),
-				AdminService.getPolicyViolationStats(filters)
+				AdminService.getPolicyViolationStats(statsFilters)
 			]);
 			violations = violationsResp.items ?? [];
 			total = violationsResp.total;
@@ -178,15 +186,36 @@
 	let policySelectOptions = $derived(
 		policyFilterOptions.map((p) => ({ id: p.id, label: p.name }))
 	);
+
+	const groupByOptions = [
+		{ id: 'group_by_policy', label: 'Group by Policy' },
+		{ id: 'group_by_user', label: 'Group by User' }
+	];
+
+	let chartData = $derived(
+		(stats?.byTime ?? [])
+			.filter((b) => b.count > 0)
+			.map((b) => ({
+				createdAt: b.time,
+				category: groupBy === 'group_by_user' ? displayName(b.category) : b.category,
+				count: b.count,
+				_secondary: 0 as const
+			}))
+	);
+
+	function handleGroupByChange(option: { id: string | number }) {
+		groupBy = String(option.id);
+		fetchData();
+	}
 </script>
 
 <svelte:head>
-	<title>Obot | Policy Violations</title>
+	<title>Obot | Message Policy Violations</title>
 </svelte:head>
 
 <Layout
 	classes={{ childrenContainer: 'max-w-none', container: '' }}
-	title="Policy Violations"
+	title="Message Policy Violations"
 >
 	<div class="flex-1" in:fade={{ duration }} out:fade={{ duration }}>
 		{#if loading}
@@ -234,92 +263,55 @@
 				</div>
 			</div>
 
-			<!-- Stats -->
-			{#if stats && !loading}
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-					<div
-						class="dark:bg-surface2 dark:border-surface3 bg-background flex flex-col gap-1 rounded-lg border border-transparent p-4 shadow-sm"
-					>
-						<span class="text-on-surface2 text-xs font-medium uppercase">Total Violations</span>
-						<span class="text-on-surface1 text-2xl font-bold">{total}</span>
-					</div>
-
-					<div
-						class="dark:bg-surface2 dark:border-surface3 bg-background flex flex-col gap-1 rounded-lg border border-transparent p-4 shadow-sm"
-					>
-						<span class="text-on-surface2 text-xs font-medium uppercase">User Message Violations</span>
-						<span class="text-on-surface1 text-2xl font-bold"
-							>{stats.byDirection.userMessage}</span
+			<!-- Chart -->
+			<div class="paper w-full gap-0 pt-4">
+				<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
+					<h4 class="flex items-center gap-2 font-semibold">
+						Policy Violations
+						{#if loading}
+							<Loading class="size-4 animate-spin" />
+						{/if}
+					</h4>
+					<Select
+						class="bg-surface2 dark:bg-background dark:border-surface3 w-[50dvw] border border-transparent shadow-inner md:w-64"
+						options={groupByOptions}
+						selected={groupBy}
+						onSelect={handleGroupByChange}
+					/>
+				</div>
+				<div class="w-full pt-2">
+					{#key groupBy}
+						<StackedTimeline
+							start={startTime}
+							end={endTime}
+							data={chartData}
+							categoryKey="category"
+							dateKey="createdAt"
+							primaryValueKey="count"
+							secondaryValueKey="_secondary"
+							class="h-96"
+							legend={{
+								showSecondaryLabel: false,
+								primaryLabel: '',
+								hideCategoryLabel: false
+							}}
 						>
-					</div>
-					<div
-						class="dark:bg-surface2 dark:border-surface3 bg-background flex flex-col gap-1 rounded-lg border border-transparent p-4 shadow-sm"
-					>
-						<span class="text-on-surface2 text-xs font-medium uppercase">Tool Call Violations</span>
-						<span class="text-on-surface1 text-2xl font-bold">{stats.byDirection.toolCalls}</span>
-					</div>
-				</div>
-
-				<!-- Charts row -->
-				{#if stats.byPolicy.length > 0 || stats.byUser.length > 0}
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						{#if stats.byPolicy.length > 0}
-							<div
-								class="dark:bg-surface2 dark:border-surface3 bg-background flex flex-col gap-2 rounded-lg border border-transparent p-4 shadow-sm"
-							>
-								<span class="text-on-surface2 text-xs font-medium uppercase">By Policy</span>
-								<div class="h-[200px]">
-									<HorizontalBarGraph data={stats.byPolicy} labelKey="policyName" valueKey="count" />
+							{#snippet tooltipContent(item)}
+								<div class="flex flex-col gap-0 text-xs">
+									<div class="text-sm font-light">{item.key}</div>
+									<div class="text-on-surface1">{item.date}</div>
+									<div class="divider"></div>
 								</div>
-							</div>
-						{/if}
-						{#if stats.byUser.length > 0}
-							<div
-								class="dark:bg-surface2 dark:border-surface3 bg-background flex flex-col gap-2 rounded-lg border border-transparent p-4 shadow-sm"
-							>
-								<span class="text-on-surface2 text-xs font-medium uppercase">Top Users</span>
-								<div class="h-[200px]">
-									<HorizontalBarGraph
-										data={stats.byUser.slice(0, 10).map((u) => ({
-											...u,
-											displayName: displayName(u.userID)
-										}))}
-										labelKey="displayName"
-										valueKey="count"
-									/>
+								<div class="flex flex-col gap-1">
+									<div class="text-on-background text-xl font-bold">
+										{(item.primaryTotal ?? 0).toLocaleString()}
+									</div>
 								</div>
-							</div>
-						{/if}
-					</div>
-				{/if}
-
-				<!-- Timeline -->
-				<div
-					class="dark:bg-surface2 dark:border-surface3 bg-background text-on-background rounded-lg border border-transparent shadow-sm"
-				>
-					<h3 class="mb-2 px-4 pt-4 text-lg font-medium">Timeline</h3>
-					<div class="px-4 pb-4">
-						<div class="text-on-surface1 flex h-40 items-center justify-center rounded-md">
-							<StackedTimeline
-								start={startTime}
-								end={endTime}
-								data={stats.byTime
-									.filter((b) => b.count > 0)
-									.map((b) => ({
-										createdAt: b.time,
-										policyName: b.policyName,
-										count: b.count,
-										_secondary: 0 as const
-									}))}
-								categoryKey="policyName"
-								dateKey="createdAt"
-								primaryValueKey="count"
-								secondaryValueKey="_secondary"
-							/>
-						</div>
-					</div>
+							{/snippet}
+						</StackedTimeline>
+					{/key}
 				</div>
-			{/if}
+			</div>
 
 			<!-- Table -->
 			{#if !loading && violations.length === 0}
@@ -363,7 +355,7 @@
 								<th
 									class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
 								>
-									Direction
+									Applies To
 								</th>
 							</tr>
 						</thead>
@@ -482,7 +474,7 @@
 					<div class="flex flex-col gap-6 p-4 pl-5">
 						<div class="flex flex-col gap-1">
 							<div class="flex items-center justify-between">
-								<span class="text-md font-light">By Direction</span>
+								<span class="text-md font-light">Applies To</span>
 								{#if filterDirection}
 									<button
 										class="text-xs opacity-50 transition-opacity duration-200 hover:opacity-80 active:opacity-100"
@@ -602,7 +594,7 @@
 							<div
 								class="dark:bg-surface3 bg-surface2 rounded-full px-3 py-1 text-[11px] font-light"
 							>
-								<span class="font-medium">Direction:</span>
+								<span class="font-medium">Applies To:</span>
 								{directionLabel(detailedViolation.direction)}
 							</div>
 							{#if detailedViolation.projectID}
@@ -641,8 +633,8 @@
 							<p class="mt-6 mb-2 text-base font-semibold">Explanation</p>
 							<p class="text-sm font-light">{detailedViolation.violationExplanation}</p>
 
+							<p class="mt-6 mb-2 text-base font-semibold">Blocked Content</p>
 							{#if detailedViolation.blockedContent}
-								<p class="mt-6 mb-2 text-base font-semibold">Blocked Content</p>
 								<div
 									class="dark:bg-surface2 bg-background relative overflow-hidden rounded-md p-4 pl-5"
 								>
@@ -654,6 +646,10 @@
 											2
 										)}</pre>
 								</div>
+							{:else}
+								<p class="text-sm font-light text-gray-500">
+									Blocked content is only visible to auditors.
+								</p>
 							{/if}
 						</div>
 					{:else}
