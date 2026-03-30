@@ -350,7 +350,7 @@ export interface ModelAccessPolicy extends Omit<ModelAccessPolicyManifest, 'id'>
 export type PolicyDirection = 'user-message' | 'tool-calls' | 'both';
 
 export const PolicyDirectionLabels: Record<PolicyDirection, string> = {
-	'user-message': 'User Message',
+	'user-message': 'User Messages',
 	'tool-calls': 'Tool Calls',
 	both: 'Both'
 };
@@ -358,7 +358,6 @@ export const PolicyDirectionLabels: Record<PolicyDirection, string> = {
 export interface MessagePolicyManifest {
 	id?: string;
 	displayName: string;
-	description?: string;
 	definition: string;
 	direction: PolicyDirection;
 	subjects?: AccessControlRuleSubject[];

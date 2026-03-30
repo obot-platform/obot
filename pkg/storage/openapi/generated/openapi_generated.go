@@ -6113,12 +6113,6 @@ func schema_obot_platform_obot_apiclient_types_MessagePolicy(ref common.Referenc
 							Format:  "",
 						},
 					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"definition": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -6194,12 +6188,6 @@ func schema_obot_platform_obot_apiclient_types_MessagePolicyManifest(ref common.
 							Default: "",
 							Type:    []string{"string"},
 							Format:  "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
 						},
 					},
 					"definition": {

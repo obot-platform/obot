@@ -9,7 +9,6 @@ type MessagePolicy struct {
 
 type MessagePolicyManifest struct {
 	DisplayName string          `json:"displayName"`
-	Description string          `json:"description,omitempty"`
 	Definition  string          `json:"definition"`
 	Direction   PolicyDirection `json:"direction"`
 	Subjects    []Subject       `json:"subjects,omitempty"`

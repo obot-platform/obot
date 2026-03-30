@@ -10,13 +10,14 @@
 		type PolicyDirection,
 		PolicyDirectionLabels
 	} from '$lib/services/admin/types';
-	import { LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
+	import { CircleHelp, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchUsers from './SearchUsers.svelte';
 	import Confirm from '../Confirm.svelte';
+	import Select from '../Select.svelte';
 	import { goto } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
 
@@ -36,7 +37,6 @@
 				initialMessagePolicy ??
 				({
 					displayName: '',
-					description: '',
 					definition: '',
 					direction: 'both' as PolicyDirection,
 					subjects: []
@@ -56,7 +56,6 @@
 		initialMessagePolicy
 			? JSON.stringify({
 					displayName: initialMessagePolicy.displayName,
-					description: initialMessagePolicy.description,
 					definition: initialMessagePolicy.definition,
 					direction: initialMessagePolicy.direction,
 					subjects: initialMessagePolicy.subjects
@@ -68,7 +67,6 @@
 		!initialPolicyJson ||
 			JSON.stringify({
 				displayName: messagePolicy.displayName,
-				description: messagePolicy.description,
 				definition: messagePolicy.definition,
 				direction: messagePolicy.direction,
 				subjects: messagePolicy.subjects
@@ -169,9 +167,9 @@
 		);
 	}
 
-	const directionOptions: { value: PolicyDirection; label: string }[] = Object.entries(
+	const directionOptions: { id: string; label: string }[] = Object.entries(
 		PolicyDirectionLabels
-	).map(([value, label]) => ({ value: value as PolicyDirection, label }));
+	).map(([id, label]) => ({ id, label }));
 </script>
 
 <div
@@ -220,21 +218,11 @@
 				{/if}
 
 				<div class="flex flex-col gap-2">
-					<label for="message-policy-description" class="flex-1 text-sm font-light capitalize">
-						Description
-					</label>
-					<input
-						id="message-policy-description"
-						bind:value={messagePolicy.description}
-						class="text-input-filled mt-0.5"
-						placeholder="Optional description for admins"
-						disabled={readonly}
-					/>
-				</div>
-
-				<div class="flex flex-col gap-2">
-					<label for="message-policy-definition" class="flex-1 text-sm font-light capitalize">
+					<label for="message-policy-definition" class="flex items-center gap-1 text-sm font-light capitalize">
 						Definition
+						<div use:tooltip={{ text: 'A natural language rule that describes what should or should not be allowed. Be as specific and clear as possible to ensure consistent enforcement.', classes: ['w-72', 'break-normal', 'whitespace-pre-wrap', 'z-[60]'] }}>
+							<CircleHelp class="text-on-surface1 size-3.5" />
+						</div>
 					</label>
 					<textarea
 						id="message-policy-definition"
@@ -248,18 +236,18 @@
 
 				<div class="flex flex-col gap-2">
 					<label for="message-policy-direction" class="flex-1 text-sm font-light capitalize">
-						Direction
+						Applies to
 					</label>
-					<select
+					<Select
 						id="message-policy-direction"
-						bind:value={messagePolicy.direction}
-						class="text-input-filled mt-0.5"
+						options={directionOptions}
+						selected={messagePolicy.direction}
+						onSelect={(option) => {
+							messagePolicy.direction = option.id as PolicyDirection;
+						}}
 						disabled={readonly}
-					>
-						{#each directionOptions as option (option.value)}
-							<option value={option.value}>{option.label}</option>
-						{/each}
-					</select>
+						class="text-input-filled mt-0.5"
+					/>
 				</div>
 			</div>
 		</div>

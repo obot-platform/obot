@@ -129,7 +129,7 @@
 				property: 'displayName'
 			},
 			{
-				title: 'Direction',
+				title: 'Applies to',
 				property: 'directionLabel'
 			}
 		]}
