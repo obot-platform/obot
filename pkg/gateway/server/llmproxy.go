@@ -338,7 +338,7 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 	if len(r.outputPolicies) > 0 {
 		pr, pw := io.Pipe()
 		r.pipeReader = pr
-		go r.streamAndEvaluateToolCalls(pw)
+		go r.streamAndEvaluateToolCalls(resp.Request.Context(), pw)
 	}
 
 	return nil
@@ -431,13 +431,13 @@ func (r *responseModifier) extractTokenUsage(line []byte) {
 // streamAndEvaluateToolCalls reads the upstream response, streams text through immediately,
 // buffers tool call chunks, and evaluates policies only against tool calls.
 // For non-streaming responses, it buffers the entire response and evaluates inline.
-func (r *responseModifier) streamAndEvaluateToolCalls(pw *io.PipeWriter) {
+func (r *responseModifier) streamAndEvaluateToolCalls(ctx context.Context, pw *io.PipeWriter) {
 	defer pw.Close()
 
 	if r.stream {
-		r.streamAndEvaluateToolCallsSSE(pw)
+		r.streamAndEvaluateToolCallsSSE(ctx, pw)
 	} else {
-		r.streamAndEvaluateToolCallsJSON(pw)
+		r.streamAndEvaluateToolCallsJSON(ctx, pw)
 	}
 }
 
@@ -447,7 +447,7 @@ func (r *responseModifier) streamAndEvaluateToolCalls(pw *io.PipeWriter) {
 // the buffered lines (including tool calls) are forwarded unmodified, and a violation
 // marker is injected if a policy was violated. The downstream client (nanobot) detects
 // this marker and returns error tool_results instead of executing the tools.
-func (r *responseModifier) streamAndEvaluateToolCallsSSE(pw *io.PipeWriter) {
+func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw *io.PipeWriter) {
 	var (
 		buffered             [][]byte // all lines from the first tool_call onward, in original order
 		toolCalls            []messagepolicy.ToolCallInfo
@@ -526,7 +526,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(pw *io.PipeWriter) {
 	// Evaluate policies against tool calls.
 	targetMessage := buildToolCallTargetMessage(toolCalls)
 	logger.Infof("evaluating %d tool calls against %d policies", len(toolCalls), len(r.outputPolicies))
-	violations := r.messagePolicyHelper.EvaluateMessage(context.Background(), r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionToolCalls)
+	violations := r.messagePolicyHelper.EvaluateMessage(ctx, r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionToolCalls)
 
 	if len(violations) == 0 {
 		for _, line := range buffered {
@@ -568,7 +568,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(pw *io.PipeWriter) {
 }
 
 // streamAndEvaluateToolCallsJSON handles non-streaming (single JSON) responses.
-func (r *responseModifier) streamAndEvaluateToolCallsJSON(pw *io.PipeWriter) {
+func (r *responseModifier) streamAndEvaluateToolCallsJSON(ctx context.Context, pw *io.PipeWriter) {
 	var buf bytes.Buffer
 	_, _ = io.Copy(&buf, r.b)
 	body := buf.Bytes()
@@ -611,7 +611,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsJSON(pw *io.PipeWriter) {
 	}
 
 	targetMessage := buildToolCallTargetMessage(toolCalls)
-	violations := r.messagePolicyHelper.EvaluateMessage(context.Background(), r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionToolCalls)
+	violations := r.messagePolicyHelper.EvaluateMessage(ctx, r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionToolCalls)
 
 	if len(violations) == 0 {
 		_, _ = pw.Write(body)
@@ -956,7 +956,10 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 			}
 
 			// Check for output (tool-call) policies.
-			outputPolicies, _ = l.messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionToolCalls)
+			outputPolicies, err = l.messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionToolCalls)
+			if err != nil {
+				return fmt.Errorf("failed to get applicable output policies: %w", err)
+			}
 			if len(outputPolicies) > 0 {
 				rawMessages, _ := bodyMap["messages"].([]any)
 				conversationHistory, _, _ = parseMessagesFromBody(rawMessages)

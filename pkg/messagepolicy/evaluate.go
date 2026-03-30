@@ -240,6 +240,7 @@ func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages 
 func readStreamingResponse(r io.Reader) (string, error) {
 	var content strings.Builder
 	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), 1024*1024) // 1MB max to handle large SSE data lines
 
 	for scanner.Scan() {
 		line := scanner.Text()
