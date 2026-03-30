@@ -50,6 +50,7 @@ type VersionHandler struct {
 	engine                   string
 	autonomousToolUseEnabled bool
 	nanobotIntegration       bool
+	messagePoliciesEnabled   bool
 
 	upgradeServerURL string
 	upgradeAvailable bool
@@ -57,7 +58,7 @@ type VersionHandler struct {
 	upgradeLock      sync.RWMutex
 }
 
-func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, supportDocker, authEnabled, disableUpdateCheck, disableLegacyChat, autonomousToolUseEnabled, nanobotIntegration bool) (*VersionHandler, error) {
+func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, supportDocker, authEnabled, disableUpdateCheck, disableLegacyChat, autonomousToolUseEnabled, nanobotIntegration, messagePoliciesEnabled bool) (*VersionHandler, error) {
 	upgradeServerBaseURL := defaultUpgradeServerBaseURL
 	if os.Getenv("OBOT_UPGRADE_SERVER_URL") != "" {
 		upgradeServerBaseURL = os.Getenv("OBOT_UPGRADE_SERVER_URL")
@@ -75,6 +76,7 @@ func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailD
 		engine:                   engine,
 		autonomousToolUseEnabled: autonomousToolUseEnabled,
 		nanobotIntegration:       nanobotIntegration,
+		messagePoliciesEnabled:   messagePoliciesEnabled,
 	}
 
 	currentVersion, _, _ := strings.Cut(version.Get().String(), "+")
@@ -136,6 +138,7 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 	values["engine"] = v.engine
 	values["autonomousToolUseEnabled"] = v.autonomousToolUseEnabled
 	values["nanobotIntegration"] = v.nanobotIntegration
+	values["messagePoliciesEnabled"] = v.messagePoliciesEnabled
 	v.upgradeLock.RLock()
 	values["upgradeAvailable"] = v.upgradeAvailable
 	values["latestVersion"] = v.latestVersion

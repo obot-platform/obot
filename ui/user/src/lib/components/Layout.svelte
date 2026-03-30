@@ -261,13 +261,17 @@
 								label: 'Skill Access Policies',
 								collapsible: false
 							},
-							{
-								id: 'message-policies',
-								href: '/admin/message-policies',
-								icon: ShieldAlert,
-								label: 'Message Policies',
-								collapsible: false
-							},
+							...(version.current.messagePoliciesEnabled
+								? [
+										{
+											id: 'message-policies',
+											href: '/admin/message-policies',
+											icon: ShieldAlert,
+											label: 'Message Policies',
+											collapsible: false
+										}
+									]
+								: []),
 							...(version.current.nanobotIntegration
 								? [
 										{

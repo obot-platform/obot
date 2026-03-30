@@ -29,7 +29,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		services.DisableUpdateCheck,
 		services.DisableLegacyChat,
 		services.AutonomousToolUseEnabled,
-		services.NanobotIntegration)
+		services.NanobotIntegration,
+		services.MessagePoliciesEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -757,11 +758,13 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("DELETE /api/model-access-policies/{id}", modelAccessPolicies.Delete)
 
 	// Message Policies
-	mux.HandleFunc("GET /api/message-policies", messagePolicies.List)
-	mux.HandleFunc("GET /api/message-policies/{id}", messagePolicies.Get)
-	mux.HandleFunc("POST /api/message-policies", messagePolicies.Create)
-	mux.HandleFunc("PUT /api/message-policies/{id}", messagePolicies.Update)
-	mux.HandleFunc("DELETE /api/message-policies/{id}", messagePolicies.Delete)
+	if services.MessagePoliciesEnabled {
+		mux.HandleFunc("GET /api/message-policies", messagePolicies.List)
+		mux.HandleFunc("GET /api/message-policies/{id}", messagePolicies.Get)
+		mux.HandleFunc("POST /api/message-policies", messagePolicies.Create)
+		mux.HandleFunc("PUT /api/message-policies/{id}", messagePolicies.Update)
+		mux.HandleFunc("DELETE /api/message-policies/{id}", messagePolicies.Delete)
+	}
 
 	// Available Models
 	mux.HandleFunc("GET /api/available-models", availableModels.List)
