@@ -135,8 +135,9 @@ type PolicyViolationStats struct {
 }
 
 type PolicyViolationTimeBucket struct {
-	Time  time.Time `json:"time"`
-	Count int64     `json:"count"`
+	Time       time.Time `json:"time"`
+	PolicyName string    `json:"policyName"`
+	Count      int64     `json:"count"`
 }
 
 type PolicyViolationPolicyCount struct {
@@ -235,14 +236,22 @@ func (c *Client) getPolicyViolationTimeBuckets(base *gorm.DB, opts PolicyViolati
 	var buckets []PolicyViolationTimeBucket
 	for t := startTime.Truncate(bucketDuration); t.Before(endTime); t = t.Add(bucketDuration) {
 		bucketEnd := t.Add(bucketDuration)
-		var count int64
+		var rows []struct {
+			PolicyName string
+			Count      int64
+		}
 		base.Session(&gorm.Session{}).
+			Select("policy_name, COUNT(*) as count").
 			Where("created_at >= ? AND created_at < ?", t.UTC(), bucketEnd.UTC()).
-			Count(&count)
-		buckets = append(buckets, PolicyViolationTimeBucket{
-			Time:  t,
-			Count: count,
-		})
+			Group("policy_name").
+			Scan(&rows)
+		for _, row := range rows {
+			buckets = append(buckets, PolicyViolationTimeBucket{
+				Time:       t,
+				PolicyName: row.PolicyName,
+				Count:      row.Count,
+			})
+		}
 	}
 
 	return buckets

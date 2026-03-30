@@ -920,6 +920,7 @@ export interface PolicyViolationFilters {
 
 export interface PolicyViolationTimeBucket {
 	time: string;
+	policyName: string;
 	count: number;
 }
 
