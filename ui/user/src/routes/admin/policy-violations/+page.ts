@@ -1,6 +1,6 @@
 import { ChatService } from '$lib/services';
-import { redirect } from '@sveltejs/kit';
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
 export const load: PageLoad = async ({ fetch }) => {
 	const version = await ChatService.getVersion({ fetch });

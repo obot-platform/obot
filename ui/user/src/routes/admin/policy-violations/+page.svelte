@@ -68,8 +68,7 @@
 		if (filterDirection && filterDirection !== 'all_directions')
 			filters.direction = filterDirection;
 		if (filterUserID && filterUserID !== 'all_users') filters.user_id = filterUserID;
-		if (filterPolicyID && filterPolicyID !== 'all_policies')
-			filters.policy_id = filterPolicyID;
+		if (filterPolicyID && filterPolicyID !== 'all_policies') filters.policy_id = filterPolicyID;
 		return filters;
 	}
 
@@ -169,11 +168,7 @@
 	) {
 		const id = String(option.id);
 		const allKey =
-			kind === 'direction'
-				? 'all_directions'
-				: kind === 'user'
-					? 'all_users'
-					: 'all_policies';
+			kind === 'direction' ? 'all_directions' : kind === 'user' ? 'all_users' : 'all_policies';
 
 		if (id === allKey) {
 			if (kind === 'direction') filterDirection = allKey;
@@ -182,20 +177,23 @@
 		} else {
 			// Remove the "all" sentinel when a specific value is selected
 			if (kind === 'direction') {
-				filterDirection = filterDirection
-					.split(',')
-					.filter((v) => v !== allKey)
-					.join(',') || id;
+				filterDirection =
+					filterDirection
+						.split(',')
+						.filter((v) => v !== allKey)
+						.join(',') || id;
 			} else if (kind === 'user') {
-				filterUserID = filterUserID
-					.split(',')
-					.filter((v) => v !== allKey)
-					.join(',') || id;
+				filterUserID =
+					filterUserID
+						.split(',')
+						.filter((v) => v !== allKey)
+						.join(',') || id;
 			} else {
-				filterPolicyID = filterPolicyID
-					.split(',')
-					.filter((v) => v !== allKey)
-					.join(',') || id;
+				filterPolicyID =
+					filterPolicyID
+						.split(',')
+						.filter((v) => v !== allKey)
+						.join(',') || id;
 			}
 		}
 		applyFilter();
@@ -207,11 +205,7 @@
 	) {
 		if (!option) return;
 		const allKey =
-			kind === 'direction'
-				? 'all_directions'
-				: kind === 'user'
-					? 'all_users'
-					: 'all_policies';
+			kind === 'direction' ? 'all_directions' : kind === 'user' ? 'all_users' : 'all_policies';
 
 		// After the Select removes the tag, check if nothing is left — reset to "all"
 		if (kind === 'direction') {
@@ -356,190 +350,185 @@
 					<AuditLogCalendar start={startTime} end={endTime} onChange={handleTimeRangeChange} />
 				</div>
 
-			<!-- Chart -->
-			<div class="paper w-full gap-0 pt-4">
-				<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
-					<h4 class="flex items-center gap-2 font-semibold">
-						Policy Violations
-						{#if loading}
-							<Loading class="size-4 animate-spin" />
-						{/if}
-					</h4>
-					<Select
-						class="bg-surface2 dark:bg-background dark:border-surface3 w-[50dvw] border border-transparent shadow-inner md:w-64"
-						options={groupByOptions}
-						selected={groupBy}
-						onSelect={handleGroupByChange}
-					/>
-				</div>
-				<div class="w-full pt-2">
-					{#key groupBy}
-						<StackedTimeline
-							start={startTime}
-							end={endTime}
-							data={chartData}
-							categoryKey="category"
-							dateKey="createdAt"
-							primaryValueKey="count"
-							secondaryValueKey="_secondary"
-							class="h-96"
-							legend={{
-								showSecondaryLabel: false,
-								primaryLabel: '',
-								hideCategoryLabel: false
-							}}
-						>
-							{#snippet tooltipContent(item)}
-								<div class="flex flex-col gap-0 text-xs">
-									<div class="text-sm font-light">{item.key}</div>
-									<div class="text-on-surface1">{item.date}</div>
-									<div class="divider"></div>
-								</div>
-								<div class="flex flex-col gap-1">
-									<div class="text-on-background text-xl font-bold">
-										{(item.primaryTotal ?? 0).toLocaleString()}
-									</div>
-								</div>
-							{/snippet}
-						</StackedTimeline>
-					{/key}
-				</div>
-			</div>
-
-			<!-- Table -->
-			{#if !loading && violations.length === 0}
-				<div
-					class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center"
-				>
-					<ShieldAlert class="text-on-surface1 size-24 opacity-50" />
-					<h4 class="text-on-surface1 text-lg font-semibold">No policy violations</h4>
-					<p class="text-on-surface text-sm font-light">
-						Currently, there are no policy violations for the selected range or filters. Try
-						modifying your search criteria or try again later.
-					</p>
-				</div>
-			{:else if violations.length > 0}
-				<div
-					class="dark:bg-surface2 bg-background flex w-full min-w-full flex-1 divide-y divide-gray-200 overflow-x-auto overflow-y-visible rounded-lg border border-transparent shadow-sm"
-				>
-					<table class="w-full flex-1 table-fixed border-collapse border-spacing-0">
-						<thead>
-							<tr>
-								<th
-									class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[4ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
-								>
-									#
-								</th>
-								<th
-									class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[34ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
-								>
-									Timestamp
-								</th>
-								<th
-									class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
-								>
-									User
-								</th>
-								<th
-									class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
-								>
-									Policy
-								</th>
-								<th
-									class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
-								>
-									Applies To
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each violations as v, i (v.id)}
-								<tr
-									class="hover:bg-surface1 dark:hover:bg-surface3 group h-14 cursor-pointer text-sm transition-colors duration-300"
-									onclick={() => viewDetail(v)}
-								>
-									<td class="px-6 py-3">{pageOffset + i + 1}</td>
-									<td class="whitespace-nowrap">
-										<div class="truncate px-6 py-4">
-											{new Date(v.createdAt)
-												.toLocaleString(undefined, {
-													year: 'numeric',
-													month: 'short',
-													day: 'numeric',
-													hour: '2-digit',
-													minute: '2-digit',
-													second: '2-digit',
-													hour12: true,
-													timeZoneName: 'short'
-												})
-												.replace(/,/g, '')}
-										</div>
-									</td>
-									<td class="whitespace-nowrap">
-										<div class="truncate px-6 py-4">{displayName(v.userID)}</div>
-									</td>
-									<td class="whitespace-nowrap">
-										<div class="truncate px-6 py-4">{v.policyName}</div>
-									</td>
-									<td class="whitespace-nowrap">
-										<div class="truncate px-6 py-4">{directionLabel(v.direction)}</div>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-
-				<!-- Pagination -->
-				{#if totalPages > 1}
-					<div
-						class="dark:bg-surface2 bg-background flex items-center justify-between gap-2 rounded-lg border border-transparent px-4 py-3 text-xs text-gray-600 shadow-sm"
-					>
-						<div class="flex gap-4">
-							<div>
-								Showing {pageOffset + 1}-{Math.min(pageOffset + pageLimit, total)} of {total}
-							</div>
-							<div class="flex items-center">
-								<span>{currentPage}</span>/<span>{totalPages}</span>
-								<span class="ml-1">pages</span>
-							</div>
-						</div>
-						<div class="flex gap-4">
-							<button
-								class="hover:text-on-surface1/80 active:text-on-surface1/100 flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
-								disabled={pageOffset === 0}
-								onclick={() => {
-									pageOffset = Math.max(0, pageOffset - pageLimit);
-									fetchData();
-								}}
-							>
-								Previous
-							</button>
-							<button
-								class="hover:text-on-surface1/80 active:text-on-surface1/100 flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
-								disabled={currentPage >= totalPages}
-								onclick={() => {
-									pageOffset += pageLimit;
-									fetchData();
-								}}
-							>
-								Next
-							</button>
-						</div>
+				<!-- Chart -->
+				<div class="paper w-full gap-0 pt-4">
+					<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
+						<h4 class="flex items-center gap-2 font-semibold">
+							Policy Violations
+							{#if loading}
+								<Loading class="size-4 animate-spin" />
+							{/if}
+						</h4>
+						<Select
+							class="bg-surface2 dark:bg-background dark:border-surface3 w-[50dvw] border border-transparent shadow-inner md:w-64"
+							options={groupByOptions}
+							selected={groupBy}
+							onSelect={handleGroupByChange}
+						/>
 					</div>
+					<div class="w-full pt-2">
+						{#key groupBy}
+							<StackedTimeline
+								start={startTime}
+								end={endTime}
+								data={chartData}
+								categoryKey="category"
+								dateKey="createdAt"
+								primaryValueKey="count"
+								secondaryValueKey="_secondary"
+								class="h-96"
+								legend={{
+									showSecondaryLabel: false,
+									primaryLabel: '',
+									hideCategoryLabel: false
+								}}
+							>
+								{#snippet tooltipContent(item)}
+									<div class="flex flex-col gap-0 text-xs">
+										<div class="text-sm font-light">{item.key}</div>
+										<div class="text-on-surface1">{item.date}</div>
+										<div class="divider"></div>
+									</div>
+									<div class="flex flex-col gap-1">
+										<div class="text-on-background text-xl font-bold">
+											{(item.primaryTotal ?? 0).toLocaleString()}
+										</div>
+									</div>
+								{/snippet}
+							</StackedTimeline>
+						{/key}
+					</div>
+				</div>
+
+				<!-- Table -->
+				{#if !loading && violations.length === 0}
+					<div
+						class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center"
+					>
+						<ShieldAlert class="text-on-surface1 size-24 opacity-50" />
+						<h4 class="text-on-surface1 text-lg font-semibold">No policy violations</h4>
+						<p class="text-on-surface text-sm font-light">
+							Currently, there are no policy violations for the selected range or filters. Try
+							modifying your search criteria or try again later.
+						</p>
+					</div>
+				{:else if violations.length > 0}
+					<div
+						class="dark:bg-surface2 bg-background flex w-full min-w-full flex-1 divide-y divide-gray-200 overflow-x-auto overflow-y-visible rounded-lg border border-transparent shadow-sm"
+					>
+						<table class="w-full flex-1 table-fixed border-collapse border-spacing-0">
+							<thead>
+								<tr>
+									<th
+										class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[4ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+									>
+										#
+									</th>
+									<th
+										class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[34ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+									>
+										Timestamp
+									</th>
+									<th
+										class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+									>
+										User
+									</th>
+									<th
+										class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+									>
+										Policy
+									</th>
+									<th
+										class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[24ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
+									>
+										Applies To
+									</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each violations as v, i (v.id)}
+									<tr
+										class="hover:bg-surface1 dark:hover:bg-surface3 group h-14 cursor-pointer text-sm transition-colors duration-300"
+										onclick={() => viewDetail(v)}
+									>
+										<td class="px-6 py-3">{pageOffset + i + 1}</td>
+										<td class="whitespace-nowrap">
+											<div class="truncate px-6 py-4">
+												{new Date(v.createdAt)
+													.toLocaleString(undefined, {
+														year: 'numeric',
+														month: 'short',
+														day: 'numeric',
+														hour: '2-digit',
+														minute: '2-digit',
+														second: '2-digit',
+														hour12: true,
+														timeZoneName: 'short'
+													})
+													.replace(/,/g, '')}
+											</div>
+										</td>
+										<td class="whitespace-nowrap">
+											<div class="truncate px-6 py-4">{displayName(v.userID)}</div>
+										</td>
+										<td class="whitespace-nowrap">
+											<div class="truncate px-6 py-4">{v.policyName}</div>
+										</td>
+										<td class="whitespace-nowrap">
+											<div class="truncate px-6 py-4">{directionLabel(v.direction)}</div>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+
+					<!-- Pagination -->
+					{#if totalPages > 1}
+						<div
+							class="dark:bg-surface2 bg-background flex items-center justify-between gap-2 rounded-lg border border-transparent px-4 py-3 text-xs text-gray-600 shadow-sm"
+						>
+							<div class="flex gap-4">
+								<div>
+									Showing {pageOffset + 1}-{Math.min(pageOffset + pageLimit, total)} of {total}
+								</div>
+								<div class="flex items-center">
+									<span>{currentPage}</span>/<span>{totalPages}</span>
+									<span class="ml-1">pages</span>
+								</div>
+							</div>
+							<div class="flex gap-4">
+								<button
+									class="hover:text-on-surface1/80 active:text-on-surface1/100 flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
+									disabled={pageOffset === 0}
+									onclick={() => {
+										pageOffset = Math.max(0, pageOffset - pageLimit);
+										fetchData();
+									}}
+								>
+									Previous
+								</button>
+								<button
+									class="hover:text-on-surface1/80 active:text-on-surface1/100 flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
+									disabled={currentPage >= totalPages}
+									onclick={() => {
+										pageOffset += pageLimit;
+										fetchData();
+									}}
+								>
+									Next
+								</button>
+							</div>
+						</div>
 					{/if}
-			{/if}
+				{/if}
+			</div>
 		</div>
-	</div>
 	</div>
 
 	<!-- Detail drawer -->
-	<div
-		bind:this={rightSidebar}
-		popover
-		class="drawer max-w-[85vw] min-w-lg"
-		style="width: 32rem"
-	>
+	<div bind:this={rightSidebar} popover class="drawer max-w-[85vw] min-w-lg" style="width: 32rem">
 		{#if !responsive.isMobile && rightSidebar}
 			<div
 				role="none"
@@ -645,7 +634,6 @@
 				</div>
 			</div>
 		{/if}
-
 	</div>
 </Layout>
 

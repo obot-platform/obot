@@ -206,7 +206,7 @@ func parseMultiValue(queryValues url.Values, key string) []string {
 func convertTimeBuckets(buckets []gateway.MessagePolicyViolationTimeBucket) []types.MessagePolicyViolationTimeBucket {
 	result := make([]types.MessagePolicyViolationTimeBucket, len(buckets))
 	for i, b := range buckets {
-		result[i] = types.MessagePolicyViolationTimeBucket{Time: b.Time, Category: b.Category, Count: b.Count}
+		result[i] = types.MessagePolicyViolationTimeBucket{Time: *types.NewTime(b.Time), Category: b.Category, Count: b.Count}
 	}
 	return result
 }

@@ -2,7 +2,6 @@ package types
 
 import (
 	"encoding/json"
-	"time"
 )
 
 type MessagePolicyViolation struct {
@@ -36,9 +35,9 @@ type MessagePolicyViolationStats struct {
 }
 
 type MessagePolicyViolationTimeBucket struct {
-	Time     time.Time `json:"time"`
-	Category string    `json:"category"`
-	Count    int64     `json:"count"`
+	Time     Time   `json:"time"`
+	Category string `json:"category"`
+	Count    int64  `json:"count"`
 }
 
 type MessagePolicyViolationPolicyCount struct {
