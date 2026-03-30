@@ -19,11 +19,15 @@ import {
 	type Resource,
 	type Resources,
 	type ResourceContents,
+	type ScheduledTask,
 	type ToolOutputItem,
 	type UploadedFile,
 	type UploadingFile,
 	type InstallArtifactResponse,
-	type PublishArtifactResponse
+	type PublishArtifactResponse,
+	type CreateScheduledTaskRequest,
+	type UpdateScheduledTaskRequest,
+	type StartScheduledTaskResponse
 } from '../types';
 import { SvelteSet } from 'svelte/reactivity';
 
@@ -48,7 +52,7 @@ async function callMCPTool<T>(
 			'tools/call',
 			{
 				name: name,
-				arguments: opts?.payload || {},
+				arguments: opts?.payload ?? {},
 				...(opts?.async && {
 					_meta: {
 						'ai.nanobot.async': true,
@@ -184,10 +188,46 @@ export class ChatAPI {
 		return this.mcpClient.readResource(uri);
 	}
 
+	watchResource(uri: string, callback: (resource: ResourceContents) => void): () => void {
+		return this.mcpClient.watchResource(uri, callback);
+	}
+
+	watchListChanged(callback: () => void): () => void {
+		return this.mcpClient.watchListChanged(callback);
+	}
+
 	async deleteWorkflow(workflowUri: string): Promise<void> {
 		await callMCPTool<void>(this.mcpClient, 'deleteWorkflow', {
 			payload: {
 				uri: workflowUri
+			}
+		});
+	}
+
+	async createScheduledTask(payload: CreateScheduledTaskRequest): Promise<ScheduledTask> {
+		return await callMCPTool<ScheduledTask>(this.mcpClient, 'createScheduledTask', {
+			payload: { ...payload }
+		});
+	}
+
+	async updateScheduledTask(payload: UpdateScheduledTaskRequest): Promise<ScheduledTask> {
+		return await callMCPTool<ScheduledTask>(this.mcpClient, 'updateScheduledTask', {
+			payload: { ...payload }
+		});
+	}
+
+	async deleteScheduledTask(uri: string): Promise<void> {
+		await callMCPTool<void>(this.mcpClient, 'deleteScheduledTask', {
+			payload: {
+				uri
+			}
+		});
+	}
+
+	async startScheduledTask(uri: string): Promise<StartScheduledTaskResponse> {
+		return await callMCPTool<StartScheduledTaskResponse>(this.mcpClient, 'startScheduledTask', {
+			payload: {
+				uri
 			}
 		});
 	}
