@@ -90,11 +90,15 @@
 	}
 
 	function getThreadRefWidth(): number {
-		return maxThreadContentWidthSeen > 0
-			? maxThreadContentWidthSeen
-			: threadContentWidth > 0
-				? threadContentWidth
-				: 400;
+		const raw =
+			maxThreadContentWidthSeen > 0
+				? maxThreadContentWidthSeen
+				: threadContentWidth > 0
+					? threadContentWidth
+					: 400;
+		// Never assume the thread column is wider than the viewport (breaks space math after
+		// desktop→mobile resize while maxThreadContentWidthSeen still holds the old peak).
+		return Math.min(raw, getViewportWidth());
 	}
 
 	function getQuickBarWidth(): number {

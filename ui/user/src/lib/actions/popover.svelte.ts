@@ -37,6 +37,23 @@ interface PopoverOptions extends Partial<ComputePositionConfig> {
 
 let id = 0;
 
+function tooltipOverlayUnchanged(
+	prev: PopoverOptions & TooltipOptions,
+	merged: PopoverOptions & TooltipOptions
+): boolean {
+	return (
+		prev.slide === merged.slide &&
+		prev.fixed === merged.fixed &&
+		prev.hover === merged.hover &&
+		prev.interactiveHover === merged.interactiveHover &&
+		prev.disablePortal === merged.disablePortal &&
+		prev.enterTransition === merged.enterTransition &&
+		prev.strategy === merged.strategy &&
+		prev.placement === merged.placement &&
+		prev.offset === merged.offset
+	);
+}
+
 export default function popover(initialOptions?: PopoverOptions): Popover {
 	let ref: HTMLElement;
 	let tooltip: HTMLElement;
@@ -167,8 +184,11 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 	});
 
 	let close: (() => void) | null;
+	let visibilityLayoutGen = 0;
 	$effect(() => {
 		if (!ready) return;
+
+		const gen = ++visibilityLayoutGen;
 
 		// Remove all dynamically added classes for proper reset
 		tooltip.classList.remove(
@@ -229,14 +249,18 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 		// Handle visibility and positioning
 		if (open) {
 			tick().then(async () => {
+				if (gen !== visibilityLayoutGen) return;
 				if (motion === 'daisy') {
 					if (!shouldSkipAutoPosition()) {
 						await updatePosition();
 					}
+					if (gen !== visibilityLayoutGen) return;
 					await tick();
+					if (gen !== visibilityLayoutGen) return;
 					await new Promise<void>((resolve) =>
 						requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
 					);
+					if (gen !== visibilityLayoutGen) return;
 					tooltip.classList.remove('tooltip-portal-daisy-host--inactive', 'opacity-0');
 					if (!shouldSkipAutoPosition()) {
 						close = autoUpdate(ref, tooltip, updatePosition);
@@ -255,9 +279,9 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 				tooltip.classList.remove('opacity-0');
 
 				if (!shouldSkipAutoPosition()) {
-					updatePosition().then(() => {
-						close = autoUpdate(ref, tooltip, updatePosition);
-					});
+					await updatePosition();
+					if (gen !== visibilityLayoutGen) return;
+					close = autoUpdate(ref, tooltip, updatePosition);
 				}
 			});
 		} else {
@@ -321,7 +345,11 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			return {
 				update(newParams?: TooltipOptions) {
 					if (newParams) {
-						options = { ...options, ...newParams };
+						const merged = { ...options, ...newParams };
+						if (tooltipOverlayUnchanged(options, merged)) {
+							return;
+						}
+						options = merged;
 					}
 				},
 				destroy() {
