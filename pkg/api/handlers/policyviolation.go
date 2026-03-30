@@ -33,17 +33,16 @@ func (*PolicyViolationHandler) List(req api.Context) error {
 	result := make([]types.PolicyViolation, 0, len(violations))
 	for _, v := range violations {
 		result = append(result, types.PolicyViolation{
-			ID:                   v.ID,
-			CreatedAt:            *types.NewTime(v.CreatedAt),
-			UserID:               v.UserID,
-			PolicyID:             v.PolicyID,
-			PolicyName:           v.PolicyName,
-			PolicyDefinition:     v.PolicyDefinition,
-			Direction:            v.Direction,
-			ViolationExplanation: v.ViolationExplanation,
-			// BlockedContent excluded from list view for performance
+			ID:        v.ID,
+			CreatedAt: *types.NewTime(v.CreatedAt),
+			UserID:    v.UserID,
+			PolicyID:  v.PolicyID,
+			PolicyName: v.PolicyName,
+			Direction: v.Direction,
 			ProjectID: v.ProjectID,
 			ThreadID:  v.ThreadID,
+			// ViolationExplanation, PolicyDefinition, and BlockedContent
+			// are excluded from list view — available in detail view only.
 		})
 	}
 
