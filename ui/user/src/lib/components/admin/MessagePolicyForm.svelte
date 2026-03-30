@@ -218,9 +218,17 @@
 				{/if}
 
 				<div class="flex flex-col gap-2">
-					<label for="message-policy-definition" class="flex items-center gap-1 text-sm font-light capitalize">
+					<label
+						for="message-policy-definition"
+						class="flex items-center gap-1 text-sm font-light capitalize"
+					>
 						Definition
-						<div use:tooltip={{ text: 'A natural language rule that describes what should or should not be allowed. Be as specific and clear as possible to ensure consistent enforcement.', classes: ['w-72', 'break-normal', 'whitespace-pre-wrap', 'z-[60]'] }}>
+						<div
+							use:tooltip={{
+								text: 'A natural language rule that describes what should or should not be allowed. Be as specific and clear as possible to ensure consistent enforcement.',
+								classes: ['w-72', 'break-normal', 'whitespace-pre-wrap', 'z-[60]']
+							}}
+						>
 							<CircleHelp class="text-on-surface1 size-3.5" />
 						</div>
 					</label>

@@ -1,8 +1,8 @@
 import { handleRouteError } from '$lib/errors';
 import { AdminService, ChatService } from '$lib/services';
 import { profile } from '$lib/stores';
-import { redirect } from '@sveltejs/kit';
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
 export const load: PageLoad = async ({ params, fetch }) => {
 	const version = await ChatService.getVersion({ fetch });
