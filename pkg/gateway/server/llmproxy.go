@@ -300,6 +300,7 @@ func copyBody(r *http.Request) ([]byte, error) {
 
 type responseModifier struct {
 	userID, runID, model                        string
+	projectID, threadID                         string
 	personalToken                               bool
 	client                                      *client.Client
 	lock                                        sync.Mutex
@@ -314,7 +315,7 @@ type responseModifier struct {
 
 	// Output (tool-call) policy evaluation fields.
 	messagePolicyHelper *messagepolicy.Helper
-	outputPolicies      []types2.MessagePolicyManifest
+	outputPolicies      []messagepolicy.ApplicablePolicy
 	conversationHistory []messagepolicy.ConversationMessage
 	pipeReader          *io.PipeReader // set when output policies are active; Read() reads from this
 }
@@ -535,6 +536,12 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw
 		return
 	}
 
+	// Log each violation.
+	blockedContent, _ := json.Marshal(toolCalls)
+	for _, v := range violations {
+		logViolation(context.Background(), r.client, v, r.userID, string(types2.PolicyDirectionToolCalls), blockedContent, r.projectID, r.threadID)
+	}
+
 	// Violation — forward tool calls (to keep conversation history valid)
 	// and inject a violation marker that nanobot can detect.
 	var explanations []string
@@ -618,6 +625,12 @@ func (r *responseModifier) streamAndEvaluateToolCallsJSON(ctx context.Context, p
 		return
 	}
 
+	// Log each violation.
+	blockedContent, _ := json.Marshal(toolCalls)
+	for _, v := range violations {
+		logViolation(context.Background(), r.client, v, r.userID, string(types2.PolicyDirectionToolCalls), blockedContent, r.projectID, r.threadID)
+	}
+
 	// Violation — keep tool calls but add violation marker to the JSON.
 	var explanations []string
 	for _, v := range violations {
@@ -691,6 +704,27 @@ func accumulateAnthropicToolCallInfo(data []byte, toolCalls *[]messagepolicy.Too
 }
 
 // buildToolCallTargetMessage formats tool calls into the target message string for the policy judge.
+// logViolation persists a policy violation record. Failures are logged but non-fatal.
+func logViolation(ctx context.Context, c *client.Client, v messagepolicy.PolicyViolation, userID, direction string, blockedContent json.RawMessage, projectID, threadID string) {
+	if c == nil {
+		return
+	}
+	if err := c.LogPolicyViolation(ctx, &types.PolicyViolation{
+		CreatedAt:            time.Now(),
+		UserID:               userID,
+		PolicyID:             v.PolicyID,
+		PolicyName:           v.PolicyName,
+		PolicyDefinition:     v.PolicyDefinition,
+		Direction:            direction,
+		ViolationExplanation: v.Explanation,
+		BlockedContent:       blockedContent,
+		ProjectID:            projectID,
+		ThreadID:             threadID,
+	}); err != nil {
+		logger.Warnf("failed to log policy violation for policy %s: %v", v.PolicyID, err)
+	}
+}
+
 func buildToolCallTargetMessage(toolCalls []messagepolicy.ToolCallInfo) string {
 	var sb strings.Builder
 	for i, tc := range toolCalls {
@@ -908,7 +942,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 
 	// Evaluate message policies if the helper is available and we have a user.
 	var (
-		outputPolicies         []types2.MessagePolicyManifest
+		outputPolicies         []messagepolicy.ApplicablePolicy
 		conversationHistory    []messagepolicy.ConversationMessage
 		bodyModified           bool
 		inputPolicyReplacement string
@@ -925,6 +959,12 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 					if lastUserIdx >= 0 {
 						violations := l.messagePolicyHelper.EvaluateMessage(req.Context(), inputPolicies, history, lastUserMsg, types2.PolicyDirectionUserMessage)
 						if len(violations) > 0 {
+							// Log each violation (non-fatal on error).
+							blockedContent, _ := json.Marshal(map[string]string{"message": lastUserMsg})
+							for _, v := range violations {
+								logViolation(req.Context(), req.GatewayClient, v, req.User.GetUID(), string(types2.PolicyDirectionUserMessage), blockedContent, "", "")
+							}
+
 							var explanations []string
 							for _, v := range violations {
 								explanations = append(explanations, v.Explanation)

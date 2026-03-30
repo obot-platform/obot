@@ -58,6 +58,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.Invoker)
 	modelAccessPolicies := handlers.NewModelAccessPolicyHandler()
 	messagePolicies := handlers.NewMessagePolicyHandler()
+	policyViolations := handlers.NewPolicyViolationHandler()
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN)
 	fileScannerProviders := handlers.NewFileScannerProviderHandler(services.ProviderDispatcher, services.Invoker)
 	prompt := handlers.NewPromptHandler()
@@ -764,6 +765,12 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		mux.HandleFunc("POST /api/message-policies", messagePolicies.Create)
 		mux.HandleFunc("PUT /api/message-policies/{id}", messagePolicies.Update)
 		mux.HandleFunc("DELETE /api/message-policies/{id}", messagePolicies.Delete)
+
+		// Policy Violations
+		mux.HandleFunc("GET /api/policy-violations", policyViolations.List)
+		mux.HandleFunc("GET /api/policy-violations/filter-options/{filter}", policyViolations.ListFilterOptions)
+		mux.HandleFunc("GET /api/policy-violations/{id}", policyViolations.Get)
+		mux.HandleFunc("GET /api/policy-violation-stats", policyViolations.GetStats)
 	}
 
 	// Available Models

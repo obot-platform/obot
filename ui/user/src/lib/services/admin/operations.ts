@@ -59,7 +59,10 @@ import type {
 	SkillAccessPolicy,
 	SkillAccessPolicyManifest,
 	MessagePolicy,
-	MessagePolicyManifest
+	MessagePolicyManifest,
+	PolicyViolation,
+	PolicyViolationFilters,
+	PolicyViolationStats
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -1490,4 +1493,57 @@ export async function deleteSkillAccessPolicy(
 	opts?: { signal?: AbortSignal }
 ): Promise<void> {
 	await doDelete(`/skill-access-rules/${id}`, opts);
+}
+
+// Policy Violations
+
+function buildPolicyViolationParams(filters?: PolicyViolationFilters): string {
+	if (!filters) return '';
+	const params = new URLSearchParams();
+	for (const [key, value] of Object.entries(filters)) {
+		if (value != null && value !== '') {
+			params.set(key, String(value));
+		}
+	}
+	const str = params.toString();
+	return str ? `?${str}` : '';
+}
+
+export async function listPolicyViolations(
+	filters?: PolicyViolationFilters,
+	opts?: { fetch?: Fetcher }
+): Promise<PaginatedResponse<PolicyViolation>> {
+	return (await doGet(
+		`/policy-violations${buildPolicyViolationParams(filters)}`,
+		opts
+	)) as PaginatedResponse<PolicyViolation>;
+}
+
+export async function getPolicyViolation(
+	id: number | string,
+	opts?: { fetch?: Fetcher }
+): Promise<PolicyViolation> {
+	return (await doGet(`/policy-violations/${id}`, opts)) as PolicyViolation;
+}
+
+export async function listPolicyViolationFilterOptions(
+	filter: string,
+	filters?: PolicyViolationFilters,
+	opts?: { fetch?: Fetcher }
+): Promise<string[]> {
+	const response = (await doGet(
+		`/policy-violations/filter-options/${filter}${buildPolicyViolationParams(filters)}`,
+		opts
+	)) as { options: string[] };
+	return response.options ?? [];
+}
+
+export async function getPolicyViolationStats(
+	filters?: PolicyViolationFilters,
+	opts?: { fetch?: Fetcher }
+): Promise<PolicyViolationStats> {
+	return (await doGet(
+		`/policy-violation-stats${buildPolicyViolationParams(filters)}`,
+		opts
+	)) as PolicyViolationStats;
 }

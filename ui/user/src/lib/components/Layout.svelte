@@ -269,6 +269,13 @@
 											icon: ShieldAlert,
 											label: 'Message Policies',
 											collapsible: false
+										},
+										{
+											id: 'policy-violations',
+											href: '/admin/policy-violations',
+											icon: ShieldAlert,
+											label: 'Policy Violations',
+											collapsible: false
 										}
 									]
 								: []),

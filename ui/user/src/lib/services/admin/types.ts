@@ -887,3 +887,61 @@ export interface SkillAccessPolicyManifest {
 	subjects: AccessControlRuleSubject[];
 	resources: SkillAccessPolicyResource[];
 }
+
+// Policy Violations
+export interface PolicyViolation {
+	id: number;
+	createdAt: string;
+	userID: string;
+	policyID: string;
+	policyName: string;
+	policyDefinition: string;
+	direction: string;
+	violationExplanation: string;
+	blockedContent?: unknown;
+	projectID: string;
+	threadID: string;
+}
+
+export interface PolicyViolationFilters {
+	user_id?: string | null;
+	policy_id?: string | null;
+	direction?: string | null;
+	project_id?: string | null;
+	thread_id?: string | null;
+	start_time?: string | null;
+	end_time?: string | null;
+	query?: string | null;
+	limit?: number | null;
+	offset?: number | null;
+	sort_by?: string | null;
+	sort_order?: string | null;
+}
+
+export interface PolicyViolationTimeBucket {
+	time: string;
+	count: number;
+}
+
+export interface PolicyViolationPolicyCount {
+	policyID: string;
+	policyName: string;
+	count: number;
+}
+
+export interface PolicyViolationUserCount {
+	userID: string;
+	count: number;
+}
+
+export interface PolicyViolationDirectionCounts {
+	userMessage: number;
+	toolCalls: number;
+}
+
+export interface PolicyViolationStats {
+	byTime: PolicyViolationTimeBucket[];
+	byPolicy: PolicyViolationPolicyCount[];
+	byUser: PolicyViolationUserCount[];
+	byDirection: PolicyViolationDirectionCounts;
+}
