@@ -48,7 +48,7 @@
 	let loading = $state(false);
 	let deletingWorkflow = $state(false);
 	let publishing = $state(false);
-	let confirmInstallModal = $state(false);
+	let confirmInstallModal = $state<{ selectedVersion?: number } | undefined>(undefined);
 
 	let showConfirmPublishWorkflow = $state(false);
 	let showWorkflowVersionDialog = $state(false);
@@ -219,13 +219,10 @@
 					<button
 						class={twMerge(
 							'btn',
-							hasPublishUpdate
-								? 'btn-warning btn-soft tooltip tooltip-left'
-								: 'btn-disabled btn-ghost'
+							hasPublishUpdate ? 'btn-warning btn-soft tooltip tooltip-left' : 'btn-ghost'
 						)}
 						onclick={() => (showConfirmUpdateWorkflow = true)}
-						disabled={!hasPublishUpdate}
-						data-tip="An update is available"
+						data-tip={hasPublishUpdate ? 'An update is available' : 'Select different version'}
 					>
 						<FolderInput class="size-4" />
 					</button>
@@ -466,22 +463,13 @@
 {#if confirmInstallModal && relatedPublishedArtifact}
 	<PublishedWorkflowInstallModal
 		title="Update Workflow"
-		publishedArtifact={{
-			id: relatedPublishedArtifact?.id ?? '',
-			displayName: (workflowDisplayName ?? workflowName) as string,
-			created: new Date().toISOString(),
-			metadata: {},
-			name: workflowName,
-			description: '',
-			authorID: profile.current.id,
-			authorEmail: profile.current.email,
-			latestVersion: 1,
-			visibility: 'private',
-			versions: relatedPublishedArtifact.versions ?? []
+		data={{
+			...relatedPublishedArtifact,
+			selectedVersion: confirmInstallModal.selectedVersion ?? relatedPublishedArtifact.latestVersion
 		}}
-		onClose={() => (confirmInstallModal = false)}
+		onClose={() => (confirmInstallModal = undefined)}
 		onSuccess={() => {
-			confirmInstallModal = false;
+			confirmInstallModal = undefined;
 			window.location.reload();
 		}}
 		confirmButtonText="Update"
@@ -536,15 +524,17 @@
 		latestVersion={relatedPublishedArtifact?.latestVersion ?? 0}
 		workflowUri={workflow?.uri ?? ''}
 		publishedArtifactId={relatedPublishedArtifact?.id ?? ''}
-		onSubmit={() => {
+		onSubmit={(selectedVersion) => {
 			if (!showConfirmUpdateWorkflow) return;
-			confirmInstallModal = true;
+			confirmInstallModal = { selectedVersion: selectedVersion ?? undefined };
 			showConfirmUpdateWorkflow = false;
 		}}
 		onCancel={() => {
 			showConfirmUpdateWorkflow = false;
 		}}
 		variant="update"
+		versions={relatedPublishedArtifact.versions}
+		currentInstalledVersion={workflow?._meta?.version as string}
 	/>
 {/if}
 
