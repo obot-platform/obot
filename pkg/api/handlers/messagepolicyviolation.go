@@ -33,14 +33,14 @@ func (*MessagePolicyViolationHandler) List(req api.Context) error {
 	result := make([]types.MessagePolicyViolation, 0, len(violations))
 	for _, v := range violations {
 		result = append(result, types.MessagePolicyViolation{
-			ID:        v.ID,
-			CreatedAt: *types.NewTime(v.CreatedAt),
-			UserID:    v.UserID,
-			PolicyID:  v.PolicyID,
+			ID:         v.ID,
+			CreatedAt:  *types.NewTime(v.CreatedAt),
+			UserID:     v.UserID,
+			PolicyID:   v.PolicyID,
 			PolicyName: v.PolicyName,
-			Direction: v.Direction,
-			ProjectID: v.ProjectID,
-			ThreadID:  v.ThreadID,
+			Direction:  v.Direction,
+			ProjectID:  v.ProjectID,
+			ThreadID:   v.ThreadID,
 			// ViolationExplanation, PolicyDefinition, and BlockedContent
 			// are excluded from list view — available in detail view only.
 		})
@@ -48,9 +48,9 @@ func (*MessagePolicyViolationHandler) List(req api.Context) error {
 
 	return req.Write(types.MessagePolicyViolationResponse{
 		MessagePolicyViolationList: types.MessagePolicyViolationList{Items: result},
-		Total:               total,
-		Limit:               opts.Limit,
-		Offset:              opts.Offset,
+		Total:                      total,
+		Limit:                      opts.Limit,
+		Offset:                     opts.Offset,
 	})
 }
 
@@ -100,12 +100,12 @@ func (*MessagePolicyViolationHandler) ListFilterOptions(req api.Context) error {
 	}
 
 	validFilters := map[string]bool{
-		"user_id":    true,
-		"policy_id":  true,
+		"user_id":     true,
+		"policy_id":   true,
 		"policy_name": true,
-		"direction":  true,
-		"project_id": true,
-		"thread_id":  true,
+		"direction":   true,
+		"project_id":  true,
+		"thread_id":   true,
 	}
 	if !validFilters[filter] {
 		return types.NewErrBadRequest("invalid filter: %s", filter)
@@ -143,11 +143,11 @@ func (*MessagePolicyViolationHandler) GetStats(req api.Context) error {
 
 func parseMessagePolicyViolationOpts(query url.Values) gateway.MessagePolicyViolationOptions {
 	opts := gateway.MessagePolicyViolationOptions{
-		UserID:    parseMultiValue(query, "user_id"),
-		PolicyID:  parseMultiValue(query, "policy_id"),
-		Direction: parseMultiValue(query, "direction"),
-		ProjectID: parseMultiValue(query, "project_id"),
-		ThreadID:  parseMultiValue(query, "thread_id"),
+		UserID:      parseMultiValue(query, "user_id"),
+		PolicyID:    parseMultiValue(query, "policy_id"),
+		Direction:   parseMultiValue(query, "direction"),
+		ProjectID:   parseMultiValue(query, "project_id"),
+		ThreadID:    parseMultiValue(query, "thread_id"),
 		SortBy:      query.Get("sort_by"),
 		SortOrder:   query.Get("sort_order"),
 		Query:       strings.TrimSpace(query.Get("query")),
@@ -226,4 +226,3 @@ func convertUserCounts(counts []gateway.MessagePolicyViolationUserCount) []types
 	}
 	return result
 }
-

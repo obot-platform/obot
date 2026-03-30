@@ -27,8 +27,6 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 
-	let isAuditor = $derived(profile.current.groups.includes(Group.AUDITOR));
-
 	let violations = $state<MessagePolicyViolation[]>([]);
 	let stats = $state<MessagePolicyViolationStats | null>(null);
 	let total = $state(0);

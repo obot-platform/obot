@@ -22,9 +22,9 @@ type MessagePolicyViolationList List[MessagePolicyViolation]
 
 type MessagePolicyViolationResponse struct {
 	MessagePolicyViolationList `json:",inline"`
-	Total               int64 `json:"total"`
-	Limit               int   `json:"limit"`
-	Offset              int   `json:"offset"`
+	Total                      int64 `json:"total"`
+	Limit                      int   `json:"limit"`
+	Offset                     int   `json:"offset"`
 }
 
 type MessagePolicyViolationStats struct {
