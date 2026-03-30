@@ -14,13 +14,12 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import { subDays, set } from 'date-fns';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
-	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { fade } from 'svelte/transition';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { ShieldAlert, Funnel } from 'lucide-svelte';
+	import { ShieldAlert } from 'lucide-svelte';
 	import { columnResize } from '$lib/actions/resize';
 	import { responsive } from '$lib/stores';
 	import { X } from 'lucide-svelte';
@@ -36,16 +35,14 @@
 	let selectedViolation = $state<PolicyViolation | null>(null);
 	let detailedViolation = $state<PolicyViolation | null>(null);
 	let loading = $state(true);
-	let query = $state('');
 
 	let startTime = $state(subDays(new Date(), 30));
 	let endTime = $state(set(new Date(), { milliseconds: 0, seconds: 59 }));
 
-	let filterDirection = $state('');
-	let filterUserID = $state('');
-	let filterPolicyID = $state('');
+	let filterDirection = $state('all_directions');
+	let filterUserID = $state('all_users');
+	let filterPolicyID = $state('all_policies');
 
-	let showFilters = $state(false);
 	let userFilterOptions = $state<string[]>([]);
 	let policyFilterOptions = $state<{ id: string; name: string }[]>([]);
 
@@ -55,10 +52,6 @@
 	const pageLimit = 100;
 
 	let rightSidebar = $state<HTMLDivElement>();
-
-	let activeFilterCount = $derived(
-		(filterUserID ? 1 : 0) + (filterPolicyID ? 1 : 0) + (filterDirection ? 1 : 0)
-	);
 
 	const users = new SvelteMap<string, OrgUser>();
 	function displayName(id: string) {
@@ -72,10 +65,11 @@
 			limit: pageLimit,
 			offset: pageOffset
 		};
-		if (query) filters.query = query;
-		if (filterDirection) filters.direction = filterDirection;
-		if (filterUserID) filters.user_id = filterUserID;
-		if (filterPolicyID) filters.policy_id = filterPolicyID;
+		if (filterDirection && filterDirection !== 'all_directions')
+			filters.direction = filterDirection;
+		if (filterUserID && filterUserID !== 'all_users') filters.user_id = filterUserID;
+		if (filterPolicyID && filterPolicyID !== 'all_policies')
+			filters.policy_id = filterPolicyID;
 		return filters;
 	}
 
@@ -100,7 +94,6 @@
 	}
 
 	async function viewDetail(v: PolicyViolation) {
-		showFilters = false;
 		selectedViolation = v;
 		detailedViolation = null;
 		rightSidebar?.showPopover();
@@ -113,27 +106,8 @@
 
 	function closeSidebar() {
 		rightSidebar?.hidePopover();
-		showFilters = false;
 		selectedViolation = null;
 		detailedViolation = null;
-	}
-
-	async function openFilters() {
-		selectedViolation = null;
-		detailedViolation = null;
-		showFilters = true;
-		rightSidebar?.showPopover();
-		const [usersResp, policiesResp] = await Promise.all([
-			AdminService.listPolicyViolationFilterOptions('user_id'),
-			AdminService.listPolicyViolationFilterOptions('policy_name')
-		]);
-		userFilterOptions = usersResp ?? [];
-		// Build policy name-to-ID mapping from stats if available
-		const policyMap = new Map(stats?.byPolicy.map((p) => [p.policyName, p.policyID]) ?? []);
-		policyFilterOptions = (policiesResp ?? []).map((name: string) => ({
-			id: policyMap.get(name) ?? name,
-			name
-		}));
 	}
 
 	function applyFilter() {
@@ -141,16 +115,21 @@
 		fetchData();
 	}
 
-	function clearFilters() {
-		filterUserID = '';
-		filterPolicyID = '';
-		filterDirection = '';
-		pageOffset = 0;
-		fetchData();
+	async function fetchFilterOptions() {
+		const [usersResp, policiesResp] = await Promise.all([
+			AdminService.listPolicyViolationFilterOptions('user_id'),
+			AdminService.listPolicyViolationFilterOptions('policy_name')
+		]);
+		userFilterOptions = usersResp ?? [];
+		const policyMap = new Map(stats?.byPolicy.map((p) => [p.policyName, p.policyID]) ?? []);
+		policyFilterOptions = (policiesResp ?? []).map((name: string) => ({
+			id: policyMap.get(name) ?? name,
+			name
+		}));
 	}
 
 	onMount(() => {
-		fetchData();
+		fetchData().then(() => fetchFilterOptions());
 		AdminService.listUsersIncludeDeleted().then((userData) => {
 			for (const user of userData) {
 				users.set(user.id, user);
@@ -165,27 +144,85 @@
 		fetchData();
 	}
 
-	function handleSearch(value: string) {
-		query = value;
-		pageOffset = 0;
-		fetchData();
-	}
-
 	let directionLabel = (d: string) => PolicyDirectionLabels[d as PolicyDirection] ?? d;
 
 	let totalPages = $derived(Math.ceil(total / pageLimit));
 	let currentPage = $derived(Math.floor(pageOffset / pageLimit) + 1);
 
 	const directionSelectOptions = [
+		{ id: 'all_directions', label: 'All Directions' },
 		{ id: 'user-message', label: 'User Messages' },
 		{ id: 'tool-calls', label: 'Tool Calls' }
 	];
-	let userSelectOptions = $derived(
-		userFilterOptions.map((uid) => ({ id: uid, label: displayName(uid) }))
-	);
-	let policySelectOptions = $derived(
-		policyFilterOptions.map((p) => ({ id: p.id, label: p.name }))
-	);
+	let userSelectOptions = $derived([
+		{ id: 'all_users', label: 'All Users' },
+		...userFilterOptions.map((uid) => ({ id: uid, label: displayName(uid) }))
+	]);
+	let policySelectOptions = $derived([
+		{ id: 'all_policies', label: 'All Policies' },
+		...policyFilterOptions.map((p) => ({ id: p.id, label: p.name }))
+	]);
+
+	function handleFilterSelect(
+		kind: 'direction' | 'user' | 'policy',
+		option: { id: string | number }
+	) {
+		const id = String(option.id);
+		const allKey =
+			kind === 'direction'
+				? 'all_directions'
+				: kind === 'user'
+					? 'all_users'
+					: 'all_policies';
+
+		if (id === allKey) {
+			if (kind === 'direction') filterDirection = allKey;
+			else if (kind === 'user') filterUserID = allKey;
+			else filterPolicyID = allKey;
+		} else {
+			// Remove the "all" sentinel when a specific value is selected
+			if (kind === 'direction') {
+				filterDirection = filterDirection
+					.split(',')
+					.filter((v) => v !== allKey)
+					.join(',') || id;
+			} else if (kind === 'user') {
+				filterUserID = filterUserID
+					.split(',')
+					.filter((v) => v !== allKey)
+					.join(',') || id;
+			} else {
+				filterPolicyID = filterPolicyID
+					.split(',')
+					.filter((v) => v !== allKey)
+					.join(',') || id;
+			}
+		}
+		applyFilter();
+	}
+
+	function handleFilterClear(
+		kind: 'direction' | 'user' | 'policy',
+		option?: { id: string | number }
+	) {
+		if (!option) return;
+		const allKey =
+			kind === 'direction'
+				? 'all_directions'
+				: kind === 'user'
+					? 'all_users'
+					: 'all_policies';
+
+		// After the Select removes the tag, check if nothing is left — reset to "all"
+		if (kind === 'direction') {
+			if (!filterDirection || filterDirection === allKey) filterDirection = allKey;
+		} else if (kind === 'user') {
+			if (!filterUserID || filterUserID === allKey) filterUserID = allKey;
+		} else {
+			if (!filterPolicyID || filterPolicyID === allKey) filterPolicyID = allKey;
+		}
+		applyFilter();
+	}
 
 	const groupByOptions = [
 		{ id: 'group_by_policy', label: 'Group by Policy' },
@@ -214,8 +251,12 @@
 </svelte:head>
 
 <Layout
-	classes={{ childrenContainer: 'max-w-none', container: '' }}
 	title="Message Policy Violations"
+	classes={{
+		container: 'md:px-0 px-0 pt-0',
+		childrenContainer: 'max-w-none',
+		noSidebarTitle: 'pl-4 md:pl-8 mx-auto md:max-w-(--breakpoint-xl) pt-4'
+	}}
 >
 	<div class="flex-1" in:fade={{ duration }} out:fade={{ duration }}>
 		{#if loading}
@@ -233,35 +274,87 @@
 			</div>
 		{/if}
 
-		<div class="flex min-h-full flex-col gap-8 pb-8">
-			<!-- Filters -->
-			<div class="flex flex-col gap-4 md:flex-row">
-				<Search
-					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
-					value={query}
-					placeholder="Search violations..."
-					onChange={handleSearch}
-				/>
-
-				<div class="flex gap-4 self-start md:self-end">
-					<AuditLogCalendar start={startTime} end={endTime} onChange={handleTimeRangeChange} />
-
-					<button
-						class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button bg-background relative flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent text-sm shadow-sm"
-						onclick={openFilters}
-					>
-						<Funnel class="size-4" />
-						Filters
-						{#if activeFilterCount > 0}
-							<span
-								class="bg-primary absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full text-[10px] font-bold text-white"
-							>
-								{activeFilterCount}
-							</span>
-						{/if}
-					</button>
+		<div class="mb-4 flex flex-col gap-4">
+			<!-- Overall Stats -->
+			<div class="bg-surface2 dark:bg-surface1 w-full">
+				<div class="m-auto w-full px-4 py-4 md:max-w-(--breakpoint-xl) md:px-8">
+					<h4 class="font-semibold">Overall Stats</h4>
+					<div class="flex flex-col flex-wrap items-stretch gap-4 md:flex-row">
+						<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
+							<div class="text-on-background text-xs font-light">Total Violations</div>
+							<div class="text-primary flex items-center gap-1 text-xl font-semibold">
+								{#if loading}
+									<Loading class="size-4 animate-spin" />
+								{:else}
+									{total.toLocaleString()}
+								{/if}
+							</div>
+						</div>
+						<div class="divider-horizontal hidden md:block"></div>
+						<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
+							<div class="text-on-background text-xs font-light">User Message Violations</div>
+							<div class="text-primary flex items-center gap-1 text-xl font-semibold">
+								{#if loading}
+									<Loading class="size-4 animate-spin" />
+								{:else}
+									{(stats?.byDirection.userMessage ?? 0).toLocaleString()}
+								{/if}
+							</div>
+						</div>
+						<div class="divider-horizontal hidden md:block"></div>
+						<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
+							<div class="text-on-background text-xs font-light">Tool Call Violations</div>
+							<div class="text-primary flex items-center gap-1 text-xl font-semibold">
+								{#if loading}
+									<Loading class="size-4 animate-spin" />
+								{:else}
+									{(stats?.byDirection.toolCalls ?? 0).toLocaleString()}
+								{/if}
+							</div>
+						</div>
+					</div>
 				</div>
 			</div>
+
+			<!-- Filter bar -->
+			<div
+				class="m-auto flex w-full max-w-full flex-col gap-4 px-4 md:max-w-(--breakpoint-xl) md:px-8"
+			>
+				<div class="flex w-full flex-wrap items-center justify-end gap-4">
+					<p class="text-on-surface1 w-full text-sm md:w-fit">Filter by:</p>
+					<Select
+						class="dark:border-surface3 border border-transparent"
+						classes={{ root: 'w-full md:flex-1 dark:border-surface3' }}
+						options={directionSelectOptions}
+						bind:selected={filterDirection}
+						multiple
+						id="filter-direction"
+						onSelect={(option) => handleFilterSelect('direction', option)}
+						onClear={(option) => handleFilterClear('direction', option)}
+					/>
+					<Select
+						class="dark:border-surface3 border border-transparent"
+						classes={{ root: 'w-full md:flex-1 dark:border-surface3' }}
+						options={userSelectOptions}
+						bind:selected={filterUserID}
+						multiple
+						id="filter-user"
+						onSelect={(option) => handleFilterSelect('user', option)}
+						onClear={(option) => handleFilterClear('user', option)}
+					/>
+					<Select
+						class="dark:border-surface3 border border-transparent"
+						classes={{ root: 'w-full md:flex-1 dark:border-surface3' }}
+						options={policySelectOptions}
+						bind:selected={filterPolicyID}
+						multiple
+						id="filter-policy"
+						onSelect={(option) => handleFilterSelect('policy', option)}
+						onClear={(option) => handleFilterClear('policy', option)}
+					/>
+					<div class="bg-surface3 hidden h-8 w-0.5 md:block"></div>
+					<AuditLogCalendar start={startTime} end={endTime} onChange={handleTimeRangeChange} />
+				</div>
 
 			<!-- Chart -->
 			<div class="paper w-full gap-0 pt-4">
@@ -438,6 +531,7 @@
 			{/if}
 		</div>
 	</div>
+	</div>
 
 	<!-- Detail drawer -->
 	<div
@@ -454,119 +548,7 @@
 			></div>
 		{/if}
 
-		{#if showFilters}
-			<div
-				class="dark:bg-gray-990 text-on-background flex h-full w-[inherit] min-w-[inherit] flex-col bg-gray-50"
-			>
-				<div
-					class="dark:bg-surface1 bg-background relative flex w-full items-center justify-between p-4 pl-5 shadow-xs"
-				>
-					<div class="bg-primary absolute top-0 left-0 h-full w-1"></div>
-					<h3 class="text-lg font-semibold">Filters</h3>
-					<button onclick={closeSidebar} class="icon-button">
-						<X class="size-5" />
-					</button>
-				</div>
-
-				<div class="default-scrollbar-thin relative flex-1 overflow-y-auto">
-					<div class="bg-surface2 absolute top-0 left-0 h-full w-1"></div>
-
-					<div class="flex flex-col gap-6 p-4 pl-5">
-						<div class="flex flex-col gap-1">
-							<div class="flex items-center justify-between">
-								<span class="text-md font-light">Applies To</span>
-								{#if filterDirection}
-									<button
-										class="text-xs opacity-50 transition-opacity duration-200 hover:opacity-80 active:opacity-100"
-										onclick={() => {
-											filterDirection = '';
-											applyFilter();
-										}}
-									>
-										{filterDirection.includes(',') ? 'Clear All' : 'Clear'}
-									</button>
-								{/if}
-							</div>
-							<Select
-								id="filter-direction"
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
-								classes={{ root: 'w-full', clear: 'hover:bg-surface3 bg-transparent' }}
-								options={directionSelectOptions}
-								bind:selected={filterDirection}
-								multiple
-								onSelect={() => applyFilter()}
-								onClear={() => applyFilter()}
-							/>
-						</div>
-
-						<div class="flex flex-col gap-1">
-							<div class="flex items-center justify-between">
-								<span class="text-md font-light">By User</span>
-								{#if filterUserID}
-									<button
-										class="text-xs opacity-50 transition-opacity duration-200 hover:opacity-80 active:opacity-100"
-										onclick={() => {
-											filterUserID = '';
-											applyFilter();
-										}}
-									>
-										{filterUserID.includes(',') ? 'Clear All' : 'Clear'}
-									</button>
-								{/if}
-							</div>
-							<Select
-								id="filter-user"
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
-								classes={{ root: 'w-full', clear: 'hover:bg-surface3 bg-transparent' }}
-								options={userSelectOptions}
-								bind:selected={filterUserID}
-								multiple
-								searchable
-								onSelect={() => applyFilter()}
-								onClear={() => applyFilter()}
-							/>
-						</div>
-
-						<div class="flex flex-col gap-1">
-							<div class="flex items-center justify-between">
-								<span class="text-md font-light">By Policy</span>
-								{#if filterPolicyID}
-									<button
-										class="text-xs opacity-50 transition-opacity duration-200 hover:opacity-80 active:opacity-100"
-										onclick={() => {
-											filterPolicyID = '';
-											applyFilter();
-										}}
-									>
-										{filterPolicyID.includes(',') ? 'Clear All' : 'Clear'}
-									</button>
-								{/if}
-							</div>
-							<Select
-								id="filter-policy"
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
-								classes={{ root: 'w-full', clear: 'hover:bg-surface3 bg-transparent' }}
-								options={policySelectOptions}
-								bind:selected={filterPolicyID}
-								multiple
-								searchable
-								onSelect={() => applyFilter()}
-								onClear={() => applyFilter()}
-							/>
-						</div>
-
-						{#if activeFilterCount > 0}
-							<button
-								class="text-primary hover:text-primary/80 self-start text-sm font-medium"
-								onclick={clearFilters}
-							>
-								Clear all filters
-							</button>
-						{/if}
-					</div>
-				</div>
-			</div>
-		{:else if selectedViolation}
+		{#if selectedViolation}
 			<div
 				class="dark:bg-gray-990 text-on-background flex h-full w-[inherit] min-w-[inherit] flex-col bg-gray-50"
 			>
@@ -666,3 +648,13 @@
 
 	</div>
 </Layout>
+
+<style lang="postcss">
+	.divider-horizontal {
+		width: 1px;
+		height: auto;
+		background-color: var(--color-surface3);
+		margin-left: 1rem;
+		margin-right: 1rem;
+	}
+</style>
