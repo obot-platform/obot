@@ -14,16 +14,16 @@ import (
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
-var policyViolationGroupResource = schema.GroupResource{
+var messagePolicyViolationGroupResource = schema.GroupResource{
 	Group:    "obot.obot.ai",
 	Resource: "policyviolations",
 }
 
-// LogPolicyViolation encrypts sensitive fields and inserts a violation record.
-func (c *Client) LogPolicyViolation(ctx context.Context, v *types.PolicyViolation) error {
+// LogMessagePolicyViolation encrypts sensitive fields and inserts a violation record.
+func (c *Client) LogMessagePolicyViolation(ctx context.Context, v *types.MessagePolicyViolation) error {
 	v.CreatedAt = v.CreatedAt.UTC()
 
-	if err := c.encryptPolicyViolation(ctx, v); err != nil {
+	if err := c.encryptMessagePolicyViolation(ctx, v); err != nil {
 		return fmt.Errorf("failed to encrypt policy violation: %w", err)
 	}
 
@@ -34,8 +34,8 @@ func (c *Client) LogPolicyViolation(ctx context.Context, v *types.PolicyViolatio
 	return nil
 }
 
-// PolicyViolationOptions represents options for querying policy violations.
-type PolicyViolationOptions struct {
+// MessagePolicyViolationOptions represents options for querying policy violations.
+type MessagePolicyViolationOptions struct {
 	UserID      []string
 	PolicyID    []string
 	Direction   []string
@@ -51,11 +51,11 @@ type PolicyViolationOptions struct {
 	TimeGroupBy string // "user" or "policy" (default)
 }
 
-// GetPolicyViolations retrieves policy violations with optional filters.
-func (c *Client) GetPolicyViolations(ctx context.Context, opts PolicyViolationOptions) ([]types.PolicyViolation, int64, error) {
-	db := c.db.WithContext(ctx).Model(&types.PolicyViolation{})
+// GetMessagePolicyViolations retrieves policy violations with optional filters.
+func (c *Client) GetMessagePolicyViolations(ctx context.Context, opts MessagePolicyViolationOptions) ([]types.MessagePolicyViolation, int64, error) {
+	db := c.db.WithContext(ctx).Model(&types.MessagePolicyViolation{})
 
-	db = applyPolicyViolationFilters(db, opts)
+	db = applyMessagePolicyViolationFilters(db, opts)
 
 	var total int64
 	if err := db.Count(&total).Error; err != nil {
@@ -92,7 +92,7 @@ func (c *Client) GetPolicyViolations(ctx context.Context, opts PolicyViolationOp
 		db = db.Order("created_at DESC")
 	}
 
-	var violations []types.PolicyViolation
+	var violations []types.MessagePolicyViolation
 	if err := db.Find(&violations).Error; err != nil {
 		return nil, 0, err
 	}
@@ -100,24 +100,24 @@ func (c *Client) GetPolicyViolations(ctx context.Context, opts PolicyViolationOp
 	return violations, total, nil
 }
 
-// GetPolicyViolation retrieves a single policy violation by ID and decrypts it.
-func (c *Client) GetPolicyViolation(ctx context.Context, id uint) (*types.PolicyViolation, error) {
-	var v types.PolicyViolation
+// GetMessagePolicyViolation retrieves a single policy violation by ID and decrypts it.
+func (c *Client) GetMessagePolicyViolation(ctx context.Context, id uint) (*types.MessagePolicyViolation, error) {
+	var v types.MessagePolicyViolation
 	if err := c.db.WithContext(ctx).Where("id = ?", id).First(&v).Error; err != nil {
 		return nil, err
 	}
 
-	if err := c.decryptPolicyViolation(ctx, &v); err != nil {
+	if err := c.decryptMessagePolicyViolation(ctx, &v); err != nil {
 		return nil, fmt.Errorf("failed to decrypt policy violation: %w", err)
 	}
 
 	return &v, nil
 }
 
-// GetPolicyViolationFilterOptions returns distinct values for a given filter field.
-func (c *Client) GetPolicyViolationFilterOptions(ctx context.Context, option string, opts PolicyViolationOptions) ([]string, error) {
-	db := c.db.WithContext(ctx).Model(&types.PolicyViolation{}).Distinct(option)
-	db = applyPolicyViolationFilters(db, opts)
+// GetMessagePolicyViolationFilterOptions returns distinct values for a given filter field.
+func (c *Client) GetMessagePolicyViolationFilterOptions(ctx context.Context, option string, opts MessagePolicyViolationOptions) ([]string, error) {
+	db := c.db.WithContext(ctx).Model(&types.MessagePolicyViolation{}).Distinct(option)
+	db = applyMessagePolicyViolationFilters(db, opts)
 
 	if opts.Limit > 0 {
 		db = db.Order(option).Limit(opts.Limit)
@@ -127,42 +127,42 @@ func (c *Client) GetPolicyViolationFilterOptions(ctx context.Context, option str
 	return result, db.Select(option).Scan(&result).Error
 }
 
-// PolicyViolationStats holds the aggregated stats returned by GetPolicyViolationStats.
-type PolicyViolationStats struct {
-	ByTime      []PolicyViolationTimeBucket    `json:"byTime"`
-	ByPolicy    []PolicyViolationPolicyCount   `json:"byPolicy"`
-	ByUser      []PolicyViolationUserCount     `json:"byUser"`
-	ByDirection PolicyViolationDirectionCounts `json:"byDirection"`
+// MessagePolicyViolationStats holds the aggregated stats returned by GetMessagePolicyViolationStats.
+type MessagePolicyViolationStats struct {
+	ByTime      []MessagePolicyViolationTimeBucket    `json:"byTime"`
+	ByPolicy    []MessagePolicyViolationPolicyCount   `json:"byPolicy"`
+	ByUser      []MessagePolicyViolationUserCount     `json:"byUser"`
+	ByDirection MessagePolicyViolationDirectionCounts `json:"byDirection"`
 }
 
-type PolicyViolationTimeBucket struct {
+type MessagePolicyViolationTimeBucket struct {
 	Time     time.Time `json:"time"`
 	Category string    `json:"category"`
 	Count    int64     `json:"count"`
 }
 
-type PolicyViolationPolicyCount struct {
+type MessagePolicyViolationPolicyCount struct {
 	PolicyID   string `json:"policyID"`
 	PolicyName string `json:"policyName"`
 	Count      int64  `json:"count"`
 }
 
-type PolicyViolationUserCount struct {
+type MessagePolicyViolationUserCount struct {
 	UserID string `json:"userID"`
 	Count  int64  `json:"count"`
 }
 
-type PolicyViolationDirectionCounts struct {
+type MessagePolicyViolationDirectionCounts struct {
 	UserMessage int64 `json:"userMessage"`
 	ToolCalls   int64 `json:"toolCalls"`
 }
 
-// GetPolicyViolationStats returns aggregated statistics for policy violations.
-func (c *Client) GetPolicyViolationStats(ctx context.Context, opts PolicyViolationOptions) (*PolicyViolationStats, error) {
-	base := c.db.WithContext(ctx).Model(&types.PolicyViolation{})
-	base = applyPolicyViolationFilters(base, opts)
+// GetMessagePolicyViolationStats returns aggregated statistics for policy violations.
+func (c *Client) GetMessagePolicyViolationStats(ctx context.Context, opts MessagePolicyViolationOptions) (*MessagePolicyViolationStats, error) {
+	base := c.db.WithContext(ctx).Model(&types.MessagePolicyViolation{})
+	base = applyMessagePolicyViolationFilters(base, opts)
 
-	stats := &PolicyViolationStats{}
+	stats := &MessagePolicyViolationStats{}
 
 	// by_policy
 	if err := base.Session(&gorm.Session{}).
@@ -203,12 +203,12 @@ func (c *Client) GetPolicyViolationStats(ctx context.Context, opts PolicyViolati
 	}
 
 	// by_time — auto-bucket based on time range
-	stats.ByTime = c.getPolicyViolationTimeBuckets(base, opts)
+	stats.ByTime = c.getMessagePolicyViolationTimeBuckets(base, opts)
 
 	return stats, nil
 }
 
-func (c *Client) getPolicyViolationTimeBuckets(base *gorm.DB, opts PolicyViolationOptions) []PolicyViolationTimeBucket {
+func (c *Client) getMessagePolicyViolationTimeBuckets(base *gorm.DB, opts MessagePolicyViolationOptions) []MessagePolicyViolationTimeBucket {
 	startTime := opts.StartTime
 	endTime := opts.EndTime
 	if startTime.IsZero() {
@@ -239,7 +239,7 @@ func (c *Client) getPolicyViolationTimeBuckets(base *gorm.DB, opts PolicyViolati
 		groupCol = "user_id"
 	}
 
-	var buckets []PolicyViolationTimeBucket
+	var buckets []MessagePolicyViolationTimeBucket
 	for t := startTime.Truncate(bucketDuration); t.Before(endTime); t = t.Add(bucketDuration) {
 		bucketEnd := t.Add(bucketDuration)
 		var rows []struct {
@@ -252,7 +252,7 @@ func (c *Client) getPolicyViolationTimeBuckets(base *gorm.DB, opts PolicyViolati
 			Group(groupCol).
 			Scan(&rows)
 		for _, row := range rows {
-			buckets = append(buckets, PolicyViolationTimeBucket{
+			buckets = append(buckets, MessagePolicyViolationTimeBucket{
 				Time:     t,
 				Category: row.Category,
 				Count:    row.Count,
@@ -263,7 +263,7 @@ func (c *Client) getPolicyViolationTimeBuckets(base *gorm.DB, opts PolicyViolati
 	return buckets
 }
 
-func applyPolicyViolationFilters(db *gorm.DB, opts PolicyViolationOptions) *gorm.DB {
+func applyMessagePolicyViolationFilters(db *gorm.DB, opts MessagePolicyViolationOptions) *gorm.DB {
 	if opts.Query != "" {
 		searchTerm := "%" + opts.Query + "%"
 		like := "LIKE"
@@ -304,17 +304,17 @@ func applyPolicyViolationFilters(db *gorm.DB, opts PolicyViolationOptions) *gorm
 
 // Encryption/decryption
 
-func (c *Client) encryptPolicyViolation(ctx context.Context, v *types.PolicyViolation) error {
+func (c *Client) encryptMessagePolicyViolation(ctx context.Context, v *types.MessagePolicyViolation) error {
 	if c.encryptionConfig == nil {
 		return nil
 	}
 
-	transformer := c.encryptionConfig.Transformers[policyViolationGroupResource]
+	transformer := c.encryptionConfig.Transformers[messagePolicyViolationGroupResource]
 	if transformer == nil {
 		return nil
 	}
 
-	dataCtx := policyViolationDataCtx(v)
+	dataCtx := messagePolicyViolationDataCtx(v)
 	var errs []error
 
 	if len(v.BlockedContent) > 0 {
@@ -330,17 +330,17 @@ func (c *Client) encryptPolicyViolation(ctx context.Context, v *types.PolicyViol
 	return errors.Join(errs...)
 }
 
-func (c *Client) decryptPolicyViolation(ctx context.Context, v *types.PolicyViolation) error {
+func (c *Client) decryptMessagePolicyViolation(ctx context.Context, v *types.MessagePolicyViolation) error {
 	if !v.Encrypted || c.encryptionConfig == nil {
 		return nil
 	}
 
-	transformer := c.encryptionConfig.Transformers[policyViolationGroupResource]
+	transformer := c.encryptionConfig.Transformers[messagePolicyViolationGroupResource]
 	if transformer == nil {
 		return nil
 	}
 
-	dataCtx := policyViolationDataCtx(v)
+	dataCtx := messagePolicyViolationDataCtx(v)
 	var errs []error
 
 	if len(v.BlockedContent) > 0 {
@@ -361,6 +361,6 @@ func (c *Client) decryptPolicyViolation(ctx context.Context, v *types.PolicyViol
 	return errors.Join(errs...)
 }
 
-func policyViolationDataCtx(v *types.PolicyViolation) value.Context {
-	return value.DefaultContext(fmt.Sprintf("%s/%s/%s", policyViolationGroupResource.String(), v.PolicyID, v.UserID))
+func messagePolicyViolationDataCtx(v *types.MessagePolicyViolation) value.Context {
+	return value.DefaultContext(fmt.Sprintf("%s/%s/%s", messagePolicyViolationGroupResource.String(), v.PolicyID, v.UserID))
 }

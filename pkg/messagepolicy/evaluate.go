@@ -34,8 +34,8 @@ type ToolCallInfo struct {
 	Arguments string
 }
 
-// PolicyViolation is the result when a message violates a policy.
-type PolicyViolation struct {
+// MessagePolicyViolation is the result when a message violates a policy.
+type MessagePolicyViolation struct {
 	PolicyID         string
 	PolicyName       string
 	PolicyDefinition string
@@ -52,7 +52,7 @@ type resolvedModel struct {
 // EvaluateMessage runs all applicable policies against a message in parallel.
 // Returns a slice of violations (empty if all policies pass). Never returns an error;
 // LLM failures are treated as violations (fail closed).
-func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolicy, conversationHistory []ConversationMessage, targetMessage string, direction types.PolicyDirection) []PolicyViolation {
+func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolicy, conversationHistory []ConversationMessage, targetMessage string, direction types.PolicyDirection) []MessagePolicyViolation {
 	if len(policies) == 0 {
 		return nil
 	}
@@ -64,9 +64,9 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolic
 	if err != nil {
 		log.Errorf("Failed to resolve llm-mini model for policy evaluation, failing closed: %v", err)
 		// If we can't resolve the model, fail closed: report a validation error for each policy.
-		var violations []PolicyViolation
+		var violations []MessagePolicyViolation
 		for _, p := range policies {
-			violations = append(violations, PolicyViolation{
+			violations = append(violations, MessagePolicyViolation{
 				PolicyID:         p.ID,
 				PolicyName:       p.Manifest.DisplayName,
 				PolicyDefinition: p.Manifest.Definition,
@@ -82,7 +82,7 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolic
 
 	var (
 		mu         sync.Mutex
-		violations []PolicyViolation
+		violations []MessagePolicyViolation
 		wg         sync.WaitGroup
 	)
 
@@ -97,7 +97,7 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolic
 				explanation := h.generateExplanation(ctx, resolved, p.Manifest, targetMessage, direction)
 
 				mu.Lock()
-				violations = append(violations, PolicyViolation{
+				violations = append(violations, MessagePolicyViolation{
 					PolicyID:         p.ID,
 					PolicyName:       p.Manifest.DisplayName,
 					PolicyDefinition: p.Manifest.Definition,

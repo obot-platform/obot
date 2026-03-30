@@ -12,27 +12,27 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 )
 
-type PolicyViolationHandler struct{}
+type MessagePolicyViolationHandler struct{}
 
-func NewPolicyViolationHandler() *PolicyViolationHandler {
-	return &PolicyViolationHandler{}
+func NewMessagePolicyViolationHandler() *MessagePolicyViolationHandler {
+	return &MessagePolicyViolationHandler{}
 }
 
-// ListPolicyViolations handles GET /api/policy-violations
-func (*PolicyViolationHandler) List(req api.Context) error {
-	opts := parsePolicyViolationOpts(req.URL.Query())
+// ListMessagePolicyViolations handles GET /api/message-policy-violations
+func (*MessagePolicyViolationHandler) List(req api.Context) error {
+	opts := parseMessagePolicyViolationOpts(req.URL.Query())
 	if opts.Limit == 0 {
 		opts.Limit = 100
 	}
 
-	violations, total, err := req.GatewayClient.GetPolicyViolations(req.Context(), opts)
+	violations, total, err := req.GatewayClient.GetMessagePolicyViolations(req.Context(), opts)
 	if err != nil {
 		return err
 	}
 
-	result := make([]types.PolicyViolation, 0, len(violations))
+	result := make([]types.MessagePolicyViolation, 0, len(violations))
 	for _, v := range violations {
-		result = append(result, types.PolicyViolation{
+		result = append(result, types.MessagePolicyViolation{
 			ID:        v.ID,
 			CreatedAt: *types.NewTime(v.CreatedAt),
 			UserID:    v.UserID,
@@ -46,16 +46,16 @@ func (*PolicyViolationHandler) List(req api.Context) error {
 		})
 	}
 
-	return req.Write(types.PolicyViolationResponse{
-		PolicyViolationList: types.PolicyViolationList{Items: result},
+	return req.Write(types.MessagePolicyViolationResponse{
+		MessagePolicyViolationList: types.MessagePolicyViolationList{Items: result},
 		Total:               total,
 		Limit:               opts.Limit,
 		Offset:              opts.Offset,
 	})
 }
 
-// GetPolicyViolation handles GET /api/policy-violations/{id}
-func (*PolicyViolationHandler) Get(req api.Context) error {
+// GetMessagePolicyViolation handles GET /api/message-policy-violations/{id}
+func (*MessagePolicyViolationHandler) Get(req api.Context) error {
 	idStr := req.PathValue("id")
 	if idStr == "" {
 		return types.NewErrBadRequest("missing policy violation id")
@@ -66,12 +66,12 @@ func (*PolicyViolationHandler) Get(req api.Context) error {
 		return types.NewErrBadRequest("invalid policy violation id: %v", err)
 	}
 
-	v, err := req.GatewayClient.GetPolicyViolation(req.Context(), uint(id))
+	v, err := req.GatewayClient.GetMessagePolicyViolation(req.Context(), uint(id))
 	if err != nil {
 		return err
 	}
 
-	result := types.PolicyViolation{
+	result := types.MessagePolicyViolation{
 		ID:                   v.ID,
 		CreatedAt:            *types.NewTime(v.CreatedAt),
 		UserID:               v.UserID,
@@ -92,8 +92,8 @@ func (*PolicyViolationHandler) Get(req api.Context) error {
 	return req.Write(result)
 }
 
-// ListFilterOptions handles GET /api/policy-violations/filter-options/{filter}
-func (*PolicyViolationHandler) ListFilterOptions(req api.Context) error {
+// ListFilterOptions handles GET /api/message-policy-violations/filter-options/{filter}
+func (*MessagePolicyViolationHandler) ListFilterOptions(req api.Context) error {
 	filter := req.PathValue("filter")
 	if filter == "" {
 		return types.NewErrBadRequest("missing filter")
@@ -111,8 +111,8 @@ func (*PolicyViolationHandler) ListFilterOptions(req api.Context) error {
 		return types.NewErrBadRequest("invalid filter: %s", filter)
 	}
 
-	opts := parsePolicyViolationOpts(req.URL.Query())
-	options, err := req.GatewayClient.GetPolicyViolationFilterOptions(req.Context(), filter, opts)
+	opts := parseMessagePolicyViolationOpts(req.URL.Query())
+	options, err := req.GatewayClient.GetMessagePolicyViolationFilterOptions(req.Context(), filter, opts)
 	if err != nil {
 		return err
 	}
@@ -124,25 +124,25 @@ func (*PolicyViolationHandler) ListFilterOptions(req api.Context) error {
 	})
 }
 
-// GetStats handles GET /api/policy-violation-stats
-func (*PolicyViolationHandler) GetStats(req api.Context) error {
-	opts := parsePolicyViolationOpts(req.URL.Query())
+// GetStats handles GET /api/message-policy-violation-stats
+func (*MessagePolicyViolationHandler) GetStats(req api.Context) error {
+	opts := parseMessagePolicyViolationOpts(req.URL.Query())
 
-	stats, err := req.GatewayClient.GetPolicyViolationStats(req.Context(), opts)
+	stats, err := req.GatewayClient.GetMessagePolicyViolationStats(req.Context(), opts)
 	if err != nil {
 		return err
 	}
 
-	return req.Write(types.PolicyViolationStats{
+	return req.Write(types.MessagePolicyViolationStats{
 		ByTime:      convertTimeBuckets(stats.ByTime),
 		ByPolicy:    convertPolicyCounts(stats.ByPolicy),
 		ByUser:      convertUserCounts(stats.ByUser),
-		ByDirection: types.PolicyViolationDirectionCounts{UserMessage: stats.ByDirection.UserMessage, ToolCalls: stats.ByDirection.ToolCalls},
+		ByDirection: types.MessagePolicyViolationDirectionCounts{UserMessage: stats.ByDirection.UserMessage, ToolCalls: stats.ByDirection.ToolCalls},
 	})
 }
 
-func parsePolicyViolationOpts(query url.Values) gateway.PolicyViolationOptions {
-	opts := gateway.PolicyViolationOptions{
+func parseMessagePolicyViolationOpts(query url.Values) gateway.MessagePolicyViolationOptions {
+	opts := gateway.MessagePolicyViolationOptions{
 		UserID:    parseMultiValue(query, "user_id"),
 		PolicyID:  parseMultiValue(query, "policy_id"),
 		Direction: parseMultiValue(query, "direction"),
@@ -203,26 +203,26 @@ func parseMultiValue(queryValues url.Values, key string) []string {
 	return result
 }
 
-func convertTimeBuckets(buckets []gateway.PolicyViolationTimeBucket) []types.PolicyViolationTimeBucket {
-	result := make([]types.PolicyViolationTimeBucket, len(buckets))
+func convertTimeBuckets(buckets []gateway.MessagePolicyViolationTimeBucket) []types.MessagePolicyViolationTimeBucket {
+	result := make([]types.MessagePolicyViolationTimeBucket, len(buckets))
 	for i, b := range buckets {
-		result[i] = types.PolicyViolationTimeBucket{Time: b.Time, Category: b.Category, Count: b.Count}
+		result[i] = types.MessagePolicyViolationTimeBucket{Time: b.Time, Category: b.Category, Count: b.Count}
 	}
 	return result
 }
 
-func convertPolicyCounts(counts []gateway.PolicyViolationPolicyCount) []types.PolicyViolationPolicyCount {
-	result := make([]types.PolicyViolationPolicyCount, len(counts))
+func convertPolicyCounts(counts []gateway.MessagePolicyViolationPolicyCount) []types.MessagePolicyViolationPolicyCount {
+	result := make([]types.MessagePolicyViolationPolicyCount, len(counts))
 	for i, c := range counts {
-		result[i] = types.PolicyViolationPolicyCount{PolicyID: c.PolicyID, PolicyName: c.PolicyName, Count: c.Count}
+		result[i] = types.MessagePolicyViolationPolicyCount{PolicyID: c.PolicyID, PolicyName: c.PolicyName, Count: c.Count}
 	}
 	return result
 }
 
-func convertUserCounts(counts []gateway.PolicyViolationUserCount) []types.PolicyViolationUserCount {
-	result := make([]types.PolicyViolationUserCount, len(counts))
+func convertUserCounts(counts []gateway.MessagePolicyViolationUserCount) []types.MessagePolicyViolationUserCount {
+	result := make([]types.MessagePolicyViolationUserCount, len(counts))
 	for i, c := range counts {
-		result[i] = types.PolicyViolationUserCount{UserID: c.UserID, Count: c.Count}
+		result[i] = types.MessagePolicyViolationUserCount{UserID: c.UserID, Count: c.Count}
 	}
 	return result
 }

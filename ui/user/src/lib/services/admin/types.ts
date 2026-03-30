@@ -888,8 +888,8 @@ export interface SkillAccessPolicyManifest {
 	resources: SkillAccessPolicyResource[];
 }
 
-// Policy Violations
-export interface PolicyViolation {
+// Message Policy Violations
+export interface MessagePolicyViolation {
 	id: number;
 	createdAt: string;
 	userID: string;
@@ -903,7 +903,7 @@ export interface PolicyViolation {
 	threadID: string;
 }
 
-export interface PolicyViolationFilters {
+export interface MessagePolicyViolationFilters {
 	user_id?: string | null;
 	policy_id?: string | null;
 	direction?: string | null;
@@ -919,31 +919,31 @@ export interface PolicyViolationFilters {
 	time_group_by?: string | null;
 }
 
-export interface PolicyViolationTimeBucket {
+export interface MessagePolicyViolationTimeBucket {
 	time: string;
 	category: string;
 	count: number;
 }
 
-export interface PolicyViolationPolicyCount {
+export interface MessagePolicyViolationPolicyCount {
 	policyID: string;
 	policyName: string;
 	count: number;
 }
 
-export interface PolicyViolationUserCount {
+export interface MessagePolicyViolationUserCount {
 	userID: string;
 	count: number;
 }
 
-export interface PolicyViolationDirectionCounts {
+export interface MessagePolicyViolationDirectionCounts {
 	userMessage: number;
 	toolCalls: number;
 }
 
-export interface PolicyViolationStats {
-	byTime: PolicyViolationTimeBucket[];
-	byPolicy: PolicyViolationPolicyCount[];
-	byUser: PolicyViolationUserCount[];
-	byDirection: PolicyViolationDirectionCounts;
+export interface MessagePolicyViolationStats {
+	byTime: MessagePolicyViolationTimeBucket[];
+	byPolicy: MessagePolicyViolationPolicyCount[];
+	byUser: MessagePolicyViolationUserCount[];
+	byDirection: MessagePolicyViolationDirectionCounts;
 }

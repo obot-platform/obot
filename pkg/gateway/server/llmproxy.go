@@ -705,11 +705,11 @@ func accumulateAnthropicToolCallInfo(data []byte, toolCalls *[]messagepolicy.Too
 
 // buildToolCallTargetMessage formats tool calls into the target message string for the policy judge.
 // logViolation persists a policy violation record. Failures are logged but non-fatal.
-func logViolation(ctx context.Context, c *client.Client, v messagepolicy.PolicyViolation, userID, direction string, blockedContent json.RawMessage, projectID, threadID string) {
+func logViolation(ctx context.Context, c *client.Client, v messagepolicy.MessagePolicyViolation, userID, direction string, blockedContent json.RawMessage, projectID, threadID string) {
 	if c == nil {
 		return
 	}
-	if err := c.LogPolicyViolation(ctx, &types.PolicyViolation{
+	if err := c.LogMessagePolicyViolation(ctx, &types.MessagePolicyViolation{
 		CreatedAt:            time.Now(),
 		UserID:               userID,
 		PolicyID:             v.PolicyID,

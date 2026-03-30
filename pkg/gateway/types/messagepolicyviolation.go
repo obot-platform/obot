@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// PolicyViolation represents a record of a message policy violation.
-type PolicyViolation struct {
+// MessagePolicyViolation represents a record of a message policy violation.
+type MessagePolicyViolation struct {
 	ID                   uint            `json:"id" gorm:"primaryKey"`
 	CreatedAt            time.Time       `json:"createdAt" gorm:"index"`
 	UserID               string          `json:"userID" gorm:"index"`

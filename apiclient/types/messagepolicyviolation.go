@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type PolicyViolation struct {
+type MessagePolicyViolation struct {
 	ID                   uint            `json:"id"`
 	CreatedAt            Time            `json:"createdAt"`
 	UserID               string          `json:"userID"`
@@ -19,40 +19,40 @@ type PolicyViolation struct {
 	ThreadID             string          `json:"threadID"`
 }
 
-type PolicyViolationList List[PolicyViolation]
+type MessagePolicyViolationList List[MessagePolicyViolation]
 
-type PolicyViolationResponse struct {
-	PolicyViolationList `json:",inline"`
+type MessagePolicyViolationResponse struct {
+	MessagePolicyViolationList `json:",inline"`
 	Total               int64 `json:"total"`
 	Limit               int   `json:"limit"`
 	Offset              int   `json:"offset"`
 }
 
-type PolicyViolationStats struct {
-	ByTime      []PolicyViolationTimeBucket    `json:"byTime"`
-	ByPolicy    []PolicyViolationPolicyCount   `json:"byPolicy"`
-	ByUser      []PolicyViolationUserCount     `json:"byUser"`
-	ByDirection PolicyViolationDirectionCounts `json:"byDirection"`
+type MessagePolicyViolationStats struct {
+	ByTime      []MessagePolicyViolationTimeBucket    `json:"byTime"`
+	ByPolicy    []MessagePolicyViolationPolicyCount   `json:"byPolicy"`
+	ByUser      []MessagePolicyViolationUserCount     `json:"byUser"`
+	ByDirection MessagePolicyViolationDirectionCounts `json:"byDirection"`
 }
 
-type PolicyViolationTimeBucket struct {
+type MessagePolicyViolationTimeBucket struct {
 	Time     time.Time `json:"time"`
 	Category string    `json:"category"`
 	Count    int64     `json:"count"`
 }
 
-type PolicyViolationPolicyCount struct {
+type MessagePolicyViolationPolicyCount struct {
 	PolicyID   string `json:"policyID"`
 	PolicyName string `json:"policyName"`
 	Count      int64  `json:"count"`
 }
 
-type PolicyViolationUserCount struct {
+type MessagePolicyViolationUserCount struct {
 	UserID string `json:"userID"`
 	Count  int64  `json:"count"`
 }
 
-type PolicyViolationDirectionCounts struct {
+type MessagePolicyViolationDirectionCounts struct {
 	UserMessage int64 `json:"userMessage"`
 	ToolCalls   int64 `json:"toolCalls"`
 }

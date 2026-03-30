@@ -3,9 +3,9 @@
 	import { AdminService } from '$lib/services';
 	import type {
 		OrgUser,
-		PolicyViolation,
-		PolicyViolationFilters,
-		PolicyViolationStats
+		MessagePolicyViolation,
+		MessagePolicyViolationFilters,
+		MessagePolicyViolationStats
 	} from '$lib/services/admin/types';
 	import { PolicyDirectionLabels, Group } from '$lib/services/admin/types';
 	import type { PolicyDirection } from '$lib/services/admin/types';
@@ -29,11 +29,11 @@
 
 	let isAuditor = $derived(profile.current.groups.includes(Group.AUDITOR));
 
-	let violations = $state<PolicyViolation[]>([]);
-	let stats = $state<PolicyViolationStats | null>(null);
+	let violations = $state<MessagePolicyViolation[]>([]);
+	let stats = $state<MessagePolicyViolationStats | null>(null);
 	let total = $state(0);
-	let selectedViolation = $state<PolicyViolation | null>(null);
-	let detailedViolation = $state<PolicyViolation | null>(null);
+	let selectedViolation = $state<MessagePolicyViolation | null>(null);
+	let detailedViolation = $state<MessagePolicyViolation | null>(null);
 	let loading = $state(true);
 
 	let startTime = $state(subDays(new Date(), 30));
@@ -58,8 +58,8 @@
 		return getUserDisplayName(users, id);
 	}
 
-	function buildFilters(): PolicyViolationFilters {
-		const filters: PolicyViolationFilters = {
+	function buildFilters(): MessagePolicyViolationFilters {
+		const filters: MessagePolicyViolationFilters = {
 			start_time: startTime.toISOString(),
 			end_time: endTime.toISOString(),
 			limit: pageLimit,
@@ -82,8 +82,8 @@
 				time_group_by: groupBy === 'group_by_user' ? 'user' : 'policy'
 			};
 			const [violationsResp, statsResp] = await Promise.all([
-				AdminService.listPolicyViolations(filters),
-				AdminService.getPolicyViolationStats(statsFilters)
+				AdminService.listMessagePolicyViolations(filters),
+				AdminService.getMessagePolicyViolationStats(statsFilters)
 			]);
 			violations = violationsResp.items ?? [];
 			total = violationsResp.total;
@@ -93,12 +93,12 @@
 		}
 	}
 
-	async function viewDetail(v: PolicyViolation) {
+	async function viewDetail(v: MessagePolicyViolation) {
 		selectedViolation = v;
 		detailedViolation = null;
 		rightSidebar?.showPopover();
 		try {
-			detailedViolation = await AdminService.getPolicyViolation(v.id);
+			detailedViolation = await AdminService.getMessagePolicyViolation(v.id);
 		} catch {
 			detailedViolation = v;
 		}
@@ -117,8 +117,8 @@
 
 	async function fetchFilterOptions() {
 		const [usersResp, policiesResp] = await Promise.all([
-			AdminService.listPolicyViolationFilterOptions('user_id'),
-			AdminService.listPolicyViolationFilterOptions('policy_name')
+			AdminService.listMessagePolicyViolationFilterOptions('user_id'),
+			AdminService.listMessagePolicyViolationFilterOptions('policy_name')
 		]);
 		userFilterOptions = usersResp ?? [];
 		const policyMap = new Map(stats?.byPolicy.map((p) => [p.policyName, p.policyID]) ?? []);
