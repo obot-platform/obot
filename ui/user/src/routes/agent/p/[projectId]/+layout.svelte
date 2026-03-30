@@ -13,6 +13,11 @@
 	import { onDestroy } from 'svelte';
 	import { PROJECT_LAYOUT_CONTEXT, type ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { clampThreadContentReportedWidth } from '$lib/utils';
+	import { responsive } from '$lib/stores';
+	import MobileDock from '../../MobileDock.svelte';
+	import { Menu, MessageCirclePlus, X } from 'lucide-svelte';
+	import Profile from '$lib/components/navbar/Profile.svelte';
+	import { resolve } from '$app/paths';
 
 	let { data, children } = $props();
 	let projectId = $derived(data.projects[0].id);
@@ -187,7 +192,7 @@
 	});
 
 	$effect(() => {
-		if (initialQuickBarAccessOpen || !sessionId) return;
+		if (initialQuickBarAccessOpen || !sessionId || responsive.isMobile) return;
 		if (chat && chat.messages.length > 0) {
 			let foundTool = false;
 			for (const message of chat.messages) {
@@ -312,13 +317,33 @@
 	disableResize
 	hideProfileButton
 	alwaysShowHeaderTitle
+	hideSidebar={responsive.isMobile}
 >
+	{#snippet leftMenu()}
+		{#if responsive.isMobile}
+			{#if layout.quickBarAccessOpen}
+				<button
+					class="btn btn-square btn-ghost"
+					onclick={() => (layout.quickBarAccessOpen = false)}
+				>
+					<X class="text-base-content size-5" />
+				</button>
+			{:else}
+				<a href={resolve('/agent')} class="btn btn-square">
+					<MessageCirclePlus class="text-base-content size-5" />
+				</a>
+			{/if}
+		{/if}
+	{/snippet}
 	{#snippet leftSidebar()}
-		<ProjectSidebar selectedSessionId={sessionId} {projectId} />
+		{#if !responsive.isMobile}
+			<ProjectSidebar selectedSessionId={sessionId} {projectId} />
+		{/if}
 	{/snippet}
 
 	<div
 		class="flex w-full min-w-0 grow"
+		class:pb-12={responsive.isMobile}
 		style={threadContentWidth > 0 ? `min-width: min(${threadContentWidth}px, 100%)` : ''}
 	>
 		{@render children?.()}
@@ -348,5 +373,24 @@
 			{agentId}
 			{projectId}
 		/>
+	{/snippet}
+
+	{#snippet rightMenu()}
+		{#if (sessionId || activeWorkflowName) && responsive.isMobile && !layout.quickBarAccessOpen}
+			<button
+				class="btn btn-square btn-ghost"
+				onclick={() => (layout.quickBarAccessOpen = !layout.quickBarAccessOpen)}
+			>
+				<Menu class="text-base-content size-5" />
+			</button>
+		{:else if responsive.isMobile}
+			<Profile {agentId} {projectId} />
+		{/if}
+	{/snippet}
+
+	{#snippet mobileDock()}
+		{#if responsive.isMobile}
+			<MobileDock {projectId} />
+		{/if}
 	{/snippet}
 </Layout>

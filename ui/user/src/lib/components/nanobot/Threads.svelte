@@ -7,6 +7,7 @@
 	import { get } from 'svelte/store';
 	import { isRecent } from '$lib/time';
 	import { parseJSON } from '$lib/services/nanobot/utils';
+	import { responsive } from '$lib/stores';
 
 	interface Props {
 		sessions: Chat[];
@@ -157,17 +158,19 @@
 </script>
 
 <div class="flex w-full grow flex-col">
-	<!-- Header -->
-	<div class="mb-2 flex flex-shrink-0 items-center justify-between gap-2 pr-3 pl-4">
-		<h2 class="text-base-content/50 text-md font-semibold">Sessions</h2>
-		<button
-			class="btn btn-square btn-ghost btn-sm tooltip tooltip-left"
-			data-tip="Start New Conversation"
-			onclick={onCreateSession}
-		>
-			<Plus class="text-base-content/50 size-6" />
-		</button>
-	</div>
+	{#if !responsive.isMobile}
+		<!-- Header -->
+		<div class="mb-2 flex flex-shrink-0 items-center justify-between gap-2 pr-3 pl-4">
+			<h2 class="text-base-content/50 text-md font-semibold">Sessions</h2>
+			<button
+				class="btn btn-square btn-ghost btn-sm tooltip tooltip-left"
+				data-tip="Start New Conversation"
+				onclick={onCreateSession}
+			>
+				<Plus class="text-base-content/50 size-6" />
+			</button>
+		</div>
+	{/if}
 
 	<!-- Thread list (scroll container so header tooltips are not clipped by overflow) -->
 	<div class="flex min-h-0 grow flex-col" bind:this={listHost}>
@@ -251,7 +254,7 @@
 					{#if editingSessionId !== session.id}
 						<!-- Dropdown menu - only show on hover -->
 						<div
-							class="dropdown dropdown-end mr-2 w-0 opacity-0 transition-[width,opacity] group-hover:w-8 group-hover:opacity-100"
+							class="dropdown dropdown-end mr-2 w-8 opacity-100 transition-[width,opacity] group-hover:w-8 group-hover:opacity-100 md:w-0 md:opacity-0"
 							class:dropdown-top={indicesNeedingDropdownTop.has(index)}
 						>
 							<div tabindex="0" role="button" class="btn btn-square btn-ghost btn-sm">
