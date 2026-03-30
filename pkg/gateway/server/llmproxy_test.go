@@ -690,7 +690,7 @@ func TestStreamAndEvaluateToolCallsSSE_TextOnly_StreamsThrough(t *testing.T) {
 		outputPolicies: []types2.MessagePolicyManifest{{DisplayName: "test"}},
 	}
 
-	go r.streamAndEvaluateToolCalls(pw)
+	go r.streamAndEvaluateToolCalls(t.Context(), pw)
 
 	result, err := io.ReadAll(pr)
 	if err != nil {
@@ -714,7 +714,7 @@ func TestStreamAndEvaluateToolCallsJSON_NoToolCalls_PassThrough(t *testing.T) {
 		outputPolicies: []types2.MessagePolicyManifest{{DisplayName: "test"}},
 	}
 
-	go r.streamAndEvaluateToolCalls(pw)
+	go r.streamAndEvaluateToolCalls(t.Context(), pw)
 
 	result, err := io.ReadAll(pr)
 	if err != nil {
@@ -757,7 +757,7 @@ func TestStreamAndEvaluateToolCallsSSE_AnthropicToolCall_Detected(t *testing.T) 
 		messagePolicyHelper: &messagepolicy.Helper{},
 	}
 
-	go r.streamAndEvaluateToolCalls(pw)
+	go r.streamAndEvaluateToolCalls(t.Context(), pw)
 
 	result, err := io.ReadAll(pr)
 	if err != nil {
@@ -799,7 +799,7 @@ func TestStreamAndEvaluateToolCallsSSE_AnthropicMultipleToolCalls(t *testing.T) 
 		messagePolicyHelper: &messagepolicy.Helper{},
 	}
 
-	go r.streamAndEvaluateToolCalls(pw)
+	go r.streamAndEvaluateToolCalls(t.Context(), pw)
 
 	result, err := io.ReadAll(pr)
 	if err != nil {
@@ -916,7 +916,7 @@ func TestStreamAndEvaluateToolCallsJSON_AnthropicToolCalls(t *testing.T) {
 		messagePolicyHelper: &messagepolicy.Helper{},
 	}
 
-	go r.streamAndEvaluateToolCalls(pw)
+	go r.streamAndEvaluateToolCalls(t.Context(), pw)
 
 	result, err := io.ReadAll(pr)
 	if err != nil {
