@@ -45,7 +45,7 @@
 			{} as Record<string, GroupRoleAssignment>
 		)
 	);
-	let query = $state(page.url.searchParams.get('query') || '');
+	let query = $derived(page.url.searchParams.get('query') || '');
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort());
 

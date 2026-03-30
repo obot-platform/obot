@@ -292,7 +292,7 @@
 		};
 	});
 
-	let query = $state(page.url.searchParams.get('query') ?? '');
+	let query = $derived(page.url.searchParams.get('query') ?? '');
 
 	// Base filters with time filters and query and pagination
 	const allFilters = $derived({

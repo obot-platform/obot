@@ -86,7 +86,7 @@
 			in:fly={{ x: 100, delay: duration, duration }}
 			out:fly={{ x: -100, duration }}
 		>
-			<CreateApiKeyForm onCreate={handleCreate} onCancel={() => (showCreateNew = false)} />
+			<CreateApiKeyForm onCreate={handleCreate} onCancel={() => goto('/admin/api-keys')} />
 		</div>
 	{:else}
 		<div class="flex flex-col gap-4">
@@ -166,7 +166,7 @@
 
 	{#snippet rightNavActions()}
 		{#if !showCreateNew && !profile.current.isAdminReadonly?.()}
-			<button class="button-primary flex items-center gap-2" onclick={showCreateForm}>
+			<button class="button-primary flex items-center gap-2 text-sm" onclick={showCreateForm}>
 				<Plus class="size-4" />
 				Create API Key
 			</button>

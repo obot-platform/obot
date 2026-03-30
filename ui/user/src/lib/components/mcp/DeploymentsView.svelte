@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -24,7 +23,6 @@
 	} from '$lib/services/chat/mcp';
 	import { profile, mcpServersAndEntries, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import { delay } from 'es-toolkit';
 	import {
@@ -583,7 +581,6 @@
 					setLastVisitedMcpServer(d);
 
 					const url = getServerUrl(d);
-					setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 					openUrl(url, isCtrlClick);
 				}}
 				{onFilter}
@@ -834,7 +831,6 @@
 									onclick={(e) => {
 										e.stopPropagation();
 										const isCtrlClick = e.ctrlKey || e.metaKey;
-										setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 										openUrl(auditLogsUrl, isCtrlClick);
 									}}
 									class="menu-button text-left"

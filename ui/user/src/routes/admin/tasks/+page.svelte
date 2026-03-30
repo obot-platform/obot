@@ -23,7 +23,6 @@
 		clearUrlParams,
 		getTableUrlParamsFilters,
 		getTableUrlParamsSort,
-		setSearchParamsToLocalStorage,
 		setSortUrlParams,
 		setFilterUrlParams
 	} from '$lib/url';
@@ -38,7 +37,7 @@
 
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
-	let query = $state(page.url.searchParams.get('query') || '');
+	let query = $derived(page.url.searchParams.get('query') || '');
 
 	let loading = $state(true);
 
@@ -131,8 +130,6 @@
 	}
 
 	function handleViewTask(task: ProjectTask, isCtrlClick: boolean) {
-		setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
-
 		const url = `/admin/tasks/${task.id}`;
 		openUrl(url, isCtrlClick);
 	}

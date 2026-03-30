@@ -13,8 +13,6 @@
 	import { Plus, Server } from 'lucide-svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { goto, replaceState } from '$lib/url';
-	import { beforeNavigate, afterNavigate } from '$app/navigation';
-	import { browser } from '$app/environment';
 	import Search from '$lib/components/Search.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp.js';
@@ -29,68 +27,27 @@
 	} from '$lib/url';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 	import { page } from '$app/state';
-	import { localState } from '$lib/runes/localState.svelte.js';
 	import { debounce } from 'es-toolkit';
 	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
 	import { onMount } from 'svelte';
 
 	let { data } = $props();
 
-	type LocalStorageViewQuery = Record<'registry', string>;
-	const localStorageViewQuery = localState<LocalStorageViewQuery>(
-		'@obot/mcp-servers/search-query',
-		{ registry: '' }
-	);
-
 	let workspaceId = $derived(data.workspace?.id);
 	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 
-	afterNavigate(({ from }) => {
-		if (browser) {
-			// If coming back from a detail page, don't show form - user just created a server
-			const comingFromDetailPage =
-				from?.url?.pathname.startsWith('/mcp-servers/c/') ||
-				from?.url?.pathname.startsWith('/mcp-servers/s/');
-
-			if (comingFromDetailPage) {
-				showServerForm = false;
-				if (page.url.searchParams.has('new')) {
-					const cleanUrl = new URL(page.url);
-					cleanUrl.searchParams.delete('new');
-					replaceState(cleanUrl, {});
-				}
-				return;
-			}
-
-			const createNewType = page.url.searchParams.get('new') as 'single' | 'multi' | 'remote';
-			if (createNewType) {
-				selectServerType(createNewType, false);
-			} else {
-				showServerForm = false;
-			}
-		}
-	});
-
-	beforeNavigate(({ to }) => {
-		if (browser && !to?.url.pathname.startsWith('/mcp-servers')) {
-			clearQueryFromLocalStorage();
-		}
-	});
-
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-	let selectedServerType = $state<LaunchServerType>();
 
 	let users = $state<OrgUser[]>([]);
-	let showServerForm = $state(false);
+	let showServerForm = $derived(page.url.searchParams.has('new'));
+	let selectedServerType = $derived(page.url.searchParams.get('new') as LaunchServerType);
 	let deletingEntry = $state<MCPCatalogEntry>();
 	let deletingServer = $state<MCPCatalogServer>();
 
-	let urlFilters = $state(getTableUrlParamsFilters());
+	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort());
 
-	let registrySearchQuery = $derived(
-		page.url.searchParams.get('query') || localStorageViewQuery.current?.registry || ''
-	);
+	let registrySearchQuery = $derived(page.url.searchParams.get('query') || '');
 
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
@@ -99,9 +56,9 @@
 	});
 
 	function selectServerType(type: LaunchServerType, updateUrl = true) {
-		selectedServerType = type;
 		selectServerTypeDialog?.close();
-		showServerForm = true;
+		setUrlParam(page.url, 'new', type);
+		replaceState(page.url, {});
 		if (updateUrl) {
 			goto(`/mcp-servers?new=${type}`, { replaceState: false });
 		}
@@ -121,28 +78,10 @@
 		clearUrlParams();
 	}
 
-	function persistQueryToLocalStorage(queryValue: string): void {
-		if (!localStorageViewQuery.current) {
-			return;
-		}
-
-		localStorageViewQuery.current.registry = queryValue;
-	}
-
-	function clearQueryFromLocalStorage(): void {
-		if (!localStorageViewQuery.current) {
-			return;
-		}
-
-		localStorageViewQuery.current.registry = '';
-	}
-
 	const updateSearchQuery = debounce((value: string) => {
 		const newUrl = new URL(page.url);
 
 		setUrlParam(newUrl, 'query', value || null);
-
-		persistQueryToLocalStorage(value);
 		navigateWithState(newUrl);
 	}, 100);
 
@@ -234,7 +173,7 @@
 			id={workspaceId}
 			entity="workspace"
 			onCancel={() => {
-				showServerForm = false;
+				goto('/mcp-servers');
 			}}
 			onSubmit={async (id, type, message) => {
 				// Determine which query param to use based on the message

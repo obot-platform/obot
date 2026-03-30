@@ -8,8 +8,6 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { goto } from '$lib/url';
-	import { beforeNavigate, afterNavigate } from '$app/navigation';
-	import { browser } from '$app/environment';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { page } from '$app/state';
@@ -22,10 +20,10 @@
 		getTableUrlParamsSort,
 		setSortUrlParams,
 		setFilterUrlParams,
-		setUrlParam
+		setUrlParam,
+		replaceState
 	} from '$lib/url';
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
-	import { localState } from '$lib/runes/localState.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
@@ -40,12 +38,6 @@
 	const { data } = $props();
 	const { workspaceId } = $derived(data);
 	const query = $derived(page.url.searchParams.get('query') || '');
-
-	type LocalStorageViewQuery = Record<View, string>;
-	const localStorageViewQuery = localState<LocalStorageViewQuery>(
-		'@obot/admin/mcp-servers/search-query',
-		{ registry: '', deployments: '', urls: '' }
-	);
 
 	let users = $state<OrgUser[]>([]);
 	let urlFilters = $state(getTableUrlParamsFilters());
@@ -85,57 +77,16 @@
 		clearUrlParams();
 	}
 
-	afterNavigate(({ from }) => {
-		if (browser) {
-			// If coming back from a detail page, don't show form - user just created a server
-			const comingFromDetailPage =
-				from?.url?.pathname.startsWith('/admin/mcp-servers/c/') ||
-				from?.url?.pathname.startsWith('/admin/mcp-servers/s/');
-
-			if (comingFromDetailPage) {
-				showServerForm = false;
-
-				// Prevent infinite navigation
-				if (page.url.searchParams.has('new')) {
-					const cleanUrl = new URL(page.url);
-					cleanUrl.searchParams.delete('new');
-					goto(cleanUrl, { replaceState: true });
-				}
-
-				return;
-			}
-
-			const createNewType = page.url.searchParams.get('new') as LaunchServerType;
-			if (createNewType) {
-				selectServerType(createNewType, false);
-			} else {
-				showServerForm = false;
-
-				// Prevent infinite navigation
-				if (page.url.searchParams.has('new')) {
-					const cleanUrl = new URL(page.url);
-					cleanUrl.searchParams.delete('new');
-					goto(cleanUrl, { replaceState: true });
-				}
-			}
-		}
-	});
-
-	beforeNavigate(({ to }) => {
-		if (browser && !to?.url.pathname.startsWith('/admin/mcp-servers')) {
-			clearQueryFromLocalStorage();
-		}
-	});
-
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	let defaultCatalog = $state<MCPCatalog>();
 	let editingSource = $state<{ index: number; value: string }>();
 	let sourceDialog = $state<HTMLDialogElement>();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-	let selectedServerType = $state<LaunchServerType>();
 
-	let showServerForm = $state(false);
+	let selectedServerType = $derived(page.url.searchParams.get('new') as LaunchServerType);
+	let showServerForm = $derived(page.url.searchParams.has('new'));
+
 	let saving = $state(false);
 	let syncing = $state(false);
 	let sourceError = $state<string>();
@@ -147,12 +98,10 @@
 	);
 
 	function selectServerType(type: LaunchServerType, updateUrl = true) {
-		selectedServerType = type;
 		selectServerTypeDialog?.close();
 		if (updateUrl) {
-			goto(resolve(`/admin/mcp-servers?new=${type}`), { replaceState: showServerForm });
+			goto(resolve(`/admin/mcp-servers?new=${type}`));
 		}
-		showServerForm = true;
 	}
 
 	function closeSourceDialog() {
@@ -187,29 +136,6 @@
 		}
 	}
 
-	// Helper function to persist query to local storage
-	function persistQueryToLocalStorage(view: View, queryValue: string): void {
-		if (!localStorageViewQuery.current) {
-			// Do nothing if local value has not loaded yet
-			return;
-		}
-
-		localStorageViewQuery.current[view] = queryValue;
-	}
-
-	function clearQueryFromLocalStorage(view?: View): void {
-		if (!localStorageViewQuery.current) {
-			// Do nothing if local value has not loaded yet
-			return;
-		}
-
-		if (view) {
-			localStorageViewQuery.current[view] = '';
-		} else {
-			localStorageViewQuery.current = { registry: '', deployments: '', urls: '' };
-		}
-	}
-
 	// Helper function to navigate with consistent options
 	function navigateWithState(url: URL): void {
 		goto(url, { replaceState: true, noScroll: true, keepFocus: true });
@@ -219,11 +145,9 @@
 		clearUrlParams(Array.from(page.url.searchParams.keys()).filter((key) => key !== 'query'));
 		view = newView;
 
-		const savedQuery = localStorageViewQuery.current?.[newView] || '';
-
 		const newUrl = new URL(page.url);
 		setUrlParam(newUrl, 'view', newView);
-		setUrlParam(newUrl, 'query', savedQuery || null);
+		setUrlParam(newUrl, 'query', null);
 
 		urlFilters = getTableUrlParamsFilters();
 
@@ -242,7 +166,6 @@
 		urlFilters = getTableUrlParamsFilters();
 		const newUrl = new URL(page.url);
 		setUrlParam(newUrl, 'query', value || null);
-		persistQueryToLocalStorage(view, value);
 		navigateWithState(newUrl);
 	};
 </script>
@@ -397,9 +320,12 @@
 			type={selectedServerType}
 			id={profile.current.isAdmin?.() ? defaultCatalogId : (workspaceId ?? '')}
 			onCancel={() => {
-				showServerForm = false;
+				goto('/admin/mcp-servers');
 			}}
 			onSubmit={async (id, type, message) => {
+				setUrlParam(page.url, 'new', null);
+				replaceState(page.url, {});
+
 				let queryParam = '?launch=true';
 				if (message === 'requires-oauth-config') {
 					queryParam = '?configure-oauth=true';
