@@ -2,6 +2,7 @@
 	import DatePicker from '$lib/components/DatePicker.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Select from '$lib/components/Select.svelte';
+	import TimeInput from '$lib/components/TimeInput.svelte';
 	import { errors } from '$lib/stores';
 	import type { ChatAPI } from '$lib/services/nanobot/chat/index.svelte';
 	import type {
@@ -20,7 +21,7 @@
 		ordinal,
 		parseCronSchedule,
 		type TaskFrequency
-	} from './scheduledTaskSchedule';
+	} from './taskSchedule';
 
 	interface Props {
 		api: ChatAPI;
@@ -51,16 +52,6 @@
 	];
 
 	const monthDays = Array.from({ length: 31 }, (_, index) => index + 1);
-	const timeOptions: SelectOption[] = Array.from({ length: 24 * 12 }, (_, index) => {
-		const hours = Math.floor(index / 12);
-		const minutes = (index % 12) * 5;
-		const value = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-		return {
-			id: value,
-			label: value
-		};
-	});
-
 	let { api, onSaved, onClose }: Props = $props();
 	const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
@@ -75,6 +66,10 @@
 	let prompt = $state('');
 	let frequency = $state<TaskFrequency>('daily');
 	let time = $state('09:00');
+	let timeAsDate = $derived.by(() => {
+		const [h, m] = time.split(':').map(Number);
+		return new Date(2000, 0, 1, h || 0, m || 0);
+	});
 	let date = $state('');
 	let expiration = $state('');
 	let timezone = $state(browserTimezone);
@@ -254,7 +249,6 @@
 	title={currentTask ? 'Edit schedule' : 'Add schedule'}
 	class="w-full max-w-3xl"
 	classes={{
-		header: 'mb-0 px-6 pt-6 md:px-8 md:pt-8',
 		title: 'text-2xl font-semibold',
 		content: 'max-h-[90dvh] overflow-y-auto px-6 pb-6 md:px-8 md:pb-8'
 	}}
@@ -401,14 +395,12 @@
 				{/if}
 
 				<div class="flex flex-col gap-2">
-					<Select
-						id="schedule-time"
-						options={timeOptions}
-						selected={time}
-						onSelect={(option) => {
-							time = option.id;
+					<TimeInput
+						date={timeAsDate}
+						onChange={(d) => {
+							time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 						}}
-						class="border-base-300 min-h-12 border px-4 py-3 text-base"
+						class="border-base-300 h-12 gap-1 rounded-lg border text-base [&>div:nth-child(2)]:text-lg"
 					/>
 				</div>
 			</div>

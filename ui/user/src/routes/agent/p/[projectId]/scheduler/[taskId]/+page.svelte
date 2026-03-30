@@ -5,7 +5,7 @@
 		formatScheduleDate,
 		formatScheduleDateTime,
 		scheduleSummary
-	} from '$lib/components/nanobot/scheduledTaskSchedule';
+	} from '$lib/components/nanobot/taskSchedule';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { errors } from '$lib/stores';
 	import type {
@@ -158,6 +158,10 @@
 		}
 	}
 </script>
+
+<svelte:head>
+	<title>Obot | {task?.name || 'Schedule'}</title>
+</svelte:head>
 
 <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 md:px-8" bind:this={taskContainer}>
 	{#if loadingTask && !task}

@@ -89,7 +89,13 @@ export function parseCronSchedule(schedule: string, expiration?: string): TaskSc
 	if (fields.length !== 5) return fallback;
 
 	const [minute, hour, dayOfMonth, month, dayOfWeek] = fields;
-	const time = `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+	// Reject cron expressions with non-numeric or out-of-range time fields (e.g. `*`, `*/5`, ranges)
+	const min = Number(minute);
+	const hr = Number(hour);
+	if (!Number.isInteger(min) || !Number.isInteger(hr) || min < 0 || min > 59 || hr < 0 || hr > 23) {
+		return fallback;
+	}
+	const time = `${String(hr).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
 
 	if (dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
 		return { ...fallback, frequency: 'daily', time };
@@ -100,9 +106,10 @@ export function parseCronSchedule(schedule: string, expiration?: string): TaskSc
 			...fallback,
 			frequency: 'weekly',
 			time,
+			// `% 7` normalizes cron day 7 (alternate Sunday) to 0
 			daysOfWeek: dayOfWeek
 				.split(',')
-				.map((value) => weekdayOrder[Number(value)] ?? value.toLowerCase())
+				.map((value) => weekdayOrder[Number(value) % 7] ?? value.toLowerCase())
 				.filter((value) => weekdayOrder.includes(value))
 		};
 	}
@@ -145,8 +152,12 @@ export function buildCronSchedule(form: TaskScheduleForm): string {
 		case 'monthly':
 			return `${Number(minute)} ${Number(hour)} ${[...form.daysOfMonth].sort((a, b) => a - b).join(',')} * *`;
 		case 'no_repeat': {
-			const [, month, day] = form.date.split('-');
-			return `${Number(minute)} ${Number(hour)} ${Number(day)} ${Number(month)} *`;
+			// Expects YYYY-MM-DD; falls back to daily-at-9 if date is missing/malformed
+			const parts = form.date.split('-');
+			const month = Number(parts[1]);
+			const day = Number(parts[2]);
+			if (!Number.isInteger(month) || !Number.isInteger(day)) return '0 9 * * *';
+			return `${Number(minute)} ${Number(hour)} ${day} ${month} *`;
 		}
 	}
 }
@@ -174,8 +185,11 @@ export function scheduleSummary(schedule: string, expiration?: string): string {
 		case 'daily':
 			return `Daily at ${time}`;
 		case 'weekly':
+			// Guard against empty weekday list producing "Weekly on at 9:00"
+			if (!parsed.daysOfWeek.length) return 'Schedule unavailable';
 			return `Weekly on ${formatWeekdaySummary(parsed.daysOfWeek)} at ${time}`;
 		case 'monthly':
+			if (!parsed.daysOfMonth.length) return 'Schedule unavailable';
 			return `Monthly on ${formatMonthDaySummary(parsed.daysOfMonth)} at ${time}`;
 		case 'no_repeat':
 			return parsed.date ? `${formatScheduleDate(parsed.date)} at ${time}` : time;

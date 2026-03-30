@@ -3,7 +3,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import ScheduledTaskDialog from '$lib/components/nanobot/ScheduledTaskDialog.svelte';
-	import { scheduleSummary } from '$lib/components/nanobot/scheduledTaskSchedule';
+	import { scheduleSummary } from '$lib/components/nanobot/taskSchedule';
 	import type {
 		ProjectLayoutContext,
 		Resource,
@@ -241,6 +241,10 @@
 		}
 	}
 </script>
+
+<svelte:head>
+	<title>Obot | Scheduler</title>
+</svelte:head>
 
 <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 md:px-8" bind:this={tasksContainer}>
 	<div class="flex items-center justify-between gap-3">
