@@ -34,6 +34,8 @@ type Client struct {
 	apiKeyCacheTTL          time.Duration
 	auditLogCleanupInterval time.Duration
 	auditLogDeleteBatchSize int
+	oktaGroupMigrationMu    sync.Mutex
+	oktaGroupMigrationDone  bool
 }
 
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays int) *Client {

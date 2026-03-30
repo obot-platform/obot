@@ -24,6 +24,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/nanobotagent"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthclients"
+	"github.com/obot-platform/obot/pkg/controller/handlers/oktagroupmigration"
 	"github.com/obot-platform/obot/pkg/controller/handlers/poweruserworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projectinvitation"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projectmcpserver"
@@ -87,6 +88,7 @@ func (c *Controller) setupRoutes() {
 	projectMCPServerHandler := projectmcpserver.NewHandler()
 	systemMCPServerHandler := systemmcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
 	nanobotAgentHandler := nanobotagent.New(c.services.GPTClient, c.services.PersistentTokenServer, c.services.GatewayClient, c.localK8sRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPLoader)
+	oktaGroupMigrationHandler := oktagroupmigration.New()
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -311,6 +313,9 @@ func (c *Controller) setupRoutes() {
 
 	// GroupRoleChange
 	root.Type(&v1.GroupRoleChange{}).HandlerFunc(powerUserWorkspaceHandler.HandleGroupRoleChange)
+
+	// OktaGroupMigration
+	root.Type(&v1.OktaGroupMigration{}).HandlerFunc(oktaGroupMigrationHandler.Migrate)
 
 	// PowerUserWorkspace
 	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(powerUserWorkspaceHandler.CreateACR)
