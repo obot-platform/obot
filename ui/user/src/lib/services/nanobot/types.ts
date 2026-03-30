@@ -20,7 +20,46 @@ export interface Chat {
 	created: string;
 	visibility?: 'public' | 'private';
 	readonly?: boolean;
+	taskURI?: string;
 	workflowURIs?: string[];
+}
+
+export interface ScheduledTask {
+	uri: string;
+	name: string;
+	prompt: string;
+	schedule: string;
+	timezone?: string;
+	expiration?: string;
+	enabled: boolean;
+	lastRunAt?: string;
+	nextRunAt?: string;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface CreateScheduledTaskRequest {
+	name: string;
+	prompt: string;
+	schedule: string;
+	timezone?: string;
+	expiration?: string;
+	enabled?: boolean;
+}
+
+export interface UpdateScheduledTaskRequest {
+	uri: string;
+	name?: string;
+	prompt?: string;
+	schedule?: string;
+	timezone?: string;
+	expiration?: string;
+	enabled?: boolean;
+}
+
+export interface StartScheduledTaskResponse {
+	sessionId: string;
+	taskURI: string;
 }
 
 export interface ChatMessage {
