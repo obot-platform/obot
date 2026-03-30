@@ -568,14 +568,18 @@
 			class="bg-base-300 hover:bg-primary w-1 cursor-col-resize transition-colors"
 			onmousedown={startResize}
 			aria-label="Resize browser viewer panel"
-			role="button"
+			role="separator"
+			aria-orientation="vertical"
+			aria-valuenow={browserViewerWidth}
+			aria-valuemin="20"
+			aria-valuemax="80"
 			tabindex="0"
 			onkeydown={(event) => {
 				if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
 					event.preventDefault();
 					const delta = event.key === 'ArrowLeft' ? -5 : 5;
-					const minWidth = 5;
-					const maxWidth = 95;
+					const minWidth = 20;
+					const maxWidth = 80;
 					let nextWidth = browserViewerWidth + delta;
 					if (nextWidth < minWidth) nextWidth = minWidth;
 					if (nextWidth > maxWidth) nextWidth = maxWidth;
