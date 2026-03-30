@@ -74,13 +74,7 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []types.MessagePo
 
 	log.Debugf("Resolved llm-mini to model=%s provider=%s", resolved.targetModel, resolved.providerURL)
 
-	// For tool call evaluation, limit context to the last user message to avoid
-	// earlier (possibly blocked) turns biasing the judge.
-	contextMessages := conversationHistory
-	if direction == types.PolicyDirectionToolCalls {
-		contextMessages = lastUserTurn(conversationHistory)
-	}
-	conversationContext := BuildConversationContext(contextMessages)
+	conversationContext := BuildConversationContext(conversationHistory)
 
 	var (
 		mu         sync.Mutex
@@ -285,8 +279,12 @@ func (h *Helper) checkCompliance(ctx context.Context, resolved *resolvedModel, p
 
 	messages := []chatMessage{
 		{
-			Role:    "system",
-			Content: "You are a policy compliance checker. You must determine whether the following message violates the given policy. Respond with exactly \"yes\" if the message is compliant, or \"no\" if it violates the policy. Do not explain your reasoning.",
+			Role: "system",
+			Content: "You are a policy compliance checker. You will be given a policy, a conversation history for context, and a final message to evaluate. " +
+				"You must determine whether the FINAL MESSAGE — and ONLY the final message — violates the given policy. " +
+				"The conversation history is provided solely for context. Even if earlier messages in the conversation violated the policy, " +
+				"that does NOT mean the final message is also in violation. Evaluate the final message on its own merits. " +
+				"Respond with exactly \"yes\" if the final message is compliant, or \"no\" if it violates the policy. Do not explain your reasoning.",
 		},
 		{
 			Role:    "user",
@@ -338,18 +336,6 @@ func (h *Helper) generateExplanation(ctx context.Context, resolved *resolvedMode
 
 	log.Debugf("Generated explanation for policy=%q", policy.DisplayName)
 	return result
-}
-
-// lastUserTurn returns only the last user message from the conversation history.
-// This prevents earlier turns (especially previously blocked requests) from biasing
-// the policy judge when evaluating new tool calls.
-func lastUserTurn(messages []ConversationMessage) []ConversationMessage {
-	for i := len(messages) - 1; i >= 0; i-- {
-		if messages[i].Role == "user" {
-			return []ConversationMessage{messages[i]}
-		}
-	}
-	return nil
 }
 
 // BuildConversationContext formats conversation history for the policy judge.
