@@ -55,6 +55,7 @@ const (
 	NanobotAgentPrefix            = "nba1"
 	ProjectV2Prefix               = "pv21"
 	PublishedArtifactPrefix       = "pa1"
+	OktaGroupMigrationPrefix      = "ogm1"
 
 	ObotMCPServerName = SystemMCPServerPrefix + "obot-mcp-server"
 )

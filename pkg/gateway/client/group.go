@@ -183,6 +183,14 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 		now            = time.Now()
 		nextGroupCheck = identity.AuthProviderGroupsLastChecked.Add(groupCheckPeriod)
 	)
+
+	// Run one-time Okta group ID migration if this is an Okta auth provider
+	if providerURL != "" && identity.AuthProviderName == "okta-auth-provider" {
+		if err := c.runOktaGroupIDMigrationOnce(ctx, providerURL, identity.AuthProviderNamespace, identity.AuthProviderName); err != nil {
+			log.Warnf("Okta group ID migration failed (will retry): %v", err)
+		}
+	}
+
 	if nextGroupCheck.After(now) || providerURL == "" {
 		groups, err := c.listUserGroups(ctx, tx, identity)
 		if err != nil {

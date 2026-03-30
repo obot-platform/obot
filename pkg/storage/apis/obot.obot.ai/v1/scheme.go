@@ -127,6 +127,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&ProjectV2List{},
 		&PublishedArtifact{},
 		&PublishedArtifactList{},
+		&OktaGroupMigration{},
+		&OktaGroupMigrationList{},
 	); err != nil {
 		return err
 	}
