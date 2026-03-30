@@ -48,6 +48,7 @@ import (
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/logutil"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
@@ -122,6 +123,7 @@ type Config struct {
 	EnableRegistryAuth      bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 	DisableLegacyChat       bool   `usage:"Disable legacy chat" default:"true"`
 	NanobotIntegration      bool   `usage:"Enable Nanobot integration" default:"true"`
+	EnableMessagePolicies   bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
 	MCPServerSearchImage    string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.1.0"`
 	NanobotAgentImage       string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/nanobot-ai/nanobot-agent:v0.0.61"`
 
@@ -192,6 +194,9 @@ type Services struct {
 	// Used for indexed lookups of model access policies.
 	ModelAccessPolicyHelper *modelaccesspolicy.Helper
 
+	// Used for indexed lookups of message policies.
+	MessagePolicyHelper *messagepolicy.Helper
+
 	// Used for indexed lookups of skill access rules.
 	SkillAccessRuleHelper *skillaccessrule.Helper
 
@@ -225,6 +230,7 @@ type Services struct {
 	RegistryNoAuth           bool
 	AutonomousToolUseEnabled bool
 	NanobotIntegration       bool
+	MessagePoliciesEnabled   bool
 	MCPServerSearchImage     string
 	NanobotAgentImage        string
 
@@ -776,6 +782,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
+	var msgPolicyHelper *messagepolicy.Helper
+	if config.EnableMessagePolicies {
+		msgPolicyHelper, err = messagepolicy.NewHelper(ctx, r.Backend(), storageClient, providerDispatcher, credOnlyGPTscriptClient)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Set up MCPWebhookValidation indexer
 	mcpWebhookValidationGVK, err := r.Backend().GroupVersionKindFor(&v1.MCPWebhookValidation{})
 	if err != nil {
@@ -842,7 +856,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	gatewayOpts := gserver.Options(config.GatewayConfig)
-	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, gatewayOpts)
+	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, msgPolicyHelper, gatewayOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -1013,6 +1027,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		},
 		AccessControlRuleHelper:       acrHelper,
 		ModelAccessPolicyHelper:       mapHelper,
+		MessagePolicyHelper:           msgPolicyHelper,
 		SkillAccessRuleHelper:         skillAccessRuleHelper,
 		WebhookHelper:                 webhookHelper,
 		LocalK8sConfig:                localK8sConfig,
@@ -1026,6 +1041,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPRemoteShimBaseImage:        config.MCPRemoteShimBaseImage,
 		RegistryNoAuth:                registryNoAuth,
 		NanobotIntegration:            config.NanobotIntegration,
+		MessagePoliciesEnabled:        config.EnableMessagePolicies,
 		MCPServerSearchImage:          config.MCPServerSearchImage,
 		NanobotAgentImage:             config.NanobotAgentImage,
 		ArtifactBlobBucket:            config.ArtifactStorageBucket,

@@ -62,6 +62,15 @@ export function parseJSON<T>(json?: string): T | null {
 	}
 }
 
+export function isPolicyViolation(content: string | undefined): boolean {
+	if (!content) return false;
+	return content.startsWith('[policy-violation]');
+}
+
+export function extractPolicyExplanation(content: string): string {
+	return content.replace(/^\[policy-violation]\s*/, '');
+}
+
 export function splitFrontmatter(markdown: string): { frontmatter: string; body: string } {
 	const trimmed = markdown.trimStart();
 	if (!trimmed.startsWith('---')) {

@@ -1,0 +1,420 @@
+<script lang="ts">
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { AdminService } from '$lib/services';
+	import {
+		type MessagePolicy,
+		type MessagePolicyManifest,
+		type AccessControlRuleSubject,
+		type OrgUser,
+		type OrgGroup,
+		type PolicyDirection,
+		PolicyDirectionLabels
+	} from '$lib/services/admin/types';
+	import { CircleHelp, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
+	import { untrack } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Table from '../table/Table.svelte';
+	import SearchUsers from './SearchUsers.svelte';
+	import Confirm from '../Confirm.svelte';
+	import Select from '../Select.svelte';
+	import { goto } from '$lib/url';
+	import { getUserDisplayName } from '$lib/utils';
+
+	interface Props {
+		messagePolicy?: MessagePolicy;
+		onCreate?: (messagePolicy: MessagePolicy) => void;
+		onUpdate?: (messagePolicy: MessagePolicy) => void;
+		readonly?: boolean;
+	}
+
+	let { messagePolicy: initialMessagePolicy, onCreate, onUpdate, readonly }: Props = $props();
+
+	const duration = PAGE_TRANSITION_DURATION;
+	let messagePolicy = $state(
+		untrack(
+			() =>
+				initialMessagePolicy ??
+				({
+					displayName: '',
+					definition: '',
+					direction: 'both' as PolicyDirection,
+					subjects: []
+				} as MessagePolicyManifest)
+		)
+	);
+
+	let saving = $state<boolean | undefined>();
+	let usersAndGroups = $state<{ users: OrgUser[]; groups: OrgGroup[] }>();
+	let loadingUsersAndGroups = $state(false);
+
+	let addUserGroupDialog = $state<ReturnType<typeof SearchUsers>>();
+
+	let deletingPolicy = $state(false);
+
+	let initialPolicyJson = $derived(
+		initialMessagePolicy
+			? JSON.stringify({
+					displayName: initialMessagePolicy.displayName,
+					definition: initialMessagePolicy.definition,
+					direction: initialMessagePolicy.direction,
+					subjects: initialMessagePolicy.subjects
+				})
+			: ''
+	);
+
+	let hasChanges = $derived(
+		!initialPolicyJson ||
+			JSON.stringify({
+				displayName: messagePolicy.displayName,
+				definition: messagePolicy.definition,
+				direction: messagePolicy.direction,
+				subjects: messagePolicy.subjects
+			}) !== initialPolicyJson
+	);
+
+	$effect(() => {
+		if (!messagePolicy.subjects || messagePolicy.subjects?.length === 0) {
+			return;
+		}
+
+		loadingUsersAndGroups = true;
+
+		const promises: [Promise<OrgUser[] | undefined>, Promise<OrgGroup[] | undefined>] = [
+			Promise.resolve(undefined),
+			Promise.resolve(undefined)
+		];
+
+		if (!usersAndGroups?.users) {
+			promises[0] = AdminService.listUsers();
+		}
+		if (!usersAndGroups?.groups) {
+			promises[1] = AdminService.listGroups({ includeRestricted: true });
+		}
+
+		Promise.all(promises)
+			.then(([users, groups]) => {
+				if (!usersAndGroups) {
+					usersAndGroups = { users: [], groups: [] };
+				}
+
+				if (users) {
+					usersAndGroups!.users = users;
+				}
+
+				if (groups) {
+					usersAndGroups!.groups = groups;
+				}
+
+				loadingUsersAndGroups = false;
+			})
+			.catch((error) => {
+				console.error('Failed to load users and groups:', error);
+				loadingUsersAndGroups = false;
+			});
+	});
+
+	function convertSubjectsToTableData(
+		subjects: AccessControlRuleSubject[],
+		users: OrgUser[],
+		groups: OrgGroup[]
+	) {
+		const userMap = new Map(users?.map((user) => [user.id, user]));
+		const groupMap = new Map(groups?.map((group) => [group.id, group]));
+
+		return (
+			subjects
+				.map((subject) => {
+					if (subject.type === 'user') {
+						return {
+							id: subject.id,
+							displayName: getUserDisplayName(userMap, subject.id),
+							type: 'User'
+						};
+					}
+
+					if (subject.type === 'group') {
+						const group = groupMap.get(subject.id);
+						if (!group) {
+							return undefined;
+						}
+
+						return {
+							id: subject.id,
+							displayName: group.name,
+							type: 'Group'
+						};
+					}
+
+					return {
+						id: subject.id,
+						displayName: subject.id === '*' ? 'All Obot Users' : subject.id,
+						type: 'Group'
+					};
+				})
+				.filter((subject) => subject !== undefined) ?? []
+		);
+	}
+
+	function validate(policy: typeof messagePolicy) {
+		if (!policy) return false;
+
+		return (
+			policy.displayName.length > 0 &&
+			policy.definition.length > 0 &&
+			(['user-message', 'tool-calls', 'both'] as PolicyDirection[]).includes(policy.direction) &&
+			(policy.subjects?.length ?? 0) > 0
+		);
+	}
+
+	const directionOptions: { id: string; label: string }[] = Object.entries(
+		PolicyDirectionLabels
+	).map(([id, label]) => ({ id, label }));
+</script>
+
+<div
+	class="flex h-full w-full flex-col gap-4"
+	out:fly={{ x: 100, duration }}
+	in:fly={{ x: 100, delay: duration }}
+>
+	<div class="flex grow flex-col gap-4" out:fly={{ x: -100, duration }} in:fly={{ x: -100 }}>
+		{#if messagePolicy.id}
+			<div class="flex w-full items-center justify-between gap-4">
+				<div class="flex items-center gap-2">
+					<h1 class="flex items-center gap-4 text-2xl font-semibold">
+						{messagePolicy.displayName}
+					</h1>
+				</div>
+				{#if !readonly}
+					<button
+						class="button-destructive flex items-center gap-1 text-xs font-normal"
+						use:tooltip={'Delete Policy'}
+						onclick={() => {
+							deletingPolicy = true;
+						}}
+					>
+						<Trash2 class="size-4" />
+					</button>
+				{/if}
+			</div>
+		{/if}
+
+		<div
+			class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
+		>
+			<div class="flex flex-col gap-6">
+				{#if !messagePolicy.id}
+					<div class="flex flex-col gap-2">
+						<label for="message-policy-name" class="flex-1 text-sm font-light capitalize">
+							Name
+						</label>
+						<input
+							id="message-policy-name"
+							bind:value={messagePolicy.displayName}
+							class="text-input-filled mt-0.5"
+							disabled={readonly}
+						/>
+					</div>
+				{/if}
+
+				<div class="flex flex-col gap-2">
+					<label
+						for="message-policy-definition"
+						class="flex items-center gap-1 text-sm font-light capitalize"
+					>
+						Definition
+						<div
+							use:tooltip={{
+								text: 'A natural language rule that describes what should or should not be allowed. Be as specific and clear as possible to ensure consistent enforcement.',
+								classes: ['w-72', 'break-normal', 'whitespace-pre-wrap', 'z-[60]']
+							}}
+						>
+							<CircleHelp class="text-on-surface1 size-3.5" />
+						</div>
+					</label>
+					<textarea
+						id="message-policy-definition"
+						bind:value={messagePolicy.definition}
+						class="text-input-filled mt-0.5 min-h-24 resize-y"
+						placeholder="Natural language policy definition, e.g. 'Do not allow the user to book travel above economy class'"
+						disabled={readonly}
+						rows="3"
+					></textarea>
+				</div>
+
+				<div class="flex flex-col gap-2">
+					<label for="message-policy-direction" class="flex-1 text-sm font-light capitalize">
+						Applies to
+					</label>
+					<Select
+						id="message-policy-direction"
+						options={directionOptions}
+						selected={messagePolicy.direction}
+						onSelect={(option) => {
+							messagePolicy.direction = option.id as PolicyDirection;
+						}}
+						disabled={readonly}
+						class="text-input-filled mt-0.5"
+					/>
+				</div>
+			</div>
+		</div>
+
+		<div class="flex flex-col gap-2">
+			<div class="mb-2 flex items-center justify-between">
+				<h2 class="text-lg font-semibold">Users & Groups</h2>
+				{#if !readonly}
+					<div class="relative flex items-center gap-4">
+						{#if loadingUsersAndGroups}
+							<button class="button-primary flex items-center gap-1 text-sm" disabled>
+								<Plus class="size-4" /> Add User/Group
+							</button>
+						{:else}
+							<button
+								class="button-primary flex items-center gap-1 text-sm"
+								onclick={() => {
+									addUserGroupDialog?.open();
+								}}
+							>
+								<Plus class="size-4" /> Add User/Group
+							</button>
+						{/if}
+					</div>
+				{/if}
+			</div>
+			{#if loadingUsersAndGroups}
+				<div class="my-2 flex items-center justify-center">
+					<LoaderCircle class="size-6 animate-spin" />
+				</div>
+			{:else}
+				{@const tableData = convertSubjectsToTableData(
+					messagePolicy.subjects ?? [],
+					usersAndGroups?.users ?? [],
+					usersAndGroups?.groups ?? []
+				)}
+				<Table
+					data={tableData}
+					fields={['displayName', 'type']}
+					headers={[{ property: 'displayName', title: 'Name' }]}
+					noDataMessage="No users or groups added."
+				>
+					{#snippet actions(d)}
+						{#if !readonly}
+							<button
+								class="icon-button hover:text-red-500"
+								onclick={() => {
+									messagePolicy.subjects = messagePolicy.subjects?.filter(
+										(subject) => subject.id !== d.id
+									);
+								}}
+								use:tooltip={'Delete User/Group'}
+							>
+								<Trash2 class="size-4" />
+							</button>
+						{/if}
+					{/snippet}
+				</Table>
+			{/if}
+		</div>
+	</div>
+	{#if !readonly}
+		<div
+			class="bg-surface1 text-on-surface1 dark:bg-background sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4"
+			out:fly={{ x: -100, duration }}
+			in:fly={{ x: -100 }}
+		>
+			<div class="flex w-full justify-end gap-2">
+				{#if !messagePolicy.id}
+					<button
+						class="button text-sm"
+						onclick={() => {
+							goto('/admin/message-policies');
+						}}
+					>
+						Cancel
+					</button>
+					<button
+						class="button-primary text-sm"
+						disabled={!validate(messagePolicy) || saving}
+						onclick={async () => {
+							saving = true;
+							try {
+								const response = await AdminService.createMessagePolicy(messagePolicy);
+								messagePolicy = response;
+								onCreate?.(response);
+							} finally {
+								saving = false;
+							}
+						}}
+					>
+						{#if saving}
+							<LoaderCircle class="size-4 animate-spin" />
+						{:else}
+							Save
+						{/if}
+					</button>
+				{:else}
+					<button
+						class="button-primary text-sm"
+						disabled={!validate(messagePolicy) || !hasChanges || saving}
+						onclick={async () => {
+							if (!messagePolicy.id) return;
+							saving = true;
+							try {
+								const response = await AdminService.updateMessagePolicy(
+									messagePolicy.id,
+									messagePolicy
+								);
+								messagePolicy = response;
+								onUpdate?.(response);
+							} finally {
+								saving = false;
+							}
+						}}
+					>
+						{#if saving}
+							<LoaderCircle class="size-4 animate-spin" />
+						{:else}
+							Update
+						{/if}
+					</button>
+				{/if}
+			</div>
+		</div>
+	{/if}
+</div>
+
+<SearchUsers
+	bind:this={addUserGroupDialog}
+	filterIds={messagePolicy.subjects?.map((subject) => subject.id) ?? []}
+	onAdd={async (users: OrgUser[], groups: OrgGroup[]) => {
+		const existingSubjectIds = new Set(messagePolicy.subjects?.map((subject) => subject.id) ?? []);
+		const newSubjects = [
+			...users
+				.filter((user: OrgUser) => !existingSubjectIds.has(user.id))
+				.map((user: OrgUser) => ({
+					type: 'user' as const,
+					id: user.id
+				})),
+			...groups
+				.filter((group: OrgGroup) => !existingSubjectIds.has(group.id))
+				.map((group: OrgGroup) => ({
+					type: group.id === '*' ? ('selector' as const) : ('group' as const),
+					id: group.id
+				}))
+		];
+		messagePolicy.subjects = [...(messagePolicy.subjects ?? []), ...newSubjects];
+	}}
+/>
+
+<Confirm
+	msg={`Delete ${messagePolicy.displayName || 'this policy'}?`}
+	show={deletingPolicy}
+	onsuccess={async () => {
+		if (!messagePolicy.id) return;
+		saving = true;
+		await AdminService.deleteMessagePolicy(messagePolicy.id);
+		goto('/admin/message-policies');
+	}}
+	oncancel={() => (deletingPolicy = false)}
+/>
