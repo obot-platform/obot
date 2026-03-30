@@ -355,6 +355,14 @@ export function formatFileTime(timestamp: unknown): FileTimeResult {
 	return { date, formatted };
 }
 
+export function clampThreadContentReportedWidth(widthPx: number): number {
+	const rounded = Math.round(Math.max(0, widthPx));
+	if (typeof window === 'undefined') return rounded;
+	const viewportWidth =
+		window.visualViewport?.width ?? document.documentElement?.clientWidth ?? window.innerWidth;
+	return Math.min(rounded, viewportWidth);
+}
+
 export const isAgentEnabled = (defaultModelAliases?: DefaultModelAlias[]) =>
 	defaultModelAliases &&
 	defaultModelAliases.length > 0 &&

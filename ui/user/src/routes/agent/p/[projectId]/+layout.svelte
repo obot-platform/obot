@@ -12,6 +12,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import { onDestroy } from 'svelte';
 	import { PROJECT_LAYOUT_CONTEXT, type ProjectLayoutContext } from '$lib/services/nanobot/types';
+	import { clampThreadContentReportedWidth } from '$lib/utils';
 
 	let { data, children } = $props();
 	let projectId = $derived(data.projects[0].id);
@@ -43,7 +44,7 @@
 	const layout = nanobotLayout.getLayout();
 	const projectLayoutContext = $state<ProjectLayoutContext>({
 		handleFileOpen,
-		setThreadContentWidth: (w: number) => (threadContentWidth = w),
+		setThreadContentWidth: (w: number) => (threadContentWidth = clampThreadContentReportedWidth(w)),
 		setLayoutName: (name: string) => (layoutName = name),
 		setShowBackButton: (show: boolean) => (showBackButton = show),
 		get browserAvailable() {
@@ -314,7 +315,7 @@
 
 	<div
 		class="flex w-full min-w-0 grow"
-		style={threadContentWidth > 0 ? `min-width: ${threadContentWidth}px` : ''}
+		style={threadContentWidth > 0 ? `min-width: min(${threadContentWidth}px, 100%)` : ''}
 	>
 		{@render children?.()}
 	</div>

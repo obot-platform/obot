@@ -20,9 +20,10 @@
 	import Messages from './Messages.svelte';
 	import AgentHeader from './AgentHeader.svelte';
 	import { ChevronDown, Upload } from 'lucide-svelte';
-	import type { Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
+	import { clampThreadContentReportedWidth } from '$lib/utils';
 
 	interface Props {
 		messages: ChatMessage[];
@@ -108,6 +109,7 @@
 	);
 
 	const SCROLL_THRESHOLD = 10;
+	const CONTENT_WIDTH_NOTIFY_EPSILON = 6;
 
 	function startResize(e: MouseEvent) {
 		isResizing = true;
@@ -240,34 +242,65 @@
 		const container = messagesContainer;
 		const inner = messagesContentInner ?? container;
 		if (!container || !inner) return;
-		void lastMessageContentKey;
 
+		let scrollRaf = 0;
 		const ro = new ResizeObserver(() => {
-			if (!container) return;
-			if (scrollToBottomWhenReady) {
-				container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
-				scrollToBottomWhenReady = false;
-			}
-			if (disabledAutoScroll) return;
-			if (isLoading || isNearBottom()) {
-				container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
-			}
+			if (scrollRaf) cancelAnimationFrame(scrollRaf);
+			scrollRaf = requestAnimationFrame(() => {
+				scrollRaf = 0;
+				if (!container) return;
+				if (scrollToBottomWhenReady) {
+					container.scrollTo({ top: container.scrollHeight, behavior: 'auto' });
+					scrollToBottomWhenReady = false;
+				}
+				if (disabledAutoScroll) return;
+				if (!isLoading && !isNearBottom()) return;
+				const sh = container.scrollHeight;
+				const ch = container.clientHeight;
+				const st = container.scrollTop;
+				const gap = sh - ch - st;
+				if (gap <= SCROLL_THRESHOLD) return;
+				container.scrollTo({ top: sh, behavior: 'auto' });
+			});
 		});
 		ro.observe(inner);
-		return () => ro.disconnect();
+		return () => {
+			ro.disconnect();
+			if (scrollRaf) cancelAnimationFrame(scrollRaf);
+		};
 	});
 
 	$effect(() => {
 		const inner = messagesContentInner;
-		if (!inner || !onContentWidthChange) return;
+		if (!inner) return;
 
-		const ro = new ResizeObserver((entries) => {
-			const entry = entries[0];
-			if (entry) onContentWidthChange(entry.contentRect.width);
+		const notify = onContentWidthChange;
+		if (!notify) return;
+
+		let lastRounded = -1;
+		let widthRaf = 0;
+
+		const flushWidth = () => {
+			widthRaf = 0;
+			const capped = clampThreadContentReportedWidth(inner.getBoundingClientRect().width);
+			if (lastRounded >= 0) {
+				if (capped === lastRounded) return;
+				if (Math.abs(capped - lastRounded) < CONTENT_WIDTH_NOTIFY_EPSILON) return;
+			}
+			lastRounded = capped;
+			untrack(() => notify?.(capped));
+		};
+
+		const ro = new ResizeObserver(() => {
+			if (widthRaf) cancelAnimationFrame(widthRaf);
+			widthRaf = requestAnimationFrame(flushWidth);
 		});
 		ro.observe(inner);
-		onContentWidthChange(inner.getBoundingClientRect().width);
-		return () => ro.disconnect();
+		flushWidth();
+		return () => {
+			ro.disconnect();
+			if (widthRaf) cancelAnimationFrame(widthRaf);
+		};
 	});
 
 	// Track processed tool call IDs to avoid re-triggering file open (non-reactive object)
@@ -534,8 +567,25 @@
 		<div
 			class="bg-base-300 hover:bg-primary w-1 cursor-col-resize transition-colors"
 			onmousedown={startResize}
+			aria-label="Resize browser viewer panel"
 			role="separator"
-			aria-label="Resize browser viewer"
+			aria-orientation="vertical"
+			aria-valuenow={browserViewerWidth}
+			aria-valuemin="20"
+			aria-valuemax="80"
+			tabindex="0"
+			onkeydown={(event) => {
+				if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+					event.preventDefault();
+					const delta = event.key === 'ArrowLeft' ? -5 : 5;
+					const minWidth = 20;
+					const maxWidth = 80;
+					let nextWidth = browserViewerWidth + delta;
+					if (nextWidth < minWidth) nextWidth = minWidth;
+					if (nextWidth > maxWidth) nextWidth = maxWidth;
+					browserViewerWidth = nextWidth;
+				}
+			}}
 		></div>
 	{/if}
 
