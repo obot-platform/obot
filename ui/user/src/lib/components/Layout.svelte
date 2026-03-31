@@ -686,7 +686,12 @@
 				{/snippet}
 				{#snippet centerContent()}
 					{#if (layout.sidebarOpen && !hideSidebar) || alwaysShowHeaderTitle}
-						<div class="mx-6 flex w-full items-center gap-2" class:ml-4={showBackButton}>
+						<div
+							class={twMerge(
+								'flex w-full items-center gap-2',
+								showBackButton ? 'md:ml-4' : 'md:mx-6'
+							)}
+						>
 							{@render layoutHeaderContent()}
 						</div>
 					{/if}
@@ -786,7 +791,7 @@
 	{#if title}
 		<h1
 			class={twMerge(
-				'w-full text-xl font-semibold',
+				'text-xl font-semibold md:w-full',
 				!layout.sidebarOpen && classes?.noSidebarTitle
 			)}
 		>

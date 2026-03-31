@@ -117,8 +117,12 @@
 	let columnHeaders = $derived([
 		{ property: 'name', title: 'Name' },
 		{ property: 'size', title: 'Size' },
-		{ property: 'lastModified', title: 'Last Modified' },
-		...(responsive.isMobile ? [] : [{ property: 'uri', title: 'Location' }])
+		...(responsive.isMobile
+			? []
+			: [
+					{ property: 'lastModified', title: 'Last Modified' },
+					{ property: 'uri', title: 'Location' }
+				])
 	]);
 
 	let fileTree = $derived(buildFileTreeSimple(resourceFiles));
@@ -373,20 +377,22 @@
 										{formatFileSize(node.size ?? 0)}
 									</p></td
 								>
-								<td
-									><p class="truncate text-nowrap break-all">
-										{node.lastModified?.formatted || '-'}
-									</p></td
-								>
-								<td>
-									<div class="w-full min-w-0">
-										<p
-											class="text-base-content/50 w-full min-w-0 truncate text-sm font-light break-all italic"
-										>
-											{node.uri}
-										</p>
-									</div>
-								</td>
+								{#if !responsive.isMobile}
+									<td
+										><p class="truncate text-nowrap break-all">
+											{node.lastModified?.formatted || '-'}
+										</p></td
+									>
+									<td>
+										<div class="w-full min-w-0">
+											<p
+												class="text-base-content/50 w-full min-w-0 truncate text-sm font-light break-all italic"
+											>
+												{node.uri}
+											</p>
+										</div>
+									</td>
+								{/if}
 							</tr>
 						{/if}
 					{/each}
