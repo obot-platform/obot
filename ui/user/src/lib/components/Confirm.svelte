@@ -13,9 +13,11 @@
 		msgContent?: Snippet;
 		classes?: {
 			confirm?: string;
+			body?: string;
 			dialog?: string;
 			icon?: string;
 			iconContainer?: string;
+			actions?: string;
 		};
 		title?: string;
 		type?: 'delete' | 'info';
@@ -60,7 +62,7 @@
 				<X class="size-5" />
 			</button>
 		</div>
-		<div class="flex flex-col items-center justify-center gap-2 p-4 pt-0">
+		<div class={twMerge('flex flex-col items-center justify-center gap-2 p-4 pt-0', classes?.body)}>
 			{#if msgContent}
 				{@render msgContent()}
 			{:else}
@@ -91,7 +93,10 @@
 			</div>
 
 			<div
-				class="flex w-full flex-col items-center justify-center gap-2 md:flex-row md:justify-end"
+				class={twMerge(
+					'flex w-full flex-col items-center justify-center gap-2 md:flex-row md:justify-end',
+					classes?.actions
+				)}
 			>
 				{#if onsuccess}
 					<button
