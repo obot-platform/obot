@@ -9,6 +9,7 @@ resources:
       - mcpoauthtokens.obot.obot.ai
       - mcpoauthpendingstates.obot.obot.ai
       - mcpauditlogs.obot.obot.ai
+      - policyviolations.obot.obot.ai
     providers:
       - kms:
           apiVersion: v2

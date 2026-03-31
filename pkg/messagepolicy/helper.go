@@ -57,10 +57,16 @@ func NewHelper(ctx context.Context, backend backend.Backend, client kclient.Clie
 	}, nil
 }
 
-// GetApplicablePolicies returns all MessagePolicyManifests that apply to the given user and direction.
-func (h *Helper) GetApplicablePolicies(user kuser.Info, direction types.PolicyDirection) ([]types.MessagePolicyManifest, error) {
+// ApplicablePolicy pairs a policy's Kubernetes resource name with its manifest.
+type ApplicablePolicy struct {
+	ID       string // Kubernetes resource name (e.g., "mp1-abc123")
+	Manifest types.MessagePolicyManifest
+}
+
+// GetApplicablePolicies returns all policies that apply to the given user and direction.
+func (h *Helper) GetApplicablePolicies(user kuser.Info, direction types.PolicyDirection) ([]ApplicablePolicy, error) {
 	seen := make(map[string]struct{})
-	var result []types.MessagePolicyManifest
+	var result []ApplicablePolicy
 
 	collect := func(policies []v1.MessagePolicy) {
 		for _, p := range policies {
@@ -70,7 +76,10 @@ func (h *Helper) GetApplicablePolicies(user kuser.Info, direction types.PolicyDi
 			d := p.Spec.Manifest.Direction
 			if d == direction || d == types.PolicyDirectionBoth {
 				seen[p.Name] = struct{}{}
-				result = append(result, p.Spec.Manifest)
+				result = append(result, ApplicablePolicy{
+					ID:       p.Name,
+					Manifest: p.Spec.Manifest,
+				})
 			}
 		}
 	}

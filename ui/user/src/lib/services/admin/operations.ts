@@ -59,7 +59,10 @@ import type {
 	SkillAccessPolicy,
 	SkillAccessPolicyManifest,
 	MessagePolicy,
-	MessagePolicyManifest
+	MessagePolicyManifest,
+	MessagePolicyViolation,
+	MessagePolicyViolationFilters,
+	MessagePolicyViolationStats
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -1490,4 +1493,57 @@ export async function deleteSkillAccessPolicy(
 	opts?: { signal?: AbortSignal }
 ): Promise<void> {
 	await doDelete(`/skill-access-rules/${id}`, opts);
+}
+
+// Message Policy Violations
+
+function buildMessagePolicyViolationParams(filters?: MessagePolicyViolationFilters): string {
+	if (!filters) return '';
+	const params = new URLSearchParams();
+	for (const [key, value] of Object.entries(filters)) {
+		if (value != null && value !== '') {
+			params.set(key, String(value));
+		}
+	}
+	const str = params.toString();
+	return str ? `?${str}` : '';
+}
+
+export async function listMessagePolicyViolations(
+	filters?: MessagePolicyViolationFilters,
+	opts?: { fetch?: Fetcher }
+): Promise<PaginatedResponse<MessagePolicyViolation>> {
+	return (await doGet(
+		`/message-policy-violations${buildMessagePolicyViolationParams(filters)}`,
+		opts
+	)) as PaginatedResponse<MessagePolicyViolation>;
+}
+
+export async function getMessagePolicyViolation(
+	id: number | string,
+	opts?: { fetch?: Fetcher }
+): Promise<MessagePolicyViolation> {
+	return (await doGet(`/message-policy-violations/${id}`, opts)) as MessagePolicyViolation;
+}
+
+export async function listMessagePolicyViolationFilterOptions(
+	filter: string,
+	filters?: MessagePolicyViolationFilters,
+	opts?: { fetch?: Fetcher }
+): Promise<string[]> {
+	const response = (await doGet(
+		`/message-policy-violations/filter-options/${filter}${buildMessagePolicyViolationParams(filters)}`,
+		opts
+	)) as { options: string[] };
+	return response.options ?? [];
+}
+
+export async function getMessagePolicyViolationStats(
+	filters?: MessagePolicyViolationFilters,
+	opts?: { fetch?: Fetcher }
+): Promise<MessagePolicyViolationStats> {
+	return (await doGet(
+		`/message-policy-violation-stats${buildMessagePolicyViolationParams(filters)}`,
+		opts
+	)) as MessagePolicyViolationStats;
 }
