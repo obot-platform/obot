@@ -113,7 +113,7 @@
 		return undefined;
 	}
 
-	let columnCount = $derived(responsive.isMobile ? 3 : 4);
+	let columnCount = $derived(responsive.isMobile ? 2 : 4);
 	let columnHeaders = $derived([
 		{ property: 'name', title: 'Name' },
 		{ property: 'size', title: 'Size' },
