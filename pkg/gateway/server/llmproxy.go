@@ -548,14 +548,21 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw
 	})
 	violationLine := fmt.Sprintf("data: %s\n\n", violationJSON)
 
-	// Flush buffered lines, injecting the violation marker before [DONE].
+	// Flush buffered lines, injecting the violation marker before the stream terminator.
+	// OpenAI Responses API ends with response.completed; Anthropic ends with content_block_stop.
 	injected := false
 	for _, line := range buffered {
 		if !injected {
 			rest, isData := bytes.CutPrefix(line, []byte("data: "))
-			if isData && bytes.Equal(bytes.TrimSpace(rest), []byte("[DONE]")) {
-				_, _ = pw.Write([]byte(violationLine))
-				injected = true
+			if isData {
+				trimmed := bytes.TrimSpace(rest)
+				eventType := gjson.GetBytes(trimmed, "type").String()
+				isResponsesCompleted := eventType == "response.completed"
+				isAnthropicStop := eventType == "content_block_stop"
+				if isResponsesCompleted || isAnthropicStop {
+					_, _ = pw.Write([]byte(violationLine))
+					injected = true
+				}
 			}
 		}
 		_, _ = pw.Write(line)
