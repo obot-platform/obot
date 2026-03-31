@@ -176,6 +176,7 @@
 				goto('/mcp-servers');
 			}}
 			onSubmit={async (id, type, message) => {
+				clearUrlParams(['new']);
 				// Determine which query param to use based on the message
 				let queryParam = '?launch=true';
 				if (message === 'requires-oauth-config') {
