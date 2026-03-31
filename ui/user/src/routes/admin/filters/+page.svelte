@@ -22,17 +22,19 @@
 		setFilterUrlParams,
 		goto
 	} from '$lib/url';
+	import { untrack } from 'svelte';
 
 	let showCreateFilter = $derived(page.url.searchParams.has('new'));
 	let loading = $state(false);
 	let filterToDelete = $state<MCPFilter>();
+	let { data } = $props();
 
-	let filters = $state<MCPFilter[]>([]);
+	let filters = $state<MCPFilter[]>(untrack(() => data?.filters ?? []));
+	let query = $derived(page.url.searchParams.get('query') || '');
 	let filteredFilters = $derived(
 		filters.filter((filter) => filter.name?.toLowerCase().includes(query.toLowerCase()))
 	);
 
-	let query = $state('');
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort());
 
