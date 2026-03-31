@@ -6532,8 +6532,7 @@ func schema_obot_platform_obot_apiclient_types_MessagePolicyViolationTimeBucket(
 				Properties: map[string]spec.Schema{
 					"time": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "date-time",
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
 					"category": {
@@ -6554,6 +6553,8 @@ func schema_obot_platform_obot_apiclient_types_MessagePolicyViolationTimeBucket(
 				Required: []string{"time", "category", "count"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
