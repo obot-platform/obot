@@ -124,6 +124,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MessagePolicy":                                  schema_obot_platform_obot_apiclient_types_MessagePolicy(ref),
 		"github.com/obot-platform/obot/apiclient/types.MessagePolicyList":                              schema_obot_platform_obot_apiclient_types_MessagePolicyList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MessagePolicyManifest":                          schema_obot_platform_obot_apiclient_types_MessagePolicyManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolation":                         schema_obot_platform_obot_apiclient_types_MessagePolicyViolation(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationDirectionCounts":          schema_obot_platform_obot_apiclient_types_MessagePolicyViolationDirectionCounts(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationList":                     schema_obot_platform_obot_apiclient_types_MessagePolicyViolationList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationPolicyCount":              schema_obot_platform_obot_apiclient_types_MessagePolicyViolationPolicyCount(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationResponse":                 schema_obot_platform_obot_apiclient_types_MessagePolicyViolationResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationStats":                    schema_obot_platform_obot_apiclient_types_MessagePolicyViolationStats(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationTimeBucket":               schema_obot_platform_obot_apiclient_types_MessagePolicyViolationTimeBucket(ref),
+		"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationUserCount":                schema_obot_platform_obot_apiclient_types_MessagePolicyViolationUserCount(ref),
 		"github.com/obot-platform/obot/apiclient/types.Metadata":                                       schema_obot_platform_obot_apiclient_types_Metadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.Model":                                          schema_obot_platform_obot_apiclient_types_Model(ref),
 		"github.com/obot-platform/obot/apiclient/types.ModelAccessPolicy":                              schema_obot_platform_obot_apiclient_types_ModelAccessPolicy(ref),
@@ -6226,6 +6234,354 @@ func schema_obot_platform_obot_apiclient_types_MessagePolicyManifest(ref common.
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Subject"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MessagePolicyViolation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"policyID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"policyName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"policyDefinition": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"direction": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"violationExplanation": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"blockedContent": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"projectID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"threadID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"id", "createdAt", "userID", "policyID", "policyName", "policyDefinition", "direction", "violationExplanation", "projectID", "threadID"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MessagePolicyViolationDirectionCounts(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"userMessage": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"toolCalls": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"userMessage", "toolCalls"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MessagePolicyViolationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MessagePolicyViolation"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolation"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MessagePolicyViolationPolicyCount(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"policyID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"policyName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"count": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"policyID", "policyName", "count"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MessagePolicyViolationResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MessagePolicyViolation"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolation"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MessagePolicyViolationStats(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"byTime": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationTimeBucket"),
+									},
+								},
+							},
+						},
+					},
+					"byPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationPolicyCount"),
+									},
+								},
+							},
+						},
+					},
+					"byUser": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationUserCount"),
+									},
+								},
+							},
+						},
+					},
+					"byDirection": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationDirectionCounts"),
+						},
+					},
+				},
+				Required: []string{"byTime", "byPolicy", "byUser", "byDirection"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationDirectionCounts", "github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationPolicyCount", "github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationTimeBucket", "github.com/obot-platform/obot/apiclient/types.MessagePolicyViolationUserCount"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MessagePolicyViolationTimeBucket(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"time": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"category": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"count": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"time", "category", "count"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MessagePolicyViolationUserCount(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"count": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"userID", "count"},
+			},
+		},
 	}
 }
 

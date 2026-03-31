@@ -80,6 +80,9 @@ var (
 		"/api/model-access-policies/",
 		"/api/message-policies",
 		"/api/message-policies/",
+		"/api/message-policy-violations",
+		"/api/message-policy-violations/",
+		"GET /api/message-policy-violation-stats",
 		"/api/available-models",
 		"/api/available-models/",
 		"/api/default-model-aliases",
@@ -195,6 +198,11 @@ var (
 			"GET /api/skills",
 			"GET /api/skills/{id}",
 			"GET /api/skills/{id}/download",
+			"GET /api/message-policy-violations",
+			"GET /api/message-policy-violations/",
+			"GET /api/message-policy-violations/filter-options/{filter}",
+			"GET /api/message-policy-violations/{id}",
+			"GET /api/message-policy-violation-stats",
 		},
 		anyGroup: {
 			// Allow access to the oauth2 endpoints

@@ -34,10 +34,13 @@ type ToolCallInfo struct {
 	Arguments string
 }
 
-// PolicyViolation is the result when a message violates a policy.
-type PolicyViolation struct {
-	PolicyName  string
-	Explanation string
+// MessagePolicyViolation is the result when a message violates a policy.
+// nolint:revive
+type MessagePolicyViolation struct {
+	PolicyID         string
+	PolicyName       string
+	PolicyDefinition string
+	Explanation      string
 }
 
 // resolvedModel holds pre-resolved model provider information to avoid redundant lookups.
@@ -50,7 +53,7 @@ type resolvedModel struct {
 // EvaluateMessage runs all applicable policies against a message in parallel.
 // Returns a slice of violations (empty if all policies pass). Never returns an error;
 // LLM failures are treated as violations (fail closed).
-func (h *Helper) EvaluateMessage(ctx context.Context, policies []types.MessagePolicyManifest, conversationHistory []ConversationMessage, targetMessage string, direction types.PolicyDirection) []PolicyViolation {
+func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolicy, conversationHistory []ConversationMessage, targetMessage string, direction types.PolicyDirection) []MessagePolicyViolation {
 	if len(policies) == 0 {
 		return nil
 	}
@@ -62,11 +65,13 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []types.MessagePo
 	if err != nil {
 		log.Errorf("Failed to resolve llm-mini model for policy evaluation, failing closed: %v", err)
 		// If we can't resolve the model, fail closed: report a validation error for each policy.
-		var violations []PolicyViolation
+		var violations []MessagePolicyViolation
 		for _, p := range policies {
-			violations = append(violations, PolicyViolation{
-				PolicyName:  p.DisplayName,
-				Explanation: fmt.Sprintf("An error occurred while validating the message against the policy %q. The message has been blocked as a precaution.", p.DisplayName),
+			violations = append(violations, MessagePolicyViolation{
+				PolicyID:         p.ID,
+				PolicyName:       p.Manifest.DisplayName,
+				PolicyDefinition: p.Manifest.Definition,
+				Explanation:      fmt.Sprintf("An error occurred while validating the message against the policy %q. The message has been blocked as a precaution.", p.Manifest.DisplayName),
 			})
 		}
 		return violations
@@ -78,28 +83,30 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []types.MessagePo
 
 	var (
 		mu         sync.Mutex
-		violations []PolicyViolation
+		violations []MessagePolicyViolation
 		wg         sync.WaitGroup
 	)
 
 	for _, policy := range policies {
 		wg.Add(1)
-		go func(p types.MessagePolicyManifest) {
+		go func(p ApplicablePolicy) {
 			defer wg.Done()
 
-			compliant := h.checkCompliance(ctx, resolved, p, conversationContext, targetMessage)
+			compliant := h.checkCompliance(ctx, resolved, p.Manifest, conversationContext, targetMessage)
 			if !compliant {
-				log.Warnf("Policy violation detected: policy=%q", p.DisplayName)
-				explanation := h.generateExplanation(ctx, resolved, p, targetMessage, direction)
+				log.Warnf("Policy violation detected: policy=%q", p.Manifest.DisplayName)
+				explanation := h.generateExplanation(ctx, resolved, p.Manifest, targetMessage, direction)
 
 				mu.Lock()
-				violations = append(violations, PolicyViolation{
-					PolicyName:  p.DisplayName,
-					Explanation: explanation,
+				violations = append(violations, MessagePolicyViolation{
+					PolicyID:         p.ID,
+					PolicyName:       p.Manifest.DisplayName,
+					PolicyDefinition: p.Manifest.Definition,
+					Explanation:      explanation,
 				})
 				mu.Unlock()
 			} else {
-				log.Debugf("Message compliant with policy=%q", p.DisplayName)
+				log.Debugf("Message compliant with policy=%q", p.Manifest.DisplayName)
 			}
 		}(policy)
 	}

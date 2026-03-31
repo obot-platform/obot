@@ -22,7 +22,7 @@ func TestGetApplicablePoliciesDirectUserMatch(t *testing.T) {
 	policies, err := helper.GetApplicablePolicies(testUser("user1"), types.PolicyDirectionUserMessage)
 	require.NoError(t, err)
 	require.Len(t, policies, 1)
-	assert.Equal(t, "No PII", policies[0].Definition)
+	assert.Equal(t, "No PII", policies[0].Manifest.Definition)
 }
 
 func TestGetApplicablePoliciesWildcardSubject(t *testing.T) {
@@ -45,7 +45,7 @@ func TestGetApplicablePoliciesGroupMatch(t *testing.T) {
 	policies, err := helper.GetApplicablePolicies(testUser("user1", "eng"), types.PolicyDirectionUserMessage)
 	require.NoError(t, err)
 	require.Len(t, policies, 1)
-	assert.Equal(t, "Economy only", policies[0].Definition)
+	assert.Equal(t, "Economy only", policies[0].Manifest.Definition)
 }
 
 func TestGetApplicablePoliciesDirectionFiltering(t *testing.T) {
@@ -65,7 +65,7 @@ func TestGetApplicablePoliciesDirectionFiltering(t *testing.T) {
 
 	defs := make(map[string]bool)
 	for _, p := range policies {
-		defs[p.Definition] = true
+		defs[p.Manifest.Definition] = true
 	}
 	assert.True(t, defs["Input only"])
 	assert.True(t, defs["Both directions"])
@@ -78,7 +78,7 @@ func TestGetApplicablePoliciesDirectionFiltering(t *testing.T) {
 
 	defs = make(map[string]bool)
 	for _, p := range policies {
-		defs[p.Definition] = true
+		defs[p.Manifest.Definition] = true
 	}
 	assert.True(t, defs["Output only"])
 	assert.True(t, defs["Both directions"])
@@ -140,7 +140,7 @@ func TestGetApplicablePoliciesMultipleGroups(t *testing.T) {
 	policies, err = helper.GetApplicablePolicies(testUser("user1", "eng"), types.PolicyDirectionUserMessage)
 	require.NoError(t, err)
 	require.Len(t, policies, 1)
-	assert.Equal(t, "Eng policy", policies[0].Definition)
+	assert.Equal(t, "Eng policy", policies[0].Manifest.Definition)
 }
 
 // --- test helpers ---

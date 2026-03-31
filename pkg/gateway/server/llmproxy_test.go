@@ -687,7 +687,7 @@ func TestStreamAndEvaluateToolCallsSSE_TextOnly_StreamsThrough(t *testing.T) {
 		stream:         true,
 		b:              bufio.NewReader(strings.NewReader(stream)),
 		c:              io.NopCloser(strings.NewReader("")),
-		outputPolicies: []types2.MessagePolicyManifest{{DisplayName: "test"}},
+		outputPolicies: []messagepolicy.ApplicablePolicy{{ID: "test", Manifest: types2.MessagePolicyManifest{DisplayName: "test"}}},
 	}
 
 	go r.streamAndEvaluateToolCalls(t.Context(), pw)
@@ -711,7 +711,7 @@ func TestStreamAndEvaluateToolCallsJSON_NoToolCalls_PassThrough(t *testing.T) {
 		stream:         false,
 		b:              bufio.NewReader(strings.NewReader(body)),
 		c:              io.NopCloser(strings.NewReader("")),
-		outputPolicies: []types2.MessagePolicyManifest{{DisplayName: "test"}},
+		outputPolicies: []messagepolicy.ApplicablePolicy{{ID: "test", Manifest: types2.MessagePolicyManifest{DisplayName: "test"}}},
 	}
 
 	go r.streamAndEvaluateToolCalls(t.Context(), pw)
