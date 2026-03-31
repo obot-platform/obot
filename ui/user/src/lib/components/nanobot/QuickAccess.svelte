@@ -19,6 +19,7 @@
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { responsive } from '$lib/stores';
 
 	interface Props {
 		onToggle?: () => void;
@@ -220,7 +221,13 @@
 <div
 	class={twMerge(
 		'bg-base-100 border-base-300 h-[100dvh] w-18 min-w-18 overflow-y-auto border-l',
-		open && 'w-sm min-w-sm'
+		responsive.isMobile
+			? open
+				? 'fixed top-0 left-0 h-[calc(100dvh-3.5rem)] w-full max-w-full'
+				: 'hidden'
+			: open
+				? 'w-sm min-w-sm'
+				: ''
 	)}
 >
 	<div
@@ -341,7 +348,7 @@
 				{@render listThreadFiles(true)}
 			{/if}
 			<div class="flex grow"></div>
-			{#if onToggle}
+			{#if onToggle && !responsive.isMobile}
 				<div
 					class={twMerge(
 						'sticky right-0 bottom-2 flex flex-shrink-0',

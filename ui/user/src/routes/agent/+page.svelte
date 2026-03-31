@@ -3,13 +3,16 @@
 	import * as nanobotLayout from '$lib/context/nanobotLayout.svelte';
 	import ProjectSidebar from './ProjectSidebar.svelte';
 	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
-	import ThreadQuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
+	import QuickAccess from '$lib/components/nanobot/QuickAccess.svelte';
 	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { get } from 'svelte/store';
 	import { goto } from '$lib/url';
 	import { clampThreadContentReportedWidth, randomUUID } from '$lib/utils';
 	import type { Attachment, UploadedFile } from '$lib/services/nanobot/types';
+	import { responsive } from '$lib/stores';
+	import MobileDock from './MobileDock.svelte';
+	import Profile from '$lib/components/navbar/Profile.svelte';
 
 	let { data } = $props();
 	let projects = $derived(data.projects);
@@ -88,10 +91,13 @@
 	}}
 	whiteBackground
 	disableResize
-	hideProfileButton
+	hideProfileButton={!responsive.isMobile}
+	hideSidebar={responsive.isMobile}
 >
 	{#snippet leftSidebar()}
-		<ProjectSidebar projectId={projects[0].id} />
+		{#if !responsive.isMobile}
+			<ProjectSidebar projectId={projects[0].id} />
+		{/if}
 	{/snippet}
 
 	<div
@@ -178,13 +184,25 @@
 	</div>
 
 	{#snippet rightSidebar()}
-		<ThreadQuickAccess
+		<QuickAccess
 			{projectId}
 			agentId={agent.id}
 			{browserAvailable}
 			{browserViewerOpen}
 			onToggleBrowserViewer={() => (browserViewerOpen = !browserViewerOpen)}
 		/>
+	{/snippet}
+
+	{#snippet rightMenu()}
+		{#if responsive.isMobile}
+			<Profile agentId={agent.id} {projectId} />
+		{/if}
+	{/snippet}
+
+	{#snippet mobileDock()}
+		{#if responsive.isMobile}
+			<MobileDock {projectId} />
+		{/if}
 	{/snippet}
 </Layout>
 

@@ -249,7 +249,7 @@
 <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 md:px-8" bind:this={tasksContainer}>
 	<div class="flex items-center justify-between gap-3">
 		<div class="flex items-center gap-1">
-			<h2 class="text-2xl font-semibold">Scheduler</h2>
+			<h2 class="text-xl font-semibold md:text-2xl">Scheduler</h2>
 			{#if loading}
 				<div class="loading loading-spinner loading-sm text-primary ml-2"></div>
 			{/if}

@@ -6,7 +6,7 @@
 	import { getContext } from 'svelte';
 	import type { ProjectLayoutContext, PublishedArtifactVersion } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import { errors, profile } from '$lib/stores/index.js';
+	import { errors, profile, responsive } from '$lib/stores';
 	import type { PublishedArtifact } from '$lib/services/nanobot/types';
 	import { formatTimeAgo } from '$lib/time.js';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -276,12 +276,12 @@
 </script>
 
 <div
-	class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 md:px-8"
+	class="mx-auto flex w-full max-w-4xl flex-col gap-6 overflow-x-hidden px-4 md:px-8"
 	bind:this={workflowsContainer}
 >
 	<div>
 		<div class="flex items-center gap-1">
-			<h2 class="text-2xl font-semibold">Workflows</h2>
+			<h2 class="text-xl font-semibold md:text-2xl">Workflows</h2>
 			{#if loading}
 				<div class="loading loading-spinner text-primary loading-sm ml-2"></div>
 			{/if}
@@ -416,14 +416,14 @@
 		<thead>
 			<tr>
 				<th>Name</th>
-				{#if activeTab === 'my' || showingSearchResults}
+				{#if (activeTab === 'my' || showingSearchResults) && !responsive.isMobile}
 					<th>Last Published</th>
 				{/if}
 				{#if activeTab === 'shared' || showingSearchResults}
 					<th>Owner</th>
 				{/if}
 				<th class="flex justify-end">
-					<select class="select w-42" bind:value={sortBy}>
+					<select class="select w-32 md:w-42" bind:value={sortBy}>
 						<option value="" disabled>Sort by</option>
 						<option value="created-desc">Sort by Created (Newest)</option>
 						<option value="created-asc">Sort by Created (Oldest)</option>
@@ -459,7 +459,7 @@
 						}}
 					>
 						<td>{workflow.name}</td>
-						{#if activeTab === 'my' || showingSearchResults}
+						{#if (activeTab === 'my' || showingSearchResults) && !responsive.isMobile}
 							<td class="capitalize">
 								{#if workflow.published}
 									{formatTimeAgo(workflow.published).relativeTime}

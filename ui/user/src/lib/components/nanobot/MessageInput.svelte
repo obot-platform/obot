@@ -220,7 +220,7 @@
 
 	<form onsubmit={handleSubmit}>
 		<div
-			class="rounded-t-selector border-base-200 bg-base-100 focus-within:border-primary md:rounded-selector space-y-3 border-2 p-3 transition-colors"
+			class="border-base-200 bg-base-100 focus-within:border-primary rounded-selector space-y-3 border-2 p-3 transition-colors"
 		>
 			<!-- Top row: Full-width input -->
 			<textarea

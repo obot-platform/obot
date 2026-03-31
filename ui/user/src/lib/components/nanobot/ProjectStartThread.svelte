@@ -60,16 +60,16 @@
 				{#snippet emptyStateContent()}
 					<div class="flex flex-col items-center gap-4 px-5 pb-5 md:pb-0">
 						<div class="flex flex-col items-center gap-1">
-							<h1 class="w-xs text-center text-3xl font-semibold md:w-full">
+							<h1 class="w-full text-center text-xl font-semibold md:text-3xl">
 								What would you like to work on?
 							</h1>
-							<p class="text-base-content/50 text-md text-center font-light">
+							<p class="text-base-content/50 md:text-md text-center text-sm font-light">
 								Choose an entry point or begin a conversation to get started.
 							</p>
 						</div>
 						<div class="flex w-full flex-col items-center justify-center gap-4 md:flex-row">
 							<button
-								class="bg-base-200 dark:border-base-300 rounded-field hover:bg-base-300 col-span-1 h-full p-4 text-left shadow-sm md:w-70"
+								class="bg-base-200 dark:border-base-300 rounded-field hover:bg-base-300 col-span-1 h-full w-full p-4 text-left shadow-sm md:w-70"
 								onclick={() => {
 									chat?.sendMessage('I want to design an AI workflow. Help me get started.');
 								}}
@@ -81,7 +81,7 @@
 								</p>
 							</button>
 							<button
-								class="bg-base-200 dark:border-base-300 rounded-field hover:bg-base-300 col-span-1 h-full p-4 text-left shadow-sm md:w-70"
+								class="bg-base-200 dark:border-base-300 rounded-field hover:bg-base-300 col-span-1 h-full w-full p-4 text-left shadow-sm md:w-70"
 								onclick={() => {
 									chat?.sendMessage(
 										'Help me understand what you can do. Explain your capabilities and suggest a few things we could try.'

@@ -18,6 +18,7 @@
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
 	import { afterNavigate } from '$app/navigation';
 	import { formatFileSize, formatFileTime } from '$lib/utils';
+	import { responsive } from '$lib/stores';
 
 	let resourceFiles = $derived(
 		$nanobotChat?.resources
@@ -112,12 +113,12 @@
 		return undefined;
 	}
 
-	let columnCount = $derived(4);
+	let columnCount = $derived(responsive.isMobile ? 3 : 4);
 	let columnHeaders = $derived([
 		{ property: 'name', title: 'Name' },
 		{ property: 'size', title: 'Size' },
 		{ property: 'lastModified', title: 'Last Modified' },
-		{ property: 'uri', title: 'Location' }
+		...(responsive.isMobile ? [] : [{ property: 'uri', title: 'Location' }])
 	]);
 
 	let fileTree = $derived(buildFileTreeSimple(resourceFiles));
@@ -258,7 +259,10 @@
 	});
 </script>
 
-<div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 md:px-8" bind:this={filesContainer}>
+<div
+	class="mx-auto flex w-full max-w-full flex-col gap-6 overflow-x-hidden px-4 md:max-w-4xl md:px-8"
+	bind:this={filesContainer}
+>
 	<div class="mt-1 flex items-center justify-between gap-2">
 		<label class="input w-full">
 			<Search class="size-6" />
@@ -266,7 +270,8 @@
 		</label>
 		<button
 			class={twMerge(
-				'btn btn-square tooltip tooltip-bottom',
+				'btn btn-square tooltip',
+				responsive.isMobile ? 'tooltip-left' : 'tooltip-bottom',
 				view === 'list' ? 'btn-soft btn-primary' : 'btn-ghost'
 			)}
 			onclick={() => (view = 'list')}
@@ -276,7 +281,8 @@
 		</button>
 		<button
 			class={twMerge(
-				'btn btn-square tooltip tooltip-bottom',
+				'btn btn-square tooltip',
+				responsive.isMobile ? 'tooltip-left' : 'tooltip-bottom',
 				view === 'tree' ? 'btn-soft btn-primary' : 'btn-ghost'
 			)}
 			onclick={() => (view = 'tree')}
@@ -287,7 +293,7 @@
 	</div>
 	<div class="flex items-center justify-between gap-4">
 		<div class="flex items-center gap-1">
-			<h2 class="text-2xl font-semibold">Files</h2>
+			<h2 class="text-xl font-semibold md:text-2xl">Files</h2>
 			{#if loading}
 				<div class="loading loading-spinner text-primary loading-sm"></div>
 			{/if}

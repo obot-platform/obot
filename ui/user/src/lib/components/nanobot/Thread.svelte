@@ -24,6 +24,7 @@
 	import { slide, fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import { clampThreadContentReportedWidth } from '$lib/utils';
+	import { responsive } from '$lib/stores';
 
 	interface Props {
 		messages: ChatMessage[];
@@ -407,7 +408,10 @@
 </script>
 
 <div
-	class="flex h-[calc(100dvh-4rem)] w-full flex-row transition-transform md:relative peer-[.workspace]:md:w-1/4"
+	class={twMerge(
+		'flex h-[calc(100dvh-4rem)] w-full flex-row transition-transform md:relative peer-[.workspace]:md:w-1/4',
+		responsive.isMobile ? 'h-[calc(100dvh-8rem-env(safe-area-inset-bottom,0px))]' : ''
+	)}
 	onmousemove={resize}
 	ondragenter={handleDragEnter}
 	ondragleave={handleDragLeave}
@@ -481,10 +485,16 @@
 		<!-- Message input - centered when no messages, bottom when messages exist or when empty state is suppressed -->
 		<div
 			class={twMerge(
-				'absolute top-auto right-0 bottom-0 left-0 flex flex-col transition-all duration-500 ease-in-out',
+				'absolute right-0 left-0 flex flex-col transition-all duration-500 ease-in-out',
 				pinInputToBottom
-					? 'bg-base-100/80 ' + (questionElicitation ? 'h-full' : 'backdrop-blur-xs')
-					: 'top-1/2 -translate-y-1/2'
+					? 'bg-base-100/80 top-auto bottom-0 ' +
+							(questionElicitation ? 'h-full' : 'backdrop-blur-xs')
+					: twMerge(
+							'bottom-auto -translate-y-1/2',
+							responsive.isMobile
+								? 'top-[calc(50%-min(1.0rem,4vh)-min(0.5rem,env(safe-area-inset-bottom,0px)))]'
+								: 'top-1/2'
+						)
 			)}
 		>
 			{#if pinInputToBottom}
@@ -529,7 +539,7 @@
 					</div>
 				</div>
 			{/if}
-			<div class="relative z-10 mx-auto w-full max-w-4xl">
+			<div class="relative z-10 mx-auto w-full max-w-4xl px-2">
 				{#if questionElicitation}
 					{#key questionElicitation.id}
 						<div class="elicitation-slide-in mb-8">
