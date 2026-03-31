@@ -121,8 +121,10 @@
 					{#if showLoadingIndicator}
 						<div class="flex w-full items-start gap-3">
 							<div class="flex min-w-0 flex-1 flex-col items-start">
-								<div class="flex items-center justify-center p-8">
-									<span class="loading loading-lg loading-spinner text-base-content/30"></span>
+								<div class="flex items-center justify-center px-4 py-3">
+									<span class="skeleton skeleton-text bg-transparent text-xs font-light italic"
+										>Thinking...</span
+									>
 								</div>
 							</div>
 						</div>

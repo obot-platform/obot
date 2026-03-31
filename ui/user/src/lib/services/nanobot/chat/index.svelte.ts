@@ -325,6 +325,7 @@ export class ChatSession {
 	private getAgents: (() => Promise<Agents>) | undefined;
 	private closer = () => {};
 	private history: ChatMessage[] | undefined;
+	private suppressChatDoneUntilPostHistoryMessage = false;
 	private onChatDone: (() => void)[] = [];
 	private currentRequestId: string | undefined;
 	private subscribed = false;
@@ -412,6 +413,7 @@ export class ChatSession {
 		this.resources = [];
 		this.elicitations = [];
 		this.history = undefined;
+		this.suppressChatDoneUntilPostHistoryMessage = false;
 		if (!opts?.preserveLoading) {
 			this.isLoading = false;
 		}
@@ -641,6 +643,7 @@ export class ChatSession {
 					if (this.history) {
 						this.history = appendMessage(this.history, event.message);
 					} else {
+						this.suppressChatDoneUntilPostHistoryMessage = false;
 						this.messages = appendMessage(this.messages, event.message);
 					}
 				} else if (event.type === 'history-start') {
@@ -653,6 +656,7 @@ export class ChatSession {
 					this.messages = [...fromServer, ...preserved];
 					this.history = undefined;
 					this.isRestoring = false;
+					this.suppressChatDoneUntilPostHistoryMessage = fromServer.length === 0;
 				} else if (event.type === 'chat-in-progress') {
 					this.isLoading = true;
 				} else if (event.type === 'input-replaced') {
@@ -677,11 +681,17 @@ export class ChatSession {
 						}
 					}
 				} else if (event.type === 'chat-done') {
-					this.isLoading = false;
-					for (const waiting of this.onChatDone) {
-						waiting();
+					if (this.suppressChatDoneUntilPostHistoryMessage) {
+						return;
 					}
+					const waiting = [...this.onChatDone];
 					this.onChatDone = [];
+					for (const w of waiting) {
+						w();
+					}
+					if (waiting.length === 0 && !this.currentRequestId) {
+						this.isLoading = false;
+					}
 				} else if (event.type === 'error') {
 					this.isLoading = false;
 					this.subscribed = false;

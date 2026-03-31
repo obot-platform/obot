@@ -143,7 +143,7 @@
 		<!-- Don't print anything for tool calls -->
 	{:else if message.role === 'user'}
 		<div class="group flex w-full justify-end">
-			<div class="max-w-md">
+			<div class="max-w-md md:max-w-3/4">
 				<div class="flex flex-col items-end">
 					<div class="rounded-box bg-base-200 mt-4 p-2">
 						{#if viewableMessageItems.length > 0}

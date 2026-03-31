@@ -41,7 +41,6 @@
 	let titleInterval: ReturnType<typeof setInterval> | null = null;
 	let titleIntervalAttempts = 0;
 	const MAX_TITLE_INTERVAL_ATTEMPTS = 5;
-
 	const layout = nanobotLayout.getLayout();
 	const projectLayoutContext = $state<ProjectLayoutContext>({
 		handleFileOpen,
@@ -224,10 +223,19 @@
 		if (chat?.chatId === currentSessionId) return;
 
 		const storedChat = $nanobotChat;
-		const sameProject = storedChat?.projectId === currentProjectId;
-		const sessionMatches = storedChat?.sessionId === currentSessionId;
-		if (sameProject && sessionMatches && !chat && storedChat?.chat) {
-			chat = storedChat?.chat;
+		const sameLiveSession =
+			storedChat?.projectId === currentProjectId &&
+			!!currentSessionId &&
+			storedChat.chat?.chatId === currentSessionId;
+
+		if (sameLiveSession && storedChat.chat) {
+			const live = storedChat.chat;
+			untrack(() => {
+				if (chat && chat !== live) {
+					chat.close();
+				}
+				chat = live;
+			});
 			return;
 		}
 
@@ -263,6 +271,10 @@
 				});
 			});
 		} else if (storedChat?.chat) {
+			const tidParam = page.url.searchParams.get('tid');
+			if (tidParam && storedChat.chat.chatId === tidParam) {
+				return;
+			}
 			nanobotChat.update((data) => {
 				if (data) {
 					data.chat = undefined;
