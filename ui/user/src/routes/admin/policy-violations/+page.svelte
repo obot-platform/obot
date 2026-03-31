@@ -7,9 +7,8 @@
 		MessagePolicyViolationFilters,
 		MessagePolicyViolationStats
 	} from '$lib/services/admin/types';
-	import { PolicyDirectionLabels, Group } from '$lib/services/admin/types';
+	import { PolicyDirectionLabels } from '$lib/services/admin/types';
 	import type { PolicyDirection } from '$lib/services/admin/types';
-	import { profile } from '$lib/stores';
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { subDays, set } from 'date-fns';
