@@ -35,6 +35,7 @@ type ToolCallInfo struct {
 }
 
 // MessagePolicyViolation is the result when a message violates a policy.
+// nolint:revive
 type MessagePolicyViolation struct {
 	PolicyID         string
 	PolicyName       string
