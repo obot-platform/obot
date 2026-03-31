@@ -324,7 +324,7 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 		resp.Header.Set("X-Obot-Message-Policy-Replacement", r.inputPolicyReplacement)
 	}
 
-	if resp.StatusCode != http.StatusOK || (resp.Request.URL.Path != "/v1/chat/completions" && resp.Request.URL.Path != "/v1/messages" && resp.Request.URL.Path != "/v1/responses") {
+	if resp.StatusCode != http.StatusOK || (resp.Request.URL.Path != "/v1/messages" && resp.Request.URL.Path != "/v1/responses") {
 		return nil
 	}
 
@@ -397,7 +397,6 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 func (r *responseModifier) extractTokenUsage(line []byte) {
 	// Extract token usage from all known locations.
 	// Providers nest usage differently:
-	//   - OpenAI Chat Completions: top-level "usage"
 	//   - Anthropic message_start: "message.usage"
 	//   - Anthropic message_delta: top-level "usage" (cumulative)
 	//   - OpenAI Responses API:    "response.usage"
@@ -574,23 +573,13 @@ func (r *responseModifier) streamAndEvaluateToolCallsJSON(ctx context.Context, p
 
 	r.extractTokenUsage(body)
 
-	// OpenAI Chat Completions format: choices.0.message.tool_calls
-	tcResult := gjson.GetBytes(body, "choices.0.message.tool_calls")
 	// Anthropic format: content array with type "tool_use"
 	anthropicContent := gjson.GetBytes(body, "content")
 	// OpenAI Responses API format: output array with type "function_call"
 	responsesOutput := gjson.GetBytes(body, "output")
 
 	var toolCalls []messagepolicy.ToolCallInfo
-	if tcResult.Exists() && len(tcResult.Array()) > 0 {
-		tcResult.ForEach(func(_, tc gjson.Result) bool {
-			toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{
-				Name:      tc.Get("function.name").String(),
-				Arguments: tc.Get("function.arguments").String(),
-			})
-			return true
-		})
-	} else if responsesOutput.Exists() {
+	if responsesOutput.Exists() {
 		responsesOutput.ForEach(func(_, item gjson.Result) bool {
 			if item.Get("type").String() == "function_call" {
 				toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{
@@ -785,37 +774,39 @@ func parseMessagesFromBody(rawMessages []any) ([]messagepolicy.ConversationMessa
 			continue
 		}
 
+		itemType, _ := msg["type"].(string)
+
+		// OpenAI Responses API: top-level function_call items.
+		if itemType == "function_call" {
+			name, _ := msg["name"].(string)
+			arguments, _ := msg["arguments"].(string)
+			history = append(history, messagepolicy.ConversationMessage{
+				Role: "assistant",
+				ToolCalls: []messagepolicy.ToolCallInfo{
+					{Name: name, Arguments: arguments},
+				},
+			})
+			continue
+		}
+
+		// OpenAI Responses API: top-level function_call_output items.
+		if itemType == "function_call_output" {
+			callID, _ := msg["call_id"].(string)
+			output, _ := msg["output"].(string)
+			history = append(history, messagepolicy.ConversationMessage{
+				Role:       "tool",
+				Content:    output,
+				ToolCallID: callID,
+			})
+			continue
+		}
+
 		role, _ := msg["role"].(string)
 		content := extractContentString(msg["content"])
 
 		cm := messagepolicy.ConversationMessage{
 			Role:    role,
 			Content: content,
-		}
-
-		// Parse tool_call_id for tool messages.
-		if toolCallID, ok := msg["tool_call_id"].(string); ok {
-			cm.ToolCallID = toolCallID
-		}
-
-		// Parse tool_calls for assistant messages.
-		if toolCalls, ok := msg["tool_calls"].([]any); ok {
-			for _, tc := range toolCalls {
-				tcMap, ok := tc.(map[string]any)
-				if !ok {
-					continue
-				}
-				fn, _ := tcMap["function"].(map[string]any)
-				if fn == nil {
-					continue
-				}
-				name, _ := fn["name"].(string)
-				arguments, _ := fn["arguments"].(string)
-				cm.ToolCalls = append(cm.ToolCalls, messagepolicy.ToolCallInfo{
-					Name:      name,
-					Arguments: arguments,
-				})
-			}
 		}
 
 		history = append(history, cm)

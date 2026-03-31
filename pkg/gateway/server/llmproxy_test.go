@@ -20,11 +20,10 @@ func TestModifyResponse_PathFiltering(t *testing.T) {
 		statusCode  int
 		wantWrapped bool
 	}{
-		{"chat completions", "/v1/chat/completions", http.StatusOK, true},
 		{"anthropic messages", "/v1/messages", http.StatusOK, true},
 		{"openai responses", "/v1/responses", http.StatusOK, true},
 		{"unknown path", "/v1/embeddings", http.StatusOK, false},
-		{"non-200 status", "/v1/chat/completions", http.StatusBadRequest, false},
+		{"non-200 status", "/v1/messages", http.StatusBadRequest, false},
 	}
 
 	for _, tt := range tests {
@@ -50,32 +49,6 @@ func TestModifyResponse_PathFiltering(t *testing.T) {
 				t.Error("expected response body to remain unwrapped")
 			}
 		})
-	}
-}
-
-func TestResponseModifier_OpenAIChatCompletions(t *testing.T) {
-	// Streaming chat completions format
-	stream := "data: {\"model\":\"gpt-4o\",\"usage\":{\"prompt_tokens\":10,\"completion_tokens\":20,\"total_tokens\":30}}\n"
-
-	r := &responseModifier{
-		stream: true,
-		b:      bufio.NewReader(strings.NewReader(stream)),
-		c:      io.NopCloser(strings.NewReader("")),
-	}
-
-	buf := make([]byte, 4096)
-	if _, err := r.Read(buf); err != nil {
-		t.Fatal(err)
-	}
-
-	if r.promptTokens != 10 {
-		t.Errorf("promptTokens = %d, want 10", r.promptTokens)
-	}
-	if r.completionTokens != 20 {
-		t.Errorf("completionTokens = %d, want 20", r.completionTokens)
-	}
-	if r.totalTokens != 30 {
-		t.Errorf("totalTokens = %d, want 30", r.totalTokens)
 	}
 }
 
@@ -322,8 +295,8 @@ func TestLLMTransformRequest_RemovesAcceptEncoding(t *testing.T) {
 	u := mustParseURL("https://api.example.com/v1")
 	director := llmTransformRequest(*u, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/chat/completions", nil)
-	req.SetPathValue("path", "chat/completions")
+	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/responses", nil)
+	req.SetPathValue("path", "responses")
 	req.Header.Set("Accept-Encoding", "gzip")
 
 	director(req)
@@ -415,7 +388,7 @@ func TestExtractRawMessages(t *testing.T) {
 		wantLen int
 	}{
 		{
-			"Chat Completions messages",
+			"Anthropic messages",
 			map[string]any{
 				"messages": []any{
 					map[string]any{"role": "user", "content": "Hello"},
@@ -469,44 +442,80 @@ func TestExtractRawMessages(t *testing.T) {
 }
 
 func TestParseMessagesFromBody_ResponsesAPIFormat(t *testing.T) {
-	// Responses API input items use "type": "message" wrapper and content parts with "input_text"/"output_text".
+	// Responses API input with messages, function_call, function_call_output, and a follow-up user message.
 	raw := []any{
 		map[string]any{
 			"type": "message",
 			"role": "user",
 			"content": []any{
-				map[string]any{"type": "input_text", "text": "Book me a flight to NYC"},
+				map[string]any{"type": "input_text", "text": "What's the weather in NYC?"},
 			},
+		},
+		map[string]any{
+			"type":      "function_call",
+			"name":      "get_weather",
+			"arguments": `{"city":"NYC"}`,
+			"call_id":   "call_abc",
+		},
+		map[string]any{
+			"type":    "function_call_output",
+			"call_id": "call_abc",
+			"output":  `{"temp":72,"condition":"sunny"}`,
 		},
 		map[string]any{
 			"type": "message",
 			"role": "assistant",
 			"content": []any{
-				map[string]any{"type": "output_text", "text": "Let me search for flights."},
+				map[string]any{"type": "output_text", "text": "It's 72°F and sunny in NYC."},
 			},
 		},
 		map[string]any{
 			"type": "message",
 			"role": "user",
 			"content": []any{
-				map[string]any{"type": "input_text", "text": "Make it first class"},
+				map[string]any{"type": "input_text", "text": "What about tomorrow?"},
 			},
 		},
 	}
 
 	history, lastUserMsg, lastUserIdx := parseMessagesFromBody(raw)
 
-	if len(history) != 3 {
-		t.Fatalf("expected 3 history entries, got %d", len(history))
+	if len(history) != 5 {
+		t.Fatalf("expected 5 history entries, got %d", len(history))
 	}
-	if lastUserMsg != "Make it first class" {
-		t.Errorf("lastUserMsg = %q, want %q", lastUserMsg, "Make it first class")
+	if lastUserMsg != "What about tomorrow?" {
+		t.Errorf("lastUserMsg = %q, want %q", lastUserMsg, "What about tomorrow?")
 	}
-	if lastUserIdx != 2 {
-		t.Errorf("lastUserIdx = %d, want 2", lastUserIdx)
+	if lastUserIdx != 4 {
+		t.Errorf("lastUserIdx = %d, want 4", lastUserIdx)
 	}
-	if history[0].Content != "Book me a flight to NYC" {
-		t.Errorf("history[0].Content = %q, want %q", history[0].Content, "Book me a flight to NYC")
+
+	// First message: user
+	if history[0].Role != "user" || history[0].Content != "What's the weather in NYC?" {
+		t.Errorf("history[0] = %+v, want user message", history[0])
+	}
+
+	// Second: function_call → mapped to assistant with tool calls
+	if history[1].Role != "assistant" || len(history[1].ToolCalls) != 1 {
+		t.Errorf("history[1] = %+v, want assistant with 1 tool call", history[1])
+	} else {
+		tc := history[1].ToolCalls[0]
+		if tc.Name != "get_weather" || tc.Arguments != `{"city":"NYC"}` {
+			t.Errorf("history[1].ToolCalls[0] = %+v, want get_weather", tc)
+		}
+	}
+
+	// Third: function_call_output → mapped to tool message
+	if history[2].Role != "tool" || history[2].ToolCallID != "call_abc" {
+		t.Errorf("history[2] = %+v, want tool with call_id", history[2])
+	}
+	if history[2].Content != `{"temp":72,"condition":"sunny"}` {
+		t.Errorf("history[2].Content = %q, want tool output JSON", history[2].Content)
+	}
+
+	// Fourth: assistant text
+	if history[3].Role != "assistant" || history[3].Content != "It's 72°F and sunny in NYC." {
+		t.Errorf("history[3] = %+v, want assistant text", history[3])
 	}
 }
 
@@ -531,66 +540,6 @@ func TestParseMessagesFromBody_SimpleConversation(t *testing.T) {
 	}
 	if history[0].Role != "system" || history[0].Content != "You are a helpful assistant." {
 		t.Errorf("unexpected system message: %+v", history[0])
-	}
-}
-
-func TestParseMessagesFromBody_WithToolCalls(t *testing.T) {
-	raw := []any{
-		map[string]any{"role": "user", "content": "Search for flights"},
-		map[string]any{
-			"role":    "assistant",
-			"content": "Let me search.",
-			"tool_calls": []any{
-				map[string]any{
-					"id":   "call_1",
-					"type": "function",
-					"function": map[string]any{
-						"name":      "search_flights",
-						"arguments": `{"to":"NYC"}`,
-					},
-				},
-			},
-		},
-		map[string]any{
-			"role":         "tool",
-			"content":      `{"flights": [{"price": 500}]}`,
-			"tool_call_id": "call_1",
-		},
-		map[string]any{"role": "user", "content": "Book the cheapest one"},
-	}
-
-	history, lastMsg, lastIdx := parseMessagesFromBody(raw)
-
-	if len(history) != 4 {
-		t.Fatalf("expected 4 messages, got %d", len(history))
-	}
-
-	// Check assistant tool calls parsed correctly
-	assistant := history[1]
-	if assistant.Content != "Let me search." {
-		t.Errorf("assistant content = %q, want %q", assistant.Content, "Let me search.")
-	}
-	if len(assistant.ToolCalls) != 1 {
-		t.Fatalf("expected 1 tool call, got %d", len(assistant.ToolCalls))
-	}
-	if assistant.ToolCalls[0].Name != "search_flights" {
-		t.Errorf("tool call name = %q, want %q", assistant.ToolCalls[0].Name, "search_flights")
-	}
-	if assistant.ToolCalls[0].Arguments != `{"to":"NYC"}` {
-		t.Errorf("tool call arguments = %q, want %q", assistant.ToolCalls[0].Arguments, `{"to":"NYC"}`)
-	}
-
-	// Check tool message
-	toolMsg := history[2]
-	if toolMsg.ToolCallID != "call_1" {
-		t.Errorf("tool_call_id = %q, want %q", toolMsg.ToolCallID, "call_1")
-	}
-
-	if lastMsg != "Book the cheapest one" {
-		t.Errorf("lastUserMessage = %q, want %q", lastMsg, "Book the cheapest one")
-	}
-	if lastIdx != 3 {
-		t.Errorf("lastUserIdx = %d, want 3", lastIdx)
 	}
 }
 
@@ -648,47 +597,6 @@ func TestParseMessagesFromBody_ArrayContent(t *testing.T) {
 	}
 	if lastIdx != 0 {
 		t.Errorf("lastUserIdx = %d, want 0", lastIdx)
-	}
-}
-
-func TestParseMessagesFromBody_MultipleToolCalls(t *testing.T) {
-	raw := []any{
-		map[string]any{
-			"role": "assistant",
-			"tool_calls": []any{
-				map[string]any{
-					"id":   "call_1",
-					"type": "function",
-					"function": map[string]any{
-						"name":      "get_weather",
-						"arguments": `{"city":"NYC"}`,
-					},
-				},
-				map[string]any{
-					"id":   "call_2",
-					"type": "function",
-					"function": map[string]any{
-						"name":      "get_time",
-						"arguments": `{"tz":"EST"}`,
-					},
-				},
-			},
-		},
-	}
-
-	history, _, _ := parseMessagesFromBody(raw)
-
-	if len(history) != 1 {
-		t.Fatalf("expected 1 message, got %d", len(history))
-	}
-	if len(history[0].ToolCalls) != 2 {
-		t.Fatalf("expected 2 tool calls, got %d", len(history[0].ToolCalls))
-	}
-	if history[0].ToolCalls[0].Name != "get_weather" {
-		t.Errorf("first tool call name = %q, want %q", history[0].ToolCalls[0].Name, "get_weather")
-	}
-	if history[0].ToolCalls[1].Name != "get_time" {
-		t.Errorf("second tool call name = %q, want %q", history[0].ToolCalls[1].Name, "get_time")
 	}
 }
 
@@ -778,7 +686,7 @@ func TestBuildToolCallTargetMessage_Empty(t *testing.T) {
 
 func TestNoOutputPolicies_StreamsNormally(t *testing.T) {
 	// When no output policies, Read should stream line-by-line (no pipe).
-	stream := "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n"
+	stream := "data: {\"type\":\"response.output_text.delta\",\"delta\":\"hi\"}\n"
 	r := &responseModifier{
 		stream: true,
 		b:      bufio.NewReader(strings.NewReader(stream)),
@@ -801,10 +709,12 @@ func TestNoOutputPolicies_StreamsNormally(t *testing.T) {
 }
 
 func TestStreamAndEvaluateToolCallsSSE_TextOnly_StreamsThrough(t *testing.T) {
-	stream := "data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\n" +
-		"data: {\"choices\":[{\"delta\":{\"content\":\", world!\"}}]}\n\n" +
-		"data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n" +
-		"data: [DONE]\n\n"
+	stream := "event: response.output_text.delta\n" +
+		"data: {\"type\":\"response.output_text.delta\",\"delta\":\"Hello\"}\n\n" +
+		"event: response.output_text.delta\n" +
+		"data: {\"type\":\"response.output_text.delta\",\"delta\":\", world!\"}\n\n" +
+		"event: response.completed\n" +
+		"data: {\"type\":\"response.completed\"}\n\n"
 
 	pr, pw := io.Pipe()
 	r := &responseModifier{
@@ -828,7 +738,7 @@ func TestStreamAndEvaluateToolCallsSSE_TextOnly_StreamsThrough(t *testing.T) {
 }
 
 func TestStreamAndEvaluateToolCallsJSON_NoToolCalls_PassThrough(t *testing.T) {
-	body := `{"choices":[{"message":{"role":"assistant","content":"Hello"}}]}` + "\n"
+	body := `{"id":"resp_1","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Hello"}]}],"status":"completed"}` + "\n"
 
 	pr, pw := io.Pipe()
 	r := &responseModifier{
@@ -963,8 +873,8 @@ func TestIsAnthropicToolCallEvent(t *testing.T) {
 			false,
 		},
 		{
-			"OpenAI format",
-			`{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"get_weather"}}]}}]}`,
+			"OpenAI Responses API format",
+			`{"type":"response.output_item.added","item":{"type":"function_call","name":"get_weather"}}`,
 			false,
 		},
 	}
@@ -1127,7 +1037,7 @@ func TestIsResponsesAPIToolCallEvent(t *testing.T) {
 		{"function_call_arguments.delta", `{"type":"response.function_call_arguments.delta","delta":"{\"x\":"}`, true},
 		{"output_item.added with message", `{"type":"response.output_item.added","item":{"type":"message","role":"assistant"}}`, false},
 		{"response.created", `{"type":"response.created"}`, false},
-		{"OpenAI chat completions format", `{"choices":[{"delta":{"tool_calls":[{"index":0}]}}]}`, false},
+		{"Anthropic format", `{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","name":"foo"}}`, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1166,30 +1076,40 @@ func TestAccumulateResponsesAPIToolCallInfo(t *testing.T) {
 
 func TestParseMessagesFromBody_ConversationHistoryForPolicyEval(t *testing.T) {
 	// Verify that parsed messages integrate correctly with BuildConversationContext
+	// using OpenAI Responses API format.
 	raw := []any{
-		map[string]any{"role": "system", "content": "You are a travel agent."},
-		map[string]any{"role": "user", "content": "Find flights to NYC"},
 		map[string]any{
-			"role":    "assistant",
-			"content": "Searching now.",
-			"tool_calls": []any{
-				map[string]any{
-					"id":   "call_1",
-					"type": "function",
-					"function": map[string]any{
-						"name":      "search_flights",
-						"arguments": `{"to":"NYC"}`,
-					},
-				},
+			"type": "message",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "input_text", "text": "Find flights to NYC"},
 			},
 		},
 		map[string]any{
-			"role":         "tool",
-			"content":      `[{"flight":"AA100","price":500}]`,
-			"tool_call_id": "call_1",
+			"type":      "function_call",
+			"name":      "search_flights",
+			"arguments": `{"to":"NYC"}`,
+			"call_id":   "call_1",
 		},
-		map[string]any{"role": "assistant", "content": "Found a flight for $500."},
-		map[string]any{"role": "user", "content": "Book it in first class"},
+		map[string]any{
+			"type":    "function_call_output",
+			"call_id": "call_1",
+			"output":  `[{"flight":"AA100","price":500}]`,
+		},
+		map[string]any{
+			"type": "message",
+			"role": "assistant",
+			"content": []any{
+				map[string]any{"type": "output_text", "text": "Found a flight for $500."},
+			},
+		},
+		map[string]any{
+			"type": "message",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "input_text", "text": "Book it in first class"},
+			},
+		},
 	}
 
 	history, lastMsg, _ := parseMessagesFromBody(raw)
@@ -1201,10 +1121,6 @@ func TestParseMessagesFromBody_ConversationHistoryForPolicyEval(t *testing.T) {
 		t.Errorf("lastUserMessage = %q, want %q", lastMsg, "Book it in first class")
 	}
 
-	// System messages should be excluded
-	if strings.Contains(ctx, "travel agent") {
-		t.Error("conversation context should not contain system messages")
-	}
 	// Tool outputs should be redacted
 	if strings.Contains(ctx, "AA100") {
 		t.Error("conversation context should redact tool outputs")
