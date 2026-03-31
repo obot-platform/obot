@@ -24,7 +24,7 @@
 	} from '$lib/url';
 
 	let showCreateFilter = $derived(page.url.searchParams.has('new'));
-	let loading = $state(true);
+	let loading = $state(false);
 	let filterToDelete = $state<MCPFilter>();
 
 	let filters = $state<MCPFilter[]>([]);
