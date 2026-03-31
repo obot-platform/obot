@@ -14,7 +14,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { goto } from '$lib/url';
 	import { NanobotService } from '$lib/services';
-	import { profile } from '$lib/stores/index.js';
+	import { profile, responsive } from '$lib/stores';
 	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
 	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
 	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
@@ -386,7 +386,9 @@
 				<thead>
 					<tr>
 						<th>Title</th>
-						<th>Created</th>
+						{#if !responsive.isMobile}
+							<th>Created</th>
+						{/if}
 						<th class="flex justify-end">
 							<select class="select w-42" bind:value={sortBy}>
 								<option value="" disabled selected>Sort by</option>
@@ -417,7 +419,9 @@
 								role="button"
 							>
 								<td><span class="line-clamp-2">{thread.title}</span></td>
-								<td class="whitespace-nowrap">{formatTimeAgo(thread.created).relativeTime}</td>
+								{#if !responsive.isMobile}
+									<td class="whitespace-nowrap">{formatTimeAgo(thread.created).relativeTime}</td>
+								{/if}
 								<td class="flex justify-end">
 									<button class="btn btn-square btn-ghost">
 										<Eye class="size-6" />
