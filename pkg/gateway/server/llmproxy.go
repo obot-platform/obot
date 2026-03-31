@@ -926,7 +926,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 					// last message in the conversation. If there are messages after it
 					// (assistant responses, tool results, etc.), this is a tool-calling
 					// continuation and the user text has already been evaluated.
-					if lastUserIdx >= 0 && lastUserIdx == len(rawMessages)-1 {
+					if lastUserIdx == len(rawMessages)-1 {
 						violations := l.messagePolicyHelper.EvaluateMessage(req.Context(), inputPolicies, history, lastUserMsg, types2.PolicyDirectionUserMessage)
 						if len(violations) > 0 {
 							var explanations []string
