@@ -322,13 +322,16 @@
 		childrenContainer: 'max-w-full h-[calc(100dvh-4rem)]',
 		collapsedSidebarHeaderContent: 'pb-0',
 		sidebar: 'pt-0 px-0',
-		sidebarRoot: 'bg-base-200'
+		sidebarRoot: 'bg-base-200',
+		noSidebarTitle: 'md:text-xl text-base'
 	}}
-	{showBackButton}
+	showBackButton={responsive.isMobile
+		? showBackButton && !layout.quickBarAccessOpen
+		: showBackButton}
 	whiteBackground
 	disableResize
 	hideProfileButton
-	alwaysShowHeaderTitle
+	alwaysShowHeaderTitle={responsive.isMobile ? !layout.quickBarAccessOpen : true}
 	hideSidebar={responsive.isMobile}
 >
 	{#snippet leftMenu()}
@@ -340,7 +343,7 @@
 				>
 					<X class="text-base-content size-5" />
 				</button>
-			{:else}
+			{:else if !activeWorkflowName}
 				<a href={resolve('/agent')} class="btn btn-square">
 					<MessageCirclePlus class="text-base-content size-5" />
 				</a>
