@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Confirm from '../Confirm.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		names: string[];
@@ -31,20 +32,21 @@
 	{oncancel}
 	{loading}
 	msg={names.length === 1 ? `Delete ${names[0]}?` : `Delete selected ${plural}?`}
+	classes={{ body: 'p-0', actions: 'p-4 pt-0' }}
 >
 	{#snippet note()}
 		{#if names.length > 1}
-			<p class="text-sm font-light">
+			<p class="px-4 text-sm font-light">
 				The following {plural} will be permanently deleted:
 			</p>
-			<ul class="my-2 font-semibold">
+			<ul class="my-2 max-h-[50vh] w-full overflow-y-auto font-semibold">
 				{#each names as name (name)}
 					<li>{name}</li>
 				{/each}
 			</ul>
 		{/if}
 
-		<p class="mb-4 text-sm font-light">
+		<p class={twMerge('px-4 text-sm font-light', additionalNote && 'mb-4')}>
 			Are you sure you want to delete {names.length === 1 ? 'this ' + entity : plural}?
 			{names.length === 1 ? 'It' : 'They'} will be permanently deleted and cannot be recovered.
 		</p>
