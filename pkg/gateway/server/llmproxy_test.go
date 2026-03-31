@@ -374,6 +374,28 @@ func TestExtractContentString(t *testing.T) {
 			"",
 		},
 		{"empty array", []any{}, ""},
+		{
+			"Responses API input_text",
+			[]any{
+				map[string]any{"type": "input_text", "text": "What is the weather?"},
+			},
+			"What is the weather?",
+		},
+		{
+			"Responses API output_text",
+			[]any{
+				map[string]any{"type": "output_text", "text": "It is sunny."},
+			},
+			"It is sunny.",
+		},
+		{
+			"Responses API mixed input/output",
+			[]any{
+				map[string]any{"type": "input_text", "text": "Question"},
+				map[string]any{"type": "output_text", "text": "Answer"},
+			},
+			"Question\nAnswer",
+		},
 	}
 
 	for _, tt := range tests {
@@ -383,6 +405,108 @@ func TestExtractContentString(t *testing.T) {
 				t.Errorf("extractContentString() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestExtractRawMessages(t *testing.T) {
+	tests := []struct {
+		name    string
+		bodyMap map[string]any
+		wantLen int
+	}{
+		{
+			"Chat Completions messages",
+			map[string]any{
+				"messages": []any{
+					map[string]any{"role": "user", "content": "Hello"},
+				},
+			},
+			1,
+		},
+		{
+			"Responses API input array",
+			map[string]any{
+				"input": []any{
+					map[string]any{"type": "message", "role": "user", "content": []any{map[string]any{"type": "input_text", "text": "Hello"}}},
+				},
+			},
+			1,
+		},
+		{
+			"Responses API string input",
+			map[string]any{
+				"input": "Hello",
+			},
+			0,
+		},
+		{
+			"empty body",
+			map[string]any{},
+			0,
+		},
+		{
+			"messages takes priority over input",
+			map[string]any{
+				"messages": []any{
+					map[string]any{"role": "user", "content": "from messages"},
+				},
+				"input": []any{
+					map[string]any{"role": "user", "content": "from input"},
+				},
+			},
+			1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractRawMessages(tt.bodyMap)
+			if len(got) != tt.wantLen {
+				t.Errorf("extractRawMessages() returned %d items, want %d", len(got), tt.wantLen)
+			}
+		})
+	}
+}
+
+func TestParseMessagesFromBody_ResponsesAPIFormat(t *testing.T) {
+	// Responses API input items use "type": "message" wrapper and content parts with "input_text"/"output_text".
+	raw := []any{
+		map[string]any{
+			"type": "message",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "input_text", "text": "Book me a flight to NYC"},
+			},
+		},
+		map[string]any{
+			"type": "message",
+			"role": "assistant",
+			"content": []any{
+				map[string]any{"type": "output_text", "text": "Let me search for flights."},
+			},
+		},
+		map[string]any{
+			"type": "message",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "input_text", "text": "Make it first class"},
+			},
+		},
+	}
+
+	history, lastUserMsg, lastUserIdx := parseMessagesFromBody(raw)
+
+	if len(history) != 3 {
+		t.Fatalf("expected 3 history entries, got %d", len(history))
+	}
+	if lastUserMsg != "Make it first class" {
+		t.Errorf("lastUserMsg = %q, want %q", lastUserMsg, "Make it first class")
+	}
+	if lastUserIdx != 2 {
+		t.Errorf("lastUserIdx = %d, want 2", lastUserIdx)
+	}
+	if history[0].Content != "Book me a flight to NYC" {
+		t.Errorf("history[0].Content = %q, want %q", history[0].Content, "Book me a flight to NYC")
 	}
 }
 
@@ -926,6 +1050,117 @@ func TestStreamAndEvaluateToolCallsJSON_AnthropicToolCalls(t *testing.T) {
 	got := string(result)
 	if !strings.Contains(got, "get_weather") {
 		t.Errorf("expected tool call in output, got %q", got)
+	}
+}
+
+func TestStreamAndEvaluateToolCallsSSE_ResponsesAPIToolCall_Detected(t *testing.T) {
+	// Simulate an OpenAI Responses API streaming response with a function_call tool.
+	stream := "event: response.created\n" +
+		"data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_1\",\"status\":\"in_progress\"}}\n\n" +
+		"event: response.output_item.added\n" +
+		"data: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"type\":\"function_call\",\"id\":\"fc_1\",\"call_id\":\"call_abc\",\"name\":\"get_weather\",\"arguments\":\"\",\"status\":\"in_progress\"}}\n\n" +
+		"event: response.function_call_arguments.delta\n" +
+		"data: {\"type\":\"response.function_call_arguments.delta\",\"output_index\":0,\"item_id\":\"fc_1\",\"call_id\":\"call_abc\",\"delta\":\"{\\\"city\\\":\"}\n\n" +
+		"event: response.function_call_arguments.delta\n" +
+		"data: {\"type\":\"response.function_call_arguments.delta\",\"output_index\":0,\"item_id\":\"fc_1\",\"call_id\":\"call_abc\",\"delta\":\"\\\"NYC\\\"}\"}\n\n" +
+		"event: response.function_call_arguments.done\n" +
+		"data: {\"type\":\"response.function_call_arguments.done\",\"output_index\":0,\"item_id\":\"fc_1\",\"call_id\":\"call_abc\",\"arguments\":\"{\\\"city\\\":\\\"NYC\\\"}\"}\n\n" +
+		"event: response.output_item.done\n" +
+		"data: {\"type\":\"response.output_item.done\",\"output_index\":0,\"item\":{\"type\":\"function_call\",\"id\":\"fc_1\",\"call_id\":\"call_abc\",\"name\":\"get_weather\",\"arguments\":\"{\\\"city\\\":\\\"NYC\\\"}\",\"status\":\"completed\"}}\n\n" +
+		"event: response.completed\n" +
+		"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_1\",\"status\":\"completed\"}}\n\n"
+
+	pr, pw := io.Pipe()
+	r := &responseModifier{
+		stream:              true,
+		b:                   bufio.NewReader(strings.NewReader(stream)),
+		c:                   io.NopCloser(strings.NewReader("")),
+		messagePolicyHelper: &messagepolicy.Helper{},
+	}
+
+	go r.streamAndEvaluateToolCalls(t.Context(), pw)
+
+	result, err := io.ReadAll(pr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := string(result)
+	// Tool call events should be present (buffered then flushed with no violations).
+	if !strings.Contains(got, "get_weather") {
+		t.Errorf("expected tool call to be present in output, got %q", got)
+	}
+}
+
+func TestStreamAndEvaluateToolCallsJSON_ResponsesAPIToolCalls(t *testing.T) {
+	// Non-streaming OpenAI Responses API response with function_call output items.
+	body := `{"id":"resp_1","output":[{"type":"function_call","id":"fc_1","call_id":"call_abc","name":"get_weather","arguments":"{\"city\":\"NYC\"}","status":"completed"}],"status":"completed"}` + "\n"
+
+	pr, pw := io.Pipe()
+	r := &responseModifier{
+		stream:              false,
+		b:                   bufio.NewReader(strings.NewReader(body)),
+		c:                   io.NopCloser(strings.NewReader("")),
+		messagePolicyHelper: &messagepolicy.Helper{},
+	}
+
+	go r.streamAndEvaluateToolCalls(t.Context(), pw)
+
+	result, err := io.ReadAll(pr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := string(result)
+	if !strings.Contains(got, "get_weather") {
+		t.Errorf("expected tool call in output, got %q", got)
+	}
+}
+
+func TestIsResponsesAPIToolCallEvent(t *testing.T) {
+	tests := []struct {
+		name string
+		data string
+		want bool
+	}{
+		{"output_item.added with function_call", `{"type":"response.output_item.added","item":{"type":"function_call","name":"foo"}}`, true},
+		{"function_call_arguments.delta", `{"type":"response.function_call_arguments.delta","delta":"{\"x\":"}`, true},
+		{"output_item.added with message", `{"type":"response.output_item.added","item":{"type":"message","role":"assistant"}}`, false},
+		{"response.created", `{"type":"response.created"}`, false},
+		{"OpenAI chat completions format", `{"choices":[{"delta":{"tool_calls":[{"index":0}]}}]}`, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isResponsesAPIToolCallEvent([]byte(tt.data))
+			if got != tt.want {
+				t.Errorf("isResponsesAPIToolCallEvent() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAccumulateResponsesAPIToolCallInfo(t *testing.T) {
+	var toolCalls []messagepolicy.ToolCallInfo
+	itemToTool := make(map[int]int)
+
+	// First event: output_item.added with function_call
+	data1 := []byte(`{"type":"response.output_item.added","output_index":0,"item":{"type":"function_call","id":"fc_1","name":"get_weather","arguments":""}}`)
+	accumulateResponsesAPIToolCallInfo(data1, &toolCalls, itemToTool)
+
+	if len(toolCalls) != 1 || toolCalls[0].Name != "get_weather" {
+		t.Fatalf("after output_item.added: toolCalls = %+v, want [{Name:get_weather}]", toolCalls)
+	}
+
+	// Second event: arguments delta
+	data2 := []byte(`{"type":"response.function_call_arguments.delta","output_index":0,"delta":"{\"city\":"}`)
+	accumulateResponsesAPIToolCallInfo(data2, &toolCalls, itemToTool)
+
+	// Third event: more arguments
+	data3 := []byte(`{"type":"response.function_call_arguments.delta","output_index":0,"delta":"\"NYC\"}"}`)
+	accumulateResponsesAPIToolCallInfo(data3, &toolCalls, itemToTool)
+
+	if toolCalls[0].Arguments != `{"city":"NYC"}` {
+		t.Errorf("accumulated arguments = %q, want %q", toolCalls[0].Arguments, `{"city":"NYC"}`)
 	}
 }
 
