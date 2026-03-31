@@ -62,6 +62,7 @@
 	import { resolve } from '$app/paths';
 	import { isAgentEnabled } from '$lib/utils';
 	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
+	import Profile from './navbar/Profile.svelte';
 
 	type NavLink = {
 		id: string;
@@ -92,11 +93,14 @@
 		main?: { component: Component; props?: Record<string, unknown> };
 		navLinks?: NavLink[];
 		rightNavActions?: Snippet;
+		rightMenu?: Snippet;
+		leftMenu?: Snippet;
 		title?: string;
 		showBackButton?: boolean;
 		onBackButtonClick?: () => void;
 		leftSidebar?: Snippet;
 		rightSidebar?: Snippet;
+		mobileDock?: Snippet;
 		layoutContext?: LayoutContext;
 		disableResize?: boolean;
 		hideProfileButton?: boolean;
@@ -115,7 +119,10 @@
 		showBackButton,
 		onBackButtonClick,
 		leftSidebar,
+		leftMenu: overrideLeftMenu,
 		rightSidebar,
+		rightMenu: overrideRightMenu,
+		mobileDock,
 		layoutContext,
 		disableResize,
 		hideProfileButton,
@@ -671,7 +678,9 @@
 				{hideProfileButton}
 			>
 				{#snippet leftContent()}
-					{#if (!layout.sidebarOpen || hideSidebar) && !leftSidebar}
+					{#if overrideLeftMenu}
+						{@render overrideLeftMenu()}
+					{:else if (!layout.sidebarOpen || hideSidebar) && !leftSidebar}
 						<BetaLogo />
 					{/if}
 				{/snippet}
@@ -685,6 +694,15 @@
 				{#snippet rightContent()}
 					{#if rightNavActions && layout.sidebarOpen && !hideSidebar}
 						{@render rightNavActions()}
+					{/if}
+				{/snippet}
+				{#snippet rightMenu()}
+					{#if overrideRightMenu}
+						{@render overrideRightMenu()}
+					{:else if !hideProfileButton}
+						<div class="flex h-16 flex-shrink-0 items-center">
+							<Profile />
+						</div>
 					{/if}
 				{/snippet}
 			</Navbar>
@@ -722,6 +740,10 @@
 					{@render children()}
 				</div>
 			</div>
+
+			{#if mobileDock}
+				{@render mobileDock()}
+			{/if}
 		</Render>
 
 		{#if rightSidebar}

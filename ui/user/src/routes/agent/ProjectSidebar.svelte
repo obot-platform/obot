@@ -18,6 +18,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import { fly, slide } from 'svelte/transition';
 	import { errors } from '$lib/stores';
+	import { page } from '$app/state';
 
 	interface Props {
 		selectedSessionId?: string;
@@ -25,6 +26,7 @@
 	}
 
 	let { selectedSessionId, projectId }: Props = $props();
+	let activeView = $derived(page.url.pathname.split('/').pop());
 
 	const layout = getLayout();
 	async function handleRenameSession(sessionId: string, newTitle: string) {
@@ -126,6 +128,7 @@
 						type="button"
 						class="btn btn-ghost text-base-content/50 text-md justify-between rounded-none"
 						onclick={() => goto(`/agent/p/${projectId}/workflows`)}
+						class:bg-base-100={activeView === 'workflows'}
 					>
 						Workflows <WorkflowIcon class="size-6" />
 					</button>
@@ -134,6 +137,7 @@
 						type="button"
 						class="btn btn-ghost text-base-content/50 text-md justify-between rounded-none"
 						onclick={() => goto(`/agent/p/${projectId}/scheduler`)}
+						class:bg-base-100={activeView === 'scheduler'}
 					>
 						Scheduler <Clock3 class="size-6" />
 					</button>
@@ -142,6 +146,7 @@
 						type="button"
 						class="btn btn-ghost text-base-content/50 text-md justify-between rounded-none"
 						onclick={() => goto(`/agent/p/${projectId}/files`)}
+						class:bg-base-100={activeView === 'files'}
 					>
 						Files <FoldersIcon class="size-6" />
 					</button>
@@ -160,6 +165,7 @@
 					<div class="w-fit">
 						<button
 							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
+							class:bg-base-100={activeView === 'workflows'}
 							aria-label="Go to workflows"
 							data-tip="Go to workflows"
 							onclick={() => goto(`/agent/p/${projectId}/workflows`)}
@@ -170,6 +176,7 @@
 					<div class="w-fit">
 						<button
 							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
+							class:bg-base-100={activeView === 'scheduler'}
 							aria-label="Go to scheduler"
 							data-tip="Go to scheduler"
 							onclick={() => goto(`/agent/p/${projectId}/scheduler`)}
@@ -180,6 +187,7 @@
 					<div class="w-fit">
 						<button
 							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
+							class:bg-base-100={activeView === 'files'}
 							aria-label="Go to files"
 							data-tip="Go to files"
 							onclick={() => goto(`/agent/p/${projectId}/files`)}

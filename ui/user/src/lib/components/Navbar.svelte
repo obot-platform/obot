@@ -9,6 +9,7 @@
 		leftContent?: Snippet;
 		centerContent?: Snippet;
 		rightContent?: Snippet;
+		rightMenu?: Snippet;
 		class?: string;
 		unauthorized?: boolean;
 		hideProfileButton?: boolean;
@@ -19,6 +20,7 @@
 		leftContent,
 		centerContent,
 		rightContent,
+		rightMenu,
 		class: klass,
 		unauthorized,
 		hideProfileButton,
@@ -42,7 +44,11 @@
 			{#if rightContent}
 				{@render rightContent()}
 			{/if}
-			{#if !unauthorized && !hideProfileButton}
+			{#if rightMenu}
+				<div class="flex h-16 flex-shrink-0 items-center">
+					{@render rightMenu()}
+				</div>
+			{:else if !unauthorized && !hideProfileButton}
 				<div class="flex h-16 flex-shrink-0 items-center">
 					<Profile />
 				</div>

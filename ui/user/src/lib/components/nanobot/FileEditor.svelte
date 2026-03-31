@@ -10,6 +10,7 @@
 	import FileItem from './FileItem.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import PDF from './PDF.svelte';
+	import { responsive } from '$lib/stores';
 
 	interface Props {
 		filename: string;
@@ -324,9 +325,12 @@
 	class={twMerge(
 		'relative h-dvh shrink-0 overflow-hidden duration-300 ease-out',
 		justOpened ? 'transition-[opacity,width,min-width]' : 'transition-opacity',
-		visible ? 'opacity-100' : 'opacity-0'
+		visible ? 'opacity-100' : 'opacity-0',
+		responsive.isMobile ? 'fixed top-0 right-0 z-60 h-[calc(100dvh-3.5rem)] w-full' : ''
 	)}
-	style="width: {panelDimensionsPx.width}px; min-width: {panelDimensionsPx.minWidth}px; max-width: {panelDimensionsPx.maxWidth}px;"
+	style={!responsive.isMobile
+		? `width: ${panelDimensionsPx.width}px; min-width: ${panelDimensionsPx.minWidth}px; max-width: ${panelDimensionsPx.maxWidth}px;`
+		: ''}
 >
 	<!-- Resize handle -->
 	<div
@@ -345,8 +349,11 @@
 	></div>
 
 	<div class="bg-base-200 flex h-full w-full flex-col">
-		<div class="border-base-300 flex items-center gap-2 border-b px-4 py-2">
-			<div class="flex grow items-center justify-between truncate">
+		<div class="border-base-300 flex items-center gap-2 border-b px-3 py-3 md:px-4 md:py-2">
+			{#if responsive.isMobile && onClose}
+				{@render closeButton()}
+			{/if}
+			<div class="flex grow items-center justify-center truncate md:justify-start">
 				{#if loading}
 					<span class="loading loading-spinner loading-xs"></span>
 				{:else}
@@ -365,17 +372,12 @@
 						data-tip="Download file"
 						aria-label="Download file"
 					>
-						<Download class="size-4" />
+						<Download class="size-5 md:size-4" />
 					</button>
 				{/if}
-				{#if onClose}
-					<button
-						class="btn btn-sm btn-square tooltip tooltip-left"
-						data-tip="Close"
-						onclick={onClose}
-					>
-						<X class="size-4" />
-					</button>
+
+				{#if !responsive.isMobile && onClose}
+					{@render closeButton()}
 				{/if}
 			</div>
 		</div>
@@ -432,3 +434,13 @@
 		</div>
 	</div>
 </div>
+
+{#snippet closeButton()}
+	<button
+		class="btn md:btn-sm btn-square md:tooltip md:tooltip-left"
+		data-tip="Close"
+		onclick={onClose}
+	>
+		<X class="size-5 md:size-4" />
+	</button>
+{/snippet}
