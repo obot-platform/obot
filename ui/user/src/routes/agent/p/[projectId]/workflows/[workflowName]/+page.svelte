@@ -212,6 +212,14 @@
 					<button class="btn btn-link px-2" onclick={() => (showWorkflowVersionDialog = true)}>
 						Manage Published Versions
 					</button>
+					<div
+						class={twMerge(
+							'badge badge-soft text-xs font-semibold',
+							publishedInfo.visibility === 'public' ? 'badge-success' : 'badge-secondary'
+						)}
+					>
+						{publishedInfo.visibility.toUpperCase()}
+					</div>
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
@@ -571,6 +579,12 @@
 			{workflowDisplayName ?? workflowName} has been published to version
 			<b class="font-semibold">{publishedInfo?.latestVersion?.toFixed(1)}</b>.
 		</p>
+		{#if publishedInfo?.visibility === 'private'}
+			<p class="mt-2">
+				To share this workflow with other users, change the visibility setting to "public" via
+				"Manage Published Versions".
+			</p>
+		{/if}
 	{/snippet}
 </Confirm>
 
