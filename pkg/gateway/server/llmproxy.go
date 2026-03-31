@@ -325,7 +325,7 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 		resp.Header.Set("X-Obot-Message-Policy-Replacement", r.inputPolicyReplacement)
 	}
 
-	if resp.StatusCode != http.StatusOK || (resp.Request.URL.Path != "/v1/chat/completions" && resp.Request.URL.Path != "/v1/messages" && resp.Request.URL.Path != "/v1/responses") {
+	if resp.StatusCode != http.StatusOK || (resp.Request.URL.Path != "/v1/messages" && resp.Request.URL.Path != "/v1/responses") {
 		return nil
 	}
 
@@ -398,7 +398,6 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 func (r *responseModifier) extractTokenUsage(line []byte) {
 	// Extract token usage from all known locations.
 	// Providers nest usage differently:
-	//   - OpenAI Chat Completions: top-level "usage"
 	//   - Anthropic message_start: "message.usage"
 	//   - Anthropic message_delta: top-level "usage" (cumulative)
 	//   - OpenAI Responses API:    "response.usage"
@@ -454,6 +453,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw
 		toolCalls            []messagepolicy.ToolCallInfo
 		seenToolCalls        bool
 		anthropicBlockToTool map[int]int // maps Anthropic content block index → toolCalls slice index
+		responsesItemToTool  map[int]int // maps Responses API output_index → toolCalls slice index
 	)
 
 	for {
@@ -470,13 +470,11 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw
 			rest, isData := bytes.CutPrefix(line, []byte("data: "))
 			if isData {
 				r.extractTokenUsage(rest)
-				// OpenAI format: choices.0.delta.tool_calls
-				delta := gjson.GetBytes(rest, "choices.0.delta")
-				if delta.Get("tool_calls").Exists() {
-					accumulateToolCallInfo(delta, &toolCalls)
-				}
+
 				// Anthropic format: content_block_start/content_block_delta
 				accumulateAnthropicToolCallInfo(rest, &toolCalls, anthropicBlockToTool)
+				// OpenAI Responses API format: response.output_item.added / response.function_call_arguments.delta
+				accumulateResponsesAPIToolCallInfo(rest, &toolCalls, responsesItemToTool)
 			}
 
 			if err != nil {
@@ -496,18 +494,18 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw
 
 		r.extractTokenUsage(rest)
 
-		// Check for OpenAI-format tool calls (choices.0.delta.tool_calls).
-		delta := gjson.GetBytes(rest, "choices.0.delta")
-		if delta.Get("tool_calls").Exists() {
-			seenToolCalls = true
-			buffered = append(buffered, append([]byte(nil), line...))
-			accumulateToolCallInfo(delta, &toolCalls)
-		} else if isAnthropicToolCallEvent(rest) {
+		if isAnthropicToolCallEvent(rest) {
 			// Anthropic-format tool calls (content_block_start with type "tool_use").
 			seenToolCalls = true
 			anthropicBlockToTool = make(map[int]int)
 			buffered = append(buffered, append([]byte(nil), line...))
 			accumulateAnthropicToolCallInfo(rest, &toolCalls, anthropicBlockToTool)
+		} else if isResponsesAPIToolCallEvent(rest) {
+			// OpenAI Responses API tool calls (response.output_item.added with function_call).
+			seenToolCalls = true
+			responsesItemToTool = make(map[int]int)
+			buffered = append(buffered, append([]byte(nil), line...))
+			accumulateResponsesAPIToolCallInfo(rest, &toolCalls, responsesItemToTool)
 		} else {
 			_, _ = pw.Write(line)
 		}
@@ -557,14 +555,21 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw
 	})
 	violationLine := fmt.Sprintf("data: %s\n\n", violationJSON)
 
-	// Flush buffered lines, injecting the violation marker before [DONE].
+	// Flush buffered lines, injecting the violation marker before the stream terminator.
+	// OpenAI Responses API ends with response.completed; Anthropic ends with content_block_stop.
 	injected := false
 	for _, line := range buffered {
 		if !injected {
 			rest, isData := bytes.CutPrefix(line, []byte("data: "))
-			if isData && bytes.Equal(bytes.TrimSpace(rest), []byte("[DONE]")) {
-				_, _ = pw.Write([]byte(violationLine))
-				injected = true
+			if isData {
+				trimmed := bytes.TrimSpace(rest)
+				eventType := gjson.GetBytes(trimmed, "type").String()
+				isResponsesCompleted := eventType == "response.completed"
+				isAnthropicStop := eventType == "content_block_stop"
+				if isResponsesCompleted || isAnthropicStop {
+					_, _ = pw.Write([]byte(violationLine))
+					injected = true
+				}
 			}
 		}
 		_, _ = pw.Write(line)
@@ -582,18 +587,20 @@ func (r *responseModifier) streamAndEvaluateToolCallsJSON(ctx context.Context, p
 
 	r.extractTokenUsage(body)
 
-	// OpenAI format: choices.0.message.tool_calls
-	tcResult := gjson.GetBytes(body, "choices.0.message.tool_calls")
 	// Anthropic format: content array with type "tool_use"
 	anthropicContent := gjson.GetBytes(body, "content")
+	// OpenAI Responses API format: output array with type "function_call"
+	responsesOutput := gjson.GetBytes(body, "output")
 
 	var toolCalls []messagepolicy.ToolCallInfo
-	if tcResult.Exists() && len(tcResult.Array()) > 0 {
-		tcResult.ForEach(func(_, tc gjson.Result) bool {
-			toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{
-				Name:      tc.Get("function.name").String(),
-				Arguments: tc.Get("function.arguments").String(),
-			})
+	if responsesOutput.Exists() {
+		responsesOutput.ForEach(func(_, item gjson.Result) bool {
+			if item.Get("type").String() == "function_call" {
+				toolCalls = append(toolCalls, messagepolicy.ToolCallInfo{
+					Name:      item.Get("name").String(),
+					Arguments: item.Get("arguments").String(),
+				})
+			}
 			return true
 		})
 	} else if anthropicContent.Exists() {
@@ -655,25 +662,6 @@ func (r *responseModifier) streamAndEvaluateToolCallsJSON(ctx context.Context, p
 	_, _ = pw.Write(append(modified, '\n'))
 }
 
-// accumulateToolCallInfo extracts tool call name/arguments from a delta and appends to the slice.
-func accumulateToolCallInfo(delta gjson.Result, toolCalls *[]messagepolicy.ToolCallInfo) {
-	delta.Get("tool_calls").ForEach(func(_, tc gjson.Result) bool {
-		name := tc.Get("function.name").String()
-		args := tc.Get("function.arguments").String()
-		idx := int(tc.Get("index").Int())
-		for len(*toolCalls) <= idx {
-			*toolCalls = append(*toolCalls, messagepolicy.ToolCallInfo{})
-		}
-		if name != "" {
-			(*toolCalls)[idx].Name += name
-		}
-		if args != "" {
-			(*toolCalls)[idx].Arguments += args
-		}
-		return true
-	})
-}
-
 // isAnthropicToolCallEvent checks if an SSE data payload is an Anthropic tool-call-related event
 // (content_block_start with type "tool_use", or content_block_delta with type "input_json_delta").
 func isAnthropicToolCallEvent(data []byte) bool {
@@ -699,6 +687,38 @@ func accumulateAnthropicToolCallInfo(data []byte, toolCalls *[]messagepolicy.Too
 		blockIdx := int(gjson.GetBytes(data, "index").Int())
 		if toolIdx, ok := blockToTool[blockIdx]; ok && toolIdx < len(*toolCalls) {
 			(*toolCalls)[toolIdx].Arguments += gjson.GetBytes(data, "delta.partial_json").String()
+		}
+	}
+}
+
+// isResponsesAPIToolCallEvent checks if an SSE data payload is an OpenAI Responses API tool-call-related event
+// (response.output_item.added with type "function_call", or response.function_call_arguments.delta).
+func isResponsesAPIToolCallEvent(data []byte) bool {
+	eventType := gjson.GetBytes(data, "type").String()
+	return (eventType == "response.output_item.added" && gjson.GetBytes(data, "item.type").String() == "function_call") ||
+		eventType == "response.function_call_arguments.delta"
+}
+
+// accumulateResponsesAPIToolCallInfo extracts tool call name/arguments from OpenAI Responses API SSE events.
+// response.output_item.added events with item.type "function_call" create new entries;
+// response.function_call_arguments.delta events append partial arguments.
+func accumulateResponsesAPIToolCallInfo(data []byte, toolCalls *[]messagepolicy.ToolCallInfo, itemToTool map[int]int) {
+	if itemToTool == nil {
+		return
+	}
+	eventType := gjson.GetBytes(data, "type").String()
+	switch {
+	case eventType == "response.output_item.added" && gjson.GetBytes(data, "item.type").String() == "function_call":
+		outputIdx := int(gjson.GetBytes(data, "output_index").Int())
+		toolIdx := len(*toolCalls)
+		itemToTool[outputIdx] = toolIdx
+		*toolCalls = append(*toolCalls, messagepolicy.ToolCallInfo{
+			Name: gjson.GetBytes(data, "item.name").String(),
+		})
+	case eventType == "response.function_call_arguments.delta":
+		outputIdx := int(gjson.GetBytes(data, "output_index").Int())
+		if toolIdx, ok := itemToTool[outputIdx]; ok && toolIdx < len(*toolCalls) {
+			(*toolCalls)[toolIdx].Arguments += gjson.GetBytes(data, "delta").String()
 		}
 	}
 }
@@ -795,37 +815,39 @@ func parseMessagesFromBody(rawMessages []any) ([]messagepolicy.ConversationMessa
 			continue
 		}
 
+		itemType, _ := msg["type"].(string)
+
+		// OpenAI Responses API: top-level function_call items.
+		if itemType == "function_call" {
+			name, _ := msg["name"].(string)
+			arguments, _ := msg["arguments"].(string)
+			history = append(history, messagepolicy.ConversationMessage{
+				Role: "assistant",
+				ToolCalls: []messagepolicy.ToolCallInfo{
+					{Name: name, Arguments: arguments},
+				},
+			})
+			continue
+		}
+
+		// OpenAI Responses API: top-level function_call_output items.
+		if itemType == "function_call_output" {
+			callID, _ := msg["call_id"].(string)
+			output, _ := msg["output"].(string)
+			history = append(history, messagepolicy.ConversationMessage{
+				Role:       "tool",
+				Content:    output,
+				ToolCallID: callID,
+			})
+			continue
+		}
+
 		role, _ := msg["role"].(string)
 		content := extractContentString(msg["content"])
 
 		cm := messagepolicy.ConversationMessage{
 			Role:    role,
 			Content: content,
-		}
-
-		// Parse tool_call_id for tool messages.
-		if toolCallID, ok := msg["tool_call_id"].(string); ok {
-			cm.ToolCallID = toolCallID
-		}
-
-		// Parse tool_calls for assistant messages.
-		if toolCalls, ok := msg["tool_calls"].([]any); ok {
-			for _, tc := range toolCalls {
-				tcMap, ok := tc.(map[string]any)
-				if !ok {
-					continue
-				}
-				fn, _ := tcMap["function"].(map[string]any)
-				if fn == nil {
-					continue
-				}
-				name, _ := fn["name"].(string)
-				arguments, _ := fn["arguments"].(string)
-				cm.ToolCalls = append(cm.ToolCalls, messagepolicy.ToolCallInfo{
-					Name:      name,
-					Arguments: arguments,
-				})
-			}
 		}
 
 		history = append(history, cm)
@@ -839,7 +861,20 @@ func parseMessagesFromBody(rawMessages []any) ([]messagepolicy.ConversationMessa
 	return history, lastUserMsg, lastUserIdx
 }
 
-// extractContentString extracts a text string from the OpenAI message content field,
+// extractRawMessages extracts the messages array from a request body map.
+// For Anthropic, this is the "messages" field.
+// For OpenAI Responses API, this is the "input" field (when it's an array).
+func extractRawMessages(bodyMap map[string]any) []any {
+	if messages, ok := bodyMap["messages"].([]any); ok {
+		return messages
+	}
+	if input, ok := bodyMap["input"].([]any); ok {
+		return input
+	}
+	return nil
+}
+
+// extractContentString extracts a text string from a message content field,
 // which can be either a plain string or an array of content parts.
 func extractContentString(content any) string {
 	switch c := content.(type) {
@@ -853,7 +888,9 @@ func extractContentString(content any) string {
 			if !ok {
 				continue
 			}
-			if partMap["type"] == "text" {
+			partType, _ := partMap["type"].(string)
+			switch partType {
+			case "text", "input_text", "output_text":
 				if text, ok := partMap["text"].(string); ok {
 					parts = append(parts, text)
 				}
@@ -952,8 +989,12 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		if err := json.Unmarshal(body, &bodyMap); err == nil {
 			// Evaluate user message against applicable input policies.
 			inputPolicies, err := l.messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionUserMessage)
-			if err == nil && len(inputPolicies) > 0 {
-				rawMessages, _ := bodyMap["messages"].([]any)
+			if err != nil {
+				return fmt.Errorf("failed to get applicable input policies: %w", err)
+			}
+
+			if len(inputPolicies) > 0 {
+				rawMessages := extractRawMessages(bodyMap)
 				if len(rawMessages) > 0 {
 					history, lastUserMsg, lastUserIdx := parseMessagesFromBody(rawMessages)
 					if lastUserIdx >= 0 {
@@ -991,8 +1032,6 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 						}
 					}
 				}
-			} else if err != nil {
-				return fmt.Errorf("failed to get applicable input policies: %w", err)
 			}
 
 			// Check for output (tool-call) policies.
@@ -1001,7 +1040,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 				return fmt.Errorf("failed to get applicable output policies: %w", err)
 			}
 			if len(outputPolicies) > 0 {
-				rawMessages, _ := bodyMap["messages"].([]any)
+				rawMessages := extractRawMessages(bodyMap)
 				conversationHistory, _, _ = parseMessagesFromBody(rawMessages)
 			}
 
