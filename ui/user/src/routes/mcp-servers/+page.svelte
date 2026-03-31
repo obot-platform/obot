@@ -12,7 +12,7 @@
 	import type { MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import { Plus, Server } from 'lucide-svelte';
 	import { fade, fly } from 'svelte/transition';
-	import { goto, replaceState } from '$lib/url';
+	import { goto } from '$lib/url';
 	import Search from '$lib/components/Search.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp.js';
@@ -57,10 +57,8 @@
 
 	function selectServerType(type: LaunchServerType, updateUrl = true) {
 		selectServerTypeDialog?.close();
-		setUrlParam(page.url, 'new', type);
-		replaceState(page.url, {});
 		if (updateUrl) {
-			goto(`/mcp-servers?new=${type}`, { replaceState: false });
+			goto(`/mcp-servers?new=${type}`);
 		}
 	}
 

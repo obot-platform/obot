@@ -6,7 +6,6 @@
 	import { fly } from 'svelte/transition';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { onMount } from 'svelte';
 	import { AdminService, type MCPFilter } from '$lib/services/index.js';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import { openUrl } from '$lib/utils';
@@ -20,9 +19,9 @@
 		getTableUrlParamsFilters,
 		getTableUrlParamsSort,
 		setSortUrlParams,
-		setFilterUrlParams
+		setFilterUrlParams,
+		goto
 	} from '$lib/url';
-	import { goto } from '$lib/url';
 
 	let showCreateFilter = $derived(page.url.searchParams.has('new'));
 	let loading = $state(true);
@@ -61,15 +60,6 @@
 	}, 100);
 
 	const duration = PAGE_TRANSITION_DURATION;
-	onMount(async () => {
-		await refresh();
-
-		if (page.url.searchParams.size > 0) {
-			page.url.searchParams.forEach((value, key) => {
-				urlFilters[key] = value.split(',');
-			});
-		}
-	});
 </script>
 
 <Layout
