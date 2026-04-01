@@ -111,6 +111,11 @@ export async function launchProjectV2Agent(
 	return response;
 }
 
+export async function listAllNanobotAgents(opts?: { fetch?: Fetcher }): Promise<ProjectV2Agent[]> {
+	const response = (await doGet('/nanobot-agents', opts)) as ItemsResponse<ProjectV2Agent>;
+	return response.items ?? [];
+}
+
 export async function listPublishedWorkflows(opts?: {
 	fetch?: Fetcher;
 }): Promise<PublishedArtifact[]> {

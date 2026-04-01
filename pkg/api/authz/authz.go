@@ -144,6 +144,7 @@ var (
 
 		"/api/projectsv2",
 		"/api/projectsv2/",
+		"GET /api/nanobot-agents",
 	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,
@@ -203,6 +204,7 @@ var (
 			"GET /api/message-policy-violations/filter-options/{filter}",
 			"GET /api/message-policy-violations/{id}",
 			"GET /api/message-policy-violation-stats",
+			"GET /api/nanobot-agents",
 		},
 		anyGroup: {
 			// Allow access to the oauth2 endpoints

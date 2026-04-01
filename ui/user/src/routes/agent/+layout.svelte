@@ -67,7 +67,10 @@
 
 	onMount(async () => {
 		const storedChat = get(nanobotChat);
-		if (!storedChat || isNewAgent) {
+		// Re-initialize when there's no stored chat, it's a new agent, or
+		// the project changed (e.g. switching between own agent and impersonation).
+		const projectChanged = storedChat && storedChat.projectId !== projects[0].id;
+		if (!storedChat || isNewAgent || projectChanged) {
 			loading = true;
 			if (isNewAgent) {
 				try {
@@ -78,12 +81,10 @@
 				}
 			}
 
-			if (!storedChat) {
-				try {
-					await initNanobotStore();
-				} catch (error) {
-					console.error(`Error initializing nanobot store`, error);
-				}
+			try {
+				await initNanobotStore();
+			} catch (error) {
+				console.error(`Error initializing nanobot store`, error);
 			}
 			loading = false;
 		}

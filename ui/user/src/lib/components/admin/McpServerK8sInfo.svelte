@@ -33,7 +33,7 @@
 
 	interface Props {
 		id?: string;
-		entity?: 'workspace' | 'catalog';
+		entity?: 'workspace' | 'catalog' | 'agent';
 		mcpServerId: string;
 		name: string;
 		mcpServerInstanceId?: string;
@@ -142,23 +142,25 @@
 		listK8sInfo = getK8sInfo();
 		listK8sSettingsStatus = getK8sSettingsStatus();
 
-		eventStream.connect(logsUrl, {
-			onMessage: (data) => {
-				messages = [...messages, data];
-				// Trigger auto-scroll after adding new message
-				handleScroll();
-			},
-			onOpen: () => {
-				console.debug(`${mcpServerId} event stream opened`);
-				error = undefined;
-			},
-			onError: () => {
-				error = 'Connection failed';
-			},
-			onClose: () => {
-				console.debug(`${mcpServerId} event stream closed`);
-			}
-		});
+		if (logsUrl) {
+			eventStream.connect(logsUrl, {
+				onMessage: (data) => {
+					messages = [...messages, data];
+					// Trigger auto-scroll after adding new message
+					handleScroll();
+				},
+				onOpen: () => {
+					console.debug(`${mcpServerId} event stream opened`);
+					error = undefined;
+				},
+				onError: () => {
+					error = 'Connection failed';
+				},
+				onClose: () => {
+					console.debug(`${mcpServerId} event stream closed`);
+				}
+			});
+		}
 	});
 
 	onDestroy(() => {
@@ -204,23 +206,25 @@
 			// Clear existing messages and reconnect to get fresh logs
 			messages = [];
 			eventStream.disconnect();
-			eventStream.connect(logsUrl, {
-				onMessage: (data) => {
-					messages = [...messages, data];
-					// Trigger auto-scroll after adding new message
-					handleScroll();
-				},
-				onOpen: () => {
-					console.debug(`${mcpServerId} event stream opened`);
-					error = undefined;
-				},
-				onError: () => {
-					error = 'Connection failed';
-				},
-				onClose: () => {
-					console.debug(`${mcpServerId} event stream closed`);
-				}
-			});
+			if (logsUrl) {
+				eventStream.connect(logsUrl, {
+					onMessage: (data) => {
+						messages = [...messages, data];
+						// Trigger auto-scroll after adding new message
+						handleScroll();
+					},
+					onOpen: () => {
+						console.debug(`${mcpServerId} event stream opened`);
+						error = undefined;
+					},
+					onError: () => {
+						error = 'Connection failed';
+					},
+					onClose: () => {
+						console.debug(`${mcpServerId} event stream closed`);
+					}
+				});
+			}
 		} catch (err) {
 			console.error('Failed to refresh logs:', err);
 		} finally {
@@ -323,7 +327,8 @@
 	function getAuditLogUrl(d: (typeof connectedUsers)[number]) {
 		const id = mcpServerId || mcpServerInstanceId;
 
-		if (compositeParentName) return null;
+		// can agents have audit logs?
+		if (compositeParentName || entity === 'agent') return null;
 
 		if (isAdminUrl) {
 			if (!hasAdminAccess) return null;

@@ -17,6 +17,7 @@
 		MCPCompositeDeletionDependencyError
 	} from '$lib/services';
 	import {
+		getMcpServerDeploymentStatus,
 		getServerTypeLabel,
 		getServerUrl,
 		hasEditableConfiguration,
@@ -67,19 +68,6 @@
 		noDataContent?: Snippet;
 		onlyMyServers?: boolean;
 	}
-
-	const SERVER_UPGRADES_AVAILABLE = {
-		NONE: 'Up to date',
-		BOTH: 'Needs Scheduling and Config Update',
-		SERVER: 'Needs Config Update',
-		K8S: 'Needs Scheduling Update'
-	};
-	const SERVER_UPGRADES_AVAILABLE_TOOLTIP = {
-		SERVER:
-			'The configuration for this server’s registry entry has changed and can be applied to this server',
-		K8S: 'The default server scheduling rules have changed and can be applied to this server',
-		BOTH: 'The configuration for this server’s registry entry has changed and can be applied to this server\nThe default server scheduling rules have changed and can be applied to this server.'
-	};
 
 	let {
 		entity = 'catalog',
@@ -190,32 +178,8 @@
 					? compositeParent.alias || compositeParent.manifest.name
 					: '';
 
-				const needsUpdate = deployment.needsUpdate && !deployment.compositeName;
-				const needsK8sUpdate =
-					version.current.engine === 'kubernetes' &&
-					deployment.needsK8sUpdate &&
-					!deployment.compositeName;
-
-				let updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
-				let updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
-				let updateStatusTooltip: string | undefined = undefined;
-
-				if (needsUpdate && needsK8sUpdate && doesSupportK8sUpdates) {
-					updateStatus = SERVER_UPGRADES_AVAILABLE.BOTH;
-					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER, SERVER_UPGRADES_AVAILABLE.K8S];
-					updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.BOTH;
-				} else if (needsUpdate) {
-					updateStatus = SERVER_UPGRADES_AVAILABLE.SERVER;
-					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.SERVER];
-					updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.SERVER;
-				} else if (needsK8sUpdate && doesSupportK8sUpdates) {
-					updateStatus = SERVER_UPGRADES_AVAILABLE.K8S;
-					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.K8S];
-					updateStatusTooltip = SERVER_UPGRADES_AVAILABLE_TOOLTIP.K8S;
-				} else {
-					updateStatus = SERVER_UPGRADES_AVAILABLE.NONE;
-					updatesAvailable = [SERVER_UPGRADES_AVAILABLE.NONE];
-				}
+				const { updateStatus, updatesAvailable, updateStatusTooltip } =
+					getMcpServerDeploymentStatus(deployment, doesSupportK8sUpdates);
 
 				return {
 					...deployment,
@@ -534,7 +498,7 @@
 	}
 </script>
 
-<div class="flex flex-col gap-2">
+<div class="flex flex-col gap-0.5">
 	{#if loading}
 		<div class="my-2 flex items-center justify-center">
 			<LoaderCircle class="size-6 animate-spin" />

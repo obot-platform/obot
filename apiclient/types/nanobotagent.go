@@ -7,6 +7,10 @@ type NanobotAgent struct {
 	UserID      string `json:"userID,omitempty"`
 	ProjectV2ID string `json:"projectV2ID,omitempty"`
 	ConnectURL  string `json:"connectURL,omitempty"`
+	NeedsUpdate       bool   `json:"needsUpdate,omitempty"`
+	NeedsK8sUpdate    bool   `json:"needsK8sUpdate,omitempty"`
+	NeedsURL          bool   `json:"needsURL,omitempty"`
+	DeploymentStatus  string `json:"deploymentStatus,omitempty"`
 }
 
 // NanobotAgentManifest contains the user-editable fields for a nanobot workflow

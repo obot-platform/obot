@@ -16,7 +16,8 @@
 		KeyRound,
 		BotMessageSquare,
 		Power,
-		LockOpen
+		LockOpen,
+		HatGlasses
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
@@ -34,9 +35,10 @@
 	interface Props {
 		agentId?: string;
 		projectId?: string;
+		impersonating?: boolean;
 	}
 
-	let { agentId, projectId }: Props = $props();
+	let { agentId, projectId, impersonating }: Props = $props();
 
 	let versionDialog = $state<HTMLDialogElement>();
 	let loadingChat = $state(false);
@@ -147,7 +149,7 @@
 >
 	{#snippet icon()}
 		<div class="relative flex-shrink-0">
-			<ProfileIcon />
+			<ProfileIcon {impersonating} />
 			{#if showUpgradeAvailable}
 				<CircleFadingArrowUp
 					class="text-primary bg-background absolute -right-0.5 -bottom-0.5 z-10 size-3 rounded-full"
@@ -158,7 +160,7 @@
 	{#snippet header()}
 		<div class="flex w-full items-center justify-between gap-8 p-4 pb-2">
 			<div class="flex items-center gap-3">
-				<ProfileIcon class="size-12" />
+				<ProfileIcon class="size-12" {impersonating} />
 				<div class="flex grow flex-col">
 					<span>
 						{profile.current.displayName || 'Anonymous'}
@@ -182,6 +184,15 @@
 				<Moon class="relative z-10 size-5" />
 			</button>
 		</div>
+		{#if impersonating}
+			<div class="px-4">
+				<div class="notification-info text-xs">
+					<p class="flex items-center gap-1">
+						<HatGlasses class="size-3" /> You are in impersonation mode.
+					</p>
+				</div>
+			</div>
+		{/if}
 	{/snippet}
 	{#snippet body()}
 		<div class="flex flex-col gap-1 px-2 pb-4">
@@ -200,26 +211,28 @@
 					><Book class="size-4" />Docs</a
 				>
 			{/if}
-			{#if profile.current.email && page.url.pathname !== '/profile'}
-				<MyAccount />
-			{/if}
-			{#if showApiKeysLink}
-				<a href={resolve('/keys')} role="menuitem" class="dropdown-link"
-					><KeyRound class="size-4" />My API Keys</a
-				>
-			{/if}
-			{#if profile.current.isBootstrapUser?.()}
-				<button class="dropdown-link" onclick={handleBootstrapLogout}>
-					<LogOut class="size-4" /> Log out
-				</button>
-			{:else}
-				<button class="dropdown-link" onclick={handleLogout}>
-					<LogOut class="size-4" /> Log out
-				</button>
+			{#if !impersonating}
+				{#if profile.current.email && page.url.pathname !== '/profile'}
+					<MyAccount />
+				{/if}
+				{#if showApiKeysLink}
+					<a href={resolve('/keys')} role="menuitem" class="dropdown-link"
+						><KeyRound class="size-4" />My API Keys</a
+					>
+				{/if}
+				{#if profile.current.isBootstrapUser?.()}
+					<button class="dropdown-link" onclick={handleBootstrapLogout}>
+						<LogOut class="size-4" /> Log out
+					</button>
+				{:else}
+					<button class="dropdown-link" onclick={handleLogout}>
+						<LogOut class="size-4" /> Log out
+					</button>
+				{/if}
 			{/if}
 		</div>
 		<div class="mt-2 p-2">
-			{#if showChatLink && version.current.nanobotIntegration}
+			{#if showChatLink && version.current.nanobotIntegration && !impersonating}
 				<button
 					class={twMerge(
 						'dropdown-link',
@@ -244,7 +257,7 @@
 					{/if}
 				</button>
 			{/if}
-			{#if showChatLink && version.current.disableLegacyChat !== true}
+			{#if showChatLink && version.current.disableLegacyChat !== true && !impersonating}
 				<button
 					class="dropdown-link"
 					class:mt-1={version.current.nanobotIntegration}
@@ -275,7 +288,7 @@
 					Launch Legacy Chat
 				</button>
 			{/if}
-			{#if showMcpManagement}
+			{#if showMcpManagement && !impersonating}
 				<a
 					href={resolve(profile.current.hasAdminAccess?.() ? '/admin/mcp-servers' : '/mcp-servers')}
 					rel="external"

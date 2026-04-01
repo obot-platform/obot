@@ -2,8 +2,10 @@ package authz
 
 import (
 	"net/http"
+	"slices"
 
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -27,6 +29,13 @@ func (a *Authorizer) checkNanobotAgent(req *http.Request, resources *Resources, 
 
 	// If the workflow belongs to a project and the user owns that project, authorization is granted.
 	if resources.Authorizated.ProjectV2 != nil && resources.Authorizated.ProjectV2.Spec.UserID == u.GetUID() && agent.Spec.ProjectV2ID == resources.Authorizated.ProjectV2.Name {
+		resources.Authorizated.NanobotAgent = &agent
+		return true, nil
+	}
+
+	// If the user has impersonation + admin privileges, allow access to any agent.
+	groups := u.GetGroups()
+	if slices.Contains(groups, types.GroupUserImpersonation) && slices.Contains(groups, types.GroupAdmin) {
 		resources.Authorizated.NanobotAgent = &agent
 		return true, nil
 	}

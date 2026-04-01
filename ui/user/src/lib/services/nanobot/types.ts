@@ -467,6 +467,10 @@ export interface ProjectV2Agent {
 	displayName?: string;
 	description?: string;
 	defaultAgent?: string;
+	needsUpdate?: boolean;
+	needsK8sUpdate?: boolean;
+	needsURL?: boolean;
+	deploymentStatus?: string;
 }
 
 export interface ProjectV2AgentCreateRequest {

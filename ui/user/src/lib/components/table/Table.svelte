@@ -632,7 +632,7 @@
 	</div>
 	<div
 		class={twMerge(
-			'dark:bg-surface2 default-scrollbar-thin bg-background relative overflow-hidden rounded-md shadow-sm',
+			'dark:bg-surface2 default-scrollbar-thin bg-background relative overflow-hidden rounded-b-md shadow-sm',
 			classes?.root
 		)}
 		bind:this={bodyScrollRef}

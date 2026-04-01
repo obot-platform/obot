@@ -147,7 +147,7 @@
 				disabled={isUserImpersonationDisabled}
 			/>
 			<div class="flex flex-col">
-				<div class="w-28 flex-shrink-0 font-semibold">User Impersonation</div>
+				<div class="w-28 flex-shrink-0 font-semibold">Impersonator</div>
 				<p class="text-on-surface1 text-xs">
 					All group members will be able to connect to other users' Obot Agents. Must be combined
 					with Admin or Owner.
