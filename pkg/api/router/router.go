@@ -813,6 +813,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 
 		// NanobotAgents
 		nanobotAgents := handlers.NewNanobotAgentHandler(services.MCPLoader, services.ServerURL)
+		mux.HandleFunc("GET /api/nanobot-agents", nanobotAgents.ListAll)
 		mux.HandleFunc("POST /api/projectsv2/{project_id}/agents", nanobotAgents.Create)
 		mux.HandleFunc("GET /api/projectsv2/{project_id}/agents", nanobotAgents.List)
 		mux.HandleFunc("GET /api/projectsv2/{project_id}/agents/{nanobot_agent_id}", nanobotAgents.ByID)

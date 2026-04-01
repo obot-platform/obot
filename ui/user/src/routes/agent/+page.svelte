@@ -10,9 +10,10 @@
 	import { goto } from '$lib/url';
 	import { clampThreadContentReportedWidth, randomUUID } from '$lib/utils';
 	import type { Attachment, UploadedFile } from '$lib/services/nanobot/types';
-	import { responsive } from '$lib/stores';
+	import { responsive, profile } from '$lib/stores';
 	import MobileDock from './MobileDock.svelte';
 	import Profile from '$lib/components/navbar/Profile.svelte';
+	import ImpersonateBanner from './ImpersonateBanner.svelte';
 
 	let { data } = $props();
 	let projects = $derived(data.projects);
@@ -77,6 +78,8 @@
 			eventSource.close();
 		};
 	});
+
+	const impersonating = $derived(data.agent.userID !== profile.current.id);
 </script>
 
 <Layout
@@ -94,6 +97,9 @@
 	hideProfileButton={!responsive.isMobile}
 	hideSidebar={responsive.isMobile}
 >
+	{#snippet banner()}
+		<ImpersonateBanner {agent} />
+	{/snippet}
 	{#snippet leftSidebar()}
 		{#if !responsive.isMobile}
 			<ProjectSidebar projectId={projects[0].id} />
@@ -136,10 +142,28 @@
 							resources: current?.resources ?? []
 						});
 
-						goto(`/agent/p/${projectId}?tid=${session.chatId}`, {
-							replaceState: true,
-							noScroll: true,
-							keepFocus: true
+						$nanobotChat?.api.createSession().then(async (session) => {
+							const uploadedAttachments: Attachment[] = await Promise.all(
+								toUpload.map((p) => session.uploadFile(p.file))
+							);
+							const allAttachments = [...uploadedAttachments, ...(attachments ?? [])];
+							session.sendMessage(message, allAttachments.length > 0 ? allAttachments : undefined);
+							const current = get(nanobotChat);
+							nanobotChat.set({
+								projectId,
+								chat: session,
+								sessionId: session.chatId,
+								api: $nanobotChat?.api,
+								sessions: current?.sessions ?? [],
+								isThreadsLoading: current?.isThreadsLoading ?? false,
+								resources: current?.resources ?? []
+							});
+
+							goto(`/agent/p/${projectId}?tid=${session.chatId}`, {
+								replaceState: true,
+								noScroll: true,
+								keepFocus: true
+							});
 						});
 					});
 				},
@@ -190,6 +214,7 @@
 			{browserAvailable}
 			{browserViewerOpen}
 			onToggleBrowserViewer={() => (browserViewerOpen = !browserViewerOpen)}
+			{impersonating}
 		/>
 	{/snippet}
 

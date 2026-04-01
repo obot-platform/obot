@@ -250,7 +250,7 @@ export function openUrl(url: string, isCtrlClick: boolean) {
 
 export const getUserRoleLabel = (role: number) => {
 	const withAuditor = role & Role.AUDITOR ? ', Auditor' : '';
-	const withUserImpersonation = role & Role.USER_IMPERSONATION ? ', User Impersonation' : '';
+	const withUserImpersonation = role & Role.USER_IMPERSONATION ? ', Impersonator' : '';
 	if (role & Role.OWNER) return 'Owner' + withAuditor + withUserImpersonation;
 	if (role & Role.ADMIN) return 'Admin' + withAuditor + withUserImpersonation;
 	if (role & Role.POWERUSER) return 'Power User' + withAuditor + withUserImpersonation;

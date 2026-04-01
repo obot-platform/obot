@@ -74,6 +74,9 @@ export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 	obj.isBootstrapUser = () => {
 		return obj.username === BOOTSTRAP_USER_ID;
 	};
+	obj.canImpersonate = () => {
+		return obj.groups.includes(Group.USER_IMPERSONATION) && obj.groups.includes(Group.ADMIN);
+	};
 	obj.loaded = true;
 	return obj;
 }

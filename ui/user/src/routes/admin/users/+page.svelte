@@ -352,7 +352,7 @@
 						class:opacity-50={updatingRole.roleId !== Role.ADMIN &&
 							updatingRole.roleId !== Role.OWNER}
 					>
-						<p class="flex-shrink-0 font-semibold">User Impersonation</p>
+						<p class="flex-shrink-0 font-semibold">Impersonator</p>
 						<p class="text-on-surface1">
 							Will be able to connect to other users' Obot Agents. Requires Admin or Owner base
 							role.
@@ -456,11 +456,11 @@
 <Confirm
 	type="info"
 	title={isAddingAuditorWithUserImpersonation
-		? 'Confirm User Impersonation + Auditor Roles'
-		: 'Confirm User Impersonation Role'}
+		? 'Confirm Impersonator + Auditor Roles'
+		: 'Confirm Impersonator Role'}
 	msg={isAddingAuditorWithUserImpersonation
-		? `Grant ${confirmUserImpersonationAdditionToUser?.email || confirmUserImpersonationAdditionToUser?.name} the User Impersonation and Auditor roles?`
-		: `Grant ${confirmUserImpersonationAdditionToUser?.email || confirmUserImpersonationAdditionToUser?.name} the User Impersonation role?`}
+		? `Grant ${confirmUserImpersonationAdditionToUser?.email || confirmUserImpersonationAdditionToUser?.name} the Impersonator and Auditor roles?`
+		: `Grant ${confirmUserImpersonationAdditionToUser?.email || confirmUserImpersonationAdditionToUser?.name} the Impersonator role?`}
 	{loading}
 	show={Boolean(confirmUserImpersonationAdditionToUser)}
 	onsuccess={async () => {
@@ -483,8 +483,8 @@
 	{#snippet note()}
 		<div class="flex flex-col gap-4">
 			<p class="text-left">
-				User Impersonation allows connecting to other users' Obot Agents. This is elevated
-				cross-user access and should be granted sparingly.
+				Impersonator allows connecting to other users' Obot Agents. This is elevated cross-user
+				access and should be granted sparingly.
 			</p>
 			{#if isAddingAuditorWithUserImpersonation}
 				<p class="text-left">
@@ -492,9 +492,7 @@
 					request/response/header details).
 				</p>
 			{:else if isRemovingAuditorWithUserImpersonation}
-				<p class="text-left">
-					This update will remove Auditor while granting User Impersonation access.
-				</p>
+				<p class="text-left">This update will remove Auditor while granting Impersonator access.</p>
 			{:else}
 				<p class="text-left">This update does not modify the Auditor role.</p>
 			{/if}

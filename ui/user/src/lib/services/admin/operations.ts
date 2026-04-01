@@ -323,6 +323,14 @@ export async function getMCPCatalogServer(
 	return response;
 }
 
+export async function getMCPServerById(
+	serverID: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<MCPCatalogServer> {
+	const response = (await doGet(`/mcp-servers/${serverID}`, opts)) as MCPCatalogServer;
+	return response;
+}
+
 export async function getMCPCatalogServerOAuthURL(
 	catalogID: string,
 	serverID: string,

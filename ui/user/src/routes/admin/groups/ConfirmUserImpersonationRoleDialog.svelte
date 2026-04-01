@@ -36,7 +36,7 @@
 </script>
 
 <Confirm
-	title="Confirm User Impersonation Role"
+	title="Confirm Impersonator Role"
 	{loading}
 	show={Boolean(groupAssignment)}
 	onsuccess={async () => {
@@ -45,13 +45,13 @@
 	}}
 	{oncancel}
 	type="info"
-	msg={`Grant ${groupAssignment?.group.name} the User Impersonation role?`}
+	msg={`Grant ${groupAssignment?.group.name} the Impersonator role?`}
 >
 	{#snippet note()}
 		<div class="mt-4 mb-8 flex flex-col gap-4 text-center">
 			<p>
-				User Impersonation grants elevated cross-user access so members of this group can connect to
-				other users' Obot Agents.
+				Impersonator grants elevated cross-user access so members of this group can connect to other
+				users' Obot Agents.
 			</p>
 			{#if addingAuditor}
 				<p>
@@ -59,7 +59,7 @@
 					request/response/header details).
 				</p>
 			{:else if removingAuditor}
-				<p>This update will remove Auditor while granting User Impersonation access.</p>
+				<p>This update will remove Auditor while granting Impersonator access.</p>
 			{/if}
 			<p>
 				Are you sure you want to grant the <b>{groupAssignment?.group.name}</b> group this role?

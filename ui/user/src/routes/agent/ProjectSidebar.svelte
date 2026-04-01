@@ -75,7 +75,7 @@
 			});
 
 			if (isCurrentViewedSession) {
-				goto(`/agent`, { replaceState: true });
+				goto(`/agent?projectId=${projectId}`, { replaceState: true });
 			}
 		} catch (error) {
 			console.error('Failed to delete thread:', error);
@@ -89,7 +89,7 @@
 			}
 			return data;
 		});
-		goto(`/agent`);
+		goto(`/agent?projectId=${projectId}`);
 	}
 
 	function toggleSidebar() {
