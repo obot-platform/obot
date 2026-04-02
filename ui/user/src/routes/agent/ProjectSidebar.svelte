@@ -165,34 +165,46 @@
 					<div class="w-fit">
 						<button
 							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
-							class:bg-base-100={activeView === 'workflows'}
 							aria-label="Go to workflows"
 							data-tip="Go to workflows"
 							onclick={() => goto(`/agent/p/${projectId}/workflows`)}
 						>
-							<Workflow class="text-base-content/50 size-6" />
+							<Workflow
+								class={twMerge(
+									'size-6',
+									activeView === 'workflows' ? 'text-primary' : 'text-base-content/50'
+								)}
+							/>
 						</button>
 					</div>
 					<div class="w-fit">
 						<button
 							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
-							class:bg-base-100={activeView === 'scheduler'}
 							aria-label="Go to scheduler"
 							data-tip="Go to scheduler"
 							onclick={() => goto(`/agent/p/${projectId}/scheduler`)}
 						>
-							<Clock3 class="text-base-content/50 size-6" />
+							<Clock3
+								class={twMerge(
+									'size-6',
+									activeView === 'scheduler' ? 'text-primary' : 'text-base-content/50'
+								)}
+							/>
 						</button>
 					</div>
 					<div class="w-fit">
 						<button
 							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
-							class:bg-base-100={activeView === 'files'}
 							aria-label="Go to files"
 							data-tip="Go to files"
 							onclick={() => goto(`/agent/p/${projectId}/files`)}
 						>
-							<Folders class="text-base-content/50 size-6" />
+							<Folders
+								class={twMerge(
+									'size-6',
+									activeView === 'files' ? 'text-primary' : 'text-base-content/50'
+								)}
+							/>
 						</button>
 					</div>
 					<div class="w-fit">
