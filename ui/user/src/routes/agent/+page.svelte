@@ -142,28 +142,10 @@
 							resources: current?.resources ?? []
 						});
 
-						$nanobotChat?.api.createSession().then(async (session) => {
-							const uploadedAttachments: Attachment[] = await Promise.all(
-								toUpload.map((p) => session.uploadFile(p.file))
-							);
-							const allAttachments = [...uploadedAttachments, ...(attachments ?? [])];
-							session.sendMessage(message, allAttachments.length > 0 ? allAttachments : undefined);
-							const current = get(nanobotChat);
-							nanobotChat.set({
-								projectId,
-								chat: session,
-								sessionId: session.chatId,
-								api: $nanobotChat?.api,
-								sessions: current?.sessions ?? [],
-								isThreadsLoading: current?.isThreadsLoading ?? false,
-								resources: current?.resources ?? []
-							});
-
-							goto(`/agent/p/${projectId}?tid=${session.chatId}`, {
-								replaceState: true,
-								noScroll: true,
-								keepFocus: true
-							});
+						goto(`/agent/p/${projectId}?tid=${session.chatId}`, {
+							replaceState: true,
+							noScroll: true,
+							keepFocus: true
 						});
 					});
 				},
