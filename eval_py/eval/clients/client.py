@@ -1,0 +1,103 @@
+"""HTTP client for Obot nanobot APIs (projectsv2, agents, launch, version)."""
+import json
+from typing import Any, Optional
+from urllib.parse import urlparse
+
+import requests
+
+from ..helper import api_log
+
+MCP_SERVER_PREFIX = "ms1"
+# requests.Session has no default timeout; always pass explicit per-request timeout.
+# Use separate connect/read bounds so connect failures fail fast while allowing
+# moderately long API responses.
+DEFAULT_CONNECT_TIMEOUT = 10
+DEFAULT_READ_TIMEOUT = 30
+DEFAULT_TIMEOUT = (DEFAULT_CONNECT_TIMEOUT, DEFAULT_READ_TIMEOUT)
+
+
+def _apply_auth(headers: dict, auth_header: str) -> None:
+    if not auth_header:
+        return
+    auth_header = auth_header.strip()
+    if auth_header.lower().startswith("cookie:"):
+        headers["Cookie"] = auth_header[7:].strip()
+    else:
+        headers["Authorization"] = auth_header
+
+
+class Client:
+    """HTTP client for Obot REST API."""
+    def __init__(self, base_url: str, auth_header: str):
+        self.base_url = base_url.rstrip("/")
+        self.auth_header = auth_header
+        self._session = requests.Session()
+        self._session.headers["Accept"] = "application/json"
+
+    def _do(self, method: str, path: str, body: Any = None) -> tuple[bytes, int]:
+        url = self.base_url + path
+        headers = {}
+        if body is not None:
+            headers["Content-Type"] = "application/json"
+        _apply_auth(headers, self.auth_header)
+        req_body = json.dumps(body).encode() if body is not None else b""
+        resp = self._session.request(
+            method, url, data=req_body or None, headers=headers, timeout=DEFAULT_TIMEOUT
+        )
+        resp_body = resp.content
+        api_log.log_api_call(method, url, req_body, resp.status_code, resp_body)
+        return resp_body, resp.status_code
+
+    def get_version(self) -> tuple[Optional[dict], int]:
+        """GET /api/version. Returns (parsed body or None, status)."""
+        body, status = self._do("GET", "/api/version")
+        if status != 200:
+            return None, status
+        return json.loads(body), status
+
+    def list_projects_v2(self) -> tuple[list[dict], int]:
+        body, status = self._do("GET", "/api/projectsv2")
+        if status != 200:
+            return [], status
+        data = json.loads(body)
+        return data.get("items", []), status
+
+    def list_agents(self, project_id: str) -> tuple[list[dict], int]:
+        body, status = self._do("GET", f"/api/projectsv2/{project_id}/agents")
+        if status != 200:
+            return [], status
+        data = json.loads(body)
+        return data.get("items", []), status
+
+    def mcp_connect_url(self, agent_id: str) -> str:
+        """Full URL for MCP gateway: base_url + /mcp-connect/ms1{agent_id}."""
+        if not agent_id:
+            return ""
+        return f"{self.base_url}/mcp-connect/{MCP_SERVER_PREFIX}{agent_id}"
+
+    def mcp_client_for_agent(self, agent_id: str) -> Optional["MCPClient"]:
+        """Return MCP client for this agent (same auth)."""
+        if not agent_id:
+            return None
+        from .mcp_client import MCPClient
+        return MCPClient(self.mcp_connect_url(agent_id), self.auth_header)
+
+
+def project_id(proj: Optional[dict]) -> str:
+    """Extract project ID from API response (top-level id or metadata.id/name)."""
+    if not proj:
+        return ""
+    if proj.get("id"):
+        return str(proj["id"])
+    meta = proj.get("metadata") or {}
+    return meta.get("id") or meta.get("name") or ""
+
+
+def agent_id(agent: Optional[dict]) -> str:
+    """Extract agent ID from API response."""
+    if not agent:
+        return ""
+    if agent.get("id"):
+        return str(agent["id"])
+    meta = agent.get("metadata") or {}
+    return meta.get("id") or meta.get("name") or ""
