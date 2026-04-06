@@ -3,6 +3,7 @@ import json
 import os
 import time
 import uuid
+from typing import Optional
 
 from .framework import Case, Context, Result
 from ..clients.client import Client, project_id, agent_id
@@ -20,6 +21,32 @@ def _safe_print_sample(s: str, max_chars: int) -> str:
     if len(s) > max_chars:
         sample += "... [truncated]"
     return sample.encode("ascii", errors="replace").decode("ascii")
+
+
+def _last_elicitation_sse_id(raw_sse: str) -> Optional[str]:
+    """Return the ``id:`` value for the last ``elicitation/create`` block in captured SSE text."""
+    marker = "event: elicitation/create"
+    last_id: Optional[str] = None
+    pos = 0
+    while True:
+        idx = raw_sse.find(marker, pos)
+        if idx < 0:
+            break
+        head = raw_sse[:idx]
+        for line in reversed(head.splitlines()):
+            s = line.strip()
+            if s.startswith("id:"):
+                last_id = s.split(":", 1)[1].strip()
+                break
+        pos = idx + len(marker)
+    return last_id
+
+
+def _aws_keys_from_env() -> tuple[str, str]:
+    """Access key + secret from env (UI tests use AWS_KEY_ID / AWS_ACCESS_ID)."""
+    ak = (os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_KEY_ID") or "").strip()
+    sk = (os.environ.get("AWS_SECRET_ACCESS_KEY") or os.environ.get("AWS_ACCESS_ID") or "").strip()
+    return ak, sk
 
 
 def _print_event_stream_validation(assistant_text: str, raw_sse: str) -> None:
@@ -1003,7 +1030,7 @@ def run_blog_post_elicitation_eval(ctx: Context) -> Result:
 
     prompt_text = "i want to create a blog post"
     progress_token = str(uuid.uuid4())
-    ctx.append_step("Single prompt: blog post (event stream + chat async)")
+    ctx.append_step("Single prompt: blog post elicitation (event stream + chat async)")
 
     raw_sse = ""
     response_text = ""
@@ -1059,6 +1086,181 @@ def run_blog_post_elicitation_eval(ctx: Context) -> Result:
             session_id=session_id,
         )
         print("[step_eval] Steps + raw SSE (blog post elicitation) saved to: %s" % out_path)
+
+
+def run_aws_api_mcp_connect_eval(ctx: Context) -> Result:
+    """
+    Drive nanobot to connect the AWS API catalog MCP server: capture
+    ``elicitation/create`` (AWS key form), reply via MCP JSON-RPC with credentials
+    from the environment, then optionally send a follow-up verify prompt for logs only.
+
+    **Pass condition:** ``elicitation_reply`` returns HTTP **204** or **202** (server
+    accepted the credential payload). The verify turn does not affect ``pass_``; its
+    text is appended to the result message for manual review.
+
+    Set ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY``, or ``AWS_KEY_ID`` and
+    ``AWS_ACCESS_ID`` (same as UI tests).
+    Optional: ``AWS_REGION`` (default ``us-east-1``), ``AWS_SESSION_TOKEN``.
+    """
+    c = ctx.client
+    ctx.append_step("GET /api/version")
+    v, status = c.get_version()
+    if status != 200 or v is None:
+        return Result(pass_=False, message="version: status=%s" % status)
+    if not v.get("nanobotIntegration"):
+        return Result(pass_=False, message="nanobotIntegration is false")
+
+    ctx.append_step("GET /api/projectsv2")
+    projects, status = c.list_projects_v2()
+    if status != 200:
+        return Result(pass_=False, message="list projects: status=%s" % status)
+    if not projects:
+        return Result(pass_=False, message="no projects: create a project and agent first")
+    pid = project_id(projects[0])
+    if not pid:
+        return Result(pass_=False, message="project ID empty")
+
+    ctx.append_step("GET /api/projectsv2/%s/agents", pid)
+    agents, status = c.list_agents(pid)
+    if status != 200 or not agents:
+        return Result(pass_=False, message="no agents in project")
+    aid = agent_id(agents[0])
+    if not aid:
+        return Result(pass_=False, message="agent ID empty")
+
+    mcp = c.mcp_client_for_agent(aid)
+    if mcp is None:
+        return Result(pass_=False, message="MCPClientForAgent returned None")
+
+    ak, sk = _aws_keys_from_env()
+    if not ak or not sk:
+        return Result(
+            pass_=False,
+            message=(
+                "missing AWS keys: set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY "
+                "or AWS_KEY_ID and AWS_ACCESS_ID"
+            ),
+        )
+
+    ctx.append_step("MCP initialize")
+    session_id, status = mcp.initialize()
+    if status != 200 or not session_id:
+        return Result(pass_=False, message="MCP initialize: status=%s" % status)
+    ctx.append_step("MCP notifications/initialized")
+    status = mcp.notifications_initialized(session_id)
+    if status not in (200, 202):
+        return Result(pass_=False, message="notifications/initialized: status=%s" % status)
+
+    prompt_text = "Connect me to AWS API MCP server"
+    progress_token = str(uuid.uuid4())
+    raw_sse = ""
+    response_text = ""
+    raw_sse_verify = ""
+    response_verify = ""
+    tools_used: list[str] = []
+    tools_verify: list[str] = []
+
+    try:
+        def send_chat(progress_tok=progress_token, prompt=prompt_text):
+            out, st = mcp.chat_send(
+                session_id, "chat-with-nanobot", prompt, progress_token=progress_tok
+            )
+            if st != 200:
+                raise RuntimeError("chat send (AWS connect): status=%s" % st)
+
+        response_text, raw_sse, tools_used = mcp.get_response_from_events_async(
+            session_id, send_chat_fn=send_chat, expected_prompt=None
+        )
+        _print_event_stream_validation(response_text or "", raw_sse or "")
+
+        if "elicitation/create" not in (raw_sse or ""):
+            return Result(pass_=False, message="no elicitation/create in event stream")
+        if "AWS_ACCESS_KEY_ID" not in (raw_sse or ""):
+            return Result(
+                pass_=False,
+                message="elicitation form does not look like AWS API (no AWS_ACCESS_KEY_ID in stream)",
+            )
+
+        elic_id = _last_elicitation_sse_id(raw_sse or "")
+        if not elic_id:
+            return Result(pass_=False, message="could not parse SSE id: for elicitation/create")
+
+        region = (os.environ.get("AWS_REGION") or "us-east-1").strip() or "us-east-1"
+        token = (os.environ.get("AWS_SESSION_TOKEN") or "").strip()
+        reply_body = {
+            "action": "accept",
+            "content": {
+                "AWS_ACCESS_KEY_ID": ak,
+                "AWS_SECRET_ACCESS_KEY": sk,
+                "AWS_REGION": region,
+                "AWS_SESSION_TOKEN": token,
+            },
+        }
+        ctx.append_step("MCP elicitation_reply id=%s", elic_id)
+        http_st, reply_out = mcp.elicitation_reply(session_id, elic_id, reply_body)
+        if http_st not in (204, 202):
+            snippet = reply_out[:500].decode("utf-8", errors="replace") if reply_out else ""
+            return Result(
+                pass_=False,
+                message="elicitation_reply HTTP %s: %s" % (http_st, snippet),
+            )
+
+        passed = True
+        verify_extra = ""
+
+        verify_tok = str(uuid.uuid4())
+        verify_prompt = (
+            "In one short sentence, say whether the AWS API MCP server is now connected "
+            "and ready to run AWS CLI-style calls. Start your answer with YES or NO."
+        )
+
+        try:
+            def send_verify(progress_tok=verify_tok, prompt=verify_prompt):
+                out, st = mcp.chat_send(
+                    session_id, "chat-with-nanobot", prompt, progress_token=progress_tok
+                )
+                if st != 200:
+                    raise RuntimeError("verify chat_send: status=%s" % st)
+
+            response_verify, raw_sse_verify, tools_verify = mcp.get_response_from_events_async(
+                session_id, send_chat_fn=send_verify, expected_prompt=None
+            )
+            ctx.append_step("verify turn (informational): tools=%s", tools_verify)
+
+            vlow = (response_verify or "").lower().lstrip()
+            if vlow.startswith("no") or vlow.startswith("**no"):
+                assistant_says_ready = False
+            else:
+                assistant_says_ready = bool(vlow) and (
+                    vlow.startswith("yes") or vlow.startswith("**yes")
+                )
+            verify_extra = (
+                " verify_tools=%s; assistant_says_ready=%s; verify_preview=%r"
+                % (
+                    tools_verify,
+                    assistant_says_ready,
+                    (response_verify or "")[:400],
+                )
+            )
+        except Exception as ve:
+            verify_extra = " verify_turn_failed=%s" % ve
+            ctx.append_step("verify turn (informational) error: %s", ve)
+
+        msg = "elicitation_reply HTTP %s (pass);%s" % (http_st, verify_extra)
+        ctx.append_step("AWS API MCP connect eval: pass=True (elicitation_reply accepted)")
+        return Result(pass_=passed, message=msg)
+    except Exception as e:
+        ctx.append_step("Error (AWS API MCP connect): %s", e)
+        return Result(pass_=False, message=str(e))
+    finally:
+        combined = (raw_sse or "") + "\n\n--- verify turn ---\n\n" + (raw_sse_verify or "")
+        out_path = event_stream_data.write_step_eval_output_file(
+            "nanobot_aws_api_mcp_connect_eval",
+            ctx.trajectory,
+            combined,
+            session_id=session_id,
+        )
+        print("[step_eval] Steps + raw SSE (AWS API MCP connect) saved to: %s" % out_path)
 
 
 def run_deep_news_briefing_single_prompt_eval(ctx: Context) -> Result:
@@ -1202,4 +1404,5 @@ def all_cases() -> list[Case]:
         Case("nanobot_antv_dual_axes_conversation_eval", "AntV dual-axes workflow: multi-turn conversation with turn-level DeepEval criteria", run_antv_dual_axes_conversation_eval),
         Case("nanobot_deep_news_briefing_single_prompt_eval", "Deep news briefing as single prompt → response → DeepEval criteria", run_deep_news_briefing_single_prompt_eval),
         Case("nanobot_blog_post_elicitation_eval", "Blog-post request that triggers question-based elicitation UI", run_blog_post_elicitation_eval),
+        Case("nanobot_aws_api_mcp_connect_eval", "Connect AWS API MCP via elicitation + env creds; pass if elicitation_reply 204/202 (verify turn is informational)", run_aws_api_mcp_connect_eval),
     ]

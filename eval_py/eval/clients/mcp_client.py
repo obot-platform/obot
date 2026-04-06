@@ -87,6 +87,34 @@ class MCPClient:
         _, status, _ = self._do("notifications/initialized", {}, session_id=session_id)
         return status
 
+    def elicitation_reply(
+        self,
+        session_id: str,
+        elicitation_id: int | str,
+        result: dict[str, Any],
+    ) -> tuple[int, bytes]:
+        """POST JSON-RPC elicitation *response* (no ``method`` field).
+
+        ``elicitation_id`` must match the SSE ``id:`` line for that ``elicitation/create``
+        event. ``result`` is typically ``{"action": "accept", "content": {...}}`` with
+        form field keys from ``requestedSchema.properties`` (same as the nanobot UI).
+        """
+        eid: int | str = elicitation_id
+        if isinstance(elicitation_id, str) and elicitation_id.strip().isdigit():
+            eid = int(elicitation_id.strip())
+        body = {"jsonrpc": "2.0", "id": eid, "result": result}
+        req_body = json.dumps(body).encode()
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Mcp-Session-Id": session_id,
+        }
+        _apply_auth(headers, self.auth_header)
+        resp = self._session.post(self.mcp_url, data=req_body, headers=headers)
+        out = resp.content
+        api_log.log_api_call("POST", self.mcp_url, req_body, resp.status_code, out)
+        return resp.status_code, out
+
     def chat_send(
         self,
         session_id: str,
@@ -121,11 +149,19 @@ class MCPClient:
         messages starting from the user message whose text contains expected_prompt,
         until chat-done. If expected_prompt is None, collects all assistant messages
         until chat-done (legacy behavior).
+        If the server sends elicitation/create (e.g. MCP elicitation for API keys), we stop
+        as soon as that event is complete (after history-end), so callers see it in raw_sse
+        and can POST the JSON-RPC elicitation reply— even if a chat-done was already sent
+        mid-turn after tool calls.
         If stream_ready is set, it is signaled once the stream is open (200) and reading.
         Note: For long-running agent tasks (e.g. deep news with tool calls), the server
         may not send any event for a long time. Proxies/load balancers often close
         idle connections after 60s; the server should send periodic SSE comments to
         keep the connection alive if the agent runs for more than a minute.
+
+        SSE ``id:`` and ``retry:`` field lines are copied into raw_sse (and thus step_eval
+        logs). The browser exposes ``id`` via EventSource.lastEventId without putting it
+        in parsed handlers; this client previously dropped ``id:`` lines entirely.
         """
         url = self.events_stream_url(session_id)
         headers = {
@@ -153,7 +189,11 @@ class MCPClient:
             return "", "", []
 
         api_log.log_api_call(
-            "GET", url, b"", 200, b"(event-stream, reading until chat-done or timeout)"
+            "GET",
+            url,
+            b"",
+            200,
+            b"(event-stream, reading until elicitation/create, chat-done, or timeout)",
         )
         if stream_ready is not None:
             stream_ready.set()
@@ -289,6 +329,11 @@ class MCPClient:
                     flush_event()
                     if current_event == "history-end":
                         seen_history_end = True
+                    # Prefer finishing the read when an elicitation arrives: servers may emit
+                    # chat-done after tool rounds but before elicitation/create (or multiple
+                    # chat-in-progress phases). Stopping here keeps elicitation in raw_sse.
+                    if current_event == "elicitation/create" and seen_history_end:
+                        break
                     # Only stop on chat-done after we've seen assistant content for this turn.
                     # When expected_prompt is None, also require history-end so we don't stop at
                     # an early chat-done that may be sent after history replay (before user 2 / assistant 2).
@@ -305,6 +350,9 @@ class MCPClient:
                     current_data_lines = []
                 elif line.startswith("data:"):
                     current_data_lines.append(line[5:].strip())
+                    current_raw_lines.append(line)
+                elif line.startswith("id:") or line.startswith("retry:"):
+                    # Preserve Last-Event-ID field lines in raw_sse (UI shows id via EventSource).
                     current_raw_lines.append(line)
         except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError):
             pass
