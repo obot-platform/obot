@@ -32,7 +32,7 @@
 	let upgradeAvailable = $derived(
 		copiedProject && (project.templateUpgradeAvailable || project.templateUpgradeInProgress)
 	);
-	let projectPollInterval: number;
+	let projectPollInterval: ReturnType<typeof setInterval> | undefined;
 	const PROJECT_POLL_INTERVAL_MS = 300_000; // 5 minutes
 
 	function pollProject() {

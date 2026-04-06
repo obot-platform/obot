@@ -72,7 +72,7 @@
 	let shouldShowOutput = $derived(shouldShowOutputLocal && shouldShowOutputGlobal);
 	let isRunning = $derived(lastStepId?.includes(step.id) ?? false);
 
-	let timeoutId: number | undefined = undefined;
+	let timeoutId: ReturnType<typeof setTimeout> | undefined = undefined;
 	// save how many step.inProgress === false we got
 	let inProgressFalseCount = $state(0);
 	$effect(() => {

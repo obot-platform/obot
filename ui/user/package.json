@@ -50,6 +50,7 @@
 		"@types/d3": "^7.4.3",
 		"@types/d3-time-format": "^4.0.3",
 		"@types/eslint": "^9.6.1",
+		"@types/node": "^22.15.0",
 		"@types/react": "^18.3.27",
 		"@types/react-dom": "^18.3.7",
 		"@uiw/codemirror-theme-github": "^4.23.8",
@@ -81,7 +82,7 @@
 	"type": "module",
 	"dependencies": {
 		"@codemirror/lang-markdown": "^6.3.3",
-		"@mcp-ui/client": "^6.0.0",
+		"@mcp-ui/client": "6.1.0",
 		"@novnc/novnc": "1.4.0",
 		"@oddbird/popover-polyfill": "^0.6.1",
 		"d3": "^7.9.0",
