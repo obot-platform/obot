@@ -340,7 +340,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 
 	if h.localK8SBackend != nil {
 		// If local Kubernetes backend is available, trigger a sync to update the secret with the new credentials
-		triggerKey := fmt.Sprintf("%s/%s", h.mcpServerNamespace, name.SafeConcatName(mcpServerName, "files"))
+		triggerKey := fmt.Sprintf("%s/%s", h.mcpServerNamespace, name.SafeConcatName(mcpServerName, "mcp", "files"))
 		log.Debugf("Triggering local k8s secret sync: agent=%s mcpServer=%s key=%s", agent.Name, mcpServerName, triggerKey)
 		if err := h.localK8SBackend.Trigger(
 			ctx,
