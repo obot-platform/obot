@@ -1,5 +1,4 @@
 import { Role, type OrgUser, Group, type DefaultModelAlias, ModelAlias } from './services';
-import type { FileTimeResult } from './services/nanobot/types';
 import { goto } from './url';
 
 /**
@@ -311,48 +310,6 @@ export function getUserDisplayName(
 	}
 
 	return display;
-}
-
-export function formatFileSize(bytes: number): string {
-	const units = ['B', 'KB', 'MB', 'GB'];
-	let size = bytes;
-	let unitIndex = 0;
-
-	while (size >= 1024 && unitIndex < units.length - 1) {
-		size /= 1024;
-		unitIndex++;
-	}
-
-	return `${size.toFixed(1)} ${units[unitIndex]}`;
-}
-
-export function formatFileTime(timestamp: unknown): FileTimeResult {
-	if (typeof timestamp !== 'string') return { date: undefined, formatted: '' };
-
-	const value = timestamp.trim();
-	if (!value) return { date: undefined, formatted: '' };
-
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) return { date: undefined, formatted: '' };
-
-	let formatted = '';
-	try {
-		formatted = date
-			.toLocaleString(undefined, {
-				year: 'numeric',
-				month: 'numeric',
-				day: 'numeric',
-				hour: '2-digit',
-				minute: '2-digit',
-				hour12: false
-			})
-			.replace(/\//g, '-')
-			.replace(/,/g, '');
-	} catch {
-		return { date: undefined, formatted: '' };
-	}
-
-	return { date, formatted };
 }
 
 export function clampThreadContentReportedWidth(widthPx: number): number {

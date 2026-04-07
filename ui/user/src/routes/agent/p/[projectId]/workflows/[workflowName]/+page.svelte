@@ -20,7 +20,7 @@
 	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
-	import { formatFileSize, formatFileTime } from '$lib/utils';
+	import { formatFileSize, formatFileTime } from '$lib/format';
 
 	let { data } = $props();
 	let workflowName = $derived(data.workflowName);

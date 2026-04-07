@@ -8,7 +8,7 @@
 	import type { AuditLogExport } from '$lib/services/admin/types';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { goto } from '$lib/url';
-	import { formatFileSize } from '$lib/utils';
+	import { formatFileSize } from '$lib/format';
 
 	interface Props {
 		query?: string;
