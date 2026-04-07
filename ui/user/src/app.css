@@ -1,5 +1,4 @@
 @import 'tailwindcss';
-@source '../node_modules/layerchart/dist';
 
 @plugin 'tailwind-scrollbar' {
 	nocompatible: true;

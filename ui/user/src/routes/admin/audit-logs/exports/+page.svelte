@@ -37,7 +37,7 @@
 
 	let createdExport = $state<AuditLogExport | ScheduledAuditLogExport | null>(null);
 
-	let setTimeoutIds: number[] = [];
+	let setTimeoutIds: ReturnType<typeof setTimeout>[] = [];
 
 	onMount(async () => {
 		// Check URL parameters for form state

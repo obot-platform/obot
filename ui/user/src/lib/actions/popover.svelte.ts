@@ -57,7 +57,7 @@ function tooltipOverlayUnchanged(
 export default function popover(initialOptions?: PopoverOptions): Popover {
 	let ref: HTMLElement;
 	let tooltip: HTMLElement;
-	let hoverTimeout: number | null = null;
+	let hoverTimeout: ReturnType<typeof setTimeout> | null = null;
 
 	let open = $state(false);
 	let options = $state<PopoverOptions & TooltipOptions>(initialOptions ?? {});

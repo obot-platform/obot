@@ -214,7 +214,7 @@
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
 	let capacityBanner = $state<ReturnType<typeof CapacityBanner>>();
 
-	let pollingInterval: number;
+	let pollingInterval: ReturnType<typeof setInterval> | undefined;
 	const POLL_INTERVAL_MS = 10000; // 10 seconds
 
 	async function checkAndPoll() {

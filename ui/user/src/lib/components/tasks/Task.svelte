@@ -87,7 +87,7 @@
 	// HACK: fix glitch that happens when in messages.inProgress when loop steps executed
 	// Make sure that the .inProgress stays true until the end of the current run task
 
-	let timeoutId: number | undefined = undefined;
+	let timeoutId: ReturnType<typeof setTimeout> | undefined = undefined;
 	// save how many step.inProgress === false we got
 
 	let isRunning = $state(false);

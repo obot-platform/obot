@@ -28,10 +28,6 @@ export default defineConfig(({ mode }) => {
 				'/oauth2': proxyConfig
 			}
 		},
-		optimizeDeps: {
-			// currently incompatible with dep optimizer
-			exclude: ['layerchart', 'layercake']
-		},
 		plugins: [sveltekit()]
 	};
 });

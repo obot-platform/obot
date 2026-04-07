@@ -17,7 +17,7 @@
 	let { taskID, runID, running, project }: Props = $props();
 	let loading = $state(false);
 	let fileToDelete: string | undefined = $state();
-	let interval: number;
+	let interval: ReturnType<typeof setInterval> | undefined;
 	const layout = getLayout();
 
 	async function loadFiles() {
@@ -50,7 +50,7 @@
 			interval = setInterval(loadFiles, 5000);
 		} else if (!running && interval) {
 			clearInterval(interval);
-			interval = 0;
+			interval = undefined;
 		}
 	});
 
