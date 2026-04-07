@@ -428,7 +428,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	objs = append(objs, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(server.MCPServerName, "files"),
+			Name:        name.SafeConcatName(server.MCPServerName, "mcp", "files"),
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
@@ -591,7 +591,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					ValueFrom: &corev1.EnvVarSource{
 						SecretKeyRef: &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
-								Name: name.SafeConcatName(server.MCPServerName, "webhook", "secrets"),
+								Name: name.SafeConcatName(server.MCPServerName, "mcp", "webhook", "secrets"),
 							},
 							Key: secretKey,
 						},
@@ -618,7 +618,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	objs = append(objs, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(server.MCPServerName, "webhook", "secrets"),
+			Name:        name.SafeConcatName(server.MCPServerName, "mcp", "webhook", "secrets"),
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
@@ -645,7 +645,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 			objs = append(objs, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        name.SafeConcatName(server.MCPServerName, "run", "shim"),
+					Name:        name.SafeConcatName(server.MCPServerName, "mcp", "run", "shim"),
 					Namespace:   k.mcpNamespace,
 					Annotations: annotations,
 				},
@@ -656,7 +656,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 			objs = append(objs, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        name.SafeConcatName(server.MCPServerName, "config", "shim"),
+					Name:        name.SafeConcatName(server.MCPServerName, "mcp", "config", "shim"),
 					Namespace:   k.mcpNamespace,
 					Annotations: annotations,
 				},
@@ -716,7 +716,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				EnvFrom: []corev1.EnvFromSource{{
 					SecretRef: &corev1.SecretEnvSource{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: name.SafeConcatName(server.MCPServerName, "config", "shim"),
+							Name: name.SafeConcatName(server.MCPServerName, "mcp", "config", "shim"),
 						},
 					},
 				}},
@@ -748,7 +748,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	objs = append(objs, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(server.MCPServerName, "config"),
+			Name:        name.SafeConcatName(server.MCPServerName, "mcp", "config"),
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
@@ -800,7 +800,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		EnvFrom: []corev1.EnvFromSource{{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: name.SafeConcatName(server.MCPServerName, "config"),
+					Name: name.SafeConcatName(server.MCPServerName, "mcp", "config"),
 				},
 			},
 		}},
@@ -843,7 +843,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 								Name: "files",
 								VolumeSource: corev1.VolumeSource{
 									Secret: &corev1.SecretVolumeSource{
-										SecretName: name.SafeConcatName(server.MCPServerName, "files"),
+										SecretName: name.SafeConcatName(server.MCPServerName, "mcp", "files"),
 									},
 								},
 							},
@@ -851,7 +851,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 								Name: "run-file",
 								VolumeSource: corev1.VolumeSource{
 									Secret: &corev1.SecretVolumeSource{
-										SecretName: name.SafeConcatName(server.MCPServerName, "run"),
+										SecretName: name.SafeConcatName(server.MCPServerName, "mcp", "run"),
 									},
 								},
 							},
@@ -859,7 +859,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 								Name: "run-shim-file",
 								VolumeSource: corev1.VolumeSource{
 									Secret: &corev1.SecretVolumeSource{
-										SecretName: name.SafeConcatName(server.MCPServerName, "run", "shim"),
+										SecretName: name.SafeConcatName(server.MCPServerName, "mcp", "run", "shim"),
 									},
 								},
 							},
@@ -901,7 +901,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 		objs = append(objs, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        name.SafeConcatName(server.MCPServerName, "run"),
+				Name:        name.SafeConcatName(server.MCPServerName, "mcp", "run"),
 				Namespace:   k.mcpNamespace,
 				Annotations: annotations,
 			},

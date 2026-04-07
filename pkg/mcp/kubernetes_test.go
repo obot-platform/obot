@@ -174,7 +174,7 @@ func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
 
-	configSecret := findSecret(t, objs, name.SafeConcatName("nanobot-agent-server", "config"))
+	configSecret := findSecret(t, objs, name.SafeConcatName("nanobot-agent-server", "mcp", "config"))
 	assertNoAuditLogEnv(t, configSecret.Data)
 }
 
@@ -200,7 +200,7 @@ func TestK8sObjects_NonAgentShimKeepsAuditLogConfig(t *testing.T) {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
 
-	shimConfigSecret := findSecret(t, objs, name.SafeConcatName("standard-server", "config", "shim"))
+	shimConfigSecret := findSecret(t, objs, name.SafeConcatName("standard-server", "mcp", "config", "shim"))
 	assertHasAuditLogEnv(t, shimConfigSecret.Data)
 }
 
