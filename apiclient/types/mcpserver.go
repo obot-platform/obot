@@ -239,6 +239,7 @@ type MCPServer struct {
 	PowerUserWorkspaceID    string   `json:"powerUserWorkspaceID"`
 	MCPCatalogID            string   `json:"mcpCatalogID,omitempty"`
 	ConnectURL              string   `json:"connectURL,omitempty"`
+	NanobotAgentID          string   `json:"nanobotAgentID,omitempty"`
 
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
