@@ -17,7 +17,7 @@
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
 	import { afterNavigate } from '$app/navigation';
-	import { formatFileSize, formatFileTime } from '$lib/utils';
+	import { formatFileSize, formatFileTime } from '$lib/format';
 	import { responsive } from '$lib/stores';
 
 	let resourceFiles = $derived(

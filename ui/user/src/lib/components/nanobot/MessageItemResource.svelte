@@ -4,7 +4,7 @@
 	import type { ChatMessageItemResource } from '$lib/services/nanobot/types';
 	import { isCancellationError } from '$lib/services/nanobot/utils';
 	import PDF from './PDF.svelte';
-	import { formatFileSize } from '$lib/utils';
+	import { formatFileSize } from '$lib/format';
 
 	interface Props {
 		item: ChatMessageItemResource;

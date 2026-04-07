@@ -10,7 +10,9 @@
 	import FileItem from './FileItem.svelte';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import PDF from './PDF.svelte';
+	import OfficeDocumentPreview from './OfficeDocumentPreview.svelte';
 	import { responsive } from '$lib/stores';
+	import { formatBase64ToBlob } from '$lib/format';
 
 	interface Props {
 		filename: string;
@@ -240,7 +242,7 @@
 	let isMarkdown = $derived(mimeType.startsWith('text/markdown') || extension === 'md');
 	let isPdf = $derived(mimeType === 'application/pdf');
 	let isSvg = $derived(mimeType === 'image/svg+xml' || extension === 'svg');
-
+	let isDocx = $derived(mimeType.includes('wordprocessingml') || extension === 'docx');
 	const visible = $derived(mounted && open);
 	let justOpened = $state(false);
 
@@ -250,15 +252,6 @@
 			return `${basename}.${extension}`;
 		}
 		return basename;
-	}
-
-	function base64ToBlob(base64: string, type: string): Blob {
-		const binary = atob(base64);
-		const bytes = new Uint8Array(binary.length);
-		for (let i = 0; i < binary.length; i++) {
-			bytes[i] = binary.charCodeAt(i);
-		}
-		return new Blob([bytes], { type });
 	}
 
 	let canDownload = $derived(
@@ -275,7 +268,7 @@
 		let blob: Blob;
 
 		if (resource.blob) {
-			blob = base64ToBlob(resource.blob, mimeType);
+			blob = formatBase64ToBlob(resource.blob, mimeType);
 		} else {
 			blob = new Blob([resource.text ?? ''], { type: mimeType });
 		}
@@ -391,6 +384,8 @@
 				<div class="alert alert-error">
 					<span>Failed to load resource: {error}</span>
 				</div>
+			{:else if isDocx && resource?.blob}
+				<OfficeDocumentPreview base64={resource.blob} {mimeType} />
 			{:else if resource?.blob}
 				<!-- Binary content - show as image if possible -->
 				{#if mimeType.startsWith('image/') && isSafeImageMimeType(mimeType)}

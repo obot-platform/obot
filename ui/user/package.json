@@ -90,6 +90,7 @@
 		"daisyui": "^5.5.17",
 		"date-fns": "^4.1.0",
 		"devicon": "^2.17.0",
+		"docx-preview": "^0.3.7",
 		"es-toolkit": "^1.37.2",
 		"react": "^18",
 		"react-dom": "^18",
