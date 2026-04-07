@@ -217,7 +217,7 @@
 				</div>
 				<div class="px-5 py-4">
 					<div class="text-base-content/50 text-xs font-medium uppercase">Last run</div>
-					<div class="mt-2 text-sm">{formatScheduleDateTime(task.lastRunAt)}</div>
+					<div class="mt-2 text-sm">{formatScheduleDateTime(sortedSessions[0]?.created)}</div>
 				</div>
 			</div>
 		</div>
