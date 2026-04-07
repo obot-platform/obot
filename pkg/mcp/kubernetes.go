@@ -480,6 +480,23 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE"] = strconv.Itoa(k.auditLogsBatchSize)
 		secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS"] = strconv.Itoa(k.auditLogsFlushIntervalSeconds)
 		secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_METADATA"] = server.AuditLogMetadata
+	} else {
+		secretEnvStringData["NANOBOT_RUN_OAUTH_SCOPES"] = ""
+		secretEnvStringData["NANOBOT_RUN_TRUSTED_ISSUER"] = ""
+		secretEnvStringData["NANOBOT_RUN_OAUTH_JWKSURL"] = ""
+		secretEnvStringData["NANOBOT_RUN_TRUSTED_AUDIENCES"] = ""
+		secretEnvStringData["NANOBOT_RUN_OAUTH_CLIENT_ID"] = ""
+		secretEnvStringData["NANOBOT_RUN_OAUTH_CLIENT_SECRET"] = ""
+		secretEnvStringData["NANOBOT_RUN_OAUTH_TOKEN_URL"] = ""
+		secretEnvStringData["NANOBOT_RUN_OAUTH_AUTHORIZE_URL"] = ""
+		secretEnvStringData["NANOBOT_DISABLE_HEALTH_CHECKER"] = ""
+		secretEnvStringData["NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL"] = ""
+		secretEnvStringData["NANOBOT_RUN_MCPSERVER_ID"] = ""
+		secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_TOKEN"] = ""
+		secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_SEND_URL"] = ""
+		secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE"] = ""
+		secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS"] = ""
+		secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_METADATA"] = ""
 	}
 
 	if server.NanobotAgentName != "" {

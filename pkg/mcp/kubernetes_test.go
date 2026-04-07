@@ -178,6 +178,60 @@ func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 	assertNoAuditLogEnv(t, configSecret.StringData)
 }
 
+func TestK8sObjects_NanobotAgentExplicitlyClearsOAuthEnv(t *testing.T) {
+	k := newTestKubernetesBackend(t)
+
+	objs, err := k.k8sObjects(context.Background(), ServerConfig{
+		Runtime:              types.RuntimeContainerized,
+		MCPServerName:        "nanobot-agent-server",
+		MCPServerDisplayName: "Nanobot Agent Server",
+		UserID:               "user-1",
+		OwnerUserID:          "user-2",
+		ContainerImage:       "ghcr.io/nanobot-ai/nanobot:latest",
+		ContainerPort:        8080,
+		ContainerPath:        "/mcp",
+		Command:              "nanobot",
+		Args:                 []string{"run"},
+		NanobotAgentName:     "agent-1",
+	}, nil)
+	if err != nil {
+		t.Fatalf("k8sObjects() error = %v", err)
+	}
+
+	configSecret := findSecret(t, objs, name.SafeConcatName("nanobot-agent-server", "config"))
+
+	// These keys must be present (so that a strategic merge patch will overwrite
+	// any stale values left in the Secret's Data field) but their values must be
+	// empty for nanobot-agent-backed servers.
+	mustBeEmpty := []string{
+		"NANOBOT_RUN_OAUTH_SCOPES",
+		"NANOBOT_RUN_TRUSTED_ISSUER",
+		"NANOBOT_RUN_OAUTH_JWKSURL",
+		"NANOBOT_RUN_TRUSTED_AUDIENCES",
+		"NANOBOT_RUN_OAUTH_CLIENT_ID",
+		"NANOBOT_RUN_OAUTH_CLIENT_SECRET",
+		"NANOBOT_RUN_OAUTH_TOKEN_URL",
+		"NANOBOT_RUN_OAUTH_AUTHORIZE_URL",
+		"NANOBOT_DISABLE_HEALTH_CHECKER",
+		"NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL",
+		"NANOBOT_RUN_MCPSERVER_ID",
+		"NANOBOT_RUN_AUDIT_LOG_TOKEN",
+		"NANOBOT_RUN_AUDIT_LOG_SEND_URL",
+		"NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE",
+		"NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS",
+		"NANOBOT_RUN_AUDIT_LOG_METADATA",
+	}
+
+	for _, key := range mustBeEmpty {
+		val, ok := configSecret.StringData[key]
+		if !ok {
+			t.Errorf("expected key %q to be present in config secret", key)
+		} else if val != "" {
+			t.Errorf("expected key %q to be empty for nanobot agent, got %q", key, val)
+		}
+	}
+}
+
 func TestK8sObjects_NonAgentShimKeepsAuditLogConfig(t *testing.T) {
 	k := newTestKubernetesBackend(t)
 
@@ -238,9 +292,9 @@ func findSecret(t *testing.T, objs []kclient.Object, secretName string) *corev1.
 func assertNoAuditLogEnv(t *testing.T, env map[string]string) {
 	t.Helper()
 
-	for key := range env {
-		if strings.HasPrefix(key, "NANOBOT_RUN_AUDIT_LOG_") {
-			t.Fatalf("unexpected audit log env %q present", key)
+	for key, value := range env {
+		if strings.HasPrefix(key, "NANOBOT_RUN_AUDIT_LOG_") && value != "" {
+			t.Fatalf("expected audit log env %q to be empty, got %q", key, value)
 		}
 	}
 }
