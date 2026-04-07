@@ -53,7 +53,7 @@
 <button
 	use:ref
 	class="flex grow items-center px-2 py-3"
-	use:tooltip={{ disablePortal, text: 'Filter columns' }}
+	use:tooltip={{ disablePortal, text: 'Filter columns', classes: ['z-60'] }}
 	onclick={() => toggle()}
 >
 	<Columns3Cog class="size-4 flex-shrink-0" />
