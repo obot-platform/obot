@@ -234,9 +234,8 @@
 			if (!oauthURL) {
 				oauthDialog?.close();
 				handleConnect();
-			} else {
-				oauthVerifying = false;
 			}
+			oauthVerifying = false;
 		}
 	}
 
