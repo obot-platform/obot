@@ -59,6 +59,19 @@ type kubernetesDeploymentCacheEntry struct {
 	podName string
 }
 
+func stringMapToSecretData(data map[string]string) map[string][]byte {
+	if len(data) == 0 {
+		return nil
+	}
+
+	result := make(map[string][]byte, len(data))
+	for k, v := range data {
+		result[k] = []byte(v)
+	}
+
+	return result
+}
+
 func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, obotClient kclient.Client, opts Options) backend {
 	var serviceFQDN string
 	if opts.ServiceName != "" && opts.ServiceNamespace != "" {
@@ -415,11 +428,11 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	objs = append(objs, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(server.MCPServerName, "files"),
+			Name:        name.SafeConcatName(server.MCPServerName, "mcp", "files"),
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
-		StringData: secretVolumeStringData,
+		Data: stringMapToSecretData(secretVolumeStringData),
 	})
 
 	for _, env := range server.Env {
@@ -578,7 +591,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					ValueFrom: &corev1.EnvVarSource{
 						SecretKeyRef: &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
-								Name: name.SafeConcatName(server.MCPServerName, "webhook", "secrets"),
+								Name: name.SafeConcatName(server.MCPServerName, "mcp", "webhook", "secrets"),
 							},
 							Key: secretKey,
 						},
@@ -605,11 +618,11 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	objs = append(objs, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(server.MCPServerName, "webhook", "secrets"),
+			Name:        name.SafeConcatName(server.MCPServerName, "mcp", "webhook", "secrets"),
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
-		StringData: webhookSecretStringData,
+		Data: stringMapToSecretData(webhookSecretStringData),
 	})
 
 	if server.Runtime != types.RuntimeRemote {
@@ -632,22 +645,22 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 			objs = append(objs, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        name.SafeConcatName(server.MCPServerName, "run", "shim"),
+					Name:        name.SafeConcatName(server.MCPServerName, "mcp", "run", "shim"),
 					Namespace:   k.mcpNamespace,
 					Annotations: annotations,
 				},
-				StringData: map[string]string{
+				Data: stringMapToSecretData(map[string]string{
 					"nanobot.yaml": nanobotFileString,
-				},
+				}),
 			})
 
 			objs = append(objs, &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        name.SafeConcatName(server.MCPServerName, "config", "shim"),
+					Name:        name.SafeConcatName(server.MCPServerName, "mcp", "config", "shim"),
 					Namespace:   k.mcpNamespace,
 					Annotations: annotations,
 				},
-				StringData: func() map[string]string {
+				Data: stringMapToSecretData(func() map[string]string {
 					// Start from the main container env (secretEnvStringData) and carve out the subset that should
 					// be applied to the dedicated shim container (vars). This function also removes
 					// shim-owned keys from secretEnvStringData so they are not injected into
@@ -678,7 +691,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					}
 
 					return vars
-				}(),
+				}()),
 			})
 
 			port := port + len(webhooks) + 1
@@ -703,7 +716,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				EnvFrom: []corev1.EnvFromSource{{
 					SecretRef: &corev1.SecretEnvSource{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: name.SafeConcatName(server.MCPServerName, "config", "shim"),
+							Name: name.SafeConcatName(server.MCPServerName, "mcp", "config", "shim"),
 						},
 					},
 				}},
@@ -735,11 +748,11 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	objs = append(objs, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(server.MCPServerName, "config"),
+			Name:        name.SafeConcatName(server.MCPServerName, "mcp", "config"),
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
-		StringData: secretEnvStringData,
+		Data: stringMapToSecretData(secretEnvStringData),
 	})
 
 	volumeMounts := []corev1.VolumeMount{
@@ -787,7 +800,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		EnvFrom: []corev1.EnvFromSource{{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: name.SafeConcatName(server.MCPServerName, "config"),
+					Name: name.SafeConcatName(server.MCPServerName, "mcp", "config"),
 				},
 			},
 		}},
@@ -830,7 +843,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 								Name: "files",
 								VolumeSource: corev1.VolumeSource{
 									Secret: &corev1.SecretVolumeSource{
-										SecretName: name.SafeConcatName(server.MCPServerName, "files"),
+										SecretName: name.SafeConcatName(server.MCPServerName, "mcp", "files"),
 									},
 								},
 							},
@@ -838,7 +851,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 								Name: "run-file",
 								VolumeSource: corev1.VolumeSource{
 									Secret: &corev1.SecretVolumeSource{
-										SecretName: name.SafeConcatName(server.MCPServerName, "run"),
+										SecretName: name.SafeConcatName(server.MCPServerName, "mcp", "run"),
 									},
 								},
 							},
@@ -846,7 +859,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 								Name: "run-shim-file",
 								VolumeSource: corev1.VolumeSource{
 									Secret: &corev1.SecretVolumeSource{
-										SecretName: name.SafeConcatName(server.MCPServerName, "run", "shim"),
+										SecretName: name.SafeConcatName(server.MCPServerName, "mcp", "run", "shim"),
 									},
 								},
 							},
@@ -888,13 +901,13 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 		objs = append(objs, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        name.SafeConcatName(server.MCPServerName, "run"),
+				Name:        name.SafeConcatName(server.MCPServerName, "mcp", "run"),
 				Namespace:   k.mcpNamespace,
 				Annotations: annotations,
 			},
-			StringData: map[string]string{
+			Data: stringMapToSecretData(map[string]string{
 				"nanobot.yaml": nanobotFileString,
-			},
+			}),
 		})
 
 		dep.Spec.Template.Spec.Containers[len(containers)-1].VolumeMounts = append(dep.Spec.Template.Spec.Containers[len(containers)-1].VolumeMounts, corev1.VolumeMount{
