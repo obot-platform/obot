@@ -94,15 +94,24 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolic
 
 			compliant := h.checkCompliance(ctx, resolved, p.Manifest, conversationContext, targetMessage)
 			if !compliant {
-				log.Warnf("Policy violation detected: policy=%q", p.Manifest.DisplayName)
-				explanation := h.generateExplanation(ctx, resolved, p.Manifest, targetMessage, direction)
+				log.Infof("Policy violation detected by stage 1 for policy=%q, running stage 2 review", p.Manifest.DisplayName)
+
+				// Stage 2: Use the full Chat model to review the denial and potentially override it.
+				// If it upholds the denial, it also provides the user-facing explanation.
+				review := h.reviewCompliance(ctx, p.Manifest, conversationContext, targetMessage)
+				if review.Compliant {
+					log.Infof("Stage 2 review overrode stage 1 denial for policy=%q", p.Manifest.DisplayName)
+					return
+				}
+
+				log.Infof("Stage 2 review confirmed violation for policy=%q", p.Manifest.DisplayName)
 
 				mu.Lock()
 				violations = append(violations, MessagePolicyViolation{
 					PolicyID:         p.ID,
 					PolicyName:       p.Manifest.DisplayName,
 					PolicyDefinition: p.Manifest.Definition,
-					Explanation:      explanation,
+					Explanation:      review.Explanation,
 				})
 				mu.Unlock()
 			} else {
@@ -124,18 +133,23 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolic
 
 // resolveModel resolves the llm-mini alias to get the target model name, provider URL, and credential headers.
 func (h *Helper) resolveModel(ctx context.Context) (*resolvedModel, error) {
-	log.Debugf("Resolving model alias %s", types.DefaultModelAliasTypeLLMMini)
+	return h.resolveModelByAlias(ctx, types.DefaultModelAliasTypeLLMMini)
+}
 
-	m, err := alias.GetFromScope(ctx, h.client, "Model", system.DefaultNamespace, string(types.DefaultModelAliasTypeLLMMini))
+// resolveModelByAlias resolves the given model alias to get the target model name, provider URL, and credential headers.
+func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.DefaultModelAliasType) (*resolvedModel, error) {
+	log.Debugf("Resolving model alias %s", aliasType)
+
+	m, err := alias.GetFromScope(ctx, h.client, "Model", system.DefaultNamespace, string(aliasType))
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve llm-mini alias: %w", err)
+		return nil, fmt.Errorf("failed to resolve %s alias: %w", aliasType, err)
 	}
 
 	var model *v1.Model
 	switch resolved := m.(type) {
 	case *v1.DefaultModelAlias:
 		if resolved.Spec.Manifest.Model == "" {
-			return nil, fmt.Errorf("default model alias %q is not configured", types.DefaultModelAliasTypeLLMMini)
+			return nil, fmt.Errorf("default model alias %q is not configured", aliasType)
 		}
 		var mdl v1.Model
 		if err := alias.Get(ctx, h.client, &mdl, system.DefaultNamespace, resolved.Spec.Manifest.Model); err != nil {
@@ -145,7 +159,7 @@ func (h *Helper) resolveModel(ctx context.Context) (*resolvedModel, error) {
 	case *v1.Model:
 		model = resolved
 	default:
-		return nil, fmt.Errorf("unexpected type %T when resolving llm-mini", m)
+		return nil, fmt.Errorf("unexpected type %T when resolving %s", m, aliasType)
 	}
 
 	if !model.Spec.Manifest.Active {
@@ -314,36 +328,94 @@ func (h *Helper) checkCompliance(ctx context.Context, resolved *resolvedModel, p
 	return answer == "yes"
 }
 
-// generateExplanation performs Stage 2: generates a human-readable explanation for a violation.
-// On error, returns a generic explanation.
-func (h *Helper) generateExplanation(ctx context.Context, resolved *resolvedModel, policy types.MessagePolicyManifest, targetMessage string, direction types.PolicyDirection) string {
-	log.Debugf("Generating violation explanation for policy=%q direction=%s", policy.DisplayName, direction)
+// reviewResult holds the outcome of a Stage 2 review.
+type reviewResult struct {
+	Compliant   bool
+	Explanation string
+}
 
-	userContent := fmt.Sprintf("Policy: %s\n\nMessage that was blocked:\n%s", policy.Definition, targetMessage)
+// reviewCompliance performs Stage 2: uses the full Chat model (llm alias) to review a stage 1 denial.
+// Returns the review result with a compliance decision and, if denied, a user-facing explanation.
+// Fails closed: any error returns a non-compliant result with a generic explanation.
+func (h *Helper) reviewCompliance(ctx context.Context, policy types.MessagePolicyManifest, conversationContext, targetMessage string) reviewResult {
+	log.Debugf("Reviewing stage 1 denial for policy=%q using Chat model", policy.DisplayName)
+
+	genericDenial := reviewResult{
+		Compliant:   false,
+		Explanation: fmt.Sprintf("Your message was blocked by the \"%s\" message policy.", policy.DisplayName),
+	}
+
+	resolved, err := h.resolveModelByAlias(ctx, types.DefaultModelAliasTypeLLM)
+	if err != nil {
+		log.Warnf("Failed to resolve llm model for stage 2 review of policy=%q, upholding denial: %v", policy.DisplayName, err)
+		return genericDenial
+	}
+
+	var userContent strings.Builder
+	fmt.Fprintf(&userContent, "Policy: %s\n\n---\n\n", policy.Definition)
+
+	if conversationContext != "" {
+		fmt.Fprintf(&userContent, "Conversation context (tool outputs redacted):\n%s\n\n---\n\n", conversationContext)
+	}
+
+	fmt.Fprintf(&userContent, "Message to evaluate:\n%s", targetMessage)
 
 	messages := []chatMessage{
 		{
 			Role: "system",
-			Content: "A message was blocked for violating a policy. " +
-				"Write a short error message that will be displayed directly to the user in a \"Policy Violation\" notice. " +
+			Content: "You are a senior policy compliance reviewer. A fast screening model has flagged a message as potentially violating a policy. " +
+				"Your job is to carefully review whether the message ACTUALLY violates the policy. " +
+				"You will be given the policy, a conversation history for context, and the flagged message. " +
+				"Evaluate ONLY the flagged message against the policy. The conversation history is provided solely for context. " +
+				"Think carefully about edge cases, nuance, and whether the message truly violates the spirit of the policy.\n\n" +
+				"You MUST respond with EXACTLY one of these two formats:\n" +
+				"- If the message is compliant (the screening was a false positive), respond with exactly: COMPLIANT\n" +
+				"- If the message genuinely violates the policy, respond with: VIOLATION: followed by a short explanation " +
+				"that will be displayed to the user in a \"Policy Violation\" notice. " +
 				"Address the user directly (use \"your message\", not \"the message\"). " +
-				"Do not use phrases like \"I'd explain\" or wrap your output in quotes. " +
-				"Just output the exact text to display.",
+				"Do not reference \"the policy\" or \"this policy\" — the user does not know what policy blocked them. " +
+				"Instead, describe the rule in plain language (e.g. \"profane language is not allowed\" instead of \"this policy forbids profane language\"). " +
+				"Do not use phrases like \"I'd explain\" or wrap your output in quotes.\n\n" +
+				"Examples:\n" +
+				"COMPLIANT\n" +
+				"VIOLATION: Your message contains personal contact information, which is not allowed.",
 		},
 		{
 			Role:    "user",
-			Content: userContent,
+			Content: userContent.String(),
 		},
 	}
 
 	result, err := h.callLLM(ctx, resolved, messages)
 	if err != nil {
-		log.Warnf("Explanation generation LLM call failed for policy=%q, using generic explanation: %v", policy.DisplayName, err)
-		return fmt.Sprintf("This message was blocked for violating the policy: %s", policy.DisplayName)
+		log.Warnf("Stage 2 review LLM call failed for policy=%q, upholding denial: %v", policy.DisplayName, err)
+		return genericDenial
 	}
 
-	log.Debugf("Generated explanation for policy=%q", policy.DisplayName)
-	return result
+	return parseReviewResponse(result, genericDenial)
+}
+
+// parseReviewResponse parses the Stage 2 model output into a reviewResult.
+// Expects either "COMPLIANT" or "VIOLATION: <explanation>".
+// Falls back to the provided genericDenial if the format is unrecognized.
+func parseReviewResponse(response string, genericDenial reviewResult) reviewResult {
+	response = strings.TrimSpace(response)
+
+	if strings.EqualFold(response, "COMPLIANT") {
+		return reviewResult{Compliant: true}
+	}
+
+	upper := strings.ToUpper(response)
+	if strings.HasPrefix(upper, "VIOLATION:") {
+		explanation := strings.TrimSpace(response[len("VIOLATION:"):])
+		if explanation == "" {
+			return genericDenial
+		}
+		return reviewResult{Compliant: false, Explanation: explanation}
+	}
+
+	log.Warnf("Unexpected stage 2 review response format, upholding denial: %q", response)
+	return genericDenial
 }
 
 // BuildConversationContext formats conversation history for the policy judge.
