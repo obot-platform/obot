@@ -19,7 +19,6 @@
 		clearUrlParams,
 		getTableUrlParamsFilters,
 		getTableUrlParamsSort,
-		setSearchParamsToLocalStorage,
 		setSortUrlParams,
 		setFilterUrlParams
 	} from '$lib/url';
@@ -30,7 +29,7 @@
 	let projectMap = $derived(new Map(projects.map((p) => [p.id, p.name])));
 	let userMap = $derived(new Map(users.map((u) => [u.id, u])));
 
-	let query = $state(page.url.searchParams.get('query') || '');
+	let query = $derived(page.url.searchParams.get('query') || '');
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
 
@@ -158,7 +157,6 @@
 						onClearAllFilters={clearUrlParams}
 						onClickRow={isAuditor
 							? (d, isCtrlClick) => {
-									setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 									const url = `/admin/chat-threads/${d.id}`;
 									openUrl(url, isCtrlClick);
 								}

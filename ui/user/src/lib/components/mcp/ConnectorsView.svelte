@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
@@ -24,7 +23,6 @@
 	} from '$lib/services/chat/mcp';
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
 	import {
 		AlertTriangle,
@@ -324,7 +322,6 @@
 					}
 				}
 
-				setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 				openUrl(url, isCtrlClick);
 			}}
 			{initSort}
@@ -563,7 +560,6 @@
 									onclick={(e) => {
 										e.stopPropagation();
 										const isCtrlClick = e.ctrlKey || e.metaKey;
-										setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 										openUrl(auditLogUrl, isCtrlClick);
 									}}
 									class="menu-button"

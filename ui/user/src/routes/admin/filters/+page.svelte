@@ -2,11 +2,10 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { BookOpenText, ChevronLeft, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
+	import { BookOpenText, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { onMount } from 'svelte';
 	import { AdminService, type MCPFilter } from '$lib/services/index.js';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import { openUrl } from '$lib/utils';
@@ -19,21 +18,23 @@
 		clearUrlParams,
 		getTableUrlParamsFilters,
 		getTableUrlParamsSort,
-		setSearchParamsToLocalStorage,
 		setSortUrlParams,
-		setFilterUrlParams
+		setFilterUrlParams,
+		goto
 	} from '$lib/url';
+	import { untrack } from 'svelte';
 
-	let showCreateFilter = $state(false);
-	let loading = $state(true);
+	let showCreateFilter = $derived(page.url.searchParams.has('new'));
+	let loading = $state(false);
 	let filterToDelete = $state<MCPFilter>();
+	let { data } = $props();
 
-	let filters = $state<MCPFilter[]>([]);
+	let filters = $state<MCPFilter[]>(untrack(() => data?.filters ?? []));
+	let query = $derived(page.url.searchParams.get('query') || '');
 	let filteredFilters = $derived(
 		filters.filter((filter) => filter.name?.toLowerCase().includes(query.toLowerCase()))
 	);
 
-	let query = $state('');
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort());
 
@@ -43,17 +44,8 @@
 		loading = false;
 	}
 
-	onMount(() => {
-		const url = new URL(window.location.href);
-		const queryParams = new URLSearchParams(url.search);
-		if (queryParams.get('new')) {
-			showCreateFilter = true;
-		}
-	});
-
 	async function navigateAfterCreated() {
-		showCreateFilter = false;
-		// Refresh the filters list to ensure we have the latest data
+		goto('/admin/filters', { replaceState: true });
 		await refresh();
 	}
 
@@ -70,18 +62,15 @@
 	}, 100);
 
 	const duration = PAGE_TRANSITION_DURATION;
-	onMount(async () => {
-		await refresh();
-
-		if (page.url.searchParams.size > 0) {
-			page.url.searchParams.forEach((value, key) => {
-				urlFilters[key] = value.split(',');
-			});
-		}
-	});
 </script>
 
-<Layout title="Filters">
+<Layout
+	title="Filters"
+	showBackButton={showCreateFilter}
+	onBackButtonClick={() => {
+		goto('/admin/filters', { replaceState: true });
+	}}
+>
 	<div
 		class="h-full w-full"
 		in:fly={{ x: 100, duration, delay: duration }}
@@ -116,8 +105,6 @@
 							data={filteredFilters}
 							fields={['name', 'url', 'selectors']}
 							onClickRow={(d, isCtrlClick) => {
-								setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
-
 								const url = `/admin/filters/${d.id}`;
 								openUrl(url, isCtrlClick);
 							}}
@@ -189,7 +176,9 @@
 {#snippet addFilterButton()}
 	<button
 		class="button-primary flex items-center gap-1 text-sm"
-		onclick={() => (showCreateFilter = true)}
+		onclick={() => {
+			goto('/admin/filters?new=true');
+		}}
 	>
 		<Plus class="size-4" /> Add New Filter
 	</button>
@@ -201,17 +190,7 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<FilterForm onCreate={navigateAfterCreated}>
-			{#snippet topContent()}
-				<button
-					onclick={() => (showCreateFilter = false)}
-					class="button-text flex -translate-x-1 items-center gap-2 p-0 text-lg font-light"
-				>
-					<ChevronLeft class="size-6" />
-					Filters
-				</button>
-			{/snippet}
-		</FilterForm>
+		<FilterForm onCreate={navigateAfterCreated} />
 	</div>
 {/snippet}
 

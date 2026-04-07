@@ -45,7 +45,7 @@
 			{} as Record<string, GroupRoleAssignment>
 		)
 	);
-	let query = $state(page.url.searchParams.get('query') || '');
+	let query = $derived(page.url.searchParams.get('query') || '');
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort());
 
@@ -134,7 +134,7 @@
 </script>
 
 <Layout title="Group Role Assignments">
-	<div class="my-4" in:fade={{ duration }} out:fade={{ duration }}>
+	<div class="mb-4" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
 			<div class="flex flex-col gap-2">
 				<Search
