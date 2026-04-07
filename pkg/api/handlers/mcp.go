@@ -2569,6 +2569,7 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		K8sSettingsHash:             server.Status.K8sSettingsHash,
 		Template:                    server.Spec.Template,
 		CompositeName:               server.Spec.CompositeName,
+		NanobotAgentID:              server.Spec.NanobotAgentID,
 	}
 
 	// For composite servers, also consider component configuration if provided
