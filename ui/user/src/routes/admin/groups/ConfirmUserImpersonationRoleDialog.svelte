@@ -22,15 +22,15 @@
 	const addingAuditor = $derived(
 		Boolean(
 			groupAssignment &&
-				(groupAssignment.assignment.role & Role.AUDITOR) !== 0 &&
-				(currentRole & Role.AUDITOR) === 0
+			(groupAssignment.assignment.role & Role.AUDITOR) !== 0 &&
+			(currentRole & Role.AUDITOR) === 0
 		)
 	);
 	const removingAuditor = $derived(
 		Boolean(
 			groupAssignment &&
-				(groupAssignment.assignment.role & Role.AUDITOR) === 0 &&
-				(currentRole & Role.AUDITOR) !== 0
+			(groupAssignment.assignment.role & Role.AUDITOR) === 0 &&
+			(currentRole & Role.AUDITOR) !== 0
 		)
 	);
 </script>

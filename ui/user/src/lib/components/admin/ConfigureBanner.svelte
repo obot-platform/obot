@@ -52,8 +52,7 @@
 				{/if}
 				{#if !isAuthProviderConfigured}
 					<p class="text-sm font-light">
-						<b class="font-semibold">Auth Provider:</b> To support multiple users, configure an Auth
-						Provider.
+						<b class="font-semibold">Auth Provider:</b> To support multiple users, configure an Auth Provider.
 					</p>
 				{/if}
 				<div class="flex flex-row flex-wrap gap-2">

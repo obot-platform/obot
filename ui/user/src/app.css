@@ -96,13 +96,13 @@
 	--color-primary: var(--primary);
 }
 
-@plugin "daisyui" {
+@plugin 'daisyui' {
 	themes:
 		nanobotlight --default,
 		nanobotdark --prefersdark;
 }
 
-@plugin "daisyui/theme" {
+@plugin 'daisyui/theme' {
 	name: 'nanobotlight';
 	default: true;
 	prefersdark: false;
@@ -137,7 +137,7 @@
 	--noise: 0;
 }
 
-@plugin "daisyui/theme" {
+@plugin 'daisyui/theme' {
 	name: 'nanobotdark';
 	default: false;
 	prefersdark: true;

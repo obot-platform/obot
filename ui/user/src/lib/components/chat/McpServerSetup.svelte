@@ -40,9 +40,9 @@
 	let hasExistingConfigured = $derived(
 		Boolean(
 			selected?.entry &&
-				mcpServersAndEntries.current.userConfiguredServers.find(
-					(userConfiguredServer) => userConfiguredServer.catalogEntryID === selected?.entry?.id
-				)
+			mcpServersAndEntries.current.userConfiguredServers.find(
+				(userConfiguredServer) => userConfiguredServer.catalogEntryID === selected?.entry?.id
+			)
 		)
 	);
 
