@@ -4573,6 +4573,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"nanobotAgentID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"needsUpdate": {
 						SchemaProps: spec.SchemaProps{
 							Description: "NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.",
