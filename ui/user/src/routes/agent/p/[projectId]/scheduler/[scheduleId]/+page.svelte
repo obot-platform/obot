@@ -4,7 +4,8 @@
 	import {
 		formatScheduleDate,
 		formatScheduleDateTime,
-		scheduleSummary
+		scheduleSummary,
+		estimateNextRun
 	} from '$lib/components/nanobot/taskSchedule';
 	import type {
 		Chat,
@@ -16,12 +17,13 @@
 	import { errors } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
-	import { CalendarClock, PencilLine, Play, Trash2 } from 'lucide-svelte';
-	import { getContext } from 'svelte';
+	import { CalendarClock, PencilLine, Play, Timer, TimerOff, Trash2 } from 'lucide-svelte';
+	import { getContext, tick } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	let { data } = $props();
 	let projectId = $derived(data.projectId ?? data.projects[0].id);
-	let taskId = $derived(data.taskId);
+	let taskId = $derived(data.scheduleId);
 	let taskURI = $derived(`task:///${taskId}`);
 
 	let task = $state<ScheduledTask>();
@@ -31,6 +33,13 @@
 	let deleting = $state(false);
 	let runningNow = $state(false);
 	let confirmDelete = $state(false);
+	let confirmToggleEnabled = $state(false);
+	let updatingEnabled = $state(false);
+	let toggleHover = $state(false);
+	let toggleMeasureRestEl = $state<HTMLDivElement | undefined>(undefined);
+	let toggleMeasureHoverEl = $state<HTMLDivElement | undefined>(undefined);
+	let toggleWidthRest = $state(0);
+	let toggleWidthHover = $state(0);
 	let editDialog = $state<ReturnType<typeof ScheduledTaskDialog>>();
 	let taskContainer = $state<HTMLElement | undefined>(undefined);
 	let loadedTaskURI = $state('');
@@ -39,6 +48,27 @@
 	const sortedSessions = $derived.by(() =>
 		[...sessions].sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
 	);
+
+	function updateToggleLabelWidths() {
+		const rest = toggleMeasureRestEl;
+		const hover = toggleMeasureHoverEl;
+		if (!rest || !hover) return;
+		// Ceil + small buffer: subpixel/layout can otherwise clip the last glyphs vs off-screen measure.
+		const pad = 4;
+		toggleWidthRest = Math.ceil(rest.getBoundingClientRect().width) + pad;
+		toggleWidthHover = Math.ceil(hover.getBoundingClientRect().width) + pad;
+	}
+
+	$effect(() => {
+		if (!task) return;
+		void task.enabled;
+		tick().then(updateToggleLabelWidths);
+	});
+
+	$effect(() => {
+		if (!toggleMeasureRestEl || !toggleMeasureHoverEl || !task) return;
+		updateToggleLabelWidths();
+	});
 
 	$effect(() => {
 		const container = taskContainer;
@@ -60,6 +90,13 @@
 		loadSessions();
 	});
 
+	$effect(() => {
+		if (task) {
+			projectLayout.setLayoutName(task.name);
+			projectLayout.setShowBackButton(true);
+		}
+	});
+
 	function parseTask(content?: ResourceContents): ScheduledTask {
 		if (!content?.text) {
 			throw new Error('Scheduled task contents were empty');
@@ -69,6 +106,11 @@
 			...parsed,
 			uri: parsed.uri || content.uri || taskURI
 		};
+	}
+
+	function getEstimatedNextRun(schedule: string, expiration?: string) {
+		const nextRun = estimateNextRun(schedule, expiration);
+		return formatScheduleDateTime(nextRun.toISOString());
 	}
 
 	async function refreshResources() {
@@ -112,7 +154,7 @@
 	}
 
 	function openSession(sessionId: string) {
-		goto(`/agent/p/${projectId}?tid=${sessionId}`);
+		goto(`/agent/p/${projectId}?tid=${sessionId}&sid=${taskId}`);
 	}
 
 	function handleSessionRowKeydown(event: KeyboardEvent, sessionId: string) {
@@ -138,6 +180,29 @@
 			errors.append(error);
 		} finally {
 			runningNow = false;
+		}
+	}
+
+	async function handleToggleEnabled() {
+		if (!$nanobotChat?.api || !task || updatingEnabled) return;
+		updatingEnabled = true;
+		try {
+			await $nanobotChat.api.updateScheduledTask({
+				uri: task.uri,
+				name: task.name,
+				prompt: task.prompt,
+				schedule: task.schedule,
+				timezone: task.timezone,
+				expiration: task.expiration,
+				enabled: !task.enabled
+			});
+			await refreshResources();
+			await loadTask();
+		} catch (error) {
+			errors.append(error);
+		} finally {
+			updatingEnabled = false;
+			confirmToggleEnabled = false;
 		}
 	}
 
@@ -172,29 +237,78 @@
 			<span>{loadError}</span>
 		</div>
 	{:else if task}
+		<div
+			class="pointer-events-none fixed top-0 left-[-10000px] z-[-1] flex flex-col gap-0"
+			aria-hidden="true"
+		>
+			<div bind:this={toggleMeasureRestEl} class="flex w-max items-center gap-2 text-xs">
+				{#if task.enabled}
+					<Timer class="size-4 shrink-0" />
+					<span class="font-light">Active</span>
+				{:else}
+					<TimerOff class="size-4 shrink-0" />
+					<span class="font-light">Inactive</span>
+				{/if}
+			</div>
+			<div bind:this={toggleMeasureHoverEl} class="flex w-max items-center gap-2 text-xs">
+				{#if task.enabled}
+					<TimerOff class="size-4 shrink-0" />
+					<span class="font-medium">Disable this schedule?</span>
+				{:else}
+					<Timer class="size-4 shrink-0" />
+					<span class="font-medium">Enable this schedule?</span>
+				{/if}
+			</div>
+		</div>
 		<div class="flex flex-wrap items-start justify-between gap-4">
-			<div class="flex flex-col gap-3">
-				<h2 class="text-2xl font-semibold">{task.name}</h2>
-				<div>
-					<span
-						class={`badge badge-sm ${task.enabled ? 'badge-success badge-soft' : 'badge-neutral badge-soft'}`}
+			<div class="flex items-center gap-3">
+				<button class="btn" onclick={() => editDialog?.open(task)}>
+					<PencilLine class="size-4 shrink-0" /> Edit
+				</button>
+				<button
+					type="button"
+					class={twMerge(
+						'btn',
+						task.enabled ? 'btn-success btn-soft hover:btn-neutral' : 'hover:btn-success'
+					)}
+					disabled={updatingEnabled}
+					aria-label={task.enabled ? 'Disable this schedule' : 'Enable this schedule'}
+					onmouseenter={() => (toggleHover = true)}
+					onmouseleave={() => (toggleHover = false)}
+					onclick={() => (confirmToggleEnabled = true)}
+				>
+					<div
+						class="flex shrink-0 items-center gap-2 overflow-hidden text-xs whitespace-nowrap transition-[width] duration-200 ease-out motion-reduce:transition-none"
+						style:width={toggleWidthRest > 0 && toggleWidthHover > 0
+							? `${toggleHover ? toggleWidthHover : toggleWidthRest}px`
+							: undefined}
 					>
-						{task.enabled ? 'Enabled' : 'Disabled'}
-					</span>
-				</div>
+						{#if toggleHover}
+							{#if task.enabled}
+								<TimerOff class="size-4 shrink-0" />
+								<span class="font-medium">Disable this schedule?</span>
+							{:else}
+								<Timer class="size-4 shrink-0" />
+								<span class="font-medium">Enable this schedule?</span>
+							{/if}
+						{:else if task.enabled}
+							<Timer class="size-4 shrink-0" />
+							<span class="font-light">Active</span>
+						{:else}
+							<TimerOff class="size-4 shrink-0" />
+							<span class="font-light">Inactive</span>
+						{/if}
+					</div>
+				</button>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
-				<button class="btn btn-primary" onclick={handleRunNow} disabled={runningNow}>
-					<Play class="size-4" />
-					{runningNow ? 'Starting…' : 'Run now'}
-				</button>
-				<button class="btn btn-ghost" onclick={() => editDialog?.open(task)}>
-					<PencilLine class="size-4" />
-					Edit
-				</button>
-				<button class="btn btn-error btn-soft" onclick={() => (confirmDelete = true)}>
+				<button
+					class="btn btn-error btn-soft btn-square tooltip tooltip-left"
+					data-tip="Delete schedule"
+					aria-label="Delete schedule"
+					onclick={() => (confirmDelete = true)}
+				>
 					<Trash2 class="size-4" />
-					Delete
 				</button>
 			</div>
 		</div>
@@ -233,9 +347,13 @@
 			</div>
 		</div>
 
-		<div class="bg-base-100 rounded-box border-base-300 flex flex-col gap-4 border p-5">
-			<div>
-				<h3 class="text-lg font-semibold">Runs</h3>
+		<div class="mb-8 flex flex-col gap-4">
+			<div class="divider"></div>
+			<div class="flex items-center justify-between">
+				<h2 class="text-xl font-semibold">Runs</h2>
+				<button class="btn btn-sm btn-primary" onclick={handleRunNow} disabled={runningNow}>
+					Run Now <Play class="size-4" />
+				</button>
 			</div>
 
 			{#if sortedSessions.length === 0}
@@ -253,11 +371,11 @@
 					</div>
 				</div>
 			{:else}
-				<div class="bg-base-100 rounded-box border-base-300 overflow-hidden border">
+				<div class="overflow-hidden">
 					<table class="table">
 						<thead>
 							<tr>
-								<th>Thread</th>
+								<th>Title</th>
 								<th>Started</th>
 							</tr>
 						</thead>
@@ -299,3 +417,30 @@
 	onsuccess={handleDeleteTask}
 	oncancel={() => (confirmDelete = false)}
 />
+
+<Confirm
+	show={confirmToggleEnabled}
+	title={task?.enabled ? 'Confirm Disable' : 'Confirm Enable'}
+	msg={task?.enabled ? `Disable ${task?.name ?? taskId}?` : `Enable ${task?.name ?? taskId}?`}
+	loading={updatingEnabled}
+	onsuccess={handleToggleEnabled}
+	oncancel={() => (confirmToggleEnabled = false)}
+	type="info"
+>
+	{#snippet note()}
+		{#if task}
+			{@const nextRun = task?.nextRunAt
+				? formatScheduleDateTime(task.nextRunAt)
+				: getEstimatedNextRun(task.schedule, task.expiration)}
+
+			{#if task.enabled && nextRun}
+				<p>All upcoming runs will not be performed until this task is re-enabled.</p>
+				<p class="mt-2">Are you sure you want to disable this schedule?</p>
+			{:else}
+				<p>The next run will be executed at:</p>
+				<p class="mt-2 font-semibold">{nextRun}</p>
+				<p class="mt-2">Are you sure you want to enable this schedule?</p>
+			{/if}
+		{/if}
+	{/snippet}
+</Confirm>

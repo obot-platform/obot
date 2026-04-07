@@ -10,12 +10,12 @@ export const load: PageLoad = async ({ fetch, params }) => {
 		throw redirect(302, '/');
 	}
 
-	const workflowName = params.workflowName;
+	const workflowId = params.workflowId;
 	const projectId = params.projectId;
 	const publishedWorkflows = await NanobotService.listPublishedWorkflows({ fetch });
 
 	return {
-		workflowName,
+		workflowId,
 		projectId,
 		publishedWorkflows
 	};

@@ -246,7 +246,7 @@
 <ResponsiveDialog
 	bind:this={dialog}
 	onClose={handleClose}
-	title={currentTask ? 'Edit schedule' : 'Add schedule'}
+	title={currentTask ? 'Edit Schedule' : 'Add Schedule'}
 	class="w-full max-w-3xl"
 	classes={{
 		title: 'text-2xl font-semibold',
@@ -408,7 +408,7 @@
 
 		<div class="flex flex-col gap-3">
 			<label for="schedule-expiration" class="input-label text-base font-medium">
-				Expiration date <span class="text-on-surface1 font-normal">(optional)</span>
+				Expiration Date <span class="text-on-surface1 font-normal">(optional)</span>
 			</label>
 			<DatePicker
 				id="schedule-expiration"
@@ -437,7 +437,7 @@
 			<summary
 				class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-base font-medium"
 			>
-				<span>Advanced settings</span>
+				<span>Advanced Settings</span>
 				<ChevronDown class="size-5 shrink-0 transition-transform" />
 			</summary>
 			<div class="border-base-300 border-t px-5 py-4">
@@ -448,7 +448,11 @@
 							Runs until it is disabled or reaches its expiration.
 						</p>
 					</div>
-					<input type="checkbox" class="toggle" bind:checked={enabled} />
+					<input
+						type="checkbox"
+						class="toggle text-background dark:text-surface2 bg-surface3 checked:bg-primary border-transparent"
+						bind:checked={enabled}
+					/>
 				</div>
 				{#if currentTask}
 					<div class="text-on-surface1 mt-4 text-sm">

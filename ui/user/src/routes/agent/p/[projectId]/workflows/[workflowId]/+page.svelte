@@ -23,24 +23,23 @@
 	import { twMerge } from 'tailwind-merge';
 
 	let { data } = $props();
-	let workflowName = $derived(data.workflowName);
+	let workflowId = $derived(data.workflowId);
 	let projectId = $derived(data.projectId);
 	let publishedWorkflows = $state<PublishedArtifact[]>(untrack(() => data.publishedWorkflows));
 	let publishedInfo = $derived(
-		publishedWorkflows.find((w) => w.name === workflowName && w.authorID === profile.current.id)
+		publishedWorkflows.find((w) => w.name === workflowId && w.authorID === profile.current.id)
 	);
 	let latestVersion = $derived(publishedInfo?.latestVersion ?? 0);
 
 	let workflow = $derived(
 		$nanobotChat?.resources?.length
-			? $nanobotChat.resources.find((r) => r.name === workflowName)
+			? $nanobotChat.resources.find((r) => r.name === workflowId)
 			: undefined
 	);
 	let workflowDisplayName = $derived(workflow?._meta?.displayName ?? workflow?._meta?.name);
 	let workflowResources = $derived(
-		$nanobotChat?.resources?.filter((r) =>
-			r.uri.startsWith(`file:///workflows/${workflowName}/`)
-		) ?? []
+		$nanobotChat?.resources?.filter((r) => r.uri.startsWith(`file:///workflows/${workflowId}/`)) ??
+			[]
 	);
 
 	let resource = $state<ResourceContents>();
@@ -138,6 +137,13 @@
 		}
 	});
 
+	$effect(() => {
+		if (workflowDisplayName) {
+			projectLayout.setLayoutName(workflowDisplayName as string);
+			projectLayout.setShowBackButton(true);
+		}
+	});
+
 	function handleSetupWorkflowThread(message: string, showFile: boolean = false) {
 		loading = true;
 		$nanobotChat?.api.createSession().then((sessionClient) => {
@@ -156,23 +162,23 @@
 			loading = false;
 
 			goto(
-				`/agent/p/${projectId}?tid=${sessionClient.chatId}${showFile ? `&wid=${workflowName}` : ''}`
+				`/agent/p/${projectId}?tid=${sessionClient.chatId}${showFile ? `&wid=${workflowId}` : ''}`
 			);
 		});
 	}
 
 	function handleModifyWorkflow() {
-		handleSetupWorkflowThread(`I'd like to modify the workflow: ${workflowName}`, true);
+		handleSetupWorkflowThread(`I'd like to modify the workflow: ${workflowId}`, true);
 	}
 
 	function handleRunWorkflow() {
-		handleSetupWorkflowThread(`Run the workflow: ${workflowName}`);
+		handleSetupWorkflowThread(`Run the workflow: ${workflowId}`);
 	}
 
 	function handlePublishWorkflow() {
 		publishing = true;
 		$nanobotChat?.api
-			.publishArtifact(workflowName)
+			.publishArtifact(workflowId)
 			.then(async () => {
 				publishedWorkflows = await NanobotService.listPublishedWorkflows();
 				showPublishSuccess = true;
@@ -350,11 +356,11 @@
 						<button
 							class="list-row hover:bg-base-200 text-left transition-colors"
 							onclick={() => {
-								goto(`/agent/p/${projectId}?tid=${thread.id}&pwid=${workflowName}`);
+								goto(`/agent/p/${projectId}?tid=${thread.id}&pwid=${workflowId}`);
 							}}
 						>
 							<div
-								class="flex-shrink-0 text-4xl font-thin tabular-nums opacity-30"
+								class="shrink-0 text-4xl font-thin tabular-nums opacity-30"
 								style={index === 0 ? 'letter-spacing: 0.155em;' : ''}
 							>
 								{index < 9 ? `0${index + 1}` : index + 1}
@@ -406,12 +412,12 @@
 							<tr
 								class="list-row"
 								onclick={() => {
-									goto(`/agent/p/${projectId}?tid=${thread.id}&pwid=${workflowName}`);
+									goto(`/agent/p/${projectId}?tid=${thread.id}&pwid=${workflowId}`);
 								}}
 								onkeydown={(e) => {
 									if (e.key === 'Enter') {
 										e.preventDefault();
-										goto(`/agent/p/${projectId}?tid=${thread.id}&pwid=${workflowName}`);
+										goto(`/agent/p/${projectId}?tid=${thread.id}&pwid=${workflowId}`);
 									}
 								}}
 								aria-label={`View thread ${thread.title}`}
@@ -488,7 +494,7 @@
 		message="Are you sure you want to update? Any existing changes will be overwritten."
 	>
 		{#snippet loadingText()}
-			Updating <i>{workflow?._meta?.displayName ?? workflow?._meta?.name ?? workflowName}...</i>
+			Updating <i>{workflow?._meta?.displayName ?? workflow?._meta?.name ?? workflowId}...</i>
 		{/snippet}
 	</PublishedWorkflowInstallModal>
 {/if}
@@ -571,7 +577,7 @@
 {/if}
 
 <Confirm
-	msg={`Workflow ${workflowDisplayName ?? workflowName} has been published.`}
+	msg={`Workflow ${workflowDisplayName ?? workflowId} has been published.`}
 	title="Workflow Published"
 	cancelText="Close"
 	show={showPublishSuccess}
@@ -580,7 +586,7 @@
 >
 	{#snippet note()}
 		<p>
-			{workflowDisplayName ?? workflowName} has been published to version
+			{workflowDisplayName ?? workflowId} has been published to version
 			<b class="font-semibold">{publishedInfo?.latestVersion?.toFixed(1)}</b>.
 		</p>
 		{#if publishedInfo?.visibility === 'private'}
@@ -593,7 +599,7 @@
 </Confirm>
 
 <svelte:head>
-	<title>Obot | {workflowDisplayName ?? workflowName}</title>
+	<title>Obot | {workflowDisplayName ?? workflowId}</title>
 </svelte:head>
 
 <style lang="postcss">
