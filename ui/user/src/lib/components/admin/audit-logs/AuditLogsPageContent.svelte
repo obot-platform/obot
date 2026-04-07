@@ -86,17 +86,21 @@
 
 		displayTableData = [];
 		displayTimelineData = [];
-		const schedule =
-			typeof requestIdleCallback !== 'undefined'
-				? (fn: () => void) => requestIdleCallback(fn, { timeout: 200 })
-				: (fn: () => void) => setTimeout(fn, 0);
-		const cancelSchedule =
-			typeof cancelIdleCallback !== 'undefined' ? cancelIdleCallback : clearTimeout;
-		const id = schedule(() => {
+		if (typeof requestIdleCallback !== 'undefined') {
+			const id = requestIdleCallback(
+				() => {
+					displayTableData = items;
+					displayTimelineData = aggregateAuditLogsByBucket(items, start, end);
+				},
+				{ timeout: 200 }
+			);
+			return () => cancelIdleCallback(id);
+		}
+		const id = setTimeout(() => {
 			displayTableData = items;
 			displayTimelineData = aggregateAuditLogsByBucket(items, start, end);
-		});
-		return () => cancelSchedule(id);
+		}, 0);
+		return () => clearTimeout(id);
 	});
 
 	$effect(() => setVirtualPageData(displayTableData));
