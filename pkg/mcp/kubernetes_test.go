@@ -175,7 +175,7 @@ func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 	}
 
 	configSecret := findSecret(t, objs, name.SafeConcatName("nanobot-agent-server", "config"))
-	assertNoAuditLogEnv(t, configSecret.StringData)
+	assertNoAuditLogEnv(t, configSecret.Data)
 }
 
 func TestK8sObjects_NonAgentShimKeepsAuditLogConfig(t *testing.T) {
@@ -201,7 +201,7 @@ func TestK8sObjects_NonAgentShimKeepsAuditLogConfig(t *testing.T) {
 	}
 
 	shimConfigSecret := findSecret(t, objs, name.SafeConcatName("standard-server", "config", "shim"))
-	assertHasAuditLogEnv(t, shimConfigSecret.StringData)
+	assertHasAuditLogEnv(t, shimConfigSecret.Data)
 }
 
 func newTestKubernetesBackend(t *testing.T) *kubernetesBackend {
@@ -235,7 +235,7 @@ func findSecret(t *testing.T, objs []kclient.Object, secretName string) *corev1.
 	return nil
 }
 
-func assertNoAuditLogEnv(t *testing.T, env map[string]string) {
+func assertNoAuditLogEnv(t *testing.T, env map[string][]byte) {
 	t.Helper()
 
 	for key := range env {
@@ -245,7 +245,7 @@ func assertNoAuditLogEnv(t *testing.T, env map[string]string) {
 	}
 }
 
-func assertHasAuditLogEnv(t *testing.T, env map[string]string) {
+func assertHasAuditLogEnv(t *testing.T, env map[string][]byte) {
 	t.Helper()
 
 	expected := []string{

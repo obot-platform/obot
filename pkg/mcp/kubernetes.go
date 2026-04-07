@@ -59,6 +59,19 @@ type kubernetesDeploymentCacheEntry struct {
 	podName string
 }
 
+func stringMapToSecretData(data map[string]string) map[string][]byte {
+	if len(data) == 0 {
+		return nil
+	}
+
+	result := make(map[string][]byte, len(data))
+	for k, v := range data {
+		result[k] = []byte(v)
+	}
+
+	return result
+}
+
 func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, obotClient kclient.Client, opts Options) backend {
 	var serviceFQDN string
 	if opts.ServiceName != "" && opts.ServiceNamespace != "" {
@@ -419,7 +432,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
-		StringData: secretVolumeStringData,
+		Data: stringMapToSecretData(secretVolumeStringData),
 	})
 
 	for _, env := range server.Env {
@@ -609,7 +622,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
-		StringData: webhookSecretStringData,
+		Data: stringMapToSecretData(webhookSecretStringData),
 	})
 
 	if server.Runtime != types.RuntimeRemote {
@@ -636,9 +649,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					Namespace:   k.mcpNamespace,
 					Annotations: annotations,
 				},
-				StringData: map[string]string{
+				Data: stringMapToSecretData(map[string]string{
 					"nanobot.yaml": nanobotFileString,
-				},
+				}),
 			})
 
 			objs = append(objs, &corev1.Secret{
@@ -647,7 +660,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					Namespace:   k.mcpNamespace,
 					Annotations: annotations,
 				},
-				StringData: func() map[string]string {
+				Data: stringMapToSecretData(func() map[string]string {
 					// Start from the main container env (secretEnvStringData) and carve out the subset that should
 					// be applied to the dedicated shim container (vars). This function also removes
 					// shim-owned keys from secretEnvStringData so they are not injected into
@@ -678,7 +691,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					}
 
 					return vars
-				}(),
+				}()),
 			})
 
 			port := port + len(webhooks) + 1
@@ -739,7 +752,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
-		StringData: secretEnvStringData,
+		Data: stringMapToSecretData(secretEnvStringData),
 	})
 
 	volumeMounts := []corev1.VolumeMount{
@@ -892,9 +905,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				Namespace:   k.mcpNamespace,
 				Annotations: annotations,
 			},
-			StringData: map[string]string{
+			Data: stringMapToSecretData(map[string]string{
 				"nanobot.yaml": nanobotFileString,
-			},
+			}),
 		})
 
 		dep.Spec.Template.Spec.Containers[len(containers)-1].VolumeMounts = append(dep.Spec.Template.Spec.Containers[len(containers)-1].VolumeMounts, corev1.VolumeMount{
