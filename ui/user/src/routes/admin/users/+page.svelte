@@ -155,15 +155,15 @@
 	const isAddingAuditorWithUserImpersonation = $derived(
 		Boolean(
 			confirmUserImpersonationAdditionToUser &&
-				confirmUserImpersonationAdditionToUser.auditor &&
-				(confirmUserImpersonationAdditionToUser.assignedRole & Role.AUDITOR) === 0
+			confirmUserImpersonationAdditionToUser.auditor &&
+			(confirmUserImpersonationAdditionToUser.assignedRole & Role.AUDITOR) === 0
 		)
 	);
 	const isRemovingAuditorWithUserImpersonation = $derived(
 		Boolean(
 			confirmUserImpersonationAdditionToUser &&
-				!confirmUserImpersonationAdditionToUser.auditor &&
-				(confirmUserImpersonationAdditionToUser.assignedRole & Role.AUDITOR) !== 0
+			!confirmUserImpersonationAdditionToUser.auditor &&
+			(confirmUserImpersonationAdditionToUser.assignedRole & Role.AUDITOR) !== 0
 		)
 	);
 
