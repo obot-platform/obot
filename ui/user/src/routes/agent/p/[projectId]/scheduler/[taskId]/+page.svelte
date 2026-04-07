@@ -132,10 +132,8 @@
 		if (!$nanobotChat?.api || !task) return;
 		runningNow = true;
 		try {
-			await $nanobotChat.api.startScheduledTask(task.uri);
-			await refreshResources();
-			await loadTask();
-			await loadSessions();
+			const response = await $nanobotChat.api.startScheduledTask(task.uri);
+			goto(`/agent/p/${projectId}?tid=${response.sessionId}`);
 		} catch (error) {
 			errors.append(error);
 		} finally {
