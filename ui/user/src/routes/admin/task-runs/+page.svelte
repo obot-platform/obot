@@ -25,7 +25,6 @@
 		clearUrlParams,
 		getTableUrlParamsFilters,
 		getTableUrlParamsSort,
-		setSearchParamsToLocalStorage,
 		setSortUrlParams,
 		setFilterUrlParams
 	} from '$lib/url';
@@ -39,7 +38,7 @@
 	let userMap = $derived(new Map(users.map((u) => [u.id, u])));
 	let taskMap = $derived(new Map(tasks.map((t) => [t.id, t])));
 
-	let query = $state(page.url.searchParams.get('query') || '');
+	let query = $derived(page.url.searchParams.get('query') || '');
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
 
@@ -143,8 +142,6 @@
 	}
 
 	function handleViewThread(thread: ProjectThread, isCtrlClick: boolean) {
-		setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
-
 		const url = `/admin/task-runs/${thread.id}`;
 		openUrl(url, isCtrlClick);
 	}

@@ -4,14 +4,13 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { ShieldAlert, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { goto, replaceState } from '$lib/url';
-	import { afterNavigate } from '$app/navigation';
+	import { goto, clearUrlParams } from '$lib/url';
 	import { type MessagePolicy, PolicyDirectionLabels } from '$lib/services/admin/types';
 	import type { PolicyDirection } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import MessagePolicyForm from '$lib/components/admin/MessagePolicyForm.svelte';
-	import { onMount, untrack } from 'svelte';
+	import { untrack } from 'svelte';
 	import { AdminService } from '$lib/services/index.js';
 	import { openUrl } from '$lib/utils.js';
 	import { profile } from '$lib/stores/index.js';
@@ -19,7 +18,7 @@
 
 	let { data } = $props();
 	let messagePolicies = $state(untrack(() => data.messagePolicies));
-	let showCreatePolicy = $state(false);
+	let showCreatePolicy = $derived(page.url.searchParams.has('new'));
 	let policyToDelete = $state<MessagePolicy>();
 
 	function convertToTableData(policy: MessagePolicy) {
@@ -33,35 +32,8 @@
 
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 
-	onMount(() => {
-		const url = new URL(window.location.href);
-		const queryParams = new URLSearchParams(url.search);
-		if (queryParams.get('new')) {
-			showCreatePolicy = true;
-		}
-	});
-
-	afterNavigate(({ from }) => {
-		const comingFromPolicyPage = from?.url?.pathname.startsWith('/admin/message-policies/');
-		if (comingFromPolicyPage) {
-			showCreatePolicy = false;
-			if (page.url.searchParams.has('new')) {
-				const cleanUrl = new URL(page.url);
-				cleanUrl.searchParams.delete('new');
-				replaceState(cleanUrl, {});
-			}
-			return;
-		} else {
-			if (page.url.searchParams.has('new')) {
-				showCreatePolicy = true;
-			} else {
-				showCreatePolicy = false;
-			}
-		}
-	});
-
 	async function navigateToCreated(policy: MessagePolicy) {
-		showCreatePolicy = false;
+		clearUrlParams(['new']);
 		goto(`/admin/message-policies/${policy.id}`, { replaceState: false });
 	}
 
