@@ -43,6 +43,11 @@ var (
 	anthropicBaseURL = "https://api.anthropic.com/v1"
 )
 
+const (
+	internalRequestTypeHeader = "X-Nanobot-Internal-Request-Type"
+	threadTitleRequestType    = "nanobot.summary.thread_title"
+)
+
 func init() {
 	if base := os.Getenv("OPENAI_BASE_URL"); base != "" {
 		openAIBaseURL = base
@@ -796,6 +801,7 @@ func llmTransformRequest(u url.URL, credEnv map[string]string) func(req *http.Re
 		// If we forward Accept-Encoding from the client, net/http transport will not
 		// auto-decompress and token usage parsing can see compressed bytes.
 		req.Header.Del("Accept-Encoding")
+		req.Header.Del(internalRequestTypeHeader)
 	}
 }
 
@@ -979,16 +985,20 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 
 	// Evaluate message policies if the helper is available and we have a user.
 	var (
+		messagePolicyHelper    = l.messagePolicyHelper
 		outputPolicies         []messagepolicy.ApplicablePolicy
 		conversationHistory    []messagepolicy.ConversationMessage
 		bodyModified           bool
 		inputPolicyReplacement string
 	)
-	if l.messagePolicyHelper != nil && req.User.GetUID() != "" {
+	if shouldSkipMessagePolicyEnforcement(req.Request) {
+		messagePolicyHelper = nil
+	}
+	if messagePolicyHelper != nil && req.User.GetUID() != "" {
 		var bodyMap map[string]any
 		if err := json.Unmarshal(body, &bodyMap); err == nil {
 			// Evaluate user message against applicable input policies.
-			inputPolicies, err := l.messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionUserMessage)
+			inputPolicies, err := messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionUserMessage)
 			if err != nil {
 				return fmt.Errorf("failed to get applicable input policies: %w", err)
 			}
@@ -1002,7 +1012,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 					// (assistant responses, tool results, etc.), this is a tool-calling
 					// continuation and the user text has already been evaluated.
 					if lastUserIdx == len(rawMessages)-1 {
-						violations := l.messagePolicyHelper.EvaluateMessage(req.Context(), inputPolicies, history, lastUserMsg, types2.PolicyDirectionUserMessage)
+						violations := messagePolicyHelper.EvaluateMessage(req.Context(), inputPolicies, history, lastUserMsg, types2.PolicyDirectionUserMessage)
 						if len(violations) > 0 {
 							// Log each violation (non-fatal on error).
 							blockedContent, _ := json.Marshal(map[string]string{"message": lastUserMsg})
@@ -1039,7 +1049,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 			}
 
 			// Check for output (tool-call) policies.
-			outputPolicies, err = l.messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionToolCalls)
+			outputPolicies, err = messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionToolCalls)
 			if err != nil {
 				return fmt.Errorf("failed to get applicable output policies: %w", err)
 			}
@@ -1090,11 +1100,19 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 			model:                  targetModel,
 			client:                 req.GatewayClient,
 			inputPolicyReplacement: inputPolicyReplacement,
-			messagePolicyHelper:    l.messagePolicyHelper,
+			messagePolicyHelper:    messagePolicyHelper,
 			outputPolicies:         outputPolicies,
 			conversationHistory:    conversationHistory,
 		}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil
+}
+
+func shouldSkipMessagePolicyEnforcement(req *http.Request) bool {
+	if req == nil {
+		return false
+	}
+
+	return req.Header.Get(internalRequestTypeHeader) == threadTitleRequestType
 }
