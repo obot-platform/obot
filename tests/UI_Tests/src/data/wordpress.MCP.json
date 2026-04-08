@@ -1,0 +1,18 @@
+{
+  "prompts": [
+    "Is Wordpress tool connected?",
+    "Validate the connection credentials for the WordPress server.",
+    "Retrieve the current WordPress site settings.",
+    "Get details of the connected WordPress user.",
+    "Create a new WordPress post with the title 'MCP QA Testing Guide' and content 'Testing all endpoints for the WordPress MCP connector.'Set status to 'draft' and assign category 'QA Tests.'",
+    "List the 5 most recent published posts."
+  ],
+  "tools" : [
+  "create_category", "create_post", "create_tag",
+  "delete_category", "delete_media", "delete_post", "delete_tag",
+  "get_me", "get_site_settings",
+  "list_categories", "list_media", "list_posts", "list_tags", "list_users",
+  "retrieve_post", "update_category", "update_media", "update_post", "update_tag",
+  "validate_credential"
+  ]
+}
