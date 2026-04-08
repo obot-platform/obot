@@ -40,8 +40,8 @@ func TestChooseModelPrefersKnownNames(t *testing.T) {
 		t.Fatalf("expected model, got error: %v", err)
 	}
 
-	if model != "gpt-5.4" {
-		t.Fatalf("expected gpt-5.4, got %q", model)
+	if model.TargetModel != "gpt-5.4" {
+		t.Fatalf("expected gpt-5.4, got %q", model.TargetModel)
 	}
 }
 
@@ -64,8 +64,8 @@ func TestChooseModelFallsBackToFirstActiveModel(t *testing.T) {
 		t.Fatalf("expected model, got error: %v", err)
 	}
 
-	if model != "model-a" {
-		t.Fatalf("expected model-a, got %q", model)
+	if model.TargetModel != "model-a" {
+		t.Fatalf("expected model-a, got %q", model.TargetModel)
 	}
 }
 
@@ -98,8 +98,8 @@ func TestChooseModelPrefersSuggestedOrder(t *testing.T) {
 		t.Fatalf("expected model, got error: %v", err)
 	}
 
-	if model != "gpt-5.4" {
-		t.Fatalf("expected gpt-5.4, got %q", model)
+	if model.TargetModel != "gpt-5.4" {
+		t.Fatalf("expected gpt-5.4, got %q", model.TargetModel)
 	}
 }
 
@@ -160,7 +160,7 @@ func TestChooseModelMiniFallsBackToResolvedLLM(t *testing.T) {
 		t.Fatalf("expected model, got error: %v", err)
 	}
 
-	if model != "gpt-5.4" {
-		t.Fatalf("expected gpt-5.4, got %q", model)
+	if model.TargetModel != "gpt-5.4" {
+		t.Fatalf("expected gpt-5.4, got %q", model.TargetModel)
 	}
 }

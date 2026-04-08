@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
+	nanobottypes "github.com/nanobot-ai/nanobot/pkg/types"
 	"github.com/obot-platform/nah/pkg/backend"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
@@ -27,6 +28,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	sigsyaml "sigs.k8s.io/yaml"
 )
 
 const (
@@ -110,6 +112,17 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 				File:        true,
 				DynamicFile: true,
 			},
+			{
+				MCPHeader: types.MCPHeader{
+					Name:        "NANOBOT_PROVIDER_CONFIG",
+					Description: "Provider config YAML for Nanobot",
+					Key:         "NANOBOT_PROVIDER_CONFIG",
+					Sensitive:   true,
+					Required:    true,
+				},
+				File:        true,
+				DynamicFile: true,
+			},
 		}
 
 		currentArgs := existing.Spec.Manifest.ContainerizedConfig.Args
@@ -186,6 +199,17 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 						File:        true,
 						DynamicFile: true,
 					},
+					{
+						MCPHeader: types.MCPHeader{
+							Name:        "NANOBOT_PROVIDER_CONFIG",
+							Description: "Provider config YAML for Nanobot",
+							Key:         "NANOBOT_PROVIDER_CONFIG",
+							Sensitive:   true,
+							Required:    true,
+						},
+						File:        true,
+						DynamicFile: true,
+					},
 				},
 			},
 		},
@@ -222,8 +246,13 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		needsRefresh = true
 		log.Debugf("Nanobot credential missing, creating: agent=%s mcpServer=%s", agent.Name, mcpServerName)
 	} else {
-		// Credential exists, check if token needs refreshing
-		if token := credEnvFileVars["OPENAI_API_KEY"]; token != "" {
+		// Credential exists, check if token needs refreshing.
+		// Look for the token in any known provider API key env var.
+		token := credEnvFileVars["OPENAI_API_KEY"]
+		if token == "" {
+			token = credEnvFileVars["ANTHROPIC_API_KEY"]
+		}
+		if token != "" {
 			tokenCtx, err := h.tokenService.DecodeToken(ctx, token)
 			if err != nil {
 				// Token is invalid, needs refresh
@@ -256,12 +285,18 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		return err
 	}
 
-	if !needsRefresh && credEnvFileVars["NANOBOT_DEFAULT_MODEL"] == llmModel && credEnvFileVars["NANOBOT_DEFAULT_MINI_MODEL"] == miniModel {
+	llmProvider, llmDefault := h.nanobotProviderFor(llmModel)
+	miniProvider, miniDefault := h.nanobotProviderFor(miniModel)
+
+	if !needsRefresh &&
+		credEnvFileVars["NANOBOT_DEFAULT_MODEL"] == llmDefault &&
+		credEnvFileVars["NANOBOT_DEFAULT_MINI_MODEL"] == miniDefault &&
+		cred.Env["NANOBOT_PROVIDER_CONFIG"] != "" {
 		// Credentials are up to date
 		return nil
 	}
 
-	log.Debugf("Refreshing nanobot credentials: agent=%s mcpServer=%s model=%s miniModel=%s", agent.Name, mcpServerName, llmModel, miniModel)
+	log.Debugf("Refreshing nanobot credentials: agent=%s mcpServer=%s model=%s miniModel=%s", agent.Name, mcpServerName, llmDefault, miniDefault)
 
 	// Generate a new token that expires in 12 hours
 	now := time.Now()
@@ -313,26 +348,42 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		return fmt.Errorf("failed to create API key: %w", err)
 	}
 
-	// Create or update the credential with the new token and API key
+	// Build provider config YAML and env file with only the providers in use.
+	providerYAML, err := buildNanobotProviderConfigYAML(llmProvider, miniProvider)
+	if err != nil {
+		return fmt.Errorf("failed to build nanobot provider config: %w", err)
+	}
+
+	envFileLines := []string{
+		fmt.Sprintf("OBOT_URL=%s", h.serverURL),
+	}
+	seenProviders := map[string]bool{}
+	for _, p := range []nanobotLLMProvider{llmProvider, miniProvider} {
+		if seenProviders[p.Name] {
+			continue
+		}
+		seenProviders[p.Name] = true
+		envVarName := strings.TrimSuffix(strings.TrimPrefix(p.APIKey, "${"), "}")
+		envFileLines = append(envFileLines, fmt.Sprintf("%s=%s", envVarName, token))
+	}
+	envFileLines = append(envFileLines,
+		fmt.Sprintf("MCP_API_KEY=%s", apiKeyResp.Key),
+		fmt.Sprintf("MCP_API_KEY_ID=%d", apiKeyResp.ID),
+		fmt.Sprintf("MCP_API_KEY_ID_PREV=%s", credEnvFileVars["MCP_API_KEY_ID"]),
+		fmt.Sprintf("MCP_SERVER_SEARCH_URL=%s", system.MCPConnectURL(h.serverURL, system.ObotMCPServerName)),
+		fmt.Sprintf("MCP_SERVER_SEARCH_API_KEY=%s", apiKeyResp.Key),
+		fmt.Sprintf("NANOBOT_DEFAULT_MODEL=%s", llmDefault),
+		fmt.Sprintf("NANOBOT_DEFAULT_MINI_MODEL=%s", miniDefault),
+	)
+
+	// Create or update the credential with the new token, API key, and provider config.
 	if err := h.gptClient.CreateCredential(ctx, gptscript.Credential{
 		Context:  credCtx,
 		ToolName: mcpServerName,
 		Type:     gptscript.CredentialTypeTool,
 		Env: map[string]string{
-			"NANOBOT_ENV_FILE": strings.Join([]string{
-				fmt.Sprintf("OBOT_URL=%s", h.serverURL),
-				fmt.Sprintf("ANTHROPIC_BASE_URL=%s/api/llm-proxy/anthropic", h.serverURL),
-				fmt.Sprintf("OPENAI_BASE_URL=%s/api/llm-proxy/openai", h.serverURL),
-				fmt.Sprintf("ANTHROPIC_API_KEY=%s", token),
-				fmt.Sprintf("OPENAI_API_KEY=%s", token),
-				fmt.Sprintf("MCP_API_KEY=%s", apiKeyResp.Key),
-				fmt.Sprintf("MCP_API_KEY_ID=%d", apiKeyResp.ID),
-				fmt.Sprintf("MCP_API_KEY_ID_PREV=%s", credEnvFileVars["MCP_API_KEY_ID"]),
-				fmt.Sprintf("MCP_SERVER_SEARCH_URL=%s", system.MCPConnectURL(h.serverURL, system.ObotMCPServerName)),
-				fmt.Sprintf("MCP_SERVER_SEARCH_API_KEY=%s", apiKeyResp.Key),
-				fmt.Sprintf("NANOBOT_DEFAULT_MODEL=%s", llmModel),
-				fmt.Sprintf("NANOBOT_DEFAULT_MINI_MODEL=%s", miniModel),
-			}, "\n"),
+			"NANOBOT_ENV_FILE":        strings.Join(envFileLines, "\n"),
+			"NANOBOT_PROVIDER_CONFIG": providerYAML,
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
@@ -355,26 +406,88 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	return nil
 }
 
-func getModelForAlias(ctx context.Context, client kclient.Client, namespace string, aliasName types.DefaultModelAliasType) (string, error) {
+// resolvedLLMModel pairs the resolved target model name with its configured provider reference.
+type resolvedLLMModel struct {
+	TargetModel   string
+	ModelProvider string // e.g. "openai-model-provider", "anthropic-model-provider"
+}
+
+// nanobotLLMProvider describes how a single LLM provider should be configured in nanobot's YAML.
+type nanobotLLMProvider struct {
+	Name    string // key in llmProviders map (e.g. "openai", "anthropic")
+	Dialect nanobottypes.Dialect
+	APIKey  string // env var reference, e.g. "${ANTHROPIC_API_KEY}"
+	BaseURL string // actual Obot proxy URL
+}
+
+// nanobotProviderFor returns the nanobot provider config and the fully-qualified
+// model name (provider/model) for a resolved model. Unknown providers fall back
+// to OpenAI-compatible format via the OpenAI proxy.
+func (h *Handler) nanobotProviderFor(model resolvedLLMModel) (nanobotLLMProvider, string) {
+	var p nanobotLLMProvider
+	switch model.ModelProvider {
+	case system.AnthropicModelProviderTool:
+		p = nanobotLLMProvider{
+			Name:    "anthropic",
+			Dialect: nanobottypes.DialectAnthropicMessages,
+			APIKey:  "${ANTHROPIC_API_KEY}",
+			BaseURL: h.serverURL + "/api/llm-proxy/anthropic",
+		}
+	default:
+		p = nanobotLLMProvider{
+			Name:    "openai",
+			Dialect: nanobottypes.DialectOpenAIResponses,
+			APIKey:  "${OPENAI_API_KEY}",
+			BaseURL: h.serverURL + "/api/llm-proxy/openai",
+		}
+	}
+	return p, p.Name + "/" + model.TargetModel
+}
+
+// buildNanobotProviderConfigYAML generates a nanobot Config YAML containing only the
+// providers required by the given LLM and mini-LLM models.
+func buildNanobotProviderConfigYAML(providers ...nanobotLLMProvider) (string, error) {
+	llmProviders := make(map[string]nanobottypes.LLMProvider, len(providers))
+	for _, p := range providers {
+		if _, exists := llmProviders[p.Name]; exists {
+			continue
+		}
+		llmProviders[p.Name] = nanobottypes.LLMProvider{
+			Dialect: p.Dialect,
+			APIKey:  p.APIKey,
+			BaseURL: p.BaseURL,
+		}
+	}
+	data, err := sigsyaml.Marshal(nanobottypes.Config{LLMProviders: llmProviders})
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func getModelForAlias(ctx context.Context, client kclient.Client, namespace string, aliasName types.DefaultModelAliasType) (resolvedLLMModel, error) {
 	llmModel, err := alias.GetFromScope(ctx, client, "Model", namespace, string(aliasName))
 	if err != nil {
-		return "", fmt.Errorf("failed to get default model alias %v: %w", aliasName, err)
+		return resolvedLLMModel{}, fmt.Errorf("failed to get default model alias %v: %w", aliasName, err)
 	}
 
 	modelAlias, ok := llmModel.(*v1.DefaultModelAlias)
 	if !ok {
-		return "", fmt.Errorf("alias %v is not of type Alias", aliasName)
+		return resolvedLLMModel{}, fmt.Errorf("alias %v is not of type Alias", aliasName)
 	}
 
 	var model v1.Model
 	if err := alias.Get(ctx, client, &model, namespace, modelAlias.Spec.Manifest.Model); err != nil {
-		return "", err
+		return resolvedLLMModel{}, err
 	}
 
-	return model.Spec.Manifest.TargetModel, nil
+	return resolvedLLMModel{
+		TargetModel:   model.Spec.Manifest.TargetModel,
+		ModelProvider: model.Spec.Manifest.ModelProvider,
+	}, nil
 }
 
-// resolveModel returns a concrete model name for a default alias.
+// resolveModel returns a resolved model and its provider for a default alias.
 //
 // It prefers an explicitly configured alias target when one exists. If the
 // alias is unset or cannot be resolved, it falls back to active LLM models in
@@ -382,14 +495,14 @@ func getModelForAlias(ctx context.Context, client kclient.Client, namespace stri
 // for that alias. The llm-mini alias falls back to the resolved llm model when
 // no preferred mini model is available. All other aliases fall back to the
 // first active LLM model available.
-func resolveModel(ctx context.Context, client kclient.Client, namespace string, aliasName types.DefaultModelAliasType) (string, error) {
-	if model, err := getModelForAlias(ctx, client, namespace, aliasName); err == nil && strings.TrimSpace(model) != "" {
+func resolveModel(ctx context.Context, client kclient.Client, namespace string, aliasName types.DefaultModelAliasType) (resolvedLLMModel, error) {
+	if model, err := getModelForAlias(ctx, client, namespace, aliasName); err == nil && strings.TrimSpace(model.TargetModel) != "" {
 		return model, nil
 	}
 
 	models, err := listActiveLLMModels(ctx, client, namespace)
 	if err != nil {
-		return "", err
+		return resolvedLLMModel{}, err
 	}
 
 	return chooseModel(ctx, client, namespace, models, aliasName)
@@ -422,12 +535,15 @@ func listActiveLLMModels(ctx context.Context, client kclient.Client, namespace s
 	return result, nil
 }
 
-func chooseModel(ctx context.Context, client kclient.Client, namespace string, models []v1.Model, aliasName types.DefaultModelAliasType) (string, error) {
+func chooseModel(ctx context.Context, client kclient.Client, namespace string, models []v1.Model, aliasName types.DefaultModelAliasType) (resolvedLLMModel, error) {
 	preferred := preferredModelsForAlias(aliasName)
 	for _, preferredName := range preferred {
 		for _, model := range models {
 			if model.Spec.Manifest.TargetModel == preferredName || model.Spec.Manifest.Name == preferredName {
-				return model.Spec.Manifest.TargetModel, nil
+				return resolvedLLMModel{
+					TargetModel:   model.Spec.Manifest.TargetModel,
+					ModelProvider: model.Spec.Manifest.ModelProvider,
+				}, nil
 			}
 		}
 	}
@@ -437,10 +553,13 @@ func chooseModel(ctx context.Context, client kclient.Client, namespace string, m
 	}
 
 	if len(models) > 0 {
-		return models[0].Spec.Manifest.TargetModel, nil
+		return resolvedLLMModel{
+			TargetModel:   models[0].Spec.Manifest.TargetModel,
+			ModelProvider: models[0].Spec.Manifest.ModelProvider,
+		}, nil
 	}
 
-	return "", fmt.Errorf("failed to resolve default model for alias %s: no active llm models available", aliasName)
+	return resolvedLLMModel{}, fmt.Errorf("failed to resolve default model for alias %s: no active llm models available", aliasName)
 }
 
 func preferredModelsForAlias(aliasName types.DefaultModelAliasType) []string {

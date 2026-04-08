@@ -12,32 +12,15 @@ import (
 	"time"
 
 	"github.com/nanobot-ai/nanobot/pkg/mcp"
-	nbotTypes "github.com/nanobot-ai/nanobot/pkg/types"
+	nanobottypes "github.com/nanobot-ai/nanobot/pkg/types"
 	"github.com/oasdiff/yaml"
 	"github.com/obot-platform/obot/apiclient/types"
 )
-
-var _ = nbotTypes.Config{}
 
 const (
 	defaultContainerPort = 8099
 	webhookToolName      = "fire-webhook"
 )
-
-// nanobotAgentProviderConfigYAML is the static nanobot config written to
-// .nanobot/nanobot.yaml in the workspace of every NanobotAgent container.
-// The ${VAR} references are resolved at runtime by nanobot from the session env
-// (populated via NANOBOT_ENV_FILE), so this content never needs to change.
-const nanobotAgentProviderConfigYAML = `llmProviders:
-  openai:
-    dialect: OpenAIResponses
-    apiKey: "${OPENAI_API_KEY}"
-    baseURL: "${OPENAI_BASE_URL}"
-  anthropic:
-    dialect: AnthropicMessages
-    apiKey: "${ANTHROPIC_API_KEY}"
-    baseURL: "${ANTHROPIC_BASE_URL}"
-`
 
 type backend interface {
 	// ensureServerDeployment will deploy a server if it is not already deployed, and return the updated ServerConfig
@@ -221,8 +204,8 @@ func constructMCPServerNanobotYAMLForComposite(servers []ComponentServer) ([]byt
 		names = append(names, name)
 	}
 
-	config := nbotTypes.Config{
-		Publish: nbotTypes.Publish{
+	config := nanobottypes.Config{
+		Publish: nanobottypes.Publish{
 			MCPServers: names,
 		},
 		MCPServers: mcpServers,
@@ -270,8 +253,8 @@ func constructMCPServerNanobotYAML(name, url, command string, args []string, env
 		Hooks:   hooks,
 	}
 
-	config := nbotTypes.Config{
-		Publish: nbotTypes.Publish{
+	config := nanobottypes.Config{
+		Publish: nanobottypes.Publish{
 			MCPServers: []string{name},
 		},
 		MCPServers: mcpServers,

@@ -872,7 +872,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 				Source: workspaceName,
 				Target: nanobotWorkspaceMountPath,
 			})
-			err = d.writeNanobotAgentProviderConfig(ctx, workspaceName)
+			err = d.writeNanobotAgentProviderConfig(ctx, workspaceName, fileVolumeName, server.MCPServerName)
 			if err != nil {
 				return "", 0, fmt.Errorf("failed to write nanobot agent provider config: %w", err)
 			}
@@ -1247,15 +1247,13 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	return volumeName, envVars, nil
 }
 
-func (d *dockerBackend) writeNanobotAgentProviderConfig(ctx context.Context, workspaceName string) error {
-	script := fmt.Sprintf("mkdir -p %[1]s/.nanobot && cat > %[1]s/.nanobot/nanobot.yaml << 'EOF'\n%sEOF\n",
-		nanobotWorkspaceMountPath, nanobotAgentProviderConfigYAML)
+func (d *dockerBackend) writeNanobotAgentProviderConfig(ctx context.Context, workspaceName, fileVolumeName, serverName string) error {
+	src := fmt.Sprintf("/files/%s-NANOBOT_PROVIDER_CONFIG", serverName)
+	script := fmt.Sprintf("mkdir -p %[1]s/.nanobot && cp %s %[1]s/.nanobot/nanobot.yaml",
+		nanobotWorkspaceMountPath, src)
 	return d.runInitContainer(ctx, "nanobot-provider-config-init", script, []mount.Mount{
-		{
-			Type:   mount.TypeVolume,
-			Source: workspaceName,
-			Target: nanobotWorkspaceMountPath,
-		},
+		{Type: mount.TypeVolume, Source: fileVolumeName, Target: "/files", ReadOnly: true},
+		{Type: mount.TypeVolume, Source: workspaceName, Target: nanobotWorkspaceMountPath},
 	})
 }
 
