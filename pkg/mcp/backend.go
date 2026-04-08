@@ -226,15 +226,15 @@ func constructMCPServerNanobotYAML(name, url, command string, args []string, env
 	mcpServers := make(map[string]mcp.Server, len(webhooks)+1)
 
 	for _, webhook := range webhooks {
-		name := replacer.Replace(webhook.DisplayName)
-		if name == "" {
-			name = replacer.Replace(webhook.Name)
+		webhookName := replacer.Replace(webhook.DisplayName)
+		if webhookName == "" {
+			webhookName = replacer.Replace(webhook.Name)
 		}
-		mcpServers[name] = mcp.Server{
+		mcpServers[webhookName] = mcp.Server{
 			BaseURL: webhook.URL,
 		}
 		for _, def := range webhook.Definitions {
-			hookTargets[def] = append(hookTargets[def], fmt.Sprintf("%s/%s", name, webhookToolName))
+			hookTargets[def] = append(hookTargets[def], fmt.Sprintf("%s/%s", webhookName, webhookToolName))
 		}
 	}
 
