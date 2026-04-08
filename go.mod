@@ -7,7 +7,7 @@ replace (
 	github.com/obot-platform/obot/logger => ./logger
 )
 
-replace github.com/nanobot-ai/nanobot => ../../nanobot-ai/nanobot-provider-dialect
+replace github.com/nanobot-ai/nanobot => github.com/calvinmclean/nanobot v0.0.0-20260408174919-d7f157a83d0c
 
 require (
 	cloud.google.com/go/storage v1.43.0
