@@ -666,3 +666,35 @@ func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) 
 		Message: "unsupported runtime",
 	}
 }
+
+// ValidateSecretBindings validates secret binding fields on env vars.
+// When editable is true, secret bindings are rejected (they are only allowed on git-sourced entries).
+func ValidateSecretBindings(envVars []types.MCPEnv, editable bool) error {
+	var errs []error
+	for i, env := range envVars {
+		if env.SecretBinding == nil {
+			continue
+		}
+
+		if editable {
+			errs = append(errs, fmt.Errorf("env[%d] (%s): secretBinding is only allowed on non-editable catalog entries", i, env.Key))
+			continue
+		}
+
+		if strings.TrimSpace(env.SecretBinding.SecretName) == "" {
+			errs = append(errs, fmt.Errorf("env[%d] (%s): secretBinding.secretName cannot be empty", i, env.Key))
+		}
+		if strings.TrimSpace(env.SecretBinding.SecretKey) == "" {
+			errs = append(errs, fmt.Errorf("env[%d] (%s): secretBinding.secretKey cannot be empty", i, env.Key))
+		}
+
+		if env.Value != "" {
+			errs = append(errs, fmt.Errorf("env[%d] (%s): cannot have both secretBinding and a static value", i, env.Key))
+		}
+
+		if env.File {
+			errs = append(errs, fmt.Errorf("env[%d] (%s): secretBinding is not supported for file-type env vars", i, env.Key))
+		}
+	}
+	return errors.Join(errs...)
+}

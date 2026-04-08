@@ -126,7 +126,7 @@
 				<div class="h-8 w-full"></div>
 				<div class="flex flex-col gap-4">
 					{#if isWorkflowSubRoute || isSchedulerSubRoute}
-						<div class="flex justify-between items-center gap-4">
+						<div class="flex items-center justify-between gap-4">
 							<div class="skeleton h-10 w-21"></div>
 							<div class="skeleton h-10 w-10"></div>
 						</div>

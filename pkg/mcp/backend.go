@@ -31,6 +31,9 @@ type backend interface {
 	restartServer(ctx context.Context, server ServerConfig) error
 	shutdownServer(ctx context.Context, id string) error
 	transformObotHostname(url string) string
+	// checkSecretBindings checks whether the K8s Secrets referenced by secret bindings exist.
+	// Returns the env var keys whose referenced secret or key was not found.
+	checkSecretBindings(ctx context.Context, envVars []types.MCPEnv) []string
 }
 
 type ErrNotSupportedByBackend struct {

@@ -386,7 +386,7 @@
 
 			{#if sessions.length === 0}
 				<div
-					class="bg-base-200/60 rounded-box flex flex-col items-center gap-3 px-6 py-10 text-center mt-2"
+					class="bg-base-200/60 rounded-box mt-2 flex flex-col items-center gap-3 px-6 py-10 text-center"
 				>
 					<div class="bg-base-100 rounded-full p-4">
 						<Workflow class="size-7" />
@@ -398,7 +398,7 @@
 				</div>
 			{:else}
 				{#if sessions.length > 3}
-					<h3 class="px-4 text-base font-semibold tracking-wide mt-8">All Runs</h3>
+					<h3 class="mt-8 px-4 text-base font-semibold tracking-wide">All Runs</h3>
 				{/if}
 				<table class="table w-full">
 					<thead>

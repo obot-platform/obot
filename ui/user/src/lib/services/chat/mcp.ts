@@ -28,7 +28,7 @@ export async function createProjectMcp(project: Project, mcpId: string, alias?: 
 
 export function isValidMcpConfig(mcpConfig: MCPServerInfo) {
 	return (
-		mcpConfig.env?.every((env) => !env.required || env.value) &&
+		mcpConfig.env?.every((env) => !env.required || env.secretBinding || env.value) &&
 		mcpConfig.headers?.every((header) => !header.required || header.value)
 	);
 }
@@ -114,8 +114,22 @@ function isMCPCatalogServer(server: MCPCatalogServer | ProjectMCP): server is MC
 }
 
 /**
+ * Returns missing env var keys that the user can actually fix (i.e., not secret-bound).
+ */
+function getUserFixableMissingEnvVars(server: MCPCatalogServer): string[] {
+	const missing = server.missingRequiredEnvVars ?? [];
+	if (missing.length === 0) return [];
+
+	const boundKeys = new Set(
+		(server.manifest?.env ?? []).filter((e) => e.secretBinding).map((e) => e.key)
+	);
+
+	return missing.filter((key) => !boundKeys.has(key));
+}
+
+/**
  * Returns true if the server needs user configuration (env vars, headers, URL)
- * but NOT if the only issue is missing admin OAuth credentials.
+ * but NOT if the only issue is missing admin OAuth credentials or missing external secrets.
  */
 export function requiresUserConfiguration(server?: MCPCatalogServer | ProjectMCP): boolean {
 	if (!server) return false;
@@ -125,7 +139,7 @@ export function requiresUserConfiguration(server?: MCPCatalogServer | ProjectMCP
 		// Check if there are user-configurable issues besides OAuth
 		if (isMCPCatalogServer(server)) {
 			return (
-				(server.missingRequiredEnvVars?.length ?? 0) > 0 ||
+				getUserFixableMissingEnvVars(server).length > 0 ||
 				(server.missingRequiredHeaders?.length ?? 0) > 0 ||
 				server.needsURL === true
 			);
@@ -136,7 +150,31 @@ export function requiresUserConfiguration(server?: MCPCatalogServer | ProjectMCP
 
 	// No OAuth issue, use standard logic
 	if (server.needsURL) return true;
+
+	// Check if there are user-fixable missing env vars (exclude secret-bound)
+	if (isMCPCatalogServer(server) && !server.configured) {
+		const userFixable = getUserFixableMissingEnvVars(server);
+		const hasUserFixableIssues =
+			userFixable.length > 0 || (server.missingRequiredHeaders?.length ?? 0) > 0;
+		return hasUserFixableIssues;
+	}
+
 	return typeof server.configured === 'boolean' ? !server.configured : false;
+}
+
+/**
+ * Returns true if the server has missing external secret bindings (infrastructure issue, not user-fixable).
+ */
+export function hasMissingSecretBindings(server?: MCPCatalogServer): boolean {
+	if (!server) return false;
+	const missing = server.missingRequiredEnvVars ?? [];
+	if (missing.length === 0) return false;
+
+	const boundKeys = new Set(
+		(server.manifest?.env ?? []).filter((e) => e.secretBinding).map((e) => e.key)
+	);
+
+	return missing.some((key) => boundKeys.has(key));
 }
 
 /**

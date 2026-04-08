@@ -47,7 +47,12 @@ func (h *SystemMCPServerHandler) List(req api.Context) error {
 		if err != nil {
 			return err
 		}
-		servers = append(servers, convertSystemMCPServer(server, credEnv))
+		converted := convertSystemMCPServer(server, credEnv)
+		if missing := h.mcpSessionManager.CheckSecretBindings(req.Context(), server.Spec.Manifest.Env); len(missing) > 0 {
+			converted.MissingRequiredEnvVars = append(converted.MissingRequiredEnvVars, missing...)
+			converted.Configured = false
+		}
+		servers = append(servers, converted)
 	}
 
 	return req.Write(types.SystemMCPServerList{Items: servers})
@@ -65,7 +70,12 @@ func (h *SystemMCPServerHandler) Get(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertSystemMCPServer(systemServer, credEnv))
+	converted := convertSystemMCPServer(systemServer, credEnv)
+	if missing := h.mcpSessionManager.CheckSecretBindings(req.Context(), systemServer.Spec.Manifest.Env); len(missing) > 0 {
+		converted.MissingRequiredEnvVars = append(converted.MissingRequiredEnvVars, missing...)
+		converted.Configured = false
+	}
+	return req.Write(converted)
 }
 
 // Create creates a new system MCP server
@@ -486,6 +496,10 @@ func (h *SystemMCPServerHandler) checkEnabledAndConfigured(ctx context.Context, 
 		return types.NewErrBadRequest("system MCP server is not configured")
 	}
 
+	if missing := h.mcpSessionManager.CheckSecretBindings(ctx, server.Spec.Manifest.Env); len(missing) > 0 {
+		return types.NewErrBadRequest("system MCP server has missing external secret(s) for: %s", strings.Join(missing, ", "))
+	}
+
 	return nil
 }
 
@@ -513,7 +527,7 @@ func convertSystemMCPServer(server v1.SystemMCPServer, credEnv map[string]string
 	configured := true
 
 	for _, env := range server.Spec.Manifest.Env {
-		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
+		if env.Required && env.Value == "" && env.SecretBinding == nil && credEnv[env.Key] == "" {
 			result.MissingRequiredEnvVars = append(result.MissingRequiredEnvVars, env.Key)
 			configured = false
 		}
@@ -532,7 +546,7 @@ func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScrip
 	// Check if all required env vars are configured
 
 	for _, env := range server.Spec.Manifest.Env {
-		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
+		if env.Required && env.Value == "" && env.SecretBinding == nil && credEnv[env.Key] == "" {
 			return false
 		}
 	}

@@ -374,6 +374,7 @@ export interface MCPSubField {
 	sensitive: boolean;
 	value?: string;
 	prefix?: string;
+	secretBinding?: { secretName: string; secretKey: string };
 }
 
 export interface MCP {

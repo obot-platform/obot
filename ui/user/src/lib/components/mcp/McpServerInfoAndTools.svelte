@@ -11,7 +11,8 @@
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
 		requiresUserConfiguration,
-		requiresAdminOAuthConfig
+		requiresAdminOAuthConfig,
+		hasMissingSecretBindings
 	} from '$lib/services/chat/mcp';
 	import CatalogConfigureForm, {
 		type CompositeLaunchFormData,
@@ -164,6 +165,11 @@
 						{#if 'configured' in entry && typeof entry.configured === 'boolean' && entry.configured === false}
 							{@const isAdminOAuthOnly =
 								requiresAdminOAuthConfig(entry) && !requiresUserConfiguration(entry)}
+							{@const isMissingSecrets =
+								'catalogEntryID' in entry &&
+								hasMissingSecretBindings(entry) &&
+								!requiresUserConfiguration(entry) &&
+								!isAdminOAuthOnly}
 							<div class="notification-alert mb-4 flex gap-2">
 								<div class="flex grow flex-col gap-2">
 									<div class="flex items-center gap-2">
@@ -171,6 +177,8 @@
 										<p class="my-0.5 flex flex-col text-sm font-semibold">
 											{#if isAdminOAuthOnly}
 												Admin Configuration Required
+											{:else if isMissingSecrets}
+												External Secret Not Found
 											{:else}
 												Update Required
 											{/if}
@@ -180,13 +188,16 @@
 										{#if isAdminOAuthOnly}
 											This MCP server requires OAuth credentials to be configured by an
 											administrator.
+										{:else if isMissingSecrets}
+											This MCP server references an external Kubernetes secret that was not found.
+											Contact your administrator to ensure the required secret is provisioned.
 										{:else}
 											Due to a recent update in the server, an update on this MCP server's
 											configuration is required to continue using this server.
 										{/if}
 									</span>
 								</div>
-								{#if !isAdminOAuthOnly}
+								{#if !isAdminOAuthOnly && !isMissingSecrets}
 									<div class="flex flex-shrink-0 items-center">
 										<button
 											class="button-primary text-sm"
