@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"encoding/json"
+
 	"github.com/gptscript-ai/go-gptscript"
 	nanobottypes "github.com/nanobot-ai/nanobot/pkg/types"
 	"github.com/obot-platform/nah/pkg/backend"
@@ -406,10 +408,12 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	return nil
 }
 
-// resolvedLLMModel pairs the resolved target model name with its configured provider reference.
+// resolvedLLMModel pairs the resolved target model name with its configured provider reference
+// and the dialect declared by that provider (if any).
 type resolvedLLMModel struct {
-	TargetModel   string
-	ModelProvider string // e.g. "openai-model-provider", "anthropic-model-provider"
+	TargetModel     string
+	ModelProvider   string               // e.g. "openai-model-provider", "anthropic-model-provider"
+	ProviderDialect nanobottypes.Dialect // from ProviderMeta.Dialect; empty if not declared
 }
 
 // nanobotLLMProvider describes how a single LLM provider should be configured in nanobot's YAML.
@@ -421,27 +425,46 @@ type nanobotLLMProvider struct {
 }
 
 // nanobotProviderFor returns the nanobot provider config and the fully-qualified
-// model name (provider/model) for a resolved model. Unknown providers fall back
-// to OpenAI-compatible format via the OpenAI proxy.
+// model name (provider/model) for a resolved model.
+//
+// If the provider has declared a dialect via ProviderMeta.Dialect, that dialect
+// is used and the base URL is derived from it. Otherwise the known built-in
+// providers (openai, anthropic) supply both; everything else falls back to
+// OpenResponses via the generic /api/llm-proxy dispatch.
 func (h *Handler) nanobotProviderFor(model resolvedLLMModel) (nanobotLLMProvider, string) {
-	var p nanobotLLMProvider
-	switch model.ModelProvider {
-	case system.AnthropicModelProviderTool:
-		p = nanobotLLMProvider{
-			Name:    "anthropic",
-			Dialect: nanobottypes.DialectAnthropicMessages,
-			APIKey:  "${ANTHROPIC_API_KEY}",
-			BaseURL: h.serverURL + "/api/llm-proxy/anthropic",
-		}
-	default:
-		p = nanobotLLMProvider{
-			Name:    "openai",
-			Dialect: nanobottypes.DialectOpenAIResponses,
-			APIKey:  "${OPENAI_API_KEY}",
-			BaseURL: h.serverURL + "/api/llm-proxy/openai",
+	name := model.ModelProvider
+	envVarName := strings.ToUpper(strings.ReplaceAll(name, "-", "_")) + "_API_KEY"
+
+	dialect := model.ProviderDialect
+	if dialect == "" {
+		// No declared dialect — fall back to per-provider defaults.
+		switch model.ModelProvider {
+		case system.AnthropicModelProviderTool:
+			dialect = nanobottypes.DialectAnthropicMessages
+		case system.OpenAIModelProviderTool:
+			dialect = nanobottypes.DialectOpenAIResponses
+		default:
+			dialect = nanobottypes.DialectOpenResponses
 		}
 	}
-	return p, p.Name + "/" + model.TargetModel
+
+	var baseURL string
+	switch dialect {
+	case nanobottypes.DialectAnthropicMessages:
+		baseURL = h.serverURL + "/api/llm-proxy/anthropic"
+	case nanobottypes.DialectOpenAIResponses, nanobottypes.DialectOpenResponses:
+		baseURL = h.serverURL + "/api/llm-proxy/openai"
+	default:
+		baseURL = h.serverURL + "/api/llm-proxy"
+	}
+
+	p := nanobotLLMProvider{
+		Name:    name,
+		Dialect: dialect,
+		APIKey:  fmt.Sprintf("${%s}", envVarName),
+		BaseURL: baseURL,
+	}
+	return p, fmt.Sprintf("%s/%s", p.Name, model.TargetModel)
 }
 
 // buildNanobotProviderConfigYAML generates a nanobot Config YAML containing only the
@@ -465,6 +488,26 @@ func buildNanobotProviderConfigYAML(providers ...nanobotLLMProvider) (string, er
 	return string(data), nil
 }
 
+// lookupProviderDialect reads the dialect declared in a model provider ToolReference's
+// providerMeta tool metadata. Returns an empty string if not declared or on any error.
+func lookupProviderDialect(ctx context.Context, client kclient.Client, namespace, modelProvider string) nanobottypes.Dialect {
+	if client == nil || modelProvider == "" {
+		return ""
+	}
+	var toolRef v1.ToolReference
+	if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: modelProvider}, &toolRef); err != nil {
+		return ""
+	}
+	if toolRef.Status.Tool == nil || toolRef.Status.Tool.Metadata["providerMeta"] == "" {
+		return ""
+	}
+	var meta types.CommonProviderMetadata
+	if err := json.Unmarshal([]byte(toolRef.Status.Tool.Metadata["providerMeta"]), &meta); err != nil {
+		return ""
+	}
+	return nanobottypes.Dialect(meta.Dialect)
+}
+
 func getModelForAlias(ctx context.Context, client kclient.Client, namespace string, aliasName types.DefaultModelAliasType) (resolvedLLMModel, error) {
 	llmModel, err := alias.GetFromScope(ctx, client, "Model", namespace, string(aliasName))
 	if err != nil {
@@ -482,8 +525,9 @@ func getModelForAlias(ctx context.Context, client kclient.Client, namespace stri
 	}
 
 	return resolvedLLMModel{
-		TargetModel:   model.Spec.Manifest.TargetModel,
-		ModelProvider: model.Spec.Manifest.ModelProvider,
+		TargetModel:     model.Spec.Manifest.TargetModel,
+		ModelProvider:   model.Spec.Manifest.ModelProvider,
+		ProviderDialect: lookupProviderDialect(ctx, client, namespace, model.Spec.Manifest.ModelProvider),
 	}, nil
 }
 
@@ -541,8 +585,9 @@ func chooseModel(ctx context.Context, client kclient.Client, namespace string, m
 		for _, model := range models {
 			if model.Spec.Manifest.TargetModel == preferredName || model.Spec.Manifest.Name == preferredName {
 				return resolvedLLMModel{
-					TargetModel:   model.Spec.Manifest.TargetModel,
-					ModelProvider: model.Spec.Manifest.ModelProvider,
+					TargetModel:     model.Spec.Manifest.TargetModel,
+					ModelProvider:   model.Spec.Manifest.ModelProvider,
+					ProviderDialect: lookupProviderDialect(ctx, client, namespace, model.Spec.Manifest.ModelProvider),
 				}, nil
 			}
 		}
@@ -554,8 +599,9 @@ func chooseModel(ctx context.Context, client kclient.Client, namespace string, m
 
 	if len(models) > 0 {
 		return resolvedLLMModel{
-			TargetModel:   models[0].Spec.Manifest.TargetModel,
-			ModelProvider: models[0].Spec.Manifest.ModelProvider,
+			TargetModel:     models[0].Spec.Manifest.TargetModel,
+			ModelProvider:   models[0].Spec.Manifest.ModelProvider,
+			ProviderDialect: lookupProviderDialect(ctx, client, namespace, models[0].Spec.Manifest.ModelProvider),
 		}, nil
 	}
 
