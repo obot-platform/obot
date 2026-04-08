@@ -4,11 +4,14 @@ import (
 	"context"
 	"testing"
 
+	nanobottypes "github.com/nanobot-ai/nanobot/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	sigsyaml "sigs.k8s.io/yaml"
 )
 
 func TestChooseModelPrefersKnownNames(t *testing.T) {
@@ -100,6 +103,295 @@ func TestChooseModelPrefersSuggestedOrder(t *testing.T) {
 
 	if model.TargetModel != "gpt-5.4" {
 		t.Fatalf("expected gpt-5.4, got %q", model.TargetModel)
+	}
+}
+
+func TestLookupProviderDialectFound(t *testing.T) {
+	toolRef := &v1.ToolReference{
+		TypeMeta:   metav1.TypeMeta{APIVersion: v1.SchemeGroupVersion.String(), Kind: "ToolReference"},
+		ObjectMeta: metav1.ObjectMeta{Name: "groq-model-provider"},
+		Status: v1.ToolReferenceStatus{
+			Tool: &v1.ToolShortDescription{
+				Metadata: map[string]string{
+					"providerMeta": `{"dialect": "OpenAIChatCompletions"}`,
+				},
+			},
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(toolRef).Build()
+
+	got := lookupProviderDialect(context.Background(), c, "", "groq-model-provider")
+	if got != nanobottypes.DialectOpenAIChatCompletions {
+		t.Errorf("expected OpenAIChatCompletions, got %q", got)
+	}
+}
+
+func TestLookupProviderDialectNotDeclared(t *testing.T) {
+	toolRef := &v1.ToolReference{
+		TypeMeta:   metav1.TypeMeta{APIVersion: v1.SchemeGroupVersion.String(), Kind: "ToolReference"},
+		ObjectMeta: metav1.ObjectMeta{Name: "some-provider"},
+		Status: v1.ToolReferenceStatus{
+			Tool: &v1.ToolShortDescription{
+				Metadata: map[string]string{
+					"providerMeta": `{"icon": "icon.svg"}`,
+				},
+			},
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(toolRef).Build()
+
+	got := lookupProviderDialect(context.Background(), c, "", "some-provider")
+	if got != "" {
+		t.Errorf("expected empty dialect, got %q", got)
+	}
+}
+
+func TestLookupProviderDialectNotFound(t *testing.T) {
+	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
+
+	got := lookupProviderDialect(context.Background(), c, "", "nonexistent-provider")
+	if got != "" {
+		t.Errorf("expected empty dialect for missing ToolReference, got %q", got)
+	}
+}
+
+func TestNanobotProviderForDeclaredDialectDrivesURL(t *testing.T) {
+	h := &Handler{serverURL: "https://obot.example.com"}
+
+	for _, tc := range []struct {
+		dialect     nanobottypes.Dialect
+		wantBaseURL string
+	}{
+		{nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic"},
+		{nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai"},
+		{nanobottypes.DialectOpenAIChatCompletions, "https://obot.example.com/api/llm-proxy"},
+		{nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy"},
+	} {
+		model := resolvedLLMModel{
+			TargetModel:     "some-model",
+			ModelProvider:   "custom-model-provider",
+			ProviderDialect: tc.dialect,
+		}
+		p, _ := h.nanobotProviderFor(model)
+		if p.BaseURL != tc.wantBaseURL {
+			t.Errorf("dialect %s: baseURL = %q, want %q", tc.dialect, p.BaseURL, tc.wantBaseURL)
+		}
+		if p.Dialect != tc.dialect {
+			t.Errorf("dialect %s: provider dialect = %q, want same", tc.dialect, p.Dialect)
+		}
+	}
+}
+
+func TestNanobotProviderForBuiltinFallbacks(t *testing.T) {
+	h := &Handler{serverURL: "https://obot.example.com"}
+
+	for _, tc := range []struct {
+		modelProvider string
+		wantDialect   nanobottypes.Dialect
+		wantBaseURL   string
+	}{
+		{system.OpenAIModelProviderTool, nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai"},
+		{system.AnthropicModelProviderTool, nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic"},
+		{"unknown-model-provider", nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy"},
+	} {
+		model := resolvedLLMModel{TargetModel: "my-model", ModelProvider: tc.modelProvider}
+		p, qualifiedName := h.nanobotProviderFor(model)
+		if p.Dialect != tc.wantDialect {
+			t.Errorf("%s: dialect = %q, want %q", tc.modelProvider, p.Dialect, tc.wantDialect)
+		}
+		if p.BaseURL != tc.wantBaseURL {
+			t.Errorf("%s: baseURL = %q, want %q", tc.modelProvider, p.BaseURL, tc.wantBaseURL)
+		}
+		wantName := tc.modelProvider + "/my-model"
+		if qualifiedName != wantName {
+			t.Errorf("%s: qualified name = %q, want %q", tc.modelProvider, qualifiedName, wantName)
+		}
+	}
+}
+
+func TestBuildNanobotProviderConfigYAMLSingleProvider(t *testing.T) {
+	p := nanobotLLMProvider{
+		Name:    "openai-model-provider",
+		Dialect: nanobottypes.DialectOpenAIResponses,
+		APIKey:  "${OPENAI_MODEL_PROVIDER_API_KEY}",
+		BaseURL: "https://obot.example.com/api/llm-proxy/openai",
+	}
+
+	yaml, err := buildNanobotProviderConfigYAML(p)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var cfg nanobottypes.Config
+	if err := sigsyaml.Unmarshal([]byte(yaml), &cfg); err != nil {
+		t.Fatalf("failed to parse output YAML: %v", err)
+	}
+
+	if len(cfg.LLMProviders) != 1 {
+		t.Fatalf("expected 1 provider, got %d", len(cfg.LLMProviders))
+	}
+	got := cfg.LLMProviders["openai-model-provider"]
+	if got.Dialect != nanobottypes.DialectOpenAIResponses {
+		t.Errorf("dialect = %q, want OpenAIResponses", got.Dialect)
+	}
+	if got.BaseURL != p.BaseURL {
+		t.Errorf("baseURL = %q, want %q", got.BaseURL, p.BaseURL)
+	}
+}
+
+func TestBuildNanobotProviderConfigYAMLMultipleProviders(t *testing.T) {
+	openai := nanobotLLMProvider{
+		Name:    "openai-model-provider",
+		Dialect: nanobottypes.DialectOpenAIResponses,
+		APIKey:  "${OPENAI_MODEL_PROVIDER_API_KEY}",
+		BaseURL: "https://obot.example.com/api/llm-proxy/openai",
+	}
+	anthropic := nanobotLLMProvider{
+		Name:    "anthropic-model-provider",
+		Dialect: nanobottypes.DialectAnthropicMessages,
+		APIKey:  "${ANTHROPIC_MODEL_PROVIDER_API_KEY}",
+		BaseURL: "https://obot.example.com/api/llm-proxy/anthropic",
+	}
+
+	yaml, err := buildNanobotProviderConfigYAML(openai, anthropic)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var cfg nanobottypes.Config
+	if err := sigsyaml.Unmarshal([]byte(yaml), &cfg); err != nil {
+		t.Fatalf("failed to parse output YAML: %v", err)
+	}
+
+	if len(cfg.LLMProviders) != 2 {
+		t.Fatalf("expected 2 providers, got %d: %v", len(cfg.LLMProviders), cfg.LLMProviders)
+	}
+	if cfg.LLMProviders["openai-model-provider"].Dialect != nanobottypes.DialectOpenAIResponses {
+		t.Errorf("openai dialect = %q, want OpenAIResponses", cfg.LLMProviders["openai-model-provider"].Dialect)
+	}
+	if cfg.LLMProviders["anthropic-model-provider"].Dialect != nanobottypes.DialectAnthropicMessages {
+		t.Errorf("anthropic dialect = %q, want AnthropicMessages", cfg.LLMProviders["anthropic-model-provider"].Dialect)
+	}
+}
+
+func TestBuildNanobotProviderConfigYAMLDeduplicates(t *testing.T) {
+	p := nanobotLLMProvider{
+		Name:    "openai-model-provider",
+		Dialect: nanobottypes.DialectOpenAIResponses,
+		APIKey:  "${OPENAI_MODEL_PROVIDER_API_KEY}",
+		BaseURL: "https://obot.example.com/api/llm-proxy/openai",
+	}
+
+	yaml, err := buildNanobotProviderConfigYAML(p, p) // same provider twice
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var cfg nanobottypes.Config
+	if err := sigsyaml.Unmarshal([]byte(yaml), &cfg); err != nil {
+		t.Fatalf("failed to parse output YAML: %v", err)
+	}
+
+	if len(cfg.LLMProviders) != 1 {
+		t.Errorf("expected deduplication to 1 provider, got %d", len(cfg.LLMProviders))
+	}
+}
+
+func TestResolveModelCarriesProviderAndDialect(t *testing.T) {
+	c := fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithObjects(
+			&v1.DefaultModelAlias{
+				TypeMeta:   metav1.TypeMeta{APIVersion: v1.SchemeGroupVersion.String(), Kind: "DefaultModelAlias"},
+				ObjectMeta: metav1.ObjectMeta{Name: "llm"},
+				Spec: v1.DefaultModelAliasSpec{
+					Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: "groq-llama"},
+				},
+			},
+			&v1.Model{
+				TypeMeta:   metav1.TypeMeta{APIVersion: v1.SchemeGroupVersion.String(), Kind: "Model"},
+				ObjectMeta: metav1.ObjectMeta{Name: "groq-llama"},
+				Spec: v1.ModelSpec{
+					Manifest: types.ModelManifest{
+						Name:          "groq-llama",
+						TargetModel:   "llama-3.1-70b-versatile",
+						ModelProvider: "groq-model-provider",
+						Active:        true,
+						Usage:         types.ModelUsageLLM,
+					},
+				},
+			},
+			&v1.ToolReference{
+				TypeMeta:   metav1.TypeMeta{APIVersion: v1.SchemeGroupVersion.String(), Kind: "ToolReference"},
+				ObjectMeta: metav1.ObjectMeta{Name: "groq-model-provider"},
+				Status: v1.ToolReferenceStatus{
+					Tool: &v1.ToolShortDescription{
+						Metadata: map[string]string{
+							"providerMeta": `{"dialect": "OpenAIChatCompletions"}`,
+						},
+					},
+				},
+			},
+		).Build()
+
+	model, err := resolveModel(context.Background(), c, "", types.DefaultModelAliasTypeLLM)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if model.TargetModel != "llama-3.1-70b-versatile" {
+		t.Errorf("TargetModel = %q, want llama-3.1-70b-versatile", model.TargetModel)
+	}
+	if model.ModelProvider != "groq-model-provider" {
+		t.Errorf("ModelProvider = %q, want groq-model-provider", model.ModelProvider)
+	}
+	if model.ProviderDialect != nanobottypes.DialectOpenAIChatCompletions {
+		t.Errorf("ProviderDialect = %q, want OpenAIChatCompletions", model.ProviderDialect)
+	}
+}
+
+// TestMultipleProvidersWhenLLMAndMiniDiffer verifies that when the default LLM and
+// mini-LLM models are on different providers, both providers appear in the generated
+// nanobot config YAML.
+func TestMultipleProvidersWhenLLMAndMiniDiffer(t *testing.T) {
+	h := &Handler{serverURL: "https://obot.example.com"}
+
+	llmModel := resolvedLLMModel{
+		TargetModel:   "claude-sonnet-4-6",
+		ModelProvider: system.AnthropicModelProviderTool,
+	}
+	miniModel := resolvedLLMModel{
+		TargetModel:   "gpt-4.1-mini",
+		ModelProvider: system.OpenAIModelProviderTool,
+	}
+
+	llmProvider, llmDefault := h.nanobotProviderFor(llmModel)
+	miniProvider, miniDefault := h.nanobotProviderFor(miniModel)
+
+	if llmDefault != system.AnthropicModelProviderTool+"/claude-sonnet-4-6" {
+		t.Errorf("llmDefault = %q, want %s/claude-sonnet-4-6", llmDefault, system.AnthropicModelProviderTool)
+	}
+	if miniDefault != system.OpenAIModelProviderTool+"/gpt-4.1-mini" {
+		t.Errorf("miniDefault = %q, want %s/gpt-4.1-mini", miniDefault, system.OpenAIModelProviderTool)
+	}
+
+	yaml, err := buildNanobotProviderConfigYAML(llmProvider, miniProvider)
+	if err != nil {
+		t.Fatalf("buildNanobotProviderConfigYAML: %v", err)
+	}
+
+	var cfg nanobottypes.Config
+	if err := sigsyaml.Unmarshal([]byte(yaml), &cfg); err != nil {
+		t.Fatalf("failed to parse output YAML: %v", err)
+	}
+
+	if len(cfg.LLMProviders) != 2 {
+		t.Fatalf("expected 2 providers (one per model), got %d:\n%s", len(cfg.LLMProviders), yaml)
+	}
+	if _, ok := cfg.LLMProviders[system.AnthropicModelProviderTool]; !ok {
+		t.Errorf("anthropic-model-provider missing from YAML")
+	}
+	if _, ok := cfg.LLMProviders[system.OpenAIModelProviderTool]; !ok {
+		t.Errorf("openai-model-provider missing from YAML")
 	}
 }
 

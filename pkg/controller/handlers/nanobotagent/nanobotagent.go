@@ -452,7 +452,7 @@ func (h *Handler) nanobotProviderFor(model resolvedLLMModel) (nanobotLLMProvider
 	switch dialect {
 	case nanobottypes.DialectAnthropicMessages:
 		baseURL = h.serverURL + "/api/llm-proxy/anthropic"
-	case nanobottypes.DialectOpenAIResponses, nanobottypes.DialectOpenResponses:
+	case nanobottypes.DialectOpenAIResponses:
 		baseURL = h.serverURL + "/api/llm-proxy/openai"
 	default:
 		baseURL = h.serverURL + "/api/llm-proxy"
