@@ -1249,57 +1249,61 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 }
 
 func (d *dockerBackend) writeNanobotAgentProviderConfig(ctx context.Context, workspaceName string) error {
+	script := fmt.Sprintf("mkdir -p %[1]s/.nanobot && cat > %[1]s/.nanobot/nanobot.yaml << 'EOF'\n%sEOF\n",
+		nanobotWorkspaceMountPath, nanobotAgentProviderConfigYAML)
+	return d.runInitContainer(ctx, "nanobot-provider-config-init", script, []mount.Mount{
+		{
+			Type:   mount.TypeVolume,
+			Source: workspaceName,
+			Target: nanobotWorkspaceMountPath,
+		},
+	})
+}
+
+// runInitContainer pulls alpine:latest (if not present), runs a one-shot sh -c container
+// with the given script and mounts, waits for it to exit, and returns any error.
+func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script string, mounts []mount.Mount) error {
 	initImage := "alpine:latest"
 	if err := d.pullImage(ctx, initImage, true); err != nil {
 		return fmt.Errorf("failed to ensure init image exists: %w", err)
 	}
 
-	script := fmt.Sprintf("mkdir -p %[1]s/.nanobot && cat > %[1]s/.nanobot/nanobot.yaml << 'EOF'\n%sEOF\n",
-		nanobotWorkspaceMountPath, nanobotAgentProviderConfigYAML)
-
-	initConfig := &container.Config{
-		Image:      initImage,
-		Entrypoint: []string{"sh", "-c"},
-		Cmd:        []string{script},
-	}
-
-	initHostConfig := &container.HostConfig{
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeVolume,
-				Source: workspaceName,
-				Target: nanobotWorkspaceMountPath,
-			},
-		},
-		AutoRemove: true,
-	}
-
-	initNetworkingConfig := &network.NetworkingConfig{}
+	networkingConfig := &network.NetworkingConfig{}
 	if d.network != "" {
-		initNetworkingConfig.EndpointsConfig = map[string]*network.EndpointSettings{
+		networkingConfig.EndpointsConfig = map[string]*network.EndpointSettings{
 			d.network: {},
 		}
 	}
 
-	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, initNetworkingConfig, nil,
-		fmt.Sprintf("nanobot-provider-config-init-%s", strings.ToLower(rand.Text())))
+	resp, err := d.client.ContainerCreate(ctx,
+		&container.Config{
+			Image:      initImage,
+			Entrypoint: []string{"sh", "-c"},
+			Cmd:        []string{script},
+		},
+		&container.HostConfig{
+			Mounts:     mounts,
+			AutoRemove: true,
+		},
+		networkingConfig, nil,
+		fmt.Sprintf("%s-%s", namePrefix, strings.ToLower(rand.Text())))
 	if err != nil {
-		return fmt.Errorf("failed to create nanobot provider config init container: %w", err)
+		return fmt.Errorf("failed to create init container: %w", err)
 	}
 
 	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return fmt.Errorf("failed to start nanobot provider config init container: %w", err)
+		return fmt.Errorf("failed to start init container: %w", err)
 	}
 
 	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
 		if err != nil && !cerrdefs.IsNotFound(err) {
-			return fmt.Errorf("error waiting for nanobot provider config init container: %w", err)
+			return fmt.Errorf("error waiting for init container: %w", err)
 		}
 	case status := <-statusCh:
 		if status.StatusCode != 0 {
-			return fmt.Errorf("nanobot provider config init container failed with exit code %d", status.StatusCode)
+			return fmt.Errorf("init container %s failed with exit code %d", namePrefix, status.StatusCode)
 		}
 	}
 
@@ -1356,11 +1360,6 @@ func fileEnvKeysHash(files []File) string {
 }
 
 func (d *dockerBackend) populateFilesVolume(ctx context.Context, volumeName, containerName string, fileContents map[string]string) error {
-	initImage := "alpine:latest"
-	if err := d.pullImage(ctx, initImage, true); err != nil {
-		return fmt.Errorf("failed to ensure init image exists: %w", err)
-	}
-
 	var script strings.Builder
 	script.WriteString("#!/bin/sh\nset -e\n")
 	script.WriteString("rm -f /files/*\n")
@@ -1376,44 +1375,11 @@ func (d *dockerBackend) populateFilesVolume(ctx context.Context, volumeName, con
 		fmt.Fprintf(&script, "cat > '%s' << 'EOF'\n%s\nEOF\n", containerPath, fileContents[filename])
 	}
 
-	initConfig := &container.Config{
-		Image:      initImage,
-		Entrypoint: []string{"sh", "-c"},
-		Cmd:        []string{script.String()},
-		WorkingDir: "/",
-	}
-
-	initHostConfig := &container.HostConfig{
-		Mounts: []mount.Mount{{
-			Type:   mount.TypeVolume,
-			Source: volumeName,
-			Target: "/files",
-		}},
-		AutoRemove: true,
-	}
-
-	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, &network.NetworkingConfig{}, nil, fmt.Sprintf("%s-init-%s", containerName, strings.ToLower(rand.Text())))
-	if err != nil {
-		return fmt.Errorf("failed to create init container: %w", err)
-	}
-
-	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return fmt.Errorf("failed to start init container: %w", err)
-	}
-
-	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-	select {
-	case err := <-errCh:
-		if err != nil && !cerrdefs.IsNotFound(err) {
-			return fmt.Errorf("error waiting for init container: %w", err)
-		}
-	case status := <-statusCh:
-		if status.StatusCode != 0 {
-			return fmt.Errorf("init container failed with exit code %d", status.StatusCode)
-		}
-	}
-
-	return nil
+	return d.runInitContainer(ctx, containerName+"-init", script.String(), []mount.Mount{{
+		Type:   mount.TypeVolume,
+		Source: volumeName,
+		Target: "/files",
+	}})
 }
 
 func (d *dockerBackend) pullImage(ctx context.Context, imageName string, ifNotExists bool) error {
@@ -1497,62 +1463,15 @@ func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerC
 		return "", fmt.Errorf("failed to create nanobot config volume: %w", err)
 	}
 
-	// Create init container to populate the volume with nanobot config
-	initImage := "alpine:latest"
-	if err = d.pullImage(ctx, initImage, true); err != nil {
-		return "", fmt.Errorf("failed to ensure init image exists: %w", err)
-	}
-
-	// Create script to write nanobot config
 	script := fmt.Sprintf("cat > /config/nanobot.yaml << 'EOF'\n%s\nEOF\n", nanobotYAML)
-
-	// Create and run init container
-	initConfig := &container.Config{
-		Image:      initImage,
-		Entrypoint: []string{"sh", "-c"},
-		Cmd:        []string{script},
-	}
-
-	initHostConfig := &container.HostConfig{
-		Mounts: []mount.Mount{
-			{
-				Type:   mount.TypeVolume,
-				Source: volumeName,
-				Target: "/config",
-			},
+	if err = d.runInitContainer(ctx, server.MCPServerName+"-nanobot-init", script, []mount.Mount{
+		{
+			Type:   mount.TypeVolume,
+			Source: volumeName,
+			Target: "/config",
 		},
-		AutoRemove: true,
-	}
-
-	// Configure network (same as main containers)
-	initNetworkingConfig := &network.NetworkingConfig{}
-	if d.network != "" {
-		initNetworkingConfig.EndpointsConfig = map[string]*network.EndpointSettings{
-			d.network: {},
-		}
-	}
-
-	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, initNetworkingConfig, nil, fmt.Sprintf("%s-nanobot-init-%s", server.MCPServerName, strings.ToLower(rand.Text())))
-	if err != nil {
-		return "", fmt.Errorf("failed to create nanobot init container: %w", err)
-	}
-
-	// Start and wait for init container to complete
-	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return "", fmt.Errorf("failed to start init container: %w", err)
-	}
-
-	// Wait for init container to complete
-	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-	select {
-	case err := <-errCh:
-		if err != nil && !cerrdefs.IsNotFound(err) {
-			return "", fmt.Errorf("error waiting for nanobot init container: %w", err)
-		}
-	case status := <-statusCh:
-		if status.StatusCode != 0 {
-			return "", fmt.Errorf("nanobot init container failed with exit code %d", status.StatusCode)
-		}
+	}); err != nil {
+		return "", err
 	}
 
 	return volumeName, nil
