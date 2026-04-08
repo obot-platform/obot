@@ -191,7 +191,7 @@ func webhookToServerConfig(webhook Webhook, baseImage, mcpServerName, userID, sc
 	}, nil
 }
 
-func constructNanobotYAMLForCompositeServer(servers []ComponentServer) ([]byte, error) {
+func constructMCPServerNanobotYAMLForComposite(servers []ComponentServer) ([]byte, error) {
 	mcpServers := make(map[string]nanobotConfigMCPServer, len(servers))
 	names := make([]string, 0, len(servers))
 	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
@@ -232,7 +232,7 @@ func constructNanobotYAMLForCompositeServer(servers []ComponentServer) ([]byte, 
 	return data, nil
 }
 
-func constructNanobotYAMLForServer(name, url, command string, args []string, env, headers map[string][]byte, webhooks []Webhook) ([]byte, error) {
+func constructMCPServerNanobotYAML(name, url, command string, args []string, env, headers map[string][]byte, webhooks []Webhook) ([]byte, error) {
 	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
 
 	webhookDefinitions := make(map[string][]string, len(webhooks))
