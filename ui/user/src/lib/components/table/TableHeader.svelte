@@ -148,7 +148,7 @@
 				{query}
 				multiple
 				selected={selectedFilterValues.join(',')}
-				searchable
+				searchInDropdown
 				placeholder={`Filter by ${headerTitle ?? property}...`}
 			/>
 		</div>

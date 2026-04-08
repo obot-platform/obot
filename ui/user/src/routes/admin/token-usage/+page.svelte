@@ -20,14 +20,18 @@
 	import { getUserDisplayName } from '$lib/utils';
 	import { aggregateTimelineDataByBucket, getUserLabels } from './utils';
 	import { subDays } from 'date-fns';
-	import { Coins } from 'lucide-svelte';
+	import { Coins, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { fade } from 'svelte/transition';
+	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	let loadingTableData = $state(true);
 	let loadingTotalTokensData = $state(true);
+	let usersData = $state<OrgUser[]>([]);
+	let modelsData = $state<Model[]>([]);
+
 	let end = $derived(page.url.searchParams.get('end'));
 	let start = $derived(page.url.searchParams.get('start'));
 	let lastStart = $state<string | null>(null);
@@ -53,11 +57,10 @@
 	const selectedTargetModels = $derived.by(() => {
 		const ids = selectedModelIds.filter((id) => id !== 'all_models');
 		if (ids.length === 0) return null;
-		const modelsMap = new Map(modelsData.map((m) => [m.id, m]));
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const targetModels = new Set<string>();
 		for (const id of ids) {
-			const model = modelsMap.get(id);
+			const model = modelsToDisplayName.get(id);
 			if (model?.targetModel) targetModels.add(model.targetModel);
 		}
 		return targetModels.size > 0 ? targetModels : null;
@@ -75,8 +78,6 @@
 		}
 		return result;
 	});
-	let usersData = $state<OrgUser[]>([]);
-	let modelsData = $state<Model[]>([]);
 	let groupBy = $derived(
 		(page.url.searchParams.get('group_by') as 'group_by_users' | 'group_by_models' | null) ??
 			'group_by_default'
@@ -92,6 +93,7 @@
 	let subViewSearchQuery = $state('');
 
 	const usersMap = $derived(new Map(usersData.map((u) => [u.id, u])));
+	const modelsToDisplayName = $derived(new Map(modelsData.map((m) => [m.id, m])));
 
 	onMount(async () => {
 		usersData = await AdminService.listUsersIncludeDeleted();
@@ -479,6 +481,12 @@
 		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
+	function handleRemoveAllUserFilters() {
+		const currentUrl = new URL(page.url);
+		currentUrl.searchParams.delete('user');
+		goto(currentUrl, { noScroll: true, keepFocus: true });
+	}
+
 	function handleAddUserFilter(userId: string) {
 		if (userId === 'all_users') {
 			const currentUrl = new URL(page.url);
@@ -504,6 +512,12 @@
 		for (const id of models) {
 			currentUrl.searchParams.append('model', id);
 		}
+		goto(currentUrl, { noScroll: true, keepFocus: true });
+	}
+
+	function handleRemoveAllModelFilters() {
+		const currentUrl = new URL(page.url);
+		currentUrl.searchParams.delete('model');
 		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
@@ -603,8 +617,16 @@
 					selected={selectedUserIdsForSelect}
 					onSelect={(option) => handleAddUserFilter(option.id)}
 					onClear={(option) => option && handleRemoveUserFilter(option.id)}
+					onClearAll={selectedUserIdsForSelect !== 'all_users'
+						? () => handleRemoveAllUserFilters()
+						: undefined}
 					id="user-select"
 					multiple
+					searchInDropdown
+					placeholder="Filter by user..."
+					buttonReadOnly
+					buttonTitle="Users"
+					displayCount={!!selectedUserIdsForSelect && selectedUserIdsForSelect !== 'all_users'}
 				/>
 				<Select
 					class="dark:border-surface3 border border-transparent"
@@ -615,12 +637,52 @@
 					selected={filteredByModel}
 					onSelect={(option) => handleAddModelFilter(option.id)}
 					onClear={(option) => option && handleRemoveModelFilter(option.id)}
+					onClearAll={filteredByModel !== 'all_models'
+						? () => handleRemoveAllModelFilters()
+						: undefined}
 					id="model-select"
 					multiple
+					searchInDropdown
+					placeholder="Filter by model..."
+					buttonReadOnly
+					buttonTitle="Models"
+					displayCount={!!filteredByModel && filteredByModel !== 'all_models'}
 				/>
 				<div class="bg-surface3 hidden h-8 w-0.5 md:block"></div>
 				<AuditLogCalendar start={startDate} end={endDate} onChange={handleDateRangeChange} />
 			</div>
+			{#if filteredByModel !== 'all_models' || selectedUserIdsForSelect !== 'all_users'}
+				<div class="flex flex-wrap items-center gap-2" in:slide={{ axis: 'y', duration: 100 }}>
+					{#if selectedUserIdsForSelect !== 'all_users'}
+						{@const userPills = selectedUserIds.map((selectedUser) => ({
+							id: selectedUser,
+							label: getUserDisplayName(usersMap, selectedUser)
+						}))}
+						{#each userPills as userPill (userPill.id)}
+							<div class="filter-primary">
+								<span class="font-semibold">User:</span>{userPill.label}
+								<button class="ml-1" onclick={() => handleRemoveUserFilter(userPill.id)}>
+									<X class="size-3" />
+								</button>
+							</div>
+						{/each}
+					{/if}
+					{#if filteredByModel !== 'all_models'}
+						{@const modelPills = selectedModelIds.map((selectedModel) => ({
+							id: selectedModel,
+							label: modelsToDisplayName.get(selectedModel)?.name ?? selectedModel
+						}))}
+						{#each modelPills as modelPill (modelPill.id)}
+							<div class="filter-primary">
+								<span class="font-semibold">Model:</span>{modelPill.label}
+								<button class="ml-1" onclick={() => handleRemoveModelFilter(modelPill.id)}>
+									<X class="size-3" />
+								</button>
+							</div>
+						{/each}
+					{/if}
+				</div>
+			{/if}
 			<div class="paper w-full gap-0 pt-4">
 				<div class="mb-1 flex flex-wrap justify-between gap-2">
 					<div class="flex flex-wrap items-center gap-4">
