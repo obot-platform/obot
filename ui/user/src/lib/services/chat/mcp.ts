@@ -28,7 +28,7 @@ export async function createProjectMcp(project: Project, mcpId: string, alias?: 
 
 export function isValidMcpConfig(mcpConfig: MCPServerInfo) {
 	return (
-		mcpConfig.env?.every((env) => !env.required || env.value) &&
+		mcpConfig.env?.every((env) => !env.required || env.secretBinding || env.value) &&
 		mcpConfig.headers?.every((header) => !header.required || header.value)
 	);
 }

@@ -287,6 +287,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 			}
 		}
 		converted := ConvertMCPServer(server, credMap[server.Name], m.serverURL, slug, components...)
+		m.enrichWithSecretBindingStatus(req.Context(), &converted, server.Spec.Manifest.Env)
 		items = append(items, converted)
 	}
 
@@ -356,6 +357,7 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 		}
 	}
 	converted := ConvertMCPServer(server, cred.Env, m.serverURL, slug, components...)
+	m.enrichWithSecretBindingStatus(req.Context(), &converted, server.Spec.Manifest.Env)
 	return req.Write(converted)
 }
 
@@ -2489,12 +2491,22 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 	}
 }
 
+// enrichWithSecretBindingStatus checks whether external K8s Secrets referenced by secret bindings exist.
+// If any are missing, their keys are appended to MissingRequiredEnvVars and Configured is set to false.
+func (m *MCPHandler) enrichWithSecretBindingStatus(ctx context.Context, converted *types.MCPServer, envVars []types.MCPEnv) {
+	missing := m.mcpSessionManager.CheckSecretBindings(ctx, envVars)
+	if len(missing) > 0 {
+		converted.MissingRequiredEnvVars = append(converted.MissingRequiredEnvVars, missing...)
+		converted.Configured = false
+	}
+}
+
 func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL, slug string, components ...types.MCPServer) types.MCPServer {
 	var missingEnvVars, missingHeaders []string
 
 	// Check for missing required env vars
 	for _, env := range server.Spec.Manifest.Env {
-		if !env.Required {
+		if !env.Required || env.SecretBinding != nil {
 			continue
 		}
 
@@ -2759,6 +2771,7 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 			}
 		}
 		parent := ConvertMCPServer(server, credMap[server.Name], m.serverURL, slug, components...)
+		m.enrichWithSecretBindingStatus(req.Context(), &parent, server.Spec.Manifest.Env)
 		mcpServers = append(mcpServers, parent)
 	}
 
@@ -2832,7 +2845,9 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(ConvertMCPServer(server, cred.Env, m.serverURL, slug))
+	converted := ConvertMCPServer(server, cred.Env, m.serverURL, slug)
+	m.enrichWithSecretBindingStatus(req.Context(), &converted, server.Spec.Manifest.Env)
+	return req.Write(converted)
 }
 
 func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {

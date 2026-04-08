@@ -146,6 +146,16 @@ func (d *dockerBackend) transformObotHostname(url string) string {
 	return localhostURLRegexp.ReplaceAllString(url, d.hostBaseURLWithPort)
 }
 
+func (d *dockerBackend) checkSecretBindings(_ context.Context, envVars []otypes.MCPEnv) []string {
+	var missing []string
+	for _, env := range envVars {
+		if env.SecretBinding != nil {
+			missing = append(missing, env.Key)
+		}
+	}
+	return missing
+}
+
 func (d *dockerBackend) transformCollectorEndpoint(rawURL string) string {
 	host := strings.TrimPrefix(d.hostBaseURL, "http://")
 	return rewriteLocalhostURLHost(rawURL, host)
@@ -292,6 +302,11 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 }
 
 func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfig, mcpServerName string, containerEnv bool, webhooks []Webhook) (ServerConfig, error) {
+	if len(server.SecretBindings) > 0 {
+		log.Warnf("MCP server %s has %d secret binding(s) that are not supported in the Docker backend; these env vars will not be injected",
+			server.MCPServerName, len(server.SecretBindings))
+	}
+
 	server.TokenExchangeEndpoint = d.transformObotHostname(server.TokenExchangeEndpoint)
 	server.AuditLogEndpoint = d.transformObotHostname(server.AuditLogEndpoint)
 	server.JWKSEndpoint = d.transformObotHostname(server.JWKSEndpoint)
