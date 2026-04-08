@@ -193,8 +193,8 @@
 		if (!$nanobotChat?.api) return;
 		mutatingTaskURI = uri;
 		try {
-			await $nanobotChat.api.startScheduledTask(uri);
-			await refreshTaskData();
+			const response = await $nanobotChat.api.startScheduledTask(uri);
+			goto(`/agent/p/${projectId}?tid=${response.sessionId}`);
 		} catch (error) {
 			errors.append(error);
 		} finally {

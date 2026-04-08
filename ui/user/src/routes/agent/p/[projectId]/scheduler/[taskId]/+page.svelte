@@ -132,10 +132,8 @@
 		if (!$nanobotChat?.api || !task) return;
 		runningNow = true;
 		try {
-			await $nanobotChat.api.startScheduledTask(task.uri);
-			await refreshResources();
-			await loadTask();
-			await loadSessions();
+			const response = await $nanobotChat.api.startScheduledTask(task.uri);
+			goto(`/agent/p/${projectId}?tid=${response.sessionId}`);
 		} catch (error) {
 			errors.append(error);
 		} finally {
@@ -219,7 +217,7 @@
 				</div>
 				<div class="px-5 py-4">
 					<div class="text-base-content/50 text-xs font-medium uppercase">Last run</div>
-					<div class="mt-2 text-sm">{formatScheduleDateTime(task.lastRunAt)}</div>
+					<div class="mt-2 text-sm">{formatScheduleDateTime(sortedSessions[0]?.created)}</div>
 				</div>
 			</div>
 		</div>
