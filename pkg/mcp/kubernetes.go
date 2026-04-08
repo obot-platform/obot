@@ -59,19 +59,6 @@ type kubernetesDeploymentCacheEntry struct {
 	podName string
 }
 
-func stringMapToSecretData(data map[string]string) map[string][]byte {
-	if len(data) == 0 {
-		return nil
-	}
-
-	result := make(map[string][]byte, len(data))
-	for k, v := range data {
-		result[k] = []byte(v)
-	}
-
-	return result
-}
-
 func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, obotClient kclient.Client, opts Options) backend {
 	var serviceFQDN string
 	if opts.ServiceName != "" && opts.ServiceNamespace != "" {
@@ -399,12 +386,12 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			"mcp-user-id":             server.OwnerUserID,
 		}
 
-		fileMapping            = make(map[string]string, len(server.Files))
-		secretEnvStringData    = make(map[string]string, len(server.Env)+10)
-		secretVolumeStringData = make(map[string]string, len(server.Files))
-		nonDynamicFileData     = make(map[string]string, len(server.Files))
-		headerData             = make(map[string]string, len(server.Headers))
-		metaEnv                = make([]string, 0, len(server.Env)+len(server.Files))
+		fileMapping        = make(map[string]string, len(server.Files))
+		secretEnvData      = make(map[string][]byte, len(server.Env)+10)
+		secretVolumeData   = make(map[string][]byte, len(server.Files))
+		nonDynamicFileData = make(map[string][]byte, len(server.Files))
+		headerData         = make(map[string][]byte, len(server.Headers))
+		metaEnv            = make([]string, 0, len(server.Env)+len(server.Files))
 	)
 
 	// Use remote shim image for remote runtimes
@@ -417,12 +404,12 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	for _, file := range server.Files {
 		filename := fmt.Sprintf("%s-%s", server.MCPServerName, file.EnvKey)
-		secretVolumeStringData[filename] = file.Data
+		secretVolumeData[filename] = []byte(file.Data)
 		if !file.Dynamic {
-			nonDynamicFileData[filename] = file.Data
+			nonDynamicFileData[filename] = []byte(file.Data)
 		}
 		metaEnv = append(metaEnv, file.EnvKey)
-		secretEnvStringData[file.EnvKey] = "/files/" + filename
+		secretEnvData[file.EnvKey] = []byte("/files/" + filename)
 		fileMapping[file.EnvKey] = "/files/" + filename
 	}
 
@@ -432,20 +419,20 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
-		Data: stringMapToSecretData(secretVolumeStringData),
+		Data: secretVolumeData,
 	})
 
 	for _, env := range server.Env {
 		k, v, ok := strings.Cut(env, "=")
 		if ok {
 			metaEnv = append(metaEnv, k)
-			secretEnvStringData[k] = v
+			secretEnvData[k] = []byte(v)
 		}
 	}
 	for _, header := range server.Headers {
 		k, v, ok := strings.Cut(header, "=")
 		if ok {
-			headerData[k] = v
+			headerData[k] = []byte(v)
 		}
 	}
 
@@ -460,58 +447,49 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	}
 
 	// Set this environment variable for our nanobot image to read
-	secretEnvStringData["NANOBOT_META_ENV"] = strings.Join(metaEnv, ",")
+	secretEnvData["NANOBOT_META_ENV"] = []byte(strings.Join(metaEnv, ","))
 
 	// Set an environment variable to indicate that the MCP server is running in Kubernetes.
 	// This is something that our special images read and react to.
-	secretEnvStringData["OBOT_KUBERNETES_MODE"] = "true"
+	secretEnvData["OBOT_KUBERNETES_MODE"] = []byte("true")
 
 	// Set an environment variable to force fetch tool list
-	secretEnvStringData["NANOBOT_RUN_FORCE_FETCH_TOOL_LIST"] = "true"
+	secretEnvData["NANOBOT_RUN_FORCE_FETCH_TOOL_LIST"] = []byte("true")
 
 	// Tell nanobot to expose the healthz endpoint
-	secretEnvStringData["NANOBOT_RUN_HEALTHZ_PATH"] = "/healthz"
+	secretEnvData["NANOBOT_RUN_HEALTHZ_PATH"] = []byte("/healthz")
 
 	// JWT environment variables
 	if server.NanobotAgentName == "" {
-		secretEnvStringData["NANOBOT_RUN_OAUTH_SCOPES"] = "profile"
-		secretEnvStringData["NANOBOT_RUN_TRUSTED_ISSUER"] = server.Issuer
-		secretEnvStringData["NANOBOT_RUN_OAUTH_JWKSURL"] = k.transformObotHostname(server.JWKSEndpoint)
-		secretEnvStringData["NANOBOT_RUN_TRUSTED_AUDIENCES"] = strings.Join(server.Audiences, ",")
-		secretEnvStringData["NANOBOT_RUN_OAUTH_CLIENT_ID"] = server.TokenExchangeClientID
-		secretEnvStringData["NANOBOT_RUN_OAUTH_CLIENT_SECRET"] = server.TokenExchangeClientSecret
-		secretEnvStringData["NANOBOT_RUN_OAUTH_TOKEN_URL"] = k.transformObotHostname(server.TokenExchangeEndpoint)
-		secretEnvStringData["NANOBOT_RUN_OAUTH_AUTHORIZE_URL"] = k.transformObotHostname(server.AuthorizeEndpoint)
-		secretEnvStringData["NANOBOT_DISABLE_HEALTH_CHECKER"] = strconv.FormatBool(server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeComposite)
+		secretEnvData["NANOBOT_RUN_OAUTH_SCOPES"] = []byte("profile")
+		secretEnvData["NANOBOT_RUN_TRUSTED_ISSUER"] = []byte(server.Issuer)
+		secretEnvData["NANOBOT_RUN_OAUTH_JWKSURL"] = []byte(k.transformObotHostname(server.JWKSEndpoint))
+		secretEnvData["NANOBOT_RUN_TRUSTED_AUDIENCES"] = []byte(strings.Join(server.Audiences, ","))
+		secretEnvData["NANOBOT_RUN_OAUTH_CLIENT_ID"] = []byte(server.TokenExchangeClientID)
+		secretEnvData["NANOBOT_RUN_OAUTH_CLIENT_SECRET"] = []byte(server.TokenExchangeClientSecret)
+		secretEnvData["NANOBOT_RUN_OAUTH_TOKEN_URL"] = []byte(k.transformObotHostname(server.TokenExchangeEndpoint))
+		secretEnvData["NANOBOT_RUN_OAUTH_AUTHORIZE_URL"] = []byte(k.transformObotHostname(server.AuthorizeEndpoint))
+		secretEnvData["NANOBOT_DISABLE_HEALTH_CHECKER"] = []byte(strconv.FormatBool(server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeComposite))
 		// API key authentication webhook URL
-		secretEnvStringData["NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL"] = k.transformObotHostname(server.Issuer + "/api/api-keys/auth")
-		secretEnvStringData["NANOBOT_RUN_MCPSERVER_ID"] = strings.TrimSuffix(server.MCPServerName, "-shim")
+		secretEnvData["NANOBOT_RUN_APIKEY_AUTH_WEBHOOK_URL"] = []byte(k.transformObotHostname(server.Issuer + "/api/api-keys/auth"))
+		secretEnvData["NANOBOT_RUN_MCPSERVER_ID"] = []byte(strings.TrimSuffix(server.MCPServerName, "-shim"))
 
 		// Nanobot-agent-backed MCP servers should not emit MCP audit logs.
-		secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_TOKEN"] = server.AuditLogToken
-		secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_SEND_URL"] = k.transformObotHostname(server.AuditLogEndpoint)
-		secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE"] = strconv.Itoa(k.auditLogsBatchSize)
-		secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS"] = strconv.Itoa(k.auditLogsFlushIntervalSeconds)
-		secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_METADATA"] = server.AuditLogMetadata
+		secretEnvData["NANOBOT_RUN_AUDIT_LOG_TOKEN"] = []byte(server.AuditLogToken)
+		secretEnvData["NANOBOT_RUN_AUDIT_LOG_SEND_URL"] = []byte(k.transformObotHostname(server.AuditLogEndpoint))
+		secretEnvData["NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE"] = []byte(strconv.Itoa(k.auditLogsBatchSize))
+		secretEnvData["NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS"] = []byte(strconv.Itoa(k.auditLogsFlushIntervalSeconds))
+		secretEnvData["NANOBOT_RUN_AUDIT_LOG_METADATA"] = []byte(server.AuditLogMetadata)
+
+		if server.Runtime == types.RuntimeRemote {
+			// non-remote runtimes will have their otel config added to the shim container below
+			maps.Copy(secretEnvData, nanobotOTELEnv("nanobot-shim", nil))
+		}
+	} else {
+		maps.Copy(secretEnvData, nanobotOTELEnv("nanobot-agent", nil))
 	}
 
-	if server.NanobotAgentName != "" {
-		for key, value := range nanobotOTELEnv("nanobot-agent", nil) {
-			secretEnvStringData[key] = value
-		}
-	} else if server.Runtime == types.RuntimeRemote {
-		// non-remote runtimes will have their otel config added to the shim container
-		// below
-		// TODO Changes to the otel env vars do not properly trigger a redeploy or
-		// get propogated through to the pod I had a fix for this, but it ran into a
-		// problem in the the k8s apply logic and I didn't want to touch it until
-		// thedadams is around.
-		for key, value := range nanobotOTELEnv("nanobot-shim", nil) {
-			secretEnvStringData[key] = value
-		}
-	}
-
-	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvStringData) + hash.Digest(nonDynamicFileData) + hash.Digest(webhooks))
+	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvData) + hash.Digest(nonDynamicFileData) + hash.Digest(webhooks))
 
 	// Fetch K8s settings
 	k8sSettings, err := k.getK8sSettings(ctx)
@@ -561,7 +539,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		})
 	}
 
-	webhookSecretStringData := make(map[string]string, len(webhooks))
+	webhookSecretData := make(map[string][]byte, len(webhooks))
 	containers := make([]corev1.Container, 0, len(webhooks)+2)
 	// Add a container for each webhook, ensuring that there are no port collisions.
 	for i, webhook := range webhooks {
@@ -585,7 +563,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				})
 			} else {
 				secretKey := strings.ToUpper(server.MCPServerName + "_" + key)
-				webhookSecretStringData[secretKey] = val
+				webhookSecretData[secretKey] = []byte(val)
 				env = append(env, corev1.EnvVar{
 					Name: key,
 					ValueFrom: &corev1.EnvVarSource{
@@ -622,7 +600,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
-		Data: stringMapToSecretData(webhookSecretStringData),
+		Data: webhookSecretData,
 	})
 
 	if server.Runtime != types.RuntimeRemote {
@@ -649,9 +627,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					Namespace:   k.mcpNamespace,
 					Annotations: annotations,
 				},
-				Data: stringMapToSecretData(map[string]string{
+				Data: map[string][]byte{
 					"nanobot.yaml": nanobotFileString,
-				}),
+				},
 			})
 
 			objs = append(objs, &corev1.Secret{
@@ -660,18 +638,18 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					Namespace:   k.mcpNamespace,
 					Annotations: annotations,
 				},
-				Data: stringMapToSecretData(func() map[string]string {
-					// Start from the main container env (secretEnvStringData) and carve out the subset that should
+				Data: func() map[string][]byte {
+					// Start from the main container env (secretEnvData) and carve out the subset that should
 					// be applied to the dedicated shim container (vars). This function also removes
-					// shim-owned keys from secretEnvStringData so they are not injected into
+					// shim-owned keys from secretEnvData so they are not injected into
 					// the real "mcp" container later via the main config secret.
 					// TODO There has to be a less confusing way to write this logic, but I didn't want to try to refactor it
-					vars := make(map[string]string, 15)
-					for k, v := range secretEnvStringData {
+					vars := make(map[string][]byte, 15)
+					for k, v := range secretEnvData {
 						if k == "NANOBOT_DISABLE_HEALTH_CHECKER" {
-							vars[k] = "true"
+							vars[k] = []byte("true")
 							if server.Runtime != types.RuntimeComposite {
-								delete(secretEnvStringData, k)
+								delete(secretEnvData, k)
 							}
 						} else if strings.HasPrefix(k, "NANOBOT_RUN_") {
 							vars[k] = v
@@ -679,19 +657,21 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 							// almost every NANOBOT_RUN_* setting is shim-only; the healthz path is
 							// the exception because the downstream mcp container also exposes it.
 							if strings.HasPrefix(k, "NANOBOT_RUN_AUDIT_LOG_") || k != "NANOBOT_RUN_HEALTHZ_PATH" && server.Runtime != types.RuntimeComposite {
-								delete(secretEnvStringData, k)
+								delete(secretEnvData, k)
 							}
 						}
 					}
 
 					// OTEL env is added directly here because the shim secret only copies
-					// NANOBOT_* values from secretEnvStringData above.
-					for k, v := range nanobotOTELEnv("nanobot-shim", nil) {
-						vars[k] = v
-					}
+					// NANOBOT_* values from secretEnvData above.
+					otelEnv := nanobotOTELEnv("nanobot-shim", nil)
+					maps.Copy(vars, otelEnv)
+
+					// Add the hash of the OTEL env vars to the revision annotation so that changes to OTEL config trigger a redeploy.
+					annotations["obot-revision"] = hash.Digest(annotations["obot-revision"] + hash.Digest(otelEnv))
 
 					return vars
-				}()),
+				}(),
 			})
 
 			port := port + len(webhooks) + 1
@@ -752,7 +732,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
-		Data: stringMapToSecretData(secretEnvStringData),
+		Data: secretEnvData,
 	})
 
 	volumeMounts := []corev1.VolumeMount{
@@ -888,12 +868,12 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	if server.Runtime != types.RuntimeContainerized {
 		// Setup the nanobot config file and add it to the last container in the deployment.
-		var nanobotFileString string
+		var nanobotFileString []byte
 		if server.Runtime == types.RuntimeComposite {
 			nanobotFileString, err = constructNanobotYAMLForCompositeServer(server.Components)
 			annotations["nanobot-composite-file-rev"] = hash.Digest(nanobotFileString)
 		} else {
-			nanobotFileString, err = constructNanobotYAMLForServer(server.MCPServerDisplayName, server.URL, server.Command, server.Args, secretEnvStringData, headerData, webhooks)
+			nanobotFileString, err = constructNanobotYAMLForServer(server.MCPServerDisplayName, server.URL, server.Command, server.Args, secretEnvData, headerData, webhooks)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)
@@ -905,9 +885,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				Namespace:   k.mcpNamespace,
 				Annotations: annotations,
 			},
-			Data: stringMapToSecretData(map[string]string{
+			Data: map[string][]byte{
 				"nanobot.yaml": nanobotFileString,
-			}),
+			},
 		})
 
 		dep.Spec.Template.Spec.Containers[len(containers)-1].VolumeMounts = append(dep.Spec.Template.Spec.Containers[len(containers)-1].VolumeMounts, corev1.VolumeMount{
