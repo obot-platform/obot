@@ -817,6 +817,27 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					Tolerations:      k8sSettings.Tolerations,
 					RuntimeClassName: k8sSettings.RuntimeClassName,
 					SecurityContext:  getPodSecurityContext(psaLevel),
+					InitContainers: func() []corev1.Container {
+						if workspacePVCName == "" {
+							return nil
+						}
+						initScript := fmt.Sprintf("mkdir -p %[1]s/.nanobot && cat > %[1]s/.nanobot/nanobot.yaml << 'EOF'\n%sEOF\n",
+							nanobotWorkspaceMountPath, nanobotAgentProviderConfigYAML)
+						return []corev1.Container{
+							{
+								Name:    "nanobot-provider-config-init",
+								Image:   "alpine:latest",
+								Command: []string{"sh", "-c"},
+								Args:    []string{initScript},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      nanobotWorkspaceVolumeName,
+										MountPath: nanobotWorkspaceMountPath,
+									},
+								},
+							},
+						}
+					}(),
 					Volumes: func() []corev1.Volume {
 						volumes := []corev1.Volume{
 							{

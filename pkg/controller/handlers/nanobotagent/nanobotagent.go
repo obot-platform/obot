@@ -124,7 +124,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 			}
 		}
 
-		if len(existing.Spec.Manifest.Env) != len(expectedEnv) || existing.Spec.Manifest.Env[0] != expectedEnv[0] {
+		if !slices.Equal(existing.Spec.Manifest.Env, expectedEnv) {
 			needsUpdate = true
 		}
 
@@ -149,7 +149,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 	}
 
 	// Create new MCPServer
-	args := []string{"run"}
+	args := []string{"run", "--state", ".nanobot/state/nanobot.db"}
 	if agent.Spec.DefaultAgent != "" {
 		args = append(args, "--agent", agent.Spec.DefaultAgent)
 	}

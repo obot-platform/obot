@@ -20,6 +20,21 @@ const (
 	webhookToolName      = "fire-webhook"
 )
 
+// nanobotAgentProviderConfigYAML is the static nanobot config written to
+// .nanobot/nanobot.yaml in the workspace of every NanobotAgent container.
+// The ${VAR} references are resolved at runtime by nanobot from the session env
+// (populated via NANOBOT_ENV_FILE), so this content never needs to change.
+const nanobotAgentProviderConfigYAML = `llmProviders:
+  openai:
+    dialect: OpenAIResponses
+    apiKey: "${OPENAI_API_KEY}"
+    baseURL: "${OPENAI_BASE_URL}"
+  anthropic:
+    dialect: AnthropicMessages
+    apiKey: "${ANTHROPIC_API_KEY}"
+    baseURL: "${ANTHROPIC_BASE_URL}"
+`
+
 type backend interface {
 	// ensureServerDeployment will deploy a server if it is not already deployed, and return the updated ServerConfig
 	ensureServerDeployment(ctx context.Context, serverConfig ServerConfig, webhooks []Webhook) (ServerConfig, error)

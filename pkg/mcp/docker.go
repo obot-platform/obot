@@ -872,6 +872,10 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 				Source: workspaceName,
 				Target: nanobotWorkspaceMountPath,
 			})
+			err = d.writeNanobotAgentProviderConfig(ctx, workspaceName)
+			if err != nil {
+				return "", 0, fmt.Errorf("failed to write nanobot agent provider config: %w", err)
+			}
 		}
 	}
 
@@ -1242,6 +1246,64 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	}
 
 	return volumeName, envVars, nil
+}
+
+func (d *dockerBackend) writeNanobotAgentProviderConfig(ctx context.Context, workspaceName string) error {
+	initImage := "alpine:latest"
+	if err := d.pullImage(ctx, initImage, true); err != nil {
+		return fmt.Errorf("failed to ensure init image exists: %w", err)
+	}
+
+	script := fmt.Sprintf("mkdir -p %[1]s/.nanobot && cat > %[1]s/.nanobot/nanobot.yaml << 'EOF'\n%sEOF\n",
+		nanobotWorkspaceMountPath, nanobotAgentProviderConfigYAML)
+
+	initConfig := &container.Config{
+		Image:      initImage,
+		Entrypoint: []string{"sh", "-c"},
+		Cmd:        []string{script},
+	}
+
+	initHostConfig := &container.HostConfig{
+		Mounts: []mount.Mount{
+			{
+				Type:   mount.TypeVolume,
+				Source: workspaceName,
+				Target: nanobotWorkspaceMountPath,
+			},
+		},
+		AutoRemove: true,
+	}
+
+	initNetworkingConfig := &network.NetworkingConfig{}
+	if d.network != "" {
+		initNetworkingConfig.EndpointsConfig = map[string]*network.EndpointSettings{
+			d.network: {},
+		}
+	}
+
+	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, initNetworkingConfig, nil,
+		fmt.Sprintf("nanobot-provider-config-init-%s", strings.ToLower(rand.Text())))
+	if err != nil {
+		return fmt.Errorf("failed to create nanobot provider config init container: %w", err)
+	}
+
+	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return fmt.Errorf("failed to start nanobot provider config init container: %w", err)
+	}
+
+	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		if err != nil && !cerrdefs.IsNotFound(err) {
+			return fmt.Errorf("error waiting for nanobot provider config init container: %w", err)
+		}
+	case status := <-statusCh:
+		if status.StatusCode != 0 {
+			return fmt.Errorf("nanobot provider config init container failed with exit code %d", status.StatusCode)
+		}
+	}
+
+	return nil
 }
 
 func containerFiles(files []File, containerName string) (map[string]string, map[string]string) {

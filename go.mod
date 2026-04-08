@@ -7,6 +7,8 @@ replace (
 	github.com/obot-platform/obot/logger => ./logger
 )
 
+replace github.com/nanobot-ai/nanobot => ../../nanobot-ai/nanobot-provider-dialect
+
 require (
 	cloud.google.com/go/storage v1.43.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.19.1
