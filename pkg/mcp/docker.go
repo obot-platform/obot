@@ -916,7 +916,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 				}...)
 
 				for key, value := range nanobotOTELEnv("nanobot-shim", d.transformCollectorEndpoint) {
-					env = append(env, key+"="+value)
+					env = append(env, key+"="+string(value))
 				}
 			}
 		}
@@ -999,7 +999,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		config.Env = append(config.Env, "NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true")
 
 		for key, value := range nanobotOTELEnv("nanobot-agent", d.transformCollectorEndpoint) {
-			config.Env = append(config.Env, key+"="+value)
+			config.Env = append(config.Env, key+"="+string(value))
 		}
 	}
 
@@ -1377,26 +1377,28 @@ func (d *dockerBackend) pullImage(ctx context.Context, imageName string, ifNotEx
 // prepareNanobotConfig creates a volume with nanobot YAML configuration for UVX/NPX runtimes
 func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerConfig, envVars map[string]string, webhooks []Webhook) (string, error) {
 	// Create all environment variables map
-	allEnvVars := make(map[string]string, len(server.Env)+len(envVars))
-	headers := make(map[string]string, len(server.Headers))
+	allEnvVars := make(map[string][]byte, len(server.Env)+len(envVars))
+	headers := make(map[string][]byte, len(server.Headers))
 
 	// Add server environment variables
 	for _, env := range server.Env {
 		if k, v, ok := strings.Cut(env, "="); ok {
-			allEnvVars[k] = v
+			allEnvVars[k] = []byte(v)
 		}
 	}
-	maps.Copy(allEnvVars, envVars)
+	for k, v := range envVars {
+		allEnvVars[k] = []byte(v)
+	}
 
 	// Add server headers
 	for _, header := range server.Headers {
 		if k, v, ok := strings.Cut(header, "="); ok {
-			headers[k] = v
+			headers[k] = []byte(v)
 		}
 	}
 
 	var (
-		nanobotYAML string
+		nanobotYAML []byte
 		err         error
 	)
 	if server.Runtime == otypes.RuntimeComposite {

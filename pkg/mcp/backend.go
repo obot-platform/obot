@@ -176,7 +176,7 @@ func webhookToServerConfig(webhook Webhook, baseImage, mcpServerName, userID, sc
 	}, nil
 }
 
-func constructNanobotYAMLForCompositeServer(servers []ComponentServer) (string, error) {
+func constructNanobotYAMLForCompositeServer(servers []ComponentServer) ([]byte, error) {
 	mcpServers := make(map[string]nanobotConfigMCPServer, len(servers))
 	names := make([]string, 0, len(servers))
 	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
@@ -211,13 +211,13 @@ func constructNanobotYAMLForCompositeServer(servers []ComponentServer) (string, 
 
 	data, err := yaml.Marshal(config)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal nanobot.yaml: %w", err)
+		return nil, fmt.Errorf("failed to marshal nanobot.yaml: %w", err)
 	}
 
-	return string(data), nil
+	return data, nil
 }
 
-func constructNanobotYAMLForServer(name, url, command string, args []string, env, headers map[string]string, webhooks []Webhook) (string, error) {
+func constructNanobotYAMLForServer(name, url, command string, args []string, env, headers map[string][]byte, webhooks []Webhook) ([]byte, error) {
 	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
 
 	webhookDefinitions := make(map[string][]string, len(webhooks))
@@ -241,8 +241,8 @@ func constructNanobotYAMLForServer(name, url, command string, args []string, env
 		BaseURL: url,
 		Command: command,
 		Args:    args,
-		Env:     env,
-		Headers: headers,
+		Env:     convertMapStringBytesToMapStringString(env),
+		Headers: convertMapStringBytesToMapStringString(headers),
 		Hooks:   webhookDefinitions,
 	}
 
@@ -255,10 +255,22 @@ func constructNanobotYAMLForServer(name, url, command string, args []string, env
 
 	data, err := yaml.Marshal(config)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal nanobot.yaml: %w", err)
+		return nil, fmt.Errorf("failed to marshal nanobot.yaml: %w", err)
 	}
 
-	return string(data), nil
+	return data, nil
+}
+
+func convertMapStringBytesToMapStringString(m map[string][]byte) map[string]string {
+	if m == nil {
+		return nil
+	}
+
+	result := make(map[string]string, len(m))
+	for k, v := range m {
+		result[k] = string(v)
+	}
+	return result
 }
 
 type nanobotConfig struct {
