@@ -45,6 +45,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/workspace"
 	"github.com/obot-platform/obot/pkg/controller/mcpwebhookvalidation"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (c *Controller) setupRoutes() {
@@ -75,7 +76,14 @@ func (c *Controller) setupRoutes() {
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	skillRepository := skillrepository.New()
 	mcpSession := mcpsession.New(c.services.GPTClient)
-	mcpserver := mcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
+	var k8sClient kclient.Client
+	var mcpDeploymentNamespace string
+	if c.localK8sRouter != nil {
+		// K8s backend is active, get the client
+		k8sClient = c.localK8sRouter.Backend()
+		mcpDeploymentNamespace = c.services.MCPServerNamespace
+	}
+	mcpserver := mcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL, k8sClient, mcpDeploymentNamespace)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 	mcpWebhookValidations := mcpwebhookvalidation.New()
@@ -255,6 +263,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DeleteServersForAnonymousUser)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.CleanupNestedCompositeServers)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DetectDrift)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.CleanupDeploymentStatus)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DetectK8sSettingsDrift)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerInstanceUserCount)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SyncOAuthCredentialStatus)
