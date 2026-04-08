@@ -8,14 +8,6 @@ const (
 	PublishedArtifactTypeSkill    PublishedArtifactType = "skill"
 )
 
-// PublishedArtifactVisibility represents the sharing visibility of a published artifact.
-type PublishedArtifactVisibility string
-
-const (
-	PublishedArtifactVisibilityPrivate PublishedArtifactVisibility = "private"
-	PublishedArtifactVisibilityPublic  PublishedArtifactVisibility = "public"
-)
-
 // PublishedArtifactManifest contains the user/client-editable fields for a published artifact.
 type PublishedArtifactManifest struct {
 	Name         string                `json:"name"`
@@ -31,15 +23,15 @@ type PublishedArtifact struct {
 	DisplayName   string                            `json:"displayName,omitempty"`
 	AuthorID      string                            `json:"authorID"`
 	LatestVersion int                               `json:"latestVersion"`
-	Visibility    PublishedArtifactVisibility       `json:"visibility"`
 	Versions      []PublishedArtifactVersionSummary `json:"versions,omitempty"`
 }
 
 // PublishedArtifactVersionSummary is the public view of a version entry (no internal blob keys).
 type PublishedArtifactVersionSummary struct {
-	Version     int    `json:"version"`
-	Description string `json:"description,omitempty"`
-	CreatedAt   Time   `json:"createdAt"`
+	Version     int       `json:"version"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   Time      `json:"createdAt"`
+	Subjects    []Subject `json:"subjects,omitempty"`
 }
 
 // PublishedArtifactList is a list of published artifacts.
@@ -47,8 +39,9 @@ type PublishedArtifactList List[PublishedArtifact]
 
 // PublishedArtifactVersionEntry represents metadata for a single version of an artifact.
 type PublishedArtifactVersionEntry struct {
-	Version     int    `json:"version"`
-	BlobKey     string `json:"blobKey"`
-	Description string `json:"description,omitempty"`
-	CreatedAt   Time   `json:"createdAt"`
+	Version     int       `json:"version"`
+	BlobKey     string    `json:"blobKey"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   Time      `json:"createdAt"`
+	Subjects    []Subject `json:"subjects,omitempty"`
 }

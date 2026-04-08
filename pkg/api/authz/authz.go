@@ -276,6 +276,8 @@ var (
 			"GET /api/models",
 			"GET /api/model-providers",
 			"POST /api/image/generate",
+			"GET /api/users",
+			"GET /api/groups",
 
 			// Allow authenticated users to read and accept/reject project invitations.
 			// The security depends on the code being an unguessable UUID string,
@@ -359,10 +361,13 @@ var (
 		// They get access to anyGroup routes automatically (health checks, OAuth flows, etc.)
 		types.GroupAPIKey: {
 			"GET /api/me",
+			"GET /api/users",
+			"GET /api/groups",
 			"/mcp-connect/",
 			"POST /api/published-artifacts",
 			"GET /api/published-artifacts",
 			"GET /api/published-artifacts/{id}",
+			"PUT /api/published-artifacts/{id}",
 			"GET /api/published-artifacts/{id}/download",
 			"GET /api/published-artifacts/{id}/{version}/skill",
 			"GET /api/skills",

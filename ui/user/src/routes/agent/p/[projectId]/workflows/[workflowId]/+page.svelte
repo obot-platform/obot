@@ -5,6 +5,7 @@
 	import MarkdownEditor from '$lib/components/nanobot/MarkdownEditor.svelte';
 	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
 	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
+	import { latestVersionSubjects } from '$lib/components/nanobot/publishedArtifactSubjects';
 	import { formatFileSize, formatFileTime } from '$lib/format';
 	import { NanobotService } from '$lib/services';
 	import type {
@@ -14,6 +15,7 @@
 		PublishedArtifact
 	} from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
+	import { hasNewerVersion } from '$lib/services/nanobot/versioning';
 	import { profile, responsive, timePreference } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { formatTimeAgo } from '$lib/time';
@@ -28,6 +30,9 @@
 	let publishedWorkflows = $state<PublishedArtifact[]>(untrack(() => data.publishedWorkflows));
 	let publishedInfo = $derived(
 		publishedWorkflows.find((w) => w.name === workflowId && w.authorID === profile.current.id)
+	);
+	let publishedVersionSubjects = $derived(
+		latestVersionSubjects(publishedInfo?.versions, publishedInfo?.latestVersion)
 	);
 	let latestVersion = $derived(publishedInfo?.latestVersion ?? 0);
 
@@ -61,6 +66,7 @@
 				w.authorEmail === (workflow?._meta?.['author-email'] as string) && w.name === workflow?.name
 		)
 	);
+
 	let hasPublishUpdate = $derived.by(() => {
 		if (!workflow) return false;
 		const versionInstalled = workflow._meta?.version as string;
@@ -72,8 +78,7 @@
 			(versions && versions.length > 0
 				? versions[versions.length - 1]?.version?.toString()
 				: undefined);
-		if (!latestVersion) return false;
-		return latestVersion.toString() !== versionInstalled;
+		return hasNewerVersion(latestVersion, versionInstalled);
 	});
 
 	let workflowsContainer = $state<HTMLElement | undefined>(undefined);
@@ -218,14 +223,6 @@
 					<button class="btn btn-link px-2" onclick={() => (showWorkflowVersionDialog = true)}>
 						Manage Published Versions
 					</button>
-					<div
-						class={twMerge(
-							'badge badge-soft text-xs font-semibold',
-							publishedInfo.visibility === 'public' ? 'badge-success' : 'badge-secondary'
-						)}
-					>
-						{publishedInfo.visibility.toUpperCase()}
-					</div>
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
@@ -510,13 +507,14 @@
 		versions={publishedInfo?.versions ?? []}
 		workflowDisplayName={publishedInfo?.displayName}
 		onClose={() => (showWorkflowVersionDialog = false)}
-		status={publishedInfo?.visibility}
-		onChangeStatus={(status) => {
+		onChangeSubjects={(version, subjects) => {
 			if (!publishedInfo) return;
 			publishedInfo = {
 				...publishedInfo,
 				id: publishedInfo.id ?? '',
-				visibility: status
+				versions: (publishedInfo.versions ?? []).map((entry) =>
+					entry.version === version ? { ...entry, subjects } : entry
+				)
 			};
 		}}
 		onUnpublish={() => {
@@ -594,10 +592,10 @@
 			{workflowDisplayName ?? workflowId} has been published to version
 			<b class="font-semibold">{publishedInfo?.latestVersion?.toFixed(1)}</b>.
 		</p>
-		{#if publishedInfo?.visibility === 'private'}
+		{#if publishedVersionSubjects.length === 0}
 			<p class="mt-2">
-				To share this workflow with other users, change the visibility setting to "public" via
-				"Manage Published Versions".
+				To share this workflow with other users, add users or groups via "Manage Published
+				Versions".
 			</p>
 		{/if}
 	{/snippet}

@@ -15,8 +15,8 @@ Each published workflow has:
 - A stable artifact ID
 - A workflow name taken from the `SKILL.md` frontmatter
 - A generated display name based on that workflow name
-- A latest version number
-- A visibility setting: `private` or `public`
+- A version history
+- A subject list on each version controlling access
 
 Publishing the same workflow name again as the same user creates a new version of the existing published workflow instead of creating a separate entry.
 
@@ -32,7 +32,8 @@ When publishing succeeds:
 - The first publish creates version `1`
 - Republishing the same workflow creates version `2`, `3`, and so on
 - The published package includes the entire workflow directory
-- The shared workflow starts with `private` visibility
+- Version `1` starts owner-only, with no additional subjects
+- New versions inherit the previous version's subject list until you change it
 
 ## Discovering Shared Workflows
 
@@ -44,7 +45,7 @@ Search matches against:
 - The generated display name
 - The workflow description
 
-Search results include the workflow ID, name, display name, description, latest version, visibility, and author email when available.
+Search results include the workflow ID, name, display name, description, the latest version you can access, version summaries for the versions you can access, and author email when available.
 
 ## Installing a Shared Workflow
 
@@ -52,7 +53,7 @@ Agents have a tool to install workflows that they found using the search tool.
 
 Installation behavior:
 
-- Installing without a version downloads the latest version
+- Installing without a version downloads the latest version you can access
 - Installing with a version downloads that specific version
 - The workflow is extracted into `workflows/<name>/`
 - If a local workflow with the same name already exists, the user is asked to confirm the overwrite
@@ -62,23 +63,30 @@ Installation behavior:
 The current install flow relies on the runtime having `unzip` available and does not support Windows-based runtimes.
 :::
 
-## Visibility and Access
+## Access and Subjects
 
-Published workflows support two visibility levels:
+Published workflows use version-specific subjects to control access.
 
-- `private`: Only the workflow owner and admins can view or download it
-- `public`: Other users can discover it in search results and install it
+For each published version:
 
-:::important
-Published workflows are always `private` by default. In order to become `public`, the user needs to go to the Obot UI and explicitly make it public. The Obot Agent is unable to change the visibility of published workflows.
+- Empty subject list: only the workflow owner and admins can view or download that version
+- Specific `user` subjects: only those users can access that version
+- Specific `group` subjects: members of those groups can access that version
+- `selector:*`: all authenticated Obot users can discover and install that version
+
+:::note
+The workflow owner and all users with Admin or Owner roles can download the workflow, regardless of the subjects that are selected.
 :::
+
+Published workflows start with an empty subject list on version `1` by default. In Obot Agent, sharing is managed from the published workflow details UI by editing the subject list for a selected version. The UI supports individual users, groups, and `All Obot Users`.
 
 Access rules are enforced on the Obot side:
 
-- Search results include public workflows plus your own private workflows
-- Admins can see all workflows
-- Private workflows are hidden from other users
-- Only the owner or an admin can change metadata or delete a published workflow
+- Search results include workflows for which you can access at least one version, plus your own owner-only workflows
+- For non-owners, the reported latest version is the newest version whose subjects match you
+- Owners and admins can see every version of a published workflow
+- Workflows and versions with non-matching subjects are hidden from other users
+- Only the owner or an admin can change sharing, edit metadata, or delete a published workflow
 
 ## Versioning
 

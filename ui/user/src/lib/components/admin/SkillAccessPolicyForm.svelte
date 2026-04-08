@@ -110,7 +110,7 @@
 			promises[0] = AdminService.listUsers();
 		}
 		if (!usersAndGroups?.groups) {
-			promises[1] = AdminService.listGroups({ includeRestricted: true });
+			promises[1] = AdminService.listGroups();
 		}
 
 		Promise.all(promises)
