@@ -2098,6 +2098,13 @@ func schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref common
 							Format: "",
 						},
 					},
+					"dialect": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Dialect specifies the LLM API format used by this provider (e.g. \"AnthropicMessages\", \"OpenAIChatCompletions\", \"OpenAIResponses\").",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
