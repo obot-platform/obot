@@ -386,28 +386,41 @@
 				<div class="divider"></div>
 			{/if}
 
-			<h3 class="mt-8 px-4 text-base font-semibold tracking-wide">All Runs</h3>
-
-			<table class="table w-full">
-				<thead>
-					<tr>
-						<th>Title</th>
-						{#if !responsive.isMobile}
-							<th>Created</th>
-						{/if}
-						<th class="flex justify-end">
-							<select class="select w-42" bind:value={sortBy}>
-								<option value="" disabled selected>Sort by</option>
-								<option value="created-desc">Sort by Created (Newest)</option>
-								<option value="created-asc">Sort by Created (Oldest)</option>
-								<option value="name-asc">Sort by Name (A-Z)</option>
-								<option value="name-desc">Sort by Name (Z-A)</option>
-							</select>
-						</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#if sessions.length > 0}
+			{#if sessions.length === 0}
+				<div
+					class="bg-base-200/60 rounded-box flex flex-col items-center gap-3 px-6 py-10 text-center mt-2"
+				>
+					<div class="bg-base-100 rounded-full p-4">
+						<Workflow class="size-7" />
+					</div>
+					<div class="space-y-1">
+						<h3 class="font-medium">No runs yet</h3>
+						<p class="text-base-content/60 text-sm">This workflow has not had any runs yet.</p>
+					</div>
+				</div>
+			{:else}
+				{#if sessions.length > 3}
+					<h3 class="px-4 text-base font-semibold tracking-wide mt-8">All Runs</h3>
+				{/if}
+				<table class="table w-full">
+					<thead>
+						<tr>
+							<th>Title</th>
+							{#if !responsive.isMobile}
+								<th>Created</th>
+							{/if}
+							<th class="flex justify-end">
+								<select class="select w-42" bind:value={sortBy}>
+									<option value="" disabled selected>Sort by</option>
+									<option value="created-desc">Sort by Created (Newest)</option>
+									<option value="created-asc">Sort by Created (Oldest)</option>
+									<option value="name-asc">Sort by Name (A-Z)</option>
+									<option value="name-desc">Sort by Name (Z-A)</option>
+								</select>
+							</th>
+						</tr>
+					</thead>
+					<tbody>
 						{#each sortedThreads as thread (thread.id)}
 							<tr
 								class="list-row"
@@ -435,18 +448,9 @@
 								</td>
 							</tr>
 						{/each}
-					{:else}
-						<tr>
-							<td
-								colspan="3"
-								class="text-base-content/50 py-8 text-center text-sm font-light italic"
-							>
-								No runs found.
-							</td>
-						</tr>
-					{/if}
-				</tbody>
-			</table>
+					</tbody>
+				</table>
+			{/if}
 		</div>
 	</div>
 </div>
