@@ -1249,7 +1249,7 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 
 func (d *dockerBackend) writeNanobotAgentProviderConfig(ctx context.Context, workspaceName, fileVolumeName, serverName string) error {
 	src := fmt.Sprintf("/files/%s-NANOBOT_PROVIDER_CONFIG", serverName)
-	script := fmt.Sprintf("mkdir -p %[1]s/.nanobot && cp %s %[1]s/.nanobot/nanobot.yaml",
+	script := fmt.Sprintf("mkdir -p %[1]s/.nanobot && ln -sf %s %[1]s/.nanobot/nanobot.yaml",
 		nanobotWorkspaceMountPath, src)
 	return d.runInitContainer(ctx, "nanobot-provider-config-init", script, []mount.Mount{
 		{Type: mount.TypeVolume, Source: fileVolumeName, Target: "/files", ReadOnly: true},

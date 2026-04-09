@@ -822,7 +822,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 							return nil
 						}
 						src := fmt.Sprintf("/files/%s-NANOBOT_PROVIDER_CONFIG", server.MCPServerName)
-						initScript := fmt.Sprintf("mkdir -p %[1]s/.nanobot && cp %[2]s %[1]s/.nanobot/nanobot.yaml",
+						initScript := fmt.Sprintf("mkdir -p %[1]s/.nanobot && ln -sf %[2]s %[1]s/.nanobot/nanobot.yaml",
 							nanobotWorkspaceMountPath, src)
 						return []corev1.Container{
 							{
