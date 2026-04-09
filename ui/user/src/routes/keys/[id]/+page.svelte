@@ -1,10 +1,10 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
-	import { fly } from 'svelte/transition';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import ApiKeyDetails from '$lib/components/api-keys/ApiKeyDetails.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ApiKeysService } from '$lib/services';
 	import { goto } from '$lib/url';
+	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 	const { apiKey } = $derived(data);

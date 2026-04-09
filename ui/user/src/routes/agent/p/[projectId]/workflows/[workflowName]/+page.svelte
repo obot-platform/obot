@@ -1,6 +1,12 @@
 <script lang="ts">
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
-	import { getContext, untrack } from 'svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
+	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+	import MarkdownEditor from '$lib/components/nanobot/MarkdownEditor.svelte';
+	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
+	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
+	import { formatFileSize, formatFileTime } from '$lib/format';
+	import { NanobotService } from '$lib/services';
 	import type {
 		ProjectLayoutContext,
 		ResourceContents,
@@ -8,19 +14,13 @@
 		PublishedArtifact
 	} from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import MarkdownEditor from '$lib/components/nanobot/MarkdownEditor.svelte';
-	import { PencilLine, Play, Workflow, Eye, FolderInput, Trash2 } from 'lucide-svelte';
-	import { formatTimeAgo } from '$lib/time';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { goto } from '$lib/url';
-	import { NanobotService } from '$lib/services';
 	import { profile, responsive } from '$lib/stores';
-	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
-	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
-	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import { formatTimeAgo } from '$lib/time';
+	import { goto } from '$lib/url';
+	import { PencilLine, Play, Workflow, Eye, FolderInput, Trash2 } from 'lucide-svelte';
+	import { getContext, untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
-	import FileItem from '$lib/components/nanobot/FileItem.svelte';
-	import { formatFileSize, formatFileTime } from '$lib/format';
 
 	let { data } = $props();
 	let workflowName = $derived(data.workflowName);

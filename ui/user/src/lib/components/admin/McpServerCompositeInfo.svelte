@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { ADMIN_SESSION_STORAGE, DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import {
 		AdminService,
 		type MCPCatalogEntry,
@@ -7,13 +9,11 @@
 		type OrgUser
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
-	import { twMerge } from 'tailwind-merge';
-	import Table from '../table/Table.svelte';
-	import { onMount } from 'svelte';
-	import { AlertCircle, ChevronRight, Server } from 'lucide-svelte';
-	import { ADMIN_SESSION_STORAGE, DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { openUrl } from '$lib/utils';
-	import { resolve } from '$app/paths';
+	import Table from '../table/Table.svelte';
+	import { AlertCircle, ChevronRight, Server } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		entity?: 'workspace' | 'catalog';

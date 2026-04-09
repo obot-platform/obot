@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { NanobotService } from '$lib/services';
 	import type { PublishedArtifactVersion } from '$lib/services/nanobot/types';
-	import { formatTimeAgo } from '$lib/time';
-	import { ChevronLeft, CircleAlert } from 'lucide-svelte';
-	import { twMerge } from 'tailwind-merge';
-	import MarkdownEditor from './MarkdownEditor.svelte';
-	import { fly } from 'svelte/transition';
 	import { responsive } from '$lib/stores';
+	import { formatTimeAgo } from '$lib/time';
 	import Confirm from '../Confirm.svelte';
+	import MarkdownEditor from './MarkdownEditor.svelte';
+	import { ChevronLeft, CircleAlert } from 'lucide-svelte';
+	import { fly } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		versions: PublishedArtifactVersion[];

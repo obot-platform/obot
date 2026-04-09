@@ -4,8 +4,6 @@
 		ChatResult,
 		ChatMessageItemResource
 	} from '$lib/services/nanobot/types';
-	import React from 'react';
-	import ReactDOM from 'react-dom/client';
 	import {
 		UIResourceRenderer,
 		basicComponentLibrary,
@@ -16,6 +14,8 @@
 		remoteStackDefinition,
 		type UIActionResult
 	} from '@mcp-ui/client';
+	import React from 'react';
+	import ReactDOM from 'react-dom/client';
 	import { onMount } from 'svelte';
 
 	interface Props {

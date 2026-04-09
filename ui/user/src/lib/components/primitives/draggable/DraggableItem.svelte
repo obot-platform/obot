@@ -1,9 +1,9 @@
 <script lang="ts">
+	import { setDraggableItemContext } from './contextItem';
+	import { getDraggableContext } from './contextRoot';
 	import { tick, type Snippet } from 'svelte';
 	import { on } from 'svelte/events';
 	import { twMerge } from 'tailwind-merge';
-	import { getDraggableContext } from './contextRoot';
-	import { setDraggableItemContext } from './contextItem';
 
 	type Props = {
 		rootClass?: string;

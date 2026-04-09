@@ -1,4 +1,11 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+	import type { ChatMessageItemToolCall, ProjectLayoutContext } from '$lib/services/nanobot/types';
+	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
+	import { responsive } from '$lib/stores';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import Profile from '../navbar/Profile.svelte';
 	import {
 		Circle,
 		CheckCircle2,
@@ -10,16 +17,9 @@
 		SidebarClose,
 		ListCheck
 	} from 'lucide-svelte';
-	import { twMerge } from 'tailwind-merge';
-	import Profile from '../navbar/Profile.svelte';
-	import { fly } from 'svelte/transition';
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { getContext } from 'svelte';
-	import type { ChatMessageItemToolCall, ProjectLayoutContext } from '$lib/services/nanobot/types';
-	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import FileItem from '$lib/components/nanobot/FileItem.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { responsive } from '$lib/stores';
+	import { fly } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onToggle?: () => void;

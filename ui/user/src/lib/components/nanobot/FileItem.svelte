@@ -1,9 +1,9 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { tryDecodeURIComponent } from '$lib/url';
 	import { FileIcon, FileImage } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import { tryDecodeURIComponent } from '$lib/url';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		uri?: string;

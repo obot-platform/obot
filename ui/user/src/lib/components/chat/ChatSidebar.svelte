@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { type Project } from '$lib/services';
-	import { Settings, SidebarClose, Share, CircleFadingArrowUp } from 'lucide-svelte';
-	import { getLayout, openSidebarConfig } from '$lib/context/chatLayout.svelte';
-	import { ChatService } from '$lib/services';
-	import Tasks from '$lib/components/edit/Tasks.svelte';
-	import McpServers from '$lib/components/edit/McpServers.svelte';
-	import Threads from '$lib/components/chat/sidebar/Threads.svelte';
-	import { responsive } from '$lib/stores';
-	import { onDestroy } from 'svelte';
 	import { scrollFocus } from '$lib/actions/scrollFocus.svelte';
-	import Projects from '../navbar/Projects.svelte';
-	import BetaLogo from '../navbar/BetaLogo.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Threads from '$lib/components/chat/sidebar/Threads.svelte';
+	import McpServers from '$lib/components/edit/McpServers.svelte';
+	import Tasks from '$lib/components/edit/Tasks.svelte';
+	import { getLayout, openSidebarConfig } from '$lib/context/chatLayout.svelte';
+	import { type Project } from '$lib/services';
+	import { ChatService } from '$lib/services';
+	import { responsive } from '$lib/stores';
+	import BetaLogo from '../navbar/BetaLogo.svelte';
+	import Projects from '../navbar/Projects.svelte';
+	import { Settings, SidebarClose, Share, CircleFadingArrowUp } from 'lucide-svelte';
+	import { onDestroy } from 'svelte';
 
 	interface Props {
 		project: Project;

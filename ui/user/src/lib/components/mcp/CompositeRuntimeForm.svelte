@@ -1,4 +1,14 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import {
+		AdminService,
+		type CompositeCatalogConfig,
+		type MCPCatalogEntry,
+		type MCPCatalogServer,
+		type CompositeServerToolRow
+	} from '$lib/services';
+	import Toggle from '../Toggle.svelte';
+	import CompositeToolsSetup from './composite/CompositeSelectServerAndToolsSetup.svelte';
 	import {
 		Plus,
 		Server,
@@ -10,18 +20,8 @@
 		RefreshCcw
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import {
-		AdminService,
-		type CompositeCatalogConfig,
-		type MCPCatalogEntry,
-		type MCPCatalogServer,
-		type CompositeServerToolRow
-	} from '$lib/services';
-	import CompositeToolsSetup from './composite/CompositeSelectServerAndToolsSetup.svelte';
-	import { slide } from 'svelte/transition';
 	import { SvelteMap } from 'svelte/reactivity';
-	import Toggle from '../Toggle.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		id?: string; // Composite catalog entry ID (when editing an existing composite)

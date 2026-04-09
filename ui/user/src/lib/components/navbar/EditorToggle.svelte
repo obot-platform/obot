@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Pencil, X } from 'lucide-svelte';
-	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
+	import { Pencil, X } from 'lucide-svelte';
 
 	const layout = getLayout();
 </script>

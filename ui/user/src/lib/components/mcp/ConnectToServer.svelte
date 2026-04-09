@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { ExternalLink, Plus, Server, X } from 'lucide-svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import CopyButton from '../CopyButton.svelte';
-	import HowToConnect from './HowToConnect.svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import {
 		ChatService,
 		EditorService,
@@ -10,23 +9,24 @@
 		type MCPCatalogServer,
 		type MCPServerInstance
 	} from '$lib/services';
+	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import {
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
 		createProjectMcp,
 		hasEditableConfiguration
 	} from '$lib/services/chat/mcp';
-	import { goto } from '$app/navigation';
+	import { version } from '$lib/stores';
+	import CopyButton from '../CopyButton.svelte';
 	import PageLoading from '../PageLoading.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import CatalogConfigureForm, {
 		type CompositeLaunchFormData,
 		type LaunchFormData
 	} from './CatalogConfigureForm.svelte';
-	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
-	import { resolve } from '$app/paths';
-	import { dialogAnimation } from '$lib/actions/dialogAnimation';
+	import HowToConnect from './HowToConnect.svelte';
+	import { ExternalLink, Plus, Server, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { version } from '$lib/stores';
 
 	interface Props {
 		userConfiguredServers: MCPCatalogServer[];

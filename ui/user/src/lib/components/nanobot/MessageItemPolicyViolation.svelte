@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { ShieldAlert } from 'lucide-svelte';
 	import type { ChatMessageItemText } from '$lib/services/nanobot/types';
 	import { extractPolicyExplanation } from '$lib/services/nanobot/utils';
+	import { ShieldAlert } from 'lucide-svelte';
 
 	interface Props {
 		item: ChatMessageItemText;

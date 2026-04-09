@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import type { Project, ModelProvider } from '$lib/services/chat/types';
 	import {
 		updateProject,
 		listAvailableProjectModels,
 		listModelProviders
 	} from '$lib/services/chat/operations';
-	import { ChevronDown, Loader2 } from 'lucide-svelte';
+	import type { Project, ModelProvider } from '$lib/services/chat/types';
 	import ModelProviderCard from './ModelProviderCard.svelte';
-	import { twMerge } from 'tailwind-merge';
+	import { ChevronDown, Loader2 } from 'lucide-svelte';
+	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	let { project = $bindable() }: { project: Project } = $props();
 

@@ -1,20 +1,20 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import MessagePolicyForm from '$lib/components/admin/MessagePolicyForm.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { ShieldAlert, Plus, Trash2 } from 'lucide-svelte';
-	import { fly } from 'svelte/transition';
-	import { goto, clearUrlParams } from '$lib/url';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { type MessagePolicy, PolicyDirectionLabels } from '$lib/services/admin/types';
 	import type { PolicyDirection } from '$lib/services/admin/types';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import MessagePolicyForm from '$lib/components/admin/MessagePolicyForm.svelte';
-	import { untrack } from 'svelte';
 	import { AdminService } from '$lib/services/index.js';
-	import { openUrl } from '$lib/utils.js';
 	import { profile } from '$lib/stores/index.js';
-	import { page } from '$app/state';
+	import { goto, clearUrlParams } from '$lib/url';
+	import { openUrl } from '$lib/utils.js';
+	import { ShieldAlert, Plus, Trash2 } from 'lucide-svelte';
+	import { untrack } from 'svelte';
+	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 	let messagePolicies = $state(untrack(() => data.messagePolicies));

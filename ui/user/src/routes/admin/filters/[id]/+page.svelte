@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { goto } from '$lib/url';
-	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { fly } from 'svelte/transition';
 	import type { MCPFilter } from '$lib/services/admin/types';
 	import { profile } from '$lib/stores';
+	import { goto } from '$lib/url';
+	import { fly } from 'svelte/transition';
 
 	let { data }: { data: { filter: MCPFilter } } = $props();
 	let { filter } = $derived(data);

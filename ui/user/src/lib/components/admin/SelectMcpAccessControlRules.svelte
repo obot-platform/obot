@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import {
 		AdminService,
 		ChatService,
@@ -10,13 +11,12 @@
 		type OrgGroup,
 		type AccessControlRuleSubject
 	} from '$lib/services';
-	import { twMerge } from 'tailwind-merge';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import InfoTooltip from '../InfoTooltip.svelte';
-	import { Circle, CircleCheck, LoaderCircle } from 'lucide-svelte';
-	import { goto } from '$lib/url';
-	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { profile } from '$lib/stores';
+	import { goto } from '$lib/url';
+	import InfoTooltip from '../InfoTooltip.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import { Circle, CircleCheck, LoaderCircle } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		entry?: MCPCatalogEntry | MCPCatalogServer;

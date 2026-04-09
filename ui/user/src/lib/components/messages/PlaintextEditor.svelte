@@ -1,16 +1,13 @@
 <script lang="ts">
+	import { plaintext } from './preset';
+	import { Editor, rootCtx, editorViewCtx } from '@milkdown/kit/core';
+	import '@milkdown/kit/prose/view/style/prosemirror.css';
+	import { Plugin } from '@milkdown/prose/state';
+	import type { EditorView } from '@milkdown/prose/view';
+	import { $prose as mlkprose } from '@milkdown/utils';
 	import { type Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-
-	import { Editor, rootCtx, editorViewCtx } from '@milkdown/kit/core';
-	import { Plugin } from '@milkdown/prose/state';
-	import type { EditorView } from '@milkdown/prose/view';
-
-	import { plaintext } from './preset';
-
-	import '@milkdown/kit/prose/view/style/prosemirror.css';
-	import { $prose as mlkprose } from '@milkdown/utils';
 
 	type Props = {
 		class?: string;

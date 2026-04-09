@@ -1,17 +1,16 @@
 <script lang="ts">
+	import { page } from '$app/stores';
 	import Layout from '$lib/components/Layout.svelte';
+	import DebugCallFrames from '$lib/components/chat/DebugCallFrames.svelte';
+	import MessageComponent from '$lib/components/messages/Message.svelte';
 	import { AdminService, type ProjectThread } from '$lib/services';
-
+	import { Thread } from '$lib/services/chat/thread.svelte';
+	import type { CallFrame, Project } from '$lib/services/chat/types';
+	import type { Messages } from '$lib/services/chat/types';
+	import { formatTimeAgo } from '$lib/time';
 	import { LoaderCircle, MessageCircle } from 'lucide-svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
-	import { page } from '$app/stores';
-	import { formatTimeAgo } from '$lib/time';
-	import MessageComponent from '$lib/components/messages/Message.svelte';
-	import type { CallFrame, Project } from '$lib/services/chat/types';
-	import { Thread } from '$lib/services/chat/thread.svelte';
-	import type { Messages } from '$lib/services/chat/types';
-	import DebugCallFrames from '$lib/components/chat/DebugCallFrames.svelte';
 
 	const threadId = $page.params.id;
 

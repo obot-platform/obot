@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { ChevronDown, Trash2 } from 'lucide-svelte/icons';
 	import { overflowToolTip } from '$lib/actions/overflow';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import {
 		getLayout,
 		isSomethingSelected,
 		openTask,
 		openTaskRun
 	} from '$lib/context/chatLayout.svelte';
-	import { formatTime } from '$lib/time.js';
 	import { type Task, type Thread, type Project } from '$lib/services';
-	import { twMerge } from 'tailwind-merge';
 	import { ChatService } from '$lib/services';
 	import { responsive } from '$lib/stores';
+	import { formatTime } from '$lib/time.js';
+	import { ChevronDown, Trash2 } from 'lucide-svelte/icons';
 	import { untrack, type Snippet } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		task: Task;

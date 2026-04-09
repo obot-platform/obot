@@ -1,9 +1,9 @@
 <script lang="ts">
 	import Profile from '$lib/components/navbar/Profile.svelte';
-	import { fade } from 'svelte/transition';
-	import type { Snippet } from 'svelte';
-	import { twMerge } from 'tailwind-merge';
 	import BetaLogo from './navbar/BetaLogo.svelte';
+	import type { Snippet } from 'svelte';
+	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		leftContent?: Snippet;

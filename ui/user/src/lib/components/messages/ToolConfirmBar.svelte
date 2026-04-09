@@ -1,4 +1,5 @@
 <script lang="ts">
+	import popover from '$lib/actions/popover.svelte';
 	import {
 		ChatService,
 		type Project,
@@ -6,9 +7,8 @@
 		type ToolConfirmDecision,
 		type Message
 	} from '$lib/services';
-	import { slide } from 'svelte/transition';
-	import popover from '$lib/actions/popover.svelte';
 	import { ChevronDown, LoaderCircle } from 'lucide-svelte/icons';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		messages: Message[];

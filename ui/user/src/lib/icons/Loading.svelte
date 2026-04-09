@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { twMerge } from 'tailwind-merge';
 	import { LoaderCircle } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		class?: string;

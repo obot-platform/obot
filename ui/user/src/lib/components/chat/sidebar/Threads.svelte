@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { Pen, Plus, Save, Trash2, Pin, PinOff } from 'lucide-svelte';
-	import { ChatService, type Project, type Thread } from '$lib/services';
-	import { onDestroy, onMount, tick, untrack } from 'svelte';
-	import { CircleX } from 'lucide-svelte/icons';
-	import { closeAll, getLayout, isSomethingSelected } from '$lib/context/chatLayout.svelte.js';
-	import { fade } from 'svelte/transition';
+	import { page } from '$app/state';
 	import { overflowToolTip } from '$lib/actions/overflow.js';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import { responsive } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
+	import { closeAll, getLayout, isSomethingSelected } from '$lib/context/chatLayout.svelte.js';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import { localState } from '$lib/runes/localState.svelte';
-	import { flip } from 'svelte/animate';
-	import { page } from '$app/state';
+	import { ChatService, type Project, type Thread } from '$lib/services';
+	import { responsive } from '$lib/stores';
 	import { replaceState } from '$lib/url';
+	import { Pen, Plus, Save, Trash2, Pin, PinOff } from 'lucide-svelte';
+	import { CircleX } from 'lucide-svelte/icons';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
+	import { flip } from 'svelte/animate';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		currentThreadID?: string;

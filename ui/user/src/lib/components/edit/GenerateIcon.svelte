@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { Wand, LoaderCircle, ChevronDown, ChevronUp } from 'lucide-svelte/icons';
+	import { autoHeight } from '$lib/actions/textarea';
 	import { EditorService } from '$lib/services';
 	import type { Project } from '$lib/services';
-	import { fade } from 'svelte/transition';
-	import { autoHeight } from '$lib/actions/textarea';
 	import { errors } from '$lib/stores';
+	import { Wand, LoaderCircle, ChevronDown, ChevronUp } from 'lucide-svelte/icons';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		project: Project;

@@ -1,13 +1,13 @@
 <script lang="ts">
 	import type { Chat } from '$lib/services/nanobot/types';
-	import { goto } from '$lib/url';
-	import { Check, Edit, EllipsisVertical, Trash2, X, Plus } from 'lucide-svelte';
-	import { fly } from 'svelte/transition';
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
-	import { get } from 'svelte/store';
-	import { isRecent } from '$lib/time';
 	import { parseJSON } from '$lib/services/nanobot/utils';
 	import { responsive } from '$lib/stores';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import { isRecent } from '$lib/time';
+	import { goto } from '$lib/url';
+	import { Check, Edit, EllipsisVertical, Trash2, X, Plus } from 'lucide-svelte';
+	import { get } from 'svelte/store';
+	import { fly } from 'svelte/transition';
 
 	interface Props {
 		sessions: Chat[];

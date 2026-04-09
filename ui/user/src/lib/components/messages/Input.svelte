@@ -1,11 +1,9 @@
 <script lang="ts">
-	import { onMount, type Snippet, tick, untrack } from 'svelte';
-	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
-
 	import { type InvokeInput } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
-
 	import PlaintextEditor from './PlaintextEditor.svelte';
+	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
+	import { onMount, type Snippet, tick, untrack } from 'svelte';
 
 	interface Props {
 		id?: string;

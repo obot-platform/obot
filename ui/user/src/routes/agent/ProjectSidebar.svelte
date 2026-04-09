@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import Logo from '$lib/components/Logo.svelte';
 	import Threads from '$lib/components/nanobot/Threads.svelte';
 	import { getLayout } from '$lib/context/nanobotLayout.svelte';
+	import { errors } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
 	import {
@@ -15,10 +17,8 @@
 		WorkflowIcon
 	} from 'lucide-svelte';
 	import { get } from 'svelte/store';
-	import { twMerge } from 'tailwind-merge';
 	import { fly, slide } from 'svelte/transition';
-	import { errors } from '$lib/stores';
-	import { page } from '$app/state';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		selectedSessionId?: string;

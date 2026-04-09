@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { twMerge } from 'tailwind-merge';
 	import { VirtualPageTable } from '$lib/components/ui';
+	import { mcpServersAndEntries } from '$lib/stores';
+	import { throttle } from '$lib/utils';
 	import { GripVertical } from 'lucide-svelte';
 	import { tick } from 'svelte';
-	import { throttle } from '$lib/utils';
-	import { mcpServersAndEntries } from '$lib/stores';
+	import { twMerge } from 'tailwind-merge';
 
 	let { data = [], onSelectRow, emptyContent, getUserDisplayName } = $props();
 

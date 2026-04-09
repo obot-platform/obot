@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { subDays } from 'date-fns';
-	import { Coins } from 'lucide-svelte';
-	import { fade } from 'svelte/transition';
+	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
-	import { getUserDisplayName } from '$lib/utils';
+	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		type Model,
@@ -15,16 +15,16 @@
 		type TokenUsage,
 		type TotalTokenUsage
 	} from '$lib/services';
+	import { errors } from '$lib/stores';
+	import { goto } from '$lib/url';
+	import { getUserDisplayName } from '$lib/utils';
+	import { aggregateTimelineDataByBucket, getUserLabels } from './utils';
+	import { subDays } from 'date-fns';
+	import { Coins } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import type { DateRange } from '$lib/components/Calendar.svelte';
-	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
-	import { errors } from '$lib/stores';
-	import { aggregateTimelineDataByBucket, getUserLabels } from './utils';
+	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import { goto } from '$lib/url';
-	import Loading from '$lib/icons/Loading.svelte';
-	import Search from '$lib/components/Search.svelte';
 
 	let loadingTableData = $state(true);
 	let loadingTotalTokensData = $state(true);

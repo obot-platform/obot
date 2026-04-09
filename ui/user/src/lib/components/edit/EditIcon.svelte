@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { popover } from '$lib/actions';
+	import UploadImage from '$lib/components/UploadImage.svelte';
+	import GenerateIcon from '$lib/components/edit/GenerateIcon.svelte';
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import type { Project } from '$lib/services';
 	import { responsive } from '$lib/stores';
-	import GenerateIcon from '$lib/components/edit/GenerateIcon.svelte';
-	import UploadImage from '$lib/components/UploadImage.svelte';
 	import { ChevronRight, CircleX, Pencil } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 

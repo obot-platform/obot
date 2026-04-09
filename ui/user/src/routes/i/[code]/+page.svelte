@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { goto } from '$lib/url';
-	import { page } from '$app/state';
-	import { Check, X } from 'lucide-svelte';
-	import { ChatService, type ProjectInvitation } from '$lib/services';
-	import { formatTimeAgo } from '$lib/time';
-	import Notifications from '$lib/components/Notifications.svelte';
-	import { darkMode } from '$lib/stores';
-	import { getProjectImage } from '$lib/image';
-	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import Notifications from '$lib/components/Notifications.svelte';
+	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
+	import { getProjectImage } from '$lib/image';
+	import { ChatService, type ProjectInvitation } from '$lib/services';
+	import { darkMode } from '$lib/stores';
+	import { formatTimeAgo } from '$lib/time';
+	import { goto } from '$lib/url';
+	import { Check, X } from 'lucide-svelte';
 
 	interface PageData {
 		invitation: ProjectInvitation;

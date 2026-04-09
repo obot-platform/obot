@@ -1,5 +1,8 @@
 <script lang="ts">
-	import '../app.css';
+	import { page } from '$app/state';
+	import Notifications from '$lib/components/Notifications.svelte';
+	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
+	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
 	import {
 		darkMode,
 		profile,
@@ -8,13 +11,11 @@
 		mcpServersAndEntries,
 		defaultModelAliases
 	} from '$lib/stores';
-	import { untrack } from 'svelte';
-	import Notifications from '$lib/components/Notifications.svelte';
-	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
-	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
+	import '../app.css';
 	import type { PageData } from './$types';
-	import { page } from '$app/state';
 	import { apply, isSupported } from '@oddbird/popover-polyfill/fn';
+	import { untrack } from 'svelte';
+
 	interface Props {
 		children?: import('svelte').Snippet;
 		data: PageData;

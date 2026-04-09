@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { AlertTriangle, Server } from 'lucide-svelte/icons';
+	import { resolve } from '$app/paths';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import type {
 		MCPCompositeDeletionDependency,
 		MCPCompositeDeletionDependencyError
 	} from '$lib/services';
-	import { resolve } from '$app/paths';
+	import { AlertTriangle, Server } from 'lucide-svelte/icons';
 
 	interface Props {
 		show: boolean;

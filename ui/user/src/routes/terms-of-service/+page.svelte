@@ -1,13 +1,13 @@
 <script lang="ts">
+	import Footer from '$lib/components/Footer.svelte';
+	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
+	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { responsive } from '$lib/stores';
 	import { darkMode } from '$lib/stores';
-	import { MenuIcon } from 'lucide-svelte';
-	import Menu from '$lib/components/navbar/Menu.svelte';
-	import Footer from '$lib/components/Footer.svelte';
 	import { goto } from '$lib/url';
-	import { twMerge } from 'tailwind-merge';
+	import { MenuIcon } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	const sectionHeaders = [
 		{ id: 'terms-of-service', label: 'Terms of Service' },

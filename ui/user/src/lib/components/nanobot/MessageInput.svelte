@@ -1,8 +1,4 @@
 <script lang="ts">
-	import { CircleAlert, Paperclip, Send, Square, X } from 'lucide-svelte';
-	import MessageAttachments from './MessageAttachments.svelte';
-	import type MessageSlashPromptsType from './MessageSlashPrompts.svelte';
-	import MessageSlashPrompts from './MessageSlashPrompts.svelte';
 	import type {
 		Agent,
 		Attachment,
@@ -12,6 +8,10 @@
 		UploadedFile,
 		UploadingFile
 	} from '$lib/services/nanobot/types';
+	import MessageAttachments from './MessageAttachments.svelte';
+	import type MessageSlashPromptsType from './MessageSlashPrompts.svelte';
+	import MessageSlashPrompts from './MessageSlashPrompts.svelte';
+	import { CircleAlert, Paperclip, Send, Square, X } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 
 	interface Props {

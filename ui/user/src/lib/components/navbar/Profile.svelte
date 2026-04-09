@@ -1,8 +1,19 @@
 <script lang="ts">
-	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
-	import { profile, responsive, darkMode, errors, defaultModelAliases } from '$lib/stores';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
+	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
+	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
+	import { AdminService, ChatService, EditorService, NanobotService } from '$lib/services';
+	import { profile, responsive, darkMode, errors, defaultModelAliases } from '$lib/stores';
+	import { version } from '$lib/stores';
+	import { goto } from '$lib/url';
 	import { getUserRoleLabel, isAgentEnabled } from '$lib/utils';
+	import Confirm from '../Confirm.svelte';
+	import InfoTooltip from '../InfoTooltip.svelte';
+	import PageLoading from '../PageLoading.svelte';
+	import MyAccount from '../profile/MyAccount.svelte';
 	import {
 		Book,
 		LogOut,
@@ -20,17 +31,6 @@
 		HatGlasses
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
-	import { version } from '$lib/stores';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { AdminService, ChatService, EditorService, NanobotService } from '$lib/services';
-	import { goto } from '$lib/url';
-	import PageLoading from '../PageLoading.svelte';
-	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
-	import MyAccount from '../profile/MyAccount.svelte';
-	import Confirm from '../Confirm.svelte';
-	import InfoTooltip from '../InfoTooltip.svelte';
-	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
 
 	interface Props {
 		agentId?: string;

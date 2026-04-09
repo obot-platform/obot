@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { formatBase64ToBlobUrl } from '$lib/format';
 	import { twMerge } from 'tailwind-merge';
+
 	interface Props {
 		base64: string;
 		class?: string;

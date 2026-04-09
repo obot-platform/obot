@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte.js';
-	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, NanobotService, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores';

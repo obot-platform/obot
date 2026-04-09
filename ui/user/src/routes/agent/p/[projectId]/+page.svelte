@@ -1,10 +1,10 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import ProjectStartThread from '$lib/components/nanobot/ProjectStartThread.svelte';
-	import { getContext } from 'svelte';
 	import type { ProjectLayoutContext } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import { page } from '$app/state';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import { getContext } from 'svelte';
 
 	let { data } = $props();
 	let agent = $derived(data.agent);

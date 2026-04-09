@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { SvelteMap } from 'svelte/reactivity';
 	import Select from '../Select.svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	type Props = {
 		categories?: string;

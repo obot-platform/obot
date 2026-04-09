@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { ChatMessageItemResourceLink, ResourceContents } from '$lib/services/nanobot/types';
 	import FileItem from '$lib/components/nanobot/FileItem.svelte';
-	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
+	import type { ChatMessageItemResourceLink, ResourceContents } from '$lib/services/nanobot/types';
+	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 	import PDF from './PDF.svelte';
 
 	interface Props {

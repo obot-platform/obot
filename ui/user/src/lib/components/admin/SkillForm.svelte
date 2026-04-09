@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { fly } from 'svelte/transition';
-	import type { Skill } from '$lib/services/nanobot/types';
 	import { autoHeight } from '$lib/actions/textarea';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import type { Skill } from '$lib/services/nanobot/types';
 	import { Info } from 'lucide-svelte';
+	import { fly } from 'svelte/transition';
 
 	interface Props {
 		skill: Skill;

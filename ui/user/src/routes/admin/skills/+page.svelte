@@ -1,10 +1,19 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { AdminService } from '$lib/services';
+	import type { SkillRepository } from '$lib/services/admin/types';
+	import type { Skill } from '$lib/services/nanobot/types';
 	import { errors, profile } from '$lib/stores';
+	import { formatTimeAgo } from '$lib/time';
+	import { goto } from '$lib/url.js';
+	import { openUrl } from '$lib/utils.js';
 	import {
 		TriangleAlert,
 		Info,
@@ -15,19 +24,10 @@
 		Trash2,
 		X
 	} from 'lucide-svelte';
-	import { slide } from 'svelte/transition';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { AdminService } from '$lib/services';
-	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
-	import type { SkillRepository } from '$lib/services/admin/types';
 	import { onDestroy, untrack } from 'svelte';
+	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
+	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import { formatTimeAgo } from '$lib/time';
-	import type { Skill } from '$lib/services/nanobot/types';
-	import { page } from '$app/state';
-	import { goto } from '$lib/url.js';
-	import { resolve } from '$app/paths';
-	import { openUrl } from '$lib/utils.js';
 
 	let { data } = $props();
 	let query = $derived(page.url.searchParams.get('query') ?? '');

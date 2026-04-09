@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { type PageProps } from './$types';
 	import { browser } from '$app/environment';
 	import Logo from '$lib/components/Logo.svelte';
+	import { type PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 	let { authProviders, loggedIn } = $derived(data);

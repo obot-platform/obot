@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { twMerge } from 'tailwind-merge';
 	import appPreferences from '$lib/stores/appPreferences.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		class?: string;

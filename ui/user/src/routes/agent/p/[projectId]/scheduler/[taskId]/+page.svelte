@@ -6,8 +6,6 @@
 		formatScheduleDateTime,
 		scheduleSummary
 	} from '$lib/components/nanobot/taskSchedule';
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
-	import { errors } from '$lib/stores';
 	import type {
 		Chat,
 		ProjectLayoutContext,
@@ -15,6 +13,8 @@
 		ScheduledTask
 	} from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
+	import { errors } from '$lib/stores';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
 	import { CalendarClock, PencilLine, Play, Trash2 } from 'lucide-svelte';
 	import { getContext } from 'svelte';

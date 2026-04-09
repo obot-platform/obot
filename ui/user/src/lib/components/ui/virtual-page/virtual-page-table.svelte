@@ -13,9 +13,9 @@
 </script>
 
 <script lang="ts" generics="T">
+	import { getVirtualPageContext, type VirtualPageContext } from './context';
 	import { type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { getVirtualPageContext, type VirtualPageContext } from './context';
 
 	const context: VirtualPageContext<T> | undefined = getVirtualPageContext();
 

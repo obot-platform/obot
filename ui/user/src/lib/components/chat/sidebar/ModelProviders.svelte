@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
-	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import { listModelProviders, type ModelProvider, type Project } from '$lib/services';
-	import { Info } from 'lucide-svelte';
-	import { SvelteMap } from 'svelte/reactivity';
 	import { darkMode } from '$lib/stores';
-	import { twMerge } from 'tailwind-merge';
 	import { delay } from '$lib/utils';
+	import { Info } from 'lucide-svelte';
+	import { untrack } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		project?: Project;

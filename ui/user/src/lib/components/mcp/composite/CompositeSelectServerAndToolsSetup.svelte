@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import SearchMcpServers from '$lib/components/admin/SearchMcpServers.svelte';
 	import {
 		AdminService,
 		ChatService,
@@ -9,11 +10,10 @@
 		type MCPCatalogServer
 	} from '$lib/services';
 	import { convertEnvHeadersToRecord, hasEditableConfiguration } from '$lib/services/chat/mcp';
-	import { LoaderCircle } from 'lucide-svelte';
+	import { mcpServersAndEntries } from '$lib/stores';
 	import CatalogConfigureForm, { type LaunchFormData } from '../CatalogConfigureForm.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
-	import SearchMcpServers from '$lib/components/admin/SearchMcpServers.svelte';
-	import { mcpServersAndEntries } from '$lib/stores';
+	import { LoaderCircle } from 'lucide-svelte';
 
 	interface Props {
 		catalogId?: string;

@@ -9,11 +9,11 @@
 		NanobotModelAlias,
 		ChatService
 	} from '$lib/services';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { AdminService } from '$lib/services';
+	import { version, defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Select from '../Select.svelte';
 	import { LoaderCircle } from 'lucide-svelte';
-	import { version, defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 
 	let { availableModels, readonly }: { availableModels: Model[]; readonly?: boolean } = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();

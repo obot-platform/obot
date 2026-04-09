@@ -1,4 +1,8 @@
 <script lang="ts" generics="T extends object">
+	import { tooltip as tooltipAction } from '$lib/actions/tooltip.svelte';
+	import { lightenHex } from '$lib/colors';
+	import { darkMode } from '$lib/stores';
+	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
 	import {
 		scaleBand,
 		scaleLinear,
@@ -18,7 +22,6 @@
 		type NumberValue
 	} from 'd3';
 	import { timeFormat } from 'd3-time-format';
-
 	import {
 		startOfMonth,
 		endOfMonth,
@@ -41,15 +44,11 @@
 		type Duration,
 		getDay
 	} from 'date-fns';
-	import { lightenHex } from '$lib/colors';
-	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
-	import { fade } from 'svelte/transition';
-	import { SvelteMap } from 'svelte/reactivity';
-	import type { Snippet } from 'svelte';
-	import { twMerge } from 'tailwind-merge';
 	import { Ellipsis } from 'lucide-svelte';
-	import { tooltip as tooltipAction } from '$lib/actions/tooltip.svelte';
-	import { darkMode } from '$lib/stores';
+	import type { Snippet } from 'svelte';
+	import { SvelteMap } from 'svelte/reactivity';
+	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	/** Tooltip payload: segment key (category), stack value, bucket date, and aggregated counts/totals. */
 	export type TooltipItem = {

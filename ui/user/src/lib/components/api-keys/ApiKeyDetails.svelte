@@ -1,16 +1,16 @@
 <script lang="ts">
-	import type { APIKey } from '$lib/services/api-keys/types';
-	import { stripMarkdownToText } from '$lib/markdown';
-	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
-	import { Server, Trash2 } from 'lucide-svelte';
-	import { twMerge } from 'tailwind-merge';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
-	import { fly } from 'svelte/transition';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { stripMarkdownToText } from '$lib/markdown';
+	import type { APIKey } from '$lib/services/api-keys/types';
 	import { compileAvailableMcpServers } from '$lib/services/chat/mcp';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import Confirm from '../Confirm.svelte';
+	import { Server, Trash2 } from 'lucide-svelte';
+	import { fly } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		apiKey?: APIKey & { prefix: string };

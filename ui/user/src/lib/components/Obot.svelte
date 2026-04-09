@@ -1,30 +1,30 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { columnResize } from '$lib/actions/resize';
 	import Editor from '$lib/components/Editors.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
+	import Thread from '$lib/components/Thread.svelte';
 	import Sidebar from '$lib/components/chat/ChatSidebar.svelte';
 	import Task from '$lib/components/tasks/Task.svelte';
-	import Thread from '$lib/components/Thread.svelte';
-	import { type Project } from '$lib/services';
-	import type { EditorItem } from '$lib/services/editor/index.svelte';
-	import { responsive } from '$lib/stores';
 	import {
 		closeSidebarConfig,
 		getLayout,
 		isSomethingSelected
 	} from '$lib/context/chatLayout.svelte';
+	import { type Project } from '$lib/services';
+	import type { Assistant, CreateProjectForm, ProjectMCP } from '$lib/services';
+	import { findServerAndEntryForProjectMcp } from '$lib/services/chat/mcp';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import { responsive } from '$lib/stores';
+	import SidebarConfig from './chat/ChatSidebarConfig.svelte';
+	import McpServerRequirements from './chat/McpServerRequirements.svelte';
+	import McpServerActions from './mcp/McpServerActions.svelte';
+	import BetaLogo from './navbar/BetaLogo.svelte';
 	import { ChevronLeft, GripVertical, SidebarOpen } from 'lucide-svelte';
+	import { X } from 'lucide-svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import { columnResize } from '$lib/actions/resize';
-	import { X } from 'lucide-svelte';
-	import type { Assistant, CreateProjectForm, ProjectMCP } from '$lib/services';
-	import SidebarConfig from './chat/ChatSidebarConfig.svelte';
-	import { onMount, onDestroy } from 'svelte';
-	import { browser } from '$app/environment';
-	import McpServerRequirements from './chat/McpServerRequirements.svelte';
-	import BetaLogo from './navbar/BetaLogo.svelte';
-	import McpServerActions from './mcp/McpServerActions.svelte';
-	import { findServerAndEntryForProjectMcp } from '$lib/services/chat/mcp';
 
 	interface Props {
 		assistant?: Assistant;

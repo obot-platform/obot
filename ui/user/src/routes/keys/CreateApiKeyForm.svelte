@@ -1,17 +1,17 @@
 <script lang="ts">
 	import DatePicker from '$lib/components/DatePicker.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { stripMarkdownToText } from '$lib/markdown';
 	import { ApiKeysService } from '$lib/services';
 	import type { APIKeyCreateResponse } from '$lib/services/api-keys/types';
-	import { stripMarkdownToText } from '$lib/markdown';
+	import { compileAvailableMcpServers } from '$lib/services/chat/mcp';
+	import type { MCPCatalogServer } from '$lib/services/chat/types';
+	import { mcpServersAndEntries } from '$lib/stores';
 	import { Check, LoaderCircle, Server } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { twMerge } from 'tailwind-merge';
 	import { fly } from 'svelte/transition';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { mcpServersAndEntries } from '$lib/stores';
-	import type { MCPCatalogServer } from '$lib/services/chat/types';
-	import { compileAvailableMcpServers } from '$lib/services/chat/mcp';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onCreate: (key: APIKeyCreateResponse) => void;

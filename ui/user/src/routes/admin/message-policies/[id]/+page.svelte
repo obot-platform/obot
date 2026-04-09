@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { goto } from '$lib/url';
-	import MessagePolicyForm from '$lib/components/admin/MessagePolicyForm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import MessagePolicyForm from '$lib/components/admin/MessagePolicyForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { fly } from 'svelte/transition';
 	import { profile } from '$lib/stores/index.js';
+	import { goto } from '$lib/url';
+	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 	const { messagePolicy } = $derived(data);

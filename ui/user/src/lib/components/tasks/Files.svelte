@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { FileText, Trash2 } from 'lucide-svelte/icons';
-	import { ChatService, EditorService, type Files, type Project } from '$lib/services';
-	import { Download, RotateCw } from 'lucide-svelte';
-	import { onDestroy } from 'svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { ChatService, EditorService, type Files, type Project } from '$lib/services';
+	import { Download, RotateCw } from 'lucide-svelte';
+	import { FileText, Trash2 } from 'lucide-svelte/icons';
+	import { onDestroy } from 'svelte';
 
 	interface Props {
 		taskID: string;

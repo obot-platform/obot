@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import {
 		PAGE_TRANSITION_DURATION,
 		ADMIN_SESSION_STORAGE,
@@ -15,18 +16,17 @@
 		type OrgGroup,
 		type MCPCatalogEntry
 	} from '$lib/services/admin/types';
+	import { getUserRegistry } from '$lib/services/chat/mcp';
+	import { profile } from '$lib/stores';
+	import { goto } from '$lib/url';
+	import { getUserDisplayName } from '$lib/utils';
+	import Confirm from '../Confirm.svelte';
+	import Table from '../table/Table.svelte';
+	import SearchMcpServers from './SearchMcpServers.svelte';
+	import SearchUsers from './SearchUsers.svelte';
 	import { LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Table from '../table/Table.svelte';
-	import SearchUsers from './SearchUsers.svelte';
-	import Confirm from '../Confirm.svelte';
-	import { goto } from '$lib/url';
-	import SearchMcpServers from './SearchMcpServers.svelte';
-	import { getUserDisplayName } from '$lib/utils';
-	import { profile } from '$lib/stores';
-	import { getUserRegistry } from '$lib/services/chat/mcp';
 
 	interface Props {
 		topContent?: Snippet;

@@ -1,5 +1,11 @@
 <script lang="ts">
+	import { columnResize } from '$lib/actions/resize';
 	import Layout from '$lib/components/Layout.svelte';
+	import Select from '$lib/components/Select.svelte';
+	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type {
 		OrgUser,
@@ -9,20 +15,14 @@
 	} from '$lib/services/admin/types';
 	import { PolicyDirectionLabels } from '$lib/services/admin/types';
 	import type { PolicyDirection } from '$lib/services/admin/types';
+	import { responsive } from '$lib/stores';
+	import { getUserDisplayName } from '$lib/utils';
+	import { subDays, set } from 'date-fns';
+	import { ShieldAlert } from 'lucide-svelte';
+	import { X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { subDays, set } from 'date-fns';
-	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
-	import Select from '$lib/components/Select.svelte';
-	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { fade } from 'svelte/transition';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import Loading from '$lib/icons/Loading.svelte';
-	import { ShieldAlert } from 'lucide-svelte';
-	import { columnResize } from '$lib/actions/resize';
-	import { responsive } from '$lib/stores';
-	import { X } from 'lucide-svelte';
-	import { getUserDisplayName } from '$lib/utils';
 
 	const duration = PAGE_TRANSITION_DURATION;
 

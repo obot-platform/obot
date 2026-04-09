@@ -1,22 +1,22 @@
 <script lang="ts">
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
-	import { goto } from '$lib/url';
 	import { afterNavigate } from '$app/navigation';
-	import { CircleAlert, FolderInput, Play, Search, Trash2, Workflow } from 'lucide-svelte';
-	import { getContext } from 'svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
+	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
+	import { NanobotService } from '$lib/services/index.js';
 	import type { ProjectLayoutContext, PublishedArtifactVersion } from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import { errors, profile, responsive } from '$lib/stores';
 	import type { PublishedArtifact } from '$lib/services/nanobot/types';
+	import { errors, profile, responsive } from '$lib/stores';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { formatTimeAgo } from '$lib/time.js';
+	import { goto } from '$lib/url';
+	import { CircleAlert, FolderInput, Play, Search, Trash2, Workflow } from 'lucide-svelte';
+	import { getContext } from 'svelte';
+	import { untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
-	import PublishedWorkflowInstallModal from '$lib/components/nanobot/PublishedWorkflowInstallModal.svelte';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { untrack } from 'svelte';
-	import ConfirmDiffWorkflow from '$lib/components/nanobot/ConfirmDiffWorkflow.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { NanobotService } from '$lib/services/index.js';
 
 	let { data } = $props();
 	let projectId = $derived(data.projects[0].id);

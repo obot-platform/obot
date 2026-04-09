@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { ChatService, type MCPServerPrompt, type Project, type ProjectMCP } from '$lib/services';
-	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
+	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
+	import { ChatService, type MCPServerPrompt, type Project, type ProjectMCP } from '$lib/services';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { LoaderCircle, MessageSquarePlus } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+
 	interface Props {
 		project: Project;
 		variant: 'button' | 'popover' | 'messages';

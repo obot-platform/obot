@@ -2,16 +2,16 @@
 	import { Crepe } from '@milkdown/crepe';
 	import '@milkdown/crepe/theme/common/style.css';
 	import '@milkdown/crepe/theme/frame.css';
+	import { type Ctx } from '@milkdown/ctx';
 	import { commandsCtx } from '@milkdown/kit/core';
 	import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
+	import { toggleStrongCommand, toggleEmphasisCommand } from '@milkdown/kit/preset/commonmark';
+	import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm';
+	import { TooltipProvider } from '@milkdown/plugin-tooltip';
+	import { tooltipFactory } from '@milkdown/plugin-tooltip';
 	import type { EditorState } from '@milkdown/prose/state';
 	import type { EditorView } from '@milkdown/prose/view';
 	import { Bold, Italic, Strikethrough } from 'lucide-svelte';
-	import { TooltipProvider } from '@milkdown/plugin-tooltip';
-	import { tooltipFactory } from '@milkdown/plugin-tooltip';
-	import { type Ctx } from '@milkdown/ctx';
-	import { toggleStrongCommand, toggleEmphasisCommand } from '@milkdown/kit/preset/commonmark';
-	import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm';
 
 	interface Props {
 		class?: string;

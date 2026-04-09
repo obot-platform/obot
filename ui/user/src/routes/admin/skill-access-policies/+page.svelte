@@ -1,19 +1,19 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Layout from '$lib/components/Layout.svelte';
-	import Table from '$lib/components/table/Table.svelte';
-	import { Plus, Trash2, Vault } from 'lucide-svelte';
-	import { fly } from 'svelte/transition';
-	import { clearUrlParams, goto } from '$lib/url';
-	import { type SkillAccessPolicy } from '$lib/services/admin/types';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { untrack } from 'svelte';
-	import { AdminService } from '$lib/services/index.js';
-	import { openUrl } from '$lib/utils.js';
-	import { profile } from '$lib/stores/index.js';
 	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import Layout from '$lib/components/Layout.svelte';
 	import SkillAccessPolicyForm from '$lib/components/admin/SkillAccessPolicyForm.svelte';
+	import Table from '$lib/components/table/Table.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { type SkillAccessPolicy } from '$lib/services/admin/types';
+	import { AdminService } from '$lib/services/index.js';
+	import { profile } from '$lib/stores/index.js';
+	import { clearUrlParams, goto } from '$lib/url';
+	import { openUrl } from '$lib/utils.js';
+	import { Plus, Trash2, Vault } from 'lucide-svelte';
+	import { untrack } from 'svelte';
+	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 	let skillAccessPolicies = $state(untrack(() => data.skillAccessPolicies));

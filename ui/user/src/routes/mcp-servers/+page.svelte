@@ -1,6 +1,11 @@
 <script lang="ts">
-	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
+	import Search from '$lib/components/Search.svelte';
+	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
+	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
+	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		AdminService,
@@ -10,13 +15,9 @@
 		type MCPCatalogServer
 	} from '$lib/services';
 	import type { MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
-	import { Plus, Server } from 'lucide-svelte';
-	import { fade, fly } from 'svelte/transition';
-	import { goto } from '$lib/url';
-	import Search from '$lib/components/Search.svelte';
-	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp.js';
-	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
+	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
+	import { goto } from '$lib/url';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
@@ -25,11 +26,10 @@
 		setSortUrlParams,
 		setUrlParam
 	} from '$lib/url';
-	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
-	import { page } from '$app/state';
 	import { debounce } from 'es-toolkit';
-	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
+	import { Plus, Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
 
 	let { data } = $props();
 

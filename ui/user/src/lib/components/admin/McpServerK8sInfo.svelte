@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import {
 		AdminService,
 		ChatService,
@@ -10,7 +13,13 @@
 		type ServerK8sSettings
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
+	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
+	import { isOwnSingleUserServer } from '$lib/utils';
+	import Confirm from '../Confirm.svelte';
+	import SensitiveInput from '../SensitiveInput.svelte';
+	import Table from '../table/Table.svelte';
+	import DeploymentLogs from './DeploymentLogs.svelte';
 	import {
 		AlertTriangle,
 		Info,
@@ -20,16 +29,7 @@
 		CircleFadingArrowUp
 	} from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
-	import Table from '../table/Table.svelte';
-	import Confirm from '../Confirm.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { profile } from '$lib/stores';
-	import { page } from '$app/state';
-	import SensitiveInput from '../SensitiveInput.svelte';
-	import { resolve } from '$app/paths';
-	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
-	import DeploymentLogs from './DeploymentLogs.svelte';
-	import { isOwnSingleUserServer } from '$lib/utils';
 
 	interface Props {
 		id?: string;

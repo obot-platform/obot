@@ -1,18 +1,18 @@
 <script lang="ts">
+	import { autoHeight } from '$lib/actions/textarea';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
+	import KnowledgeFile from '$lib/components/edit/knowledge/KnowledgeFile.svelte';
+	import KnowledgeUpload from '$lib/components/edit/knowledge/KnowledgeUpload.svelte';
+	import { getHelperMode, HELPER_TEXTS } from '$lib/context/helperMode.svelte';
+	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import { ChatService, type Assistant, type Project } from '$lib/services';
 	import { type KnowledgeFile as KnowledgeFileType } from '$lib/services';
-	import KnowledgeFile from '$lib/components/edit/knowledge/KnowledgeFile.svelte';
-	import { Plus, Trash2, TriangleAlert } from 'lucide-svelte';
-	import { autoHeight } from '$lib/actions/textarea';
-	import KnowledgeUpload from '$lib/components/edit/knowledge/KnowledgeUpload.svelte';
-	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { getHelperMode, HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import { hasTool } from '$lib/tools';
-	import { getProjectTools } from '$lib/context/projectTools.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { twMerge } from 'tailwind-merge';
-	import { fade } from 'svelte/transition';
 	import InfoTooltip from '../InfoTooltip.svelte';
+	import { Plus, Trash2, TriangleAlert } from 'lucide-svelte';
+	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		project: Project;
