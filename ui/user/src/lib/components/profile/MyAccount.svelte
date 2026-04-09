@@ -1,12 +1,12 @@
 <script lang="ts">
+	import Confirm from '$lib/components/Confirm.svelte';
+	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
 	import { ChatService } from '$lib/services';
 	import { profile, errors, version } from '$lib/stores';
+	import { success } from '$lib/stores/success';
 	import { goto } from '$lib/url';
 	import { getUserRoleLabel } from '$lib/utils';
-	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
-	import { success } from '$lib/stores/success';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { User } from 'lucide-svelte';
 

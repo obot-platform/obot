@@ -1,10 +1,4 @@
 <script lang="ts">
-	interface Props {
-		elicitation: Elicitation;
-		open?: boolean;
-		onresult?: (result: ElicitationResult) => void;
-	}
-
 	import type {
 		Elicitation,
 		ElicitationResult,
@@ -13,6 +7,12 @@
 	import { ChevronLeft, ChevronRight, Pencil, Info, X } from 'lucide-svelte';
 	import { SvelteSet, SvelteMap } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';
+
+	interface Props {
+		elicitation: Elicitation;
+		open?: boolean;
+		onresult?: (result: ElicitationResult) => void;
+	}
 
 	let { elicitation, open = false, onresult }: Props = $props();
 

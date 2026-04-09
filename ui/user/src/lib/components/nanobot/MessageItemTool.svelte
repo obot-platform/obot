@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { Settings } from 'lucide-svelte';
+	import MessageItemUI from '$lib/components/nanobot/MessageItemUI.svelte';
+	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import type {
 		Attachment,
 		ChatResult,
 		ChatMessageItemToolCall,
 		ToolOutputItem
 	} from '$lib/services/nanobot/types';
-	import MessageItemUI from '$lib/components/nanobot/MessageItemUI.svelte';
-	import { isUIResource } from '@mcp-ui/client';
-	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
+	import { isUIResource } from '@mcp-ui/client';
+	import { Settings } from 'lucide-svelte';
+	import { onMount } from 'svelte';
 
 	// Dynamically import web component only in browser (SSR-safe)
 	onMount(() => {

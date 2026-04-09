@@ -1,18 +1,18 @@
 <script lang="ts">
-	import type { ResourceContents } from '$lib/services/nanobot/types';
-	import { Download, X } from 'lucide-svelte';
-	import MarkdownEditor from './MarkdownEditor.svelte';
-	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
-	import { tryDecodeURIComponent } from '$lib/url';
-	import { getLayout } from '$lib/context/nanobotLayout.svelte';
-	import { twMerge } from 'tailwind-merge';
 	import RawEditor from '$lib/components/editor/RawEditor.svelte';
-	import FileItem from './FileItem.svelte';
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
-	import PDF from './PDF.svelte';
-	import OfficeDocumentPreview from './OfficeDocumentPreview.svelte';
-	import { responsive } from '$lib/stores';
+	import { getLayout } from '$lib/context/nanobotLayout.svelte';
 	import { formatBase64ToBlob } from '$lib/format';
+	import type { ResourceContents } from '$lib/services/nanobot/types';
+	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
+	import { responsive } from '$lib/stores';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import { tryDecodeURIComponent } from '$lib/url';
+	import FileItem from './FileItem.svelte';
+	import MarkdownEditor from './MarkdownEditor.svelte';
+	import OfficeDocumentPreview from './OfficeDocumentPreview.svelte';
+	import PDF from './PDF.svelte';
+	import { Download, X } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		filename: string;

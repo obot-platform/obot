@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
@@ -25,6 +26,9 @@
 	import { profile, mcpServersAndEntries, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
+	import CapacityBanner from './CapacityBanner.svelte';
+	import ConnectToServer from './ConnectToServer.svelte';
+	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import { delay } from 'es-toolkit';
 	import {
 		Captions,
@@ -43,11 +47,7 @@
 		Trash2
 	} from 'lucide-svelte';
 	import { onDestroy, onMount, type Snippet } from 'svelte';
-	import ConnectToServer from './ConnectToServer.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import EditExistingDeployment from './EditExistingDeployment.svelte';
-	import CapacityBanner from './CapacityBanner.svelte';
-	import { resolve } from '$app/paths';
 
 	interface Props {
 		usersMap?: Map<string, OrgUser>;

@@ -1,19 +1,26 @@
 <script lang="ts">
-	import Navbar from '$lib/components/Navbar.svelte';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
-	import { defaultModelAliases, profile, responsive, version } from '$lib/stores';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Navbar from '$lib/components/Navbar.svelte';
+	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
 	import {
 		initLayout as defaultInitLayout,
 		getLayout as defaultGetLayout,
 		type Layout as LayoutState
 	} from '$lib/context/layout.svelte';
-	import { type Component, type Snippet, untrack } from 'svelte';
-
-	type LayoutContext = {
-		initLayout: () => void;
-		getLayout: () => LayoutState;
-	};
-	import { fade, slide } from 'svelte/transition';
+	import Bots from '$lib/icons/Bots.svelte';
+	import { Group } from '$lib/services';
+	import { defaultModelAliases, profile, responsive, version } from '$lib/stores';
+	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
+	import { isAgentEnabled } from '$lib/utils';
+	import InfoTooltip from './InfoTooltip.svelte';
+	import ConfigureBanner from './admin/ConfigureBanner.svelte';
+	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
+	import BetaLogo from './navbar/BetaLogo.svelte';
+	import Profile from './navbar/Profile.svelte';
+	import { Render } from './ui/render';
 	import {
 		AlarmClock,
 		Boxes,
@@ -50,21 +57,14 @@
 		ShieldX,
 		Bot
 	} from 'lucide-svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { type Component, type Snippet, untrack } from 'svelte';
+	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import BetaLogo from './navbar/BetaLogo.svelte';
-	import ConfigureBanner from './admin/ConfigureBanner.svelte';
-	import InfoTooltip from './InfoTooltip.svelte';
-	import { Render } from './ui/render';
-	import { Group } from '$lib/services';
-	import { page } from '$app/state';
-	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
-	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import { resolve } from '$app/paths';
-	import { isAgentEnabled } from '$lib/utils';
-	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
-	import Profile from './navbar/Profile.svelte';
-	import Bots from '$lib/icons/Bots.svelte';
+
+	type LayoutContext = {
+		initLayout: () => void;
+		getLayout: () => LayoutState;
+	};
 
 	type NavLink = {
 		id: string;

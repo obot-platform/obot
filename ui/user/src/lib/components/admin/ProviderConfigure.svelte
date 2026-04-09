@@ -1,13 +1,13 @@
 <script lang="ts">
+	import Toggle from '$lib/components/Toggle.svelte';
+	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
 	import type { BaseProvider, ProviderParameter } from '$lib/services/admin/types';
 	import { darkMode, profile } from '$lib/stores';
-	import { AlertCircle, LoaderCircle } from 'lucide-svelte';
-	import { twMerge } from 'tailwind-merge';
-	import SensitiveInput from '../SensitiveInput.svelte';
-	import type { Snippet } from 'svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
-	import Toggle from '$lib/components/Toggle.svelte';
+	import SensitiveInput from '../SensitiveInput.svelte';
+	import { AlertCircle, LoaderCircle } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		provider?: BaseProvider;

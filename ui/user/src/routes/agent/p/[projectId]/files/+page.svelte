@@ -1,5 +1,12 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
+	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+	import { formatFileSize, formatFileTime } from '$lib/format';
+	import type { FileTimeResult, ProjectLayoutContext } from '$lib/services/nanobot/types';
+	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
+	import { responsive } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import { tryDecodeURIComponent } from '$lib/url';
 	import {
 		ChevronDown,
 		ChevronRight,
@@ -10,15 +17,8 @@
 		FolderTree,
 		ChevronUp
 	} from 'lucide-svelte';
-	import { twMerge } from 'tailwind-merge';
 	import { getContext } from 'svelte';
-	import { tryDecodeURIComponent } from '$lib/url';
-	import type { FileTimeResult, ProjectLayoutContext } from '$lib/services/nanobot/types';
-	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import FileItem from '$lib/components/nanobot/FileItem.svelte';
-	import { afterNavigate } from '$app/navigation';
-	import { formatFileSize, formatFileTime } from '$lib/format';
-	import { responsive } from '$lib/stores';
+	import { twMerge } from 'tailwind-merge';
 
 	let resourceFiles = $derived(
 		$nanobotChat?.resources

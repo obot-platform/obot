@@ -1,19 +1,19 @@
 <script lang="ts">
-	import { profile, responsive } from '$lib/stores';
-	import { type PageProps } from './$types';
-	import { goto } from '$lib/url';
-	import { type Assistant, ChatService, type Project } from '$lib/services';
-	import { onMount, untrack } from 'svelte';
-	import Profile from '$lib/components/navbar/Profile.svelte';
-	import { LoaderCircle } from 'lucide-svelte';
-	import { initLayout } from '$lib/context/chatLayout.svelte';
-	import Obot from '$lib/components/Obot.svelte';
 	import { browser } from '$app/environment';
-	import { initProjectTools, getProjectTools } from '$lib/context/projectTools.svelte';
+	import Logo from '$lib/components/Logo.svelte';
+	import Obot from '$lib/components/Obot.svelte';
+	import Profile from '$lib/components/navbar/Profile.svelte';
+	import { initLayout } from '$lib/context/chatLayout.svelte';
 	import { initHelperMode } from '$lib/context/helperMode.svelte';
 	import { initProjectMCPs } from '$lib/context/projectMcps.svelte';
+	import { initProjectTools, getProjectTools } from '$lib/context/projectTools.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
-	import Logo from '$lib/components/Logo.svelte';
+	import { type Assistant, ChatService, type Project } from '$lib/services';
+	import { profile, responsive } from '$lib/stores';
+	import { goto } from '$lib/url';
+	import { type PageProps } from './$types';
+	import { LoaderCircle } from 'lucide-svelte';
+	import { onMount, untrack } from 'svelte';
 
 	let { data }: PageProps = $props();
 	let showWarning = $state(false);

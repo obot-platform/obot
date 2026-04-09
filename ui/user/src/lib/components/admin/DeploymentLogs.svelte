@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import {
 		AlertTriangle,
 		ChevronDown,
@@ -10,7 +11,6 @@
 		X
 	} from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -173,7 +173,9 @@
 	function highlightText(text: string, search: string): string {
 		if (!search) return escapeHtml(text);
 		if (!text.toLowerCase().includes(search.toLowerCase())) return escapeHtml(text);
-		const regex = new RegExp(`(${search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+		// Avoid `${` inside a template literal: it starts interpolation; use \x24 for $ in the pattern.
+		const escaped = search.replace(new RegExp('[.*+?^\\x24{}()|[\\]\\\\]', 'g'), (ch) => '\\' + ch);
+		const regex = new RegExp(`(${escaped})`, 'gi');
 		const parts = text.split(regex);
 
 		return parts

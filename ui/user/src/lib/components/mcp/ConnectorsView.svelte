@@ -1,8 +1,12 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
+	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import {
 		AdminService,
@@ -15,6 +19,7 @@
 		Group,
 		type MCPServerInstance
 	} from '$lib/services';
+	import type { MCPServerOAuthCredentialStatus } from '$lib/services/admin/types';
 	import {
 		convertEntriesAndServersToTableData,
 		getServerTypeLabelByType,
@@ -24,6 +29,8 @@
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import {
 		AlertTriangle,
 		Captions,
@@ -45,14 +52,7 @@
 	} from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { slide } from 'svelte/transition';
-	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import EditExistingDeployment from './EditExistingDeployment.svelte';
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
-	import type { MCPServerOAuthCredentialStatus } from '$lib/services/admin/types';
 
 	type Item = ReturnType<typeof convertEntriesAndServersToTableData>[number];
 	type ServerSelectMode =

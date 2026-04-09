@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { onMount, untrack } from 'svelte';
-	import MarkdownEditor from './MarkdownEditor.svelte';
 	import { generateLineDiff, formatTextWithDiffHighlighting } from '$lib/diff';
 	import { NanobotService } from '$lib/services';
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
-	import { twMerge } from 'tailwind-merge';
 	import type { PublishedArtifactVersion } from '$lib/services/nanobot/types';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import MarkdownEditor from './MarkdownEditor.svelte';
+	import { onMount, untrack } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		latestVersion: number;

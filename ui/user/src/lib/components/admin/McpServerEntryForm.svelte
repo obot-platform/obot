@@ -1,4 +1,8 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import {
 		AdminService,
 		type MCPFilter,
@@ -10,10 +14,28 @@
 		type MCPServerOAuthCredentialStatus
 	} from '$lib/services';
 	import type { AccessControlRule, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
-	import { twMerge } from 'tailwind-merge';
+	import { getServerTypeLabel, getUserRegistry } from '$lib/services/chat/mcp';
+	import { profile } from '$lib/stores';
+	import { goto } from '$lib/url';
+	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
+	import Confirm from '../Confirm.svelte';
+	import OverflowContainer from '../OverflowContainer.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import CatalogConfigureForm, {
+		type LaunchFormData,
+		type CompositeLaunchFormData,
+		type ComponentLaunchFormData
+	} from '../mcp/CatalogConfigureForm.svelte';
+	import McpMultiDeleteBlockedDialog from '../mcp/McpMultiDeleteBlockedDialog.svelte';
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
-	import CatalogServerForm from './CatalogServerForm.svelte';
+	import McpServerTools from '../mcp/McpServerTools.svelte';
+	import StaticOAuthConfigureModal from '../mcp/StaticOAuthConfigureModal.svelte';
 	import Table from '../table/Table.svelte';
+	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
+	import CatalogServerForm from './CatalogServerForm.svelte';
+	import McpServerInstances from './McpServerInstances.svelte';
+	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
+	import UsageGraphs from './usage/UsageGraphs.svelte';
 	import {
 		AlertCircle,
 		ChevronLeft,
@@ -28,30 +50,8 @@
 		Users,
 		Wrench
 	} from 'lucide-svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { goto } from '$lib/url';
-	import Confirm from '../Confirm.svelte';
-	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { onMount } from 'svelte';
-	import UsageGraphs from './usage/UsageGraphs.svelte';
-	import McpServerInstances from './McpServerInstances.svelte';
-	import McpServerTools from '../mcp/McpServerTools.svelte';
-	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
-	import { page } from '$app/state';
-	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
-	import CatalogConfigureForm, {
-		type LaunchFormData,
-		type CompositeLaunchFormData,
-		type ComponentLaunchFormData
-	} from '../mcp/CatalogConfigureForm.svelte';
-	import McpMultiDeleteBlockedDialog from '../mcp/McpMultiDeleteBlockedDialog.svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
-	import { profile } from '$lib/stores';
-	import OverflowContainer from '../OverflowContainer.svelte';
-	import { getServerTypeLabel, getUserRegistry } from '$lib/services/chat/mcp';
-	import { resolve } from '$app/paths';
-	import StaticOAuthConfigureModal from '../mcp/StaticOAuthConfigureModal.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		id?: string;

@@ -1,8 +1,8 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { type KnowledgeFile } from '$lib/services';
 	import { CircleX, FileText, Trash2 } from 'lucide-svelte/icons';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

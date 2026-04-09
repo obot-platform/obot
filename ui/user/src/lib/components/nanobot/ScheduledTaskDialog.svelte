@@ -3,15 +3,13 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import TimeInput from '$lib/components/TimeInput.svelte';
-	import { errors } from '$lib/stores';
 	import type { ChatAPI } from '$lib/services/nanobot/chat/index.svelte';
 	import type {
 		CreateScheduledTaskRequest,
 		ScheduledTask,
 		UpdateScheduledTaskRequest
 	} from '$lib/services/nanobot/types';
-	import { Check, ChevronDown, LoaderCircle } from 'lucide-svelte';
-	import { twMerge } from 'tailwind-merge';
+	import { errors } from '$lib/stores';
 	import {
 		buildCronSchedule,
 		defaultTaskScheduleForm,
@@ -22,6 +20,8 @@
 		parseCronSchedule,
 		type TaskFrequency
 	} from './taskSchedule';
+	import { Check, ChevronDown, LoaderCircle } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		api: ChatAPI;

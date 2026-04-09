@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
+	import { getProjectMCPs, type ProjectMcpItem } from '$lib/context/projectMcps.svelte';
 	import {
 		ChatService,
 		type McpServerResource,
@@ -6,14 +9,11 @@
 		type ProjectMCP,
 		type File
 	} from '$lib/services';
-	import { getProjectMCPs, type ProjectMcpItem } from '$lib/context/projectMcps.svelte';
-	import { LoaderCircle, HardDrive, Search, Download, ChevronsRight, Server } from 'lucide-svelte';
-	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import { errors } from '$lib/stores';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { poll } from '$lib/utils';
-	import { onMount } from 'svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import { LoaderCircle, HardDrive, Search, Download, ChevronsRight, Server } from 'lucide-svelte';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		project: Project;

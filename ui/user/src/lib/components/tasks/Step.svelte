@@ -1,4 +1,11 @@
 <script lang="ts">
+	import { transitionParentHeight } from '$lib/actions/size.svelte';
+	import { autoHeight } from '$lib/actions/textarea.js';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
+	import Message from '$lib/components/messages/Message.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		ChatService,
 		EditorService,
@@ -7,21 +14,14 @@
 		type Task,
 		type TaskStep
 	} from '$lib/services';
-	import Message from '$lib/components/messages/Message.svelte';
-	import { Plus, Trash2, Repeat } from 'lucide-svelte/icons';
-	import { LoaderCircle, OctagonX, Play, RefreshCcw } from 'lucide-svelte';
-	import { untrack } from 'svelte';
-	import { autoHeight } from '$lib/actions/textarea.js';
-	import Confirm from '$lib/components/Confirm.svelte';
-	import { fade, slide } from 'svelte/transition';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import LoopStep from './LoopStep.svelte';
-	import { transitionParentHeight } from '$lib/actions/size.svelte';
-	import { linear } from 'svelte/easing';
 	import { DraggableHandle, DraggableItem } from '../primitives/draggable';
+	import LoopStep from './LoopStep.svelte';
+	import { LoaderCircle, OctagonX, Play, RefreshCcw } from 'lucide-svelte';
+	import { Plus, Trash2, Repeat } from 'lucide-svelte/icons';
+	import { untrack } from 'svelte';
+	import { linear } from 'svelte/easing';
+	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import Loading from '$lib/icons/Loading.svelte';
-	import { getLayout } from '$lib/context/chatLayout.svelte';
 
 	interface Props {
 		run?: (step: TaskStep) => Promise<void>;

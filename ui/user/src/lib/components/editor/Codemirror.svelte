@@ -1,12 +1,25 @@
 <script lang="ts">
+	import Input from '$lib/components/messages/Input.svelte';
+	import type { InvokeInput } from '$lib/services';
+	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import { darkMode } from '$lib/stores';
 	import {
-		lineNumbers,
-		highlightActiveLineGutter,
-		highlightSpecialChars,
-		drawSelection,
-		dropCursor,
-		keymap
-	} from '@codemirror/view';
+		closeBrackets,
+		autocompletion,
+		closeBracketsKeymap,
+		completionKeymap
+	} from '@codemirror/autocomplete';
+	import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
+	import { cpp } from '@codemirror/lang-cpp';
+	import { css } from '@codemirror/lang-css';
+	import { go } from '@codemirror/lang-go';
+	import { html } from '@codemirror/lang-html';
+	import { java } from '@codemirror/lang-java';
+	import { javascript } from '@codemirror/lang-javascript';
+	import { rust } from '@codemirror/lang-rust';
+	import { sass } from '@codemirror/lang-sass';
+	import { sql } from '@codemirror/lang-sql';
+	import { vue } from '@codemirror/lang-vue';
 	import {
 		foldGutter,
 		indentOnInput,
@@ -15,40 +28,26 @@
 		bracketMatching,
 		foldKeymap
 	} from '@codemirror/language';
-	import { history, defaultKeymap, historyKeymap } from '@codemirror/commands';
-	import { searchKeymap } from '@codemirror/search';
-	import {
-		closeBrackets,
-		autocompletion,
-		closeBracketsKeymap,
-		completionKeymap
-	} from '@codemirror/autocomplete';
-	import { lintKeymap } from '@codemirror/lint';
-	import { javascript } from '@codemirror/lang-javascript';
-	import { go } from '@codemirror/lang-go';
-	import { cpp } from '@codemirror/lang-cpp';
-	import { css } from '@codemirror/lang-css';
-	import { html } from '@codemirror/lang-html';
-	import { sql } from '@codemirror/lang-sql';
-	import { vue } from '@codemirror/lang-vue';
-	import { sass } from '@codemirror/lang-sass';
-	import { rust } from '@codemirror/lang-rust';
-	import { java } from '@codemirror/lang-java';
-	import { EditorState, type Transaction } from '@codemirror/state';
-	import { EditorView } from '@codemirror/view';
 	import { type LanguageSupport } from '@codemirror/language';
+	import { lintKeymap } from '@codemirror/lint';
+	import { searchKeymap } from '@codemirror/search';
+	import { EditorState, type Transaction } from '@codemirror/state';
+	import { StateField } from '@codemirror/state';
+	import {
+		lineNumbers,
+		highlightActiveLineGutter,
+		highlightSpecialChars,
+		drawSelection,
+		dropCursor,
+		keymap
+	} from '@codemirror/view';
+	import { EditorView } from '@codemirror/view';
 	import type { Tooltip, TooltipView } from '@codemirror/view';
 	import { showTooltip } from '@codemirror/view';
-	import { StateField } from '@codemirror/state';
 	import { githubLight, githubDark } from '@uiw/codemirror-theme-github';
-
 	import { MessageSquareText, CircleHelp } from 'lucide-svelte/icons';
-	import { darkMode } from '$lib/stores';
-	import Input from '$lib/components/messages/Input.svelte';
-	import type { InvokeInput } from '$lib/services';
 	import { tick } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
-	import type { EditorItem } from '$lib/services/editor/index.svelte';
 
 	const cursorTooltipField = StateField.define<readonly Tooltip[]>({
 		create: createTooltips,

@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { getLayout } from '$lib/context/chatLayout.svelte';
-	import type { Assistant, Project } from '$lib/services';
-	import { fade } from 'svelte/transition';
 	import ProjectInvitations from '$lib/components/edit/ProjectInvitations.svelte';
 	import TemplateConfig from '$lib/components/templates/TemplateConfig.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
+	import type { Assistant, Project } from '$lib/services';
 	import ModelProviders from '../ModelProviders.svelte';
-	import ChatSidebarMcpServer from './ChatSidebarMcpServer.svelte';
 	import ProjectConfiguration from '../edit/ProjectConfiguration.svelte';
+	import ChatSidebarMcpServer from './ChatSidebarMcpServer.svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		project: Project;

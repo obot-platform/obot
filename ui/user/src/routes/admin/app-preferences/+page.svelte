@@ -1,18 +1,18 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
+	import { invalidateAll } from '$app/navigation';
 	import Layout from '$lib/components/Layout.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
+	import UploadImage from '$lib/components/UploadImage.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { LoaderCircle, Pencil } from 'lucide-svelte';
-	import { fade } from 'svelte/transition';
-	import { darkMode, profile } from '$lib/stores/index.js';
 	import { AdminService, type AppPreferences } from '$lib/services';
 	import appPreferences, { compileAppPreferences } from '$lib/stores/appPreferences.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
-	import { twMerge } from 'tailwind-merge';
+	import { darkMode, profile } from '$lib/stores/index.js';
+	import { LoaderCircle, Pencil } from 'lucide-svelte';
 	import { onDestroy, untrack } from 'svelte';
-	import { browser } from '$app/environment';
-	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import { invalidateAll } from '$app/navigation';
-	import UploadImage from '$lib/components/UploadImage.svelte';
+	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let { data } = $props();

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { twMerge } from 'tailwind-merge';
 	import { groupRoleOptions } from '$lib/services/admin/constants.js';
 	import { Group, Role } from '$lib/services/admin/types';
 	import { profile } from '$lib/stores/index.js';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		roleId: number;

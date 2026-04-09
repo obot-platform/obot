@@ -1,16 +1,16 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Files from '$lib/components/tasks/Files.svelte';
+	import Step from '$lib/components/tasks/Step.svelte';
+	import { type Messages, type Project, type Task, type TaskStep } from '$lib/services';
+	import { DraggableList } from '../primitives/draggable';
+	import { Eye, EyeClosed, UsersRound, ArrowBigDown } from 'lucide-svelte';
 	import { tick, untrack } from 'svelte';
-	import { fade } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { linear } from 'svelte/easing';
+	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import { type Messages, type Project, type Task, type TaskStep } from '$lib/services';
-	import Step from '$lib/components/tasks/Step.svelte';
-	import Files from '$lib/components/tasks/Files.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { Eye, EyeClosed, UsersRound, ArrowBigDown } from 'lucide-svelte';
-	import { DraggableList } from '../primitives/draggable';
-	import { page } from '$app/state';
 
 	interface Props {
 		task: Task;

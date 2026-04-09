@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Thread from '$lib/components/nanobot/Thread.svelte';
-	import { MessageCircle, Sparkles } from 'lucide-svelte';
 	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
+	import { MessageCircle, Sparkles } from 'lucide-svelte';
 
 	interface Props {
 		agentId: string;

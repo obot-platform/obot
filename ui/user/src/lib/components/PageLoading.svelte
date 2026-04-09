@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { AlertCircle, LoaderCircle, X } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
-	import { fade } from 'svelte/transition';
 	import { onDestroy } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { fade } from 'svelte/transition';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { LoaderCircle } from 'lucide-svelte';
-	import { Role } from '$lib/services/admin/types';
-	import { userRoleOptions } from '$lib/services/admin/constants';
 	import { AdminService } from '$lib/services';
+	import { userRoleOptions } from '$lib/services/admin/constants';
+	import { Role } from '$lib/services/admin/types';
 	import { profile } from '$lib/stores/index.js';
+	import { LoaderCircle } from 'lucide-svelte';
 	import { untrack } from 'svelte';
+	import { fade } from 'svelte/transition';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
