@@ -4,8 +4,7 @@
 	import {
 		formatScheduleDate,
 		formatScheduleDateTime,
-		scheduleSummary,
-		estimateNextRun
+		scheduleSummary
 	} from '$lib/components/nanobot/taskSchedule';
 	import type {
 		Chat,
@@ -17,6 +16,7 @@
 	import { errors } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
+	import ConfirmScheduleToggle from '../ConfirmScheduleToggle.svelte';
 	import { CalendarClock, PencilLine, Play, Timer, TimerOff, Trash2 } from 'lucide-svelte';
 	import { getContext, tick } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -33,7 +33,16 @@
 	let deleting = $state(false);
 	let runningNow = $state(false);
 	let confirmDelete = $state(false);
-	let confirmToggleEnabled = $state(false);
+	let confirmToggleEnabled = $state<
+		| {
+				uri: string;
+				name: string;
+				enabled?: boolean;
+				schedule?: string;
+				expiration?: string;
+		  }
+		| undefined
+	>(undefined);
 	let updatingEnabled = $state(false);
 	let toggleHover = $state(false);
 	let toggleMeasureRestEl = $state<HTMLDivElement | undefined>(undefined);
@@ -106,11 +115,6 @@
 			...parsed,
 			uri: parsed.uri || content.uri || taskURI
 		};
-	}
-
-	function getEstimatedNextRun(schedule: string, expiration?: string) {
-		const nextRun = estimateNextRun(schedule, expiration);
-		return formatScheduleDateTime(nextRun.toISOString());
 	}
 
 	async function refreshResources() {
@@ -202,7 +206,7 @@
 			errors.append(error);
 		} finally {
 			updatingEnabled = false;
-			confirmToggleEnabled = false;
+			confirmToggleEnabled = undefined;
 		}
 	}
 
@@ -275,7 +279,14 @@
 					aria-label={task.enabled ? 'Disable this schedule' : 'Enable this schedule'}
 					onmouseenter={() => (toggleHover = true)}
 					onmouseleave={() => (toggleHover = false)}
-					onclick={() => (confirmToggleEnabled = true)}
+					onclick={() =>
+						(confirmToggleEnabled = {
+							uri: taskURI,
+							name: task?.name ?? taskId,
+							enabled: task?.enabled,
+							schedule: task?.schedule,
+							expiration: task?.expiration
+						})}
 				>
 					<div
 						class="flex shrink-0 items-center gap-2 overflow-hidden text-xs whitespace-nowrap transition-[width] duration-200 ease-out motion-reduce:transition-none"
@@ -418,29 +429,9 @@
 	oncancel={() => (confirmDelete = false)}
 />
 
-<Confirm
-	show={confirmToggleEnabled}
-	title={task?.enabled ? 'Confirm Disable' : 'Confirm Enable'}
-	msg={task?.enabled ? `Disable ${task?.name ?? taskId}?` : `Enable ${task?.name ?? taskId}?`}
+<ConfirmScheduleToggle
+	task={confirmToggleEnabled}
 	loading={updatingEnabled}
-	onsuccess={handleToggleEnabled}
-	oncancel={() => (confirmToggleEnabled = false)}
-	type="info"
->
-	{#snippet note()}
-		{#if task}
-			{@const nextRun = task?.nextRunAt
-				? formatScheduleDateTime(task.nextRunAt)
-				: getEstimatedNextRun(task.schedule, task.expiration)}
-
-			{#if task.enabled && nextRun}
-				<p>All upcoming runs will not be performed until this task is re-enabled.</p>
-				<p class="mt-2">Are you sure you want to disable this schedule?</p>
-			{:else}
-				<p>The next run will be executed at:</p>
-				<p class="mt-2 font-semibold">{nextRun}</p>
-				<p class="mt-2">Are you sure you want to enable this schedule?</p>
-			{/if}
-		{/if}
-	{/snippet}
-</Confirm>
+	onSuccess={handleToggleEnabled}
+	onCancel={() => (confirmToggleEnabled = undefined)}
+/>

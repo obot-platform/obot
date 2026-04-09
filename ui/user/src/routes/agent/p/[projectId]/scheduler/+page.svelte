@@ -14,6 +14,7 @@
 	import { errors } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
+	import ConfirmScheduleToggle from './ConfirmScheduleToggle.svelte';
 	import { EllipsisVertical, Play, Plus, Search, Timer, TimerOff, Trash2 } from 'lucide-svelte';
 	import { getContext } from 'svelte';
 
@@ -32,6 +33,16 @@
 		  }
 		| undefined
 	>();
+	let confirmToggleEnabled = $state<
+		| {
+				uri: string;
+				name: string;
+				enabled?: boolean;
+				schedule?: string;
+				expiration?: string;
+		  }
+		| undefined
+	>(undefined);
 	let tasksContainer = $state<HTMLElement | undefined>(undefined);
 	let refreshingTaskData = $state<Promise<void> | undefined>(undefined);
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
@@ -227,6 +238,7 @@
 			errors.append(error);
 		} finally {
 			mutatingTaskURI = '';
+			confirmToggleEnabled = undefined;
 		}
 	}
 
@@ -334,7 +346,13 @@
 											event.preventDefault();
 											event.stopPropagation();
 											toggle(false);
-											await handleToggleTask(task);
+
+											const meta = taskMeta(task);
+											confirmToggleEnabled = {
+												...meta,
+												name: task.name,
+												uri: task.uri
+											};
 										}}
 									>
 										{#if taskMeta(task)?.enabled}
@@ -392,4 +410,14 @@
 	loading={deleting}
 	onsuccess={handleDeleteTask}
 	oncancel={() => (confirmDeleteTask = undefined)}
+/>
+
+<ConfirmScheduleToggle
+	task={confirmToggleEnabled}
+	loading={!!mutatingTaskURI}
+	onSuccess={() => {
+		if (!confirmToggleEnabled) return;
+		handleToggleTask(confirmToggleEnabled);
+	}}
+	onCancel={() => (confirmToggleEnabled = undefined)}
 />
