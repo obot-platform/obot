@@ -1,19 +1,20 @@
 <script lang="ts">
-	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import Search from '$lib/components/Search.svelte';
+	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
+	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
+	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
+	import type { InitSort } from '$lib/components/table/Table.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, Group, type LaunchServerType } from '$lib/services';
 	import type { MCPCatalog, OrgUser } from '$lib/services/admin/types';
-	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
-	import { onDestroy, onMount } from 'svelte';
-	import { fade, fly, slide } from 'svelte/transition';
-	import { goto } from '$lib/url';
-	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
+	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
-	import { page } from '$app/state';
-	import { resolve } from '$app/paths';
-	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
-	import Search from '$lib/components/Search.svelte';
+	import { goto } from '$lib/url';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
@@ -23,12 +24,11 @@
 		setUrlParam,
 		replaceState
 	} from '$lib/url';
-	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
 	import SourceUrlsView from './SourceUrlsView.svelte';
+	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
+	import { onDestroy, onMount } from 'svelte';
+	import { fade, fly, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
-	import type { InitSort } from '$lib/components/table/Table.svelte';
 
 	type View = 'registry' | 'deployments' | 'urls';
 

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
-	import { Maximize2, Minimize2 } from 'lucide-svelte';
 	import RFB from '@novnc/novnc/lib/rfb.js';
+	import { Maximize2, Minimize2 } from 'lucide-svelte';
+	import { onDestroy } from 'svelte';
 
 	interface Props {
 		browserBaseUrl?: string;

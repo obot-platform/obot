@@ -1,9 +1,15 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { stickToBottom, type StickToBottomControls } from '$lib/actions/div.svelte';
+	import { autoHeight } from '$lib/actions/textarea';
+	import Files from '$lib/components/edit/Files.svelte';
+	import ThreadModelSelector from '$lib/components/edit/ThreadModelSelector.svelte';
 	import Input from '$lib/components/messages/Input.svelte';
 	import Message from '$lib/components/messages/Message.svelte';
 	import ToolConfirmBar from '$lib/components/messages/ToolConfirmBar.svelte';
-	import { Thread } from '$lib/services/chat/thread.svelte';
+	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
+	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import {
 		ChatService,
 		EditorService,
@@ -11,29 +17,23 @@
 		type Project,
 		type ProjectMCP
 	} from '$lib/services';
-	import { fade } from 'svelte/transition';
-	import { onDestroy, onMount, tick } from 'svelte';
-	import { toHTMLFromMarkdown } from '$lib/markdown';
-	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
-	import Files from '$lib/components/edit/Files.svelte';
-	import type { UIEventHandler } from 'svelte/elements';
-	import { responsive } from '$lib/stores';
-	import { Bug, LoaderCircle, X } from 'lucide-svelte';
-	import { autoHeight } from '$lib/actions/textarea';
-	import { twMerge } from 'tailwind-merge';
 	import { getProjectDefaultModel, getThread } from '$lib/services/chat/operations';
+	import { Thread } from '$lib/services/chat/thread.svelte';
 	import type {
 		CreateProjectForm,
 		Assistant,
 		MCPServerPrompt,
 		Thread as ThreadType
 	} from '$lib/services/chat/types';
-	import ThreadModelSelector from '$lib/components/edit/ThreadModelSelector.svelte';
-	import McpPrompts from './mcp/McpPrompts.svelte';
-	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
-	import { browser } from '$app/environment';
+	import { responsive } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import ResponsiveDialog from './ResponsiveDialog.svelte';
+	import McpPrompts from './mcp/McpPrompts.svelte';
+	import { Bug, LoaderCircle, X } from 'lucide-svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
+	import type { UIEventHandler } from 'svelte/elements';
+	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		id?: string;

@@ -1,14 +1,14 @@
 <script lang="ts">
+	import { getAdminModels } from '$lib/context/admin/models.svelte';
 	import { AdminService, type ModelProvider } from '$lib/services';
+	import { ModelUsage, ModelUsageLabels, type Model } from '$lib/services';
 	import { darkMode, profile } from '$lib/stores';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import Select from '../Select.svelte';
+	import Toggle from '../Toggle.svelte';
+	import Table from '../table/Table.svelte';
 	import { PictureInPicture2 } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
-	import Table from '../table/Table.svelte';
-	import { ModelUsage, ModelUsageLabels, type Model } from '$lib/services';
-	import Toggle from '../Toggle.svelte';
-	import Select from '../Select.svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { getAdminModels } from '$lib/context/admin/models.svelte';
 
 	interface Props {
 		provider: ModelProvider;

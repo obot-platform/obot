@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
 	import {
 		type MCPCatalogEntry,
 		type RuntimeFormData,
@@ -7,20 +8,19 @@
 		Group
 	} from '$lib/services/admin/types';
 	import type { LaunchServerType, Runtime } from '$lib/services/chat/types';
-	import { Info, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
-	import RuntimeSelector from '../mcp/RuntimeSelector.svelte';
-	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
-	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
+	import { profile } from '$lib/stores';
+	import MarkdownInput from '../MarkdownInput.svelte';
+	import Select from '../Select.svelte';
 	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
+	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
-	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
-	import { onMount, untrack, type Snippet } from 'svelte';
-	import MarkdownInput from '../MarkdownInput.svelte';
+	import RuntimeSelector from '../mcp/RuntimeSelector.svelte';
+	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
+	import { Info, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
+	import { onMount, untrack, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
-	import Select from '../Select.svelte';
-	import { profile } from '$lib/stores';
 
 	interface Props {
 		id?: string;

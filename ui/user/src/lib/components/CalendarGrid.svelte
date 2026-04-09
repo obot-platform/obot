@@ -37,8 +37,8 @@
 </script>
 
 <script lang="ts">
-	import type { Snippet } from 'svelte';
 	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {

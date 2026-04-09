@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService } from '$lib/services';
 	import {
@@ -10,16 +11,15 @@
 		type PolicyDirection,
 		PolicyDirectionLabels
 	} from '$lib/services/admin/types';
+	import { goto } from '$lib/url';
+	import { getUserDisplayName } from '$lib/utils';
+	import Confirm from '../Confirm.svelte';
+	import Select from '../Select.svelte';
+	import Table from '../table/Table.svelte';
+	import SearchUsers from './SearchUsers.svelte';
 	import { CircleHelp, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Table from '../table/Table.svelte';
-	import SearchUsers from './SearchUsers.svelte';
-	import Confirm from '../Confirm.svelte';
-	import Select from '../Select.svelte';
-	import { goto } from '$lib/url';
-	import { getUserDisplayName } from '$lib/utils';
 
 	interface Props {
 		messagePolicy?: MessagePolicy;

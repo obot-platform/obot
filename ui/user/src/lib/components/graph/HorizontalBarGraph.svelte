@@ -1,11 +1,11 @@
 <script lang="ts" generics="T extends object">
+	import HorizontalBarRow from './HorizontalBarRow.svelte';
+	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
 	import { scaleBand, scaleLinear, select } from 'd3';
 	import { axisBottom, axisLeft } from 'd3';
-	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
-	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import HorizontalBarRow from './HorizontalBarRow.svelte';
 
 	/** Tooltip payload for a single bar (passed to tooltipContent snippet). */
 	type TooltipItem = {

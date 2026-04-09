@@ -1,24 +1,24 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ApiKeysService } from '$lib/services';
-	import type { APIKey } from '$lib/services/api-keys/types';
 	import type { OrgUser } from '$lib/services/admin/types';
-	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
+	import type { APIKey } from '$lib/services/api-keys/types';
 	import { profile } from '$lib/stores';
+	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
+	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
-	import { KeyRound, Plus, Trash2 } from 'lucide-svelte';
-	import { untrack } from 'svelte';
+	import { openUrl } from '$lib/utils';
 	import ApiKeyRevealDialog from '../../keys/ApiKeyRevealDialog.svelte';
 	import CreateApiKeyForm from '../../keys/CreateApiKeyForm.svelte';
+	import { KeyRound, Plus, Trash2 } from 'lucide-svelte';
+	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { page } from '$app/state';
-	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
-	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
-	import { openUrl } from '$lib/utils';
 
 	let { data } = $props();
 	let allApiKeys = $state<APIKey[]>(untrack(() => data.allApiKeys));

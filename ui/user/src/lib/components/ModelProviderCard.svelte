@@ -25,8 +25,6 @@
 
 <script lang="ts">
 	import type { ModelProvider, Project } from '$lib/services';
-	import { CheckCircleIcon, Loader2, Search } from 'lucide-svelte';
-	import { darkMode } from '$lib/stores';
 	import {
 		updateProject,
 		listAvailableProjectModels,
@@ -34,11 +32,13 @@
 		deconfigureModelProvider,
 		getModelProviderConfig
 	} from '$lib/services/chat/operations';
-	import { twMerge } from 'tailwind-merge';
-	import { fade, slide } from 'svelte/transition';
+	import { darkMode } from '$lib/stores';
 	import { delay, throttle } from '$lib/utils';
-	import { untrack } from 'svelte';
 	import Confirm from './Confirm.svelte';
+	import { CheckCircleIcon, Loader2, Search } from 'lucide-svelte';
+	import { untrack } from 'svelte';
+	import { fade, slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	type Props = {
 		provider: ModelProvider;

@@ -16,15 +16,15 @@
 		UploadedFile,
 		UploadingFile
 	} from '$lib/services/nanobot/types';
+	import { responsive } from '$lib/stores';
+	import { clampThreadContentReportedWidth } from '$lib/utils';
+	import AgentHeader from './AgentHeader.svelte';
 	import MessageInput from './MessageInput.svelte';
 	import Messages from './Messages.svelte';
-	import AgentHeader from './AgentHeader.svelte';
 	import { ChevronDown, Upload } from 'lucide-svelte';
 	import { untrack, type Snippet } from 'svelte';
 	import { slide, fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import { clampThreadContentReportedWidth } from '$lib/utils';
-	import { responsive } from '$lib/stores';
 
 	interface Props {
 		messages: ChatMessage[];

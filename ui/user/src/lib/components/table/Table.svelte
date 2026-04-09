@@ -1,4 +1,9 @@
 <script lang="ts" generics="T extends { id: string | number }">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import DotDotDot from '../DotDotDot.svelte';
+	import TableColumnFilter from './TableColumnFilter.svelte';
+	import TableHeader from './TableHeader.svelte';
 	import {
 		ChevronDown,
 		ChevronsLeft,
@@ -10,11 +15,6 @@
 	import { onMount, type Snippet } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';
-	import TableHeader from './TableHeader.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import DotDotDot from '../DotDotDot.svelte';
-	import TableColumnFilter from './TableColumnFilter.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 
 	export type InitSort = { property: string; order: 'asc' | 'desc' };
 	export type InitSortFn = (property: string, order: 'asc' | 'desc') => void;

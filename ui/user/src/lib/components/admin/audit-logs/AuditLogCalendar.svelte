@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import popover from '$lib/actions/popover.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Calendar from '$lib/components/Calendar.svelte';
+	import { responsive } from '$lib/stores';
 	import { formatTimeRange, getTimeRangeShorthand } from '$lib/time';
 	import { set, startOfDay, subDays, subHours } from 'date-fns';
 	import { twMerge } from 'tailwind-merge';
-	import { responsive } from '$lib/stores';
 
 	let { start, end, disabled = false, onChange } = $props();
 

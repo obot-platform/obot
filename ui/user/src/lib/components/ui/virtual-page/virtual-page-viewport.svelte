@@ -13,11 +13,11 @@
 </script>
 
 <script lang="ts" generics="T">
-	import { tick, untrack, type Snippet } from 'svelte';
-	import { setVirtualPageContext, type VirtualPageContext } from './context';
-	import { twMerge } from 'tailwind-merge';
-	import { throttle } from 'es-toolkit';
 	import { Render } from '../render';
+	import { setVirtualPageContext, type VirtualPageContext } from './context';
+	import { throttle } from 'es-toolkit';
+	import { tick, untrack, type Snippet } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	let {
 		class: klass = '',

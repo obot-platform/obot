@@ -1,18 +1,15 @@
 <script lang="ts">
+	import { dialogAnimation } from '$lib/actions/dialogAnimation';
+	import CatalogConfigureForm, {
+		type CompositeLaunchFormData,
+		type LaunchFormData
+	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import {
 		getProjectMCPs,
 		validateOauthProjectMcps,
 		type ProjectMcpItem
 	} from '$lib/context/projectMcps.svelte';
-	import { SvelteSet } from 'svelte/reactivity';
-	import { Server, X, AlertTriangle } from 'lucide-svelte';
-	import { dialogAnimation } from '$lib/actions/dialogAnimation';
-	import { onMount, tick } from 'svelte';
-	import { getLayout } from '$lib/context/chatLayout.svelte';
-	import CatalogConfigureForm, {
-		type CompositeLaunchFormData,
-		type LaunchFormData
-	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
 	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import {
 		convertCompositeInfoToLaunchFormData,
@@ -21,6 +18,9 @@
 		requiresUserConfiguration,
 		requiresAdminOAuthConfig
 	} from '$lib/services/chat/mcp';
+	import { Server, X, AlertTriangle } from 'lucide-svelte';
+	import { onMount, tick } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		assistantId: string;

@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { darkMode, errors } from '$lib/stores';
 	import { initLayout } from '$lib/context/nanobotLayout.svelte';
-	import 'devicon/devicon.min.css';
-	import { onMount, untrack } from 'svelte';
 	import { NanobotService } from '$lib/services';
 	import { ChatAPI } from '$lib/services/nanobot/chat/index.svelte';
-	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
-	import { get } from 'svelte/store';
 	import type { Chat, Resource } from '$lib/services/nanobot/types';
+	import { darkMode, errors } from '$lib/stores';
+	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
+	import 'devicon/devicon.min.css';
+	import { onMount, untrack } from 'svelte';
+	import { get } from 'svelte/store';
 
 	let { children, data } = $props();
 	let projects = $derived(data.projects);

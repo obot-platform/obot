@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { AdminService } from '$lib/services';
-	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
-	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
-	import { AlertTriangle, LoaderCircle, Trash } from 'lucide-svelte';
-	import type { StorageCredentials } from '$lib/services/admin/types';
-	import Success from '$lib/components/Success.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
+	import Success from '$lib/components/Success.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
+	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
+	import { AdminService } from '$lib/services';
+	import type { StorageCredentials } from '$lib/services/admin/types';
+	import { AlertTriangle, LoaderCircle, Trash } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 

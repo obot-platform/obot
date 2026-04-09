@@ -1,7 +1,8 @@
 <script lang="ts">
+	import FileItem from '$lib/components/nanobot/FileItem.svelte';
 	import type { ChatMessageItemToolCall } from '$lib/services/nanobot/types';
 	import { parseToolFilePath } from '$lib/services/nanobot/utils';
-	import FileItem from '$lib/components/nanobot/FileItem.svelte';
+
 	interface Props {
 		item: ChatMessageItemToolCall;
 		onFileOpen?: (filename: string) => void;

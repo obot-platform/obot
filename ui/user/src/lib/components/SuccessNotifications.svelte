@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Success from './Success.svelte';
-	import { success } from '$lib/stores/success';
 	import { navigating } from '$app/state';
+	import { success } from '$lib/stores/success';
+	import Success from './Success.svelte';
 
 	let div: HTMLElement;
 

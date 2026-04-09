@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { tweened } from 'svelte/motion';
 	import { cubicOut } from 'svelte/easing';
+	import { tweened } from 'svelte/motion';
 
 	interface Props {
 		targetWidth: number;

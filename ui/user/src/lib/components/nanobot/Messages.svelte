@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Message from './Message.svelte';
+	import AgentHeader from '$lib/components/nanobot/AgentHeader.svelte';
 	import type {
 		ChatMessage,
 		ChatMessageItem,
@@ -8,7 +8,7 @@
 		Attachment,
 		ResourceContents
 	} from '$lib/services/nanobot/types';
-	import AgentHeader from '$lib/components/nanobot/AgentHeader.svelte';
+	import Message from './Message.svelte';
 
 	interface Props {
 		messages: ChatMessage[];

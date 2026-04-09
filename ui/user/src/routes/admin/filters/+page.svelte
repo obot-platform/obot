@@ -1,19 +1,15 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Layout from '$lib/components/Layout.svelte';
-	import Table from '$lib/components/table/Table.svelte';
-	import { BookOpenText, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
-	import { fly } from 'svelte/transition';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import Layout from '$lib/components/Layout.svelte';
+	import Search from '$lib/components/Search.svelte';
+	import FilterForm from '$lib/components/admin/FilterForm.svelte';
+	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { AdminService, type MCPFilter } from '$lib/services/index.js';
-	import FilterForm from '$lib/components/admin/FilterForm.svelte';
-	import { openUrl } from '$lib/utils';
 	import { profile } from '$lib/stores';
-	import Search from '$lib/components/Search.svelte';
 	import { replaceState } from '$lib/url';
-	import { debounce } from 'es-toolkit';
-	import { page } from '$app/state';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
@@ -22,7 +18,11 @@
 		setFilterUrlParams,
 		goto
 	} from '$lib/url';
+	import { openUrl } from '$lib/utils';
+	import { debounce } from 'es-toolkit';
+	import { BookOpenText, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
+	import { fly } from 'svelte/transition';
 
 	let showCreateFilter = $derived(page.url.searchParams.has('new'));
 	let loading = $state(false);

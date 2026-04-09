@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { popover } from '$lib/actions';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { Columns3Cog } from 'lucide-svelte';
 	import Select from '../Select.svelte';
+	import { Columns3Cog } from 'lucide-svelte';
 
 	interface Props {
 		disablePortal?: boolean;

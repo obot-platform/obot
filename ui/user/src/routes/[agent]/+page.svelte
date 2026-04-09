@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { profile } from '$lib/stores';
-	import { type PageProps } from './$types';
 	import { initLayout } from '$lib/context/chatLayout.svelte';
+	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
+	import { type PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 	let title = $derived(data.project?.name || 'Obot');

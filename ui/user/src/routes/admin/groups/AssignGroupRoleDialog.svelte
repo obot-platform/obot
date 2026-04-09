@@ -1,12 +1,10 @@
 <script lang="ts">
-	import { LoaderCircle, Group as GroupIcon } from 'lucide-svelte';
-
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import { Role } from '$lib/services/admin/types';
 	import { getUserRoleLabel } from '$lib/utils';
-
 	import GroupRoleForm from './GroupRoleForm.svelte';
 	import type { GroupAssignment } from './types';
-	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { LoaderCircle, Group as GroupIcon } from 'lucide-svelte';
 
 	interface Props {
 		groupAssignment?: GroupAssignment;
