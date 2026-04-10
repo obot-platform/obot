@@ -767,10 +767,7 @@
 				{@const isClearable =
 					!propsFiltersKeys.has(filterKey) && !enforcedFiltersKeys.has(filterKey)}
 
-				<div
-					class="border-primary/50 bg-primary/10 text-primary flex items-center gap-1 rounded-lg border px-4 py-2"
-					animate:flip={{ duration: 100 }}
-				>
+				<div class="filter-primary" animate:flip={{ duration: 100 }}>
 					<div class="text-xs font-semibold">
 						<span>{displayLabel}</span>
 						<span>:</span>
@@ -791,7 +788,6 @@
 
 					{#if isClearable}
 						<button
-							class="hover:bg-primary/25 rounded-full p-1 transition-colors duration-200"
 							onclick={() => {
 								const url = page.url;
 								url.searchParams.set(filterKey, '');

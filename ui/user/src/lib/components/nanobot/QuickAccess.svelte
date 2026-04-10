@@ -28,7 +28,7 @@
 		browserViewerOpen?: boolean;
 		browserAvailable?: boolean;
 		sessionId?: string;
-		workflowName?: string;
+		workflowId?: string;
 		selectedFile?: string;
 		agentId?: string;
 		projectId?: string;
@@ -42,7 +42,7 @@
 		browserViewerOpen = false,
 		browserAvailable = false,
 		sessionId,
-		workflowName,
+		workflowId,
 		selectedFile,
 		agentId,
 		projectId,
@@ -101,7 +101,7 @@
 
 	const files = $derived.by(() => {
 		const threadResources = chatForSession?.resources ?? [];
-		const workflowResources = workflowName ? ($nanobotChat?.resources ?? []) : [];
+		const workflowResources = workflowId ? ($nanobotChat?.resources ?? []) : [];
 		const deduped: Array<
 			((typeof threadResources)[number] | (typeof workflowResources)[number]) & {
 				openPath: string;
@@ -113,7 +113,7 @@
 			if (!resource.uri.startsWith('file:///')) {
 				continue;
 			}
-			if (!shouldShowFile(resource.uri, sessionId, workflowName)) {
+			if (!shouldShowFile(resource.uri, sessionId, workflowId)) {
 				continue;
 			}
 
@@ -141,7 +141,7 @@
 		});
 	});
 
-	const hasSidebarContent = $derived(!!sessionId || !!workflowName || files.length > 0);
+	const hasSidebarContent = $derived(!!sessionId || !!workflowId || files.length > 0);
 
 	const TODO_WRITE_NAMES = ['todo_write', 'todoWrite'];
 

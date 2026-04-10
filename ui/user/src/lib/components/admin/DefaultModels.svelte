@@ -227,7 +227,7 @@
 						};
 					}}
 					disabled={readonly}
-					searchable
+					searchInDropdown
 					placeholder="Search models..."
 				/>
 			</div>

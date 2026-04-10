@@ -25,13 +25,17 @@
 	let projectId = $derived(data.projects[0].id);
 	let agentId = $derived(data.agent.id);
 	let parentWorkflowId = $derived(
-		(page.data as { workflowName?: string } | undefined)?.workflowName ??
+		(page.data as { workflowId?: string } | undefined)?.workflowId ??
 			page.url.searchParams.get('pwid') ??
 			undefined
 	);
-	let taskId = $derived((page.data as { taskId?: string } | undefined)?.taskId ?? undefined);
+	let schedulerId = $derived(
+		(page.data as { scheduleId?: string } | undefined)?.scheduleId ??
+			page.url.searchParams.get('sid') ??
+			undefined
+	);
 	let workflowId = $derived(page.url.searchParams.get('wid') ?? undefined);
-	let activeWorkflowName = $derived(parentWorkflowId ?? workflowId);
+	let activeWorkflowId = $derived(parentWorkflowId ?? workflowId);
 
 	let chat = $state<ChatSession | null>(null);
 	let sessionId = $derived(page.url.searchParams.get('tid') ?? undefined);
@@ -119,23 +123,7 @@
 	});
 
 	$effect(() => {
-		if (taskId) {
-			projectLayoutContext.setLayoutName('');
-			projectLayoutContext.setShowBackButton(true);
-		} else if (parentWorkflowId || workflowId) {
-			const workflow = $nanobotChat?.resources?.find((r) =>
-				parentWorkflowId
-					? r.uri === `workflow:///${parentWorkflowId}`
-					: r.uri === `workflow:///${workflowId}`
-			);
-			const name =
-				(workflow?._meta?.displayName as string) ??
-				(workflow?._meta?.name as string) ??
-				workflow?.name ??
-				'';
-			projectLayoutContext.setLayoutName(name);
-			projectLayoutContext.setShowBackButton(true);
-		} else {
+		if (!schedulerId && !parentWorkflowId && !workflowId) {
 			projectLayoutContext.setLayoutName('');
 			projectLayoutContext.setShowBackButton(false);
 		}
@@ -347,7 +335,7 @@
 				>
 					<X class="text-base-content size-5" />
 				</button>
-			{:else if !activeWorkflowName}
+			{:else if !activeWorkflowId}
 				<a href={resolve('/agent')} class="btn btn-square">
 					<MessageCirclePlus class="text-base-content size-5" />
 				</a>
@@ -390,7 +378,7 @@
 			{browserAvailable}
 			{browserViewerOpen}
 			{sessionId}
-			workflowName={activeWorkflowName}
+			workflowId={activeWorkflowId}
 			{selectedFile}
 			{agentId}
 			{projectId}
@@ -399,7 +387,7 @@
 	{/snippet}
 
 	{#snippet rightMenu()}
-		{#if (sessionId || activeWorkflowName) && responsive.isMobile && !layout.quickBarAccessOpen}
+		{#if (sessionId || activeWorkflowId) && responsive.isMobile && !layout.quickBarAccessOpen}
 			<button
 				class="btn btn-square btn-ghost"
 				onclick={() => (layout.quickBarAccessOpen = !layout.quickBarAccessOpen)}

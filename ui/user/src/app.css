@@ -1460,11 +1460,15 @@
 
 	.pill-primary {
 		border-radius: var(--radius-sm);
-		background-color: color-mix(in oklab, var(--color-primary) /* #4f7ef3 */ 50%, transparent);
+		background-color: color-mix(in oklab, var(--color-primary) /* #4f7ef3 */ 75%, transparent);
 		color: var(--color-white);
 		padding: 0.125rem 0.25rem;
 		font-size: 11px;
 		line-height: 1rem;
+
+		.dark & {
+			background-color: color-mix(in oklab, var(--color-primary) /* #4f7ef3 */ 50%, transparent);
+		}
 	}
 
 	.pill-warning {
@@ -1486,6 +1490,30 @@
 
 		.dark & {
 			background-color: var(--color-gray-600);
+		}
+	}
+
+	.filter-primary {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+		border-radius: 0.5rem;
+		border: 1px solid color-mix(in oklab, var(--color-primary) 50%, transparent);
+		background-color: color-mix(in oklab, var(--color-primary) 10%, transparent);
+		color: var(--color-primary);
+		padding: 0.5rem 1rem;
+		font-size: var(--text-xs);
+
+		& > button {
+			border-radius: 9999px;
+			padding: 0.25rem;
+			transition-property:
+				color, background-color, border-color, text-decoration-color, fill, stroke;
+			transition-duration: 200ms;
+
+			&:hover {
+				background-color: color-mix(in oklab, var(--color-primary) 25%, transparent);
+			}
 		}
 	}
 }
