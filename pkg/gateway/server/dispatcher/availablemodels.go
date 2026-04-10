@@ -21,7 +21,7 @@ func (d *Dispatcher) ModelsForProviderWithEnv(ctx context.Context, gptClient *gp
 		return nil, fmt.Errorf("failed to get URL for model provider %q: %w", modelProviderName, err)
 	}
 
-	r, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String()+"/v1/models", nil)
+	r, err := http.NewRequestWithContext(ctx, http.MethodGet, u.JoinPath("v1", "models").String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request to model provider %q: %w", modelProviderName, err)
 	}
