@@ -407,6 +407,8 @@ github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b h1:IXgx6Y+g0
 github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b/go.mod h1:gMAaxAbeIvHtQoj/SKuqvoSGeywqc61/Yw9pusrT/R4=
 github.com/gptscript-ai/go-gptscript v0.9.9-0.20260205140523-98f64d42d2ee h1:8+510/jOqfLZ7l3c25TMtkKn33PQBEzuNiIt4XbJ7DY=
 github.com/gptscript-ai/go-gptscript v0.9.9-0.20260205140523-98f64d42d2ee/go.mod h1:8JGZNO+x4tkTrkT1q5PMrVCKY2AcnS/Ru8WCNvzLYIg=
+github.com/gptscript-ai/gptscript v0.9.10-0.20260410155950-313cef63e154 h1:Z8lyBjpCK/2I1RnkNMfkNVvyF5mKt8aNZK6jWtFx68M=
+github.com/gptscript-ai/gptscript v0.9.10-0.20260410155950-313cef63e154/go.mod h1:xiAjomImv0MlyF1bJPNEAFTDIE+0B/9A+N1DmCfs9O8=
 github.com/gptscript-ai/tui v0.0.0-20250419050840-5e79e16786c9 h1:wQC8sKyeGA50WnCEG+Jo5FNRIkuX3HX8d3ubyWCCoI8=
 github.com/gptscript-ai/tui v0.0.0-20250419050840-5e79e16786c9/go.mod h1:iwHxuueg2paOak7zIg0ESBWx7A0wIHGopAratbgaPNY=
 github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 h1:+9834+KizmvFV7pXQGSXQTsaWhq2GjuNUt0aUU0YBYw=
@@ -544,14 +546,12 @@ github.com/muesli/termenv v0.16.0 h1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc
 github.com/muesli/termenv v0.16.0/go.mod h1:ZRfOIKPFDYQoDFF4Olj7/QJbW60Ol/kL1pU3VfY/Cnk=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
-github.com/nanobot-ai/nanobot v0.0.54 h1:+VROiTn0XhgwOsp8bpKioFdtSsp91yt00Ni22TPaqYY=
-github.com/nanobot-ai/nanobot v0.0.54/go.mod h1:Es0FimWKLR9KtK2qi1MU7GfAD/g6PLQjbkAv/3PnzBc=
+github.com/nanobot-ai/nanobot v0.0.64 h1:862iYFU4aRXm3+u2BCbrmvpFzXWk0Kud1/fpHni5AzM=
+github.com/nanobot-ai/nanobot v0.0.64/go.mod h1:QRUCktmw9QyBxt9YR2PKyfnh9R1/OcqOigfND5Dreuw=
 github.com/ncruces/go-strftime v0.1.9 h1:bY0MQC28UADQmHmaF5dgpLmImcShSi2kHU9XLdhx/f4=
 github.com/ncruces/go-strftime v0.1.9/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
 github.com/nightlyone/lockfile v1.0.0 h1:RHep2cFKK4PonZJDdEl4GmkabuhbsRMgk/k3uAmxBiA=
 github.com/nightlyone/lockfile v1.0.0/go.mod h1:rywoIealpdNse2r832aiD9jRk8ErCatROs6LzC841CI=
-github.com/njhale/gptscript v0.0.0-20260409201456-4ba452b26b4e h1:BpmNkorD+3pOlyg8Pb95mCsxgSj/dpUu67iYDtFUGv4=
-github.com/njhale/gptscript v0.0.0-20260409201456-4ba452b26b4e/go.mod h1:h64s37l1zvmlWAZMAL/qgn3vDRQAd5qf1fup8cJ1+Ms=
 github.com/nwaples/rardecode/v2 v2.2.1 h1:DgHK/O/fkTQEKBJxBMC5d9IU8IgauifbpG78+rZJMnI=
 github.com/nwaples/rardecode/v2 v2.2.1/go.mod h1:7uz379lSxPe6j9nvzxUZ+n7mnJNgjsRNb6IbvGVHRmw=
 github.com/nxadm/tail v1.4.11 h1:8feyoE3OzPrcshW5/MJ4sGESc5cqmGkGCWlco4l0bqY=
@@ -588,8 +588,8 @@ github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c h1:+mdjkGKdHQG3305AYmd
 github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c/go.mod h1:7rwL4CYBLnjLxUqIJNnCWiEdr3bn6IUYi15bNlnbCCU=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
-github.com/pkoukk/tiktoken-go v0.1.7 h1:qOBHXX4PHtvIvmOtyg1EeKlwFRiMKAcoMp4Q+bLQDmw=
-github.com/pkoukk/tiktoken-go v0.1.7/go.mod h1:9NiV+i9mJKGj1rYOT+njbv+ZwA/zJxYdewGl6qVatpg=
+github.com/pkoukk/tiktoken-go v0.1.8 h1:85ENo+3FpWgAACBaEUVp+lctuTcYUO7BtmfhlN/QTRo=
+github.com/pkoukk/tiktoken-go v0.1.8/go.mod h1:9NiV+i9mJKGj1rYOT+njbv+ZwA/zJxYdewGl6qVatpg=
 github.com/pkoukk/tiktoken-go-loader v0.0.2-0.20240522064338-c17e8bc0f699 h1:Sp8yiuxsitkmCfEvUnmNf8wzuZwlGNkRjI2yF0C3QUQ=
 github.com/pkoukk/tiktoken-go-loader v0.0.2-0.20240522064338-c17e8bc0f699/go.mod h1:4mIkYyZooFlnenDlormIo6cd5wrlUKNr97wp9nGgEKo=
 github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 h1:GFCKgmp0tecUJ0sJuv4pzYCqS9+RGSn52M3FUwPs+uo=
