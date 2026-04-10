@@ -22,7 +22,7 @@
 	const hours = $derived(getHours(date));
 	const minutes = $derived(getMinutes(date));
 	const isAm = $derived(hours < 12);
-	const amPmAsNumber = $derived(+!isAm);
+	const hour12 = $derived(hours % 12 === 0 ? 12 : hours % 12);
 </script>
 
 <div class={twMerge('time-input bg-surface1 flex h-14 items-center gap-2 rounded-md', klass)}>
@@ -31,13 +31,21 @@
 			class="w-[3ch] flex-1 bg-transparent px-4 text-end"
 			type="number"
 			max="12"
-			min="0"
+			min="1"
 			bind:value={
-				() => (hours % 12).toString().padStart(2, '0'),
+				() => hour12.toString().padStart(2, '0'),
 				(v) => {
-					const valueAsNumber = parseInt(v, 10) || 0;
+					let h12 = parseInt(v, 10);
+					if (Number.isNaN(h12)) h12 = 12;
+					h12 = Math.min(12, Math.max(1, h12));
 
-					date = setHours(date, Math.min(valueAsNumber + amPmAsNumber * 12, 23));
+					let h24: number;
+					if (isAm) {
+						h24 = h12 === 12 ? 0 : h12;
+					} else {
+						h24 = h12 === 12 ? 12 : h12 + 12;
+					}
+					date = setHours(date, h24);
 					onChange?.(date);
 				}
 			}
