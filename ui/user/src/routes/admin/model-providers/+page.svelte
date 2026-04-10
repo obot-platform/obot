@@ -45,7 +45,8 @@
 	const nanobotIntegratedModels = [
 		CommonModelProviderIds.OPENAI,
 		CommonModelProviderIds.ANTHROPIC,
-		CommonModelProviderIds.AMAZON_BEDROCK
+		CommonModelProviderIds.AMAZON_BEDROCK,
+		CommonModelProviderIds.OLLAMA
 	];
 	const defaultModelAliases = $derived(defaultModelAliasesStore.current);
 
