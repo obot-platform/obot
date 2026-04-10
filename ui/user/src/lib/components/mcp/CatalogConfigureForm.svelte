@@ -157,7 +157,7 @@
 				if (comp.hostname && !hasUrl(comp.url)) {
 					return true;
 				}
-				if ([...envs, ...headers].some((f) => f.required && !f.value)) {
+				if ([...envs, ...headers].some((f) => f.required && !f.secretBinding && !f.value)) {
 					return true;
 				}
 			}
@@ -170,7 +170,7 @@
 		}
 		const envs = form.envs ?? [];
 		const headers = form.headers ?? [];
-		return [...envs, ...headers].some((field) => field.required && !field.value);
+		return [...envs, ...headers].some((field) => field.required && !field.secretBinding && !field.value);
 	}
 
 	function highlightMissingRequiredFields(formAny: LaunchFormData | CompositeLaunchFormData) {
@@ -180,10 +180,10 @@
 			for (const [compId, comp] of Object.entries(formAny.componentConfigs || {})) {
 				if (comp.disabled) continue;
 				for (const f of comp.envs ?? []) {
-					if (f.required && !f.value) fieldsToHighlight.add(keyFor(compId, f.key));
+					if (f.required && !f.secretBinding && !f.value) fieldsToHighlight.add(keyFor(compId, f.key));
 				}
 				for (const f of comp.headers ?? []) {
-					if (f.required && !f.value) fieldsToHighlight.add(keyFor(compId, f.key));
+					if (f.required && !f.secretBinding && !f.value) fieldsToHighlight.add(keyFor(compId, f.key));
 				}
 				if (comp.hostname && !comp.url) fieldsToHighlight.add(keyFor(compId, 'url'));
 			}
@@ -192,7 +192,7 @@
 		}
 		const form = formAny as LaunchFormData;
 		[...(form.envs ?? []), ...(form.headers ?? [])].forEach((field) => {
-			if (field.required && !field.value) {
+			if (field.required && !field.secretBinding && !field.value) {
 				fieldsToHighlight.add(field.key);
 			}
 		});
@@ -414,7 +414,11 @@
 													</label>
 													<InfoTooltip text={env.description} />
 												</span>
-												{#if env.sensitive}
+												{#if env.secretBinding}
+													<span class="text-on-surface1 text-sm italic">
+														Bound to K8s Secret: {env.secretBinding.secretName}/{env.secretBinding.secretKey}
+													</span>
+												{:else if env.sensitive}
 													<SensitiveInput
 														error={highlightRequired}
 														name={env.name}
@@ -525,7 +529,11 @@
 									</label>
 									<InfoTooltip text={env.description} />
 								</span>
-								{#if env.sensitive}
+								{#if env.secretBinding}
+									<span class="text-on-surface1 text-sm italic">
+										Bound to K8s Secret: {env.secretBinding.secretName}/{env.secretBinding.secretKey}
+									</span>
+								{:else if env.sensitive}
 									<SensitiveInput
 										error={highlightRequired}
 										name={env.name}

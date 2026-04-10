@@ -26,14 +26,23 @@ type Config struct {
 	MCPServers map[string]ServerConfig `json:"mcpServers"`
 }
 
+// SecretEnvBinding represents an env var that should be injected via K8s SecretKeyRef
+// rather than being placed in the Obot-managed config secret.
+type SecretEnvBinding struct {
+	EnvKey     string `json:"envKey"`
+	SecretName string `json:"secretName"`
+	SecretKey  string `json:"secretKey"`
+}
+
 type ServerConfig struct {
 	Runtime types.Runtime `json:"runtime"`
 
 	// uvx/npx based configuration.
-	Command string   `json:"command"`
-	Args    []string `json:"args"`
-	Env     []string `json:"env"`
-	Files   []File   `json:"files"`
+	Command        string             `json:"command"`
+	Args           []string           `json:"args"`
+	Env            []string           `json:"env"`
+	Files          []File             `json:"files"`
+	SecretBindings []SecretEnvBinding `json:"secretBindings,omitempty"`
 
 	// Remote configuration.
 	URL     string   `json:"url"`
@@ -335,6 +344,17 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 	}
 
 	for _, env := range mcpServer.Spec.Manifest.Env {
+		// If this env var has a secret binding, it will be injected directly by K8s.
+		// Skip credential lookup entirely.
+		if env.SecretBinding != nil {
+			serverConfig.SecretBindings = append(serverConfig.SecretBindings, SecretEnvBinding{
+				EnvKey:     env.Key,
+				SecretName: env.SecretBinding.SecretName,
+				SecretKey:  env.SecretBinding.SecretKey,
+			})
+			continue
+		}
+
 		val, ok := credEnv[env.Key]
 		if !ok || val == "" {
 			if env.Required {
@@ -432,6 +452,16 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 
 	// Process environment variables
 	for _, env := range systemServer.Spec.Manifest.Env {
+		// If this env var has a secret binding, it will be injected directly by K8s.
+		if env.SecretBinding != nil {
+			serverConfig.SecretBindings = append(serverConfig.SecretBindings, SecretEnvBinding{
+				EnvKey:     env.Key,
+				SecretName: env.SecretBinding.SecretName,
+				SecretKey:  env.SecretBinding.SecretKey,
+			})
+			continue
+		}
+
 		var (
 			val      string
 			hasValue bool

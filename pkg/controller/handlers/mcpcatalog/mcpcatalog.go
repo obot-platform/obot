@@ -250,6 +250,12 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
+
+		if err := validation.ValidateSecretBindings(entry.Env, catalogEntry.Spec.Editable); err != nil {
+			errs = append(errs, fmt.Errorf("failed to validate secret bindings for %s: %w", entry.Name, err))
+			continue
+		}
+
 		catalogEntry.Spec.Manifest = entry
 
 		objs = append(objs, &catalogEntry)

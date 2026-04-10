@@ -256,6 +256,12 @@ func (sm *SessionManager) LaunchServer(ctx context.Context, serverConfig ServerC
 	return c.URL, err
 }
 
+// CheckSecretBindings checks whether K8s Secrets referenced by secret bindings exist.
+// Returns the env var keys whose referenced secret or key was not found.
+func (sm *SessionManager) CheckSecretBindings(ctx context.Context, envVars []otypes.MCPEnv) []string {
+	return sm.backend.checkSecretBindings(ctx, envVars)
+}
+
 // ShutdownServer will close the connections to the MCP server and remove the Kubernetes objects.
 func (sm *SessionManager) ShutdownServer(ctx context.Context, serverName string) error {
 	sm.closeClients(serverName)

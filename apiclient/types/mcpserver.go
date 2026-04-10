@@ -185,6 +185,15 @@ type MCPHeader struct {
 	Prefix    string `json:"prefix,omitempty"` // Optional prefix to prepend to user-supplied values (e.g., "Bearer ")
 }
 
+// SecretBinding references a pre-existing Kubernetes Secret for env var injection.
+// When set, Obot does not manage the secret value — K8s injects it directly via SecretKeyRef.
+type SecretBinding struct {
+	// SecretName is the name of the Kubernetes Secret in the MCP namespace.
+	SecretName string `json:"secretName"`
+	// SecretKey is the key within the Kubernetes Secret that holds the value.
+	SecretKey string `json:"secretKey"`
+}
+
 type MCPEnv struct {
 	MCPHeader `json:",inline"`
 	File      bool `json:"file"`
@@ -192,6 +201,10 @@ type MCPEnv struct {
 	// server does not need to be restarted for changes to this file to be picked up.
 	// Ignored if File is false.
 	DynamicFile bool `json:"dynamicFile,omitempty"`
+	// SecretBinding references a pre-existing K8s Secret. When set, the env var value
+	// is injected via SecretKeyRef instead of the credential store.
+	// Only supported on non-editable (git-sourced) catalog entries.
+	SecretBinding *SecretBinding `json:"secretBinding,omitempty"`
 }
 
 type MCPServerCatalogEntryList List[MCPServerCatalogEntry]

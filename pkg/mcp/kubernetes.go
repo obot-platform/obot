@@ -359,6 +359,28 @@ func (k *kubernetesBackend) transformObotHostname(url string) string {
 	return fmt.Sprintf("http://%s%s", k.serviceFQDN, path)
 }
 
+func (k *kubernetesBackend) checkSecretBindings(ctx context.Context, envVars []types.MCPEnv) []string {
+	var missing []string
+	for _, env := range envVars {
+		if env.SecretBinding == nil {
+			continue
+		}
+		var secret corev1.Secret
+		err := k.client.Get(ctx, kclient.ObjectKey{
+			Namespace: k.mcpNamespace,
+			Name:      env.SecretBinding.SecretName,
+		}, &secret)
+		if err != nil {
+			missing = append(missing, env.Key)
+			continue
+		}
+		if _, ok := secret.Data[env.SecretBinding.SecretKey]; !ok {
+			missing = append(missing, env.Key)
+		}
+	}
+	return missing
+}
+
 func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error {
 	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(id).WithPruneTypes(
 		new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service), new(corev1.PersistentVolumeClaim),
@@ -489,7 +511,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		maps.Copy(secretEnvData, nanobotOTELEnv("nanobot-agent", nil))
 	}
 
-	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvData) + hash.Digest(nonDynamicFileData) + hash.Digest(webhooks))
+	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvData) + hash.Digest(nonDynamicFileData) + hash.Digest(webhooks) + hash.Digest(server.SecretBindings))
 
 	// Fetch K8s settings
 	k8sSettings, err := k.getK8sSettings(ctx)
@@ -748,6 +770,22 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		})
 	}
 
+	// Build env vars for external secret bindings (injected via SecretKeyRef).
+	var secretBindingEnvVars []corev1.EnvVar
+	for _, binding := range server.SecretBindings {
+		secretBindingEnvVars = append(secretBindingEnvVars, corev1.EnvVar{
+			Name: binding.EnvKey,
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: binding.SecretName,
+					},
+					Key: binding.SecretKey,
+				},
+			},
+		})
+	}
+
 	// This is the "real" MCP container.
 	containers = append(containers, corev1.Container{
 		Name:            "mcp",
@@ -777,6 +815,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			}
 			return ""
 		}(),
+		Env: secretBindingEnvVars,
 		EnvFrom: []corev1.EnvFromSource{{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
