@@ -14,7 +14,8 @@
 	import { errors } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
-	import { EllipsisVertical, Play, Plus, Search, Trash2 } from 'lucide-svelte';
+	import ConfirmScheduleToggle from './ConfirmScheduleToggle.svelte';
+	import { EllipsisVertical, Play, Plus, Search, Timer, TimerOff, Trash2 } from 'lucide-svelte';
 	import { getContext } from 'svelte';
 
 	let { data } = $props();
@@ -32,6 +33,16 @@
 		  }
 		| undefined
 	>();
+	let confirmToggleEnabled = $state<
+		| {
+				uri: string;
+				name: string;
+				enabled?: boolean;
+				schedule?: string;
+				expiration?: string;
+		  }
+		| undefined
+	>(undefined);
 	let tasksContainer = $state<HTMLElement | undefined>(undefined);
 	let refreshingTaskData = $state<Promise<void> | undefined>(undefined);
 	const projectLayout = getContext<ProjectLayoutContext>(PROJECT_LAYOUT_CONTEXT);
@@ -227,6 +238,7 @@
 			errors.append(error);
 		} finally {
 			mutatingTaskURI = '';
+			confirmToggleEnabled = undefined;
 		}
 	}
 
@@ -314,7 +326,7 @@
 								{#snippet children({ toggle })}
 									<button
 										type="button"
-										class="hover:bg-base-200 dark:hover:bg-surface3 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors"
+										class="hover:bg-base-200 dark:hover:bg-surface3 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors"
 										disabled={mutatingTaskURI === task.uri}
 										onclick={async (event) => {
 											event.preventDefault();
@@ -324,25 +336,35 @@
 										}}
 									>
 										<Play class="size-4 shrink-0" />
-										Run now
+										Run Now
 									</button>
 									<button
 										type="button"
-										class="hover:bg-base-200 dark:hover:bg-surface3 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors"
+										class="hover:bg-base-200 dark:hover:bg-surface3 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors"
 										disabled={mutatingTaskURI === task.uri}
 										onclick={async (event) => {
 											event.preventDefault();
 											event.stopPropagation();
 											toggle(false);
-											await handleToggleTask(task);
+
+											const meta = taskMeta(task);
+											confirmToggleEnabled = {
+												...meta,
+												name: task.name,
+												uri: task.uri
+											};
 										}}
 									>
-										<span class="w-4 shrink-0"></span>
+										{#if taskMeta(task)?.enabled}
+											<TimerOff class="size-4 shrink-0" />
+										{:else}
+											<Timer class="size-4 shrink-0" />
+										{/if}
 										{taskMeta(task)?.enabled ? 'Disable' : 'Enable'}
 									</button>
 									<button
 										type="button"
-										class="text-error hover:bg-error/10 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors"
+										class="text-error hover:bg-error/10 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors"
 										onclick={(event) => {
 											event.preventDefault();
 											event.stopPropagation();
@@ -388,4 +410,14 @@
 	loading={deleting}
 	onsuccess={handleDeleteTask}
 	oncancel={() => (confirmDeleteTask = undefined)}
+/>
+
+<ConfirmScheduleToggle
+	task={confirmToggleEnabled}
+	loading={!!mutatingTaskURI}
+	onSuccess={() => {
+		if (!confirmToggleEnabled) return;
+		handleToggleTask(confirmToggleEnabled);
+	}}
+	onCancel={() => (confirmToggleEnabled = undefined)}
 />

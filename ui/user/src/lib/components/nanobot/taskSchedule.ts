@@ -195,3 +195,11 @@ export function scheduleSummary(schedule: string, expiration?: string): string {
 			return parsed.date ? `${formatScheduleDate(parsed.date)} at ${time}` : time;
 	}
 }
+
+export function estimateNextRun(schedule: string, expiration?: string): Date {
+	const now = new Date();
+	const parsed = parseCronSchedule(schedule, expiration);
+	if (!parsed) return now;
+	now.setHours(Number(parsed.time.split(':')[0]), Number(parsed.time.split(':')[1]), 0, 0);
+	return now;
+}
