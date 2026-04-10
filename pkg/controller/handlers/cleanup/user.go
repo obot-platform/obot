@@ -53,6 +53,23 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	}
 	log.Infof("Removed user identities during cleanup: userID=%s identities=%d", userID, len(identities))
 
+	var agents v1.NanobotAgentList
+	if err := req.List(&agents, &kclient.ListOptions{
+		Namespace: req.Namespace,
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.userID": userID,
+		}),
+	}); err != nil {
+		return err
+	}
+
+	for _, agent := range agents.Items {
+		if err := req.Delete(&agent); err != nil {
+			return err
+		}
+	}
+	log.Infof("Deleted nanobot agents during user cleanup: userID=%s agents=%d", userID, len(agents.Items))
+
 	var threads v1.ThreadList
 	if err := req.List(&threads, &kclient.ListOptions{
 		Namespace: req.Namespace,
@@ -63,7 +80,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	deletedProjectThreads := 0
+	var deletedProjectThreads int
 	for _, thread := range threads.Items {
 		if thread.Spec.Project {
 			if err := req.Delete(&thread); err != nil {
@@ -84,7 +101,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	deletedServers := 0
+	var deletedServers int
 	for _, server := range servers.Items {
 		// Skip multi-user servers in the default MCPCatalog — they should persist after user deletion.
 		if server.Spec.MCPCatalogID == system.DefaultCatalog {
@@ -121,7 +138,8 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	if err != nil {
 		return err
 	}
-	updatedACRs := 0
+
+	var updatedACRs int
 	for _, acr := range acrs {
 		newSubjects := slices.Collect(func(yield func(types.Subject) bool) {
 			for _, subject := range acr.Spec.Manifest.Subjects {
@@ -177,7 +195,7 @@ func deleteThreadAuthorizationsForUser(ctx context.Context, storageClient kclien
 		return 0, err
 	}
 
-	deleted := 0
+	var deleted int
 	for _, membership := range memberships.Items {
 		if err := storageClient.Delete(ctx, &membership); err != nil {
 			return deleted, err
