@@ -31,12 +31,12 @@ require (
 	github.com/gptscript-ai/cmd v0.0.0-20250530150401-bc71fddf8070
 	github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b
 	github.com/gptscript-ai/go-gptscript v0.9.9-0.20260205140523-98f64d42d2ee
-	github.com/gptscript-ai/gptscript v0.9.9-0.20260228210857-42ad0635572f
+	github.com/gptscript-ai/gptscript v0.9.10-0.20260410155950-313cef63e154
 	github.com/jackc/pgx/v5 v5.9.1
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/moby/moby/api v1.52.0-alpha.1
 	github.com/moby/moby/client v0.1.0-alpha.0
-	github.com/nanobot-ai/nanobot v0.0.54
+	github.com/nanobot-ai/nanobot v0.0.64
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037
 	github.com/obot-platform/kinm v0.0.0-20260310205725-afa1a058aa7a
 	github.com/obot-platform/nah v0.0.0-20260310205713-8137b9b71aeb
@@ -254,7 +254,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pjbgf/sha1cd v0.3.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pkoukk/tiktoken-go v0.1.7 // indirect
+	github.com/pkoukk/tiktoken-go v0.1.8 // indirect
 	github.com/pkoukk/tiktoken-go-loader v0.0.2-0.20240522064338-c17e8bc0f699 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
@@ -328,5 +328,3 @@ require (
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
-
-replace github.com/gptscript-ai/gptscript => github.com/njhale/gptscript v0.0.0-20260409201456-4ba452b26b4e
