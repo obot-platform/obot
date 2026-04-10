@@ -51,6 +51,7 @@
 		sectionSecondaryTitle?: string;
 		disablePortal?: boolean;
 		columnMaxWidths?: Record<string, number>;
+		key?: string;
 	}
 
 	const {
@@ -80,7 +81,8 @@
 		sectionPrimaryTitle,
 		sectionSecondaryTitle,
 		disablePortal,
-		columnMaxWidths
+		columnMaxWidths,
+		key = 'id'
 	}: Props<T> = $props();
 
 	let page = $state(0);
@@ -679,7 +681,7 @@
 										</th>
 									</tr>
 								{/if}
-								{#each sectionA as d (d.id)}
+								{#each sectionA as d (d[key as keyof T])}
 									{@render row(d)}
 								{/each}
 							{/if}
@@ -696,13 +698,13 @@
 										</th>
 									</tr>
 								{/if}
-								{#each sectionB as d (d.id)}
+								{#each sectionB as d (d[key as keyof T])}
 									{@render row(d)}
 								{/each}
 							{/if}
 						{/key}
 					{:else}
-						{#each visibleItems as d (sortedBy ? `${d.id}-${sortedBy.property}-${sortedBy.order}` : d.id)}
+						{#each visibleItems as d (sortedBy ? `${d[key as keyof T]}-${sortedBy.property}-${sortedBy.order}` : d[key as keyof T])}
 							{@render row(d)}
 						{/each}
 					{/if}
