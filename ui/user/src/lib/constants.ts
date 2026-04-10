@@ -53,7 +53,9 @@ export const CommonModelProviderIds = {
 	XAI: 'xai-model-provider',
 	DEEPSEEK: 'deepseek-model-provider',
 	GEMINI_VERTEX: 'gemini-vertex-model-provider',
-	GENERIC_OPENAI: 'generic-openai-model-provider'
+	GENERIC_OPENAI: 'generic-openai-model-provider',
+	AZURE: 'azure-model-provider',
+	AZURE_ENTRA: 'azure-entra-model-provider'
 };
 
 export const RecommendedModelProviders = [

@@ -46,6 +46,8 @@
 		CommonModelProviderIds.OPENAI,
 		CommonModelProviderIds.ANTHROPIC,
 		CommonModelProviderIds.AMAZON_BEDROCK,
+		CommonModelProviderIds.AZURE,
+		CommonModelProviderIds.AZURE_ENTRA,
 		CommonModelProviderIds.OLLAMA
 	];
 	const defaultModelAliases = $derived(defaultModelAliasesStore.current);
