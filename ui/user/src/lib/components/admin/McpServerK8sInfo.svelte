@@ -556,7 +556,7 @@
 							<LoaderCircle class="size-6 animate-spin" />
 						</div>
 					{:then k8sSettingsStatus}
-						{#if k8sSettingsStatus?.needsK8sUpdate}
+						{#if k8sSettingsStatus?.needsK8sUpdate || mcpServer?.needsK8sUpdate}
 							<button
 								class="flex items-center gap-2 rounded-md bg-yellow-500/75 px-3 py-1.5 text-xs font-medium text-white hover:bg-yellow-500 disabled:opacity-50"
 								disabled={readonly}
@@ -596,6 +596,8 @@
 	onsuccess={handleRestart}
 	oncancel={() => (showRestartConfirm = false)}
 	loading={restarting}
+	title="Confirm Restart"
+	type="info"
 >
 	{#snippet note()}
 		Are you sure you want to restart this deployment? This will cause a brief service interruption.
@@ -607,6 +609,8 @@
 	onsuccess={handleRedeployWithK8sSettings}
 	oncancel={() => (showUpdateK8sSettingsConfirm = false)}
 	loading={updatingK8sSettings}
+	title="Confirm Redeploy"
+	type="info"
 >
 	{#snippet note()}
 		Are you sure you want to redeploy this server with the latest Kubernetes settings? This will
