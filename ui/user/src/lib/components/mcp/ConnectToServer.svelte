@@ -232,16 +232,20 @@
 		if (document.visibilityState === 'visible') {
 			oauthURL = await getOauthURL();
 			if (!oauthURL) {
-				document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
 				oauthDialog?.close();
 				handleConnect();
-			} else {
-				oauthVerifying = false;
 			}
+			oauthVerifying = false;
 		}
 	}
 
+	function ensureOauthVisibilityListener() {
+		document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
+		document.addEventListener('visibilitychange', handleOauthVisibilityChange);
+	}
+
 	async function verifyOauthOrConnect() {
+		oauthVerifying = false; // reset
 		oauthURL = await getOauthURL();
 		launchProgress = 100;
 
@@ -556,6 +560,8 @@
 		entry = initEntry;
 		instance = initInstance;
 
+		ensureOauthVisibilityListener();
+
 		if ((entry && server) || (server && instance)) {
 			handleConnect();
 		} else {
@@ -633,7 +639,7 @@
 	}
 
 	onMount(() => {
-		document.addEventListener('visibilitychange', handleOauthVisibilityChange);
+		ensureOauthVisibilityListener();
 		return () => {
 			document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
 		};
