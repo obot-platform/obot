@@ -510,7 +510,7 @@ func (h *Handler) deleteTokens(ctx context.Context, agent *v1.NanobotAgent, mcpS
 		}
 
 		// Look up the gateway user to get the uint ID needed for API key deletion
-		gatewayUser, err := h.gatewayClient.UserByID(ctx, agent.Spec.UserID)
+		gatewayUser, err := h.gatewayClient.UserByIDIncludeDeleted(ctx, agent.Spec.UserID)
 		if err != nil {
 			return fmt.Errorf("failed to get user: %w", err)
 		}

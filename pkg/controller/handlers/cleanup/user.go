@@ -104,7 +104,9 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	var deletedServers int
 	for _, server := range servers.Items {
 		// Skip multi-user servers in the default MCPCatalog — they should persist after user deletion.
-		if server.Spec.MCPCatalogID == system.DefaultCatalog {
+		// Also skip servers that are associated with an agent because we need the credential to stick
+		// around so we can delete the API key.
+		if server.Spec.MCPCatalogID == system.DefaultCatalog || server.Spec.NanobotAgentID != "" {
 			continue
 		}
 		if err := kclient.IgnoreNotFound(req.Delete(&server)); err != nil {
