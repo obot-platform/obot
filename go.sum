@@ -546,8 +546,8 @@ github.com/muesli/termenv v0.16.0 h1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc
 github.com/muesli/termenv v0.16.0/go.mod h1:ZRfOIKPFDYQoDFF4Olj7/QJbW60Ol/kL1pU3VfY/Cnk=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
-github.com/nanobot-ai/nanobot v0.0.65-0.20260410173614-c1f666235c83 h1:4fvtN0gSfsJjd3FTLVT4n1XvGdJbV/JKhRd54zP6ceo=
-github.com/nanobot-ai/nanobot v0.0.65-0.20260410173614-c1f666235c83/go.mod h1:QRUCktmw9QyBxt9YR2PKyfnh9R1/OcqOigfND5Dreuw=
+github.com/nanobot-ai/nanobot v0.0.65-0.20260411003427-878a58482434 h1:2bUgBUhaww34YTYTbGbIU/ndOTTIKxKBQGi/a1+jisQ=
+github.com/nanobot-ai/nanobot v0.0.65-0.20260411003427-878a58482434/go.mod h1:QRUCktmw9QyBxt9YR2PKyfnh9R1/OcqOigfND5Dreuw=
 github.com/ncruces/go-strftime v0.1.9 h1:bY0MQC28UADQmHmaF5dgpLmImcShSi2kHU9XLdhx/f4=
 github.com/ncruces/go-strftime v0.1.9/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
 github.com/nightlyone/lockfile v1.0.0 h1:RHep2cFKK4PonZJDdEl4GmkabuhbsRMgk/k3uAmxBiA=
