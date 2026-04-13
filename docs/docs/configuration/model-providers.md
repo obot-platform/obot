@@ -11,7 +11,6 @@ Obot supports a variety of model providers, including:
 - Anthropic
 - xAI
 - [Ollama](#ollama)
-- Voyage AI
 - Groq
 - vLLM
 - DeepSeek
