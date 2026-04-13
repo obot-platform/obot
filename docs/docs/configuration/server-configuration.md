@@ -49,7 +49,7 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE` | Deploy MCP remote shim servers in the cluster using this base image. | `ghcr.io/obot-platform/nanobot:v0.0.80` |
 | `OBOT_SERVER_NANOBOT_AGENT_IMAGE` | Deploy the Nanobot agent in the cluster using this image. | `ghcr.io/obot-platform/nanobot-agent:v0.0.80` |
 | `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE` | Deploy MCP HTTP webhook servers in the cluster using this base image. | `ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.20.4` |
-| `OBOT_SERVER_MCPRUNTIME_BACKEND` | The runtime backend to use for running MCP servers: docker, kubernetes, or local. | `kubernetes` in the helm chart, `docker` otherwise |
+| `OBOT_SERVER_MCPRUNTIME_BACKEND` | The runtime backend to use for running MCP servers: docker or kubernetes. | `kubernetes` in the helm chart, `docker` otherwise |
 | `OBOT_SERVER_MCPCLUSTER_DOMAIN` | The cluster domain to use for MCP services. Only matters if `OBOT_SERVER_MCPBASE_IMAGE` is set. | `cluster.local` |
 | `OBOT_SERVER_SERVICE_NAME` | The Kubernetes service name for the obot server. Automatically set by the helm chart when using kubernetes backend. Used to construct the internal service FQDN for token exchange endpoints. | - |
 | `OBOT_SERVER_SERVICE_NAMESPACE` | The Kubernetes namespace where the obot server runs. Automatically set by the helm chart when using kubernetes backend. Used to construct the internal service FQDN for token exchange endpoints. | - |

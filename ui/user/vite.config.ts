@@ -5,6 +5,7 @@ export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, '.', '');
 	const apiTarget = env.VITE_API_TARGET || 'http://localhost:8080';
 	const apiToken = env.VITE_API_TOKEN;
+	const localK8sHostSuffix = '.svc.cluster.local';
 
 	// Fail build if API token is set in production - it would be exposed in the bundle
 	if (mode === 'production' && apiToken) {
@@ -23,6 +24,7 @@ export default defineConfig(({ mode }) => {
 	return {
 		server: {
 			port: 5174,
+			allowedHosts: mode !== 'production' ? [localK8sHostSuffix] : [],
 			proxy: {
 				'/api': proxyConfig,
 				'/oauth2': proxyConfig

@@ -158,6 +158,46 @@ func TestNewKubernetesBackend_ServiceFQDN(t *testing.T) {
 	}
 }
 
+func TestKubernetesBackendGetPullPolicy(t *testing.T) {
+	tests := []struct {
+		name            string
+		configuredValue corev1.PullPolicy
+		expected        corev1.PullPolicy
+	}{
+		{
+			name:            "defaults empty value to always",
+			configuredValue: "",
+			expected:        corev1.PullAlways,
+		},
+		{
+			name:            "keeps explicit if-not-present",
+			configuredValue: corev1.PullIfNotPresent,
+			expected:        corev1.PullIfNotPresent,
+		},
+		{
+			name:            "keeps explicit never",
+			configuredValue: corev1.PullNever,
+			expected:        corev1.PullNever,
+		},
+		{
+			name:            "keeps explicit always",
+			configuredValue: corev1.PullAlways,
+			expected:        corev1.PullAlways,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k := &kubernetesBackend{imagePullPolicy: tt.configuredValue}
+
+			if got := k.getPullPolicy(); got != tt.expected {
+				t.Fatalf("getPullPolicy() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
+
+
 func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 	k := newTestKubernetesBackend(t)
 

@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/version"
 	"golang.org/x/mod/module"
 	"gorm.io/gorm"
@@ -139,7 +140,11 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 	values["disableLegacyChat"] = v.disableLegacyChat
 	values["sessionStore"] = v.sessionStore
 	values["enterprise"] = v.enterprise
-	values["engine"] = v.engine
+	engine := v.engine
+	if mcp.IsKubernetesRuntimeBackend(engine) {
+		engine = mcp.RuntimeBackendKubernetes
+	}
+	values["engine"] = engine
 	values["mcpNetworkPolicyEnabled"] = v.mcpNetworkPolicyEnabled
 	values["mcpDefaultDenyAllEgress"] = v.mcpDefaultDenyAllEgress
 	values["autonomousToolUseEnabled"] = v.autonomousToolUseEnabled

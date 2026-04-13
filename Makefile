@@ -49,6 +49,15 @@ otel-jaeger-down:
 otel-jaeger-logs:
 	docker compose -f tools/jaeger-compose.yaml logs -f
 
+telepresence-setup:
+	kubectl create deployment obot --image=alpine --dry-run=client -o yaml -- sleep infinity | kubectl apply -f -
+	kubectl create service clusterip obot --tcp=80:8080 --dry-run=client -o yaml | kubectl apply -f -
+	kubectl patch svc obot --type='json' -p='[{"op":"replace","path":"/spec/ports/0/name","value":"http"}]'
+	telepresence quit -s
+	telepresence connect
+	kubectl rollout restart deployment/obot
+	telepresence intercept obot -p 8080:80
+
 # Lint the project
 lint: lint-go
 
@@ -102,4 +111,4 @@ remove-docs-version:
 	jq 'del(.[] | select(. == "${version}"))' ./docs/versions.json > tmp.json && mv tmp.json ./docs/versions.json
 	grep -v '"${version}": {label: "${version}", banner: "none", path: "${version}"},' ./docs/docusaurus.config.ts  > tmp.config.ts && mv tmp.config.ts ./docs/docusaurus.config.ts
 
-.PHONY: ui ui-user build all clean dev dev-open otel-jaeger-up otel-jaeger-down otel-jaeger-logs lint lint-admin lint-api no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version
+.PHONY: ui ui-user build all clean dev dev-open otel-jaeger-up otel-jaeger-down otel-jaeger-logs telepresence-setup lint lint-admin lint-api no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version
