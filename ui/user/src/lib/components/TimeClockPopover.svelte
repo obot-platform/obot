@@ -42,23 +42,27 @@
 	let mode = $state<'hour' | 'minute'>('hour');
 	/** For minute: fine adjustment 0–4 added to the 5-minute bucket */
 	let minuteExtra = $state(0);
-	/** True only while `open` is true; reset when closed so the next open snapshots `date` again */
-	let sessionActive = $state(false);
 
 	let panelEl = $state<HTMLElement | null>(null);
 	let anchoredPositionReady = $state(false);
 
+	let lastSyncedTime: number | null = null;
+
 	$effect(() => {
-		if (open) {
-			if (!sessionActive) {
-				tempDate = new Date(date.getTime());
-				minuteExtra = getMinutes(tempDate) % 5;
-			}
-			mode = initialMode;
-			sessionActive = true;
-		} else {
-			sessionActive = false;
+		if (!open) {
+			lastSyncedTime = null;
+			return;
 		}
+		const t = date.getTime();
+		if (lastSyncedTime === t) return;
+		lastSyncedTime = t;
+		tempDate = new Date(t);
+		minuteExtra = getMinutes(tempDate) % 5;
+	});
+
+	$effect(() => {
+		if (!open) return;
+		mode = initialMode;
 	});
 
 	$effect(() => {
@@ -296,8 +300,8 @@
 							type="button"
 							style={polarStyle(h, 12, 40)}
 							class={twMerge(
-								'bg-surface1 hover:bg-surface3 absolute z-10 flex h-9 w-9 items-center justify-center rounded-full text-sm',
-								h24 === h ? 'bg-primary text-white scale-110' : ''
+								'bg-surface1 absolute z-10 flex h-9 w-9 items-center justify-center rounded-full text-sm',
+								h24 === h ? 'bg-primary text-white scale-110' : 'hover:bg-surface3 '
 							)}
 							onclick={() => setHour24(h)}>{h}</button
 						>
@@ -307,8 +311,8 @@
 							type="button"
 							style={polarStyleIndex(i, 12, 24)}
 							class={twMerge(
-								'bg-surface1 hover:bg-surface3 absolute z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs',
-								h24 === hv ? 'bg-primary text-white scale-110' : ''
+								'bg-surface1 absolute z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs',
+								h24 === hv ? 'bg-primary text-white scale-110' : 'hover:bg-surface3 '
 							)}
 							onclick={() => setHour24(hv)}>{String(hv).padStart(2, '0')}</button
 						>
@@ -335,8 +339,8 @@
 							type="button"
 							style={polarStyle(h, 12, 40)}
 							class={twMerge(
-								'bg-surface1 hover:bg-surface3 absolute z-10 flex h-10 w-10 items-center justify-center rounded-full text-base',
-								hour12 === h ? 'bg-primary text-white scale-110' : ''
+								'bg-surface1 absolute z-10 flex h-10 w-10 items-center justify-center rounded-full text-base',
+								hour12 === h ? 'bg-primary text-white scale-110' : 'hover:bg-surface3 '
 							)}
 							onclick={() => setHour12(h)}>{h}</button
 						>
@@ -365,8 +369,10 @@
 							type="button"
 							style={polarStyle(slot === 0 ? 12 : slot, 12, 38)}
 							class={twMerge(
-								'bg-surface1 hover:bg-surface3 absolute z-10 flex h-9 w-9 items-center justify-center rounded-full text-xs',
-								Math.floor(selMin / 5) === slot ? 'bg-primary text-primary-content scale-110' : ''
+								'bg-surface1 absolute z-10 flex h-9 w-9 items-center justify-center rounded-full text-xs',
+								Math.floor(selMin / 5) === slot
+									? 'bg-primary text-primary-content scale-110'
+									: 'hover:bg-surface3 '
 							)}
 							onclick={() => {
 								minuteExtra = 0;

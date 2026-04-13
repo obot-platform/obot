@@ -163,6 +163,10 @@
 					ev.preventDefault();
 					return;
 				}
+
+				if (ev.key === 'Enter') {
+					commitHour();
+				}
 			}}
 			onkeyup={(ev) => {
 				if (ev.key === 'ArrowDown') {
@@ -195,6 +199,10 @@
 				if (['ArrowDown', 'ArrowUp'].includes(ev.key)) {
 					ev.preventDefault();
 					return;
+				}
+
+				if (ev.key === 'Enter') {
+					commitMinute();
 				}
 			}}
 			onkeyup={(ev) => {
