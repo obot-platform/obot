@@ -862,7 +862,8 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	}
 
 	if server.NanobotAgentName != "" {
-		workspaceName, err = d.ensureWorkspaceVolume(ctx, server, mcpServerName)
+		var workspaceCreated bool
+		workspaceName, workspaceCreated, err = d.ensureWorkspaceVolume(ctx, server, mcpServerName)
 		if err != nil {
 			return "", 0, fmt.Errorf("failed to create workspace volume: %w", err)
 		}
@@ -872,9 +873,11 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 				Source: workspaceName,
 				Target: nanobotWorkspaceMountPath,
 			})
-			err = d.writeNanobotAgentProviderConfig(ctx, workspaceName, fileVolumeName, server.MCPServerName)
-			if err != nil {
-				return "", 0, fmt.Errorf("failed to write nanobot agent provider config: %w", err)
+			// Only run for initial creation
+			if workspaceCreated {
+				if err = d.linkNanobotProviderConfig(ctx, workspaceName, fileVolumeName, server.MCPServerName); err != nil {
+					return "", 0, fmt.Errorf("failed to link nanobot provider config: %w", err)
+				}
 			}
 		}
 	}
@@ -1181,7 +1184,7 @@ func (d *dockerBackend) syncContainerFiles(ctx context.Context, server ServerCon
 	return nil
 }
 
-func (d *dockerBackend) ensureWorkspaceVolume(ctx context.Context, server ServerConfig, mcpServerName string) (string, error) {
+func (d *dockerBackend) ensureWorkspaceVolume(ctx context.Context, server ServerConfig, mcpServerName string) (string, bool, error) {
 	volumeName := server.MCPServerName + "-workspace"
 	labels := map[string]string{
 		"mcp.server.id": server.MCPServerName,
@@ -1198,12 +1201,12 @@ func (d *dockerBackend) ensureWorkspaceVolume(ctx context.Context, server Server
 		}),
 	})
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 
 	for _, v := range resp.Volumes {
 		if v.Name == volumeName {
-			return volumeName, nil
+			return volumeName, false, nil
 		}
 	}
 
@@ -1212,10 +1215,10 @@ func (d *dockerBackend) ensureWorkspaceVolume(ctx context.Context, server Server
 		Name:   volumeName,
 	})
 	if err != nil && !cerrdefs.IsAlreadyExists(err) {
-		return "", fmt.Errorf("failed to create workspace volume: %w", err)
+		return "", false, fmt.Errorf("failed to create workspace volume: %w", err)
 	}
 
-	return volumeName, nil
+	return volumeName, true, nil
 }
 
 // createVolumeWithFiles creates an anonymous volume and populates it with file data using an init container
@@ -1247,7 +1250,7 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	return volumeName, envVars, nil
 }
 
-func (d *dockerBackend) writeNanobotAgentProviderConfig(ctx context.Context, workspaceName, fileVolumeName, serverName string) error {
+func (d *dockerBackend) linkNanobotProviderConfig(ctx context.Context, workspaceName, fileVolumeName, serverName string) error {
 	src := fmt.Sprintf("/files/%s-NANOBOT_PROVIDER_CONFIG", serverName)
 	script := fmt.Sprintf("mkdir -p %[1]s/.nanobot && ln -sf %s %[1]s/.nanobot/nanobot.yaml",
 		nanobotWorkspaceMountPath, src)
