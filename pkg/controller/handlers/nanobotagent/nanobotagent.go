@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"encoding/json"
-
 	"github.com/gptscript-ai/go-gptscript"
 	nanobottypes "github.com/nanobot-ai/nanobot/pkg/types"
 	"github.com/obot-platform/nah/pkg/backend"
@@ -483,26 +481,6 @@ func buildNanobotProviderConfigYAML(providers ...nanobotLLMProvider) (string, er
 	return string(data), nil
 }
 
-// lookupProviderDialect reads the dialect declared in a model provider ToolReference's
-// providerMeta tool metadata. Returns an empty string if not declared or on any error.
-func lookupProviderDialect(ctx context.Context, client kclient.Client, namespace, modelProvider string) nanobottypes.Dialect {
-	if client == nil || modelProvider == "" {
-		return ""
-	}
-	var toolRef v1.ToolReference
-	if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: modelProvider}, &toolRef); err != nil {
-		return ""
-	}
-	if toolRef.Status.Tool == nil || toolRef.Status.Tool.Metadata["providerMeta"] == "" {
-		return ""
-	}
-	var meta types.CommonProviderMetadata
-	if err := json.Unmarshal([]byte(toolRef.Status.Tool.Metadata["providerMeta"]), &meta); err != nil {
-		return ""
-	}
-	return nanobottypes.Dialect(meta.Dialect)
-}
-
 func getModelForAlias(ctx context.Context, client kclient.Client, namespace string, aliasName types.DefaultModelAliasType) (resolvedLLMModel, error) {
 	llmModel, err := alias.GetFromScope(ctx, client, "Model", namespace, string(aliasName))
 	if err != nil {
@@ -522,7 +500,7 @@ func getModelForAlias(ctx context.Context, client kclient.Client, namespace stri
 	return resolvedLLMModel{
 		TargetModel:     model.Spec.Manifest.TargetModel,
 		ModelProvider:   model.Spec.Manifest.ModelProvider,
-		ProviderDialect: lookupProviderDialect(ctx, client, namespace, model.Spec.Manifest.ModelProvider),
+		ProviderDialect: nanobottypes.Dialect(model.Spec.Manifest.Dialect),
 	}, nil
 }
 
@@ -582,7 +560,7 @@ func chooseModel(ctx context.Context, client kclient.Client, namespace string, m
 				return resolvedLLMModel{
 					TargetModel:     model.Spec.Manifest.TargetModel,
 					ModelProvider:   model.Spec.Manifest.ModelProvider,
-					ProviderDialect: lookupProviderDialect(ctx, client, namespace, model.Spec.Manifest.ModelProvider),
+					ProviderDialect: nanobottypes.Dialect(model.Spec.Manifest.Dialect),
 				}, nil
 			}
 		}
@@ -596,7 +574,7 @@ func chooseModel(ctx context.Context, client kclient.Client, namespace string, m
 		return resolvedLLMModel{
 			TargetModel:     models[0].Spec.Manifest.TargetModel,
 			ModelProvider:   models[0].Spec.Manifest.ModelProvider,
-			ProviderDialect: lookupProviderDialect(ctx, client, namespace, models[0].Spec.Manifest.ModelProvider),
+			ProviderDialect: nanobottypes.Dialect(models[0].Spec.Manifest.Dialect),
 		}, nil
 	}
 

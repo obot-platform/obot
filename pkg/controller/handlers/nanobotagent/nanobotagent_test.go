@@ -106,55 +106,6 @@ func TestChooseModelPrefersSuggestedOrder(t *testing.T) {
 	}
 }
 
-func TestLookupProviderDialectFound(t *testing.T) {
-	toolRef := &v1.ToolReference{
-		TypeMeta:   metav1.TypeMeta{APIVersion: v1.SchemeGroupVersion.String(), Kind: "ToolReference"},
-		ObjectMeta: metav1.ObjectMeta{Name: "groq-model-provider"},
-		Status: v1.ToolReferenceStatus{
-			Tool: &v1.ToolShortDescription{
-				Metadata: map[string]string{
-					"providerMeta": `{"dialect": "OpenAIChatCompletions"}`,
-				},
-			},
-		},
-	}
-	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(toolRef).Build()
-
-	got := lookupProviderDialect(context.Background(), c, "", "groq-model-provider")
-	if got != nanobottypes.DialectOpenAIChatCompletions {
-		t.Errorf("expected OpenAIChatCompletions, got %q", got)
-	}
-}
-
-func TestLookupProviderDialectNotDeclared(t *testing.T) {
-	toolRef := &v1.ToolReference{
-		TypeMeta:   metav1.TypeMeta{APIVersion: v1.SchemeGroupVersion.String(), Kind: "ToolReference"},
-		ObjectMeta: metav1.ObjectMeta{Name: "some-provider"},
-		Status: v1.ToolReferenceStatus{
-			Tool: &v1.ToolShortDescription{
-				Metadata: map[string]string{
-					"providerMeta": `{"icon": "icon.svg"}`,
-				},
-			},
-		},
-	}
-	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(toolRef).Build()
-
-	got := lookupProviderDialect(context.Background(), c, "", "some-provider")
-	if got != "" {
-		t.Errorf("expected empty dialect, got %q", got)
-	}
-}
-
-func TestLookupProviderDialectNotFound(t *testing.T) {
-	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
-
-	got := lookupProviderDialect(context.Background(), c, "", "nonexistent-provider")
-	if got != "" {
-		t.Errorf("expected empty dialect for missing ToolReference, got %q", got)
-	}
-}
-
 func TestNanobotParseModelProviderDeclaredDialectDrivesURL(t *testing.T) {
 	h := &Handler{serverURL: "https://obot.example.com"}
 
@@ -318,17 +269,7 @@ func TestResolveModelCarriesProviderAndDialect(t *testing.T) {
 						ModelProvider: "groq-model-provider",
 						Active:        true,
 						Usage:         types.ModelUsageLLM,
-					},
-				},
-			},
-			&v1.ToolReference{
-				TypeMeta:   metav1.TypeMeta{APIVersion: v1.SchemeGroupVersion.String(), Kind: "ToolReference"},
-				ObjectMeta: metav1.ObjectMeta{Name: "groq-model-provider"},
-				Status: v1.ToolReferenceStatus{
-					Tool: &v1.ToolShortDescription{
-						Metadata: map[string]string{
-							"providerMeta": `{"dialect": "OpenAIChatCompletions"}`,
-						},
+						Dialect:       string(nanobottypes.DialectOpenAIChatCompletions),
 					},
 				},
 			},
