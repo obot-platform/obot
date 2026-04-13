@@ -18,11 +18,15 @@ const (
 	defaultContainerPort          = 8099
 	defaultWebhookToolName        = "fire-webhook"
 	serviceUnavailableGracePeriod = 10 * time.Second
+
+	runtimeBackendDocker          = "docker"
+	RuntimeBackendKubernetes      = "kubernetes"
+	runtimeBackendKubernetesShort = "k8s"
 )
 
 func IsKubernetesBackend(backend string) bool {
 	switch strings.ToLower(strings.TrimSpace(backend)) {
-	case "kubernetes", "k8s":
+	case RuntimeBackendKubernetes, runtimeBackendKubernetesShort:
 		return true
 	default:
 		return false
