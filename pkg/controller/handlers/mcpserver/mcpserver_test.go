@@ -1,9 +1,19 @@
 package mcpserver
 
 import (
+	"context"
 	"testing"
+	"time"
 
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestConfigurationHasDrifted(t *testing.T) {
@@ -560,4 +570,163 @@ func TestRuntimeSpecificDriftFunctions(t *testing.T) {
 			})
 		}
 	})
+}
+
+func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
+	t.Helper()
+
+	return fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithStatusSubresource(&v1.MCPServer{}).
+		WithObjects(objects...).
+		Build()
+}
+
+func newMCPServer(name string) *v1.MCPServer {
+	return &v1.MCPServer{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1.SchemeGroupVersion.String(),
+			Kind:       "MCPServer",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+	}
+}
+
+func TestShutdownIdleServersSetsLastRequestTimeForOlderServers(t *testing.T) {
+	server := newMCPServer("older-server")
+	server.CreationTimestamp = metav1.NewTime(time.Now().Add(-2 * time.Hour))
+
+	client := newFakeClient(t, server)
+	req := router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}
+
+	err := (&Handler{}).ShutdownIdleServers(req, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var updated v1.MCPServer
+	require.NoError(t, client.Get(context.Background(), router.Key(server.Namespace, server.Name), &updated))
+	assert.False(t, updated.Status.LastRequestTime.IsZero())
+	assert.WithinDuration(t, time.Now(), updated.Status.LastRequestTime.Time, 5*time.Second)
+}
+
+func TestShutdownIdleServersSkipsRecentlyCreatedServersWithoutLastRequestTime(t *testing.T) {
+	server := newMCPServer("new-server")
+	server.CreationTimestamp = metav1.NewTime(time.Now().Add(-30 * time.Second))
+
+	client := newFakeClient(t, server)
+	req := router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}
+
+	err := (&Handler{}).ShutdownIdleServers(req, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var updated v1.MCPServer
+	require.NoError(t, client.Get(context.Background(), router.Key(server.Namespace, server.Name), &updated))
+	assert.True(t, updated.Status.LastRequestTime.IsZero())
+}
+
+func TestShutdownIdleServersSchedulesRetryUsingServerSpecificInterval(t *testing.T) {
+	server := newMCPServer("custom-interval")
+	server.Spec.Manifest.IdleShutdownIntervalHours = 5
+	server.Status.LastRequestTime = metav1.NewTime(time.Now().Add(-2 * time.Hour))
+
+	req := router.Request{
+		Client:    newFakeClient(t, server),
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}
+	resp := &router.ResponseWrapper{}
+
+	err := (&Handler{
+		singleUserIdleShutdownDelay: 15 * time.Hour,
+		multiUserIdleShutdownDelay:  20 * time.Hour,
+		agentIdleShutdownDelay:      25 * time.Hour,
+	}).ShutdownIdleServers(req, resp)
+	require.NoError(t, err)
+
+	assert.InDelta(t, (3 * time.Hour).Seconds(), resp.Delay.Seconds(), 1)
+}
+
+func TestShutdownIdleServersUsesAgentDefaultIdleInterval(t *testing.T) {
+	server := newMCPServer("agent-server")
+	server.Spec.NanobotAgentID = "agent-1"
+	server.Status.LastRequestTime = metav1.NewTime(time.Now().Add(-2 * time.Hour))
+
+	req := router.Request{
+		Client:    newFakeClient(t, server),
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}
+	resp := &router.ResponseWrapper{}
+
+	err := (&Handler{
+		singleUserIdleShutdownDelay: 15 * time.Hour,
+		multiUserIdleShutdownDelay:  20 * time.Hour,
+		agentIdleShutdownDelay:      7 * time.Hour,
+	}).ShutdownIdleServers(req, resp)
+	require.NoError(t, err)
+
+	assert.InDelta(t, (5 * time.Hour).Seconds(), resp.Delay.Seconds(), 1)
+}
+
+func TestShutdownIdleServersUsesMultiUserDefaultIdleInterval(t *testing.T) {
+	server := newMCPServer("shared-server")
+	server.Spec.MCPCatalogID = "catalog-1"
+	server.Status.LastRequestTime = metav1.NewTime(time.Now().Add(-2 * time.Hour))
+
+	req := router.Request{
+		Client:    newFakeClient(t, server),
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}
+	resp := &router.ResponseWrapper{}
+
+	err := (&Handler{
+		singleUserIdleShutdownDelay: 15 * time.Hour,
+		multiUserIdleShutdownDelay:  9 * time.Hour,
+		agentIdleShutdownDelay:      25 * time.Hour,
+	}).ShutdownIdleServers(req, resp)
+	require.NoError(t, err)
+
+	assert.InDelta(t, (7 * time.Hour).Seconds(), resp.Delay.Seconds(), 1)
+}
+
+func TestShutdownIdleServersSkipsWhenShutdownDisabled(t *testing.T) {
+	server := newMCPServer("disabled-shutdown")
+	server.Spec.Manifest.IdleShutdownIntervalHours = -1
+	server.Status.LastRequestTime = metav1.NewTime(time.Now().Add(-24 * time.Hour))
+
+	req := router.Request{
+		Client:    newFakeClient(t, server),
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}
+	resp := &router.ResponseWrapper{}
+
+	err := (&Handler{
+		singleUserIdleShutdownDelay: 15 * time.Hour,
+	}).ShutdownIdleServers(req, resp)
+	require.NoError(t, err)
+	assert.Zero(t, resp.Delay)
 }

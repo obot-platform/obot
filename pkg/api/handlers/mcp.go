@@ -35,6 +35,8 @@ import (
 
 var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
+const requestTimeUpdateInterval = 15 * time.Minute
+
 // MCPOAuthChecker will check the OAuth status for an MCP server. This interface breaks an import cycle.
 type MCPOAuthChecker interface {
 	CheckForMCPAuth(req api.Context, server v1.MCPServer, config mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error)
@@ -649,6 +651,20 @@ func (m *MCPHandler) GetOAuthURL(req api.Context) error {
 	u, err := m.mcpOAuthChecker.CheckForMCPAuth(req, server, serverConfig, req.User.GetUID(), server.Name, "")
 	if err != nil {
 		return fmt.Errorf("failed to get OAuth URL: %w", err)
+	}
+
+	// Best effort to update the last request time.
+	// Don't update on every request, only if it's been a while since the last update, to avoid excessive writes to storage.
+	if time.Since(server.Status.LastRequestTime.Time) > requestTimeUpdateInterval {
+		server.Status.LastRequestTime = metav1.Now()
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			if err := req.Storage.Status().Update(ctx, &server); err != nil {
+				log.Warnf("failed to update mcp server status: %v", err)
+			}
+		}()
 	}
 
 	return req.Write(map[string]string{"oauthURL": u})
@@ -2318,10 +2334,9 @@ func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, 
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil
 		}
-		var are nmcp.AuthRequiredErr
 		if strings.HasSuffix(strings.ToLower(err.Error()), "method not found") {
 			return nil, types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support tools")
-		} else if errors.As(err, &are) {
+		} else if _, ok := errors.AsType[nmcp.AuthRequiredErr](err); ok {
 			return nil, types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return nil, err

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
@@ -27,16 +28,22 @@ import (
 var log = logger.Package()
 
 type Handler struct {
-	gptClient         *gptscript.GPTScript
-	mcpSessionManager *mcp.SessionManager
-	baseURL           string
+	gptClient                   *gptscript.GPTScript
+	mcpSessionManager           *mcp.SessionManager
+	singleUserIdleShutdownDelay time.Duration
+	multiUserIdleShutdownDelay  time.Duration
+	agentIdleShutdownDelay      time.Duration
+	baseURL                     string
 }
 
-func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, baseURL string) *Handler {
+func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay, agentIdleShutdownDelay time.Duration, baseURL string) *Handler {
 	return &Handler{
-		gptClient:         gptClient,
-		mcpSessionManager: mcpSessionManager,
-		baseURL:           baseURL,
+		gptClient:                   gptClient,
+		mcpSessionManager:           mcpSessionManager,
+		singleUserIdleShutdownDelay: singleUserIdleShutdownDelay,
+		multiUserIdleShutdownDelay:  multiUserIdleShutdownDelay,
+		agentIdleShutdownDelay:      agentIdleShutdownDelay,
+		baseURL:                     baseURL,
 	}
 }
 
@@ -668,6 +675,47 @@ func (h *Handler) SyncOAuthCredentialStatus(req router.Request, _ router.Respons
 		server.Status.OAuthCredentialConfigured = catalogEntry.Status.OAuthCredentialConfigured
 		log.Infof("Updated MCP server OAuth credential status from catalog entry: server=%s catalogEntry=%s configured=%v", server.Name, catalogEntry.Name, server.Status.OAuthCredentialConfigured)
 		return req.Client.Status().Update(req.Ctx, server)
+	}
+
+	return nil
+}
+
+func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) error {
+	mcpServer := req.Object.(*v1.MCPServer)
+	if mcpServer.Status.LastRequestTime.IsZero() {
+		if time.Since(mcpServer.CreationTimestamp.Time) > time.Minute {
+			// Set the time if it is zero so we don't shutdown servers that were just created.
+			mcpServer.Status.LastRequestTime = metav1.Now()
+			return req.Client.Status().Update(req.Ctx, mcpServer)
+		}
+
+		// Give things some time to settle.
+		resp.RetryAfter(time.Minute)
+		return nil
+	}
+
+	idleInterval := time.Duration(mcpServer.Spec.Manifest.IdleShutdownIntervalHours) * time.Hour
+	if idleInterval == 0 {
+		idleInterval = h.singleUserIdleShutdownDelay
+		if mcpServer.Spec.NanobotAgentID != "" {
+			idleInterval = h.agentIdleShutdownDelay
+		} else if mcpServer.Spec.MCPCatalogID != "" || mcpServer.Spec.PowerUserWorkspaceID != "" {
+			idleInterval = h.multiUserIdleShutdownDelay
+		}
+	}
+
+	if idleInterval < 0 {
+		// If the idleInterval is negative, then shutdown is disabled for this server.
+		return nil
+	}
+
+	if since := time.Since(mcpServer.Status.LastRequestTime.Time); since > idleInterval {
+		if err := h.mcpSessionManager.ShutdownServer(req.Ctx, mcpServer.Name); err != nil {
+			return fmt.Errorf("failed to shutdown idle server %s: %w", mcpServer.Name, err)
+		}
+	} else if retry := idleInterval - since; retry < 10*time.Hour {
+		// All objects are retried every 10 hours. If we should retry sooner, then trigger a retry.
+		resp.RetryAfter(retry)
 	}
 
 	return nil

@@ -26,14 +26,17 @@ import (
 var log = logger.Package()
 
 type Options struct {
-	MCPBaseImage            string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/phat:main"`
-	MCPHTTPWebhookBaseImage string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:main"`
-	MCPRemoteShimBaseImage  string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/nanobot-ai/nanobot:v0.0.65"`
-	MCPNamespace            string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
-	MCPClusterDomain        string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
-	DisallowLocalhostMCP    bool     `usage:"Allow MCP containers to run on localhost"`
-	MCPRuntimeBackend       string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or local. Defaults to docker." default:"docker"`
-	MCPImagePullSecrets     []string `usage:"The name of the image pull secret to use for pulling MCP images"`
+	MCPBaseImage                      string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/phat:main"`
+	MCPHTTPWebhookBaseImage           string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:main"`
+	MCPRemoteShimBaseImage            string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/nanobot-ai/nanobot:v0.0.65"`
+	MCPNamespace                      string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
+	MCPClusterDomain                  string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
+	DisallowLocalhostMCP              bool     `usage:"Allow MCP containers to run on localhost"`
+	MCPRuntimeBackend                 string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or local. Defaults to docker." default:"docker"`
+	MCPImagePullSecrets               []string `usage:"The name of the image pull secret to use for pulling MCP images"`
+	SingleUserIdleServerShutdownHours int      `usage:"The interval in hours to check for idle MCP servers designated to a single user and shut them down, set to -1 to disable shutdown" default:"24"`
+	MultiUserIdleServerShutdownHours  int      `usage:"The interval in hours to check for idle multi-user MCP servers and shut them down, set to -1 to disable" default:"168"`
+	IdleAgentShutdownHours            int      `usage:"The interval in hours to check for idle agents and shut them down, set to -1 to disable" default:"72"`
 
 	// Kubernetes settings from Helm
 	MCPK8sSettingsAffinity             string `usage:"Affinity rules for MCP server pods (JSON)"`

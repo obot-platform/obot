@@ -156,6 +156,8 @@ type MCPServerStatus struct {
 	// OAuthCredentialConfigured indicates whether OAuth credentials have been configured
 	// for this server's catalog entry. Only relevant for remote servers that require static OAuth.
 	OAuthCredentialConfigured bool `json:"oauthCredentialConfigured,omitempty"`
+	// LastRequestTime is the time of the last request to the server, in 15 minute granularity.
+	LastRequestTime metav1.Time `json:"lastRequestTime,omitzero"`
 }
 
 type DeploymentCondition struct {

@@ -223,16 +223,19 @@ type Services struct {
 	// environment/Helm config and not modifiable via UI.
 	PSASettingsFromHelm *v1.PodSecurityAdmissionSettings
 
-	DisableUpdateCheck       bool
-	DisableLegacyChat        bool
-	MCPRuntimeBackend        string
-	MCPRemoteShimBaseImage   string
-	RegistryNoAuth           bool
-	AutonomousToolUseEnabled bool
-	NanobotIntegration       bool
-	MessagePoliciesEnabled   bool
-	MCPServerSearchImage     string
-	NanobotAgentImage        string
+	DisableUpdateCheck                   bool
+	DisableLegacyChat                    bool
+	MCPRuntimeBackend                    string
+	MCPRemoteShimBaseImage               string
+	RegistryNoAuth                       bool
+	AutonomousToolUseEnabled             bool
+	NanobotIntegration                   bool
+	MessagePoliciesEnabled               bool
+	MCPServerSearchImage                 string
+	NanobotAgentImage                    string
+	SingleUserIdleServerShutdownInterval time.Duration
+	MultiUserIdleServerShutdownInterval  time.Duration
+	AgentIdleServerShutdownInterval      time.Duration
 
 	// Published artifact blob storage
 	ArtifactBlobStore  blob.BlobStore
@@ -1025,26 +1028,29 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
 			UserInfoEndpoint:                  fmt.Sprintf("%s/oauth/userinfo", config.Hostname),
 		},
-		AccessControlRuleHelper:       acrHelper,
-		ModelAccessPolicyHelper:       mapHelper,
-		MessagePolicyHelper:           msgPolicyHelper,
-		SkillAccessRuleHelper:         skillAccessRuleHelper,
-		WebhookHelper:                 webhookHelper,
-		LocalK8sConfig:                localK8sConfig,
-		MCPServerNamespace:            config.MCPNamespace,
-		PodSchedulingSettingsFromHelm: podSchedulingSettings,
-		PSASettingsFromHelm:           psaSettings,
-		DisableUpdateCheck:            config.DisableUpdateCheck,
-		DisableLegacyChat:             config.DisableLegacyChat,
-		AutonomousToolUseEnabled:      config.EnableAutonomousToolUse,
-		MCPRuntimeBackend:             config.MCPRuntimeBackend,
-		MCPRemoteShimBaseImage:        config.MCPRemoteShimBaseImage,
-		RegistryNoAuth:                registryNoAuth,
-		NanobotIntegration:            config.NanobotIntegration,
-		MessagePoliciesEnabled:        config.EnableMessagePolicies,
-		MCPServerSearchImage:          config.MCPServerSearchImage,
-		NanobotAgentImage:             config.NanobotAgentImage,
-		ArtifactBlobBucket:            config.ArtifactStorageBucket,
+		AccessControlRuleHelper:              acrHelper,
+		ModelAccessPolicyHelper:              mapHelper,
+		MessagePolicyHelper:                  msgPolicyHelper,
+		SkillAccessRuleHelper:                skillAccessRuleHelper,
+		WebhookHelper:                        webhookHelper,
+		LocalK8sConfig:                       localK8sConfig,
+		MCPServerNamespace:                   config.MCPNamespace,
+		PodSchedulingSettingsFromHelm:        podSchedulingSettings,
+		PSASettingsFromHelm:                  psaSettings,
+		DisableUpdateCheck:                   config.DisableUpdateCheck,
+		DisableLegacyChat:                    config.DisableLegacyChat,
+		AutonomousToolUseEnabled:             config.EnableAutonomousToolUse,
+		MCPRuntimeBackend:                    config.MCPRuntimeBackend,
+		MCPRemoteShimBaseImage:               config.MCPRemoteShimBaseImage,
+		SingleUserIdleServerShutdownInterval: time.Duration(config.SingleUserIdleServerShutdownHours) * time.Hour,
+		MultiUserIdleServerShutdownInterval:  time.Duration(config.MultiUserIdleServerShutdownHours) * time.Hour,
+		AgentIdleServerShutdownInterval:      time.Duration(config.IdleAgentShutdownHours) * time.Hour,
+		RegistryNoAuth:                       registryNoAuth,
+		NanobotIntegration:                   config.NanobotIntegration,
+		MessagePoliciesEnabled:               config.EnableMessagePolicies,
+		MCPServerSearchImage:                 config.MCPServerSearchImage,
+		NanobotAgentImage:                    config.NanobotAgentImage,
+		ArtifactBlobBucket:                   config.ArtifactStorageBucket,
 	}
 
 	if (config.ArtifactStorageProvider == "") != (config.ArtifactStorageBucket == "") {
