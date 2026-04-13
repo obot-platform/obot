@@ -42,10 +42,11 @@ export function formatScheduleDate(date: string): string {
 		return date;
 	}
 
-	const month = String(parsed.getMonth() + 1).padStart(2, '0');
-	const day = String(parsed.getDate()).padStart(2, '0');
-	const year = parsed.getFullYear();
-	return `${month}-${day}-${year}`;
+	return new Intl.DateTimeFormat(undefined, {
+		year: 'numeric',
+		month: 'numeric',
+		day: 'numeric'
+	}).format(parsed);
 }
 
 export function formatScheduleDateTime(value?: string | null): string {
@@ -56,9 +57,14 @@ export function formatScheduleDateTime(value?: string | null): string {
 		return value;
 	}
 
-	const date = `${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}-${parsed.getFullYear()}`;
-	const time = `${String(parsed.getHours()).padStart(2, '0')}:${String(parsed.getMinutes()).padStart(2, '0')}`;
-	return `${date} at ${time}`;
+	return new Intl.DateTimeFormat(undefined, {
+		year: 'numeric',
+		month: 'numeric',
+		day: 'numeric',
+		hour: 'numeric',
+		minute: '2-digit',
+		hour12: true
+	}).format(parsed);
 }
 
 export function formatWeekdaySummary(daysOfWeek: string[]): string {
@@ -163,8 +169,27 @@ export function buildCronSchedule(form: TaskScheduleForm): string {
 }
 
 function formatTime(time: string): string {
-	const [hour, minute] = time.split(':');
-	return `${Number(hour)}:${minute}`;
+	const parts = time.split(':');
+	const hour = Number(parts[0]);
+	const minute = Number(parts[1] ?? 0);
+	if (
+		!Number.isInteger(hour) ||
+		!Number.isInteger(minute) ||
+		hour < 0 ||
+		hour > 23 ||
+		minute < 0 ||
+		minute > 59
+	) {
+		return time;
+	}
+
+	const d = new Date();
+	d.setHours(hour, minute, 0, 0);
+	return new Intl.DateTimeFormat(undefined, {
+		hour: 'numeric',
+		minute: '2-digit',
+		hour12: true
+	}).format(d);
 }
 
 export function scheduleSummary(schedule: string, expiration?: string): string {

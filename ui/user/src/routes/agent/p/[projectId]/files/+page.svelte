@@ -379,7 +379,7 @@
 								>
 								{#if !responsive.isMobile}
 									<td
-										><p class="truncate text-nowrap break-all">
+										><p class="text-nowrap">
 											{node.lastModified?.formatted || '-'}
 										</p></td
 									>

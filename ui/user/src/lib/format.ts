@@ -32,17 +32,14 @@ export function formatFileTime(timestamp: unknown): FileTimeResult {
 
 	let formatted = '';
 	try {
-		formatted = date
-			.toLocaleString(undefined, {
-				year: 'numeric',
-				month: 'numeric',
-				day: 'numeric',
-				hour: '2-digit',
-				minute: '2-digit',
-				hour12: false
-			})
-			.replace(/\//g, '-')
-			.replace(/,/g, '');
+		formatted = new Intl.DateTimeFormat(undefined, {
+			year: 'numeric',
+			month: 'numeric',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		}).format(date);
 	} catch {
 		return { date: undefined, formatted: '' };
 	}
