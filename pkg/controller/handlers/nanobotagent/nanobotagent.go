@@ -235,6 +235,23 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, resp router.Response, agent *v1.NanobotAgent, mcpServerName string) error {
 	credCtx := fmt.Sprintf("%s-%s", agent.Spec.UserID, mcpServerName)
 
+	llmModel, err := resolveModel(ctx, req.Client, req.Namespace, types.DefaultModelAliasTypeLLM)
+	if err != nil {
+		return err
+	}
+	llmProvider, llmDefault := h.parseModelProvider(llmModel)
+
+	miniModel, err := resolveModel(ctx, req.Client, req.Namespace, types.DefaultModelAliasTypeLLMMini)
+	if err != nil {
+		return err
+	}
+	miniProvider, miniDefault := h.parseModelProvider(miniModel)
+
+	providerYAML, err := buildNanobotProviderConfigYAML(llmProvider, miniProvider)
+	if err != nil {
+		return fmt.Errorf("failed to build nanobot provider config: %w", err)
+	}
+
 	// Check if credential exists and if the token needs refreshing
 	var needsRefresh bool
 	cred, err := h.gptClient.RevealCredential(ctx, []string{credCtx}, mcpServerName)
@@ -249,11 +266,9 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		log.Debugf("Nanobot credential missing, creating: agent=%s mcpServer=%s", agent.Name, mcpServerName)
 	} else {
 		// Credential exists, check if token needs refreshing.
-		// Look for the token in any known provider API key env var.
-		token := credEnvFileVars["OPENAI_API_KEY"]
-		if token == "" {
-			token = credEnvFileVars["ANTHROPIC_API_KEY"]
-		}
+		// Use the configured provider's API key env var to find the token.
+		llmEnvVarName := strings.TrimSuffix(strings.TrimPrefix(llmProvider.APIKey, "${"), "}")
+		token := credEnvFileVars[llmEnvVarName]
 		if token != "" {
 			tokenCtx, err := h.tokenService.DecodeToken(ctx, token)
 			if err != nil {
@@ -278,22 +293,10 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		}
 	}
 
-	llmModel, err := resolveModel(ctx, req.Client, req.Namespace, types.DefaultModelAliasTypeLLM)
-	if err != nil {
-		return err
-	}
-	miniModel, err := resolveModel(ctx, req.Client, req.Namespace, types.DefaultModelAliasTypeLLMMini)
-	if err != nil {
-		return err
-	}
-
-	llmProvider, llmDefault := h.parseModelProvider(llmModel)
-	miniProvider, miniDefault := h.parseModelProvider(miniModel)
-
 	if !needsRefresh &&
 		credEnvFileVars["NANOBOT_DEFAULT_MODEL"] == llmDefault &&
 		credEnvFileVars["NANOBOT_DEFAULT_MINI_MODEL"] == miniDefault &&
-		cred.Env["NANOBOT_PROVIDER_CONFIG"] != "" {
+		cred.Env["NANOBOT_PROVIDER_CONFIG"] == providerYAML {
 		// Credentials are up to date
 		return nil
 	}
@@ -348,12 +351,6 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create API key: %w", err)
-	}
-
-	// Build provider config YAML and env file with only the providers in use.
-	providerYAML, err := buildNanobotProviderConfigYAML(llmProvider, miniProvider)
-	if err != nil {
-		return fmt.Errorf("failed to build nanobot provider config: %w", err)
 	}
 
 	envFileLines := []string{
@@ -418,7 +415,7 @@ type resolvedLLMModel struct {
 type nanobotLLMProvider struct {
 	Name    string // key in llmProviders map (e.g. "openai", "anthropic")
 	Dialect nanobottypes.Dialect
-	APIKey  string // env var reference, e.g. "${ANTHROPIC_API_KEY}"
+	APIKey  string // env var reference derived from Name, e.g. "${OPENAI_MODEL_PROVIDER_API_KEY}"
 	BaseURL string // actual Obot proxy URL
 }
 
