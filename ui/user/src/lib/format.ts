@@ -36,9 +36,9 @@ export function formatFileTime(timestamp: unknown): FileTimeResult {
 			year: 'numeric',
 			month: 'numeric',
 			day: 'numeric',
-			hour: 'numeric',
+			hour: '2-digit',
 			minute: '2-digit',
-			hour12: true
+			hour12: false
 		}).format(date);
 	} catch {
 		return { date: undefined, formatted: '' };

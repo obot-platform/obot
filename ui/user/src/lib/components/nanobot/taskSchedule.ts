@@ -61,9 +61,9 @@ export function formatScheduleDateTime(value?: string | null): string {
 		year: 'numeric',
 		month: 'numeric',
 		day: 'numeric',
-		hour: 'numeric',
+		hour: '2-digit',
 		minute: '2-digit',
-		hour12: true
+		hour12: false
 	}).format(parsed);
 }
 
@@ -186,9 +186,9 @@ function formatTime(time: string): string {
 	const d = new Date();
 	d.setHours(hour, minute, 0, 0);
 	return new Intl.DateTimeFormat(undefined, {
-		hour: 'numeric',
+		hour: '2-digit',
 		minute: '2-digit',
-		hour12: true
+		hour12: false
 	}).format(d);
 }
 
