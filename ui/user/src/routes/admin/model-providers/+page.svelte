@@ -206,7 +206,7 @@
 	{#snippet note()}
 		{#if configuringModelProvider && isAnthropic(configuringModelProvider)}
 			<p class="text-on-surface1 py-4 font-light">
-				Note: Anthropic does not have an embeddings model and recommends Voyage AI.
+				Note: Anthropic does not have an embeddings model.
 			</p>
 		{/if}
 	{/snippet}
