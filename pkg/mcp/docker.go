@@ -316,11 +316,12 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 			currentFileEnvKeysHash = ""
 		}
 
+		desiredImage := d.deploymentImage(server)
 		if existing.Labels["mcp.config.hash"] != configHash ||
 			currentFileEnvKeysHash != desiredFileEnvKeysHash ||
 			existing.NetworkSettings == nil ||
 			existing.NetworkSettings.Networks[d.network] == nil ||
-			(server.Runtime == otypes.RuntimeRemote || server.Runtime == otypes.RuntimeComposite) && existing.Image != d.remoteShimBaseImage {
+			desiredImage != "" && existing.Image != desiredImage {
 			// Clear the state. The below logic will remove and recreate the container.
 			existing.State = ""
 		}
@@ -380,6 +381,17 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 
 	// Create new container
 	return d.createAndStartAndWaitForContainer(ctx, server, mcpServerName, configHash, desiredFileEnvKeysHash, containerEnv, webhooks)
+}
+
+func (d *dockerBackend) deploymentImage(server ServerConfig) string {
+	switch server.Runtime {
+	case otypes.RuntimeUVX, otypes.RuntimeNPX:
+		return d.containerizedBaseImage
+	case otypes.RuntimeRemote, otypes.RuntimeComposite:
+		return d.remoteShimBaseImage
+	default:
+		return ""
+	}
 }
 
 func (d *dockerBackend) transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error) {
