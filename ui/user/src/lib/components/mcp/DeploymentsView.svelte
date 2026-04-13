@@ -199,7 +199,7 @@
 					updateStatus,
 					updatesAvailable,
 					updateStatusTooltip,
-					key: `${deployment.id}:${deployment.userID}`
+					rowId: `${deployment.id}:${deployment.userID}`
 				};
 			})
 			.filter((d) => !d.disabled && (onlyMyServers ? d.isMyServer : true));
@@ -510,7 +510,7 @@
 			<Table
 				bind:this={tableRef}
 				data={tableData}
-				key="key"
+				rowKey="rowId"
 				fields={entity === 'workspace'
 					? [
 							'displayName',
