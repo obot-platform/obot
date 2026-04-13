@@ -3,6 +3,7 @@ package mcpgateway
 import (
 	"fmt"
 	"maps"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -40,7 +41,7 @@ func NewHandler(mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.Webhoo
 	var internalHost string
 	if internalBaseURL != "" {
 		if u, err := url.Parse(internalBaseURL); err == nil {
-			internalHost = u.Host
+			internalHost = u.Hostname()
 		}
 	}
 	return &Handler{
@@ -57,8 +58,14 @@ func NewHandler(mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.Webhoo
 func (h *Handler) Proxy(req api.Context) error {
 	if req.User.GetUID() == "anonymous" {
 		resourceBaseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
-		if h.internalBaseURL != "" && h.internalHost != "" && req.Host == h.internalHost {
-			resourceBaseURL = h.internalBaseURL
+		if h.internalBaseURL != "" && h.internalHost != "" {
+			host := req.Host
+			if hn, _, err := net.SplitHostPort(host); err == nil {
+				host = hn
+			}
+			if host == h.internalHost {
+				resourceBaseURL = h.internalBaseURL
+			}
 		}
 		req.ResponseWriter.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource%s"%s`, resourceBaseURL, req.URL.Path, h.scope))
 		return apierrors.NewUnauthorized("user is not authenticated")

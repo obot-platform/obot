@@ -2,6 +2,7 @@ package wellknown
 
 import (
 	"net/url"
+	"strings"
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/server"
@@ -16,10 +17,11 @@ type handler struct {
 }
 
 func SetupHandlers(baseURL, internalBaseURL string, config handlers.OAuthAuthorizationServerConfig, registryNoAuth bool, mux *server.Server) {
+	internalBaseURL = strings.TrimSuffix(internalBaseURL, "/")
 	var internalHost string
 	if internalBaseURL != "" {
 		if u, err := url.Parse(internalBaseURL); err == nil {
-			internalHost = u.Host
+			internalHost = u.Hostname()
 		}
 	}
 	h := &handler{

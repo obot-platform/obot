@@ -191,7 +191,7 @@ export OBOT_SERVER_NANOBOT_AGENT_IMAGE='nanobot-agent:local'
 export OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE='nanobot:local'
 ```
 
-With this setup, `TransformObotHostname` rewrites all URLs injected into pod secrets from `http://localhost:8080` to `http://obot.obot-mcp.svc.cluster.local:8080`, which Telepresence routes back to your local process.
+With this setup, `TransformObotHostname` rewrites all URLs injected into pod secrets from `http://localhost:8080` to `http://obot.obot-mcp.svc.cluster.local`, which Telepresence routes back to your local process.
 
 ### Troubleshooting
 
@@ -204,5 +204,5 @@ With this setup, `TransformObotHostname` rewrites all URLs injected into pod sec
   kubectl delete pod -n ambassador -l app=traffic-manager
   kubectl rollout restart deployment/obot -n obot-mcp
   telepresence connect --namespace obot-mcp
-  telepresence intercept obot -p 8080
+  telepresence intercept obot -p 8080:80
   ```

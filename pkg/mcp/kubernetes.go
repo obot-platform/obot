@@ -1537,10 +1537,17 @@ func ValidatePSALevel(level string) bool {
 
 // getPullPolicy returns the configured image pull policy, defaulting to Always.
 func (k *kubernetesBackend) getPullPolicy() corev1.PullPolicy {
-	if k.imagePullPolicy != "" {
-		return k.imagePullPolicy
+	policy := strings.TrimSpace(string(k.imagePullPolicy))
+	switch {
+	case strings.EqualFold(policy, string(corev1.PullAlways)):
+		return corev1.PullAlways
+	case strings.EqualFold(policy, string(corev1.PullIfNotPresent)):
+		return corev1.PullIfNotPresent
+	case strings.EqualFold(policy, string(corev1.PullNever)):
+		return corev1.PullNever
+	default:
+		return corev1.PullAlways
 	}
-	return corev1.PullAlways
 }
 
 // getContainerSecurityContext returns the appropriate container security context based on PSA level

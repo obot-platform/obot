@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/gptscript-ai/gptscript/pkg/hash"
@@ -153,7 +154,7 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 		tokenService:      tokenService,
 		backend:           backend,
 		baseURL:           baseURL,
-		internalBaseURL:   opts.MCPInternalBaseURL,
+		internalBaseURL:   strings.TrimSuffix(opts.MCPInternalBaseURL, "/"),
 		allowLocalhostMCP: !opts.DisallowLocalhostMCP,
 	}, nil
 }
