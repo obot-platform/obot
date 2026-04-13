@@ -44,7 +44,6 @@ export const CommonModelProviderIds = {
 	OLLAMA: 'ollama-model-provider',
 	GROQ: 'groq-model-provider',
 	VLLM: 'vllm-model-provider',
-	VOYAGE: 'voyage-model-provider',
 	ANTHROPIC: 'anthropic-model-provider',
 	OPENAI: 'openai-model-provider',
 	AZURE_OPENAI: 'azure-openai-model-provider',
