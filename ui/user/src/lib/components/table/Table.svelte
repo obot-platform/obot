@@ -51,7 +51,7 @@
 		sectionSecondaryTitle?: string;
 		disablePortal?: boolean;
 		columnMaxWidths?: Record<string, number>;
-		key?: string;
+		rowKey?: keyof T;
 	}
 
 	const {
@@ -82,7 +82,7 @@
 		sectionSecondaryTitle,
 		disablePortal,
 		columnMaxWidths,
-		key = 'id'
+		rowKey = 'id'
 	}: Props<T> = $props();
 
 	let page = $state(0);
@@ -594,7 +594,7 @@
 	>
 		{#if tableSelectActions && Object.keys(selected).length > 0}
 			<div class="flex w-full items-center">
-				<div class="flex-shrink-0 p-2">
+				<div class="shrink-0 p-2">
 					{@render selectAll()}
 				</div>
 				<div class="text-on-surface1 px-4 py-2 text-left text-sm font-semibold">
@@ -681,7 +681,7 @@
 										</th>
 									</tr>
 								{/if}
-								{#each sectionA as d (d[key as keyof T])}
+								{#each sectionA as d (d[rowKey])}
 									{@render row(d)}
 								{/each}
 							{/if}
@@ -698,13 +698,13 @@
 										</th>
 									</tr>
 								{/if}
-								{#each sectionB as d (d[key as keyof T])}
+								{#each sectionB as d (d[rowKey])}
 									{@render row(d)}
 								{/each}
 							{/if}
 						{/key}
 					{:else}
-						{#each visibleItems as d (sortedBy ? `${d[key as keyof T]}-${sortedBy.property}-${sortedBy.order}` : d[key as keyof T])}
+						{#each visibleItems as d (sortedBy ? `${d[rowKey]}-${sortedBy.property}-${sortedBy.order}` : d[rowKey])}
 							{@render row(d)}
 						{/each}
 					{/if}
