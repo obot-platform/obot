@@ -195,7 +195,8 @@
 	{@attach (node: HTMLElement) => {
 		const response = tooltip(node, {
 			text: 'Filter By Date',
-			placement: 'top-end'
+			placement: 'top-end',
+			classes: ['z-60']
 		});
 
 		return () => response.destroy();

@@ -311,11 +311,12 @@
 	layoutContext={nanobotLayout}
 	classes={{
 		container: 'px-0 py-0 md:px-0',
-		childrenContainer: 'max-w-full h-[calc(100dvh-4rem)]',
+		childrenContainer: `max-w-full ${impersonating ? 'h-[calc(100dvh-8rem)]' : 'h-[calc(100dvh-4rem)]'}`,
 		collapsedSidebarHeaderContent: 'pb-0',
 		sidebar: 'pt-0 px-0',
 		sidebarRoot: 'bg-base-200',
-		noSidebarTitle: 'md:text-xl text-base'
+		noSidebarTitle: 'md:text-xl text-base',
+		navbar: impersonating ? 'top-15' : 'top-0'
 	}}
 	showBackButton={responsive.isMobile
 		? showBackButton && !layout.quickBarAccessOpen

@@ -122,7 +122,8 @@
 		{@attach (node: HTMLElement) => {
 			const response = tooltip(node, {
 				text: 'Calendar Quick Actions',
-				placement: 'top-end'
+				placement: 'top-end',
+				classes: ['z-60']
 			});
 
 			return () => response.destroy();
