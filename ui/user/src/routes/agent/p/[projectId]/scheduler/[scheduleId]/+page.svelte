@@ -13,7 +13,7 @@
 		ScheduledTask
 	} from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import { errors } from '$lib/stores';
+	import { errors, timePreference } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
 	import ConfirmScheduleToggle from '../ConfirmScheduleToggle.svelte';
@@ -328,11 +328,15 @@
 			<div class="grid gap-0 md:grid-cols-2">
 				<div class="border-base-300 border-b px-5 py-4 md:border-r">
 					<div class="text-base-content/50 text-xs font-medium uppercase">Schedule</div>
-					<div class="mt-2 text-sm">{scheduleSummary(task.schedule, task.expiration)}</div>
+					<div class="mt-2 text-sm">
+						{scheduleSummary(task.schedule, task.expiration, timePreference.timeFormat)}
+					</div>
 				</div>
 				<div class="border-base-300 border-b px-5 py-4">
 					<div class="text-base-content/50 text-xs font-medium uppercase">Next run</div>
-					<div class="mt-2 text-sm">{formatScheduleDateTime(task.nextRunAt)}</div>
+					<div class="mt-2 text-sm">
+						{formatScheduleDateTime(task.nextRunAt, timePreference.timeFormat)}
+					</div>
 				</div>
 				<div class="border-base-300 px-5 py-4 md:border-r">
 					<div class="text-base-content/50 text-xs font-medium uppercase">Expiration</div>
@@ -342,7 +346,9 @@
 				</div>
 				<div class="px-5 py-4">
 					<div class="text-base-content/50 text-xs font-medium uppercase">Last run</div>
-					<div class="mt-2 text-sm">{formatScheduleDateTime(sortedSessions[0]?.created)}</div>
+					<div class="mt-2 text-sm">
+						{formatScheduleDateTime(sortedSessions[0]?.created, timePreference.timeFormat)}
+					</div>
 				</div>
 			</div>
 		</div>
@@ -403,7 +409,7 @@
 										<div class="truncate font-medium">{session.title || 'Untitled Session'}</div>
 									</td>
 									<td class="text-base-content/60 text-sm">
-										{formatScheduleDateTime(session.created)}
+										{formatScheduleDateTime(session.created, timePreference.timeFormat)}
 									</td>
 								</tr>
 							{/each}

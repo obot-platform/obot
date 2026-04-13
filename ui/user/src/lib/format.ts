@@ -1,4 +1,5 @@
 import type { FileTimeResult } from './services/nanobot/types';
+import type { TimeDisplayFormat } from './time';
 
 export function formatNumber(num: number): string {
 	if (num >= 1000) {
@@ -21,7 +22,7 @@ export function formatFileSize(bytes: number): string {
 	return `${size.toFixed(1)} ${units[unitIndex]}`;
 }
 
-export function formatFileTime(timestamp: unknown): FileTimeResult {
+export function formatFileTime(timestamp: unknown, format: TimeDisplayFormat): FileTimeResult {
 	if (typeof timestamp !== 'string') return { date: undefined, formatted: '' };
 
 	const value = timestamp.trim();
@@ -38,7 +39,7 @@ export function formatFileTime(timestamp: unknown): FileTimeResult {
 			day: 'numeric',
 			hour: '2-digit',
 			minute: '2-digit',
-			hour12: false
+			hour12: format === '12h'
 		}).format(date);
 	} catch {
 		return { date: undefined, formatted: '' };

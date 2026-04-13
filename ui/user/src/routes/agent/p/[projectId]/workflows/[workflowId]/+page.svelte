@@ -14,7 +14,7 @@
 		PublishedArtifact
 	} from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import { profile, responsive } from '$lib/stores';
+	import { profile, responsive, timePreference } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
@@ -320,7 +320,8 @@
 							</td>
 							<td
 								><p class="truncate text-nowrap break-all">
-									{formatFileTime(resource.annotations?.lastModified).formatted || '-'}
+									{formatFileTime(resource.annotations?.lastModified, timePreference.timeFormat)
+										.formatted || '-'}
 								</p></td
 							>
 							<td>

@@ -1,3 +1,5 @@
+import type { TimeDisplayFormat } from '$lib/time';
+
 export type TaskFrequency = 'daily' | 'weekly' | 'monthly' | 'no_repeat';
 
 export interface TaskScheduleForm {
@@ -49,7 +51,10 @@ export function formatScheduleDate(date: string): string {
 	}).format(parsed);
 }
 
-export function formatScheduleDateTime(value?: string | null): string {
+export function formatScheduleDateTime(
+	value: string | null | undefined,
+	format: TimeDisplayFormat
+): string {
 	if (!value) return 'Not available';
 
 	const parsed = new Date(value);
@@ -63,7 +68,7 @@ export function formatScheduleDateTime(value?: string | null): string {
 		day: 'numeric',
 		hour: '2-digit',
 		minute: '2-digit',
-		hour12: false
+		hour12: format === '12h'
 	}).format(parsed);
 }
 
@@ -168,7 +173,7 @@ export function buildCronSchedule(form: TaskScheduleForm): string {
 	}
 }
 
-function formatTime(time: string): string {
+function formatScheduleTime(time: string, format: TimeDisplayFormat): string {
 	const parts = time.split(':');
 	const hour = Number(parts[0]);
 	const minute = Number(parts[1] ?? 0);
@@ -188,11 +193,15 @@ function formatTime(time: string): string {
 	return new Intl.DateTimeFormat(undefined, {
 		hour: '2-digit',
 		minute: '2-digit',
-		hour12: false
+		hour12: format === '12h'
 	}).format(d);
 }
 
-export function scheduleSummary(schedule: string, expiration?: string): string {
+export function scheduleSummary(
+	schedule: string,
+	expiration: string | undefined,
+	format: TimeDisplayFormat
+): string {
 	if (!schedule?.trim()) return 'No schedule';
 
 	const fallback = defaultTaskScheduleForm();
@@ -205,7 +214,7 @@ export function scheduleSummary(schedule: string, expiration?: string): string {
 		return 'Schedule unavailable';
 	}
 
-	const time = formatTime(parsed.time);
+	const time = formatScheduleTime(parsed.time, format);
 	switch (parsed.frequency) {
 		case 'daily':
 			return `Daily at ${time}`;
