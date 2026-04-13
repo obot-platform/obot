@@ -143,13 +143,13 @@ config:
   OBOT_SERVER_AUDIT_LOGS_USE_PATH_STYLE: false
 
   # config.OBOT_SERVER_MCPBASE_IMAGE -- Deploy MCP servers in the cluster using this base image. OBOT_SERVER_MCPNAMESPACE is automatically added to the secret if config.OBOT_SERVER_MCPBASE_IMAGE is set. If no tag is specified, the chart's appVersion will be used unless it starts with '0.0.0', in which case the 'main' tag will be used.
-  OBOT_SERVER_MCPBASE_IMAGE: "ghcr.io/obot-platform/mcp-images/phat"
+  OBOT_SERVER_MCPBASE_IMAGE: ""
   # config.OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE -- Deploy MCP remote shim servers in the cluster using this base image.
-  OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE: "ghcr.io/nanobot-ai/nanobot:v0.0.61"
+  OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE: ""
   # config.OBOT_SERVER_NANOBOT_AGENT_IMAGE -- Container image for the Nanobot agent MCP server.
-  OBOT_SERVER_NANOBOT_AGENT_IMAGE: "ghcr.io/nanobot-ai/nanobot-agent:v0.0.61"
+  OBOT_SERVER_NANOBOT_AGENT_IMAGE: ""
   # config.OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE -- Deploy MCP HTTP webhook servers in the cluster using this base image.
-  OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE: "ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:main"
+  OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE: ""
   # config.OBOT_SERVER_MCPCLUSTER_DOMAIN -- The cluster domain to use for MCP services. Defaults to cluster.local. Only matters if the above image is set.
   OBOT_SERVER_MCPCLUSTER_DOMAIN: ""
   # config.OBOT_SERVER_DISALLOW_LOCALHOST_MCP -- disallow MCP servers that try to connect to localhost. Defaults to false.
