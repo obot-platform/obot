@@ -41,7 +41,6 @@ type kubernetesBackend struct {
 	clientset                     *kubernetes.Clientset
 	client                        kclient.WithWatch
 	baseImage                     string
-	httpWebhookBaseImage          string
 	remoteShimBaseImage           string
 	mcpNamespace                  string
 	mcpClusterDomain              string
@@ -69,7 +68,6 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 		clientset:                     clientset,
 		client:                        client,
 		baseImage:                     opts.MCPBaseImage,
-		httpWebhookBaseImage:          opts.MCPHTTPWebhookBaseImage,
 		remoteShimBaseImage:           opts.MCPRemoteShimBaseImage,
 		mcpNamespace:                  opts.MCPNamespace,
 		mcpClusterDomain:              opts.MCPClusterDomain,
@@ -341,18 +339,15 @@ func (k *kubernetesBackend) transformObotHostname(url string) string {
 	}
 
 	// Parse the URL to extract the path
-	idx := strings.Index(url, "://")
-	if idx == -1 {
+	_, rest, ok := strings.Cut(url, "://")
+	if !ok {
 		return url
 	}
 
-	rest := url[idx+3:]
-
 	// Find where the path starts (after host:port)
-	pathIdx := strings.Index(rest, "/")
-	var path string
-	if pathIdx != -1 {
-		path = rest[pathIdx:]
+	_, path, ok := strings.Cut(rest, "/")
+	if ok {
+		path = "/" + path
 	}
 
 	// Reconstruct URL with service FQDN
@@ -444,6 +439,11 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		}
 
 		server.Args = args
+	}
+
+	for i, webhook := range webhooks {
+		webhook.URL = k.transformObotHostname(webhook.URL)
+		webhooks[i] = webhook
 	}
 
 	// Set this environment variable for our nanobot image to read
@@ -539,69 +539,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		})
 	}
 
-	webhookSecretData := make(map[string][]byte, len(webhooks))
-	containers := make([]corev1.Container, 0, len(webhooks)+2)
-	// Add a container for each webhook, ensuring that there are no port collisions.
-	for i, webhook := range webhooks {
-		port := port + i + 1
-		c, err := webhookToServerConfig(webhook, k.httpWebhookBaseImage, server.MCPServerName, server.UserID, server.Scope, port)
-		if err != nil {
-			return nil, fmt.Errorf("failed to translate webhook to config %s: %v", webhook.Name, err)
-		}
-
-		env := make([]corev1.EnvVar, 0, len(c.Env))
-		for _, e := range c.Env {
-			key, val, ok := strings.Cut(e, "=")
-			if !ok {
-				continue
-			}
-
-			if key != "WEBHOOK_SECRET" {
-				env = append(env, corev1.EnvVar{
-					Name:  key,
-					Value: val,
-				})
-			} else {
-				secretKey := strings.ToUpper(server.MCPServerName + "_" + key)
-				webhookSecretData[secretKey] = []byte(val)
-				env = append(env, corev1.EnvVar{
-					Name: key,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: name.SafeConcatName(server.MCPServerName, "mcp", "webhook", "secrets"),
-							},
-							Key: secretKey,
-						},
-					},
-				})
-			}
-		}
-
-		containers = append(containers, corev1.Container{
-			Name:            c.MCPServerName,
-			Image:           k.httpWebhookBaseImage,
-			ImagePullPolicy: corev1.PullAlways,
-			Ports: []corev1.ContainerPort{{
-				ContainerPort: int32(port),
-			}},
-			SecurityContext: getContainerSecurityContext(psaLevel),
-			Env:             env,
-		})
-
-		// Update the URL for this webhook for use inside the "main" container.
-		webhook.URL = fmt.Sprintf("http://localhost:%d%s", port, c.ContainerPath)
-		webhooks[i] = webhook
-	}
-
-	objs = append(objs, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(server.MCPServerName, "mcp", "webhook", "secrets"),
-			Namespace:   k.mcpNamespace,
-			Annotations: annotations,
-		},
-		Data: webhookSecretData,
-	})
+	containers := make([]corev1.Container, 0, 2)
 
 	if server.Runtime != types.RuntimeRemote {
 		if server.NanobotAgentName == "" {
@@ -674,7 +612,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				}(),
 			})
 
-			port := port + len(webhooks) + 1
+			shimPort := port + 1
 
 			containers = append(containers, corev1.Container{
 				Name:            server.MCPServerName + "-shim",
@@ -682,10 +620,10 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				ImagePullPolicy: corev1.PullAlways,
 				Ports: []corev1.ContainerPort{{
 					Name:          portName,
-					ContainerPort: int32(port),
+					ContainerPort: int32(shimPort),
 				}},
 				SecurityContext: getContainerSecurityContext(psaLevel),
-				Args:            []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", port), "--exclude-built-in-agents", "--config", "/config/nanobot.yaml"},
+				Args:            []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", shimPort), "--exclude-built-in-agents", "--config", "/config/nanobot.yaml"},
 				VolumeMounts: []corev1.VolumeMount{
 					{
 						Name:      "run-shim-file",
@@ -704,7 +642,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 					ProbeHandler: corev1.ProbeHandler{
 						HTTPGet: &corev1.HTTPGetAction{
 							Path: "/healthz",
-							Port: intstr.FromInt(port),
+							Port: intstr.FromInt(shimPort),
 						},
 					},
 				},

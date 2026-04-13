@@ -460,23 +460,42 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 			})
 		}
 
-		if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
-			_, componentMCPID, ok := strings.Cut(resource, "/mcp-connect/")
-			audienceID := componentMCPID
+		_, resourceMCPServerID, isConnectURL := strings.Cut(resource, "/mcp-connect/")
 
-			var (
-				token     string
-				expiresAt time.Time
-			)
+		var (
+			token     string
+			expiresAt time.Time
+		)
 
-			if ok {
-				if system.IsMCPServerInstanceID(componentMCPID) {
+		// If the resource is an internal MCP connect URL, then process it here and don't try to get OAuth credentials.
+		if isConnectURL || mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+			audienceID := resourceMCPServerID
+			if system.IsSystemMCPServerID(audienceID) {
+				var systemMCPServer v1.SystemMCPServer
+				if err := req.Get(&systemMCPServer, audienceID); err != nil {
+					return types.NewErrBadRequest("%v", Error{
+						Code:        ErrInvalidRequest,
+						Description: "failed to retrieve system MCP server " + audienceID,
+					})
+				}
+			} else if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+				if !isConnectURL {
+					// No component MCP ID in resource, return the original token
+					token = subjectToken
+					if tokenCtx != nil {
+						expiresAt = tokenCtx.ExpiresAt
+					} else if apiKeyExpiresAt != nil {
+						expiresAt = *apiKeyExpiresAt
+					} else {
+						expiresAt = time.Now().Add(tokenExpiration)
+					}
+				} else if system.IsMCPServerInstanceID(resourceMCPServerID) {
 					// Ensure this MCP server instance belongs to this composite MCP server.
 					var component v1.MCPServerInstance
-					if err := req.Get(&component, componentMCPID); err != nil || component.Spec.CompositeName != mcpServer.Name {
+					if err := req.Get(&component, resourceMCPServerID); err != nil || component.Spec.CompositeName != mcpServer.Name {
 						return types.NewErrBadRequest("%v", Error{
 							Code:        ErrInvalidRequest,
-							Description: "failed to retrieve composite MCP server " + componentMCPID,
+							Description: "failed to retrieve composite MCP server " + resourceMCPServerID,
 						})
 					}
 
@@ -484,52 +503,47 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 				} else {
 					// Ensure this MCP server belongs to this composite MCP server.
 					var component v1.MCPServer
-					if err := req.Get(&component, componentMCPID); err != nil || component.Spec.CompositeName != mcpServer.Name {
+					if err := req.Get(&component, resourceMCPServerID); err != nil || component.Spec.CompositeName != mcpServer.Name {
 						return types.NewErrBadRequest("%v", Error{
 							Code:        ErrInvalidRequest,
-							Description: "failed to retrieve composite MCP server " + componentMCPID,
-						})
-					}
-				}
-
-				if subjectTokenType == tokenTypeAPIKey {
-					// Pass the API key through to component servers for their own token exchange
-					token = subjectToken
-					expiresAt = time.Now().Add(tokenExpiration)
-					if apiKeyExpiresAt != nil {
-						expiresAt = *apiKeyExpiresAt
-					}
-				} else {
-					// For JWTs, update the existing token context and create a new token
-					tokenCtx.MCPID = componentMCPID
-					tokenCtx.Audience = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, audienceID)
-					expiresAt = tokenCtx.ExpiresAt
-
-					var err error
-					token, err = h.tokenService.NewToken(req.Context(), *tokenCtx)
-					if err != nil {
-						log.Errorf("failed to create token for component MCP server %s: %v", componentMCPID, err)
-						return types.NewErrBadRequest("%v", Error{
-							Code:        ErrServerError,
-							Description: "failed to create token",
+							Description: "failed to retrieve composite MCP server " + resourceMCPServerID,
 						})
 					}
 				}
 			} else {
-				// No component MCP ID in resource, return the original token
+				return types.NewErrBadRequest("%v", Error{
+					Code:        ErrInvalidRequest,
+					Description: "invalid resource for token exchange",
+				})
+			}
+
+			if subjectTokenType == tokenTypeAPIKey {
+				// Pass the API key through to component servers for their own token exchange
 				token = subjectToken
-				if tokenCtx != nil {
-					expiresAt = tokenCtx.ExpiresAt
-				} else if apiKeyExpiresAt != nil {
+				expiresAt = time.Now().Add(tokenExpiration)
+				if apiKeyExpiresAt != nil {
 					expiresAt = *apiKeyExpiresAt
-				} else {
-					expiresAt = time.Now().Add(tokenExpiration)
+				}
+			} else if isConnectURL {
+				// For JWTs, update the existing token context and create a new token
+				tokenCtx.MCPID = resourceMCPServerID
+				tokenCtx.Audience = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, audienceID)
+				expiresAt = tokenCtx.ExpiresAt
+
+				var err error
+				token, err = h.tokenService.NewToken(req.Context(), *tokenCtx)
+				if err != nil {
+					log.Errorf("failed to create token for component MCP server %s: %v", resourceMCPServerID, err)
+					return types.NewErrBadRequest("%v", Error{
+						Code:        ErrServerError,
+						Description: "failed to create token",
+					})
 				}
 			}
 
 			// For composite MCP servers, return the token.
 			// This ensures it gets passed to the component MCP servers so they can do token exchange.
-			log.Infof("Issued token-exchange response for composite MCP server: client=%s mcpID=%s audienceResource=%s subjectTokenType=%s", oauthClient.Name, mcpID, resource, subjectTokenType)
+			log.Infof("Issued token-exchange response for MCP server for internal connect URL: client=%s mcpID=%s audienceResource=%s subjectTokenType=%s", oauthClient.Name, mcpID, resource, subjectTokenType)
 			return req.Write(TokenExchangeResponse{
 				AccessToken:     token,
 				IssuedTokenType: tokenTypeAccessToken,
@@ -539,7 +553,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		}
 	} else if system.IsMCPServerInstanceID(mcpID) {
 		return types.NewErrNotFound("no token exchange for %s", resource)
-	} else if system.IsSystemMCPServerID(mcpID) {
+	} else if mcpID == system.ObotMCPServerName {
 		// Return a new token that represents the user, so that the SystemMCPServer can make API calls to Obot on behalf of the user.
 		// Preserve the user's existing groups/roles when available from the subject token,
 		// otherwise look up the user to determine their role.

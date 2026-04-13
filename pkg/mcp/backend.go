@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -156,24 +155,6 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 			cancel()
 		}
 	}
-}
-
-func webhookToServerConfig(webhook Webhook, baseImage, mcpServerName, userID, scope string, port int) (ServerConfig, error) {
-	return ServerConfig{
-		Runtime:              types.RuntimeContainerized,
-		Scope:                scope,
-		MCPServerName:        fmt.Sprintf("%s-%s", mcpServerName, webhook.Name),
-		MCPServerDisplayName: webhook.DisplayName,
-		UserID:               userID,
-		ContainerImage:       baseImage,
-		ContainerPort:        port,
-		ContainerPath:        "/mcp",
-		Env: []string{
-			"WEBHOOK_URL=" + webhook.URL,
-			"WEBHOOK_SECRET=" + webhook.Secret,
-			"PORT=" + strconv.Itoa(port),
-		},
-	}, nil
 }
 
 func constructNanobotYAMLForCompositeServer(servers []ComponentServer) ([]byte, error) {
