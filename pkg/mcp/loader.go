@@ -33,6 +33,8 @@ type Options struct {
 	DisallowLocalhostMCP              bool     `usage:"Allow MCP containers to run on localhost"`
 	MCPRuntimeBackend                 string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or local. Defaults to docker." default:"docker"`
 	MCPImagePullSecrets               []string `usage:"The name of the image pull secret to use for pulling MCP images"`
+	MCPImagePullPolicy                string   `usage:"The image pull policy to use for MCP containers (Always, IfNotPresent, Never)" default:"Always"`
+	MCPInternalBaseURL                string   `usage:"Internal base URL for MCP clients running inside the cluster to reach Obot (e.g. http://obot.obot-mcp.svc.cluster.local). When set, used in OAuth resource_metadata responses instead of the configured hostname."`
 	SingleUserIdleServerShutdownHours int      `usage:"The interval in hours to check for idle MCP servers designated to a single user and shut them down, set to -1 to disable shutdown" default:"24"`
 	MultiUserIdleServerShutdownHours  int      `usage:"The interval in hours to check for idle multi-user MCP servers and shut them down, set to -1 to disable" default:"168"`
 	IdleAgentShutdownHours            int      `usage:"The interval in hours to check for idle agents and shut them down, set to -1 to disable" default:"72"`
@@ -72,6 +74,7 @@ type SessionManager struct {
 	sessions          sync.Map
 	tokenService      TokenService
 	baseURL           string
+	internalBaseURL   string
 	allowLocalhostMCP bool
 
 	webhookHelper *WebhookHelper
@@ -104,7 +107,7 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 		backend = dockerBackend
 	case "kubernetes", "k8s":
 		if localK8sConfig == nil {
-			return nil, fmt.Errorf("use ofKubernetes backend requested but no local K8s config available")
+			return nil, fmt.Errorf("use of Kubernetes backend requested but no local K8s config available")
 		}
 
 		client, err := kclient.NewWithWatch(localK8sConfig, kclient.Options{})
@@ -150,12 +153,17 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 		tokenService:      tokenService,
 		backend:           backend,
 		baseURL:           baseURL,
+		internalBaseURL:   opts.MCPInternalBaseURL,
 		allowLocalhostMCP: !opts.DisallowLocalhostMCP,
 	}, nil
 }
 
 func (sm *SessionManager) TransformObotHostname(hostname string) string {
 	return sm.backend.transformObotHostname(hostname)
+}
+
+func (sm *SessionManager) InternalBaseURL() string {
+	return sm.internalBaseURL
 }
 
 // Load is used by GPTScript to load tools from dynamic MCP server tool definitions.

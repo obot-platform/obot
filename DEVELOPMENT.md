@@ -118,3 +118,91 @@ The documentation for Obot is in the main repo. You can serve the documentation 
 ## Other Configuration
 
 Obot is configured via environment variables. You can see the relevant environment variables by building the binary (as above) and running `./bin/obot server --help`. There is also documentation available. You can serve the documentation locally as above.
+
+## Running Obot Locally with Kubernetes (Nanobot Agents)
+
+Nanobot agent containers run in Kubernetes and need to reach your local Obot process. This requires [Telepresence](https://www.telepresence.io/) to bridge the network between your Mac and the cluster.
+
+### Prerequisites
+
+- [Rancher Desktop](https://rancherdesktop.io/) (or another local Kubernetes setup)
+- [Telepresence](https://www.telepresence.io/docs/install/) v2.x
+- Local images loaded into containerd (see below)
+
+### 1. Load local images into containerd
+
+Rancher Desktop uses containerd, not Docker's image store. Load any locally built images with:
+
+```bash
+docker save nanobot:local | nerdctl --address /var/run/docker/containerd/containerd.sock load
+docker save nanobot-agent:local | nerdctl --address /var/run/docker/containerd/containerd.sock load
+```
+
+### 2. Configure the cluster namespace
+
+The `obot-mcp` namespace must exist with PSA set to `privileged` (required for Telepresence's network init container):
+
+```bash
+kubectl create namespace obot-mcp --dry-run=client -o yaml | kubectl apply -f -
+kubectl label namespace obot-mcp \
+  pod-security.kubernetes.io/enforce=privileged \
+  pod-security.kubernetes.io/audit=restricted \
+  pod-security.kubernetes.io/warn=restricted \
+  --overwrite
+```
+
+### 3. Create the Telepresence intercept target
+
+Create a dummy deployment and service in `obot-mcp` that Telepresence will intercept to route pod traffic to your local Obot process:
+
+```bash
+kubectl create deployment obot --image=alpine -n obot-mcp -- sleep infinity
+kubectl create service clusterip obot --tcp=80:8080 -n obot-mcp
+kubectl patch svc obot -n obot-mcp --type='json' \
+  -p='[{"op":"replace","path":"/spec/ports/0/name","value":"http"}]'
+```
+
+The service exposes port 80 so pods can reach Obot at `http://obot.obot-mcp.svc.cluster.local` with no explicit port in URLs.
+
+### 4. Connect Telepresence and intercept
+
+```bash
+telepresence helm install
+telepresence leave obot # optional cleanup
+telepresence connect --namespace obot-mcp
+telepresence intercept obot -p 8080:80
+```
+
+This maps service port 80 to your local port 8080.
+
+Verify the intercept is `ACTIVE` with `telepresence list`.
+
+### 5. Configure Obot environment variables
+
+```bash
+export OBOT_SERVER_MCPRUNTIME_BACKEND='kubernetes'
+export OBOT_SERVER_SERVICE_NAME=obot
+export OBOT_SERVER_SERVICE_NAMESPACE=obot-mcp
+export OBOT_SERVER_MCPINTERNAL_BASE_URL=http://obot.obot-mcp.svc.cluster.local
+
+# optional if using locally-built Nanobot images
+export OBOT_SERVER_MCPIMAGE_PULL_POLICY='IfNotPresent'
+export OBOT_SERVER_NANOBOT_AGENT_IMAGE='nanobot-agent:local'
+export OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE='nanobot:local'
+```
+
+With this setup, `TransformObotHostname` rewrites all URLs injected into pod secrets from `http://localhost:8080` to `http://obot.obot-mcp.svc.cluster.local:8080`, which Telepresence routes back to your local process.
+
+### Troubleshooting
+
+- **`ImagePullBackOff`**: Image isn't in containerd — re-run `nerdctl load`.
+- **`timed out waiting for MCP server to be ready: <url>`**: The URL in the error shows what Obot is trying to reach. If it's `*.svc.kubernetes` instead of `*.svc.cluster.local`, check `MCP_CLUSTER_DOMAIN`.
+- **Telepresence `NO_AGENT`**: Pod was created before intercept — run `kubectl rollout restart deployment/obot -n obot-mcp`.
+- **PSA violations on `tel-agent-init`**: Namespace enforce level must be `privileged` (step 2 above).
+- **Stale intercept conflict** (`conflict with intercept ... on port 8080`): A previous intercept is stuck in the Traffic Manager. Reset it with:
+  ```bash
+  kubectl delete pod -n ambassador -l app=traffic-manager
+  kubectl rollout restart deployment/obot -n obot-mcp
+  telepresence connect --namespace obot-mcp
+  telepresence intercept obot -p 8080
+  ```
