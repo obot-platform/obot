@@ -597,6 +597,17 @@ func (d *dockerBackend) shutdownServer(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to remove objects for container %s: %w", id, err)
 	}
 
+	webhookContainers, err := d.getWebhookContainers(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to get webhook containers: %w", err)
+	}
+
+	for _, webhookContainer := range webhookContainers {
+		if err := d.removeObjectsForContainer(ctx, &webhookContainer, webhookContainer.ID); err != nil {
+			return fmt.Errorf("failed to remove objects for webhook container %s: %w", webhookContainer.ID, err)
+		}
+	}
+
 	id, ok := strings.CutSuffix(id, "-shim")
 	if !ok {
 		id = id + "-shim"
@@ -606,19 +617,8 @@ func (d *dockerBackend) shutdownServer(ctx context.Context, id string) error {
 	if err != nil && !cerrdefs.IsNotFound(err) {
 		return fmt.Errorf("failed to check for shim container %s for shutdown: %w", id, err)
 	} else if err == nil {
-		if err = d.removeObjectsForContainer(ctx, c, id+"-shim"); err != nil {
-			return fmt.Errorf("failed to remove objects for shim container %s: %w", id+"-shim", err)
-		}
-	}
-
-	webhookContainers, err := d.getWebhookContainers(ctx, id)
-	if err != nil {
-		return fmt.Errorf("failed to get webhook containers: %w", err)
-	}
-
-	for _, webhookContainer := range webhookContainers {
-		if err := d.removeObjectsForContainer(ctx, &webhookContainer, webhookContainer.ID); err != nil {
-			return fmt.Errorf("failed to remove objects for webhook container %s: %w", webhookContainer.ID, err)
+		if err = d.removeObjectsForContainer(ctx, c, id); err != nil {
+			return fmt.Errorf("failed to remove objects for shim container %s: %w", id, err)
 		}
 	}
 

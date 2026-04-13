@@ -221,6 +221,8 @@ type MCPServerManifest struct {
 	Args    []string    `json:"args,omitempty"`
 	URL     string      `json:"url,omitempty"`
 	Headers []MCPHeader `json:"headers,omitempty"`
+
+	IdleShutdownIntervalHours int `json:"idleShutdownIntervalHours,omitempty"`
 }
 
 type MCPServer struct {

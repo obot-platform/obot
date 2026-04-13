@@ -17,6 +17,9 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_RETENTION_POLICY_HOURS` | The retention policy for the system. Set to 0 to disable retention. This field should just be a number in a string, no `h` suffix. | `2160` (90 days) |
 | `OBOT_SERVER_DAILY_USER_PROMPT_TOKEN_LIMIT` | The maximum number of prompt/input tokens allowed per user per day. Set to a value less than or equal to 0 to disable this limit. | `10000000` |
 | `OBOT_SERVER_DAILY_USER_COMPLETION_TOKEN_LIMIT` | The maximum number of completion/output tokens allowed per user per day. Set to a value less than or equal to 0 to disable this limit. | `100000` |
+| `OBOT_SERVER_IDLE_AGENT_SHUTDOWN_HOURS` | The interval in hours to check for idle agents and shut them down. Set to `-1` to disable idle shutdown. | `72` (3 days) |
+| `OBOT_SERVER_SINGLE_USER_IDLE_SERVER_SHUTDOWN_HOURS` | The interval in hours to check for idle single-user MCP servers and shut them down. Set to `-1` to disable idle shutdown. | `24` (1 day) |
+| `OBOT_SERVER_MULTI_USER_IDLE_SERVER_SHUTDOWN_HOURS` | The interval in hours to check for idle multi-user MCP servers and shut them down. Set to `-1` to disable idle shutdown. | `168` (7 days) |
 | `NAH_THREADINESS` | Sets the number of concurrent threads that can run in the Obot controller. | `10` |
 | `OBOT_SERVER_KNOWLEDGE_FILE_WORKERS` | Sets the number of workers used by knowledge for processing files. | `5` |
 | `KINM_DB_CONNECTIONS` | The number of connections in the database pool for kinm | `5` |
