@@ -155,7 +155,7 @@ func TestLookupProviderDialectNotFound(t *testing.T) {
 	}
 }
 
-func TestNanobotProviderForDeclaredDialectDrivesURL(t *testing.T) {
+func TestNanobotParseModelProviderDeclaredDialectDrivesURL(t *testing.T) {
 	h := &Handler{serverURL: "https://obot.example.com"}
 
 	for _, tc := range []struct {
@@ -172,7 +172,7 @@ func TestNanobotProviderForDeclaredDialectDrivesURL(t *testing.T) {
 			ModelProvider:   "custom-model-provider",
 			ProviderDialect: tc.dialect,
 		}
-		p, _ := h.nanobotProviderFor(model)
+		p, _ := h.parseModelProvider(model)
 		if p.BaseURL != tc.wantBaseURL {
 			t.Errorf("dialect %s: baseURL = %q, want %q", tc.dialect, p.BaseURL, tc.wantBaseURL)
 		}
@@ -182,7 +182,7 @@ func TestNanobotProviderForDeclaredDialectDrivesURL(t *testing.T) {
 	}
 }
 
-func TestNanobotProviderForBuiltinFallbacks(t *testing.T) {
+func TestNanobotParseModelProviderBuiltinFallbacks(t *testing.T) {
 	h := &Handler{serverURL: "https://obot.example.com"}
 
 	for _, tc := range []struct {
@@ -195,7 +195,7 @@ func TestNanobotProviderForBuiltinFallbacks(t *testing.T) {
 		{"unknown-model-provider", nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy"},
 	} {
 		model := resolvedLLMModel{TargetModel: "my-model", ModelProvider: tc.modelProvider}
-		p, qualifiedName := h.nanobotProviderFor(model)
+		p, qualifiedName := h.parseModelProvider(model)
 		if p.Dialect != tc.wantDialect {
 			t.Errorf("%s: dialect = %q, want %q", tc.modelProvider, p.Dialect, tc.wantDialect)
 		}
@@ -364,8 +364,8 @@ func TestMultipleProvidersWhenLLMAndMiniDiffer(t *testing.T) {
 		ModelProvider: system.OpenAIModelProviderTool,
 	}
 
-	llmProvider, llmDefault := h.nanobotProviderFor(llmModel)
-	miniProvider, miniDefault := h.nanobotProviderFor(miniModel)
+	llmProvider, llmDefault := h.parseModelProvider(llmModel)
+	miniProvider, miniDefault := h.parseModelProvider(miniModel)
 
 	if llmDefault != system.AnthropicModelProviderTool+"/claude-sonnet-4-6" {
 		t.Errorf("llmDefault = %q, want %s/claude-sonnet-4-6", llmDefault, system.AnthropicModelProviderTool)

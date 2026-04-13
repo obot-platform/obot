@@ -287,8 +287,8 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		return err
 	}
 
-	llmProvider, llmDefault := h.nanobotProviderFor(llmModel)
-	miniProvider, miniDefault := h.nanobotProviderFor(miniModel)
+	llmProvider, llmDefault := h.parseModelProvider(llmModel)
+	miniProvider, miniDefault := h.parseModelProvider(miniModel)
 
 	if !needsRefresh &&
 		credEnvFileVars["NANOBOT_DEFAULT_MODEL"] == llmDefault &&
@@ -358,6 +358,13 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 
 	envFileLines := []string{
 		fmt.Sprintf("OBOT_URL=%s", h.serverURL),
+		fmt.Sprintf("MCP_API_KEY=%s", apiKeyResp.Key),
+		fmt.Sprintf("MCP_API_KEY_ID=%d", apiKeyResp.ID),
+		fmt.Sprintf("MCP_API_KEY_ID_PREV=%s", credEnvFileVars["MCP_API_KEY_ID"]),
+		fmt.Sprintf("MCP_SERVER_SEARCH_URL=%s", system.MCPConnectURL(h.serverURL, system.ObotMCPServerName)),
+		fmt.Sprintf("MCP_SERVER_SEARCH_API_KEY=%s", apiKeyResp.Key),
+		fmt.Sprintf("NANOBOT_DEFAULT_MODEL=%s", llmDefault),
+		fmt.Sprintf("NANOBOT_DEFAULT_MINI_MODEL=%s", miniDefault),
 	}
 	seenProviders := map[string]bool{}
 	for _, p := range []nanobotLLMProvider{llmProvider, miniProvider} {
@@ -368,15 +375,6 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		envVarName := strings.TrimSuffix(strings.TrimPrefix(p.APIKey, "${"), "}")
 		envFileLines = append(envFileLines, fmt.Sprintf("%s=%s", envVarName, token))
 	}
-	envFileLines = append(envFileLines,
-		fmt.Sprintf("MCP_API_KEY=%s", apiKeyResp.Key),
-		fmt.Sprintf("MCP_API_KEY_ID=%d", apiKeyResp.ID),
-		fmt.Sprintf("MCP_API_KEY_ID_PREV=%s", credEnvFileVars["MCP_API_KEY_ID"]),
-		fmt.Sprintf("MCP_SERVER_SEARCH_URL=%s", system.MCPConnectURL(h.serverURL, system.ObotMCPServerName)),
-		fmt.Sprintf("MCP_SERVER_SEARCH_API_KEY=%s", apiKeyResp.Key),
-		fmt.Sprintf("NANOBOT_DEFAULT_MODEL=%s", llmDefault),
-		fmt.Sprintf("NANOBOT_DEFAULT_MINI_MODEL=%s", miniDefault),
-	)
 
 	// Create or update the credential with the new token, API key, and provider config.
 	if err := h.gptClient.CreateCredential(ctx, gptscript.Credential{
@@ -424,14 +422,14 @@ type nanobotLLMProvider struct {
 	BaseURL string // actual Obot proxy URL
 }
 
-// nanobotProviderFor returns the nanobot provider config and the fully-qualified
+// parseModelProvider returns the nanobot provider config and the fully-qualified
 // model name (provider/model) for a resolved model.
 //
 // If the provider has declared a dialect via ProviderMeta.Dialect, that dialect
 // is used and the base URL is derived from it. Otherwise the known built-in
 // providers (openai, anthropic) supply both; everything else falls back to
 // OpenResponses via the generic /api/llm-proxy dispatch.
-func (h *Handler) nanobotProviderFor(model resolvedLLMModel) (nanobotLLMProvider, string) {
+func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider, string) {
 	name := model.ModelProvider
 	envVarName := strings.ToUpper(strings.ReplaceAll(name, "-", "_")) + "_API_KEY"
 
