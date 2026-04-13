@@ -1,7 +1,8 @@
 <script lang="ts" generics="T extends object">
 	import { tooltip as tooltipAction } from '$lib/actions/tooltip.svelte';
 	import { lightenHex } from '$lib/colors';
-	import { darkMode } from '$lib/stores';
+	import { darkMode, timePreference } from '$lib/stores';
+	import { formatLogTimestamp } from '$lib/time';
 	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
 	import {
 		scaleBand,
@@ -904,7 +905,7 @@
 									currentItem = {
 										key: d.category,
 										value: `${(d.seg[1] as number) - (d.seg[0] as number)}`,
-										date: new Date(bucketKey).toLocaleString(),
+										date: formatLogTimestamp(bucketKey, timePreference.timeFormat),
 										count,
 										...(ps != null && {
 											primaryTotal: ps.primary,

@@ -285,6 +285,21 @@ export function getTimeRangeShorthand(startTime: Date | string, endTime: Date | 
 	}
 }
 
+export function formatLogTimestamp(time: Date | string, format: TimeDisplayFormat) {
+	return new Date(time)
+		.toLocaleString(undefined, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			hour12: format === '12h',
+			timeZoneName: 'short'
+		})
+		.replace(/,/g, '');
+}
+
 export function isRecent(created: string, withinMinutes = 1): boolean {
 	const diff = Date.now() - new Date(created).getTime();
 	return diff < withinMinutes * 60 * 1000;
