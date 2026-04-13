@@ -862,8 +862,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	}
 
 	if server.NanobotAgentName != "" {
-		var workspaceCreated bool
-		workspaceName, workspaceCreated, err = d.ensureWorkspaceVolume(ctx, server, mcpServerName)
+		workspaceName, err = d.ensureWorkspaceVolume(ctx, server, mcpServerName)
 		if err != nil {
 			return "", 0, fmt.Errorf("failed to create workspace volume: %w", err)
 		}
@@ -873,11 +872,8 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 				Source: workspaceName,
 				Target: nanobotWorkspaceMountPath,
 			})
-			// Only run for initial creation
-			if workspaceCreated {
-				if err = d.linkNanobotProviderConfig(ctx, workspaceName, fileVolumeName, server.MCPServerName); err != nil {
-					return "", 0, fmt.Errorf("failed to link nanobot provider config: %w", err)
-				}
+			if err = d.linkNanobotProviderConfig(ctx, workspaceName, fileVolumeName, server.MCPServerName); err != nil {
+				return "", 0, fmt.Errorf("failed to link nanobot provider config: %w", err)
 			}
 		}
 	}
@@ -1184,7 +1180,7 @@ func (d *dockerBackend) syncContainerFiles(ctx context.Context, server ServerCon
 	return nil
 }
 
-func (d *dockerBackend) ensureWorkspaceVolume(ctx context.Context, server ServerConfig, mcpServerName string) (string, bool, error) {
+func (d *dockerBackend) ensureWorkspaceVolume(ctx context.Context, server ServerConfig, mcpServerName string) (string, error) {
 	volumeName := server.MCPServerName + "-workspace"
 	labels := map[string]string{
 		"mcp.server.id": server.MCPServerName,
@@ -1201,12 +1197,12 @@ func (d *dockerBackend) ensureWorkspaceVolume(ctx context.Context, server Server
 		}),
 	})
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 
 	for _, v := range resp.Volumes {
 		if v.Name == volumeName {
-			return volumeName, false, nil
+			return volumeName, nil
 		}
 	}
 
@@ -1215,10 +1211,10 @@ func (d *dockerBackend) ensureWorkspaceVolume(ctx context.Context, server Server
 		Name:   volumeName,
 	})
 	if err != nil && !cerrdefs.IsAlreadyExists(err) {
-		return "", false, fmt.Errorf("failed to create workspace volume: %w", err)
+		return "", fmt.Errorf("failed to create workspace volume: %w", err)
 	}
 
-	return volumeName, true, nil
+	return volumeName, nil
 }
 
 // createVolumeWithFiles creates an anonymous volume and populates it with file data using an init container
