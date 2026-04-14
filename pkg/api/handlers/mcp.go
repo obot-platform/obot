@@ -653,20 +653,6 @@ func (m *MCPHandler) GetOAuthURL(req api.Context) error {
 		return fmt.Errorf("failed to get OAuth URL: %w", err)
 	}
 
-	// Best effort to update the last request time.
-	// Don't update on every request, only if it's been a while since the last update, to avoid excessive writes to storage.
-	if time.Since(server.Status.LastRequestTime.Time) > requestTimeUpdateInterval {
-		server.Status.LastRequestTime = metav1.Now()
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-
-			if err := req.Storage.Status().Update(ctx, &server); err != nil {
-				log.Warnf("failed to update mcp server status: %v", err)
-			}
-		}()
-	}
-
 	return req.Write(map[string]string{"oauthURL": u})
 }
 
@@ -1271,6 +1257,15 @@ func serverFromMCPServerInstance(req api.Context, instance v1.MCPServerInstance)
 		return server, mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
 	}
 
+	// Best effort to update the last request time.
+	// Don't update on every request, only if it's been a while since the last update, to avoid excessive writes to storage.
+	if time.Since(server.Status.LastRequestTime.Time) > requestTimeUpdateInterval {
+		server.Status.LastRequestTime = metav1.Now()
+		if err := req.Storage.Status().Update(req.Context(), &server); err != nil {
+			log.Warnf("failed to update mcp server status: %v", err)
+		}
+	}
+
 	return server, serverConfig, nil
 }
 
@@ -1412,6 +1407,15 @@ func serverConfigForAction(req api.Context, server v1.MCPServer) (mcp.ServerConf
 
 	if len(missingConfig) > 0 {
 		return mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
+	}
+
+	// Best effort to update the last request time.
+	// Don't update on every request, only if it's been a while since the last update, to avoid excessive writes to storage.
+	if time.Since(server.Status.LastRequestTime.Time) > requestTimeUpdateInterval {
+		server.Status.LastRequestTime = metav1.Now()
+		if err := req.Storage.Status().Update(req.Context(), &server); err != nil {
+			log.Warnf("failed to update mcp server status: %v", err)
+		}
 	}
 
 	return serverConfig, nil
