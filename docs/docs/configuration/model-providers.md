@@ -72,38 +72,33 @@ Setting a default model here does not automatically grant users access to it. Us
 
 ### Instructions for configuring specific providers
 
-#### Azure OpenAI (Enterprise only)
+#### Azure (Enterprise only)
 
-The Azure OpenAI model provider supports legacy Azure OpenAI resources. Microsoft Foundry works with API key authentication as well.
-
-This model provider supports two forms of authentication: API keys and Microsoft Entra.
+Obot supports two Azure providers, each with a different authentication method.
 
 ##### API Key Authentication
 
-In the Azure OpenAI or Microsoft Foundry UI, you can find your API key after you have set up at least one deployment, as well as your endpoint URL.
-Both of these values are required when you configure this model provider in Obot.
+Use the **Azure** provider for API key-based authentication.
 
-Additionally, you must manually specify the names of all of your deployments, as the API key does not provide the ability to list them.
-The format is `name:type`, for example, `gpt-5.2:reasoning-llm`. The supported types are `llm`, `reasoning-llm`, `text-embedding`, and `image-generation`.
-If no type is specified, Obot will assume the type is `llm`.
+In the Azure portal, find your API key and endpoint URL after setting up at least one deployment — both are required.
 
-If the type specified is `llm` or none at all, and the deployment name starts with the name of a known reasoning model (such as `o3` or `gpt-5`), Obot
-will automatically treat it as a reasoning model.
+You must also specify deployment names. The format is a comma-separated list of deployment names, optionally as `model:deployment` pairs (e.g. `gpt-4o,gpt-4o-mini` or `gpt-4o:my-gpt4o,gpt-4o-mini:my-mini`).
 
-##### Microsoft Entra Authentication
+You can also optionally specify the API version (defaults to `2025-01-01-preview`).
 
-:::important
-At this time, Microsoft Entra authentication is only supported for Azure OpenAI deployments and not for the newer Microsoft Foundry deployments.
-:::
+##### Microsoft Entra ID Authentication
 
-Instead of using an API key, you can set up a Microsoft Entra app registration as a service principal to use Azure OpenAI.
+Use the **Azure (Entra ID)** provider for service principal authentication via Microsoft Entra ID.
 
-Obot requires the Client ID, Client Secret, and Tenant ID of the Entra app, as well as the Endpoint URL, Subscription ID, and Resource Group from Azure OpenAI/Microsoft Foundry.
+Obot requires:
+- **Azure Endpoint** — your Azure service endpoint URL
+- **Client ID** — the Entra app's application (client) ID
+- **Client Secret** — the Entra app's client secret
+- **Tenant ID** — the Entra app's tenant ID
 
-You do NOT need to manually specify your deployment names, as the Entra app's credentials will be sufficient to list them.
+Optionally, you can specify deployment names (same format as above). If omitted, the provider will attempt to discover deployments automatically. You can also optionally specify the API version (defaults to `2025-01-01-preview`).
 
-After you have created your Entra app registration, you need to go to your Azure OpenAI resource in the Azure portal and add a new role assignment for the app registration, as a service principal.
-It needs to have the `Cognitive Services OpenAI User` role.
+After creating your Entra app registration, go to your Azure resource in the Azure portal and add a role assignment for the app registration as a service principal with the `Cognitive Services OpenAI User` role.
 
 See the [Microsoft docs](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/role-based-access-control?view=foundry-classic#add-role-assignment-to-an-azure-openai-resource) for more details.
 
