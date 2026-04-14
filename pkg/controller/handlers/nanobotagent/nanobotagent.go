@@ -162,7 +162,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 	}
 
 	// Create new MCPServer
-	args := []string{"run", "--state", ".nanobot/state/nanobot.db"}
+	args := []string{"run"}
 	if agent.Spec.DefaultAgent != "" {
 		args = append(args, "--agent", agent.Spec.DefaultAgent)
 	}
@@ -361,12 +361,12 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		fmt.Sprintf("NANOBOT_DEFAULT_MODEL=%s", llmDefault),
 		fmt.Sprintf("NANOBOT_DEFAULT_MINI_MODEL=%s", miniDefault),
 	}
-	seenProviders := map[string]bool{}
+	seenProviders := make(map[string]struct{}, 2)
 	for _, p := range []nanobotLLMProvider{llmProvider, miniProvider} {
-		if seenProviders[p.Name] {
+		if _, ok := seenProviders[p.Name]; ok {
 			continue
 		}
-		seenProviders[p.Name] = true
+		seenProviders[p.Name] = struct{}{}
 		envVarName := strings.TrimSuffix(strings.TrimPrefix(p.APIKey, "${"), "}")
 		envFileLines = append(envFileLines, fmt.Sprintf("%s=%s", envVarName, token))
 	}
