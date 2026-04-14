@@ -635,7 +635,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 // For component servers (servers that belong to a composite), it instead checks whether
 // the corresponding composite server is in the allowed list.
 func validateAPIKeyAccess(ctx api.Context, apiKey *gwtypes.APIKey, mcpID string) error {
-	if slices.Contains(apiKey.MCPServerIDs, "*") || slices.Contains(apiKey.MCPServerIDs, mcpID) {
+	if system.IsWebhookSystemMCPServerID(mcpID) || slices.Contains(apiKey.MCPServerIDs, "*") || slices.Contains(apiKey.MCPServerIDs, mcpID) {
 		return nil
 	}
 
