@@ -198,8 +198,8 @@ config:
   # config.OBOT_ARTIFACT_AZURE_CLIENT_SECRET -- Azure client secret for published workflow storage when using explicit Azure credentials.
   OBOT_ARTIFACT_AZURE_CLIENT_SECRET: ""
 
-  # config.OBOT_SERVER_MCPSERVER_SEARCH_IMAGE -- The container image to use for the MCP server search functionality. Defaults to ghcr.io/obot-platform/obot-mcp-server:v0.1.1
-  OBOT_SERVER_MCPSERVER_SEARCH_IMAGE: ghcr.io/obot-platform/obot-mcp-server:v0.1.1
+  # config.OBOT_SERVER_MCPSERVER_SEARCH_IMAGE -- The container image to use for the MCP server search functionality.
+  OBOT_SERVER_MCPSERVER_SEARCH_IMAGE: ""
 
   # config.OBOT_DEFAULT_SKILL_REPO_URL -- The default skill repository URL. Must be a full HTTPS GitHub URL. Defaults to https://github.com/obot-platform/skills. Only used on first-time setup (before the first owner user is created). Set to an empty string to disable.
   # OBOT_DEFAULT_SKILL_REPO_URL: ""
