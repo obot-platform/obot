@@ -114,9 +114,9 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 			},
 			{
 				MCPHeader: types.MCPHeader{
-					Name:        "NANOBOT_PROVIDER_CONFIG",
+					Name:        "NANOBOT_CONFIG_PATH",
 					Description: "Provider config YAML for Nanobot",
-					Key:         "NANOBOT_PROVIDER_CONFIG",
+					Key:         "NANOBOT_CONFIG_PATH",
 					Sensitive:   true,
 					Required:    true,
 				},
@@ -162,7 +162,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 	}
 
 	// Create new MCPServer
-	args := []string{"run"}
+	args := []string{"run", "--state", ".nanobot/state/nanobot.db"}
 	if agent.Spec.DefaultAgent != "" {
 		args = append(args, "--agent", agent.Spec.DefaultAgent)
 	}
@@ -201,9 +201,9 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 					},
 					{
 						MCPHeader: types.MCPHeader{
-							Name:        "NANOBOT_PROVIDER_CONFIG",
+							Name:        "NANOBOT_CONFIG_PATH",
 							Description: "Provider config YAML for Nanobot",
-							Key:         "NANOBOT_PROVIDER_CONFIG",
+							Key:         "NANOBOT_CONFIG_PATH",
 							Sensitive:   true,
 							Required:    true,
 						},
@@ -294,7 +294,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	if !needsRefresh &&
 		credEnvFileVars["NANOBOT_DEFAULT_MODEL"] == llmDefault &&
 		credEnvFileVars["NANOBOT_DEFAULT_MINI_MODEL"] == miniDefault &&
-		cred.Env["NANOBOT_PROVIDER_CONFIG"] == providerYAML {
+		cred.Env["NANOBOT_CONFIG_PATH"] == providerYAML {
 		// Credentials are up to date
 		return nil
 	}
@@ -377,8 +377,8 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		ToolName: mcpServerName,
 		Type:     gptscript.CredentialTypeTool,
 		Env: map[string]string{
-			"NANOBOT_ENV_FILE":        strings.Join(envFileLines, "\n"),
-			"NANOBOT_PROVIDER_CONFIG": providerYAML,
+			"NANOBOT_ENV_FILE":    strings.Join(envFileLines, "\n"),
+			"NANOBOT_CONFIG_PATH": providerYAML,
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)

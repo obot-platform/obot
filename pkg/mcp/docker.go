@@ -872,9 +872,6 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 				Source: workspaceName,
 				Target: nanobotWorkspaceMountPath,
 			})
-			if err = d.linkNanobotProviderConfig(ctx, workspaceName, fileVolumeName, server.MCPServerName); err != nil {
-				return "", 0, fmt.Errorf("failed to link nanobot provider config: %w", err)
-			}
 		}
 	}
 
@@ -1244,16 +1241,6 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	}
 
 	return volumeName, envVars, nil
-}
-
-func (d *dockerBackend) linkNanobotProviderConfig(ctx context.Context, workspaceName, fileVolumeName, serverName string) error {
-	src := fmt.Sprintf("/files/%s-NANOBOT_PROVIDER_CONFIG", serverName)
-	script := fmt.Sprintf("mkdir -p %[1]s/.nanobot && ln -sf %s %[1]s/.nanobot/nanobot.yaml",
-		nanobotWorkspaceMountPath, src)
-	return d.runInitContainer(ctx, "nanobot-provider-config-init", script, []mount.Mount{
-		{Type: mount.TypeVolume, Source: fileVolumeName, Target: "/files", ReadOnly: true},
-		{Type: mount.TypeVolume, Source: workspaceName, Target: nanobotWorkspaceMountPath},
-	})
 }
 
 // runInitContainer pulls alpine:latest (if not present), runs a one-shot sh -c container
