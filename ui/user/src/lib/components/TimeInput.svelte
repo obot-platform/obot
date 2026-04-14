@@ -180,7 +180,7 @@
 		/>
 	</div>
 
-	<div class="text-4xl font-bold">:</div>
+	<div class="text-2xl font-bold">:</div>
 
 	<div class="flex h-full flex-1 rounded-md text-xl">
 		<input
