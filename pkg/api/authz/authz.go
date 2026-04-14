@@ -204,6 +204,8 @@ var (
 			"GET /api/message-policy-violations/filter-options/{filter}",
 			"GET /api/message-policy-violations/{id}",
 			"GET /api/message-policy-violation-stats",
+			"GET /api/token-usage",
+			"GET /api/total-token-usage",
 			"GET /api/nanobot-agents",
 		},
 		anyGroup: {
