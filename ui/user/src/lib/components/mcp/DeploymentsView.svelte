@@ -198,8 +198,7 @@
 						(powerUserID === profile.current.id && powerUserWorkspaceID === id),
 					updateStatus,
 					updatesAvailable,
-					updateStatusTooltip,
-					rowId: `${deployment.id}:${deployment.userID}`
+					updateStatusTooltip
 				};
 			})
 			.filter((d) => !d.disabled && (onlyMyServers ? d.isMyServer : true));
@@ -510,7 +509,6 @@
 			<Table
 				bind:this={tableRef}
 				data={tableData}
-				rowKey="rowId"
 				fields={entity === 'workspace'
 					? [
 							'displayName',
