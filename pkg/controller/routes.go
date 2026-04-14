@@ -162,6 +162,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ToolReference{}).FinalizeFunc(v1.ToolReferenceFinalizer, toolRef.CleanupModelProvider)
 
 	// Models
+	root.Type(&v1.Model{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Model{}).HandlerFunc(alias.AssignAlias)
 	root.Type(&v1.Model{}).HandlerFunc(generationed.UpdateObservedGeneration)
 
