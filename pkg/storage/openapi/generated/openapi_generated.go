@@ -16877,7 +16877,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 					},
 					"deploymentStatus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DeploymentStatus indicates the overall status of the MCP server deployment (Available, Progressing, Unavailable, Needs Attention, Unknown).",
+							Description: "DeploymentStatus indicates the overall status of the MCP server deployment (Available, Progressing, Unavailable, Needs Attention, Shutdown, Unknown).",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -21102,7 +21102,7 @@ func schema_storage_apis_obotobotai_v1_SystemMCPServerStatus(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"deploymentStatus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DeploymentStatus indicates overall status (Available, Progressing, Unavailable, Needs Attention, Unknown)",
+							Description: "DeploymentStatus indicates overall status (Available, Progressing, Unavailable, Needs Attention, Shutdown, Unknown)",
 							Type:        []string{"string"},
 							Format:      "",
 						},

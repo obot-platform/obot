@@ -27,7 +27,7 @@ type SystemMCPServerSpec struct {
 }
 
 type SystemMCPServerStatus struct {
-	// DeploymentStatus indicates overall status (Available, Progressing, Unavailable, Needs Attention, Unknown)
+	// DeploymentStatus indicates overall status (Available, Progressing, Unavailable, Needs Attention, Shutdown, Unknown)
 	DeploymentStatus string `json:"deploymentStatus,omitempty"`
 	// DeploymentAvailableReplicas is the number of available replicas
 	DeploymentAvailableReplicas *int32 `json:"deploymentAvailableReplicas,omitempty"`

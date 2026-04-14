@@ -34,6 +34,28 @@ func New(mcpNamespace string, storageClient kclient.Client) *Handler {
 // UpdateMCPServerStatus watches for Deployment changes and copies status information
 // to the corresponding MCPServer object based on the "app" label
 func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) error {
+	if req.Object == nil {
+		// The deployment has been deleted, reset the status of the corresponding MCPServer
+		var mcpServer v1.MCPServer
+		if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{
+			Name:      req.Name,
+			Namespace: h.mcpNamespace,
+		}, &mcpServer); apierrors.IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("failed to get MCPServer %s: %w", req.Name, err)
+		}
+
+		// Reset deployment-related status fields
+		mcpServer.Status.DeploymentStatus = "Shutdown"
+		mcpServer.Status.DeploymentAvailableReplicas = nil
+		mcpServer.Status.DeploymentReadyReplicas = nil
+		mcpServer.Status.DeploymentReplicas = nil
+		mcpServer.Status.DeploymentConditions = nil
+
+		return h.storageClient.Status().Update(req.Ctx, &mcpServer)
+	}
+
 	deployment := req.Object.(*appsv1.Deployment)
 
 	// Get the MCP server name from the deployment label

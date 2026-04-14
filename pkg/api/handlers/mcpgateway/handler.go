@@ -1,18 +1,15 @@
 package mcpgateway
 
 import (
-	"context"
 	"fmt"
 	"maps"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
@@ -21,13 +18,8 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
-
-var log = logger.Package()
-
-const requestTimeUpdateInterval = 15 * time.Minute
 
 type Handler struct {
 	mcpSessionManager         *mcp.SessionManager
@@ -135,20 +127,6 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (string, bool, error) 
 	url, err := h.mcpSessionManager.LaunchServer(req.Context(), mcpServerConfig)
 	if err != nil {
 		return "", false, fmt.Errorf("failed to launch mcp server: %w", err)
-	}
-
-	// Best effort to update the last request time.
-	// Don't update on every request, only if it's been a while since the last update, to avoid excessive writes to storage.
-	if time.Since(mcpServer.Status.LastRequestTime.Time) > requestTimeUpdateInterval {
-		mcpServer.Status.LastRequestTime = metav1.Now()
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-
-			if err := req.Storage.Status().Update(ctx, &mcpServer); err != nil {
-				log.Warnf("failed to update mcp server status: %v", err)
-			}
-		}()
 	}
 
 	return url, h.nanobotIntegrationEnabled && mcpServerConfig.NanobotAgentName != "", nil
