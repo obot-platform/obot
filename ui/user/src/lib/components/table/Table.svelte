@@ -592,7 +592,7 @@
 	>
 		{#if tableSelectActions && Object.keys(selected).length > 0}
 			<div class="flex w-full items-center">
-				<div class="flex-shrink-0 p-2">
+				<div class="shrink-0 p-2">
 					{@render selectAll()}
 				</div>
 				<div class="text-on-surface1 px-4 py-2 text-left text-sm font-semibold">
