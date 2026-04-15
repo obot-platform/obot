@@ -271,6 +271,9 @@
 					{query}
 					{syncing}
 					onSync={sync}
+					onEdit={(url, index) => {
+						sourceDialog?.edit(url, index);
+					}}
 				/>
 			{:else if view === 'deployments'}
 				<DeploymentsView
