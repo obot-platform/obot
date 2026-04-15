@@ -1,11 +1,24 @@
 <script lang="ts">
 	import { darkMode } from '$lib/stores';
-	import { arc, pie, type PieArcDatum } from 'd3';
+	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
+	import { arc, pie, select, type PieArcDatum } from 'd3';
+	import type { Snippet } from 'svelte';
+	import { cubicOut } from 'svelte/easing';
+	import { tweened } from 'svelte/motion';
+	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	export type DonutDatum = {
 		label: string;
 		value: number;
+	};
+
+	/** Tooltip payload for a slice (passed to `tooltipContent` snippet). */
+	export type DonutTooltipItem = {
+		label: string;
+		value: number;
+		/** Share of total in [0, 100]. */
+		percentOfTotal: number;
 	};
 
 	interface Props {
@@ -14,13 +27,15 @@
 		/** Inner radius as a fraction of the outer radius (0 = pie, 1 = invisible). */
 		donutRatio?: number;
 		formatValue?: (value: number) => string;
+		tooltipContent?: Snippet<[DonutTooltipItem]>;
 	}
 
 	let {
 		data,
 		class: klass = '',
 		donutRatio = 0.58,
-		formatValue = (v) => String(v)
+		formatValue = (v) => String(v),
+		tooltipContent
 	}: Props = $props();
 
 	const defaultPalette = [
@@ -53,28 +68,105 @@
 
 	const total = $derived(data.reduce((sum, d) => sum + Math.max(0, Number(d.value) || 0), 0));
 
-	const slices = $derived.by(() => {
+	const dataKey = $derived(data.map((d) => `${d.label}:${d.value}`).join('|'));
+
+	const progress = tweened(0, { duration: 550, easing: cubicOut });
+
+	function scheduleDonutEntryAnimation(_seriesKey: string) {
+		void progress.set(0, { duration: 0 }).then(() => void progress.set(1));
+	}
+
+	$effect(() => {
+		if (total <= 0) {
+			void progress.set(0, { duration: 0 });
+			return;
+		}
+		scheduleDonutEntryAnimation(dataKey);
+	});
+
+	let highlightedArcElement = $state<SVGGraphicsElement>();
+	let currentItem = $state<DonutTooltipItem>();
+
+	function tooltip(reference: Element, floating: HTMLElement) {
+		const compute = async () => {
+			const position = await computePosition(reference, floating, {
+				placement: 'top',
+				middleware: [
+					offset(8),
+					flip({
+						padding: {
+							top: 0,
+							right: 40,
+							left: 40,
+							bottom: 0
+						},
+						boundary: document.documentElement,
+						fallbackPlacements: ['top', 'top-end', 'top-start', 'left-start', 'right-start']
+					})
+				]
+			});
+
+			const { x, y } = position;
+
+			floating.style.transform = `translate(${x}px, ${y}px)`;
+		};
+
+		return autoUpdate(reference, floating, compute, {
+			animationFrame: true,
+			ancestorScroll: true,
+			ancestorResize: true
+		});
+	}
+
+	function computeSlices(p: number) {
 		if (outerRadius <= 0 || total <= 0) return [];
 		const snapshot = $state.snapshot(data);
 		const arcGen = arc<PieArcDatum<DonutDatum>>()
 			.innerRadius(innerRadius)
 			.outerRadius(outerRadius)
 			.cornerRadius(0.5);
-		return pieGenerator(snapshot).map((d, i) => ({
-			path: arcGen(d) ?? '',
-			color: colorAt(i),
-			label: d.data.label,
-			value: d.data.value
-		}));
-	});
+		return pieGenerator(snapshot).map((d, i) => {
+			const scaled: PieArcDatum<DonutDatum> = {
+				...d,
+				endAngle: d.startAngle + (d.endAngle - d.startAngle) * p
+			};
+			return {
+				path: arcGen(scaled) ?? '',
+				color: colorAt(i),
+				label: d.data.label,
+				value: d.data.value
+			};
+		});
+	}
 </script>
 
-<div class={twMerge('flex min-h-0 min-w-0 flex-col gap-3', klass)}>
+<div class={twMerge('group relative flex min-h-0 min-w-0 flex-col gap-3', klass)}>
 	<div
 		bind:clientWidth
 		bind:clientHeight
 		class="relative flex min-h-[160px] w-full flex-1 items-center justify-center"
 	>
+		{#if highlightedArcElement && currentItem}
+			<div
+				class="tooltip bg-background dark:bg-surface2 pointer-events-none fixed top-0 left-0 z-50 flex flex-col shadow-md min-w-32"
+				{@attach (node) => tooltip(highlightedArcElement!, node)}
+				in:fade={{ duration: 100, delay: 10 }}
+				out:fade={{ duration: 100 }}
+			>
+				{#if tooltipContent}
+					{@render tooltipContent(currentItem)}
+				{:else}
+					<div class="flex flex-col gap-0 text-xs">
+						<div class="text-on-background text-sm">{currentItem.label}</div>
+						<div class="border-on-surface1 mb-2 border-b pb-2">
+							{currentItem.percentOfTotal.toFixed(1)}% of total
+						</div>
+					</div>
+					<div class="text-on-background text-2xl font-bold">{formatValue(currentItem.value)}</div>
+				{/if}
+			</div>
+		{/if}
+
 		{#if total <= 0}
 			<p class="text-muted-foreground text-sm">No data</p>
 		{:else}
@@ -87,23 +179,42 @@
 				aria-label="Donut chart"
 			>
 				<g>
-					{#each slices as slice, i (i)}
-						<path d={slice.path} fill={slice.color} class="stroke-background stroke-1" />
+					{#each computeSlices($progress) as slice, i (i)}
+						<path
+							role="graphics-symbol"
+							aria-label="{slice.label}, {formatValue(Math.max(0, Number(slice.value) || 0))}"
+							d={slice.path}
+							fill={slice.color}
+							class="cursor-pointer stroke-background stroke-1"
+							onpointerenter={(e) => {
+								const el = e.currentTarget as SVGGraphicsElement;
+								highlightedArcElement = el;
+								const raw = Math.max(0, Number(slice.value) || 0);
+								currentItem = {
+									label: slice.label,
+									value: raw,
+									percentOfTotal: total > 0 ? (raw / total) * 100 : 0
+								};
+								select(el).attr('stroke', 'currentColor').attr('stroke-width', 2);
+							}}
+							onpointerleave={(e) => {
+								if (e.currentTarget === highlightedArcElement) {
+									highlightedArcElement = undefined;
+									currentItem = undefined;
+								}
+								select(e.currentTarget as SVGGraphicsElement)
+									.attr('stroke-width', 0)
+									.attr('stroke', null);
+							}}
+						/>
 					{/each}
 				</g>
-				<text
-					text-anchor="middle"
-					dominant-baseline="central"
-					class="fill-foreground pointer-events-none text-sm font-medium tabular-nums"
-				>
-					{formatValue(total)}
-				</text>
 			</svg>
 		{/if}
 	</div>
 
 	{#if total > 0 && data.length > 0}
-		<ul class="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+		<ul class="flex flex-wrap gap-x-4 gap-y-1 text-xs justify-center">
 			{#each data as row, i (i)}
 				<li class="flex items-center gap-1.5">
 					<span
@@ -112,9 +223,6 @@
 						aria-hidden="true"
 					></span>
 					<span class="text-foreground">{row.label}</span>
-					<span class="text-muted-foreground tabular-nums"
-						>{formatValue(Number(row.value) || 0)}</span
-					>
 				</li>
 			{/each}
 		</ul>

@@ -3,42 +3,65 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
-	import Loading from '$lib/icons/Loading.svelte';
+	import { formatNumber } from '$lib/format';
 	import {
 		AdminService,
 		type OrgUser,
 		type TokenUsage,
-		type TokenUsageWithCategory
+		type TokenUsageWithCategory,
+		type TotalTokenUsage
 	} from '$lib/services';
 	import { errors } from '$lib/stores';
 	import { aggregateTimelineDataByBucket, getUserLabels } from '../token-usage/utils';
-	import { isWithinInterval, subDays } from 'date-fns';
-	import { Activity, ChevronRight, Server, Users, Wrench } from 'lucide-svelte';
+	import { isWithinInterval, subMonths } from 'date-fns';
+	import { Activity, ChevronRight, Coins, PencilRuler, Server, Users, Wrench } from 'lucide-svelte';
 	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
-	let loadingTableData = $state(true);
+	let loading = $state({
+		tokenUsage: true,
+		totalTokenUsage: true,
+		users: true,
+		tools: true,
+		skills: true
+	});
 	let usersData = $state<OrgUser[]>([]);
 	let selectedTokenType = $derived<'input' | 'output'>('input');
-	let data = $state<TokenUsage[]>([]);
+	let tokenUsageData = $state<TokenUsage[]>([]);
+	let totalTokensData = $state<TotalTokenUsage>();
+	const end = new Date();
+	const start = subMonths(end, 1);
 
 	let mainChartData = $state<TokenUsageWithCategory[]>([]);
 	let usersMap = $derived(new Map(usersData.map((user) => [user.id, user])));
 
 	const DEFER_DATA_THRESHOLD = 400;
 	const TIMELINE_AGGREGATE_THRESHOLD = 500;
-	const end = new Date();
-	const start = subDays(end, 7);
+
+	let monthlyActiveUsers = $derived(
+		usersData.filter(
+			(user) => user.lastActiveDay && isWithinInterval(user.lastActiveDay, { start, end })
+		).length
+	);
 
 	onMount(async () => {
-		usersData = await AdminService.listUsersIncludeDeleted();
+		AdminService.listUsersIncludeDeleted()
+			.then((users) => {
+				usersData = users;
+			})
+			.catch((error) => {
+				errors.append(error);
+			})
+			.finally(() => {
+				loading.users = false;
+			});
 
 		const timeRange = { start, end };
-
 		AdminService.listTokenUsage(timeRange)
 			.then((tokenUsage) => {
 				if (tokenUsage.length <= DEFER_DATA_THRESHOLD) {
-					data = tokenUsage;
+					tokenUsageData = tokenUsage;
 					return;
 				}
 				// Defer so the UI can paint (200, loading off) before heavy derivation. Safari lacks requestIdleCallback.
@@ -47,15 +70,26 @@
 						? (fn: () => void) => requestIdleCallback(fn, { timeout: 120 })
 						: (fn: () => void) => setTimeout(fn, 0);
 				schedule(() => {
-					data = tokenUsage;
+					tokenUsageData = tokenUsage;
 				});
 			})
 			.finally(() => {
-				loadingTableData = false;
+				loading.tokenUsage = false;
 			})
 			.catch((error) => {
 				if (error?.name === 'AbortError') return;
 				errors.append(error);
+			});
+
+		AdminService.listTotalTokenUsage()
+			.then((response) => {
+				totalTokensData = response;
+			})
+			.catch((error) => {
+				errors.append(error);
+			})
+			.finally(() => {
+				loading.totalTokenUsage = false;
 			});
 	});
 
@@ -78,8 +112,8 @@
 	}
 
 	$effect(() => {
-		if (data.length <= TIMELINE_AGGREGATE_THRESHOLD) {
-			const timeline = computeMainTimelineData(data, 'group_by_users', usersMap);
+		if (tokenUsageData.length <= TIMELINE_AGGREGATE_THRESHOLD) {
+			const timeline = computeMainTimelineData(tokenUsageData, 'group_by_users', usersMap);
 			mainChartData = timeline;
 			return;
 		}
@@ -89,7 +123,7 @@
 				? (fn: () => void) => requestIdleCallback(fn, { timeout: 150 })
 				: (fn: () => void) => setTimeout(fn, 0);
 		schedule(() => {
-			const timeline = computeMainTimelineData(data, 'group_by_users', usersMap);
+			const timeline = computeMainTimelineData(tokenUsageData, 'group_by_users', usersMap);
 			if (timeline.length <= TIMELINE_AGGREGATE_THRESHOLD) return timeline;
 			return aggregateTimelineDataByBucket(timeline, start, end) as TokenUsageWithCategory[];
 		});
@@ -102,81 +136,91 @@
 			<!-- this token usage graph-->
 			<div class="grid grid-cols-12 gap-4">
 				<div class="md:col-span-4 col-span-12">
-					<div class="paper gap-2">
-						<div class="text-xs text-on-surface1">Total Users</div>
-						<div class="flex w-full justify-between">
-							<div class="text-3xl font-semibold">{usersData.length}</div>
-							<Users class="size-8 text-primary" />
-						</div>
-						<a
-							href={resolve('/admin/users')}
-							class="text-[11px] bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-						>
-							See All Users <ChevronRight class="size-3" />
-						</a>
-					</div>
-				</div>
-				<div class="md:col-span-4 col-span-12">
-					<div class="paper gap-2">
-						<div class="text-xs text-on-surface1">Monthly Active Users</div>
-						<div class="flex w-full justify-between">
-							<div class="text-3xl font-semibold">
-								{usersData.filter(
-									(user) =>
-										user.lastActiveDay && isWithinInterval(user.lastActiveDay, { start, end })
-								).length}
+					{#if loading.users}
+						<div class="bg-surface3 h-[138.5px] animate-pulse rounded-md"></div>
+					{:else}
+						<div class="paper gap-2">
+							<div class="text-xs text-on-surface1">Total Users</div>
+							<div class="flex w-full justify-between">
+								<div class="text-3xl font-semibold">{usersData.length}</div>
+								<Users class="size-8 text-primary" />
 							</div>
-							<Activity class="size-8 text-primary" />
+							<a
+								href={resolve('/admin/users')}
+								class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+							>
+								See All <ChevronRight class="size-3" />
+							</a>
 						</div>
-						<div class="text-xs text-on-surface1">Jan 1st - Feb 1st</div>
-					</div>
+					{/if}
 				</div>
 				<div class="md:col-span-4 col-span-12">
-					<div class="paper gap-2">
-						<div class="text-xs text-on-surface1">Active Server Connections</div>
-						<div class="flex w-full justify-between">
-							<div class="text-3xl font-semibold">100</div>
-							<Server class="size-8 text-primary" />
+					{#if loading.users}
+						<div class="bg-surface3 h-[138.5px] animate-pulse rounded-md"></div>
+					{:else}
+						<div class="paper gap-2">
+							<div class="text-xs text-on-surface1">Monthly Active Users</div>
+							<div class="flex w-full justify-between">
+								<div class="text-3xl font-semibold">
+									{monthlyActiveUsers}
+								</div>
+								<Activity class="size-8 text-primary" />
+							</div>
+							<div class="text-xs text-on-surface1">Last 30 Days</div>
 						</div>
-						<a
-							href={resolve('/admin/mcp-servers?view=deployments')}
-							class="text-[11px] bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-						>
-							See All Deployments <ChevronRight class="size-3" />
-						</a>
-					</div>
+					{/if}
+				</div>
+				<div class="md:col-span-4 col-span-12">
+					{#if loading.totalTokenUsage}
+						<div class="bg-surface3 h-[138.5px] animate-pulse rounded-md"></div>
+					{:else}
+						<div class="paper gap-2">
+							<div class="text-xs text-on-surface1">Total Tokens</div>
+							<div class="flex w-full justify-between">
+								<div class="text-3xl font-semibold">
+									{formatNumber(totalTokensData?.totalTokens ?? 0)}
+								</div>
+								<Coins class="size-8 text-primary" />
+							</div>
+							<a
+								href={resolve('/admin/token-usage')}
+								class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+							>
+								See All <ChevronRight class="size-3" />
+							</a>
+						</div>
+					{/if}
 				</div>
 			</div>
-			<div class="paper w-full min-h-72">
-				<div class="flex flex-wrap items-center justify-between gap-4">
-					<h4 class="flex items-center gap-2 font-semibold">
-						Token Usage <span class="text-on-surface1 text-xs font-light">(Last 7 Days)</span>
-						{#if loadingTableData}
-							<Loading class="size-4 animate-spin" />
-						{/if}
-					</h4>
-					<div class="flex shrink-0">
-						<button
-							class={twMerge(
-								'button-secondary rounded-r-none border border-r-0 text-xs',
-								selectedTokenType === 'input' && 'bg-surface2 border-surface2'
-							)}
-							onclick={() => (selectedTokenType = 'input')}
-						>
-							Input Tokens
-						</button>
-						<button
-							class={twMerge(
-								'button-secondary rounded-l-none border text-xs',
-								selectedTokenType === 'output' && 'bg-surface2 border-surface2'
-							)}
-							onclick={() => (selectedTokenType = 'output')}
-						>
-							Output Tokens
-						</button>
+			{#if loading.tokenUsage}
+				<div class="bg-surface3 h-[400px] animate-pulse rounded-md"></div>
+			{:else}
+				<div in:fade={{ duration: 150 }} class="paper w-full min-h-72">
+					<div class="flex flex-wrap items-center justify-between gap-4">
+						<h4 class="flex items-center gap-1 font-semibold">
+							Token Usage <span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
+						</h4>
+						<div class="flex shrink-0">
+							<button
+								class={twMerge(
+									'button-secondary rounded-r-none border border-r-0 text-xs',
+									selectedTokenType === 'input' && 'bg-surface2 border-surface2'
+								)}
+								onclick={() => (selectedTokenType = 'input')}
+							>
+								Input Tokens
+							</button>
+							<button
+								class={twMerge(
+									'button-secondary rounded-l-none border text-xs',
+									selectedTokenType === 'output' && 'bg-surface2 border-surface2'
+								)}
+								onclick={() => (selectedTokenType = 'output')}
+							>
+								Output Tokens
+							</button>
+						</div>
 					</div>
-				</div>
-				{#if !loadingTableData}
 					<StackedTimeline
 						{start}
 						{end}
@@ -186,8 +230,7 @@
 						categoryKey="category"
 						class="h-72"
 						legend={{
-							showSecondaryLabel: false,
-							primaryLabel: selectedTokenType === 'input' ? 'input tokens' : 'output tokens'
+							showSecondaryLabel: false
 						}}
 					>
 						{#snippet tooltipContent(item)}
@@ -195,7 +238,7 @@
 							<div class="flex flex-col gap-0 text-xs">
 								<div class="text-sm font-light">{item.key}</div>
 								<div class="text-on-surface1">{item.date}</div>
-								<div class="divider"></div>
+								<div class="tooltip-divider"></div>
 							</div>
 							<div class="flex flex-col gap-1">
 								<div class="text-on-background flex flex-col">
@@ -204,85 +247,85 @@
 							</div>
 						{/snippet}
 					</StackedTimeline>
-				{/if}
-			</div>
+				</div>
+			{/if}
 
 			<div class="grid grid-cols-12 gap-4">
 				<div class="paper gap-1 md:col-span-6 col-span-12">
-					<h4 class="flex items-center gap-2 font-semibold">Most Popular Servers</h4>
-					<ul class="py-2 flex flex-col gap-2">
+					<h4 class="flex items-center gap-2 font-semibold">Most Popular Tools</h4>
+					<ul class="pt-2 flex flex-col gap-2">
 						<li class="flex gap-2 items-center">
-							<Server class="size-8 opacity-65" />
+							<Wrench class="size-8 opacity-65" />
 							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Server Name</p>
+								<p class="text-sm font-medium">Tool Name</p>
 								<p class="text-xs text-on-surface1">100 calls</p>
 							</div>
 						</li>
 						<li class="flex gap-2 items-center">
-							<Server class="size-8 opacity-65" />
+							<Wrench class="size-8 opacity-65" />
 							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Server Name</p>
+								<p class="text-sm font-medium">Tool Name</p>
 								<p class="text-xs text-on-surface1">100 calls</p>
 							</div>
 						</li>
 						<li class="flex gap-2 items-center">
-							<Server class="size-8 opacity-65" />
+							<Wrench class="size-8 opacity-65" />
 							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Server Name</p>
+								<p class="text-sm font-medium">Tool Name</p>
 								<p class="text-xs text-on-surface1">100 calls</p>
 							</div>
 						</li>
 						<li class="flex gap-2 items-center">
-							<Server class="size-8 opacity-65" />
+							<Wrench class="size-8 opacity-65" />
 							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Server Name</p>
+								<p class="text-sm font-medium">Tool Name</p>
 								<p class="text-xs text-on-surface1">100 calls</p>
 							</div>
 						</li>
 						<li class="flex gap-2 items-center">
-							<Server class="size-8 opacity-65" />
+							<Wrench class="size-8 opacity-65" />
 							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Server Name</p>
+								<p class="text-sm font-medium">Tool Name</p>
 								<p class="text-xs text-on-surface1">100 calls</p>
 							</div>
 						</li>
 					</ul>
 				</div>
 				<div class="paper gap-1 md:col-span-6 col-span-12">
-					<h4 class="flex items-center gap-2 font-semibold">Most Popular Tools</h4>
-					<ul class="py-2 flex flex-col gap-2">
+					<h4 class="flex items-center gap-2 font-semibold">Most Popular Skills</h4>
+					<ul class="pt-2 flex flex-col gap-2">
 						<li class="flex gap-2 items-center">
-							<Wrench class="size-8 opacity-65" />
+							<PencilRuler class="size-8 opacity-65" />
 							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Tool Name</p>
+								<p class="text-sm font-medium">Skill Name</p>
 								<p class="text-xs text-on-surface1">100 calls</p>
 							</div>
 						</li>
 						<li class="flex gap-2 items-center">
-							<Wrench class="size-8 opacity-65" />
+							<PencilRuler class="size-8 opacity-65" />
 							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Tool Name</p>
+								<p class="text-sm font-medium">Skill Name</p>
 								<p class="text-xs text-on-surface1">100 calls</p>
 							</div>
 						</li>
 						<li class="flex gap-2 items-center">
-							<Wrench class="size-8 opacity-65" />
+							<PencilRuler class="size-8 opacity-65" />
 							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Tool Name</p>
+								<p class="text-sm font-medium">Skill Name</p>
 								<p class="text-xs text-on-surface1">100 calls</p>
 							</div>
 						</li>
 						<li class="flex gap-2 items-center">
-							<Wrench class="size-8 opacity-65" />
+							<PencilRuler class="size-8 opacity-65" />
 							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Tool Name</p>
+								<p class="text-sm font-medium">Skill Name</p>
 								<p class="text-xs text-on-surface1">100 calls</p>
 							</div>
 						</li>
 						<li class="flex gap-2 items-center">
-							<Wrench class="size-8 opacity-65" />
+							<Server class="size-8 opacity-65" />
 							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Tool Name</p>
+								<p class="text-sm font-medium">Server Name</p>
 								<p class="text-xs text-on-surface1">100 calls</p>
 							</div>
 						</li>
@@ -290,7 +333,67 @@
 				</div>
 			</div>
 		</div>
-		<div class="md:col-span-4 col-span-12">
+		<div class="md:col-span-4 col-span-12 flex flex-col gap-4">
+			<div class="paper gap-2 justify-center items-center">
+				<div class="text-xs text-on-surface1">Total Active Server Connections</div>
+				<div class="flex w-full gap-2 items-center justify-center">
+					<div class="text-3xl font-semibold">100</div>
+					<Server class="size-8 text-primary" />
+				</div>
+				<a
+					href={resolve('/admin/mcp-servers?view=deployments')}
+					class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+				>
+					See All <ChevronRight class="size-3" />
+				</a>
+			</div>
+			<div class="paper gap-1 flex grow">
+				<h4 class="flex items-center gap-2 font-semibold">Most Popular Servers</h4>
+				<ul class="pt-2 flex flex-col gap-2">
+					<li class="flex gap-2 items-center">
+						<Server class="size-8 opacity-65" />
+						<div class="flex flex-col gap-1">
+							<p class="text-sm font-medium">Server Name</p>
+							<p class="text-xs text-on-surface1">100 calls</p>
+						</div>
+					</li>
+					<li class="flex gap-2 items-center">
+						<Server class="size-8 opacity-65" />
+						<div class="flex flex-col gap-1">
+							<p class="text-sm font-medium">Server Name</p>
+							<p class="text-xs text-on-surface1">100 calls</p>
+						</div>
+					</li>
+					<li class="flex gap-2 items-center">
+						<Server class="size-8 opacity-65" />
+						<div class="flex flex-col gap-1">
+							<p class="text-sm font-medium">Server Name</p>
+							<p class="text-xs text-on-surface1">100 calls</p>
+						</div>
+					</li>
+					<li class="flex gap-2 items-center">
+						<Server class="size-8 opacity-65" />
+						<div class="flex flex-col gap-1">
+							<p class="text-sm font-medium">Server Name</p>
+							<p class="text-xs text-on-surface1">100 calls</p>
+						</div>
+					</li>
+					<li class="flex gap-2 items-center">
+						<Server class="size-8 opacity-65" />
+						<div class="flex flex-col gap-1">
+							<p class="text-sm font-medium">Server Name</p>
+							<p class="text-xs text-on-surface1">100 calls</p>
+						</div>
+					</li>
+				</ul>
+				<div class="flex grow"></div>
+				<a
+					href={resolve('/admin/mcp-servers')}
+					class="justify-end self-end text-[11px] translate-x-2 transition-colors duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+				>
+					See All <ChevronRight class="size-3" />
+				</a>
+			</div>
 			<div class="paper">
 				<h4 class="font-semibold mb-1">Deployed Servers by Type</h4>
 
@@ -309,6 +412,10 @@
 						{
 							label: 'Multi-User',
 							value: 8
+						},
+						{
+							label: 'Composite',
+							value: 1
 						}
 					]}
 				/>
