@@ -338,21 +338,22 @@ func watchDirSize(ctx context.Context, cancel context.CancelCauseFunc, dir strin
 }
 
 func watchDirSizeTick(ctx context.Context, cancel context.CancelCauseFunc, dir string, maxSizeMB int64, tick <-chan time.Time) {
+	maxBytes := maxSizeMB * 1024 * 1024
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-tick:
-			if dirSizeMB(dir) > maxSizeMB {
+			if dirSizeBytes(dir) > maxBytes {
 				cancel(errRepoTooLarge)
 			}
 		}
 	}
 }
 
-// dirSizeMB returns the total size of all non-symlink files in dir in megabytes.
+// dirSizeBytes returns the total size of all non-symlink files in dir in bytes.
 // Errors and symlinks are skipped to prevent unexpected clone cancellations.
-func dirSizeMB(dir string) int64 {
+func dirSizeBytes(dir string) int64 {
 	var total int64
 	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || d.Type()&os.ModeSymlink != 0 {
@@ -363,5 +364,5 @@ func dirSizeMB(dir string) int64 {
 		}
 		return nil
 	})
-	return total / (1024 * 1024)
+	return total
 }

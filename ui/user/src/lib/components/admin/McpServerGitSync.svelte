@@ -121,7 +121,9 @@
 								updatingCatalog.sourceURLs[editingSource.index] = editingSource.value;
 							}
 
-							if (editingSource.token !== undefined) {
+							// Only include a credential entry when the user typed a value.
+							// An absent key means "no change"; only an explicit empty string clears it.
+							if (editingSource.token) {
 								updatingCatalog.sourceURLCredentials = {
 									...(updatingCatalog.sourceURLCredentials ?? {}),
 									[editingSource.value]: editingSource.token
