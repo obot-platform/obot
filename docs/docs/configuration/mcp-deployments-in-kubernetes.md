@@ -48,7 +48,7 @@ The values that are configurable, and how to change them, follow.
 
 - Affinity and Tolerations: can be set using the `.mcpServerDefaults.affinity` and `.mcpServerDefaults.tolerations` in Helm, or via the admin UI if not set in Helm values
 - Resources: the default value is a memory request of `400Mi` with no memory limit or CPU requests/limits. This can be set in Helm using the `.mcpServerDefaults.resources` value, or via the Admin UI if not set in Helm values.
-- Image: the default value is `ghcr.io/obot-platform/mcp-images/phat:main` and it can be changed by setting the Helm value `.config.OBOT_SERVER_MCPBASE_IMAGE`.
+- Image: the default value is `ghcr.io/obot-platform/mcp-images/phat:v0.20.1` and it can be changed by setting the Helm value `.config.OBOT_SERVER_MCPBASE_IMAGE`.
 - RuntimeClassName: can be set using `.mcpServerDefaults.runtimeClassName` in Helm, or via the admin UI if not set in Helm values. See [RuntimeClass](#runtimeclass) for details.
 
 #### A note on Affinity, Tolerations, and Resources
