@@ -65,15 +65,29 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 		return nil
 	}
 
-	// Find the corresponding MCPServer object by name using the storage client
 	var mcpServer v1.MCPServer
-	if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{
-		Name:      mcpServerName,
-		Namespace: h.mcpNamespace,
-	}, &mcpServer); apierrors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to get MCPServer %s: %w", mcpServerName, err)
+	var systemServer v1.SystemMCPServer
+	var isSystemServer bool
+
+	if system.IsSystemMCPServerID(mcpServerName) {
+		isSystemServer = true
+		if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{
+			Name:      mcpServerName,
+			Namespace: h.mcpNamespace,
+		}, &systemServer); apierrors.IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("failed to get SystemMCPServer %s: %w", mcpServerName, err)
+		}
+	} else {
+		if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{
+			Name:      mcpServerName,
+			Namespace: h.mcpNamespace,
+		}, &mcpServer); apierrors.IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("failed to get MCPServer %s: %w", mcpServerName, err)
+		}
 	}
 
 	// Extract deployment status information
@@ -88,31 +102,62 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 
 	// Check if we need to update the MCPServer status
 	var needsUpdate bool
-	if mcpServer.Status.DeploymentStatus != deploymentStatus {
-		mcpServer.Status.DeploymentStatus = deploymentStatus
-		needsUpdate = true
-	}
-	if !int32PtrEqual(mcpServer.Status.DeploymentAvailableReplicas, &availableReplicas) {
-		mcpServer.Status.DeploymentAvailableReplicas = &availableReplicas
-		needsUpdate = true
-	}
-	if !int32PtrEqual(mcpServer.Status.DeploymentReadyReplicas, &readyReplicas) {
-		mcpServer.Status.DeploymentReadyReplicas = &readyReplicas
-		needsUpdate = true
-	}
-	if !int32PtrEqual(mcpServer.Status.DeploymentReplicas, replicas) {
-		mcpServer.Status.DeploymentReplicas = replicas
-		needsUpdate = true
-	}
-	if !slices.Equal(mcpServer.Status.DeploymentConditions, conditions) {
-		mcpServer.Status.DeploymentConditions = conditions
-		needsUpdate = true
+
+	if isSystemServer {
+		if systemServer.Status.DeploymentStatus != deploymentStatus {
+			systemServer.Status.DeploymentStatus = deploymentStatus
+			needsUpdate = true
+		}
+		if !int32PtrEqual(systemServer.Status.DeploymentAvailableReplicas, &availableReplicas) {
+			systemServer.Status.DeploymentAvailableReplicas = &availableReplicas
+			needsUpdate = true
+		}
+		if !int32PtrEqual(systemServer.Status.DeploymentReadyReplicas, &readyReplicas) {
+			systemServer.Status.DeploymentReadyReplicas = &readyReplicas
+			needsUpdate = true
+		}
+		if !int32PtrEqual(systemServer.Status.DeploymentReplicas, replicas) {
+			systemServer.Status.DeploymentReplicas = replicas
+			needsUpdate = true
+		}
+		if !slices.Equal(systemServer.Status.DeploymentConditions, conditions) {
+			systemServer.Status.DeploymentConditions = conditions
+			needsUpdate = true
+		}
+	} else {
+		if mcpServer.Status.DeploymentStatus != deploymentStatus {
+			mcpServer.Status.DeploymentStatus = deploymentStatus
+			needsUpdate = true
+		}
+		if !int32PtrEqual(mcpServer.Status.DeploymentAvailableReplicas, &availableReplicas) {
+			mcpServer.Status.DeploymentAvailableReplicas = &availableReplicas
+			needsUpdate = true
+		}
+		if !int32PtrEqual(mcpServer.Status.DeploymentReadyReplicas, &readyReplicas) {
+			mcpServer.Status.DeploymentReadyReplicas = &readyReplicas
+			needsUpdate = true
+		}
+		if !int32PtrEqual(mcpServer.Status.DeploymentReplicas, replicas) {
+			mcpServer.Status.DeploymentReplicas = replicas
+			needsUpdate = true
+		}
+		if !slices.Equal(mcpServer.Status.DeploymentConditions, conditions) {
+			mcpServer.Status.DeploymentConditions = conditions
+			needsUpdate = true
+		}
 	}
 
 	// Manage NeedsK8sUpdate flag for K8s-compatible runtimes
-	isK8sRuntime := mcpServer.Spec.Manifest.Runtime == types.RuntimeContainerized ||
-		mcpServer.Spec.Manifest.Runtime == types.RuntimeUVX ||
-		mcpServer.Spec.Manifest.Runtime == types.RuntimeNPX
+	var isK8sRuntime bool
+	if isSystemServer {
+		isK8sRuntime = systemServer.Spec.Manifest.Runtime == types.RuntimeContainerized ||
+			systemServer.Spec.Manifest.Runtime == types.RuntimeUVX ||
+			systemServer.Spec.Manifest.Runtime == types.RuntimeNPX
+	} else {
+		isK8sRuntime = mcpServer.Spec.Manifest.Runtime == types.RuntimeContainerized ||
+			mcpServer.Spec.Manifest.Runtime == types.RuntimeUVX ||
+			mcpServer.Spec.Manifest.Runtime == types.RuntimeNPX
+	}
 
 	if isK8sRuntime {
 		// Get current K8s settings to compare
@@ -129,10 +174,19 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 			// This prevents overwriting a hash that was set by the API handler during a redeploy
 			// before the deployment has been updated.
 			if k8sSettingsHash != "" {
-				if mcpServer.Status.K8sSettingsHash == "" || k8sSettingsHash == currentHash {
-					if mcpServer.Status.K8sSettingsHash != k8sSettingsHash {
-						mcpServer.Status.K8sSettingsHash = k8sSettingsHash
-						needsUpdate = true
+				if isSystemServer {
+					if systemServer.Status.K8sSettingsHash == "" || k8sSettingsHash == currentHash {
+						if systemServer.Status.K8sSettingsHash != k8sSettingsHash {
+							systemServer.Status.K8sSettingsHash = k8sSettingsHash
+							needsUpdate = true
+						}
+					}
+				} else {
+					if mcpServer.Status.K8sSettingsHash == "" || k8sSettingsHash == currentHash {
+						if mcpServer.Status.K8sSettingsHash != k8sSettingsHash {
+							mcpServer.Status.K8sSettingsHash = k8sSettingsHash
+							needsUpdate = true
+						}
 					}
 				}
 			}
@@ -143,23 +197,35 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 			// 3. The deployment's hash doesn't match current K8sSettings
 			// 4. The MCPServer's expected hash also doesn't match current K8sSettings
 			//    (if MCPServer already expects the current hash, a redeploy is pending)
-			if !mcpServer.Status.NeedsK8sUpdate {
-				if k8sSettingsHash != currentHash && mcpServer.Status.K8sSettingsHash != currentHash {
-					mcpServer.Status.NeedsK8sUpdate = true
-					needsUpdate = true
+			if !isSystemServer {
+				if !mcpServer.Status.NeedsK8sUpdate {
+					if k8sSettingsHash != "" && k8sSettingsHash != currentHash && mcpServer.Status.K8sSettingsHash != currentHash {
+						mcpServer.Status.NeedsK8sUpdate = true
+						needsUpdate = true
+					}
 				}
 			}
 		}
 	} else {
 		// For non-K8s runtimes, just sync the hash from the deployment annotation
-		if mcpServer.Status.K8sSettingsHash != k8sSettingsHash {
-			mcpServer.Status.K8sSettingsHash = k8sSettingsHash
-			needsUpdate = true
+		if isSystemServer {
+			if systemServer.Status.K8sSettingsHash != k8sSettingsHash {
+				systemServer.Status.K8sSettingsHash = k8sSettingsHash
+				needsUpdate = true
+			}
+		} else {
+			if mcpServer.Status.K8sSettingsHash != k8sSettingsHash {
+				mcpServer.Status.K8sSettingsHash = k8sSettingsHash
+				needsUpdate = true
+			}
 		}
 	}
 
 	// Update the MCPServer status if needed
 	if needsUpdate {
+		if isSystemServer {
+			return h.storageClient.Status().Update(req.Ctx, &systemServer)
+		}
 		return h.storageClient.Status().Update(req.Ctx, &mcpServer)
 	}
 
