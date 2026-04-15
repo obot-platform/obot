@@ -25,14 +25,14 @@ type GitHubRepoInfo struct {
 }
 
 // isGitRepoURL returns true if the URL points to a git repository on a known
-// hosting platform (GitHub, GitLab, Bitbucket) or ends with ".git".
+// hosting platform (GitHub, GitLab) or ends with ".git".
 func isGitRepoURL(catalogURL string) bool {
 	u, err := url.Parse(catalogURL)
 	if err != nil {
 		return false
 	}
 	switch u.Host {
-	case "github.com", "gitlab.com", "bitbucket.org":
+	case "github.com", "gitlab.com":
 		return true
 	}
 	// Treat any HTTPS URL whose path ends in .git as a git repo.
@@ -134,7 +134,7 @@ func isPathSafe(path, baseDir string) error {
 }
 
 // readGitCatalog clones a git repository over HTTPS and reads its catalog entries.
-// It works with any git hosting platform (GitHub, GitLab, Bitbucket, self-hosted, etc.).
+// It works with any git hosting platform (GitHub, GitLab, self-hosted, etc.).
 // parseGitURL parses a git repository URL and returns the clone URL and branch.
 // It supports subgroups (e.g. gitlab.com/group/subgroup/repo.git) by using the
 // .git suffix as the repo boundary. For GitHub, URLs without a .git suffix are
@@ -178,7 +178,7 @@ func parseGitURL(catalogURL string) (string, string, error) {
 	// Subgroups without .git are not supported; use the .git suffix form instead.
 	if repoPath == "" {
 		switch u.Host {
-		case "github.com", "gitlab.com", "bitbucket.org":
+		case "github.com", "gitlab.com":
 			repoPath = strings.Join(parts[:2], "/") + ".git"
 			if len(parts) > 2 {
 				branch = strings.Join(parts[2:], "/")
@@ -247,7 +247,7 @@ func readGitCatalog(catalogURL string, token string) ([]types.MCPServerCatalogEn
 	}
 	if effectiveToken != "" {
 		cloneOptions.Auth = &githttp.BasicAuth{
-			Username: "x-access-token", // Accepted as a dummy username by GitHub, GitLab, and Bitbucket.
+			Username: "x-access-token", // Accepted as a dummy username by GitHub and GitLab.
 			Password: effectiveToken,
 		}
 	}
