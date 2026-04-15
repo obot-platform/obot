@@ -43,7 +43,7 @@ To pull from a private repository, enter a **Personal access token** in the opti
 **Required token scopes:**
 
 - **GitHub**: `repo` (read access is sufficient)
-- **GitLab**: `read_repository`
+- **GitLab**: `read_repository` (clone access) + `read_api` (pre-clone size check)
 
 If no per-URL token is configured, Obot falls back to the `GITHUB_AUTH_TOKEN` environment variable for GitHub repositories.
 
