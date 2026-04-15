@@ -35,7 +35,6 @@ func isGitRepoURL(catalogURL string) bool {
 	return strings.HasSuffix(strings.TrimSuffix(u.Path, "/"), ".git")
 }
 
-
 // checkGitHubRepoSize checks repo size via the GitHub API before cloning.
 // Falls back to the GITHUB_AUTH_TOKEN env var if no per-URL token is provided.
 func checkGitHubRepoSize(ctx context.Context, org, repo string, maxSizeMB int, token string) error {
