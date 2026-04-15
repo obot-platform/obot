@@ -136,6 +136,40 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 
 	catalog.Spec.SourceURLs = manifest.SourceURLs
 
+	// Process per-URL credentials.
+	// - If the value is "*", keep the existing stored credential (no change).
+	// - If the value is empty, remove the credential.
+	// - Otherwise, store the new credential value.
+	if len(manifest.SourceURLCredentials) > 0 {
+		if catalog.Spec.SourceURLCredentials == nil {
+			catalog.Spec.SourceURLCredentials = make(map[string]string)
+		}
+		for url, cred := range manifest.SourceURLCredentials {
+			if cred == "" {
+				delete(catalog.Spec.SourceURLCredentials, url)
+			} else if cred != "*" {
+				catalog.Spec.SourceURLCredentials[url] = cred
+			}
+			// cred == "*" means keep existing, so no action needed
+		}
+	}
+
+	// Remove credentials for source URLs that are no longer in the list.
+	if len(catalog.Spec.SourceURLCredentials) > 0 {
+		activeURLs := make(map[string]struct{}, len(catalog.Spec.SourceURLs))
+		for _, url := range catalog.Spec.SourceURLs {
+			activeURLs[url] = struct{}{}
+		}
+		for url := range catalog.Spec.SourceURLCredentials {
+			if _, ok := activeURLs[url]; !ok {
+				delete(catalog.Spec.SourceURLCredentials, url)
+			}
+		}
+		if len(catalog.Spec.SourceURLCredentials) == 0 {
+			catalog.Spec.SourceURLCredentials = nil
+		}
+	}
+
 	if err := req.Update(&catalog); err != nil {
 		return fmt.Errorf("failed to update catalog: %w", err)
 	}
@@ -1444,11 +1478,21 @@ func (h *MCPCatalogHandler) ListCategoriesForCatalog(req api.Context) error {
 }
 
 func convertMCPCatalog(catalog v1.MCPCatalog) types.MCPCatalog {
+	// Mask credential values: return "*" for each URL that has a credential set,
+	// so the UI knows a credential exists without exposing the actual token.
+	var maskedCredentials map[string]string
+	if len(catalog.Spec.SourceURLCredentials) > 0 {
+		maskedCredentials = make(map[string]string, len(catalog.Spec.SourceURLCredentials))
+		for url := range catalog.Spec.SourceURLCredentials {
+			maskedCredentials[url] = "*"
+		}
+	}
 	return types.MCPCatalog{
 		Metadata: MetadataFrom(&catalog),
 		MCPCatalogManifest: types.MCPCatalogManifest{
-			DisplayName: catalog.Spec.DisplayName,
-			SourceURLs:  catalog.Spec.SourceURLs,
+			DisplayName:          catalog.Spec.DisplayName,
+			SourceURLs:           catalog.Spec.SourceURLs,
+			SourceURLCredentials: maskedCredentials,
 		},
 		LastSynced: *types.NewTime(catalog.Status.LastSyncTime.Time),
 		SyncErrors: catalog.Status.SyncErrors,
