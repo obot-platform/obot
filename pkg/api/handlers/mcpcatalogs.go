@@ -142,10 +142,12 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 	}
 	for _, u := range catalog.Spec.SourceURLs {
 		if _, active := activeURLs[u]; !active {
-			_ = req.GPTClient.DeleteCredential(req.Context(),
+			if err := req.GPTClient.DeleteCredential(req.Context(),
 				mcpcataloghandler.CatalogCredentialContext(string(catalog.UID)),
 				mcpcataloghandler.CatalogCredentialToolName(u),
-			)
+			); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+				return fmt.Errorf("failed to delete credential for %s: %w", u, err)
+			}
 		}
 	}
 
@@ -164,7 +166,9 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		toolName := mcpcataloghandler.CatalogCredentialToolName(u)
 		switch cred {
 		case "":
-			_ = req.GPTClient.DeleteCredential(req.Context(), credCtx, toolName)
+			if err := req.GPTClient.DeleteCredential(req.Context(), credCtx, toolName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+				return fmt.Errorf("failed to delete credential for %s: %w", u, err)
+			}
 		case "*":
 			// keep existing — no action
 		default:

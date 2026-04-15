@@ -350,15 +350,15 @@ func watchDirSizeTick(ctx context.Context, cancel context.CancelCauseFunc, dir s
 	}
 }
 
-// dirSizeMB returns the total size of all files in dir in megabytes.
-// Errors are ignored to prevent unexpected clone cancellations.
+// dirSizeMB returns the total size of all non-symlink files in dir in megabytes.
+// Errors and symlinks are skipped to prevent unexpected clone cancellations.
 func dirSizeMB(dir string) int64 {
 	var total int64
-	_ = filepath.WalkDir(dir, func(_ string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || d.Type()&os.ModeSymlink != 0 {
 			return nil
 		}
-		if info, err := d.Info(); err == nil {
+		if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink == 0 {
 			total += info.Size()
 		}
 		return nil
