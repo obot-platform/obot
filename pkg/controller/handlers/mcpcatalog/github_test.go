@@ -14,8 +14,8 @@ import (
 func TestWatchDirSize(t *testing.T) {
 	dir := t.TempDir()
 
-	// Write 2 MB so dirSizeMB returns > 1, which exceeds the 1 MB limit.
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "big.bin"), make([]byte, 2*1024*1024), 0600))
+	// Write 1.25 MB to exceed the 1 MB limit.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "big.bin"), make([]byte, 1.25*1024*1024), 0600))
 
 	ctx, cancel := context.WithCancelCause(context.Background())
 	defer cancel(nil)

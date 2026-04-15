@@ -74,7 +74,8 @@ func (h *Handler) revealCatalogCredential(ctx context.Context, catalogUID, sourc
 		CatalogCredentialToolName(sourceURL),
 	)
 	if err != nil {
-		if !errors.As(err, &gptscript.ErrNotFound{}) {
+		var notFound *gptscript.ErrNotFound
+		if !errors.As(err, &notFound) {
 			log.Errorf("failed to retrieve credential for catalog %s source %s: %v", catalogUID, sourceURL, err)
 		}
 		return ""

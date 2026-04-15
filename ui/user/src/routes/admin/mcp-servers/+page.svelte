@@ -462,8 +462,9 @@
 								updatingCatalog.sourceURLs[editingSource.index] = editingSource.value;
 							}
 
-							// Include the PAT if provided; an empty string means "clear the credential".
-							if (editingSource.token !== undefined) {
+							// Only include a credential entry when the user typed a value.
+							// An absent key means "no change"; only an explicit empty string clears it.
+							if (editingSource.token) {
 								updatingCatalog.sourceURLCredentials = {
 									...(updatingCatalog.sourceURLCredentials ?? {}),
 									[editingSource.value]: editingSource.token
