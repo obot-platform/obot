@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	defaultContainerPort = 8099
-	webhookToolName      = "fire-webhook"
+	defaultContainerPort          = 8099
+	webhookToolName               = "fire-webhook"
+	serviceUnavailableGracePeriod = 10 * time.Second
 )
 
 type backend interface {
@@ -63,6 +64,8 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 		// This server is using nanobot as long as it is not the containerized runtime,
 		// so we can reach out to nanobot's healthz path.
 		url = fmt.Sprintf("%s/healthz", strings.TrimSuffix(url, "/"))
+		var firstServiceUnavailable time.Time
+
 		for {
 			resp, err := client.Get(url)
 			if err == nil {
@@ -71,9 +74,23 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 				case http.StatusOK:
 					return nil
 				case http.StatusServiceUnavailable:
-					// The image will return a http.StatusTooEarly until it has finished trying to list tools.
-					// If listing tools fails, it will return http.StatusServiceUnavailable.
+					// Older nanobot versions return 503 when tool listing permanently fails, but service mesh sidecars
+					// (e.g. Istio's envoy) also return 503 during startup. To avoid confusing the two, we don't treat 503
+					// as a permanent failure until we've seen consecutive 503 responses for this duration.
+					// Current nanobot returns 500 instead, which is handled as an immediate failure below.
+					if firstServiceUnavailable.IsZero() {
+						firstServiceUnavailable = time.Now()
+					} else if time.Since(firstServiceUnavailable) > serviceUnavailableGracePeriod {
+						return ErrHealthCheckFailed
+					}
+				case http.StatusInternalServerError:
+					// Nanobot returns 500 when tool listing permanently fails.
 					return ErrHealthCheckFailed
+				default:
+					// A non-503 response (e.g. 425 TooEarly) means we're reaching the actual
+					// nanobot process, not a proxy. Reset the grace period so that any subsequent
+					// 503 gets a fresh window.
+					firstServiceUnavailable = time.Time{}
 				}
 			}
 
