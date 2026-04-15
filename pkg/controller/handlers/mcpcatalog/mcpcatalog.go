@@ -65,14 +65,18 @@ type Handler struct {
 	accessControlRuleHelper *accesscontrolrule.Helper
 }
 
-// revealCatalogCredential retrieves a stored PAT for the given source URL, returning
-// an empty string if none is configured or the lookup fails.
+// revealCatalogCredential retrieves a stored PAT for the given source URL.
+// Returns an empty string if no credential is configured (not-found). Any other
+// error is logged so credential-store failures are visible in the sync status.
 func (h *Handler) revealCatalogCredential(ctx context.Context, catalogUID, sourceURL string) string {
 	cred, err := h.gptClient.RevealCredential(ctx,
 		[]string{CatalogCredentialContext(catalogUID)},
 		CatalogCredentialToolName(sourceURL),
 	)
 	if err != nil {
+		if !errors.As(err, &gptscript.ErrNotFound{}) {
+			log.Errorf("failed to retrieve credential for catalog %s source %s: %v", catalogUID, sourceURL, err)
+		}
 		return ""
 	}
 	return cred.Env["TOKEN"]
