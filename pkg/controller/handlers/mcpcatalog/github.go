@@ -38,14 +38,14 @@ func isGitRepoURL(catalogURL string) bool {
 
 // checkGitHubRepoSize checks repo size via the GitHub API before cloning.
 // Falls back to the GITHUB_AUTH_TOKEN env var if no per-URL token is provided.
-func checkGitHubRepoSize(org, repo string, maxSizeMB int, token string) error {
+func checkGitHubRepoSize(ctx context.Context, org, repo string, maxSizeMB int, token string) error {
 	if org == "obot-platform" {
 		return nil
 	}
 
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", org, repo)
 
-	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create API request: %w", err)
 	}
@@ -88,7 +88,7 @@ func checkGitHubRepoSize(org, repo string, maxSizeMB int, token string) error {
 // checkGitLabRepoSize checks repo size via the GitLab API before cloning.
 // Only called when a per-URL token is available; skipped otherwise since the
 // statistics endpoint requires authentication.
-func checkGitLabRepoSize(host, projectPath string, maxSizeMB int, token string) error {
+func checkGitLabRepoSize(ctx context.Context, host, projectPath string, maxSizeMB int, token string) error {
 	if token == "" {
 		return nil // statistics endpoint requires auth; skip and rely on the clone-time check
 	}
@@ -96,7 +96,7 @@ func checkGitLabRepoSize(host, projectPath string, maxSizeMB int, token string) 
 	// GitLab expects the project path URL-encoded (e.g. "group%2Fsubgroup%2Frepo")
 	apiURL := fmt.Sprintf("https://%s/api/v4/projects/%s?statistics=true", host, url.PathEscape(projectPath))
 
-	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create API request: %w", err)
 	}
@@ -238,7 +238,7 @@ func parseGitURL(catalogURL string) (string, string, error) {
 	return fmt.Sprintf("https://%s/%s", u.Host, repoPath), branch, nil
 }
 
-func readGitCatalog(catalogURL string, token string) ([]types.MCPServerCatalogEntryManifest, error) {
+func readGitCatalog(ctx context.Context, catalogURL string, token string) ([]types.MCPServerCatalogEntryManifest, error) {
 	if strings.HasPrefix(catalogURL, "http://") {
 		return nil, fmt.Errorf("only HTTPS is supported for git catalogs")
 	}
@@ -272,12 +272,12 @@ func readGitCatalog(catalogURL string, token string) ([]types.MCPServerCatalogEn
 	case "github.com":
 		parts := strings.SplitN(repoPath, "/", 2)
 		if len(parts) == 2 {
-			if err := checkGitHubRepoSize(parts[0], parts[1], maxRepoSizeMB, effectiveToken); err != nil {
+			if err := checkGitHubRepoSize(ctx, parts[0], parts[1], maxRepoSizeMB, effectiveToken); err != nil {
 				return nil, fmt.Errorf("repository size check failed: %w", err)
 			}
 		}
 	case "gitlab.com":
-		if err := checkGitLabRepoSize(u.Host, repoPath, maxRepoSizeMB, effectiveToken); err != nil {
+		if err := checkGitLabRepoSize(ctx, u.Host, repoPath, maxRepoSizeMB, effectiveToken); err != nil {
 			return nil, fmt.Errorf("repository size check failed: %w", err)
 		}
 	}
@@ -304,7 +304,7 @@ func readGitCatalog(catalogURL string, token string) ([]types.MCPServerCatalogEn
 	// Cancel the clone if the downloaded data exceeds the limit.
 	// Polling the temp directory size during the clone works for any git host,
 	// and aborts early rather than waiting for the full transfer to complete.
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	go func() {
 		ticker := time.NewTicker(200 * time.Millisecond)

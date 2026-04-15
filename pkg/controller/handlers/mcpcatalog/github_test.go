@@ -1,6 +1,7 @@
 package mcpcatalog
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -149,7 +150,7 @@ func TestReadGitCatalog(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entries, err := readGitCatalog(tt.catalog, "")
+			entries, err := readGitCatalog(context.Background(), tt.catalog, "")
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
