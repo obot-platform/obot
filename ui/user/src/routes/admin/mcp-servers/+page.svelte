@@ -279,6 +279,14 @@
 					{query}
 					{syncing}
 					onSync={sync}
+					onEdit={(url, index) => {
+						editingSource = {
+							index,
+							value: url,
+							token: undefined
+						};
+						sourceDialog?.showModal();
+					}}
 				/>
 			{:else if view === 'deployments'}
 				<DeploymentsView
@@ -418,8 +426,7 @@
 				<input
 					id="catalog-source-token"
 					type="password"
-					placeholder={editingSource.index !== -1 &&
-					defaultCatalog?.sourceURLCredentials?.[editingSource.value]
+					placeholder={defaultCatalog?.sourceURLCredentials?.[editingSource.value]
 						? 'Token is set — enter a new value to replace it'
 						: ''}
 					bind:value={editingSource.token}
@@ -462,8 +469,8 @@
 								updatingCatalog.sourceURLs[editingSource.index] = editingSource.value;
 							}
 
-							// Only include a credential entry when the user typed a value.
-							// An absent key means "no change"; only an explicit empty string clears it.
+							// Only send a credential update when the user has typed a value.
+							// Leaving the field empty (add or edit) leaves any existing credential unchanged.
 							if (editingSource.token) {
 								updatingCatalog.sourceURLCredentials = {
 									...(updatingCatalog.sourceURLCredentials ?? {}),
@@ -488,7 +495,7 @@
 						}
 					}}
 				>
-					Add
+					{editingSource.index === -1 ? 'Add' : 'Save'}
 				</button>
 			</div>
 		{/if}
