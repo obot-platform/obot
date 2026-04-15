@@ -487,3 +487,7 @@
 		</div>
 	</div>
 </Layout>
+
+<svelte:head>
+	<title>Obot | Dashboard</title>
+</svelte:head>

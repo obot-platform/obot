@@ -1,11 +1,20 @@
 import type { FileTimeResult } from './services/nanobot/types';
 
+function formatWithSuffix(value: number, suffix: string): string {
+	return value % 1 === 0 ? `${value}${suffix}` : `${value.toFixed(1)}${suffix}`;
+}
+
 export function formatNumber(num: number): string {
-	if (num >= 1000) {
-		const thousands = num / 1000;
-		return thousands % 1 === 0 ? `${thousands}k` : `${thousands.toFixed(1)}k`;
+	if (num < 1000) {
+		return num.toString();
 	}
-	return num.toString();
+	if (num >= 1_000_000_000) {
+		return formatWithSuffix(num / 1_000_000_000, 'B');
+	}
+	if (num >= 1_000_000) {
+		return formatWithSuffix(num / 1_000_000, 'M');
+	}
+	return formatWithSuffix(num / 1000, 'k');
 }
 
 export function formatFileSize(bytes: number): string {
