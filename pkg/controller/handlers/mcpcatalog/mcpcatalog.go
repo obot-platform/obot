@@ -142,11 +142,11 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL, token string) ([]client
 	var entries []types.MCPServerCatalogEntryManifest
 
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
-		if isGitHubURL(sourceURL) {
+		if isGitRepoURL(sourceURL) {
 			var err error
-			entries, err = readGitHubCatalog(sourceURL, token)
+			entries, err = readGitCatalog(sourceURL, token)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read GitHub catalog %s: %w", sourceURL, err)
+				return nil, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
 			}
 		} else {
 			// If it wasn't a GitHub repo, treat it as a raw file.
