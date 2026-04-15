@@ -27,6 +27,83 @@ func TestIsGitRepoURL(t *testing.T) {
 	}
 }
 
+func TestParseGitURL(t *testing.T) {
+	tests := []struct {
+		name        string
+		url         string
+		wantClone   string
+		wantBranch  string
+		wantErr     bool
+	}{
+		{
+			name:       "github without .git",
+			url:        "https://github.com/org/repo",
+			wantClone:  "https://github.com/org/repo.git",
+			wantBranch: "main",
+		},
+		{
+			name:       "github with .git",
+			url:        "https://github.com/org/repo.git",
+			wantClone:  "https://github.com/org/repo.git",
+			wantBranch: "main",
+		},
+		{
+			name:       "github with branch",
+			url:        "https://github.com/org/repo/my-branch",
+			wantClone:  "https://github.com/org/repo.git",
+			wantBranch: "my-branch",
+		},
+		{
+			name:       "gitlab with .git",
+			url:        "https://gitlab.com/org/repo.git",
+			wantClone:  "https://gitlab.com/org/repo.git",
+			wantBranch: "main",
+		},
+		{
+			name:       "gitlab subgroup",
+			url:        "https://gitlab.com/group/subgroup/repo.git",
+			wantClone:  "https://gitlab.com/group/subgroup/repo.git",
+			wantBranch: "main",
+		},
+		{
+			name:       "gitlab subgroup with branch",
+			url:        "https://gitlab.com/group/subgroup/repo.git/my-branch",
+			wantClone:  "https://gitlab.com/group/subgroup/repo.git",
+			wantBranch: "my-branch",
+		},
+		{
+			name:       "gitlab without .git",
+			url:        "https://gitlab.com/org/repo",
+			wantClone:  "https://gitlab.com/org/repo.git",
+			wantBranch: "main",
+		},
+		{
+			name:       "bitbucket without .git",
+			url:        "https://bitbucket.org/org/repo",
+			wantClone:  "https://bitbucket.org/org/repo.git",
+			wantBranch: "main",
+		},
+		{
+			name:    "unknown host without .git is rejected",
+			url:     "https://self-hosted.example.com/org/repo",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cloneURL, branch, err := parseGitURL(tt.url)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantClone, cloneURL)
+			assert.Equal(t, tt.wantBranch, branch)
+		})
+	}
+}
+
 func TestReadGitCatalog(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -61,6 +138,12 @@ func TestReadGitCatalog(t *testing.T) {
 		{
 			name:       "invalid url format",
 			catalog:    "github.com/invalid",
+			wantErr:    true,
+			numEntries: 0,
+		},
+		{
+			name:       "unknown host without .git suffix is rejected",
+			catalog:    "https://self-hosted.example.com/org/repo",
 			wantErr:    true,
 			numEntries: 0,
 		},
