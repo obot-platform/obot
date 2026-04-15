@@ -211,10 +211,9 @@ func (h *NanobotAgentHandler) Launch(req api.Context) error {
 			break
 		}
 		var errHTTP *types.ErrHTTP
-		if !errors.As(err, &errHTTP) ||
-			errHTTP.Code != http.StatusBadRequest ||
-			!strings.Contains(errHTTP.Message, "NANOBOT_ENV_FILE") ||
-			!strings.Contains(errHTTP.Message, "NANOBOT_CONFIG_PATH") {
+		isBadRequest := errors.As(err, &errHTTP) && errHTTP.Code == http.StatusBadRequest
+		isMissingConfig := strings.Contains(errHTTP.Message, "NANOBOT_ENV_FILE") || strings.Contains(errHTTP.Message, "NANOBOT_CONFIG_PATH")
+		if !isBadRequest || !isMissingConfig {
 			return err
 		}
 		select {
