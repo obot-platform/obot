@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
@@ -25,7 +26,6 @@
 		replaceState
 	} from '$lib/url';
 	import SourceUrlsView from './SourceUrlsView.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
@@ -418,7 +418,10 @@
 				<input
 					id="catalog-source-token"
 					type="password"
-					placeholder={editingSource.index !== -1 && defaultCatalog?.sourceURLCredentials?.[editingSource.value] ? 'Token is set — enter a new value to replace it' : ''}
+					placeholder={editingSource.index !== -1 &&
+					defaultCatalog?.sourceURLCredentials?.[editingSource.value]
+						? 'Token is set — enter a new value to replace it'
+						: ''}
 					bind:value={editingSource.token}
 					class="text-input-filled"
 				/>
