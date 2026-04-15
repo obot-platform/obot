@@ -30,7 +30,7 @@ func isGitHubURL(catalogURL string) bool {
 }
 
 // checkRepoSize checks the repository size using GitHub API before cloning
-func checkRepoSize(org, repo string, maxSizeMB int) error {
+func checkRepoSize(org, repo string, maxSizeMB int, token string) error {
 	if org == "obot-platform" {
 		return nil
 	}
@@ -48,9 +48,13 @@ func checkRepoSize(org, repo string, maxSizeMB int) error {
 		return fmt.Errorf("failed to create API request: %w", err)
 	}
 
-	// Add authentication if token is available
-	if githubToken != "" {
-		req.Header.Set("Authorization", "Bearer "+githubToken)
+	// Add authentication if token is available (per-URL token takes precedence over global env var)
+	effectiveToken := token
+	if effectiveToken == "" {
+		effectiveToken = githubToken
+	}
+	if effectiveToken != "" {
+		req.Header.Set("Authorization", "Bearer "+effectiveToken)
 	}
 
 	// Make the request
@@ -131,7 +135,7 @@ func isPathSafe(path, baseDir string) error {
 	return nil
 }
 
-func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest, error) {
+func readGitHubCatalog(catalogURL string, token string) ([]types.MCPServerCatalogEntryManifest, error) {
 	// Make sure we don't use plain HTTP
 	if strings.HasPrefix(catalogURL, "http://") {
 		return nil, fmt.Errorf("only HTTPS is supported for GitHub catalogs")
@@ -157,7 +161,7 @@ func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("invalid GitHub URL format, expected github.com/org/repo")
 	}
-	org, repo := parts[0], parts[1]
+	org, repo := parts[0], strings.TrimSuffix(parts[1], ".git")
 	branch := "main"
 	if len(parts) > 2 {
 		branch = strings.Join(parts[2:], "/")
@@ -169,7 +173,7 @@ func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest
 
 	// Check repository size before cloning (limit to 100 MB)
 	const maxRepoSizeMB = 100
-	if err := checkRepoSize(org, repo, maxRepoSizeMB); err != nil {
+	if err := checkRepoSize(org, repo, maxRepoSizeMB, token); err != nil {
 		return nil, fmt.Errorf("repository size check failed: %w", err)
 	}
 
@@ -190,11 +194,15 @@ func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest
 		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branch)),
 	}
 
-	// Set up git credentials if token is available
-	if githubToken != "" {
+	// Set up git credentials: per-URL token takes precedence over global env var
+	effectiveToken := token
+	if effectiveToken == "" {
+		effectiveToken = githubToken
+	}
+	if effectiveToken != "" {
 		cloneOptions.Auth = &githttp.BasicAuth{
-			Username: "obot", // Use a dummy username. The username is ignored, but required to be non-empty.
-			Password: githubToken,
+			Username: "x-access-token", // Use x-access-token as username for GitHub/GitLab PATs.
+			Password: effectiveToken,
 		}
 	}
 

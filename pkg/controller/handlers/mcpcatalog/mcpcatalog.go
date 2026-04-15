@@ -90,7 +90,8 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
-		objs, err := h.readMCPCatalog(mcpCatalog.Name, sourceURL)
+		token := mcpCatalog.Spec.SourceURLCredentials[sourceURL]
+		objs, err := h.readMCPCatalog(mcpCatalog.Name, sourceURL, token)
 		if err != nil {
 			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
@@ -137,19 +138,26 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
 }
 
-func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object, error) {
+func (h *Handler) readMCPCatalog(catalogName, sourceURL, token string) ([]client.Object, error) {
 	var entries []types.MCPServerCatalogEntryManifest
 
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
 		if isGitHubURL(sourceURL) {
 			var err error
-			entries, err = readGitHubCatalog(sourceURL)
+			entries, err = readGitHubCatalog(sourceURL, token)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read GitHub catalog %s: %w", sourceURL, err)
 			}
 		} else {
 			// If it wasn't a GitHub repo, treat it as a raw file.
-			resp, err := http.Get(sourceURL)
+			req, err := http.NewRequest("GET", sourceURL, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create request for catalog %s: %w", sourceURL, err)
+			}
+			if token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
+			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}

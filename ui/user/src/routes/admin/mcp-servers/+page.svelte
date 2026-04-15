@@ -80,7 +80,7 @@
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	let defaultCatalog = $state<MCPCatalog>();
-	let editingSource = $state<{ index: number; value: string }>();
+	let editingSource = $state<{ index: number; value: string; token?: string }>();
 	let sourceDialog = $state<HTMLDialogElement>();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 
@@ -369,7 +369,8 @@
 			onclick={() => {
 				editingSource = {
 					index: -1,
-					value: ''
+					value: '',
+					token: ''
 				};
 				sourceDialog?.showModal();
 			}}
@@ -396,6 +397,19 @@
 				<input
 					id="catalog-source-name"
 					bind:value={editingSource.value}
+					class="text-input-filled"
+				/>
+			</div>
+
+			<div class="mb-4 flex flex-col gap-1">
+				<label for="catalog-source-token" class="flex-1 text-sm font-light capitalize"
+					>Personal Access Token (optional)
+				</label>
+				<input
+					id="catalog-source-token"
+					type="password"
+					placeholder={editingSource.index !== -1 && defaultCatalog?.sourceURLCredentials?.[editingSource.value] ? 'Token is set — enter a new value to replace it' : ''}
+					bind:value={editingSource.token}
 					class="text-input-filled"
 				/>
 			</div>
@@ -433,6 +447,14 @@
 								];
 							} else {
 								updatingCatalog.sourceURLs[editingSource.index] = editingSource.value;
+							}
+
+							// Include the PAT if provided; an empty string means "clear the credential".
+							if (editingSource.token !== undefined) {
+								updatingCatalog.sourceURLCredentials = {
+									...(updatingCatalog.sourceURLCredentials ?? {}),
+									[editingSource.value]: editingSource.token
+								};
 							}
 
 							const response = await AdminService.updateMCPCatalog(
