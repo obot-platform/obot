@@ -322,6 +322,9 @@ func readGitCatalog(ctx context.Context, catalogURL string, token string) ([]typ
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
+	// stop watching dir size before reading directory
+	cancel(nil)
+
 	return readMCPCatalogDirectory(tempDir)
 }
 
