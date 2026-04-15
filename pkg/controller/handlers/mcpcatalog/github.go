@@ -308,7 +308,11 @@ func readGitCatalog(ctx context.Context, catalogURL string, token string) ([]typ
 	// Cancel the clone if the downloaded data exceeds the limit.
 	// Polling the temp directory size during the clone works for any git host,
 	// and aborts early rather than waiting for the full transfer to complete.
-	go watchDirSize(ctx, tempDir, maxRepoSizeMB)
+	// Use WithCancelCause so we can distinguish a watcher cancellation from an
+	// external cancellation (e.g. controller shutdown).
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	go watchDirSize(ctx, cancel, tempDir, maxRepoSizeMB)
 
 	_, err = git.PlainCloneContext(ctx, tempDir, false, cloneOptions)
 	if err != nil {
@@ -323,18 +327,13 @@ func readGitCatalog(ctx context.Context, catalogURL string, token string) ([]typ
 
 // watchDirSize polls dir every 200ms and calls cancel when its total size exceeds maxSizeMB.
 // It returns when ctx is cancelled. Intended to be run as a goroutine.
-func watchDirSize(ctx context.Context, dir string, maxSizeMB int64) {
-	ctx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
-
+func watchDirSize(ctx context.Context, cancel context.CancelCauseFunc, dir string, maxSizeMB int64) {
 	ticker := time.NewTicker(200 * time.Millisecond)
 	defer ticker.Stop()
 
 	watchDirSizeTick(ctx, cancel, dir, maxSizeMB, ticker.C)
 }
 
-// watchDirSizeTick is the testable core of watchDirSize. It polls dir on each
-// tick and calls cancel(errRepoTooLarge) if the size exceeds maxSizeMB.
 func watchDirSizeTick(ctx context.Context, cancel context.CancelCauseFunc, dir string, maxSizeMB int64, tick <-chan time.Time) {
 	for {
 		select {
