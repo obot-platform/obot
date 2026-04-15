@@ -47,16 +47,6 @@ Obot determines applicable policies from:
 
 Policies marked `Both` apply to both user-message checks and tool-call checks.
 
-### Conversation Context
-
-Policy evaluation uses the current conversation for context, with these rules:
-
-- **System messages are excluded**
-- **Tool outputs are redacted**
-- **Only the final target message is judged**
-
-That means a previous message can violate a policy without automatically causing the current message to be blocked.
-
 ### Two-Stage Review
 
 Obot evaluates each applicable policy in two stages:
@@ -102,7 +92,7 @@ Every confirmed violation is stored as a **Message Policy Violation** record. Ea
 - Blocked content
 - Project ID and thread ID when available
 
-Blocked-content payloads are encrypted at rest.
+Blocked-content payloads are encrypted at rest when Obot encryption is configured; otherwise they may be stored unencrypted. See the Obot encryption configuration documentation for setup details.
 
 ## Reviewing Violations
 
@@ -152,8 +142,8 @@ Deleting a policy removes that enforcement rule immediately for the affected use
 
 ## Tokens and Latency
 
-It is important to remember that, the more policies are applied to each user message or tool call, the more tokens will be consumed
-evaluating the policies. The tokens consumed do not count against the user's token usage.
+Each additional policy added to the system will increase the overall token usage, due to tokens spent during policy evaluation.
+The tokens consumed do not count against the user's token usage.
 
 Adding policies also increases latency between request and response when chatting with the Obot Agent, but since they are executed in parallel,
 latency will not scale as much as token usage will when more than one policy is evaluated.
