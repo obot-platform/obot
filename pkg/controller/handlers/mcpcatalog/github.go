@@ -1,6 +1,7 @@
 package mcpcatalog
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,11 +20,6 @@ import (
 
 var githubToken = os.Getenv("GITHUB_AUTH_TOKEN")
 
-// GitHubRepoInfo represents the repository information from GitHub API
-type GitHubRepoInfo struct {
-	Size int `json:"size"` // Size in KB
-}
-
 // isGitRepoURL returns true if the URL points to a git repository on a known
 // hosting platform (GitHub, GitLab) or ends with ".git".
 func isGitRepoURL(catalogURL string) bool {
@@ -39,8 +35,9 @@ func isGitRepoURL(catalogURL string) bool {
 	return strings.HasSuffix(strings.TrimSuffix(u.Path, "/"), ".git")
 }
 
-// checkGitHubRepoSize checks the repository size using the GitHub API before cloning.
-// It is only called for github.com URLs.
+
+// checkGitHubRepoSize checks repo size via the GitHub API before cloning.
+// Falls back to the GITHUB_AUTH_TOKEN env var if no per-URL token is provided.
 func checkGitHubRepoSize(org, repo string, maxSizeMB int, token string) error {
 	if org == "obot-platform" {
 		return nil
@@ -48,14 +45,11 @@ func checkGitHubRepoSize(org, repo string, maxSizeMB int, token string) error {
 
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", org, repo)
 
-	client := &http.Client{Timeout: 5 * time.Second}
-
 	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create API request: %w", err)
 	}
 
-	// Per-URL token takes precedence over global env var.
 	effectiveToken := token
 	if effectiveToken == "" {
 		effectiveToken = githubToken
@@ -64,7 +58,7 @@ func checkGitHubRepoSize(org, repo string, maxSizeMB int, token string) error {
 		req.Header.Set("Authorization", "Bearer "+effectiveToken)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to fetch repository info: %w", err)
 	}
@@ -73,21 +67,67 @@ func checkGitHubRepoSize(org, repo string, maxSizeMB int, token string) error {
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		if len(body) > 0 {
-			return fmt.Errorf("GitHub API returned status %d for repository %s/%s - %s", resp.StatusCode, org, repo, string(body))
+			return fmt.Errorf("GitHub API returned status %d for %s/%s: %s", resp.StatusCode, org, repo, body)
 		}
-		return fmt.Errorf("GitHub API returned status %d for repository %s/%s", resp.StatusCode, org, repo)
+		return fmt.Errorf("GitHub API returned status %d for %s/%s", resp.StatusCode, org, repo)
 	}
 
-	var repoInfo GitHubRepoInfo
-	if err := json.NewDecoder(resp.Body).Decode(&repoInfo); err != nil {
+	var info struct {
+		Size int `json:"size"` // kilobytes
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
 		return fmt.Errorf("failed to parse repository info: %w", err)
 	}
 
-	sizeMB := repoInfo.Size / 1024
-	if sizeMB > maxSizeMB {
+	if sizeMB := info.Size / 1024; sizeMB > maxSizeMB {
 		return fmt.Errorf("repository %s/%s is too large: %d MB (limit: %d MB)", org, repo, sizeMB, maxSizeMB)
 	}
+	return nil
+}
 
+// checkGitLabRepoSize checks repo size via the GitLab API before cloning.
+// Only called when a per-URL token is available; skipped otherwise since the
+// statistics endpoint requires authentication.
+func checkGitLabRepoSize(host, projectPath string, maxSizeMB int, token string) error {
+	if token == "" {
+		return nil // statistics endpoint requires auth; skip and rely on the clone-time check
+	}
+
+	// GitLab expects the project path URL-encoded (e.g. "group%2Fsubgroup%2Frepo")
+	apiURL := fmt.Sprintf("https://%s/api/v4/projects/%s?statistics=true", host, url.PathEscape(projectPath))
+
+	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create API request: %w", err)
+	}
+	req.Header.Set("PRIVATE-TOKEN", token)
+
+	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to fetch repository info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		if len(body) > 0 {
+			return fmt.Errorf("GitLab API returned status %d for %s: %s", resp.StatusCode, projectPath, body)
+		}
+		return fmt.Errorf("GitLab API returned status %d for %s", resp.StatusCode, projectPath)
+	}
+
+	var info struct {
+		Statistics struct {
+			RepositorySize int64 `json:"repository_size"` // bytes
+		} `json:"statistics"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return fmt.Errorf("failed to parse repository info: %w", err)
+	}
+
+	if sizeMB := info.Statistics.RepositorySize / (1024 * 1024); sizeMB > int64(maxSizeMB) {
+		return fmt.Errorf("repository %s is too large: %d MB (limit: %d MB)", projectPath, sizeMB, maxSizeMB)
+	}
 	return nil
 }
 
@@ -217,13 +257,27 @@ func readGitCatalog(catalogURL string, token string) ([]types.MCPServerCatalogEn
 		return nil, err
 	}
 
-	// The GitHub API allows us to check repo size before cloning; skip this for other hosts.
-	if u.Host == "github.com" {
-		// Extract org/repo from the clone URL path (always https://github.com/org/repo.git)
-		pathParts := strings.SplitN(strings.TrimPrefix(cloneURL, "https://github.com/"), "/", 3)
-		org, repo := pathParts[0], strings.TrimSuffix(pathParts[1], ".git")
-		const maxRepoSizeMB = 100
-		if err := checkGitHubRepoSize(org, repo, maxRepoSizeMB, token); err != nil {
+	// Per-URL token takes precedence over the global GITHUB_AUTH_TOKEN env var.
+	effectiveToken := token
+	if effectiveToken == "" && u.Host == "github.com" {
+		effectiveToken = githubToken
+	}
+
+	// Platform API pre-clone size checks: faster and more accurate than waiting
+	// for the clone to start. The generic clone-time check below acts as a fallback.
+	const maxRepoSizeMB = 100
+	repoPath := strings.TrimPrefix(strings.TrimPrefix(cloneURL, "https://"+u.Host+"/"), "/")
+	repoPath = strings.TrimSuffix(repoPath, ".git")
+	switch u.Host {
+	case "github.com":
+		parts := strings.SplitN(repoPath, "/", 2)
+		if len(parts) == 2 {
+			if err := checkGitHubRepoSize(parts[0], parts[1], maxRepoSizeMB, effectiveToken); err != nil {
+				return nil, fmt.Errorf("repository size check failed: %w", err)
+			}
+		}
+	case "gitlab.com":
+		if err := checkGitLabRepoSize(u.Host, repoPath, maxRepoSizeMB, effectiveToken); err != nil {
 			return nil, fmt.Errorf("repository size check failed: %w", err)
 		}
 	}
@@ -240,11 +294,6 @@ func readGitCatalog(catalogURL string, token string) ([]types.MCPServerCatalogEn
 		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branch)),
 	}
 
-	// Per-URL token takes precedence over the global GITHUB_AUTH_TOKEN env var.
-	effectiveToken := token
-	if effectiveToken == "" {
-		effectiveToken = githubToken
-	}
 	if effectiveToken != "" {
 		cloneOptions.Auth = &githttp.BasicAuth{
 			Username: "x-access-token", // Accepted as a dummy username by GitHub and GitLab.
@@ -252,10 +301,48 @@ func readGitCatalog(catalogURL string, token string) ([]types.MCPServerCatalogEn
 		}
 	}
 
-	_, err = git.PlainClone(tempDir, false, cloneOptions)
+	// Cancel the clone if the downloaded data exceeds the limit.
+	// Polling the temp directory size during the clone works for any git host,
+	// and aborts early rather than waiting for the full transfer to complete.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() {
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if dirSizeMB(tempDir) > maxRepoSizeMB {
+					cancel()
+				}
+			}
+		}
+	}()
+
+	_, err = git.PlainCloneContext(ctx, tempDir, false, cloneOptions)
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("repository is too large (limit: %d MB)", maxRepoSizeMB)
+		}
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
 	return readMCPCatalogDirectory(tempDir)
+}
+
+// dirSizeMB returns the total size of all files in dir in megabytes.
+func dirSizeMB(dir string) int64 {
+	var total int64
+	_ = filepath.WalkDir(dir, func(_ string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		if info, err := d.Info(); err == nil {
+			total += info.Size()
+		}
+		return nil
+	})
+	return total / (1024 * 1024)
 }
