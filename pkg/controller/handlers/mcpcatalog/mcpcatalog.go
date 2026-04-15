@@ -14,6 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"crypto/sha256"
+	"encoding/hex"
+
+	gptscript "github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
@@ -33,6 +37,18 @@ import (
 
 var log = logger.Package()
 
+// catalogCredentialContext returns the GPTScript credential context for a catalog.
+func catalogCredentialContext(catalogUID string) string {
+	return "catalog-" + catalogUID
+}
+
+// catalogCredentialToolName returns a stable tool name for a source URL,
+// using a short hex prefix of its SHA-256 hash.
+func catalogCredentialToolName(sourceURL string) string {
+	sum := sha256.Sum256([]byte(sourceURL))
+	return "source-" + hex.EncodeToString(sum[:8])
+}
+
 const (
 	// These are used to force catalog sync on startup, used for times when changes are made to
 	// catalogs, and they must be synced on the next start.
@@ -43,13 +59,28 @@ const (
 
 type Handler struct {
 	defaultCatalogPath      string
+	gptClient               *gptscript.GPTScript
 	gatewayClient           *gclient.Client
 	accessControlRuleHelper *accesscontrolrule.Helper
 }
 
-func New(defaultCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper) *Handler {
+// revealCatalogCredential retrieves a stored PAT for the given source URL, returning
+// an empty string if none is configured or the lookup fails.
+func (h *Handler) revealCatalogCredential(ctx context.Context, catalogUID, sourceURL string) string {
+	cred, err := h.gptClient.RevealCredential(ctx,
+		[]string{catalogCredentialContext(catalogUID)},
+		catalogCredentialToolName(sourceURL),
+	)
+	if err != nil {
+		return ""
+	}
+	return cred.Env["TOKEN"]
+}
+
+func New(defaultCatalogPath string, gptClient *gptscript.GPTScript, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper) *Handler {
 	return &Handler{
 		defaultCatalogPath:      defaultCatalogPath,
+		gptClient:               gptClient,
 		gatewayClient:           gatewayClient,
 		accessControlRuleHelper: accessControlRuleHelper,
 	}
@@ -90,7 +121,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
-		token := mcpCatalog.Spec.SourceURLCredentials[sourceURL]
+		token := h.revealCatalogCredential(req.Ctx, string(mcpCatalog.UID), sourceURL)
 		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token)
 		if err != nil {
 			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
