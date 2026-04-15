@@ -37,14 +37,15 @@ import (
 
 var log = logger.Package()
 
-// catalogCredentialContext returns the GPTScript credential context for a catalog.
-func catalogCredentialContext(catalogUID string) string {
+// CatalogCredentialContext returns the GPTScript credential context for a catalog,
+// keyed by its UID so it remains unique even if catalog names are reused.
+func CatalogCredentialContext(catalogUID string) string {
 	return "catalog-" + catalogUID
 }
 
-// catalogCredentialToolName returns a stable tool name for a source URL,
+// CatalogCredentialToolName returns a stable GPTScript tool name for a source URL,
 // using a short hex prefix of its SHA-256 hash.
-func catalogCredentialToolName(sourceURL string) string {
+func CatalogCredentialToolName(sourceURL string) string {
 	sum := sha256.Sum256([]byte(sourceURL))
 	return "source-" + hex.EncodeToString(sum[:8])
 }
@@ -68,8 +69,8 @@ type Handler struct {
 // an empty string if none is configured or the lookup fails.
 func (h *Handler) revealCatalogCredential(ctx context.Context, catalogUID, sourceURL string) string {
 	cred, err := h.gptClient.RevealCredential(ctx,
-		[]string{catalogCredentialContext(catalogUID)},
-		catalogCredentialToolName(sourceURL),
+		[]string{CatalogCredentialContext(catalogUID)},
+		CatalogCredentialToolName(sourceURL),
 	)
 	if err != nil {
 		return ""
