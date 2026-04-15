@@ -150,7 +150,7 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL, token string) ([]client
 			}
 		} else {
 			// If it wasn't a GitHub repo, treat it as a raw file.
-			req, err := http.NewRequest("GET", sourceURL, nil)
+			req, err := http.NewRequest(http.MethodGet, sourceURL, nil)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create request for catalog %s: %w", sourceURL, err)
 			}

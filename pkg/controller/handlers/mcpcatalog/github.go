@@ -50,7 +50,7 @@ func checkGitHubRepoSize(org, repo string, maxSizeMB int, token string) error {
 
 	client := &http.Client{Timeout: 5 * time.Second}
 
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create API request: %w", err)
 	}
@@ -135,6 +135,69 @@ func isPathSafe(path, baseDir string) error {
 
 // readGitCatalog clones a git repository over HTTPS and reads its catalog entries.
 // It works with any git hosting platform (GitHub, GitLab, Bitbucket, self-hosted, etc.).
+// parseGitURL parses a git repository URL and returns the clone URL and branch.
+// It supports subgroups (e.g. gitlab.com/group/subgroup/repo.git) by using the
+// .git suffix as the repo boundary. For GitHub, URLs without a .git suffix are
+// also accepted for backward compatibility.
+// Returns (cloneURL, branch, error).
+func parseGitURL(catalogURL string) (string, string, error) {
+	u, err := url.Parse(catalogURL)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid git URL: %w", err)
+	}
+
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) < 2 {
+		return "", "", fmt.Errorf("invalid git URL format, expected <host>/org/repo")
+	}
+
+	var (
+		repoPath string
+		branch   string
+	)
+
+	// Find the .git boundary to determine where the repo path ends and the branch begins.
+	// This handles subgroups (e.g. gitlab.com/group/subgroup/repo.git).
+	for i, part := range parts {
+		if !strings.HasSuffix(part, ".git") {
+			continue
+		}
+
+		repoPath = strings.Join(parts[:i+1], "/")
+		if i+1 < len(parts) {
+			branch = strings.Join(parts[i+1:], "/")
+			if err := validateBranchName(branch); err != nil {
+				return "", "", fmt.Errorf("invalid branch name: %w", err)
+			}
+		}
+		break
+	}
+
+	// For known git hosting platforms, support URLs without .git suffix.
+	// The repo is assumed to be at parts[1] (e.g. github.com/org/repo or gitlab.com/org/repo).
+	// Subgroups without .git are not supported; use the .git suffix form instead.
+	if repoPath == "" {
+		switch u.Host {
+		case "github.com", "gitlab.com", "bitbucket.org":
+			repoPath = strings.Join(parts[:2], "/") + ".git"
+			if len(parts) > 2 {
+				branch = strings.Join(parts[2:], "/")
+				if err := validateBranchName(branch); err != nil {
+					return "", "", fmt.Errorf("invalid branch name: %w", err)
+				}
+			}
+		default:
+			return "", "", fmt.Errorf("invalid git URL format, URL path must end in .git (e.g. https://%s/org/repo.git)", u.Host)
+		}
+	}
+
+	if branch == "" {
+		branch = "main"
+	}
+
+	return fmt.Sprintf("https://%s/%s", u.Host, repoPath), branch, nil
+}
+
 func readGitCatalog(catalogURL string, token string) ([]types.MCPServerCatalogEntryManifest, error) {
 	if strings.HasPrefix(catalogURL, "http://") {
 		return nil, fmt.Errorf("only HTTPS is supported for git catalogs")
@@ -149,21 +212,16 @@ func readGitCatalog(catalogURL string, token string) ([]types.MCPServerCatalogEn
 		return nil, fmt.Errorf("invalid git URL: %w", err)
 	}
 
-	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
-	if len(parts) < 2 {
-		return nil, fmt.Errorf("invalid git URL format, expected <host>/org/repo")
-	}
-	org, repo := parts[0], strings.TrimSuffix(parts[1], ".git")
-	branch := "main"
-	if len(parts) > 2 {
-		branch = strings.Join(parts[2:], "/")
-		if err := validateBranchName(branch); err != nil {
-			return nil, fmt.Errorf("invalid branch name: %w", err)
-		}
+	cloneURL, branch, err := parseGitURL(catalogURL)
+	if err != nil {
+		return nil, err
 	}
 
 	// The GitHub API allows us to check repo size before cloning; skip this for other hosts.
 	if u.Host == "github.com" {
+		// Extract org/repo from the clone URL path (always https://github.com/org/repo.git)
+		pathParts := strings.SplitN(strings.TrimPrefix(cloneURL, "https://github.com/"), "/", 3)
+		org, repo := pathParts[0], strings.TrimSuffix(pathParts[1], ".git")
 		const maxRepoSizeMB = 100
 		if err := checkGitHubRepoSize(org, repo, maxRepoSizeMB, token); err != nil {
 			return nil, fmt.Errorf("repository size check failed: %w", err)
@@ -175,8 +233,6 @@ func readGitCatalog(catalogURL string, token string) ([]types.MCPServerCatalogEn
 		return nil, fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 	defer os.RemoveAll(tempDir)
-
-	cloneURL := fmt.Sprintf("https://%s/%s/%s.git", u.Host, org, repo)
 
 	cloneOptions := &git.CloneOptions{
 		URL:           cloneURL,
