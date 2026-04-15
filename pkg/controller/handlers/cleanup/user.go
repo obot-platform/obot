@@ -70,6 +70,20 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	}
 	log.Infof("Deleted nanobot agents during user cleanup: userID=%s agents=%d", userID, len(agents.Items))
 
+	// Delete any API keys the user created. Nanobot-agent keys are handled by the
+	// NanobotAgent delete flow above; this sweeps user-created keys plus anything
+	// the nanobot path missed.
+	apiKeys, err := u.gatewayClient.ListAPIKeys(req.Ctx, userDelete.Spec.UserID)
+	if err != nil {
+		return fmt.Errorf("failed to list API keys for user %d: %w", userDelete.Spec.UserID, err)
+	}
+	for _, key := range apiKeys {
+		if err := u.gatewayClient.DeleteAPIKey(req.Ctx, userDelete.Spec.UserID, key.ID); err != nil {
+			return fmt.Errorf("failed to delete API key %d for user %d: %w", key.ID, userDelete.Spec.UserID, err)
+		}
+	}
+	log.Infof("Deleted API keys during user cleanup: userID=%s keys=%d", userID, len(apiKeys))
+
 	var threads v1.ThreadList
 	if err := req.List(&threads, &kclient.ListOptions{
 		Namespace: req.Namespace,
