@@ -31,11 +31,10 @@ Administrators can add Git repositories as catalog sources from the **Admin → 
 |---|---|
 | GitHub | `https://github.com/org/repo` |
 | GitLab | `https://gitlab.com/org/repo` |
-| Bitbucket | `https://bitbucket.org/org/repo` |
 | GitLab with subgroups | `https://gitlab.com/group/subgroup/repo.git` |
 | Self-hosted | `https://git.example.com/org/repo.git` |
 
-For GitHub, GitLab, and Bitbucket a `.git` suffix is optional. For self-hosted instances it is required.
+For GitHub and GitLab a `.git` suffix is optional. For self-hosted instances it is required.
 
 ### Private repositories
 
@@ -45,7 +44,6 @@ To pull from a private repository, enter a **Personal access token** in the opti
 
 - **GitHub**: `repo` (read access is sufficient)
 - **GitLab**: `read_repository`
-- **Bitbucket**: `Repositories: Read`
 
 If no per-URL token is configured, Obot falls back to the `GITHUB_AUTH_TOKEN` environment variable for GitHub repositories.
 

@@ -13,7 +13,6 @@ func TestIsGitRepoURL(t *testing.T) {
 	}{
 		{"https://github.com/org/repo", true},
 		{"https://gitlab.com/org/repo", true},
-		{"https://bitbucket.org/org/repo", true},
 		{"https://example.com/org/repo.git", true},
 		{"https://self-hosted.example.com/org/repo.git", true},
 		{"https://example.com/some/raw/file.yaml", false},
@@ -29,11 +28,11 @@ func TestIsGitRepoURL(t *testing.T) {
 
 func TestParseGitURL(t *testing.T) {
 	tests := []struct {
-		name        string
-		url         string
-		wantClone   string
-		wantBranch  string
-		wantErr     bool
+		name       string
+		url        string
+		wantClone  string
+		wantBranch string
+		wantErr    bool
 	}{
 		{
 			name:       "github without .git",
@@ -78,10 +77,9 @@ func TestParseGitURL(t *testing.T) {
 			wantBranch: "main",
 		},
 		{
-			name:       "bitbucket without .git",
-			url:        "https://bitbucket.org/org/repo",
-			wantClone:  "https://bitbucket.org/org/repo.git",
-			wantBranch: "main",
+			name:    "bitbucket without .git",
+			url:     "https://bitbucket.org/org/repo",
+			wantErr: true,
 		},
 		{
 			name:    "unknown host without .git is rejected",
