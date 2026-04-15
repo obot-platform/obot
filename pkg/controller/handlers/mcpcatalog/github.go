@@ -3,6 +3,7 @@ package mcpcatalog
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,6 +21,8 @@ import (
 
 var githubToken = os.Getenv("GITHUB_AUTH_TOKEN")
 
+var errRepoTooLarge = errors.New("repository too large")
+
 // isGitRepoURL returns true if the URL points to a git repository on a known
 // hosting platform (GitHub, GitLab) or ends with ".git".
 func isGitRepoURL(catalogURL string) bool {
@@ -31,8 +34,10 @@ func isGitRepoURL(catalogURL string) bool {
 	case "github.com", "gitlab.com":
 		return true
 	}
-	// Treat any HTTPS URL whose path ends in .git as a git repo.
-	return strings.HasSuffix(strings.TrimSuffix(u.Path, "/"), ".git")
+	// Treat any HTTPS URL that contains ".git" as a path segment boundary as a git repo
+	// (e.g. /org/repo.git or /org/repo.git/branch).
+	p := strings.TrimSuffix(u.Path, "/")
+	return strings.HasSuffix(p, ".git") || strings.Contains(p, ".git/")
 }
 
 // checkGitHubRepoSize checks repo size via the GitHub API before cloning.
@@ -303,26 +308,11 @@ func readGitCatalog(ctx context.Context, catalogURL string, token string) ([]typ
 	// Cancel the clone if the downloaded data exceeds the limit.
 	// Polling the temp directory size during the clone works for any git host,
 	// and aborts early rather than waiting for the full transfer to complete.
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	go func() {
-		ticker := time.NewTicker(200 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				if dirSizeMB(tempDir) > maxRepoSizeMB {
-					cancel()
-				}
-			}
-		}
-	}()
+	go watchDirSize(ctx, tempDir, maxRepoSizeMB)
 
 	_, err = git.PlainCloneContext(ctx, tempDir, false, cloneOptions)
 	if err != nil {
-		if ctx.Err() != nil {
+		if context.Cause(ctx) == errRepoTooLarge {
 			return nil, fmt.Errorf("repository is too large (limit: %d MB)", maxRepoSizeMB)
 		}
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
@@ -331,12 +321,40 @@ func readGitCatalog(ctx context.Context, catalogURL string, token string) ([]typ
 	return readMCPCatalogDirectory(tempDir)
 }
 
+// watchDirSize polls dir every 200ms and calls cancel when its total size exceeds maxSizeMB.
+// It returns when ctx is cancelled. Intended to be run as a goroutine.
+func watchDirSize(ctx context.Context, dir string, maxSizeMB int64) {
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+
+	watchDirSizeTick(ctx, cancel, dir, maxSizeMB, ticker.C)
+}
+
+// watchDirSizeTick is the testable core of watchDirSize. It polls dir on each
+// tick and calls cancel(errRepoTooLarge) if the size exceeds maxSizeMB.
+func watchDirSizeTick(ctx context.Context, cancel context.CancelCauseFunc, dir string, maxSizeMB int64, tick <-chan time.Time) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick:
+			if dirSizeMB(dir) > maxSizeMB {
+				cancel(errRepoTooLarge)
+			}
+		}
+	}
+}
+
 // dirSizeMB returns the total size of all files in dir in megabytes.
+// Errors are ignored to prevent unexpected clone cancellations.
 func dirSizeMB(dir string) int64 {
 	var total int64
 	_ = filepath.WalkDir(dir, func(_ string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
-			return err
+			return nil
 		}
 		if info, err := d.Info(); err == nil {
 			total += info.Size()

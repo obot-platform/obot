@@ -48,7 +48,7 @@
 					Source URL
 					<span
 						use:tooltip={{
-							text: 'Supported formats:\n• github.com/org/repo\n• gitlab.com/org/repo\n• gitlab.com/group/subgroup/repo.git\n• https://self-hosted.example.com/org/repo.git\n\nFor GitHub and GitLab a .git suffix is optional. For self-hosted instances it is required.',
+							text: 'Supported formats:\n• https://github.com/org/repo\n• https://gitlab.com/org/repo\n• https://gitlab.com/group/subgroup/repo.git\n• https://self-hosted.example.com/org/repo.git\n\nFor GitHub and GitLab a .git suffix is optional. For self-hosted instances it is required.',
 							classes: ['max-w-xs', 'whitespace-pre-line'],
 							disablePortal: true
 						}}

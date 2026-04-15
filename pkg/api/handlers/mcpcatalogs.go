@@ -3,8 +3,6 @@ package handlers
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/url"
@@ -18,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
+	mcpcataloghandler "github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -144,8 +143,8 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 	for _, u := range catalog.Spec.SourceURLs {
 		if _, active := activeURLs[u]; !active {
 			_ = req.GPTClient.DeleteCredential(req.Context(),
-				catalogCredentialContext(string(catalog.UID)),
-				catalogCredentialToolName(u),
+				mcpcataloghandler.CatalogCredentialContext(string(catalog.UID)),
+				mcpcataloghandler.CatalogCredentialToolName(u),
 			)
 		}
 	}
@@ -156,9 +155,13 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 	// - If the value is "*", keep the existing credential (no change).
 	// - If the value is empty, delete the credential.
 	// - Otherwise, create/overwrite with the new token.
+	// Only process credentials for URLs that are in the new SourceURLs list.
 	for u, cred := range manifest.SourceURLCredentials {
-		credCtx := catalogCredentialContext(string(catalog.UID))
-		toolName := catalogCredentialToolName(u)
+		if _, ok := activeURLs[u]; !ok {
+			continue
+		}
+		credCtx := mcpcataloghandler.CatalogCredentialContext(string(catalog.UID))
+		toolName := mcpcataloghandler.CatalogCredentialToolName(u)
 		switch cred {
 		case "":
 			_ = req.GPTClient.DeleteCredential(req.Context(), credCtx, toolName)
@@ -1483,25 +1486,12 @@ func (h *MCPCatalogHandler) ListCategoriesForCatalog(req api.Context) error {
 	return req.Write(categories)
 }
 
-// catalogCredentialContext returns the GPTScript credential context for a catalog,
-// using the catalog's UID so it remains unique even if names are reused.
-func catalogCredentialContext(catalogUID string) string {
-	return "catalog-" + catalogUID
-}
-
-// catalogCredentialToolName returns a stable tool name for a source URL
-// using a short hex prefix of its SHA-256 hash.
-func catalogCredentialToolName(sourceURL string) string {
-	sum := sha256.Sum256([]byte(sourceURL))
-	return "source-" + hex.EncodeToString(sum[:8])
-}
-
 func convertMCPCatalog(ctx context.Context, gptClient *gptscript.GPTScript, catalog v1.MCPCatalog) types.MCPCatalog {
 	// List credentials stored for this catalog and return "*" as a presence
 	// indicator for each source URL that has one — the actual token is never returned.
 	var maskedCredentials map[string]string
 	creds, err := gptClient.ListCredentials(ctx, gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{catalogCredentialContext(string(catalog.UID))},
+		CredentialContexts: []string{mcpcataloghandler.CatalogCredentialContext(string(catalog.UID))},
 	})
 	if err == nil && len(creds) > 0 {
 		credToolNames := make(map[string]struct{}, len(creds))
@@ -1509,7 +1499,7 @@ func convertMCPCatalog(ctx context.Context, gptClient *gptscript.GPTScript, cata
 			credToolNames[c.ToolName] = struct{}{}
 		}
 		for _, u := range catalog.Spec.SourceURLs {
-			if _, ok := credToolNames[catalogCredentialToolName(u)]; ok {
+			if _, ok := credToolNames[mcpcataloghandler.CatalogCredentialToolName(u)]; ok {
 				if maskedCredentials == nil {
 					maskedCredentials = make(map[string]string)
 				}
