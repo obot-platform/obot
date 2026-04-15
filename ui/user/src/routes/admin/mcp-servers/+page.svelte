@@ -25,6 +25,7 @@
 		replaceState
 	} from '$lib/url';
 	import SourceUrlsView from './SourceUrlsView.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
@@ -391,8 +392,17 @@
 			</h3>
 
 			<div class="my-4 flex flex-col gap-1">
-				<label for="catalog-source-name" class="flex-1 text-sm font-light capitalize"
-					>Source URL
+				<label for="catalog-source-name" class="flex flex-1 items-center gap-1 text-sm font-light">
+					Source URL
+					<span
+						use:tooltip={{
+							text: 'Supported formats:\n• github.com/org/repo\n• gitlab.com/org/repo\n• bitbucket.org/org/repo\n• gitlab.com/group/subgroup/repo.git\n• https://self-hosted.example.com/org/repo.git\n\nFor GitHub, GitLab, and Bitbucket a .git suffix is optional. For self-hosted instances it is required.',
+							classes: ['max-w-xs', 'whitespace-pre-line'],
+							disablePortal: true
+						}}
+					>
+						<Info class="text-surface3 size-3.5" />
+					</span>
 				</label>
 				<input
 					id="catalog-source-name"
@@ -402,8 +412,8 @@
 			</div>
 
 			<div class="mb-4 flex flex-col gap-1">
-				<label for="catalog-source-token" class="flex-1 text-sm font-light capitalize"
-					>Personal Access Token (optional)
+				<label for="catalog-source-token" class="flex-1 text-sm font-light"
+					>Personal access token (optional)
 				</label>
 				<input
 					id="catalog-source-token"
