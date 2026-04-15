@@ -47,16 +47,6 @@ Obot determines applicable policies from:
 
 Policies marked `Both` apply to both user-message checks and tool-call checks.
 
-### Conversation Context
-
-Policy evaluation uses the current conversation for context, with these rules:
-
-- **System messages are excluded**
-- **Tool outputs are redacted**
-- **Only the final target message is judged**
-
-That means a previous message can violate a policy without automatically causing the current message to be blocked.
-
 ### Two-Stage Review
 
 Obot evaluates each applicable policy in two stages:
