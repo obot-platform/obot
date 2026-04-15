@@ -458,7 +458,7 @@
 								{:else}
 									<Server class="size-9 opacity-65 bg-surface1 rounded-md p-1" />
 								{/if}
-								<div class="flex flex-col gap-1 max-w-[calc(100%-2.5rem)]">
+								<div class="flex flex-col gap-0.5 max-w-[calc(100%-2.5rem)]">
 									<p class="text-sm font-medium">{displayName}</p>
 									{#if description}
 										<p class="text-xs truncate line-clamp-1 break-all font-light">
