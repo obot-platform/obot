@@ -15,9 +15,8 @@ type MCPCatalog struct {
 }
 
 type MCPCatalogSpec struct {
-	DisplayName           string            `json:"displayName,omitempty"`
-	SourceURLs            []string          `json:"sourceURLs,omitempty"`
-	SourceURLCredentials  map[string]string `json:"sourceURLCredentials,omitempty"`
+	DisplayName string   `json:"displayName,omitempty"`
+	SourceURLs  []string `json:"sourceURLs,omitempty"`
 }
 
 type MCPCatalogStatus struct {

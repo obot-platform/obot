@@ -72,7 +72,7 @@ func (c *Controller) setupRoutes() {
 	projects := projects.NewHandler()
 	runstates := runstates.NewHandler(c.services.GatewayClient)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
-	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper)
+	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.GPTClient, c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	skillRepository := skillrepository.New()
 	mcpSession := mcpsession.New(c.services.GPTClient)
 	mcpserver := mcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.AgentIdleServerShutdownInterval, c.services.ServerURL)

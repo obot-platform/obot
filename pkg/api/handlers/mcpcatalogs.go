@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/url"
@@ -50,7 +52,7 @@ func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionMa
 }
 
 // List returns all catalogs.
-func (*MCPCatalogHandler) List(req api.Context) error {
+func (h *MCPCatalogHandler) List(req api.Context) error {
 	var list v1.MCPCatalogList
 	if err := req.List(&list); err != nil {
 		return fmt.Errorf("failed to list catalogs: %w", err)
@@ -58,7 +60,7 @@ func (*MCPCatalogHandler) List(req api.Context) error {
 
 	var items []types.MCPCatalog
 	for _, item := range list.Items {
-		items = append(items, convertMCPCatalog(item))
+		items = append(items, convertMCPCatalog(req.Context(), req.GPTClient, item))
 	}
 
 	return req.Write(types.MCPCatalogList{
@@ -67,12 +69,12 @@ func (*MCPCatalogHandler) List(req api.Context) error {
 }
 
 // Get returns a specific catalog by ID.
-func (*MCPCatalogHandler) Get(req api.Context) error {
+func (h *MCPCatalogHandler) Get(req api.Context) error {
 	var catalog v1.MCPCatalog
 	if err := req.Get(&catalog, req.PathValue("catalog_id")); err != nil {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
-	return req.Write(convertMCPCatalog(catalog))
+	return req.Write(convertMCPCatalog(req.Context(), req.GPTClient, catalog))
 }
 
 // Refresh refreshes a catalog to sync its entries.
@@ -134,39 +136,43 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		}
 	}
 
-	catalog.Spec.SourceURLs = manifest.SourceURLs
-
-	// Process per-URL credentials.
-	// - If the value is "*", keep the existing stored credential (no change).
-	// - If the value is empty, remove the credential.
-	// - Otherwise, store the new credential value.
-	if len(manifest.SourceURLCredentials) > 0 {
-		if catalog.Spec.SourceURLCredentials == nil {
-			catalog.Spec.SourceURLCredentials = make(map[string]string)
-		}
-		for url, cred := range manifest.SourceURLCredentials {
-			if cred == "" {
-				delete(catalog.Spec.SourceURLCredentials, url)
-			} else if cred != "*" {
-				catalog.Spec.SourceURLCredentials[url] = cred
-			}
-			// cred == "*" means keep existing, so no action needed
+	// Delete credentials for URLs being removed before updating the spec.
+	activeURLs := make(map[string]struct{}, len(manifest.SourceURLs))
+	for _, u := range manifest.SourceURLs {
+		activeURLs[u] = struct{}{}
+	}
+	for _, u := range catalog.Spec.SourceURLs {
+		if _, active := activeURLs[u]; !active {
+			_ = req.GPTClient.DeleteCredential(req.Context(),
+				catalogCredentialContext(string(catalog.UID)),
+				catalogCredentialToolName(u),
+			)
 		}
 	}
 
-	// Remove credentials for source URLs that are no longer in the list.
-	if len(catalog.Spec.SourceURLCredentials) > 0 {
-		activeURLs := make(map[string]struct{}, len(catalog.Spec.SourceURLs))
-		for _, url := range catalog.Spec.SourceURLs {
-			activeURLs[url] = struct{}{}
-		}
-		for url := range catalog.Spec.SourceURLCredentials {
-			if _, ok := activeURLs[url]; !ok {
-				delete(catalog.Spec.SourceURLCredentials, url)
+	catalog.Spec.SourceURLs = manifest.SourceURLs
+
+	// Store or delete per-URL credentials in the GPTScript credential store.
+	// - If the value is "*", keep the existing credential (no change).
+	// - If the value is empty, delete the credential.
+	// - Otherwise, create/overwrite with the new token.
+	for u, cred := range manifest.SourceURLCredentials {
+		credCtx := catalogCredentialContext(string(catalog.UID))
+		toolName := catalogCredentialToolName(u)
+		switch cred {
+		case "":
+			_ = req.GPTClient.DeleteCredential(req.Context(), credCtx, toolName)
+		case "*":
+			// keep existing — no action
+		default:
+			if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
+				Context:  credCtx,
+				ToolName: toolName,
+				Type:     gptscript.CredentialTypeTool,
+				Env:      map[string]string{"TOKEN": cred},
+			}); err != nil {
+				return fmt.Errorf("failed to store credential for %s: %w", u, err)
 			}
-		}
-		if len(catalog.Spec.SourceURLCredentials) == 0 {
-			catalog.Spec.SourceURLCredentials = nil
 		}
 	}
 
@@ -174,7 +180,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to update catalog: %w", err)
 	}
 
-	return req.Write(convertMCPCatalog(catalog))
+	return req.Write(convertMCPCatalog(req.Context(), req.GPTClient, catalog))
 }
 
 // ListEntries lists all entries for a catalog or workspace.
@@ -1477,16 +1483,41 @@ func (h *MCPCatalogHandler) ListCategoriesForCatalog(req api.Context) error {
 	return req.Write(categories)
 }
 
-func convertMCPCatalog(catalog v1.MCPCatalog) types.MCPCatalog {
-	// Mask credential values: return "*" for each URL that has a credential set,
-	// so the UI knows a credential exists without exposing the actual token.
+// catalogCredentialContext returns the GPTScript credential context for a catalog,
+// using the catalog's UID so it remains unique even if names are reused.
+func catalogCredentialContext(catalogUID string) string {
+	return "catalog-" + catalogUID
+}
+
+// catalogCredentialToolName returns a stable tool name for a source URL
+// using a short hex prefix of its SHA-256 hash.
+func catalogCredentialToolName(sourceURL string) string {
+	sum := sha256.Sum256([]byte(sourceURL))
+	return "source-" + hex.EncodeToString(sum[:8])
+}
+
+func convertMCPCatalog(ctx context.Context, gptClient *gptscript.GPTScript, catalog v1.MCPCatalog) types.MCPCatalog {
+	// List credentials stored for this catalog and return "*" as a presence
+	// indicator for each source URL that has one — the actual token is never returned.
 	var maskedCredentials map[string]string
-	if len(catalog.Spec.SourceURLCredentials) > 0 {
-		maskedCredentials = make(map[string]string, len(catalog.Spec.SourceURLCredentials))
-		for url := range catalog.Spec.SourceURLCredentials {
-			maskedCredentials[url] = "*"
+	creds, err := gptClient.ListCredentials(ctx, gptscript.ListCredentialsOptions{
+		CredentialContexts: []string{catalogCredentialContext(string(catalog.UID))},
+	})
+	if err == nil && len(creds) > 0 {
+		credToolNames := make(map[string]struct{}, len(creds))
+		for _, c := range creds {
+			credToolNames[c.ToolName] = struct{}{}
+		}
+		for _, u := range catalog.Spec.SourceURLs {
+			if _, ok := credToolNames[catalogCredentialToolName(u)]; ok {
+				if maskedCredentials == nil {
+					maskedCredentials = make(map[string]string)
+				}
+				maskedCredentials[u] = "*"
+			}
 		}
 	}
+
 	return types.MCPCatalog{
 		Metadata: MetadataFrom(&catalog),
 		MCPCatalogManifest: types.MCPCatalogManifest{
