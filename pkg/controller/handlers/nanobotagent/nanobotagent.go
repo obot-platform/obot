@@ -447,6 +447,8 @@ func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider
 		baseURL = h.serverURL + "/api/llm-proxy/anthropic"
 	case nanobottypes.DialectOpenAIResponses:
 		baseURL = h.serverURL + "/api/llm-proxy/openai"
+	case nanobottypes.DialectBifrostRequest:
+		fallthrough // same as default
 	default:
 		baseURL = h.serverURL + "/api/llm-proxy"
 	}
