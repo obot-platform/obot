@@ -10,6 +10,7 @@
 	import { stripMarkdownToText } from '$lib/markdown';
 	import {
 		AdminService,
+		type AuditLogUsageStats,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser,
@@ -19,7 +20,7 @@
 	} from '$lib/services';
 	import { errors, mcpServersAndEntries } from '$lib/stores';
 	import { aggregateTimelineDataByBucket, getUserLabels } from '../token-usage/utils';
-	import { isWithinInterval, subMonths } from 'date-fns';
+	import { isWithinInterval, set, subDays, subMonths } from 'date-fns';
 	import { Activity, ChevronRight, Coins, PencilRuler, Server, Users, Wrench } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -27,6 +28,7 @@
 
 	let loading = $state(true);
 	let loadingTokensUsage = $state(true);
+	let loadingToolUsage = $state(true);
 
 	let usersData = $state<OrgUser[]>([]);
 	let selectedTokenType = $derived<'input' | 'output'>('input');
@@ -40,6 +42,40 @@
 
 	const DEFER_DATA_THRESHOLD = 400;
 	const TIMELINE_AGGREGATE_THRESHOLD = 500;
+	const TOP_TOOLS_LIMIT = 5;
+
+	type TopToolCallRow = {
+		compositeKey: string;
+		toolLabel: string;
+		count: number;
+		serverDisplayName: string;
+	};
+
+	let topToolCalls = $state<TopToolCallRow[]>([]);
+
+	function topToolCallsFromStats(stats: AuditLogUsageStats | undefined): TopToolCallRow[] {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const counts = new Map<string, { count: number; serverDisplayName: string }>();
+		for (const s of stats?.items ?? []) {
+			for (const call of s.toolCalls ?? []) {
+				const key = `${s.mcpServerDisplayName}.${call.toolName}`;
+				const existing = counts.get(key) ?? {
+					count: 0,
+					serverDisplayName: s.mcpServerDisplayName
+				};
+				existing.count += call.callCount;
+				counts.set(key, existing);
+			}
+		}
+		return Array.from(counts.entries())
+			.map(([compositeKey, { count, serverDisplayName }]) => ({
+				compositeKey,
+				toolLabel: String(compositeKey).split('.').slice(1).join('.'),
+				count,
+				serverDisplayName
+			}))
+			.sort((a, b) => b.count - a.count);
+	}
 
 	let monthlyActiveUsers = $derived(
 		usersData.filter(
@@ -49,11 +85,15 @@
 
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
-	let serversData = $derived([
-		...deployedCatalogEntryServers.filter((server) => !server.deleted),
-		...deployedWorkspaceCatalogEntryServers.filter((server) => !server.deleted),
-		...mcpServersAndEntries.current.servers.filter((server) => !server.deleted)
-	]);
+	let serversData = $derived(
+		mcpServersAndEntries.current.loading || loading
+			? []
+			: [
+					...deployedCatalogEntryServers.filter((server) => !server.deleted),
+					...deployedWorkspaceCatalogEntryServers.filter((server) => !server.deleted),
+					...mcpServersAndEntries.current.servers.filter((server) => !server.deleted)
+				]
+	);
 
 	function compileServerAndEntries(data: MCPCatalogServer[], entries: MCPCatalogEntry[]) {
 		const entriesMap = new Map(entries.map((e) => [e.id, e]));
@@ -92,12 +132,11 @@
 			(a, b) => b.count - a.count
 		);
 
-		const entrieTypes = Object.values(catalogEntriesCount).reduce(
-			(acc, info) => {
-				if (info.server) acc.multi++;
-				if (!info.entry) return acc;
-				if (info.entry.manifest.runtime === 'composite') acc.composite++;
-				else if (info.entry.manifest.runtime === 'remote') acc.remote++;
+		const entrieTypes = data.reduce(
+			(acc, server) => {
+				if (!server.catalogEntryID) acc.multi++;
+				else if (server.manifest.runtime === 'composite') acc.composite++;
+				else if (server.manifest.runtime === 'remote') acc.remote++;
 				else acc.single++;
 				return acc;
 			},
@@ -146,6 +185,23 @@
 		deployedWorkspaceCatalogEntryServers =
 			await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
 		loading = false;
+
+		const endToolStats = set(new Date(), { milliseconds: 0, seconds: 59 });
+		const startToolStats = subDays(endToolStats, 7);
+		AdminService.listAuditLogUsageStats({
+			start_time: startToolStats.toISOString(),
+			end_time: endToolStats.toISOString()
+		})
+			.then((stats) => {
+				topToolCalls = topToolCallsFromStats(stats).slice(0, TOP_TOOLS_LIMIT);
+			})
+			.catch((error) => {
+				if (error?.name === 'AbortError') return;
+				errors.append(error);
+			})
+			.finally(() => {
+				loadingToolUsage = false;
+			});
 
 		const timeRange = { start, end };
 		AdminService.listTokenUsage(timeRange)
@@ -223,7 +279,6 @@
 					: (aggregateTimelineDataByBucket(timeline, start, end) as TokenUsageWithCategory[]);
 		});
 	});
-
 </script>
 
 <Layout title="Dashboard" classes={{ childrenContainer: 'max-w-none', container: '' }}>
@@ -355,49 +410,64 @@
 				</div>
 			{/if}
 
-			<div class="grid grid-cols-12 gap-4">
-				<div class="paper gap-1 md:col-span-6 col-span-12">
-					<h4 class="flex items-center gap-2 font-semibold">Most Popular Tools</h4>
-					<ul class="pt-2 flex flex-col gap-2">
-						<li class="flex gap-2 items-center">
-							<Wrench class="size-8 opacity-65" />
-							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Tool Name</p>
-								<p class="text-xs text-on-surface1">100 calls</p>
-							</div>
-						</li>
-						<li class="flex gap-2 items-center">
-							<Wrench class="size-8 opacity-65" />
-							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Tool Name</p>
-								<p class="text-xs text-on-surface1">100 calls</p>
-							</div>
-						</li>
-						<li class="flex gap-2 items-center">
-							<Wrench class="size-8 opacity-65" />
-							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Tool Name</p>
-								<p class="text-xs text-on-surface1">100 calls</p>
-							</div>
-						</li>
-						<li class="flex gap-2 items-center">
-							<Wrench class="size-8 opacity-65" />
-							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Tool Name</p>
-								<p class="text-xs text-on-surface1">100 calls</p>
-							</div>
-						</li>
-						<li class="flex gap-2 items-center">
-							<Wrench class="size-8 opacity-65" />
-							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Tool Name</p>
-								<p class="text-xs text-on-surface1">100 calls</p>
-							</div>
-						</li>
-					</ul>
+			<div class="grid grid-cols-12 gap-4 grow">
+				<div class="paper h-full gap-1 md:col-span-6 col-span-12 flex flex-col">
+					<h4 class="flex items-center gap-2 font-semibold">
+						Recently Popular Tools
+						<span class="text-on-surface1 text-xs font-light flex items-center gap-1">
+							(Last 7 Days)
+							{#if loadingToolUsage}
+								<Loading class="size-3" />
+							{/if}
+						</span>
+					</h4>
+					{#if loadingToolUsage}
+						<div class="pt-2 flex flex-col gap-4 w-full">
+							{#each Array.from({ length: TOP_TOOLS_LIMIT }) as _, i (i)}
+								<div class="flex gap-2 items-center animate-pulse w-full">
+									<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
+									<div class="flex flex-col gap-2 flex-1">
+										<div class="h-4 w-full rounded bg-surface3"></div>
+										<div class="h-3 w-full rounded bg-surface3"></div>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else if topToolCalls.length === 0}
+						<p class="text-xs text-on-surface1 pt-2">No tool calls in the last 7 days.</p>
+					{:else}
+						<ul class="pt-2 flex flex-col gap-2">
+							{#each topToolCalls as row (row.compositeKey)}
+								<li class="flex gap-2 items-center">
+									<div
+										class="size-8 items-center justify-center shrink-0 bg-surface1 rounded-md p-1"
+									>
+										<Wrench class="size-6 opacity-65 shrink-0" />
+									</div>
+									<div class="flex flex-col gap-1 min-w-0">
+										<p class="text-sm font-medium truncate">{row.toolLabel || row.compositeKey}</p>
+										<p class="text-xs text-on-surface1">
+											{formatNumber(row.count)} calls · {row.serverDisplayName}
+										</p>
+									</div>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					<div class="flex grow min-h-0"></div>
+					<a
+						href={resolve('/admin/usage')}
+						class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
+					>
+						See All <ChevronRight class="size-3" />
+					</a>
 				</div>
-				<div class="paper gap-1 md:col-span-6 col-span-12">
-					<h4 class="flex items-center gap-2 font-semibold">Most Popular Skills</h4>
+				<div class="paper h-full gap-1 md:col-span-6 col-span-12">
+					<h4 class="flex items-center gap-2 font-semibold">
+						Recently Popular Skills <span class="text-on-surface1 text-xs font-light">
+							(Last 7 Days)
+						</span>
+					</h4>
 					<ul class="pt-2 flex flex-col gap-2">
 						<li class="flex gap-2 items-center">
 							<PencilRuler class="size-8 opacity-65" />
@@ -440,8 +510,21 @@
 		</div>
 		<div class="md:col-span-4 col-span-12 flex flex-col gap-4">
 			{#if serverAndEntries.loading}
-				<div class="bg-surface3 h-[380px] animate-pulse rounded-md"></div>
-				<div class="bg-surface3 h-[380px] animate-pulse rounded-md"></div>
+				<div class="bg-surface3 h-[530px] animate-pulse rounded-md"></div>
+				<div class="paper gap-1 flex grow">
+					<h4 class="flex items-center gap-2 font-semibold">Most Popular Servers</h4>
+					<div class="pt-2 flex flex-col gap-4">
+						{#each Array.from({ length: 5 }) as _, i (i)}
+							<div class="flex gap-2 items-center animate-pulse w-full">
+								<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
+								<div class="flex flex-col gap-2 flex-1">
+									<div class="h-4 w-full rounded bg-surface3"></div>
+									<div class="h-3 w-full rounded bg-surface3"></div>
+								</div>
+							</div>
+						{/each}
+					</div>
+				</div>
 			{:else}
 				<div in:fade={{ duration: 150 }} class="paper">
 					<h4 class="font-semibold">Active Servers</h4>
@@ -450,10 +533,7 @@
 						<div class="text-xs">Total Currently Active</div>
 						<div class="flex w-full gap-2 items-center justify-center">
 							<div class="text-3xl font-semibold">
-								<TweenedMetric
-									holdAtZero={serverAndEntries.loading}
-									target={totalServers}
-								/>
+								<TweenedMetric holdAtZero={serverAndEntries.loading} target={totalServers} />
 							</div>
 							<Server class="size-8 text-primary" />
 						</div>
