@@ -5,6 +5,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
 	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
@@ -25,7 +26,6 @@
 		setUrlParam,
 		replaceState
 	} from '$lib/url';
-	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
 	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
@@ -82,7 +82,12 @@
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	let defaultCatalog = $state<MCPCatalog>();
-	let editingSource = $state<{ index: number; value: string; token?: string; clearToken?: boolean }>();
+	let editingSource = $state<{
+		index: number;
+		value: string;
+		token?: string;
+		clearToken?: boolean;
+	}>();
 	let sourceDialog = $state<HTMLDialogElement>();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 
