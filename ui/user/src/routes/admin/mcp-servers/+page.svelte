@@ -26,6 +26,7 @@
 		setUrlParam,
 		replaceState
 	} from '$lib/url';
+	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
 	import { Info, LoaderCircle, Plus, RefreshCcw, Server } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
