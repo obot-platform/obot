@@ -13,9 +13,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-billy/v5/helper/chroot"
+	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/cache"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
+	gitfs "github.com/go-git/go-git/v5/storage/filesystem"
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
@@ -305,64 +309,20 @@ func readGitCatalog(ctx context.Context, catalogURL string, token string) ([]typ
 		}
 	}
 
-	// Cancel the clone if the downloaded data exceeds the limit.
-	// Polling the temp directory size during the clone works for any git host,
-	// and aborts early rather than waiting for the full transfer to complete.
-	// Use WithCancelCause so we can distinguish a watcher cancellation from an
-	// external cancellation (e.g. controller shutdown).
-	ctx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
-	go watchDirSize(ctx, cancel, tempDir, maxRepoSizeMB)
+	limitedFS := &sizeLimitedFS{
+		Filesystem: osfs.New(tempDir),
+		maxBytes:   maxRepoSizeMB * 1024 * 1024,
+	}
+	storer := gitfs.NewStorage(chroot.New(limitedFS, ".git"), cache.NewObjectLRUDefault())
 
-	_, err = git.PlainCloneContext(ctx, tempDir, false, cloneOptions)
+	_, err = git.CloneContext(ctx, storer, limitedFS, cloneOptions)
 	if err != nil {
-		if context.Cause(ctx) == errRepoTooLarge {
+		if errors.Is(err, errRepoTooLarge) {
 			return nil, fmt.Errorf("repository is too large (limit: %d MB)", maxRepoSizeMB)
 		}
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
-	// stop watching dir size before reading directory
-	cancel(nil)
-
 	return readMCPCatalogDirectory(tempDir)
 }
 
-// watchDirSize polls dir every 200ms and calls cancel when its total size exceeds maxSizeMB.
-// It returns when ctx is cancelled. Intended to be run as a goroutine.
-func watchDirSize(ctx context.Context, cancel context.CancelCauseFunc, dir string, maxSizeMB int64) {
-	ticker := time.NewTicker(200 * time.Millisecond)
-	defer ticker.Stop()
-
-	watchDirSizeTick(ctx, cancel, dir, maxSizeMB, ticker.C)
-}
-
-func watchDirSizeTick(ctx context.Context, cancel context.CancelCauseFunc, dir string, maxSizeMB int64, tick <-chan time.Time) {
-	maxBytes := maxSizeMB * 1024 * 1024
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-tick:
-			if dirSizeBytes(dir) > maxBytes {
-				cancel(errRepoTooLarge)
-			}
-		}
-	}
-}
-
-// dirSizeBytes returns the total size of all non-symlink files in dir in bytes.
-// Errors and symlinks are skipped to prevent unexpected clone cancellations.
-func dirSizeBytes(dir string) int64 {
-	var total int64
-	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() || d.Type()&os.ModeSymlink != 0 {
-			return nil
-		}
-		if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink == 0 {
-			total += info.Size()
-		}
-		return nil
-	})
-	return total
-}

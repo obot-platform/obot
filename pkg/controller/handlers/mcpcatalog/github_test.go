@@ -2,59 +2,10 @@ package mcpcatalog
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
-
-func TestWatchDirSize(t *testing.T) {
-	dir := t.TempDir()
-
-	// Write 1.25 MB to exceed the 1 MB limit.
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "big.bin"), make([]byte, 1.25*1024*1024), 0600))
-
-	ctx, cancel := context.WithCancelCause(context.Background())
-	defer cancel(nil)
-
-	tick := make(chan time.Time, 1)
-	done := make(chan struct{})
-	go func() {
-		watchDirSizeTick(ctx, cancel, dir, 1, tick)
-		close(done)
-	}()
-
-	tick <- time.Time{} // trigger one poll — should cancel immediately
-	<-done
-	assert.Equal(t, errRepoTooLarge, context.Cause(ctx))
-}
-
-func TestWatchDirSizeUnderLimit(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "small.bin"), []byte("x"), 0600))
-
-	ctx, cancel := context.WithCancelCause(context.Background())
-
-	tick := make(chan time.Time, 1)
-	done := make(chan struct{})
-	go func() {
-		watchDirSizeTick(ctx, cancel, dir, 100, tick)
-		close(done)
-	}()
-
-	// Several ticks — watcher should never cancel since file is tiny.
-	tick <- time.Time{}
-	tick <- time.Time{}
-	tick <- time.Time{}
-	assert.NoError(t, ctx.Err())
-
-	// Shut down the watcher.
-	cancel(nil)
-	<-done
-}
 
 func TestIsGitRepoURL(t *testing.T) {
 	tests := []struct {
