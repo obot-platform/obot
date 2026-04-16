@@ -174,7 +174,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 	}
 }
 
-func constructNanobotYAMLForCompositeServer(servers []ComponentServer) ([]byte, error) {
+func constructMCPServerNanobotYAMLForComposite(servers []ComponentServer) ([]byte, error) {
 	mcpServers := make(map[string]nanobotConfigMCPServer, len(servers))
 	names := make([]string, 0, len(servers))
 	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
@@ -215,22 +215,22 @@ func constructNanobotYAMLForCompositeServer(servers []ComponentServer) ([]byte, 
 	return data, nil
 }
 
-func constructNanobotYAMLForServer(name, url, command string, args []string, env, headers map[string][]byte, webhooks []Webhook) ([]byte, error) {
+func constructMCPServerNanobotYAML(name, url, command string, args []string, env, headers map[string][]byte, webhooks []Webhook) ([]byte, error) {
 	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
 
 	webhookDefinitions := make(map[string][]string, len(webhooks))
 	mcpServers := make(map[string]nanobotConfigMCPServer, len(webhooks)+1)
 
 	for _, webhook := range webhooks {
-		name := replacer.Replace(webhook.DisplayName)
-		if name == "" {
-			name = replacer.Replace(webhook.Name)
+		webhookName := replacer.Replace(webhook.DisplayName)
+		if webhookName == "" {
+			webhookName = replacer.Replace(webhook.Name)
 		}
-		mcpServers[name] = nanobotConfigMCPServer{
+		mcpServers[webhookName] = nanobotConfigMCPServer{
 			BaseURL: webhook.URL,
 		}
 		for _, def := range webhook.Definitions {
-			webhookDefinitions[def] = append(webhookDefinitions[def], fmt.Sprintf("%s/%s", name, webhookToolName))
+			webhookDefinitions[def] = append(webhookDefinitions[def], fmt.Sprintf("%s/%s", webhookName, webhookToolName))
 		}
 	}
 
