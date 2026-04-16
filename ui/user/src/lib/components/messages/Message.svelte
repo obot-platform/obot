@@ -14,7 +14,7 @@
 		type Message,
 		type Project
 	} from '$lib/services';
-	import { profile } from '$lib/stores';
+	import { profile, timePreference } from '$lib/stores';
 	import { formatTime } from '$lib/time';
 	import { hasTool } from '$lib/tools';
 	import { isTextFile } from '$lib/utils';
@@ -352,7 +352,7 @@
 					<TriangleAlert class="size-3 text-yellow-500" />
 				</span>
 			{/if}
-			<span>{formatTime(msg.time)}</span>
+			<span>{formatTime(msg.time, timePreference.timeFormat)}</span>
 			{#if msg.username}
 				<span class="text-on-surface1">•</span>
 				<span class="max-w-[100px] truncate font-medium">by {msg.username?.split(' ')[0]}</span>
@@ -369,7 +369,7 @@
 			>
 		{/if}
 		{#if msg.time}
-			<span class="text-gray text-sm">{formatTime(msg.time)}</span>
+			<span class="text-gray text-sm">{formatTime(msg.time, timePreference.timeFormat)}</span>
 		{/if}
 		{#if !msg.done || animating}
 			<Loading class="size-4" />

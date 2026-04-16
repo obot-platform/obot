@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { VirtualPageTable } from '$lib/components/ui';
-	import { mcpServersAndEntries } from '$lib/stores';
+	import { mcpServersAndEntries, timePreference } from '$lib/stores';
+	import { formatLogTimestamp } from '$lib/time';
 	import { throttle } from '$lib/utils';
 	import { GripVertical } from 'lucide-svelte';
 	import { tick } from 'svelte';
@@ -185,20 +186,7 @@
 						<td class="px-6 py-3">
 							{item.index + 1}
 						</td>
-						{@render td(
-							new Date(d.createdAt)
-								.toLocaleString(undefined, {
-									year: 'numeric',
-									month: 'short',
-									day: 'numeric',
-									hour: '2-digit',
-									minute: '2-digit',
-									second: '2-digit',
-									hour12: true,
-									timeZoneName: 'short'
-								})
-								.replace(/,/g, '')
-						)}
+						{@render td(formatLogTimestamp(d.createdAt, timePreference.timeFormat))}
 						{@render td(getUserDisplayName(d.userID))}
 						{@render td(
 							d.mcpID

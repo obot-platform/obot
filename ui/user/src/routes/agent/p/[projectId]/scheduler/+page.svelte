@@ -11,7 +11,7 @@
 		ScheduledTask
 	} from '$lib/services/nanobot/types';
 	import { PROJECT_LAYOUT_CONTEXT } from '$lib/services/nanobot/types';
-	import { errors } from '$lib/stores';
+	import { errors, timePreference } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
 	import ConfirmScheduleToggle from './ConfirmScheduleToggle.svelte';
@@ -95,7 +95,8 @@
 		return tasks.filter((task) => {
 			const summary = scheduleSummary(
 				String(taskMeta(task)?.schedule ?? ''),
-				taskMeta(task)?.expiration
+				taskMeta(task)?.expiration,
+				timePreference.timeFormat
 			).toLowerCase();
 			return (task.name ?? '').toLowerCase().includes(query) || summary.includes(query);
 		});
@@ -302,7 +303,11 @@
 					>
 						<td class="font-medium">{task.name}</td>
 						<td class="text-base-content/70">
-							{scheduleSummary(String(taskMeta(task)?.schedule ?? ''), taskMeta(task)?.expiration)}
+							{scheduleSummary(
+								String(taskMeta(task)?.schedule ?? ''),
+								taskMeta(task)?.expiration,
+								timePreference.timeFormat
+							)}
 						</td>
 						<td>
 							<span

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
@@ -9,7 +10,8 @@
 		appPreferences,
 		version,
 		mcpServersAndEntries,
-		defaultModelAliases
+		defaultModelAliases,
+		timePreference
 	} from '$lib/stores';
 	import '../app.css';
 	import type { PageData } from './$types';
@@ -43,6 +45,10 @@
 
 		if (data.defaultModelAliases) {
 			untrack(() => defaultModelAliases.initialize(data.defaultModelAliases));
+		}
+
+		if (browser) {
+			timePreference.initialize();
 		}
 	});
 
