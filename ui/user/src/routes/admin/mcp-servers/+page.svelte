@@ -5,6 +5,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import McpServerGitSync from '$lib/components/admin/McpServerGitSync.svelte';
 	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
@@ -26,7 +27,6 @@
 		setUrlParam,
 		replaceState
 	} from '$lib/url';
-	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
 	import { Info, LoaderCircle, Plus, RefreshCcw, Server } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';

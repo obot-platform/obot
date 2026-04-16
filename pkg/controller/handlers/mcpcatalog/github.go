@@ -328,4 +328,3 @@ func readGitCatalog(ctx context.Context, catalogURL string, token string) ([]typ
 
 	return readMCPCatalogDirectory(tempDir)
 }
-
