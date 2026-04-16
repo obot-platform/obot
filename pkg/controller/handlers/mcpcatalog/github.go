@@ -116,6 +116,9 @@ func checkGitLabRepoSize(ctx context.Context, host, projectPath string, maxSizeM
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusUnauthorized {
+		return nil // token lacks statistics scope; fall back to the clone-time size check
+	}
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		if len(body) > 0 {
