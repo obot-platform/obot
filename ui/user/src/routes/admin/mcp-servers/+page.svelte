@@ -85,7 +85,7 @@
 	let editingSource = $state<{
 		index: number;
 		value: string;
-		token?: string;
+		token: string;
 		clearToken?: boolean;
 	}>();
 	let sourceDialog = $state<HTMLDialogElement>();
@@ -289,7 +289,7 @@
 						editingSource = {
 							index,
 							value: url,
-							token: undefined
+							token: ''
 						};
 						sourceDialog?.showModal();
 					}}
