@@ -1,7 +1,8 @@
 <script lang="ts">
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { Group, type AuditLog } from '$lib/services/admin/types';
-	import { profile } from '$lib/stores';
+	import { profile, timePreference } from '$lib/stores';
+	import { formatLogTimestamp } from '$lib/time';
 	import { X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -34,18 +35,7 @@
 			)}
 		></div>
 		<h3 class="text-lg font-semibold">
-			{new Date(auditLog.createdAt)
-				.toLocaleString(undefined, {
-					year: 'numeric',
-					month: 'short',
-					day: 'numeric',
-					hour: '2-digit',
-					minute: '2-digit',
-					second: '2-digit',
-					hour12: true,
-					timeZoneName: 'short'
-				})
-				.replace(/,/g, '')}
+			{formatLogTimestamp(auditLog.createdAt, timePreference.timeFormat)}
 		</h3>
 		<p class="text-on-surface1 text-xs font-light">
 			{auditLog.requestID}

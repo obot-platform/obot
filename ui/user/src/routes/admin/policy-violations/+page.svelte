@@ -15,7 +15,8 @@
 	} from '$lib/services/admin/types';
 	import { PolicyDirectionLabels } from '$lib/services/admin/types';
 	import type { PolicyDirection } from '$lib/services/admin/types';
-	import { responsive } from '$lib/stores';
+	import { responsive, timePreference } from '$lib/stores';
+	import { formatLogTimestamp } from '$lib/time';
 	import { getUserDisplayName } from '$lib/utils';
 	import { subDays, set } from 'date-fns';
 	import { ShieldAlert } from 'lucide-svelte';
@@ -533,18 +534,7 @@
 										<td class="px-6 py-3">{pageOffset + i + 1}</td>
 										<td class="whitespace-nowrap">
 											<div class="truncate px-6 py-4">
-												{new Date(v.createdAt)
-													.toLocaleString(undefined, {
-														year: 'numeric',
-														month: 'short',
-														day: 'numeric',
-														hour: '2-digit',
-														minute: '2-digit',
-														second: '2-digit',
-														hour12: true,
-														timeZoneName: 'short'
-													})
-													.replace(/,/g, '')}
+												{formatLogTimestamp(v.createdAt, timePreference.timeFormat)}
 											</div>
 										</td>
 										<td class="whitespace-nowrap">
@@ -668,7 +658,7 @@
 							<div class="flex flex-col gap-1 text-sm font-light">
 								<p>
 									<span class="font-medium">Timestamp</span>:
-									{new Date(detailedViolation.createdAt).toLocaleString()}
+									{formatLogTimestamp(detailedViolation.createdAt, timePreference.timeFormat)}
 								</p>
 								<p>
 									<span class="font-medium">User</span>:
@@ -716,11 +706,11 @@
 </Layout>
 
 <style lang="postcss">
-	.divider-horizontal {
-		width: 1px;
-		height: auto;
+	.divider {
+		height: 1px;
+		width: 100%;
 		background-color: var(--color-surface3);
-		margin-left: 1rem;
-		margin-right: 1rem;
+		margin-top: 0.5rem;
+		margin-bottom: 0.5rem;
 	}
 </style>

@@ -696,7 +696,7 @@
 						<div class="flex shrink-0">
 							<button
 								class={twMerge(
-									'button-secondary rounded-r-none border-1 border-r-0 text-xs',
+									'button-secondary rounded-r-none border border-r-0 text-xs',
 									selectedTokenType === 'input' && 'bg-surface2 border-surface2'
 								)}
 								onclick={() => handleTokenTypeChange('input')}
@@ -705,7 +705,7 @@
 							</button>
 							<button
 								class={twMerge(
-									'button-secondary rounded-l-none border-1 text-xs',
+									'button-secondary rounded-l-none border text-xs',
 									selectedTokenType === 'output' && 'bg-surface2 border-surface2'
 								)}
 								onclick={() => handleTokenTypeChange('output')}
