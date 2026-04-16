@@ -4,16 +4,16 @@ title: Message Policies
 
 ## Overview
 
-Message Policies let administrators enforce natural-language content rules on Obot Agent traffic at the LLM proxy layer. A policy can apply to:
+Message Policies let administrators enforce content rules written in natural language on Obot Agent traffic at the LLM proxy layer. A policy can apply to:
 
 - **User messages** before they are sent to the model
 - **Tool calls** before the agent is allowed to execute them
-- **Both** directions
+- **Both** user messages and tool calls
 
 Message Policies are an **experimental feature** and are disabled by default.
 To enable them, set `OBOT_SERVER_ENABLE_MESSAGE_POLICIES=true` and restart Obot.
 
-When enabled, Obot adds **Message Policies** and **Message Policy Violations** under **Obot Agent Management**.
+When enabled, Obot adds **Message Policies** and **Message Policy Violations** under **Obot Agent Management** in the admin UI.
 
 ## How Policies Work
 
@@ -58,7 +58,7 @@ If policy evaluation cannot run correctly, Obot fails closed and blocks the cont
 
 ## User Message Policies
 
-For user-message enforcement, Obot checks only the **last user text message** in the request, and only when it is the final message in the conversation payload. This avoids re-evaluating an already-approved user prompt during tool-calling continuations.
+For user-message enforcement, Obot checks only the **most recent text message** in the request, and only when it is the final message in the conversation payload. This avoids re-evaluating an already-approved user prompt during tool-calling continuations.
 
 If one or more policies are violated:
 
@@ -74,7 +74,7 @@ Behavior differs slightly by response type, but the effective result is the same
 
 - Assistant text can continue streaming normally
 - Tool call data is buffered and evaluated before execution
-- If the tool call violates a policy, Obot signals to the Obot Agent not to execute the tool
+- If the tool call violates a policy, Obot signals to the Obot Agent that the tool call cannot be executed
 - The violation is logged with the blocked tool call payload
 
 Obot preserves the tool-call events in the response so conversation state remains valid, but execution is prevented.
@@ -119,7 +119,7 @@ To manage policies, go to **Obot Agent Management > Message Policies**.
 
 1. Click **Add New Policy**
 2. Enter a descriptive name
-3. Write the policy definition in plain language. Be as specific as you can about specific actions that are or are not allowed.
+3. Write the policy definition in natural language. Be as specific as you can about specific actions that are or are not allowed.
 4. Choose whether it applies to user messages, tool calls, or both
 5. Add the users or groups the policy should cover
 6. Save the policy
@@ -135,7 +135,7 @@ Deleting a policy removes that enforcement rule immediately for the affected use
 ## Writing Effective Policies
 
 - Be specific about what is disallowed or required
-- Write the rule as a plain-language instruction, not as implementation notes
+- Write the rule as a natural-language instruction, not as implementation notes
 - Prefer separate policies for distinct concerns instead of one broad policy
 - Use tool-call policies for operational constraints such as purchase, booking, or outbound-action limits
 - Use user-message policies for input restrictions such as prohibited data sharing or disallowed requests
