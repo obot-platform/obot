@@ -213,11 +213,10 @@ func newTestKubernetesBackend(t *testing.T) *kubernetesBackend {
 	}
 
 	return &kubernetesBackend{
-		baseImage:            "ghcr.io/obot-platform/mcp-images/phat:main",
-		httpWebhookBaseImage: "ghcr.io/obot-platform/http-webhook:main",
-		remoteShimBaseImage:  "ghcr.io/obot-platform/remote-shim:main",
-		mcpNamespace:         "obot-mcp",
-		obotClient:           fake.NewClientBuilder().WithScheme(scheme).Build(),
+		baseImage:           "ghcr.io/obot-platform/mcp-images/phat:main",
+		remoteShimBaseImage: "ghcr.io/obot-platform/remote-shim:main",
+		mcpNamespace:        "obot-mcp",
+		obotClient:          fake.NewClientBuilder().WithScheme(scheme).Build(),
 	}
 }
 

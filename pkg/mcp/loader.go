@@ -9,7 +9,6 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	otypes "github.com/obot-platform/obot/apiclient/types"
@@ -76,7 +75,6 @@ type SessionManager struct {
 	allowLocalhostMCP bool
 
 	webhookHelper *WebhookHelper
-	gptClient     *gptscript.GPTScript
 }
 
 const streamableHTTPHealthcheckBody string = `{
@@ -93,7 +91,7 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL string, httpListenPort int, opts Options, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
 	var backend backend
 
 	switch opts.MCPRuntimeBackend {
@@ -148,6 +146,7 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 	}
 
 	return &SessionManager{
+		webhookHelper:     webhookHelper,
 		tokenService:      tokenService,
 		backend:           backend,
 		baseURL:           baseURL,
@@ -157,12 +156,6 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 
 func (sm *SessionManager) TransformObotHostname(hostname string) string {
 	return sm.backend.transformObotHostname(hostname)
-}
-
-// Init must be called before the session manager is used.
-func (sm *SessionManager) Init(gptClient *gptscript.GPTScript, webhookHelper *WebhookHelper) {
-	sm.gptClient = gptClient
-	sm.webhookHelper = webhookHelper
 }
 
 // Load is used by GPTScript to load tools from dynamic MCP server tool definitions.
@@ -305,7 +298,7 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 		// Don't get webhooks for servers that are components of composite servers.
 		// The webhooks would be called at the composite level.
 		var err error
-		webhooks, err = sm.webhookHelper.GetWebhooksForMCPServer(ctx, sm.gptClient, server)
+		webhooks, err = sm.webhookHelper.GetWebhooksForMCPServer(server)
 		if err != nil {
 			return ServerConfig{}, err
 		}

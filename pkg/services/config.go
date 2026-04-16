@@ -227,6 +227,7 @@ type Services struct {
 	DisableLegacyChat                    bool
 	MCPRuntimeBackend                    string
 	MCPRemoteShimBaseImage               string
+	MCPHTTPWebhookBaseImage              string
 	RegistryNoAuth                       bool
 	AutonomousToolUseEnabled             bool
 	NanobotIntegration                   bool
@@ -601,7 +602,82 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	)
 	providerDispatcher := dispatcher.New(invoker, storageClient, credOnlyGPTscriptClient, gatewayClient, postgresDSN)
 
-	mcpSessionManager, err := mcp.NewSessionManager(ctx, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), localK8sConfig, storageClient)
+	r, err := nah.NewRouter("obot-controller", &nah.Options{
+		RESTConfig:     restConfig,
+		Scheme:         scheme.Scheme,
+		ElectionConfig: electionConfig,
+		HealthzPort:    -1,
+		GVKThreadiness: map[schema.GroupVersionKind]int{
+			v1.SchemeGroupVersion.WithKind("KnowledgeFile"): config.KnowledgeFileWorkers,
+			v1.SchemeGroupVersion.WithKind("Run"):           config.RunWorkers,
+		},
+		GVKQueueSplitters: map[schema.GroupVersionKind]runtime.WorkerQueueSplitter{
+			v1.SchemeGroupVersion.WithKind("Run"): (*runQueueSplitter)(nil),
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Set up MCPWebhookValidation indexer
+	mcpWebhookValidationGVK, err := r.Backend().GroupVersionKindFor(&v1.MCPWebhookValidation{})
+	if err != nil {
+		return nil, err
+	}
+
+	mcpWebhookValidationInformer, err := r.Backend().GetInformerForKind(ctx, mcpWebhookValidationGVK)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = mcpWebhookValidationInformer.AddIndexers(map[string]gocache.IndexFunc{
+		"server-names": func(obj any) ([]string, error) {
+			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
+			var results []string
+			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeMCPServer {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		"selectors": func(obj any) ([]string, error) {
+			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
+			var results []string
+			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeSelector {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		"catalog-entry-names": func(obj any) ([]string, error) {
+			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
+			var results []string
+			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeMCPServerCatalogEntry {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		"catalog-names": func(obj any) ([]string, error) {
+			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
+			var results []string
+			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeMcpCatalog {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+	}); err != nil {
+		return nil, err
+	}
+
+	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.Hostname)
+
+	mcpSessionManager, err := mcp.NewSessionManager(ctx, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, storageClient)
 	if err != nil {
 		return nil, err
 	}
@@ -627,23 +703,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		if err := gptscriptClient.DeleteCredential(ctx, system.DefaultNamespace, system.KnowledgeCredID); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return nil, err
 		}
-	}
-
-	r, err := nah.NewRouter("obot-controller", &nah.Options{
-		RESTConfig:     restConfig,
-		Scheme:         scheme.Scheme,
-		ElectionConfig: electionConfig,
-		HealthzPort:    -1,
-		GVKThreadiness: map[schema.GroupVersionKind]int{
-			v1.SchemeGroupVersion.WithKind("KnowledgeFile"): config.KnowledgeFileWorkers,
-			v1.SchemeGroupVersion.WithKind("Run"):           config.RunWorkers,
-		},
-		GVKQueueSplitters: map[schema.GroupVersionKind]runtime.WorkerQueueSplitter{
-			v1.SchemeGroupVersion.WithKind("Run"): (*runQueueSplitter)(nil),
-		},
-	})
-	if err != nil {
-		return nil, err
 	}
 
 	acrGVK, err := r.Backend().GroupVersionKindFor(&v1.AccessControlRule{})
@@ -793,62 +852,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		}
 	}
 
-	// Set up MCPWebhookValidation indexer
-	mcpWebhookValidationGVK, err := r.Backend().GroupVersionKindFor(&v1.MCPWebhookValidation{})
-	if err != nil {
-		return nil, err
-	}
-
-	mcpWebhookValidationInformer, err := r.Backend().GetInformerForKind(ctx, mcpWebhookValidationGVK)
-	if err != nil {
-		return nil, err
-	}
-
-	if err = mcpWebhookValidationInformer.AddIndexers(map[string]gocache.IndexFunc{
-		"server-names": func(obj any) ([]string, error) {
-			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
-			var results []string
-			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.ResourceTypeMCPServer {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		"selectors": func(obj any) ([]string, error) {
-			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
-			var results []string
-			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.ResourceTypeSelector {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		"catalog-entry-names": func(obj any) ([]string, error) {
-			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
-			var results []string
-			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.ResourceTypeMCPServerCatalogEntry {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		"catalog-names": func(obj any) ([]string, error) {
-			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
-			var results []string
-			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.ResourceTypeMcpCatalog {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-	}); err != nil {
-		return nil, err
-	}
-
 	apply.AddValidOwnerChange("otto-controller", "obot-controller")
 	apply.AddValidOwnerChange("mcpcatalogentries", "catalog-default")
 
@@ -958,10 +961,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	retentionPolicy := time.Duration(config.RetentionPolicyHours) * time.Hour
 
-	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.MCPHTTPWebhookBaseImage)
-
-	mcpSessionManager.Init(gptscriptClient, webhookHelper)
-
 	// Derive registryNoAuth flag from config
 	// When EnableRegistryAuth is false (default), registry is in no-auth mode
 	registryNoAuth := !config.EnableRegistryAuth
@@ -1042,6 +1041,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		AutonomousToolUseEnabled:             config.EnableAutonomousToolUse,
 		MCPRuntimeBackend:                    config.MCPRuntimeBackend,
 		MCPRemoteShimBaseImage:               config.MCPRemoteShimBaseImage,
+		MCPHTTPWebhookBaseImage:              config.MCPHTTPWebhookBaseImage,
 		SingleUserIdleServerShutdownInterval: time.Duration(config.SingleUserIdleServerShutdownHours) * time.Hour,
 		MultiUserIdleServerShutdownInterval:  time.Duration(config.MultiUserIdleServerShutdownHours) * time.Hour,
 		AgentIdleServerShutdownInterval:      time.Duration(config.IdleAgentShutdownHours) * time.Hour,

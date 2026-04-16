@@ -64,7 +64,7 @@ func (sm *SessionManager) deployServer(ctx context.Context, server ServerConfig)
 		// Don't get webhooks for servers that are components of composite servers.
 		// The webhooks would be called at the composite level.
 		var err error
-		webhooks, err = sm.webhookHelper.GetWebhooksForMCPServer(ctx, sm.gptClient, server)
+		webhooks, err = sm.webhookHelper.GetWebhooksForMCPServer(server)
 		if err != nil {
 			return err
 		}

@@ -21085,6 +21085,13 @@ func schema_storage_apis_obotobotai_v1_SystemMCPServerSpec(ref common.ReferenceC
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest"),
 						},
 					},
+					"webhookValidationName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "WebhookValidationName is the name of the associated MCPWebhookValidation resource",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"manifest"},
 			},

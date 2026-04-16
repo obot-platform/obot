@@ -10,7 +10,6 @@ import (
 	"os"
 	"path"
 	"regexp"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -41,7 +40,6 @@ type dockerBackend struct {
 	hostBaseURL                   string
 	hostBaseURLWithPort           string
 	containerizedBaseImage        string
-	webhookBaseImage              string
 	remoteShimBaseImage           string
 	auditLogsBatchSize            int
 	auditLogsFlushIntervalSeconds int
@@ -87,17 +85,16 @@ func newDockerBackend(ctx context.Context, exposedPort int, opts Options) (backe
 		hostBaseURL:                   "http://" + host,
 		hostBaseURLWithPort:           "http://" + fmt.Sprintf("%s:%d", host, exposedPort),
 		containerizedBaseImage:        opts.MCPBaseImage,
-		webhookBaseImage:              opts.MCPHTTPWebhookBaseImage,
 		remoteShimBaseImage:           opts.MCPRemoteShimBaseImage,
 		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
 		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
 		deploymentCache:               map[string]*dockerDeploymentCacheEntry{},
 		syncedFilesHash:               map[string]string{},
 	}
-	if err = d.cleanupContainersWithOldID(ctx); err != nil {
-		return nil, fmt.Errorf("failed to cleanup containers with old ID: %w", err)
-	}
 
+	if err = d.cleanupDeprecatedContainers(ctx); err != nil {
+		return nil, fmt.Errorf("failed to cleanup deprecated containers: %w", err)
+	}
 	return d, nil
 }
 
@@ -151,10 +148,11 @@ func (d *dockerBackend) transformCollectorEndpoint(rawURL string) string {
 	return rewriteLocalhostURLHost(rawURL, host)
 }
 
-// cleanupContainersWithOldID removes containers with old ID and no config hash label.
+// cleanupDeprecatedContainers removes containers with old ID and no config hash label.
 // This is a migration for simplifying the container names and updating existing containers
 // when configuration changes instead of possibly orphaning them.
-func (d *dockerBackend) cleanupContainersWithOldID(ctx context.Context) error {
+// Additionally, it removes old webhook containers that were created with the previous webhook implementation.
+func (d *dockerBackend) cleanupDeprecatedContainers(ctx context.Context) error {
 	containers, err := d.client.ContainerList(ctx, container.ListOptions{
 		All: true,
 	})
@@ -164,9 +162,14 @@ func (d *dockerBackend) cleanupContainersWithOldID(ctx context.Context) error {
 
 	for _, c := range containers {
 		id := c.Labels["mcp.server.id"]
-		if _, ok := c.Labels["mcp.deployment.id"]; !ok && id != "" {
+		if deploymentID, ok := c.Labels["mcp.deployment.id"]; !ok && id != "" {
 			if err := d.removeObjectsForContainer(ctx, &c, id); err != nil {
 				return fmt.Errorf("failed to remove container with old ID %s: %w", c.ID, err)
+			}
+		} else if strings.HasPrefix(id, deploymentID+"-mwv1") {
+			// This is an old webhook container, remove it
+			if err := d.removeObjectsForContainer(ctx, &c, id); err != nil {
+				return fmt.Errorf("failed to remove old webhook container %s: %w", c.ID, err)
 			}
 		}
 	}
@@ -185,20 +188,14 @@ func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig, _
 		return nil
 	}
 
-	_, _, err = d.createAndStartContainer(ctx, server, "", configHash, fileEnvKeysHash(server.Files), nil)
+	_, _, err = d.createAndStartContainer(ctx, server, server.MCPServerName, configHash, fileEnvKeysHash(server.Files), nil)
 	return err
 }
 
 func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
 	serverName := server.MCPServerName
-	// Copy the webhooks so we can change the URL without that affecting the original slice.
-	transformedWebhooks := slices.Clone(webhooks)
-	for i, webhook := range transformedWebhooks {
-		webhook.URL = strings.Replace(webhook.URL, "http://localhost", d.hostBaseURL, 1)
-		transformedWebhooks[i] = webhook
-	}
-
-	serverConfigHash := hash.Digest(map[string]any{"server": server, "webhooks": transformedWebhooks})
+	serverConfigHash := hash.Digest(map[string]any{"server": server, "webhooks": webhooks})
+	var err error
 	cachedDeployment := d.getDeploymentCache(serverName)
 	if cachedDeployment != nil && cachedDeployment.hash == serverConfigHash {
 		valid, err := d.deploymentCacheValid(ctx, cachedDeployment)
@@ -213,49 +210,12 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 		d.deleteDeploymentCache(serverName)
 	}
 
-	expectedContainers := make(map[string]string, len(transformedWebhooks)+2)
+	expectedContainers := make(map[string]string, 2)
 
-	// List the currently deployed webhooks so we can delete any that are no longer needed.
-	currentWebhooks, err := d.getWebhookContainers(ctx, server.MCPServerName)
-	if err != nil {
-		return ServerConfig{}, fmt.Errorf("failed to list webhooks: %w", err)
-	}
-
-	existingWebhooks := make(map[string]struct{}, len(currentWebhooks))
-	for _, webhook := range currentWebhooks {
-		existingWebhooks[strings.TrimPrefix(webhook.Names[0], "/")] = struct{}{}
-	}
-
-	for i, webhook := range transformedWebhooks {
-		c, err := webhookToServerConfig(webhook, d.webhookBaseImage, server.MCPServerName, server.UserID, server.Scope, defaultContainerPort)
-		if err != nil {
-			return ServerConfig{}, fmt.Errorf("failed to ensure webhook deployment: %w", err)
-		} else if c, err = d.ensureDeployment(ctx, c, server.MCPServerName, d.containerEnv, nil); err != nil {
-			return ServerConfig{}, fmt.Errorf("failed to ensure server deployment: %w", err)
-		} else if existing, err := d.getContainer(ctx, c.MCPServerName); err != nil {
-			return ServerConfig{}, fmt.Errorf("failed to build server config: %w", err)
-		} else if existing == nil {
-			return ServerConfig{}, fmt.Errorf("failed to ensure webhook deployment for %s", c.MCPServerName)
-		} else if c, err = d.buildServerConfig(c, existing, c.ContainerPort, true); err != nil {
-			return ServerConfig{}, fmt.Errorf("failed to build server config: %w", err)
-		}
-
-		webhook.URL = c.URL
-		transformedWebhooks[i] = webhook
-		expectedContainers[c.MCPServerName] = c.Scope
-
-		delete(existingWebhooks, c.MCPServerName)
-	}
-
-	for name := range existingWebhooks {
-		if err := d.shutdownServer(ctx, name); err != nil {
-			return ServerConfig{}, fmt.Errorf("failed to delete webhook container %s: %w", name, err)
-		}
-	}
-
+	mcpServerName := server.MCPServerName
 	if server.Runtime != otypes.RuntimeRemote {
 		// For non-remote runtimes, we deploy the real MCP server first.
-		server, err = d.ensureDeployment(ctx, server, "", d.containerEnv || server.NanobotAgentName == "", nil)
+		server, err = d.ensureDeployment(ctx, server, mcpServerName, d.containerEnv || server.NanobotAgentName == "", nil)
 		if err != nil {
 			return ServerConfig{}, err
 		}
@@ -277,7 +237,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 		server.URL = strings.Replace(server.URL, "http://localhost", d.hostBaseURL, 1)
 	}
 
-	server, err = d.ensureDeployment(ctx, server, "", d.containerEnv, transformedWebhooks)
+	server, err = d.ensureDeployment(ctx, server, mcpServerName, d.containerEnv, webhooks)
 	expectedContainers[server.MCPServerName] = server.Scope
 	// Ensure the name is the same as what it was when we started.
 	server.MCPServerName = serverName
@@ -299,6 +259,11 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 	for i, component := range server.Components {
 		component.URL = d.transformObotHostname(component.URL)
 		server.Components[i] = component
+	}
+
+	for i, webhook := range webhooks {
+		webhook.URL = d.transformObotHostname(webhook.URL)
+		webhooks[i] = webhook
 	}
 
 	configHash := clientID(server)
@@ -597,17 +562,6 @@ func (d *dockerBackend) shutdownServer(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to remove objects for container %s: %w", id, err)
 	}
 
-	webhookContainers, err := d.getWebhookContainers(ctx, id)
-	if err != nil {
-		return fmt.Errorf("failed to get webhook containers: %w", err)
-	}
-
-	for _, webhookContainer := range webhookContainers {
-		if err := d.removeObjectsForContainer(ctx, &webhookContainer, webhookContainer.ID); err != nil {
-			return fmt.Errorf("failed to remove objects for webhook container %s: %w", webhookContainer.ID, err)
-		}
-	}
-
 	id, ok := strings.CutSuffix(id, "-shim")
 	if !ok {
 		id = id + "-shim"
@@ -690,21 +644,6 @@ func (d *dockerBackend) getContainer(ctx context.Context, name string) (*contain
 	}
 
 	return nil, nil
-}
-
-func (d *dockerBackend) getWebhookContainers(ctx context.Context, mcpContainerName string) ([]container.Summary, error) {
-	containers, err := d.client.ContainerList(ctx, container.ListOptions{
-		All: true,
-		Filters: filters.NewArgs(filters.KeyValuePair{
-			Key:   "label",
-			Value: fmt.Sprintf("mcp.deployment.id=%s", mcpContainerName),
-		}),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return containers, nil
 }
 
 func (d *dockerBackend) getDeploymentCache(mcpServerName string) *dockerDeploymentCacheEntry {
