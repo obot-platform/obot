@@ -52,6 +52,8 @@ export const sortModelProviders = (modelProviders: ModelProvider[], isLegacyDisa
 				CommonModelProviderIds.OPENAI,
 				CommonModelProviderIds.ANTHROPIC,
 				CommonModelProviderIds.AZURE_OPENAI,
+				CommonModelProviderIds.AZURE,
+				CommonModelProviderIds.AZURE_ENTRA,
 				CommonModelProviderIds.AMAZON_BEDROCK,
 				CommonModelProviderIds.ANTHROPIC_BEDROCK,
 				CommonModelProviderIds.XAI,
@@ -66,6 +68,8 @@ export const sortModelProviders = (modelProviders: ModelProvider[], isLegacyDisa
 		: [
 				CommonModelProviderIds.OPENAI,
 				CommonModelProviderIds.AZURE_OPENAI,
+				CommonModelProviderIds.AZURE,
+				CommonModelProviderIds.AZURE_ENTRA,
 				CommonModelProviderIds.ANTHROPIC,
 				CommonModelProviderIds.AMAZON_BEDROCK,
 				CommonModelProviderIds.ANTHROPIC_BEDROCK,
