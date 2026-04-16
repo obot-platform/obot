@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import Layout from '$lib/components/Layout.svelte';
+	import TweenedMetric from '$lib/components/TweenedMetric.svelte';
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
@@ -21,16 +22,8 @@
 	import { isWithinInterval, subMonths } from 'date-fns';
 	import { Activity, ChevronRight, Coins, PencilRuler, Server, Users, Wrench } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { cubicOut } from 'svelte/easing';
-	import { Tween } from 'svelte/motion';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-
-	const STAT_COUNT_MS = 650;
-	const totalUsersAnimated = new Tween(0, { duration: STAT_COUNT_MS, easing: cubicOut });
-	const monthlyActiveAnimated = new Tween(0, { duration: STAT_COUNT_MS, easing: cubicOut });
-	const totalTokensAnimated = new Tween(0, { duration: STAT_COUNT_MS, easing: cubicOut });
-	const totalServersAnimated = new Tween(0, { duration: STAT_COUNT_MS, easing: cubicOut });
 
 	let loading = $state(true);
 	let loadingTokensUsage = $state(true);
@@ -199,16 +192,16 @@
 
 	function getServerUrl(server: MCPCatalogServer) {
 		if (server.powerUserWorkspaceID) {
-			return resolve(`/admin/mcp-servers/w/${server.powerUserWorkspaceID}/s/${server.id}`);
+			return `/admin/mcp-servers/w/${server.powerUserWorkspaceID}/s/${server.id}`;
 		}
-		return resolve(`/admin/mcp-servers/s/${server.id}`);
+		return `/admin/mcp-servers/s/${server.id}`;
 	}
 
 	function getEntryUrl(entry: MCPCatalogEntry) {
 		if (entry.powerUserWorkspaceID) {
-			return resolve(`/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}`);
+			return `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}`;
 		}
-		return resolve(`/admin/mcp-servers/c/${entry.id}`);
+		return `/admin/mcp-servers/c/${entry.id}`;
 	}
 
 	$effect(() => {
@@ -224,42 +217,13 @@
 				: (fn: () => void) => setTimeout(fn, 0);
 		schedule(() => {
 			const timeline = computeMainTimelineData(tokenUsageData, 'group_by_users', usersMap);
-			if (timeline.length <= TIMELINE_AGGREGATE_THRESHOLD) return timeline;
-			return aggregateTimelineDataByBucket(timeline, start, end) as TokenUsageWithCategory[];
+			mainChartData =
+				timeline.length <= TIMELINE_AGGREGATE_THRESHOLD
+					? timeline
+					: (aggregateTimelineDataByBucket(timeline, start, end) as TokenUsageWithCategory[]);
 		});
 	});
 
-	$effect(() => {
-		if (loading) {
-			void totalUsersAnimated.set(0, { duration: 0 });
-			return;
-		}
-		void totalUsersAnimated.set(usersData.length);
-	});
-
-	$effect(() => {
-		if (loading) {
-			void monthlyActiveAnimated.set(0, { duration: 0 });
-			return;
-		}
-		void monthlyActiveAnimated.set(monthlyActiveUsers);
-	});
-
-	$effect(() => {
-		if (loading) {
-			void totalTokensAnimated.set(0, { duration: 0 });
-			return;
-		}
-		void totalTokensAnimated.set(totalTokensData?.totalTokens ?? 0);
-	});
-
-	$effect(() => {
-		if (serverAndEntries.loading) {
-			void totalServersAnimated.set(0, { duration: 0 });
-			return;
-		}
-		void totalServersAnimated.set(totalServers);
-	});
 </script>
 
 <Layout title="Dashboard" classes={{ childrenContainer: 'max-w-none', container: '' }}>
@@ -276,7 +240,9 @@
 							{/if}
 						</div>
 						<div class="flex w-full justify-between">
-							<div class="text-3xl font-semibold">{Math.round(totalUsersAnimated.current)}</div>
+							<div class="text-3xl font-semibold">
+								<TweenedMetric holdAtZero={loading} target={usersData.length} />
+							</div>
 							<Users class="size-8 text-primary" />
 						</div>
 						<a
@@ -297,7 +263,7 @@
 						</div>
 						<div class="flex w-full justify-between">
 							<div class="text-3xl font-semibold">
-								{Math.round(monthlyActiveAnimated.current)}
+								<TweenedMetric holdAtZero={loading} target={monthlyActiveUsers} />
 							</div>
 							<Activity class="size-8 text-primary" />
 						</div>
@@ -314,7 +280,11 @@
 						</div>
 						<div class="flex w-full justify-between">
 							<div class="text-3xl font-semibold">
-								{formatNumber(Math.max(0, Math.round(totalTokensAnimated.current)))}
+								<TweenedMetric
+									holdAtZero={loading}
+									target={totalTokensData?.totalTokens ?? 0}
+									format={(n) => formatNumber(Math.max(0, Math.round(n)))}
+								/>
 							</div>
 							<Coins class="size-8 text-primary" />
 						</div>
@@ -479,7 +449,12 @@
 					<div class="mb-2 flex flex-col justify-center items-center gap-2">
 						<div class="text-xs">Total Currently Active</div>
 						<div class="flex w-full gap-2 items-center justify-center">
-							<div class="text-3xl font-semibold">{Math.round(totalServersAnimated.current)}</div>
+							<div class="text-3xl font-semibold">
+								<TweenedMetric
+									holdAtZero={serverAndEntries.loading}
+									target={totalServers}
+								/>
+							</div>
 							<Server class="size-8 text-primary" />
 						</div>
 					</div>
@@ -518,7 +493,7 @@
 									: undefined}
 							<a
 								class="flex gap-2 items-center hover:bg-surface1 -mx-2 px-2 py-1 rounded-md"
-								href={url}
+								href={url ? resolve(url as `/${string}`) : undefined}
 							>
 								{#if icon}
 									<img src={icon} alt={info.id} class="size-9 bg-surface1 rounded-md p-1" />
