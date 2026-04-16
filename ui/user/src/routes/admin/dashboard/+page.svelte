@@ -3,7 +3,9 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
+	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { formatNumber } from '$lib/format';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import {
 		AdminService,
@@ -19,16 +21,20 @@
 	import { isWithinInterval, subMonths } from 'date-fns';
 	import { Activity, ChevronRight, Coins, PencilRuler, Server, Users, Wrench } from 'lucide-svelte';
 	import { onMount } from 'svelte';
+	import { cubicOut } from 'svelte/easing';
+	import { Tween } from 'svelte/motion';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
-	let loading = $state({
-		tokenUsage: true,
-		totalTokenUsage: true,
-		users: true,
-		tools: true,
-		skills: true
-	});
+	const STAT_COUNT_MS = 650;
+	const totalUsersAnimated = new Tween(0, { duration: STAT_COUNT_MS, easing: cubicOut });
+	const monthlyActiveAnimated = new Tween(0, { duration: STAT_COUNT_MS, easing: cubicOut });
+	const totalTokensAnimated = new Tween(0, { duration: STAT_COUNT_MS, easing: cubicOut });
+	const totalServersAnimated = new Tween(0, { duration: STAT_COUNT_MS, easing: cubicOut });
+
+	let loading = $state(true);
+	let loadingTokensUsage = $state(true);
+
 	let usersData = $state<OrgUser[]>([]);
 	let selectedTokenType = $derived<'input' | 'output'>('input');
 	let tokenUsageData = $state<TokenUsage[]>([]);
@@ -48,29 +54,35 @@
 		).length
 	);
 
-	function compileServerAndEntries(data: typeof mcpServersAndEntries.current) {
-		const serversMap = new Map(data.servers.map((s) => [s.id, s]));
-		const entriesMap = new Map(data.entries.map((e) => [e.id, e]));
-		const instancesCount = data.userInstances.reduce<
-			Record<string, { server: MCPCatalogServer | undefined; count: number; id: string }>
-		>((acc, instance) => {
-			if (!instance.mcpServerID) return acc;
-			if (!acc[instance.mcpServerID]) {
-				const server = serversMap.get(instance.mcpServerID);
-				if (!server) return acc;
-				acc[instance.mcpServerID] = {
+	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
+	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
+	let serversData = $derived([
+		...deployedCatalogEntryServers.filter((server) => !server.deleted),
+		...deployedWorkspaceCatalogEntryServers.filter((server) => !server.deleted),
+		...mcpServersAndEntries.current.servers.filter((server) => !server.deleted)
+	]);
+
+	function compileServerAndEntries(data: MCPCatalogServer[], entries: MCPCatalogEntry[]) {
+		const entriesMap = new Map(entries.map((e) => [e.id, e]));
+		const catalogEntriesCount = data.reduce<
+			Record<
+				string,
+				{
+					entry?: MCPCatalogEntry | undefined;
+					server?: MCPCatalogServer | undefined;
+					count: number;
+					id: string;
+				}
+			>
+		>((acc, server) => {
+			if (!server.catalogEntryID) {
+				acc[server.id] = {
 					server,
-					count: 0,
+					count: server.mcpServerInstanceUserCount ?? 0,
 					id: server.id
 				};
+				return acc;
 			}
-			acc[instance.mcpServerID].count++;
-			return acc;
-		}, {});
-		const catalogEntriesCount = data.userConfiguredServers.reduce<
-			Record<string, { entry: MCPCatalogEntry | undefined; count: number; id: string }>
-		>((acc, server) => {
-			if (!server.catalogEntryID) return acc;
 			if (!acc[server.catalogEntryID]) {
 				const entry = entriesMap.get(server.catalogEntryID);
 				if (!entry) return acc;
@@ -83,12 +95,13 @@
 			acc[server.catalogEntryID].count++;
 			return acc;
 		}, {});
-		const combine = [...Object.values(instancesCount), ...Object.values(catalogEntriesCount)];
-		// sort by count descending
-		combine.sort((a, b) => b.count - a.count);
+		const sortByCountDescending = Object.values(catalogEntriesCount).sort(
+			(a, b) => b.count - a.count
+		);
 
 		const entrieTypes = Object.values(catalogEntriesCount).reduce(
 			(acc, info) => {
+				if (info.server) acc.multi++;
 				if (!info.entry) return acc;
 				if (info.entry.manifest.runtime === 'composite') acc.composite++;
 				else if (info.entry.manifest.runtime === 'remote') acc.remote++;
@@ -96,6 +109,7 @@
 				return acc;
 			},
 			{
+				multi: 0,
 				single: 0,
 				remote: 0,
 				composite: 0
@@ -106,7 +120,7 @@
 			graphData: [
 				{
 					label: 'Multi-User',
-					value: Object.keys(instancesCount).length
+					value: entrieTypes.multi
 				},
 				{
 					label: 'Single-User',
@@ -121,27 +135,24 @@
 					value: entrieTypes.composite
 				}
 			],
-			popularServers: combine.slice(0, 5),
-			totalServers: data.userConfiguredServers.length + data.userInstances.length
+			popularServers: sortByCountDescending.filter((s) => s.count > 0).slice(0, 5),
+			totalServers: serversData.length
 		};
 	}
 
 	const serverAndEntries = $derived(mcpServersAndEntries.current);
 	const { graphData, popularServers, totalServers } = $derived(
-		compileServerAndEntries(serverAndEntries)
+		compileServerAndEntries(serversData, serverAndEntries.entries)
 	);
 
 	onMount(async () => {
-		AdminService.listUsersIncludeDeleted()
-			.then((users) => {
-				usersData = users;
-			})
-			.catch((error) => {
-				errors.append(error);
-			})
-			.finally(() => {
-				loading.users = false;
-			});
+		usersData = await AdminService.listUsersIncludeDeleted();
+		totalTokensData = await AdminService.listTotalTokenUsage();
+		deployedCatalogEntryServers =
+			await AdminService.listAllCatalogDeployedSingleRemoteServers(DEFAULT_MCP_CATALOG_ID);
+		deployedWorkspaceCatalogEntryServers =
+			await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
+		loading = false;
 
 		const timeRange = { start, end };
 		AdminService.listTokenUsage(timeRange)
@@ -160,22 +171,11 @@
 				});
 			})
 			.finally(() => {
-				loading.tokenUsage = false;
+				loadingTokensUsage = false;
 			})
 			.catch((error) => {
 				if (error?.name === 'AbortError') return;
 				errors.append(error);
-			});
-
-		AdminService.listTotalTokenUsage()
-			.then((response) => {
-				totalTokensData = response;
-			})
-			.catch((error) => {
-				errors.append(error);
-			})
-			.finally(() => {
-				loading.totalTokenUsage = false;
 			});
 	});
 
@@ -197,6 +197,20 @@
 		}));
 	}
 
+	function getServerUrl(server: MCPCatalogServer) {
+		if (server.powerUserWorkspaceID) {
+			return resolve(`/admin/mcp-servers/w/${server.powerUserWorkspaceID}/s/${server.id}`);
+		}
+		return resolve(`/admin/mcp-servers/s/${server.id}`);
+	}
+
+	function getEntryUrl(entry: MCPCatalogEntry) {
+		if (entry.powerUserWorkspaceID) {
+			return resolve(`/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}`);
+		}
+		return resolve(`/admin/mcp-servers/c/${entry.id}`);
+	}
+
 	$effect(() => {
 		if (tokenUsageData.length <= TIMELINE_AGGREGATE_THRESHOLD) {
 			const timeline = computeMainTimelineData(tokenUsageData, 'group_by_users', usersMap);
@@ -214,6 +228,38 @@
 			return aggregateTimelineDataByBucket(timeline, start, end) as TokenUsageWithCategory[];
 		});
 	});
+
+	$effect(() => {
+		if (loading) {
+			void totalUsersAnimated.set(0, { duration: 0 });
+			return;
+		}
+		void totalUsersAnimated.set(usersData.length);
+	});
+
+	$effect(() => {
+		if (loading) {
+			void monthlyActiveAnimated.set(0, { duration: 0 });
+			return;
+		}
+		void monthlyActiveAnimated.set(monthlyActiveUsers);
+	});
+
+	$effect(() => {
+		if (loading) {
+			void totalTokensAnimated.set(0, { duration: 0 });
+			return;
+		}
+		void totalTokensAnimated.set(totalTokensData?.totalTokens ?? 0);
+	});
+
+	$effect(() => {
+		if (serverAndEntries.loading) {
+			void totalServersAnimated.set(0, { duration: 0 });
+			return;
+		}
+		void totalServersAnimated.set(totalServers);
+	});
 </script>
 
 <Layout title="Dashboard" classes={{ childrenContainer: 'max-w-none', container: '' }}>
@@ -222,63 +268,66 @@
 			<!-- this token usage graph-->
 			<div class="grid grid-cols-12 gap-4">
 				<div class="md:col-span-4 col-span-12">
-					{#if loading.users}
-						<div class="bg-surface3 h-[138.5px] animate-pulse rounded-md"></div>
-					{:else}
-						<div class="paper gap-2">
-							<div class="text-xs text-on-surface1">Total Users</div>
-							<div class="flex w-full justify-between">
-								<div class="text-3xl font-semibold">{usersData.length}</div>
-								<Users class="size-8 text-primary" />
-							</div>
-							<a
-								href={resolve('/admin/users')}
-								class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-							>
-								See All <ChevronRight class="size-3" />
-							</a>
+					<div class="paper gap-2">
+						<div class="text-xs text-on-surface1 flex items-center gap-1">
+							Total Users
+							{#if loading}
+								<Loading class="size-3" />
+							{/if}
 						</div>
-					{/if}
+						<div class="flex w-full justify-between">
+							<div class="text-3xl font-semibold">{Math.round(totalUsersAnimated.current)}</div>
+							<Users class="size-8 text-primary" />
+						</div>
+						<a
+							href={resolve('/admin/users')}
+							class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+						>
+							See All <ChevronRight class="size-3" />
+						</a>
+					</div>
 				</div>
 				<div class="md:col-span-4 col-span-12">
-					{#if loading.users}
-						<div class="bg-surface3 h-[138.5px] animate-pulse rounded-md"></div>
-					{:else}
-						<div class="paper gap-2">
-							<div class="text-xs text-on-surface1">Monthly Active Users</div>
-							<div class="flex w-full justify-between">
-								<div class="text-3xl font-semibold">
-									{monthlyActiveUsers}
-								</div>
-								<Activity class="size-8 text-primary" />
-							</div>
-							<div class="text-xs text-on-surface1">Last 30 Days</div>
+					<div class="paper gap-2">
+						<div class="text-xs text-on-surface1 flex items-center gap-1">
+							Monthly Active Users
+							{#if loading}
+								<Loading class="size-3" />
+							{/if}
 						</div>
-					{/if}
+						<div class="flex w-full justify-between">
+							<div class="text-3xl font-semibold">
+								{Math.round(monthlyActiveAnimated.current)}
+							</div>
+							<Activity class="size-8 text-primary" />
+						</div>
+						<div class="text-xs text-on-surface1">Last 30 Days</div>
+					</div>
 				</div>
 				<div class="md:col-span-4 col-span-12">
-					{#if loading.totalTokenUsage}
-						<div class="bg-surface3 h-[138.5px] animate-pulse rounded-md"></div>
-					{:else}
-						<div class="paper gap-2">
-							<div class="text-xs text-on-surface1">Total Tokens</div>
-							<div class="flex w-full justify-between">
-								<div class="text-3xl font-semibold">
-									{formatNumber(totalTokensData?.totalTokens ?? 0)}
-								</div>
-								<Coins class="size-8 text-primary" />
-							</div>
-							<a
-								href={resolve('/admin/token-usage')}
-								class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-							>
-								See All <ChevronRight class="size-3" />
-							</a>
+					<div class="paper gap-2">
+						<div class="text-xs text-on-surface1 flex items-center gap-1">
+							Total Tokens
+							{#if loading}
+								<Loading class="size-3" />
+							{/if}
 						</div>
-					{/if}
+						<div class="flex w-full justify-between">
+							<div class="text-3xl font-semibold">
+								{formatNumber(Math.max(0, Math.round(totalTokensAnimated.current)))}
+							</div>
+							<Coins class="size-8 text-primary" />
+						</div>
+						<a
+							href={resolve('/admin/token-usage')}
+							class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+						>
+							See All <ChevronRight class="size-3" />
+						</a>
+					</div>
 				</div>
 			</div>
-			{#if loading.tokenUsage}
+			{#if loadingTokensUsage}
 				<div class="bg-surface3 h-[400px] animate-pulse rounded-md"></div>
 			{:else}
 				<div in:fade={{ duration: 150 }} class="paper w-full min-h-72">
@@ -421,26 +470,36 @@
 		</div>
 		<div class="md:col-span-4 col-span-12 flex flex-col gap-4">
 			{#if serverAndEntries.loading}
-				<div class="bg-surface3 h-[138.5px] animate-pulse rounded-md"></div>
 				<div class="bg-surface3 h-[380px] animate-pulse rounded-md"></div>
 				<div class="bg-surface3 h-[380px] animate-pulse rounded-md"></div>
 			{:else}
-				<div in:fade={{ duration: 150 }} class="paper gap-2 justify-center items-center">
-					<div class="text-xs text-on-surface1">Total Active Server Connections</div>
-					<div class="flex w-full gap-2 items-center justify-center">
-						<div class="text-3xl font-semibold">{totalServers}</div>
-						<Server class="size-8 text-primary" />
+				<div in:fade={{ duration: 150 }} class="paper">
+					<h4 class="font-semibold">Active Servers</h4>
+
+					<div class="mb-2 flex flex-col justify-center items-center gap-2">
+						<div class="text-xs">Total Currently Active</div>
+						<div class="flex w-full gap-2 items-center justify-center">
+							<div class="text-3xl font-semibold">{Math.round(totalServersAnimated.current)}</div>
+							<Server class="size-8 text-primary" />
+						</div>
 					</div>
-					<a
-						href={resolve('/admin/mcp-servers?view=deployments')}
-						class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-					>
-						See All <ChevronRight class="size-3" />
-					</a>
+
+					<div class="h-px w-full bg-surface2 mb-4"></div>
+
+					<DonutGraph class="h-72" donutRatio={0.65} data={graphData} />
+
+					<div class="flex justify-end">
+						<a
+							href={resolve('/admin/mcp-servers?view=deployments')}
+							class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+						>
+							See All <ChevronRight class="size-3" />
+						</a>
+					</div>
 				</div>
 				<div in:fade={{ duration: 150 }} class="paper gap-1 flex grow">
 					<h4 class="flex items-center gap-2 font-semibold">Most Popular Servers</h4>
-					<ul class="pt-2 flex flex-col gap-2">
+					<div class="pt-2 flex flex-col gap-2">
 						{#each popularServers as info (info.id)}
 							{@const icon =
 								'server' in info ? info.server?.manifest.icon : info.entry?.manifest.icon}
@@ -452,13 +511,21 @@
 								'server' in info
 									? info.server?.manifest.description
 									: info.entry?.manifest.description}
-							<li class="flex gap-2 items-center">
+							{@const url = info.server
+								? getServerUrl(info.server)
+								: info.entry
+									? getEntryUrl(info.entry)
+									: undefined}
+							<a
+								class="flex gap-2 items-center hover:bg-surface1 -mx-2 px-2 py-1 rounded-md"
+								href={url}
+							>
 								{#if icon}
 									<img src={icon} alt={info.id} class="size-9 bg-surface1 rounded-md p-1" />
 								{:else}
 									<Server class="size-9 opacity-65 bg-surface1 rounded-md p-1" />
 								{/if}
-								<div class="flex flex-col gap-0.5 max-w-[calc(100%-2.5rem)]">
+								<div class="flex flex-col gap-0.5 max-w-[calc(100%-4.5rem)]">
 									<p class="text-sm font-medium">{displayName}</p>
 									{#if description}
 										<p class="text-xs truncate line-clamp-1 break-all font-light">
@@ -467,9 +534,10 @@
 									{/if}
 									<p class="text-xs text-on-surface1 italic">Deployed {info.count} times</p>
 								</div>
-							</li>
+								<ChevronRight class="size-5 shrink-0" />
+							</a>
 						{/each}
-					</ul>
+					</div>
 					<div class="flex grow"></div>
 					<a
 						href={resolve('/admin/mcp-servers')}
@@ -477,11 +545,6 @@
 					>
 						See All <ChevronRight class="size-3" />
 					</a>
-				</div>
-				<div in:fade={{ duration: 150 }} class="paper">
-					<h4 class="font-semibold mb-1">Deployed Servers by Type</h4>
-
-					<DonutGraph class="h-72" donutRatio={0.65} data={graphData} />
 				</div>
 			{/if}
 		</div>

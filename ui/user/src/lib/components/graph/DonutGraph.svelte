@@ -4,7 +4,7 @@
 	import { arc, pie, select, type PieArcDatum } from 'd3';
 	import type { Snippet } from 'svelte';
 	import { cubicOut } from 'svelte/easing';
-	import { tweened } from 'svelte/motion';
+	import { Tween } from 'svelte/motion';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -70,7 +70,7 @@
 
 	const dataKey = $derived(data.map((d) => `${d.label}:${d.value}`).join('|'));
 
-	const progress = tweened(0, { duration: 550, easing: cubicOut });
+	const progress = new Tween(0, { duration: 550, easing: cubicOut });
 
 	function scheduleDonutEntryAnimation(_seriesKey: string) {
 		void progress.set(0, { duration: 0 }).then(() => void progress.set(1));
@@ -168,7 +168,7 @@
 		{/if}
 
 		{#if total <= 0}
-			<p class="text-muted-foreground text-sm">No data</p>
+			<p class="text-on-surface1 font-light text-sm">No data</p>
 		{:else}
 			<svg
 				class="max-h-full max-w-full"
@@ -179,7 +179,7 @@
 				aria-label="Donut chart"
 			>
 				<g>
-					{#each computeSlices($progress) as slice, i (i)}
+					{#each computeSlices(progress.current) as slice, i (i)}
 						<path
 							role="graphics-symbol"
 							aria-label="{slice.label}, {formatValue(Math.max(0, Number(slice.value) || 0))}"
