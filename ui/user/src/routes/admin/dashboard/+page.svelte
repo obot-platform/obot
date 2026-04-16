@@ -454,7 +454,7 @@
 							{#each topToolCalls as row (row.compositeKey)}
 								<li class="flex gap-2 items-center">
 									<div
-										class="size-8 items-center justify-center shrink-0 bg-surface1 rounded-md p-1"
+										class="size-8 items-center justify-center shrink-0 bg-surface1 dark:bg-surface2 rounded-md p-1"
 									>
 										<Wrench class="size-6 opacity-65 shrink-0" />
 									</div>
@@ -500,7 +500,7 @@
 							{#each topServerUsage as row (row.serverName)}
 								<li class="flex gap-2 items-center">
 									<div
-										class="size-8 items-center justify-center shrink-0 bg-surface1 rounded-md p-1 flex"
+										class="size-8 items-center justify-center shrink-0 bg-surface1 dark:bg-surface2 rounded-md p-1 flex"
 									>
 										<Server class="size-6 opacity-65 shrink-0" />
 									</div>
@@ -599,11 +599,15 @@
 										? getEntryUrl(info.entry)
 										: undefined}
 								<a
-									class="flex gap-2 items-center hover:bg-surface1 -mx-2 px-2 py-1 rounded-md"
+									class="flex gap-2 items-center dark:hover:bg-surface2 hover:bg-surface1 transition-colors duration-150 -mx-2 px-2 py-1 rounded-md"
 									href={url ? resolve(url as `/${string}`) : undefined}
 								>
 									{#if icon}
-										<img src={icon} alt={info.id} class="size-9 bg-surface1 rounded-md p-1" />
+										<img
+											src={icon}
+											alt={info.id}
+											class="size-9 bg-surface1 dark:bg-surface2 rounded-md p-1"
+										/>
 									{:else}
 										<Server class="size-9 opacity-65 bg-surface1 rounded-md p-1" />
 									{/if}
