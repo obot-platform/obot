@@ -50,8 +50,7 @@ type ThreadManifestManagedFields struct {
 type ThreadManifest struct {
 	ThreadManifestManagedFields `json:",inline"`
 
-	Tools []string `json:"tools,omitempty"`
-	// TODO: set this so when Nanobot makes a request, we know which provider it is using
+	Tools           []string            `json:"tools,omitempty"`
 	ModelProvider   string              `json:"modelProvider,omitempty"`
 	Model           string              `json:"model,omitempty"`
 	Prompt          string              `json:"prompt"`
