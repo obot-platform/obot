@@ -136,6 +136,6 @@ See the [Microsoft docs](https://learn.microsoft.com/en-us/azure/foundry/foundry
    ```
    http://<your-host-ip>:11434
    ```
-   - If you are running Obot in Docker, you should use `http://host.docker.internal:11434`
+   - If you are running Obot in Docker, you should use `http://host.docker.internal:11434`. For linux users, run Obot in Docker with this additional flag `--add-host=host.docker.internal:host-gateway` or use an alternative method of allowing the container to access the host network
 
 See [Ollama's FAQ](https://docs.ollama.com/faq) for platform-specific instructions on setting `OLLAMA_HOST`.
