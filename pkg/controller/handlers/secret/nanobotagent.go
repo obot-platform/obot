@@ -24,12 +24,17 @@ func New(mcpNamespace string, gptClient *gptscript.GPTScript) *Handler {
 
 func (h *Handler) UpdateNanobotAgentCreds(req router.Request, _ router.Response) error {
 	secret := req.Object.(*corev1.Secret)
-	mcpServerID, ok := strings.CutSuffix(secret.Name, "-files")
+	mcpServerID, ok := strings.CutSuffix(secret.Name, "-mcp-files")
 	if !ok {
 		return nil
 	}
 
-	cred, err := h.gptClient.RevealCredential(req.Ctx, []string{fmt.Sprintf("%s-%s", secret.Annotations["mcp-user-id"], mcpServerID)}, mcpServerID)
+	userID, ok := secret.Annotations["mcp-user-id"]
+	if !ok || userID == "" {
+		return nil
+	}
+
+	cred, err := h.gptClient.RevealCredential(req.Ctx, []string{fmt.Sprintf("%s-%s", userID, mcpServerID)}, mcpServerID)
 	if err != nil {
 		if errors.As(err, &gptscript.ErrNotFound{}) {
 			return nil
@@ -49,8 +54,7 @@ func (h *Handler) UpdateNanobotAgentCreds(req router.Request, _ router.Response)
 	}
 
 	if update {
-		err := req.Client.Update(req.Ctx, secret)
-		if err != nil {
+		if err = req.Client.Update(req.Ctx, secret); err != nil {
 			return fmt.Errorf("failed to update secret: %w", err)
 		}
 	}
