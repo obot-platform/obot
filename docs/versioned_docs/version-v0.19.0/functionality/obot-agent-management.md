@@ -20,7 +20,7 @@ Control which users and groups can access which models in Obot Agent. See [Model
 
 ## Message Policies
 
-Use natural-language to enforce content rules on user prompts and tool calls. See [Message Policies](../message-policies/) for details.
+Use natural language to enforce content rules on user prompts and tool calls. See [Message Policies](../message-policies/) for details.
 
 ## Message Policy Violations
 

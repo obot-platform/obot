@@ -20,7 +20,7 @@ When enabled, Obot adds **Message Policies** and **Message Policy Violations** u
 Each policy defines four things:
 
 - **Display name** - The label shown in the UI and violation logs
-- **Definition** - A natural-language rule describing what is or is not allowed
+- **Definition** - A natural language rule describing what is or is not allowed
 - **Applies to** - `User Messages`, `Tool Calls`, or `Both`
 - **Subjects** - The users or groups the policy applies to
 
@@ -135,7 +135,7 @@ Deleting a policy removes that enforcement rule immediately for the affected use
 ## Writing Effective Policies
 
 - Be specific about what is disallowed or required
-- Write the rule as a natural-language instruction, not as implementation notes
+- Write the rule as a natural language instruction, not as implementation notes
 - Prefer separate policies for distinct concerns instead of one broad policy
 - Use tool-call policies for operational constraints such as purchase, booking, or outbound-action limits
 - Use user-message policies for input restrictions such as prohibited data sharing or disallowed requests
