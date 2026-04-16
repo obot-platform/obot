@@ -405,7 +405,7 @@
 					<span
 						use:tooltip={{
 							text: 'Supported formats:\n• https://github.com/org/repo\n• https://gitlab.com/org/repo\n• https://gitlab.com/group/subgroup/repo.git\n• https://self-hosted.example.com/org/repo.git\n\nFor GitHub and GitLab a .git suffix is optional. For self-hosted instances it is required.',
-							classes: ['max-w-xs', 'whitespace-pre-line'],
+							classes: ['max-w-md', 'whitespace-pre-line'],
 							disablePortal: true
 						}}
 					>
@@ -426,7 +426,10 @@
 				<input
 					id="catalog-source-token"
 					type="password"
-					placeholder={defaultCatalog?.sourceURLCredentials?.[editingSource.value]
+					placeholder={editingSource.index >= 0 &&
+					defaultCatalog?.sourceURLCredentials?.[
+						defaultCatalog?.sourceURLs?.[editingSource.index]
+					] === '*'
 						? 'Token is set — enter a new value to replace it'
 						: ''}
 					bind:value={editingSource.token}
@@ -466,7 +469,21 @@
 									editingSource.value
 								];
 							} else {
+								const oldUrl = defaultCatalog.sourceURLs[editingSource.index];
 								updatingCatalog.sourceURLs[editingSource.index] = editingSource.value;
+
+								// If the URL changed and the old URL had a credential, remap the
+								// credentials key so the backend can transfer it to the new URL.
+								if (
+									oldUrl !== editingSource.value &&
+									updatingCatalog.sourceURLCredentials?.[oldUrl] === '*'
+								) {
+									updatingCatalog.sourceURLCredentials = {
+										...updatingCatalog.sourceURLCredentials,
+										[editingSource.value]: '*'
+									};
+									delete updatingCatalog.sourceURLCredentials[oldUrl];
+								}
 							}
 
 							// Only send a credential update when the user has typed a value.
