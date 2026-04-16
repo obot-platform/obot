@@ -117,6 +117,7 @@ func TestNanobotParseModelProviderDeclaredDialectDrivesURL(t *testing.T) {
 		{nanobottypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai"},
 		{nanobottypes.DialectOpenAIChatCompletions, "https://obot.example.com/api/llm-proxy"},
 		{nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy"},
+		{nanobottypes.DialectBifrostRequest, "https://obot.example.com/api/llm-proxy"},
 	} {
 		model := resolvedLLMModel{
 			TargetModel:     "some-model",
