@@ -14,6 +14,7 @@ type ModelManifest struct {
 	Alias         string     `json:"alias,omitempty"`
 	Active        bool       `json:"active"`
 	Usage         ModelUsage `json:"usage"`
+	Dialect       string     `json:"dialect,omitempty"`
 }
 
 type ModelList List[Model]

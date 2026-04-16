@@ -416,6 +416,14 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		}
 	}
 
+	var dialect string
+	if toolRef.Status.Tool != nil && toolRef.Status.Tool.Metadata["providerMeta"] != "" {
+		var meta types.CommonProviderMetadata
+		if err := json.Unmarshal([]byte(toolRef.Status.Tool.Metadata["providerMeta"]), &meta); err == nil {
+			dialect = meta.Dialect
+		}
+	}
+
 	availableModels, err := h.dispatcher.ModelsForProvider(req.Ctx, h.gptClient, req.Namespace, req.Name)
 	if err != nil {
 		// Don't error and retry because it will likely fail again. Log the error, and the user can re-sync manually.
@@ -470,6 +478,7 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 					ModelProvider: toolRef.Name,
 					Active:        true,
 					Usage:         types.ModelUsage(model.Metadata["usage"]),
+					Dialect:       dialect,
 				},
 			},
 		})

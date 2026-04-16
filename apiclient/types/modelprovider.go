@@ -5,6 +5,9 @@ type CommonProviderMetadata struct {
 	IconDark    string `json:"iconDark,omitempty"`
 	Description string `json:"description,omitempty"`
 	Link        string `json:"link,omitempty"`
+	// Dialect specifies the LLM API format used by this provider
+	// (e.g. "AnthropicMessages", "OpenAIChatCompletions", "OpenAIResponses").
+	Dialect string `json:"dialect,omitempty"`
 }
 
 type CommonProviderStatus struct {
