@@ -18,7 +18,7 @@ Obot supports a variety of model providers, including:
 - Google
 
 **Enterprise**
-- [Azure OpenAI / Microsoft Foundry](#azure-openai-enterprise-only)
+- [Azure OpenAI / Microsoft Foundry](#azure-enterprise-only)
 - Amazon Bedrock
 - Google Vertex (Gemini models)
 
@@ -88,19 +88,43 @@ You can also optionally specify the API version (defaults to `2025-01-01-preview
 
 ##### Microsoft Entra ID Authentication
 
-Use the **Azure (Entra ID)** provider for service principal authentication via Microsoft Entra ID.
+Use the **Azure (Entra ID)** provider for service principal authentication via Microsoft Entra ID. Deployments are discovered automatically from the Azure Management API.
+
+###### 1. Create a service principal
+
+```bash
+az ad sp create-for-rbac --name "<sp-name>" \
+  --role "Cognitive Services OpenAI User" \
+  --scopes /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<account-name>
+```
+
+This outputs the `appId` (Client ID), `password` (Client Secret), and `tenant` (Tenant ID) needed below.
+
+###### 2. Find your resource details
+
+```bash
+az cognitiveservices account show \
+  --name <account-name> \
+  --resource-group <resource-group> \
+  --query "{endpoint:properties.endpoint, id:id}"
+```
+
+###### 3. Configure the provider
 
 Obot requires:
-- **Azure Endpoint** — your Azure service endpoint URL
+- **Azure Endpoint** — your Azure OpenAI endpoint URL (`https://<resource_name>.openai.azure.com`)
 - **Client ID** — the Entra app's application (client) ID
 - **Client Secret** — the Entra app's client secret
 - **Tenant ID** — the Entra app's tenant ID
+- **Subscription ID** — the Azure subscription ID containing the Cognitive Services account
+- **Resource Group** — the resource group containing the Cognitive Services account
+- **Account Name** — the Cognitive Services account name
 
-Optionally, you can specify deployment names (same format as above). If omitted, the provider will attempt to discover deployments automatically. You can also optionally specify the API version (defaults to `2025-01-01-preview`).
+You can also optionally specify the API version (defaults to `2025-01-01-preview`).
 
-After creating your Entra app registration, go to your Azure resource in the Azure portal and add a role assignment for the app registration as a service principal with the `Cognitive Services OpenAI User` role.
+The service principal requires at minimum the `Cognitive Services OpenAI User` or `Cognitive Services User` role on the account to read deployments. Deployments are discovered automatically — each deployment's base model name becomes the model ID exposed to Obot.
 
-See the [Microsoft docs](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/role-based-access-control?view=foundry-classic#add-role-assignment-to-an-azure-openai-resource) for more details.
+See the [Microsoft docs](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/configure-entra-id) for more details.
 
 #### Ollama
 
@@ -108,10 +132,10 @@ See the [Microsoft docs](https://learn.microsoft.com/en-us/azure/ai-foundry/open
 
 1. **Expose Ollama to the network** - By default, Ollama only binds to `127.0.0.1:11434`. Since Obot runs in a container, `localhost` addresses resolve to Obot's container, not your host. Set `OLLAMA_HOST=0.0.0.0` before starting Ollama, then use your host's IP address in the endpoint URL.
 
-2. **Use the OpenAI-compatible endpoint** - The endpoint must include the `/v1/` path:
+2. **Set the Ollama host**
    ```
-   http://<your-host-ip>:11434/v1/
+   http://<your-host-ip>:11434
    ```
-   Using `http://<host>:11434/` without `/v1/` will result in validation errors.
+   - If you are running Obot in Docker, you should use `http://host.docker.internal:11434`
 
 See [Ollama's FAQ](https://docs.ollama.com/faq) for platform-specific instructions on setting `OLLAMA_HOST`.
