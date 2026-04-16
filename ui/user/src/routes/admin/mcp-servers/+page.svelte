@@ -25,6 +25,7 @@
 		setUrlParam,
 		replaceState
 	} from '$lib/url';
+	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
 	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
@@ -81,7 +82,7 @@
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	let defaultCatalog = $state<MCPCatalog>();
-	let editingSource = $state<{ index: number; value: string; token?: string }>();
+	let editingSource = $state<{ index: number; value: string; token?: string; clearToken?: boolean }>();
 	let sourceDialog = $state<HTMLDialogElement>();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 
@@ -420,21 +421,35 @@
 			</div>
 
 			<div class="mb-4 flex flex-col gap-1">
-				<label for="catalog-source-token" class="flex-1 text-sm font-light"
-					>Personal access token (optional)
-				</label>
-				<input
-					id="catalog-source-token"
-					type="password"
-					placeholder={editingSource.index >= 0 &&
-					defaultCatalog?.sourceURLCredentials?.[
-						defaultCatalog?.sourceURLs?.[editingSource.index]
-					] === '*'
-						? 'Token is set — enter a new value to replace it'
-						: ''}
-					bind:value={editingSource.token}
-					class="text-input-filled"
-				/>
+				<div class="flex items-center justify-between">
+					<label for="catalog-source-token" class="text-sm font-light"
+						>Personal access token (optional)
+					</label>
+					{#if editingSource.index >= 0 && defaultCatalog?.sourceURLCredentials?.[defaultCatalog?.sourceURLs?.[editingSource.index]] === '*' && !editingSource.clearToken}
+						<button
+							class="text-xs text-red-500 hover:underline dark:text-red-400"
+							onclick={() => {
+								if (editingSource) editingSource.clearToken = true;
+							}}
+						>
+							Clear token
+						</button>
+					{/if}
+				</div>
+				{#if editingSource.clearToken}
+					<p class="text-surface3 text-xs">Token will be removed on save.</p>
+				{:else}
+					<SensitiveInput
+						name="catalog-source-token"
+						placeholder={editingSource.index >= 0 &&
+						defaultCatalog?.sourceURLCredentials?.[
+							defaultCatalog?.sourceURLs?.[editingSource.index]
+						] === '*'
+							? 'Token is set — enter a new value to replace it'
+							: ''}
+						bind:value={editingSource.token}
+					/>
+				{/if}
 			</div>
 
 			{#if sourceError}
@@ -486,9 +501,15 @@
 								}
 							}
 
-							// Only send a credential update when the user has typed a value.
-							// Leaving the field empty (add or edit) leaves any existing credential unchanged.
-							if (editingSource.token) {
+							// Send a credential update only when the user typed a new token or
+							// explicitly clicked "Clear token". Leaving the field empty leaves
+							// any existing credential unchanged.
+							if (editingSource.clearToken) {
+								updatingCatalog.sourceURLCredentials = {
+									...(updatingCatalog.sourceURLCredentials ?? {}),
+									[editingSource.value]: ''
+								};
+							} else if (editingSource.token) {
 								updatingCatalog.sourceURLCredentials = {
 									...(updatingCatalog.sourceURLCredentials ?? {}),
 									[editingSource.value]: editingSource.token

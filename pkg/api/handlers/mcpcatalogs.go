@@ -111,8 +111,14 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 	}
 
 	// The only field that can be updated is the source URLs.
-	for _, urlStr := range manifest.SourceURLs {
+	// Normalize scheme-less inputs (e.g. "github.com/org/repo") to https://
+	// so they are treated consistently with the controller's sync path.
+	for i, urlStr := range manifest.SourceURLs {
 		if urlStr != "" && urlStr != h.defaultCatalogPath {
+			if !strings.Contains(urlStr, "://") {
+				urlStr = "https://" + urlStr
+				manifest.SourceURLs[i] = urlStr
+			}
 			u, err := url.Parse(urlStr)
 			if err != nil {
 				return types.NewErrBadRequest("invalid URL: %v", err)
@@ -206,8 +212,16 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		}
 	}
 
+	catalog.Spec.SourceURLs = manifest.SourceURLs
+
+	// Persist the catalog spec first. Credential operations below are best-effort:
+	// if they fail the catalog spec is still updated, and the user can retry.
+	if err := req.Update(&catalog); err != nil {
+		return fmt.Errorf("failed to update catalog: %w", err)
+	}
+
 	// Delete credentials for removed URLs that were not transferred.
-	for _, u := range catalog.Spec.SourceURLs {
+	for u := range oldURLsSet {
 		if _, active := activeURLs[u]; active {
 			continue
 		}
@@ -217,11 +231,9 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		err := req.GPTClient.DeleteCredential(req.Context(), credCtx, mcpcataloghandler.CatalogCredentialToolName(u))
 		var notFound gptscript.ErrNotFound
 		if err != nil && !errors.As(err, &notFound) {
-			return fmt.Errorf("failed to delete credential for %s: %w", u, err)
+			log.Errorf("failed to delete credential for %s: %v", u, err)
 		}
 	}
-
-	catalog.Spec.SourceURLs = manifest.SourceURLs
 
 	// Store or delete per-URL credentials in the GPTScript credential store.
 	// - If the value is "*", keep the existing credential (no change); if the URL
@@ -239,7 +251,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 			err := req.GPTClient.DeleteCredential(req.Context(), credCtx, toolName)
 			var notFound gptscript.ErrNotFound
 			if err != nil && !errors.As(err, &notFound) {
-				return fmt.Errorf("failed to delete credential for %s: %w", u, err)
+				log.Errorf("failed to delete credential for %s: %v", u, err)
 			}
 		case "*":
 			// keep existing (transferred URLs already have credential set)
@@ -250,13 +262,9 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 				Type:     gptscript.CredentialTypeTool,
 				Env:      map[string]string{"TOKEN": cred},
 			}); err != nil {
-				return fmt.Errorf("failed to store credential for %s: %w", u, err)
+				log.Errorf("failed to store credential for %s: %v", u, err)
 			}
 		}
-	}
-
-	if err := req.Update(&catalog); err != nil {
-		return fmt.Errorf("failed to update catalog: %w", err)
 	}
 
 	return req.Write(convertMCPCatalog(req.Context(), req.GPTClient, catalog))
@@ -1569,6 +1577,9 @@ func convertMCPCatalog(ctx context.Context, gptClient *gptscript.GPTScript, cata
 	creds, err := gptClient.ListCredentials(ctx, gptscript.ListCredentialsOptions{
 		CredentialContexts: []string{mcpcataloghandler.CatalogCredentialContext(string(catalog.UID))},
 	})
+	if err != nil {
+		log.Errorf("failed to list credentials for catalog %s: %v", catalog.Name, err)
+	}
 	if err == nil && len(creds) > 0 {
 		credToolNames := make(map[string]struct{}, len(creds))
 		for _, c := range creds {

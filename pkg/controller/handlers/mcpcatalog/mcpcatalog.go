@@ -3,6 +3,8 @@ package mcpcatalog
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -13,9 +15,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-
-	"crypto/sha256"
-	"encoding/hex"
 
 	gptscript "github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/apply"
