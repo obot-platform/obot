@@ -20,8 +20,8 @@
 	} from '$lib/services';
 	import { errors, mcpServersAndEntries } from '$lib/stores';
 	import { aggregateTimelineDataByBucket, getUserLabels } from '../token-usage/utils';
-	import { isWithinInterval, set, subDays, subMonths } from 'date-fns';
-	import { Activity, ChevronRight, Coins, PencilRuler, Server, Users, Wrench } from 'lucide-svelte';
+	import { isWithinInterval, set, subMonths } from 'date-fns';
+	import { Activity, ChevronRight, Coins, Server, Users, Wrench } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -53,6 +53,10 @@
 
 	let topToolCalls = $state<TopToolCallRow[]>([]);
 
+	type TopServerUsageRow = { serverName: string; count: number };
+
+	let topServerUsage = $state<TopServerUsageRow[]>([]);
+
 	function topToolCallsFromStats(stats: AuditLogUsageStats | undefined): TopToolCallRow[] {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const counts = new Map<string, { count: number; serverDisplayName: string }>();
@@ -74,6 +78,20 @@
 				count,
 				serverDisplayName
 			}))
+			.sort((a, b) => b.count - a.count);
+	}
+
+	function topServersFromStats(stats: AuditLogUsageStats | undefined): TopServerUsageRow[] {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const counts = new Map<string, number>();
+		for (const s of stats?.items.filter((s) => !s.mcpServerDisplayName.startsWith('nba1')) ?? []) {
+			const total = (s.toolCalls ?? []).reduce((sum, t) => sum + t.callCount, 0);
+			if (total > 0) {
+				counts.set(s.mcpServerDisplayName, (counts.get(s.mcpServerDisplayName) ?? 0) + total);
+			}
+		}
+		return Array.from(counts.entries())
+			.map(([serverName, count]) => ({ serverName, count }))
 			.sort((a, b) => b.count - a.count);
 	}
 
@@ -187,13 +205,14 @@
 		loading = false;
 
 		const endToolStats = set(new Date(), { milliseconds: 0, seconds: 59 });
-		const startToolStats = subDays(endToolStats, 7);
+		const startToolStats = subMonths(endToolStats, 1);
 		AdminService.listAuditLogUsageStats({
 			start_time: startToolStats.toISOString(),
 			end_time: endToolStats.toISOString()
 		})
 			.then((stats) => {
 				topToolCalls = topToolCallsFromStats(stats).slice(0, TOP_TOOLS_LIMIT);
+				topServerUsage = topServersFromStats(stats).slice(0, TOP_TOOLS_LIMIT);
 			})
 			.catch((error) => {
 				if (error?.name === 'AbortError') return;
@@ -412,14 +431,9 @@
 
 			<div class="grid grid-cols-12 gap-4 grow">
 				<div class="paper h-full gap-1 md:col-span-6 col-span-12 flex flex-col">
-					<h4 class="flex items-center gap-2 font-semibold">
+					<h4 class="flex items-center gap-2 font-semibold mb-1">
 						Recently Popular Tools
-						<span class="text-on-surface1 text-xs font-light flex items-center gap-1">
-							(Last 7 Days)
-							{#if loadingToolUsage}
-								<Loading class="size-3" />
-							{/if}
-						</span>
+						<span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
 					</h4>
 					{#if loadingToolUsage}
 						<div class="pt-2 flex flex-col gap-4 w-full">
@@ -462,49 +476,49 @@
 						See All <ChevronRight class="size-3" />
 					</a>
 				</div>
-				<div class="paper h-full gap-1 md:col-span-6 col-span-12">
-					<h4 class="flex items-center gap-2 font-semibold">
-						Recently Popular Skills <span class="text-on-surface1 text-xs font-light">
-							(Last 7 Days)
-						</span>
+				<div class="paper h-full gap-1 md:col-span-6 col-span-12 flex flex-col">
+					<h4 class="flex items-center gap-2 font-semibold mb-1">
+						Frequently Used Servers
+						<span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
 					</h4>
-					<ul class="pt-2 flex flex-col gap-2">
-						<li class="flex gap-2 items-center">
-							<PencilRuler class="size-8 opacity-65" />
-							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Skill Name</p>
-								<p class="text-xs text-on-surface1">100 calls</p>
-							</div>
-						</li>
-						<li class="flex gap-2 items-center">
-							<PencilRuler class="size-8 opacity-65" />
-							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Skill Name</p>
-								<p class="text-xs text-on-surface1">100 calls</p>
-							</div>
-						</li>
-						<li class="flex gap-2 items-center">
-							<PencilRuler class="size-8 opacity-65" />
-							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Skill Name</p>
-								<p class="text-xs text-on-surface1">100 calls</p>
-							</div>
-						</li>
-						<li class="flex gap-2 items-center">
-							<PencilRuler class="size-8 opacity-65" />
-							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Skill Name</p>
-								<p class="text-xs text-on-surface1">100 calls</p>
-							</div>
-						</li>
-						<li class="flex gap-2 items-center">
-							<Server class="size-8 opacity-65" />
-							<div class="flex flex-col gap-1">
-								<p class="text-sm font-medium">Server Name</p>
-								<p class="text-xs text-on-surface1">100 calls</p>
-							</div>
-						</li>
-					</ul>
+					{#if loadingToolUsage}
+						<div class="pt-2 flex flex-col gap-4 w-full">
+							{#each Array.from({ length: TOP_TOOLS_LIMIT }) as _, i (i)}
+								<div class="flex gap-2 items-center animate-pulse w-full">
+									<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
+									<div class="flex flex-col gap-2 flex-1">
+										<div class="h-4 w-full rounded bg-surface3"></div>
+										<div class="h-3 w-full rounded bg-surface3"></div>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{:else if topServerUsage.length === 0}
+						<p class="text-xs text-on-surface1 pt-2">No server tool calls in the last 7 days.</p>
+					{:else}
+						<ul class="pt-2 flex flex-col gap-2">
+							{#each topServerUsage as row (row.serverName)}
+								<li class="flex gap-2 items-center">
+									<div
+										class="size-8 items-center justify-center shrink-0 bg-surface1 rounded-md p-1 flex"
+									>
+										<Server class="size-6 opacity-65 shrink-0" />
+									</div>
+									<div class="flex flex-col gap-1 min-w-0">
+										<p class="text-sm font-medium truncate">{row.serverName}</p>
+										<p class="text-xs text-on-surface1">{formatNumber(row.count)} calls</p>
+									</div>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					<div class="flex grow min-h-0"></div>
+					<a
+						href={resolve('/admin/usage')}
+						class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
+					>
+						See All <ChevronRight class="size-3" />
+					</a>
 				</div>
 			</div>
 		</div>
@@ -553,46 +567,60 @@
 					</div>
 				</div>
 				<div in:fade={{ duration: 150 }} class="paper gap-1 flex grow">
-					<h4 class="flex items-center gap-2 font-semibold">Most Popular Servers</h4>
-					<div class="pt-2 flex flex-col gap-2">
-						{#each popularServers as info (info.id)}
-							{@const icon =
-								'server' in info ? info.server?.manifest.icon : info.entry?.manifest.icon}
-							{@const displayName =
-								'server' in info
-									? (info.server?.alias ?? info.server?.manifest.name)
-									: info.entry?.manifest.name}
-							{@const description =
-								'server' in info
-									? info.server?.manifest.description
-									: info.entry?.manifest.description}
-							{@const url = info.server
-								? getServerUrl(info.server)
-								: info.entry
-									? getEntryUrl(info.entry)
-									: undefined}
-							<a
-								class="flex gap-2 items-center hover:bg-surface1 -mx-2 px-2 py-1 rounded-md"
-								href={url ? resolve(url as `/${string}`) : undefined}
-							>
-								{#if icon}
-									<img src={icon} alt={info.id} class="size-9 bg-surface1 rounded-md p-1" />
-								{:else}
-									<Server class="size-9 opacity-65 bg-surface1 rounded-md p-1" />
-								{/if}
-								<div class="flex flex-col gap-0.5 max-w-[calc(100%-4.5rem)]">
-									<p class="text-sm font-medium">{displayName}</p>
-									{#if description}
-										<p class="text-xs truncate line-clamp-1 break-all font-light">
-											{@html stripMarkdownToText(description ?? '')}
-										</p>
-									{/if}
-									<p class="text-xs text-on-surface1 italic">Deployed {info.count} times</p>
+					<h4 class="flex items-center gap-2 font-semibold">Most Deployed Servers</h4>
+					{#if mcpServersAndEntries.current.loading || loading}
+						<div class="pt-2 flex flex-col gap-4">
+							{#each Array.from({ length: 5 }) as _, i (i)}
+								<div class="flex gap-2 items-center animate-pulse w-full">
+									<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
+									<div class="flex flex-col gap-2 flex-1">
+										<div class="h-4 w-full rounded bg-surface3"></div>
+										<div class="h-3 w-full rounded bg-surface3"></div>
+									</div>
 								</div>
-								<ChevronRight class="size-5 shrink-0" />
-							</a>
-						{/each}
-					</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="pt-2 flex flex-col gap-2">
+							{#each popularServers as info (info.id)}
+								{@const icon =
+									'server' in info ? info.server?.manifest.icon : info.entry?.manifest.icon}
+								{@const displayName =
+									'server' in info
+										? (info.server?.alias ?? info.server?.manifest.name)
+										: info.entry?.manifest.name}
+								{@const description =
+									'server' in info
+										? info.server?.manifest.description
+										: info.entry?.manifest.description}
+								{@const url = info.server
+									? getServerUrl(info.server)
+									: info.entry
+										? getEntryUrl(info.entry)
+										: undefined}
+								<a
+									class="flex gap-2 items-center hover:bg-surface1 -mx-2 px-2 py-1 rounded-md"
+									href={url ? resolve(url as `/${string}`) : undefined}
+								>
+									{#if icon}
+										<img src={icon} alt={info.id} class="size-9 bg-surface1 rounded-md p-1" />
+									{:else}
+										<Server class="size-9 opacity-65 bg-surface1 rounded-md p-1" />
+									{/if}
+									<div class="flex flex-col gap-0.5 max-w-[calc(100%-4.5rem)]">
+										<p class="text-sm font-medium">{displayName}</p>
+										{#if description}
+											<p class="text-xs truncate line-clamp-1 break-all font-light">
+												{@html stripMarkdownToText(description ?? '')}
+											</p>
+										{/if}
+										<p class="text-xs text-on-surface1 italic">Deployed {info.count} times</p>
+									</div>
+									<ChevronRight class="size-5 shrink-0" />
+								</a>
+							{/each}
+						</div>
+					{/if}
 					<div class="flex grow"></div>
 					<a
 						href={resolve('/admin/mcp-servers')}
