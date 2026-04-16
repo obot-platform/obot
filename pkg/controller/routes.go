@@ -78,7 +78,7 @@ func (c *Controller) setupRoutes() {
 	mcpserver := mcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.AgentIdleServerShutdownInterval, c.services.ServerURL)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
-	mcpWebhookValidations := mcpwebhookvalidation.New()
+	mcpWebhookValidations := mcpwebhookvalidation.New(c.services.GPTClient, c.services.MCPHTTPWebhookBaseImage)
 	powerUserWorkspaceHandler := poweruserworkspace.NewHandler(c.services.GatewayClient)
 	adminWorkspaceHandler := adminworkspace.New(c.services.GatewayClient)
 	mcpServerCatalogEntryHandler := mcpservercatalogentry.NewHandler(c.services.GPTClient)
@@ -306,6 +306,7 @@ func (c *Controller) setupRoutes() {
 
 	// MCP Webhook Validations
 	root.Type(&v1.MCPWebhookValidation{}).HandlerFunc(mcpWebhookValidations.CleanupResources)
+	root.Type(&v1.MCPWebhookValidation{}).HandlerFunc(mcpWebhookValidations.EnsureSystemServer)
 
 	// UserRoleChange
 	root.Type(&v1.UserRoleChange{}).HandlerFunc(powerUserWorkspaceHandler.HandleRoleChange)
@@ -332,6 +333,7 @@ func (c *Controller) setupRoutes() {
 	// System MCP Servers
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureSecretInfo)
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureDeployment)
+	root.Type(&v1.SystemMCPServer{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.SystemMCPServer{}).FinalizeFunc(v1.SystemMCPServerFinalizer, systemMCPServerHandler.CleanupDeployment)
 
 	// AuditLogExport

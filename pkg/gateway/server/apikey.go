@@ -276,48 +276,52 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 		})
 	}
 
-	// Check if this server is in the key's allowed list
-	// "*" is a special wildcard that grants access to all servers the user can access
 	hasWildcard := slices.Contains(apiKey.MCPServerIDs, "*")
-	if !hasWildcard && !slices.Contains(apiKey.MCPServerIDs, req.MCPID) {
-		// Check if this is a component server - if so, check the composite server ID
-		var mcpServer v1.MCPServer
-		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &mcpServer); err != nil || mcpServer.Spec.CompositeName == "" || !slices.Contains(apiKey.MCPServerIDs, mcpServer.Spec.CompositeName) {
-			pkgLog.Infof("Denied API key auth request: reason=api_key_scope_mismatch keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
-			return apiContext.Write(apiKeyAuthResponse{
-				Allowed: false,
-				Reason:  "API key does not have access to this MCP server",
-			})
+	// Tokens have access to all webhook system MCP servers, so we only need to check if the request is not for such an MCP server.
+	if !system.IsWebhookSystemMCPServerID(req.MCPID) {
+		// Check if this server is in the key's allowed list
+		// "*" is a special wildcard that grants access to all servers the user can access
+		if !hasWildcard && !slices.Contains(apiKey.MCPServerIDs, req.MCPID) {
+			// Check if this is a component server - if so, check the composite server ID
+			var mcpServer v1.MCPServer
+			if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &mcpServer); err != nil || mcpServer.Spec.CompositeName == "" || !slices.Contains(apiKey.MCPServerIDs, mcpServer.Spec.CompositeName) {
+				pkgLog.Infof("Denied API key auth request: reason=api_key_scope_mismatch keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
+				return apiContext.Write(apiKeyAuthResponse{
+					Allowed: false,
+					Reason:  "API key does not have access to this MCP server",
+				})
+			}
+		}
+
+		// Verify user still has access to the server
+		if system.IsMCPServerID(req.MCPID) {
+			var server v1.MCPServer
+			if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &server); err != nil {
+				pkgLog.Infof("Denied API key auth request: reason=mcp_server_not_found keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
+				return apiContext.Write(apiKeyAuthResponse{
+					Allowed: false,
+					Reason:  "MCP server not found",
+				})
+			}
+
+			hasAccess, err := s.userHasAccessToMCPServerByUserID(apiContext, &server, apiKey.UserID)
+			if err != nil {
+				pkgLog.Infof("Denied API key auth request: reason=access_check_failed keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
+				return apiContext.Write(apiKeyAuthResponse{
+					Allowed: false,
+					Reason:  fmt.Sprintf("failed to verify access: %v", err),
+				})
+			}
+			if !hasAccess {
+				pkgLog.Infof("Denied API key auth request: reason=user_lost_mcp_access keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
+				return apiContext.Write(apiKeyAuthResponse{
+					Allowed: false,
+					Reason:  "user does not have access to this MCP server",
+				})
+			}
 		}
 	}
 
-	// Verify user still has access to the server
-	if system.IsMCPServerID(req.MCPID) {
-		var server v1.MCPServer
-		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &server); err != nil {
-			pkgLog.Infof("Denied API key auth request: reason=mcp_server_not_found keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
-			return apiContext.Write(apiKeyAuthResponse{
-				Allowed: false,
-				Reason:  "MCP server not found",
-			})
-		}
-
-		hasAccess, err := s.userHasAccessToMCPServerByUserID(apiContext, &server, apiKey.UserID)
-		if err != nil {
-			pkgLog.Infof("Denied API key auth request: reason=access_check_failed keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
-			return apiContext.Write(apiKeyAuthResponse{
-				Allowed: false,
-				Reason:  fmt.Sprintf("failed to verify access: %v", err),
-			})
-		}
-		if !hasAccess {
-			pkgLog.Infof("Denied API key auth request: reason=user_lost_mcp_access keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
-			return apiContext.Write(apiKeyAuthResponse{
-				Allowed: false,
-				Reason:  "user does not have access to this MCP server",
-			})
-		}
-	}
 	pkgLog.Debugf("Authorized API key request: keyUserID=%d mcpID=%s wildcardScope=%v", apiKey.UserID, req.MCPID, hasWildcard)
 
 	err = apiContext.Write(apiKeyAuthResponse{

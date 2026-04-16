@@ -113,6 +113,10 @@ func IsSystemMCPServerID(id string) bool {
 	return strings.HasPrefix(id, SystemMCPServerPrefix)
 }
 
+func IsWebhookSystemMCPServerID(id string) bool {
+	return strings.HasPrefix(id, SystemMCPServerPrefix+MCPWebhookValidationPrefix)
+}
+
 func IsModelID(id string) bool {
 	return strings.HasPrefix(id, ModelPrefix)
 }

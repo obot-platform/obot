@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -66,7 +67,7 @@ func (h *Handler) EnsureSecretInfo(req router.Request, _ router.Response) error 
 		}
 	}
 
-	secretCredToolName := secretInfoToolName(systemServer.Name)
+	secretCredToolName := SecretInfoToolName(systemServer.Name)
 
 	if systemServer.Status.AuditLogTokenHash != "" {
 		cred, err := h.gptClient.RevealCredential(req.Ctx, []string{systemServer.Name}, secretCredToolName)
@@ -168,7 +169,7 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 		return fmt.Errorf("failed to list credentials: %w", err)
 	}
 
-	secretToolName := secretInfoToolName(systemServer.Name)
+	secretToolName := SecretInfoToolName(systemServer.Name)
 	credEnv := make(map[string]string)
 	for _, cred := range creds {
 		// Skip the secret info credential — those vars go to the shim only, not the MCP server.
@@ -180,9 +181,8 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 		if err != nil {
 			continue
 		}
-		for k, v := range credDetail.Env {
-			credEnv[k] = v
-		}
+
+		maps.Copy(credEnv, credDetail.Env)
 	}
 
 	// Retrieve the token exchange credential
@@ -239,12 +239,23 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 // CleanupDeployment handles cleanup when SystemMCPServer is deleted
 func (h *Handler) CleanupDeployment(req router.Request, _ router.Response) error {
 	systemServer := req.Object.(*v1.SystemMCPServer)
+	creds, err := h.gptClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+		CredentialContexts: []string{systemServer.Name},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list credentials for %s system server cleanup: %w", systemServer.Name, err)
+	}
+
+	for _, cred := range creds {
+		if err := h.gptClient.DeleteCredential(req.Ctx, cred.Context, cred.ToolName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to delete credential %s: %w", cred.ToolName, err)
+		}
+	}
 
 	// Shutdown deployment via backend
 	// The backend's shutdownServer will remove the deployment (Docker container or K8s deployment)
-	err := h.mcpSessionManager.ShutdownServer(req.Ctx, systemServer.Name)
-	if err != nil {
-		return fmt.Errorf("failed to shutdown system MCP server: %w", err)
+	if err = h.mcpSessionManager.ShutdownServer(req.Ctx, systemServer.Name); err != nil {
+		return fmt.Errorf("failed to shutdown system MCP server %s: %w", systemServer.Name, err)
 	}
 
 	return nil
@@ -253,9 +264,9 @@ func (h *Handler) CleanupDeployment(req router.Request, _ router.Response) error
 // isSystemServerConfigured checks if all required configuration is present
 func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) bool {
 	// Check if all required env vars are configured
-	credCtx := server.Name
+	credCtx := []string{server.Name}
 	creds, err := gptClient.ListCredentials(ctx, gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{credCtx},
+		CredentialContexts: credCtx,
 	})
 	if err != nil {
 		log.Infof("Failed to list credentials for system MCP server %s configuration check: %v",
@@ -263,19 +274,18 @@ func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScrip
 		return false
 	}
 
-	secretToolName := secretInfoToolName(server.Name)
+	secretToolName := SecretInfoToolName(server.Name)
 	credEnv := make(map[string]string)
 	for _, cred := range creds {
 		if cred.ToolName == secretToolName {
 			continue
 		}
-		credDetail, err := gptClient.RevealCredential(ctx, []string{credCtx}, cred.ToolName)
+		credDetail, err := gptClient.RevealCredential(ctx, credCtx, cred.ToolName)
 		if err != nil {
 			continue
 		}
-		for k, v := range credDetail.Env {
-			credEnv[k] = v
-		}
+
+		maps.Copy(credEnv, credDetail.Env)
 	}
 
 	for _, env := range server.Spec.Manifest.Env {
@@ -289,12 +299,8 @@ func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScrip
 	return true
 }
 
-func secretInfoToolName(serverName string) string {
-	return serverName + "-secret-info"
-}
-
 // SecretInfoToolName returns the credential toolName used to store token exchange secrets
 // for the given system MCP server. Exported for use by API handlers.
 func SecretInfoToolName(serverName string) string {
-	return secretInfoToolName(serverName)
+	return serverName + "-secret-info"
 }
