@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"os"
 	"reflect"
 	"sort"
 	"strconv"
@@ -51,6 +52,7 @@ type kubernetesBackend struct {
 	obotClient                    kclient.Client
 	deploymentCacheMu             sync.RWMutex
 	deploymentCache               map[string]*kubernetesDeploymentCacheEntry
+	securityPolicyProvider        SecurityPolicyProvider
 }
 
 type kubernetesDeploymentCacheEntry struct {
@@ -64,7 +66,7 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 		serviceFQDN = fmt.Sprintf("%s.%s.svc.%s", opts.ServiceName, opts.ServiceNamespace, opts.MCPClusterDomain)
 	}
 
-	return &kubernetesBackend{
+	kb := &kubernetesBackend{
 		clientset:                     clientset,
 		client:                        client,
 		baseImage:                     opts.MCPBaseImage,
@@ -78,6 +80,12 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 		obotClient:                    obotClient,
 		deploymentCache:               map[string]*kubernetesDeploymentCacheEntry{},
 	}
+
+	if provider := os.Getenv("OBOT_SERVER_SECURITY_POLICY_PROVIDER"); provider == "aviatrix" {
+		kb.securityPolicyProvider = &aviatrixProvider{}
+	}
+
+	return kb
 }
 
 func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfig, webhooks []Webhook) error {
@@ -98,8 +106,14 @@ func (k *kubernetesBackend) deployServerObjects(ctx context.Context, server Serv
 
 	// Cleanup old deployments if it exists. Notice the server.Scope as the owner sub-context,
 	// which means that only objects with the same scope will be pruned.
-	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.Scope).WithPruneTypes(
+	pruneTypes := []kclient.Object{
 		new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service), new(corev1.PersistentVolumeClaim),
+	}
+	if k.securityPolicyProvider != nil {
+		pruneTypes = append(pruneTypes, k.securityPolicyProvider.PruneTypes()...)
+	}
+	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.Scope).WithPruneTypes(
+		pruneTypes...
 	).Apply(ctx, nil, nil); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to cleanup old MCP deployment %s: %w", server.MCPServerName, err)
 	}
@@ -355,8 +369,14 @@ func (k *kubernetesBackend) transformObotHostname(url string) string {
 }
 
 func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error {
-	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(id).WithPruneTypes(
+	pruneTypes := []kclient.Object{
 		new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service), new(corev1.PersistentVolumeClaim),
+	}
+	if k.securityPolicyProvider != nil {
+		pruneTypes = append(pruneTypes, k.securityPolicyProvider.PruneTypes()...)
+	}
+	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(id).WithPruneTypes(
+		pruneTypes...
 	).Apply(ctx, nil, nil); err != nil {
 		return fmt.Errorf("failed to delete MCP deployment %s: %w", id, err)
 	}
@@ -882,6 +902,15 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Type: corev1.ServiceTypeClusterIP,
 		},
 	})
+
+	// Generate security policy objects if provider is configured
+	if k.securityPolicyProvider != nil && server.SecurityPolicy != nil {
+		policyObjs, err := k.securityPolicyProvider.Objects(server, k.mcpNamespace)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate security policy for %s: %w", server.MCPServerName, err)
+		}
+		objs = append(objs, policyObjs...)
+	}
 
 	return objs, nil
 }

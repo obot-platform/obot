@@ -146,7 +146,8 @@ type MCPServerCatalogEntryManifest struct {
 	RemoteConfig        *RemoteCatalogConfig        `json:"remoteConfig,omitempty"`
 	CompositeConfig     *CompositeCatalogConfig     `json:"compositeConfig,omitempty"`
 
-	Env []MCPEnv `json:"env,omitempty"`
+	Env            []MCPEnv              `json:"env,omitempty"`
+	SecurityPolicy *SecurityPolicyConfig `json:"securityPolicy,omitempty"`
 }
 
 // ToolOverride defines how a single component tool is exposed by the composite server
@@ -214,7 +215,8 @@ type MCPServerManifest struct {
 	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
 	CompositeConfig     *CompositeRuntimeConfig     `json:"compositeConfig,omitempty"`
 
-	Env []MCPEnv `json:"env,omitempty"`
+	Env            []MCPEnv              `json:"env,omitempty"`
+	SecurityPolicy *SecurityPolicyConfig `json:"securityPolicy,omitempty"`
 
 	// Legacy fields that are deprecated, used only for cleaning up old servers
 	Command string      `json:"command,omitempty"`
@@ -223,6 +225,21 @@ type MCPServerManifest struct {
 	Headers []MCPHeader `json:"headers,omitempty"`
 
 	IdleShutdownIntervalHours int `json:"idleShutdownIntervalHours,omitempty"`
+}
+
+// SecurityPolicyConfig defines vendor-neutral security policy for an MCP server.
+type SecurityPolicyConfig struct {
+	Provider      string       `json:"provider"`
+	DefaultAction string       `json:"defaultAction"`
+	AllowedEgress []EgressRule `json:"allowedEgress,omitempty"`
+}
+
+type EgressRule struct {
+	Domains     []string `json:"domains,omitempty"`
+	CIDRs       []string `json:"cidrs,omitempty"`
+	Ports       []int    `json:"ports,omitempty"`
+	Protocol    string   `json:"protocol,omitempty"`
+	Description string   `json:"description,omitempty"`
 }
 
 type MCPServer struct {
@@ -394,6 +411,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		ToolPreview:      catalogEntry.ToolPreview,
 		Runtime:          catalogEntry.Runtime,
 		Env:              catalogEntry.Env,
+		SecurityPolicy:   catalogEntry.SecurityPolicy,
 	}
 
 	// Handle runtime-specific mapping
