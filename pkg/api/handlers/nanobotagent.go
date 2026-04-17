@@ -212,7 +212,7 @@ func (h *NanobotAgentHandler) Launch(req api.Context) error {
 		}
 		var errHTTP *types.ErrHTTP
 		if !errors.As(err, &errHTTP) || errHTTP.Code != http.StatusBadRequest ||
-			(!strings.Contains(errHTTP.Message, "NANOBOT_ENV_FILE") && !strings.Contains(errHTTP.Message, "NANOBOT_CONFIG_PATH")) {
+			(!strings.Contains(errHTTP.Message, "NANOBOT_ENV_FILE") && !strings.Contains(errHTTP.Message, "NANOBOT_CONFIG")) {
 			return err
 		}
 		select {
