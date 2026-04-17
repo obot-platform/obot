@@ -16,6 +16,7 @@ export interface MCPCatalogManifest {
 	displayName: string;
 	sourceURLs: string[];
 	allowedUserIDs: string[];
+	sourceURLCredentials?: Record<string, string>;
 }
 
 export interface MCPCatalog extends MCPCatalogManifest {

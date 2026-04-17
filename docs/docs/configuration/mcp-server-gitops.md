@@ -21,6 +21,32 @@ Obot supports managing MCP servers through Git repositories, enabling GitOps wor
 4. **Establish Review Workflows**: Set up branch protection rules and PR-based review processes for configuration changes
 5. **Automate Validation**: Implement CI/CD pipelines to validate YAML syntax and test server configurations
 
+## Adding a Git Source URL
+
+Administrators can add Git repositories as catalog sources from the **Admin → MCP Servers → Git Source URLs** tab. Click **Add server(s) from Git** and enter the repository URL.
+
+### Supported URL formats
+
+| Platform | Example |
+|---|---|
+| GitHub | `https://github.com/org/repo` or `https://github.com/org/repo.git` |
+| GitLab | `https://gitlab.com/org/repo` or `https://gitlab.com/org/repo.git` |
+| GitLab with subgroups | `https://gitlab.com/group/subgroup/repo.git` |
+| Self-hosted | `https://git.example.com/org/repo.git` |
+
+For GitHub and GitLab a `.git` suffix is optional. For self-hosted instances it is required.
+
+### Private repositories
+
+To pull from a private repository, enter a **Personal access token** in the optional field below the URL. The token is stored securely and never returned by the API after saving.
+
+**Required token scopes:**
+
+- **GitHub**: `repo` (read access is sufficient)
+- **GitLab**: `read_repository` (clone access) + `read_api` (pre-clone size check)
+
+If no per-URL token is configured, Obot falls back to the `GITHUB_AUTH_TOKEN` environment variable for GitHub repositories.
+
 ## Configuration Format
 
 MCP server configurations consist of individual YAML files, each defining a single MCP server. These files contain comprehensive metadata including:

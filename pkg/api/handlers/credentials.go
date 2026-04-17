@@ -37,7 +37,7 @@ func DeleteCredential(req api.Context) error {
 		context = req.Namespace()
 	}
 	err := req.GPTClient.DeleteCredential(req.Context(), context, id)
-	if notFound := (*gptscript.ErrNotFound)(nil); errors.As(err, &notFound) {
+	if notFound := (gptscript.ErrNotFound{}); errors.As(err, &notFound) {
 		return nil
 	}
 	return err

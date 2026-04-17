@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
 	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
@@ -80,7 +82,12 @@
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	let defaultCatalog = $state<MCPCatalog>();
-	let editingSource = $state<{ index: number; value: string }>();
+	let editingSource = $state<{
+		index: number;
+		value: string;
+		token: string;
+		clearToken?: boolean;
+	}>();
 	let sourceDialog = $state<HTMLDialogElement>();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 
@@ -278,6 +285,14 @@
 					{query}
 					{syncing}
 					onSync={sync}
+					onEdit={(url, index) => {
+						editingSource = {
+							index,
+							value: url,
+							token: ''
+						};
+						sourceDialog?.showModal();
+					}}
 				/>
 			{:else if view === 'deployments'}
 				<DeploymentsView
@@ -369,7 +384,8 @@
 			onclick={() => {
 				editingSource = {
 					index: -1,
-					value: ''
+					value: '',
+					token: ''
 				};
 				sourceDialog?.showModal();
 			}}
@@ -390,14 +406,55 @@
 			</h3>
 
 			<div class="my-4 flex flex-col gap-1">
-				<label for="catalog-source-name" class="flex-1 text-sm font-light capitalize"
-					>Source URL
+				<label for="catalog-source-name" class="flex flex-1 items-center gap-1 text-sm font-light">
+					Source URL
+					<span
+						use:tooltip={{
+							text: 'Supported formats:\n• https://github.com/org/repo\n• https://gitlab.com/org/repo\n• https://gitlab.com/group/subgroup/repo.git\n• https://self-hosted.example.com/org/repo.git\n\nFor GitHub and GitLab a .git suffix is optional. For self-hosted instances it is required.',
+							classes: ['max-w-md', 'whitespace-pre-line'],
+							disablePortal: true
+						}}
+					>
+						<Info class="text-surface3 size-3.5" />
+					</span>
 				</label>
 				<input
 					id="catalog-source-name"
 					bind:value={editingSource.value}
 					class="text-input-filled"
 				/>
+			</div>
+
+			<div class="mb-4 flex flex-col gap-1">
+				<div class="flex items-center justify-between">
+					<label for="catalog-source-token" class="text-sm font-light"
+						>Personal access token (optional)
+					</label>
+					{#if editingSource.index >= 0 && defaultCatalog?.sourceURLCredentials?.[defaultCatalog?.sourceURLs?.[editingSource.index]] === '*' && !editingSource.clearToken}
+						<button
+							class="text-xs text-red-500 hover:underline dark:text-red-400"
+							onclick={() => {
+								if (editingSource) editingSource.clearToken = true;
+							}}
+						>
+							Clear token
+						</button>
+					{/if}
+				</div>
+				{#if editingSource.clearToken}
+					<p class="text-surface3 text-xs">Token will be removed on save.</p>
+				{:else}
+					<SensitiveInput
+						name="catalog-source-token"
+						placeholder={editingSource.index >= 0 &&
+						defaultCatalog?.sourceURLCredentials?.[
+							defaultCatalog?.sourceURLs?.[editingSource.index]
+						] === '*'
+							? 'Token is set — enter a new value to replace it'
+							: ''}
+						bind:value={editingSource.token}
+					/>
+				{/if}
 			</div>
 
 			{#if sourceError}
@@ -432,7 +489,36 @@
 									editingSource.value
 								];
 							} else {
+								const oldUrl = defaultCatalog.sourceURLs[editingSource.index];
 								updatingCatalog.sourceURLs[editingSource.index] = editingSource.value;
+
+								// If the URL changed and the old URL had a credential, remap the
+								// credentials key so the backend can transfer it to the new URL.
+								if (
+									oldUrl !== editingSource.value &&
+									updatingCatalog.sourceURLCredentials?.[oldUrl] === '*'
+								) {
+									updatingCatalog.sourceURLCredentials = {
+										...updatingCatalog.sourceURLCredentials,
+										[editingSource.value]: '*'
+									};
+									delete updatingCatalog.sourceURLCredentials[oldUrl];
+								}
+							}
+
+							// Send a credential update only when the user typed a new token or
+							// explicitly clicked "Clear token". Leaving the field empty leaves
+							// any existing credential unchanged.
+							if (editingSource.clearToken) {
+								updatingCatalog.sourceURLCredentials = {
+									...(updatingCatalog.sourceURLCredentials ?? {}),
+									[editingSource.value]: ''
+								};
+							} else if (editingSource.token) {
+								updatingCatalog.sourceURLCredentials = {
+									...(updatingCatalog.sourceURLCredentials ?? {}),
+									[editingSource.value]: editingSource.token
+								};
 							}
 
 							const response = await AdminService.updateMCPCatalog(
@@ -452,7 +538,7 @@
 						}
 					}}
 				>
-					Add
+					{editingSource.index === -1 ? 'Add' : 'Save'}
 				</button>
 			</div>
 		{/if}

@@ -3,6 +3,8 @@ package mcpcatalog
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	gptscript "github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
@@ -33,6 +36,19 @@ import (
 
 var log = logger.Package()
 
+// CatalogCredentialContext returns the GPTScript credential context for a catalog,
+// keyed by its UID so it remains unique even if catalog names are reused.
+func CatalogCredentialContext(catalogUID string) string {
+	return "catalog-" + catalogUID
+}
+
+// CatalogCredentialToolName returns a stable GPTScript tool name for a source URL,
+// using a short hex prefix of its SHA-256 hash.
+func CatalogCredentialToolName(sourceURL string) string {
+	sum := sha256.Sum256([]byte(sourceURL))
+	return "source-" + hex.EncodeToString(sum[:8])
+}
+
 const (
 	// These are used to force catalog sync on startup, used for times when changes are made to
 	// catalogs, and they must be synced on the next start.
@@ -43,13 +59,33 @@ const (
 
 type Handler struct {
 	defaultCatalogPath      string
+	gptClient               *gptscript.GPTScript
 	gatewayClient           *gclient.Client
 	accessControlRuleHelper *accesscontrolrule.Helper
 }
 
-func New(defaultCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper) *Handler {
+// revealCatalogCredential retrieves a stored PAT for the given source URL.
+// Returns an empty string if no credential is configured (not-found). Any other
+// error is logged so credential-store failures are visible in the sync status.
+func (h *Handler) revealCatalogCredential(ctx context.Context, catalogUID, sourceURL string) string {
+	cred, err := h.gptClient.RevealCredential(ctx,
+		[]string{CatalogCredentialContext(catalogUID)},
+		CatalogCredentialToolName(sourceURL),
+	)
+	if err != nil {
+		var notFound gptscript.ErrNotFound
+		if !errors.As(err, &notFound) {
+			log.Errorf("failed to retrieve credential for catalog %s source %s: %v", catalogUID, sourceURL, err)
+		}
+		return ""
+	}
+	return cred.Env["TOKEN"]
+}
+
+func New(defaultCatalogPath string, gptClient *gptscript.GPTScript, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper) *Handler {
 	return &Handler{
 		defaultCatalogPath:      defaultCatalogPath,
+		gptClient:               gptClient,
 		gatewayClient:           gatewayClient,
 		accessControlRuleHelper: accessControlRuleHelper,
 	}
@@ -90,7 +126,8 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
-		objs, err := h.readMCPCatalog(mcpCatalog.Name, sourceURL)
+		token := h.revealCatalogCredential(req.Ctx, string(mcpCatalog.UID), sourceURL)
+		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token)
 		if err != nil {
 			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
@@ -137,19 +174,26 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
 }
 
-func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object, error) {
+func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, error) {
 	var entries []types.MCPServerCatalogEntryManifest
 
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
-		if isGitHubURL(sourceURL) {
+		if isGitRepoURL(sourceURL) {
 			var err error
-			entries, err = readGitHubCatalog(sourceURL)
+			entries, err = readGitCatalog(ctx, sourceURL, token)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read GitHub catalog %s: %w", sourceURL, err)
+				return nil, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
 			}
 		} else {
-			// If it wasn't a GitHub repo, treat it as a raw file.
-			resp, err := http.Get(sourceURL)
+			// If it wasn't a git repo, treat it as a raw file.
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create request for catalog %s: %w", sourceURL, err)
+			}
+			if token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
+			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
