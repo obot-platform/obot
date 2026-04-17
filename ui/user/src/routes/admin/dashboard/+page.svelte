@@ -98,10 +98,10 @@
 	function topServersFromStats(stats: AuditLogUsageStats | undefined): TopServerUsageRow[] {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const counts = new Map<string, number>();
-		for (const s of stats?.items.filter(
+		for (const s of (stats?.items ?? []).filter(
 			(s) =>
 				!s.mcpServerDisplayName.startsWith('nba1') && !s.mcpServerDisplayName.startsWith('Obot ')
-		) ?? []) {
+		)) {
 			const total = (s.toolCalls ?? []).reduce((sum, t) => sum + t.callCount, 0);
 			if (total > 0) {
 				counts.set(s.mcpServerDisplayName, (counts.get(s.mcpServerDisplayName) ?? 0) + total);
