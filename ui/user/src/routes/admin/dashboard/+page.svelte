@@ -465,7 +465,9 @@
 							{/each}
 						</div>
 					{:else if topToolCalls.length === 0}
-						<p class="text-xs text-on-surface1 pt-2 font-light text-center">
+						<p
+							class="text-xs text-on-surface1 pt-2 font-light grow flex items-center justify-center h-full text-center"
+						>
 							No recent tool calls.
 						</p>
 					{:else}
@@ -502,8 +504,8 @@
 						Frequently Used Servers
 						<span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
 					</h4>
-					<div class="pt-2 flex flex-col gap-4 w-full">
-						{#if loadingToolUsage}
+					{#if loadingToolUsage}
+						<div class="pt-2 flex flex-col gap-4 w-full">
 							{#each Array.from({ length: TOP_TOOLS_LIMIT }) as _, i (i)}
 								<div class="flex gap-2 items-center animate-pulse w-full">
 									<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
@@ -513,11 +515,15 @@
 									</div>
 								</div>
 							{/each}
-						{:else if topServerUsage.length === 0}
-							<p class="text-xs text-on-surface1 pt-2 font-light text-center">
-								No recent server calls.
-							</p>
-						{:else}
+						</div>
+					{:else if topServerUsage.length === 0}
+						<p
+							class="text-xs text-on-surface1 pt-2 font-light grow flex items-center justify-center h-full text-center"
+						>
+							No recent server calls.
+						</p>
+					{:else}
+						<div class="pt-2 flex flex-col gap-4 w-full">
 							<ul class="pt-2 flex flex-col gap-2">
 								{#each topServerUsage as row (row.serverName)}
 									<li class="flex gap-2 items-center">
@@ -533,8 +539,8 @@
 									</li>
 								{/each}
 							</ul>
-						{/if}
-					</div>
+						</div>
+					{/if}
 					<div class="flex grow min-h-0"></div>
 					{#if topServerUsage.length > 0}
 						<a
@@ -698,7 +704,9 @@
 							{/each}
 						</div>
 					{:else}
-						<p class="text-xs text-on-surface1 pt-2 font-light text-center">
+						<p
+							class="text-xs text-on-surface1 pt-2 font-light text-center h-full flex items-center justify-center"
+						>
 							No servers have been deployed yet.
 						</p>
 					{/if}
