@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => {
 	return {
 		server: {
 			port: 5174,
+			allowedHosts: mode !== 'production' ? ['obot.obot-mcp.svc.cluster.local'] : [],
 			proxy: {
 				'/api': proxyConfig,
 				'/oauth2': proxyConfig

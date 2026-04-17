@@ -1,21 +1,35 @@
 package wellknown
 
 import (
+	"net/url"
+	"strings"
+
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/server"
 )
 
 type handler struct {
-	baseURL        string
-	config         handlers.OAuthAuthorizationServerConfig
-	registryNoAuth bool
+	baseURL         string
+	internalBaseURL string
+	internalHost    string
+	config          handlers.OAuthAuthorizationServerConfig
+	registryNoAuth  bool
 }
 
-func SetupHandlers(baseURL string, config handlers.OAuthAuthorizationServerConfig, registryNoAuth bool, mux *server.Server) {
+func SetupHandlers(baseURL, internalBaseURL string, config handlers.OAuthAuthorizationServerConfig, registryNoAuth bool, mux *server.Server) {
+	internalBaseURL = strings.TrimSuffix(internalBaseURL, "/")
+	var internalHost string
+	if internalBaseURL != "" {
+		if u, err := url.Parse(internalBaseURL); err == nil {
+			internalHost = u.Hostname()
+		}
+	}
 	h := &handler{
-		baseURL:        baseURL,
-		config:         config,
-		registryNoAuth: registryNoAuth,
+		baseURL:         baseURL,
+		internalBaseURL: internalBaseURL,
+		internalHost:    internalHost,
+		config:          config,
+		registryNoAuth:  registryNoAuth,
 	}
 
 	mux.HandleFunc("GET /.well-known/oauth-protected-resource/mcp-connect/{mcp_id}", h.oauthProtectedResource)
