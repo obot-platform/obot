@@ -387,10 +387,12 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 	}
 
 	var (
-		mcpID           string
-		userID          string
-		tokenCtx        *persistent.TokenContext
-		apiKeyExpiresAt *time.Time
+		mcpID             string
+		userID            string
+		tokenCtx          *persistent.TokenContext
+		apiKeyExpiresAt   *time.Time
+		mcpServer         *v1.MCPServer
+		mcpServerInstance *v1.MCPServerInstance
 	)
 
 	if subjectTokenType == tokenTypeAPIKey {
@@ -452,17 +454,58 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		}
 	}
 
-	// Ephemeral OAuth clients don't have an MCP server in the database. They are for generating tool previews.
-	if !oauthClient.Spec.Ephemeral && system.IsMCPServerID(mcpID) {
-		var mcpServer v1.MCPServer
-		if err := req.Get(&mcpServer, mcpID); err != nil {
-			return types.NewErrBadRequest("%v", Error{
-				Code:        ErrInvalidRequest,
-				Description: "failed to retrieve MCP server " + mcpID,
-			})
+	if !oauthClient.Spec.Ephemeral {
+		switch {
+		case system.IsMCPServerID(mcpID):
+			mcpServer = new(v1.MCPServer)
+			if err := req.Get(mcpServer, mcpID); err != nil {
+				return types.NewErrBadRequest("%v", Error{
+					Code:        ErrInvalidRequest,
+					Description: "failed to retrieve MCP server " + mcpID,
+				})
+			}
+		case system.IsMCPServerInstanceID(mcpID):
+			mcpServerInstance = new(v1.MCPServerInstance)
+			if err := req.Get(mcpServerInstance, mcpID); err != nil {
+				return types.NewErrBadRequest("%v", Error{
+					Code:        ErrInvalidRequest,
+					Description: "failed to retrieve MCP server instance " + mcpID,
+				})
+			}
 		}
+	}
 
-		_, resourceMCPID, isConnectURL := strings.Cut(resource, "/mcp-connect/")
+	_, resourceMCPID, isConnectURL := strings.Cut(resource, "/mcp-connect/")
+
+	// If this is an MCP server (validated by the IsMCPServerID check above), and it is trying to call
+	// a webhook system MCP server, then return a valid token for that system MCP server after validating
+	// that the system MCP server exists.
+	// If the server doesn't exist, then let the logic fall-through to the normal token exchange logic.
+	if isConnectURL && system.IsWebhookSystemMCPServerID(resourceMCPID) {
+		var systemMCPServer v1.SystemMCPServer
+		if err := req.Get(&systemMCPServer, resourceMCPID); err == nil {
+			token, expiresAt, err := h.getTokenForConnectResource(req.Context(), subjectTokenType, subjectToken, apiKeyExpiresAt, tokenCtx, resourceMCPID, resourceMCPID)
+			if err != nil {
+				return err
+			}
+
+			log.Infof("Issued token-exchange response for webhook system MCP server: client=%s mcpID=%s audienceResource=%s subjectTokenType=%s", oauthClient.Name, mcpID, resource, subjectTokenType)
+			return req.Write(TokenExchangeResponse{
+				AccessToken:     token,
+				IssuedTokenType: tokenTypeAccessToken,
+				TokenType:       "Bearer",
+				ExpiresIn:       max(int(time.Until(expiresAt).Seconds()), 0),
+			})
+		} else if !apierrors.IsNotFound(err) {
+			return Error{
+				Code:        ErrInvalidRequest,
+				Description: fmt.Sprintf("failed to retrieve system MCP server %s: %v", resourceMCPID, err),
+			}
+		}
+	}
+
+	// Ephemeral OAuth clients don't have an MCP server in the database. They are for generating tool previews.
+	if !oauthClient.Spec.Ephemeral && mcpServer != nil {
 		if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
 			audienceID := resourceMCPID
 
@@ -521,34 +564,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 				ExpiresIn:       max(int(time.Until(expiresAt).Seconds()), 0),
 			})
 		}
-
-		// If this is an MCP server (validated by the IsMCPServerID check above), and it is trying to call
-		// a webhook system MCP server, then return a valid token for that system MCP server after validating
-		// that the system MCP server exists.
-		// If the server doesn't exist, then let the logic fall-through to the normal token exchange logic.
-		if isConnectURL && system.IsWebhookSystemMCPServerID(resourceMCPID) {
-			var systemMCPServer v1.SystemMCPServer
-			if err := req.Get(&systemMCPServer, resourceMCPID); err == nil {
-				token, expiresAt, err := h.getTokenForConnectResource(req.Context(), subjectTokenType, subjectToken, apiKeyExpiresAt, tokenCtx, resourceMCPID, resourceMCPID)
-				if err != nil {
-					return err
-				}
-
-				log.Infof("Issued token-exchange response for webhook system MCP server: client=%s mcpID=%s audienceResource=%s subjectTokenType=%s", oauthClient.Name, mcpID, resource, subjectTokenType)
-				return req.Write(TokenExchangeResponse{
-					AccessToken:     token,
-					IssuedTokenType: tokenTypeAccessToken,
-					TokenType:       "Bearer",
-					ExpiresIn:       max(int(time.Until(expiresAt).Seconds()), 0),
-				})
-			} else if !apierrors.IsNotFound(err) {
-				return Error{
-					Code:        ErrInvalidRequest,
-					Description: fmt.Sprintf("failed to retrieve system MCP server %s: %v", resourceMCPID, err),
-				}
-			}
-		}
-	} else if system.IsMCPServerInstanceID(mcpID) {
+	} else if mcpServerInstance != nil {
 		return types.NewErrNotFound("no token exchange for %s", resource)
 	} else if mcpID == system.ObotMCPServerName {
 		// Return a new token that represents the user, so that the Obot MCP server can make API calls to Obot on behalf of the user.
