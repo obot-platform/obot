@@ -142,6 +142,68 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	}
 
 	body["model"] = model
+
+	// Evaluate message policies (same logic as llmProviderProxy.proxy).
+	var (
+		outputPolicies         []messagepolicy.ApplicablePolicy
+		conversationHistory    []messagepolicy.ConversationMessage
+		inputPolicyReplacement string
+	)
+	messagePolicyHelper := s.messagePolicyHelper
+	if shouldSkipMessagePolicyEnforcement(req.Request) {
+		messagePolicyHelper = nil
+	}
+	if messagePolicyHelper != nil && token.UserID != "" {
+		userInfo := &user.DefaultInfo{
+			UID:    token.UserID,
+			Groups: token.UserGroups,
+		}
+
+		var inputPolicies []messagepolicy.ApplicablePolicy
+		inputPolicies, err = messagePolicyHelper.GetApplicablePolicies(userInfo, types2.PolicyDirectionUserMessage)
+		if err != nil {
+			return fmt.Errorf("failed to get applicable input policies: %w", err)
+		}
+
+		if len(inputPolicies) > 0 {
+			rawMessages := extractRawMessages(body)
+			if len(rawMessages) > 0 {
+				history, lastUserMsg, lastUserIdx := parseMessagesFromBody(rawMessages)
+				if lastUserIdx == len(rawMessages)-1 {
+					violations := messagePolicyHelper.EvaluateMessage(req.Context(), inputPolicies, history, lastUserMsg, types2.PolicyDirectionUserMessage)
+					if len(violations) > 0 {
+						blockedContent, _ := json.Marshal(map[string]string{"message": lastUserMsg})
+						for _, v := range violations {
+							logViolation(req.Context(), req.GatewayClient, v, token.UserID, string(types2.PolicyDirectionUserMessage), blockedContent, token.ProjectID, token.ThreadID)
+						}
+
+						var explanations []string
+						for _, v := range violations {
+							explanations = append(explanations, v.Explanation)
+						}
+
+						llmReplacement := `Please respond to the user with exactly: "Sorry, I can't help with that."`
+						userReplacement := fmt.Sprintf("[policy-violation] %s", strings.Join(explanations, "\n"))
+
+						if msgMap, ok := rawMessages[lastUserIdx].(map[string]any); ok {
+							msgMap["content"] = llmReplacement
+							inputPolicyReplacement = userReplacement
+						}
+					}
+				}
+			}
+		}
+
+		outputPolicies, err = messagePolicyHelper.GetApplicablePolicies(userInfo, types2.PolicyDirectionToolCalls)
+		if err != nil {
+			return fmt.Errorf("failed to get applicable output policies: %w", err)
+		}
+		if len(outputPolicies) > 0 {
+			rawMessages := extractRawMessages(body)
+			conversationHistory, _, _ = parseMessagesFromBody(rawMessages)
+		}
+	}
+
 	b, err := json.Marshal(body)
 	if err != nil {
 		return err
@@ -171,11 +233,17 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	(&httputil.ReverseProxy{
 		Director: llmTransformRequest(u, credEnv),
 		ModifyResponse: (&responseModifier{
-			userID:        token.UserID,
-			runID:         token.RunID,
-			model:         model,
-			client:        req.GatewayClient,
-			personalToken: personalToken,
+			userID:                 token.UserID,
+			runID:                  token.RunID,
+			model:                  model,
+			client:                 req.GatewayClient,
+			personalToken:          personalToken,
+			projectID:              token.ProjectID,
+			threadID:               token.ThreadID,
+			inputPolicyReplacement: inputPolicyReplacement,
+			messagePolicyHelper:    messagePolicyHelper,
+			outputPolicies:         outputPolicies,
+			conversationHistory:    conversationHistory,
 		}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
