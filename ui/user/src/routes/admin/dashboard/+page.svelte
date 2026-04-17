@@ -78,13 +78,19 @@
 				count,
 				serverDisplayName
 			}))
+			.filter(
+				(t) => !t.serverDisplayName.startsWith('nba1') && !t.serverDisplayName.startsWith('Obot ')
+			)
 			.sort((a, b) => b.count - a.count);
 	}
 
 	function topServersFromStats(stats: AuditLogUsageStats | undefined): TopServerUsageRow[] {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const counts = new Map<string, number>();
-		for (const s of stats?.items.filter((s) => !s.mcpServerDisplayName.startsWith('nba1')) ?? []) {
+		for (const s of stats?.items.filter(
+			(s) =>
+				!s.mcpServerDisplayName.startsWith('nba1') && !s.mcpServerDisplayName.startsWith('Obot ')
+		) ?? []) {
 			const total = (s.toolCalls ?? []).reduce((sum, t) => sum + t.callCount, 0);
 			if (total > 0) {
 				counts.set(s.mcpServerDisplayName, (counts.get(s.mcpServerDisplayName) ?? 0) + total);
@@ -544,13 +550,13 @@
 					<h4 class="font-semibold">Active Servers</h4>
 
 					<div class="mb-2 flex flex-col justify-center items-center gap-2">
-						<div class="text-xs">Total Currently Active</div>
 						<div class="flex w-full gap-2 items-center justify-center">
 							<div class="text-3xl font-semibold">
 								<TweenedMetric holdAtZero={serverAndEntries.loading} target={totalServers} />
 							</div>
 							<Server class="size-8 text-primary" />
 						</div>
+						<div class="text-xs">Total Currently Active</div>
 					</div>
 
 					<div class="h-px w-full bg-surface2 mb-4"></div>
