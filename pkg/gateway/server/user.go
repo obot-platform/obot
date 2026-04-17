@@ -1,15 +1,12 @@
 package server
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -368,44 +365,20 @@ func (s *Server) listAuthGroups(apiContext api.Context) error {
 		return fmt.Errorf("failed to list auth groups: %v", err)
 	}
 
-	if apiContext.URL.Query().Get("includeRestricted") != "true" {
-		// Remove restricted groups from the results
-		groups, err = s.restrictGroups(apiContext.Context(), apiContext.GPTClient, namespace, name, groups)
-		if err != nil {
-			return fmt.Errorf("failed to restrict groups: %v", err)
+	pkgLog.Infof("Listed auth provider groups: provider=%s/%s groups=%d", namespace, name, len(groups))
+
+	if userIsBasicOrPower(apiContext.User) {
+		trimmedGroups := make([]types.Group, 0, len(groups))
+		for _, group := range groups {
+			trimmedGroups = append(trimmedGroups, types.Group{
+				ID:   group.ID,
+				Name: group.Name,
+			})
 		}
+		return apiContext.Write(trimmedGroups)
 	}
-	pkgLog.Infof("Listed auth provider groups: provider=%s/%s groups=%d includeRestricted=%v", namespace, name, len(groups), apiContext.URL.Query().Get("includeRestricted") == "true")
 
 	return apiContext.Write(groups)
-}
-
-// restrictGroups removes all restricted groups from the given slice and returns the modified result.
-// Restrictions are determined by the configuration of the specific auth provider.
-// Currently, only the GitHub auth provider supports group restrictions.
-func (s *Server) restrictGroups(ctx context.Context, gptscriptClient *gptscript.GPTScript, authProviderNamespace, authProviderName string, groups []types.Group) ([]types.Group, error) {
-	if authProviderName != "github-auth-provider" {
-		// Only GitHub auth provider expose org restriction for now
-		return groups, nil
-	}
-
-	allowedOrg, err := s.dispatcher.GetAuthProviderConfigEnv(ctx, gptscriptClient, authProviderNamespace, authProviderName, "OBOT_GITHUB_AUTH_PROVIDER_ORG")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get org restriction: %v", err)
-	}
-
-	if allowedOrg == "" {
-		// All orgs allowed
-		return groups, nil
-	}
-
-	allowedOrg = strings.ToLower(allowedOrg)
-	groups = slices.DeleteFunc(groups, func(group types.Group) bool {
-		org, _, _ := strings.Cut(group.Name, "/")
-		return strings.ToLower(org) != allowedOrg
-	})
-
-	return groups, nil
 }
 
 func userIsBasicOrPower(u user.Info) bool {

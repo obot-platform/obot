@@ -9283,13 +9283,6 @@ func schema_obot_platform_obot_apiclient_types_PublishedArtifact(ref common.Refe
 							Format:  "int32",
 						},
 					},
-					"visibility": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
 					"versions": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -9304,7 +9297,7 @@ func schema_obot_platform_obot_apiclient_types_PublishedArtifact(ref common.Refe
 						},
 					},
 				},
-				Required: []string{"Metadata", "PublishedArtifactManifest", "authorID", "latestVersion", "visibility"},
+				Required: []string{"Metadata", "PublishedArtifactManifest", "authorID", "latestVersion"},
 			},
 		},
 		Dependencies: []string{
@@ -9413,12 +9406,25 @@ func schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionEntry(ref
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
+					"subjects": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Subject"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"version", "blobKey", "createdAt"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.Subject", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -9447,12 +9453,25 @@ func schema_obot_platform_obot_apiclient_types_PublishedArtifactVersionSummary(r
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
+					"subjects": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Subject"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"version", "createdAt"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.Subject", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -19660,7 +19679,7 @@ func schema_storage_apis_obotobotai_v1_PublishedArtifactSpec(ref common.Referenc
 					},
 					"visibility": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Visibility controls who can see this artifact.",
+							Description: "LegacyVisibility is retained only so old stored artifacts can be migrated.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

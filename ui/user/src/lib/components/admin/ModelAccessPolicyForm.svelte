@@ -185,9 +185,8 @@
 			promises[0] = AdminService.listUsers();
 		}
 		if (!usersAndGroups?.groups) {
-			// Include restricted groups in the results so that groups added to polcies before the group
-			// restriction was configured are still visible in the UI.
-			promises[1] = AdminService.listGroups({ includeRestricted: true });
+			// Load groups when they have not already been fetched.
+			promises[1] = AdminService.listGroups();
 		}
 
 		Promise.all(promises)
