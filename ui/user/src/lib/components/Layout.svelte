@@ -55,7 +55,8 @@
 		CircleQuestionMark,
 		ShieldAlert,
 		ShieldX,
-		Bot
+		Bot,
+		LayoutDashboard
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -172,6 +173,12 @@
 	let navLinks = $derived<NavLink[]>(
 		profile.current.hasAdminAccess?.()
 			? [
+					{
+						id: 'mcp-dashboard',
+						icon: LayoutDashboard,
+						label: 'Dashboard',
+						href: '/admin/dashboard'
+					},
 					{
 						id: 'mcp-server-management',
 						icon: RadioTower,

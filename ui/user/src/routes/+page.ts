@@ -27,7 +27,7 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 
 		const agentLinkEnabled = isAgentEnabled(defaultModelAliases);
 		const defaultRoute = isAdminOrOwner
-			? '/admin/mcp-servers'
+			? '/admin/dashboard'
 			: version?.nanobotIntegration && agentLinkEnabled
 				? '/agent'
 				: '/mcp-servers';
