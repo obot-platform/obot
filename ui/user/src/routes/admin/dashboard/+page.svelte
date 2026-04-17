@@ -318,11 +318,11 @@
 </script>
 
 <Layout title="Dashboard" classes={{ childrenContainer: 'max-w-none', container: '' }}>
-	<div class="grid grid-cols-12 gap-4">
-		<div class="flex flex-col md:col-span-8 col-span-12 gap-4">
+	<div class="@container grid grid-cols-12 gap-4">
+		<div class="flex flex-col col-span-12 @min-[768px]:col-span-8 gap-4">
 			<!-- this token usage graph-->
 			<div class="grid grid-cols-12 gap-4">
-				<div class="md:col-span-4 col-span-12">
+				<div class="col-span-12 @min-[768px]:col-span-4">
 					<div class="paper gap-2">
 						<div class="text-xs text-on-surface1 flex items-center gap-1">
 							Total Users
@@ -344,7 +344,7 @@
 						</a>
 					</div>
 				</div>
-				<div class="md:col-span-4 col-span-12">
+				<div class="col-span-12 @min-[768px]:col-span-4">
 					<div class="paper gap-2">
 						<div class="text-xs text-on-surface1 flex items-center gap-1">
 							Monthly Active Users
@@ -361,7 +361,7 @@
 						<div class="text-xs text-on-surface1">Last 30 Days</div>
 					</div>
 				</div>
-				<div class="md:col-span-4 col-span-12">
+				<div class="col-span-12 @min-[768px]:col-span-4">
 					<div class="paper gap-2">
 						<div class="text-xs text-on-surface1 flex items-center gap-1">
 							Total Tokens
@@ -447,7 +447,7 @@
 			{/if}
 
 			<div class="grid grid-cols-12 gap-4 grow">
-				<div class="paper h-full gap-1 md:col-span-6 col-span-12 flex flex-col min-h-72">
+				<div class="paper h-full gap-1 col-span-12 @min-[768px]:col-span-6 flex flex-col min-h-72">
 					<h4 class="flex items-center gap-2 font-semibold mb-1">
 						Recently Popular Tools
 						<span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
@@ -499,7 +499,7 @@
 						</a>
 					{/if}
 				</div>
-				<div class="paper h-full gap-1 md:col-span-6 col-span-12 flex flex-col min-h-72">
+				<div class="paper h-full gap-1 col-span-12 @min-[768px]:col-span-6 flex flex-col min-h-72">
 					<h4 class="flex items-center gap-2 font-semibold mb-1">
 						Frequently Used Servers
 						<span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
@@ -553,7 +553,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="md:col-span-4 col-span-12 flex flex-col gap-4">
+		<div class="col-span-12 @min-[768px]:col-span-4 flex flex-col gap-4">
 			{#if serverAndEntries.loading}
 				<div class="bg-surface3 h-[530px] animate-pulse rounded-md"></div>
 				<div class="paper gap-1 flex grow">
