@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import TweenedMetric from '$lib/components/TweenedMetric.svelte';
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
+	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { formatNumber } from '$lib/format';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -11,6 +13,7 @@
 	import {
 		AdminService,
 		type AuditLogUsageStats,
+		type LaunchServerType,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser,
@@ -19,9 +22,10 @@
 		type TotalTokenUsage
 	} from '$lib/services';
 	import { errors, mcpServersAndEntries } from '$lib/stores';
+	import { goto } from '$lib/url';
 	import { aggregateTimelineDataByBucket, getUserLabels } from '../token-usage/utils';
 	import { isWithinInterval, set, subMonths } from 'date-fns';
-	import { Activity, ChevronRight, Coins, Server, Users, Wrench } from 'lucide-svelte';
+	import { Activity, ChevronRight, Coins, Plus, Server, Users, Wrench } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -39,6 +43,13 @@
 
 	let mainChartData = $state<TokenUsageWithCategory[]>([]);
 	let usersMap = $derived(new Map(usersData.map((user) => [user.id, user])));
+
+	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
+
+	function handleSelectServerType(type: LaunchServerType) {
+		selectServerTypeDialog?.close();
+		goto(resolve(`/admin/mcp-servers?new=${type}`));
+	}
 
 	const DEFER_DATA_THRESHOLD = 400;
 	const TIMELINE_AGGREGATE_THRESHOLD = 500;
@@ -436,7 +447,7 @@
 			{/if}
 
 			<div class="grid grid-cols-12 gap-4 grow">
-				<div class="paper h-full gap-1 md:col-span-6 col-span-12 flex flex-col">
+				<div class="paper h-full gap-1 md:col-span-6 col-span-12 flex flex-col min-h-72">
 					<h4 class="flex items-center gap-2 font-semibold mb-1">
 						Recently Popular Tools
 						<span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
@@ -454,7 +465,9 @@
 							{/each}
 						</div>
 					{:else if topToolCalls.length === 0}
-						<p class="text-xs text-on-surface1 pt-2">No tool calls in the last 7 days.</p>
+						<p class="text-xs text-on-surface1 pt-2 font-light text-center">
+							No recent tool calls.
+						</p>
 					{:else}
 						<ul class="pt-2 flex flex-col gap-2">
 							{#each topToolCalls as row (row.compositeKey)}
@@ -475,20 +488,22 @@
 						</ul>
 					{/if}
 					<div class="flex grow min-h-0"></div>
-					<a
-						href={resolve('/admin/usage')}
-						class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
-					>
-						See All <ChevronRight class="size-3" />
-					</a>
+					{#if topToolCalls.length > 0}
+						<a
+							href={resolve('/admin/usage')}
+							class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
+						>
+							See All <ChevronRight class="size-3" />
+						</a>
+					{/if}
 				</div>
-				<div class="paper h-full gap-1 md:col-span-6 col-span-12 flex flex-col">
+				<div class="paper h-full gap-1 md:col-span-6 col-span-12 flex flex-col min-h-72">
 					<h4 class="flex items-center gap-2 font-semibold mb-1">
 						Frequently Used Servers
 						<span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
 					</h4>
-					{#if loadingToolUsage}
-						<div class="pt-2 flex flex-col gap-4 w-full">
+					<div class="pt-2 flex flex-col gap-4 w-full">
+						{#if loadingToolUsage}
 							{#each Array.from({ length: TOP_TOOLS_LIMIT }) as _, i (i)}
 								<div class="flex gap-2 items-center animate-pulse w-full">
 									<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
@@ -498,33 +513,37 @@
 									</div>
 								</div>
 							{/each}
-						</div>
-					{:else if topServerUsage.length === 0}
-						<p class="text-xs text-on-surface1 pt-2">No server tool calls in the last 7 days.</p>
-					{:else}
-						<ul class="pt-2 flex flex-col gap-2">
-							{#each topServerUsage as row (row.serverName)}
-								<li class="flex gap-2 items-center">
-									<div
-										class="size-8 items-center justify-center shrink-0 bg-surface1 dark:bg-surface2 rounded-md p-1 flex"
-									>
-										<Server class="size-6 opacity-65 shrink-0" />
-									</div>
-									<div class="flex flex-col gap-1 min-w-0">
-										<p class="text-sm font-medium truncate">{row.serverName}</p>
-										<p class="text-xs text-on-surface1">{formatNumber(row.count)} calls</p>
-									</div>
-								</li>
-							{/each}
-						</ul>
-					{/if}
+						{:else if topServerUsage.length === 0}
+							<p class="text-xs text-on-surface1 pt-2 font-light text-center">
+								No recent server calls.
+							</p>
+						{:else}
+							<ul class="pt-2 flex flex-col gap-2">
+								{#each topServerUsage as row (row.serverName)}
+									<li class="flex gap-2 items-center">
+										<div
+											class="size-8 items-center justify-center shrink-0 bg-surface1 dark:bg-surface2 rounded-md p-1 flex"
+										>
+											<Server class="size-6 opacity-65 shrink-0" />
+										</div>
+										<div class="flex flex-col gap-1 min-w-0">
+											<p class="text-sm font-medium truncate">{row.serverName}</p>
+											<p class="text-xs text-on-surface1">{formatNumber(row.count)} calls</p>
+										</div>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+					</div>
 					<div class="flex grow min-h-0"></div>
-					<a
-						href={resolve('/admin/usage')}
-						class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
-					>
-						See All <ChevronRight class="size-3" />
-					</a>
+					{#if topServerUsage.length > 0}
+						<a
+							href={resolve('/admin/usage')}
+							class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
+						>
+							See All <ChevronRight class="size-3" />
+						</a>
+					{/if}
 				</div>
 			</div>
 		</div>
@@ -546,31 +565,79 @@
 					</div>
 				</div>
 			{:else}
-				<div in:fade={{ duration: 150 }} class="paper">
-					<h4 class="font-semibold">Active Servers</h4>
-
-					<div class="mb-2 flex flex-col justify-center items-center gap-2">
-						<div class="flex w-full gap-2 items-center justify-center">
-							<div class="text-3xl font-semibold">
-								<TweenedMetric holdAtZero={serverAndEntries.loading} target={totalServers} />
+				<div in:fade={{ duration: 150 }} class="paper min-h-96">
+					{#if deployedCatalogEntryServers.length > 0 || deployedWorkspaceCatalogEntryServers.length > 0}
+						<h4 class="font-semibold">Active Servers</h4>
+						<div class="mb-2 flex flex-col justify-center items-center gap-2">
+							<div class="flex w-full gap-2 items-center justify-center">
+								<div class="text-3xl font-semibold">
+									<TweenedMetric holdAtZero={serverAndEntries.loading} target={totalServers} />
+								</div>
+								<Server class="size-8 text-primary" />
 							</div>
-							<Server class="size-8 text-primary" />
+							<div class="text-xs">Total Currently Active</div>
 						</div>
-						<div class="text-xs">Total Currently Active</div>
-					</div>
 
-					<div class="h-px w-full bg-surface2 mb-4"></div>
+						<div class="h-px w-full bg-surface2 mb-4"></div>
 
-					<DonutGraph class="h-72" donutRatio={0.65} data={graphData} />
+						<div class="h-72 flex flex-col items-center justify-center">
+							{#if graphData.some((g) => g.value > 0)}
+								<DonutGraph class="h-72" donutRatio={0.65} data={graphData} />
+							{:else}
+								<p class="font-light text-xs text-on-surface1 pt-2 text-center">
+									No servers have been deployed yet.
+								</p>
+							{/if}
+						</div>
 
-					<div class="flex justify-end">
-						<a
-							href={resolve('/admin/mcp-servers?view=deployments')}
-							class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-						>
-							See All <ChevronRight class="size-3" />
-						</a>
-					</div>
+						<div class="flex justify-end">
+							<a
+								href={resolve('/admin/mcp-servers?view=deployments')}
+								class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+							>
+								See All <ChevronRight class="size-3" />
+							</a>
+						</div>
+					{:else}
+						<div class="grow flex flex-col items-center justify-center gap-4">
+							<div>
+								<p class="text-sm text-center mb-1">
+									Looks like you don't have any servers created yet.
+								</p>
+								<p class="text-sm text-center">Click below to get started!</p>
+							</div>
+							<DotDotDot
+								class="button-primary w-full text-sm md:w-fit self-center"
+								placement="bottom"
+							>
+								{#snippet icon()}
+									<span class="flex items-center justify-center gap-1">
+										<Plus class="size-4" /> Add MCP Server
+									</span>
+								{/snippet}
+								<button
+									class="menu-button"
+									onclick={() => {
+										selectServerTypeDialog?.open();
+									}}
+								>
+									Add server
+								</button>
+								<button
+									class="menu-button"
+									onclick={() => {
+										// editingSource = {
+										// 	index: -1,
+										// 	value: ''
+										// };
+										// sourceDialog?.showModal();
+									}}
+								>
+									Add server(s) from Git
+								</button>
+							</DotDotDot>
+						</div>
+					{/if}
 				</div>
 				<div in:fade={{ duration: 150 }} class="paper gap-1 flex grow">
 					<h4 class="flex items-center gap-2 font-semibold">Most Deployed Servers</h4>
@@ -586,7 +653,7 @@
 								</div>
 							{/each}
 						</div>
-					{:else}
+					{:else if popularServers.length > 0}
 						<div class="pt-2 flex flex-col gap-2">
 							{#each popularServers as info (info.id)}
 								{@const icon =
@@ -630,19 +697,27 @@
 								</a>
 							{/each}
 						</div>
+					{:else}
+						<p class="text-xs text-on-surface1 pt-2 font-light text-center">
+							No servers have been deployed yet.
+						</p>
 					{/if}
 					<div class="flex grow"></div>
-					<a
-						href={resolve('/admin/mcp-servers')}
-						class="justify-end self-end text-[11px] translate-x-2 transition-colors duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-					>
-						See All <ChevronRight class="size-3" />
-					</a>
+					{#if popularServers.length > 0}
+						<a
+							href={resolve('/admin/mcp-servers')}
+							class="justify-end self-end text-[11px] translate-x-2 transition-colors duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+						>
+							See All <ChevronRight class="size-3" />
+						</a>
+					{/if}
 				</div>
 			{/if}
 		</div>
 	</div>
 </Layout>
+
+<SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={handleSelectServerType} />
 
 <svelte:head>
 	<title>Obot | Dashboard</title>
