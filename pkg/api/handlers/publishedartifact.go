@@ -26,6 +26,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -41,6 +42,12 @@ const (
 // errConcurrentCreate is returned by createNewArtifact when another request
 // created the same artifact first, signaling the retry loop to re-GET and update.
 var errConcurrentCreate = fmt.Errorf("concurrent create detected")
+
+type publishedArtifactUpdateRequest struct {
+	Description *string         `json:"description,omitempty"`
+	Version     *int            `json:"version,omitempty"`
+	Subjects    []types.Subject `json:"subjects,omitempty"`
+}
 
 type PublishedArtifactHandler struct {
 	blobStore blob.BlobStore
@@ -116,6 +123,7 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 		}
 
 		// Update existing artifact with a new version.
+		previousVersionSubjects := versionSubjects(&existing, existing.Spec.LatestVersion)
 		version := existing.Spec.LatestVersion + 1
 
 		// Stamp publish metadata into SKILL.md before uploading the next version.
@@ -146,6 +154,7 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 			BlobKey:     blobKey,
 			Description: manifest.Description,
 			CreatedAt:   *types.NewTime(time.Now()),
+			Subjects:    previousVersionSubjects,
 		})
 
 		if err := req.Update(&existing); apierrors.IsConflict(err) {
@@ -163,7 +172,7 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 		}
 
 		log.Infof("Published artifact %s v%d (updated)", existing.Name, version)
-		return req.Write(convertPublishedArtifact(&existing))
+		return req.Write(convertPublishedArtifactForRequester(&existing, req.User, req.UserIsAdmin()))
 	}
 
 	return types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("failed to publish artifact after %d attempts due to concurrent updates, please retry", maxPublishRetries))
@@ -199,7 +208,6 @@ func (h *PublishedArtifactHandler) createNewArtifact(req api.Context, data []byt
 			AuthorID:                  authorID,
 			LatestVersion:             1,
 			BlobKey:                   blobKey,
-			Visibility:                types.PublishedArtifactVisibilityPrivate,
 		},
 		Status: v1.PublishedArtifactStatus{
 			Versions: []types.PublishedArtifactVersionEntry{
@@ -228,7 +236,7 @@ func (h *PublishedArtifactHandler) createNewArtifact(req api.Context, data []byt
 	}
 
 	log.Infof("Published artifact %s v1 (new, id=%s)", manifest.Name, artifact.Name)
-	return req.WriteCreated(convertPublishedArtifact(&artifact))
+	return req.WriteCreated(convertPublishedArtifactForRequester(&artifact, req.User, req.UserIsAdmin()))
 }
 
 func (h *PublishedArtifactHandler) List(req api.Context) error {
@@ -251,18 +259,14 @@ func (h *PublishedArtifactHandler) List(req api.Context) error {
 	}
 
 	query := strings.ToLower(req.URL.Query().Get("q"))
-	userID := req.User.GetUID()
-	isAdmin := req.UserIsAdmin()
 
-	log.Debugf("Listing artifacts: type=%q query=%q userID=%q isAdmin=%v totalInDB=%d", artifactType, query, userID, isAdmin, len(artifacts.Items))
+	log.Debugf("Listing artifacts: type=%q query=%q userID=%q isAdmin=%v totalInDB=%d", artifactType, query, req.User.GetUID(), req.UserIsAdmin(), len(artifacts.Items))
 
 	items := make([]types.PublishedArtifact, 0, len(artifacts.Items))
 	for i := range artifacts.Items {
 		a := &artifacts.Items[i]
 
-		// Visibility filter: public, or owned by requester, or admin
-		if a.Spec.Visibility != types.PublishedArtifactVisibilityPublic &&
-			a.Spec.AuthorID != userID && !isAdmin {
+		if !h.canAccessArtifact(a, req.User, req.UserIsAdmin()) {
 			continue
 		}
 
@@ -276,7 +280,7 @@ func (h *PublishedArtifactHandler) List(req api.Context) error {
 			}
 		}
 
-		items = append(items, convertPublishedArtifact(a))
+		items = append(items, convertPublishedArtifactForRequester(a, req.User, req.UserIsAdmin()))
 	}
 
 	log.Debugf("Returning %d artifacts (filtered from %d)", len(items), len(artifacts.Items))
@@ -297,7 +301,7 @@ func (h *PublishedArtifactHandler) Get(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertPublishedArtifact(&artifact))
+	return req.Write(convertPublishedArtifactForRequester(&artifact, req.User, req.UserIsAdmin()))
 }
 
 func (h *PublishedArtifactHandler) Download(req api.Context) error {
@@ -315,13 +319,20 @@ func (h *PublishedArtifactHandler) Download(req api.Context) error {
 		return err
 	}
 
-	version := artifact.Spec.LatestVersion
+	version := h.defaultDownloadVersion(&artifact, req.User, req.UserIsAdmin())
+	if version == 0 {
+		return types.NewErrNotFound("artifact %s not found", id)
+	}
 	if v := req.URL.Query().Get("version"); v != "" {
 		parsed, err := strconv.Atoi(v)
 		if err != nil || parsed < 1 {
 			return types.NewErrBadRequest("invalid version: %s", v)
 		}
 		version = parsed
+	}
+
+	if !h.canAccessArtifactVersion(&artifact, version, req.User, req.UserIsAdmin()) {
+		return types.NewErrNotFound("version %d not found", version)
 	}
 
 	log.Debugf("Download requested: artifact=%s name=%q version=%d", id, artifact.Spec.Name, version)
@@ -378,6 +389,9 @@ func (h *PublishedArtifactHandler) GetSkillMD(req api.Context) error {
 	version, err := strconv.Atoi(req.PathValue("version"))
 	if err != nil || version < 1 {
 		return types.NewErrBadRequest("invalid version: %s", req.PathValue("version"))
+	}
+	if !h.canAccessArtifactVersion(&artifact, version, req.User, req.UserIsAdmin()) {
+		return types.NewErrNotFound("version %d not found", version)
 	}
 
 	// Find the blob key for the requested version
@@ -452,10 +466,7 @@ func (h *PublishedArtifactHandler) Update(req api.Context) error {
 		return err
 	}
 
-	var update struct {
-		Description *string                            `json:"description,omitempty"`
-		Visibility  *types.PublishedArtifactVisibility `json:"visibility,omitempty"`
-	}
+	var update publishedArtifactUpdateRequest
 	if err := req.Read(&update); err != nil {
 		return err
 	}
@@ -470,13 +481,23 @@ func (h *PublishedArtifactHandler) Update(req api.Context) error {
 		log.Debugf("Updating artifact %s description: %q -> %q", id, artifact.Spec.Description, *update.Description)
 		artifact.Spec.Description = *update.Description
 	}
-	if update.Visibility != nil {
-		if *update.Visibility != types.PublishedArtifactVisibilityPrivate &&
-			*update.Visibility != types.PublishedArtifactVisibilityPublic {
-			return types.NewErrBadRequest("invalid visibility: %s", *update.Visibility)
+	if update.Subjects != nil {
+		if err := validatePublishedArtifactSubjects(update.Subjects); err != nil {
+			return types.NewErrBadRequest("invalid subjects: %v", err)
 		}
-		log.Debugf("Updating artifact %s visibility: %q -> %q", id, artifact.Spec.Visibility, *update.Visibility)
-		artifact.Spec.Visibility = *update.Visibility
+		version := artifact.Spec.LatestVersion
+		if update.Version != nil {
+			if *update.Version < 1 {
+				return types.NewErrBadRequest("version must be >= 1")
+			}
+			version = *update.Version
+		}
+		entry := findVersionEntry(&artifact, version)
+		if entry == nil {
+			return types.NewErrNotFound("version %d not found", version)
+		}
+		log.Debugf("Updating artifact %s version %d subjects (count=%d)", id, version, len(update.Subjects))
+		entry.Subjects = update.Subjects
 	}
 
 	if err := req.Update(&artifact); err != nil {
@@ -484,7 +505,7 @@ func (h *PublishedArtifactHandler) Update(req api.Context) error {
 	}
 
 	log.Infof("Updated artifact %s (%s)", id, artifact.Spec.Name)
-	return req.Write(convertPublishedArtifact(&artifact))
+	return req.Write(convertPublishedArtifactForRequester(&artifact, req.User, req.UserIsAdmin()))
 }
 
 func (h *PublishedArtifactHandler) Delete(req api.Context) error {
@@ -520,13 +541,25 @@ func (h *PublishedArtifactHandler) Delete(req api.Context) error {
 }
 
 func (h *PublishedArtifactHandler) checkVisibility(artifact *v1.PublishedArtifact, req api.Context) error {
-	if artifact.Spec.Visibility == types.PublishedArtifactVisibilityPublic {
-		return nil
-	}
-	if artifact.Spec.AuthorID == req.User.GetUID() || req.UserIsAdmin() {
+	if h.canAccessArtifact(artifact, req.User, req.UserIsAdmin()) {
 		return nil
 	}
 	return types.NewErrNotFound("artifact %s not found", req.PathValue("id"))
+}
+
+func (h *PublishedArtifactHandler) canAccessArtifact(artifact *v1.PublishedArtifact, requester user.Info, isAdmin bool) bool {
+	if requester == nil {
+		return false
+	}
+	if isAdmin || artifact.Spec.AuthorID == requester.GetUID() {
+		return true
+	}
+	for _, version := range artifact.Status.Versions {
+		if subjectsContainUser(version.Subjects, requester) {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *PublishedArtifactHandler) checkOwnership(artifact *v1.PublishedArtifact, req api.Context) error {
@@ -534,6 +567,108 @@ func (h *PublishedArtifactHandler) checkOwnership(artifact *v1.PublishedArtifact
 		return nil
 	}
 	return types.NewErrNotFound("artifact %s not found", req.PathValue("id"))
+}
+
+func (h *PublishedArtifactHandler) canAccessArtifactVersion(artifact *v1.PublishedArtifact, version int, requester user.Info, isAdmin bool) bool {
+	if requester == nil {
+		return false
+	}
+	if isAdmin || artifact.Spec.AuthorID == requester.GetUID() {
+		return findVersionEntry(artifact, version) != nil
+	}
+	return subjectsContainUser(versionSubjects(artifact, version), requester)
+}
+
+func (h *PublishedArtifactHandler) defaultDownloadVersion(artifact *v1.PublishedArtifact, requester user.Info, isAdmin bool) int {
+	if requester == nil {
+		return 0
+	}
+	if isAdmin || artifact.Spec.AuthorID == requester.GetUID() {
+		return artifact.Spec.LatestVersion
+	}
+
+	latestVisible := 0
+	for _, version := range artifact.Status.Versions {
+		if subjectsContainUser(version.Subjects, requester) && version.Version > latestVisible {
+			latestVisible = version.Version
+		}
+	}
+	return latestVisible
+}
+
+func validatePublishedArtifactSubjects(subjects []types.Subject) error {
+	seen := make(map[types.Subject]struct{}, len(subjects))
+	for _, subject := range subjects {
+		if err := subject.Validate(); err != nil {
+			return err
+		}
+		if subject.ID == "*" && subject.Type != types.SubjectTypeSelector {
+			return fmt.Errorf("wildcard subject (*) must use selector type")
+		}
+		if subject.ID == "*" && len(subjects) > 1 {
+			return fmt.Errorf("wildcard subject (*) must be the only subject")
+		}
+		if _, ok := seen[subject]; ok {
+			return fmt.Errorf("duplicate subject: %s/%s", subject.Type, subject.ID)
+		}
+		seen[subject] = struct{}{}
+	}
+
+	return nil
+}
+
+func findVersionEntry(artifact *v1.PublishedArtifact, version int) *types.PublishedArtifactVersionEntry {
+	for i := range artifact.Status.Versions {
+		if artifact.Status.Versions[i].Version == version {
+			return &artifact.Status.Versions[i]
+		}
+	}
+	return nil
+}
+
+func versionSubjects(artifact *v1.PublishedArtifact, version int) []types.Subject {
+	entry := findVersionEntry(artifact, version)
+	if entry == nil {
+		return nil
+	}
+	return entry.Subjects[:]
+}
+
+func subjectsContainUser(subjects []types.Subject, requester user.Info) bool {
+	if requester == nil {
+		return false
+	}
+	userID := requester.GetUID()
+	groups := authGroupSet(requester)
+	for _, subject := range subjects {
+		switch subject.Type {
+		case types.SubjectTypeUser:
+			if subject.ID == userID {
+				return true
+			}
+		case types.SubjectTypeGroup:
+			if _, ok := groups[subject.ID]; ok {
+				return true
+			}
+		case types.SubjectTypeSelector:
+			if subject.ID == "*" {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func authGroupSet(requester user.Info) map[string]struct{} {
+	if requester == nil {
+		return map[string]struct{}{}
+	}
+	result := make(map[string]struct{}, len(requester.GetExtra()["auth_provider_groups"]))
+	for _, group := range requester.GetExtra()["auth_provider_groups"] {
+		result[group] = struct{}{}
+	}
+	return result
 }
 
 // validateZIP checks the ZIP archive for file count limits, total declared uncompressed size,
@@ -736,15 +871,14 @@ func randomHex(n int) (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-func convertPublishedArtifact(a *v1.PublishedArtifact) types.PublishedArtifact {
-	var versions []types.PublishedArtifactVersionSummary
-	if len(a.Status.Versions) > 0 {
-		versions = make([]types.PublishedArtifactVersionSummary, len(a.Status.Versions))
-		for i, v := range a.Status.Versions {
-			versions[i] = types.PublishedArtifactVersionSummary{
-				Version:     v.Version,
-				Description: v.Description,
-				CreatedAt:   v.CreatedAt,
+func convertPublishedArtifactForRequester(a *v1.PublishedArtifact, requester user.Info, isAdmin bool) types.PublishedArtifact {
+	versions := visibleVersionSummaries(a, requester, isAdmin)
+	latestVersion := a.Spec.LatestVersion
+	if requester == nil || (a.Spec.AuthorID != requester.GetUID() && !isAdmin) {
+		latestVersion = 0
+		for _, version := range versions {
+			if version.Version > latestVersion {
+				latestVersion = version.Version
 			}
 		}
 	}
@@ -754,8 +888,27 @@ func convertPublishedArtifact(a *v1.PublishedArtifact) types.PublishedArtifact {
 		PublishedArtifactManifest: a.Spec.PublishedArtifactManifest,
 		DisplayName:               skillformat.DisplayName(a.Spec.Name),
 		AuthorID:                  a.Spec.AuthorID,
-		LatestVersion:             a.Spec.LatestVersion,
-		Visibility:                a.Spec.Visibility,
+		LatestVersion:             latestVersion,
 		Versions:                  versions,
 	}
+}
+
+func visibleVersionSummaries(a *v1.PublishedArtifact, requester user.Info, isAdmin bool) []types.PublishedArtifactVersionSummary {
+	if requester == nil || len(a.Status.Versions) == 0 {
+		return nil
+	}
+
+	result := make([]types.PublishedArtifactVersionSummary, 0, len(a.Status.Versions))
+	for _, version := range a.Status.Versions {
+		if a.Spec.AuthorID != requester.GetUID() && !isAdmin && !subjectsContainUser(version.Subjects, requester) {
+			continue
+		}
+		result = append(result, types.PublishedArtifactVersionSummary{
+			Version:     version.Version,
+			Description: version.Description,
+			CreatedAt:   version.CreatedAt,
+			Subjects:    version.Subjects,
+		})
+	}
+	return result
 }

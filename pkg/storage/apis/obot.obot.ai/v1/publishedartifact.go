@@ -30,14 +30,12 @@ func (in *PublishedArtifact) Get(field string) (value string) {
 		return in.Spec.AuthorID
 	case "spec.artifactType":
 		return string(in.Spec.ArtifactType)
-	case "spec.visibility":
-		return string(in.Spec.Visibility)
 	}
 	return ""
 }
 
 func (in *PublishedArtifact) FieldNames() []string {
-	return []string{"spec.authorID", "spec.artifactType", "spec.visibility"}
+	return []string{"spec.authorID", "spec.artifactType"}
 }
 
 func (*PublishedArtifact) GetColumns() [][]string {
@@ -47,7 +45,7 @@ func (*PublishedArtifact) GetColumns() [][]string {
 		{"Type", "Spec.ArtifactType"},
 		{"Author", "Spec.AuthorID"},
 		{"Version", "Spec.LatestVersion"},
-		{"Visibility", "Spec.Visibility"},
+		{"Versions", "{{len .Status.Versions}}"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 	}
 }
@@ -61,8 +59,8 @@ type PublishedArtifactSpec struct {
 	// LatestVersion is the current highest version number for this artifact.
 	LatestVersion int `json:"latestVersion,omitempty"`
 
-	// Visibility controls who can see this artifact.
-	Visibility types.PublishedArtifactVisibility `json:"visibility,omitempty"`
+	// LegacyVisibility is retained only so old stored artifacts can be migrated.
+	LegacyVisibility string `json:"visibility,omitempty"`
 
 	// BlobKey is the S3 path to the latest version's ZIP blob.
 	// Convention: published-artifacts/{id}/v{N}.zip

@@ -116,9 +116,7 @@
 			promises[0] = AdminService.listUsers();
 		}
 		if (!usersAndGroups?.groups) {
-			// Include restricted groups in the results so that groups added to ACRs before the group
-			// restriction was configured are still visible in the UI.
-			promises[1] = AdminService.listGroups({ includeRestricted: true });
+			promises[1] = AdminService.listGroups();
 		}
 
 		Promise.all(promises)
