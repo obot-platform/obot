@@ -114,9 +114,9 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 			},
 			{
 				MCPHeader: types.MCPHeader{
-					Name:        "NANOBOT_CONFIG_PATH",
+					Name:        "NANOBOT_CONFIG",
 					Description: "Provider config YAML for Nanobot",
-					Key:         "NANOBOT_CONFIG_PATH",
+					Key:         "NANOBOT_CONFIG",
 					Sensitive:   true,
 					Required:    true,
 				},
@@ -201,9 +201,9 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 					},
 					{
 						MCPHeader: types.MCPHeader{
-							Name:        "NANOBOT_CONFIG_PATH",
+							Name:        "NANOBOT_CONFIG",
 							Description: "Provider config YAML for Nanobot",
-							Key:         "NANOBOT_CONFIG_PATH",
+							Key:         "NANOBOT_CONFIG",
 							Sensitive:   true,
 							Required:    true,
 						},
@@ -294,7 +294,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	if !needsRefresh &&
 		credEnvFileVars["NANOBOT_DEFAULT_MODEL"] == llmDefault &&
 		credEnvFileVars["NANOBOT_DEFAULT_MINI_MODEL"] == miniDefault &&
-		cred.Env["NANOBOT_CONFIG_PATH"] == providerYAML {
+		cred.Env["NANOBOT_CONFIG"] == providerYAML {
 		// Credentials are up to date
 		return nil
 	}
@@ -377,8 +377,8 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		ToolName: mcpServerName,
 		Type:     gptscript.CredentialTypeTool,
 		Env: map[string]string{
-			"NANOBOT_ENV_FILE":    strings.Join(envFileLines, "\n"),
-			"NANOBOT_CONFIG_PATH": providerYAML,
+			"NANOBOT_ENV_FILE": strings.Join(envFileLines, "\n"),
+			"NANOBOT_CONFIG":   providerYAML,
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)

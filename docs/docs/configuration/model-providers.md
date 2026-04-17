@@ -73,7 +73,7 @@ Setting a default model here does not automatically grant users access to it. Us
 
 #### Azure (Enterprise only)
 
-Obot supports two Azure providers, each with a different authentication method.
+Obot supports two Azure providers, each with a different authentication method. These are compatible with both Azure OpenAI deployments and Foundry deployments.
 
 ##### API Key Authentication
 

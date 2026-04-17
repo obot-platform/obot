@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	nanobottypes "github.com/nanobot-ai/nanobot/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
@@ -48,6 +49,7 @@ type resolvedModel struct {
 	targetModel string
 	providerURL string
 	credHeaders map[string]string
+	dialect     string
 }
 
 // EvaluateMessage runs all applicable policies against a message in parallel.
@@ -186,8 +188,8 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 		credHeaders[fmt.Sprintf("X-Obot-%s", k)] = v
 	}
 
-	// Mirror the path logic from dispatcher.TransformRequest: only add /v1 if the URL has no path.
-	if providerURL.Path == "" {
+	// only add /v1 if the URL has no path.
+	if providerURL.Path == "" || providerURL.Path == "/" {
 		providerURL.Path = "/v1"
 	}
 
@@ -195,6 +197,7 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 		targetModel: model.Spec.Manifest.TargetModel,
 		providerURL: providerURL.String(),
 		credHeaders: credHeaders,
+		dialect:     model.Spec.Manifest.Dialect,
 	}, nil
 }
 
@@ -212,10 +215,34 @@ type chatCompletionRequest struct {
 	Stream   bool          `json:"stream"`
 }
 
-// callLLM makes a streaming chat completion call to the resolved model provider.
-// It uses streaming because that matches normal Obot request patterns through
-// the model provider proxies.
+// bifrostLLMRequest is a minimal Bifrost-compatible /v1/responses request body.
+// The daemon overrides the Provider field internally, so it does not need to be set.
+type bifrostLLMRequest struct {
+	Model  string           `json:"model"`
+	Input  []bifrostMessage `json:"input"`
+	Params *bifrostParams   `json:"params,omitempty"`
+}
+
+type bifrostMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type bifrostParams struct {
+	Instructions string `json:"instructions,omitempty"`
+}
+
+// callLLM makes a streaming LLM call to the resolved model provider, using the
+// appropriate API format for the provider's dialect.
 func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
+	if resolved.dialect == string(nanobottypes.DialectBifrostRequest) {
+		return h.callLLMBifrost(ctx, resolved, messages)
+	}
+	return h.callLLMChatCompletions(ctx, resolved, messages)
+}
+
+// callLLMChatCompletions calls the provider using the OpenAI chat completions format.
+func (h *Helper) callLLMChatCompletions(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
 	reqBody := chatCompletionRequest{
 		Model:    resolved.targetModel,
 		Messages: messages,
@@ -230,17 +257,17 @@ func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages 
 	reqURL := resolved.providerURL + "/chat/completions"
 	log.Debugf("Making LLM call to model=%s url=%s", resolved.targetModel, reqURL)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(body))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Content-Type", "application/json")
 	for k, v := range resolved.credHeaders {
-		req.Header.Set(k, v)
+		httpReq.Header.Set(k, v)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		log.Errorf("LLM call to model=%s failed: %v", resolved.targetModel, err)
 		return "", fmt.Errorf("LLM call failed: %w", err)
@@ -253,12 +280,81 @@ func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages 
 		return "", fmt.Errorf("LLM call returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	return readStreamingResponse(resp.Body)
+	return readStreamingResponse(resp.Body, func(data string) gjson.Result {
+		return gjson.Get(data, "choices.0.delta.content")
+	})
 }
 
-// readStreamingResponse reads an SSE stream of OpenAI chat completion chunks
-// and accumulates the content delta text into a single string.
-func readStreamingResponse(r io.Reader) (string, error) {
+// callLLMBifrost calls a Bifrost-dialect provider using the /v1/responses endpoint.
+// The Bifrost daemon overrides the Provider field from its own configuration, so
+// the client does not need to specify it.
+func (h *Helper) callLLMBifrost(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
+	var (
+		systemPrompt string
+		input        []bifrostMessage
+	)
+	for _, m := range messages {
+		if m.Role == "system" {
+			systemPrompt = m.Content
+		} else {
+			input = append(input, bifrostMessage(m))
+		}
+	}
+
+	reqBody := bifrostLLMRequest{
+		Model: resolved.targetModel,
+		Input: input,
+	}
+	if systemPrompt != "" {
+		reqBody.Params = &bifrostParams{Instructions: systemPrompt}
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal bifrost request: %w", err)
+	}
+
+	reqURL := strings.TrimSuffix(resolved.providerURL, "/")
+	if !strings.HasSuffix(reqURL, "/v1") {
+		reqURL += "/v1"
+	}
+	reqURL = reqURL + "/responses"
+	log.Debugf("Making LLM call to model=%s url=%s (bifrost)", resolved.targetModel, reqURL)
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	for k, v := range resolved.credHeaders {
+		httpReq.Header.Set(k, v)
+	}
+
+	resp, err := http.DefaultClient.Do(httpReq)
+	if err != nil {
+		log.Errorf("LLM call to model=%s failed: %v", resolved.targetModel, err)
+		return "", fmt.Errorf("LLM call failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		log.Errorf("LLM call to model=%s returned status %d: %s", resolved.targetModel, resp.StatusCode, string(respBody))
+		return "", fmt.Errorf("LLM call returned status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return readStreamingResponse(resp.Body, func(data string) gjson.Result {
+		if gjson.Get(data, "type").String() == "response.output_text.delta" {
+			return gjson.Get(data, "delta")
+		}
+		return gjson.Result{}
+	})
+}
+
+// readStreamingResponse reads a generic SSE stream, calling extractDelta for each data line.
+// If the returned Result exists, its string value is appended to the output.
+func readStreamingResponse(r io.Reader, extractDelta func(data string) gjson.Result) (string, error) {
 	var content strings.Builder
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), 1024*1024) // 1MB max to handle large SSE data lines
@@ -272,9 +368,7 @@ func readStreamingResponse(r io.Reader) (string, error) {
 		if data == "[DONE]" {
 			break
 		}
-
-		delta := gjson.Get(data, "choices.0.delta.content")
-		if delta.Exists() {
+		if delta := extractDelta(data); delta.Exists() {
 			content.WriteString(delta.String())
 		}
 	}
