@@ -142,7 +142,7 @@ func (c *Client) invalidateValidatedAPIKeysByID(keyID uint) {
 
 // CreateAPIKey generates a new API key for the given user.
 // Returns the full key only once in the response.
-// At least one mcpServerID must be specified.
+// At least one capability must be granted: MCP server access and/or skills access.
 func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, description string, expiresAt *time.Time, mcpServerIDs []string, canAccessSkills bool) (*types.APIKeyCreateResponse, error) {
 	// Generate cryptographically secure random secret
 	secretBytes := make([]byte, apiKeySecretLength)

@@ -37,7 +37,7 @@
 	);
 
 	let nameError = $derived(showValidation && !name.trim());
-	let serverError = $derived(showValidation && selectedServerIds.size === 0);
+	let serverError = $derived(showValidation && selectedServerIds.size === 0 && !canAccessSkills);
 
 	const allServersOption = {
 		id: '*',
@@ -80,7 +80,7 @@
 
 	async function handleCreate() {
 		showValidation = true;
-		if (!name.trim() || selectedServerIds.size === 0) {
+		if (!name.trim() || (selectedServerIds.size === 0 && !canAccessSkills)) {
 			return;
 		}
 
@@ -170,11 +170,13 @@
 		<p>
 			<span class="text-lg font-semibold">MCP Servers</span>
 			{#if serverError}
-				<span class="text-xs text-red-600 dark:text-red-400">Select at least one server</span>
+				<span class="text-xs text-red-600 dark:text-red-400">
+					Select at least one server or enable skill access
+				</span>
 			{/if}
 		</p>
 		<p class="input-description">
-			Select which MCP servers this API key can access
+			Select which MCP servers this API key can access. Leave this empty to create a skills-only key.
 			{#if selectedServerIds.size > 0}
 				<span class="italic">
 					({#if selectedServerIds.has('*')}All Selected{:else}{selectedServerIds.size} Selected{/if})

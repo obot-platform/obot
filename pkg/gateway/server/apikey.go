@@ -37,8 +37,8 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 		return types2.NewErrBadRequest("name is required")
 	}
 
-	if len(req.MCPServerIDs) == 0 {
-		return types2.NewErrBadRequest("at least one MCP server must be specified")
+	if len(req.MCPServerIDs) == 0 && !req.CanAccessSkills {
+		return types2.NewErrBadRequest("at least one MCP server must be specified or skills access must be enabled")
 	}
 
 	userID := apiContext.UserID()
