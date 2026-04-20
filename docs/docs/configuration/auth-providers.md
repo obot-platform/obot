@@ -165,6 +165,74 @@ You can restrict login access to specific Okta users and groups by taking the fo
 4. Select `Assign` on groups you want to allow Obot access to
 5. Once you've made your selections, click `Done`
 
+### JumpCloud (Enterprise Only)
+
+Create a **Custom OIDC App** in the [JumpCloud Admin Portal](https://console.jumpcloud.com/). When configuring the app:
+
+1. Set the **Redirect URI / Callback URL** to the redirect URI displayed in Obot's Auth Provider configuration dialog
+2. Ensure the application can issue the scopes `openid`, `email`, `profile`, and `offline_access`
+3. Take note of the app's **Client ID** and **Client Secret**
+4. Configure the app to include group membership and verified-email claims:
+   - Enable **Include Group Attribute** and set the exact attribute name to `memberOf`. This is required for group-based authorization in Obot.
+   - Ensure the OIDC userinfo response includes `email_verified=true`. In JumpCloud, this may require adding a service provider attribute named `email_verified` with the value `true`.
+   - Set group assignment to **User groups assigned to this app**
+
+You will also need JumpCloud management API credentials for JumpCloud management API access. These credentials are separate from the OIDC app credentials used for login.
+
+Obot uses the JumpCloud management API to:
+
+- look up the authenticated JumpCloud system user
+- verify the user is active and not suspended
+- list JumpCloud user groups for admin selection
+- map OIDC `memberOf` claim values to known JumpCloud groups
+
+You can provide either:
+
+- an API key with access to read users and user groups
+- or a JumpCloud service account client ID and client secret, which Obot will exchange for JumpCloud management API access tokens
+
+If you use a service account:
+
+1. Create a JumpCloud API service account for Obot in the JumpCloud admin console
+2. Generate or reveal its **Client ID** and **Client Secret**
+3. Grant it only the permissions Obot needs to read system users and user groups
+4. Prefer read-only access; Obot does not need write access for authentication or group lookup
+
+If you use service-account credentials and your JumpCloud region requires a different admin OAuth endpoint, override the token URL in Obot as well.
+
+You can now return to Obot and finish configuring JumpCloud. Use the table below to determine the values to use for each field:
+
+| Obot                         | JumpCloud |
+|------------------------------|-----------|
+| Client ID                    | OIDC app Client ID |
+| Client Secret                | OIDC app Client Secret |
+| API Key                      | Admin Portal API key. Optional if `Service Account Client ID` and `Service Account Client Secret` are configured instead. |
+| Service Account Client ID    | JumpCloud service account client ID |
+| Service Account Client Secret| JumpCloud service account client secret |
+| Service Account Token URL    | Optional admin OAuth token endpoint (defaults to `https://admin-oauth.id.jumpcloud.com/oauth2/token`) |
+| Issuer URL                   | OIDC issuer URL (optional, defaults to `https://oauth.id.jumpcloud.com/`) |
+| API Base URL                 | JumpCloud API base URL (optional, defaults to `https://console.jumpcloud.com`; use `https://console.eu.jumpcloud.com` for EU tenants) |
+
+:::important User Matching
+After login, Obot resolves the authenticated OIDC identity to a JumpCloud system user by matching the email address first, then the username fields returned by JumpCloud's userinfo endpoint.
+
+The JumpCloud user must resolve to an active, non-suspended JumpCloud system user. Suspended or inactive users will be blocked from logging in.
+:::
+
+#### Restricting Login to Specific Users and Groups (Optional)
+
+JumpCloud controls access at the application and directory level.
+
+- Limit assignment of the OIDC application to the users who should be able to sign in to Obot
+- Use JumpCloud user groups to manage access centrally
+- In Obot, you can then map JumpCloud groups to roles and policies after users sign in
+
+#### Unverified Email Handling
+
+By default, Obot expects JumpCloud's OIDC userinfo response to assert `email_verified=true`.
+If your JumpCloud setup does not provide verified email status, you can enable `OBOT_JUMPCLOUD_AUTH_PROVIDER_INSECURE_ALLOW_UNVERIFIED_EMAIL` in the provider configuration.
+This weakens account and email-domain validation and should only be used when required.
+
 ### Auth0 (Enterprise Only)
 
 Create a **Regular Web Application** in the [Auth0 Dashboard](https://manage.auth0.com) by navigating to Applications > Applications > Create Application.
