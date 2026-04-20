@@ -151,12 +151,14 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 	// Build the set of existing credential tool names so we can identify which
 	// URLs currently have credentials without an extra API call per URL.
 	existingCredNames := make(map[string]struct{})
-	if creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
 		CredentialContexts: []string{credCtx},
-	}); err == nil {
-		for _, c := range creds {
-			existingCredNames[c.ToolName] = struct{}{}
-		}
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list catalog credentials: %w", err)
+	}
+	for _, c := range creds {
+		existingCredNames[c.ToolName] = struct{}{}
 	}
 
 	oldURLsSet := make(map[string]struct{}, len(catalog.Spec.SourceURLs))
@@ -168,24 +170,24 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 	transferredOldURLs := make(map[string]struct{})
 	if oldURL, newURL, ok := findCredentialTransfer(catalog.Spec.SourceURLs, manifest.SourceURLs, existingCredNames, manifest.SourceURLCredentials); ok {
 		oldCred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, mcpcataloghandler.CatalogCredentialToolName(oldURL))
-		if err == nil {
-			if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-				Context:  credCtx,
-				ToolName: mcpcataloghandler.CatalogCredentialToolName(newURL),
-				Type:     gptscript.CredentialTypeTool,
-				Env:      oldCred.Env,
-			}); err != nil {
-				return fmt.Errorf("failed to transfer credential to %s: %w", newURL, err)
-			}
-			// Delete the old URL's credential now that it has been transferred.
-			if delErr := req.GPTClient.DeleteCredential(req.Context(), credCtx, mcpcataloghandler.CatalogCredentialToolName(oldURL)); delErr != nil {
-				var notFound gptscript.ErrNotFound
-				if !errors.As(delErr, &notFound) {
-					log.Errorf("failed to delete old credential for %s after transfer: %v", oldURL, delErr)
-				}
-			}
-			transferredOldURLs[oldURL] = struct{}{}
+		if err != nil {
+			return fmt.Errorf("failed to reveal credential: %w", err)
 		}
+		if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
+			Context:  credCtx,
+			ToolName: mcpcataloghandler.CatalogCredentialToolName(newURL),
+			Type:     gptscript.CredentialTypeTool,
+			Env:      oldCred.Env,
+		}); err != nil {
+			return fmt.Errorf("failed to transfer credential to %s: %w", newURL, err)
+		}
+		// Delete the old URL's credential now that it has been transferred.
+		if delErr := req.GPTClient.DeleteCredential(req.Context(), credCtx, mcpcataloghandler.CatalogCredentialToolName(oldURL)); delErr != nil {
+			if !errors.Is(delErr, gptscript.ErrNotFound{}) {
+				log.Errorf("failed to delete old credential for %s after transfer: %v", oldURL, delErr)
+			}
+		}
+		transferredOldURLs[oldURL] = struct{}{}
 	}
 
 	catalog.Spec.SourceURLs = manifest.SourceURLs
