@@ -51,7 +51,7 @@ func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionMa
 }
 
 // List returns all catalogs.
-func (h *MCPCatalogHandler) List(req api.Context) error {
+func (*MCPCatalogHandler) List(req api.Context) error {
 	var list v1.MCPCatalogList
 	if err := req.List(&list); err != nil {
 		return fmt.Errorf("failed to list catalogs: %w", err)
@@ -68,7 +68,7 @@ func (h *MCPCatalogHandler) List(req api.Context) error {
 }
 
 // Get returns a specific catalog by ID.
-func (h *MCPCatalogHandler) Get(req api.Context) error {
+func (*MCPCatalogHandler) Get(req api.Context) error {
 	var catalog v1.MCPCatalog
 	if err := req.Get(&catalog, req.PathValue("catalog_id")); err != nil {
 		return fmt.Errorf("failed to get catalog: %w", err)

@@ -23,7 +23,23 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-var githubToken = os.Getenv("GITHUB_AUTH_TOKEN")
+const defaultCatalogURL = "https://github.com/obot-platform/mcp-catalog"
+
+// resolveToken returns the provided token if non-empty.
+// If the token is empty and the URL is the default catalog URL, it falls back
+// to the global GITHUB_AUTH_TOKEN so the default catalog can be cloned without
+// requiring an explicit credential. For all other URLs the provided token is
+// returned as-is, preventing the server-level token from leaking to
+// attacker-controlled endpoints.
+func resolveToken(token, catalogURL string) string {
+	if token != "" {
+		return token
+	}
+	if catalogURL == defaultCatalogURL {
+		return os.Getenv("GITHUB_AUTH_TOKEN")
+	}
+	return ""
+}
 
 var errRepoTooLarge = errors.New("repository too large")
 
@@ -58,10 +74,7 @@ func checkGitHubRepoSize(ctx context.Context, org, repo string, maxSizeMB int, t
 		return fmt.Errorf("failed to create API request: %w", err)
 	}
 
-	effectiveToken := token
-	if effectiveToken == "" {
-		effectiveToken = githubToken
-	}
+	effectiveToken := resolveToken(token, fmt.Sprintf("https://github.com/%s/%s", org, repo))
 	if effectiveToken != "" {
 		req.Header.Set("Authorization", "Bearer "+effectiveToken)
 	}
@@ -269,10 +282,7 @@ func readGitCatalog(ctx context.Context, catalogURL string, token string) ([]typ
 	}
 
 	// Per-URL token takes precedence over the global GITHUB_AUTH_TOKEN env var.
-	effectiveToken := token
-	if effectiveToken == "" && u.Host == "github.com" {
-		effectiveToken = githubToken
-	}
+	effectiveToken := resolveToken(token, catalogURL)
 
 	// Platform API pre-clone size checks: faster and more accurate than waiting
 	// for the clone to start. The generic clone-time check below acts as a fallback.
