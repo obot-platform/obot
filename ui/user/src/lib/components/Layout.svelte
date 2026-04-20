@@ -159,7 +159,7 @@
 		...(version.current.nanobotIntegration
 			? [
 					{
-						id: 'agent-chat',
+						id: 'launch-agent-chat',
 						href: '/agent',
 						icon: BotMessageSquare,
 						disabled: isBootStrapUser || !agentLinkEnabled,

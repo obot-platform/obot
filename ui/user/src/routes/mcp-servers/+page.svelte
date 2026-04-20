@@ -196,6 +196,7 @@
 		onclick={() => {
 			selectServerTypeDialog?.open();
 		}}
+		id="add-mcp-server-button"
 	>
 		<Plus class="size-4" /> Add MCP Server
 	</button>
