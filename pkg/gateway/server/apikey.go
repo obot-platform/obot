@@ -19,10 +19,11 @@ import (
 )
 
 type createAPIKeyRequest struct {
-	Name         string     `json:"name"`
-	Description  string     `json:"description,omitempty"`
-	ExpiresAt    *time.Time `json:"expiresAt,omitempty"`
-	MCPServerIDs []string   `json:"mcpServerIds,omitempty"`
+	Name            string     `json:"name"`
+	Description     string     `json:"description,omitempty"`
+	ExpiresAt       *time.Time `json:"expiresAt,omitempty"`
+	MCPServerIDs    []string   `json:"mcpServerIds,omitempty"`
+	CanAccessSkills bool       `json:"canAccessSkills"`
 }
 
 // createAPIKey creates an API key for the authenticated user.
@@ -76,7 +77,7 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusBadRequest, errors.Join(errs...).Error())
 	}
 
-	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, req.MCPServerIDs)
+	response, err := apiContext.GatewayClient.CreateAPIKey(apiContext.Context(), userID, req.Name, req.Description, req.ExpiresAt, req.MCPServerIDs, req.CanAccessSkills)
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to create API key: %v", err))
 	}

@@ -12,6 +12,7 @@ import (
 )
 
 const apiKeyAuthPrefix = "ok1-"
+const apiKeySkillsAccessExtraKey = "api_key_can_access_skills"
 
 // APIKeyAuthenticator authenticates requests using API keys.
 // API key users have restricted access - they only get GroupAPIKey,
@@ -59,7 +60,8 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 	}
 
 	extra := map[string][]string{
-		"email": {u.Email},
+		"email":                    {u.Email},
+		apiKeySkillsAccessExtraKey: {fmt.Sprintf("%t", apiKey.CanAccessSkills)},
 	}
 
 	// Look up auth provider group memberships so that group-based access

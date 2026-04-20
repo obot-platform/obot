@@ -24,6 +24,7 @@
 	let description = $state('');
 	let expiresAt = $state<Date | null>(null);
 	let selectedServerIds = new SvelteSet<string>();
+	let canAccessSkills = $state(false);
 	let search = $state('');
 	let loading = $state(false);
 	let showValidation = $state(false);
@@ -89,7 +90,8 @@
 				name: name.trim(),
 				description: description.trim() || undefined,
 				expiresAt: expiresAt?.toISOString(),
-				mcpServerIds: Array.from(selectedServerIds)
+				mcpServerIds: Array.from(selectedServerIds),
+				canAccessSkills
 			});
 			onCreate(response);
 		} finally {
@@ -147,6 +149,19 @@
 					minDate={new Date()}
 				/>
 				<p class="input-description">Leave empty for no expiration</p>
+			</div>
+
+			<div class="flex flex-col gap-2">
+				<label class="input-label">Optional Capabilities</label>
+				<label class="bg-surface1 flex items-start gap-3 rounded-lg border p-3">
+					<input type="checkbox" bind:checked={canAccessSkills} class="mt-1" />
+					<div class="flex flex-col gap-1">
+						<span class="text-sm font-medium">Allow skill access</span>
+						<span class="input-description">
+							Grants this key access to the `/api/skills` endpoints.
+						</span>
+					</div>
+				</label>
 			</div>
 		</div>
 	</div>
