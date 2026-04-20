@@ -110,7 +110,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
 
-	// The only field that can be updated is the source URLs.
+	// Normalize and validate source URL inputs.
 	// Normalize scheme-less inputs (e.g. "github.com/org/repo") to https://
 	// so they are treated consistently with the controller's sync path.
 	for i, urlStr := range manifest.SourceURLs {
