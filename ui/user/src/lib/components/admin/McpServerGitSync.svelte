@@ -16,6 +16,7 @@
 	let sourceDialog = $state<HTMLDialogElement>();
 
 	export function open() {
+		sourceError = undefined;
 		editingSource = {
 			index: -1,
 			value: ''
@@ -35,7 +36,7 @@
 		{#if editingSource}
 			<h3 class="dialog-title">
 				{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
-				<button onclick={() => closeSourceDialog()} class="icon-button dialog-close-btn">
+				<button onclick={closeSourceDialog} class="icon-button dialog-close-btn">
 					<X class="size-5" />
 				</button>
 			</h3>
@@ -62,7 +63,7 @@
 			{/if}
 
 			<div class="flex w-full justify-end gap-2">
-				<button class="button" disabled={saving} onclick={() => closeSourceDialog()}>Cancel</button>
+				<button class="button" disabled={saving} onclick={closeSourceDialog}>Cancel</button>
 				<button
 					class="button-primary"
 					disabled={saving}
@@ -119,6 +120,6 @@
 		{/if}
 	</div>
 	<form class="dialog-backdrop">
-		<button type="button" onclick={() => sourceDialog?.close()}>close</button>
+		<button type="button" onclick={closeSourceDialog}>close</button>
 	</form>
 </dialog>

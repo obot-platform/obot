@@ -93,7 +93,7 @@
 
 	let monthlyActiveUsers = $derived(
 		usersData.filter(
-			(user) => user.lastActiveDay && isWithinInterval(user.lastActiveDay, { start, end })
+			(user) => user.lastActiveDay && isWithinInterval(new Date(user.lastActiveDay), { start, end })
 		).length
 	);
 
@@ -125,7 +125,7 @@
 			if (!server.catalogEntryID) {
 				acc[server.id] = {
 					server,
-					count: server.mcpServerInstanceUserCount ?? 0,
+					count: 1,
 					id: server.id
 				};
 				return acc;
@@ -146,7 +146,7 @@
 			(a, b) => b.count - a.count
 		);
 
-		const entrieTypes = data.reduce(
+		const entryTypes = data.reduce(
 			(acc, server) => {
 				if (!server.catalogEntryID) acc.multi++;
 				else if (server.manifest.runtime === 'composite') acc.composite++;
@@ -166,23 +166,23 @@
 			graphData: [
 				{
 					label: 'Multi-User',
-					value: entrieTypes.multi
+					value: entryTypes.multi
 				},
 				{
 					label: 'Single-User',
-					value: entrieTypes.single
+					value: entryTypes.single
 				},
 				{
 					label: 'Remote',
-					value: entrieTypes.remote
+					value: entryTypes.remote
 				},
 				{
 					label: 'Composite',
-					value: entrieTypes.composite
+					value: entryTypes.composite
 				}
 			],
 			popularServers: sortByCountDescending.filter((s) => s.count > 0).slice(0, 5),
-			totalServers: serversData.length
+			totalServers: data.length
 		};
 	}
 
@@ -598,7 +598,7 @@
 										<p class="text-sm font-medium">{displayName}</p>
 										{#if description}
 											<p class="text-xs truncate line-clamp-1 break-all font-light">
-												{@html stripMarkdownToText(description ?? '')}
+												{stripMarkdownToText(description ?? '')}
 											</p>
 										{/if}
 										<p class="text-xs text-on-surface1 italic">Deployed {info.count} times</p>

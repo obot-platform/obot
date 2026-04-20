@@ -210,7 +210,7 @@
 								<p class="truncate text-sm">{getServerDisplayName(server)}</p>
 								{#if server.manifest.description}
 									<span class="text-on-surface1 line-clamp-1 text-xs">
-										{@html stripMarkdownToText(server.manifest.description)}
+										{stripMarkdownToText(server.manifest.description)}
 									</span>
 								{/if}
 							</div>
