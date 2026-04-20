@@ -3,8 +3,13 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import TweenedMetric from '$lib/components/TweenedMetric.svelte';
+	import {
+		transformTopToolCalls,
+		transformTopServerUsage,
+		transformAvgToolCallResponseTime
+	} from '$lib/components/admin/usage/utils';
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
-	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
+	import HorizontalBarGraph from '$lib/components/graph/HorizontalBarGraph.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { formatNumber } from '$lib/format';
@@ -17,43 +22,25 @@
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser,
-		type TokenUsage,
-		type TokenUsageWithCategory,
 		type TotalTokenUsage
 	} from '$lib/services';
 	import { errors, mcpServersAndEntries } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import { aggregateTimelineDataByBucket, getUserLabels } from '../token-usage/utils';
 	import { isWithinInterval, set, subMonths } from 'date-fns';
 	import { Activity, ChevronRight, Coins, Plus, Server, Users, Wrench } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { twMerge } from 'tailwind-merge';
+
+	const TOP_TOOLS_LIMIT = 5;
+	const TOP_SERVERS_LIMIT = 12;
 
 	let loading = $state(true);
-	let loadingTokensUsage = $state(true);
 	let loadingToolUsage = $state(true);
 
 	let usersData = $state<OrgUser[]>([]);
-	let selectedTokenType = $derived<'input' | 'output'>('input');
-	let tokenUsageData = $state<TokenUsage[]>([]);
 	let totalTokensData = $state<TotalTokenUsage>();
-	const end = new Date();
-	const start = subMonths(end, 1);
-
-	let mainChartData = $state<TokenUsageWithCategory[]>([]);
-	let usersMap = $derived(new Map(usersData.map((user) => [user.id, user])));
 
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-
-	function handleSelectServerType(type: LaunchServerType) {
-		selectServerTypeDialog?.close();
-		goto(resolve(`/admin/mcp-servers?new=${type}`));
-	}
-
-	const DEFER_DATA_THRESHOLD = 400;
-	const TIMELINE_AGGREGATE_THRESHOLD = 500;
-	const TOP_TOOLS_LIMIT = 5;
 
 	type TopToolCallRow = {
 		compositeKey: string;
@@ -62,54 +49,44 @@
 		serverDisplayName: string;
 	};
 
-	let topToolCalls = $state<TopToolCallRow[]>([]);
-
 	type TopServerUsageRow = { serverName: string; count: number };
 
+	type AvgToolCallResponseTimeRow = {
+		toolName: string;
+		averageResponseTimeMs: number;
+		serverDisplayName: string;
+	};
+
+	let topToolCalls = $state<TopToolCallRow[]>([]);
 	let topServerUsage = $state<TopServerUsageRow[]>([]);
+	let avgToolCallResponseTime = $state<AvgToolCallResponseTimeRow[]>([]);
+
+	const end = new Date();
+	const start = subMonths(end, 1);
 
 	function topToolCallsFromStats(stats: AuditLogUsageStats | undefined): TopToolCallRow[] {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const counts = new Map<string, { count: number; serverDisplayName: string }>();
-		for (const s of stats?.items ?? []) {
-			for (const call of s.toolCalls ?? []) {
-				const key = `${s.mcpServerDisplayName}.${call.toolName}`;
-				const existing = counts.get(key) ?? {
-					count: 0,
-					serverDisplayName: s.mcpServerDisplayName
-				};
-				existing.count += call.callCount;
-				counts.set(key, existing);
-			}
-		}
-		return Array.from(counts.entries())
-			.map(([compositeKey, { count, serverDisplayName }]) => ({
-				compositeKey,
-				toolLabel: String(compositeKey).split('.').slice(1).join('.'),
-				count,
-				serverDisplayName
+		return transformTopToolCalls(stats)
+			.map((t) => ({
+				compositeKey: t.toolName,
+				toolLabel: t.toolName,
+				count: t.count,
+				serverDisplayName: t.serverDisplayName
 			}))
 			.filter(
 				(t) => !t.serverDisplayName.startsWith('nba1') && !t.serverDisplayName.startsWith('Obot ')
-			)
-			.sort((a, b) => b.count - a.count);
+			);
 	}
 
 	function topServersFromStats(stats: AuditLogUsageStats | undefined): TopServerUsageRow[] {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const counts = new Map<string, number>();
-		for (const s of (stats?.items ?? []).filter(
-			(s) =>
-				!s.mcpServerDisplayName.startsWith('nba1') && !s.mcpServerDisplayName.startsWith('Obot ')
-		)) {
-			const total = (s.toolCalls ?? []).reduce((sum, t) => sum + t.callCount, 0);
-			if (total > 0) {
-				counts.set(s.mcpServerDisplayName, (counts.get(s.mcpServerDisplayName) ?? 0) + total);
-			}
-		}
-		return Array.from(counts.entries())
-			.map(([serverName, count]) => ({ serverName, count }))
-			.sort((a, b) => b.count - a.count);
+		return transformTopServerUsage(stats).filter(
+			(s) => !s.serverName.startsWith('nba1') && !s.serverName.startsWith('Obot ')
+		);
+	}
+
+	function avgToolCallResponseTimeFromStats(stats: AuditLogUsageStats | undefined) {
+		return transformAvgToolCallResponseTime(stats).filter(
+			(t) => !t.serverDisplayName.startsWith('nba1') && !t.serverDisplayName.startsWith('Obot ')
+		);
 	}
 
 	let monthlyActiveUsers = $derived(
@@ -229,7 +206,8 @@
 		})
 			.then((stats) => {
 				topToolCalls = topToolCallsFromStats(stats).slice(0, TOP_TOOLS_LIMIT);
-				topServerUsage = topServersFromStats(stats).slice(0, TOP_TOOLS_LIMIT);
+				topServerUsage = topServersFromStats(stats).slice(0, TOP_SERVERS_LIMIT);
+				avgToolCallResponseTime = avgToolCallResponseTimeFromStats(stats).slice(0, TOP_TOOLS_LIMIT);
 			})
 			.catch((error) => {
 				if (error?.name === 'AbortError') return;
@@ -238,83 +216,26 @@
 			.finally(() => {
 				loadingToolUsage = false;
 			});
-
-		const timeRange = { start, end };
-		AdminService.listTokenUsage(timeRange)
-			.then((tokenUsage) => {
-				if (tokenUsage.length <= DEFER_DATA_THRESHOLD) {
-					tokenUsageData = tokenUsage;
-					return;
-				}
-				// Defer so the UI can paint (200, loading off) before heavy derivation. Safari lacks requestIdleCallback.
-				const schedule =
-					typeof requestIdleCallback !== 'undefined'
-						? (fn: () => void) => requestIdleCallback(fn, { timeout: 120 })
-						: (fn: () => void) => setTimeout(fn, 0);
-				schedule(() => {
-					tokenUsageData = tokenUsage;
-				});
-			})
-			.finally(() => {
-				loadingTokensUsage = false;
-			})
-			.catch((error) => {
-				if (error?.name === 'AbortError') return;
-				errors.append(error);
-			});
 	});
 
-	function computeMainTimelineData(
-		filtered: TokenUsage[],
-		group: string,
-		users: Map<string, OrgUser>
-	): TokenUsageWithCategory[] {
-		const userKeys = [...new Set(filtered.map((r) => r.userID ?? r.runName ?? 'Unknown'))].sort();
-		const userKeyToLabel = getUserLabels(users, userKeys);
-		return filtered.map((r) => ({
-			...r,
-			date: r.date,
-			promptTokens: r.promptTokens ?? 0,
-			completionTokens: r.completionTokens ?? 0,
-			totalTokens: r.totalTokens ?? (r.promptTokens ?? 0) + (r.completionTokens ?? 0),
-			category:
-				userKeyToLabel.get(r.userID ?? r.runName ?? 'Unknown') ?? r.userID ?? r.runName ?? 'Unknown'
-		}));
+	function handleSelectServerType(type: LaunchServerType) {
+		selectServerTypeDialog?.close();
+		goto(resolve(`/admin/mcp-servers?new=${type}`));
 	}
 
 	function getServerUrl(server: MCPCatalogServer) {
 		if (server.powerUserWorkspaceID) {
-			return `/admin/mcp-servers/w/${server.powerUserWorkspaceID}/s/${server.id}`;
+			return `/admin/mcp-servers/w/${server.powerUserWorkspaceID}/s/${server.id}?view=audit-logs`;
 		}
-		return `/admin/mcp-servers/s/${server.id}`;
+		return `/admin/mcp-servers/s/${server.id}?view=audit-logs`;
 	}
 
 	function getEntryUrl(entry: MCPCatalogEntry) {
 		if (entry.powerUserWorkspaceID) {
-			return `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}`;
+			return `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}?view=audit-logs`;
 		}
-		return `/admin/mcp-servers/c/${entry.id}`;
+		return `/admin/mcp-servers/c/${entry.id}?view=audit-logs`;
 	}
-
-	$effect(() => {
-		if (tokenUsageData.length <= TIMELINE_AGGREGATE_THRESHOLD) {
-			const timeline = computeMainTimelineData(tokenUsageData, 'group_by_users', usersMap);
-			mainChartData = timeline;
-			return;
-		}
-
-		const schedule =
-			typeof requestIdleCallback !== 'undefined'
-				? (fn: () => void) => requestIdleCallback(fn, { timeout: 150 })
-				: (fn: () => void) => setTimeout(fn, 0);
-		schedule(() => {
-			const timeline = computeMainTimelineData(tokenUsageData, 'group_by_users', usersMap);
-			mainChartData =
-				timeline.length <= TIMELINE_AGGREGATE_THRESHOLD
-					? timeline
-					: (aggregateTimelineDataByBucket(timeline, start, end) as TokenUsageWithCategory[]);
-		});
-	});
 </script>
 
 <Layout title="Dashboard" classes={{ childrenContainer: 'max-w-none', container: '' }}>
@@ -340,7 +261,7 @@
 							href={resolve('/admin/users')}
 							class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
 						>
-							See All <ChevronRight class="size-3" />
+							See More <ChevronRight class="size-3" />
 						</a>
 					</div>
 				</div>
@@ -383,66 +304,38 @@
 							href={resolve('/admin/token-usage')}
 							class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
 						>
-							See All <ChevronRight class="size-3" />
+							See More <ChevronRight class="size-3" />
 						</a>
 					</div>
 				</div>
 			</div>
-			{#if loadingTokensUsage}
+			{#if loading}
 				<div class="bg-surface3 h-[400px] animate-pulse rounded-md"></div>
 			{:else}
-				<div in:fade={{ duration: 150 }} class="paper w-full min-h-72">
+				<div in:fade={{ duration: 150 }} class="paper gap-1 w-full min-h-72">
 					<div class="flex flex-wrap items-center justify-between gap-4">
 						<h4 class="flex items-center gap-1 font-semibold">
-							Token Usage <span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
+							Top Servers Used <span class="text-on-surface1 text-xs font-light"
+								>(Last 30 Days)</span
+							>
 						</h4>
-						<div class="flex shrink-0">
-							<button
-								class={twMerge(
-									'button-secondary rounded-r-none border border-r-0 text-xs',
-									selectedTokenType === 'input' && 'bg-surface2 border-surface2'
-								)}
-								onclick={() => (selectedTokenType = 'input')}
-							>
-								Input Tokens
-							</button>
-							<button
-								class={twMerge(
-									'button-secondary rounded-l-none border text-xs',
-									selectedTokenType === 'output' && 'bg-surface2 border-surface2'
-								)}
-								onclick={() => (selectedTokenType = 'output')}
-							>
-								Output Tokens
-							</button>
-						</div>
 					</div>
-					<StackedTimeline
-						{start}
-						{end}
-						data={mainChartData}
-						dateKey="date"
-						primaryValueKey={selectedTokenType === 'input' ? 'promptTokens' : 'completionTokens'}
-						categoryKey="category"
-						class="h-72"
-						legend={{
-							showSecondaryLabel: false
-						}}
+					<HorizontalBarGraph
+						data={topServerUsage}
+						labelKey="serverName"
+						valueKey="count"
+						formatValue={(value) => Math.round(value).toString()}
+						class="h-[400px]"
 					>
 						{#snippet tooltipContent(item)}
-							{@const value = item.primaryTotal ?? 0}
 							<div class="flex flex-col gap-0 text-xs">
-								<div class="text-sm font-light">{item.key}</div>
-								<div class="text-on-surface1">{item.date}</div>
-								<div class="tooltip-divider"></div>
+								<div class="text-on-surface1 text-xs">{item.label}</div>
 							</div>
-							<div class="flex flex-col gap-1">
-								<div class="text-on-background flex flex-col">
-									<div class="text-xl font-bold">{value.toLocaleString()}</div>
-								</div>
+							<div class="text-on-background font-semibold">
+								{item.value} calls
 							</div>
 						{/snippet}
-					</StackedTimeline>
+					</HorizontalBarGraph>
 				</div>
 			{/if}
 
@@ -495,13 +388,13 @@
 							href={resolve('/admin/usage')}
 							class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
 						>
-							See All <ChevronRight class="size-3" />
+							See More <ChevronRight class="size-3" />
 						</a>
 					{/if}
 				</div>
 				<div class="paper h-full gap-1 col-span-12 @min-[768px]:col-span-6 flex flex-col min-h-72">
 					<h4 class="flex items-center gap-2 font-semibold mb-1">
-						Frequently Used Servers
+						Tool Call Average Response Time
 						<span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
 					</h4>
 					{#if loadingToolUsage}
@@ -516,25 +409,27 @@
 								</div>
 							{/each}
 						</div>
-					{:else if topServerUsage.length === 0}
+					{:else if avgToolCallResponseTime.length === 0}
 						<p
 							class="text-xs text-on-surface1 pt-2 font-light grow flex items-center justify-center h-full text-center"
 						>
-							No recent server calls.
+							No recent tool calls.
 						</p>
 					{:else}
 						<div class="pt-2 flex flex-col gap-4 w-full">
-							<ul class="pt-2 flex flex-col gap-2">
-								{#each topServerUsage as row (row.serverName)}
+							<ul class="flex flex-col gap-2">
+								{#each avgToolCallResponseTime as row (row.toolName)}
 									<li class="flex gap-2 items-center">
-										<div
-											class="size-8 items-center justify-center shrink-0 bg-surface1 dark:bg-surface2 rounded-md p-1 flex"
-										>
-											<Server class="size-6 opacity-65 shrink-0" />
+										<div class="flex flex-col gap-1 min-w-0 grow pr-4">
+											<p class="text-sm font-medium truncate">
+												{row.toolName.split('.').slice(1).join('.')}
+											</p>
+											<p class="text-xs text-on-surface1">
+												{row.serverDisplayName}
+											</p>
 										</div>
-										<div class="flex flex-col gap-1 min-w-0">
-											<p class="text-sm font-medium truncate">{row.serverName}</p>
-											<p class="text-xs text-on-surface1">{formatNumber(row.count)} calls</p>
+										<div class="text-sm">
+											{row.averageResponseTimeMs}ms
 										</div>
 									</li>
 								{/each}
@@ -542,12 +437,12 @@
 						</div>
 					{/if}
 					<div class="flex grow min-h-0"></div>
-					{#if topServerUsage.length > 0}
+					{#if avgToolCallResponseTime.length > 0}
 						<a
 							href={resolve('/admin/usage')}
 							class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
 						>
-							See All <ChevronRight class="size-3" />
+							See More <ChevronRight class="size-3" />
 						</a>
 					{/if}
 				</div>
