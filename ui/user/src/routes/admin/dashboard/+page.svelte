@@ -190,16 +190,9 @@
 	);
 
 	onMount(async () => {
-		usersData = await AdminService.listUsersIncludeDeleted();
-		totalTokensData = await AdminService.listTotalTokenUsage();
-		deployedCatalogEntryServers =
-			await AdminService.listAllCatalogDeployedSingleRemoteServers(DEFAULT_MCP_CATALOG_ID);
-		deployedWorkspaceCatalogEntryServers =
-			await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
-		loading = false;
-
 		const endToolStats = set(new Date(), { milliseconds: 0, seconds: 59 });
 		const startToolStats = subMonths(endToolStats, 1);
+
 		AdminService.listAuditLogUsageStats({
 			start_time: startToolStats.toISOString(),
 			end_time: endToolStats.toISOString()
@@ -216,6 +209,19 @@
 			.finally(() => {
 				loadingToolUsage = false;
 			});
+
+		const [users, tokens, catalogServers, workspaceServers] = await Promise.all([
+			AdminService.listUsersIncludeDeleted(),
+			AdminService.listTotalTokenUsage(),
+			AdminService.listAllCatalogDeployedSingleRemoteServers(DEFAULT_MCP_CATALOG_ID),
+			AdminService.listAllWorkspaceDeployedSingleRemoteServers()
+		]);
+
+		usersData = users;
+		totalTokensData = tokens;
+		deployedCatalogEntryServers = catalogServers;
+		deployedWorkspaceCatalogEntryServers = workspaceServers;
+		loading = false;
 	});
 
 	function handleSelectServerType(type: LaunchServerType) {
