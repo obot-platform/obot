@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"testing"
+
+	mcpcataloghandler "github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 )
 
 func TestNormalizeName(t *testing.T) {
@@ -152,6 +154,109 @@ func TestNormalizeNameKubernetesCompliance(t *testing.T) {
 				}
 				if result[len(result)-1] == '-' {
 					t.Errorf("NormalizeName(%q) = %q ends with hyphen", input, result)
+				}
+			}
+		})
+	}
+}
+
+func TestFindCredentialTransfer(t *testing.T) {
+	toolName := func(u string) string { return mcpcataloghandler.CatalogCredentialToolName(u) }
+
+	urlA := "https://example.com/org/repoA.git"
+	urlB := "https://example.com/org/repoB.git"
+	urlC := "https://example.com/org/repoC.git"
+
+	tests := []struct {
+		name           string
+		oldURLs        []string
+		newURLs        []string
+		existingCreds  map[string]struct{}
+		newURLCreds    map[string]string
+		wantOld        string
+		wantNew        string
+		shouldTransfer bool
+	}{
+		{
+			name:           "simple rename transfers credential",
+			oldURLs:        []string{urlA},
+			newURLs:        []string{urlB},
+			existingCreds:  map[string]struct{}{toolName(urlA): {}},
+			newURLCreds:    map[string]string{urlB: "*"},
+			wantOld:        urlA,
+			wantNew:        urlB,
+			shouldTransfer: true,
+		},
+		{
+			name:           "new URL already has a credential - no transfer",
+			oldURLs:        []string{urlA},
+			newURLs:        []string{urlB},
+			existingCreds:  map[string]struct{}{toolName(urlA): {}, toolName(urlB): {}},
+			newURLCreds:    map[string]string{urlB: "*"},
+			shouldTransfer: false,
+		},
+		{
+			name:           "no credential for old URL - no transfer",
+			oldURLs:        []string{urlA},
+			newURLs:        []string{urlB},
+			existingCreds:  map[string]struct{}{},
+			newURLCreds:    map[string]string{urlB: "*"},
+			shouldTransfer: false,
+		},
+		{
+			name:           "new URL does not signal transfer (*) - no transfer",
+			oldURLs:        []string{urlA},
+			newURLs:        []string{urlB},
+			existingCreds:  map[string]struct{}{toolName(urlA): {}},
+			newURLCreds:    map[string]string{urlB: "actual-token"},
+			shouldTransfer: false,
+		},
+		{
+			name:           "multiple removed URLs with creds - ambiguous, no transfer",
+			oldURLs:        []string{urlA, urlC},
+			newURLs:        []string{urlB},
+			existingCreds:  map[string]struct{}{toolName(urlA): {}, toolName(urlC): {}},
+			newURLCreds:    map[string]string{urlB: "*"},
+			shouldTransfer: false,
+		},
+		{
+			name:           "multiple new URLs wanting transfer - ambiguous, no transfer",
+			oldURLs:        []string{urlA},
+			newURLs:        []string{urlB, urlC},
+			existingCreds:  map[string]struct{}{toolName(urlA): {}},
+			newURLCreds:    map[string]string{urlB: "*", urlC: "*"},
+			shouldTransfer: false,
+		},
+		{
+			name:           "URL unchanged - no transfer",
+			oldURLs:        []string{urlA},
+			newURLs:        []string{urlA},
+			existingCreds:  map[string]struct{}{toolName(urlA): {}},
+			newURLCreds:    map[string]string{},
+			shouldTransfer: false,
+		},
+		{
+			name:           "empty lists - no transfer",
+			oldURLs:        []string{},
+			newURLs:        []string{},
+			existingCreds:  map[string]struct{}{},
+			newURLCreds:    map[string]string{},
+			shouldTransfer: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotOld, gotNew, shouldTransfer := findCredentialTransfer(tt.oldURLs, tt.newURLs, tt.existingCreds, tt.newURLCreds)
+			if shouldTransfer != tt.shouldTransfer {
+				t.Errorf("findCredentialTransfer() shouldTransfer = %v, want %v", shouldTransfer, tt.shouldTransfer)
+			}
+			if shouldTransfer {
+				if gotOld != tt.wantOld {
+					t.Errorf("findCredentialTransfer() oldURL = %q, want %q", gotOld, tt.wantOld)
+				}
+				if gotNew != tt.wantNew {
+					t.Errorf("findCredentialTransfer() newURL = %q, want %q", gotNew, tt.wantNew)
 				}
 			}
 		})

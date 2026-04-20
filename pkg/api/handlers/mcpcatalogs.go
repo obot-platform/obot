@@ -164,40 +164,9 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		oldURLsSet[u] = struct{}{}
 	}
 
-	// Find new URLs (not previously in catalog) that signal they want a credential
-	// transferred ("*" but no existing credential). This happens when a URL is renamed.
-	newURLsWantingTransfer := make(map[string]struct{})
-	for _, u := range manifest.SourceURLs {
-		if _, existed := oldURLsSet[u]; existed {
-			continue
-		}
-		if manifest.SourceURLCredentials[u] != "*" {
-			continue
-		}
-		if _, has := existingCredNames[mcpcataloghandler.CatalogCredentialToolName(u)]; !has {
-			newURLsWantingTransfer[u] = struct{}{}
-		}
-	}
-
-	// Find removed URLs that currently have credentials.
-	var removedURLsWithCreds []string
-	for _, u := range catalog.Spec.SourceURLs {
-		if _, active := activeURLs[u]; active {
-			continue
-		}
-		if _, has := existingCredNames[mcpcataloghandler.CatalogCredentialToolName(u)]; has {
-			removedURLsWithCreds = append(removedURLsWithCreds, u)
-		}
-	}
-
 	// Transfer credential when exactly one URL is being renamed (old removed, new added with "*").
 	transferredOldURLs := make(map[string]struct{})
-	if len(removedURLsWithCreds) == 1 && len(newURLsWantingTransfer) == 1 {
-		oldURL := removedURLsWithCreds[0]
-		var newURL string
-		for u := range newURLsWantingTransfer {
-			newURL = u
-		}
+	if oldURL, newURL, ok := findCredentialTransfer(catalog.Spec.SourceURLs, manifest.SourceURLs, existingCredNames, manifest.SourceURLCredentials); ok {
 		oldCred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, mcpcataloghandler.CatalogCredentialToolName(oldURL))
 		if err == nil {
 			if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
@@ -207,6 +176,13 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 				Env:      oldCred.Env,
 			}); err != nil {
 				return fmt.Errorf("failed to transfer credential to %s: %w", newURL, err)
+			}
+			// Delete the old URL's credential now that it has been transferred.
+			if delErr := req.GPTClient.DeleteCredential(req.Context(), credCtx, mcpcataloghandler.CatalogCredentialToolName(oldURL)); delErr != nil {
+				var notFound gptscript.ErrNotFound
+				if !errors.As(delErr, &notFound) {
+					log.Errorf("failed to delete old credential for %s after transfer: %v", oldURL, delErr)
+				}
 			}
 			transferredOldURLs[oldURL] = struct{}{}
 		}
@@ -2004,4 +1980,53 @@ func (h *MCPCatalogHandler) DeleteOAuthCredentials(req api.Context) error {
 	}
 
 	return req.Write(map[string]bool{"deleted": true})
+}
+
+// findCredentialTransfer detects when exactly one URL is being renamed: one old URL
+// (removed, had a credential) paired with exactly one new URL (added, requesting
+// transfer via "*"). Returns (oldURL, newURL, true) when a transfer should occur.
+// existingCredNames is keyed by credential tool name (from CatalogCredentialToolName).
+func findCredentialTransfer(
+	oldURLs, newURLs []string,
+	existingCredNames map[string]struct{},
+	newURLCredentials map[string]string,
+) (oldURL, newURL string, ok bool) {
+	activeURLs := make(map[string]struct{}, len(newURLs))
+	for _, u := range newURLs {
+		activeURLs[u] = struct{}{}
+	}
+	oldURLsSet := make(map[string]struct{}, len(oldURLs))
+	for _, u := range oldURLs {
+		oldURLsSet[u] = struct{}{}
+	}
+
+	// Find removed URLs that currently have credentials.
+	var removedURLsWithCreds []string
+	for _, u := range oldURLs {
+		if _, active := activeURLs[u]; active {
+			continue
+		}
+		if _, has := existingCredNames[mcpcataloghandler.CatalogCredentialToolName(u)]; has {
+			removedURLsWithCreds = append(removedURLsWithCreds, u)
+		}
+	}
+
+	// Find new URLs that signal they want a credential transferred ("*" but no existing credential).
+	var newURLsWantingTransfer []string
+	for _, u := range newURLs {
+		if _, existed := oldURLsSet[u]; existed {
+			continue
+		}
+		if newURLCredentials[u] != "*" {
+			continue
+		}
+		if _, has := existingCredNames[mcpcataloghandler.CatalogCredentialToolName(u)]; !has {
+			newURLsWantingTransfer = append(newURLsWantingTransfer, u)
+		}
+	}
+
+	if len(removedURLsWithCreds) == 1 && len(newURLsWantingTransfer) == 1 {
+		return removedURLsWithCreds[0], newURLsWantingTransfer[0], true
+	}
+	return "", "", false
 }

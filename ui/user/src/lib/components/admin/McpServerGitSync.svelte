@@ -149,6 +149,7 @@
 								];
 							} else {
 								const oldUrl = catalogToUse.sourceURLs[editingSource.index];
+								updatingCatalog.sourceURLs = [...(updatingCatalog.sourceURLs ?? [])];
 								updatingCatalog.sourceURLs[editingSource.index] = editingSource.value;
 
 								// If the URL changed and the old URL had a credential, remap the
