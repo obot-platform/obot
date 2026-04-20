@@ -78,6 +78,12 @@ func TestParseGitURL(t *testing.T) {
 			wantBranch: "main",
 		},
 		{
+			name:       "gitlab with branch",
+			url:        "https://gitlab.com/org/repo/my-branch",
+			wantClone:  "https://gitlab.com/org/repo.git",
+			wantBranch: "my-branch",
+		},
+		{
 			name:    "bitbucket without .git",
 			url:     "https://bitbucket.org/org/repo",
 			wantErr: true,

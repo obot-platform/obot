@@ -238,7 +238,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 				Type:     gptscript.CredentialTypeTool,
 				Env:      map[string]string{"TOKEN": cred},
 			}); err != nil {
-				log.Errorf("failed to store credential for %s: %v", u, err)
+				return fmt.Errorf("failed to store credential for %s: %w", u, err)
 			}
 		}
 	}

@@ -30,11 +30,13 @@ Administrators can add Git repositories as catalog sources from the **Admin → 
 | Platform | Example |
 |---|---|
 | GitHub | `https://github.com/org/repo` or `https://github.com/org/repo.git` |
+| GitHub with branch | `https://github.com/org/repo/my-branch` |
 | GitLab | `https://gitlab.com/org/repo` or `https://gitlab.com/org/repo.git` |
+| GitLab with branch | `https://gitlab.com/org/repo/my-branch` |
 | GitLab with subgroups | `https://gitlab.com/group/subgroup/repo.git` |
 | Self-hosted | `https://git.example.com/org/repo.git` |
 
-For GitHub and GitLab a `.git` suffix is optional. For self-hosted instances it is required.
+For GitHub and GitLab a `.git` suffix is optional. For self-hosted instances it is required. To specify a branch on GitHub or GitLab, append it after the repo name (e.g. `/my-branch`). GitLab subgroup repositories require the `.git` suffix to distinguish the subgroup path from a branch name.
 
 ### Private repositories
 
