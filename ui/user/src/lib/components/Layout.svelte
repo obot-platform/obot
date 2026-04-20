@@ -16,6 +16,7 @@
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { isAgentEnabled } from '$lib/utils';
 	import InfoTooltip from './InfoTooltip.svelte';
+	import Tour from './Tour.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import BetaLogo from './navbar/BetaLogo.svelte';
@@ -565,7 +566,7 @@
 					<div class="flex flex-col gap-1">
 						{#each navLinks as link (link.id)}
 							<div class="flex">
-								<div class="flex w-full items-center">
+								<div class="flex w-full items-center" id={link.id}>
 									{#if link.disabled}
 										<div class="sidebar-link disabled">
 											<link.icon class="size-5" />
@@ -616,7 +617,7 @@
 									{#if link.items}
 										<div class="flex flex-col px-7 text-sm font-light">
 											{#each link.items as item (item.href)}
-												<div class="relative flex items-center gap-2">
+												<div class="relative flex items-center gap-2" id={item.id}>
 													<div
 														class={twMerge(
 															'bg-surface3 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
@@ -791,6 +792,10 @@
 
 {#if isAdminRoute}
 	<SetupSplashDialog />
+{/if}
+
+{#if !isBootStrapUser}
+	<Tour />
 {/if}
 
 {#snippet layoutHeaderContent()}
