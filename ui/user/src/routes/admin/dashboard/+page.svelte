@@ -3,6 +3,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import TweenedMetric from '$lib/components/TweenedMetric.svelte';
+	import McpServerGitSync from '$lib/components/admin/McpServerGitSync.svelte';
 	import {
 		transformTopToolCalls,
 		transformTopServerUsage,
@@ -41,6 +42,7 @@
 	let totalTokensData = $state<TotalTokenUsage>();
 
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
+	let sourceDialog = $state<ReturnType<typeof McpServerGitSync>>();
 
 	type TopToolCallRow = {
 		compositeKey: string;
@@ -541,11 +543,7 @@
 								<button
 									class="menu-button"
 									onclick={() => {
-										// editingSource = {
-										// 	index: -1,
-										// 	value: ''
-										// };
-										// sourceDialog?.showModal();
+										sourceDialog?.open();
 									}}
 								>
 									Add server(s) from Git
@@ -634,6 +632,14 @@
 	</div>
 </Layout>
 
+<McpServerGitSync
+	bind:this={sourceDialog}
+	onSync={async () => {
+		await AdminService.refreshMCPCatalog(DEFAULT_MCP_CATALOG_ID);
+		goto('/admin/mcp-servers');
+	}}
+	defaultCatalogId={DEFAULT_MCP_CATALOG_ID}
+/>
 <SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={handleSelectServerType} />
 
 <svelte:head>
