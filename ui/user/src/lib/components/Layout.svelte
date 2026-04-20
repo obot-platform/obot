@@ -239,7 +239,6 @@
 						id: 'agent-management',
 						icon: Bot,
 						label: 'Obot Agent Management',
-						disabled: isBootStrapUser,
 						collapsible: true,
 						items: [
 							{

@@ -24,7 +24,7 @@
 		type OrgUser,
 		type TotalTokenUsage
 	} from '$lib/services';
-	import { errors, mcpServersAndEntries } from '$lib/stores';
+	import { errors, mcpServersAndEntries, profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { isWithinInterval, set, subMonths } from 'date-fns';
 	import { Activity, ChevronRight, Coins, Plus, Server, Users, Wrench } from 'lucide-svelte';
@@ -188,6 +188,7 @@
 	const { graphData, popularServers, totalServers } = $derived(
 		compileServerAndEntries(serversData, serverAndEntries.entries)
 	);
+	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 
 	onMount(async () => {
 		const endToolStats = set(new Date(), { milliseconds: 0, seconds: 59 });
@@ -250,7 +251,7 @@
 			<!-- this token usage graph-->
 			<div class="grid grid-cols-12 gap-4">
 				<div class="col-span-12 @min-[768px]:col-span-4">
-					<div class="paper gap-2">
+					<div class="paper gap-2 h-full">
 						<div class="text-xs text-on-surface1 flex items-center gap-1">
 							Total Users
 							{#if loading}
@@ -263,16 +264,18 @@
 							</div>
 							<Users class="size-8 text-primary" />
 						</div>
-						<a
-							href={resolve('/admin/users')}
-							class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-						>
-							See More <ChevronRight class="size-3" />
-						</a>
+						{#if !isBootStrapUser}
+							<a
+								href={resolve('/admin/users')}
+								class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+							>
+								See More <ChevronRight class="size-3" />
+							</a>
+						{/if}
 					</div>
 				</div>
 				<div class="col-span-12 @min-[768px]:col-span-4">
-					<div class="paper gap-2">
+					<div class="paper gap-2 h-full">
 						<div class="text-xs text-on-surface1 flex items-center gap-1">
 							Monthly Active Users
 							{#if loading}
@@ -289,7 +292,7 @@
 					</div>
 				</div>
 				<div class="col-span-12 @min-[768px]:col-span-4">
-					<div class="paper gap-2">
+					<div class="paper gap-2 h-full">
 						<div class="text-xs text-on-surface1 flex items-center gap-1">
 							Total Tokens
 							{#if loading}
@@ -306,12 +309,14 @@
 							</div>
 							<Coins class="size-8 text-primary" />
 						</div>
-						<a
-							href={resolve('/admin/token-usage')}
-							class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-						>
-							See More <ChevronRight class="size-3" />
-						</a>
+						{#if !isBootStrapUser}
+							<a
+								href={resolve('/admin/token-usage')}
+								class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+							>
+								See More <ChevronRight class="size-3" />
+							</a>
+						{/if}
 					</div>
 				</div>
 			</div>
@@ -391,7 +396,7 @@
 						</ul>
 					{/if}
 					<div class="flex grow min-h-0"></div>
-					{#if topToolCalls.length > 0}
+					{#if topToolCalls.length > 0 && !isBootStrapUser}
 						<a
 							href={resolve('/admin/usage')}
 							class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
@@ -444,7 +449,7 @@
 						</div>
 					{/if}
 					<div class="flex grow min-h-0"></div>
-					{#if avgToolCallResponseTime.length > 0}
+					{#if avgToolCallResponseTime.length > 0 && !isBootStrapUser}
 						<a
 							href={resolve('/admin/usage')}
 							class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
@@ -474,7 +479,7 @@
 				</div>
 			{:else}
 				<div in:fade={{ duration: 150 }} class="paper min-h-96">
-					{#if deployedCatalogEntryServers.length > 0 || deployedWorkspaceCatalogEntryServers.length > 0}
+					{#if deployedCatalogEntryServers.length > 0 || deployedWorkspaceCatalogEntryServers.length > 0 || isBootStrapUser}
 						<h4 class="font-semibold">Active Servers</h4>
 						<div class="mb-2 flex flex-col justify-center items-center gap-2">
 							<div class="flex w-full gap-2 items-center justify-center">
@@ -498,14 +503,16 @@
 							{/if}
 						</div>
 
-						<div class="flex justify-end">
-							<a
-								href={resolve('/admin/mcp-servers?view=deployments')}
-								class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-							>
-								See All <ChevronRight class="size-3" />
-							</a>
-						</div>
+						{#if !isBootStrapUser}
+							<div class="flex justify-end">
+								<a
+									href={resolve('/admin/mcp-servers?view=deployments')}
+									class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+								>
+									See More <ChevronRight class="size-3" />
+								</a>
+							</div>
+						{/if}
 					{:else}
 						<div class="grow flex flex-col items-center justify-center gap-4">
 							<div>
@@ -613,12 +620,12 @@
 						</p>
 					{/if}
 					<div class="flex grow"></div>
-					{#if popularServers.length > 0}
+					{#if popularServers.length > 0 && !isBootStrapUser}
 						<a
 							href={resolve('/admin/mcp-servers')}
 							class="justify-end self-end text-[11px] translate-x-2 transition-colors duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
 						>
-							See All <ChevronRight class="size-3" />
+							See More <ChevronRight class="size-3" />
 						</a>
 					{/if}
 				</div>
