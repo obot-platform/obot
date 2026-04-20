@@ -373,7 +373,9 @@
 										<Wrench class="size-6 opacity-65 shrink-0" />
 									</div>
 									<div class="flex flex-col gap-1 min-w-0">
-										<p class="text-sm font-medium truncate">{row.toolLabel || row.compositeKey}</p>
+										<p class="text-sm font-medium truncate">
+											{row.toolLabel.split('.').slice(1).join('.') || row.compositeKey}
+										</p>
 										<p class="text-xs text-on-surface1">
 											{formatNumber(row.count)} calls · {row.serverDisplayName}
 										</p>
