@@ -3,8 +3,6 @@ package mcpcatalog
 import (
 	"bufio"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -36,17 +34,37 @@ import (
 
 var log = logger.Package()
 
-// CatalogCredentialContext returns the GPTScript credential context for a catalog,
-// keyed by its UID so it remains unique even if catalog names are reused.
+// CatalogCredentialContext returns the GPTScript credential context for a catalog.
 func CatalogCredentialContext(catalogUID string) string {
-	return "catalog-" + catalogUID
+	return catalogUID
 }
 
-// CatalogCredentialToolName returns a stable GPTScript tool name for a source URL,
-// using a short hex prefix of its SHA-256 hash.
+// CatalogCredentialToolName returns a human-readable GPTScript tool name for a
+// source URL by slugifying it: the scheme is stripped and non-alphanumeric
+// characters are collapsed into hyphens.
+// e.g. "https://github.com/org/repo" → "github-com-org-repo"
 func CatalogCredentialToolName(sourceURL string) string {
-	sum := sha256.Sum256([]byte(sourceURL))
-	return "source-" + hex.EncodeToString(sum[:8])
+	slug := strings.TrimPrefix(strings.TrimPrefix(sourceURL, "https://"), "http://")
+	var b strings.Builder
+	prevHyphen := true // start true to avoid a leading hyphen
+	for _, r := range slug {
+		switch {
+		case (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9'):
+			b.WriteRune(r)
+			prevHyphen = false
+		case r == '-':
+			if !prevHyphen {
+				b.WriteRune('-')
+				prevHyphen = true
+			}
+		default:
+			if !prevHyphen {
+				b.WriteRune('-')
+				prevHyphen = true
+			}
+		}
+	}
+	return strings.TrimRight(b.String(), "-")
 }
 
 const (
@@ -186,7 +204,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			}
 		} else {
 			// If it wasn't a git repo, treat it as a raw file.
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, http.NoBody)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create request for catalog %s: %w", sourceURL, err)
 			}
