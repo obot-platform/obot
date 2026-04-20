@@ -24,6 +24,7 @@ func NewWebhookHelper(indexer cache.Indexer, baseURL string) *WebhookHelper {
 type Webhook struct {
 	Name, DisplayName string
 	URL               string
+	ToolName          string
 	Definitions       []string
 }
 
@@ -67,7 +68,7 @@ func (wh *WebhookHelper) appendWebhooks(namespace string, objs []any, seen map[s
 
 	for _, mwv := range objs {
 		res, ok := mwv.(*v1.MCPWebhookValidation)
-		if ok && res.Namespace == namespace && !res.Spec.Manifest.Disabled {
+		if ok && res.Namespace == namespace && !res.Spec.Manifest.Disabled && res.Status.Configured {
 			url := system.MCPConnectURL(wh.baseURL, system.SystemMCPServerPrefix+res.Name)
 			if _, seen := seen[url]; seen {
 				continue
@@ -80,10 +81,16 @@ func (wh *WebhookHelper) appendWebhooks(namespace string, objs []any, seen map[s
 				displayName = res.Name
 			}
 
+			toolName := res.Spec.Manifest.ToolName
+			if toolName == "" {
+				toolName = defaultWebhookToolName
+			}
+
 			result = append(result, Webhook{
 				Name:        res.Name,
 				DisplayName: displayName,
 				URL:         url,
+				ToolName:    toolName,
 				Definitions: res.Spec.Manifest.Selectors.Strings(),
 			})
 		}

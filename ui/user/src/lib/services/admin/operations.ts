@@ -977,8 +977,8 @@ export async function updateMCPFilter(
 	return (await doPut(`/mcp-webhook-validations/${id}`, filter, opts)) as MCPFilter;
 }
 
-export async function removeSecret(id: string) {
-	await doDelete(`/mcp-webhook-validations/${id}/secret`);
+export async function removeSecret(id: string, opts?: { fetch?: Fetcher }) {
+	await doPost(`/mcp-webhook-validations/${id}/deconfigure`, {}, opts);
 }
 
 export async function listCatalogCategories(catalogId: string, opts?: { fetch?: Fetcher }) {

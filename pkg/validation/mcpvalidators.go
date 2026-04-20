@@ -17,6 +17,7 @@ var hostnameRegex = regexp.MustCompile(`^(?:\*\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]
 type RuntimeValidator interface {
 	ValidateConfig(manifest types.MCPServerManifest) error
 	ValidateCatalogConfig(manifest types.MCPServerCatalogEntryManifest) error
+	ValidateSystemConfig(manifest types.SystemMCPServerManifest) error
 }
 
 // RuntimeValidators is a map type for storing validators by runtime type
@@ -46,6 +47,26 @@ func (v UVXValidator) ValidateConfig(manifest types.MCPServerManifest) error {
 }
 
 func (v UVXValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEntryManifest) error {
+	if manifest.Runtime != types.RuntimeUVX {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "runtime",
+			Message: "expected UVX runtime",
+		}
+	}
+
+	if manifest.UVXConfig == nil {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeUVX,
+			Field:   "uvxConfig",
+			Message: "UVX configuration is required",
+		}
+	}
+
+	return v.validateUVXConfig(*manifest.UVXConfig)
+}
+
+func (v UVXValidator) ValidateSystemConfig(manifest types.SystemMCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeUVX {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -131,6 +152,26 @@ func (v NPXValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEntry
 	return v.validateNPXConfig(*manifest.NPXConfig)
 }
 
+func (v NPXValidator) ValidateSystemConfig(manifest types.SystemMCPServerManifest) error {
+	if manifest.Runtime != types.RuntimeNPX {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "runtime",
+			Message: "expected NPX runtime",
+		}
+	}
+
+	if manifest.NPXConfig == nil {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeNPX,
+			Field:   "npxConfig",
+			Message: "NPX configuration is required",
+		}
+	}
+
+	return v.validateNPXConfig(*manifest.NPXConfig)
+}
+
 func (v NPXValidator) validateNPXConfig(config types.NPXRuntimeConfig) error {
 	if strings.TrimSpace(config.Package) == "" {
 		return types.RuntimeValidationError{
@@ -178,6 +219,26 @@ func (v ContainerizedValidator) ValidateConfig(manifest types.MCPServerManifest)
 }
 
 func (v ContainerizedValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEntryManifest) error {
+	if manifest.Runtime != types.RuntimeContainerized {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "runtime",
+			Message: "expected containerized runtime",
+		}
+	}
+
+	if manifest.ContainerizedConfig == nil {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeContainerized,
+			Field:   "containerizedConfig",
+			Message: "containerized configuration is required",
+		}
+	}
+
+	return v.validateContainerizedConfig(*manifest.ContainerizedConfig)
+}
+
+func (v ContainerizedValidator) ValidateSystemConfig(manifest types.SystemMCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeContainerized {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -277,6 +338,26 @@ func (v RemoteValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEn
 	}
 
 	return v.validateRemoteCatalogConfig(*manifest.RemoteConfig)
+}
+
+func (v RemoteValidator) ValidateSystemConfig(manifest types.SystemMCPServerManifest) error {
+	if manifest.Runtime != types.RuntimeRemote {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "runtime",
+			Message: "expected remote runtime",
+		}
+	}
+
+	if manifest.RemoteConfig == nil {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "remoteConfig",
+			Message: "remote configuration is required",
+		}
+	}
+
+	return v.validateRemoteConfig(*manifest.RemoteConfig)
 }
 
 func (v RemoteValidator) validateRemoteConfig(config types.RemoteRuntimeConfig) error {
@@ -582,6 +663,22 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 	return nil
 }
 
+func (v CompositeValidator) ValidateSystemConfig(manifest types.SystemMCPServerManifest) error {
+	if manifest.Runtime != types.RuntimeComposite {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "runtime",
+			Message: "expected composite runtime",
+		}
+	}
+
+	return types.RuntimeValidationError{
+		Runtime: types.RuntimeComposite,
+		Field:   "runtime",
+		Message: "composite runtime is not supported for system servers",
+	}
+}
+
 func validateToolOverrides(overrides []types.ToolOverride) error {
 	var (
 		toolNames    = make(map[string]struct{}, len(overrides))
@@ -658,6 +755,18 @@ func ValidateServerManifest(manifest types.MCPServerManifest) error {
 func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
 	if validator, ok := getRuntimeValidators()[manifest.Runtime]; ok {
 		return validator.ValidateCatalogConfig(manifest)
+	}
+
+	return types.RuntimeValidationError{
+		Runtime: manifest.Runtime,
+		Field:   "runtime",
+		Message: "unsupported runtime",
+	}
+}
+
+func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) error {
+	if validator, ok := getRuntimeValidators()[manifest.Runtime]; ok {
+		return validator.ValidateSystemConfig(manifest)
 	}
 
 	return types.RuntimeValidationError{
