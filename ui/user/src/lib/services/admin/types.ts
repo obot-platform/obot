@@ -541,7 +541,8 @@ export interface BaseAgent extends Project {
 export interface MCPFilterManifest {
 	name?: string;
 	resources?: MCPFilterResource[];
-	url: string;
+	url?: string;
+	mcpServerManifest?: MCPCatalogEntryServerManifest;
 	secret?: string;
 	selectors?: MCPFilterWebhookSelector[];
 	disabled?: boolean;
@@ -565,6 +566,8 @@ export interface MCPFilter extends MCPFilterManifest {
 	metadata?: Record<string, string>;
 	type: string;
 	hasSecret: boolean;
+	configured: boolean;
+	missingRequiredEnvVars?: string[];
 }
 
 export interface AuditLogExportInput {

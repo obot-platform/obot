@@ -16,7 +16,7 @@ import (
 
 const (
 	defaultContainerPort          = 8099
-	webhookToolName               = "fire-webhook"
+	defaultWebhookToolName        = "fire-webhook"
 	serviceUnavailableGracePeriod = 10 * time.Second
 )
 
@@ -230,7 +230,7 @@ func constructNanobotYAMLForServer(name, url, command string, args []string, env
 			BaseURL: webhook.URL,
 		}
 		for _, def := range webhook.Definitions {
-			webhookDefinitions[def] = append(webhookDefinitions[def], fmt.Sprintf("%s/%s", name, webhookToolName))
+			webhookDefinitions[def] = append(webhookDefinitions[def], fmt.Sprintf("%s/%s", name, webhook.ToolName))
 		}
 	}
 

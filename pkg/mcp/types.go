@@ -58,6 +58,7 @@ type ServerConfig struct {
 	NanobotAgentName     string `json:"nanobotAgentName"`
 	ProjectMCPServer     bool   `json:"projectMCPServer"`
 	ComponentMCPServer   bool   `json:"componentMCPServer"`
+	SystemMCPServer      bool   `json:"systemMCPServer"`
 
 	Issuer    string   `json:"issuer"`
 	Audiences []string `json:"audiences"`
@@ -406,6 +407,7 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		AuditLogEndpoint:          fmt.Sprintf("%s/api/mcp-audit-logs", issuer),
 		AuditLogToken:             secretsCred["AUDIT_LOG_TOKEN"],
 		AuditLogMetadata:          fmt.Sprintf("mcpID=%s,mcpServerDisplayName=%s", systemServer.Name, displayName),
+		SystemMCPServer:           true,
 	}
 
 	var missingRequiredNames []string

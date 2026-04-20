@@ -11,11 +11,16 @@ type MCPWebhookValidation struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec MCPWebhookValidationSpec `json:"spec,omitempty"`
+	Spec   MCPWebhookValidationSpec   `json:"spec,omitempty"`
+	Status MCPWebhookValidationStatus `json:"status,omitempty"`
 }
 
 type MCPWebhookValidationSpec struct {
 	Manifest types.MCPWebhookValidationManifest `json:"manifest"`
+}
+
+type MCPWebhookValidationStatus struct {
+	Configured bool `json:"configured"`
 }
 
 func (in *MCPWebhookValidation) GetColumns() [][]string {

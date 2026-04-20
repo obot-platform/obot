@@ -117,8 +117,9 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 		// Reconcile all critical fields to ensure the server is correctly configured
 		var needsUpdate bool
 
-		if !existing.Spec.Manifest.Enabled {
-			existing.Spec.Manifest.Enabled = true
+		if existing.Spec.Manifest.Enabled != nil && !*existing.Spec.Manifest.Enabled {
+			// Enabled by default
+			existing.Spec.Manifest.Enabled = nil
 			needsUpdate = true
 		}
 
@@ -195,7 +196,6 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 			Manifest: types.SystemMCPServerManifest{
 				Name:             "Obot MCP Server",
 				ShortDescription: "MCP server for discovering and searching available MCP servers",
-				Enabled:          true,
 				Runtime:          types.RuntimeContainerized,
 				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
 					Image: image,
