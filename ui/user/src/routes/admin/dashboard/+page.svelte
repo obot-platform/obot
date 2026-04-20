@@ -254,17 +254,16 @@
 			<div class="grid grid-cols-12 gap-4">
 				<div class="col-span-12 @min-[768px]:col-span-4">
 					<div class="paper gap-2 h-full">
-						<div class="text-xs text-on-surface1 flex items-center gap-1">
-							Total Users
-							{#if loading}
-								<Loading class="size-3" />
-							{/if}
-						</div>
+						<div class="text-xs text-on-surface1 flex items-center gap-1">Total Users</div>
 						<div class="flex w-full justify-between">
-							<div class="text-3xl font-semibold">
-								<TweenedMetric holdAtZero={loading} target={usersData.length} />
-							</div>
-							<Users class="size-8 text-primary" />
+							{#if loading}
+								<Loading class="size-8" />
+							{:else}
+								<div class="text-3xl font-semibold">
+									<TweenedMetric holdAtZero={loading} target={usersData.length} />
+								</div>
+								<Users class="size-8 text-primary" />
+							{/if}
 						</div>
 						{#if !isBootStrapUser}
 							<a
@@ -278,38 +277,36 @@
 				</div>
 				<div class="col-span-12 @min-[768px]:col-span-4">
 					<div class="paper gap-2 h-full">
-						<div class="text-xs text-on-surface1 flex items-center gap-1">
-							Monthly Active Users
-							{#if loading}
-								<Loading class="size-3" />
-							{/if}
-						</div>
+						<div class="text-xs text-on-surface1 flex items-center gap-1">Monthly Active Users</div>
 						<div class="flex w-full justify-between">
-							<div class="text-3xl font-semibold">
-								<TweenedMetric holdAtZero={loading} target={monthlyActiveUsers} />
-							</div>
-							<Activity class="size-8 text-primary" />
+							{#if loading}
+								<Loading class="size-8" />
+							{:else}
+								<div class="text-3xl font-semibold">
+									<TweenedMetric holdAtZero={loading} target={monthlyActiveUsers} />
+								</div>
+								<Activity class="size-8 text-primary" />
+							{/if}
 						</div>
 						<div class="text-xs text-on-surface1">Last 30 Days</div>
 					</div>
 				</div>
 				<div class="col-span-12 @min-[768px]:col-span-4">
 					<div class="paper gap-2 h-full">
-						<div class="text-xs text-on-surface1 flex items-center gap-1">
-							Total Tokens
-							{#if loading}
-								<Loading class="size-3" />
-							{/if}
-						</div>
+						<div class="text-xs text-on-surface1 flex items-center gap-1">Total Tokens</div>
 						<div class="flex w-full justify-between">
-							<div class="text-3xl font-semibold">
-								<TweenedMetric
-									holdAtZero={loading}
-									target={totalTokensData?.totalTokens ?? 0}
-									format={(n) => formatNumber(Math.max(0, Math.round(n)))}
-								/>
-							</div>
-							<Coins class="size-8 text-primary" />
+							{#if loading}
+								<Loading class="size-8" />
+							{:else}
+								<div class="text-3xl font-semibold">
+									<TweenedMetric
+										holdAtZero={loading}
+										target={totalTokensData?.totalTokens ?? 0}
+										format={(n) => formatNumber(Math.max(0, Math.round(n)))}
+									/>
+								</div>
+								<Coins class="size-8 text-primary" />
+							{/if}
 						</div>
 						{#if !isBootStrapUser}
 							<a
