@@ -2,26 +2,26 @@
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { Group } from '$lib/services';
 	import { profile } from '$lib/stores';
-	// import { isSameDay } from 'date-fns';
-	import { driver } from 'driver.js';
+	import { isSameDay } from 'date-fns';
+	import { driver, type DriveStep, type PopoverDOM } from 'driver.js';
 	import 'driver.js/dist/driver.css';
 	import { mount, unmount } from 'svelte';
 
 	let hasAdminAccess = $derived(profile.current?.hasAdminAccess?.() ?? false);
 	let isAtLeastPowerUser = $derived(profile.current?.groups.includes(Group.POWERUSER));
-	// let isNewUser = $derived(
-	// 	profile.current?.created && isSameDay(new Date(profile.current?.created), new Date())
-	// );
+	let isNewUser = $derived(
+		profile.current?.created && isSameDay(new Date(profile.current?.created), new Date())
+	);
 
 	$effect(() => {
 		let logoMount: Record<string, unknown> | undefined;
+		if (!isNewUser) return;
+		const hasAlreadyCompleted = localStorage.getItem(`tour-completed:${profile.current?.id}`);
+		if (hasAlreadyCompleted) return;
 
-		// if (isNewUser) {
-		// 	tour.drive();
-		// }
 		const tour = driver({
 			showProgress: false,
-			steps: hasAdminAccess
+			steps: (hasAdminAccess
 				? [
 						{
 							popover: {
@@ -211,7 +211,7 @@
 												'Click the "Add MCP Server" button to deploy a new MCP server. You can choose to deploy a new server, whether shared or single instance per user, or connect to an existing remote server.',
 											side: 'bottom',
 											align: 'end',
-											onPopoverRender: (popover) => {
+											onPopoverRender: (popover: PopoverDOM) => {
 												if (popover.wrapper.querySelector('[data-tour-mcpservers-configure]')) {
 													return;
 												}
@@ -267,7 +267,7 @@
 												"For MCP servers you've created, you can see the status of each server, logs in real time, and more.",
 											side: 'bottom',
 											align: 'end',
-											onPopoverRender: (popover) => {
+											onPopoverRender: (popover: PopoverDOM) => {
 												if (popover.wrapper.querySelector('[data-tour-mcpservers-audit]')) {
 													return;
 												}
@@ -293,7 +293,7 @@
 												'Set up access control rules to determine who can access each MCP server. You can allow access to specific users or groups, or even everyone.',
 											side: 'bottom',
 											align: 'end',
-											onPopoverRender: (popover) => {
+											onPopoverRender: (popover: PopoverDOM) => {
 												if (popover.wrapper.querySelector('[data-tour-mcpregistries]')) {
 													return;
 												}
@@ -338,7 +338,13 @@
 								}
 							}
 						}
-					]
+					]) as DriveStep[],
+			onDestroyStarted: () => {
+				if (!tour.hasNextStep() || confirm('Are you sure?')) {
+					tour.destroy();
+				}
+				localStorage.setItem(`tour-completed:${profile.current?.id}`, 'true');
+			}
 		});
 		tour.drive();
 
