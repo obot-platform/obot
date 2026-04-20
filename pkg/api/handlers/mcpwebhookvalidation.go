@@ -131,16 +131,7 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 
 	validation.Spec.Manifest = manifest
 
-	if err := req.Update(&validation); err != nil {
-		return fmt.Errorf("failed to update mcp webhook validation: %w", err)
-	}
-
 	if secretCred != nil {
-		// The only way to update a credential is to delete it and recreate it.
-		if err := req.GPTClient.DeleteCredential(req.Context(), system.MCPWebhookValidationCredentialContext, validation.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-			return fmt.Errorf("failed to delete credential: %w", err)
-		}
-
 		if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
 			Context:  system.MCPWebhookValidationCredentialContext,
 			ToolName: validation.Name,
@@ -156,6 +147,10 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 		}
 
 		secretCred = cred.Env
+	}
+
+	if err := req.Update(&validation); err != nil {
+		return fmt.Errorf("failed to update mcp webhook validation: %w", err)
 	}
 
 	return req.Write(convertMCPWebhookValidation(validation, secretCred != nil))
