@@ -309,7 +309,7 @@
 					</div>
 				</div>
 			</div>
-			{#if loading}
+			{#if loadingToolUsage}
 				<div class="bg-surface3 h-[400px] animate-pulse rounded-md"></div>
 			{:else}
 				<div in:fade={{ duration: 150 }} class="paper gap-1 w-full min-h-72">
@@ -403,7 +403,6 @@
 						<div class="pt-2 flex flex-col gap-4 w-full">
 							{#each Array.from({ length: TOP_TOOLS_LIMIT }) as _, i (i)}
 								<div class="flex gap-2 items-center animate-pulse w-full">
-									<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
 									<div class="flex flex-col gap-2 flex-1">
 										<div class="h-4 w-full rounded bg-surface3"></div>
 										<div class="h-3 w-full rounded bg-surface3"></div>
@@ -451,7 +450,7 @@
 			</div>
 		</div>
 		<div class="col-span-12 @min-[768px]:col-span-4 flex flex-col gap-4">
-			{#if serverAndEntries.loading}
+			{#if serverAndEntries.loading || loading}
 				<div class="bg-surface3 h-[530px] animate-pulse rounded-md"></div>
 				<div class="paper gap-1 flex grow">
 					<h4 class="flex items-center gap-2 font-semibold">Most Popular Servers</h4>
