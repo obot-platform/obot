@@ -1,11 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import McpServerGitSync from '$lib/components/admin/McpServerGitSync.svelte';
 	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';

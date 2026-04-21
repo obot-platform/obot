@@ -14,7 +14,12 @@
 
 	let saving = $state(false);
 	let sourceError = $state<string>();
-	let editingSource = $state<{ index: number; value: string; token: string; clearToken?: boolean }>();
+	let editingSource = $state<{
+		index: number;
+		value: string;
+		token: string;
+		clearToken?: boolean;
+	}>();
 	let sourceDialog = $state<HTMLDialogElement>();
 
 	export function open() {
