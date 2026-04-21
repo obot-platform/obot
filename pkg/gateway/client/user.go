@@ -370,6 +370,18 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		if displayName, ok := profile["name"].(string); ok {
 			user.DisplayName = displayName
 		}
+	case "jumpcloud-auth-provider":
+		iconURL, _ := profile["icon_url"].(string)
+		if iconURL == "" {
+			iconURL, _ = profile["picture"].(string)
+		}
+		if iconURL != "" {
+			user.IconURL = iconURL
+			identity.IconURL = iconURL
+		}
+		if displayName, ok := profile["name"].(string); ok {
+			user.DisplayName = displayName
+		}
 	}
 
 	// Update the provider-native group lookup ID from the profile response.
