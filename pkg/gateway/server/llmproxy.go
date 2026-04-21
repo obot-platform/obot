@@ -159,7 +159,7 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 			Groups: token.UserGroups,
 		}
 		outputPolicies, conversationHistory, inputPolicyReplacement, err = applyMessagePolicies(
-			req.Context(), s.messagePolicyHelper, userInfo, req.GatewayClient, body, token.ProjectID, token.ThreadID,
+			req.Context(), messagePolicyHelper, userInfo, req.GatewayClient, body, token.ProjectID, token.ThreadID,
 		)
 		if err != nil {
 			return err
