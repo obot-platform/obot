@@ -4,21 +4,25 @@
 		type MCPCatalogEntry,
 		type RuntimeFormData,
 		type MCPCatalogEntryServerManifest,
-		type MCPCatalogServerManifest,
 		Group
 	} from '$lib/services/admin/types';
+	import {
+		convertCategoriesToMetadata,
+		convertServerRuntimeFormDataToManifest,
+		validateRuntimeForm
+	} from '$lib/services/chat/mcp';
 	import type { LaunchServerType, Runtime } from '$lib/services/chat/types';
 	import { profile } from '$lib/stores';
 	import MarkdownInput from '../MarkdownInput.svelte';
-	import Select from '../Select.svelte';
 	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
+	import CustomConfigurationForm from '../mcp/CustomConfigurationForm.svelte';
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import RuntimeSelector from '../mcp/RuntimeSelector.svelte';
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
-	import { Info, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
+	import { Info, LoaderCircle } from 'lucide-svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -270,80 +274,11 @@
 		}
 	}
 
-	// Form validation
-	function validateForm(): Record<string, boolean> {
-		let missingFields: Record<string, boolean> = {};
-		// Basic validation - name is required
-		if (!formData.name.trim()) {
-			missingFields.name = true;
-		}
-
-		// Runtime-specific validation
-		switch (formData.runtime) {
-			case 'npx':
-				if (!formData.npxConfig?.package?.trim()) {
-					missingFields.package = true;
-				}
-				break;
-			case 'uvx':
-				if (!formData.uvxConfig?.package?.trim()) {
-					missingFields.package = true;
-				}
-				break;
-			case 'containerized':
-				if (!formData.containerizedConfig?.image?.trim()) {
-					missingFields.image = true;
-				}
-				if (!formData.containerizedConfig?.path?.trim()) {
-					missingFields.path = true;
-				}
-				if ((formData.containerizedConfig?.port ?? 0) <= 0) {
-					missingFields.port = true;
-				}
-				break;
-			case 'remote':
-				if (type === 'remote') {
-					// For remote catalog entries, one of fixedURL, hostname, or urlTemplate is required
-					if (
-						!formData.remoteConfig?.fixedURL?.trim() &&
-						!formData.remoteConfig?.hostname?.trim() &&
-						!formData.remoteConfig?.urlTemplate?.trim()
-					) {
-						missingFields.fixedURL = true;
-						missingFields.hostname = true;
-						missingFields.urlTemplate = true;
-					}
-					break;
-				} else {
-					// For multi-user servers with remote runtime, URL is required
-					if (!formData.remoteServerConfig?.url?.trim()) {
-						missingFields.url = true;
-					}
-					break;
-				}
-			default:
-				break;
-		}
-
-		return missingFields;
-	}
-
 	onMount(() => {
 		if ((type === 'multi' || type === 'remote') && entry && id) {
 			revealCatalogServer(id, entry.id, entity);
 		}
 	});
-
-	function convertCategoriesToMetadata(categories: string[]) {
-		const validCategories = categories.filter((c) => c);
-		return validCategories
-			? {
-					metadata: {
-						categories: validCategories.join(',')
-					}
-				}
-			: undefined;
-	}
 
 	function convertToEntryManifest(formData: RuntimeFormData): MCPCatalogEntryServerManifest {
 		const { categories, ...baseData } = formData;
@@ -411,64 +346,6 @@
 		return manifest;
 	}
 
-	function convertToServerManifest(formData: RuntimeFormData): MCPCatalogServerManifest {
-		const { categories, ...baseData } = formData;
-
-		// Build base manifest structure for server
-		const serverManifest: MCPCatalogServerManifest = {
-			manifest: {
-				name: baseData.name,
-				description: baseData.description,
-				icon: baseData.icon,
-				env: baseData.env,
-				runtime: baseData.runtime,
-				...convertCategoriesToMetadata(categories)
-			}
-		};
-
-		// Add runtime-specific config based on the runtime type
-		switch (baseData.runtime) {
-			case 'npx':
-				if (baseData.npxConfig) {
-					serverManifest.manifest.npxConfig = {
-						package: baseData.npxConfig.package,
-						args: baseData.npxConfig.args?.filter((arg) => arg.trim()) || []
-					};
-				}
-				break;
-			case 'uvx':
-				if (baseData.uvxConfig) {
-					serverManifest.manifest.uvxConfig = {
-						package: baseData.uvxConfig.package,
-						command: baseData.uvxConfig.command || undefined,
-						args: baseData.uvxConfig.args?.filter((arg) => arg.trim()) || []
-					};
-				}
-				break;
-			case 'containerized':
-				if (baseData.containerizedConfig) {
-					serverManifest.manifest.containerizedConfig = {
-						image: baseData.containerizedConfig.image,
-						port: baseData.containerizedConfig.port,
-						path: baseData.containerizedConfig.path,
-						command: baseData.containerizedConfig.command || undefined,
-						args: baseData.containerizedConfig.args?.filter((arg) => arg.trim()) || []
-					};
-				}
-				break;
-			case 'remote':
-				if (baseData.remoteServerConfig) {
-					serverManifest.manifest.remoteConfig = {
-						url: baseData.remoteServerConfig.url,
-						headers: baseData.remoteServerConfig.headers || []
-					};
-				}
-				break;
-		}
-
-		return serverManifest;
-	}
-
 	async function handleEntrySubmit(id: string) {
 		const manifest = convertToEntryManifest(formData);
 
@@ -492,7 +369,7 @@
 	}
 
 	async function handleServerSubmit(id: string) {
-		const serverManifest = convertToServerManifest(formData);
+		const serverManifest = convertServerRuntimeFormDataToManifest(formData);
 
 		let response: MCPCatalogServer;
 		if (entry) {
@@ -550,7 +427,7 @@
 		if (!id) return;
 
 		showRequired = {}; // reset
-		const missingRequiredFields = validateForm();
+		const missingRequiredFields = validateRuntimeForm(formData, type);
 		if (Object.keys(missingRequiredFields).length > 0) {
 			showRequired = missingRequiredFields;
 			return;
@@ -711,193 +588,8 @@
 	/>
 {/if}
 
-<!-- Environment Variables Section -->
 {#if !['remote', 'composite'].includes(formData.runtime)}
-	{#if !readonly || (readonly && formData.env && formData.env.length > 0)}
-		<div
-			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
-		>
-			<h4 class="text-sm font-semibold">
-				{type === 'single' ? 'User Supplied Configuration' : 'Configuration'}
-			</h4>
-
-			{#if formData.env}
-				{#each formData.env as _, i (i)}
-					<div
-						class="dark:border-surface3 bg-surface2 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
-					>
-						<div class="flex w-full flex-col gap-4">
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
-								<Select
-									class="dark:border-surface3 bg-background border border-transparent"
-									classes={{
-										root: 'flex grow'
-									}}
-									options={[
-										{ label: 'Environment Variable', id: 'environment_variable_type' },
-										{ label: 'File', id: 'file_type' }
-									]}
-									disabled={readonly}
-									selected={formData.env[i].file ? 'file_type' : 'environment_variable_type'}
-									onSelect={(option) => {
-										if (option.id === 'file_type') {
-											formData.env[i].file = true;
-										} else {
-											formData.env[i].file = false;
-										}
-									}}
-									id={`env-type-${i}`}
-								/>
-							</div>
-
-							<p class="text-on-surface1 text-xs font-light">
-								{#if formData.env[i].file}
-									The value {type === 'single' ? 'the user supplies' : 'you provide'} will be written
-									to a file. An environment variable will be created using the name you specify in the
-									Key field and its value will be the path to that file. This environment variable will
-									be set inside your MCP server and you can reference it in the arguments section above
-									using the syntax ${'{KEY_NAME}'}.
-								{:else}
-									{type === 'single' ? 'The value the user supplies' : 'The value you provide'} will be
-									set as an environment variable using the name you specify in the Key field. This environment
-									variable will be set inside your MCP server and you can reference it in the arguments
-									section above using the syntax ${'{KEY_NAME}'}.
-								{/if}
-							</p>
-
-							{#if type === 'single'}
-								<p class="text-on-surface1 text-xs font-light">
-									The Name and Description fields will be displayed to the user when configuring
-									this server. The Key field will not.
-								</p>
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
-									<input
-										id={`env-name-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
-										bind:value={formData.env[i].name}
-										disabled={readonly}
-									/>
-								</div>
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
-									<input
-										id={`env-description-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
-										bind:value={formData.env[i].description}
-										disabled={readonly}
-									/>
-								</div>
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
-									<input
-										id={`env-key-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
-										bind:value={formData.env[i].key}
-										placeholder="e.g. CUSTOM_API_KEY"
-										disabled={readonly}
-									/>
-								</div>
-								<div class="flex gap-8">
-									<label class="flex items-center gap-2">
-										<input
-											type="checkbox"
-											bind:checked={formData.env[i].sensitive}
-											disabled={readonly}
-										/>
-										<span class="text-sm">Sensitive</span>
-									</label>
-									<label class="flex items-center gap-2">
-										<input
-											type="checkbox"
-											bind:checked={formData.env[i].required}
-											disabled={readonly}
-										/>
-										<span class="text-sm">Required</span>
-									</label>
-								</div>
-							{:else}
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
-									<input
-										id={`env-key-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
-										bind:value={formData.env[i].key}
-										placeholder="e.g. CUSTOM_API_KEY"
-										disabled={readonly}
-									/>
-								</div>
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-value-${i}`} class="text-sm font-light">Value</label>
-									{#if formData.env[i].file}
-										<textarea
-											id={`env-value-${i}`}
-											class="text-input-filled bg-background min-h-24 w-full resize-y shadow-none"
-											bind:value={formData.env[i].value}
-											disabled={readonly}
-											rows={formData.env[i].value.split('\n').length + 1}
-										></textarea>
-									{:else}
-										<input
-											id={`env-value-${i}`}
-											class="text-input-filled bg-background w-full shadow-none"
-											bind:value={formData.env[i].value}
-											placeholder="e.g. 123abcdef456"
-											disabled={readonly}
-											type={formData.env[i].sensitive ? 'password' : 'text'}
-										/>
-									{/if}
-								</div>
-								<div class="flex w-full gap-4">
-									<label class="flex items-center gap-2">
-										<input
-											type="checkbox"
-											bind:checked={formData.env[i].sensitive}
-											disabled={readonly}
-										/>
-										<span class="text-sm">Sensitive</span>
-									</label>
-								</div>
-							{/if}
-						</div>
-
-						{#if !readonly}
-							<button
-								class="icon-button"
-								onclick={() => {
-									formData.env.splice(i, 1);
-								}}
-							>
-								<Trash2 class="size-4" />
-							</button>
-						{/if}
-					</div>
-				{/each}
-			{/if}
-
-			{#if !readonly}
-				<div class="flex justify-end">
-					<button
-						class="button flex items-center gap-1 text-xs"
-						onclick={() =>
-							formData.env.push({
-								key: '',
-								description: '',
-								name: '',
-								value: '',
-								required: false,
-								sensitive: false,
-								file: false
-							})}
-					>
-						<Plus class="size-4" />
-						{type === 'single' ? 'User Configuration' : 'Configuration'}
-					</button>
-				</div>
-			{/if}
-		</div>
-	{/if}
+	<CustomConfigurationForm bind:config={formData.env} {readonly} {type} />
 {/if}
 
 {#if !readonly}

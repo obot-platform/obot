@@ -18,6 +18,8 @@
 		onFieldChange?: (field: string) => void;
 		isNewEntry?: boolean;
 		onConfigureOAuth?: () => void;
+		disableStaticOAuth?: boolean;
+		disableHostnameOption?: boolean;
 	}
 	let {
 		config = $bindable(),
@@ -25,7 +27,9 @@
 		showRequired,
 		onFieldChange,
 		isNewEntry,
-		onConfigureOAuth
+		onConfigureOAuth,
+		disableStaticOAuth,
+		disableHostnameOption
 	}: Props = $props();
 
 	// For catalog entries, we show advanced config if hostname, urlTemplate, or headers exist
@@ -89,7 +93,7 @@
 					}}
 					options={[
 						{ label: 'Exact URL', id: 'fixedURL' },
-						{ label: 'Hostname', id: 'hostname' },
+						...(!disableHostnameOption ? [{ label: 'Hostname', id: 'hostname' }] : []),
 						{ label: 'URL Template', id: 'urlTemplate' }
 					]}
 					selected={selectedType}
@@ -372,7 +376,7 @@
 		</div>
 	</div>
 	<!-- Static OAuth Configuration -->
-	{#if config}
+	{#if config && !disableStaticOAuth}
 		{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 		<div
 			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"

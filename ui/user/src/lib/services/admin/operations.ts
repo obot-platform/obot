@@ -977,8 +977,74 @@ export async function updateMCPFilter(
 	return (await doPut(`/mcp-webhook-validations/${id}`, filter, opts)) as MCPFilter;
 }
 
-export async function removeSecret(id: string, opts?: { fetch?: Fetcher }) {
+export async function configureMCPFilter(
+	id: string,
+	envs: Record<string, string>,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPost(`/mcp-webhook-validations/${id}/configure`, envs, opts);
+}
+
+export async function deconfigureMCPFilter(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
 	await doPost(`/mcp-webhook-validations/${id}/deconfigure`, {}, opts);
+}
+
+export async function launchMCPFilter(id: string): Promise<{
+	success: boolean;
+	message?: string;
+	code?: number;
+}> {
+	try {
+		await doPost(`/mcp-webhook-validations/${id}/launch`, {}, { dontLogErrors: true });
+		return {
+			success: true
+		};
+	} catch (err) {
+		if (err instanceof Error) {
+			if (err.message.includes('404')) {
+				return {
+					success: false,
+					message: err.message,
+					code: 404
+				};
+			} else if (err.message.includes('503')) {
+				return {
+					success: false,
+					message: err.message,
+					code: 503
+				};
+			} else {
+				return {
+					success: false,
+					message: err.message,
+					code: 500
+				};
+			}
+		}
+
+		throw err;
+	}
+}
+
+export async function revealMCPFilter(
+	id: string,
+	opts?: { dontLogErrors?: boolean }
+): Promise<Record<string, string>> {
+	return doPost(`/mcp-webhook-validations/${id}/reveal`, {}, opts) as Promise<
+		Record<string, string>
+	>;
+}
+
+export async function restartMCPFilter(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
+	await doPost(`/mcp-webhook-validations/${id}/restart`, {}, opts);
+}
+
+export async function getMCPFilterDetails(
+	id: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+) {
+	const response = (await doGet(`/mcp-webhook-validations/${id}/details`, opts)) as K8sServerDetail;
+	return response;
 }
 
 export async function listCatalogCategories(catalogId: string, opts?: { fetch?: Fetcher }) {

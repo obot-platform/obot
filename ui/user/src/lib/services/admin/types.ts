@@ -143,6 +143,45 @@ export interface MCPCatalogServerManifest {
 	};
 }
 
+export interface MCPHeaderManifest {
+	name: string;
+	description: string;
+	key: string;
+	value: string;
+	sensitive: boolean;
+	required: boolean;
+	prefix?: string;
+}
+
+export interface MCPFilterRemoteRuntimeConfig {
+	url: string;
+	isTemplate?: boolean;
+	urlTemplate?: string;
+	hostname?: string;
+	headers?: MCPHeaderManifest[];
+	staticOAuthRequired?: boolean;
+}
+
+export interface MCPEnvManifest extends MCPHeaderManifest {
+	file?: boolean;
+	dynamicFile?: boolean;
+}
+
+export interface MCPFilterServerManifest {
+	metadata?: Record<string, string>;
+	name?: string;
+	shortDescription?: string;
+	description?: string;
+	icon?: string;
+	enabled?: boolean;
+	runtime: Runtime;
+	uvxConfig?: UVXRuntimeConfig;
+	npxConfig?: NPXRuntimeConfig;
+	containerizedConfig?: ContainerizedRuntimeConfig;
+	remoteConfig?: MCPFilterRemoteRuntimeConfig;
+	env?: MCPEnvManifest[];
+}
+
 export interface OrgUser {
 	created: string;
 	username: string;
@@ -542,7 +581,8 @@ export interface MCPFilterManifest {
 	name?: string;
 	resources?: MCPFilterResource[];
 	url?: string;
-	mcpServerManifest?: MCPCatalogEntryServerManifest;
+	toolName?: string;
+	mcpServerManifest?: MCPFilterServerManifest;
 	secret?: string;
 	selectors?: MCPFilterWebhookSelector[];
 	disabled?: boolean;
