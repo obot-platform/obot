@@ -12,7 +12,9 @@ import (
 )
 
 const apiKeyAuthPrefix = "ok1-"
-const apiKeySkillsAccessExtraKey = "api_key_can_access_skills"
+// apiKeySkillsAccessExtraKey is the key used in user.Info.Extra to indicate
+// whether an API key has skills access.
+var apiKeySkillsAccessExtraKey = types2.APIKeySkillsAccessExtraKey
 
 // APIKeyAuthenticator authenticates requests using API keys.
 // API key users have restricted access - they only get GroupAPIKey,

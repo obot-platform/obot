@@ -15,7 +15,7 @@ import (
 const (
 	MetricsGroup               = "metrics"
 	UnauthenticatedGroup       = "unauthenticated"
-	apiKeySkillsAccessExtraKey = "api_key_can_access_skills"
+	apiKeySkillsAccessExtraKey = types.APIKeySkillsAccessExtraKey
 
 	// anyGroup is an internal group that allows access to any group
 	anyGroup = "*"

@@ -15,7 +15,7 @@ type APIKey struct {
 	Name            string     `json:"name"`                  // User-provided name for the key
 	Description     string     `json:"description,omitempty"` // Optional description
 	HashedSecret    string     `json:"-"`                     // bcrypt hash of the secret portion only
-	CanAccessSkills bool       `json:"canAccessSkills"`
+	CanAccessSkills bool       `json:"canAccessSkills" gorm:"default:false;not null"`
 	CreatedAt       time.Time  `json:"createdAt"`
 	LastUsedAt      *time.Time `json:"lastUsedAt,omitempty"`
 	ExpiresAt       *time.Time `json:"expiresAt,omitempty"` // nil means no expiration
