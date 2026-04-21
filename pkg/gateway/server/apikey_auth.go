@@ -12,6 +12,7 @@ import (
 )
 
 const apiKeyAuthPrefix = "ok1-"
+
 // apiKeySkillsAccessExtraKey is the key used in user.Info.Extra to indicate
 // whether an API key has skills access.
 var apiKeySkillsAccessExtraKey = types2.APIKeySkillsAccessExtraKey

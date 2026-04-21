@@ -30,15 +30,15 @@ const (
 
 	RoleUnknown Role = 0
 
-	GroupOwner             = "owner"
-	GroupAdmin             = "admin"
-	GroupAuditor           = "auditor"
-	GroupUserImpersonation = "user-impersonation"
-	GroupPowerUserPlus     = "power-user-plus"
-	GroupPowerUser         = "power-user"
-	GroupBasic             = "basic"
-	GroupAuthenticated     = "authenticated"
-	GroupAPIKey            = "api-key" // API key users have restricted access to MCP-connect routes only
+	GroupOwner                 = "owner"
+	GroupAdmin                 = "admin"
+	GroupAuditor               = "auditor"
+	GroupUserImpersonation     = "user-impersonation"
+	GroupPowerUserPlus         = "power-user-plus"
+	GroupPowerUser             = "power-user"
+	GroupBasic                 = "basic"
+	GroupAuthenticated         = "authenticated"
+	GroupAPIKey                = "api-key" // API key users have restricted access to MCP-connect routes only
 	APIKeySkillsAccessExtraKey = "api_key_can_access_skills"
 )
 

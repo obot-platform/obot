@@ -144,6 +144,10 @@ func (c *Client) invalidateValidatedAPIKeysByID(keyID uint) {
 // Returns the full key only once in the response.
 // At least one capability must be granted: MCP server access and/or skills access.
 func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, description string, expiresAt *time.Time, mcpServerIDs []string, canAccessSkills bool) (*types.APIKeyCreateResponse, error) {
+	if len(mcpServerIDs) == 0 && !canAccessSkills {
+		return nil, fmt.Errorf("at least one capability must be granted: MCP server access and/or skills access")
+	}
+
 	// Generate cryptographically secure random secret
 	secretBytes := make([]byte, apiKeySecretLength)
 	if _, err := rand.Read(secretBytes); err != nil {

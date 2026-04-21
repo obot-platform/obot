@@ -58,7 +58,7 @@ func TestSkillRouteAuthorization(t *testing.T) {
 				Name:   "key-user",
 				Groups: []string{types.GroupAPIKey},
 				Extra: map[string][]string{
-					"api_key_can_access_skills": {"true"},
+					types.APIKeySkillsAccessExtraKey: {"true"},
 				},
 			},
 			allowed: true,
@@ -71,7 +71,7 @@ func TestSkillRouteAuthorization(t *testing.T) {
 				Name:   "key-user",
 				Groups: []string{types.GroupAPIKey},
 				Extra: map[string][]string{
-					"api_key_can_access_skills": {"true"},
+					types.APIKeySkillsAccessExtraKey: {"true"},
 				},
 			},
 			allowed: true,
@@ -84,7 +84,7 @@ func TestSkillRouteAuthorization(t *testing.T) {
 				Name:   "key-user",
 				Groups: []string{types.GroupAPIKey},
 				Extra: map[string][]string{
-					"api_key_can_access_skills": {"true"},
+					types.APIKeySkillsAccessExtraKey: {"true"},
 				},
 			},
 			allowed: true,

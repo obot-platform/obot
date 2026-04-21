@@ -158,7 +158,7 @@
 					<div class="flex flex-col gap-1">
 						<span class="text-sm font-medium">Allow skill access</span>
 						<span class="input-description">
-							Grants this key access to the `/api/skills` endpoints.
+							Grants this key read-only access for skill discovery and downloads.
 						</span>
 					</div>
 				</label>
