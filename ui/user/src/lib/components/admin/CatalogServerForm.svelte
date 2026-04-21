@@ -152,6 +152,8 @@
 				compositeServerConfig: undefined
 			};
 
+			formData.startupTimeoutSeconds = manifest.startupTimeoutSeconds;
+
 			// Initialize the appropriate runtime config based on the runtime type
 			switch (manifest.runtime) {
 				case 'npx':
@@ -192,6 +194,8 @@
 				remoteConfig: undefined,
 				remoteServerConfig: undefined
 			};
+
+			formData.startupTimeoutSeconds = manifest.startupTimeoutSeconds;
 
 			// Initialize the appropriate runtime config based on the runtime type
 			switch (manifest.runtime) {
@@ -311,7 +315,10 @@
 			icon: baseData.icon,
 			env: baseData.env,
 			runtime: baseData.runtime,
-			...convertCategoriesToMetadata(categories)
+			...convertCategoriesToMetadata(categories),
+			...(baseData.startupTimeoutSeconds
+				? { startupTimeoutSeconds: baseData.startupTimeoutSeconds }
+				: {})
 		};
 
 		// Add runtime-specific config based on the runtime type
@@ -372,7 +379,6 @@
 
 		return manifest;
 	}
-
 	async function handleEntrySubmit(id: string) {
 		const manifest = convertToEntryManifest(formData);
 
@@ -581,6 +587,7 @@
 		bind:config={formData.npxConfig}
 		{showEgressDomains}
 		{defaultDenyAllEgress}
+		bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
 		{readonly}
 		{showRequired}
 		onFieldChange={updateRequired}
@@ -590,6 +597,7 @@
 		bind:config={formData.uvxConfig}
 		{showEgressDomains}
 		{defaultDenyAllEgress}
+		bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
 		{readonly}
 		{showRequired}
 		onFieldChange={updateRequired}
@@ -599,6 +607,7 @@
 		bind:config={formData.containerizedConfig}
 		{showEgressDomains}
 		{defaultDenyAllEgress}
+		bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}
 		{readonly}
 		{showRequired}
 		onFieldChange={updateRequired}
@@ -621,7 +630,7 @@
 		id={entry?.id}
 	/>
 {/if}
-
+<!-- Environment Variables Section -->
 {#if !['remote', 'composite'].includes(formData.runtime)}
 	<CustomConfigurationForm bind:config={formData.env} {readonly} {type} />
 {/if}

@@ -72,6 +72,8 @@ type ServerConfig struct {
 	AuditLogToken    string `json:"auditLogToken"`
 	AuditLogEndpoint string `json:"auditLogEndpoint"`
 	AuditLogMetadata string `json:"auditLogMetadata"`
+
+	StartupTimeoutSeconds int `json:"startupTimeoutSeconds,omitempty"`
 }
 
 type File struct {
@@ -338,6 +340,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		AuthorizeEndpoint:         fmt.Sprintf("%s/oauth/authorize", issuer),
 		ComponentMCPServer:        mcpServer.Spec.CompositeName != "",
 		NanobotAgentName:          mcpServer.Spec.NanobotAgentID,
+		StartupTimeoutSeconds:     mcpServer.Spec.Manifest.StartupTimeoutSeconds,
 	}
 
 	if mcpServer.Spec.CompositeName == "" {
@@ -448,6 +451,7 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		AuditLogToken:             secretsCred["AUDIT_LOG_TOKEN"],
 		AuditLogMetadata:          fmt.Sprintf("mcpID=%s,mcpServerDisplayName=%s", systemServer.Name, displayName),
 		SystemMCPServer:           true,
+		StartupTimeoutSeconds:     systemServer.Spec.Manifest.StartupTimeoutSeconds,
 	}
 
 	var missingRequiredNames []string

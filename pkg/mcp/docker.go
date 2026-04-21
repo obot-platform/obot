@@ -291,6 +291,9 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 			existing.State = ""
 		}
 
+		ctx, cancel := context.WithTimeout(ctx, startupTimeout(server))
+		defer cancel()
+
 		// Container exists, check state
 		switch existing.State {
 		case container.StateCreated:
@@ -767,6 +770,7 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		AuditLogMetadata:          server.AuditLogMetadata,
 		ContainerPath:             server.ContainerPath,
 		NanobotAgentName:          server.NanobotAgentName,
+		StartupTimeoutSeconds:     server.StartupTimeoutSeconds,
 	}, nil
 }
 
@@ -775,6 +779,10 @@ func (d *dockerBackend) createAndStartAndWaitForContainer(ctx context.Context, s
 	if err != nil {
 		return ServerConfig{}, err
 	}
+
+	// Use MCP Server startup timeout now that image is pulled and container is created
+	ctx, cancel := context.WithTimeout(ctx, startupTimeout(server))
+	defer cancel()
 
 	// Wait for container to be running and healthy
 	if err := d.waitForContainer(ctx, containerID); err != nil {
@@ -1039,6 +1047,8 @@ func (d *dockerBackend) waitForContainer(ctx context.Context, containerID string
 		select {
 		case <-timeout:
 			return fmt.Errorf("timeout waiting for container to start")
+		case <-ctx.Done():
+			return fmt.Errorf("%w: timeout waiting for container to start", ErrHealthCheckTimeout)
 		case <-ticker.C:
 			inspect, err := d.client.ContainerInspect(ctx, containerID)
 			if err != nil {
@@ -1322,6 +1332,9 @@ func (d *dockerBackend) populateFilesVolume(ctx context.Context, volumeName, con
 }
 
 func (d *dockerBackend) pullImage(ctx context.Context, imageName string, ifNotExists bool) error {
+	ctx, cancel := context.WithTimeout(ctx, imagePullTimeout)
+	defer cancel()
+
 	if ifNotExists {
 		// Check if image exists locally
 		_, err := d.client.ImageInspect(ctx, imageName)
