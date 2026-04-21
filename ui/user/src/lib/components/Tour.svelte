@@ -257,7 +257,7 @@
 		const tour = driver({
 			showProgress: false,
 			overlayClickBehavior: noop,
-			overlayColor: darkMode.isDark ? 'rgba(100, 100, 100, 0.50)' : 'rgba(0, 0, 0, 0.5)',
+			overlayColor: darkMode.isDark ? 'rgba(0, 0, 0, 1)' : 'rgba(0, 0, 0, 0.35)',
 			steps: [introStep, ...(hasAdminAccess ? adminSteps : defaultUserSteps)] as DriveStep[],
 			onDestroyStarted: () => {
 				tour.destroy();
@@ -285,6 +285,8 @@
 			border-radius: var(--radius-md);
 
 			.dark & {
+				border: 1px solid var(--surface3);
+				background-color: var(--surface2);
 				color: var(--color-white);
 			}
 		}
@@ -340,6 +342,9 @@
 
 		.driver-popover-arrow {
 			border: 5px solid var(--color-background);
+			.dark & {
+				border: 5px solid var(--surface3);
+			}
 		}
 
 		.driver-popover-close-btn {
