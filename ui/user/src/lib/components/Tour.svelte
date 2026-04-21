@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { Group } from '$lib/services';
-	import { profile, version } from '$lib/stores';
+	import { darkMode, profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { isSameDay } from 'date-fns';
 	import { driver, type DriveStep, type PopoverDOM } from 'driver.js';
@@ -41,7 +41,7 @@
 		const img = document.createElement('img');
 		img.src = src;
 		img.alt = alt;
-		img.className = 'h-96 w-full object-contain object-top';
+		img.className = 'h-[445px] w-full object-contain object-top';
 		wrapper.appendChild(img);
 		popover.wrapper.prepend(wrapper);
 	}
@@ -257,6 +257,7 @@
 		const tour = driver({
 			showProgress: false,
 			overlayClickBehavior: noop,
+			overlayColor: darkMode.isDark ? 'rgba(100, 100, 100, 0.50)' : 'rgba(0, 0, 0, 0.5)',
 			steps: [introStep, ...(hasAdminAccess ? adminSteps : defaultUserSteps)] as DriveStep[],
 			onDestroyStarted: () => {
 				tour.destroy();
@@ -276,6 +277,17 @@
 
 <style lang="postcss">
 	:global {
+		.driver-popover {
+			box-shadow: var(--shadow-md);
+			border: 1px solid transparent;
+			background-color: var(--color-background);
+			color: var(--color-black);
+			border-radius: var(--radius-md);
+
+			.dark & {
+				color: var(--color-white);
+			}
+		}
 		.driver-popover-description {
 			font-size: var(--text-sm);
 			font-family: var(--default-font-family);
@@ -297,6 +309,10 @@
 			border-width: 0;
 			transition-property: color, background-color;
 			transition-duration: 200ms;
+
+			.dark & {
+				color: var(--color-white);
+			}
 
 			&:hover {
 				background-color: color-mix(in oklab, var(--surface3) 90%, var(--color-black));
@@ -320,6 +336,30 @@
 			.dark &:hover {
 				background-color: color-mix(in oklab, var(--color-primary) 90%, var(--color-white));
 			}
+		}
+
+		.driver-popover-arrow {
+			border: 5px solid var(--color-background);
+		}
+
+		.driver-popover-close-btn {
+			color: color-mix(in oklab, var(--color-on-background) 75%, var(--color-white));
+			&:hover {
+				color: var(--color-on-background);
+			}
+
+			.dark & {
+				color: color-mix(in oklab, var(--color-on-background) 75%, var(--color-black));
+				&:hover {
+					color: var(--color-on-background);
+				}
+			}
+		}
+
+		.driver-popover-arrow.driver-popover-arrow-side-right {
+			border-left-color: transparent;
+			border-bottom-color: transparent;
+			border-top-color: transparent;
 		}
 
 		.driver-popover.tour-skills-arrow-center
