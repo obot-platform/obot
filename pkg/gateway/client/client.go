@@ -32,6 +32,9 @@ type Client struct {
 	apiKeyCacheLock         sync.RWMutex
 	apiKeyCache             map[[32]byte]apiKeyValidationCacheEntry
 	apiKeyCacheTTL          time.Duration
+	serviceAccountCacheLock sync.Mutex
+	serviceAccountCache     map[[32]byte]serviceAccountValidationCacheEntry
+	serviceAccountCacheTTL  time.Duration
 	auditLogCleanupInterval time.Duration
 	auditLogDeleteBatchSize int
 	oktaGroupMigrationMu    sync.Mutex
@@ -56,6 +59,8 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		storageClient:           storageClient,
 		apiKeyCache:             make(map[[32]byte]apiKeyValidationCacheEntry),
 		apiKeyCacheTTL:          apiKeyValidationCacheTTL,
+		serviceAccountCache:     make(map[[32]byte]serviceAccountValidationCacheEntry),
+		serviceAccountCacheTTL:  serviceAccountValidationCacheTTL,
 		auditLogCleanupInterval: defaultAuditLogCleanupInterval,
 		auditLogDeleteBatchSize: defaultAuditLogDeleteBatchSize,
 	}

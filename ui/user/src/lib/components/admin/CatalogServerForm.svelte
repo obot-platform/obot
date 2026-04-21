@@ -12,7 +12,7 @@
 		validateRuntimeForm
 	} from '$lib/services/chat/mcp';
 	import type { LaunchServerType, Runtime } from '$lib/services/chat/types';
-	import { profile } from '$lib/stores';
+	import { profile, version } from '$lib/stores';
 	import MarkdownInput from '../MarkdownInput.svelte';
 	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
@@ -76,6 +76,40 @@
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
 
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
+	const showEgressDomains = $derived(!!version.current.mcpNetworkPolicyEnabled);
+	const defaultDenyAllEgress = $derived(!!version.current.mcpDefaultDenyAllEgress);
+
+	function defaultNpxConfig() {
+		return { package: '', args: [], egressDomains: [], denyAllEgress: undefined };
+	}
+
+	function defaultUvxConfig() {
+		return { package: '', command: '', args: [], egressDomains: [], denyAllEgress: undefined };
+	}
+
+	function defaultContainerizedConfig() {
+		return {
+			image: '',
+			port: 0,
+			path: '',
+			command: '',
+			args: [],
+			egressDomains: [],
+			denyAllEgress: undefined
+		};
+	}
+
+	function normalizeNpxConfig(config?: RuntimeFormData['npxConfig']) {
+		return config ? { ...defaultNpxConfig(), ...config } : defaultNpxConfig();
+	}
+
+	function normalizeUvxConfig(config?: RuntimeFormData['uvxConfig']) {
+		return config ? { ...defaultUvxConfig(), ...config } : defaultUvxConfig();
+	}
+
+	function normalizeContainerizedConfig(config?: RuntimeFormData['containerizedConfig']) {
+		return config ? { ...defaultContainerizedConfig(), ...config } : defaultContainerizedConfig();
+	}
 
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): RuntimeFormData {
 		if (!item) {
@@ -87,7 +121,7 @@
 				env: [],
 				icon: '',
 				runtime: 'npx' as Runtime,
-				npxConfig: { package: '', args: [] },
+				npxConfig: defaultNpxConfig(),
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
 				remoteConfig: undefined,
@@ -121,19 +155,13 @@
 			// Initialize the appropriate runtime config based on the runtime type
 			switch (manifest.runtime) {
 				case 'npx':
-					formData.npxConfig = manifest.npxConfig || { package: '', args: [] };
+					formData.npxConfig = normalizeNpxConfig(manifest.npxConfig);
 					break;
 				case 'uvx':
-					formData.uvxConfig = manifest.uvxConfig || { package: '', command: '', args: [] };
+					formData.uvxConfig = normalizeUvxConfig(manifest.uvxConfig);
 					break;
 				case 'containerized':
-					formData.containerizedConfig = manifest.containerizedConfig || {
-						image: '',
-						port: 0,
-						path: '',
-						command: '',
-						args: []
-					};
+					formData.containerizedConfig = normalizeContainerizedConfig(manifest.containerizedConfig);
 					break;
 				case 'remote':
 					formData.remoteServerConfig = manifest.remoteConfig
@@ -168,19 +196,13 @@
 			// Initialize the appropriate runtime config based on the runtime type
 			switch (manifest.runtime) {
 				case 'npx':
-					formData.npxConfig = manifest.npxConfig || { package: '', args: [] };
+					formData.npxConfig = normalizeNpxConfig(manifest.npxConfig);
 					break;
 				case 'uvx':
-					formData.uvxConfig = manifest.uvxConfig || { package: '', command: '', args: [] };
+					formData.uvxConfig = normalizeUvxConfig(manifest.uvxConfig);
 					break;
 				case 'containerized':
-					formData.containerizedConfig = manifest.containerizedConfig || {
-						image: '',
-						port: 0,
-						path: '',
-						command: '',
-						args: []
-					};
+					formData.containerizedConfig = normalizeContainerizedConfig(manifest.containerizedConfig);
 					break;
 				case 'remote':
 					formData.remoteConfig = manifest.remoteConfig || { fixedURL: '', headers: [] };
@@ -251,19 +273,13 @@
 		// Initialize the appropriate config based on the new runtime
 		switch (newRuntime) {
 			case 'npx':
-				formData.npxConfig = { package: '', args: [] };
+				formData.npxConfig = defaultNpxConfig();
 				break;
 			case 'uvx':
-				formData.uvxConfig = { package: '', command: '', args: [] };
+				formData.uvxConfig = defaultUvxConfig();
 				break;
 			case 'containerized':
-				formData.containerizedConfig = {
-					image: '',
-					port: 0,
-					path: '',
-					command: '',
-					args: []
-				};
+				formData.containerizedConfig = defaultContainerizedConfig();
 				break;
 			case 'remote':
 				// For remote servers (catalog entries), use remoteConfig
@@ -280,6 +296,10 @@
 			revealCatalogServer(id, entry.id, entity);
 		}
 	});
+
+	function sanitizeEgressDomains(egressDomains?: string[]) {
+		return egressDomains?.map((domain) => domain.trim()).filter(Boolean) || [];
+	}
 
 	function convertToEntryManifest(formData: RuntimeFormData): MCPCatalogEntryServerManifest {
 		const { categories, ...baseData } = formData;
@@ -300,7 +320,9 @@
 				if (baseData.npxConfig) {
 					manifest.npxConfig = {
 						package: baseData.npxConfig.package,
-						args: baseData.npxConfig.args?.filter((arg) => arg.trim()) || []
+						args: baseData.npxConfig.args?.filter((arg) => arg.trim()) || [],
+						egressDomains: sanitizeEgressDomains(baseData.npxConfig.egressDomains),
+						denyAllEgress: baseData.npxConfig.denyAllEgress
 					};
 				}
 				break;
@@ -309,7 +331,9 @@
 					manifest.uvxConfig = {
 						package: baseData.uvxConfig.package,
 						command: baseData.uvxConfig.command || undefined,
-						args: baseData.uvxConfig.args?.filter((arg) => arg.trim()) || []
+						args: baseData.uvxConfig.args?.filter((arg) => arg.trim()) || [],
+						egressDomains: sanitizeEgressDomains(baseData.uvxConfig.egressDomains),
+						denyAllEgress: baseData.uvxConfig.denyAllEgress
 					};
 				}
 				break;
@@ -320,7 +344,9 @@
 						port: baseData.containerizedConfig.port,
 						path: baseData.containerizedConfig.path,
 						command: baseData.containerizedConfig.command || undefined,
-						args: baseData.containerizedConfig.args?.filter((arg) => arg.trim()) || []
+						args: baseData.containerizedConfig.args?.filter((arg) => arg.trim()) || [],
+						egressDomains: sanitizeEgressDomains(baseData.containerizedConfig.egressDomains),
+						denyAllEgress: baseData.containerizedConfig.denyAllEgress
 					};
 				}
 				break;
@@ -553,6 +579,8 @@
 {#if formData.runtime === 'npx' && formData.npxConfig}
 	<NpxRuntimeForm
 		bind:config={formData.npxConfig}
+		{showEgressDomains}
+		{defaultDenyAllEgress}
 		{readonly}
 		{showRequired}
 		onFieldChange={updateRequired}
@@ -560,6 +588,8 @@
 {:else if formData.runtime === 'uvx' && formData.uvxConfig}
 	<UvxRuntimeForm
 		bind:config={formData.uvxConfig}
+		{showEgressDomains}
+		{defaultDenyAllEgress}
 		{readonly}
 		{showRequired}
 		onFieldChange={updateRequired}
@@ -567,6 +597,8 @@
 {:else if formData.runtime === 'containerized' && formData.containerizedConfig}
 	<ContainerizedRuntimeForm
 		bind:config={formData.containerizedConfig}
+		{showEgressDomains}
+		{defaultDenyAllEgress}
 		{readonly}
 		{showRequired}
 		onFieldChange={updateRequired}

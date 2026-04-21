@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
+	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
 	import type { ContainerizedRuntimeConfig } from '$lib/services/chat/types';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
@@ -8,15 +10,50 @@
 	interface Props {
 		config: ContainerizedRuntimeConfig;
 		readonly?: boolean;
+		showEgressDomains?: boolean;
+		defaultDenyAllEgress?: boolean;
 		showRequired?: Record<string, boolean>;
 		onFieldChange?: (field: string) => void;
 		children?: Snippet;
 	}
-	let { config = $bindable(), readonly, showRequired, onFieldChange, children }: Props = $props();
+	let {
+		config = $bindable(),
+		readonly,
+		showEgressDomains = false,
+		defaultDenyAllEgress = false,
+		showRequired,
+		onFieldChange,
+		children
+	}: Props = $props();
 
 	// Initialize args array if it doesn't exist
 	if (!config.args) {
 		config.args = [];
+	}
+	if (!config.egressDomains) {
+		config.egressDomains = [];
+	}
+
+	const explicitAllowAll = $derived(defaultDenyAllEgress && config.denyAllEgress === false);
+	const explicitDenyAll = $derived(!defaultDenyAllEgress && config.denyAllEgress === true);
+	const toggleChecked = $derived(defaultDenyAllEgress ? explicitAllowAll : explicitDenyAll);
+	const toggleLabel = $derived(defaultDenyAllEgress ? 'Allow all egress' : 'Deny all egress');
+	const inputReadonly = $derived(readonly || toggleChecked);
+	const egressHelpText = $derived(
+		defaultDenyAllEgress
+			? 'Leave empty to deny all egress by default. Add domains to allow only those domains. Enable allow all to allow unrestricted egress.'
+			: 'Leave empty to allow all egress. Add domains to allow only those domains. Enable deny all to block all egress.'
+	);
+
+	function handleEgressToggle(checked: boolean) {
+		if (defaultDenyAllEgress) {
+			config.denyAllEgress = checked ? false : undefined;
+		} else {
+			config.denyAllEgress = checked ? true : undefined;
+		}
+		if (checked) {
+			config.egressDomains = [];
+		}
 	}
 
 	function addArgument() {
@@ -219,6 +256,28 @@
 						</button>
 					</div>
 				{/if}
+			</div>
+		</div>
+	{/if}
+
+	{#if showEgressDomains}
+		<div class="flex gap-4">
+			<span class="pt-2.5 text-sm font-light">Egress Domains</span>
+			<div class="flex min-h-10 grow flex-col gap-2">
+				<Toggle
+					label={toggleLabel}
+					labelInline
+					checked={toggleChecked}
+					disabled={readonly}
+					onChange={handleEgressToggle}
+				/>
+				<MultiValueInput
+					bind:value={config.egressDomains}
+					class="text-input-filled dark:bg-background"
+					readonly={inputReadonly}
+					placeholder="example.com, *.example.com"
+				/>
+				<p class="text-on-surface1 text-xs">{egressHelpText}</p>
 			</div>
 		</div>
 	{/if}

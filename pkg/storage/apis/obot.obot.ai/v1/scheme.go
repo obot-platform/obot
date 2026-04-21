@@ -27,6 +27,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&AgentList{},
 		&MCPServer{},
 		&MCPServerList{},
+		&MCPNetworkPolicy{},
+		&MCPNetworkPolicyList{},
 		&MCPServerInstance{},
 		&MCPServerInstanceList{},
 		&ProjectMCPServer{},
