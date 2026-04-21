@@ -5,6 +5,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import McpServerGitSync from '$lib/components/admin/McpServerGitSync.svelte';
 	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
 	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
@@ -25,7 +26,7 @@
 		replaceState
 	} from '$lib/url';
 	import SourceUrlsView from './SourceUrlsView.svelte';
-	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
+	import { Info, LoaderCircle, Plus, RefreshCcw, Server } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -80,16 +81,13 @@
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	let defaultCatalog = $state<MCPCatalog>();
-	let editingSource = $state<{ index: number; value: string }>();
-	let sourceDialog = $state<HTMLDialogElement>();
+	let sourceDialog = $state<ReturnType<typeof McpServerGitSync>>();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 
 	let selectedServerType = $derived(page.url.searchParams.get('new') as LaunchServerType);
 	let showServerForm = $derived(page.url.searchParams.has('new'));
 
-	let saving = $state(false);
 	let syncing = $state(false);
-	let sourceError = $state<string>();
 	let syncInterval = $state<ReturnType<typeof setInterval>>();
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
@@ -102,12 +100,6 @@
 		if (updateUrl) {
 			goto(resolve(`/admin/mcp-servers?new=${type}`));
 		}
-	}
-
-	function closeSourceDialog() {
-		editingSource = undefined;
-		sourceError = undefined;
-		sourceDialog?.close();
 	}
 
 	function pollTillSyncComplete() {
@@ -367,11 +359,7 @@
 		<button
 			class="menu-button"
 			onclick={() => {
-				editingSource = {
-					index: -1,
-					value: ''
-				};
-				sourceDialog?.showModal();
+				sourceDialog?.open();
 			}}
 		>
 			Add server(s) from Git
@@ -379,89 +367,7 @@
 	</DotDotDot>
 {/snippet}
 
-<dialog bind:this={sourceDialog} class="dialog">
-	<div class="dialog-container w-full max-w-md p-4">
-		{#if editingSource}
-			<h3 class="dialog-title">
-				{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
-				<button onclick={() => closeSourceDialog()} class="icon-button dialog-close-btn">
-					<X class="size-5" />
-				</button>
-			</h3>
-
-			<div class="my-4 flex flex-col gap-1">
-				<label for="catalog-source-name" class="flex-1 text-sm font-light capitalize"
-					>Source URL
-				</label>
-				<input
-					id="catalog-source-name"
-					bind:value={editingSource.value}
-					class="text-input-filled"
-				/>
-			</div>
-
-			{#if sourceError}
-				<div class="mb-4 flex flex-col gap-2 text-red-500 dark:text-red-400">
-					<div class="flex items-center gap-2">
-						<AlertTriangle class="size-6 flex-shrink-0 self-start" />
-						<p class="my-0.5 flex flex-col text-sm font-semibold">Error adding source URL:</p>
-					</div>
-					<span class="font-sm font-light break-all">{sourceError}</span>
-				</div>
-			{/if}
-
-			<div class="flex w-full justify-end gap-2">
-				<button class="button" disabled={saving} onclick={() => closeSourceDialog()}>Cancel</button>
-				<button
-					class="button-primary"
-					disabled={saving}
-					onclick={async () => {
-						if (!editingSource || !defaultCatalog) {
-							return;
-						}
-
-						saving = true;
-						sourceError = undefined;
-
-						try {
-							const updatingCatalog = { ...defaultCatalog };
-
-							if (editingSource.index === -1) {
-								updatingCatalog.sourceURLs = [
-									...(updatingCatalog.sourceURLs ?? []),
-									editingSource.value
-								];
-							} else {
-								updatingCatalog.sourceURLs[editingSource.index] = editingSource.value;
-							}
-
-							const response = await AdminService.updateMCPCatalog(
-								defaultCatalogId,
-								updatingCatalog,
-								{
-									dontLogErrors: true
-								}
-							);
-							defaultCatalog = response;
-							await sync();
-							closeSourceDialog();
-						} catch (error) {
-							sourceError = error instanceof Error ? error.message : 'An unexpected error occurred';
-						} finally {
-							saving = false;
-						}
-					}}
-				>
-					Add
-				</button>
-			</div>
-		{/if}
-	</div>
-	<form class="dialog-backdrop">
-		<button type="button" onclick={() => sourceDialog?.close()}>close</button>
-	</form>
-</dialog>
-
+<McpServerGitSync bind:this={sourceDialog} {defaultCatalog} onSync={sync} />
 <SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={selectServerType} />
 
 <svelte:head>

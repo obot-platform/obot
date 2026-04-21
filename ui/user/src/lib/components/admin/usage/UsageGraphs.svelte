@@ -19,6 +19,11 @@
 	import AuditLogCalendar from '../audit-logs/AuditLogCalendar.svelte';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
 	import type { SupportedStateFilter } from './types';
+	import {
+		transformAvgToolCallResponseTime,
+		transformTopServerUsage,
+		transformTopToolCalls
+	} from './utils';
 	import { endOfDay, isBefore, set, subDays } from 'date-fns';
 	import { ChevronsLeft, ChevronsRight, Funnel, ChartBarDecreasing, X } from 'lucide-svelte';
 	import { flip } from 'svelte/animate';
@@ -231,28 +236,7 @@
 			tooltip: 'calls',
 			formatXLabel: (d) => String(d).split('.').slice(1).join('.'),
 			formatTooltipText: (data) => `${data.count} calls • ${data.serverDisplayName}`,
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const counts = new Map<string, { count: number; serverDisplayName: string }>();
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						const key = `${s.mcpServerDisplayName}.${call.toolName}`;
-						const existing = counts.get(key) ?? {
-							count: 0,
-							serverDisplayName: s.mcpServerDisplayName
-						};
-						existing.count += call.callCount;
-						counts.set(key, existing);
-					}
-				}
-				return Array.from(counts.entries())
-					.map(([toolName, { count, serverDisplayName }]) => ({
-						toolName,
-						count,
-						serverDisplayName
-					}))
-					.sort((a, b) => b.count - a.count);
-			}
+			transform: transformTopToolCalls
 		},
 		{
 			id: 'most-frequently-used-servers',
@@ -260,19 +244,7 @@
 			xKey: 'serverName',
 			yKey: 'count',
 			tooltip: 'calls',
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const counts = new Map<string, number>();
-				for (const s of stats?.items ?? []) {
-					const total = (s.toolCalls ?? []).reduce((sum, t) => sum + t.callCount, 0);
-					if (total > 0) {
-						counts.set(s.mcpServerDisplayName, (counts.get(s.mcpServerDisplayName) ?? 0) + total);
-					}
-				}
-				return Array.from(counts.entries())
-					.map(([serverName, count]) => ({ serverName, count }))
-					.sort((a, b) => b.count - a.count);
-			}
+			transform: transformTopServerUsage
 		},
 		{
 			id: 'tool-call-average-response-time',
@@ -283,37 +255,7 @@
 			formatXLabel: (d) => String(d).split('.').slice(1).join('.'),
 			formatTooltipText: (data) =>
 				`${(data.averageResponseTimeMs as number).toFixed(2)}ms avg • ${data.serverDisplayName}`,
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const responseTimes = new Map<
-					string,
-					{ total: number; count: number; serverDisplayName: string }
-				>();
-
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						const key = `${s.mcpServerDisplayName}.${call.toolName}`;
-						for (const item of call.items ?? []) {
-							const entry = responseTimes.get(key) ?? {
-								total: 0,
-								count: 0,
-								serverDisplayName: s.mcpServerDisplayName
-							};
-							entry.total += item.processingTimeMs;
-							entry.count += 1;
-							responseTimes.set(key, entry);
-						}
-					}
-				}
-
-				return Array.from(responseTimes.entries())
-					.map(([toolName, { total, count, serverDisplayName }]) => ({
-						toolName,
-						averageResponseTimeMs: count > 0 ? total / count : 0,
-						serverDisplayName
-					}))
-					.sort((a, b) => b.averageResponseTimeMs - a.averageResponseTimeMs);
-			}
+			transform: transformAvgToolCallResponseTime
 		},
 		{
 			id: 'tool-call-individual-response-time',
