@@ -9,7 +9,11 @@
 		type MCPCatalogEntry,
 		type MCPCatalogServer
 	} from '$lib/services';
-	import { convertEnvHeadersToRecord, hasEditableConfiguration } from '$lib/services/chat/mcp';
+	import {
+		convertEnvHeadersToRecord,
+		deriveToolPrefix,
+		hasEditableConfiguration
+	} from '$lib/services/chat/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import CatalogConfigureForm, { type LaunchFormData } from '../CatalogConfigureForm.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
@@ -31,6 +35,13 @@
 		// Indicates if this is a newly added component (not yet persisted to the composite entry)
 		isNewComponent?: boolean;
 		existingTools?: CompositeServerToolRow[];
+		// Current toolPrefix on the component being edited (refresh flow). Seeded into
+		// componentConfig so the edit modal displays and binds against it.
+		existingToolPrefix?: string;
+		// Effective names of enabled tools from OTHER components of the composite,
+		// so the modal can flag cross-component final-name conflicts live.
+		otherEffectiveNames?: string[];
+		otherToolPrefixes?: string[];
 	}
 
 	let {
@@ -42,7 +53,10 @@
 		compositeEntryId,
 		componentId,
 		isNewComponent = false,
-		existingTools
+		existingTools,
+		existingToolPrefix,
+		otherEffectiveNames,
+		otherToolPrefixes
 	}: Props = $props();
 	let searchDialog = $state<ReturnType<typeof SearchMcpServers>>();
 	let choiceDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -97,12 +111,14 @@
 					? {
 							catalogEntryID: configuringEntry.id,
 							manifest: configuringEntry.manifest,
-							toolOverrides: []
+							toolOverrides: [],
+							toolPrefix: existingToolPrefix
 						}
 					: ({
 							mcpServerID: configuringEntry.id,
 							manifest: configuringEntry.manifest,
-							toolOverrides: []
+							toolOverrides: [],
+							toolPrefix: existingToolPrefix
 						} as CatalogComponentServer);
 			initConfigureToolsDialog?.open();
 		} else {
@@ -282,17 +298,20 @@
 			return;
 		}
 
+		const defaultPrefix = deriveToolPrefix(configuringEntry.manifest?.name ?? '');
 		componentConfig =
 			'isCatalogEntry' in configuringEntry
 				? {
 						catalogEntryID: configuringEntry.id,
 						manifest: configuringEntry.manifest,
-						toolOverrides: []
+						toolOverrides: [],
+						toolPrefix: defaultPrefix
 					}
 				: ({
 						mcpServerID: configuringEntry.id,
 						manifest: configuringEntry.manifest,
 						toolOverrides: [],
+						toolPrefix: defaultPrefix,
 						disabled: false
 					} as CatalogComponentServer);
 		choiceDialog?.open();
@@ -439,6 +458,14 @@
 	bind:this={modifyToolsDialog}
 	{configuringEntry}
 	{tools}
+	{otherEffectiveNames}
+	{otherToolPrefixes}
+	bind:toolPrefix={
+		() => componentConfig?.toolPrefix,
+		(v) => {
+			if (componentConfig) componentConfig.toolPrefix = v;
+		}
+	}
 	onCancel={() => {
 		const hadConfiguringEntry = !!configuringEntry;
 		resetConfigureTool();

@@ -9,10 +9,12 @@
 		type Project,
 		type ProjectMCP
 	} from '$lib/services';
+	import { conflictIssue, duplicateToolNames, toolNameIssue } from '$lib/services/chat/mcp';
 	import { responsive } from '$lib/stores';
 	import Search from '../Search.svelte';
 	import Toggle from '../Toggle.svelte';
 	import McpOauth from './McpOauth.svelte';
+	import ToolNameIssueIcon from './ToolNameIssueIcon.svelte';
 	import { AlertCircle, ChevronDown, ChevronUp, Info, LoaderCircle, Wrench } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { slide } from 'svelte/transition';
@@ -27,10 +29,21 @@
 		classes?: {
 			root?: string;
 		};
+		// When true, surface inline warning/error indicators next to each tool
+		// name for names that may be problematic for MCP clients / inference
+		// APIs (length, disallowed chars, or duplicates in this list).
+		showToolNameIssues?: boolean;
 	}
 
-	let { entry, onAuthenticate, onProjectToolsUpdate, project, noToolsContent, classes }: Props =
-		$props();
+	let {
+		entry,
+		onAuthenticate,
+		onProjectToolsUpdate,
+		project,
+		noToolsContent,
+		classes,
+		showToolNameIssues = false
+	}: Props = $props();
 	let search = $state('');
 	let tools = $state<MCPServerTool[]>([]);
 	let previewTools = $derived(getToolPreview(entry));
@@ -63,6 +76,13 @@
 				tool.name.toLowerCase().includes(search.toLowerCase()) ||
 				tool.description?.toLowerCase().includes(search.toLowerCase())
 		)
+	);
+
+	// Detect duplicate effective names across the aggregated tool list (composite
+	// previews/live lists only). Disabled via showToolNameIssues=false for other
+	// contexts so the icons stay opt-in.
+	let toolNameDuplicates = $derived(
+		showToolNameIssues ? duplicateToolNames(displayTools.map((t) => t.name)) : new Set<string>()
 	);
 
 	// Extract tool previews from the appropriate manifest
@@ -230,8 +250,12 @@
 						class:pb-2={hasContentDisplayed}
 					>
 						<div class="flex items-center justify-between gap-2">
-							<p class="text-md font-semibold">
-								{tool.name}
+							<p class="text-md flex items-center gap-1.5 font-semibold">
+								<span>{tool.name}</span>
+								{#if showToolNameIssues}
+									{@const conflict = conflictIssue(tool.name, toolNameDuplicates)}
+									<ToolNameIssueIcon issue={conflict ?? toolNameIssue(tool.name)} />
+								{/if}
 								{#if tool.unsupported}
 									<span class="text-on-surface1 ml-3 text-sm">
 										⚠️ Not yet fully supported in Obot

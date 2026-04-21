@@ -15,7 +15,7 @@
 	import { AdminService } from '$lib/services/index.js';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 	import { CircleFadingArrowUp, Info, GitCompare } from 'lucide-svelte';
-	import { type Component } from 'svelte';
+	import { type Component, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -163,7 +163,7 @@
 
 	$effect(() => {
 		if (catalogEntry?.manifest.runtime === 'composite') {
-			mcpServersAndEntries.refreshAll();
+			untrack(() => mcpServersAndEntries.refreshAll());
 		}
 	});
 

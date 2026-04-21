@@ -659,7 +659,10 @@
 						Regenerate Tools & Capabilities
 					</button>
 				{/if}
-				<McpServerTools entry={'isCatalogEntry' in entry && server ? server : entry}>
+				<McpServerTools
+					entry={'isCatalogEntry' in entry && server ? server : entry}
+					showToolNameIssues={entry.manifest?.runtime === 'composite'}
+				>
 					{#snippet noToolsContent()}
 						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 							<Wrench class="text-on-surface1 size-24 opacity-50" />

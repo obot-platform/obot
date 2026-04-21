@@ -2,6 +2,7 @@ package validation
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -963,41 +964,6 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "tool overrides invalid bubbles up in catalog",
-			manifest: types.MCPServerCatalogEntryManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeCatalogConfig{
-					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolOverrides: []types.ToolOverride{
-								{
-									Name:         "",
-									OverrideName: "tool-1-override",
-									Enabled:      true,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedError: errors.Join(
-				types.RuntimeValidationError{
-					Runtime: types.RuntimeComposite,
-					Field:   "compositeConfig.componentServers[0]",
-					Message: "tool overrides invalid",
-				},
-				types.RuntimeValidationError{
-					Runtime: types.RuntimeComposite,
-					Field:   "toolOverrides[0].name",
-					Message: "original tool name is required",
-				},
-			),
-		},
-		{
 			name: "valid catalog composite configuration passes",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeComposite,
@@ -1073,132 +1039,242 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 			},
 			expectedError: nil,
 		},
+		{
+			name: "tool prefix with invalid character",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list", Enabled: true},
+							},
+							ToolPrefix: "gh space",
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0].toolPrefix",
+				Message: "toolPrefix must match ^[A-Za-z0-9._/-]*$",
+			},
+		},
+		{
+			name: "tool prefix is allowed without tool overrides",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolPrefix: "gh_",
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			name: "duplicate non-empty tool prefix",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list", Enabled: true},
+							},
+							ToolPrefix: "gh_",
+						},
+						{
+							CatalogEntryID: "entry-2",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list", Enabled: true},
+							},
+							ToolPrefix: "gh_",
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[1].toolPrefix",
+				Message: "duplicate toolPrefix: gh_",
+			},
+		},
+		{
+			name: "valid tool prefix with tool overrides",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list", Enabled: true},
+							},
+							ToolPrefix: "gh_",
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			name: "empty tool prefixes may repeat across components",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+						},
+						{
+							CatalogEntryID: "entry-2",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			name: "empty original tool name",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "", Enabled: true},
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0].toolOverrides[0].name",
+				Message: "original tool name is required",
+			},
+		},
+		{
+			name: "effective tool name exceeds max length",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolPrefix: strings.Repeat("a", 120) + "_",
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list_all_the_things", Enabled: true},
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0].toolOverrides[0]",
+				Message: fmt.Sprintf(
+					"effective tool name must be at most 128 characters: %q",
+					strings.Repeat("a", 120)+"_list_all_the_things",
+				),
+			},
+		},
+		{
+			name: "effective tool name has invalid character",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list things", Enabled: true},
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0].toolOverrides[0]",
+				Message: "effective tool name must match ^[A-Za-z0-9._/-]*$",
+			},
+		},
+		{
+			name: "duplicate effective tool name across components",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list", Enabled: true},
+							},
+						},
+						{
+							CatalogEntryID: "entry-2",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{Name: "list", Enabled: true},
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[1].toolOverrides[0]",
+				Message: "duplicate tool name: list",
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validator.ValidateCatalogConfig(tt.manifest)
-			require.Equal(t, tt.expectedError, err)
-		})
-	}
-}
-
-func TestValidateToolOverrides(t *testing.T) {
-	tests := []struct {
-		name          string
-		overrides     []types.ToolOverride
-		expectedError error
-	}{
-		{
-			name: "valid overrides",
-			overrides: []types.ToolOverride{
-				{
-					Name:    "tool-1",
-					Enabled: true,
-				},
-				{
-					Name:         "tool-2",
-					OverrideName: "tool-2-alias",
-					Enabled:      true,
-				},
-			},
-			expectedError: nil,
-		},
-		{
-			name: "missing original tool name",
-			overrides: []types.ToolOverride{
-				{
-					Name:         "",
-					OverrideName: "tool-1",
-					Enabled:      true,
-				},
-			},
-			expectedError: types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "toolOverrides[0].name",
-				Message: "original tool name is required",
-			},
-		},
-		{
-			name: "duplicate effective name when override uses original name",
-			overrides: []types.ToolOverride{
-				{
-					Name:    "tool-1",
-					Enabled: true,
-				},
-				{
-					Name:         "tool-2",
-					OverrideName: "tool-1",
-					Enabled:      true,
-				},
-			},
-			expectedError: types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "toolOverrides[1].overrideName",
-				Message: "duplicate override name: tool-1",
-			},
-		},
-		{
-			name: "duplicate original tool name",
-			overrides: []types.ToolOverride{
-				{
-					Name:         "tool-1",
-					OverrideName: "tool-1",
-					Enabled:      true,
-				},
-				{
-					Name:         "tool-1",
-					OverrideName: "tool-1-alias",
-					Enabled:      true,
-				},
-			},
-			expectedError: types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "toolOverrides[1].name",
-				Message: "duplicate tool name: tool-1",
-			},
-		},
-		{
-			name: "duplicate override name when enabled",
-			overrides: []types.ToolOverride{
-				{
-					Name:         "tool-1",
-					OverrideName: "shared-alias",
-					Enabled:      true,
-				},
-				{
-					Name:         "tool-2",
-					OverrideName: "shared-alias",
-					Enabled:      true,
-				},
-			},
-			expectedError: types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "toolOverrides[1].overrideName",
-				Message: "duplicate override name: shared-alias",
-			},
-		},
-		{
-			name: "duplicate override name allowed when second is disabled",
-			overrides: []types.ToolOverride{
-				{
-					Name:         "tool-1",
-					OverrideName: "shared-alias",
-					Enabled:      true,
-				},
-				{
-					Name:         "tool-2",
-					OverrideName: "shared-alias",
-					Enabled:      false,
-				},
-			},
-			expectedError: nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validateToolOverrides(tt.overrides)
 			require.Equal(t, tt.expectedError, err)
 		})
 	}
