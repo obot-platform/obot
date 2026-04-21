@@ -174,7 +174,6 @@ Create a **Custom OIDC App** in the [JumpCloud Admin Portal](https://console.jum
 3. Take note of the app's **Client ID** and **Client Secret**
 4. Configure the app to include group membership and verified-email claims:
    - Enable **Include Group Attribute** and set the exact attribute name to `memberOf`. This is required for group-based authorization in Obot.
-   - Ensure the OIDC userinfo response includes `email_verified=true`. In JumpCloud, this may require adding a service provider attribute named `email_verified` with the value `true`.
    - Set group assignment to **User groups assigned to this app**
 
 You will also need JumpCloud management API credentials for JumpCloud management API access. These credentials are separate from the OIDC app credentials used for login.
