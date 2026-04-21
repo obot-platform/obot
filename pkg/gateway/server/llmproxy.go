@@ -149,11 +149,7 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 		conversationHistory    []messagepolicy.ConversationMessage
 		inputPolicyReplacement string
 	)
-	messagePolicyHelper := s.messagePolicyHelper
-	if shouldSkipMessagePolicyEnforcement(req.Request) {
-		messagePolicyHelper = nil
-	}
-	if messagePolicyHelper != nil && token.UserID != "" {
+	if s.messagePolicyHelper != nil && token.UserID != "" && !shouldSkipMessagePolicyEnforcement(req.Request) {
 		userInfo := &user.DefaultInfo{
 			UID:    token.UserID,
 			Groups: token.UserGroups,
