@@ -400,6 +400,8 @@ export interface MCPServer {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteRuntimeConfig;
 	compositeConfig?: CompositeRuntimeConfig;
+
+	startupTimeoutSeconds?: number;
 }
 
 export interface MCPServerTool {

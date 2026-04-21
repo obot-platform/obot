@@ -18,6 +18,7 @@ const (
 	defaultContainerPort          = 8099
 	defaultWebhookToolName        = "fire-webhook"
 	serviceUnavailableGracePeriod = 10 * time.Second
+	imagePullTimeout              = 3 * time.Minute
 )
 
 type backend interface {
@@ -51,10 +52,15 @@ var (
 	ErrInsufficientCapacity   = errors.New("insufficient cluster capacity to deploy MCP server")
 )
 
+func startupTimeout(server ServerConfig) time.Duration {
+	if server.StartupTimeoutSeconds > 0 {
+		return time.Duration(server.StartupTimeoutSeconds) * time.Second
+	}
+	return time.Minute
+}
+
 func ensureServerReady(ctx context.Context, url string, server ServerConfig) error {
 	// Ensure we can actually hit the service URL.
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
 	client := &http.Client{
 		Timeout: time.Second,
 	}
