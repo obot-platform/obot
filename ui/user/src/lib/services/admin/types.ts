@@ -832,6 +832,8 @@ export interface TokenUsage {
 	date: string;
 }
 
+export type TokenUsageWithCategory = TokenUsage & { category: string };
+
 export interface TokenUsageTimeRange {
 	start: Date | string;
 	end: Date | string;

@@ -1516,6 +1516,14 @@
 			}
 		}
 	}
+
+	.tooltip-divider {
+		height: 1px;
+		width: 100%;
+		background-color: var(--color-surface3);
+		margin-top: 0.5rem;
+		margin-bottom: 0.5rem;
+	}
 }
 
 .nanobot .prose,

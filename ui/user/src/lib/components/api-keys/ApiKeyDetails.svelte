@@ -191,7 +191,7 @@
 										</p>
 										{#if d.description}
 											<span class="text-on-surface1 line-clamp-1 text-xs">
-												{@html stripMarkdownToText(d.description)}
+												{stripMarkdownToText(d.description)}
 											</span>
 										{/if}
 									</div>

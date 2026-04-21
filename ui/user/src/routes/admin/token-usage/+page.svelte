@@ -13,7 +13,8 @@
 		type Model,
 		type OrgUser,
 		type TokenUsage,
-		type TotalTokenUsage
+		type TotalTokenUsage,
+		type TokenUsageWithCategory
 	} from '$lib/services';
 	import { errors } from '$lib/stores';
 	import { goto } from '$lib/url';
@@ -165,8 +166,6 @@
 	const targetModelToDisplayName = $derived(
 		new Map(modelsData.map((m) => [m.targetModel, m.displayName || m.name]))
 	);
-
-	type TokenUsageWithCategory = TokenUsage & { category: string };
 
 	function toTimelineItem(r: TokenUsage, category: string): TokenUsageWithCategory {
 		return {
@@ -751,7 +750,7 @@
 								<div class="flex flex-col gap-0 text-xs">
 									<div class="text-sm font-light">{item.key}</div>
 									<div class="text-on-surface1">{item.date}</div>
-									<div class="divider"></div>
+									<div class="tooltip-divider"></div>
 								</div>
 								<div class="flex flex-col gap-1">
 									<div class="text-on-background flex flex-col">
@@ -867,7 +866,7 @@
 															{item.hoveredPart === 'primary' ? 'Input tokens' : 'Output tokens'}
 														</div>
 														<div class="text-on-surface1">{item.date}</div>
-														<div class="divider"></div>
+														<div class="tooltip-divider"></div>
 													</div>
 													<div class="flex flex-col gap-1">
 														<div class="text-on-background flex flex-col">
@@ -930,13 +929,5 @@
 		background-color: var(--color-surface3);
 		margin-left: 1rem;
 		margin-right: 1rem;
-	}
-
-	.divider {
-		height: 1px;
-		width: 100%;
-		background-color: var(--color-surface3);
-		margin-top: 0.5rem;
-		margin-bottom: 0.5rem;
 	}
 </style>
