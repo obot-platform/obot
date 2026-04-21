@@ -39,12 +39,15 @@ type Controller struct {
 	toolRefHandler        *toolreference.Handler
 	mcpCatalogHandler     *mcpcatalog.Handler
 	adminWorkspaceHandler *adminworkspace.Handler
+	runtimeClient         kclient.Client
+	now                   func() time.Time
 }
 
 func New(services *services.Services) (*Controller, error) {
 	c := &Controller{
 		router:   services.Router,
 		services: services,
+		now:      time.Now,
 	}
 
 	// Create local Kubernetes router if MCP is enabled and config is available
@@ -250,6 +253,8 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 	// This fixes a race condition where catalog entry changes might not trigger MCPServer
 	// reconciliation if the server hadn't registered its watch yet.
 	go c.retriggerCatalogEntries(ctx, client)
+
+	go c.runServiceAccountKeyRotation(ctx)
 }
 
 // retriggerCatalogEntries touches all MCPServerCatalogEntries to trigger their handlers,
