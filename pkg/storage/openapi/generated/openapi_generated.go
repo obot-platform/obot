@@ -5047,6 +5047,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							},
 						},
 					},
+					"startupTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
 				},
 				Required: []string{"name", "shortDescription", "description", "icon", "runtime"},
 			},
@@ -5497,6 +5503,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 						},
 					},
 					"idleShutdownIntervalHours": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"startupTimeoutSeconds": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int32",
@@ -12173,6 +12185,12 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 									},
 								},
 							},
+						},
+					},
+					"startupTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
 						},
 					},
 				},

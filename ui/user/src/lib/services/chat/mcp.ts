@@ -601,7 +601,10 @@ export const convertServerRuntimeFormDataToManifest = (
 			env: baseData.env,
 			multiUserConfig: baseData.multiUserConfig,
 			runtime: baseData.runtime,
-			...convertCategoriesToMetadata(categories)
+			...convertCategoriesToMetadata(categories),
+			...(baseData.startupTimeoutSeconds
+				? { startupTimeoutSeconds: baseData.startupTimeoutSeconds }
+				: {})
 		}
 	};
 

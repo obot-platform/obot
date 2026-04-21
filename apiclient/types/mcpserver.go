@@ -166,6 +166,8 @@ type MCPServerCatalogEntryManifest struct {
 	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
+
+	StartupTimeoutSeconds int `json:"startupTimeoutSeconds,omitempty"`
 }
 
 // ToolOverride defines how a single component tool is exposed by the composite server
@@ -245,6 +247,7 @@ type MCPServerManifest struct {
 	Headers []MCPHeader `json:"headers,omitempty"`
 
 	IdleShutdownIntervalHours int `json:"idleShutdownIntervalHours,omitempty"`
+	StartupTimeoutSeconds     int `json:"startupTimeoutSeconds,omitempty"`
 }
 
 type MCPServer struct {
@@ -416,6 +419,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		ToolPreview:      catalogEntry.ToolPreview,
 		Runtime:          catalogEntry.Runtime,
 		Env:              catalogEntry.Env,
+		StartupTimeoutSeconds: catalogEntry.StartupTimeoutSeconds,
 	}
 
 	// Handle runtime-specific mapping

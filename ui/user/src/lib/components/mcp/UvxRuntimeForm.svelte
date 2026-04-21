@@ -9,6 +9,7 @@
 
 	interface Props {
 		config: UVXRuntimeConfig;
+		startupTimeoutSeconds?: number;
 		readonly?: boolean;
 		showEgressDomains?: boolean;
 		defaultDenyAllEgress?: boolean;
@@ -18,6 +19,7 @@
 	}
 	let {
 		config = $bindable(),
+		startupTimeoutSeconds = $bindable(),
 		readonly,
 		showEgressDomains = false,
 		defaultDenyAllEgress = false,
@@ -222,6 +224,20 @@
 			</div>
 		</div>
 	{/if}
+
+	<!-- Startup Timeout -->
+	<div class="flex items-center gap-4">
+		<label for="uvx-startup-timeout" class="text-sm font-light">Startup Timeout (seconds)</label>
+		<input
+			type="number"
+			id="uvx-startup-timeout"
+			min="1"
+			placeholder="60"
+			bind:value={startupTimeoutSeconds}
+			class="text-input-filled dark:bg-background w-32"
+			disabled={readonly}
+		/>
+	</div>
 
 	{@render children?.()}
 </div>
