@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { Group } from '$lib/services';
-	import { profile } from '$lib/stores';
+	import { profile, version } from '$lib/stores';
+	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { isSameDay } from 'date-fns';
 	import { driver, type DriveStep, type PopoverDOM } from 'driver.js';
 	import 'driver.js/dist/driver.css';
+	import { noop } from 'es-toolkit';
 	import { mount, unmount } from 'svelte';
 
 	let hasAdminAccess = $derived(profile.current?.hasAdminAccess?.() ?? false);
@@ -13,336 +16,250 @@
 		profile.current?.created && isSameDay(new Date(profile.current?.created), new Date())
 	);
 
+	const adminConfig = $derived($adminConfigStore);
+	const isConfigured = $derived(
+		hasAdminAccess
+			? adminConfig.modelProviderConfigured &&
+					(version.current.authEnabled ? adminConfig.authProviderConfigured : true)
+			: true
+	);
+
+	const correctRoute = $derived(
+		['/admin/dashboard', '/admin/mcp-servers', '/mcp-servers'].includes(page.url.pathname)
+	);
+
+	const POPOVER_CLASS = 'w-2xl! max-w-2xl! min-w-2xl!';
+	const IMG_WRAP = 'flex items-center justify-center my-2 w-full overflow-hidden rounded-md';
+
+	function prependTourImage(popover: PopoverDOM, dataMark: string, src: string, alt: string) {
+		if (popover.wrapper.querySelector(`[${dataMark}]`)) {
+			return;
+		}
+		const wrapper = document.createElement('div');
+		wrapper.className = IMG_WRAP;
+		wrapper.setAttribute(dataMark, '');
+		const img = document.createElement('img');
+		img.src = src;
+		img.alt = alt;
+		img.className = 'h-96 w-full object-contain object-top';
+		wrapper.appendChild(img);
+		popover.wrapper.prepend(wrapper);
+	}
+
+	function tourImageRender(dataMark: string, src: string, alt: string) {
+		return (popover: PopoverDOM) => prependTourImage(popover, dataMark, src, alt);
+	}
+
+	const tourImg = {
+		configure: {
+			mark: 'data-tour-mcpservers-configure',
+			src: '/admin/assets/tour/mcpservers_1.webp'
+		},
+		audit: {
+			mark: 'data-tour-mcpservers-audit',
+			src: '/admin/assets/tour/mcpservers_2.webp'
+		},
+		registries: {
+			mark: 'data-tour-mcpregistries',
+			src: '/admin/assets/tour/mcpregistries.webp'
+		},
+		skills: {
+			mark: 'data-tour-skills',
+			src: '/admin/assets/tour/skills.webp'
+		},
+		agent: {
+			mark: 'data-tour-agent',
+			src: '/admin/assets/tour/agent.webp'
+		},
+		connect: {
+			mark: 'data-tour-mcpservers-connect',
+			src: '/admin/assets/tour/connect_to_server.webp'
+		}
+	} as const;
+
 	$effect(() => {
 		let logoMount: Record<string, unknown> | undefined;
-		if (!isNewUser) return;
-		const hasAlreadyCompleted = localStorage.getItem(`tour-completed:${profile.current?.id}`);
-		if (hasAlreadyCompleted) return;
+		if (!isNewUser || !isConfigured || !correctRoute) return;
 
-		const tour = driver({
-			showProgress: false,
-			steps: (hasAdminAccess
+		const introStep = {
+			popover: {
+				showButtons: ['next', 'close'],
+				title: '',
+				description:
+					"Looks like it's your first time here! Let's walk you through what Obot has to offer.",
+				side: 'top',
+				align: 'center',
+				popoverClass: 'text-sm w-xs! max-w-xs! min-w-xs!',
+				onPopoverRender: (popover: PopoverDOM) => {
+					if (popover.wrapper.querySelector('[data-tour-logo]')) {
+						return;
+					}
+					const container = document.createElement('div');
+					container.className = 'flex items-center justify-center pb-2 mb-2';
+					container.setAttribute('data-tour-logo', '');
+					popover.wrapper.prepend(container);
+					logoMount = mount(BetaLogo, {
+						target: container,
+						props: { class: 'justify-center' }
+					});
+				}
+			}
+		};
+
+		const stepMcpRegistries = {
+			element: '#mcp-registries',
+			popover: {
+				popoverClass: POPOVER_CLASS,
+				title: 'Control MCP Server Accessibility',
+				description:
+					'Set up access control rules to determine who can access each MCP server. You can allow access to specific users or groups, or even everyone.',
+				side: 'bottom' as const,
+				align: 'end' as const,
+				onPopoverRender: tourImageRender(
+					tourImg.registries.mark,
+					tourImg.registries.src,
+					'Control MCP Server Accessibility'
+				)
+			}
+		};
+
+		const stepAgent = {
+			element: '#launch-agent-chat',
+			popover: {
+				popoverClass: `${POPOVER_CLASS} tour-skills-arrow-center`,
+				title: 'Use Built-In Agents to Accomplish Tasks',
+				description:
+					'The agents will be set up to access the MCP servers & skills based on your access policies. Automate processes, build workflows, and more.',
+				side: 'right' as const,
+				align: 'center' as const,
+				onPopoverRender: tourImageRender(
+					tourImg.agent.mark,
+					tourImg.agent.src,
+					'Use Built-in Agents to Accomplish Tasks'
+				)
+			}
+		};
+
+		const adminSteps = [
+			{
+				element: '#mcp-servers',
+				popover: {
+					popoverClass: POPOVER_CLASS,
+					title: 'Deploy & Connect Your MCP Servers',
+					description:
+						'Set up your MCP servers to start using them through the gateway. You can set up against an existing remote server, have a instance created per user, or start a shared server that is accessible to everyone who has access.',
+					side: 'bottom' as const,
+					align: 'end' as const,
+					onPopoverRender: tourImageRender(
+						tourImg.configure.mark,
+						tourImg.configure.src,
+						'MCP servers configuration'
+					)
+				}
+			},
+			{
+				element: '#mcp-servers',
+				popover: {
+					popoverClass: POPOVER_CLASS,
+					title: 'Get Visibility Into Your MCP Servers',
+					description:
+						'On top of seeing all MCP servers in one place, you can also see the status of each server, logs in real time, and more.',
+					side: 'bottom' as const,
+					align: 'end' as const,
+					onPopoverRender: tourImageRender(
+						tourImg.audit.mark,
+						tourImg.audit.src,
+						'Get Visibility Into Your MCP Servers'
+					)
+				}
+			},
+			stepMcpRegistries,
+			{
+				element: '#skills',
+				popover: {
+					popoverClass: `${POPOVER_CLASS} tour-skills-arrow-center`,
+					title: 'Manage & Control Skills',
+					description:
+						'In addition to MCP servers, you can also manage and control skills. Import your skills through a Source URL & set up access policies to determine who can access each skill.',
+					side: 'right' as const,
+					align: 'center' as const,
+					onPopoverRender: tourImageRender(
+						tourImg.skills.mark,
+						tourImg.skills.src,
+						'Manage & Control Skills'
+					)
+				}
+			},
+			stepAgent
+		];
+
+		const defaultUserSteps = [
+			...(isAtLeastPowerUser
 				? [
 						{
+							element: '#add-mcp-server-button',
 							popover: {
-								title: '',
+								popoverClass: POPOVER_CLASS,
+								title: 'Deploy A New MCP Server',
 								description:
-									"Looks like it's your first time here! Let's walk you through what Obot has to offer.",
-								side: 'top',
-								align: 'center',
-								popoverClass: 'text-sm',
-								onPopoverRender: (popover) => {
-									if (popover.wrapper.querySelector('[data-tour-logo]')) {
-										return;
-									}
-									const container = document.createElement('div');
-									container.className = 'flex items-center justify-center pb-2 mb-2';
-									container.setAttribute('data-tour-logo', '');
-									popover.wrapper.prepend(container);
-									logoMount = mount(BetaLogo, {
-										target: container,
-										props: { class: 'justify-center' }
-									});
-								}
-							}
-						},
-						{
-							element: '#mcp-servers',
-							popover: {
-								popoverClass: 'w-xl! max-w-xl! min-w-xl!',
-								title: 'Deploy & Connect Your MCP Servers',
-								description:
-									'Set up your MCP servers to start using them through the gateway. You can set up against an existing remote server, have a instance created per user, or start a shared server that is accessible to everyone who has access.',
-								side: 'bottom',
-								align: 'end',
-								onPopoverRender: (popover) => {
-									if (popover.wrapper.querySelector('[data-tour-mcpservers-configure]')) {
-										return;
-									}
-									const wrapper = document.createElement('div');
-									wrapper.className =
-										'flex items-center justify-center my-2 w-full overflow-hidden rounded-md';
-									wrapper.setAttribute('data-tour-mcpservers-configure', '');
-									const img = document.createElement('img');
-									img.src = '/admin/assets/tour/mcpservers_1.webp';
-									img.alt = 'MCP servers configuration';
-									img.className = 'h-96 w-full object-contain object-top';
-									wrapper.appendChild(img);
-									popover.wrapper.prepend(wrapper);
-								}
-							}
-						},
-						{
-							element: '#mcp-servers',
-							popover: {
-								popoverClass: 'w-xl! max-w-xl! min-w-xl!',
-								title: 'Get Visibility Into Your MCP Servers',
-								description:
-									'On top of seeing all MCP servers in one place, you can also see the status of each server, logs in real time, and more.',
-								side: 'bottom',
-								align: 'end',
-								onPopoverRender: (popover) => {
-									if (popover.wrapper.querySelector('[data-tour-mcpservers-audit]')) {
-										return;
-									}
-									const wrapper = document.createElement('div');
-									wrapper.className =
-										'flex items-center justify-center my-2 w-full overflow-hidden rounded-md';
-									wrapper.setAttribute('data-tour-mcpservers-audit', '');
-									const img = document.createElement('img');
-									img.src = '/admin/assets/tour/mcpservers_2.webp';
-									img.alt = 'Get Visibility Into Your MCP Servers';
-									img.className = 'h-96 w-full object-contain object-top';
-									wrapper.appendChild(img);
-									popover.wrapper.prepend(wrapper);
-								}
-							}
-						},
-						{
-							element: '#mcp-registries',
-							popover: {
-								popoverClass: 'w-xl! max-w-xl! min-w-xl!',
-								title: 'Control MCP Server Accessibility',
-								description:
-									'Set up access control rules to determine who can access each MCP server. You can allow access to specific users or groups, or even everyone.',
-								side: 'bottom',
-								align: 'end',
-								onPopoverRender: (popover) => {
-									if (popover.wrapper.querySelector('[data-tour-mcpregistries]')) {
-										return;
-									}
-									const wrapper = document.createElement('div');
-									wrapper.className =
-										'flex items-center justify-center my-2 w-full overflow-hidden rounded-md';
-									wrapper.setAttribute('data-tour-mcpregistries', '');
-									const img = document.createElement('img');
-									img.src = '/admin/assets/tour/mcpregistries.webp';
-									img.alt = 'Control MCP Server Accessibility';
-									img.className = 'h-96 w-full object-contain object-top';
-									wrapper.appendChild(img);
-									popover.wrapper.prepend(wrapper);
-								}
-							}
-						},
-						{
-							element: '#skills',
-							popover: {
-								popoverClass: 'w-xl! max-w-xl! min-w-xl! tour-skills-arrow-center',
-								title: 'Manage & Control Skills',
-								description:
-									'In addition to MCP servers, you can also manage and control skills. Import your skills through a Source URL & set up access policies to determine who can access each skill.',
-								side: 'right',
-								align: 'center',
-								onPopoverRender: (popover) => {
-									if (popover.wrapper.querySelector('[data-tour-skills]')) {
-										return;
-									}
-									const wrapper = document.createElement('div');
-									wrapper.className =
-										'flex items-center justify-center my-2 w-full overflow-hidden rounded-md';
-									wrapper.setAttribute('data-tour-skills', '');
-									const img = document.createElement('img');
-									img.src = '/admin/assets/tour/skills.webp';
-									img.alt = 'Manage & Control Skills';
-									img.className = 'h-96 w-full object-contain object-top';
-									wrapper.appendChild(img);
-									popover.wrapper.prepend(wrapper);
-								}
-							}
-						},
-						{
-							element: '#launch-agent-chat',
-							popover: {
-								popoverClass: 'w-xl! max-w-xl! min-w-xl! tour-skills-arrow-center',
-								title: 'Use Built-In Agents to Accomplish Tasks',
-								description:
-									'The agents will be set up to access the MCP servers & skills based on your access policies. Automate processes, build workflows, and more.',
-								side: 'right',
-								align: 'center',
-								onPopoverRender: (popover) => {
-									if (popover.wrapper.querySelector('[data-tour-agent]')) {
-										return;
-									}
-									const wrapper = document.createElement('div');
-									wrapper.className =
-										'flex items-center justify-center my-2 w-full overflow-hidden rounded-md';
-									wrapper.setAttribute('data-tour-agent', '');
-									const img = document.createElement('img');
-									img.src = '/admin/assets/tour/agent.webp';
-									img.alt = 'Use Built-in Agents to Accomplish Tasks';
-									img.className = 'h-96 w-full object-contain object-top';
-									wrapper.appendChild(img);
-									popover.wrapper.prepend(wrapper);
-								}
+									'Click the "Add MCP Server" button to deploy a new MCP server. You can choose to deploy a new server, whether shared or single instance per user, or connect to an existing remote server.',
+								side: 'bottom' as const,
+								align: 'end' as const,
+								onPopoverRender: tourImageRender(
+									tourImg.configure.mark,
+									tourImg.configure.src,
+									'Deploy A New MCP Server'
+								)
 							}
 						}
 					]
-				: [
-						{
-							popover: {
-								title: '',
-								description: "Looks like it's your first time here! Here's a quick tour.",
-								side: 'top',
-								align: 'center',
-								popoverClass: 'text-sm',
-								onPopoverRender: (popover) => {
-									if (popover.wrapper.querySelector('[data-tour-logo]')) {
-										return;
-									}
-									const container = document.createElement('div');
-									container.className = 'flex items-center justify-center pb-2 mb-2';
-									container.setAttribute('data-tour-logo', '');
-									popover.wrapper.prepend(container);
-									logoMount = mount(BetaLogo, {
-										target: container,
-										props: { class: 'justify-center' }
-									});
-								}
-							}
-						},
-						...(isAtLeastPowerUser
-							? [
-									{
-										element: '#add-mcp-server-button',
-										popover: {
-											popoverClass: 'w-xl! max-w-xl! min-w-xl!',
-											title: 'Deploy A New MCP Server',
-											description:
-												'Click the "Add MCP Server" button to deploy a new MCP server. You can choose to deploy a new server, whether shared or single instance per user, or connect to an existing remote server.',
-											side: 'bottom',
-											align: 'end',
-											onPopoverRender: (popover: PopoverDOM) => {
-												if (popover.wrapper.querySelector('[data-tour-mcpservers-configure]')) {
-													return;
-												}
-												const wrapper = document.createElement('div');
-												wrapper.className =
-													'flex items-center justify-center my-2 w-full overflow-hidden rounded-md';
-												wrapper.setAttribute('data-tour-mcpservers-configure', '');
-												const img = document.createElement('img');
-												img.src = '/admin/assets/tour/mcpservers_1.webp';
-												img.alt = 'Deploy A New MCP Server';
-												img.className = 'h-96 w-full object-contain object-top';
-												wrapper.appendChild(img);
-												popover.wrapper.prepend(wrapper);
-											}
-										}
-									}
-								]
-							: []),
+				: []),
+			{
+				element: 'table tr:nth-child(2)',
+				popover: {
+					popoverClass: POPOVER_CLASS,
+					title: 'Connect To Available MCP Servers',
+					description:
+						'Click "Connect To Server" to get set up & start using them in your preferred client or IDE.',
+					side: 'bottom' as const,
+					align: 'end' as const,
+					onPopoverRender: tourImageRender(
+						tourImg.connect.mark,
+						tourImg.connect.src,
+						'Connect To Available MCP Servers'
+					)
+				}
+			},
+			...(isAtLeastPowerUser
+				? [
 						{
 							element: 'table tr:nth-child(2)',
 							popover: {
-								popoverClass: 'w-xl! max-w-xl! min-w-xl!',
-								title: 'Connect To Available MCP Servers',
+								popoverClass: POPOVER_CLASS,
+								title: 'Get Visibility Into Your MCP Servers',
 								description:
-									'Click "Connect To Server" to get set up & start using them in your preferred client or IDE.',
-								side: 'bottom',
-								align: 'end',
-								onPopoverRender: (popover) => {
-									if (popover.wrapper.querySelector('[data-tour-mcpservers-connect]')) {
-										return;
-									}
-									const wrapper = document.createElement('div');
-									wrapper.className =
-										'flex items-center justify-center my-2 w-full overflow-hidden rounded-md';
-									wrapper.setAttribute('data-tour-mcpservers-connect', '');
-									const img = document.createElement('img');
-									img.src = '/admin/assets/tour/connect_to_server.webp';
-									img.alt = 'Connect To Available MCP Servers';
-									img.className = 'h-96 w-full object-contain object-top';
-									wrapper.appendChild(img);
-									popover.wrapper.prepend(wrapper);
-								}
+									"For MCP servers you've created, you can see the status of each server, logs in real time, and more.",
+								side: 'bottom' as const,
+								align: 'end' as const,
+								onPopoverRender: tourImageRender(
+									tourImg.audit.mark,
+									tourImg.audit.src,
+									'Get Visibility Into Your MCP Servers'
+								)
 							}
 						},
-						...(isAtLeastPowerUser
-							? [
-									{
-										element: 'table tr:nth-child(2)',
-										popover: {
-											popoverClass: 'w-xl! max-w-xl! min-w-xl!',
-											title: 'Get Visibility Into Your MCP Servers',
-											description:
-												"For MCP servers you've created, you can see the status of each server, logs in real time, and more.",
-											side: 'bottom',
-											align: 'end',
-											onPopoverRender: (popover: PopoverDOM) => {
-												if (popover.wrapper.querySelector('[data-tour-mcpservers-audit]')) {
-													return;
-												}
-												const wrapper = document.createElement('div');
-												wrapper.className =
-													'flex items-center justify-center my-2 w-full overflow-hidden rounded-md';
-												wrapper.setAttribute('data-tour-mcpservers-audit', '');
-												const img = document.createElement('img');
-												img.src = '/admin/assets/tour/mcpservers_2.webp';
-												img.alt = 'Get Visibility Into Your MCP Servers';
-												img.className = 'h-96 w-full object-contain object-top';
-												wrapper.appendChild(img);
-												popover.wrapper.prepend(wrapper);
-											}
-										}
-									},
-									{
-										element: '#mcp-registries',
-										popover: {
-											popoverClass: 'w-xl! max-w-xl! min-w-xl!',
-											title: 'Control MCP Server Accessibility',
-											description:
-												'Set up access control rules to determine who can access each MCP server. You can allow access to specific users or groups, or even everyone.',
-											side: 'bottom',
-											align: 'end',
-											onPopoverRender: (popover: PopoverDOM) => {
-												if (popover.wrapper.querySelector('[data-tour-mcpregistries]')) {
-													return;
-												}
-												const wrapper = document.createElement('div');
-												wrapper.className =
-													'flex items-center justify-center my-2 w-full overflow-hidden rounded-md';
-												wrapper.setAttribute('data-tour-mcpregistries', '');
-												const img = document.createElement('img');
-												img.src = '/admin/assets/tour/mcpregistries.webp';
-												img.alt = 'Control MCP Server Accessibility';
-												img.className = 'h-96 w-full object-contain object-top';
-												wrapper.appendChild(img);
-												popover.wrapper.prepend(wrapper);
-											}
-										}
-									}
-								]
-							: []),
-						{
-							element: '#launch-agent-chat',
-							popover: {
-								popoverClass: 'w-xl! max-w-xl! min-w-xl! tour-skills-arrow-center',
-								title: 'Use Built-In Agents to Accomplish Tasks',
-								description:
-									'The agents will be set up to access the MCP servers & skills based on your access policies. Automate processes, build workflows, and more.',
-								side: 'right',
-								align: 'center',
-								onPopoverRender: (popover) => {
-									if (popover.wrapper.querySelector('[data-tour-agent]')) {
-										return;
-									}
-									const wrapper = document.createElement('div');
-									wrapper.className =
-										'flex items-center justify-center my-2 w-full overflow-hidden rounded-md';
-									wrapper.setAttribute('data-tour-agent', '');
-									const img = document.createElement('img');
-									img.src = '/admin/assets/tour/agent.webp';
-									img.alt = 'Use Built-in Agents to Accomplish Tasks';
-									img.className = 'h-96 w-full object-contain object-top';
-									wrapper.appendChild(img);
-									popover.wrapper.prepend(wrapper);
-								}
-							}
-						}
-					]) as DriveStep[],
+						stepMcpRegistries
+					]
+				: []),
+			stepAgent
+		];
+
+		const tour = driver({
+			showProgress: false,
+			overlayClickBehavior: noop,
+			steps: [introStep, ...(hasAdminAccess ? adminSteps : defaultUserSteps)] as DriveStep[],
 			onDestroyStarted: () => {
-				if (!tour.hasNextStep() || confirm('Are you sure?')) {
-					tour.destroy();
-				}
+				tour.destroy();
 				localStorage.setItem(`tour-completed:${profile.current?.id}`, 'true');
 			}
 		});
@@ -391,7 +308,7 @@
 			}
 		}
 
-		.driver-popover-footer .driver-popover-next-btn {
+		.driver-popover-footer button.driver-popover-next-btn {
 			background-color: var(--color-primary);
 			color: var(--color-white);
 
