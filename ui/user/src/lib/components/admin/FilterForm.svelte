@@ -6,16 +6,27 @@
 		type MCPFilter,
 		type MCPFilterManifest,
 		type MCPFilterResource,
-		type MCPFilterWebhookSelector
+		type MCPFilterWebhookSelector,
+		type Runtime,
+		type RuntimeFormData
 	} from '$lib/services';
-	import { removeSecret } from '$lib/services/admin/operations';
+	import {
+		convertServerRuntimeFormDataToManifest,
+		validateRuntimeForm
+	} from '$lib/services/chat/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import Confirm from '../Confirm.svelte';
+	import Select from '../Select.svelte';
+	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
+	import CustomConfigurationForm from '../mcp/CustomConfigurationForm.svelte';
+	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
+	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
+	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import { Eye, EyeOff, LoaderCircle, Plus, Trash2, X } from 'lucide-svelte';
-	import { untrack, type Snippet } from 'svelte';
+	import { onMount, untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	interface Props {
@@ -54,6 +65,18 @@
 		)
 	);
 
+	let runtimeFormData = $state<RuntimeFormData | undefined>(
+		untrack(() => convertToRuntimeFormData(initialFilter))
+	);
+	let showRuntimeRequired = $state<Record<string, boolean>>({});
+	const runtimeOptions = [
+		{ id: 'webhook-url', label: 'Webhook URL' },
+		{ id: 'remote', label: 'Remote' },
+		{ id: 'npx', label: 'NPX' },
+		{ id: 'uvx', label: 'UVX' },
+		{ id: 'containerized', label: 'Containerized' }
+	];
+
 	let saving = $state<boolean | undefined>();
 	let addMcpServerDialog = $state<ReturnType<typeof SearchMcpServers>>();
 	let deletingFilter = $state(false);
@@ -73,6 +96,114 @@
 		}
 		return [];
 	});
+
+	onMount(() => {
+		if (initialFilter?.id) {
+			revealServerValues();
+		}
+	});
+
+	function toIdSafeToolName(name: string): string {
+		const slug = name
+			.trim()
+			.toLocaleLowerCase()
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-+|-+$/g, '');
+		return slug || 'webhook-tool';
+	}
+
+	async function revealServerValues() {
+		if (!initialFilter?.id) return;
+		try {
+			const response = await AdminService.revealMCPFilter(initialFilter.id);
+
+			// Update environment variables with revealed values
+			if (runtimeFormData?.env) {
+				runtimeFormData.env = runtimeFormData.env.map((env) => ({
+					...env,
+					value: response[env.key] ?? ''
+				}));
+			}
+
+			// Update headers in the appropriate runtime config based on runtime type
+			if (runtimeFormData?.runtime === 'remote') {
+				if (runtimeFormData.remoteConfig?.headers) {
+					runtimeFormData.remoteConfig.headers = runtimeFormData.remoteConfig.headers.map(
+						(header) => ({
+							...header,
+							value: response[header.key] ?? ''
+						})
+					);
+				}
+				if (runtimeFormData.remoteServerConfig?.headers) {
+					runtimeFormData.remoteServerConfig.headers =
+						runtimeFormData.remoteServerConfig.headers.map((header) => ({
+							...header,
+							value: response[header.key] ?? ''
+						}));
+				}
+			}
+		} catch (error) {
+			if (error instanceof Error && error.message.includes('404')) {
+				// ignore, 404 means no credentials were set
+				return;
+			}
+			// Re-throw other errors
+			throw error;
+		}
+	}
+
+	function convertToRuntimeFormData(filter?: MCPFilter): RuntimeFormData | undefined {
+		if (!filter || !filter.mcpServerManifest) {
+			return undefined;
+		} else {
+			const manifest = filter.mcpServerManifest;
+			const formData: RuntimeFormData = {
+				categories: manifest.metadata?.categories?.split(',').filter((c) => c.trim()) ?? [''],
+				icon: manifest.icon ?? '',
+				name: manifest.name ?? '',
+				description: manifest.description ?? '',
+				env: manifest.env?.map((env) => ({ ...env, value: '' })) ?? [],
+				runtime: manifest.runtime ?? 'npx',
+				npxConfig: undefined,
+				uvxConfig: undefined,
+				containerizedConfig: undefined,
+				remoteConfig: undefined,
+				remoteServerConfig: undefined,
+				compositeConfig: undefined,
+				compositeServerConfig: undefined
+			};
+
+			// Initialize the appropriate runtime config based on the runtime type
+			switch (manifest.runtime) {
+				case 'npx':
+					formData.npxConfig = manifest.npxConfig || { package: '', args: [] };
+					break;
+				case 'uvx':
+					formData.uvxConfig = manifest.uvxConfig || { package: '', command: '', args: [] };
+					break;
+				case 'containerized':
+					formData.containerizedConfig = manifest.containerizedConfig || {
+						image: '',
+						port: 0,
+						path: '',
+						command: '',
+						args: []
+					};
+					break;
+				case 'remote':
+					formData.remoteServerConfig = manifest.remoteConfig
+						? {
+								url: manifest.remoteConfig.fixedURL ?? '',
+								headers: manifest.remoteConfig.headers?.map((h) => ({ ...h, value: '' })) ?? []
+							}
+						: { url: '', headers: [] };
+					break;
+			}
+
+			return formData;
+		}
+	}
 
 	function convertMcpServersToTableData(resources: { id: string; type: string }[]) {
 		return resources.map((resource) => {
@@ -136,7 +267,7 @@
 
 		removingSecret = true;
 		try {
-			await removeSecret(initialFilter.id);
+			await AdminService.deconfigureMCPFilter(initialFilter.id);
 			// Clear the secret field and update the filter state
 			filter.secret = '';
 			// Update the initial filter to reflect that it no longer has a secret
@@ -146,6 +277,70 @@
 		} finally {
 			removingSecret = false;
 		}
+	}
+
+	function handleRuntimeChange(option: { id: string; label: string }) {
+		if (option.id === 'webhook-url') {
+			runtimeFormData = undefined;
+			return;
+		}
+
+		const newRuntime = option.id as Runtime;
+		if (!runtimeFormData) {
+			runtimeFormData = {
+				categories: [''],
+				name: '',
+				description: '',
+				env: [],
+				icon: '',
+				runtime: 'npx' as Runtime,
+				npxConfig: { package: '', args: [] },
+				uvxConfig: undefined,
+				containerizedConfig: undefined,
+				remoteConfig: undefined,
+				remoteServerConfig: undefined,
+				compositeConfig: undefined,
+				compositeServerConfig: undefined
+			};
+		}
+		runtimeFormData.runtime = newRuntime;
+
+		// Clear all runtime configs first
+		runtimeFormData.npxConfig = undefined;
+		runtimeFormData.uvxConfig = undefined;
+		runtimeFormData.containerizedConfig = undefined;
+		runtimeFormData.remoteConfig = undefined;
+		runtimeFormData.remoteServerConfig = undefined;
+
+		// Initialize the appropriate config based on the new runtime
+		switch (newRuntime) {
+			case 'npx':
+				runtimeFormData.npxConfig = { package: '', args: [] };
+				break;
+			case 'uvx':
+				runtimeFormData.uvxConfig = { package: '', command: '', args: [] };
+				break;
+			case 'containerized':
+				runtimeFormData.containerizedConfig = {
+					image: '',
+					port: 0,
+					path: '',
+					command: '',
+					args: []
+				};
+				break;
+			case 'remote':
+				// For remote servers (catalog entries), use remoteConfig
+				runtimeFormData.remoteConfig = { fixedURL: '', headers: [] };
+				break;
+			case 'composite':
+				runtimeFormData.compositeConfig = { componentServers: [] };
+				break;
+		}
+	}
+
+	function handleUpdateRequired(field: string) {
+		delete showRuntimeRequired[field];
 	}
 </script>
 
@@ -197,6 +392,26 @@
 					{/if}
 				</div>
 
+				<div class="flex flex-col gap-2">
+					<label for="runtime-selector" class="text-sm font-light">Type</label>
+					<div class="w-full">
+						<Select
+							id="runtime-selector"
+							class="bg-surface1 dark:bg-surface2 dark:border-surface3 flex-1 border border-transparent shadow-inner"
+							options={runtimeOptions}
+							selected={runtimeFormData ? runtimeFormData.runtime : 'webhook-url'}
+							onSelect={handleRuntimeChange}
+							disabled={readonly}
+						/>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		{#if !runtimeFormData}
+			<div
+				class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-8 rounded-lg border border-transparent p-4 shadow-sm"
+			>
 				<div class="flex flex-col gap-2">
 					<label for="webhook-url" class="flex-1 text-sm font-light capitalize">
 						Webhook URL
@@ -259,7 +474,7 @@
 							{#if !readonly}
 								<button
 									type="button"
-									class="button-destructive flex-shrink-0 text-xs"
+									class="button-destructive shrink-0 text-xs"
 									disabled={removingSecret || saving}
 									onclick={handleRemoveSecret}
 								>
@@ -279,9 +494,47 @@
 					{/if}
 				</div>
 			</div>
-		</div>
+		{:else if runtimeFormData}
+			{#if runtimeFormData.runtime === 'npx' && runtimeFormData.npxConfig}
+				<NpxRuntimeForm
+					bind:config={runtimeFormData.npxConfig}
+					{readonly}
+					showRequired={showRuntimeRequired}
+					onFieldChange={handleUpdateRequired}
+				/>
+			{:else if runtimeFormData.runtime === 'uvx' && runtimeFormData.uvxConfig}
+				<UvxRuntimeForm
+					bind:config={runtimeFormData.uvxConfig}
+					{readonly}
+					showRequired={showRuntimeRequired}
+					onFieldChange={handleUpdateRequired}
+				/>
+			{:else if runtimeFormData.runtime === 'containerized' && runtimeFormData.containerizedConfig}
+				<ContainerizedRuntimeForm
+					bind:config={runtimeFormData.containerizedConfig}
+					{readonly}
+					showRequired={showRuntimeRequired}
+					onFieldChange={handleUpdateRequired}
+				/>
+			{:else if runtimeFormData.runtime === 'remote' && runtimeFormData.remoteConfig}
+				<RemoteRuntimeForm
+					bind:config={runtimeFormData.remoteConfig}
+					{readonly}
+					showRequired={showRuntimeRequired}
+					onFieldChange={handleUpdateRequired}
+					isNewEntry={!filter}
+					disableStaticOAuth
+				/>
+			{/if}
 
-		<div class="flex flex-col gap-2">
+			{#if runtimeFormData.runtime !== 'remote'}
+				<CustomConfigurationForm bind:config={runtimeFormData.env} {readonly} type="multi" />
+			{/if}
+		{/if}
+
+		<div class="h-px bg-surface3 w-full mt-4"></div>
+
+		<div class="flex flex-col gap-2 mt-4">
 			<div class="mb-2 flex items-center justify-between">
 				<div class="flex flex-col gap-1">
 					<h2 class="text-lg font-semibold">Selectors</h2>
@@ -454,13 +707,26 @@
 					disabled={saving}
 					onclick={async () => {
 						// Show validation errors if required fields are missing
-						if (!filter.name.trim() || !filter.url.trim()) {
+						if (!filter.name.trim() || (!runtimeFormData && !filter.url.trim())) {
 							showValidation = true;
 							return;
 						}
 
+						if (runtimeFormData) {
+							showRuntimeRequired = {}; // reset
+							const missingRequiredFields = validateRuntimeForm(runtimeFormData, 'multi', true);
+							if (Object.keys(missingRequiredFields).length > 0) {
+								showRuntimeRequired = missingRequiredFields;
+								return;
+							}
+						}
+
 						saving = true;
 						try {
+							const mcpServerManifest = runtimeFormData
+								? convertServerRuntimeFormDataToManifest(runtimeFormData)
+								: undefined;
+
 							const manifest: MCPFilterManifest = {
 								name: filter.name,
 								resources: filter.resources,
@@ -474,7 +740,9 @@
 													identifiers: s.identifiers?.filter((id) => id.trim()) || []
 												}))
 												.filter((s) => s.method || (s.identifiers && s.identifiers.length > 0))
-										: undefined
+										: undefined,
+								toolName: mcpServerManifest?.manifest ? toIdSafeToolName(filter.name) : undefined,
+								mcpServerManifest: mcpServerManifest?.manifest
 							};
 
 							let result: MCPFilter;
@@ -484,6 +752,37 @@
 							} else {
 								result = await AdminService.createMCPFilter(manifest);
 								onCreate?.(result);
+							}
+
+							if (mcpServerManifest) {
+								let configValues: Record<string, string> = {};
+								// Add environment variables
+								if (mcpServerManifest.manifest.env) {
+									const envValues = Object.fromEntries(
+										mcpServerManifest.manifest.env
+											.filter((env) => env.key && env.value) // Only include env vars with both key and value
+											.map((env) => [env.key, env.value])
+									);
+									configValues = { ...configValues, ...envValues };
+								}
+
+								// Add headers from remote config (only for remote runtime)
+								if (
+									mcpServerManifest.manifest.runtime === 'remote' &&
+									mcpServerManifest.manifest.remoteConfig?.headers
+								) {
+									const headerValues = Object.fromEntries(
+										mcpServerManifest.manifest.remoteConfig.headers
+											.filter((header) => header.key && header.value) // Only include headers with both key and value
+											.map((header) => [header.key, header.value])
+									);
+									configValues = { ...configValues, ...headerValues };
+								}
+
+								// Configure the server with the collected values if any exist
+								if (Object.keys(configValues).length > 0) {
+									await AdminService.configureMCPFilter(result.id, configValues);
+								}
 							}
 						} finally {
 							saving = false;

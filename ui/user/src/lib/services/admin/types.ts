@@ -542,6 +542,7 @@ export interface MCPFilterManifest {
 	name?: string;
 	resources?: MCPFilterResource[];
 	url?: string;
+	toolName?: string;
 	mcpServerManifest?: MCPCatalogEntryServerManifest;
 	secret?: string;
 	selectors?: MCPFilterWebhookSelector[];

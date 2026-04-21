@@ -18,6 +18,7 @@
 		onFieldChange?: (field: string) => void;
 		isNewEntry?: boolean;
 		onConfigureOAuth?: () => void;
+		disableStaticOAuth?: boolean;
 	}
 	let {
 		config = $bindable(),
@@ -25,7 +26,8 @@
 		showRequired,
 		onFieldChange,
 		isNewEntry,
-		onConfigureOAuth
+		onConfigureOAuth,
+		disableStaticOAuth
 	}: Props = $props();
 
 	// For catalog entries, we show advanced config if hostname, urlTemplate, or headers exist
@@ -372,7 +374,7 @@
 		</div>
 	</div>
 	<!-- Static OAuth Configuration -->
-	{#if config}
+	{#if config && !disableStaticOAuth}
 		{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 		<div
 			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
