@@ -9,11 +9,9 @@
 	import { driver, type DriveStep, type PopoverDOM } from 'driver.js';
 	import 'driver.js/dist/driver.css';
 	import { noop } from 'es-toolkit';
-	import { mount, unmount, untrack } from 'svelte';
+	import { mount, unmount } from 'svelte';
 
-	let hasCompletedTour = $state(
-		untrack(() => localStorage.getItem(`tour-completed:${profile.current?.id}`) === 'true')
-	);
+	let hasCompletedTour = $state(false);
 	let hasAdminAccess = $derived(profile.current?.hasAdminAccess?.() ?? false);
 	let isAtLeastPowerUser = $derived(profile.current?.groups.includes(Group.POWERUSER));
 	let isNewUser = $derived(
@@ -27,6 +25,7 @@
 					(version.current.authEnabled ? adminConfig.authProviderConfigured : true)
 			: true
 	);
+	const tourEnabled = $derived(version.current.tourEnabled);
 
 	afterNavigate(() => {
 		hasCompletedTour = localStorage.getItem(`tour-completed:${profile.current?.id}`) === 'true';
@@ -87,7 +86,7 @@
 
 	$effect(() => {
 		let logoMount: Record<string, unknown> | undefined;
-		if (!isConfigured || !correctRoute || hasCompletedTour) return;
+		if (!isConfigured || !correctRoute || hasCompletedTour || !tourEnabled) return;
 
 		const introStep = {
 			popover: {

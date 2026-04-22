@@ -57,7 +57,8 @@
 		ShieldAlert,
 		ShieldX,
 		Bot,
-		LayoutDashboard
+		LayoutDashboard,
+		Notebook
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -237,6 +238,28 @@
 						].filter(Boolean) as NavLink[]
 					},
 					{
+						id: 'skills-management',
+						icon: Notebook,
+						label: 'Skills Management',
+						collapsible: true,
+						items: [
+							{
+								id: 'skills',
+								href: '/admin/skills',
+								icon: PencilRuler,
+								label: 'Skills',
+								collapsible: false
+							},
+							{
+								id: 'skill-access-policies',
+								href: '/admin/skill-access-policies',
+								icon: Vault,
+								label: 'Skill Access Policies',
+								collapsible: false
+							}
+						]
+					},
+					{
 						id: 'agent-management',
 						icon: Bot,
 						label: 'Obot Agent Management',
@@ -263,20 +286,6 @@
 								href: '/admin/model-access-policies',
 								icon: LockKeyhole,
 								label: 'Model Access Policies',
-								collapsible: false
-							},
-							{
-								id: 'skills',
-								href: '/admin/skills',
-								icon: PencilRuler,
-								label: 'Skills',
-								collapsible: false
-							},
-							{
-								id: 'skill-access-policies',
-								href: '/admin/skill-access-policies',
-								icon: Vault,
-								label: 'Skill Access Policies',
 								collapsible: false
 							},
 							...(version.current.messagePoliciesEnabled
