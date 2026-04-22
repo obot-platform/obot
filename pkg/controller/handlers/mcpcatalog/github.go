@@ -23,6 +23,11 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
+// GitHubRepoInfo represents the repository information from GitHub API
+type GitHubRepoInfo struct {
+	Size int `json:"size"` // Size in KB
+}
+
 const defaultCatalogURL = "https://github.com/obot-platform/mcp-catalog"
 
 // resolveToken returns the provided token if non-empty.
@@ -69,6 +74,11 @@ func checkGitHubRepoSize(ctx context.Context, org, repo string, maxSizeMB int, t
 
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", org, repo)
 
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create API request: %w", err)
@@ -79,28 +89,30 @@ func checkGitHubRepoSize(ctx context.Context, org, repo string, maxSizeMB int, t
 		req.Header.Set("Authorization", "Bearer "+effectiveToken)
 	}
 
-	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to fetch repository info: %w", err)
 	}
 	defer resp.Body.Close()
 
+	// Check response status
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		if len(body) > 0 {
-			return fmt.Errorf("GitHub API returned status %d for %s/%s: %s", resp.StatusCode, org, repo, body)
+			return fmt.Errorf("GitHub API returned status %d for repository %s/%s - %s", resp.StatusCode, org, repo, string(body))
 		}
 		return fmt.Errorf("GitHub API returned status %d for %s/%s", resp.StatusCode, org, repo)
 	}
 
-	var info struct {
-		Size int `json:"size"` // kilobytes
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+	// Parse response
+	var repoInfo GitHubRepoInfo
+	if err := json.NewDecoder(resp.Body).Decode(&repoInfo); err != nil {
 		return fmt.Errorf("failed to parse repository info: %w", err)
 	}
 
-	if sizeMB := info.Size / 1024; sizeMB > maxSizeMB {
+	// Check size (GitHub API returns size in KB)
+	sizeMB := repoInfo.Size / 1024
+	if sizeMB > maxSizeMB {
 		return fmt.Errorf("repository %s/%s is too large: %d MB (limit: %d MB)", org, repo, sizeMB, maxSizeMB)
 	}
 	return nil
