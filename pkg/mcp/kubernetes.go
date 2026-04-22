@@ -359,10 +359,12 @@ func (k *kubernetesBackend) transformObotHostname(url string) string {
 	return fmt.Sprintf("http://%s%s", k.serviceFQDN, path)
 }
 
-func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error {
-	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(id).WithPruneTypes(
-		new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service), new(corev1.PersistentVolumeClaim),
-	).Apply(ctx, nil, nil); err != nil {
+func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string, hardShutdown bool) error {
+	prunedTypes := []kclient.Object{new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service)}
+	if hardShutdown {
+		prunedTypes = append(prunedTypes, new(corev1.PersistentVolumeClaim))
+	}
+	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(id).WithPruneTypes(prunedTypes...).Apply(ctx, nil, nil); err != nil {
 		return fmt.Errorf("failed to delete MCP deployment %s: %w", id, err)
 	}
 

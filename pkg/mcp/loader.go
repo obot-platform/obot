@@ -259,11 +259,20 @@ func (sm *SessionManager) LaunchServer(ctx context.Context, serverConfig ServerC
 	return c.URL, err
 }
 
-// ShutdownServer will close the connections to the MCP server and remove the Kubernetes objects.
+// ShutdownServer will close the connections to the MCP server and remove all of the resources.
 func (sm *SessionManager) ShutdownServer(ctx context.Context, serverName string) error {
+	return sm.shutdownServer(ctx, serverName, true)
+}
+
+// ShutdownIdleServer will close the connections to the MCP server and remove all of the resources except for the volumes.
+func (sm *SessionManager) ShutdownIdleServer(ctx context.Context, serverName string) error {
+	return sm.shutdownServer(ctx, serverName, false)
+}
+
+func (sm *SessionManager) shutdownServer(ctx context.Context, serverName string, hardShutdown bool) error {
 	sm.closeClients(serverName)
 
-	return sm.backend.shutdownServer(ctx, serverName)
+	return sm.backend.shutdownServer(ctx, serverName, hardShutdown)
 }
 
 func (sm *SessionManager) closeClients(serverName string) {

@@ -165,7 +165,7 @@ func (d *dockerBackend) cleanupContainersWithOldID(ctx context.Context) error {
 	for _, c := range containers {
 		id := c.Labels["mcp.server.id"]
 		if _, ok := c.Labels["mcp.deployment.id"]; !ok && id != "" {
-			if err := d.removeObjectsForContainer(ctx, &c, id); err != nil {
+			if err := d.removeObjectsForContainer(ctx, &c, id, true); err != nil {
 				return fmt.Errorf("failed to remove container with old ID %s: %w", c.ID, err)
 			}
 		}
@@ -248,7 +248,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	}
 
 	for name := range existingWebhooks {
-		if err := d.shutdownServer(ctx, name); err != nil {
+		if err := d.shutdownServer(ctx, name, true); err != nil {
 			return ServerConfig{}, fmt.Errorf("failed to delete webhook container %s: %w", name, err)
 		}
 	}
@@ -585,7 +585,7 @@ func applyServerConfigToContainerConfig(config *container.Config, server ServerC
 	config.Labels["mcp.file.env.keys.hash"] = fileEnvKeysHash(server.Files)
 }
 
-func (d *dockerBackend) shutdownServer(ctx context.Context, id string) error {
+func (d *dockerBackend) shutdownServer(ctx context.Context, id string, hardShutdown bool) error {
 	d.deleteDeploymentCache(id)
 
 	c, err := d.getContainer(ctx, id)
@@ -593,7 +593,7 @@ func (d *dockerBackend) shutdownServer(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to get container %s for shutdown: %w", id, err)
 	}
 
-	if err := d.removeObjectsForContainer(ctx, c, id); err != nil {
+	if err := d.removeObjectsForContainer(ctx, c, id, hardShutdown); err != nil {
 		return fmt.Errorf("failed to remove objects for container %s: %w", id, err)
 	}
 
@@ -603,7 +603,7 @@ func (d *dockerBackend) shutdownServer(ctx context.Context, id string) error {
 	}
 
 	for _, webhookContainer := range webhookContainers {
-		if err := d.removeObjectsForContainer(ctx, &webhookContainer, webhookContainer.ID); err != nil {
+		if err := d.removeObjectsForContainer(ctx, &webhookContainer, webhookContainer.ID, hardShutdown); err != nil {
 			return fmt.Errorf("failed to remove objects for webhook container %s: %w", webhookContainer.ID, err)
 		}
 	}
@@ -617,7 +617,7 @@ func (d *dockerBackend) shutdownServer(ctx context.Context, id string) error {
 	if err != nil && !cerrdefs.IsNotFound(err) {
 		return fmt.Errorf("failed to check for shim container %s for shutdown: %w", id, err)
 	} else if err == nil {
-		if err = d.removeObjectsForContainer(ctx, c, id); err != nil {
+		if err = d.removeObjectsForContainer(ctx, c, id, hardShutdown); err != nil {
 			return fmt.Errorf("failed to remove objects for shim container %s: %w", id, err)
 		}
 	}
@@ -625,26 +625,49 @@ func (d *dockerBackend) shutdownServer(ctx context.Context, id string) error {
 	return nil
 }
 
-func (d *dockerBackend) removeObjectsForContainer(ctx context.Context, c *container.Summary, id string) error {
-	var volumeNames []string
-	if c != nil {
-		// Get container inspection to find volumes
-		inspect, err := d.client.ContainerInspect(ctx, c.ID)
-		if err == nil {
-			// Clean up volumes associated with this container
-			for _, mount := range inspect.Mounts {
-				if mount.Type == "volume" {
-					// Check if this is our volume based on labels
-					volumeInspect, err := d.client.VolumeInspect(ctx, mount.Name)
-					if err == nil {
-						if serverID, exists := volumeInspect.Labels["mcp.server.id"]; exists && serverID == id {
-							// This is our volume, remove it
-							volumeNames = append(volumeNames, mount.Name)
+func (d *dockerBackend) removeObjectsForContainer(ctx context.Context, c *container.Summary, id string, includeVolumes bool) error {
+	if includeVolumes {
+		var volumeNames []string
+		if c != nil {
+			// Get container inspection to find volumes
+			inspect, err := d.client.ContainerInspect(ctx, c.ID)
+			if err == nil {
+				// Clean up volumes associated with this container
+				for _, mount := range inspect.Mounts {
+					if mount.Type == "volume" {
+						// Check if this is our volume based on labels
+						volumeInspect, err := d.client.VolumeInspect(ctx, mount.Name)
+						if err == nil {
+							if serverID, exists := volumeInspect.Labels["mcp.server.id"]; exists && serverID == id {
+								// This is our volume, remove it
+								volumeNames = append(volumeNames, mount.Name)
+							}
 						}
 					}
 				}
 			}
+		} else {
+			// We don't have the container, so try to find volumes by label
+			volumes, err := d.client.VolumeList(ctx, volume.ListOptions{
+				Filters: filters.NewArgs(filters.KeyValuePair{
+					Key:   "label",
+					Value: fmt.Sprintf("mcp.server.id=%s", id),
+				}),
+			})
+			if err == nil {
+				for _, v := range volumes.Volumes {
+					volumeNames = append(volumeNames, v.Name)
+				}
+			}
 		}
+
+		defer func() {
+			for _, volumeName := range volumeNames {
+				if err := d.client.VolumeRemove(ctx, volumeName, true); err != nil && !cerrdefs.IsNotFound(err) {
+					log.Warnf("Failed to remove volume %s: %v", volumeName, err)
+				}
+			}
+		}()
 	}
 
 	// Stop and remove the container
@@ -656,12 +679,6 @@ func (d *dockerBackend) removeObjectsForContainer(ctx context.Context, c *contai
 	if err := d.client.ContainerRemove(ctx, id, container.RemoveOptions{Force: true}); err != nil && !cerrdefs.IsNotFound(err) {
 		// If container doesn't exist, that's fine
 		return fmt.Errorf("failed to remove container %s: %w", id, err)
-	}
-
-	for _, volumeName := range volumeNames {
-		if err := d.client.VolumeRemove(ctx, volumeName, true); err != nil && !cerrdefs.IsNotFound(err) {
-			log.Warnf("Failed to remove volume %s: %v", volumeName, err)
-		}
 	}
 
 	return nil

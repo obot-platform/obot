@@ -30,7 +30,7 @@ type backend interface {
 	streamServerLogs(ctx context.Context, id string) (io.ReadCloser, error)
 	getServerDetails(ctx context.Context, id string) (types.MCPServerDetails, error)
 	restartServer(ctx context.Context, server ServerConfig) error
-	shutdownServer(ctx context.Context, id string) error
+	shutdownServer(ctx context.Context, id string, hardShutdown bool) error
 	transformObotHostname(url string) string
 }
 
