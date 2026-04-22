@@ -16,6 +16,7 @@
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { isAgentEnabled } from '$lib/utils';
 	import InfoTooltip from './InfoTooltip.svelte';
+	import Tour from './Tour.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import BetaLogo from './navbar/BetaLogo.svelte';
@@ -56,7 +57,8 @@
 		ShieldAlert,
 		ShieldX,
 		Bot,
-		LayoutDashboard
+		LayoutDashboard,
+		Notebook
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -158,7 +160,7 @@
 		...(version.current.nanobotIntegration
 			? [
 					{
-						id: 'agent-chat',
+						id: 'launch-agent-chat',
 						href: '/agent',
 						icon: BotMessageSquare,
 						disabled: isBootStrapUser || !agentLinkEnabled,
@@ -236,6 +238,28 @@
 						].filter(Boolean) as NavLink[]
 					},
 					{
+						id: 'skills-management',
+						icon: Notebook,
+						label: 'Skills Management',
+						collapsible: true,
+						items: [
+							{
+								id: 'skills',
+								href: '/admin/skills',
+								icon: PencilRuler,
+								label: 'Skills',
+								collapsible: false
+							},
+							{
+								id: 'skill-access-policies',
+								href: '/admin/skill-access-policies',
+								icon: Vault,
+								label: 'Skill Access Policies',
+								collapsible: false
+							}
+						]
+					},
+					{
 						id: 'agent-management',
 						icon: Bot,
 						label: 'Obot Agent Management',
@@ -262,20 +286,6 @@
 								href: '/admin/model-access-policies',
 								icon: LockKeyhole,
 								label: 'Model Access Policies',
-								collapsible: false
-							},
-							{
-								id: 'skills',
-								href: '/admin/skills',
-								icon: PencilRuler,
-								label: 'Skills',
-								collapsible: false
-							},
-							{
-								id: 'skill-access-policies',
-								href: '/admin/skill-access-policies',
-								icon: Vault,
-								label: 'Skill Access Policies',
 								collapsible: false
 							},
 							...(version.current.messagePoliciesEnabled
@@ -565,7 +575,7 @@
 					<div class="flex flex-col gap-1">
 						{#each navLinks as link (link.id)}
 							<div class="flex">
-								<div class="flex w-full items-center">
+								<div class="flex w-full items-center" id={link.id}>
 									{#if link.disabled}
 										<div class="sidebar-link disabled">
 											<link.icon class="size-5" />
@@ -616,7 +626,7 @@
 									{#if link.items}
 										<div class="flex flex-col px-7 text-sm font-light">
 											{#each link.items as item (item.href)}
-												<div class="relative flex items-center gap-2">
+												<div class="relative flex items-center gap-2" id={item.id}>
 													<div
 														class={twMerge(
 															'bg-surface3 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
@@ -791,6 +801,10 @@
 
 {#if isAdminRoute}
 	<SetupSplashDialog />
+{/if}
+
+{#if !isBootStrapUser}
+	<Tour />
 {/if}
 
 {#snippet layoutHeaderContent()}

@@ -88,6 +88,7 @@
 		"date-fns": "^4.1.0",
 		"devicon": "^2.17.0",
 		"docx-preview": "^0.3.7",
+		"driver.js": "^1.4.0",
 		"es-toolkit": "^1.45.1",
 		"react": "^18",
 		"react-dom": "^18"
