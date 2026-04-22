@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// APIKey represents an API key for MCP server access.
+// APIKey represents an API key for a user to access the Obot API.
 // The key format is: ok1-<user_id>-<key_id>-<secret>
 // Lookups are done by key ID (extracted from the token), then bcrypt.CompareHashAndPassword
 // is used to verify the secret portion.
