@@ -142,6 +142,30 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	}
 
 	body["model"] = model
+
+	// Evaluate message policies.
+	var (
+		outputPolicies         []messagepolicy.ApplicablePolicy
+		conversationHistory    []messagepolicy.ConversationMessage
+		inputPolicyReplacement string
+	)
+	messagePolicyHelper := s.messagePolicyHelper
+	if shouldSkipMessagePolicyEnforcement(req.Request) {
+		messagePolicyHelper = nil
+	}
+	if messagePolicyHelper != nil && token.UserID != "" {
+		userInfo := &user.DefaultInfo{
+			UID:    token.UserID,
+			Groups: token.UserGroups,
+		}
+		outputPolicies, conversationHistory, inputPolicyReplacement, err = applyMessagePolicies(
+			req.Context(), messagePolicyHelper, userInfo, req.GatewayClient, body, token.ProjectID, token.ThreadID,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	b, err := json.Marshal(body)
 	if err != nil {
 		return err
@@ -171,11 +195,17 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 	(&httputil.ReverseProxy{
 		Director: llmTransformRequest(u, credEnv),
 		ModifyResponse: (&responseModifier{
-			userID:        token.UserID,
-			runID:         token.RunID,
-			model:         model,
-			client:        req.GatewayClient,
-			personalToken: personalToken,
+			userID:                 token.UserID,
+			runID:                  token.RunID,
+			model:                  model,
+			client:                 req.GatewayClient,
+			personalToken:          personalToken,
+			projectID:              token.ProjectID,
+			threadID:               token.ThreadID,
+			inputPolicyReplacement: inputPolicyReplacement,
+			messagePolicyHelper:    messagePolicyHelper,
+			outputPolicies:         outputPolicies,
+			conversationHistory:    conversationHistory,
 		}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
@@ -988,7 +1018,6 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		messagePolicyHelper    = l.messagePolicyHelper
 		outputPolicies         []messagepolicy.ApplicablePolicy
 		conversationHistory    []messagepolicy.ConversationMessage
-		bodyModified           bool
 		inputPolicyReplacement string
 	)
 	if shouldSkipMessagePolicyEnforcement(req.Request) {
@@ -997,69 +1026,13 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 	if messagePolicyHelper != nil && req.User.GetUID() != "" {
 		var bodyMap map[string]any
 		if err := json.Unmarshal(body, &bodyMap); err == nil {
-			// Evaluate user message against applicable input policies.
-			inputPolicies, err := messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionUserMessage)
+			outputPolicies, conversationHistory, inputPolicyReplacement, err = applyMessagePolicies(
+				req.Context(), messagePolicyHelper, req.User, req.GatewayClient, bodyMap, "", "",
+			)
 			if err != nil {
-				return fmt.Errorf("failed to get applicable input policies: %w", err)
+				return err
 			}
-
-			if len(inputPolicies) > 0 {
-				rawMessages := extractRawMessages(bodyMap)
-				if len(rawMessages) > 0 {
-					history, lastUserMsg, lastUserIdx := parseMessagesFromBody(rawMessages)
-					// Only evaluate input policies when the user text message is the
-					// last message in the conversation. If there are messages after it
-					// (assistant responses, tool results, etc.), this is a tool-calling
-					// continuation and the user text has already been evaluated.
-					if lastUserIdx == len(rawMessages)-1 {
-						violations := messagePolicyHelper.EvaluateMessage(req.Context(), inputPolicies, history, lastUserMsg, types2.PolicyDirectionUserMessage)
-						if len(violations) > 0 {
-							// Log each violation (non-fatal on error).
-							blockedContent, _ := json.Marshal(map[string]string{"message": lastUserMsg})
-							for _, v := range violations {
-								logViolation(req.Context(), req.GatewayClient, v, req.User.GetUID(), string(types2.PolicyDirectionUserMessage), blockedContent, "", "")
-							}
-
-							var explanations []string
-							for _, v := range violations {
-								explanations = append(explanations, v.Explanation)
-							}
-
-							// Message for the LLM: instruct it to respond with a
-							// short refusal so the user sees a clear denial.
-							llmReplacement := `Please respond to the user with exactly: "Sorry, I can't help with that."`
-
-							// Message for the user: shown directly in the UI's
-							// "Policy Violation" box with the explanation.
-							// The [policy-violation] prefix is used by the frontend
-							// to detect and style this as a policy violation.
-							userReplacement := fmt.Sprintf(
-								"[policy-violation] %s",
-								strings.Join(explanations, "\n"),
-							)
-
-							if msgMap, ok := rawMessages[lastUserIdx].(map[string]any); ok {
-								msgMap["content"] = llmReplacement
-								bodyModified = true
-								inputPolicyReplacement = userReplacement
-							}
-						}
-					}
-				}
-			}
-
-			// Check for output (tool-call) policies.
-			outputPolicies, err = messagePolicyHelper.GetApplicablePolicies(req.User, types2.PolicyDirectionToolCalls)
-			if err != nil {
-				return fmt.Errorf("failed to get applicable output policies: %w", err)
-			}
-			if len(outputPolicies) > 0 {
-				rawMessages := extractRawMessages(bodyMap)
-				conversationHistory, _, _ = parseMessagesFromBody(rawMessages)
-			}
-
-			// Re-serialize the body if input policies modified it.
-			if bodyModified {
+			if inputPolicyReplacement != "" {
 				b, err := json.Marshal(bodyMap)
 				if err != nil {
 					return fmt.Errorf("failed to marshal modified body: %w", err)
@@ -1107,6 +1080,64 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil
+}
+
+// applyMessagePolicies evaluates input and output message policies against body, modifying
+// it in-place if an input policy is violated (replacing the last user message with an LLM
+// refusal). Returns the output policies to enforce on the response, the conversation history
+// for output policy evaluation, the user-facing replacement text to surface via response
+// header, and any error.
+func applyMessagePolicies(
+	ctx context.Context,
+	helper *messagepolicy.Helper,
+	userInfo user.Info,
+	gatewayClient *client.Client,
+	body map[string]any,
+	projectID, threadID string,
+) ([]messagepolicy.ApplicablePolicy, []messagepolicy.ConversationMessage, string, error) {
+	inputPolicies, err := helper.GetApplicablePolicies(userInfo, types2.PolicyDirectionUserMessage)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to get applicable input policies: %w", err)
+	}
+
+	var inputPolicyReplacement string
+	if len(inputPolicies) > 0 {
+		rawMessages := extractRawMessages(body)
+		if len(rawMessages) > 0 {
+			history, lastUserMsg, lastUserIdx := parseMessagesFromBody(rawMessages)
+			// Only evaluate when the user message is last in the conversation. If there are
+			// messages after it (assistant responses, tool results, etc.), this is a
+			// tool-calling continuation and the user text has already been evaluated.
+			if lastUserIdx == len(rawMessages)-1 {
+				violations := helper.EvaluateMessage(ctx, inputPolicies, history, lastUserMsg, types2.PolicyDirectionUserMessage)
+				if len(violations) > 0 {
+					blockedContent, _ := json.Marshal(map[string]string{"message": lastUserMsg})
+					var explanations []string
+					for _, v := range violations {
+						logViolation(ctx, gatewayClient, v, userInfo.GetUID(), string(types2.PolicyDirectionUserMessage), blockedContent, projectID, threadID)
+						explanations = append(explanations, v.Explanation)
+					}
+					if msgMap, ok := rawMessages[lastUserIdx].(map[string]any); ok {
+						msgMap["content"] = `Please respond to the user with exactly: "Sorry, I can't help with that."`
+						inputPolicyReplacement = fmt.Sprintf("[policy-violation] %s", strings.Join(explanations, "\n"))
+					}
+				}
+			}
+		}
+	}
+
+	outputPolicies, err := helper.GetApplicablePolicies(userInfo, types2.PolicyDirectionToolCalls)
+	if err != nil {
+		return nil, nil, "", fmt.Errorf("failed to get applicable output policies: %w", err)
+	}
+
+	var conversationHistory []messagepolicy.ConversationMessage
+	if len(outputPolicies) > 0 {
+		rawMessages := extractRawMessages(body)
+		conversationHistory, _, _ = parseMessagesFromBody(rawMessages)
+	}
+
+	return outputPolicies, conversationHistory, inputPolicyReplacement, nil
 }
 
 func shouldSkipMessagePolicyEnforcement(req *http.Request) bool {

@@ -125,7 +125,7 @@ type Config struct {
 	NanobotIntegration      bool   `usage:"Enable Nanobot integration" default:"true"`
 	EnableMessagePolicies   bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
 	MCPServerSearchImage    string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.1.1"`
-	NanobotAgentImage       string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/nanobot-ai/nanobot-agent:v0.0.68"`
+	NanobotAgentImage       string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/nanobot-ai/nanobot-agent:v0.0.69"`
 
 	// Published artifact storage
 	ArtifactStorageProvider       string `usage:"Storage provider for published artifacts (s3, gcs, azure, custom)" name:"artifact-storage-provider" env:"OBOT_ARTIFACT_STORAGE_PROVIDER"`

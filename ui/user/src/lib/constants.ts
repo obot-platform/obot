@@ -52,12 +52,17 @@ export const CommonModelProviderIds = {
 	XAI: 'xai-model-provider',
 	DEEPSEEK: 'deepseek-model-provider',
 	GEMINI_VERTEX: 'gemini-vertex-model-provider',
-	GENERIC_OPENAI: 'generic-openai-model-provider'
+	GENERIC_OPENAI: 'generic-openai-model-provider',
+	AZURE: 'azure-model-provider',
+	AZURE_ENTRA: 'azure-entra-model-provider'
 };
 
 export const RecommendedModelProviders = [
 	CommonModelProviderIds.OPENAI,
-	CommonModelProviderIds.AZURE_OPENAI
+	CommonModelProviderIds.ANTHROPIC,
+	CommonModelProviderIds.AMAZON_BEDROCK,
+	CommonModelProviderIds.AZURE,
+	CommonModelProviderIds.AZURE_ENTRA
 ];
 
 export const PROJECT_MCP_SERVER_NAME = 'MCP Servers';
