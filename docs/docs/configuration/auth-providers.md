@@ -186,7 +186,7 @@ Obot uses the JumpCloud management API to:
 - list JumpCloud user groups for admin selection
 - map OIDC `memberOf` claim values to known JumpCloud groups
 
-You must provide one of the following in the Obot auth provider configuration:
+You must provide one of the following in the Obot Auth Provider configuration:
 
 - a JumpCloud service account client ID and client secret. This is the preferred option for JumpCloud group lookup and assignment in Obot.
 - or an API key with access to read users and user groups
