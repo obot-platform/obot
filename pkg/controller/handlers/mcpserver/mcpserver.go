@@ -710,7 +710,7 @@ func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) 
 	}
 
 	if since := time.Since(mcpServer.Status.LastRequestTime.Time); since > idleInterval {
-		if err := h.mcpSessionManager.ShutdownServer(req.Ctx, mcpServer.Name); err != nil {
+		if err := h.mcpSessionManager.ShutdownIdleServer(req.Ctx, mcpServer.Name); err != nil {
 			return fmt.Errorf("failed to shutdown idle server %s: %w", mcpServer.Name, err)
 		}
 	} else if retry := idleInterval - since; retry < 10*time.Hour {
