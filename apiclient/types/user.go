@@ -38,7 +38,7 @@ const (
 	GroupPowerUser             = "power-user"
 	GroupBasic                 = "basic"
 	GroupAuthenticated         = "authenticated"
-	GroupAPIKey                = "api-key" // API key users have restricted access to MCP-connect routes only
+	GroupAPIKey                = "api-key"
 	APIKeySkillsAccessExtraKey = "api_key_can_access_skills"
 )
 
