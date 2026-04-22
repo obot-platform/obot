@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { Group } from '$lib/services';
@@ -8,8 +9,11 @@
 	import { driver, type DriveStep, type PopoverDOM } from 'driver.js';
 	import 'driver.js/dist/driver.css';
 	import { noop } from 'es-toolkit';
-	import { mount, unmount } from 'svelte';
+	import { mount, unmount, untrack } from 'svelte';
 
+	let hasCompletedTour = $state(
+		untrack(() => localStorage.getItem(`tour-completed:${profile.current?.id}`) === 'true')
+	);
 	let hasAdminAccess = $derived(profile.current?.hasAdminAccess?.() ?? false);
 	let isAtLeastPowerUser = $derived(profile.current?.groups.includes(Group.POWERUSER));
 	let isNewUser = $derived(
@@ -23,6 +27,10 @@
 					(version.current.authEnabled ? adminConfig.authProviderConfigured : true)
 			: true
 	);
+
+	afterNavigate(() => {
+		hasCompletedTour = localStorage.getItem(`tour-completed:${profile.current?.id}`) === 'true';
+	});
 
 	const correctRoute = $derived(
 		['/admin/dashboard', '/admin/mcp-servers', '/mcp-servers'].includes(page.url.pathname)
@@ -79,14 +87,15 @@
 
 	$effect(() => {
 		let logoMount: Record<string, unknown> | undefined;
-		if (!isNewUser || !isConfigured || !correctRoute) return;
+		if (!isConfigured || !correctRoute || hasCompletedTour) return;
 
 		const introStep = {
 			popover: {
 				showButtons: ['next', 'close'],
 				title: '',
-				description:
-					"Looks like it's your first time here! Let's walk you through what Obot has to offer.",
+				description: isNewUser
+					? "Looks like it's your first time here! Let's walk you through what Obot has to offer."
+					: "Welcome back! Let's walk you through what Obot has to offer.",
 				side: 'top',
 				align: 'center',
 				popoverClass: 'text-sm w-xs! max-w-xs! min-w-xs!',
