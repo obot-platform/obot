@@ -172,9 +172,10 @@ Create a **Custom OIDC App** in the [JumpCloud Admin Portal](https://console.jum
 1. Set the **Redirect URI / Callback URL** to the redirect URI displayed in Obot's Auth Provider configuration dialog
 2. Ensure the application can issue the scopes `openid`, `email`, `profile`, and `offline_access`
 3. Take note of the app's **Client ID** and **Client Secret**
-4. Configure the app to include group membership and verified-email claims:
+4. Configure the app to include group membership claims:
    - Enable **Include Group Attribute** and set the exact attribute name to `memberOf`. This is required for group-based authorization in Obot.
    - Set group assignment to **User groups assigned to this app**
+5. Assign the JumpCloud user groups that should be allowed to sign in to this application. Users who are not assigned to the app through a group assignment will not be able to log in.
 
 You will also need JumpCloud management API credentials for JumpCloud management API access. These credentials are separate from the OIDC app credentials used for login.
 
@@ -185,17 +186,16 @@ Obot uses the JumpCloud management API to:
 - list JumpCloud user groups for admin selection
 - map OIDC `memberOf` claim values to known JumpCloud groups
 
-You can provide either:
+You must provide one of the following in the Obot Auth Provider configuration:
 
-- an API key with access to read users and user groups
-- or a JumpCloud service account client ID and client secret, which Obot will exchange for JumpCloud management API access tokens
+- a JumpCloud service account client ID and client secret. This is the preferred option for JumpCloud group lookup and assignment in Obot.
+- or an API key with access to read users and user groups
 
 If you use a service account:
 
 1. Create a JumpCloud API service account for Obot in the JumpCloud admin console
 2. Generate or reveal its **Client ID** and **Client Secret**
-3. Grant it only the permissions Obot needs to read system users and user groups
-4. Prefer read-only access; Obot does not need write access for authentication or group lookup
+3. Read-only permissions are sufficient
 
 If you use service-account credentials and your JumpCloud region requires a different admin OAuth endpoint, override the token URL in Obot as well.
 
@@ -205,32 +205,16 @@ You can now return to Obot and finish configuring JumpCloud. Use the table below
 |------------------------------|-----------|
 | Client ID                    | OIDC app Client ID |
 | Client Secret                | OIDC app Client Secret |
-| API Key                      | Admin Portal API key. Optional if `Service Account Client ID` and `Service Account Client Secret` are configured instead. |
-| Service Account Client ID    | JumpCloud service account client ID |
-| Service Account Client Secret| JumpCloud service account client secret |
-| Service Account Token URL    | Optional admin OAuth token endpoint (defaults to `https://admin-oauth.id.jumpcloud.com/oauth2/token`) |
-| Issuer URL                   | OIDC issuer URL (optional, defaults to `https://oauth.id.jumpcloud.com/`) |
-| API Base URL                 | JumpCloud API base URL (optional, defaults to `https://console.jumpcloud.com`; use `https://console.eu.jumpcloud.com` for EU tenants) |
+| Service Account Client ID    | JumpCloud service account client ID. Preferred instead of `API Key`. |
+| Service Account Client Secret| JumpCloud service account client secret. Preferred instead of `API Key`. |
+| API Key                      | Admin Portal API key. Required if `Service Account Client ID` and `Service Account Client Secret` are not configured. |
+| Service Account Token URL (Optional) | Optional admin OAuth token endpoint. Defaults to `https://admin-oauth.id.jumpcloud.com/oauth2/token`. |
+| Issuer URL (Optional)        | Optional OIDC issuer URL. Defaults to `https://oauth.id.jumpcloud.com/`. |
+| API Base URL (Optional)      | Optional JumpCloud API base URL. Defaults to `https://console.jumpcloud.com`; use `https://console.eu.jumpcloud.com` for EU tenants. |
 
-:::important User Matching
-After login, Obot resolves the authenticated OIDC identity to a JumpCloud system user by matching the email address first, then the username fields returned by JumpCloud's userinfo endpoint.
-
+:::important Account Status Requirement
 The JumpCloud user must resolve to an active, non-suspended JumpCloud system user. Suspended or inactive users will be blocked from logging in.
 :::
-
-#### Restricting Login to Specific Users and Groups (Optional)
-
-JumpCloud controls access at the application and directory level.
-
-- Limit assignment of the OIDC application to the users who should be able to sign in to Obot
-- Use JumpCloud user groups to manage access centrally
-- In Obot, you can then map JumpCloud groups to roles and policies after users sign in
-
-#### Unverified Email Handling
-
-By default, Obot expects JumpCloud's OIDC userinfo response to assert `email_verified=true`.
-If your JumpCloud setup does not provide verified email status, you can enable `OBOT_JUMPCLOUD_AUTH_PROVIDER_INSECURE_ALLOW_UNVERIFIED_EMAIL` in the provider configuration.
-This weakens account and email-domain validation and should only be used when required.
 
 ### Auth0 (Enterprise Only)
 
