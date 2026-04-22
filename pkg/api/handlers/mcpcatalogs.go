@@ -59,7 +59,13 @@ func (*MCPCatalogHandler) List(req api.Context) error {
 
 	var items []types.MCPCatalog
 	for _, item := range list.Items {
-		items = append(items, convertMCPCatalog(req.Context(), req.GPTClient, item))
+		creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+			CredentialContexts: []string{mcpcataloghandler.CatalogCredentialContext(string(item.UID))},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list credentials for catalog %s: %w", item.Name, err)
+		}
+		items = append(items, convertMCPCatalog(item, creds))
 	}
 
 	return req.Write(types.MCPCatalogList{
@@ -73,7 +79,13 @@ func (*MCPCatalogHandler) Get(req api.Context) error {
 	if err := req.Get(&catalog, req.PathValue("catalog_id")); err != nil {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
-	return req.Write(convertMCPCatalog(req.Context(), req.GPTClient, catalog))
+	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+		CredentialContexts: []string{mcpcataloghandler.CatalogCredentialContext(string(catalog.UID))},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list credentials for catalog %s: %w", catalog.Name, err)
+	}
+	return req.Write(convertMCPCatalog(catalog, creds))
 }
 
 // Refresh refreshes a catalog to sync its entries.
@@ -245,7 +257,14 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		}
 	}
 
-	return req.Write(convertMCPCatalog(req.Context(), req.GPTClient, catalog))
+	// Re-list credentials after mutations so the response reflects the current state.
+	updatedCreds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+		CredentialContexts: []string{credCtx},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list credentials for catalog %s: %w", catalog.Name, err)
+	}
+	return req.Write(convertMCPCatalog(catalog, updatedCreds))
 }
 
 // ListEntries lists all entries for a catalog or workspace.
@@ -1548,17 +1567,11 @@ func (h *MCPCatalogHandler) ListCategoriesForCatalog(req api.Context) error {
 	return req.Write(categories)
 }
 
-func convertMCPCatalog(ctx context.Context, gptClient *gptscript.GPTScript, catalog v1.MCPCatalog) types.MCPCatalog {
-	// List credentials stored for this catalog and return "*" as a presence
-	// indicator for each source URL that has one — the actual token is never returned.
+func convertMCPCatalog(catalog v1.MCPCatalog, creds []gptscript.Credential) types.MCPCatalog {
+	// Build masked credential map: return "*" as a presence indicator for each
+	// source URL that has a stored credential — the actual token is never returned.
 	var maskedCredentials map[string]string
-	creds, err := gptClient.ListCredentials(ctx, gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{mcpcataloghandler.CatalogCredentialContext(string(catalog.UID))},
-	})
-	if err != nil {
-		log.Errorf("failed to list credentials for catalog %s: %v", catalog.Name, err)
-	}
-	if err == nil && len(creds) > 0 {
+	if len(creds) > 0 {
 		credToolNames := make(map[string]struct{}, len(creds))
 		for _, c := range creds {
 			credToolNames[c.ToolName] = struct{}{}
