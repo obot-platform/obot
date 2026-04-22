@@ -28,6 +28,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		services.AuthEnabled,
 		services.DisableUpdateCheck,
 		services.DisableLegacyChat,
+		services.TourEnabled,
 		services.AutonomousToolUseEnabled,
 		services.NanobotIntegration,
 		services.MessagePoliciesEnabled)

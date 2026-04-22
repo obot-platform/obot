@@ -45,6 +45,7 @@ type VersionHandler struct {
 	supportDocker            bool
 	authEnabled              bool
 	disableLegacyChat        bool
+	tourEnabled              bool
 	sessionStore             SessionStore
 	enterprise               bool
 	engine                   string
@@ -58,7 +59,7 @@ type VersionHandler struct {
 	upgradeLock      sync.RWMutex
 }
 
-func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, supportDocker, authEnabled, disableUpdateCheck, disableLegacyChat, autonomousToolUseEnabled, nanobotIntegration, messagePoliciesEnabled bool) (*VersionHandler, error) {
+func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, supportDocker, authEnabled, disableUpdateCheck, disableLegacyChat, tourEnabled, autonomousToolUseEnabled, nanobotIntegration, messagePoliciesEnabled bool) (*VersionHandler, error) {
 	upgradeServerBaseURL := defaultUpgradeServerBaseURL
 	if os.Getenv("OBOT_UPGRADE_SERVER_URL") != "" {
 		upgradeServerBaseURL = os.Getenv("OBOT_UPGRADE_SERVER_URL")
@@ -70,6 +71,7 @@ func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailD
 		supportDocker:            supportDocker,
 		authEnabled:              authEnabled,
 		disableLegacyChat:        disableLegacyChat,
+		tourEnabled:              tourEnabled,
 		sessionStore:             sessionStoreFromPostgresDSN(postgresDSN),
 		enterprise:               os.Getenv("OBOT_ENTERPRISE") == "true",
 		upgradeServerURL:         fmt.Sprintf("%s/check-upgrade", upgradeServerBaseURL),
@@ -133,6 +135,7 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 	values["dockerSupported"] = v.supportDocker
 	values["authEnabled"] = v.authEnabled
 	values["disableLegacyChat"] = v.disableLegacyChat
+	values["tourEnabled"] = v.tourEnabled
 	values["sessionStore"] = v.sessionStore
 	values["enterprise"] = v.enterprise
 	values["engine"] = v.engine
