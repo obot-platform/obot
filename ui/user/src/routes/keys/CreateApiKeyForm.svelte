@@ -176,8 +176,8 @@
 			{/if}
 		</p>
 		<p class="input-description">
-			Select which MCP servers this API key can access. Leave this empty to create a skills-only
-			key.
+			Select which MCP servers this API key can access. To create a skills-only key, leave this
+			empty and enable skill access.
 			{#if selectedServerIds.size > 0}
 				<span class="italic">
 					({#if selectedServerIds.has('*')}All Selected{:else}{selectedServerIds.size} Selected{/if})
