@@ -212,7 +212,7 @@ You can now return to Obot and finish configuring JumpCloud. Use the table below
 | Issuer URL (Optional)        | Optional OIDC issuer URL. Defaults to `https://oauth.id.jumpcloud.com/`. |
 | API Base URL (Optional)      | Optional JumpCloud API base URL. Defaults to `https://console.jumpcloud.com`; use `https://console.eu.jumpcloud.com` for EU tenants. |
 
-:::important User Matching
+:::important Account Status Requirement
 The JumpCloud user must resolve to an active, non-suspended JumpCloud system user. Suspended or inactive users will be blocked from logging in.
 :::
 
