@@ -751,7 +751,7 @@
 )}
 	{@const serverIcon = elicitationMeta?.['ai.nanobot.meta/server-icon'] as string}
 	{@const serverName = elicitationMeta?.['ai.nanobot.meta/server-name'] as string}
-	<div class="flex gap-2 items-center mb-4">
+	<div class="mb-4 flex items-center gap-2">
 		{#if serverIcon}
 			<img src={serverIcon as string} alt={serverName || fallbackHeader} class="size-6" />
 		{:else}

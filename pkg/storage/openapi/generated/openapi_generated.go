@@ -219,6 +219,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportListResponse":            schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportListResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportResponse":                schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportUpdateRequest":           schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.SecretBinding":                                  schema_obot_platform_obot_apiclient_types_SecretBinding(ref),
 		"github.com/obot-platform/obot/apiclient/types.Skill":                                          schema_obot_platform_obot_apiclient_types_Skill(ref),
 		"github.com/obot-platform/obot/apiclient/types.SkillAccessRule":                                schema_obot_platform_obot_apiclient_types_SkillAccessRule(ref),
 		"github.com/obot-platform/obot/apiclient/types.SkillAccessRuleList":                            schema_obot_platform_obot_apiclient_types_SkillAccessRuleList(ref),
@@ -4291,10 +4292,18 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 							Format:      "",
 						},
 					},
+					"secretBinding": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretBinding references a pre-existing K8s Secret. When set, the env var value is injected via SecretKeyRef instead of the credential store. Only supported on non-editable (git-sourced) catalog entries.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.SecretBinding"),
+						},
+					},
 				},
 				Required: []string{"name", "description", "key", "value", "sensitive", "required", "file"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.SecretBinding"},
 	}
 }
 
@@ -10582,6 +10591,36 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequ
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_SecretBinding(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SecretBinding references a pre-existing Kubernetes Secret for env var injection. When set, Obot does not manage the secret value — K8s injects it directly via SecretKeyRef.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"secretName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretName is the name of the Kubernetes Secret in the MCP namespace.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"secretKey": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretKey is the key within the Kubernetes Secret that holds the value.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"secretName", "secretKey"},
+			},
+		},
 	}
 }
 

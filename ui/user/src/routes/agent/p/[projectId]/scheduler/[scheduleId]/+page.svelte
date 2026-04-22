@@ -233,7 +233,7 @@
 <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 md:px-8" bind:this={taskContainer}>
 	{#if loadingTask && !task}
 		<div class="flex flex-col gap-4">
-			<div class="flex justify-between items-center gap-4">
+			<div class="flex items-center justify-between gap-4">
 				<div class="skeleton h-10 w-21"></div>
 				<div class="skeleton h-10 w-10"></div>
 			</div>

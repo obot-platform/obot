@@ -201,13 +201,13 @@
 	<div
 		bind:this={panelEl}
 		class={twMerge(
-			'popover flex flex-col overflow-hidden max-h-[min(90vh,520px)] fixed z-90',
+			'popover fixed z-90 flex max-h-[min(90vh,520px)] flex-col overflow-hidden',
 			anchor
 				? twMerge(
 						'w-[min(340px,calc(100vw-16px))]',
 						!anchoredPositionReady && 'pointer-events-none opacity-0'
 					)
-				: 'left-1/2 top-1/2 w-[min(340px,calc(100%-2rem))] max-w-[340px] -translate-x-1/2 -translate-y-1/2'
+				: 'top-1/2 left-1/2 w-[min(340px,calc(100%-2rem))] max-w-[340px] -translate-x-1/2 -translate-y-1/2'
 		)}
 		role="dialog"
 		aria-modal="true"
@@ -218,7 +218,7 @@
 		<div
 			class={twMerge(
 				'flex shrink-0 items-center justify-center gap-1 px-4 py-5 text-4xl font-light tabular-nums',
-				'text-white bg-primary'
+				'bg-primary text-white'
 			)}
 		>
 			{#if is24h}
@@ -301,7 +301,7 @@
 							style={polarStyle(h, 12, 40)}
 							class={twMerge(
 								'bg-surface1 absolute z-10 flex h-9 w-9 items-center justify-center rounded-full text-sm',
-								h24 === h ? 'bg-primary text-white scale-110' : 'hover:bg-surface3 '
+								h24 === h ? 'bg-primary scale-110 text-white' : 'hover:bg-surface3 '
 							)}
 							onclick={() => setHour24(h)}>{h}</button
 						>
@@ -312,7 +312,7 @@
 							style={polarStyleIndex(i, 12, 24)}
 							class={twMerge(
 								'bg-surface1 absolute z-10 flex h-8 w-8 items-center justify-center rounded-full text-xs',
-								h24 === hv ? 'bg-primary text-white scale-110' : 'hover:bg-surface3 '
+								h24 === hv ? 'bg-primary scale-110 text-white' : 'hover:bg-surface3 '
 							)}
 							onclick={() => setHour24(hv)}>{String(hv).padStart(2, '0')}</button
 						>
@@ -340,7 +340,7 @@
 							style={polarStyle(h, 12, 40)}
 							class={twMerge(
 								'bg-surface1 absolute z-10 flex h-10 w-10 items-center justify-center rounded-full text-base',
-								hour12 === h ? 'bg-primary text-white scale-110' : 'hover:bg-surface3 '
+								hour12 === h ? 'bg-primary scale-110 text-white' : 'hover:bg-surface3 '
 							)}
 							onclick={() => setHour12(h)}>{h}</button
 						>
@@ -384,7 +384,7 @@
 			</div>
 
 			{#if mode === 'minute'}
-				<div class="w-full flex justify-center gap-1 pt-4 absolute bottom-2 left-0 right-0">
+				<div class="absolute right-0 bottom-2 left-0 flex w-full justify-center gap-1 pt-4">
 					{#each [0, 1, 2, 3, 4] as e (e)}
 						<button
 							type="button"

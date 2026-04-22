@@ -413,7 +413,7 @@
 
 <div
 	class={twMerge(
-		'flex w-full h-[calc(100dvh-4rem)] flex-row transition-transform md:relative peer-[.workspace]:md:w-1/4',
+		'flex h-[calc(100dvh-4rem)] w-full flex-row transition-transform md:relative peer-[.workspace]:md:w-1/4',
 		classes?.root,
 		responsive.isMobile ? 'h-[calc(100dvh-8rem-env(safe-area-inset-bottom,0px))]' : ''
 	)}
