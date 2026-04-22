@@ -6,11 +6,12 @@
 	import { darkMode, profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { isSameDay } from 'date-fns';
-	import { driver, type DriveStep, type PopoverDOM } from 'driver.js';
+	import { driver, type DriveStep, type Driver, type PopoverDOM } from 'driver.js';
 	import 'driver.js/dist/driver.css';
 	import { noop } from 'es-toolkit';
 	import { mount, unmount } from 'svelte';
 
+	const TOUR_COMPLETED_KEY = 'tour-completed';
 	let hasCompletedTour = $state(false);
 	let hasAdminAccess = $derived(profile.current?.hasAdminAccess?.() ?? false);
 	let isAtLeastPowerUser = $derived(profile.current?.groups.includes(Group.POWERUSER));
@@ -25,10 +26,10 @@
 					(version.current.authEnabled ? adminConfig.authProviderConfigured : true)
 			: true
 	);
-	const tourEnabled = $derived(version.current.tourEnabled);
+	const tourEnabled = $derived(page.url.searchParams.get('enableTour') === 'true');
 
 	afterNavigate(() => {
-		hasCompletedTour = localStorage.getItem(`tour-completed:${profile.current?.id}`) === 'true';
+		hasCompletedTour = localStorage.getItem(TOUR_COMPLETED_KEY) === 'true';
 	});
 
 	const correctRoute = $derived(
@@ -262,14 +263,27 @@
 			stepAgent
 		];
 
+		function markTourCompleted() {
+			localStorage.setItem(TOUR_COMPLETED_KEY, 'true');
+		}
+
 		const tour = driver({
 			showProgress: false,
 			overlayClickBehavior: noop,
 			overlayColor: darkMode.isDark ? 'rgba(0, 0, 0, 1)' : 'rgba(0, 0, 0, 0.35)',
 			steps: [introStep, ...(hasAdminAccess ? adminSteps : defaultUserSteps)] as DriveStep[],
-			onDestroyStarted: () => {
+			onNextClick: (_element: Element | undefined, _step: DriveStep, ctx: { driver: Driver }) => {
+				const { driver: d } = ctx;
+				if (!d.hasNextStep()) {
+					markTourCompleted();
+					tour.destroy();
+				} else {
+					d.moveNext();
+				}
+			},
+			onCloseClick: () => {
+				markTourCompleted();
 				tour.destroy();
-				localStorage.setItem(`tour-completed:${profile.current?.id}`, 'true');
 			}
 		});
 		tour.drive();

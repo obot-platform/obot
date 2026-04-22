@@ -169,7 +169,6 @@ export interface Version {
 	nanobotIntegration?: boolean;
 	messagePoliciesEnabled?: boolean;
 	disableLegacyChat?: boolean;
-	tourEnabled?: boolean;
 }
 
 export interface Profile {

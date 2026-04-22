@@ -174,8 +174,6 @@ config:
   OBOT_SERVER_NANOBOT_INTEGRATION: true
   # config.OBOT_SERVER_DISABLE_LEGACY_CHAT -- Disable legacy chat APIs/UX paths. Defaults to true.
   OBOT_SERVER_DISABLE_LEGACY_CHAT: true
-  # config.OBOT_ENABLE_TOUR -- Enable product tour in the UI. Defaults to false.
-  OBOT_ENABLE_TOUR: ""
 
   # config.OBOT_ARTIFACT_STORAGE_PROVIDER -- Storage provider for published workflows. Can be 's3', 'gcs', 'azure', or 'custom'. If unset, local disk storage is used.
   OBOT_ARTIFACT_STORAGE_PROVIDER: ""
