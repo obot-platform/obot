@@ -17,7 +17,7 @@ Obot supports a variety of model providers, including:
 - Google
 
 **Enterprise**
-- [Azure OpenAI / Microsoft Foundry](#azure-openai-enterprise-only)
+- [Azure OpenAI / Microsoft Foundry](#azure-enterprise-only)
 - Amazon Bedrock
 - Google Vertex (Gemini models)
 
@@ -71,40 +71,59 @@ Setting a default model here does not automatically grant users access to it. Us
 
 ### Instructions for configuring specific providers
 
-#### Azure OpenAI (Enterprise only)
+#### Azure (Enterprise only)
 
-The Azure OpenAI model provider supports legacy Azure OpenAI resources. Microsoft Foundry works with API key authentication as well.
-
-This model provider supports two forms of authentication: API keys and Microsoft Entra.
+Obot supports two Azure providers, each with a different authentication method. These are compatible with both Azure OpenAI deployments and Foundry deployments.
 
 ##### API Key Authentication
 
-In the Azure OpenAI or Microsoft Foundry UI, you can find your API key after you have set up at least one deployment, as well as your endpoint URL.
-Both of these values are required when you configure this model provider in Obot.
+Use the **Azure** provider for API key-based authentication.
 
-Additionally, you must manually specify the names of all of your deployments, as the API key does not provide the ability to list them.
-The format is `name:type`, for example, `gpt-5.2:reasoning-llm`. The supported types are `llm`, `reasoning-llm`, `text-embedding`, and `image-generation`.
-If no type is specified, Obot will assume the type is `llm`.
+In the Azure portal, find your API key and endpoint URL after setting up at least one deployment — both are required.
 
-If the type specified is `llm` or none at all, and the deployment name starts with the name of a known reasoning model (such as `o3` or `gpt-5`), Obot
-will automatically treat it as a reasoning model.
+You must also specify deployment names. The format is a comma-separated list of deployment names, optionally as `model:deployment` pairs (e.g. `gpt-4o,gpt-4o-mini` or `gpt-4o:my-gpt4o,gpt-4o-mini:my-mini`).
 
-##### Microsoft Entra Authentication
+You can also optionally specify the API version (defaults to `2025-01-01-preview`).
 
-:::important
-At this time, Microsoft Entra authentication is only supported for Azure OpenAI deployments and not for the newer Microsoft Foundry deployments.
-:::
+##### Microsoft Entra ID Authentication
 
-Instead of using an API key, you can set up a Microsoft Entra app registration as a service principal to use Azure OpenAI.
+Use the **Azure (Entra ID)** provider for service principal authentication via Microsoft Entra ID. Deployments are discovered automatically from the Azure Management API.
 
-Obot requires the Client ID, Client Secret, and Tenant ID of the Entra app, as well as the Endpoint URL, Subscription ID, and Resource Group from Azure OpenAI/Microsoft Foundry.
+###### 1. Create a service principal
 
-You do NOT need to manually specify your deployment names, as the Entra app's credentials will be sufficient to list them.
+```bash
+az ad sp create-for-rbac --name "<sp-name>" \
+  --role "Cognitive Services OpenAI User" \
+  --scopes /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<account-name>
+```
 
-After you have created your Entra app registration, you need to go to your Azure OpenAI resource in the Azure portal and add a new role assignment for the app registration, as a service principal.
-It needs to have the `Cognitive Services OpenAI User` role.
+This outputs the `appId` (Client ID), `password` (Client Secret), and `tenant` (Tenant ID) needed below.
 
-See the [Microsoft docs](https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/role-based-access-control?view=foundry-classic#add-role-assignment-to-an-azure-openai-resource) for more details.
+###### 2. Find your resource details
+
+```bash
+az cognitiveservices account show \
+  --name <account-name> \
+  --resource-group <resource-group> \
+  --query "{endpoint:properties.endpoint, id:id}"
+```
+
+###### 3. Configure the provider
+
+Obot requires:
+- **Azure Endpoint** — your Azure OpenAI endpoint URL (`https://<resource_name>.openai.azure.com`)
+- **Client ID** — the Entra app's application (client) ID
+- **Client Secret** — the Entra app's client secret
+- **Tenant ID** — the Entra app's tenant ID
+- **Subscription ID** — the Azure subscription ID containing the Cognitive Services account
+- **Resource Group** — the resource group containing the Cognitive Services account
+- **Account Name** — the Cognitive Services account name
+
+You can also optionally specify the API version (defaults to `2025-01-01-preview`).
+
+The service principal requires at minimum the `Cognitive Services OpenAI User` or `Cognitive Services User` role on the account to read deployments. Deployments are discovered automatically — each deployment's base model name becomes the model ID exposed to Obot.
+
+See the [Microsoft docs](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/configure-entra-id) for more details.
 
 #### Ollama
 
@@ -112,10 +131,10 @@ See the [Microsoft docs](https://learn.microsoft.com/en-us/azure/ai-foundry/open
 
 1. **Expose Ollama to the network** - By default, Ollama only binds to `127.0.0.1:11434`. Since Obot runs in a container, `localhost` addresses resolve to Obot's container, not your host. Set `OLLAMA_HOST=0.0.0.0` before starting Ollama, then use your host's IP address in the endpoint URL.
 
-2. **Use the OpenAI-compatible endpoint** - The endpoint must include the `/v1/` path:
+2. **Set the Ollama host**
    ```
-   http://<your-host-ip>:11434/v1/
+   http://<your-host-ip>:11434
    ```
-   Using `http://<host>:11434/` without `/v1/` will result in validation errors.
+   - If you are running Obot in Docker, you should use `http://host.docker.internal:11434`. For linux users, run Obot in Docker with this additional flag `--add-host=host.docker.internal:host-gateway` or use an alternative method of allowing the container to access the host network
 
 See [Ollama's FAQ](https://docs.ollama.com/faq) for platform-specific instructions on setting `OLLAMA_HOST`.
