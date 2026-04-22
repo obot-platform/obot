@@ -67,7 +67,7 @@ func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("failed to read manifest: %v", err)
 	}
 
-	if err := validateManifest(manifest); err != nil {
+	if err := validateManifest(&manifest); err != nil {
 		return types.NewErrBadRequest("invalid manifest: %v", err)
 	}
 
@@ -119,7 +119,7 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("failed to read manifest: %v", err)
 	}
 
-	if err := validateManifest(manifest); err != nil {
+	if err := validateManifest(&manifest); err != nil {
 		return types.NewErrBadRequest("invalid manifest: %v", err)
 	}
 
@@ -413,7 +413,7 @@ func (m *MCPWebhookValidationHandler) GetDetails(req api.Context) error {
 	return req.Write(details)
 }
 
-func validateManifest(m types.MCPWebhookValidationManifest) error {
+func validateManifest(m *types.MCPWebhookValidationManifest) error {
 	if m.URL == "" && m.SystemMCPServerManifest == nil {
 		return fmt.Errorf("webhook URL or system MCP server manifest is required")
 	}
