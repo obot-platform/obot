@@ -59,13 +59,11 @@ func (*MCPCatalogHandler) List(req api.Context) error {
 
 	var items []types.MCPCatalog
 	for _, item := range list.Items {
-		creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-			CredentialContexts: []string{mcpcataloghandler.CatalogCredentialContext(item.Name)},
-		})
+		tokenEnv, err := revealCatalogTokens(req, item.Name)
 		if err != nil {
-			return fmt.Errorf("failed to list credentials for catalog %s: %w", item.Name, err)
+			return err
 		}
-		items = append(items, convertMCPCatalog(item, creds))
+		items = append(items, convertMCPCatalog(item, tokenEnv))
 	}
 
 	return req.Write(types.MCPCatalogList{
@@ -79,13 +77,11 @@ func (*MCPCatalogHandler) Get(req api.Context) error {
 	if err := req.Get(&catalog, req.PathValue("catalog_id")); err != nil {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
-	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{mcpcataloghandler.CatalogCredentialContext(catalog.Name)},
-	})
+	tokenEnv, err := revealCatalogTokens(req, catalog.Name)
 	if err != nil {
-		return fmt.Errorf("failed to list credentials for catalog %s: %w", catalog.Name, err)
+		return err
 	}
-	return req.Write(convertMCPCatalog(catalog, creds))
+	return req.Write(convertMCPCatalog(catalog, tokenEnv))
 }
 
 // Refresh refreshes a catalog to sync its entries.
@@ -155,115 +151,79 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 
 	credCtx := mcpcataloghandler.CatalogCredentialContext(catalog.Name)
 
+	// Reveal the existing single credential that holds all source-URL tokens.
+	existingTokens := make(map[string]string)
+	existingCred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, mcpcataloghandler.CatalogCredentialToolName)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to reveal catalog credentials: %w", err)
+	}
+	if err == nil {
+		existingTokens = existingCred.Env
+	}
+
+	// Build the new token map from the active URLs.
+	// - "*" means keep the existing token for that URL.
+	// - "" means remove the token.
+	// - Any other value is a new token.
+	// URLs not in the new SourceURLs list are dropped (removed URLs).
 	activeURLs := make(map[string]struct{}, len(manifest.SourceURLs))
 	for _, u := range manifest.SourceURLs {
 		activeURLs[u] = struct{}{}
 	}
 
-	// Build the set of existing credential tool names so we can identify which
-	// URLs currently have credentials without an extra API call per URL.
-	existingCredNames := make(map[string]struct{})
-	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{credCtx},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to list catalog credentials: %w", err)
-	}
-	for _, c := range creds {
-		existingCredNames[c.ToolName] = struct{}{}
-	}
-
-	oldURLsSet := make(map[string]struct{}, len(catalog.Spec.SourceURLs))
-	for _, u := range catalog.Spec.SourceURLs {
-		oldURLsSet[u] = struct{}{}
-	}
-
-	// Transfer credential when exactly one URL is being renamed (old removed, new added with "*").
-	transferredOldURLs := make(map[string]struct{})
-	if oldURL, newURL, ok := findCredentialTransfer(catalog.Spec.SourceURLs, manifest.SourceURLs, existingCredNames, manifest.SourceURLCredentials); ok {
-		oldCred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, mcpcataloghandler.CatalogCredentialToolName(oldURL))
-		if err != nil {
-			return fmt.Errorf("failed to reveal credential: %w", err)
+	newTokens := make(map[string]string)
+	for u, incoming := range manifest.SourceURLCredentials {
+		if _, active := activeURLs[u]; !active {
+			continue
 		}
-		if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-			Context:  credCtx,
-			ToolName: mcpcataloghandler.CatalogCredentialToolName(newURL),
-			Type:     gptscript.CredentialTypeTool,
-			Env:      oldCred.Env,
-		}); err != nil {
-			return fmt.Errorf("failed to transfer credential to %s: %w", newURL, err)
-		}
-		// Delete the old URL's credential now that it has been transferred.
-		if delErr := req.GPTClient.DeleteCredential(req.Context(), credCtx, mcpcataloghandler.CatalogCredentialToolName(oldURL)); delErr != nil {
-			if !errors.Is(delErr, gptscript.ErrNotFound{}) {
-				log.Errorf("failed to delete old credential for %s after transfer: %v", oldURL, delErr)
+		switch incoming {
+		case "":
+			// explicitly remove token for this URL
+		case "*":
+			// keep existing token (may have been for this URL or transferred from a renamed one)
+			if tok, ok := existingTokens[u]; ok {
+				newTokens[u] = tok
 			}
+		default:
+			newTokens[u] = incoming
 		}
-		transferredOldURLs[oldURL] = struct{}{}
+	}
+	// Preserve tokens for active URLs that weren't mentioned in SourceURLCredentials.
+	for _, u := range manifest.SourceURLs {
+		if _, mentioned := manifest.SourceURLCredentials[u]; mentioned {
+			continue
+		}
+		if tok, ok := existingTokens[u]; ok {
+			newTokens[u] = tok
+		}
 	}
 
 	catalog.Spec.SourceURLs = manifest.SourceURLs
 
-	// Persist the catalog spec first. Credential operations below are best-effort:
-	// if they fail the catalog spec is still updated, and the user can retry.
 	if err := req.Update(&catalog); err != nil {
 		return fmt.Errorf("failed to update catalog: %w", err)
 	}
 
-	// Delete credentials for removed URLs that were not transferred.
-	for u := range oldURLsSet {
-		if _, active := activeURLs[u]; active {
-			continue
+	// Write the single credential with the new token map, or delete it if empty.
+	if len(newTokens) > 0 {
+		if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
+			Context:  credCtx,
+			ToolName: mcpcataloghandler.CatalogCredentialToolName,
+			Type:     gptscript.CredentialTypeTool,
+			Env:      newTokens,
+		}); err != nil {
+			return fmt.Errorf("failed to store catalog credentials: %w", err)
 		}
-		if _, transferred := transferredOldURLs[u]; transferred {
-			continue
-		}
-		err := req.GPTClient.DeleteCredential(req.Context(), credCtx, mcpcataloghandler.CatalogCredentialToolName(u))
-		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-			log.Errorf("failed to delete credential for %s: %v", u, err)
-		}
-	}
-
-	// Store or delete per-URL credentials in the GPTScript credential store.
-	// - If the value is "*", keep the existing credential (no change); if the URL
-	//   was just transferred, it already has the credential set above.
-	// - If the value is empty, delete the credential.
-	// - Otherwise, create/overwrite with the new token.
-	// Only process credentials for URLs that are in the new SourceURLs list.
-	for u, cred := range manifest.SourceURLCredentials {
-		if _, ok := activeURLs[u]; !ok {
-			continue
-		}
-		toolName := mcpcataloghandler.CatalogCredentialToolName(u)
-		switch cred {
-		case "":
-			err := req.GPTClient.DeleteCredential(req.Context(), credCtx, toolName)
-			var notFound gptscript.ErrNotFound
-			if err != nil && !errors.As(err, &notFound) {
-				log.Errorf("failed to delete credential for %s: %v", u, err)
-			}
-		case "*":
-			// keep existing (transferred URLs already have credential set)
-		default:
-			if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-				Context:  credCtx,
-				ToolName: toolName,
-				Type:     gptscript.CredentialTypeTool,
-				Env:      map[string]string{"TOKEN": cred},
-			}); err != nil {
-				return fmt.Errorf("failed to store credential for %s: %w", u, err)
+	} else if len(existingTokens) > 0 {
+		// Had tokens before but none now — clean up.
+		if err := req.GPTClient.DeleteCredential(req.Context(), credCtx, mcpcataloghandler.CatalogCredentialToolName); err != nil {
+			if !errors.As(err, &gptscript.ErrNotFound{}) {
+				return fmt.Errorf("failed to delete catalog credentials: %w", err)
 			}
 		}
 	}
 
-	// Re-list credentials after mutations so the response reflects the current state.
-	updatedCreds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{credCtx},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to list credentials for catalog %s: %w", catalog.Name, err)
-	}
-	return req.Write(convertMCPCatalog(catalog, updatedCreds))
+	return req.Write(convertMCPCatalog(catalog, newTokens))
 }
 
 // ListEntries lists all entries for a catalog or workspace.
@@ -1566,22 +1526,30 @@ func (h *MCPCatalogHandler) ListCategoriesForCatalog(req api.Context) error {
 	return req.Write(categories)
 }
 
-func convertMCPCatalog(catalog v1.MCPCatalog, creds []gptscript.Credential) types.MCPCatalog {
-	// Build masked credential map: return "*" as a presence indicator for each
-	// source URL that has a stored credential — the actual token is never returned.
-	var maskedCredentials map[string]string
-	if len(creds) > 0 {
-		credToolNames := make(map[string]struct{}, len(creds))
-		for _, c := range creds {
-			credToolNames[c.ToolName] = struct{}{}
+// revealCatalogTokens returns the Env map from the single credential that stores
+// all source-URL tokens for a catalog. Returns an empty map if no credential exists.
+func revealCatalogTokens(req api.Context, catalogName string) (map[string]string, error) {
+	credCtx := mcpcataloghandler.CatalogCredentialContext(catalogName)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, mcpcataloghandler.CatalogCredentialToolName)
+	if err != nil {
+		if errors.As(err, &gptscript.ErrNotFound{}) {
+			return nil, nil
 		}
-		for _, u := range catalog.Spec.SourceURLs {
-			if _, ok := credToolNames[mcpcataloghandler.CatalogCredentialToolName(u)]; ok {
-				if maskedCredentials == nil {
-					maskedCredentials = make(map[string]string)
-				}
-				maskedCredentials[u] = "*"
+		return nil, fmt.Errorf("failed to reveal credentials for catalog %s: %w", catalogName, err)
+	}
+	return cred.Env, nil
+}
+
+func convertMCPCatalog(catalog v1.MCPCatalog, tokenEnv map[string]string) types.MCPCatalog {
+	// Build masked credential map: return "*" as a presence indicator for each
+	// source URL that has a stored token — the actual token is never returned.
+	var maskedCredentials map[string]string
+	for _, u := range catalog.Spec.SourceURLs {
+		if _, ok := tokenEnv[u]; ok {
+			if maskedCredentials == nil {
+				maskedCredentials = make(map[string]string)
 			}
+			maskedCredentials[u] = "*"
 		}
 	}
 
@@ -1994,53 +1962,4 @@ func (h *MCPCatalogHandler) DeleteOAuthCredentials(req api.Context) error {
 	}
 
 	return req.Write(map[string]bool{"deleted": true})
-}
-
-// findCredentialTransfer detects when exactly one URL is being renamed: one old URL
-// (removed, had a credential) paired with exactly one new URL (added, requesting
-// transfer via "*"). Returns (oldURL, newURL, true) when a transfer should occur.
-// existingCredNames is keyed by credential tool name (from CatalogCredentialToolName).
-func findCredentialTransfer(
-	oldURLs, newURLs []string,
-	existingCredNames map[string]struct{},
-	newURLCredentials map[string]string,
-) (oldURL, newURL string, ok bool) {
-	activeURLs := make(map[string]struct{}, len(newURLs))
-	for _, u := range newURLs {
-		activeURLs[u] = struct{}{}
-	}
-	oldURLsSet := make(map[string]struct{}, len(oldURLs))
-	for _, u := range oldURLs {
-		oldURLsSet[u] = struct{}{}
-	}
-
-	// Find removed URLs that currently have credentials.
-	var removedURLsWithCreds []string
-	for _, u := range oldURLs {
-		if _, active := activeURLs[u]; active {
-			continue
-		}
-		if _, has := existingCredNames[mcpcataloghandler.CatalogCredentialToolName(u)]; has {
-			removedURLsWithCreds = append(removedURLsWithCreds, u)
-		}
-	}
-
-	// Find new URLs that signal they want a credential transferred ("*" but no existing credential).
-	var newURLsWantingTransfer []string
-	for _, u := range newURLs {
-		if _, existed := oldURLsSet[u]; existed {
-			continue
-		}
-		if newURLCredentials[u] != "*" {
-			continue
-		}
-		if _, has := existingCredNames[mcpcataloghandler.CatalogCredentialToolName(u)]; !has {
-			newURLsWantingTransfer = append(newURLsWantingTransfer, u)
-		}
-	}
-
-	if len(removedURLsWithCreds) == 1 && len(newURLsWantingTransfer) == 1 {
-		return removedURLsWithCreds[0], newURLsWantingTransfer[0], true
-	}
-	return "", "", false
 }

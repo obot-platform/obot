@@ -39,33 +39,10 @@ func CatalogCredentialContext(catalogName string) string {
 	return catalogName
 }
 
-// CatalogCredentialToolName returns a human-readable GPTScript tool name for a
-// source URL by slugifying it: the scheme is stripped and non-alphanumeric
-// characters are collapsed into hyphens.
-// e.g. "https://github.com/org/repo" → "github-com-org-repo"
-func CatalogCredentialToolName(sourceURL string) string {
-	slug := strings.TrimPrefix(strings.TrimPrefix(sourceURL, "https://"), "http://")
-	var b strings.Builder
-	prevHyphen := true // start true to avoid a leading hyphen
-	for _, r := range slug {
-		switch {
-		case (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9'):
-			b.WriteRune(r)
-			prevHyphen = false
-		case r == '-':
-			if !prevHyphen {
-				b.WriteRune('-')
-				prevHyphen = true
-			}
-		default:
-			if !prevHyphen {
-				b.WriteRune('-')
-				prevHyphen = true
-			}
-		}
-	}
-	return strings.TrimRight(b.String(), "-")
-}
+// CatalogCredentialToolName is the fixed tool name used for the single
+// credential that stores all source-URL tokens for a catalog. Each URL's
+// token is stored as a key in the credential's Env map.
+const CatalogCredentialToolName = "catalog-source-tokens"
 
 const (
 	// These are used to force catalog sync on startup, used for times when changes are made to
@@ -88,16 +65,15 @@ type Handler struct {
 func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sourceURL string) string {
 	cred, err := h.gptClient.RevealCredential(ctx,
 		[]string{CatalogCredentialContext(catalogName)},
-		CatalogCredentialToolName(sourceURL),
+		CatalogCredentialToolName,
 	)
 	if err != nil {
-		var notFound gptscript.ErrNotFound
-		if !errors.As(err, &notFound) {
+		if !errors.As(err, &gptscript.ErrNotFound{}) {
 			log.Errorf("failed to retrieve credential for catalog %s source %s: %v", catalogName, sourceURL, err)
 		}
 		return ""
 	}
-	return cred.Env["TOKEN"]
+	return cred.Env[sourceURL]
 }
 
 func New(defaultCatalogPath string, gptClient *gptscript.GPTScript, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper) *Handler {
