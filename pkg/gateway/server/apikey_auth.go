@@ -13,10 +13,6 @@ import (
 
 const apiKeyAuthPrefix = "ok1-"
 
-// apiKeySkillsAccessExtraKey is the key used in user.Info.Extra to indicate
-// whether an API key has skills access.
-var apiKeySkillsAccessExtraKey = types2.APIKeySkillsAccessExtraKey
-
 // APIKeyAuthenticator authenticates requests using API keys.
 // API key users have restricted access - they only get GroupAPIKey,
 // not the full authenticated user groups.
@@ -63,8 +59,8 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 	}
 
 	extra := map[string][]string{
-		"email":                    {u.Email},
-		apiKeySkillsAccessExtraKey: {fmt.Sprintf("%t", apiKey.CanAccessSkills)},
+		"email":                           {u.Email},
+		types2.APIKeySkillsAccessExtraKey: {fmt.Sprintf("%t", apiKey.CanAccessSkills)},
 	}
 
 	// Look up auth provider group memberships so that group-based access

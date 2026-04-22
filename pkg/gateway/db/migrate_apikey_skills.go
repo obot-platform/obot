@@ -24,6 +24,7 @@ func migrateAPIKeySkillsAccess(tx *gorm.DB) error {
 	}
 
 	// Backfill: set all existing API keys to true since they previously had implicit access.
+	// GORM will block an update with no where clause, so we use "1 = 1" to update all rows.
 	if err := tx.Model(&types.APIKey{}).Where("1 = 1").Update("can_access_skills", true).Error; err != nil {
 		return fmt.Errorf("failed to backfill can_access_skills: %w", err)
 	}

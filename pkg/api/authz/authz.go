@@ -423,7 +423,7 @@ func NewAuthorizer(cache, uncached kclient.Client, devMode bool, acrHelper *acce
 }
 
 func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
-	if a.authorizeAPIKeySkillRoutes(req, user) {
+	if authorizeAPIKeySkillRoutes(req, user) {
 		return true
 	}
 
@@ -439,13 +439,12 @@ func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
 	return a.authorizeAPIResources(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
 }
 
-func (a *Authorizer) authorizeAPIKeySkillRoutes(req *http.Request, user user.Info) bool {
+func authorizeAPIKeySkillRoutes(req *http.Request, user user.Info) bool {
 	if !slices.Contains(user.GetGroups(), types.GroupAPIKey) {
 		return false
 	}
 
-	canAccessSkills := slices.Contains(user.GetExtra()[apiKeySkillsAccessExtraKey], "true")
-	if !canAccessSkills {
+	if !slices.Contains(user.GetExtra()[apiKeySkillsAccessExtraKey], "true") {
 		return false
 	}
 
