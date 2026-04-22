@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { beforeNavigate } from '$app/navigation';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
@@ -95,6 +96,20 @@
 	let mcpServersMap = $derived(new Map(mcpServersAndEntries.current.servers.map((i) => [i.id, i])));
 	let mcpEntriesMap = $derived(new Map(mcpServersAndEntries.current.entries.map((i) => [i.id, i])));
 
+	const UNSAVED_LAUNCH_EXIT_MESSAGE =
+		'Are you sure you want to exit? You still have unsaved changes.';
+
+	beforeNavigate(({ cancel }) => {
+		if (!launchFilterData) return;
+		if (!confirm(UNSAVED_LAUNCH_EXIT_MESSAGE)) {
+			cancel();
+			return;
+		}
+		if (!initialFilter?.id && launchFilterData.id) {
+			void AdminService.deleteMCPFilter(launchFilterData.id).catch(() => {});
+		}
+	});
+
 	// Validation
 	let nameError = $derived(showValidation && !filter.name.trim());
 	let urlError = $derived(showValidation && !filter.url.trim());
@@ -109,6 +124,27 @@
 		if (initialFilter?.id) {
 			revealServerValues();
 		}
+
+		function handleBeforeUnload(e: BeforeUnloadEvent) {
+			if (!launchFilterData) return;
+			e.preventDefault();
+		}
+
+		function handlePageHide(e: PageTransitionEvent) {
+			if (e.persisted) return;
+			if (initialFilter?.id) return;
+			const id = launchFilterData?.id;
+			if (!id) return;
+			void AdminService.deleteMCPFilter(id, { keepalive: true }).catch(() => {});
+		}
+
+		window.addEventListener('beforeunload', handleBeforeUnload);
+		window.addEventListener('pagehide', handlePageHide);
+
+		return () => {
+			window.removeEventListener('beforeunload', handleBeforeUnload);
+			window.removeEventListener('pagehide', handlePageHide);
+		};
 	});
 
 	function toIdSafeToolName(name: string): string {
@@ -367,16 +403,14 @@
 			launchLogsEventStream.disconnect();
 		}
 
-		launchError = undefined;
-		saving = false;
-
-		if (initialFilter) {
-			onUpdate?.(launchFilterData);
-		} else {
-			onCreate?.(launchFilterData);
+		if (!initialFilter) {
+			// delete the filter
+			await AdminService.deleteMCPFilter(launchFilterData.id);
 		}
 
+		launchError = undefined;
 		launchFilterData = undefined;
+		saving = false;
 	}
 
 	async function validateLaunch(
@@ -428,6 +462,8 @@
 			return false;
 		}
 
+		launchProgress = 100;
+		await new Promise((resolve) => setTimeout(resolve, 500));
 		return true;
 	}
 
@@ -962,7 +998,7 @@
 		{/if}
 
 		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
-			<button class="button w-full md:w-1/2 md:flex-1" onclick={handleCloseLaunch}> Close </button>
+			<button class="button w-full md:w-1/2 md:flex-1" onclick={handleCloseLaunch}>Close</button>
 		</div>
 	{/snippet}
 </PageLoading>

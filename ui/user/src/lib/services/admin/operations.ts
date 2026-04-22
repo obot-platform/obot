@@ -961,8 +961,11 @@ export async function getMCPFilter(id: string, opts?: { fetch?: Fetcher }) {
 	return (await doGet(`/mcp-webhook-validations/${id}`, opts)) as MCPFilter;
 }
 
-export async function deleteMCPFilter(id: string) {
-	await doDelete(`/mcp-webhook-validations/${id}`);
+export async function deleteMCPFilter(id: string, opts?: { keepalive?: boolean }) {
+	await doDelete(`/mcp-webhook-validations/${id}`, {
+		keepalive: opts?.keepalive,
+		dontLogErrors: opts?.keepalive
+	});
 }
 
 export async function createMCPFilter(filter: MCPFilterManifest, opts?: { fetch?: Fetcher }) {
