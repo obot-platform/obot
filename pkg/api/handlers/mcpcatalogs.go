@@ -60,7 +60,7 @@ func (*MCPCatalogHandler) List(req api.Context) error {
 	var items []types.MCPCatalog
 	for _, item := range list.Items {
 		creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-			CredentialContexts: []string{mcpcataloghandler.CatalogCredentialContext(string(item.UID))},
+			CredentialContexts: []string{mcpcataloghandler.CatalogCredentialContext(item.Name)},
 		})
 		if err != nil {
 			return fmt.Errorf("failed to list credentials for catalog %s: %w", item.Name, err)
@@ -80,7 +80,7 @@ func (*MCPCatalogHandler) Get(req api.Context) error {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
 	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{mcpcataloghandler.CatalogCredentialContext(string(catalog.UID))},
+		CredentialContexts: []string{mcpcataloghandler.CatalogCredentialContext(catalog.Name)},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to list credentials for catalog %s: %w", catalog.Name, err)
@@ -153,7 +153,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		}
 	}
 
-	credCtx := mcpcataloghandler.CatalogCredentialContext(string(catalog.UID))
+	credCtx := mcpcataloghandler.CatalogCredentialContext(catalog.Name)
 
 	activeURLs := make(map[string]struct{}, len(manifest.SourceURLs))
 	for _, u := range manifest.SourceURLs {
@@ -219,8 +219,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 			continue
 		}
 		err := req.GPTClient.DeleteCredential(req.Context(), credCtx, mcpcataloghandler.CatalogCredentialToolName(u))
-		var notFound gptscript.ErrNotFound
-		if err != nil && !errors.As(err, &notFound) {
+		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			log.Errorf("failed to delete credential for %s: %v", u, err)
 		}
 	}

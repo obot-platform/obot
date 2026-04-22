@@ -35,8 +35,8 @@ import (
 var log = logger.Package()
 
 // CatalogCredentialContext returns the GPTScript credential context for a catalog.
-func CatalogCredentialContext(catalogUID string) string {
-	return catalogUID
+func CatalogCredentialContext(catalogName string) string {
+	return catalogName
 }
 
 // CatalogCredentialToolName returns a human-readable GPTScript tool name for a
@@ -85,15 +85,15 @@ type Handler struct {
 // revealCatalogCredential retrieves a stored PAT for the given source URL.
 // Returns an empty string if no credential is configured (not-found). Any other
 // error is logged so credential-store failures are visible in the sync status.
-func (h *Handler) revealCatalogCredential(ctx context.Context, catalogUID, sourceURL string) string {
+func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sourceURL string) string {
 	cred, err := h.gptClient.RevealCredential(ctx,
-		[]string{CatalogCredentialContext(catalogUID)},
+		[]string{CatalogCredentialContext(catalogName)},
 		CatalogCredentialToolName(sourceURL),
 	)
 	if err != nil {
 		var notFound gptscript.ErrNotFound
 		if !errors.As(err, &notFound) {
-			log.Errorf("failed to retrieve credential for catalog %s source %s: %v", catalogUID, sourceURL, err)
+			log.Errorf("failed to retrieve credential for catalog %s source %s: %v", catalogName, sourceURL, err)
 		}
 		return ""
 	}
@@ -144,7 +144,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
-		token := h.revealCatalogCredential(req.Ctx, string(mcpCatalog.UID), sourceURL)
+		token := h.revealCatalogCredential(req.Ctx, mcpCatalog.Name, sourceURL)
 		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token)
 		if err != nil {
 			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
