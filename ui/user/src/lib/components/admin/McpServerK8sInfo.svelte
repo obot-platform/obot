@@ -126,10 +126,12 @@
 						dontLogErrors
 					})
 			: catalogEntry?.id
-				? AdminService.getMCPCatalogServerK8sSettingsStatus(catalogEntry.id, mcpServerId, {
+				? AdminService.getMCPCatalogEntryServerK8sSettingsStatus(catalogEntry.id, mcpServerId, {
 						dontLogErrors
 					})
-				: AdminService.getK8sSettingsStatus(mcpServerId, { dontLogErrors });
+				: AdminService.getMcpCatalogServerK8sSettingsStatus(mcpServerId, {
+						dontLogErrors
+					});
 	}
 
 	onMount(() => {
