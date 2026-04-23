@@ -31,6 +31,7 @@
 	import { Eye, EyeOff, LoaderCircle, Plus, Trash2, X } from 'lucide-svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		topContent?: Snippet;
@@ -48,6 +49,7 @@
 		url: string;
 		secret: string;
 		selectors: MCPFilterWebhookSelector[];
+		toolName?: string;
 	}>(
 		untrack(() =>
 			initialFilter
@@ -56,14 +58,16 @@
 						resources: initialFilter.resources || [],
 						url: initialFilter.url || '',
 						secret: initialFilter.secret || '',
-						selectors: initialFilter.selectors || []
+						selectors: initialFilter.selectors || [],
+						toolName: initialFilter.toolName || ''
 					}
 				: {
 						name: '',
 						resources: [{ id: 'default', type: 'mcpCatalog' }],
 						url: '',
 						secret: '',
-						selectors: []
+						selectors: [],
+						toolName: ''
 					}
 		)
 	);
@@ -113,6 +117,7 @@
 	// Validation
 	let nameError = $derived(showValidation && !filter.name.trim());
 	let urlError = $derived(showValidation && !filter.url.trim());
+	let toolNameError = $derived(showValidation && !filter.toolName?.trim());
 	let mcpServersTableData = $derived.by(() => {
 		if (mcpServersMap && mcpEntriesMap) {
 			return convertMcpServersToTableData(filter.resources ?? []);
@@ -146,15 +151,6 @@
 			window.removeEventListener('pagehide', handlePageHide);
 		};
 	});
-
-	function toIdSafeToolName(name: string): string {
-		const slug = name
-			.trim()
-			.toLocaleLowerCase()
-			.replace(/[^a-z0-9]+/g, '-')
-			.replace(/^-+|-+$/g, '');
-		return slug || 'webhook-tool';
-	}
 
 	async function revealServerValues() {
 		if (!initialFilter?.id) return;
@@ -469,7 +465,11 @@
 
 	async function handleSave() {
 		// Show validation errors if required fields are missing
-		if (!filter.name.trim() || (!runtimeFormData && !filter.url.trim())) {
+		if (
+			!filter.name.trim() ||
+			(!runtimeFormData && !filter.url.trim()) ||
+			(runtimeFormData && !filter.toolName?.trim())
+		) {
 			showValidation = true;
 			return;
 		}
@@ -527,7 +527,7 @@
 								}))
 								.filter((s) => s.method || (s.identifiers && s.identifiers.length > 0))
 						: undefined,
-				toolName: mcpServerManifest?.manifest ? toIdSafeToolName(filter.name) : undefined,
+				toolName: filter.toolName,
 				mcpServerManifest: mcpServerManifest?.manifest
 			};
 
@@ -712,21 +712,27 @@
 					{readonly}
 					showRequired={showRuntimeRequired}
 					onFieldChange={handleUpdateRequired}
-				/>
+				>
+					{@render toolNameForm()}
+				</NpxRuntimeForm>
 			{:else if runtimeFormData.runtime === 'uvx' && runtimeFormData.uvxConfig}
 				<UvxRuntimeForm
 					bind:config={runtimeFormData.uvxConfig}
 					{readonly}
 					showRequired={showRuntimeRequired}
 					onFieldChange={handleUpdateRequired}
-				/>
+				>
+					{@render toolNameForm()}
+				</UvxRuntimeForm>
 			{:else if runtimeFormData.runtime === 'containerized' && runtimeFormData.containerizedConfig}
 				<ContainerizedRuntimeForm
 					bind:config={runtimeFormData.containerizedConfig}
 					{readonly}
 					showRequired={showRuntimeRequired}
 					onFieldChange={handleUpdateRequired}
-				/>
+				>
+					{@render toolNameForm()}
+				</ContainerizedRuntimeForm>
 			{:else if runtimeFormData.runtime === 'remote' && runtimeFormData.remoteServerConfig}
 				<RemoteRuntimeForm
 					bind:config={runtimeFormData.remoteServerConfig}
@@ -736,7 +742,9 @@
 					isNewEntry={!initialFilter?.id}
 					disableStaticOAuth
 					disableHostnameOption
-				/>
+				>
+					{@render toolNameForm()}
+				</RemoteRuntimeForm>
 			{/if}
 
 			{#if runtimeFormData.runtime !== 'remote'}
@@ -1002,3 +1010,36 @@
 		</div>
 	{/snippet}
 </PageLoading>
+
+{#snippet toolNameForm()}
+	<div
+		class={twMerge(
+			'flex',
+			runtimeFormData?.runtime === 'remote' ? 'flex-col gap-2' : 'items-center gap-3'
+		)}
+	>
+		<label
+			for="tool-name"
+			class={twMerge(
+				'shrink-0 text-sm font-light capitalize',
+				runtimeFormData?.runtime === 'containerized' ? 'w-20' : ''
+			)}
+		>
+			Tool Name
+		</label>
+		<input
+			id="tool-name"
+			bind:value={filter.toolName}
+			class="text-input-filled mt-0.5 {toolNameError
+				? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+				: ''}"
+			required
+			disabled={readonly}
+		/>
+		{#if toolNameError}
+			<p class="text-xs text-red-600 dark:text-red-400">
+				The name of tool to be called for the filter is required.
+			</p>
+		{/if}
+	</div>
+{/snippet}

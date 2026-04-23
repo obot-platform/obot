@@ -8,6 +8,7 @@
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
 	import { Plus, Trash2, Info, Settings } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -20,6 +21,7 @@
 		onConfigureOAuth?: () => void;
 		disableStaticOAuth?: boolean;
 		disableHostnameOption?: boolean;
+		children?: Snippet;
 	}
 	let {
 		config = $bindable(),
@@ -29,7 +31,8 @@
 		isNewEntry,
 		onConfigureOAuth,
 		disableStaticOAuth,
-		disableHostnameOption
+		disableHostnameOption,
+		children
 	}: Props = $props();
 
 	// For catalog entries, we show advanced config if hostname, urlTemplate, or headers exist
@@ -58,22 +61,26 @@
 	{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 	<!-- For catalog entries, show simple fixed URL when not in advanced mode -->
 	<div
-		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-6 rounded-lg border border-transparent p-4 shadow-sm"
 		in:fade={{ duration: 200 }}
 	>
-		<label
-			for="basic-url"
-			class={twMerge('w-24 text-sm font-light', showRequired?.fixedURL && 'error')}>URL</label
-		>
-		<input
-			id="basic-url"
-			class={twMerge(
-				'text-input-filled dark:bg-background flex grow',
-				showRequired?.fixedURL && 'error'
-			)}
-			bind:value={remoteConfig.fixedURL}
-			disabled={readonly || showAdvanced}
-		/>
+		<div class="flex flex-col gap-2">
+			<label
+				for="basic-url"
+				class={twMerge('w-24 text-sm font-light', showRequired?.fixedURL && 'error')}>URL</label
+			>
+			<input
+				id="basic-url"
+				class={twMerge(
+					'text-input-filled dark:bg-background flex grow',
+					showRequired?.fixedURL && 'error'
+				)}
+				bind:value={remoteConfig.fixedURL}
+				disabled={readonly || showAdvanced}
+			/>
+		</div>
+
+		{@render children?.()}
 	</div>
 {/if}
 
@@ -120,7 +127,7 @@
 			</div>
 			{#if selectedType === 'fixedURL' && typeof (config as RemoteCatalogConfigAdmin).fixedURL !== 'undefined'}
 				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
-				<div class="flex items-center gap-2">
+				<div class="flex flex-col gap-2">
 					<label
 						for="remote-url"
 						class={twMerge('min-w-18 text-sm font-light', showRequired?.fixedURL && 'error')}
@@ -163,11 +170,13 @@
 			{:else if selectedType === 'urlTemplate' && typeof (config as RemoteCatalogConfigAdmin).urlTemplate !== 'undefined'}
 				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 				<div class="flex flex-col gap-4">
-					<div class="flex items-center gap-2">
+					<div class="flex flex-col gap-2">
 						<label
 							for="remote-url-template"
-							class={twMerge('min-w-18 text-sm font-light', showRequired?.urlTemplate && 'error')}
-							>URL Template</label
+							class={twMerge(
+								'shrink-0 min-w-18 text-sm font-light',
+								showRequired?.urlTemplate && 'error'
+							)}>URL Template</label
 						>
 						<input
 							class={twMerge(
@@ -214,6 +223,8 @@
 					</div>
 				</div>
 			{/if}
+
+			{@render children?.()}
 		</div>
 	</div>
 	<div class="flex w-full flex-col gap-8" in:slide>
