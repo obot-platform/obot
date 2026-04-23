@@ -46,6 +46,7 @@
 		CommonModelProviderIds.OPENAI,
 		CommonModelProviderIds.ANTHROPIC,
 		CommonModelProviderIds.AMAZON_BEDROCK,
+		CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
 		CommonModelProviderIds.AZURE,
 		CommonModelProviderIds.AZURE_ENTRA,
 		CommonModelProviderIds.OLLAMA
