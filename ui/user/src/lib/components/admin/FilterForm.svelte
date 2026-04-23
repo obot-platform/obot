@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { beforeNavigate, invalidateAll } from '$app/navigation';
+	import { beforeNavigate } from '$app/navigation';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
@@ -974,8 +974,7 @@
 	onsuccess={async () => {
 		if (!initialFilter) return;
 		await AdminService.deleteMCPFilter(initialFilter.id);
-		await invalidateAll();
-		await goto('/admin/filters');
+		await goto('/admin/filters', { invalidateAll: true });
 	}}
 	oncancel={() => (deletingFilter = false)}
 />
