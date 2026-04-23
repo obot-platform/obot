@@ -142,8 +142,7 @@ func (c *Client) invalidateValidatedAPIKeysByID(keyID uint) {
 
 // CreateAPIKey generates a new API key for the given user.
 // Returns the full key only once in the response.
-// At least one mcpServerID must be specified.
-func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, description string, expiresAt *time.Time, mcpServerIDs []string) (*types.APIKeyCreateResponse, error) {
+func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, description string, expiresAt *time.Time, mcpServerIDs []string, canAccessSkills bool) (*types.APIKeyCreateResponse, error) {
 	// Generate cryptographically secure random secret
 	secretBytes := make([]byte, apiKeySecretLength)
 	if _, err := rand.Read(secretBytes); err != nil {
@@ -159,13 +158,14 @@ func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, descriptio
 
 	// Create the API key record
 	apiKey := &types.APIKey{
-		UserID:       userID,
-		Name:         name,
-		Description:  description,
-		HashedSecret: string(hashedSecret),
-		ExpiresAt:    expiresAt,
-		CreatedAt:    time.Now(),
-		MCPServerIDs: mcpServerIDs,
+		UserID:          userID,
+		Name:            name,
+		Description:     description,
+		HashedSecret:    string(hashedSecret),
+		CanAccessSkills: canAccessSkills,
+		ExpiresAt:       expiresAt,
+		CreatedAt:       time.Now(),
+		MCPServerIDs:    mcpServerIDs,
 	}
 
 	if err := c.db.WithContext(ctx).Create(apiKey).Error; err != nil {

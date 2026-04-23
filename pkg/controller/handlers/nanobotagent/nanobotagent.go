@@ -346,6 +346,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		fmt.Sprintf("API key for nanobot agent %s", agent.Name),
 		&expiresAt,
 		[]string{"*"}, // Access to all servers
+		true,          // Access to skills
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create API key: %w", err)

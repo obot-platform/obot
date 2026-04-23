@@ -59,7 +59,8 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 	}
 
 	extra := map[string][]string{
-		"email": {u.Email},
+		"email":                           {u.Email},
+		types2.APIKeySkillsAccessExtraKey: {fmt.Sprintf("%t", apiKey.CanAccessSkills)},
 	}
 
 	// Look up auth provider group memberships so that group-based access

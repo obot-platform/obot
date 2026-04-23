@@ -37,6 +37,7 @@
 			...key,
 			prefix: `ok1-${key.userId}-${key.id}-*****`,
 			userDisplay: getUserDisplayName(usersMap, String(key.userId)),
+			skillsAccessDisplay: key.canAccessSkills ? 'Enabled' : 'Disabled',
 			createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
 			lastUsedAtDisplay: key.lastUsedAt ? formatTimeAgo(key.lastUsedAt).relativeTime : 'Never',
 			expiresAtDisplay: key.expiresAt ? formatTimeUntil(key.expiresAt).relativeTime : 'Never',
@@ -108,6 +109,7 @@
 						'name',
 						'prefix',
 						'description',
+						'canAccessSkills',
 						'mcpServerIds',
 						'createdAt',
 						'lastUsedAt',
@@ -118,6 +120,7 @@
 						{ title: 'Name', property: 'name' },
 						{ title: 'Key', property: 'prefix' },
 						{ title: 'Description', property: 'description' },
+						{ title: 'Skills', property: 'canAccessSkills' },
 						{ title: 'Servers', property: 'mcpServerIds' },
 						{ title: 'Created', property: 'createdAt' },
 						{ title: 'Last Used', property: 'lastUsedAt' },
@@ -135,6 +138,8 @@
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'description'}
 							<span class="text-muted">{d.description || '-'}</span>
+						{:else if property === 'canAccessSkills'}
+							{d.skillsAccessDisplay}
 						{:else if property === 'mcpServerIds'}
 							<ServersLabel mcpServerIds={d.mcpServerIds} />
 						{:else if property === 'createdAt'}

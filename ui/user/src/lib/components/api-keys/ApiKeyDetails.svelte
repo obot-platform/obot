@@ -109,6 +109,18 @@
 					</div>
 
 					<div class="flex flex-col gap-2">
+						<label for="api-key-skills-access" class="flex-1 text-sm font-light capitalize">
+							Skills Access
+						</label>
+						<input
+							id="api-key-skills-access"
+							value={apiKey.canAccessSkills ? 'Enabled' : 'Disabled'}
+							class="text-input-filled mt-0.5"
+							disabled
+						/>
+					</div>
+
+					<div class="flex flex-col gap-2">
 						<label for="api-key-created" class="flex-1 text-sm font-light capitalize">Created</label
 						>
 						<input

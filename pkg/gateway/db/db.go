@@ -80,6 +80,10 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to drop state columns from mcp_oauth_tokens: %w", err)
 	}
 
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "apikey_skills_access_backfill", migrateAPIKeySkillsAccess); err != nil {
+		return fmt.Errorf("failed to migrate API key skills access: %w", err)
+	}
+
 	if err := tx.AutoMigrate(&GptscriptCredential{}); err != nil {
 		return fmt.Errorf("failed to auto migrate GptscriptCredential: %w", err)
 	}
