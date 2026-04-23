@@ -43,7 +43,7 @@
 					...data,
 					sessions: data.sessions.map((s, i) =>
 						i === sessionIndex ? { ...s, title: newTitle } : s
-					),
+					)
 				};
 			});
 		} catch (error) {
