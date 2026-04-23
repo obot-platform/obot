@@ -34,11 +34,6 @@ import (
 
 var log = logger.Package()
 
-// CatalogCredentialContext returns the GPTScript credential context for a catalog.
-func CatalogCredentialContext(catalogName string) string {
-	return catalogName
-}
-
 // CatalogCredentialToolName is the fixed tool name used for the single
 // credential that stores all source-URL tokens for a catalog. Each URL's
 // token is stored as a key in the credential's Env map.
@@ -64,7 +59,7 @@ type Handler struct {
 // error is logged so credential-store failures are visible in the sync status.
 func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sourceURL string) string {
 	cred, err := h.gptClient.RevealCredential(ctx,
-		[]string{CatalogCredentialContext(catalogName)},
+		[]string{catalogName},
 		CatalogCredentialToolName,
 	)
 	if err != nil {

@@ -149,11 +149,9 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		}
 	}
 
-	credCtx := mcpcataloghandler.CatalogCredentialContext(catalog.Name)
-
 	// Reveal the existing single credential that holds all source-URL tokens.
 	existingTokens := make(map[string]string)
-	existingCred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, mcpcataloghandler.CatalogCredentialToolName)
+	existingCred, err := req.GPTClient.RevealCredential(req.Context(), []string{catalog.Name}, mcpcataloghandler.CatalogCredentialToolName)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to reveal catalog credentials: %w", err)
 	}
@@ -207,7 +205,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 	// Write the single credential with the new token map, or delete it if empty.
 	if len(newTokens) > 0 {
 		if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-			Context:  credCtx,
+			Context:  catalog.Name,
 			ToolName: mcpcataloghandler.CatalogCredentialToolName,
 			Type:     gptscript.CredentialTypeTool,
 			Env:      newTokens,
@@ -216,7 +214,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		}
 	} else if len(existingTokens) > 0 {
 		// Had tokens before but none now — clean up.
-		if err := req.GPTClient.DeleteCredential(req.Context(), credCtx, mcpcataloghandler.CatalogCredentialToolName); err != nil {
+		if err := req.GPTClient.DeleteCredential(req.Context(), catalog.Name, mcpcataloghandler.CatalogCredentialToolName); err != nil {
 			if !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to delete catalog credentials: %w", err)
 			}
@@ -1529,8 +1527,7 @@ func (h *MCPCatalogHandler) ListCategoriesForCatalog(req api.Context) error {
 // revealCatalogTokens returns the Env map from the single credential that stores
 // all source-URL tokens for a catalog. Returns an empty map if no credential exists.
 func revealCatalogTokens(req api.Context, catalogName string) (map[string]string, error) {
-	credCtx := mcpcataloghandler.CatalogCredentialContext(catalogName)
-	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, mcpcataloghandler.CatalogCredentialToolName)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{catalogName}, mcpcataloghandler.CatalogCredentialToolName)
 	if err != nil {
 		if errors.As(err, &gptscript.ErrNotFound{}) {
 			return nil, nil
