@@ -42,14 +42,7 @@
 	);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let isLegacyDisabled = $derived(version.current.disableLegacyChat);
-	const nanobotIntegratedModels = [
-		CommonModelProviderIds.OPENAI,
-		CommonModelProviderIds.ANTHROPIC,
-		CommonModelProviderIds.AMAZON_BEDROCK,
-		CommonModelProviderIds.AZURE,
-		CommonModelProviderIds.AZURE_ENTRA,
-		CommonModelProviderIds.OLLAMA
-	];
+	const nanobotIntegratedModels = [CommonModelProviderIds.OPENAI, CommonModelProviderIds.ANTHROPIC];
 	const defaultModelAliases = $derived(defaultModelAliasesStore.current);
 
 	initModels([]);

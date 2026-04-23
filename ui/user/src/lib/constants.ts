@@ -59,10 +59,7 @@ export const CommonModelProviderIds = {
 
 export const RecommendedModelProviders = [
 	CommonModelProviderIds.OPENAI,
-	CommonModelProviderIds.ANTHROPIC,
-	CommonModelProviderIds.AMAZON_BEDROCK,
-	CommonModelProviderIds.AZURE,
-	CommonModelProviderIds.AZURE_ENTRA
+	CommonModelProviderIds.ANTHROPIC
 ];
 
 export const PROJECT_MCP_SERVER_NAME = 'MCP Servers';
