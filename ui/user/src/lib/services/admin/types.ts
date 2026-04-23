@@ -586,6 +586,7 @@ export interface MCPFilterManifest {
 	secret?: string;
 	selectors?: MCPFilterWebhookSelector[];
 	disabled?: boolean;
+	allowedToMutate?: boolean;
 }
 
 export interface MCPFilterResource {
@@ -607,6 +608,7 @@ export interface MCPFilter extends MCPFilterManifest {
 	type: string;
 	hasSecret: boolean;
 	configured: boolean;
+	allowedToMutate?: boolean;
 	missingRequiredEnvVars?: string[];
 }
 

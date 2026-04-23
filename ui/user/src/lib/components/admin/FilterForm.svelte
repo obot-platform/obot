@@ -21,6 +21,7 @@
 	import Confirm from '../Confirm.svelte';
 	import PageLoading from '../PageLoading.svelte';
 	import Select from '../Select.svelte';
+	import Toggle from '../Toggle.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import CustomConfigurationForm from '../mcp/CustomConfigurationForm.svelte';
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
@@ -50,6 +51,7 @@
 		secret: string;
 		selectors: MCPFilterWebhookSelector[];
 		toolName?: string;
+		allowedToMutate?: boolean;
 	}>(
 		untrack(() =>
 			initialFilter
@@ -59,7 +61,8 @@
 						url: initialFilter.url || '',
 						secret: initialFilter.secret || '',
 						selectors: initialFilter.selectors || [],
-						toolName: initialFilter.toolName || ''
+						toolName: initialFilter.toolName || '',
+						allowedToMutate: initialFilter.allowedToMutate || false
 					}
 				: {
 						name: '',
@@ -67,7 +70,8 @@
 						url: '',
 						secret: '',
 						selectors: [],
-						toolName: ''
+						toolName: '',
+						allowedToMutate: false
 					}
 		)
 	);
@@ -530,7 +534,8 @@
 								.filter((s) => s.method || (s.identifiers && s.identifiers.length > 0))
 						: undefined,
 				toolName: filter.toolName,
-				mcpServerManifest: mcpServerManifest?.manifest
+				mcpServerManifest: mcpServerManifest?.manifest,
+				allowedToMutate: filter.allowedToMutate ?? false
 			};
 
 			if (initialFilter) {
@@ -1046,5 +1051,26 @@
 				The name of tool to be called for the filter is required.
 			</p>
 		{/if}
+	</div>
+	<div class="flex flex-col gap-1">
+		<div class="flex items-center gap-4">
+			<Toggle
+				classes={{
+					label: 'text-sm gap-2 font-light text-on-background'
+				}}
+				checked={filter.allowedToMutate ?? false}
+				onChange={(checked) => {
+					filter.allowedToMutate = checked;
+				}}
+				disabled={readonly}
+				label="Enable Mutable Response"
+				labelInline
+			/>
+		</div>
+
+		<p class="text-on-surface1 text-xs font-light">
+			Enable this if the filter tool call is allowed to mutate the response. By default, the filter
+			will only accept or reject the call based on validation.
+		</p>
 	</div>
 {/snippet}

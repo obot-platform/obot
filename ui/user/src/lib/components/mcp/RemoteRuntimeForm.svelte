@@ -234,6 +234,7 @@
 		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-6 rounded-lg border border-transparent p-4 shadow-sm"
 		in:fade={{ duration: 200 }}
 	>
+		<h4 class="text-sm font-semibold">Remote Runtime Configuration</h4>
 		<div class="flex flex-col gap-2">
 			<label
 				for="multi-user-remote-url"
