@@ -21,6 +21,11 @@ const (
 )
 
 var (
+	apiKeyOptionalSkillRoutes = newPathMatcher(
+		"GET /api/skills",
+		"GET /api/skills/{id}",
+		"GET /api/skills/{id}/download",
+	)
 	adminAndOwnerRules = []string{
 		"/api/agents",
 		"/api/agents/",
@@ -370,9 +375,6 @@ var (
 			"PUT /api/published-artifacts/{id}",
 			"GET /api/published-artifacts/{id}/download",
 			"GET /api/published-artifacts/{id}/{version}/skill",
-			"GET /api/skills",
-			"GET /api/skills/{id}",
-			"GET /api/skills/{id}/download",
 		},
 
 		MetricsGroup: {
@@ -420,6 +422,10 @@ func NewAuthorizer(cache, uncached kclient.Client, devMode bool, acrHelper *acce
 }
 
 func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
+	if authorizeAPIKeySkillRoutes(req, user) {
+		return true
+	}
+
 	userGroups := user.GetGroups()
 	for _, r := range a.rules {
 		if r.group == anyGroup || slices.Contains(userGroups, r.group) {
@@ -430,6 +436,19 @@ func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
 	}
 
 	return a.authorizeAPIResources(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
+}
+
+func authorizeAPIKeySkillRoutes(req *http.Request, user user.Info) bool {
+	if !slices.Contains(user.GetGroups(), types.GroupAPIKey) {
+		return false
+	}
+
+	if !slices.Contains(user.GetExtra()[types.APIKeySkillsAccessExtraKey], "true") {
+		return false
+	}
+
+	_, ok := apiKeyOptionalSkillRoutes.Match(req)
+	return ok
 }
 
 func (a *Authorizer) get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {

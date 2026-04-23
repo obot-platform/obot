@@ -3,6 +3,7 @@ export interface APIKey {
 	userId: number;
 	name: string;
 	description?: string;
+	canAccessSkills: boolean;
 	createdAt: string;
 	lastUsedAt?: string;
 	expiresAt?: string;
@@ -14,6 +15,7 @@ export interface APIKeyCreateRequest {
 	description?: string;
 	expiresAt?: string;
 	mcpServerIds: string[];
+	canAccessSkills?: boolean;
 }
 
 export interface APIKeyCreateResponse extends APIKey {
