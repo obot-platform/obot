@@ -117,7 +117,7 @@ Obot requires:
 - **Tenant ID** — the Entra app's tenant ID
 - **Subscription ID** — the Azure subscription ID containing the Cognitive Services account
 - **Resource Group** — the resource group containing the Cognitive Services account
-- **Account Name** — the Cognitive Services account name
+- **Resource Name** — the Cognitive Services resource name
 
 You can also optionally specify the API version (defaults to `2025-01-01-preview`).
 
