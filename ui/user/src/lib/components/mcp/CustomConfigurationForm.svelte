@@ -128,7 +128,7 @@
 										class="text-input-filled bg-background min-h-24 w-full resize-y shadow-none"
 										bind:value={config[i].value}
 										disabled={readonly}
-										rows={config[i].value.split('\n').length + 1}
+										rows={(config[i].value ?? '').split('\n').length + 1}
 									></textarea>
 								{:else}
 									<input

@@ -92,8 +92,8 @@
 								/>
 							</div>
 							<div class="flex w-full flex-col gap-1">
-								<label for={`env-type-${i}`} class="text-sm font-light">Value</label>
 								{#if variant === 'catalog'}
+									<label for={`env-type-${i}`} class="text-sm font-light">Value</label>
 									<Select
 										class="bg-background dark:border-surface3 border border-transparent shadow-none"
 										classes={{
@@ -172,12 +172,17 @@
 									}}
 								/>
 							{:else}
-								<input
-									id={`header-description-${i}`}
-									class="text-input-filled bg-background w-full shadow-none"
-									bind:value={config.headers[i].value}
-									disabled={readonly}
-								/>
+								<div class="flex flex-col gap-2">
+									{#if variant === 'server'}
+										<label for={`header-description-${i}`} class="text-sm font-light">Value</label>
+									{/if}
+									<input
+										id={`header-description-${i}`}
+										class="text-input-filled bg-background w-full shadow-none"
+										bind:value={config.headers[i].value}
+										disabled={readonly}
+									/>
+								</div>
 							{/if}
 						</div>
 

@@ -134,6 +134,7 @@
 		function handleBeforeUnload(e: BeforeUnloadEvent) {
 			if (!launchFilterData) return;
 			e.preventDefault();
+			e.returnValue = UNSAVED_LAUNCH_EXIT_MESSAGE;
 		}
 
 		function handlePageHide(e: PageTransitionEvent) {
