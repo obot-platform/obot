@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, invalidateAll } from '$app/navigation';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
@@ -416,8 +416,6 @@
 		filterData: MCPFilter,
 		mcpServerManifest: ReturnType<typeof convertServerRuntimeFormDataToManifest> | undefined
 	) {
-		if (!mcpServerManifest) return;
-
 		if (mcpServerManifest) {
 			let configValues: Record<string, string> = {};
 
@@ -976,7 +974,8 @@
 	onsuccess={async () => {
 		if (!initialFilter) return;
 		await AdminService.deleteMCPFilter(initialFilter.id);
-		goto('/admin/filters');
+		await invalidateAll();
+		await goto('/admin/filters');
 	}}
 	oncancel={() => (deletingFilter = false)}
 />
