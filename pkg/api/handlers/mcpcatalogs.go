@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
+	mcpcataloghandler "github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -58,7 +59,11 @@ func (*MCPCatalogHandler) List(req api.Context) error {
 
 	var items []types.MCPCatalog
 	for _, item := range list.Items {
-		items = append(items, convertMCPCatalog(item))
+		tokenEnv, err := revealCatalogTokens(req, item.Name)
+		if err != nil {
+			return err
+		}
+		items = append(items, convertMCPCatalog(item, tokenEnv))
 	}
 
 	return req.Write(types.MCPCatalogList{
@@ -72,7 +77,11 @@ func (*MCPCatalogHandler) Get(req api.Context) error {
 	if err := req.Get(&catalog, req.PathValue("catalog_id")); err != nil {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
-	return req.Write(convertMCPCatalog(catalog))
+	tokenEnv, err := revealCatalogTokens(req, catalog.Name)
+	if err != nil {
+		return err
+	}
+	return req.Write(convertMCPCatalog(catalog, tokenEnv))
 }
 
 // Refresh refreshes a catalog to sync its entries.
@@ -109,9 +118,15 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
 
-	// The only field that can be updated is the source URLs.
-	for _, urlStr := range manifest.SourceURLs {
+	// Normalize and validate source URL inputs.
+	// Normalize scheme-less inputs (e.g. "github.com/org/repo") to https://
+	// so they are treated consistently with the controller's sync path.
+	for i, urlStr := range manifest.SourceURLs {
 		if urlStr != "" && urlStr != h.defaultCatalogPath {
+			if !strings.Contains(urlStr, "://") {
+				urlStr = "https://" + urlStr
+				manifest.SourceURLs[i] = urlStr
+			}
 			u, err := url.Parse(urlStr)
 			if err != nil {
 				return types.NewErrBadRequest("invalid URL: %v", err)
@@ -134,13 +149,75 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		}
 	}
 
+	// Reveal the existing single credential that holds all source-URL tokens.
+	existingCred, err := req.GPTClient.RevealCredential(req.Context(), []string{catalog.Name}, mcpcataloghandler.CatalogCredentialToolName)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to reveal catalog credentials: %w", err)
+	}
+
+	// Build the new token map from the active URLs.
+	// - "*" means keep the existing token for that URL.
+	// - "" means remove the token.
+	// - Any other value is a new token.
+	// URLs not in the new SourceURLs list are dropped (removed URLs).
+	activeURLs := make(map[string]struct{}, len(manifest.SourceURLs))
+	for _, u := range manifest.SourceURLs {
+		activeURLs[u] = struct{}{}
+	}
+
+	newTokens := make(map[string]string)
+	for u, incoming := range manifest.SourceURLCredentials {
+		if _, active := activeURLs[u]; !active {
+			continue
+		}
+		switch incoming {
+		case "":
+			// explicitly remove token for this URL
+		case "*":
+			// keep existing token (may have been for this URL or transferred from a renamed one)
+			if tok, ok := existingCred.Env[u]; ok {
+				newTokens[u] = tok
+			}
+		default:
+			newTokens[u] = incoming
+		}
+	}
+	// Preserve tokens for active URLs that weren't mentioned in SourceURLCredentials.
+	for _, u := range manifest.SourceURLs {
+		if _, mentioned := manifest.SourceURLCredentials[u]; mentioned {
+			continue
+		}
+		if tok, ok := existingCred.Env[u]; ok {
+			newTokens[u] = tok
+		}
+	}
+
 	catalog.Spec.SourceURLs = manifest.SourceURLs
 
 	if err := req.Update(&catalog); err != nil {
 		return fmt.Errorf("failed to update catalog: %w", err)
 	}
 
-	return req.Write(convertMCPCatalog(catalog))
+	// Write the single credential with the new token map, or delete it if empty.
+	if len(newTokens) > 0 {
+		if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
+			Context:  catalog.Name,
+			ToolName: mcpcataloghandler.CatalogCredentialToolName,
+			Type:     gptscript.CredentialTypeTool,
+			Env:      newTokens,
+		}); err != nil {
+			return fmt.Errorf("failed to store catalog credentials: %w", err)
+		}
+	} else if len(existingCred.Env) > 0 {
+		// Had tokens before but none now — clean up.
+		if err := req.GPTClient.DeleteCredential(req.Context(), catalog.Name, mcpcataloghandler.CatalogCredentialToolName); err != nil {
+			if !errors.As(err, &gptscript.ErrNotFound{}) {
+				return fmt.Errorf("failed to delete catalog credentials: %w", err)
+			}
+		}
+	}
+
+	return req.Write(convertMCPCatalog(catalog, newTokens))
 }
 
 // ListEntries lists all entries for a catalog or workspace.
@@ -1443,12 +1520,38 @@ func (h *MCPCatalogHandler) ListCategoriesForCatalog(req api.Context) error {
 	return req.Write(categories)
 }
 
-func convertMCPCatalog(catalog v1.MCPCatalog) types.MCPCatalog {
+// revealCatalogTokens returns the Env map from the single credential that stores
+// all source-URL tokens for a catalog. Returns an empty map if no credential exists.
+func revealCatalogTokens(req api.Context, catalogName string) (map[string]string, error) {
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{catalogName}, mcpcataloghandler.CatalogCredentialToolName)
+	if err != nil {
+		if errors.As(err, &gptscript.ErrNotFound{}) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to reveal credentials for catalog %s: %w", catalogName, err)
+	}
+	return cred.Env, nil
+}
+
+func convertMCPCatalog(catalog v1.MCPCatalog, tokenEnv map[string]string) types.MCPCatalog {
+	// Build masked credential map: return "*" as a presence indicator for each
+	// source URL that has a stored token — the actual token is never returned.
+	var maskedCredentials map[string]string
+	for _, u := range catalog.Spec.SourceURLs {
+		if _, ok := tokenEnv[u]; ok {
+			if maskedCredentials == nil {
+				maskedCredentials = make(map[string]string)
+			}
+			maskedCredentials[u] = "*"
+		}
+	}
+
 	return types.MCPCatalog{
 		Metadata: MetadataFrom(&catalog),
 		MCPCatalogManifest: types.MCPCatalogManifest{
-			DisplayName: catalog.Spec.DisplayName,
-			SourceURLs:  catalog.Spec.SourceURLs,
+			DisplayName:          catalog.Spec.DisplayName,
+			SourceURLs:           catalog.Spec.SourceURLs,
+			SourceURLCredentials: maskedCredentials,
 		},
 		LastSynced: *types.NewTime(catalog.Status.LastSyncTime.Time),
 		SyncErrors: catalog.Status.SyncErrors,
