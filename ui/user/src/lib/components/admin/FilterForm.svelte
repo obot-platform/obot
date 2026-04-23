@@ -75,6 +75,7 @@
 	let runtimeFormData = $state<RuntimeFormData | undefined>(
 		untrack(() => convertToRuntimeFormData(initialFilter))
 	);
+	let runtimeTypeSelect = $derived(runtimeFormData ? runtimeFormData.runtime : 'webhook-url');
 	let showRuntimeRequired = $state<Record<string, boolean>>({});
 	const runtimeOptions = [
 		{ id: 'webhook-url', label: 'Webhook URL' },
@@ -325,6 +326,10 @@
 			return;
 		}
 
+		// reset webhook url fields
+		filter.url = '';
+		filter.secret = '';
+
 		const newRuntime = option.id as Runtime;
 		if (!runtimeFormData) {
 			runtimeFormData = {
@@ -393,13 +398,11 @@
 	}
 
 	async function handleCloseLaunch() {
-		if (!launchFilterData) return;
-
 		if (launchLogsEventStream) {
 			launchLogsEventStream.disconnect();
 		}
 
-		if (!initialFilter) {
+		if (!initialFilter && launchFilterData) {
 			// delete the filter
 			await AdminService.deleteMCPFilter(launchFilterData.id);
 		}
@@ -547,6 +550,8 @@
 					onCreate?.(result);
 				}
 			}
+		} catch (err) {
+			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
 		} finally {
 			clearTimeout(timeout1);
 			clearTimeout(timeout2);
@@ -610,7 +615,7 @@
 							id="runtime-selector"
 							class="bg-surface1 dark:bg-surface2 dark:border-surface3 flex-1 border border-transparent shadow-inner"
 							options={runtimeOptions}
-							selected={runtimeFormData ? runtimeFormData.runtime : 'webhook-url'}
+							bind:selected={runtimeTypeSelect}
 							onSelect={handleRuntimeChange}
 							disabled={readonly}
 						/>
@@ -736,6 +741,7 @@
 			{:else if runtimeFormData.runtime === 'remote' && runtimeFormData.remoteServerConfig}
 				<RemoteRuntimeForm
 					bind:config={runtimeFormData.remoteServerConfig}
+					variant="server"
 					{readonly}
 					showRequired={showRuntimeRequired}
 					onFieldChange={handleUpdateRequired}

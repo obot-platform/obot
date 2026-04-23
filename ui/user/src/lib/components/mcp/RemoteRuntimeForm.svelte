@@ -14,6 +14,7 @@
 
 	interface Props {
 		config: RemoteCatalogConfigAdmin | RemoteRuntimeConfigAdmin;
+		variant?: 'catalog' | 'server';
 		readonly?: boolean;
 		showRequired?: Record<string, boolean>;
 		onFieldChange?: (field: string) => void;
@@ -25,6 +26,7 @@
 	}
 	let {
 		config = $bindable(),
+		variant = 'catalog',
 		readonly,
 		showRequired,
 		onFieldChange,
@@ -57,7 +59,200 @@
 	);
 </script>
 
-{#if !showAdvanced}
+{#snippet remoteHeaders(showUrlTemplateHelp: boolean)}
+	<div class="flex w-full flex-col gap-8" in:slide>
+		<div
+			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+		>
+			<h4 class="text-sm font-semibold">Headers</h4>
+			<p class="text-on-surface1 text-xs font-light">
+				{#if showUrlTemplateHelp}
+					Header values will be supplied with the URL to configure the MCP server. Their values can
+					be supplied by the user during initial setup or as static provided values. Only values
+					provided by the user will be used in URL template interpolation.
+				{:else}
+					Header values will be supplied with the URL to configure the MCP server. Their values can
+					be supplied by the user during initial setup or as static provided values.
+				{/if}
+			</p>
+			{#if config.headers}
+				{#each config.headers as header, i (i)}
+					<div
+						class="dark:border-surface3 bg-surface2 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
+					>
+						<div class="flex w-full flex-col gap-4">
+							<div class="flex w-full flex-col gap-1">
+								<label for={`header-key-${i}`} class="text-sm font-light">Key</label>
+								<input
+									id={`header-key-${i}`}
+									class="text-input-filled bg-background w-full shadow-none"
+									bind:value={config.headers[i].key}
+									placeholder="e.g. CUSTOM_HEADER_KEY"
+									disabled={readonly}
+								/>
+							</div>
+							<div class="flex w-full flex-col gap-1">
+								<label for={`env-type-${i}`} class="text-sm font-light">Value</label>
+								{#if variant === 'catalog'}
+									<Select
+										class="bg-background dark:border-surface3 border border-transparent shadow-none"
+										classes={{
+											root: 'flex grow'
+										}}
+										options={[
+											{ label: 'Static', id: 'static' },
+											{ label: 'User-Supplied', id: 'user_supplied' }
+										]}
+										selected={config.headers[i].required ? 'user_supplied' : 'static'}
+										onSelect={(option) => {
+											if (!config.headers?.[i]) return;
+											if (option.id === 'user_supplied') {
+												config.headers[i].required = true;
+											} else {
+												config.headers[i].required = false;
+												config.headers[i].name = '';
+												config.headers[i].description = '';
+												config.headers[i].sensitive = false;
+											}
+											config.headers[i].value = '';
+										}}
+										id={`env-type-${i}`}
+									/>
+								{/if}
+							</div>
+							{#if config.headers[i].required}
+								<div class="flex w-full flex-col gap-1">
+									<label for={`header-name-${i}`} class="text-sm font-light">Name</label>
+									<input
+										id={`header-name-${i}`}
+										class="text-input-filled bg-background w-full shadow-none"
+										bind:value={config.headers[i].name}
+										disabled={readonly}
+									/>
+								</div>
+								<div class="flex w-full flex-col gap-1">
+									<label for={`header-description-${i}`} class="text-sm font-light"
+										>Description</label
+									>
+									<input
+										id={`header-description-${i}`}
+										class="text-input-filled bg-background w-full shadow-none"
+										bind:value={config.headers[i].description}
+										disabled={readonly}
+									/>
+								</div>
+								<div class="flex w-full flex-col gap-1">
+									<label
+										for={`header-prefix]-${i}`}
+										class="flex items-center gap-1 text-sm font-light"
+									>
+										Value Prefix
+										<InfoTooltip
+											text="A constant prepended value that will be added to the user-supplied value. Ex. 'Bearer ' in 'Bearer [USER_SUPPLIED_VALUE]'."
+											popoverWidth="lg"
+										/>
+									</label>
+									<input
+										id={`header-prefix-${i}`}
+										class="text-input-filled bg-background w-full shadow-none"
+										bind:value={config.headers[i].prefix}
+										disabled={readonly}
+									/>
+								</div>
+								<Toggle
+									classes={{ label: 'text-sm text-inherit' }}
+									disabled={readonly}
+									label="Sensitive"
+									labelInline
+									checked={!!header.sensitive}
+									onChange={(checked) => {
+										if (config.headers?.[i]) {
+											config.headers[i].sensitive = checked;
+										}
+									}}
+								/>
+							{:else}
+								<input
+									id={`header-description-${i}`}
+									class="text-input-filled bg-background w-full shadow-none"
+									bind:value={config.headers[i].value}
+									disabled={readonly}
+								/>
+							{/if}
+						</div>
+
+						{#if !readonly}
+							<button
+								class="icon-button"
+								onclick={() => {
+									config.headers?.splice(i, 1);
+								}}
+								use:tooltip={'Delete Header'}
+							>
+								<Trash2 class="size-4" />
+							</button>
+						{/if}
+					</div>
+				{/each}
+			{/if}
+			{#if !readonly}
+				<div class="flex justify-end">
+					<button
+						class="button flex items-center gap-1 text-xs"
+						onclick={() => {
+							if (!config.headers) {
+								config.headers = [];
+							}
+							config.headers?.push({
+								key: '',
+								description: '',
+								name: '',
+								value: '',
+								required: false,
+								sensitive: false,
+								file: false
+							});
+						}}
+					>
+						<Plus class="size-4" />
+						Header
+					</button>
+				</div>
+			{/if}
+		</div>
+	</div>
+{/snippet}
+
+{#if variant === 'server'}
+	{@const serverConfig = config as RemoteRuntimeConfigAdmin}
+	<div
+		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-6 rounded-lg border border-transparent p-4 shadow-sm"
+		in:fade={{ duration: 200 }}
+	>
+		<div class="flex flex-col gap-2">
+			<label
+				for="multi-user-remote-url"
+				class={twMerge('w-24 text-sm font-light', showRequired?.url && 'error')}>URL</label
+			>
+			<input
+				id="multi-user-remote-url"
+				class={twMerge(
+					'text-input-filled dark:bg-background flex grow',
+					showRequired?.url && 'error'
+				)}
+				bind:value={serverConfig.url}
+				disabled={readonly}
+				placeholder="e.g. https://api.example.com/mcp"
+				oninput={() => {
+					onFieldChange?.('url');
+				}}
+			/>
+		</div>
+
+		{@render children?.()}
+	</div>
+	{@render remoteHeaders(false)}
+{:else if !showAdvanced}
 	{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 	<!-- For catalog entries, show simple fixed URL when not in advanced mode -->
 	<div
@@ -82,9 +277,7 @@
 
 		{@render children?.()}
 	</div>
-{/if}
-
-{#if showAdvanced}
+{:else if showAdvanced}
 	<div class="flex w-full flex-col gap-8" in:slide>
 		<div
 			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
@@ -227,165 +420,7 @@
 			{@render children?.()}
 		</div>
 	</div>
-	<div class="flex w-full flex-col gap-8" in:slide>
-		<div
-			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
-		>
-			<h4 class="text-sm font-semibold">Headers</h4>
-			<p class="text-on-surface1 text-xs font-light">
-				{#if selectedType === 'urlTemplate'}
-					Header values will be supplied with the URL to configure the MCP server. Their values can
-					be supplied by the user during initial setup or as static provided values. Only values
-					provided by the user will be used in URL template interpolation.
-				{:else}
-					Header values will be supplied with the URL to configure the MCP server. Their values can
-					be supplied by the user during initial setup or as static provided values.
-				{/if}
-			</p>
-			{#if config.headers}
-				{#each config.headers as header, i (i)}
-					<div
-						class="dark:border-surface3 bg-surface2 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
-					>
-						<div class="flex w-full flex-col gap-4">
-							<div class="flex w-full flex-col gap-1">
-								<label for={`header-key-${i}`} class="text-sm font-light">Key</label>
-								<input
-									id={`header-key-${i}`}
-									class="text-input-filled bg-background w-full shadow-none"
-									bind:value={config.headers[i].key}
-									placeholder="e.g. CUSTOM_HEADER_KEY"
-									disabled={readonly}
-								/>
-							</div>
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-type-${i}`} class="text-sm font-light">Value</label>
-								<Select
-									class="bg-background dark:border-surface3 border border-transparent shadow-none"
-									classes={{
-										root: 'flex grow'
-									}}
-									options={[
-										{ label: 'Static', id: 'static' },
-										{ label: 'User-Supplied', id: 'user_supplied' }
-									]}
-									selected={config.headers[i].required ? 'user_supplied' : 'static'}
-									onSelect={(option) => {
-										if (!config.headers?.[i]) return;
-										if (option.id === 'user_supplied') {
-											config.headers[i].required = true;
-										} else {
-											config.headers[i].required = false;
-											config.headers[i].name = '';
-											config.headers[i].description = '';
-											config.headers[i].sensitive = false;
-										}
-										config.headers[i].value = '';
-									}}
-									id={`env-type-${i}`}
-								/>
-							</div>
-							{#if config.headers[i].required}
-								<div class="flex w-full flex-col gap-1">
-									<label for={`header-name-${i}`} class="text-sm font-light">Name</label>
-									<input
-										id={`header-name-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
-										bind:value={config.headers[i].name}
-										disabled={readonly}
-									/>
-								</div>
-								<div class="flex w-full flex-col gap-1">
-									<label for={`header-description-${i}`} class="text-sm font-light"
-										>Description</label
-									>
-									<input
-										id={`header-description-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
-										bind:value={config.headers[i].description}
-										disabled={readonly}
-									/>
-								</div>
-								<div class="flex w-full flex-col gap-1">
-									<label
-										for={`header-prefix]-${i}`}
-										class="flex items-center gap-1 text-sm font-light"
-									>
-										Value Prefix
-										<InfoTooltip
-											text="A constant prepended value that will be added to the user-supplied value. Ex. 'Bearer ' in 'Bearer [USER_SUPPLIED_VALUE]'."
-											popoverWidth="lg"
-										/>
-									</label>
-									<input
-										id={`header-prefix-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
-										bind:value={config.headers[i].prefix}
-										disabled={readonly}
-									/>
-								</div>
-								<Toggle
-									classes={{ label: 'text-sm text-inherit' }}
-									disabled={readonly}
-									label="Sensitive"
-									labelInline
-									checked={!!header.sensitive}
-									onChange={(checked) => {
-										if (config.headers?.[i]) {
-											config.headers[i].sensitive = checked;
-										}
-									}}
-								/>
-							{:else}
-								<input
-									id={`header-description-${i}`}
-									class="text-input-filled bg-background w-full shadow-none"
-									bind:value={config.headers[i].value}
-									disabled={readonly}
-								/>
-							{/if}
-						</div>
-
-						{#if !readonly}
-							<button
-								class="icon-button"
-								onclick={() => {
-									config.headers?.splice(i, 1);
-								}}
-								use:tooltip={'Delete Header'}
-							>
-								<Trash2 class="size-4" />
-							</button>
-						{/if}
-					</div>
-				{/each}
-			{/if}
-			{#if !readonly}
-				<div class="flex justify-end">
-					<button
-						class="button flex items-center gap-1 text-xs"
-						onclick={() => {
-							if (!config.headers) {
-								config.headers = [];
-							}
-							config.headers?.push({
-								key: '',
-								description: '',
-								name: '',
-								value: '',
-								required: false,
-								sensitive: false,
-								file: false
-							});
-						}}
-					>
-						<Plus class="size-4" />
-						Header
-					</button>
-				</div>
-			{/if}
-		</div>
-	</div>
+	{@render remoteHeaders(selectedType === 'urlTemplate')}
 	<!-- Static OAuth Configuration -->
 	{#if config && !disableStaticOAuth}
 		{@const remoteConfig = config as RemoteCatalogConfigAdmin}
@@ -458,18 +493,20 @@
 	{/if}
 {/if}
 
-<button
-	class="button-text pl-0"
-	onclick={() => {
-		showAdvanced = !showAdvanced;
+{#if variant === 'catalog'}
+	<button
+		class="button-text pl-0"
+		onclick={() => {
+			showAdvanced = !showAdvanced;
 
-		if (!showAdvanced) {
-			const catalogConfig = config as RemoteCatalogConfigAdmin;
-			catalogConfig.hostname = undefined;
-			catalogConfig.urlTemplate = undefined;
-			catalogConfig.fixedURL = catalogConfig.fixedURL ?? '';
-		}
-	}}
->
-	{showAdvanced ? 'Reset Default Configuration' : 'Advanced Configuration'}
-</button>
+			if (!showAdvanced) {
+				const catalogConfig = config as RemoteCatalogConfigAdmin;
+				catalogConfig.hostname = undefined;
+				catalogConfig.urlTemplate = undefined;
+				catalogConfig.fixedURL = catalogConfig.fixedURL ?? '';
+			}
+		}}
+	>
+		{showAdvanced ? 'Reset Default Configuration' : 'Advanced Configuration'}
+	</button>
+{/if}
