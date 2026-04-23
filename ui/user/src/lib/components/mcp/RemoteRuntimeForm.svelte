@@ -8,24 +8,33 @@
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
 	import { Plus, Trash2, Info, Settings } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		config: RemoteCatalogConfigAdmin | RemoteRuntimeConfigAdmin;
+		variant?: 'catalog' | 'server';
 		readonly?: boolean;
 		showRequired?: Record<string, boolean>;
 		onFieldChange?: (field: string) => void;
 		isNewEntry?: boolean;
 		onConfigureOAuth?: () => void;
+		disableStaticOAuth?: boolean;
+		disableHostnameOption?: boolean;
+		children?: Snippet;
 	}
 	let {
 		config = $bindable(),
+		variant = 'catalog',
 		readonly,
 		showRequired,
 		onFieldChange,
 		isNewEntry,
-		onConfigureOAuth
+		onConfigureOAuth,
+		disableStaticOAuth,
+		disableHostnameOption,
+		children
 	}: Props = $props();
 
 	// For catalog entries, we show advanced config if hostname, urlTemplate, or headers exist
@@ -50,175 +59,14 @@
 	);
 </script>
 
-{#if !showAdvanced}
-	{@const remoteConfig = config as RemoteCatalogConfigAdmin}
-	<!-- For catalog entries, show simple fixed URL when not in advanced mode -->
-	<div
-		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
-		in:fade={{ duration: 200 }}
-	>
-		<label
-			for="basic-url"
-			class={twMerge('w-24 text-sm font-light', showRequired?.fixedURL && 'error')}>URL</label
-		>
-		<input
-			id="basic-url"
-			class={twMerge(
-				'text-input-filled dark:bg-background flex grow',
-				showRequired?.fixedURL && 'error'
-			)}
-			bind:value={remoteConfig.fixedURL}
-			disabled={readonly || showAdvanced}
-		/>
-	</div>
-{/if}
-
-{#if showAdvanced}
-	<div class="flex w-full flex-col gap-8" in:slide>
-		<div
-			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
-		>
-			<div class="flex items-center gap-4 {readonly ? 'hidden' : ''}">
-				<label for="remote-type" class="flex-shrink-0 text-sm font-light"
-					>Restrict connections to:</label
-				>
-				<Select
-					class="bg-surface1 dark:border-surface3 dark:bg-background border border-transparent shadow-inner"
-					classes={{
-						root: 'flex grow'
-					}}
-					options={[
-						{ label: 'Exact URL', id: 'fixedURL' },
-						{ label: 'Hostname', id: 'hostname' },
-						{ label: 'URL Template', id: 'urlTemplate' }
-					]}
-					selected={selectedType}
-					onSelect={(option) => {
-						const catalogConfig = config as RemoteCatalogConfigAdmin;
-						if (option.id === 'fixedURL') {
-							catalogConfig.hostname = undefined;
-							catalogConfig.urlTemplate = undefined;
-							selectedType = 'fixedURL';
-							catalogConfig.fixedURL = '';
-						} else if (option.id === 'hostname') {
-							catalogConfig.fixedURL = undefined;
-							catalogConfig.urlTemplate = undefined;
-							catalogConfig.hostname = '';
-							selectedType = 'hostname';
-						} else if (option.id === 'urlTemplate') {
-							catalogConfig.fixedURL = undefined;
-							catalogConfig.hostname = undefined;
-							catalogConfig.urlTemplate = '';
-							selectedType = 'urlTemplate';
-						}
-					}}
-				/>
-			</div>
-			{#if selectedType === 'fixedURL' && typeof (config as RemoteCatalogConfigAdmin).fixedURL !== 'undefined'}
-				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
-				<div class="flex items-center gap-2">
-					<label
-						for="remote-url"
-						class={twMerge('min-w-18 text-sm font-light', showRequired?.fixedURL && 'error')}
-						>Exact URL</label
-					>
-					<input
-						class={twMerge(
-							'text-input-filled dark:bg-background flex grow',
-							showRequired?.fixedURL && 'error'
-						)}
-						bind:value={remoteConfig.fixedURL}
-						disabled={readonly}
-						placeholder="e.g. https://custom.mcpserver.example.com/go/to"
-						oninput={() => {
-							onFieldChange?.('fixedURL');
-						}}
-					/>
-				</div>
-			{:else if selectedType === 'hostname' && typeof (config as RemoteCatalogConfigAdmin).hostname !== 'undefined'}
-				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
-				<div class="flex items-center gap-2">
-					<label
-						for="remote-url"
-						class={twMerge('min-w-18 text-sm font-light', showRequired?.hostname && 'error')}
-						>Hostname</label
-					>
-					<input
-						class={twMerge(
-							'text-input-filled dark:bg-background flex grow',
-							showRequired?.hostname && 'error'
-						)}
-						bind:value={remoteConfig.hostname}
-						disabled={readonly}
-						placeholder="e.g. mycustomdomain"
-						oninput={() => {
-							onFieldChange?.('hostname');
-						}}
-					/>
-				</div>
-			{:else if selectedType === 'urlTemplate' && typeof (config as RemoteCatalogConfigAdmin).urlTemplate !== 'undefined'}
-				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
-				<div class="flex flex-col gap-4">
-					<div class="flex items-center gap-2">
-						<label
-							for="remote-url-template"
-							class={twMerge('min-w-18 text-sm font-light', showRequired?.urlTemplate && 'error')}
-							>URL Template</label
-						>
-						<input
-							class={twMerge(
-								'text-input-filled dark:bg-background flex grow',
-								showRequired?.urlTemplate && 'error'
-							)}
-							bind:value={remoteConfig.urlTemplate}
-							disabled={readonly}
-							placeholder={`e.g. https://$${'{API_HOST}'}/api/$${'{VERSION}'}/endpoint`}
-							oninput={() => {
-								onFieldChange?.('urlTemplate');
-							}}
-						/>
-					</div>
-
-					<!-- Info message about header interpolation -->
-					<div class="notification-info p-3 text-sm font-light">
-						<div class="flex items-start gap-3">
-							<Info class="mt-0.5 size-5 flex-shrink-0" />
-							<div class="flex flex-col gap-1">
-								<p class="font-semibold">Variable Interpolation</p>
-								<p>
-									Use <code class="rounded bg-gray-100 px-1 py-0.5 dark:bg-gray-800"
-										>${'{VARIABLE_NAME}'}</code
-									> syntax in your URL template. Variables can be populated from header values that users
-									provide during setup.
-								</p>
-								<p class="text-xs">
-									Example: <code class="rounded bg-gray-100 px-1 py-0.5 text-xs dark:bg-gray-800"
-										>https://${'{WORKSPACE_URL}'}/api/2.0/mcp/genie/${'{SPACE_ID}'}</code
-									>
-								</p>
-								<br />
-								<p>
-									Avoid including variables in your URL template that may contain sensitive
-									information, such as API keys. Even when using HTTPS, URLs can be logged or cached
-									by browsers, servers, and monitoring systems, potentially exposing confidential
-									data. Instead, place sensitive values in HTTP headers (for example, <code
-										>Authorization: Bearer &lt;token&gt;</code
-									>).
-								</p>
-							</div>
-						</div>
-					</div>
-				</div>
-			{/if}
-		</div>
-	</div>
+{#snippet remoteHeaders(showUrlTemplateHelp: boolean)}
 	<div class="flex w-full flex-col gap-8" in:slide>
 		<div
 			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<h4 class="text-sm font-semibold">Headers</h4>
 			<p class="text-on-surface1 text-xs font-light">
-				{#if selectedType === 'urlTemplate'}
+				{#if showUrlTemplateHelp}
 					Header values will be supplied with the URL to configure the MCP server. Their values can
 					be supplied by the user during initial setup or as static provided values. Only values
 					provided by the user will be used in URL template interpolation.
@@ -244,31 +92,33 @@
 								/>
 							</div>
 							<div class="flex w-full flex-col gap-1">
-								<label for={`env-type-${i}`} class="text-sm font-light">Value</label>
-								<Select
-									class="bg-background dark:border-surface3 border border-transparent shadow-none"
-									classes={{
-										root: 'flex grow'
-									}}
-									options={[
-										{ label: 'Static', id: 'static' },
-										{ label: 'User-Supplied', id: 'user_supplied' }
-									]}
-									selected={config.headers[i].required ? 'user_supplied' : 'static'}
-									onSelect={(option) => {
-										if (!config.headers?.[i]) return;
-										if (option.id === 'user_supplied') {
-											config.headers[i].required = true;
-										} else {
-											config.headers[i].required = false;
-											config.headers[i].name = '';
-											config.headers[i].description = '';
-											config.headers[i].sensitive = false;
-										}
-										config.headers[i].value = '';
-									}}
-									id={`env-type-${i}`}
-								/>
+								{#if variant === 'catalog'}
+									<label for={`env-type-${i}`} class="text-sm font-light">Value</label>
+									<Select
+										class="bg-background dark:border-surface3 border border-transparent shadow-none"
+										classes={{
+											root: 'flex grow'
+										}}
+										options={[
+											{ label: 'Static', id: 'static' },
+											{ label: 'User-Supplied', id: 'user_supplied' }
+										]}
+										selected={config.headers[i].required ? 'user_supplied' : 'static'}
+										onSelect={(option) => {
+											if (!config.headers?.[i]) return;
+											if (option.id === 'user_supplied') {
+												config.headers[i].required = true;
+											} else {
+												config.headers[i].required = false;
+												config.headers[i].name = '';
+												config.headers[i].description = '';
+												config.headers[i].sensitive = false;
+											}
+											config.headers[i].value = '';
+										}}
+										id={`env-type-${i}`}
+									/>
+								{/if}
 							</div>
 							{#if config.headers[i].required}
 								<div class="flex w-full flex-col gap-1">
@@ -322,12 +172,17 @@
 									}}
 								/>
 							{:else}
-								<input
-									id={`header-description-${i}`}
-									class="text-input-filled bg-background w-full shadow-none"
-									bind:value={config.headers[i].value}
-									disabled={readonly}
-								/>
+								<div class="flex flex-col gap-2">
+									{#if variant === 'server'}
+										<label for={`header-description-${i}`} class="text-sm font-light">Value</label>
+									{/if}
+									<input
+										id={`header-description-${i}`}
+										class="text-input-filled bg-background w-full shadow-none"
+										bind:value={config.headers[i].value}
+										disabled={readonly}
+									/>
+								</div>
 							{/if}
 						</div>
 
@@ -371,8 +226,209 @@
 			{/if}
 		</div>
 	</div>
+{/snippet}
+
+{#if variant === 'server'}
+	{@const serverConfig = config as RemoteRuntimeConfigAdmin}
+	<div
+		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-6 rounded-lg border border-transparent p-4 shadow-sm"
+		in:fade={{ duration: 200 }}
+	>
+		<h4 class="text-sm font-semibold">Remote Runtime Configuration</h4>
+		<div class="flex flex-col gap-2">
+			<label
+				for="multi-user-remote-url"
+				class={twMerge('w-24 text-sm font-light', showRequired?.url && 'error')}>URL</label
+			>
+			<input
+				id="multi-user-remote-url"
+				class={twMerge(
+					'text-input-filled dark:bg-background flex grow',
+					showRequired?.url && 'error'
+				)}
+				bind:value={serverConfig.url}
+				disabled={readonly}
+				placeholder="e.g. https://api.example.com/mcp"
+				oninput={() => {
+					onFieldChange?.('url');
+				}}
+			/>
+		</div>
+
+		{@render children?.()}
+	</div>
+	{@render remoteHeaders(false)}
+{:else if !showAdvanced}
+	{@const remoteConfig = config as RemoteCatalogConfigAdmin}
+	<!-- For catalog entries, show simple fixed URL when not in advanced mode -->
+	<div
+		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-6 rounded-lg border border-transparent p-4 shadow-sm"
+		in:fade={{ duration: 200 }}
+	>
+		<div class="flex flex-col gap-2">
+			<label
+				for="basic-url"
+				class={twMerge('w-24 text-sm font-light', showRequired?.fixedURL && 'error')}>URL</label
+			>
+			<input
+				id="basic-url"
+				class={twMerge(
+					'text-input-filled dark:bg-background flex grow',
+					showRequired?.fixedURL && 'error'
+				)}
+				bind:value={remoteConfig.fixedURL}
+				disabled={readonly || showAdvanced}
+			/>
+		</div>
+
+		{@render children?.()}
+	</div>
+{:else if showAdvanced}
+	<div class="flex w-full flex-col gap-8" in:slide>
+		<div
+			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+		>
+			<div class="flex items-center gap-4 {readonly ? 'hidden' : ''}">
+				<label for="remote-type" class="flex-shrink-0 text-sm font-light"
+					>Restrict connections to:</label
+				>
+				<Select
+					class="bg-surface1 dark:border-surface3 dark:bg-background border border-transparent shadow-inner"
+					classes={{
+						root: 'flex grow'
+					}}
+					options={[
+						{ label: 'Exact URL', id: 'fixedURL' },
+						...(!disableHostnameOption ? [{ label: 'Hostname', id: 'hostname' }] : []),
+						{ label: 'URL Template', id: 'urlTemplate' }
+					]}
+					selected={selectedType}
+					onSelect={(option) => {
+						const catalogConfig = config as RemoteCatalogConfigAdmin;
+						if (option.id === 'fixedURL') {
+							catalogConfig.hostname = undefined;
+							catalogConfig.urlTemplate = undefined;
+							selectedType = 'fixedURL';
+							catalogConfig.fixedURL = '';
+						} else if (option.id === 'hostname') {
+							catalogConfig.fixedURL = undefined;
+							catalogConfig.urlTemplate = undefined;
+							catalogConfig.hostname = '';
+							selectedType = 'hostname';
+						} else if (option.id === 'urlTemplate') {
+							catalogConfig.fixedURL = undefined;
+							catalogConfig.hostname = undefined;
+							catalogConfig.urlTemplate = '';
+							selectedType = 'urlTemplate';
+						}
+					}}
+				/>
+			</div>
+			{#if selectedType === 'fixedURL' && typeof (config as RemoteCatalogConfigAdmin).fixedURL !== 'undefined'}
+				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
+				<div class="flex flex-col gap-2">
+					<label
+						for="remote-url"
+						class={twMerge('min-w-18 text-sm font-light', showRequired?.fixedURL && 'error')}
+						>Exact URL</label
+					>
+					<input
+						class={twMerge(
+							'text-input-filled dark:bg-background flex grow',
+							showRequired?.fixedURL && 'error'
+						)}
+						bind:value={remoteConfig.fixedURL}
+						disabled={readonly}
+						placeholder="e.g. https://custom.mcpserver.example.com/go/to"
+						oninput={() => {
+							onFieldChange?.('fixedURL');
+						}}
+					/>
+				</div>
+			{:else if selectedType === 'hostname' && typeof (config as RemoteCatalogConfigAdmin).hostname !== 'undefined'}
+				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
+				<div class="flex items-center gap-2">
+					<label
+						for="remote-url"
+						class={twMerge('min-w-18 text-sm font-light', showRequired?.hostname && 'error')}
+						>Hostname</label
+					>
+					<input
+						class={twMerge(
+							'text-input-filled dark:bg-background flex grow',
+							showRequired?.hostname && 'error'
+						)}
+						bind:value={remoteConfig.hostname}
+						disabled={readonly}
+						placeholder="e.g. mycustomdomain"
+						oninput={() => {
+							onFieldChange?.('hostname');
+						}}
+					/>
+				</div>
+			{:else if selectedType === 'urlTemplate' && typeof (config as RemoteCatalogConfigAdmin).urlTemplate !== 'undefined'}
+				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
+				<div class="flex flex-col gap-4">
+					<div class="flex flex-col gap-2">
+						<label
+							for="remote-url-template"
+							class={twMerge(
+								'shrink-0 min-w-18 text-sm font-light',
+								showRequired?.urlTemplate && 'error'
+							)}>URL Template</label
+						>
+						<input
+							class={twMerge(
+								'text-input-filled dark:bg-background flex grow',
+								showRequired?.urlTemplate && 'error'
+							)}
+							bind:value={remoteConfig.urlTemplate}
+							disabled={readonly}
+							placeholder={`e.g. https://$${'{API_HOST}'}/api/$${'{VERSION}'}/endpoint`}
+							oninput={() => {
+								onFieldChange?.('urlTemplate');
+							}}
+						/>
+					</div>
+
+					<!-- Info message about header interpolation -->
+					<div class="notification-info p-3 text-sm font-light">
+						<div class="flex items-start gap-3">
+							<Info class="mt-0.5 size-5 flex-shrink-0" />
+							<div class="flex flex-col gap-1">
+								<p class="font-semibold">Variable Interpolation</p>
+								<p>
+									Use <code class="rounded bg-gray-100 px-1 py-0.5 dark:bg-gray-800"
+										>${'{VARIABLE_NAME}'}</code
+									> syntax in your URL template. Variables can be populated from header values that users
+									provide during setup.
+								</p>
+								<p class="text-xs">
+									Example: <code class="rounded bg-gray-100 px-1 py-0.5 text-xs dark:bg-gray-800"
+										>https://${'{WORKSPACE_URL}'}/api/2.0/mcp/genie/${'{SPACE_ID}'}</code
+									>
+								</p>
+								<br />
+								<p>
+									Avoid including variables in your URL template that may contain sensitive
+									information, such as API keys. Even when using HTTPS, URLs can be logged or cached
+									by browsers, servers, and monitoring systems, potentially exposing confidential
+									data. Instead, place sensitive values in HTTP headers (for example, <code
+										>Authorization: Bearer &lt;token&gt;</code
+									>).
+								</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			{/if}
+
+			{@render children?.()}
+		</div>
+	</div>
+	{@render remoteHeaders(selectedType === 'urlTemplate')}
 	<!-- Static OAuth Configuration -->
-	{#if config}
+	{#if config && !disableStaticOAuth}
 		{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 		<div
 			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
@@ -443,18 +499,20 @@
 	{/if}
 {/if}
 
-<button
-	class="button-text pl-0"
-	onclick={() => {
-		showAdvanced = !showAdvanced;
+{#if variant === 'catalog'}
+	<button
+		class="button-text pl-0"
+		onclick={() => {
+			showAdvanced = !showAdvanced;
 
-		if (!showAdvanced) {
-			const catalogConfig = config as RemoteCatalogConfigAdmin;
-			catalogConfig.hostname = undefined;
-			catalogConfig.urlTemplate = undefined;
-			catalogConfig.fixedURL = catalogConfig.fixedURL ?? '';
-		}
-	}}
->
-	{showAdvanced ? 'Reset Default Configuration' : 'Advanced Configuration'}
-</button>
+			if (!showAdvanced) {
+				const catalogConfig = config as RemoteCatalogConfigAdmin;
+				catalogConfig.hostname = undefined;
+				catalogConfig.urlTemplate = undefined;
+				catalogConfig.fixedURL = catalogConfig.fixedURL ?? '';
+			}
+		}}
+	>
+		{showAdvanced ? 'Reset Default Configuration' : 'Advanced Configuration'}
+	</button>
+{/if}

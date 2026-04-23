@@ -33,7 +33,7 @@
 
 	interface Props {
 		id?: string;
-		entity?: 'workspace' | 'catalog' | 'agent';
+		entity?: 'workspace' | 'catalog' | 'agent' | 'webhook-validation';
 		mcpServerId: string;
 		name: string;
 		mcpServerInstanceId?: string;
@@ -83,6 +83,10 @@
 				: `/api/workspaces/${entityId}/servers/${mcpServerId}/logs`;
 		}
 
+		if (entity === 'webhook-validation') {
+			return `/api/mcp-webhook-validations/${mcpServerId}/logs`;
+		}
+
 		return `/api/mcp-servers/${mcpServerId}/logs`;
 	});
 
@@ -107,11 +111,14 @@
 						{ dontLogErrors }
 					)
 				: ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId, { dontLogErrors })
-			: AdminService.getK8sServerDetail(mcpServerId, { dontLogErrors });
+			: entity === 'webhook-validation'
+				? AdminService.getMCPFilterDetails(mcpServerId, { dontLogErrors })
+				: AdminService.getK8sServerDetail(mcpServerId, { dontLogErrors });
 	}
 
 	function getK8sSettingsStatus() {
-		if (!hasAdminAccess) return Promise.resolve<ServerK8sSettings | undefined>(undefined);
+		if (!hasAdminAccess || entity === 'webhook-validation')
+			return Promise.resolve<ServerK8sSettings | undefined>(undefined);
 		return entity === 'workspace' && entityId
 			? catalogEntry?.id
 				? ChatService.getWorkspaceCatalogEntryServerK8sSettingsStatus(
@@ -135,9 +142,13 @@
 	onMount(() => {
 		// Only load sensitive server values and k8s info if the user has admin access
 		revealServerValues = profile.current.isAdmin?.()
-			? ChatService.revealSingleOrRemoteMcpServer(mcpServerId, {
-					dontLogErrors: true
-				})
+			? entity === 'webhook-validation'
+				? AdminService.revealMCPFilter(mcpServerId, {
+						dontLogErrors: true
+					})
+				: ChatService.revealSingleOrRemoteMcpServer(mcpServerId, {
+						dontLogErrors: true
+					})
 			: Promise.resolve<Record<string, string>>({});
 		listK8sInfo = getK8sInfo();
 		listK8sSettingsStatus = getK8sSettingsStatus();
@@ -178,7 +189,9 @@
 							mcpServerId
 						)
 					: ChatService.restartWorkspaceK8sServerDeployment(entityId, mcpServerId)
-				: AdminService.restartK8sDeployment(mcpServerId));
+				: entity === 'webhook-validation'
+					? AdminService.restartMCPFilter(mcpServerId)
+					: AdminService.restartK8sDeployment(mcpServerId));
 			// Refresh the k8s info after restart
 			listK8sInfo = getK8sInfo();
 		} catch (err) {
@@ -511,7 +524,7 @@
 	onClear={() => (messages = [])}
 />
 
-{#if hasAdminAccess}
+{#if hasAdminAccess && entity !== 'webhook-validation'}
 	<div>
 		<h2 class="mb-2 text-lg font-semibold">Connected Users</h2>
 		<Table data={connectedUsers ?? []} fields={['name']}>

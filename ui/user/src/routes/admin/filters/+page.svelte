@@ -103,12 +103,12 @@
 					{:else}
 						<Table
 							data={filteredFilters}
-							fields={['name', 'url', 'selectors']}
+							fields={['name', 'selectors']}
 							onClickRow={(d, isCtrlClick) => {
 								const url = `/admin/filters/${d.id}`;
 								openUrl(url, isCtrlClick);
 							}}
-							filterable={['name', 'url']}
+							filterable={['name']}
 							filters={urlFilters}
 							onFilter={setFilterUrlParams}
 							onClearAllFilters={clearUrlParams}
@@ -116,10 +116,6 @@
 								{
 									title: 'Name',
 									property: 'name'
-								},
-								{
-									title: 'Webhook URL',
-									property: 'url'
 								},
 								{
 									title: 'Selectors',

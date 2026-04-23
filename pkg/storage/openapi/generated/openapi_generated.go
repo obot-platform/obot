@@ -366,6 +366,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidation":          schema_storage_apis_obotobotai_v1_MCPWebhookValidation(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationList":      schema_storage_apis_obotobotai_v1_MCPWebhookValidationList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationSpec":      schema_storage_apis_obotobotai_v1_MCPWebhookValidationSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationStatus":    schema_storage_apis_obotobotai_v1_MCPWebhookValidationStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MemorySet":                     schema_storage_apis_obotobotai_v1_MemorySet(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MemorySetList":                 schema_storage_apis_obotobotai_v1_MemorySetList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MemorySetSpec":                 schema_storage_apis_obotobotai_v1_MemorySetSpec(ref),
@@ -5900,6 +5901,17 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 							Format: "",
 						},
 					},
+					"mcpServerManifest": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest"),
+						},
+					},
+					"toolName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"selectors": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -5911,6 +5923,12 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 									},
 								},
 							},
+						},
+					},
+					"allowedToMutate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 					"disabled": {
@@ -5925,12 +5943,33 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 							Format: "",
 						},
 					},
+					"configured": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"missingRequiredEnvVars": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"created"},
+				Required: []string{"created", "configured"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPSelector", "github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.MCPSelector", "github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -5999,6 +6038,17 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref 
 							Format: "",
 						},
 					},
+					"mcpServerManifest": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest"),
+						},
+					},
+					"toolName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"selectors": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -6012,6 +6062,12 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref 
 							},
 						},
 					},
+					"allowedToMutate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"disabled": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -6022,7 +6078,7 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref 
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPSelector", "github.com/obot-platform/obot/apiclient/types.Resource"},
+			"github.com/obot-platform/obot/apiclient/types.MCPSelector", "github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest"},
 	}
 }
 
@@ -11513,23 +11569,37 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 					"enabled": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Enabled controls whether this server should be deployed",
-							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
 					"runtime": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Runtime configuration (only containerized allowed)",
+							Description: "Runtime configuration",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
+					"uvxConfig": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Runtime-specific configurations (only one should be populated based on runtime)",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"),
+						},
+					},
+					"npxConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig"),
+						},
+					},
 					"containerizedConfig": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Runtime-specific configuration",
-							Ref:         ref("github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig"),
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig"),
+						},
+					},
+					"remoteConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig"),
 						},
 					},
 					"env": {
@@ -11546,11 +11616,11 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 						},
 					},
 				},
-				Required: []string{"name", "shortDescription", "description", "icon", "enabled", "runtime"},
+				Required: []string{"name", "shortDescription", "description", "icon", "runtime"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv"},
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -17193,11 +17263,17 @@ func schema_storage_apis_obotobotai_v1_MCPWebhookValidation(ref common.Reference
 							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationSpec"),
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPWebhookValidationStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -17267,6 +17343,26 @@ func schema_storage_apis_obotobotai_v1_MCPWebhookValidationSpec(ref common.Refer
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.MCPWebhookValidationManifest"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPWebhookValidationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"configured": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"configured"},
+			},
+		},
 	}
 }
 
