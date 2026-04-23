@@ -437,13 +437,13 @@ func validateManifest(m *types.MCPWebhookValidationManifest) error {
 		}
 	}
 
-	for _, filter := range m.Selectors {
+	for i, filter := range m.Selectors {
 		if filter.Method == "*" {
 			m.Selectors = []types.MCPSelector{{Method: filter.Method}}
 			break
 		}
 		if slices.Contains(filter.Identifiers, "*") {
-			filter.Identifiers = []string{"*"}
+			m.Selectors[i].Identifiers = []string{"*"}
 		}
 	}
 

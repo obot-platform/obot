@@ -5910,6 +5910,12 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 							},
 						},
 					},
+					"allowedToMutate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"disabled": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -6039,6 +6045,12 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref 
 									},
 								},
 							},
+						},
+					},
+					"allowedToMutate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 					"disabled": {

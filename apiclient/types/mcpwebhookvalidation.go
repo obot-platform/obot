@@ -20,6 +20,7 @@ type MCPWebhookValidationManifest struct {
 	SystemMCPServerManifest *SystemMCPServerManifest `json:"mcpServerManifest,omitempty"`
 	ToolName                string                   `json:"toolName,omitempty"`
 	Selectors               MCPSelectors             `json:"selectors,omitempty"`
+	AllowedToMutate         bool                     `json:"allowedToMutate,omitempty"`
 	Disabled                bool                     `json:"disabled,omitempty"`
 }
 
