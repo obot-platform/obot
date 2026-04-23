@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	gptscript "github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
@@ -33,6 +34,11 @@ import (
 
 var log = logger.Package()
 
+// CatalogCredentialToolName is the fixed tool name used for the single
+// credential that stores all source-URL tokens for a catalog. Each URL's
+// token is stored as a key in the credential's Env map.
+const CatalogCredentialToolName = "catalog-source-tokens"
+
 const (
 	// These are used to force catalog sync on startup, used for times when changes are made to
 	// catalogs, and they must be synced on the next start.
@@ -43,13 +49,32 @@ const (
 
 type Handler struct {
 	defaultCatalogPath      string
+	gptClient               *gptscript.GPTScript
 	gatewayClient           *gclient.Client
 	accessControlRuleHelper *accesscontrolrule.Helper
 }
 
-func New(defaultCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper) *Handler {
+// revealCatalogCredential retrieves a stored PAT for the given source URL.
+// Returns an empty string if no credential is configured (not-found). Any other
+// error is logged so credential-store failures are visible in the sync status.
+func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sourceURL string) string {
+	cred, err := h.gptClient.RevealCredential(ctx,
+		[]string{catalogName},
+		CatalogCredentialToolName,
+	)
+	if err != nil {
+		if !errors.As(err, &gptscript.ErrNotFound{}) {
+			log.Errorf("failed to retrieve credential for catalog %s source %s: %v", catalogName, sourceURL, err)
+		}
+		return ""
+	}
+	return cred.Env[sourceURL]
+}
+
+func New(defaultCatalogPath string, gptClient *gptscript.GPTScript, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper) *Handler {
 	return &Handler{
 		defaultCatalogPath:      defaultCatalogPath,
+		gptClient:               gptClient,
 		gatewayClient:           gatewayClient,
 		accessControlRuleHelper: accessControlRuleHelper,
 	}
@@ -90,7 +115,8 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
-		objs, err := h.readMCPCatalog(mcpCatalog.Name, sourceURL)
+		token := h.revealCatalogCredential(req.Ctx, mcpCatalog.Name, sourceURL)
+		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token)
 		if err != nil {
 			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
@@ -137,19 +163,26 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
 }
 
-func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object, error) {
+func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, error) {
 	var entries []types.MCPServerCatalogEntryManifest
 
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
-		if isGitHubURL(sourceURL) {
+		if isGitRepoURL(sourceURL) {
 			var err error
-			entries, err = readGitHubCatalog(sourceURL)
+			entries, err = readGitCatalog(ctx, sourceURL, token)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read GitHub catalog %s: %w", sourceURL, err)
+				return nil, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
 			}
 		} else {
-			// If it wasn't a GitHub repo, treat it as a raw file.
-			resp, err := http.Get(sourceURL)
+			// If it wasn't a git repo, treat it as a raw file.
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, http.NoBody)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create request for catalog %s: %w", sourceURL, err)
+			}
+			if token != "" {
+				req.Header.Set("Authorization", "Bearer "+token)
+			}
+			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}

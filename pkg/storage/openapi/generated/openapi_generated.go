@@ -4221,6 +4221,21 @@ func schema_obot_platform_obot_apiclient_types_MCPCatalogManifest(ref common.Ref
 							},
 						},
 					},
+					"sourceURLCredentials": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"displayName", "sourceURLs"},
 			},
