@@ -150,14 +150,12 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 	}
 
 	// Reveal the existing single credential that holds all source-URL tokens.
-	existingTokens := make(map[string]string)
-	existingCred, err := req.GPTClient.RevealCredential(req.Context(), []string{catalog.Name}, mcpcataloghandler.CatalogCredentialToolName)
+	existingCred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, mcpcataloghandler.CatalogCredentialToolName)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to reveal catalog credentials: %w", err)
 	}
-	if err == nil {
-		existingTokens = existingCred.Env
-	}
+	
+	// Just use existingCred.Env
 
 	// Build the new token map from the active URLs.
 	// - "*" means keep the existing token for that URL.
