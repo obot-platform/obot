@@ -39,7 +39,7 @@ const (
 	GroupBasic                 = "basic"
 	GroupAuthenticated         = "authenticated"
 	GroupAPIKey                = "api-key"
-	APIKeySkillsAccessExtraKey = "api_key_can_access_skills"
+	APIKeySkillsAccessExtraKey = "api-key-can-access-skills"
 )
 
 type Role int

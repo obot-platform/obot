@@ -13,9 +13,8 @@ import (
 )
 
 const (
-	MetricsGroup               = "metrics"
-	UnauthenticatedGroup       = "unauthenticated"
-	apiKeySkillsAccessExtraKey = types.APIKeySkillsAccessExtraKey
+	MetricsGroup         = "metrics"
+	UnauthenticatedGroup = "unauthenticated"
 
 	// anyGroup is an internal group that allows access to any group
 	anyGroup = "*"
@@ -444,7 +443,7 @@ func authorizeAPIKeySkillRoutes(req *http.Request, user user.Info) bool {
 		return false
 	}
 
-	if !slices.Contains(user.GetExtra()[apiKeySkillsAccessExtraKey], "true") {
+	if !slices.Contains(user.GetExtra()[types.APIKeySkillsAccessExtraKey], "true") {
 		return false
 	}
 
