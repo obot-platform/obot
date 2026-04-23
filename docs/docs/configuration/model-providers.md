@@ -18,7 +18,7 @@ Obot supports a variety of model providers, including:
 
 **Enterprise**
 - [Azure OpenAI / Microsoft Foundry](#azure-enterprise-only)
-- Amazon Bedrock
+- [Amazon Bedrock](#amazon-bedrock-enterprise-only)
 - Google Vertex (Gemini models)
 
 The UI will indicate whether each provider has been configured. If a provider is configured you will have the ability to modify or deconfigure it.
@@ -124,6 +124,32 @@ You can also optionally specify the API version (defaults to `2025-01-01-preview
 The service principal requires at minimum the `Cognitive Services OpenAI User` or `Cognitive Services User` role on the account to read deployments. Deployments are discovered automatically — each deployment's base model name becomes the model ID exposed to Obot.
 
 See the [Microsoft docs](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/configure-entra-id) for more details.
+
+#### Amazon Bedrock (Enterprise only)
+
+Obot supports two Amazon Bedrock providers, each with a different authentication method.
+
+:::note
+Both Bedrock providers use _AWS Bedrock Inference Profiles_ rather than direct on-demand model access. Inference profiles are resources that route model invocation requests and enable cost tracking — AWS provides system-defined cross-region inference profiles by default for supported models, so no manual setup is typically required. Only models with an available inference profile will appear in Obot. See the [AWS documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-use.html) for more details.
+:::
+
+##### Static Credentials
+
+Use the **Amazon Bedrock (Static Credentials)** provider to authenticate with long-lived AWS credentials.
+
+Obot requires:
+- **AWS Access Key ID** — your IAM user's access key
+- **AWS Secret Access Key** — your IAM user's secret key
+- **AWS Region** — the region where your inference profiles are configured (e.g. `us-east-1`)
+- **AWS Session Token** (optional) — required when using temporary security credentials from AWS STS (e.g. when assuming an IAM role or using federated access). Not needed for long-lived IAM user credentials.
+
+##### API Key
+
+Use the **Amazon Bedrock (API Key)** provider to authenticate with a Bedrock API key.
+
+Obot requires:
+- **API Key** — your Bedrock API key
+- **AWS Region** — the region where your inference profiles are configured (e.g. `us-east-1`)
 
 #### Ollama
 
