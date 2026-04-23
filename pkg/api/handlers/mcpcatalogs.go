@@ -150,12 +150,10 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 	}
 
 	// Reveal the existing single credential that holds all source-URL tokens.
-	existingCred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, mcpcataloghandler.CatalogCredentialToolName)
+	existingCred, err := req.GPTClient.RevealCredential(req.Context(), []string{catalog.Name}, mcpcataloghandler.CatalogCredentialToolName)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to reveal catalog credentials: %w", err)
 	}
-	
-	// Just use existingCred.Env
 
 	// Build the new token map from the active URLs.
 	// - "*" means keep the existing token for that URL.
@@ -177,7 +175,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 			// explicitly remove token for this URL
 		case "*":
 			// keep existing token (may have been for this URL or transferred from a renamed one)
-			if tok, ok := existingTokens[u]; ok {
+			if tok, ok := existingCred.Env[u]; ok {
 				newTokens[u] = tok
 			}
 		default:
@@ -189,7 +187,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		if _, mentioned := manifest.SourceURLCredentials[u]; mentioned {
 			continue
 		}
-		if tok, ok := existingTokens[u]; ok {
+		if tok, ok := existingCred.Env[u]; ok {
 			newTokens[u] = tok
 		}
 	}
@@ -210,7 +208,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		}); err != nil {
 			return fmt.Errorf("failed to store catalog credentials: %w", err)
 		}
-	} else if len(existingTokens) > 0 {
+	} else if len(existingCred.Env) > 0 {
 		// Had tokens before but none now — clean up.
 		if err := req.GPTClient.DeleteCredential(req.Context(), catalog.Name, mcpcataloghandler.CatalogCredentialToolName); err != nil {
 			if !errors.As(err, &gptscript.ErrNotFound{}) {
