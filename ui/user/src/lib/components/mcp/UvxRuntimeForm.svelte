@@ -2,6 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import type { UVXRuntimeConfig } from '$lib/services/chat/types';
 	import { Plus, Trash2 } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -9,8 +10,9 @@
 		readonly?: boolean;
 		showRequired?: Record<string, boolean>;
 		onFieldChange?: (field: string) => void;
+		children?: Snippet;
 	}
-	let { config = $bindable(), readonly, showRequired, onFieldChange }: Props = $props();
+	let { config = $bindable(), readonly, showRequired, onFieldChange, children }: Props = $props();
 
 	// Initialize args array if it doesn't exist
 	if (!config.args) {
@@ -74,7 +76,9 @@
 
 	<!-- Package field (required) -->
 	<div class="flex items-center gap-4">
-		<label for="uvx-package" class={twMerge('text-sm font-light', showRequired?.package && 'error')}
+		<label
+			for="uvx-package"
+			class={twMerge('text-sm font-light min-w-[76px]', showRequired?.package && 'error')}
 			>Package</label
 		>
 		<input
@@ -156,4 +160,6 @@
 			</div>
 		</div>
 	{/if}
+
+	{@render children?.()}
 </div>

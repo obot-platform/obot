@@ -97,12 +97,17 @@ type ResponseHandler = (
 
 export async function doDelete(
 	path: string,
-	opts?: { signal?: AbortSignal; dontLogErrors?: boolean; responseHandler?: ResponseHandler }
+	opts?: {
+		signal?: AbortSignal;
+		dontLogErrors?: boolean;
+		responseHandler?: ResponseHandler;
+		keepalive?: boolean;
+	}
 ): Promise<unknown> {
 	const resp = await fetch(baseURL + path, {
 		method: 'DELETE',
 		headers: getAuthHeaders(),
-		signal: opts?.signal
+		...(opts?.keepalive ? { keepalive: true } : { signal: opts?.signal })
 	});
 
 	if (!resp.ok && resp.status === 401) {

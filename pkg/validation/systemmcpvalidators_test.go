@@ -27,36 +27,34 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "invalid - remote runtime",
+			name: "valid remote runtime",
 			manifest: types.SystemMCPServerManifest{
 				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://example.com/mcp",
+				},
 			},
-			expectError: true,
-			errorField:  "runtime",
+			expectError: false,
 		},
 		{
-			name: "invalid - npx runtime",
+			name: "valid npx runtime",
 			manifest: types.SystemMCPServerManifest{
 				Runtime: types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{
+					Package: "@example/server",
+				},
 			},
-			expectError: true,
-			errorField:  "runtime",
+			expectError: false,
 		},
 		{
-			name: "invalid - uvx runtime",
+			name: "valid uvx runtime",
 			manifest: types.SystemMCPServerManifest{
 				Runtime: types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{
+					Package: "example-server",
+				},
 			},
-			expectError: true,
-			errorField:  "runtime",
-		},
-		{
-			name: "invalid - composite runtime",
-			manifest: types.SystemMCPServerManifest{
-				Runtime: types.RuntimeComposite,
-			},
-			expectError: true,
-			errorField:  "runtime",
+			expectError: false,
 		},
 		{
 			name: "invalid - missing containerized config",
@@ -102,6 +100,30 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 			},
 			expectError: true,
 			errorField:  "path",
+		},
+		{
+			name: "invalid - missing remote config",
+			manifest: types.SystemMCPServerManifest{
+				Runtime: types.RuntimeRemote,
+			},
+			expectError: true,
+			errorField:  "remoteConfig",
+		},
+		{
+			name: "invalid - missing npx config",
+			manifest: types.SystemMCPServerManifest{
+				Runtime: types.RuntimeNPX,
+			},
+			expectError: true,
+			errorField:  "npxConfig",
+		},
+		{
+			name: "invalid - missing uvx config",
+			manifest: types.SystemMCPServerManifest{
+				Runtime: types.RuntimeUVX,
+			},
+			expectError: true,
+			errorField:  "uvxConfig",
 		},
 	}
 

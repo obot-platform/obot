@@ -451,7 +451,6 @@
 	async function handleExportRequest(formType: 'export' | 'scheduled') {
 		// Check if there are any active filters
 		const hasActiveFilters = Object.keys(pillsSearchParamFilters).length > 0 || query;
-
 		if (hasActiveFilters) {
 			// Show confirmation dialog
 			pendingExportType = formType;
@@ -702,7 +701,7 @@
 	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
 		<Captions class="text-on-surface1 size-24 opacity-50" />
 		<h4 class="text-on-surface1 text-lg font-semibold">No audit logs</h4>
-		<p class="text-on-surface text-sm font-light">
+		<p class="text-on-surface1 text-sm font-light">
 			Currently, there are no audit logs for selected range or filters. Try modifying your search
 			criteria or try again later.
 		</p>

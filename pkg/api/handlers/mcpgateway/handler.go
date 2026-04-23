@@ -138,7 +138,7 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (s
 		return "", false, fmt.Errorf("failed to get system MCP server %q: %w", mcpID, err)
 	}
 
-	if !systemServer.Spec.Manifest.Enabled {
+	if systemServer.Spec.Manifest.Enabled != nil && !*systemServer.Spec.Manifest.Enabled {
 		return "", false, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "systemmcpserver"}, mcpID)
 	}
 
