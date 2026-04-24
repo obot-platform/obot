@@ -7,9 +7,10 @@
 		readonly?: boolean;
 		config?: MCPCatalogEntryFieldManifest[];
 		type?: LaunchServerType;
+		isPrebuiltEntry?: boolean;
 	}
 
-	let { readonly, config = $bindable(), type }: Props = $props();
+	let { readonly, config = $bindable(), type, isPrebuiltEntry }: Props = $props();
 </script>
 
 <!-- Environment Variables / Files Section -->
@@ -38,7 +39,7 @@
 									{ label: 'Environment Variable', id: 'environment_variable_type' },
 									{ label: 'File', id: 'file_type' }
 								]}
-								disabled={readonly}
+								disabled={readonly || isPrebuiltEntry}
 								selected={config[i].file ? 'file_type' : 'environment_variable_type'}
 								onSelect={(option) => {
 									if (option.id === 'file_type') {
@@ -77,7 +78,7 @@
 									id={`env-name-${i}`}
 									class="text-input-filled bg-background w-full shadow-none"
 									bind:value={config[i].name}
-									disabled={readonly}
+									disabled={readonly || isPrebuiltEntry}
 								/>
 							</div>
 							<div class="flex w-full flex-col gap-1">
@@ -86,7 +87,7 @@
 									id={`env-description-${i}`}
 									class="text-input-filled bg-background w-full shadow-none"
 									bind:value={config[i].description}
-									disabled={readonly}
+									disabled={readonly || isPrebuiltEntry}
 								/>
 							</div>
 							<div class="flex w-full flex-col gap-1">
@@ -96,16 +97,24 @@
 									class="text-input-filled bg-background w-full shadow-none"
 									bind:value={config[i].key}
 									placeholder="e.g. CUSTOM_API_KEY"
-									disabled={readonly}
+									disabled={readonly || isPrebuiltEntry}
 								/>
 							</div>
 							<div class="flex gap-8">
 								<label class="flex items-center gap-2">
-									<input type="checkbox" bind:checked={config[i].sensitive} disabled={readonly} />
+									<input
+										type="checkbox"
+										bind:checked={config[i].sensitive}
+										disabled={readonly || isPrebuiltEntry}
+									/>
 									<span class="text-sm">Sensitive</span>
 								</label>
 								<label class="flex items-center gap-2">
-									<input type="checkbox" bind:checked={config[i].required} disabled={readonly} />
+									<input
+										type="checkbox"
+										bind:checked={config[i].required}
+										disabled={readonly || isPrebuiltEntry}
+									/>
 									<span class="text-sm">Required</span>
 								</label>
 							</div>
@@ -117,7 +126,7 @@
 									class="text-input-filled bg-background w-full shadow-none"
 									bind:value={config[i].key}
 									placeholder="e.g. CUSTOM_API_KEY"
-									disabled={readonly}
+									disabled={readonly || isPrebuiltEntry}
 								/>
 							</div>
 							<div class="flex w-full flex-col gap-1">
@@ -143,7 +152,11 @@
 							</div>
 							<div class="flex w-full gap-4">
 								<label class="flex items-center gap-2">
-									<input type="checkbox" bind:checked={config[i].sensitive} disabled={readonly} />
+									<input
+										type="checkbox"
+										bind:checked={config[i].sensitive}
+										disabled={readonly || isPrebuiltEntry}
+									/>
 									<span class="text-sm">Sensitive</span>
 								</label>
 							</div>
@@ -156,6 +169,7 @@
 							onclick={() => {
 								config.splice(i, 1);
 							}}
+							disabled={isPrebuiltEntry}
 						>
 							<Trash2 class="size-4" />
 						</button>
@@ -181,6 +195,7 @@
 							});
 						}
 					}}
+					disabled={isPrebuiltEntry}
 				>
 					<Plus class="size-4" />
 					{type === 'single' ? 'User Configuration' : 'Configuration'}
