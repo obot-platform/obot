@@ -1,7 +1,7 @@
 package validation
 
 import (
-	"errors"
+	"cmp"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -11,7 +11,19 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-var hostnameRegex = regexp.MustCompile(`^(?:\*\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$`)
+var (
+	// toolNameRegex matches the character set allowed for composite
+	// component tools: ASCII letters, digits, underscore, hyphen, dot,
+	// and forward slash. Note that '.' and '/' produce a soft warning downstream
+	// (some MCP clients reject them) but are permitted here so admins who know
+	// their clients can use them.
+	toolNameRegex = regexp.MustCompile(`^[A-Za-z0-9._/-]*$`)
+	hostnameRegex = regexp.MustCompile(`^(?:\*\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$`)
+)
+
+// maxToolNameLength is the max length of an MCP server tool.
+// It's used to validate effective tool names after tool overrides and prefixes are applied.
+const maxToolNameLength = 128
 
 // RuntimeValidator defines the interface for validating runtime-specific configurations
 type RuntimeValidator interface {
@@ -518,7 +530,8 @@ func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) err
 		}
 	}
 
-	if len(manifest.CompositeConfig.ComponentServers) < 1 {
+	numComponents := len(manifest.CompositeConfig.ComponentServers)
+	if numComponents < 1 {
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeComposite,
 			Field:   "compositeConfig.componentServers",
@@ -526,8 +539,11 @@ func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) err
 		}
 	}
 
-	// Check for duplicate component servers
-	componentServerIDs := make(map[string]struct{}, len(manifest.CompositeConfig.ComponentServers))
+	var (
+		componentServerIDs = make(map[string]struct{}, numComponents)
+		toolPrefixes       = make(map[string]struct{}, numComponents)
+		effectiveToolNames = make(map[string]struct{})
+	)
 	for i, component := range manifest.CompositeConfig.ComponentServers {
 		// Ensure exactly one of CatalogEntryID or MCPServerID is set
 		hasCatalogEntry, hasServerID := component.CatalogEntryID != "", component.MCPServerID != ""
@@ -559,15 +575,77 @@ func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) err
 			}
 		}
 
-		// Validate tool overrides
-		if err := validateToolOverrides(component.ToolOverrides); err != nil {
-			return errors.Join(types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
-				Message: "tool overrides invalid",
-			}, err)
+		// Validate the tool prefix
+		prefix := component.ToolPrefix
+		if prefix != "" {
+			// Prevent duplicates
+			if _, ok := toolPrefixes[prefix]; ok {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolPrefix", i),
+					Message: fmt.Sprintf("duplicate toolPrefix: %s", prefix),
+				}
+			}
+			toolPrefixes[prefix] = struct{}{}
+
+			// Ensure the prefix is valid separately
+			if !toolNameRegex.MatchString(prefix) {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolPrefix", i),
+					Message: "toolPrefix must match " + toolNameRegex.String(),
+				}
+			}
 		}
 
+		// Validate tool overrides
+		for j, override := range component.ToolOverrides {
+			if override.Name == "" {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolOverrides[%d].name", i, j),
+					Message: "original tool name is required",
+				}
+			}
+
+			// For disabled tools, we don't care about validating the effective tool names
+			if !override.Enabled {
+				continue
+			}
+
+			// Compute the effective tool name
+			effectiveToolName := prefix + cmp.Or(override.OverrideName, override.Name)
+
+			// Validate length
+			if len(effectiveToolName) > maxToolNameLength {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolOverrides[%d]", i, j),
+					Message: fmt.Sprintf("effective tool name must be at most %d characters: %q", maxToolNameLength, effectiveToolName),
+				}
+			}
+
+			// Validate character set
+			if !toolNameRegex.MatchString(effectiveToolName) {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolOverrides[%d]", i, j),
+					Message: "effective tool name must match " + toolNameRegex.String(),
+				}
+			}
+
+			// Prevent effective duplicates (across entire composite)
+			if _, ok := effectiveToolNames[effectiveToolName]; ok {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolOverrides[%d]", i, j),
+					Message: fmt.Sprintf("duplicate tool name: %s", effectiveToolName),
+				}
+			}
+			effectiveToolNames[effectiveToolName] = struct{}{}
+		}
+
+		// Prevent duplicate component servers
 		componentID := component.ComponentID()
 		if _, ok := componentServerIDs[componentID]; ok {
 			return types.RuntimeValidationError{
@@ -599,7 +677,8 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 		}
 	}
 
-	if len(manifest.CompositeConfig.ComponentServers) < 1 {
+	numComponents := len(manifest.CompositeConfig.ComponentServers)
+	if numComponents < 1 {
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeComposite,
 			Field:   "compositeConfig.componentServers",
@@ -607,8 +686,11 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 		}
 	}
 
-	// Check for duplicate component servers
-	componentServerIDs := make(map[string]struct{}, len(manifest.CompositeConfig.ComponentServers))
+	var (
+		componentServerIDs = make(map[string]struct{}, numComponents)
+		toolPrefixes       = make(map[string]struct{}, numComponents)
+		effectiveToolNames = make(map[string]struct{})
+	)
 	for i, component := range manifest.CompositeConfig.ComponentServers {
 		// Ensure exactly one of CatalogEntryID or MCPServerID is set
 		hasCatalogEntry, hasServerID := component.CatalogEntryID != "", component.MCPServerID != ""
@@ -640,15 +722,77 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 			}
 		}
 
-		// Validate tool overrides
-		if err := validateToolOverrides(component.ToolOverrides); err != nil {
-			return errors.Join(types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
-				Message: "tool overrides invalid",
-			}, err)
+		// Validate the tool prefix
+		prefix := component.ToolPrefix
+		if prefix != "" {
+			// Prevent duplicates
+			if _, ok := toolPrefixes[prefix]; ok {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolPrefix", i),
+					Message: fmt.Sprintf("duplicate toolPrefix: %s", prefix),
+				}
+			}
+			toolPrefixes[prefix] = struct{}{}
+
+			// Ensure the prefix is valid separately
+			if !toolNameRegex.MatchString(prefix) {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolPrefix", i),
+					Message: "toolPrefix must match " + toolNameRegex.String(),
+				}
+			}
 		}
 
+		// Validate tool overrides
+		for j, override := range component.ToolOverrides {
+			if override.Name == "" {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolOverrides[%d].name", i, j),
+					Message: "original tool name is required",
+				}
+			}
+
+			// For disabled tools, we don't care about validating the effective tool names
+			if !override.Enabled {
+				continue
+			}
+
+			// Compute the effective tool name
+			effectiveToolName := prefix + cmp.Or(override.OverrideName, override.Name)
+
+			// Validate length
+			if len(effectiveToolName) > maxToolNameLength {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolOverrides[%d]", i, j),
+					Message: fmt.Sprintf("effective tool name must be at most %d characters: %q", maxToolNameLength, effectiveToolName),
+				}
+			}
+
+			// Validate character set
+			if !toolNameRegex.MatchString(effectiveToolName) {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolOverrides[%d]", i, j),
+					Message: "effective tool name must match " + toolNameRegex.String(),
+				}
+			}
+
+			// Prevent effective duplicates (across entire composite)
+			if _, ok := effectiveToolNames[effectiveToolName]; ok {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolOverrides[%d]", i, j),
+					Message: fmt.Sprintf("duplicate tool name: %s", effectiveToolName),
+				}
+			}
+			effectiveToolNames[effectiveToolName] = struct{}{}
+		}
+
+		// Prevent duplicate component servers
 		componentID := component.ComponentID()
 		if _, ok := componentServerIDs[componentID]; ok {
 			return types.RuntimeValidationError{
@@ -677,56 +821,6 @@ func (v CompositeValidator) ValidateSystemConfig(manifest types.SystemMCPServerM
 		Field:   "runtime",
 		Message: "composite runtime is not supported for system servers",
 	}
-}
-
-func validateToolOverrides(overrides []types.ToolOverride) error {
-	var (
-		toolNames    = make(map[string]struct{}, len(overrides))
-		exposedNames = make(map[string]struct{}, len(overrides))
-	)
-
-	for i, override := range overrides {
-		if override.Name == "" {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   fmt.Sprintf("toolOverrides[%d].name", i),
-				Message: "original tool name is required",
-			}
-		}
-
-		// Check for duplicate original names
-		if _, ok := toolNames[override.Name]; ok {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   fmt.Sprintf("toolOverrides[%d].name", i),
-				Message: fmt.Sprintf("duplicate tool name: %s", override.Name),
-			}
-		}
-		toolNames[override.Name] = struct{}{}
-
-		// For disabled tools, we don't care about exposed-name conflicts.
-		if !override.Enabled {
-			continue
-		}
-
-		// Compute the effective exposed name: override name if set, otherwise the original name.
-		effectiveName := override.OverrideName
-		if effectiveName == "" {
-			effectiveName = override.Name
-		}
-
-		// Check for duplicate exposed names among enabled tools.
-		if _, ok := exposedNames[effectiveName]; ok {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   fmt.Sprintf("toolOverrides[%d].overrideName", i),
-				Message: fmt.Sprintf("duplicate override name: %s", effectiveName),
-			}
-		}
-		exposedNames[effectiveName] = struct{}{}
-	}
-
-	return nil
 }
 
 // getRuntimeValidators returns a map of all available runtime validators

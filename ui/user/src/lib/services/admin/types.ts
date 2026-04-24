@@ -51,6 +51,7 @@ export interface CatalogComponentServer {
 	mcpServerID?: string;
 	manifest?: MCPCatalogEntryServerManifest;
 	toolOverrides?: ToolOverride[];
+	toolPrefix?: string;
 }
 
 export interface MCPCatalogEntryServerManifest {

@@ -2034,7 +2034,15 @@ func schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref common
 							},
 						},
 					},
+					"toolPrefix": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ToolPrefix is an optional prefix applied to the final name of each tool exposed by the component server",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
@@ -2227,6 +2235,13 @@ func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.Refere
 							},
 						},
 					},
+					"toolPrefix": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ToolPrefix is an optional prefix applied to the final name of each tool exposed by the component server",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"disabled": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Disabled indicates whether the component server should be included in the composite server at runtime",
@@ -2235,6 +2250,7 @@ func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.Refere
 						},
 					},
 				},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{

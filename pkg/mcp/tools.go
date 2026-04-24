@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -67,38 +68,32 @@ func ConvertTools(tools []mcp.Tool, allowedTools, unsupportedTools []string) ([]
 // ApplyToolOverrides applies ToolOverrides to a component's tool array,
 // filtering out disabled tools and applying name/description overrides.
 // If overrides are present, they act as an allowlist - only tools explicitly listed are included.
-func ApplyToolOverrides(tools []otypes.MCPServerTool, toolOverrides []otypes.ToolOverride) []otypes.MCPServerTool {
+// toolPrefix, if non-empty, is prepended to every returned tool's Name so previews
+// match what the composite server will expose via nanobot at runtime.
+func ApplyToolOverrides(tools []otypes.MCPServerTool, toolOverrides []otypes.ToolOverride, toolPrefix string) []otypes.MCPServerTool {
 	// Build lookup map: toolName -> ToolOverride
 	overrideMap := make(map[string]otypes.ToolOverride, len(toolOverrides))
 	for _, override := range toolOverrides {
 		overrideMap[override.Name] = override
 	}
 
-	hasOverrides := len(toolOverrides) > 0
-
-	transformedTools := make([]otypes.MCPServerTool, 0, len(tools))
+	var (
+		hasOverrides     = len(toolOverrides) > 0
+		transformedTools = make([]otypes.MCPServerTool, 0, len(tools))
+	)
 	for _, tool := range tools {
 		override, hasOverride := overrideMap[tool.Name]
-
-		// If overrides are defined, only include tools that are explicitly listed
-		if hasOverrides && !hasOverride {
+		if hasOverrides && (!hasOverride || !override.Enabled) {
+			// Omit the tool from the final tool set.
+			// Overrides have been set for the component and the tool either:
+			// - isn't present in the component's overrides (is likely net-new and wasn't available when the overrides were generated)
+			// - is explicitly disabled
 			continue
 		}
 
-		// If there's an override and the tool is explicitly disabled, skip it
-		if hasOverride && !override.Enabled {
-			continue
-		}
-
-		// Apply overrides
-		if hasOverride {
-			if override.OverrideName != "" {
-				tool.Name = override.OverrideName
-			}
-			if override.OverrideDescription != "" {
-				tool.Description = override.OverrideDescription
-			}
-		}
+		// Apply overrides and tool prefix if provided
+		tool.Name = toolPrefix + cmp.Or(override.OverrideName, tool.Name)
+		tool.Description = cmp.Or(override.OverrideDescription, tool.Description)
 
 		transformedTools = append(transformedTools, tool)
 	}

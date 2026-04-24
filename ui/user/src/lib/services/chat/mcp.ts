@@ -634,3 +634,104 @@ export const convertServerRuntimeFormDataToManifest = (
 
 	return serverManifest;
 };
+
+// deriveToolPrefix turns a human-readable component name into a sensible
+// default MCP tool-name prefix — lower_snake_case with a trailing underscore.
+// Returns "" when name is empty or contains no alphanumerics.
+export function deriveToolPrefix(name: string): string {
+	if (!name) return '';
+	const base = name
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '_')
+		.replace(/^_+|_+$/g, '');
+	return base ? `${base}_` : '';
+}
+
+// TOOL_NAME_CHARSET_REGEX mirrors the server-side charset check for composite
+// component tool names and prefixes (see pkg/validation/mcpvalidators.go's
+// toolNameRegex). '.' and '/' are permitted but trigger a soft warning on the
+// resulting effective tool names because some MCP clients don't support them.
+export const TOOL_NAME_CHARSET_REGEX = /^[A-Za-z0-9._/-]*$/;
+
+export type ToolNameIssue = { severity: 'warning' | 'error'; message: string };
+
+// effectiveToolName reconstructs the final name an MCP client will see for a
+// composite-component tool: prefix + (override name if set, otherwise original).
+export function effectiveToolName(
+	originalName: string,
+	overrideName: string | undefined,
+	toolPrefix: string | undefined
+): string {
+	const base = (overrideName ?? '').trim() || originalName;
+	return (toolPrefix ?? '') + base;
+}
+
+// toolNameIssue returns the highest-priority interop issue with an effective
+// tool name, or undefined if the name is clean. Callers pass the FINAL name
+// (prefix + override || original). Errors are checked before warnings; within
+// the same severity, first match wins.
+export function toolNameIssue(effectiveName: string): ToolNameIssue | undefined {
+	if (!TOOL_NAME_CHARSET_REGEX.test(effectiveName)) {
+		return { severity: 'error', message: 'Tool name contains invalid characters.' };
+	}
+	if (effectiveName.length > 128) {
+		return {
+			severity: 'error',
+			message: 'Tool name exceeds the maximum length of 128 characters.'
+		};
+	}
+	if (effectiveName.length > 64) {
+		return {
+			severity: 'warning',
+			message: `Tool names exceeding 64 characters aren't supported by some MCP clients and inference APIs.`
+		};
+	}
+	if (/[./]/.test(effectiveName)) {
+		return {
+			severity: 'warning',
+			message: `'.' and '/' in MCP server tool names are not supported by some clients.`
+		};
+	}
+	return undefined;
+}
+
+type ToolOverrideLike = { name: string; overrideName?: string; enabled?: boolean };
+type ComponentLike = { toolPrefix?: string; toolOverrides?: ToolOverrideLike[] };
+
+// compositeEffectiveToolNames returns every enabled tool's effective name
+// across the composite. Disabled tools are excluded because nanobot does not
+// expose them at runtime.
+export function compositeEffectiveToolNames(components: ComponentLike[] | undefined): string[] {
+	const out: string[] = [];
+	for (const comp of components ?? []) {
+		for (const t of comp.toolOverrides ?? []) {
+			if (t.enabled === false) continue;
+			out.push(effectiveToolName(t.name, t.overrideName, comp.toolPrefix));
+		}
+	}
+	return out;
+}
+
+// duplicateToolNames returns the set of names that appear more than once in
+// the input. Used to highlight final-name collisions across components.
+export function duplicateToolNames(names: string[]): Set<string> {
+	const counts = new Map<string, number>();
+	for (const n of names) {
+		counts.set(n, (counts.get(n) ?? 0) + 1);
+	}
+	const dups = new Set<string>();
+	for (const [n, c] of counts) {
+		if (c > 1) dups.add(n);
+	}
+	return dups;
+}
+
+// conflictIssue returns an error-severity issue when effectiveName appears in
+// the supplied duplicate set, otherwise undefined.
+export function conflictIssue(
+	effectiveName: string,
+	duplicates: Set<string>
+): ToolNameIssue | undefined {
+	if (!duplicates.has(effectiveName)) return undefined;
+	return { severity: 'error', message: 'Tool name is not unique.' };
+}

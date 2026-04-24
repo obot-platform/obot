@@ -338,6 +338,7 @@ export interface ComponentServer {
 	mcpServerID?: string;
 	manifest?: MCPServer;
 	toolOverrides?: ToolOverride[];
+	toolPrefix?: string;
 	disabled?: boolean;
 }
 

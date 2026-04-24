@@ -7,7 +7,17 @@
 		type MCPCatalogServer,
 		type CompositeServerToolRow
 	} from '$lib/services';
+	import {
+		compositeEffectiveToolNames,
+		conflictIssue,
+		duplicateToolNames,
+		effectiveToolName,
+		TOOL_NAME_CHARSET_REGEX,
+		toolNameIssue,
+		type ToolNameIssue
+	} from '$lib/services/chat/mcp';
 	import Toggle from '../Toggle.svelte';
+	import ToolNameIssueIcon from './ToolNameIssueIcon.svelte';
 	import CompositeToolsSetup from './composite/CompositeSelectServerAndToolsSetup.svelte';
 	import {
 		Plus,
@@ -20,7 +30,7 @@
 		RefreshCcw
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { SvelteMap } from 'svelte/reactivity';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';
 
 	interface Props {
@@ -28,9 +38,19 @@
 		config: CompositeCatalogConfig;
 		readonly?: boolean;
 		catalogId?: string;
+		// Bound true when any tool's effective name fails a blocking check
+		// (length > 128 or cross-component duplicate). Parent forms read this
+		// to gate the Save button.
+		hasToolNameErrors?: boolean;
 	}
 
-	let { config = $bindable(), readonly, catalogId, id }: Props = $props();
+	let {
+		config = $bindable(),
+		readonly,
+		catalogId,
+		id,
+		hasToolNameErrors = $bindable(false)
+	}: Props = $props();
 	let componentEntries = $state<MCPCatalogEntry[]>([]);
 	const componentServers = new SvelteMap<string, MCPCatalogServer>();
 	let expanded = $state<Record<string, boolean>>({});
@@ -48,6 +68,97 @@
 	let initialComponentIds = $state<Set<string>>(new Set());
 
 	let compositeToolsSetupDialog = $state<ReturnType<typeof CompositeToolsSetup>>();
+
+	// All enabled effective tool names across every component. Used to detect
+	// cross-component final-name duplicates and to seed `otherEffectiveNames`
+	// for the edit-tools modal.
+	let allEnabledEffectiveNames = $derived(compositeEffectiveToolNames(config.componentServers));
+	let effectiveNameDuplicates = $derived(duplicateToolNames(allEnabledEffectiveNames));
+
+	// Set of non-empty prefixes that appear on more than one component. Matches
+	// the backend cross-component uniqueness check in pkg/validation.
+	let duplicatePrefixes = $derived.by(() => {
+		const counts = new SvelteMap<string, number>();
+		for (const c of config.componentServers ?? []) {
+			const p = (c.toolPrefix ?? '').trim();
+			if (!p) continue;
+			counts.set(p, (counts.get(p) ?? 0) + 1);
+		}
+		const out = new SvelteSet<string>();
+		for (const [p, n] of counts) if (n > 1) out.add(p);
+		return out;
+	});
+
+	// Effective names from all components EXCEPT the one currently being
+	// configured in the tools-setup dialog. Passed into the dialog so it can
+	// flag cross-component conflicts while the admin is still editing.
+	let otherEffectiveNames = $derived.by(() => {
+		if (!configuringComponentId) return allEnabledEffectiveNames;
+		return compositeEffectiveToolNames(
+			(config.componentServers || []).filter((c) => getComponentId(c) !== configuringComponentId)
+		);
+	});
+	let otherToolPrefixes = $derived.by(() => {
+		return (config.componentServers || [])
+			.filter((c) => getComponentId(c) !== configuringComponentId)
+			.map((c) => (c.toolPrefix ?? '').trim())
+			.filter(Boolean);
+	});
+
+	// Highest severity issue on a single tool row (includes cross-component
+	// conflicts via the shared duplicate set).
+	function toolRowSeverity(
+		original: string,
+		overrideName: string | undefined,
+		prefix: string | undefined,
+		enabled: boolean | undefined
+	): 'warning' | 'error' | undefined {
+		if (enabled === false) return undefined;
+		const name = effectiveToolName(original, overrideName, prefix);
+		return (conflictIssue(name, effectiveNameDuplicates) ?? toolNameIssue(name))?.severity;
+	}
+
+	function prefixIssue(entry: { toolPrefix?: string }): ToolNameIssue | undefined {
+		const p = (entry.toolPrefix ?? '').trim();
+		if (!TOOL_NAME_CHARSET_REGEX.test(entry.toolPrefix ?? '')) {
+			return {
+				severity: 'error',
+				message: "Prefix may only contain letters, digits, '.', '/', '_', and '-'."
+			};
+		}
+		if (p && duplicatePrefixes.has(p)) {
+			return {
+				severity: 'error',
+				message: `Another component already uses the prefix "${p}". Non-empty prefixes must be unique across components.`
+			};
+		}
+		return undefined;
+	}
+
+	// Component-card aggregate: highest severity among all enabled tools and
+	// the component's own prefix state. Prefix issues are always errors.
+	function componentSeverity(entry: {
+		toolOverrides?: { name: string; overrideName?: string; enabled?: boolean }[];
+		toolPrefix?: string;
+	}): 'warning' | 'error' | undefined {
+		if (prefixIssue(entry)) return 'error';
+		let out: 'warning' | 'error' | undefined;
+		for (const t of entry.toolOverrides ?? []) {
+			const s = toolRowSeverity(t.name, t.overrideName, entry.toolPrefix, t.enabled);
+			if (s === 'error') return 'error';
+			if (s === 'warning') out = 'warning';
+		}
+		return out;
+	}
+
+	$effect(() => {
+		hasToolNameErrors = (config.componentServers || []).some((entry) => {
+			if (prefixIssue(entry)) return true;
+			return (entry.toolOverrides ?? []).some(
+				(t) => toolRowSeverity(t.name, t.overrideName, entry.toolPrefix, t.enabled) === 'error'
+			);
+		});
+	});
 
 	const excluded = $derived([
 		...(config?.componentServers ?? []).map((c) => getComponentId(c)),
@@ -235,6 +346,7 @@
 		{:else if config.componentServers.length > 0}
 			{#each config.componentServers as entry (getComponentId(entry))}
 				{@const componentId = getComponentId(entry)}
+				{@const headerSeverity = componentSeverity(entry)}
 				<div
 					class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-gray-200 bg-gray-50"
 				>
@@ -244,8 +356,16 @@
 						{:else}
 							<Server class="text-on-surface1 size-8" />
 						{/if}
-						<div class="flex-1">
+						<div class="flex flex-1 items-center gap-1.5">
 							<div class="font-medium">{entry.manifest?.name || 'Unnamed Server'}</div>
+							{#if headerSeverity}
+								<ToolNameIssueIcon
+									issue={{
+										severity: headerSeverity,
+										message: 'This component needs attention — expand for details.'
+									}}
+								/>
+							{/if}
 						</div>
 						{#if entry.toolOverrides?.length && !readonly}
 							<button
@@ -277,7 +397,42 @@
 						{/if}
 					</div>
 					{#if expanded[componentId]}
+						{@const issue = prefixIssue(entry)}
 						<div class="border-t border-gray-200 p-3" in:slide={{ axis: 'y' }}>
+							<div class="mb-3 flex flex-col gap-1">
+								<p class="flex items-center gap-1.5 text-xs text-gray-500">
+									<span>Tool name prefix</span>
+									{#if issue}
+										<ToolNameIssueIcon {issue} />
+									{/if}
+								</p>
+								<div class="flex items-center gap-2">
+									<input
+										class="text-input-filled flex-1 text-sm"
+										placeholder="No prefix"
+										disabled={readonly}
+										bind:value={entry.toolPrefix}
+									/>
+									{#if !readonly}
+										<button
+											type="button"
+											class="button px-3 py-1 text-xs"
+											onclick={() => {
+												entry.toolPrefix = '';
+											}}
+										>
+											Clear
+										</button>
+									{/if}
+								</div>
+								{#if issue}
+									<p class="text-xs text-red-500">{issue.message}</p>
+								{:else}
+									<p class="text-on-surface2 text-[11px]">
+										Prepended to every tool name exposed by this component. Clear to remove.
+									</p>
+								{/if}
+							</div>
 							{#if !populatedByEntry[componentId]}
 								<div class="flex flex-col items-center justify-center pb-2">
 									<p class="text-on-surface1 text-sm font-light">
@@ -316,6 +471,15 @@
 											(tool.overrideDescription || '').trim() || tool.description}
 										{@const isCustomized =
 											currentName !== tool.name || currentDescription !== tool.description}
+										{@const effectiveName = effectiveToolName(
+											tool.name,
+											tool.overrideName,
+											entry.toolPrefix
+										)}
+										{@const conflict =
+											tool.enabled !== false
+												? conflictIssue(effectiveName, effectiveNameDuplicates)
+												: undefined}
 
 										<div
 											class="dark:bg-surface2 dark:border-surface3 flex items-start gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
@@ -323,8 +487,17 @@
 											<div class="flex min-w-0 grow flex-col gap-2">
 												<div class="flex items-start justify-between gap-2">
 													<div class="min-w-0">
-														<div class="truncate text-sm font-medium" title={currentName}>
-															{currentName}
+														<div class="flex items-center gap-1.5">
+															<div class="truncate text-sm font-medium" title={effectiveName}>
+																{#if entry.toolPrefix}<span class="text-on-surface2"
+																		>{entry.toolPrefix}</span
+																	>{/if}{currentName}
+															</div>
+															{#if tool.enabled !== false}
+																<ToolNameIssueIcon
+																	issue={conflict ?? toolNameIssue(effectiveName)}
+																/>
+															{/if}
 														</div>
 														{#if currentDescription}
 															<p class="line-clamp-2 text-xs" title={currentDescription}>
@@ -450,6 +623,11 @@
 	componentId={configuringComponentId}
 	isNewComponent={configuringIsNewComponent}
 	existingTools={toolsToEdit}
+	existingToolPrefix={(config.componentServers || []).find(
+		(c) => getComponentId(c) === configuringComponentId
+	)?.toolPrefix}
+	{otherEffectiveNames}
+	{otherToolPrefixes}
 	onCancel={() => {
 		if (configuringEntry) {
 			loadingByEntry[configuringEntry.id] = false;

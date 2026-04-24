@@ -1523,6 +1523,7 @@ func serverManifestFromCatalogEntryManifest(
 				MCPServerID:    entryComponent.MCPServerID,
 				CatalogEntryID: entryComponent.CatalogEntryID,
 				ToolOverrides:  entryComponent.ToolOverrides,
+				ToolPrefix:     entryComponent.ToolPrefix,
 				Disabled:       inputComponent.Disabled,
 				Manifest:       resultComponentManifest,
 			})

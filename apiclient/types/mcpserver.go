@@ -70,9 +70,11 @@ type CatalogComponentServer struct {
 	// MCPServerID if set, reference the multi-user MCP server the component server proxies to
 	MCPServerID string `json:"mcpServerID,omitempty"`
 	// Manifest is the catalog entry manifest of the component server
-	Manifest MCPServerCatalogEntryManifest `json:"manifest,omitempty"`
+	Manifest MCPServerCatalogEntryManifest `json:"manifest,omitzero"`
 	// ToolOverrides restrict the tools exposed by the component server
 	ToolOverrides []ToolOverride `json:"toolOverrides,omitempty"`
+	// ToolPrefix is an optional prefix applied to the final name of each tool exposed by the component server
+	ToolPrefix string `json:"toolPrefix,omitempty"`
 }
 
 // ComponentID returns the ID of the component server.
@@ -95,9 +97,11 @@ type ComponentServer struct {
 	// MCPServerID if set, reference the multi-user MCP server the component server proxies to
 	MCPServerID string `json:"mcpServerID,omitempty"`
 	// Manifest is the runtime manifest of the component server
-	Manifest MCPServerManifest `json:"manifest,omitempty"`
+	Manifest MCPServerManifest `json:"manifest,omitzero"`
 	// ToolOverrides restrict the tools exposed by the component server
 	ToolOverrides []ToolOverride `json:"toolOverrides,omitempty"`
+	// ToolPrefix is an optional prefix applied to the final name of each tool exposed by the component server
+	ToolPrefix string `json:"toolPrefix,omitempty"`
 	// Disabled indicates whether the component server should be included in the composite server at runtime
 	Disabled bool `json:"disabled,omitempty"`
 }

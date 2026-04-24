@@ -941,7 +941,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 				return fmt.Errorf("failed to list tools for MCP server %q: %w", mcpServer.Name, err)
 			}
 
-			transformedTools := mcp.ApplyToolOverrides(tools, componentEntry.ToolOverrides)
+			transformedTools := mcp.ApplyToolOverrides(tools, componentEntry.ToolOverrides, componentEntry.ToolPrefix)
 			compositeToolPreviews = append(compositeToolPreviews, transformedTools...)
 			continue
 		}
@@ -1006,7 +1006,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 		}
 
 		// Apply tool overrides before aggregating
-		transformedTools := mcp.ApplyToolOverrides(toolPreview, componentEntry.ToolOverrides)
+		transformedTools := mcp.ApplyToolOverrides(toolPreview, componentEntry.ToolOverrides, componentEntry.ToolPrefix)
 
 		compositeToolPreviews = append(compositeToolPreviews, transformedTools...)
 	}

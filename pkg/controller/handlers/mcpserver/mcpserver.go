@@ -238,6 +238,11 @@ func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entry
 			return true, nil
 		}
 
+		// Compare tool prefix
+		if serverComponent.ToolPrefix != entryComponent.ToolPrefix {
+			return true, nil
+		}
+
 		// Compare tool overrides
 		if hash.Digest(serverComponent.ToolOverrides) != hash.Digest(entryComponent.ToolOverrides) {
 			return true, nil
