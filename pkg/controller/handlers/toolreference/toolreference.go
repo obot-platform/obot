@@ -397,7 +397,6 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 	if err != nil {
 		return err
 	}
-	var credEnv map[string]string
 	if len(mps.RequiredConfigurationParameters) > 0 {
 		cred, err := h.gptClient.RevealCredential(req.Ctx, []string{string(toolRef.UID), system.GenericModelProviderCredentialContext}, toolRef.Name)
 		if err != nil {
@@ -407,7 +406,6 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 			}
 			return err
 		}
-		credEnv = cred.Env
 		mps, err = providers.ConvertModelProviderToolRef(*toolRef, cred.Env)
 		if err != nil {
 			return err
@@ -426,7 +424,7 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		}
 	}
 
-	availableModels, err := h.dispatcher.ModelsForProviderWithEnv(req.Ctx, h.gptClient, req.Namespace, req.Name, credEnv)
+	availableModels, err := h.dispatcher.ModelsForProvider(req.Ctx, h.gptClient, req.Namespace, req.Name)
 	if err != nil {
 		// Don't error and retry because it will likely fail again. Log the error, and the user can re-sync manually.
 		// Also, the toolRef.Status.Error field will bubble up to the user in the UI.
