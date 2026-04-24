@@ -69,6 +69,11 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 
 	mcpServerName := system.MCPServerPrefix + agent.Name
 
+	expectedArgs := []string{"run", "--state", ".nanobot/state/nanobot.db", "--config", ".nanobot/", "--config", "${NANOBOT_CONFIG_FILE}"}
+	if agent.Spec.DefaultAgent != "" {
+		expectedArgs = append(expectedArgs, "--agent", agent.Spec.DefaultAgent)
+	}
+
 	// Check if MCPServer already exists
 	var existing v1.MCPServer
 	err := req.Get(&existing, agent.Namespace, mcpServerName)
@@ -94,12 +99,6 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 			needsUpdate = true
 		}
 
-		// Check if default agent changed
-		expectedArgs := []string{"run", "--state", ".nanobot/state/nanobot.db"}
-		if agent.Spec.DefaultAgent != "" {
-			expectedArgs = append(expectedArgs, "--agent", agent.Spec.DefaultAgent)
-		}
-
 		expectedEnv := []types.MCPEnv{
 			{
 				MCPHeader: types.MCPHeader{
@@ -114,9 +113,9 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 			},
 			{
 				MCPHeader: types.MCPHeader{
-					Name:        "NANOBOT_CONFIG",
+					Name:        "NANOBOT_CONFIG_FILE",
 					Description: "Provider config YAML for Nanobot",
-					Key:         "NANOBOT_CONFIG",
+					Key:         "NANOBOT_CONFIG_FILE",
 					Sensitive:   true,
 					Required:    true,
 				},
@@ -161,12 +160,6 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 		return fmt.Errorf("failed to check for existing MCPServer: %w", err)
 	}
 
-	// Create new MCPServer
-	args := []string{"run", "--state", ".nanobot/state/nanobot.db"}
-	if agent.Spec.DefaultAgent != "" {
-		args = append(args, "--agent", agent.Spec.DefaultAgent)
-	}
-
 	mcpServer := &v1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mcpServerName,
@@ -183,7 +176,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
 					Image:   h.nanobotImage,
 					Command: "nanobot",
-					Args:    args,
+					Args:    expectedArgs,
 					Port:    8080,
 					Path:    "/mcp",
 				},
@@ -201,9 +194,9 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 					},
 					{
 						MCPHeader: types.MCPHeader{
-							Name:        "NANOBOT_CONFIG",
+							Name:        "NANOBOT_CONFIG_FILE",
 							Description: "Provider config YAML for Nanobot",
-							Key:         "NANOBOT_CONFIG",
+							Key:         "NANOBOT_CONFIG_FILE",
 							Sensitive:   true,
 							Required:    true,
 						},
@@ -294,7 +287,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	if !needsRefresh &&
 		credEnvFileVars["NANOBOT_DEFAULT_MODEL"] == llmDefault &&
 		credEnvFileVars["NANOBOT_DEFAULT_MINI_MODEL"] == miniDefault &&
-		cred.Env["NANOBOT_CONFIG"] == providerYAML {
+		cred.Env["NANOBOT_CONFIG_FILE"] == providerYAML {
 		// Credentials are up to date
 		return nil
 	}
@@ -378,8 +371,8 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		ToolName: mcpServerName,
 		Type:     gptscript.CredentialTypeTool,
 		Env: map[string]string{
-			"NANOBOT_ENV_FILE": strings.Join(envFileLines, "\n"),
-			"NANOBOT_CONFIG":   providerYAML,
+			"NANOBOT_ENV_FILE":    strings.Join(envFileLines, "\n"),
+			"NANOBOT_CONFIG_FILE": providerYAML,
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
