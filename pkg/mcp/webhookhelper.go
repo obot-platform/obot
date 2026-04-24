@@ -26,6 +26,7 @@ type Webhook struct {
 	URL               string
 	ToolName          string
 	Definitions       []string
+	MutateAllowed     bool
 }
 
 func (wh *WebhookHelper) GetWebhooksForMCPServer(serverConfig ServerConfig) ([]Webhook, error) {
@@ -87,11 +88,12 @@ func (wh *WebhookHelper) appendWebhooks(namespace string, objs []any, seen map[s
 			}
 
 			result = append(result, Webhook{
-				Name:        res.Name,
-				DisplayName: displayName,
-				URL:         url,
-				ToolName:    toolName,
-				Definitions: res.Spec.Manifest.Selectors.Strings(),
+				Name:          res.Name,
+				DisplayName:   displayName,
+				URL:           url,
+				ToolName:      toolName,
+				Definitions:   res.Spec.Manifest.Selectors.Strings(),
+				MutateAllowed: res.Spec.Manifest.AllowedToMutate,
 			})
 		}
 	}
