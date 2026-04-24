@@ -208,7 +208,7 @@ export async function listMcpCatalogServerInstances(
 	return response.items ?? [];
 }
 
-export async function getMCPCatalogServerK8sSettingsStatus(
+export async function getMCPCatalogEntryServerK8sSettingsStatus(
 	entryID: string,
 	serverID: string,
 	opts?: { dontLogErrors?: boolean }
@@ -919,12 +919,12 @@ export async function restartK8sDeployment(mcpServerId: string, opts?: { fetch?:
 	await doPost(`/mcp-servers/${mcpServerId}/restart`, {}, opts);
 }
 
-export async function getK8sSettingsStatus(
+export async function getMcpCatalogServerK8sSettingsStatus(
 	mcpServerId: string,
 	opts?: { dontLogErrors?: boolean }
 ) {
 	const response = (await doGet(
-		`/mcp-servers/${mcpServerId}/k8s-settings-status`,
+		`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/servers/${mcpServerId}/k8s-settings-status`,
 		opts
 	)) as ServerK8sSettings;
 	return response;
