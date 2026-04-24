@@ -146,6 +146,10 @@ func desiredSystemServer(webhookValidation *v1.MCPWebhookValidation, image strin
 		}
 	}
 
+	if manifest.Name == "" {
+		manifest.Name = webhookValidation.Spec.Manifest.Name
+	}
+
 	return v1.SystemMCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       system.SystemMCPServerPrefix + webhookValidation.Name,
