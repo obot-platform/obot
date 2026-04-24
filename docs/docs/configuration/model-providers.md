@@ -94,7 +94,7 @@ Use the **Azure (Entra ID)** provider for service principal authentication via M
 ```bash
 az ad sp create-for-rbac --name "<sp-name>" \
   --role "Cognitive Services OpenAI User" \
-  --scopes /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<account-name>
+  --scopes /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<resource-name>
 ```
 
 This outputs the `appId` (Client ID), `password` (Client Secret), and `tenant` (Tenant ID) needed below.
@@ -103,7 +103,7 @@ This outputs the `appId` (Client ID), `password` (Client Secret), and `tenant` (
 
 ```bash
 az cognitiveservices account show \
-  --name <account-name> \
+  --name <resource-name> \
   --resource-group <resource-group> \
   --query "{endpoint:properties.endpoint, id:id}"
 ```
