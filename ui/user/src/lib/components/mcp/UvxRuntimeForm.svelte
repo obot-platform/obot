@@ -7,12 +7,20 @@
 
 	interface Props {
 		config: UVXRuntimeConfig;
+		startupTimeoutSeconds?: number;
 		readonly?: boolean;
 		showRequired?: Record<string, boolean>;
 		onFieldChange?: (field: string) => void;
 		children?: Snippet;
 	}
-	let { config = $bindable(), readonly, showRequired, onFieldChange, children }: Props = $props();
+	let {
+		config = $bindable(),
+		startupTimeoutSeconds = $bindable(),
+		readonly,
+		showRequired,
+		onFieldChange,
+		children
+	}: Props = $props();
 
 	// Initialize args array if it doesn't exist
 	if (!config.args) {
@@ -160,6 +168,20 @@
 			</div>
 		</div>
 	{/if}
+
+	<!-- Startup Timeout -->
+	<div class="flex items-center gap-4">
+		<label for="uvx-startup-timeout" class="text-sm font-light">Startup Timeout (seconds)</label>
+		<input
+			type="number"
+			id="uvx-startup-timeout"
+			min="1"
+			placeholder="60"
+			bind:value={startupTimeoutSeconds}
+			class="text-input-filled dark:bg-background w-32"
+			disabled={readonly}
+		/>
+	</div>
 
 	{@render children?.()}
 </div>

@@ -20,6 +20,8 @@ type SystemMCPServerManifest struct {
 	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
+
+	StartupTimeoutSeconds int `json:"startupTimeoutSeconds,omitempty"`
 }
 
 type SystemMCPServer struct {

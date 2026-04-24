@@ -72,6 +72,8 @@ export interface MCPCatalogEntryServerManifest {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin;
 	compositeConfig?: CompositeCatalogConfig;
+
+	startupTimeoutSeconds?: number;
 }
 
 export interface MCPCatalogEntry {
@@ -136,6 +138,8 @@ export interface RuntimeFormData {
 	remoteServerConfig?: RemoteRuntimeConfigAdmin; // For servers
 	compositeConfig?: CompositeCatalogConfig; // For catalog entries
 	compositeServerConfig?: CompositeRuntimeConfig; // For servers
+
+	startupTimeoutSeconds?: number;
 }
 
 export interface MCPCatalogServerManifest {

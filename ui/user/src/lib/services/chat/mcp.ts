@@ -588,7 +588,10 @@ export const convertServerRuntimeFormDataToManifest = (
 			icon: baseData.icon,
 			env: baseData.env,
 			runtime: baseData.runtime,
-			...convertCategoriesToMetadata(categories)
+			...convertCategoriesToMetadata(categories),
+			...(baseData.startupTimeoutSeconds
+				? { startupTimeoutSeconds: baseData.startupTimeoutSeconds }
+				: {})
 		}
 	};
 
