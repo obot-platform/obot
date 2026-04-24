@@ -9,7 +9,6 @@ import (
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
-	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,6 +21,8 @@ const (
 	serviceAccountOverlapWindow    = time.Hour
 	serviceAccountRotationPeriod   = time.Minute
 )
+
+var errRuntimeK8sConfigUnavailable = errors.New("runtime Kubernetes config is not configured")
 
 func (c *Controller) runServiceAccountKeyRotation(ctx context.Context) {
 	if err := c.reconcileServiceAccountKeys(ctx); err != nil {
@@ -141,7 +142,7 @@ func (c *Controller) getServiceAccountSecretToken(ctx context.Context, account s
 		return "", nil, nil
 	}
 
-	runtimeClient, err := c.runtimeK8sClient(ctx)
+	runtimeClient, err := c.runtimeK8sClient()
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to build runtime client: %w", err)
 	}
@@ -157,11 +158,11 @@ func (c *Controller) getServiceAccountSecretToken(ctx context.Context, account s
 		return "", nil, fmt.Errorf("failed to read secret %s/%s: %w", c.runtimeNamespace(), account.SecretName, err)
 	}
 
-	return string(secret.Data[serviceaccounts.NetworkPolicySecretKey]), secret, nil
+	return string(secret.Data[account.SecretKey]), secret, nil
 }
 
 func (c *Controller) writeServiceAccountSecret(ctx context.Context, account serviceaccounts.Account, existing *corev1.Secret, token string, rotatedAt, expiresAt time.Time) error {
-	runtimeClient, err := c.runtimeK8sClient(ctx)
+	runtimeClient, err := c.runtimeK8sClient()
 	if err != nil {
 		return fmt.Errorf("failed to build runtime client: %w", err)
 	}
@@ -180,10 +181,10 @@ func (c *Controller) writeServiceAccountSecret(ctx context.Context, account serv
 	secret.Labels["app.kubernetes.io/name"] = "obot"
 	secret.Type = corev1.SecretTypeOpaque
 	secret.Data = map[string][]byte{
-		serviceaccounts.NetworkPolicySecretKey: []byte(token),
-		serviceaccounts.ServiceAccountNameKey:  []byte(account.Name),
-		serviceaccounts.RotatedAtKey:           []byte(rotatedAt.UTC().Format(time.RFC3339)),
-		serviceaccounts.ExpiresAtKey:           []byte(expiresAt.UTC().Format(time.RFC3339)),
+		account.SecretKey:                     []byte(token),
+		serviceaccounts.ServiceAccountNameKey: []byte(account.Name),
+		serviceaccounts.RotatedAtKey:          []byte(rotatedAt.UTC().Format(time.RFC3339)),
+		serviceaccounts.ExpiresAtKey:          []byte(expiresAt.UTC().Format(time.RFC3339)),
 	}
 
 	if create {
@@ -193,7 +194,10 @@ func (c *Controller) writeServiceAccountSecret(ctx context.Context, account serv
 }
 
 func (c *Controller) deleteServiceAccountSecret(ctx context.Context, account serviceaccounts.Account) error {
-	runtimeClient, err := c.runtimeK8sClient(ctx)
+	runtimeClient, err := c.runtimeK8sClient()
+	if errors.Is(err, errRuntimeK8sConfigUnavailable) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("failed to build runtime client: %w", err)
 	}
@@ -222,17 +226,16 @@ func (c *Controller) runtimeNamespace() string {
 	return system.DefaultNamespace
 }
 
-func (c *Controller) runtimeK8sClient(ctx context.Context) (kclient.Client, error) {
+func (c *Controller) runtimeK8sClient() (kclient.Client, error) {
 	if c.runtimeClient != nil {
 		return c.runtimeClient, nil
 	}
 
-	cfg, err := services.BuildLocalK8sConfig()
-	if err != nil {
-		return nil, err
+	if c.services.LocalK8sConfig == nil {
+		return nil, errRuntimeK8sConfigUnavailable
 	}
 
-	client, err := kclient.New(cfg, kclient.Options{
+	client, err := kclient.New(c.services.LocalK8sConfig, kclient.Options{
 		Scheme: scheme.Scheme,
 	})
 	if err != nil {

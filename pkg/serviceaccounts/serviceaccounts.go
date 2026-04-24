@@ -23,6 +23,7 @@ type Account struct {
 	UID                string
 	Group              string
 	SecretName         string
+	SecretKey          string
 	SecretManaged      bool
 	RequiredMCPBackend string
 }
@@ -34,6 +35,7 @@ var accounts = map[string]Account{
 		UID:                "system:serviceaccount:" + NetworkPolicyProvider,
 		Group:              fmt.Sprintf("%s:%s", Group, NetworkPolicyProvider),
 		SecretName:         NetworkPolicySecretName,
+		SecretKey:          NetworkPolicySecretKey,
 		SecretManaged:      true,
 		RequiredMCPBackend: "kubernetes",
 	},

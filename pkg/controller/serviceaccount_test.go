@@ -85,7 +85,7 @@ func TestReconcileServiceAccountKeyBootstrapsSecret(t *testing.T) {
 	if string(secret.Data[serviceaccounts.ServiceAccountNameKey]) != account.Name {
 		t.Fatalf("expected secret serviceAccountName=%q, got %q", account.Name, secret.Data[serviceaccounts.ServiceAccountNameKey])
 	}
-	if _, err := gatewayClient.ValidateStorageServiceAccountToken(ctx, string(secret.Data[serviceaccounts.NetworkPolicySecretKey])); err != nil {
+	if _, err := gatewayClient.ValidateStorageServiceAccountToken(ctx, string(secret.Data[account.SecretKey])); err != nil {
 		t.Fatalf("expected secret token to validate, got %v", err)
 	}
 }
@@ -115,7 +115,7 @@ func TestReconcileServiceAccountKeyRotatesWithOverlap(t *testing.T) {
 	}, secret); err != nil {
 		t.Fatalf("failed to read service account secret: %v", err)
 	}
-	oldToken := string(secret.Data[serviceaccounts.NetworkPolicySecretKey])
+	oldToken := string(secret.Data[account.SecretKey])
 
 	controller.now = func() time.Time { return base.Add(11 * time.Hour) }
 	if err := controller.reconcileServiceAccountKey(ctx, account); err != nil {
@@ -128,7 +128,7 @@ func TestReconcileServiceAccountKeyRotatesWithOverlap(t *testing.T) {
 	}, secret); err != nil {
 		t.Fatalf("failed to read rotated service account secret: %v", err)
 	}
-	newToken := string(secret.Data[serviceaccounts.NetworkPolicySecretKey])
+	newToken := string(secret.Data[account.SecretKey])
 	if newToken == oldToken {
 		t.Fatal("expected rotation to write a new token to the secret")
 	}
@@ -205,8 +205,7 @@ func TestReconcileServiceAccountKeysSkipsWhenBackendNotKubernetes(t *testing.T) 
 			GatewayClient:     gatewayClient,
 			MCPRuntimeBackend: "docker",
 		},
-		runtimeClient: newRuntimeSecretClient(),
-		now:           func() time.Time { return base },
+		now: func() time.Time { return base },
 	}
 
 	account, _ := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)
@@ -222,12 +221,8 @@ func TestReconcileServiceAccountKeysSkipsWhenBackendNotKubernetes(t *testing.T) 
 		t.Fatalf("expected no keys to be created for non-kubernetes backend, got %d", len(keys))
 	}
 
-	secret := &corev1.Secret{}
-	if err := controller.runtimeClient.Get(ctx, kclient.ObjectKey{
-		Namespace: controller.runtimeNamespace(),
-		Name:      account.SecretName,
-	}, secret); err == nil {
-		t.Fatal("expected no secret to be created for non-kubernetes backend")
+	if controller.runtimeClient != nil {
+		t.Fatal("expected no runtime client to be created for non-kubernetes backend")
 	}
 }
 
@@ -248,7 +243,7 @@ func TestReconcileServiceAccountKeysCleansUpWhenBackendDisabled(t *testing.T) {
 	secret.Namespace = system.DefaultNamespace
 	secret.Type = corev1.SecretTypeOpaque
 	secret.Data = map[string][]byte{
-		serviceaccounts.NetworkPolicySecretKey: []byte(created.Token),
+		account.SecretKey: []byte(created.Token),
 	}
 	if err := runtimeClient.Create(ctx, secret); err != nil {
 		t.Fatalf("failed to create secret fixture: %v", err)
