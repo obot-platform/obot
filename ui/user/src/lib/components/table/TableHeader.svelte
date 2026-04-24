@@ -66,7 +66,11 @@
 		{#if filterable}
 			<button
 				class="flex grow items-center gap-1 capitalize"
-				use:tooltip={{ text: `Filter by ${headerTitle ?? property}`, classes: ['z-60'] }}
+				use:tooltip={{
+					text: `Filter by ${headerTitle ?? property}`,
+					classes: ['z-60'],
+					placement: 'top-start'
+				}}
 				use:ref
 				onclick={() => toggle()}
 			>
