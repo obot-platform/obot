@@ -1423,7 +1423,7 @@ func tempServerAndConfig(ctx context.Context, gptClient *gptscript.GPTScript, cl
 	}
 
 	// Create temporary MCPServer object to use existing conversion logic
-	tempName := "temp-preview-" + hash.Digest(serverManifest)[:32]
+	tempName := "tool-preview-" + hash.Digest(serverManifest)[:16]
 	tempMCPServer := v1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: tempName,
