@@ -6,6 +6,7 @@
 	import { isRecent } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { Check, Edit, EllipsisVertical, Trash2, X, Plus } from 'lucide-svelte';
+	import { tick } from 'svelte';
 	import { get } from 'svelte/store';
 	import { fly } from 'svelte/transition';
 
@@ -31,6 +32,7 @@
 
 	let editingSessionId = $state<string | null>(null);
 	let editTitle = $state('');
+	let renameInputEl = $state<HTMLInputElement | null>(null);
 	let sessionsToShow = $derived.by(() => {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const sessionIdsToFilter = new Set<string>();
@@ -65,9 +67,12 @@
 		return `${days}d`;
 	}
 
-	function startRename(sessionId: string, currentTitle: string) {
+	async function startRename(sessionId: string, currentTitle: string) {
 		editingSessionId = sessionId;
 		editTitle = currentTitle || '';
+		await tick();
+		renameInputEl?.focus();
+		renameInputEl?.select();
 	}
 
 	function saveRename() {
@@ -210,6 +215,7 @@
 							<div class="flex min-w-0 flex-1 items-center gap-2">
 								{#if editingSessionId === session.id}
 									<input
+										bind:this={renameInputEl}
 										type="text"
 										bind:value={editTitle}
 										onkeydown={handleKeydown}
