@@ -243,7 +243,7 @@
 					<LoaderCircle class="size-6 animate-spin" />
 				</div>
 			{:else if displayTools.length > 0}
-				{#each displayTools as tool (tool.name)}
+				{#each displayTools as tool, index (`${tool.name}-${index}`)}
 					{@const hasContentDisplayed = allDescriptionsEnabled || expanded[tool.id]}
 					<div
 						class="border-surface2 dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-2 rounded-md border p-3 shadow-sm"
