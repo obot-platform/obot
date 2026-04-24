@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -118,35 +117,8 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
 
-	// Normalize and validate source URL inputs.
-	// Normalize scheme-less inputs (e.g. "github.com/org/repo") to https://
-	// so they are treated consistently with the controller's sync path.
-	for i, urlStr := range manifest.SourceURLs {
-		if urlStr != "" && urlStr != h.defaultCatalogPath {
-			if !strings.Contains(urlStr, "://") {
-				urlStr = "https://" + urlStr
-				manifest.SourceURLs[i] = urlStr
-			}
-			u, err := url.Parse(urlStr)
-			if err != nil {
-				return types.NewErrBadRequest("invalid URL: %v", err)
-			}
-
-			if u.Scheme != "https" {
-				return types.NewErrBadRequest("only HTTPS URLs are supported")
-			}
-		}
-	}
-
-	// Check for duplicate URLs
-	seen := make(map[string]struct{}, len(manifest.SourceURLs))
-	for _, urlStr := range manifest.SourceURLs {
-		if urlStr != "" {
-			if _, ok := seen[urlStr]; ok {
-				return types.NewErrBadRequest("duplicate URL found: %s", urlStr)
-			}
-			seen[urlStr] = struct{}{}
-		}
+	if err := normalizeAndValidateCatalogSourceURLs(manifest.SourceURLs, h.defaultCatalogPath); err != nil {
+		return err
 	}
 
 	// Reveal the existing single credential that holds all source-URL tokens.
@@ -155,42 +127,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to reveal catalog credentials: %w", err)
 	}
 
-	// Build the new token map from the active URLs.
-	// - "*" means keep the existing token for that URL.
-	// - "" means remove the token.
-	// - Any other value is a new token.
-	// URLs not in the new SourceURLs list are dropped (removed URLs).
-	activeURLs := make(map[string]struct{}, len(manifest.SourceURLs))
-	for _, u := range manifest.SourceURLs {
-		activeURLs[u] = struct{}{}
-	}
-
-	newTokens := make(map[string]string)
-	for u, incoming := range manifest.SourceURLCredentials {
-		if _, active := activeURLs[u]; !active {
-			continue
-		}
-		switch incoming {
-		case "":
-			// explicitly remove token for this URL
-		case "*":
-			// keep existing token (may have been for this URL or transferred from a renamed one)
-			if tok, ok := existingCred.Env[u]; ok {
-				newTokens[u] = tok
-			}
-		default:
-			newTokens[u] = incoming
-		}
-	}
-	// Preserve tokens for active URLs that weren't mentioned in SourceURLCredentials.
-	for _, u := range manifest.SourceURLs {
-		if _, mentioned := manifest.SourceURLCredentials[u]; mentioned {
-			continue
-		}
-		if tok, ok := existingCred.Env[u]; ok {
-			newTokens[u] = tok
-		}
-	}
+	newTokens := mergeCatalogTokens(manifest.SourceURLs, manifest.SourceURLCredentials, existingCred.Env)
 
 	catalog.Spec.SourceURLs = manifest.SourceURLs
 
@@ -198,23 +135,8 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to update catalog: %w", err)
 	}
 
-	// Write the single credential with the new token map, or delete it if empty.
-	if len(newTokens) > 0 {
-		if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-			Context:  catalog.Name,
-			ToolName: mcpcataloghandler.CatalogCredentialToolName,
-			Type:     gptscript.CredentialTypeTool,
-			Env:      newTokens,
-		}); err != nil {
-			return fmt.Errorf("failed to store catalog credentials: %w", err)
-		}
-	} else if len(existingCred.Env) > 0 {
-		// Had tokens before but none now — clean up.
-		if err := req.GPTClient.DeleteCredential(req.Context(), catalog.Name, mcpcataloghandler.CatalogCredentialToolName); err != nil {
-			if !errors.As(err, &gptscript.ErrNotFound{}) {
-				return fmt.Errorf("failed to delete catalog credentials: %w", err)
-			}
-		}
+	if err := storeCatalogTokens(req, catalog.Name, newTokens, existingCred.Env); err != nil {
+		return err
 	}
 
 	return req.Write(convertMCPCatalog(catalog, newTokens))
@@ -1534,24 +1456,12 @@ func revealCatalogTokens(req api.Context, catalogName string) (map[string]string
 }
 
 func convertMCPCatalog(catalog v1.MCPCatalog, tokenEnv map[string]string) types.MCPCatalog {
-	// Build masked credential map: return "*" as a presence indicator for each
-	// source URL that has a stored token — the actual token is never returned.
-	var maskedCredentials map[string]string
-	for _, u := range catalog.Spec.SourceURLs {
-		if _, ok := tokenEnv[u]; ok {
-			if maskedCredentials == nil {
-				maskedCredentials = make(map[string]string)
-			}
-			maskedCredentials[u] = "*"
-		}
-	}
-
 	return types.MCPCatalog{
 		Metadata: MetadataFrom(&catalog),
 		MCPCatalogManifest: types.MCPCatalogManifest{
 			DisplayName:          catalog.Spec.DisplayName,
 			SourceURLs:           catalog.Spec.SourceURLs,
-			SourceURLCredentials: maskedCredentials,
+			SourceURLCredentials: maskCatalogCredentials(catalog.Spec.SourceURLs, tokenEnv),
 		},
 		LastSynced: *types.NewTime(catalog.Status.LastSyncTime.Time),
 		SyncErrors: catalog.Status.SyncErrors,

@@ -27,15 +27,17 @@ const (
 	SystemMCPServerFinalizer       = "obot.obot.ai/system-mcp-server"
 	NanobotAgentFinalizer          = "obot.obot.ai/nanobot-agent"
 
-	ModelProviderSyncAnnotation         = "obot.ai/model-provider-sync"
-	WorkflowSyncAnnotation              = "obot.ai/workflow-sync"
-	AgentSyncAnnotation                 = "obot.ai/agent-sync"
-	AuthProviderSyncAnnotation          = "obot.ai/auth-provider-sync"
-	FileScannerProviderSyncAnnotation   = "obot.ai/file-scanner-provider-sync"
-	MCPCatalogSyncAnnotation            = "obot.ai/mcp-catalog-sync"
-	SkillRepositorySyncAnnotation       = "obot.ai/skill-repository-sync"
-	ThreadSyncAnnotation                = "obot.ai/thread-sync"
-	MCPServerCatalogEntrySyncAnnotation = "obot.ai/mcp-server-catalog-entry-sync"
+	ModelProviderSyncAnnotation               = "obot.ai/model-provider-sync"
+	WorkflowSyncAnnotation                    = "obot.ai/workflow-sync"
+	AgentSyncAnnotation                       = "obot.ai/agent-sync"
+	AuthProviderSyncAnnotation                = "obot.ai/auth-provider-sync"
+	FileScannerProviderSyncAnnotation         = "obot.ai/file-scanner-provider-sync"
+	MCPCatalogSyncAnnotation                  = "obot.ai/mcp-catalog-sync"
+	SystemMCPCatalogSyncAnnotation            = "obot.ai/system-mcp-catalog-sync"
+	SkillRepositorySyncAnnotation             = "obot.ai/skill-repository-sync"
+	ThreadSyncAnnotation                      = "obot.ai/thread-sync"
+	MCPServerCatalogEntrySyncAnnotation       = "obot.ai/mcp-server-catalog-entry-sync"
+	SystemMCPServerCatalogEntrySyncAnnotation = "obot.ai/system-mcp-server-catalog-entry-sync"
 )
 
 var (

@@ -585,6 +585,7 @@ export interface MCPFilterManifest {
 	url?: string;
 	toolName?: string;
 	mcpServerManifest?: MCPFilterServerManifest;
+	systemMCPServerCatalogEntryID?: string;
 	secret?: string;
 	selectors?: MCPFilterWebhookSelector[];
 	disabled?: boolean;
