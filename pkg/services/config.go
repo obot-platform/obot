@@ -93,33 +93,34 @@ type MetricsAuthConfig struct {
 }
 
 type Config struct {
-	HTTPListenPort             int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
-	DevMode                    bool     `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
-	DevUIPort                  int      `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
-	UserUIPort                 int      `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
-	AllowedOrigin              string   `usage:"Allowed origin for CORS"`
-	ToolRegistries             []string `usage:"The remote tool references to the set of gptscript tool registries to use" default:"github.com/obot-platform/tools"`
-	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
-	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-5-mini"`
-	EmailServerName            string   `usage:"The name of the email server to display for email receivers"`
-	Docker                     bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
-	EnvKeys                    []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
-	KnowledgeSetIngestionLimit int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" name:"knowledge-set-ingestion-limit"`
-	KnowledgeFileWorkers       int      `usage:"The number of workers to process knowledge files" default:"5"`
-	RunWorkers                 int      `usage:"The number of workers to process runs" default:"1000"`
-	ElectionFile               string   `usage:"Use this file for leader election instead of database leases"`
-	EnableAuthentication       bool     `usage:"Enable authentication" default:"false"`
-	ForceEnableBootstrap       bool     `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
-	AuthAdminEmails            []string `usage:"Emails of admin users"`
-	AuthOwnerEmails            []string `usage:"Emails of owner users"`
-	AgentsDir                  string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
-	StaticDir                  string   `usage:"The directory to serve static files from"`
-	RetentionPolicyHours       int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
-	DefaultMCPCatalogPath      string   `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
-	DefaultSkillRepoURL        string   `usage:"The default skill repository URL (must be HTTPS GitHub URL)" default:"https://github.com/obot-platform/skills" env:"OBOT_DEFAULT_SKILL_REPO_URL"`
-	DefaultSkillRepoRef        string   `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
-	DisableUpdateCheck         bool     `usage:"Disable Obot server update checks"`
-	EnableAutonomousToolUse    bool     `usage:"Allow all chat sessions to use tools without requesting user approval" default:"false" env:"OBOT_SERVER_ENABLE_AUTONOMOUS_TOOL_USE"`
+	HTTPListenPort              int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
+	DevMode                     bool     `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
+	DevUIPort                   int      `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
+	UserUIPort                  int      `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
+	AllowedOrigin               string   `usage:"Allowed origin for CORS"`
+	ToolRegistries              []string `usage:"The remote tool references to the set of gptscript tool registries to use" default:"github.com/obot-platform/tools"`
+	WorkspaceProviderType       string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
+	HelperModel                 string   `usage:"The model used to generate names and descriptions" default:"gpt-5-mini"`
+	EmailServerName             string   `usage:"The name of the email server to display for email receivers"`
+	Docker                      bool     `usage:"Enable Docker support" default:"false" env:"OBOT_DOCKER"`
+	EnvKeys                     []string `usage:"The environment keys to pass through to the GPTScript server" env:"OBOT_ENV_KEYS"`
+	KnowledgeSetIngestionLimit  int      `usage:"The maximum number of files to ingest into a knowledge set" default:"3000" name:"knowledge-set-ingestion-limit"`
+	KnowledgeFileWorkers        int      `usage:"The number of workers to process knowledge files" default:"5"`
+	RunWorkers                  int      `usage:"The number of workers to process runs" default:"1000"`
+	ElectionFile                string   `usage:"Use this file for leader election instead of database leases"`
+	EnableAuthentication        bool     `usage:"Enable authentication" default:"false"`
+	ForceEnableBootstrap        bool     `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
+	AuthAdminEmails             []string `usage:"Emails of admin users"`
+	AuthOwnerEmails             []string `usage:"Emails of owner users"`
+	AgentsDir                   string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
+	StaticDir                   string   `usage:"The directory to serve static files from"`
+	RetentionPolicyHours        int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
+	DefaultMCPCatalogPath       string   `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
+	DefaultSystemMCPCatalogPath string   `usage:"The path to the default System MCP catalog" default:""`
+	DefaultSkillRepoURL         string   `usage:"The default skill repository URL (must be HTTPS GitHub URL)" default:"https://github.com/obot-platform/skills" env:"OBOT_DEFAULT_SKILL_REPO_URL"`
+	DefaultSkillRepoRef         string   `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
+	DisableUpdateCheck          bool     `usage:"Disable Obot server update checks"`
+	EnableAutonomousToolUse     bool     `usage:"Allow all chat sessions to use tools without requesting user approval" default:"false" env:"OBOT_SERVER_ENABLE_AUTONOMOUS_TOOL_USE"`
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
@@ -154,39 +155,40 @@ type Config struct {
 }
 
 type Services struct {
-	EncryptionConfig           *encryptionconfig.EncryptionConfiguration
-	ToolRegistryURLs           []string
-	WorkspaceProviderType      string
-	ServerURL                  string
-	InternalServerURL          string
-	EmailServerName            string
-	DevUIPort                  int
-	UserUIPort                 int
-	Events                     *events.Emitter
-	StorageClient              storage.Client
-	Router                     *router.Router
-	GPTClient                  *gptscript.GPTScript
-	Invoker                    *invoke.Invoker
-	PersistentTokenServer      *persistent.TokenService
-	APIServer                  *server.Server
-	Started                    chan struct{}
-	GatewayServer              *gserver.Server
-	GatewayClient              *client.Client
-	ProxyManager               *proxy.Manager
-	ProviderDispatcher         *dispatcher.Dispatcher
-	Bootstrapper               *bootstrap.Bootstrap
-	KnowledgeSetIngestionLimit int
-	SupportDocker              bool
-	AuthEnabled                bool
-	DefaultMCPCatalogPath      string
-	DefaultSkillRepoURL        string
-	DefaultSkillRepoRef        string
-	AgentsDir                  string
-	GeminiClient               *gemini.Client
-	Otel                       *Otel
-	AuditLogger                audit.Logger
-	PostgresDSN                string
-	RetentionPolicy            time.Duration
+	EncryptionConfig            *encryptionconfig.EncryptionConfiguration
+	ToolRegistryURLs            []string
+	WorkspaceProviderType       string
+	ServerURL                   string
+	InternalServerURL           string
+	EmailServerName             string
+	DevUIPort                   int
+	UserUIPort                  int
+	Events                      *events.Emitter
+	StorageClient               storage.Client
+	Router                      *router.Router
+	GPTClient                   *gptscript.GPTScript
+	Invoker                     *invoke.Invoker
+	PersistentTokenServer       *persistent.TokenService
+	APIServer                   *server.Server
+	Started                     chan struct{}
+	GatewayServer               *gserver.Server
+	GatewayClient               *client.Client
+	ProxyManager                *proxy.Manager
+	ProviderDispatcher          *dispatcher.Dispatcher
+	Bootstrapper                *bootstrap.Bootstrap
+	KnowledgeSetIngestionLimit  int
+	SupportDocker               bool
+	AuthEnabled                 bool
+	DefaultMCPCatalogPath       string
+	DefaultSystemMCPCatalogPath string
+	DefaultSkillRepoURL         string
+	DefaultSkillRepoRef         string
+	AgentsDir                   string
+	GeminiClient                *gemini.Client
+	Otel                        *Otel
+	AuditLogger                 audit.Logger
+	PostgresDSN                 string
+	RetentionPolicy             time.Duration
 	// Use basic auth for sendgrid webhook, if being set
 	SendgridWebhookUsername string
 	SendgridWebhookPassword string
@@ -1007,30 +1009,31 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			config.Hostname,
 			registryNoAuth,
 		),
-		PersistentTokenServer:      persistentTokenServer,
-		Invoker:                    invoker,
-		GatewayServer:              gatewayServer,
-		GatewayClient:              gatewayClient,
-		KnowledgeSetIngestionLimit: config.KnowledgeSetIngestionLimit,
-		EmailServerName:            config.EmailServerName,
-		SupportDocker:              config.Docker,
-		AuthEnabled:                config.EnableAuthentication,
-		SendgridWebhookUsername:    config.SendgridWebhookUsername,
-		SendgridWebhookPassword:    config.SendgridWebhookPassword,
-		ProxyManager:               proxyManager,
-		ProviderDispatcher:         providerDispatcher,
-		Bootstrapper:               bootstrapper,
-		AgentsDir:                  config.AgentsDir,
-		GeminiClient:               geminiClient,
-		Otel:                       otel,
-		AuditLogger:                auditLogger,
-		PostgresDSN:                postgresDSN,
-		RetentionPolicy:            retentionPolicy,
-		DefaultMCPCatalogPath:      config.DefaultMCPCatalogPath,
-		DefaultSkillRepoURL:        config.DefaultSkillRepoURL,
-		DefaultSkillRepoRef:        config.DefaultSkillRepoRef,
-		MCPLoader:                  mcpSessionManager,
-		MCPOAuthTokenStorage:       mcpOAuthTokenStorage,
+		PersistentTokenServer:       persistentTokenServer,
+		Invoker:                     invoker,
+		GatewayServer:               gatewayServer,
+		GatewayClient:               gatewayClient,
+		KnowledgeSetIngestionLimit:  config.KnowledgeSetIngestionLimit,
+		EmailServerName:             config.EmailServerName,
+		SupportDocker:               config.Docker,
+		AuthEnabled:                 config.EnableAuthentication,
+		SendgridWebhookUsername:     config.SendgridWebhookUsername,
+		SendgridWebhookPassword:     config.SendgridWebhookPassword,
+		ProxyManager:                proxyManager,
+		ProviderDispatcher:          providerDispatcher,
+		Bootstrapper:                bootstrapper,
+		AgentsDir:                   config.AgentsDir,
+		GeminiClient:                geminiClient,
+		Otel:                        otel,
+		AuditLogger:                 auditLogger,
+		PostgresDSN:                 postgresDSN,
+		RetentionPolicy:             retentionPolicy,
+		DefaultMCPCatalogPath:       config.DefaultMCPCatalogPath,
+		DefaultSystemMCPCatalogPath: config.DefaultSystemMCPCatalogPath,
+		DefaultSkillRepoURL:         config.DefaultSkillRepoURL,
+		DefaultSkillRepoRef:         config.DefaultSkillRepoRef,
+		MCPLoader:                   mcpSessionManager,
+		MCPOAuthTokenStorage:        mcpOAuthTokenStorage,
 		OAuthServerConfig: handlers.OAuthAuthorizationServerConfig{
 			Issuer:                            config.Hostname,
 			AuthorizationEndpoint:             fmt.Sprintf("%s/oauth/authorize", config.Hostname),

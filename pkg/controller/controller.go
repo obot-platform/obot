@@ -254,6 +254,10 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 		panic(fmt.Errorf("failed to set up default mcp catalog: %w", err))
 	}
 
+	if err := c.mcpCatalogHandler.SetUpDefaultSystemMCPCatalog(ctx, client); err != nil {
+		panic(fmt.Errorf("failed to set up default system mcp catalog: %w", err))
+	}
+
 	// Re-trigger all MCPServerCatalogEntries after startup to ensure MCPServers
 	// that were reconciled before their catalog entries get notified of any pending updates.
 	// This fixes a race condition where catalog entry changes might not trigger MCPServer
