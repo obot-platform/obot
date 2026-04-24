@@ -46,6 +46,7 @@ type kubernetesBackend struct {
 	mcpClusterDomain              string
 	serviceFQDN                   string
 	imagePullSecrets              []string
+	imagePullPolicy               corev1.PullPolicy
 	auditLogsBatchSize            int
 	auditLogsFlushIntervalSeconds int
 	obotClient                    kclient.Client
@@ -73,6 +74,7 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 		mcpClusterDomain:              opts.MCPClusterDomain,
 		serviceFQDN:                   serviceFQDN,
 		imagePullSecrets:              opts.MCPImagePullSecrets,
+		imagePullPolicy:               corev1.PullPolicy(opts.MCPImagePullPolicy),
 		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
 		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
 		obotClient:                    obotClient,
@@ -619,7 +621,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			containers = append(containers, corev1.Container{
 				Name:            server.MCPServerName + "-shim",
 				Image:           k.remoteShimBaseImage,
-				ImagePullPolicy: corev1.PullAlways,
+				ImagePullPolicy: k.getPullPolicy(),
 				Ports: []corev1.ContainerPort{{
 					Name:          portName,
 					ContainerPort: int32(shimPort),
@@ -692,7 +694,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	containers = append(containers, corev1.Container{
 		Name:            "mcp",
 		Image:           image,
-		ImagePullPolicy: corev1.PullAlways,
+		ImagePullPolicy: k.getPullPolicy(),
 		Ports: []corev1.ContainerPort{{
 			Name:          portName,
 			ContainerPort: int32(port),
@@ -1533,6 +1535,24 @@ func ValidatePSALevel(level string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// getPullPolicy returns the configured image pull policy, defaulting to Always.
+func (k *kubernetesBackend) getPullPolicy() corev1.PullPolicy {
+	policy := strings.TrimSpace(string(k.imagePullPolicy))
+	switch {
+	case strings.EqualFold(policy, string(corev1.PullAlways)):
+		return corev1.PullAlways
+	case strings.EqualFold(policy, string(corev1.PullIfNotPresent)):
+		return corev1.PullIfNotPresent
+	case strings.EqualFold(policy, string(corev1.PullNever)):
+		return corev1.PullNever
+	default:
+		if policy != "" {
+			olog.Warnf("invalid image pull policy %q, defaulting to %q", policy, corev1.PullAlways)
+		}
+		return corev1.PullAlways
 	}
 }
 
