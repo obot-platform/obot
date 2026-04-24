@@ -2,6 +2,7 @@ package authn
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"sync"
@@ -13,6 +14,8 @@ import (
 )
 
 var (
+	ErrInvalidServiceAccountToken = errors.New("invalid service account token")
+
 	adminUserResponse = &authenticator.Response{
 		User: &user.DefaultInfo{
 			Name: authz.AdminName,
@@ -84,8 +87,10 @@ func (a *Authenticator) AuthenticateRequest(req *http.Request) (*authenticator.R
 	}
 
 	serviceAccountName, err := validator(req.Context(), bearerToken)
-	if err != nil {
+	if errors.Is(err, ErrInvalidServiceAccountToken) {
 		return nil, false, nil
+	} else if err != nil {
+		return nil, false, err
 	}
 
 	if resp, ok := serviceAccountResponse(serviceAccountName); ok {

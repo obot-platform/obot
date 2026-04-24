@@ -35,7 +35,7 @@ func TestAuthenticateRequestServiceAccount(t *testing.T) {
 		if token == "service-account-token" {
 			return serviceaccounts.NetworkPolicyProvider, nil
 		}
-		return "", fmt.Errorf("invalid token")
+		return "", ErrInvalidServiceAccountToken
 	})
 
 	req, err := http.NewRequest(http.MethodGet, "http://localhost", nil)
@@ -59,7 +59,7 @@ func TestAuthenticateRequestServiceAccount(t *testing.T) {
 func TestAuthenticateRequestRejectsInvalidServiceAccountToken(t *testing.T) {
 	authenticator := NewAuthenticator("admin-token")
 	authenticator.SetServiceAccountValidator(func(_ context.Context, token string) (string, error) {
-		return "", fmt.Errorf("invalid token %s", token)
+		return "", fmt.Errorf("%w %s", ErrInvalidServiceAccountToken, token)
 	})
 
 	req, err := http.NewRequest(http.MethodGet, "http://localhost", nil)
@@ -70,5 +70,22 @@ func TestAuthenticateRequestRejectsInvalidServiceAccountToken(t *testing.T) {
 
 	if _, ok, err := authenticator.AuthenticateRequest(req); err != nil || ok {
 		t.Fatalf("expected invalid token to be rejected, ok=%v err=%v", ok, err)
+	}
+}
+
+func TestAuthenticateRequestPropagatesServiceAccountValidatorError(t *testing.T) {
+	authenticator := NewAuthenticator("admin-token")
+	authenticator.SetServiceAccountValidator(func(_ context.Context, token string) (string, error) {
+		return "", fmt.Errorf("validator unavailable for %s", token)
+	})
+
+	req, err := http.NewRequest(http.MethodGet, "http://localhost", nil)
+	if err != nil {
+		t.Fatalf("failed to build request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer service-account-token")
+
+	if _, ok, err := authenticator.AuthenticateRequest(req); err == nil || ok {
+		t.Fatalf("expected validator error to propagate, ok=%v err=%v", ok, err)
 	}
 }

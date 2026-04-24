@@ -97,7 +97,7 @@ func (c *Controller) reconcileServiceAccountKey(ctx context.Context, account ser
 		}
 	}
 
-	secretToken, secretKey, err := c.getServiceAccountSecretToken(ctx, account)
+	secretToken, existingSecret, err := c.getServiceAccountSecretToken(ctx, account)
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func (c *Controller) reconcileServiceAccountKey(ctx context.Context, account ser
 	}
 
 	if account.SecretManaged {
-		if err := c.writeServiceAccountSecret(ctx, account, secretKey, newKey.Token, newKey.CreatedAt, newKey.CreatedAt.Add(serviceAccountRotationInterval)); err != nil {
+		if err := c.writeServiceAccountSecret(ctx, account, existingSecret, newKey.Token, newKey.CreatedAt, newKey.CreatedAt.Add(serviceAccountRotationInterval)); err != nil {
 			if deleteErr := c.services.GatewayClient.DeleteServiceAccountAPIKeyByID(ctx, newKey.ID); deleteErr != nil {
 				return errors.Join(err, fmt.Errorf("failed to roll back new key %d: %w", newKey.ID, deleteErr))
 			}

@@ -55,10 +55,12 @@ import (
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storageauthn "github.com/obot-platform/obot/pkg/storage/authn"
 	"github.com/obot-platform/obot/pkg/storage/blob"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
+	"gorm.io/gorm"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -554,11 +556,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	storageServices.Authn.SetServiceAccountValidator(func(ctx context.Context, token string) (string, error) {
 		apiKey, err := gatewayClient.ValidateStorageServiceAccountToken(ctx, token)
 		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return "", storageauthn.ErrInvalidServiceAccountToken
+			}
 			return "", err
 		}
 		account, ok := serviceaccounts.Get(apiKey.ServiceAccountName)
 		if !ok || !serviceaccounts.Enabled(account, config.MCPRuntimeBackend) {
-			return "", fmt.Errorf("service account %q disabled for backend %q", apiKey.ServiceAccountName, config.MCPRuntimeBackend)
+			return "", fmt.Errorf("%w: service account %q disabled for backend %q", storageauthn.ErrInvalidServiceAccountToken, apiKey.ServiceAccountName, config.MCPRuntimeBackend)
 		}
 		return apiKey.ServiceAccountName, nil
 	})
