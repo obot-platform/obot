@@ -62,6 +62,7 @@ func TestReconcileServiceAccountKeyBootstrapsSecret(t *testing.T) {
 		t.Fatal("expected hardcoded service account to exist")
 	}
 
+	t.Setenv("POD_NAMESPACE", "obot")
 	if err := controller.reconcileServiceAccountKey(ctx, account); err != nil {
 		t.Fatalf("unexpected reconcile error: %v", err)
 	}
@@ -74,9 +75,14 @@ func TestReconcileServiceAccountKeyBootstrapsSecret(t *testing.T) {
 		t.Fatalf("expected 1 key, got %d", len(keys))
 	}
 
+	ns, err := controller.runtimeNamespace()
+	if err != nil {
+		t.Fatalf("unexpected runtime namespace error: %v", err)
+	}
+
 	secret := &corev1.Secret{}
 	if err := controller.runtimeClient.Get(ctx, kclient.ObjectKey{
-		Namespace: controller.runtimeNamespace(),
+		Namespace: ns,
 		Name:      account.SecretName,
 	}, secret); err != nil {
 		t.Fatalf("failed to read service account secret: %v", err)
@@ -104,13 +110,19 @@ func TestReconcileServiceAccountKeyRotatesWithOverlap(t *testing.T) {
 	}
 
 	account, _ := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)
+	t.Setenv("POD_NAMESPACE", "obot")
 	if err := controller.reconcileServiceAccountKey(ctx, account); err != nil {
 		t.Fatalf("unexpected reconcile error: %v", err)
 	}
 
+	ns, err := controller.runtimeNamespace()
+	if err != nil {
+		t.Fatalf("unexpected runtime namespace error: %v", err)
+	}
+
 	secret := &corev1.Secret{}
 	if err := controller.runtimeClient.Get(ctx, kclient.ObjectKey{
-		Namespace: controller.runtimeNamespace(),
+		Namespace: ns,
 		Name:      account.SecretName,
 	}, secret); err != nil {
 		t.Fatalf("failed to read service account secret: %v", err)
@@ -123,7 +135,7 @@ func TestReconcileServiceAccountKeyRotatesWithOverlap(t *testing.T) {
 	}
 
 	if err := controller.runtimeClient.Get(ctx, kclient.ObjectKey{
-		Namespace: controller.runtimeNamespace(),
+		Namespace: ns,
 		Name:      account.SecretName,
 	}, secret); err != nil {
 		t.Fatalf("failed to read rotated service account secret: %v", err)
@@ -173,6 +185,7 @@ func TestReconcileServiceAccountKeyDeletesExpiredOverlapKeys(t *testing.T) {
 	}
 
 	account, _ := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)
+	t.Setenv("POD_NAMESPACE", "obot")
 	if err := controller.reconcileServiceAccountKey(ctx, account); err != nil {
 		t.Fatalf("unexpected reconcile error: %v", err)
 	}
@@ -240,7 +253,7 @@ func TestReconcileServiceAccountKeysCleansUpWhenBackendDisabled(t *testing.T) {
 
 	secret := &corev1.Secret{}
 	secret.Name = account.SecretName
-	secret.Namespace = system.DefaultNamespace
+	secret.Namespace = "obot"
 	secret.Type = corev1.SecretTypeOpaque
 	secret.Data = map[string][]byte{
 		account.SecretKey: []byte(created.Token),
@@ -258,6 +271,7 @@ func TestReconcileServiceAccountKeysCleansUpWhenBackendDisabled(t *testing.T) {
 		now:           func() time.Time { return base },
 	}
 
+	t.Setenv("POD_NAMESPACE", "obot")
 	if err := controller.reconcileServiceAccountKeys(ctx); err != nil {
 		t.Fatalf("unexpected reconcile error: %v", err)
 	}

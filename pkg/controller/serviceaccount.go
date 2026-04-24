@@ -9,7 +9,6 @@ import (
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
-	"github.com/obot-platform/obot/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -147,15 +146,20 @@ func (c *Controller) getServiceAccountSecretToken(ctx context.Context, account s
 		return "", nil, fmt.Errorf("failed to build runtime client: %w", err)
 	}
 
+	ns, err := c.runtimeNamespace()
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get runtime namespace: %w", err)
+	}
+
 	secret := &corev1.Secret{}
 	if err := runtimeClient.Get(ctx, kclient.ObjectKey{
-		Namespace: c.runtimeNamespace(),
+		Namespace: ns,
 		Name:      account.SecretName,
 	}, secret); err != nil {
 		if apierrors.IsNotFound(err) {
 			return "", secret, nil
 		}
-		return "", nil, fmt.Errorf("failed to read secret %s/%s: %w", c.runtimeNamespace(), account.SecretName, err)
+		return "", nil, fmt.Errorf("failed to read secret %s/%s: %w", ns, account.SecretName, err)
 	}
 
 	return string(secret.Data[account.SecretKey]), secret, nil
@@ -173,8 +177,13 @@ func (c *Controller) writeServiceAccountSecret(ctx context.Context, account serv
 		secret = &corev1.Secret{}
 	}
 
-	secret.ObjectMeta.Name = account.SecretName
-	secret.ObjectMeta.Namespace = c.runtimeNamespace()
+	ns, err := c.runtimeNamespace()
+	if err != nil {
+		return fmt.Errorf("failed to get runtime namespace: %w", err)
+	}
+
+	secret.Name = account.SecretName
+	secret.Namespace = ns
 	if secret.Labels == nil {
 		secret.Labels = map[string]string{}
 	}
@@ -202,28 +211,33 @@ func (c *Controller) deleteServiceAccountSecret(ctx context.Context, account ser
 		return fmt.Errorf("failed to build runtime client: %w", err)
 	}
 
+	ns, err := c.runtimeNamespace()
+	if err != nil {
+		return fmt.Errorf("failed to get runtime namespace: %w", err)
+	}
+
 	secret := &corev1.Secret{}
 	if err := runtimeClient.Get(ctx, kclient.ObjectKey{
-		Namespace: c.runtimeNamespace(),
+		Namespace: ns,
 		Name:      account.SecretName,
 	}, secret); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		return fmt.Errorf("failed to read secret %s/%s for deletion: %w", c.runtimeNamespace(), account.SecretName, err)
+		return fmt.Errorf("failed to read secret %s/%s for deletion: %w", ns, account.SecretName, err)
 	}
 
 	if err := runtimeClient.Delete(ctx, secret); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to delete secret %s/%s: %w", c.runtimeNamespace(), account.SecretName, err)
+		return fmt.Errorf("failed to delete secret %s/%s: %w", ns, account.SecretName, err)
 	}
 	return nil
 }
 
-func (c *Controller) runtimeNamespace() string {
+func (c *Controller) runtimeNamespace() (string, error) {
 	if namespace := os.Getenv("POD_NAMESPACE"); namespace != "" {
-		return namespace
+		return namespace, nil
 	}
-	return system.DefaultNamespace
+	return "", errors.New("could not determine runtime namespace: POD_NAMESPACE environment variable not set")
 }
 
 func (c *Controller) runtimeK8sClient() (kclient.Client, error) {
