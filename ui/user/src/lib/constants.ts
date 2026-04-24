@@ -48,6 +48,7 @@ export const CommonModelProviderIds = {
 	OPENAI: 'openai-model-provider',
 	AZURE_OPENAI: 'azure-openai-model-provider',
 	AMAZON_BEDROCK: 'amazon-bedrock-model-provider',
+	AMAZON_BEDROCK_API_KEY: 'amazon-bedrock-api-key-model-provider',
 	ANTHROPIC_BEDROCK: 'anthropic-bedrock-model-provider',
 	XAI: 'xai-model-provider',
 	DEEPSEEK: 'deepseek-model-provider',
@@ -61,6 +62,7 @@ export const RecommendedModelProviders = [
 	CommonModelProviderIds.OPENAI,
 	CommonModelProviderIds.ANTHROPIC,
 	CommonModelProviderIds.AMAZON_BEDROCK,
+	CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
 	CommonModelProviderIds.AZURE,
 	CommonModelProviderIds.AZURE_ENTRA
 ];
