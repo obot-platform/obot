@@ -1,6 +1,7 @@
 import {
 	type MCPServerTool,
 	type Project,
+	type RemoteRuntimeConfig,
 	type Runtime,
 	type UVXRuntimeConfig,
 	type NPXRuntimeConfig,
@@ -615,6 +616,8 @@ export interface MCPFilter extends MCPFilterManifest {
 	missingRequiredEnvVars?: string[];
 }
 
+export type MCPFilterInput = Omit<MCPFilter, 'id'> & { id?: string };
+
 export interface AuditLogExportInput {
 	name: string;
 	bucket: string;
@@ -996,4 +999,125 @@ export interface MessagePolicyViolationStats {
 	byPolicy: MessagePolicyViolationPolicyCount[];
 	byUser: MessagePolicyViolationUserCount[];
 	byDirection: MessagePolicyViolationDirectionCounts;
+}
+
+export interface DeploymentCondition {
+	type: string;
+	status: string;
+	reason?: string;
+	message?: string;
+}
+
+export interface SystemMCPServerManifest {
+	metadata?: Record<string, string>;
+	name: string;
+	shortDescription: string;
+	description: string;
+	icon: string;
+	enabled?: boolean;
+	runtime: Runtime;
+	uvxConfig?: UVXRuntimeConfig;
+	npxConfig?: NPXRuntimeConfig;
+	containerizedConfig?: ContainerizedRuntimeConfig;
+	remoteConfig?: RemoteRuntimeConfig & {
+		urlTemplate?: string;
+		hostname?: string;
+		staticOAuthRequired?: boolean;
+	};
+	env?: MCPEnvManifest[];
+}
+
+export interface SystemMCPServer {
+	id: string;
+	created: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+	type?: string;
+	manifest: SystemMCPServerManifest;
+	configured: boolean;
+	missingRequiredEnvVars?: string[];
+	missingRequiredHeaders?: string[];
+	deploymentStatus?: string;
+	deploymentAvailableReplicas?: number;
+	deploymentReadyReplicas?: number;
+	deploymentReplicas?: number;
+	deploymentConditions?: DeploymentCondition[];
+	k8sSettingsHash?: string;
+}
+
+export interface RestartNanobotAgentDeploymentsFailure {
+	serverID: string;
+	error: string;
+}
+
+export interface RestartNanobotAgentDeploymentsResult {
+	dryRun: boolean;
+	totalNanobotAgentServers: number;
+	targetedServerIDs: string[];
+	restartedCount: number;
+	restartedServerIDs: string[];
+	failedCount: number;
+	failed: RestartNanobotAgentDeploymentsFailure[];
+}
+
+// System MCP catalogs (admin API)
+
+export interface SystemMCPCatalogManifest {
+	displayName: string;
+	sourceURLs: string[];
+	sourceURLCredentials?: Record<string, string>;
+}
+
+export interface SystemMCPCatalog extends SystemMCPCatalogManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+	type?: string;
+	lastSynced?: string;
+	syncErrors?: Record<string, string>;
+	isSyncing?: boolean;
+}
+
+export type SystemMCPServerCatalogEntryServerType = 'filter';
+
+export interface SystemMCPServerCatalogFilterConfig {
+	toolName: string;
+}
+
+export interface SystemMCPServerCatalogEntryManifest {
+	metadata?: Record<string, string>;
+	name: string;
+	shortDescription: string;
+	description: string;
+	icon: string;
+	repoURL?: string;
+	toolPreview?: MCPServerTool[];
+	systemMCPServerType?: SystemMCPServerCatalogEntryServerType;
+	filterConfig?: SystemMCPServerCatalogFilterConfig;
+	runtime: Runtime;
+	uvxConfig?: UVXRuntimeConfig;
+	npxConfig?: NPXRuntimeConfig;
+	containerizedConfig?: ContainerizedRuntimeConfig;
+	remoteConfig?: RemoteCatalogConfigAdmin;
+	env?: MCPEnvManifest[];
+}
+
+export interface SystemMCPServerCatalogEntry {
+	id: string;
+	created: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+	type?: string;
+	manifest: SystemMCPServerCatalogEntryManifest;
+	editable?: boolean;
+	catalogName?: string;
+	sourceURL?: string;
+	lastUpdated?: string;
+	toolPreviewsLastGenerated?: string;
+	needsUpdate?: boolean;
+	oauthCredentialConfigured?: boolean;
 }

@@ -14,7 +14,8 @@ import {
 	type OrgUser,
 	type Project,
 	type ProjectMCP,
-	type RuntimeFormData
+	type RuntimeFormData,
+	type SystemMCPServerCatalogEntry
 } from '..';
 
 export interface MCPServerInfo extends MCPServer {
@@ -79,19 +80,21 @@ export function convertEnvHeadersToRecord(
 	return secretValues;
 }
 
-export function hasEditableConfiguration(item: MCPCatalogEntry) {
+export function hasEditableConfiguration(item: MCPCatalogEntry | SystemMCPServerCatalogEntry) {
 	// For composite servers, check if any component has editable configuration
-	if (item.manifest?.runtime === 'composite') {
-		const componentServers = item.manifest?.compositeConfig?.componentServers || [];
-		return componentServers.some((component) => {
-			const hasEnvs = component.manifest?.env && component.manifest.env.length > 0;
-			const hasHeaders =
-				(component?.manifest?.remoteConfig?.headers?.filter?.((header) => !header.value)?.length ??
-					0) > 0;
-			const hasUrlToFill =
-				!component.manifest?.remoteConfig?.fixedURL && component.manifest?.remoteConfig?.hostname;
-			return hasEnvs || hasHeaders || hasUrlToFill;
-		});
+	if ('compositeConfig' in item.manifest) {
+		if (item.manifest?.runtime === 'composite') {
+			const componentServers = item.manifest?.compositeConfig?.componentServers || [];
+			return componentServers.some((component) => {
+				const hasEnvs = component.manifest?.env && component.manifest.env.length > 0;
+				const hasHeaders =
+					(component?.manifest?.remoteConfig?.headers?.filter?.((header) => !header.value)
+						?.length ?? 0) > 0;
+				const hasUrlToFill =
+					!component.manifest?.remoteConfig?.fixedURL && component.manifest?.remoteConfig?.hostname;
+				return hasEnvs || hasHeaders || hasUrlToFill;
+			});
+		}
 	}
 
 	const hasUrlToFill =
