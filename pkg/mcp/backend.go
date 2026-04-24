@@ -230,6 +230,10 @@ func constructMCPServerNanobotYAML(name, url, command string, args []string, env
 		mcpServers[webhookName] = nanobotConfigMCPServer{
 			BaseURL: webhook.URL,
 		}
+
+		if !webhook.MutateAllowed {
+			webhookName = "!mutate:" + webhookName
+		}
 		for _, def := range webhook.Definitions {
 			webhookDefinitions[def] = append(webhookDefinitions[def], fmt.Sprintf("%s/%s", webhookName, webhook.ToolName))
 		}
