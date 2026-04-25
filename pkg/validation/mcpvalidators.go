@@ -21,9 +21,14 @@ var (
 	hostnameRegex = regexp.MustCompile(`^(?:\*\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$`)
 )
 
-// maxToolNameLength is the max length of an MCP server tool.
-// It's used to validate effective tool names after tool overrides and prefixes are applied.
-const maxToolNameLength = 128
+const (
+	// maxToolNameLength is the max length of an MCP server tool.
+	// It's used to validate effective tool names after tool overrides and prefixes are applied.
+	maxToolNameLength = 128
+
+	// maxToolPrefixLength is the max length of a composite component tool prefix.
+	maxToolPrefixLength = 64
+)
 
 // RuntimeValidator defines the interface for validating runtime-specific configurations
 type RuntimeValidator interface {
@@ -596,6 +601,13 @@ func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) err
 					Message: "toolPrefix must match " + toolNameRegex.String(),
 				}
 			}
+			if len(prefix) > maxToolPrefixLength {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolPrefix", i),
+					Message: fmt.Sprintf("toolPrefix must be at most %d characters", maxToolPrefixLength),
+				}
+			}
 		}
 
 		// Validate tool overrides
@@ -741,6 +753,13 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 					Runtime: types.RuntimeComposite,
 					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolPrefix", i),
 					Message: "toolPrefix must match " + toolNameRegex.String(),
+				}
+			}
+			if len(prefix) > maxToolPrefixLength {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolPrefix", i),
+					Message: fmt.Sprintf("toolPrefix must be at most %d characters", maxToolPrefixLength),
 				}
 			}
 		}

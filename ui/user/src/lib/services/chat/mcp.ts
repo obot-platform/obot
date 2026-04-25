@@ -652,6 +652,8 @@ export function deriveToolPrefix(name: string): string {
 // toolNameRegex). '.' and '/' are permitted but trigger a soft warning on the
 // resulting effective tool names because some MCP clients don't support them.
 export const TOOL_NAME_CHARSET_REGEX = /^[A-Za-z0-9._/-]*$/;
+export const MAX_TOOL_PREFIX_LENGTH = 64;
+export const MAX_TOOL_NAME_LENGTH = 128;
 
 export type ToolNameIssue = { severity: 'warning' | 'error'; message: string };
 
@@ -674,10 +676,10 @@ export function toolNameIssue(effectiveName: string): ToolNameIssue | undefined 
 	if (!TOOL_NAME_CHARSET_REGEX.test(effectiveName)) {
 		return { severity: 'error', message: 'Tool name contains invalid characters.' };
 	}
-	if (effectiveName.length > 128) {
+	if (effectiveName.length > MAX_TOOL_NAME_LENGTH) {
 		return {
 			severity: 'error',
-			message: 'Tool name exceeds the maximum length of 128 characters.'
+			message: `Tool name exceeds the maximum length of ${MAX_TOOL_NAME_LENGTH} characters.`
 		};
 	}
 	if (effectiveName.length > 64) {
