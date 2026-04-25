@@ -2,7 +2,6 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
-	import { DEFAULT_SYSTEM_MCP_CATALOG_ID } from '$lib/constants';
 	import {
 		AdminService,
 		type MCPFilter,
@@ -18,6 +17,7 @@
 
 	interface Props {
 		query: string;
+		entries: SystemMCPServerCatalogEntry[];
 		connectedFilters?: MCPFilter[];
 		urlFilters?: Record<string, (string | number)[]>;
 		onFilter?: (property: string, values: string[]) => void;
@@ -29,6 +29,7 @@
 
 	let {
 		query,
+		entries: systemCatalogEntries,
 		connectedFilters,
 		urlFilters: filters,
 		onFilter,
@@ -39,7 +40,6 @@
 	}: Props = $props();
 
 	let systemCatalogLoading = $state(true);
-	let systemCatalogEntries = $state<SystemMCPServerCatalogEntry[]>([]);
 	let systemCatalogServers = $state<SystemMCPServer[]>([]);
 	let enableFilterDialog = $state<ReturnType<typeof EnableFilter>>();
 
@@ -73,12 +73,8 @@
 	let deleting = $state(false);
 
 	onMount(() => {
-		Promise.all([
-			AdminService.listSystemMCPCatalogEntries(DEFAULT_SYSTEM_MCP_CATALOG_ID),
-			AdminService.listSystemMCPServers()
-		])
-			.then(([entries, servers]) => {
-				systemCatalogEntries = entries;
+		AdminService.listSystemMCPServers()
+			.then((servers) => {
 				systemCatalogServers = servers;
 			})
 			.finally(() => {
@@ -88,8 +84,7 @@
 </script>
 
 {#if systemCatalogLoading}
-	<div class="w-full">
-		<div class="w-full h-14 bg-surface3 animate-pulse"></div>
+	<div class="w-full flex flex-col gap-1">
 		<div class="w-full h-14 bg-surface3 animate-pulse"></div>
 		<div class="w-full h-14 bg-surface3 animate-pulse"></div>
 	</div>
