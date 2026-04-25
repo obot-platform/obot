@@ -12,6 +12,7 @@
 			resources: MCPFilterResource[];
 		};
 		readonly?: boolean;
+		inDialog?: boolean;
 	}
 
 	let addMcpServerDialog = $state<ReturnType<typeof SearchMcpServers>>();
@@ -82,7 +83,7 @@
 		}
 	}
 
-	let { form = $bindable(), readonly }: Props = $props();
+	let { form = $bindable(), readonly, inDialog }: Props = $props();
 </script>
 
 <div class="flex flex-col gap-2">
@@ -109,87 +110,13 @@
 		</div>
 	{:else}
 		{#each form.selectors as selector, selectorIndex (selectorIndex)}
-			<div
-				class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
-			>
-				<div class="mb-4 flex items-center justify-between">
-					<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
-						Selector {selectorIndex + 1}
-					</h3>
-					{#if !readonly}
-						<button
-							class="icon-button text-red-500 hover:text-red-600"
-							onclick={() => removeSelector(selectorIndex)}
-							use:tooltip={'Remove Selector'}
-						>
-							<Trash2 class="size-4" />
-						</button>
-					{/if}
+			{#if inDialog}
+				<div class="bg-surface1 dark:bg-background rounded-lg p-2 shadow-inner">
+					{@render selectorView(selector, selectorIndex)}
 				</div>
-
-				<div class="flex flex-col gap-4">
-					<div class="flex flex-col gap-2">
-						<label for="method-{selectorIndex}" class="text-sm font-light">Method (Optional)</label>
-						<input
-							id="method-{selectorIndex}"
-							bind:value={selector.method}
-							class="text-input-filled"
-							placeholder="e.g.: 'tools/call' or 'resources/read'"
-							disabled={readonly}
-						/>
-					</div>
-
-					<div class="flex flex-col gap-2">
-						<div class="flex items-center justify-between">
-							<label for="identifier-btn" class="text-sm font-light">
-								Identifiers (Optional)
-							</label>
-							{#if !readonly}
-								<button
-									id="identifier-btn"
-									type="button"
-									class="button-text flex items-center gap-1 text-xs"
-									onclick={() => addIdentifier(selectorIndex)}
-								>
-									<Plus class="size-3" /> Add Identifier
-								</button>
-							{/if}
-						</div>
-
-						{#if !selector.identifiers || selector.identifiers.length === 0}
-							<div class="text-on-surface1 p-3 text-center text-sm">
-								{#if !readonly}
-									No identifiers added. Click "Add Identifier" to specify filter criteria.
-								{:else}
-									No identifiers added.
-								{/if}
-							</div>
-						{:else}
-							{#each selector.identifiers as _, identifierIndex (identifierIndex)}
-								<div class="flex items-center gap-2">
-									<input
-										id="identifier-{selectorIndex}-{identifierIndex}"
-										bind:value={selector.identifiers[identifierIndex]}
-										class="text-input-filled flex-1"
-										placeholder="e.g.: tool name or resource URI"
-										disabled={readonly}
-									/>
-									{#if !readonly}
-										<button
-											type="button"
-											class="icon-button text-red-500 hover:text-red-600"
-											onclick={() => removeIdentifier(selectorIndex, identifierIndex)}
-											use:tooltip={'Remove Identifier'}
-										>
-											<X class="size-4" />
-										</button>
-									{/if}
-								</div>
-							{/each}
-						{/if}
-					</div>
-				</div>
-			</div>
+			{:else}
+				{@render selectorView(selector, selectorIndex)}
+			{/if}
 		{/each}
 	{/if}
 </div>
@@ -215,21 +142,13 @@
 			</div>
 		{/if}
 	</div>
-	<Table data={mcpServersTableData} fields={['name']} noDataMessage="No MCP servers added.">
-		{#snippet actions(d)}
-			{#if !readonly}
-				<button
-					class="icon-button hover:text-red-500"
-					onclick={() => {
-						form.resources = form.resources.filter((resource) => resource.id !== d.id);
-					}}
-					use:tooltip={'Remove MCP Server'}
-				>
-					<Trash2 class="size-4" />
-				</button>
-			{/if}
-		{/snippet}
-	</Table>
+	{#if inDialog}
+		<div class="bg-surface1 dark:bg-background rounded-lg p-2 shadow-inner">
+			{@render mcpServersTable()}
+		</div>
+	{:else}
+		{@render mcpServersTable()}
+	{/if}
 </div>
 
 <SearchMcpServers
@@ -261,3 +180,103 @@
 	}}
 	mcpEntriesContextFn={() => mcpServersAndEntries.current}
 />
+
+{#snippet selectorView(selector: MCPFilterWebhookSelector, selectorIndex: number)}
+	<div
+		class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
+	>
+		<div class="mb-4 flex items-center justify-between">
+			<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+				Selector {selectorIndex + 1}
+			</h3>
+			{#if !readonly}
+				<button
+					class="icon-button text-red-500 hover:text-red-600"
+					onclick={() => removeSelector(selectorIndex)}
+					use:tooltip={'Remove Selector'}
+				>
+					<Trash2 class="size-4" />
+				</button>
+			{/if}
+		</div>
+
+		<div class="flex flex-col gap-4">
+			<div class="flex flex-col gap-2">
+				<label for="method-{selectorIndex}" class="text-sm font-light">Method (Optional)</label>
+				<input
+					id="method-{selectorIndex}"
+					bind:value={selector.method}
+					class="text-input-filled"
+					placeholder="e.g.: 'tools/call' or 'resources/read'"
+					disabled={readonly}
+				/>
+			</div>
+
+			<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between">
+					<label for="identifier-btn" class="text-sm font-light"> Identifiers (Optional) </label>
+					{#if !readonly}
+						<button
+							id="identifier-btn"
+							type="button"
+							class="button-text flex items-center gap-1 text-xs"
+							onclick={() => addIdentifier(selectorIndex)}
+						>
+							<Plus class="size-3" /> Add Identifier
+						</button>
+					{/if}
+				</div>
+
+				{#if !selector.identifiers || selector.identifiers.length === 0}
+					<div class="text-on-surface1 p-3 text-center text-sm">
+						{#if !readonly}
+							No identifiers added. Click "Add Identifier" to specify filter criteria.
+						{:else}
+							No identifiers added.
+						{/if}
+					</div>
+				{:else}
+					{#each selector.identifiers as _, identifierIndex (identifierIndex)}
+						<div class="flex items-center gap-2">
+							<input
+								id="identifier-{selectorIndex}-{identifierIndex}"
+								bind:value={selector.identifiers[identifierIndex]}
+								class="text-input-filled flex-1"
+								placeholder="e.g.: tool name or resource URI"
+								disabled={readonly}
+							/>
+							{#if !readonly}
+								<button
+									type="button"
+									class="icon-button text-red-500 hover:text-red-600"
+									onclick={() => removeIdentifier(selectorIndex, identifierIndex)}
+									use:tooltip={'Remove Identifier'}
+								>
+									<X class="size-4" />
+								</button>
+							{/if}
+						</div>
+					{/each}
+				{/if}
+			</div>
+		</div>
+	</div>
+{/snippet}
+
+{#snippet mcpServersTable()}
+	<Table data={mcpServersTableData} fields={['name']} noDataMessage="No MCP servers added.">
+		{#snippet actions(d)}
+			{#if !readonly}
+				<button
+					class="icon-button hover:text-red-500"
+					onclick={() => {
+						form.resources = form.resources.filter((resource) => resource.id !== d.id);
+					}}
+					use:tooltip={'Remove MCP Server'}
+				>
+					<Trash2 class="size-4" />
+				</button>
+			{/if}
+		{/snippet}
+	</Table>
+{/snippet}

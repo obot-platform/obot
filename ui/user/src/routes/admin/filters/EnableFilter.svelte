@@ -300,12 +300,12 @@
 <ResponsiveDialog
 	bind:this={selectorsAndMcpServersDialog}
 	title="Modify Selectors & MCP Servers"
-	class="max-w-3xl bg-surface1"
+	class="max-w-3xl"
 	animate="slide"
 >
 	<div class="flex flex-col gap-6">
 		{#if selectorsAndMcpServersForm}
-			<SelectorsAndResourcesFormSegment bind:form={selectorsAndMcpServersForm} />
+			<SelectorsAndResourcesFormSegment bind:form={selectorsAndMcpServersForm} inDialog />
 		{/if}
 		<div class="flex w-full justify-end gap-2">
 			{#if entry && hasEditableConfiguration(entry)}
