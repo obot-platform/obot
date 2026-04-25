@@ -532,17 +532,19 @@
 			<div class="flex flex-col gap-6">
 				<div class="flex flex-col gap-2">
 					<label for="filter-name" class="flex-1 text-sm font-light capitalize"> Name </label>
-					<input
-						id="filter-name"
-						bind:value={filter.name}
-						class="text-input-filled dark:bg-background mt-0.5 {nameError
-							? 'border-red-500 focus:border-red-500 focus:ring-red-500'
-							: ''}"
-						disabled={readonly || isPrebuiltEntry}
-					/>
-					{#if nameError}
-						<p class="text-xs text-red-600 dark:text-red-400">Name is required</p>
-					{/if}
+					<div class="flex grow flex-col gap-0.5">
+						<input
+							id="filter-name"
+							bind:value={filter.name}
+							class="text-input-filled dark:bg-background mt-0.5 {nameError
+								? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+								: ''}"
+							disabled={readonly || isPrebuiltEntry}
+						/>
+						{#if nameError}
+							<p class="text-xs text-red-600 dark:text-red-400">Name is required</p>
+						{/if}
+					</div>
 				</div>
 
 				<div class="flex flex-col gap-2">
@@ -787,20 +789,22 @@
 		>
 			Tool Name
 		</label>
-		<input
-			id="tool-name"
-			bind:value={filter.toolName}
-			class="text-input-filled dark:bg-background mt-0.5 {toolNameError
-				? 'border-red-500 focus:border-red-500 focus:ring-red-500'
-				: ''}"
-			required
-			disabled={readonly || isPrebuiltEntry}
-		/>
-		{#if toolNameError}
-			<p class="text-xs text-red-600 dark:text-red-400">
-				The name of tool to be called for the filter is required.
-			</p>
-		{/if}
+		<div class="flex grow flex-col gap-0.5">
+			<input
+				id="tool-name"
+				bind:value={filter.toolName}
+				class="text-input-filled dark:bg-background mt-0.5 {toolNameError
+					? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+					: ''}"
+				required
+				disabled={readonly || isPrebuiltEntry}
+			/>
+			{#if toolNameError}
+				<p class="text-xs text-red-600 dark:text-red-400">
+					The name of tool to be called for the filter is required.
+				</p>
+			{/if}
+		</div>
 	</div>
 	<div class="flex flex-col gap-1">
 		<div class="flex items-center gap-4">

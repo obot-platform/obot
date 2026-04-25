@@ -7,7 +7,7 @@
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { AdminService, type MCPFilter } from '$lib/services/index.js';
+	import { AdminService, type MCPFilter, type SystemMCPServerCatalogEntry } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { replaceState } from '$lib/url';
 	import {
@@ -21,7 +21,7 @@
 	import { openUrl } from '$lib/utils';
 	import BuiltInFilters from './BuiltInFilters.svelte';
 	import { debounce } from 'es-toolkit';
-	import { BookOpenText, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
+	import { Filter, Info, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -32,6 +32,9 @@
 
 	let query = $derived(page.url.searchParams.get('query') || '');
 	let filters = $state<MCPFilter[]>(untrack(() => data?.filters ?? []));
+	let systemCatalogEntries = $state<SystemMCPServerCatalogEntry[]>(
+		untrack(() => data?.systemCatalogEntries ?? [])
+	);
 	let { myFilters, connectedBuiltInFilters } = $derived(
 		filters.reduce<{ myFilters: MCPFilter[]; connectedBuiltInFilters: MCPFilter[] }>(
 			(acc, filter) => {
@@ -117,26 +120,26 @@
 				in:fly={{ x: 100, delay: duration, duration }}
 				out:fly={{ x: -100, duration }}
 			>
-				<Search
-					value={query}
-					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
-					onChange={updateQuery}
-					placeholder="Search filters..."
-				/>
+				{#if filters.length === 0 && systemCatalogEntries.length === 0}
+					<div class="mt-4 flex w-md flex-col items-center gap-4 self-center text-center">
+						<Filter class="text-on-surface1 size-24 opacity-50" />
+						<h4 class="text-on-surface1 text-lg font-semibold">No created filters</h4>
+						<p class="text-on-surface1 text-sm font-light">
+							Looks like you don't have any filters created yet. <br />
+							Click the "Add New Filter" button above to get started.
+						</p>
+					</div>
+				{:else}
+					<Search
+						value={query}
+						class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+						onChange={updateQuery}
+						placeholder="Search filters..."
+					/>
 
-				<div class="flex flex-col gap-2">
-					<div class="flex flex-col gap-2">
-						<h4 class="text-lg font-semibold">My Filters</h4>
-						{#if filters.length === 0}
-							<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-								<BookOpenText class="text-on-surface1 size-24 opacity-50" />
-								<h4 class="text-on-surface1 text-lg font-semibold">No created filters</h4>
-								<p class="text-on-surface1 text-sm font-light">
-									Looks like you don't have any filters created yet. <br />
-									Click the "Add New Filter" button above to get started.
-								</p>
-							</div>
-						{:else}
+					{#if myFilters.length > 0}
+						<div class="flex flex-col gap-2">
+							<h4 class="text-lg font-semibold">My Filters</h4>
 							<Table
 								data={filteredMyFilters}
 								fields={['name', 'selectors']}
@@ -189,23 +192,34 @@
 									{/if}
 								{/snippet}
 							</Table>
-						{/if}
-					</div>
-				</div>
+						</div>
+					{:else if systemCatalogEntries.length > 0}
+						<div class="notification-info p-3 text-sm font-light">
+							<div class="flex items-center gap-3">
+								<Info class="size-6" />
+								<div>
+									<p class="font-semibold">Don't see a filter you need?</p>
+									<p>Click the "Add New Filter" button above to create a custom filter.</p>
+								</div>
+							</div>
+						</div>
+					{/if}
 
-				<div class="flex flex-col gap-2">
-					<h4 class="text-lg font-semibold">Built-in Filters</h4>
-					<BuiltInFilters
-						{query}
-						connectedFilters={connectedBuiltInFilters}
-						{urlFilters}
-						onFilter={handleFilter}
-						onClearAllFilters={handleClearAllFilters}
-						onRefresh={handleRefresh}
-						onSort={setSortUrlParams}
-						{initSort}
-					/>
-				</div>
+					<div class="flex flex-col gap-2">
+						<h4 class="text-lg font-semibold">Built-in Filters</h4>
+						<BuiltInFilters
+							{query}
+							entries={systemCatalogEntries}
+							connectedFilters={connectedBuiltInFilters}
+							{urlFilters}
+							onFilter={handleFilter}
+							onClearAllFilters={handleClearAllFilters}
+							onRefresh={handleRefresh}
+							onSort={setSortUrlParams}
+							{initSort}
+						/>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</div>
