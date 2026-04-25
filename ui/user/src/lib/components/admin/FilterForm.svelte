@@ -5,6 +5,7 @@
 	import {
 		AdminService,
 		type MCPFilter,
+		type MCPFilterInput,
 		type MCPFilterManifest,
 		type MCPFilterResource,
 		type MCPFilterWebhookSelector,
@@ -16,9 +17,6 @@
 		convertServerRuntimeFormDataToManifest,
 		validateRuntimeForm
 	} from '$lib/services/chat/mcp';
-	import { mcpServersAndEntries } from '$lib/stores';
-	import { goto } from '$lib/url';
-	import Confirm from '../Confirm.svelte';
 	import PageLoading from '../PageLoading.svelte';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
@@ -27,23 +25,33 @@
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
-	import Table from '../table/Table.svelte';
-	import SearchMcpServers from './SearchMcpServers.svelte';
-	import { Eye, EyeOff, LoaderCircle, Plus, Trash2, X } from 'lucide-svelte';
+	import SelectorsAndResourcesFormSegment from './SelectorsAndResourcesFormSegment.svelte';
+	import { Eye, EyeOff, LoaderCircle } from 'lucide-svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		topContent?: Snippet;
-		filter?: MCPFilter;
+		filter?: MCPFilterInput;
 		onCreate?: (filter?: MCPFilter) => void;
 		onUpdate?: (filter?: MCPFilter) => void;
 		readonly?: boolean;
+		mcpSystemCatalogEntryId?: string;
 	}
 
-	let { topContent, filter: initialFilter, onCreate, onUpdate, readonly }: Props = $props();
+	let {
+		topContent,
+		filter: initialFilter,
+		onCreate,
+		onUpdate,
+		readonly,
+		mcpSystemCatalogEntryId
+	}: Props = $props();
+
+	let initialFilterId = $derived(initialFilter?.id);
 	const duration = PAGE_TRANSITION_DURATION;
+
 	let filter = $state<{
 		name: string;
 		resources: MCPFilterResource[];
@@ -90,8 +98,6 @@
 	];
 
 	let saving = $state<boolean | undefined>();
-	let addMcpServerDialog = $state<ReturnType<typeof SearchMcpServers>>();
-	let deletingFilter = $state(false);
 	let showSecret = $state<boolean>(false);
 	let removingSecret = $state(false);
 	let showValidation = $state(false);
@@ -102,9 +108,6 @@
 	let launchLogsEventStream = $state<EventStreamService<string>>();
 	let launchLogs = $state<string[]>([]);
 
-	let mcpServersMap = $derived(new Map(mcpServersAndEntries.current.servers.map((i) => [i.id, i])));
-	let mcpEntriesMap = $derived(new Map(mcpServersAndEntries.current.entries.map((i) => [i.id, i])));
-
 	const UNSAVED_LAUNCH_EXIT_MESSAGE =
 		'Are you sure you want to exit? You still have unsaved changes.';
 
@@ -114,7 +117,7 @@
 			cancel();
 			return;
 		}
-		if (!initialFilter?.id && launchFilterData.id) {
+		if (!initialFilterId && launchFilterData.id) {
 			void AdminService.deleteMCPFilter(launchFilterData.id).catch(() => {});
 		}
 	});
@@ -123,15 +126,9 @@
 	let nameError = $derived(showValidation && !filter.name.trim());
 	let urlError = $derived(showValidation && !filter.url.trim());
 	let toolNameError = $derived(showValidation && !filter.toolName?.trim());
-	let mcpServersTableData = $derived.by(() => {
-		if (mcpServersMap && mcpEntriesMap) {
-			return convertMcpServersToTableData(filter.resources ?? []);
-		}
-		return [];
-	});
 
 	onMount(() => {
-		if (initialFilter?.id) {
+		if (initialFilterId) {
 			revealServerValues();
 		}
 
@@ -143,7 +140,7 @@
 
 		function handlePageHide(e: PageTransitionEvent) {
 			if (e.persisted) return;
-			if (initialFilter?.id) return;
+			if (initialFilterId) return;
 			const id = launchFilterData?.id;
 			if (!id) return;
 			void AdminService.deleteMCPFilter(id, { keepalive: true }).catch(() => {});
@@ -159,9 +156,9 @@
 	});
 
 	async function revealServerValues() {
-		if (!initialFilter?.id) return;
+		if (!initialFilterId) return;
 		try {
-			const response = await AdminService.revealMCPFilter(initialFilter.id);
+			const response = await AdminService.revealMCPFilter(initialFilterId);
 
 			// Update environment variables with revealed values
 			if (runtimeFormData?.env) {
@@ -199,7 +196,7 @@
 		}
 	}
 
-	function convertToRuntimeFormData(filter?: MCPFilter): RuntimeFormData | undefined {
+	function convertToRuntimeFormData(filter?: MCPFilterInput): RuntimeFormData | undefined {
 		if (!filter || !filter.mcpServerManifest) {
 			return undefined;
 		} else {
@@ -251,69 +248,12 @@
 		}
 	}
 
-	function convertMcpServersToTableData(resources: { id: string; type: string }[]) {
-		return resources.map((resource) => {
-			const entryMatch = mcpEntriesMap.get(resource.id);
-			const serverMatch = mcpServersMap.get(resource.id);
-
-			if (entryMatch) {
-				return {
-					id: resource.id,
-					name: entryMatch.manifest.name || '-',
-					type: 'mcpentry'
-				};
-			}
-
-			if (serverMatch) {
-				return {
-					id: resource.id,
-					name: serverMatch.manifest.name || '-',
-					type: 'mcpserver'
-				};
-			}
-
-			return {
-				id: resource.id,
-				name:
-					resource.id === '*' && resource.type === 'selector'
-						? 'Everything'
-						: resource.id === 'default' && resource.type === 'mcpCatalog'
-							? 'All Entries in Global Registry'
-							: resource.id,
-				type: resource.type
-			};
-		});
-	}
-
-	function addSelector() {
-		filter.selectors = [...filter.selectors, { method: '', identifiers: [''] }];
-	}
-
-	function removeSelector(index: number) {
-		filter.selectors = filter.selectors.filter((_, i) => i !== index);
-	}
-
-	function addIdentifier(selectorIndex: number) {
-		filter.selectors[selectorIndex].identifiers = [
-			...(filter.selectors[selectorIndex].identifiers || []),
-			''
-		];
-	}
-
-	function removeIdentifier(selectorIndex: number, identifierIndex: number) {
-		if (filter.selectors[selectorIndex].identifiers) {
-			filter.selectors[selectorIndex].identifiers = filter.selectors[
-				selectorIndex
-			].identifiers!.filter((_, i) => i !== identifierIndex);
-		}
-	}
-
 	async function handleRemoveSecret() {
-		if (!initialFilter?.id) return;
+		if (!initialFilterId) return;
 
 		removingSecret = true;
 		try {
-			await AdminService.deconfigureMCPFilter(initialFilter.id);
+			await AdminService.deconfigureMCPFilter(initialFilterId);
 			// Clear the secret field and update the filter state
 			filter.secret = '';
 			// Update the initial filter to reflect that it no longer has a secret
@@ -518,28 +458,35 @@
 			const mcpServerManifest = runtimeFormData
 				? convertServerRuntimeFormDataToManifest(runtimeFormData)
 				: undefined;
+			const selectors =
+				filter.selectors.length > 0
+					? filter.selectors
+							.map((s) => ({
+								...s,
+								identifiers: s.identifiers?.filter((id) => id.trim()) || []
+							}))
+							.filter((s) => s.method || (s.identifiers && s.identifiers.length > 0))
+					: undefined;
 
 			const manifest: MCPFilterManifest = {
 				name: filter.name,
 				resources: filter.resources,
 				url: filter.url,
 				secret: filter.secret || undefined,
-				selectors:
-					filter.selectors.length > 0
-						? filter.selectors
-								.map((s) => ({
-									...s,
-									identifiers: s.identifiers?.filter((id) => id.trim()) || []
-								}))
-								.filter((s) => s.method || (s.identifiers && s.identifiers.length > 0))
-						: undefined,
+				selectors,
 				toolName: filter.toolName,
-				mcpServerManifest: mcpServerManifest?.manifest,
-				allowedToMutate: filter.allowedToMutate ?? false
+				allowedToMutate: filter.allowedToMutate ?? false,
+				...(isPrebuiltEntry
+					? {
+							systemMCPServerCatalogEntryID: mcpSystemCatalogEntryId
+						}
+					: {
+							mcpServerManifest: mcpServerManifest?.manifest
+						})
 			};
 
-			if (initialFilter) {
-				const result = await AdminService.updateMCPFilter(initialFilter.id, manifest);
+			if (initialFilterId) {
+				const result = await AdminService.updateMCPFilter(initialFilterId, manifest);
 				const launchSuccess = await validateLaunch(result, mcpServerManifest);
 
 				if (launchSuccess) {
@@ -562,6 +509,8 @@
 			clearTimeout(timeout3);
 		}
 	}
+
+	const isPrebuiltEntry = $derived(!!mcpSystemCatalogEntryId);
 </script>
 
 <div
@@ -573,43 +522,29 @@
 		{#if topContent}
 			{@render topContent()}
 		{/if}
-		{#if initialFilter}
-			<div class="flex w-full items-center justify-between gap-4">
-				<h1 class="flex items-center gap-4 text-2xl font-semibold">
-					{initialFilter.name || 'Filter'}
-				</h1>
-				{#if !readonly}
-					<button
-						class="button-destructive flex items-center gap-1 text-xs font-normal"
-						use:tooltip={'Delete Filter'}
-						disabled={saving}
-						onclick={() => (deletingFilter = true)}
-					>
-						<Trash2 class="size-4" />
-					</button>
-				{/if}
-			</div>
-		{:else}
-			<h1 class="text-2xl font-semibold">Create Filter</h1>
+		{#if !initialFilterId}
+			<h1 class="text-2xl font-semibold">{isPrebuiltEntry ? filter.name : 'Create Filter'}</h1>
 		{/if}
 
 		<div
-			class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
+			class="dark:bg-surface1 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
 		>
 			<div class="flex flex-col gap-6">
 				<div class="flex flex-col gap-2">
 					<label for="filter-name" class="flex-1 text-sm font-light capitalize"> Name </label>
-					<input
-						id="filter-name"
-						bind:value={filter.name}
-						class="text-input-filled mt-0.5 {nameError
-							? 'border-red-500 focus:border-red-500 focus:ring-red-500'
-							: ''}"
-						disabled={readonly}
-					/>
-					{#if nameError}
-						<p class="text-xs text-red-600 dark:text-red-400">Name is required</p>
-					{/if}
+					<div class="flex grow flex-col gap-0.5">
+						<input
+							id="filter-name"
+							bind:value={filter.name}
+							class="text-input-filled dark:bg-background mt-0.5 {nameError
+								? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+								: ''}"
+							disabled={readonly || isPrebuiltEntry}
+						/>
+						{#if nameError}
+							<p class="text-xs text-red-600 dark:text-red-400">Name is required</p>
+						{/if}
+					</div>
 				</div>
 
 				<div class="flex flex-col gap-2">
@@ -617,11 +552,11 @@
 					<div class="w-full">
 						<Select
 							id="runtime-selector"
-							class="bg-surface1 dark:bg-surface2 dark:border-surface3 flex-1 border border-transparent shadow-inner"
+							class="bg-surface1 dark:bg-surface1 dark:border-surface3 flex-1 border border-transparent shadow-inner"
 							options={runtimeOptions}
 							bind:selected={runtimeTypeSelect}
 							onSelect={handleRuntimeChange}
-							disabled={readonly}
+							disabled={readonly || isPrebuiltEntry}
 						/>
 					</div>
 				</div>
@@ -639,11 +574,11 @@
 					<input
 						id="webhook-url"
 						bind:value={filter.url}
-						class="text-input-filled mt-0.5 {urlError
+						class="text-input-filled dark:bg-background mt-0.5 {urlError
 							? 'border-red-500 focus:border-red-500 focus:ring-red-500'
 							: ''}"
 						required
-						disabled={readonly}
+						disabled={readonly || isPrebuiltEntry}
 					/>
 					{#if urlError}
 						<p class="text-xs text-red-600 dark:text-red-400">Webhook URL is required</p>
@@ -658,10 +593,10 @@
 						<input
 							id="webhook-secret"
 							bind:value={filter.secret}
-							class="text-input-filled pr-10"
+							class="text-input-filled pr-10 dark:bg-background"
 							type={showSecret ? 'text' : 'password'}
 							placeholder={initialFilter?.hasSecret && !filter.secret ? '*****' : ''}
-							disabled={readonly}
+							disabled={readonly || isPrebuiltEntry}
 						/>
 						{#if filter.secret || (initialFilter?.hasSecret && !filter.secret)}
 							<button
@@ -695,7 +630,7 @@
 								<button
 									type="button"
 									class="button-destructive shrink-0 text-xs"
-									disabled={removingSecret || saving}
+									disabled={removingSecret || saving || isPrebuiltEntry}
 									onclick={handleRemoveSecret}
 								>
 									{#if removingSecret}
@@ -718,7 +653,7 @@
 			{#if runtimeFormData.runtime === 'npx' && runtimeFormData.npxConfig}
 				<NpxRuntimeForm
 					bind:config={runtimeFormData.npxConfig}
-					{readonly}
+					readonly={readonly || isPrebuiltEntry}
 					showRequired={showRuntimeRequired}
 					onFieldChange={handleUpdateRequired}
 				>
@@ -727,7 +662,7 @@
 			{:else if runtimeFormData.runtime === 'uvx' && runtimeFormData.uvxConfig}
 				<UvxRuntimeForm
 					bind:config={runtimeFormData.uvxConfig}
-					{readonly}
+					readonly={readonly || isPrebuiltEntry}
 					showRequired={showRuntimeRequired}
 					onFieldChange={handleUpdateRequired}
 				>
@@ -736,7 +671,7 @@
 			{:else if runtimeFormData.runtime === 'containerized' && runtimeFormData.containerizedConfig}
 				<ContainerizedRuntimeForm
 					bind:config={runtimeFormData.containerizedConfig}
-					{readonly}
+					readonly={readonly || isPrebuiltEntry}
 					showRequired={showRuntimeRequired}
 					onFieldChange={handleUpdateRequired}
 				>
@@ -746,10 +681,10 @@
 				<RemoteRuntimeForm
 					bind:config={runtimeFormData.remoteServerConfig}
 					variant="server"
-					{readonly}
+					readonly={readonly || isPrebuiltEntry}
 					showRequired={showRuntimeRequired}
 					onFieldChange={handleUpdateRequired}
-					isNewEntry={!initialFilter?.id}
+					isNewEntry={!initialFilterId}
 					disableStaticOAuth
 					disableHostnameOption
 				>
@@ -758,160 +693,18 @@
 			{/if}
 
 			{#if runtimeFormData.runtime !== 'remote'}
-				<CustomConfigurationForm bind:config={runtimeFormData.env} {readonly} type="multi" />
+				<CustomConfigurationForm
+					bind:config={runtimeFormData.env}
+					{readonly}
+					type="multi"
+					{isPrebuiltEntry}
+				/>
 			{/if}
 		{/if}
 
-		<div class="h-px bg-surface3 w-full mt-4"></div>
+		<div class="h-px bg-surface3 w-full my-4"></div>
 
-		<div class="flex flex-col gap-2 mt-4">
-			<div class="mb-2 flex items-center justify-between">
-				<div class="flex flex-col gap-1">
-					<h2 class="text-lg font-semibold">Selectors</h2>
-					<p class="text-on-surface1 text-sm">
-						Specify which requests should be matched by this filter.
-					</p>
-				</div>
-				{#if !readonly}
-					<div class="relative flex items-center gap-4">
-						<button class="button-primary flex items-center gap-1 text-sm" onclick={addSelector}>
-							<Plus class="size-4" /> Add Selector
-						</button>
-					</div>
-				{/if}
-			</div>
-
-			{#if filter.selectors.length === 0}
-				<div class="text-on-surface1 p-4 text-center">
-					No selectors added. This filter will match all MCP requests.<br />Click "Add Selector" to
-					specify filter criteria.
-				</div>
-			{:else}
-				{#each filter.selectors as selector, selectorIndex (selectorIndex)}
-					<div
-						class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
-					>
-						<div class="mb-4 flex items-center justify-between">
-							<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
-								Selector {selectorIndex + 1}
-							</h3>
-							{#if !readonly}
-								<button
-									class="icon-button text-red-500 hover:text-red-600"
-									onclick={() => removeSelector(selectorIndex)}
-									use:tooltip={'Remove Selector'}
-								>
-									<Trash2 class="size-4" />
-								</button>
-							{/if}
-						</div>
-
-						<div class="flex flex-col gap-4">
-							<div class="flex flex-col gap-2">
-								<label for="method-{selectorIndex}" class="text-sm font-light"
-									>Method (Optional)</label
-								>
-								<input
-									id="method-{selectorIndex}"
-									bind:value={selector.method}
-									class="text-input-filled"
-									placeholder="e.g.: 'tools/call' or 'resources/read'"
-									disabled={readonly}
-								/>
-							</div>
-
-							<div class="flex flex-col gap-2">
-								<div class="flex items-center justify-between">
-									<label for="identifier-btn" class="text-sm font-light">
-										Identifiers (Optional)
-									</label>
-									{#if !readonly}
-										<button
-											id="identifier-btn"
-											type="button"
-											class="button-text flex items-center gap-1 text-xs"
-											onclick={() => addIdentifier(selectorIndex)}
-										>
-											<Plus class="size-3" /> Add Identifier
-										</button>
-									{/if}
-								</div>
-
-								{#if !selector.identifiers || selector.identifiers.length === 0}
-									<div class="text-on-surface1 p-3 text-center text-sm">
-										{#if !readonly}
-											No identifiers added. Click "Add Identifier" to specify filter criteria.
-										{:else}
-											No identifiers added.
-										{/if}
-									</div>
-								{:else}
-									{#each selector.identifiers as _, identifierIndex (identifierIndex)}
-										<div class="flex items-center gap-2">
-											<input
-												id="identifier-{selectorIndex}-{identifierIndex}"
-												bind:value={selector.identifiers[identifierIndex]}
-												class="text-input-filled flex-1"
-												placeholder="e.g.: tool name or resource URI"
-												disabled={readonly}
-											/>
-											{#if !readonly}
-												<button
-													type="button"
-													class="icon-button text-red-500 hover:text-red-600"
-													onclick={() => removeIdentifier(selectorIndex, identifierIndex)}
-													use:tooltip={'Remove Identifier'}
-												>
-													<X class="size-4" />
-												</button>
-											{/if}
-										</div>
-									{/each}
-								{/if}
-							</div>
-						</div>
-					</div>
-				{/each}
-			{/if}
-		</div>
-
-		<div class="flex flex-col gap-2">
-			<div class="mb-2 flex items-center justify-between">
-				<div class="flex flex-col gap-1">
-					<h2 class="text-lg font-semibold">MCP Servers</h2>
-					<p class="text-on-surface1 text-sm">
-						Specify which MCP servers this filter should be applied to.
-					</p>
-				</div>
-				{#if !readonly}
-					<div class="relative flex items-center gap-4">
-						<button
-							class="button-primary flex items-center gap-1 text-sm"
-							onclick={() => {
-								addMcpServerDialog?.open();
-							}}
-						>
-							<Plus class="size-4" /> Add MCP Server
-						</button>
-					</div>
-				{/if}
-			</div>
-			<Table data={mcpServersTableData} fields={['name']} noDataMessage="No MCP servers added.">
-				{#snippet actions(d)}
-					{#if !readonly}
-						<button
-							class="icon-button hover:text-red-500"
-							onclick={() => {
-								filter.resources = filter.resources.filter((resource) => resource.id !== d.id);
-							}}
-							use:tooltip={'Remove MCP Server'}
-						>
-							<Trash2 class="size-4" />
-						</button>
-					{/if}
-				{/snippet}
-			</Table>
-		</div>
+		<SelectorsAndResourcesFormSegment bind:form={filter} {readonly} />
 	</div>
 	{#if !readonly}
 		<div
@@ -923,7 +716,7 @@
 				<button
 					class="button text-sm"
 					onclick={() => {
-						if (initialFilter) {
+						if (initialFilterId) {
 							onUpdate?.(undefined);
 						} else {
 							onCreate?.(undefined);
@@ -943,47 +736,6 @@
 		</div>
 	{/if}
 </div>
-
-<SearchMcpServers
-	bind:this={addMcpServerDialog}
-	exclude={filter.resources.map((r) => r.id)}
-	type="filter"
-	onAdd={async (mcpCatalogEntryIds, mcpServerIds, otherSelectors) => {
-		const catalogEntryResources = mcpCatalogEntryIds.map((id) => ({
-			id,
-			name: id,
-			type: 'mcpServerCatalogEntry' as const
-		}));
-		const serverResources = mcpServerIds.map((id) => ({
-			name: id,
-			id,
-			type: 'mcpServer' as const
-		}));
-		const selectorResources = otherSelectors.map((id) => ({
-			name: id === '*' ? 'Everything' : id === 'default' ? 'All Entries in Global Registry' : id,
-			id,
-			type: id === '*' ? ('selector' as const) : ('mcpCatalog' as const)
-		}));
-		filter.resources = [
-			...filter.resources,
-			...catalogEntryResources,
-			...serverResources,
-			...selectorResources
-		];
-	}}
-	mcpEntriesContextFn={() => mcpServersAndEntries.current}
-/>
-
-<Confirm
-	msg={`Delete ${initialFilter?.name || 'this filter'}?`}
-	show={deletingFilter}
-	onsuccess={async () => {
-		if (!initialFilter) return;
-		await AdminService.deleteMCPFilter(initialFilter.id);
-		await goto('/admin/filters', { invalidateAll: true });
-	}}
-	oncancel={() => (deletingFilter = false)}
-/>
 
 <PageLoading
 	isProgressBar
@@ -1037,20 +789,22 @@
 		>
 			Tool Name
 		</label>
-		<input
-			id="tool-name"
-			bind:value={filter.toolName}
-			class="text-input-filled mt-0.5 {toolNameError
-				? 'border-red-500 focus:border-red-500 focus:ring-red-500'
-				: ''}"
-			required
-			disabled={readonly}
-		/>
-		{#if toolNameError}
-			<p class="text-xs text-red-600 dark:text-red-400">
-				The name of tool to be called for the filter is required.
-			</p>
-		{/if}
+		<div class="flex grow flex-col gap-0.5">
+			<input
+				id="tool-name"
+				bind:value={filter.toolName}
+				class="text-input-filled dark:bg-background mt-0.5 {toolNameError
+					? 'border-red-500 focus:border-red-500 focus:ring-red-500'
+					: ''}"
+				required
+				disabled={readonly || isPrebuiltEntry}
+			/>
+			{#if toolNameError}
+				<p class="text-xs text-red-600 dark:text-red-400">
+					The name of tool to be called for the filter is required.
+				</p>
+			{/if}
+		</div>
 	</div>
 	<div class="flex flex-col gap-1">
 		<div class="flex items-center gap-4">
@@ -1062,7 +816,7 @@
 				onChange={(checked) => {
 					filter.allowedToMutate = checked;
 				}}
-				disabled={readonly}
+				disabled={readonly || isPrebuiltEntry}
 				label="Enable Mutable Response"
 				labelInline
 			/>

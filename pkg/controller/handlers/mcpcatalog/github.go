@@ -20,7 +20,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/cache"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	gitfs "github.com/go-git/go-git/v5/storage/filesystem"
-	"github.com/obot-platform/obot/apiclient/types"
 )
 
 // GitHubRepoInfo represents the repository information from GitHub API
@@ -274,7 +273,7 @@ func parseGitURL(catalogURL string) (string, string, error) {
 	return fmt.Sprintf("https://%s/%s", u.Host, repoPath), branch, nil
 }
 
-func readGitCatalog(ctx context.Context, catalogURL string, token string) ([]types.MCPServerCatalogEntryManifest, error) {
+func readGitCatalogEntries[T any](ctx context.Context, catalogURL string, token string) ([]T, error) {
 	if strings.HasPrefix(catalogURL, "http://") {
 		return nil, fmt.Errorf("only HTTPS is supported for git catalogs")
 	}
@@ -348,5 +347,5 @@ func readGitCatalog(ctx context.Context, catalogURL string, token string) ([]typ
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
-	return readMCPCatalogDirectory(tempDir)
+	return readCatalogDirectory[T](tempDir)
 }

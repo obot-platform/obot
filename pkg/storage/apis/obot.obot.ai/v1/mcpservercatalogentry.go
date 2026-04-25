@@ -3,11 +3,15 @@ package v1
 import (
 	"slices"
 
+	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ DeleteRefs = (*MCPServerCatalogEntry)(nil)
+var (
+	_ DeleteRefs    = (*MCPServerCatalogEntry)(nil)
+	_ fields.Fields = (*MCPServerCatalogEntry)(nil)
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
