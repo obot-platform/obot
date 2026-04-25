@@ -527,7 +527,7 @@
 		{/if}
 
 		<div
-			class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
+			class="dark:bg-surface1 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
 		>
 			<div class="flex flex-col gap-6">
 				<div class="flex flex-col gap-2">
@@ -535,7 +535,7 @@
 					<input
 						id="filter-name"
 						bind:value={filter.name}
-						class="text-input-filled mt-0.5 {nameError
+						class="text-input-filled dark:bg-background mt-0.5 {nameError
 							? 'border-red-500 focus:border-red-500 focus:ring-red-500'
 							: ''}"
 						disabled={readonly || isPrebuiltEntry}
@@ -550,7 +550,7 @@
 					<div class="w-full">
 						<Select
 							id="runtime-selector"
-							class="bg-surface1 dark:bg-surface2 dark:border-surface3 flex-1 border border-transparent shadow-inner"
+							class="bg-surface1 dark:bg-surface1 dark:border-surface3 flex-1 border border-transparent shadow-inner"
 							options={runtimeOptions}
 							bind:selected={runtimeTypeSelect}
 							onSelect={handleRuntimeChange}
@@ -572,7 +572,7 @@
 					<input
 						id="webhook-url"
 						bind:value={filter.url}
-						class="text-input-filled mt-0.5 {urlError
+						class="text-input-filled dark:bg-background mt-0.5 {urlError
 							? 'border-red-500 focus:border-red-500 focus:ring-red-500'
 							: ''}"
 						required
@@ -591,7 +591,7 @@
 						<input
 							id="webhook-secret"
 							bind:value={filter.secret}
-							class="text-input-filled pr-10"
+							class="text-input-filled pr-10 dark:bg-background"
 							type={showSecret ? 'text' : 'password'}
 							placeholder={initialFilter?.hasSecret && !filter.secret ? '*****' : ''}
 							disabled={readonly || isPrebuiltEntry}
@@ -790,7 +790,7 @@
 		<input
 			id="tool-name"
 			bind:value={filter.toolName}
-			class="text-input-filled mt-0.5 {toolNameError
+			class="text-input-filled dark:bg-background mt-0.5 {toolNameError
 				? 'border-red-500 focus:border-red-500 focus:ring-red-500'
 				: ''}"
 			required

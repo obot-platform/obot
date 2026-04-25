@@ -5,6 +5,8 @@
 	import Table from '../table/Table.svelte';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import { Plus, Trash2, X } from 'lucide-svelte';
+	import { slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		form: {
@@ -183,9 +185,13 @@
 
 {#snippet selectorView(selector: MCPFilterWebhookSelector, selectorIndex: number)}
 	<div
-		class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
+		class={twMerge(
+			'dark:border-surface3 bg-background rounded-lg border border-transparent p-4',
+			inDialog ? 'dark:bg-surface2' : 'dark:bg-surface1 '
+		)}
+		in:slide|global={{ axis: 'y', duration: 150 }}
 	>
-		<div class="mb-4 flex items-center justify-between">
+		<div class="mb-1 flex items-center justify-between">
 			<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
 				Selector {selectorIndex + 1}
 			</h3>
