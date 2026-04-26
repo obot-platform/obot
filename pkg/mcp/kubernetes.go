@@ -738,7 +738,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			ProgressDeadlineSeconds: &[]int32{60}[0],
+			ProgressDeadlineSeconds: new(int32(60)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": server.MCPServerName,
@@ -1547,15 +1547,15 @@ func getContainerSecurityContext(psaLevel PSAEnforceLevel) *corev1.SecurityConte
 		// - Disallow privilege escalation
 		// Note: baseline PSA does NOT require dropping capabilities
 		return &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &[]bool{false}[0],
+			AllowPrivilegeEscalation: new(false),
 		}
 	default: // PSARestricted
 		// Restricted mode: full security context
 		return &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &[]bool{false}[0],
-			RunAsNonRoot:             &[]bool{true}[0],
-			RunAsUser:                &[]int64{1000}[0],
-			RunAsGroup:               &[]int64{1000}[0],
+			AllowPrivilegeEscalation: new(false),
+			RunAsNonRoot:             new(true),
+			RunAsUser:                new(int64(1000)),
+			RunAsGroup:               new(int64(1000)),
 			Capabilities: &corev1.Capabilities{
 				Drop: []corev1.Capability{"ALL"},
 			},
@@ -1582,10 +1582,10 @@ func getPodSecurityContext(psaLevel PSAEnforceLevel) *corev1.PodSecurityContext 
 	default: // PSARestricted
 		// Restricted mode: full pod security context
 		return &corev1.PodSecurityContext{
-			RunAsNonRoot: &[]bool{true}[0],
-			RunAsUser:    &[]int64{1000}[0],
-			RunAsGroup:   &[]int64{1000}[0],
-			FSGroup:      &[]int64{1000}[0],
+			RunAsNonRoot: new(true),
+			RunAsUser:    new(int64(1000)),
+			RunAsGroup:   new(int64(1000)),
+			FSGroup:      new(int64(1000)),
 			SeccompProfile: &corev1.SeccompProfile{
 				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},
