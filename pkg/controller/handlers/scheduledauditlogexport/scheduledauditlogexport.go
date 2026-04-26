@@ -41,7 +41,7 @@ func (h *Handler) ScheduleExports(req router.Request, resp router.Response) erro
 		return err
 	}
 
-	scheduledExport.Status.LastRunAt = &[]metav1.Time{metav1.Now()}[0]
+	scheduledExport.Status.LastRunAt = new(metav1.Now())
 
 	return req.Client.Update(req.Ctx, scheduledExport)
 }
