@@ -85,7 +85,7 @@ func (h *Handler) Run(req router.Request, resp router.Response) error {
 	}
 	log.Infof("Triggered workflow execution from cron job: cronJob=%s workflow=%s execution=%s schedule=%s", cj.Name, workflow.Name, execution.Name, cj.Spec.Schedule)
 
-	cj.Status.LastRunStartedAt = &[]metav1.Time{metav1.Now()}[0]
+	cj.Status.LastRunStartedAt = new(metav1.Now())
 	return nil
 }
 

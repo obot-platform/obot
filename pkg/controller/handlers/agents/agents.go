@@ -92,7 +92,7 @@ func BackPopulateAuthStatus(req router.Request, _ router.Response) error {
 		if err != nil {
 			login.Status.External.Error = fmt.Sprintf("failed to get credential tool for knowledge source [%s]: %v", agent.Name, err)
 		} else {
-			required = &[]bool{len(credentialTools) > 0}[0]
+			required = new(len(credentialTools) > 0)
 			updateRequired = updateRequired || login.Status.External.Required == nil || *login.Status.External.Required != *required
 			login.Status.External.Required = required
 		}
