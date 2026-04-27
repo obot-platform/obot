@@ -1139,6 +1139,46 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 			expectedError: nil,
 		},
 		{
+			name: "tool prefix at max length is allowed",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolPrefix: strings.Repeat("a", maxToolPrefixLength),
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			name: "tool prefix exceeds max length",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolPrefix: strings.Repeat("a", maxToolPrefixLength+1),
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0].toolPrefix",
+				Message: "toolPrefix must be at most 64 characters",
+			},
+		},
+		{
 			name: "empty tool prefixes may repeat across components",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeComposite,
@@ -1196,9 +1236,9 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 							Manifest: types.MCPServerCatalogEntryManifest{
 								Runtime: types.RuntimeRemote,
 							},
-							ToolPrefix: strings.Repeat("a", 120) + "_",
+							ToolPrefix: strings.Repeat("a", maxToolPrefixLength),
 							ToolOverrides: []types.ToolOverride{
-								{Name: "list_all_the_things", Enabled: true},
+								{Name: strings.Repeat("b", maxToolNameLength-maxToolPrefixLength+1), Enabled: true},
 							},
 						},
 					},
@@ -1209,7 +1249,7 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Field:   "compositeConfig.componentServers[0].toolOverrides[0]",
 				Message: fmt.Sprintf(
 					"effective tool name must be at most 128 characters: %q",
-					strings.Repeat("a", 120)+"_list_all_the_things",
+					strings.Repeat("a", maxToolPrefixLength)+strings.Repeat("b", maxToolNameLength-maxToolPrefixLength+1),
 				),
 			},
 		},
@@ -1387,6 +1427,63 @@ func TestCompositeValidator_ValidateConfig_StaticOAuth(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				Field:   "compositeConfig.componentServers[1]",
 				Message: "remote component with static OAuth cannot be included in a composite server",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateConfig(tt.manifest)
+			require.Equal(t, tt.expectedError, err)
+		})
+	}
+}
+
+func TestCompositeValidator_ValidateConfig_ToolPrefixLength(t *testing.T) {
+	validator := CompositeValidator{}
+
+	tests := []struct {
+		name          string
+		manifest      types.MCPServerManifest
+		expectedError error
+	}{
+		{
+			name: "tool prefix at max length is allowed",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{
+					ComponentServers: []types.ComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolPrefix: strings.Repeat("a", maxToolPrefixLength),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "tool prefix exceeds max length",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{
+					ComponentServers: []types.ComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolPrefix: strings.Repeat("a", maxToolPrefixLength+1),
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0].toolPrefix",
+				Message: "toolPrefix must be at most 64 characters",
 			},
 		},
 	}
