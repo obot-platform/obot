@@ -16,7 +16,7 @@
 
 {#if issue}
 	<span
-		class={`inline-flex items-center ${issue.severity === 'error' ? 'text-red-500' : 'text-yellow-500'}`}
+		class={`inline-flex flex-shrink-0 items-center ${issue.severity === 'error' ? 'text-red-500' : 'text-yellow-500'}`}
 		use:tooltip={{ text: issue.message, placement: 'top', disablePortal }}
 		aria-label={issue.message}
 	>

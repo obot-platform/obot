@@ -7,7 +7,9 @@
 		conflictIssue,
 		duplicateToolNames,
 		effectiveToolName,
+		MAX_TOOL_PREFIX_LENGTH,
 		TOOL_NAME_CHARSET_REGEX,
+		TOOL_NAME_SPECIAL_CHAR_WARNING,
 		toolNameIssue
 	} from '$lib/services/chat/mcp';
 	import ToolNameIssueIcon from '../ToolNameIssueIcon.svelte';
@@ -46,6 +48,8 @@
 	);
 
 	let prefixInvalid = $derived(!TOOL_NAME_CHARSET_REGEX.test(toolPrefix ?? ''));
+	let prefixTooLong = $derived((toolPrefix ?? '').length > MAX_TOOL_PREFIX_LENGTH);
+	let prefixSpecialChar = $derived(/[./]/.test(toolPrefix ?? ''));
 	let duplicatePrefix = $derived.by(() => {
 		const prefix = (toolPrefix ?? '').trim();
 		if (!prefix) return false;
@@ -57,12 +61,22 @@
 					severity: 'error',
 					message: "Prefix may only contain letters, digits, '.', '/', '_', and '-'."
 				} as const)
-			: duplicatePrefix
+			: prefixTooLong
 				? ({
 						severity: 'error',
-						message: `Another component already uses the prefix "${(toolPrefix ?? '').trim()}". Non-empty prefixes must be unique across components.`
+						message: `Prefix must be at most ${MAX_TOOL_PREFIX_LENGTH} characters.`
 					} as const)
-				: undefined
+				: duplicatePrefix
+					? ({
+							severity: 'error',
+							message: `Another component already uses the prefix "${(toolPrefix ?? '').trim()}". Non-empty prefixes must be unique across components.`
+						} as const)
+					: prefixSpecialChar
+						? ({
+								severity: 'warning',
+								message: TOOL_NAME_SPECIAL_CHAR_WARNING
+							} as const)
+						: undefined
 	);
 
 	// Only enabled tools contribute to blocking errors; disabled tools aren't exposed.
@@ -174,7 +188,11 @@
 				</button>
 			</div>
 			{#if prefixIssue}
-				<p class="text-xs text-red-500">{prefixIssue.message}</p>
+				<p
+					class={`text-xs ${prefixIssue.severity === 'error' ? 'text-red-500' : 'text-yellow-500'}`}
+				>
+					{prefixIssue.message}
+				</p>
 			{:else}
 				<p class="text-on-surface2 text-[11px]">
 					Prepended to every tool name exposed by this component. Clear to remove.
@@ -218,9 +236,9 @@
 			>
 				<div class="flex min-w-0 grow flex-col gap-2">
 					<div class="flex items-start justify-between gap-2">
-						<div class="min-w-0">
-							<div class="flex items-center gap-1.5">
-								<div class="truncate text-sm font-medium" title={effectiveName}>
+						<div class="min-w-0 flex-1">
+							<div class="flex min-w-0 items-center gap-1.5">
+								<div class="min-w-0 flex-1 truncate text-sm font-medium" title={effectiveName}>
 									{#if toolPrefix}<span class="text-on-surface2">{toolPrefix}</span
 										>{/if}{currentName}
 								</div>
@@ -312,7 +330,7 @@
 		<button class="button" onclick={handleCancel}>Cancel</button>
 		<button
 			class="button-primary"
-			disabled={hasBlockingToolNameErrors || !!prefixIssue}
+			disabled={hasBlockingToolNameErrors || prefixIssue?.severity === 'error'}
 			onclick={() => {
 				onSuccess?.();
 				dialog?.close();

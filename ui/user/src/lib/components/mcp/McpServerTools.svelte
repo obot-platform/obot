@@ -250,14 +250,14 @@
 						class:pb-2={hasContentDisplayed}
 					>
 						<div class="flex items-center justify-between gap-2">
-							<p class="text-md flex items-center gap-1.5 font-semibold">
-								<span>{tool.name}</span>
+							<p class="text-md flex min-w-0 flex-1 items-center gap-1.5 font-semibold">
+								<span class="min-w-0 flex-1 truncate" title={tool.name}>{tool.name}</span>
 								{#if showToolNameIssues}
 									{@const conflict = conflictIssue(tool.name, toolNameDuplicates)}
 									<ToolNameIssueIcon issue={conflict ?? toolNameIssue(tool.name)} />
 								{/if}
 								{#if tool.unsupported}
-									<span class="text-on-surface1 ml-3 text-sm">
+									<span class="text-on-surface1 ml-3 flex-shrink-0 text-sm">
 										⚠️ Not yet fully supported in Obot
 									</span>
 								{/if}

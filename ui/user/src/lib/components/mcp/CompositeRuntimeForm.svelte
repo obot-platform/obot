@@ -12,7 +12,9 @@
 		conflictIssue,
 		duplicateToolNames,
 		effectiveToolName,
+		MAX_TOOL_PREFIX_LENGTH,
 		TOOL_NAME_CHARSET_REGEX,
+		TOOL_NAME_SPECIAL_CHAR_WARNING,
 		toolNameIssue,
 		type ToolNameIssue
 	} from '$lib/services/chat/mcp';
@@ -126,23 +128,36 @@
 				message: "Prefix may only contain letters, digits, '.', '/', '_', and '-'."
 			};
 		}
+		if ((entry.toolPrefix ?? '').length > MAX_TOOL_PREFIX_LENGTH) {
+			return {
+				severity: 'error',
+				message: `Prefix exceeds ${MAX_TOOL_PREFIX_LENGTH} character limit.`
+			};
+		}
 		if (p && duplicatePrefixes.has(p)) {
 			return {
 				severity: 'error',
 				message: `Another component already uses the prefix "${p}". Non-empty prefixes must be unique across components.`
 			};
 		}
+		if (/[./]/.test(entry.toolPrefix ?? '')) {
+			return {
+				severity: 'warning',
+				message: TOOL_NAME_SPECIAL_CHAR_WARNING
+			};
+		}
 		return undefined;
 	}
 
 	// Component-card aggregate: highest severity among all enabled tools and
-	// the component's own prefix state. Prefix issues are always errors.
+	// the component's own prefix state.
 	function componentSeverity(entry: {
 		toolOverrides?: { name: string; overrideName?: string; enabled?: boolean }[];
 		toolPrefix?: string;
 	}): 'warning' | 'error' | undefined {
-		if (prefixIssue(entry)) return 'error';
-		let out: 'warning' | 'error' | undefined;
+		const prefix = prefixIssue(entry);
+		if (prefix?.severity === 'error') return 'error';
+		let out: 'warning' | 'error' | undefined = prefix?.severity;
 		for (const t of entry.toolOverrides ?? []) {
 			const s = toolRowSeverity(t.name, t.overrideName, entry.toolPrefix, t.enabled);
 			if (s === 'error') return 'error';
@@ -153,7 +168,7 @@
 
 	$effect(() => {
 		hasToolNameErrors = (config.componentServers || []).some((entry) => {
-			if (prefixIssue(entry)) return true;
+			if (prefixIssue(entry)?.severity === 'error') return true;
 			return (entry.toolOverrides ?? []).some(
 				(t) => toolRowSeverity(t.name, t.overrideName, entry.toolPrefix, t.enabled) === 'error'
 			);
@@ -356,8 +371,10 @@
 						{:else}
 							<Server class="text-on-surface1 size-8" />
 						{/if}
-						<div class="flex flex-1 items-center gap-1.5">
-							<div class="font-medium">{entry.manifest?.name || 'Unnamed Server'}</div>
+						<div class="flex min-w-0 flex-1 items-center gap-1.5">
+							<div class="truncate font-medium" title={entry.manifest?.name || 'Unnamed Server'}>
+								{entry.manifest?.name || 'Unnamed Server'}
+							</div>
 							{#if headerSeverity}
 								<ToolNameIssueIcon
 									issue={{
@@ -426,7 +443,11 @@
 									{/if}
 								</div>
 								{#if issue}
-									<p class="text-xs text-red-500">{issue.message}</p>
+									<p
+										class={`text-xs ${issue.severity === 'error' ? 'text-red-500' : 'text-yellow-500'}`}
+									>
+										{issue.message}
+									</p>
 								{:else}
 									<p class="text-on-surface2 text-[11px]">
 										Prepended to every tool name exposed by this component. Clear to remove.
@@ -486,9 +507,12 @@
 										>
 											<div class="flex min-w-0 grow flex-col gap-2">
 												<div class="flex items-start justify-between gap-2">
-													<div class="min-w-0">
-														<div class="flex items-center gap-1.5">
-															<div class="truncate text-sm font-medium" title={effectiveName}>
+													<div class="min-w-0 flex-1">
+														<div class="flex min-w-0 items-center gap-1.5">
+															<div
+																class="min-w-0 flex-1 truncate text-sm font-medium"
+																title={effectiveName}
+															>
 																{#if entry.toolPrefix}<span class="text-on-surface2"
 																		>{entry.toolPrefix}</span
 																	>{/if}{currentName}
