@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -37,7 +38,10 @@ import (
 
 var olog = logger.Package()
 
-const maxPodRestartsDuringSetup = 3
+const (
+	maxDeploymentWatchRetries = 5
+	maxPodRestartsDuringSetup = 3
+)
 
 type kubernetesBackend struct {
 	clientset                     *kubernetes.Clientset
@@ -978,68 +982,99 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 	// Image pulling gets a fixed generous timeout; the configured timeout applies to container startup.
 	timeout := startupTimeout(server)
 	imagePullDeadline := time.Now().Add(imagePullTimeout)
+	watchDeadline := time.Now().Add(imagePullTimeout + timeout + 30*time.Second)
 	var startupDeadline time.Time
 
 	// Wait for the deployment to be ready, checking pod status on each update to fail fast on permanent errors.
 	// The watch timeout must cover both image pulling and container startup.
-	_, err := wait.For(ctx, k.client, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}},
-		func(dep *appsv1.Deployment) (bool, error) {
-			if dep.Generation == dep.Status.ObservedGeneration && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1 {
-				return true, nil
-			}
-
-			// Deployment not ready yet — check pod status for early failure detection.
-			var pods corev1.PodList
-			if listErr := k.client.List(ctx, &pods, &kclient.ListOptions{
-				Namespace: k.mcpNamespace,
-				LabelSelector: labels.SelectorFromSet(map[string]string{
-					"app": id,
-				}),
-			}); listErr != nil {
-				olog.Warnf("failed to list MCP pods for status check: id=%s error=%v", id, listErr)
-				return false, nil // Keep waiting; listing failure is transient
-			}
-
-			if len(pods.Items) == 0 {
-				return false, nil // No pods yet, keep waiting
-			}
-
-			newestPod, err := getNewestPod(pods.Items)
-			if err != nil {
-				return false, nil // Keep waiting
-			}
-
-			pullingImage, mcpContainerStartedAt, podErr := analyzePodStatus(newestPod)
-			if podErr != nil {
-				// Permanent failure — abort immediately
-				olog.Warnf("pod in non-retryable state: id=%s error=%v", id, podErr)
-				return false, podErr
-			}
-
-			if pullingImage && time.Now().After(imagePullDeadline) {
-				return false, fmt.Errorf("%w: image pull exceeded %s timeout", ErrHealthCheckTimeout, imagePullTimeout)
-			}
-			if !pullingImage {
-				// Pod is past image pulling (container creating/starting/running).
-				// Start the startup timeout from the MCP container's Kubernetes start time
-				// when available so a long watch interval doesn't grant extra startup time.
-				if mcpContainerStartedAt != nil {
-					startupDeadline = mcpContainerStartedAt.Add(timeout)
-				} else if startupDeadline.IsZero() {
-					startupDeadline = time.Now().Add(timeout)
-				}
-				if time.Now().After(startupDeadline) {
-					return false, fmt.Errorf("%w: container startup exceeded %s timeout", ErrHealthCheckTimeout, timeout)
-				}
-			}
-
-			return false, nil // Retryable state, keep waiting
-		},
-		// wait.For will default to 2m timeout. Here we combine the configured timeouts + some wiggle room
-		wait.Option{Timeout: imagePullTimeout + timeout + 30*time.Second},
+	var (
+		err     error
+		lastErr error
 	)
-	if err != nil {
-		return "", err
+	for attempt := range maxDeploymentWatchRetries {
+		remaining := time.Until(watchDeadline)
+		if remaining <= 0 {
+			if lastErr != nil {
+				return "", fmt.Errorf("%w: timeout waiting for deployment readiness: %v", ErrHealthCheckTimeout, lastErr)
+			}
+			return "", fmt.Errorf("%w: timeout waiting for deployment readiness", ErrHealthCheckTimeout)
+		}
+
+		_, err := wait.For(ctx, k.client, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}},
+			func(dep *appsv1.Deployment) (bool, error) {
+				if dep.Generation == dep.Status.ObservedGeneration && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1 {
+					return true, nil
+				}
+
+				// Deployment not ready yet — check pod status for early failure detection.
+				var pods corev1.PodList
+				if listErr := k.client.List(ctx, &pods, &kclient.ListOptions{
+					Namespace: k.mcpNamespace,
+					LabelSelector: labels.SelectorFromSet(map[string]string{
+						"app": id,
+					}),
+				}); listErr != nil {
+					olog.Warnf("failed to list MCP pods for status check: id=%s error=%v", id, listErr)
+					return false, nil // Keep waiting; listing failure is transient
+				}
+
+				if len(pods.Items) == 0 {
+					return false, nil // No pods yet, keep waiting
+				}
+
+				newestPod, err := getNewestPod(pods.Items)
+				if err != nil {
+					return false, nil // Keep waiting
+				}
+
+				pullingImage, mcpContainerStartedAt, podErr := analyzePodStatus(newestPod)
+				if podErr != nil {
+					// Permanent failure — abort immediately
+					olog.Warnf("pod in non-retryable state: id=%s error=%v", id, podErr)
+					return false, podErr
+				}
+
+				if pullingImage && time.Now().After(imagePullDeadline) {
+					return false, fmt.Errorf("%w: image pull exceeded %s timeout", ErrHealthCheckTimeout, imagePullTimeout)
+				}
+				if !pullingImage {
+					// Pod is past image pulling (container creating/starting/running).
+					// Start the startup timeout from the MCP container's Kubernetes start time
+					// when available so a long watch interval doesn't grant extra startup time.
+					if mcpContainerStartedAt != nil {
+						startupDeadline = mcpContainerStartedAt.Add(timeout)
+					} else if startupDeadline.IsZero() {
+						startupDeadline = time.Now().Add(timeout)
+					}
+					if time.Now().After(startupDeadline) {
+						return false, fmt.Errorf("%w: container startup exceeded %s timeout", ErrHealthCheckTimeout, timeout)
+					}
+				}
+
+				return false, nil // Retryable state, keep waiting
+			},
+			wait.Option{Timeout: remaining},
+		)
+		if err == nil {
+			break
+		}
+
+		// Errors from pod analysis or explicit deadlines are authoritative; retry only watch-level failures.
+		if errors.Is(err, ErrHealthCheckTimeout) ||
+			errors.Is(err, ErrPodCrashLoopBackOff) ||
+			errors.Is(err, ErrImagePullFailed) ||
+			errors.Is(err, ErrPodSchedulingFailed) ||
+			errors.Is(err, ErrPodConfigurationFailed) ||
+			errors.Is(err, context.Canceled) ||
+			errors.Is(err, context.DeadlineExceeded) {
+			return "", err
+		}
+
+		lastErr = err
+		olog.Debugf("retrying MCP deployment watch after error: id=%s attempt=%d maxAttempts=%d error=%v", id, attempt+1, maxDeploymentWatchRetries, err)
+		if attempt == maxDeploymentWatchRetries-1 {
+			return "", fmt.Errorf("%w after %d watch retries: %v", ErrHealthCheckTimeout, maxDeploymentWatchRetries, lastErr)
+		}
 	}
 
 	// Deployment is ready. Get the pod name that is currently running.
