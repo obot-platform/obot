@@ -22,17 +22,17 @@ import (
 
 type Client client.WithWatch
 
-func Start(ctx context.Context, config sservices.Config) (Client, *rest.Config, *db.Factory, *sservices.Services, error) {
+func Start(ctx context.Context, config sservices.Config) (Client, *rest.Config, *db.Factory, error) {
 	services, err := sservices.New(config)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	c, cfg, err := startMinkServer(ctx, config, services)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
-	return c, cfg, services.DB, services, nil
+	return c, cfg, services.DB, nil
 }
 
 func startMinkServer(ctx context.Context, config sservices.Config, services *sservices.Services) (Client, *rest.Config, error) {
