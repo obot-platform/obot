@@ -399,7 +399,9 @@
 			}
 		}
 
-		const launchResponse = await AdminService.launchMCPFilter(filterData.id);
+		const launchResponse = filterData.disabled
+			? { success: true }
+			: await AdminService.launchMCPFilter(filterData.id);
 
 		if (!launchResponse.success) {
 			launchError = launchResponse.message;
@@ -493,9 +495,7 @@
 			if (initialFilterId) {
 				const result = await AdminService.updateMCPFilter(initialFilterId, manifest);
 				// skip launch for disabled mcp filter
-				const launchSuccess = result.disabled
-					? true
-					: await validateLaunch(result, mcpServerManifest);
+				const launchSuccess = await validateLaunch(result, mcpServerManifest);
 
 				if (launchSuccess) {
 					saving = false;
