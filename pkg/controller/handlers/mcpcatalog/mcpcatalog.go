@@ -25,6 +25,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -665,6 +666,8 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) e
 		}
 
 		return nil
+	} else if !apierrors.IsNotFound(err) {
+		return err
 	}
 
 	var sourceURLs []string
@@ -691,17 +694,8 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) e
 
 func (h *Handler) SetUpDefaultSystemMCPCatalog(ctx context.Context, c client.Client) error {
 	var existing v1.SystemMCPCatalog
-	if err := c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultCatalog), &existing); err == nil {
-		if h.defaultSystemCatalogPath == "" || slices.Contains(existing.Spec.SourceURLs, h.defaultSystemCatalogPath) {
-			return nil
-		}
-
-		existing.Spec.SourceURLs = append(existing.Spec.SourceURLs, h.defaultSystemCatalogPath)
-		if err := c.Update(ctx, &existing); err != nil {
-			return fmt.Errorf("failed to update default system MCP catalog: %w", err)
-		}
-		log.Infof("Updated default system MCP catalog source URL: catalog=%s source=%s", existing.Name, h.defaultSystemCatalogPath)
-		return nil
+	if err := c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultCatalog), &existing); !apierrors.IsNotFound(err) {
+		return err
 	}
 
 	var sourceURLs []string
