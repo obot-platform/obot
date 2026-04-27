@@ -17,6 +17,8 @@
 		inDialog?: boolean;
 	}
 
+	let { form = $bindable(), readonly, inDialog }: Props = $props();
+
 	let addMcpServerDialog = $state<ReturnType<typeof SearchMcpServers>>();
 	let mcpServersMap = $derived(new Map(mcpServersAndEntries.current.servers.map((i) => [i.id, i])));
 	let mcpEntriesMap = $derived(new Map(mcpServersAndEntries.current.entries.map((i) => [i.id, i])));
@@ -84,8 +86,6 @@
 			);
 		}
 	}
-
-	let { form = $bindable(), readonly, inDialog }: Props = $props();
 </script>
 
 <div class="flex flex-col gap-2">

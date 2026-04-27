@@ -81,6 +81,7 @@ export function convertEnvHeadersToRecord(
 }
 
 export function hasEditableConfiguration(item: MCPCatalogEntry | SystemMCPServerCatalogEntry) {
+	if (!item.manifest) return false;
 	// For composite servers, check if any component has editable configuration
 	if ('compositeConfig' in item.manifest) {
 		if (item.manifest?.runtime === 'composite') {
