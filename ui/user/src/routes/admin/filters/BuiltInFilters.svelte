@@ -53,7 +53,7 @@
 		{/snippet}
 		{#snippet actions()}
 			<button class="icon-button hover:dark:bg-background/50">
-				<StepForward class="size-4" />
+				<StepForward class="size-4 text-on-surface1" />
 			</button>
 		{/snippet}
 	</Table>
@@ -69,7 +69,7 @@
 					{stripMarkdownToText(filteredBuiltInFiltersData[0].manifest.description)}
 				</span>
 			</p>
-			<StepForward class="size-4 shrink-0" />
+			<StepForward class="size-4 shrink-0 text-on-surface1" />
 		</button>
 	</div>
 {/if}
