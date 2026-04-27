@@ -1,19 +1,15 @@
 import { handleRouteError } from '$lib/errors';
 import { AdminService } from '$lib/services';
-import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
-export const load: PageLoad = async ({ params, fetch }) => {
+export const load: PageLoad = async ({ params, fetch, parent }) => {
 	const { id } = params;
+	const { profile } = await parent();
 
-	let filter;
 	try {
-		filter = await AdminService.getMCPFilter(id, { fetch });
+		const filter = await AdminService.getMCPFilter(id, { fetch });
+		return { filter };
 	} catch (err) {
-		handleRouteError(err, `/admin/filters/${id}`, profile.current);
+		handleRouteError(err, `/admin/filters/${id}`, profile);
 	}
-
-	return {
-		filter
-	};
 };

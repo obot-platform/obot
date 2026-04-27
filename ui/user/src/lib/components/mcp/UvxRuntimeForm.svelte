@@ -84,7 +84,7 @@
 		<input
 			id="uvx-package"
 			class={twMerge(
-				'text-input-filled dark:bg-backgroundblack w-full',
+				'text-input-filled dark:bg-background w-full',
 				showRequired?.package && 'error'
 			)}
 			bind:value={config.package}

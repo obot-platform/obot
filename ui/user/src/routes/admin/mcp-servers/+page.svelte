@@ -345,7 +345,11 @@
 {/snippet}
 
 {#snippet addServerButton()}
-	<DotDotDot class="button-primary w-full text-sm md:w-fit" placement="bottom">
+	<DotDotDot
+		class="button-primary w-full text-sm md:w-fit"
+		placement="bottom"
+		classes={{ popover: 'z-50' }}
+	>
 		{#snippet icon()}
 			<span class="flex items-center justify-center gap-1">
 				<Plus class="size-4" /> Add MCP Server

@@ -40,6 +40,7 @@ const (
 	MCPServerInstancePrefix       = "msi1"
 	ProjectMCPServerPrefix        = "pms1"
 	CatalogPrefix                 = "mcat1"
+	SystemCatalogPrefix           = "smcat1"
 	SkillRepositoryPrefix         = "skr1"
 	SkillPrefix                   = "sk1"
 	SkillAccessRulePrefix         = "sar1"

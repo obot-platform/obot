@@ -312,7 +312,7 @@ type MCPServerTool struct {
 	Description string            `json:"description,omitempty"`
 	Params      map[string]string `json:"params,omitempty"`
 	Credentials []string          `json:"credentials,omitempty"`
-	Enabled     bool              `json:"enabled"`
+	Enabled     bool              `json:"enabled,omitempty"`
 	Unsupported bool              `json:"unsupported,omitempty"`
 }
 
