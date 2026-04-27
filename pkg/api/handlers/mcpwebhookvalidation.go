@@ -18,6 +18,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
+	"github.com/obot-platform/obot/pkg/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -288,8 +289,24 @@ func getCredentialsForWebhookValidation(ctx context.Context, gptClient *gptscrip
 }
 
 func (m *MCPWebhookValidationHandler) getSystemServerForWebhookValidation(req api.Context) (v1.SystemMCPServer, error) {
-	var systemServer v1.SystemMCPServer
-	return systemServer, req.Get(&systemServer, system.SystemMCPServerPrefix+req.PathValue("mcp_webhook_validation_id"))
+	systemServer := &v1.SystemMCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: req.Namespace(),
+			Name:      system.SystemMCPServerPrefix + req.PathValue("mcp_webhook_validation_id"),
+		},
+	}
+
+	systemServer, err := wait.For(req.Context(), req.Storage, systemServer, func(s *v1.SystemMCPServer) (bool, error) {
+		return s.UID != "" && s.Name == systemServer.Name, nil
+	}, wait.Option{
+		Timeout:       10 * time.Second,
+		WaitForExists: true,
+	})
+	if err != nil {
+		return v1.SystemMCPServer{}, err
+	}
+
+	return *systemServer, nil
 }
 
 func (m *MCPWebhookValidationHandler) Restart(req api.Context) error {
