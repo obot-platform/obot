@@ -14,6 +14,7 @@
 		effectiveToolName,
 		MAX_TOOL_PREFIX_LENGTH,
 		TOOL_NAME_CHARSET_REGEX,
+		TOOL_NAME_SPECIAL_CHAR_WARNING,
 		toolNameIssue,
 		type ToolNameIssue
 	} from '$lib/services/chat/mcp';
@@ -139,17 +140,24 @@
 				message: `Another component already uses the prefix "${p}". Non-empty prefixes must be unique across components.`
 			};
 		}
+		if (/[./]/.test(entry.toolPrefix ?? '')) {
+			return {
+				severity: 'warning',
+				message: TOOL_NAME_SPECIAL_CHAR_WARNING
+			};
+		}
 		return undefined;
 	}
 
 	// Component-card aggregate: highest severity among all enabled tools and
-	// the component's own prefix state. Prefix issues are always errors.
+	// the component's own prefix state.
 	function componentSeverity(entry: {
 		toolOverrides?: { name: string; overrideName?: string; enabled?: boolean }[];
 		toolPrefix?: string;
 	}): 'warning' | 'error' | undefined {
-		if (prefixIssue(entry)) return 'error';
-		let out: 'warning' | 'error' | undefined;
+		const prefix = prefixIssue(entry);
+		if (prefix?.severity === 'error') return 'error';
+		let out: 'warning' | 'error' | undefined = prefix?.severity;
 		for (const t of entry.toolOverrides ?? []) {
 			const s = toolRowSeverity(t.name, t.overrideName, entry.toolPrefix, t.enabled);
 			if (s === 'error') return 'error';
@@ -160,7 +168,7 @@
 
 	$effect(() => {
 		hasToolNameErrors = (config.componentServers || []).some((entry) => {
-			if (prefixIssue(entry)) return true;
+			if (prefixIssue(entry)?.severity === 'error') return true;
 			return (entry.toolOverrides ?? []).some(
 				(t) => toolRowSeverity(t.name, t.overrideName, entry.toolPrefix, t.enabled) === 'error'
 			);
@@ -435,7 +443,11 @@
 									{/if}
 								</div>
 								{#if issue}
-									<p class="text-xs text-red-500">{issue.message}</p>
+									<p
+										class={`text-xs ${issue.severity === 'error' ? 'text-red-500' : 'text-yellow-500'}`}
+									>
+										{issue.message}
+									</p>
 								{:else}
 									<p class="text-on-surface2 text-[11px]">
 										Prepended to every tool name exposed by this component. Clear to remove.

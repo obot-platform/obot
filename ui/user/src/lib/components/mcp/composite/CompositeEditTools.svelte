@@ -9,6 +9,7 @@
 		effectiveToolName,
 		MAX_TOOL_PREFIX_LENGTH,
 		TOOL_NAME_CHARSET_REGEX,
+		TOOL_NAME_SPECIAL_CHAR_WARNING,
 		toolNameIssue
 	} from '$lib/services/chat/mcp';
 	import ToolNameIssueIcon from '../ToolNameIssueIcon.svelte';
@@ -48,6 +49,7 @@
 
 	let prefixInvalid = $derived(!TOOL_NAME_CHARSET_REGEX.test(toolPrefix ?? ''));
 	let prefixTooLong = $derived((toolPrefix ?? '').length > MAX_TOOL_PREFIX_LENGTH);
+	let prefixSpecialChar = $derived(/[./]/.test(toolPrefix ?? ''));
 	let duplicatePrefix = $derived.by(() => {
 		const prefix = (toolPrefix ?? '').trim();
 		if (!prefix) return false;
@@ -64,12 +66,17 @@
 						severity: 'error',
 						message: `Prefix must be at most ${MAX_TOOL_PREFIX_LENGTH} characters.`
 					} as const)
-			: duplicatePrefix
-				? ({
-						severity: 'error',
-						message: `Another component already uses the prefix "${(toolPrefix ?? '').trim()}". Non-empty prefixes must be unique across components.`
-					} as const)
-				: undefined
+				: duplicatePrefix
+					? ({
+							severity: 'error',
+							message: `Another component already uses the prefix "${(toolPrefix ?? '').trim()}". Non-empty prefixes must be unique across components.`
+						} as const)
+					: prefixSpecialChar
+						? ({
+								severity: 'warning',
+								message: TOOL_NAME_SPECIAL_CHAR_WARNING
+							} as const)
+						: undefined
 	);
 
 	// Only enabled tools contribute to blocking errors; disabled tools aren't exposed.
@@ -181,7 +188,11 @@
 				</button>
 			</div>
 			{#if prefixIssue}
-				<p class="text-xs text-red-500">{prefixIssue.message}</p>
+				<p
+					class={`text-xs ${prefixIssue.severity === 'error' ? 'text-red-500' : 'text-yellow-500'}`}
+				>
+					{prefixIssue.message}
+				</p>
 			{:else}
 				<p class="text-on-surface2 text-[11px]">
 					Prepended to every tool name exposed by this component. Clear to remove.
@@ -319,7 +330,7 @@
 		<button class="button" onclick={handleCancel}>Cancel</button>
 		<button
 			class="button-primary"
-			disabled={hasBlockingToolNameErrors || !!prefixIssue}
+			disabled={hasBlockingToolNameErrors || prefixIssue?.severity === 'error'}
 			onclick={() => {
 				onSuccess?.();
 				dialog?.close();

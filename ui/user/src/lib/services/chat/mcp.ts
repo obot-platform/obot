@@ -654,6 +654,8 @@ export function deriveToolPrefix(name: string): string {
 export const TOOL_NAME_CHARSET_REGEX = /^[A-Za-z0-9._/-]*$/;
 export const MAX_TOOL_PREFIX_LENGTH = 64;
 export const MAX_TOOL_NAME_LENGTH = 128;
+export const TOOL_NAME_SPECIAL_CHAR_WARNING =
+	"'.' and '/' in MCP server tool names are not supported by some clients.";
 
 export type ToolNameIssue = { severity: 'warning' | 'error'; message: string };
 
@@ -691,7 +693,7 @@ export function toolNameIssue(effectiveName: string): ToolNameIssue | undefined 
 	if (/[./]/.test(effectiveName)) {
 		return {
 			severity: 'warning',
-			message: `'.' and '/' in MCP server tool names are not supported by some clients.`
+			message: TOOL_NAME_SPECIAL_CHAR_WARNING
 		};
 	}
 	return undefined;
