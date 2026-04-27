@@ -243,7 +243,7 @@
 />
 
 <ResponsiveDialog
-	class="bg-surface1 dark:bg-background"
+	class="bg-surface1 dark:bg-background md:max-w-dvw md:w-6xl"
 	title="Select Built-in Filter"
 	bind:this={builtInFiltersDialog}
 >
