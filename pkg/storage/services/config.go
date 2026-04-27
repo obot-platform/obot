@@ -8,7 +8,6 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/authn"
 	"github.com/obot-platform/obot/pkg/storage/authz"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
-	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 )
 
@@ -22,7 +21,7 @@ type Config struct {
 
 type Services struct {
 	DB    *db.Factory
-	Authn authenticator.Request
+	Authn *authn.Authenticator
 	Authz authorizer.Authorizer
 }
 

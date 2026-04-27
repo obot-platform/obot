@@ -104,7 +104,7 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 		backend = dockerBackend
 	case "kubernetes", "k8s":
 		if localK8sConfig == nil {
-			return nil, fmt.Errorf("use ofKubernetes backend requested but no local K8s config available")
+			return nil, fmt.Errorf("use of Kubernetes backend requested but no local K8s config available")
 		}
 
 		client, err := kclient.NewWithWatch(localK8sConfig, kclient.Options{})
