@@ -1566,8 +1566,18 @@ func (in *MCPAuditLog) DeepCopyInto(out *MCPAuditLog) {
 		*out = make(json.RawMessage, len(*in))
 		copy(*out, *in)
 	}
+	if in.MutatedRequestBody != nil {
+		in, out := &in.MutatedRequestBody, &out.MutatedRequestBody
+		*out = make(json.RawMessage, len(*in))
+		copy(*out, *in)
+	}
 	if in.ResponseBody != nil {
 		in, out := &in.ResponseBody, &out.ResponseBody
+		*out = make(json.RawMessage, len(*in))
+		copy(*out, *in)
+	}
+	if in.OriginalResponseBody != nil {
+		in, out := &in.OriginalResponseBody, &out.OriginalResponseBody
 		*out = make(json.RawMessage, len(*in))
 		copy(*out, *in)
 	}

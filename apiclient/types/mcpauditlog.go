@@ -18,8 +18,12 @@ type MCPAuditLog struct {
 	ClientIP                  string          `json:"clientIP"`
 	CallType                  string          `json:"callType"`
 	CallIdentifier            string          `json:"callIdentifier,omitempty"`
+	RequestMutated            bool            `json:"requestMutated"`
 	RequestBody               json.RawMessage `json:"requestBody,omitempty"`
+	MutatedRequestBody        json.RawMessage `json:"mutatedRequestBody,omitempty"`
+	ResponseMutated           bool            `json:"responseMutated"`
 	ResponseBody              json.RawMessage `json:"responseBody,omitempty"`
+	OriginalResponseBody      json.RawMessage `json:"originalResponseBody,omitempty"`
 	ResponseStatus            int             `json:"responseStatus"`
 	WebhookStatuses           []WebhookStatus `json:"webhookStatuses,omitempty"`
 	Error                     string          `json:"error,omitempty"`
