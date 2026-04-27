@@ -11,7 +11,6 @@ import (
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/kubernetes/scheme"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -44,18 +43,19 @@ func (c *Controller) runServiceAccountKeyRotation(ctx context.Context) {
 }
 
 func (c *Controller) reconcileServiceAccountKeys(ctx context.Context) error {
+	var errs []error
 	for _, account := range serviceaccounts.All() {
 		if !serviceaccounts.Enabled(account, c.services.MCPRuntimeBackend) {
 			if err := c.cleanupServiceAccountKey(ctx, account); err != nil {
-				return err
+				errs = append(errs, err)
 			}
 			continue
 		}
 		if err := c.reconcileServiceAccountKey(ctx, account); err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func (c *Controller) cleanupServiceAccountKey(ctx context.Context, account serviceaccounts.Account) error {
@@ -241,21 +241,8 @@ func (c *Controller) runtimeNamespace() (string, error) {
 }
 
 func (c *Controller) runtimeK8sClient() (kclient.Client, error) {
-	if c.runtimeClient != nil {
-		return c.runtimeClient, nil
-	}
-
-	if c.services.LocalK8sConfig == nil {
+	if c.runtimeClient == nil {
 		return nil, errRuntimeK8sConfigUnavailable
 	}
-
-	client, err := kclient.New(c.services.LocalK8sConfig, kclient.Options{
-		Scheme: scheme.Scheme,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	c.runtimeClient = client
-	return client, nil
+	return c.runtimeClient, nil
 }

@@ -55,8 +55,14 @@ func New(services *services.Services) (*Controller, error) {
 	if services.LocalK8sConfig != nil {
 		c.localK8sRouter, err = c.createLocalK8sRouter()
 		if err != nil {
-			// Log warning but don't fail - MCP deployment monitoring is optional
 			return nil, fmt.Errorf("failed to create local Kubernetes router: %w", err)
+		}
+
+		c.runtimeClient, err = kclient.New(services.LocalK8sConfig, kclient.Options{
+			Scheme: scheme.Scheme,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create runtime Kubernetes client: %w", err)
 		}
 	}
 
