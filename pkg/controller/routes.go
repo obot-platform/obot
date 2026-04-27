@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpservercatalogentry"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpsession"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mcpwebhookvalidation"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/controller/handlers/nanobotagent"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
@@ -43,7 +44,6 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflowexecution"
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflowstep"
 	"github.com/obot-platform/obot/pkg/controller/handlers/workspace"
-	"github.com/obot-platform/obot/pkg/controller/mcpwebhookvalidation"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
