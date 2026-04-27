@@ -1024,6 +1024,9 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		} else {
 			containerID = resp.ID
 		}
+		if containerID != "" {
+			break
+		}
 	}
 	if containerID == "" {
 		return "", 0, fmt.Errorf("failed to create container")
