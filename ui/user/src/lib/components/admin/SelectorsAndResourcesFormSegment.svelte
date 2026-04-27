@@ -106,7 +106,7 @@
 	</div>
 
 	{#if form.selectors.length === 0}
-		<div class="text-on-surface1 p-4 text-center font-light">
+		<div class="text-on-surface1 p-4 text-center font-light text-sm">
 			No selectors added. This filter will match all MCP requests.<br />Click "Add Selector" to
 			specify filter criteria.
 		</div>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { beforeNavigate } from '$app/navigation';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { PAGE_TRANSITION_DURATION, PII_MUTATE_TYPES, PII_BLOCK_TYPES } from '$lib/constants';
 	import {
 		AdminService,
 		type MCPFilter,
@@ -25,6 +25,7 @@
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
+	import FilterFormTypeSelection from './FilterFormTypeSelection.svelte';
 	import SelectorsAndResourcesFormSegment from './SelectorsAndResourcesFormSegment.svelte';
 	import { Eye, EyeOff, LoaderCircle } from 'lucide-svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
@@ -60,6 +61,7 @@
 		selectors: MCPFilterWebhookSelector[];
 		toolName?: string;
 		allowedToMutate?: boolean;
+		disabled?: boolean;
 	}>(
 		untrack(() =>
 			initialFilter
@@ -70,7 +72,8 @@
 						secret: initialFilter.secret || '',
 						selectors: initialFilter.selectors || [],
 						toolName: initialFilter.toolName || '',
-						allowedToMutate: initialFilter.allowedToMutate || false
+						allowedToMutate: initialFilter.allowedToMutate || false,
+						disabled: initialFilter.disabled || false
 					}
 				: {
 						name: '',
@@ -79,7 +82,8 @@
 						secret: '',
 						selectors: [],
 						toolName: '',
-						allowedToMutate: false
+						allowedToMutate: false,
+						disabled: false
 					}
 		)
 	);
@@ -476,6 +480,7 @@
 				selectors,
 				toolName: filter.toolName,
 				allowedToMutate: filter.allowedToMutate ?? false,
+				disabled: filter.disabled ?? false,
 				...(isPrebuiltEntry
 					? {
 							systemMCPServerCatalogEntryID: mcpSystemCatalogEntryId
@@ -487,7 +492,10 @@
 
 			if (initialFilterId) {
 				const result = await AdminService.updateMCPFilter(initialFilterId, manifest);
-				const launchSuccess = await validateLaunch(result, mcpServerManifest);
+				// skip launch for disabled mcp filter
+				const launchSuccess = result.disabled
+					? true
+					: await validateLaunch(result, mcpServerManifest);
 
 				if (launchSuccess) {
 					saving = false;
@@ -523,7 +531,7 @@
 			{@render topContent()}
 		{/if}
 		{#if !initialFilterId}
-			<h1 class="text-2xl font-semibold">{isPrebuiltEntry ? filter.name : 'Create Filter'}</h1>
+			<h1 class="text-2xl font-semibold">Create Filter</h1>
 		{/if}
 
 		<div
@@ -539,7 +547,7 @@
 							class="text-input-filled dark:bg-background mt-0.5 {nameError
 								? 'border-red-500 focus:border-red-500 focus:ring-red-500'
 								: ''}"
-							disabled={readonly || isPrebuiltEntry}
+							disabled={readonly}
 						/>
 						{#if nameError}
 							<p class="text-xs text-red-600 dark:text-red-400">Name is required</p>
@@ -547,19 +555,21 @@
 					</div>
 				</div>
 
-				<div class="flex flex-col gap-2">
-					<label for="runtime-selector" class="text-sm font-light">Type</label>
-					<div class="w-full">
-						<Select
-							id="runtime-selector"
-							class="bg-surface1 dark:bg-surface1 dark:border-surface3 flex-1 border border-transparent shadow-inner"
-							options={runtimeOptions}
-							bind:selected={runtimeTypeSelect}
-							onSelect={handleRuntimeChange}
-							disabled={readonly || isPrebuiltEntry}
-						/>
+				{#if !mcpSystemCatalogEntryId}
+					<div class="flex flex-col gap-2">
+						<label for="runtime-selector" class="text-sm font-light">Type</label>
+						<div class="w-full">
+							<Select
+								id="runtime-selector"
+								class="bg-surface1 dark:bg-surface1 dark:border-surface3 flex-1 border border-transparent shadow-inner"
+								options={runtimeOptions}
+								bind:selected={runtimeTypeSelect}
+								onSelect={handleRuntimeChange}
+								disabled={readonly || isPrebuiltEntry}
+							/>
+						</div>
 					</div>
-				</div>
+				{/if}
 			</div>
 		</div>
 
@@ -650,46 +660,48 @@
 				</div>
 			</div>
 		{:else if runtimeFormData}
-			{#if runtimeFormData.runtime === 'npx' && runtimeFormData.npxConfig}
-				<NpxRuntimeForm
-					bind:config={runtimeFormData.npxConfig}
-					readonly={readonly || isPrebuiltEntry}
-					showRequired={showRuntimeRequired}
-					onFieldChange={handleUpdateRequired}
-				>
-					{@render toolNameForm()}
-				</NpxRuntimeForm>
-			{:else if runtimeFormData.runtime === 'uvx' && runtimeFormData.uvxConfig}
-				<UvxRuntimeForm
-					bind:config={runtimeFormData.uvxConfig}
-					readonly={readonly || isPrebuiltEntry}
-					showRequired={showRuntimeRequired}
-					onFieldChange={handleUpdateRequired}
-				>
-					{@render toolNameForm()}
-				</UvxRuntimeForm>
-			{:else if runtimeFormData.runtime === 'containerized' && runtimeFormData.containerizedConfig}
-				<ContainerizedRuntimeForm
-					bind:config={runtimeFormData.containerizedConfig}
-					readonly={readonly || isPrebuiltEntry}
-					showRequired={showRuntimeRequired}
-					onFieldChange={handleUpdateRequired}
-				>
-					{@render toolNameForm()}
-				</ContainerizedRuntimeForm>
-			{:else if runtimeFormData.runtime === 'remote' && runtimeFormData.remoteServerConfig}
-				<RemoteRuntimeForm
-					bind:config={runtimeFormData.remoteServerConfig}
-					variant="server"
-					readonly={readonly || isPrebuiltEntry}
-					showRequired={showRuntimeRequired}
-					onFieldChange={handleUpdateRequired}
-					isNewEntry={!initialFilterId}
-					disableStaticOAuth
-					disableHostnameOption
-				>
-					{@render toolNameForm()}
-				</RemoteRuntimeForm>
+			{#if !isPrebuiltEntry}
+				{#if runtimeFormData.runtime === 'npx' && runtimeFormData.npxConfig}
+					<NpxRuntimeForm
+						bind:config={runtimeFormData.npxConfig}
+						readonly={readonly || isPrebuiltEntry}
+						showRequired={showRuntimeRequired}
+						onFieldChange={handleUpdateRequired}
+					>
+						{@render toolNameForm()}
+					</NpxRuntimeForm>
+				{:else if runtimeFormData.runtime === 'uvx' && runtimeFormData.uvxConfig}
+					<UvxRuntimeForm
+						bind:config={runtimeFormData.uvxConfig}
+						readonly={readonly || isPrebuiltEntry}
+						showRequired={showRuntimeRequired}
+						onFieldChange={handleUpdateRequired}
+					>
+						{@render toolNameForm()}
+					</UvxRuntimeForm>
+				{:else if runtimeFormData.runtime === 'containerized' && runtimeFormData.containerizedConfig}
+					<ContainerizedRuntimeForm
+						bind:config={runtimeFormData.containerizedConfig}
+						readonly={readonly || isPrebuiltEntry}
+						showRequired={showRuntimeRequired}
+						onFieldChange={handleUpdateRequired}
+					>
+						{@render toolNameForm()}
+					</ContainerizedRuntimeForm>
+				{:else if runtimeFormData.runtime === 'remote' && runtimeFormData.remoteServerConfig}
+					<RemoteRuntimeForm
+						bind:config={runtimeFormData.remoteServerConfig}
+						variant="server"
+						readonly={readonly || isPrebuiltEntry}
+						showRequired={showRuntimeRequired}
+						onFieldChange={handleUpdateRequired}
+						isNewEntry={!initialFilterId}
+						disableStaticOAuth
+						disableHostnameOption
+					>
+						{@render toolNameForm()}
+					</RemoteRuntimeForm>
+				{/if}
 			{/if}
 
 			{#if runtimeFormData.runtime !== 'remote'}
@@ -698,7 +710,14 @@
 					{readonly}
 					type="multi"
 					{isPrebuiltEntry}
-				/>
+					overrideEnvField={[PII_MUTATE_TYPES, PII_BLOCK_TYPES]}
+				>
+					{#snippet overrideEnvTemplate({ config })}
+						{#if config.key === PII_BLOCK_TYPES && runtimeFormData}
+							<FilterFormTypeSelection bind:config={runtimeFormData.env} />
+						{/if}
+					{/snippet}
+				</CustomConfigurationForm>
 			{/if}
 		{/if}
 
@@ -712,26 +731,49 @@
 			out:fly={{ x: -100, duration }}
 			in:fly={{ x: -100 }}
 		>
-			<div class="flex w-full justify-end gap-2">
-				<button
-					class="button text-sm"
-					onclick={() => {
-						if (initialFilterId) {
-							onUpdate?.(undefined);
-						} else {
-							onCreate?.(undefined);
-						}
-					}}
-				>
-					Cancel
-				</button>
-				<button class="button-primary text-sm" disabled={saving} onclick={handleSave}>
-					{#if saving}
-						<LoaderCircle class="size-4 animate-spin" />
-					{:else}
-						Save
+			<div class="flex w-full justify-between gap-2">
+				<div>
+					{#if initialFilter?.id}
+						<button
+							class={twMerge(
+								'text-sm',
+								filter.disabled ? 'button-primary' : 'button-destructive py-2'
+							)}
+							disabled={saving}
+							onclick={() => {
+								filter.disabled = !filter.disabled;
+								handleSave();
+							}}
+						>
+							{#if saving}
+								<LoaderCircle class="size-4 animate-spin" />
+							{:else}
+								{filter.disabled ? 'Enable' : 'Disable'} Filter
+							{/if}
+						</button>
 					{/if}
-				</button>
+				</div>
+				<div class="flex gap-2">
+					<button
+						class="button text-sm"
+						onclick={() => {
+							if (initialFilterId) {
+								onUpdate?.(undefined);
+							} else {
+								onCreate?.(undefined);
+							}
+						}}
+					>
+						Cancel
+					</button>
+					<button class="button-primary text-sm" disabled={saving} onclick={handleSave}>
+						{#if saving}
+							<LoaderCircle class="size-4 animate-spin" />
+						{:else}
+							Save
+						{/if}
+					</button>
+				</div>
 			</div>
 		</div>
 	{/if}

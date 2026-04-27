@@ -255,7 +255,7 @@
 						{@render buttonStartContent()}
 					{/if}
 					<div class="min-w-0 flex-1 items-center gap-2 truncate">
-						{selectedOptions[0]?.label ?? ''}
+						{selectedOptions[0]?.label || placeholder || ''}
 					</div>
 				{/if}
 			{/if}

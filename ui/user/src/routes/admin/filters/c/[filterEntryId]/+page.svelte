@@ -27,7 +27,7 @@
 			};
 		})
 	);
-	let title = $derived(filter?.name ?? 'Filter');
+	let title = 'Create Filter';
 </script>
 
 <FilterView {title} {filter} entry={data.entry} />

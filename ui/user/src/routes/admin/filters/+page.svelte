@@ -2,7 +2,9 @@
 	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import Table from '$lib/components/table/Table.svelte';
@@ -21,7 +23,7 @@
 	import { openUrl } from '$lib/utils';
 	import BuiltInFilters from './BuiltInFilters.svelte';
 	import { debounce } from 'es-toolkit';
-	import { Filter, Info, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
+	import { Filter, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -32,24 +34,19 @@
 
 	let query = $derived(page.url.searchParams.get('query') || '');
 	let filters = $state<MCPFilter[]>(untrack(() => data?.filters ?? []));
+	let builtInFiltersDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let systemCatalogEntries = $state<SystemMCPServerCatalogEntry[]>(
 		untrack(() => data?.systemCatalogEntries ?? [])
 	);
-	let { myFilters, connectedBuiltInFilters } = $derived(
-		filters.reduce<{ myFilters: MCPFilter[]; connectedBuiltInFilters: MCPFilter[] }>(
-			(acc, filter) => {
-				if (filter.systemMCPServerCatalogEntryID) {
-					acc.connectedBuiltInFilters.push(filter);
-				} else {
-					acc.myFilters.push(filter);
-				}
-				return acc;
-			},
-			{ myFilters: [], connectedBuiltInFilters: [] }
-		)
+
+	let tableData = $derived(
+		filters.map((filter) => ({
+			...filter,
+			status: filter.disabled ? 'Disabled' : 'Enabled'
+		}))
 	);
-	let filteredMyFilters = $derived.by(() =>
-		myFilters.filter((filter) => filter.name?.toLowerCase().includes(query.toLowerCase()))
+	let filteredTableData = $derived.by(() =>
+		tableData.filter((filter) => filter.name?.toLowerCase().includes(query.toLowerCase()))
 	);
 
 	let urlFilters = $derived(getTableUrlParamsFilters());
@@ -78,25 +75,6 @@
 		replaceState(page.url, { query });
 	}, 100);
 
-	function handleFilter(property: string, values: string[]) {
-		if (values.length === 0) {
-			delete urlFilters[property];
-			urlFilters = { ...urlFilters };
-		} else {
-			urlFilters[property] = values;
-		}
-		setFilterUrlParams(property, values);
-	}
-
-	function handleClearAllFilters() {
-		urlFilters = {};
-		clearUrlParams();
-	}
-
-	async function handleRefresh() {
-		filters = await AdminService.listMCPFilters();
-	}
-
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
@@ -120,8 +98,8 @@
 				in:fly={{ x: 100, delay: duration, duration }}
 				out:fly={{ x: -100, duration }}
 			>
-				{#if filters.length === 0 && systemCatalogEntries.length === 0}
-					<div class="mt-4 flex w-md flex-col items-center gap-4 self-center text-center">
+				{#if filters.length === 0}
+					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 						<Filter class="text-on-surface1 size-24 opacity-50" />
 						<h4 class="text-on-surface1 text-lg font-semibold">No created filters</h4>
 						<p class="text-on-surface1 text-sm font-light">
@@ -130,94 +108,72 @@
 						</p>
 					</div>
 				{:else}
-					<Search
-						value={query}
-						class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
-						onChange={updateQuery}
-						placeholder="Search filters..."
-					/>
-
-					{#if myFilters.length > 0}
-						<div class="flex flex-col gap-2">
-							<h4 class="text-lg font-semibold">My Filters</h4>
-							<Table
-								data={filteredMyFilters}
-								fields={['name', 'selectors']}
-								onClickRow={(d, isCtrlClick) => {
-									const url = `/admin/filters/${d.id}`;
-									openUrl(url, isCtrlClick);
-								}}
-								filterable={['name']}
-								filters={urlFilters}
-								onFilter={setFilterUrlParams}
-								onClearAllFilters={clearUrlParams}
-								headers={[
-									{
-										title: 'Name',
-										property: 'name'
-									},
-									{
-										title: 'Selectors',
-										property: 'selectors'
-									}
-								]}
-								sortable={['name']}
-								onSort={setSortUrlParams}
-								{initSort}
-							>
-								{#snippet actions(d: MCPFilter)}
-									{#if !profile.current.isAdminReadonly?.()}
-										<button
-											class="icon-button hover:text-red-500"
-											onclick={(e) => {
-												e.stopPropagation();
-												filterToDelete = d;
-											}}
-											use:tooltip={'Delete Filter'}
-										>
-											<Trash2 class="size-4" />
-										</button>
-									{/if}
-								{/snippet}
-								{#snippet onRenderColumn(property, d: MCPFilter)}
-									{#if property === 'name'}
-										{d.name || '-'}
-									{:else if property === 'url'}
-										{d.url || '-'}
-									{:else if property === 'selectors'}
-										{@const count = d.selectors?.length || 0}
-										{count > 0 ? `${count} selector${count > 1 ? 's' : ''}` : '-'}
-									{:else}
-										-
-									{/if}
-								{/snippet}
-							</Table>
-						</div>
-					{:else if systemCatalogEntries.length > 0}
-						<div class="notification-info p-3 text-sm font-light">
-							<div class="flex items-center gap-3">
-								<Info class="size-6" />
-								<div>
-									<p class="font-semibold">Don't see a filter you need?</p>
-									<p>Click the "Add New Filter" button above to create a custom filter.</p>
-								</div>
-							</div>
-						</div>
-					{/if}
-
 					<div class="flex flex-col gap-2">
-						<h4 class="text-lg font-semibold">Built-in Filters</h4>
-						<BuiltInFilters
-							{query}
-							entries={systemCatalogEntries}
-							connectedFilters={connectedBuiltInFilters}
-							{urlFilters}
-							onFilter={handleFilter}
-							onClearAllFilters={handleClearAllFilters}
-							onRefresh={handleRefresh}
+						<Search
+							value={query}
+							class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+							onChange={updateQuery}
+							placeholder="Search filters..."
+						/>
+
+						<Table
+							data={filteredTableData}
+							fields={['name', 'selectors', 'status']}
+							onClickRow={(d, isCtrlClick) => {
+								const url = `/admin/filters/${d.id}`;
+								openUrl(url, isCtrlClick);
+							}}
+							filterable={['name', 'status']}
+							filters={urlFilters}
+							onFilter={setFilterUrlParams}
+							onClearAllFilters={clearUrlParams}
+							headers={[
+								{
+									title: 'Name',
+									property: 'name'
+								},
+								{
+									title: 'Selectors',
+									property: 'selectors'
+								}
+							]}
+							sortable={['name', 'status']}
 							onSort={setSortUrlParams}
 							{initSort}
-						/>
+						>
+							{#snippet actions(d: MCPFilter)}
+								{#if !profile.current.isAdminReadonly?.()}
+									<button
+										class="icon-button hover:text-red-500"
+										onclick={(e) => {
+											e.stopPropagation();
+											filterToDelete = d;
+										}}
+										use:tooltip={'Delete Filter'}
+									>
+										<Trash2 class="size-4" />
+									</button>
+								{/if}
+							{/snippet}
+							{#snippet onRenderColumn(property, d: (typeof tableData)[number])}
+								{#if property === 'name'}
+									{d.name || '-'}
+								{:else if property === 'url'}
+									{d.url || '-'}
+								{:else if property === 'selectors'}
+									{@const count = d.selectors?.length || 0}
+									{count > 0 ? `${count} selector${count > 1 ? 's' : ''}` : '-'}
+								{:else if property === 'status'}
+									<span
+										class={d.status === 'Disabled'
+											? 'text-on-surface1 font-light italic text-xs'
+											: 'pill-primary bg-primary'}>{d.status}</span
+									>
+								{:else}
+									-
+								{/if}
+							{/snippet}
+						</Table>
 					</div>
 				{/if}
 			</div>
@@ -235,14 +191,33 @@
 </Layout>
 
 {#snippet addFilterButton()}
-	<button
-		class="button-primary flex items-center gap-1 text-sm"
-		onclick={() => {
-			goto('/admin/filters?new=true');
-		}}
+	<DotDotDot
+		class="button-primary w-full text-sm md:w-fit"
+		placement="bottom"
+		classes={{ popover: 'z-50' }}
 	>
-		<Plus class="size-4" /> Add New Filter
-	</button>
+		{#snippet icon()}
+			<span class="flex items-center justify-center gap-1">
+				<Plus class="size-4" /> Add New Filter
+			</span>
+		{/snippet}
+		<button
+			class="menu-button"
+			onclick={() => {
+				goto('/admin/filters?new=true');
+			}}
+		>
+			Create Custom
+		</button>
+		<button
+			class="menu-button"
+			onclick={() => {
+				builtInFiltersDialog?.open();
+			}}
+		>
+			Create From Built-in
+		</button>
+	</DotDotDot>
 {/snippet}
 
 {#snippet createFilterScreen()}
@@ -266,6 +241,21 @@
 	}}
 	oncancel={() => (filterToDelete = undefined)}
 />
+
+<ResponsiveDialog
+	class="bg-surface1 dark:bg-background"
+	title="Select Built-in Filter"
+	bind:this={builtInFiltersDialog}
+>
+	<BuiltInFilters
+		{query}
+		entries={systemCatalogEntries}
+		onSelect={(d) => {
+			goto(`/admin/filters/c/${d.id}`);
+			builtInFiltersDialog?.close();
+		}}
+	/>
+</ResponsiveDialog>
 
 <svelte:head>
 	<title>Obot | Filters</title>

@@ -11,7 +11,7 @@
 	import type { MCPFilterInput, SystemMCPServerCatalogEntry } from '$lib/services/admin/types';
 	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import { BookOpenText, Info, Trash2 } from 'lucide-svelte';
+	import { BookOpenText, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -52,14 +52,13 @@
 				{#if !profile.current.isAdminReadonly?.() && !entry?.id}
 					<button
 						class="button-destructive flex items-center gap-1 text-xs font-normal"
-						use:tooltip={'Delete Filter'}
+						use:tooltip={{ text: 'Delete Filter', placement: 'left' }}
 						onclick={() => (deletingFilter = true)}
 					>
 						<Trash2 class="size-4" />
 					</button>
 				{/if}
 			</div>
-			{@render prebuiltInfo()}
 			<div class="flex flex-1 gap-2 py-1 text-sm font-light max-h-11.5">
 				{#each tabs as tab (tab.view)}
 					<button
@@ -85,7 +84,7 @@
 						goto('/admin/filters', { invalidateAll: true });
 					}}
 					readonly={profile.current.isAdminReadonly?.()}
-					mcpSystemCatalogEntryId={entry?.id}
+					mcpSystemCatalogEntryId={entry?.id || filter.systemMCPServerCatalogEntryID}
 				/>
 			{:else if selected === 'server-details'}
 				<div class="flex flex-col gap-6">
@@ -122,7 +121,6 @@
 				</div>
 			{/if}
 		{:else}
-			{@render prebuiltInfo()}
 			<FilterForm
 				{filter}
 				onCreate={() => {
@@ -145,16 +143,3 @@
 	}}
 	oncancel={() => (deletingFilter = false)}
 />
-
-{#snippet prebuiltInfo()}
-	{#if entry}
-		<div class="notification-info p-3 text-sm font-light">
-			<div class="flex items-center gap-3">
-				<Info class="size-6" />
-				<div>
-					<p>This filter is preconfigured; certain fields cannot be modified.</p>
-				</div>
-			</div>
-		</div>
-	{/if}
-{/snippet}
