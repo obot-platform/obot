@@ -930,6 +930,14 @@ func analyzePodStatus(pod *corev1.Pod) (bool, *time.Time, error) {
 		return false, nil, fmt.Errorf("%w: pod is in Unknown phase", ErrHealthCheckTimeout)
 	}
 
+	// Check pod conditions for scheduling issues. Unschedulable pods may be transient
+	// while a cluster autoscaler reacts, so keep waiting until the overall deadline.
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse && cond.Reason == corev1.PodReasonUnschedulable {
+			return false, nil, nil
+		}
+	}
+
 	var mcpContainerStartedAt *time.Time
 	for _, cs := range pod.Status.ContainerStatuses {
 		if cs.Name == "mcp" && cs.State.Running != nil && !cs.State.Running.StartedAt.IsZero() {
