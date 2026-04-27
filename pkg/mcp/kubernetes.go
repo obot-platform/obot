@@ -937,7 +937,7 @@ func analyzePodStatus(pod *corev1.Pod) (bool, *time.Time, error) {
 	// while a cluster autoscaler reacts, so keep waiting until the overall deadline.
 	for _, cond := range pod.Status.Conditions {
 		if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse && cond.Reason == corev1.PodReasonUnschedulable {
-			return false, nil, nil
+			return true, nil, nil
 		}
 	}
 
@@ -1045,21 +1045,23 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 					return false, podErr
 				}
 
-				if pullingImage && time.Now().After(imagePullDeadline) {
-					return false, fmt.Errorf("%w: image pull exceeded %s timeout", ErrHealthCheckTimeout, imagePullTimeout)
+				if pullingImage {
+					if time.Now().After(imagePullDeadline) {
+						return false, fmt.Errorf("%w: image pull exceeded %s timeout", ErrHealthCheckTimeout, imagePullTimeout)
+					}
+					return false, nil // Retryable state, keep waiting
 				}
-				if !pullingImage {
-					// Pod is past image pulling (container creating/starting/running).
-					// Start the startup timeout from the MCP container's Kubernetes start time
-					// when available so a long watch interval doesn't grant extra startup time.
-					if mcpContainerStartedAt != nil {
-						startupDeadline = mcpContainerStartedAt.Add(timeout)
-					} else if startupDeadline.IsZero() {
-						startupDeadline = time.Now().Add(timeout)
-					}
-					if time.Now().After(startupDeadline) {
-						return false, fmt.Errorf("%w: container startup exceeded %s timeout", ErrHealthCheckTimeout, timeout)
-					}
+
+				// Pod is past image pulling (container creating/starting/running).
+				// Start the startup timeout from the MCP container's Kubernetes start time
+				// when available so a long watch interval doesn't grant extra startup time.
+				if mcpContainerStartedAt != nil {
+					startupDeadline = mcpContainerStartedAt.Add(timeout)
+				} else if startupDeadline.IsZero() {
+					startupDeadline = time.Now().Add(timeout)
+				}
+				if time.Now().After(startupDeadline) {
+					return false, fmt.Errorf("%w: container startup exceeded %s timeout", ErrHealthCheckTimeout, timeout)
 				}
 
 				return false, nil // Retryable state, keep waiting
