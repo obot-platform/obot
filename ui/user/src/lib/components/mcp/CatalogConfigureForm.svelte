@@ -55,6 +55,7 @@
 		showAlias?: boolean;
 		disableOutsideClick?: boolean;
 		animate?: 'slide' | 'fade' | null;
+		displayDescriptionInline?: boolean;
 	}
 	let {
 		form = $bindable(),
@@ -71,6 +72,7 @@
 		isNew,
 		showAlias,
 		disableOutsideClick,
+		displayDescriptionInline,
 		animate = 'slide'
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -412,7 +414,9 @@
 															<span class="text-on-surface1">(optional)</span>
 														{/if}
 													</label>
-													<InfoTooltip text={env.description} />
+													{#if !displayDescriptionInline}
+														<InfoTooltip text={env.description} />
+													{/if}
 												</span>
 												{#if env.sensitive}
 													<SensitiveInput
@@ -449,6 +453,11 @@
 														)}
 													/>
 												{/if}
+												{#if displayDescriptionInline}
+													<p class="text-on-surface1 text-xs font-light break-all">
+														{env.description}
+													</p>
+												{/if}
 											</div>
 										{/each}
 									{/if}
@@ -468,7 +477,9 @@
 														<span class="text-on-surface1">(optional)</span>
 													{/if}
 												</label>
-												<InfoTooltip text={header.data.description} />
+												{#if !displayDescriptionInline}
+													<InfoTooltip text={header.data.description} />
+												{/if}
 											</span>
 											{#if header.data.sensitive}
 												<SensitiveInput
@@ -489,6 +500,11 @@
 															'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
 													)}
 												/>
+											{/if}
+											{#if displayDescriptionInline}
+												<p class="text-on-surface1 text-xs font-light break-all">
+													{header.data.description}
+												</p>
 											{/if}
 										</div>
 									{/each}
@@ -523,7 +539,9 @@
 											<span class="text-on-surface1">(optional)</span>
 										{/if}
 									</label>
-									<InfoTooltip text={env.description} />
+									{#if !displayDescriptionInline}
+										<InfoTooltip text={env.description} />
+									{/if}
 								</span>
 								{#if env.sensitive}
 									<SensitiveInput
@@ -554,6 +572,11 @@
 											highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
 										)}
 									/>
+								{/if}
+								{#if displayDescriptionInline}
+									<p class="text-on-surface1 text-xs font-light break-all">
+										{env.description}
+									</p>
 								{/if}
 							</div>
 						{/each}

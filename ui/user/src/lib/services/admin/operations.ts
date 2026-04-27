@@ -5,6 +5,7 @@ import type {
 	Project,
 	MCPCatalogServer,
 	MCPServerInstance,
+	MCPServerTool,
 	Model,
 	DebugRun,
 	ModelAlias,
@@ -62,7 +63,14 @@ import type {
 	MessagePolicyManifest,
 	MessagePolicyViolation,
 	MessagePolicyViolationFilters,
-	MessagePolicyViolationStats
+	MessagePolicyViolationStats,
+	RestartNanobotAgentDeploymentsResult,
+	SystemMCPCatalog,
+	SystemMCPCatalogManifest,
+	SystemMCPServer,
+	SystemMCPServerCatalogEntry,
+	SystemMCPServerCatalogEntryManifest,
+	SystemMCPServerManifest
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -984,8 +992,8 @@ export async function configureMCPFilter(
 	id: string,
 	envs: Record<string, string>,
 	opts?: { fetch?: Fetcher }
-): Promise<void> {
-	await doPost(`/mcp-webhook-validations/${id}/configure`, envs, opts);
+): Promise<MCPFilter> {
+	return (await doPost(`/mcp-webhook-validations/${id}/configure`, envs, opts)) as MCPFilter;
 }
 
 export async function deconfigureMCPFilter(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
@@ -1616,4 +1624,194 @@ export async function getMessagePolicyViolationStats(
 		`/message-policy-violation-stats${buildMessagePolicyViolationParams(filters)}`,
 		opts
 	)) as MessagePolicyViolationStats;
+}
+
+export async function listSystemMCPCatalogs(opts?: {
+	fetch?: Fetcher;
+}): Promise<SystemMCPCatalog[]> {
+	const response = (await doGet('/system-mcp-catalogs', opts)) as ItemsResponse<SystemMCPCatalog>;
+	return response.items ?? [];
+}
+
+export async function getSystemMCPCatalog(
+	catalogId: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPCatalog> {
+	return (await doGet(`/system-mcp-catalogs/${catalogId}`, opts)) as SystemMCPCatalog;
+}
+
+export async function createSystemMCPCatalog(
+	manifest: SystemMCPCatalogManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPCatalog> {
+	return (await doPost('/system-mcp-catalogs', manifest, opts)) as SystemMCPCatalog;
+}
+
+export async function updateSystemMCPCatalog(
+	catalogId: string,
+	manifest: SystemMCPCatalogManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPCatalog> {
+	return (await doPut(`/system-mcp-catalogs/${catalogId}`, manifest, opts)) as SystemMCPCatalog;
+}
+
+export async function deleteSystemMCPCatalog(
+	catalogId: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/system-mcp-catalogs/${catalogId}`, opts);
+}
+
+export async function refreshSystemMCPCatalog(
+	catalogId: string,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPost(`/system-mcp-catalogs/${catalogId}/refresh`, {}, opts);
+}
+
+export async function listSystemMCPCatalogEntries(
+	catalogId: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServerCatalogEntry[]> {
+	const response = (await doGet(
+		`/system-mcp-catalogs/${catalogId}/entries`,
+		opts
+	)) as ItemsResponse<SystemMCPServerCatalogEntry>;
+	return response.items ?? [];
+}
+
+export async function createSystemMCPCatalogEntry(
+	catalogId: string,
+	manifest: SystemMCPServerCatalogEntryManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServerCatalogEntry> {
+	return (await doPost(
+		`/system-mcp-catalogs/${catalogId}/entries`,
+		manifest,
+		opts
+	)) as SystemMCPServerCatalogEntry;
+}
+
+export async function getSystemMCPCatalogEntry(
+	catalogId: string,
+	entryId: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServerCatalogEntry> {
+	return (await doGet(
+		`/system-mcp-catalogs/${catalogId}/entries/${entryId}`,
+		opts
+	)) as SystemMCPServerCatalogEntry;
+}
+
+export async function updateSystemMCPCatalogEntry(
+	catalogId: string,
+	entryId: string,
+	manifest: SystemMCPServerCatalogEntryManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServerCatalogEntry> {
+	return (await doPut(
+		`/system-mcp-catalogs/${catalogId}/entries/${entryId}`,
+		manifest,
+		opts
+	)) as SystemMCPServerCatalogEntry;
+}
+
+export async function deleteSystemMCPCatalogEntry(
+	catalogId: string,
+	entryId: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/system-mcp-catalogs/${catalogId}/entries/${entryId}`, opts);
+}
+
+export async function listSystemMCPServers(opts?: { fetch?: Fetcher }): Promise<SystemMCPServer[]> {
+	const response = (await doGet('/system-mcp-servers', opts)) as ItemsResponse<SystemMCPServer>;
+	return response.items ?? [];
+}
+
+export async function getSystemMCPServer(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServer> {
+	return (await doGet(`/system-mcp-servers/${id}`, opts)) as SystemMCPServer;
+}
+
+export async function createSystemMCPServer(
+	manifest: SystemMCPServerManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServer> {
+	return (await doPost('/system-mcp-servers', manifest, opts)) as SystemMCPServer;
+}
+
+export async function updateSystemMCPServer(
+	id: string,
+	manifest: SystemMCPServerManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServer> {
+	return (await doPut(`/system-mcp-servers/${id}`, manifest, opts)) as SystemMCPServer;
+}
+
+export async function deleteSystemMCPServer(
+	id: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/system-mcp-servers/${id}`, opts);
+}
+
+export async function configureSystemMCPServer(
+	id: string,
+	envVars: Record<string, string>,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServer> {
+	return (await doPost(`/system-mcp-servers/${id}/configure`, envVars, opts)) as SystemMCPServer;
+}
+
+export async function deconfigureSystemMCPServer(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<SystemMCPServer> {
+	return (await doPost(`/system-mcp-servers/${id}/deconfigure`, {}, opts)) as SystemMCPServer;
+}
+
+export async function restartSystemMCPServer(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPost(`/system-mcp-servers/${id}/restart`, {}, opts);
+}
+
+export async function revealSystemMCPServerCredentials(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<Record<string, string>> {
+	return (await doPost(`/system-mcp-servers/${id}/reveal`, {}, opts)) as Record<string, string>;
+}
+
+export async function getSystemMCPServerDetails(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<K8sServerDetail> {
+	return (await doGet(`/system-mcp-servers/${id}/details`, opts)) as K8sServerDetail;
+}
+
+export async function getSystemMCPServerTools(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerTool[]> {
+	return (await doGet(`/system-mcp-servers/${id}/tools`, opts)) as MCPServerTool[];
+}
+
+export async function restartNanobotAgentDeployments(opts?: {
+	fetch?: Fetcher;
+	dryRun?: boolean;
+}): Promise<RestartNanobotAgentDeploymentsResult> {
+	const params = new URLSearchParams();
+	if (opts?.dryRun != null) {
+		params.set('dryRun', String(opts.dryRun));
+	}
+	const qs = params.toString();
+	const path = qs
+		? `/system-mcp-servers/restart-nanobot-agent-deployments?${qs}`
+		: '/system-mcp-servers/restart-nanobot-agent-deployments';
+	return (await doPost(path, {}, opts)) as RestartNanobotAgentDeploymentsResult;
 }

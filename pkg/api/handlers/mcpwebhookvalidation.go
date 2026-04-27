@@ -68,6 +68,10 @@ func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("failed to read manifest: %v", err)
 	}
 
+	if err := m.resolveManifestFromCatalogEntry(req, &manifest); err != nil {
+		return err
+	}
+
 	if err := validateManifest(&manifest); err != nil {
 		return types.NewErrBadRequest("invalid manifest: %v", err)
 	}
@@ -118,6 +122,10 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 	var manifest types.MCPWebhookValidationManifest
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read manifest: %v", err)
+	}
+
+	if err := m.resolveManifestFromCatalogEntry(req, &manifest); err != nil {
+		return err
 	}
 
 	if err := validateManifest(&manifest); err != nil {
@@ -186,6 +194,10 @@ func (m *MCPWebhookValidationHandler) Configure(req api.Context) error {
 
 	var webhookValidation v1.MCPWebhookValidation
 	if err := req.Get(&webhookValidation, req.PathValue("mcp_webhook_validation_id")); err != nil {
+		return err
+	}
+
+	if err := applyRemoteURLTemplateToWebhookValidation(&webhookValidation, envVars); err != nil {
 		return err
 	}
 
@@ -430,13 +442,106 @@ func (m *MCPWebhookValidationHandler) GetDetails(req api.Context) error {
 	return req.Write(details)
 }
 
-func validateManifest(m *types.MCPWebhookValidationManifest) error {
-	if m.URL == "" && m.SystemMCPServerManifest == nil {
-		return fmt.Errorf("webhook URL or system MCP server manifest is required")
+func (m *MCPWebhookValidationHandler) resolveManifestFromCatalogEntry(req api.Context, manifest *types.MCPWebhookValidationManifest) error {
+	if manifest.SystemMCPServerCatalogEntryID == "" {
+		return nil
+	}
+	if manifest.URL != "" {
+		return types.NewErrBadRequest("webhook URL and system MCP server catalog entry ID are mutually exclusive")
+	}
+	if manifest.SystemMCPServerManifest != nil {
+		return types.NewErrBadRequest("system MCP server manifest and system MCP server catalog entry ID are mutually exclusive")
 	}
 
-	if m.URL != "" && m.SystemMCPServerManifest != nil {
-		return fmt.Errorf("webhook URL and system MCP server manifest are mutually exclusive")
+	var entry v1.SystemMCPServerCatalogEntry
+	if err := req.Get(&entry, manifest.SystemMCPServerCatalogEntryID); err != nil {
+		return err
+	}
+
+	if entry.Spec.Manifest.SystemMCPServerType != types.SystemMCPServerTypeFilter {
+		return types.NewErrBadRequest("system MCP server catalog entry %q must have systemMCPServerType %q", manifest.SystemMCPServerCatalogEntryID, types.SystemMCPServerTypeFilter)
+	}
+
+	if entry.Spec.Manifest.FilterConfig == nil || entry.Spec.Manifest.FilterConfig.ToolName == "" {
+		return types.NewErrBadRequest("system MCP server catalog entry %q must have filterConfig.toolName", manifest.SystemMCPServerCatalogEntryID)
+	}
+
+	serverManifest := systemMCPServerManifestFromCatalogEntry(entry.Spec.Manifest, manifest.Disabled)
+	if err := validation.ValidateSystemMCPServerManifest(serverManifest); err != nil {
+		return types.NewErrBadRequest("invalid system MCP server catalog entry manifest: %v", err)
+	}
+
+	manifest.SystemMCPServerManifest = &serverManifest
+	manifest.ToolName = entry.Spec.Manifest.FilterConfig.ToolName
+	return nil
+}
+
+func systemMCPServerManifestFromCatalogEntry(entry types.SystemMCPServerCatalogEntryManifest, disabled bool) types.SystemMCPServerManifest {
+	manifest := types.SystemMCPServerManifest{
+		Metadata:            entry.Metadata,
+		Name:                entry.Name,
+		ShortDescription:    entry.ShortDescription,
+		Description:         entry.Description,
+		Icon:                entry.Icon,
+		Enabled:             new(!disabled),
+		Runtime:             entry.Runtime,
+		UVXConfig:           entry.UVXConfig,
+		NPXConfig:           entry.NPXConfig,
+		ContainerizedConfig: entry.ContainerizedConfig,
+		Env:                 entry.Env,
+	}
+
+	if entry.RemoteConfig != nil {
+		manifest.RemoteConfig = &types.RemoteRuntimeConfig{
+			URL:                 entry.RemoteConfig.FixedURL,
+			IsTemplate:          entry.RemoteConfig.URLTemplate != "",
+			URLTemplate:         entry.RemoteConfig.URLTemplate,
+			Hostname:            entry.RemoteConfig.Hostname,
+			Headers:             entry.RemoteConfig.Headers,
+			StaticOAuthRequired: entry.RemoteConfig.StaticOAuthRequired,
+		}
+	}
+
+	return manifest
+}
+
+func applyRemoteURLTemplateToWebhookValidation(webhookValidation *v1.MCPWebhookValidation, envVars map[string]string) error {
+	manifest := webhookValidation.Spec.Manifest.SystemMCPServerManifest
+	if manifest == nil || manifest.Runtime != types.RuntimeRemote || manifest.RemoteConfig == nil || manifest.RemoteConfig.URLTemplate == "" {
+		return nil
+	}
+
+	finalURL, err := applyURLTemplate(manifest.RemoteConfig.URLTemplate, envVars)
+	if err != nil {
+		return fmt.Errorf("failed to apply URL template: %w", err)
+	}
+
+	manifest.RemoteConfig.URL = finalURL
+	if err := validation.ValidateSystemMCPServerManifest(*manifest); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
+	}
+
+	return nil
+}
+
+func validateManifest(m *types.MCPWebhookValidationManifest) error {
+	var sources int
+	if m.URL != "" {
+		sources++
+	}
+	if m.SystemMCPServerManifest != nil && m.SystemMCPServerCatalogEntryID == "" {
+		sources++
+	}
+	if m.SystemMCPServerCatalogEntryID != "" {
+		sources++
+	}
+
+	if sources == 0 {
+		return fmt.Errorf("webhook URL, system MCP server manifest, or system MCP server catalog entry ID is required")
+	}
+
+	if sources > 1 {
+		return fmt.Errorf("webhook URL, system MCP server manifest, and system MCP server catalog entry ID are mutually exclusive")
 	}
 
 	if m.SystemMCPServerManifest != nil {

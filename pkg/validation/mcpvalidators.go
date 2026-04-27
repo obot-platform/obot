@@ -877,6 +877,41 @@ func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) 
 	}
 }
 
+func ValidateSystemMCPServerCatalogEntryManifest(manifest types.SystemMCPServerCatalogEntryManifest) error {
+	if manifest.SystemMCPServerType == types.SystemMCPServerTypeFilter {
+		if manifest.FilterConfig == nil {
+			return types.RuntimeValidationError{
+				Runtime: manifest.Runtime,
+				Field:   "filterConfig",
+				Message: "filterConfig is required when systemMCPServerType is filter",
+			}
+		}
+		if manifest.FilterConfig.ToolName == "" {
+			return types.RuntimeValidationError{
+				Runtime: manifest.Runtime,
+				Field:   "filterConfig.toolName",
+				Message: "toolName is required in filterConfig when systemMCPServerType is filter",
+			}
+		}
+	}
+
+	return ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
+		Metadata:            manifest.Metadata,
+		Name:                manifest.Name,
+		ShortDescription:    manifest.ShortDescription,
+		Description:         manifest.Description,
+		Icon:                manifest.Icon,
+		RepoURL:             manifest.RepoURL,
+		ToolPreview:         manifest.ToolPreview,
+		Runtime:             manifest.Runtime,
+		UVXConfig:           manifest.UVXConfig,
+		NPXConfig:           manifest.NPXConfig,
+		ContainerizedConfig: manifest.ContainerizedConfig,
+		RemoteConfig:        manifest.RemoteConfig,
+		Env:                 manifest.Env,
+	})
+}
+
 func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) error {
 	if validator, ok := getRuntimeValidators()[manifest.Runtime]; ok {
 		return validator.ValidateSystemConfig(manifest)

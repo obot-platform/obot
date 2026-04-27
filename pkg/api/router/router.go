@@ -48,6 +48,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler(services.ModelAccessPolicyHelper)
 	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPLoader, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper)
+	systemMCPCatalogs := handlers.NewSystemMCPCatalogHandler(services.DefaultSystemMCPCatalogPath)
 	accessControlRules := handlers.NewAccessControlRuleHandler()
 	skillRepositories := handlers.NewSkillRepositoryHandler()
 	skillAccessRules := handlers.NewSkillAccessRuleHandler()
@@ -581,6 +582,19 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/system-mcp-servers/{id}/details", systemMCPServers.GetDetails)
 	mux.HandleFunc("GET /api/system-mcp-servers/{id}/logs", systemMCPServers.Logs)
 	mux.HandleFunc("GET /api/system-mcp-servers/{id}/tools", systemMCPServers.GetTools)
+
+	// System MCP Catalogs (admin only)
+	mux.HandleFunc("GET /api/system-mcp-catalogs", systemMCPCatalogs.List)
+	mux.HandleFunc("POST /api/system-mcp-catalogs", systemMCPCatalogs.Create)
+	mux.HandleFunc("GET /api/system-mcp-catalogs/{catalog_id}", systemMCPCatalogs.Get)
+	mux.HandleFunc("PUT /api/system-mcp-catalogs/{catalog_id}", systemMCPCatalogs.Update)
+	mux.HandleFunc("DELETE /api/system-mcp-catalogs/{catalog_id}", systemMCPCatalogs.Delete)
+	mux.HandleFunc("POST /api/system-mcp-catalogs/{catalog_id}/refresh", systemMCPCatalogs.Refresh)
+	mux.HandleFunc("GET /api/system-mcp-catalogs/{catalog_id}/entries", systemMCPCatalogs.ListEntries)
+	mux.HandleFunc("POST /api/system-mcp-catalogs/{catalog_id}/entries", systemMCPCatalogs.CreateEntry)
+	mux.HandleFunc("GET /api/system-mcp-catalogs/{catalog_id}/entries/{entry_id}", systemMCPCatalogs.GetEntry)
+	mux.HandleFunc("PUT /api/system-mcp-catalogs/{catalog_id}/entries/{entry_id}", systemMCPCatalogs.UpdateEntry)
+	mux.HandleFunc("DELETE /api/system-mcp-catalogs/{catalog_id}/entries/{entry_id}", systemMCPCatalogs.DeleteEntry)
 
 	// MCP Gateway Endpoints
 	// The first pattern handles the root path, the second handles all sub-paths

@@ -142,7 +142,7 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 	if systemServer.Spec.Manifest.Enabled != nil && !*systemServer.Spec.Manifest.Enabled {
 		log.Infof("System MCP server %s is disabled, shutting down any existing deployment", systemServer.Name)
 		// Server is disabled, ensure any existing deployment is removed
-		err := h.mcpSessionManager.ShutdownServer(req.Ctx, systemServer.Name)
+		err := h.mcpSessionManager.ShutdownIdleServer(req.Ctx, systemServer.Name)
 		if err != nil {
 			return fmt.Errorf("failed to shutdown disabled system MCP server: %w", err)
 		}
@@ -153,7 +153,7 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 	if !IsSystemServerConfigured(req.Ctx, h.gptClient, *systemServer) {
 		log.Infof("System MCP server %s is not fully configured, shutting down any existing deployment", systemServer.Name)
 		// Server is not fully configured, ensure any existing deployment is removed
-		err := h.mcpSessionManager.ShutdownServer(req.Ctx, systemServer.Name)
+		err := h.mcpSessionManager.ShutdownIdleServer(req.Ctx, systemServer.Name)
 		if err != nil {
 			return fmt.Errorf("failed to shutdown unconfigured system MCP server: %w", err)
 		}

@@ -13,15 +13,16 @@ type MCPWebhookValidation struct {
 }
 
 type MCPWebhookValidationManifest struct {
-	Name                    string                   `json:"name,omitempty"`
-	Resources               []Resource               `json:"resources,omitempty"`
-	URL                     string                   `json:"url,omitempty"`
-	Secret                  string                   `json:"secret,omitempty"`
-	SystemMCPServerManifest *SystemMCPServerManifest `json:"mcpServerManifest,omitempty"`
-	ToolName                string                   `json:"toolName,omitempty"`
-	Selectors               MCPSelectors             `json:"selectors,omitempty"`
-	AllowedToMutate         bool                     `json:"allowedToMutate,omitempty"`
-	Disabled                bool                     `json:"disabled,omitempty"`
+	Name                          string                   `json:"name,omitempty"`
+	Resources                     []Resource               `json:"resources,omitempty"`
+	URL                           string                   `json:"url,omitempty"`
+	Secret                        string                   `json:"secret,omitempty"`
+	SystemMCPServerManifest       *SystemMCPServerManifest `json:"mcpServerManifest,omitempty"`
+	SystemMCPServerCatalogEntryID string                   `json:"systemMCPServerCatalogEntryID,omitempty"`
+	ToolName                      string                   `json:"toolName,omitempty"`
+	Selectors                     MCPSelectors             `json:"selectors,omitempty"`
+	AllowedToMutate               bool                     `json:"allowedToMutate,omitempty"`
+	Disabled                      bool                     `json:"disabled,omitempty"`
 }
 
 type MCPWebhookValidationList List[MCPWebhookValidation]

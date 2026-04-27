@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -156,7 +157,7 @@ func TestReadGitCatalog(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entries, err := readGitCatalog(context.Background(), tt.catalog, "")
+			entries, err := readGitCatalogEntries[types.MCPServerCatalogEntryManifest](context.Background(), tt.catalog, "")
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
