@@ -16,6 +16,9 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	entry.RequestMutated = len(entry.MutatedRequestBody) > 0
+	entry.ResponseMutated = len(entry.OriginalResponseBody) > 0
+
 	if err := c.encryptMCPAuditLog(ctx, &entry); err != nil {
 		log.Errorf("Failed to encrypt MCP audit log: %v", err)
 	}

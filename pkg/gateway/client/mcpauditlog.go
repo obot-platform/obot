@@ -72,8 +72,16 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 				}
 
 				// Update response-specific fields if they have values
+				if len(responseLog.MutatedRequestBody) > 0 {
+					updates["mutated_request_body"] = responseLog.MutatedRequestBody
+					updates["request_mutated"] = true
+				}
 				if len(responseLog.ResponseBody) > 0 {
 					updates["response_body"] = responseLog.ResponseBody
+				}
+				if len(responseLog.OriginalResponseBody) > 0 {
+					updates["original_response_body"] = responseLog.OriginalResponseBody
+					updates["response_mutated"] = true
 				}
 				if len(responseLog.ResponseHeaders) > 0 {
 					updates["response_headers"] = responseLog.ResponseHeaders
@@ -289,7 +297,9 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 			// These are the only fields that are encrypted right now.
 			// So, just blank them out and skip decryption.
 			logs[i].RequestBody = nil
+			logs[i].MutatedRequestBody = nil
 			logs[i].ResponseBody = nil
+			logs[i].OriginalResponseBody = nil
 			logs[i].RequestHeaders = nil
 			logs[i].ResponseHeaders = nil
 		} else {
@@ -319,7 +329,9 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 	if !withRequestAndResponse {
 		// Blank out encrypted fields
 		log.RequestBody = nil
+		log.MutatedRequestBody = nil
 		log.ResponseBody = nil
+		log.OriginalResponseBody = nil
 	}
 
 	return &log, nil
@@ -607,11 +619,27 @@ func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 		}
 	}
 
+	if len(log.MutatedRequestBody) > 0 {
+		if b, err = transformer.TransformToStorage(ctx, log.MutatedRequestBody, dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			log.MutatedRequestBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+		}
+	}
+
 	if len(log.ResponseBody) > 0 {
 		if b, err = transformer.TransformToStorage(ctx, log.ResponseBody, dataCtx); err != nil {
 			errs = append(errs, err)
 		} else {
 			log.ResponseBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+		}
+	}
+
+	if len(log.OriginalResponseBody) > 0 {
+		if b, err = transformer.TransformToStorage(ctx, log.OriginalResponseBody, dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			log.OriginalResponseBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
 		}
 	}
 
@@ -669,6 +697,20 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 		}
 	}
 
+	if len(log.MutatedRequestBody) > 0 {
+		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.MutatedRequestBody)))
+		n, err = base64.StdEncoding.Decode(decoded, log.MutatedRequestBody)
+		if err == nil {
+			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+				errs = append(errs, err)
+			} else {
+				log.MutatedRequestBody = json.RawMessage(out)
+			}
+		} else {
+			errs = append(errs, err)
+		}
+	}
+
 	if len(log.ResponseBody) > 0 {
 		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.ResponseBody)))
 		n, err = base64.StdEncoding.Decode(decoded, log.ResponseBody)
@@ -677,6 +719,20 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 				errs = append(errs, err)
 			} else {
 				log.ResponseBody = json.RawMessage(out)
+			}
+		} else {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(log.OriginalResponseBody) > 0 {
+		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.OriginalResponseBody)))
+		n, err = base64.StdEncoding.Decode(decoded, log.OriginalResponseBody)
+		if err == nil {
+			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+				errs = append(errs, err)
+			} else {
+				log.OriginalResponseBody = json.RawMessage(out)
 			}
 		} else {
 			errs = append(errs, err)

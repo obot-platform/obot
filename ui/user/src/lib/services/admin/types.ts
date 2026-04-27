@@ -440,17 +440,13 @@ export interface AuditLog {
 	responseStatus: number;
 	processingTimeMs: number;
 	requestHeaders?: Record<string, string | string[]>;
-	requestBody?: {
-		capabilities?: Record<string, unknown>;
-		clientInfo?: Record<string, string>;
-		protocolVersion?: string;
-	};
+	requestMutated: boolean;
+	requestBody?: unknown;
+	mutatedRequestBody?: unknown;
 	responseHeaders?: Record<string, string | string[]>;
-	responseBody?: {
-		tools?: Record<string, unknown>[];
-		prompts?: Record<string, unknown>[];
-		resources?: Record<string, unknown>[];
-	};
+	responseMutated: boolean;
+	responseBody?: unknown;
+	originalResponseBody?: unknown;
 	webhookStatuses?: {
 		type?: string;
 		method?: string;

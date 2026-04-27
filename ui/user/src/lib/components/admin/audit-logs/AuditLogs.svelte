@@ -135,6 +135,32 @@
 	</td>
 {/snippet}
 
+{#snippet mutationIndicators(requestMutated: boolean, responseMutated: boolean)}
+	<td class="text-sm whitespace-nowrap">
+		<div class="box-content flex h-full px-6">
+			<div class="flex flex-1 items-center gap-1 py-4">
+				{#if requestMutated}
+					<span
+						class="rounded-full bg-orange-500/15 px-2 py-0.5 text-[11px] font-medium text-orange-600 dark:text-orange-400"
+						title="Request was mutated"
+					>
+						Req
+					</span>
+				{/if}
+				{#if responseMutated}
+					<span
+						class="rounded-full bg-orange-500/15 px-2 py-0.5 text-[11px] font-medium text-orange-600 dark:text-orange-400"
+						title="Response was mutated"
+					>
+						Res
+					</span>
+				{/if}
+			</div>
+			{@render tdResizeHandler()}
+		</div>
+	</td>
+{/snippet}
+
 <!-- Data Table -->
 <div
 	bind:this={tableContainer}
@@ -164,6 +190,8 @@
 						{@render th('Response Code', { class: 'w-[22ch]', minWidth: '22ch' })}
 
 						{@render th('Response Time (ms)', { class: 'w-[26ch]', minWidth: '26ch' })}
+
+						{@render th('Mutated', { class: 'w-[16ch]', minWidth: '16ch' })}
 
 						{@render th('Client', { class: 'w-[19ch]', minWidth: '19ch' })}
 
@@ -197,6 +225,7 @@
 						{@render td(d.callIdentifier)}
 						{@render td(d.responseStatus)}
 						{@render td(d.processingTimeMs)}
+						{@render mutationIndicators(d.requestMutated, d.responseMutated)}
 						{@render td(d.client?.name)}
 						{@render td(d.clientIP)}
 					</tr>

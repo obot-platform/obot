@@ -3903,13 +3903,39 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 							Format: "",
 						},
 					},
+					"requestMutated": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
 					"requestBody": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "byte",
 						},
 					},
+					"mutatedRequestBody": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"responseMutated": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
 					"responseBody": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"originalResponseBody": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "byte",
@@ -3979,7 +4005,7 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"id", "createdAt", "userID", "mcpID", "mcpServerDisplayName", "mcpServerCatalogEntryName", "client", "clientIP", "callType", "responseStatus", "processingTimeMs"},
+				Required: []string{"id", "createdAt", "userID", "mcpID", "mcpServerDisplayName", "mcpServerCatalogEntryName", "client", "clientIP", "callType", "requestMutated", "responseMutated", "responseStatus", "processingTimeMs"},
 			},
 		},
 		Dependencies: []string{
