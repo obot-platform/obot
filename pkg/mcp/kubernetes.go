@@ -549,7 +549,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			// The remote runtime will just be the shim and is deployed as the "real" container.
 			nanobotFileString, err := constructMCPServerNanobotYAML(
 				server.MCPServerDisplayName+" Shim",
-				fmt.Sprintf("http://localhost:%d/%s", port, strings.TrimPrefix(server.ContainerPath, "/")),
+				fmt.Sprintf("http://127.0.0.1:%d/%s", port, strings.TrimPrefix(server.ContainerPath, "/")),
 				"",
 				nil,
 				nil,
