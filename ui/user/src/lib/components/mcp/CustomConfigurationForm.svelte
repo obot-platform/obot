@@ -128,6 +128,11 @@
 									placeholder="e.g. CUSTOM_API_KEY"
 									disabled={readonly || isPrebuiltEntry}
 								/>
+								{#if isPrebuiltEntry && config[i].description}
+									<p class="text-on-surface1 text-xs font-light break-all">
+										{config[i].description}
+									</p>
+								{/if}
 							</div>
 							<div class="flex w-full flex-col gap-1">
 								<label for={`env-value-${i}`} class="text-sm font-light">Value</label>

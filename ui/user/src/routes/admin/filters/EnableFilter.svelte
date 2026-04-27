@@ -244,6 +244,7 @@
 	loading={saving}
 	isNew={!isConfigured}
 	showAlias={isConfigured}
+	displayDescriptionInline
 />
 
 <PageLoading
