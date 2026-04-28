@@ -556,19 +556,19 @@
 		{:else if layout.sidebarOpen && !hideSidebar}
 			<div
 				class={twMerge(
-					'bg-background flex max-h-dvh w-full min-w-dvw flex-shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[310px]',
+					'bg-background flex max-h-dvh w-full min-w-dvw shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[310px]',
 					classes?.sidebarRoot
 				)}
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
-				<div class="flex h-16 flex-shrink-0 items-center px-2">
+				<div class="flex h-16 shrink-0 items-center px-2">
 					<BetaLogo enterprise={version.current.enterprise} />
 				</div>
 
 				<div
 					class={twMerge(
-						'text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto px-3 pt-8 pl-2 font-medium',
+						'text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto pr-3 pl-2 font-medium',
 						classes?.sidebar
 					)}
 				>
