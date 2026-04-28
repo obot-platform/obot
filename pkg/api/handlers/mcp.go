@@ -2413,7 +2413,10 @@ func (m *MCPHandler) revealCompositeServer(req api.Context, compositeServer v1.M
 }
 
 func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, server v1.MCPServer, serverConfig mcp.ServerConfig, allowedTools []string) ([]types.MCPServerTool, error) {
-	gTools, err := mcpSessionManager.ListTools(ctx, serverConfig)
+	listCtx, cancel := contextWithDefaultTimeout(ctx, time.Minute)
+	defer cancel()
+
+	gTools, err := mcpSessionManager.ListTools(listCtx, serverConfig)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil
@@ -2427,6 +2430,15 @@ func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, 
 	}
 
 	return mcp.ConvertTools(gTools, allowedTools, server.Spec.UnsupportedTools)
+}
+
+// contextWithDefaultTimeout adds a context timeout when one does not already exist
+func contextWithDefaultTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	if _, ok := ctx.Deadline(); ok {
+		return ctx, func() {}
+	}
+
+	return context.WithTimeout(ctx, timeout)
 }
 
 func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer) error {
