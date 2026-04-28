@@ -6,32 +6,71 @@ title: Filters
 
 Filters are a powerful mechanism for inspecting and controlling tool calls and their results in the MCP Gateway. They provide administrators with the ability to implement custom validation, logging, security checks, or other business logic by intercepting tool requests and responses before they are processed.
 
-When you configure a filter, you're essentially setting up a webhook that the gateway will send a payload to on every tool request, or you can narrow this down using specific selectors to target particular tool calls or MCP (Model Context Protocol) tool functions.
+Filters can be implemented in two ways:
+
+- **MCP filter servers**: MCP servers that expose a filter tool. Obot deploys and calls the configured tool when matching MCP traffic is processed.
+- **HTTP webhook filters**: HTTP endpoints that receive MCP messages from the gateway.
+
+When you configure a filter, you can narrow when it runs using selectors that target particular tool calls or MCP (Model Context Protocol) tool functions.
 
 ## How Filters Work
 
-1. **Tool Call Interception**: When a tool call is made, the gateway intercepts it and sends the details to your configured webhook endpoint
-2. **Payload Inspection**: Your webhook service receives the payload and can perform any custom logic or validation
-3. **Response Decision**: Your service responds with either:
-   - HTTP 200: Accept the tool call (allows it to proceed)
-   - Non-200 HTTP code: Reject the tool call (blocks execution)
+1. **MCP Request Interception**: When a request is made to an MCP server, the gateway intercepts it and sends the details to your configured filter
+2. **Payload Inspection**: Your filter receives the payload and can perform any custom logic or validation
+3. **Response Decision**: Your filter returns one of the following decisions:
+   - Accept: Allow the tool call to proceed
+   - Reject: Block execution and return an error to the user
+   - Mutate: Return a modified MCP message, if mutation is allowed for the filter
 
 ## Gateway Configuration
 
-To configure a filter in the gateway, you'll need to provide the following information:
+Filters can be configured in Obot as HTTP webhooks, MCP servers, or by selecting one of the built-in filters. See below for the configuration setup for each type.
+
+### Selectors
+
+All filter types support selectors to control when your filter is triggered:
+
+- **Specific MCP Tool Call Methods**: Target particular tools or functions
+- **MCP Tool Names, URIS**: Choose which MCP servers the filter applies to
+
+## MCP Filter Servers
+
+MCP filters can be deployed as MCP servers. Their deployment configuration is similar to other MCP servers in Obot: choose a runtime such as `remote`, `containerized`, `npx`, or `uvx`, then provide the runtime-specific configuration and any required environment variables.
+
+The additional requirement for an MCP filter server is a filter tool name. Obot needs this value so it knows which tool to call when the filter runs.
+
+### Filter Tool Contract
+
+When you write an MCP server that acts as a filter, implement the tool called by `filterConfig.toolName` with this contract:
+
+1. Obot calls one tool on the MCP server for filtering.
+2. The tool accepts the full MCP message as an argument.
+3. The tool returns a response with these fields:
+
+| Field | Description |
+|-------|-------------|
+| `accept` | Whether the MCP message should be allowed to continue. |
+| `mutated` | Whether the filter returned a modified MCP message. Use this only when the filter is allowed to mutate traffic. |
+| `message` | The MCP message to use after filtering. For non-mutating filters, return the original message. |
+| `reason` | Human-readable explanation for the decision. Include this when rejecting or mutating a message so administrators can understand the result. |
+
+See the [obot-platform/pii-filter](https://github.com/obot-platform/pii-filter) repository for an example MCP filter server.
+
+## Built-in Filters
+
+Obot ships with a default set of built-in filters. These are MCP filter servers that are already configured for deployment in Obot through the system MCP catalog.
+
+The default built-in filter catalog is maintained in the [obot-platform/system-mcp-catalog](https://github.com/obot-platform/system-mcp-catalog) repository.
+
+## HTTP-based Filters
+
+You can also use HTTP-based webhooks for filtering. In this case, the HTTP server would have to be deployed outside of Obot. You can then provide the following information to Obot:
 
 ### Required Configuration
 
 - **Name**: A descriptive name for your filter
 - **URL**: The webhook endpoint URL where the gateway will send payloads
 - **Secret** (optional): A shared secret with the webhook receiver for payload signature verification
-
-### Selectors
-
-You can configure selectors to control when your filter is triggered:
-
-- **Specific MCP Tool Call Methods**: Target particular tools or functions
-- **MCP Tool Names, URIS**: Choose which MCP servers the filter applies to
 
 ### Security with Secrets
 
@@ -41,7 +80,7 @@ If you configure a secret, the gateway will sign each payload using this shared 
 - Your webhook service can verify the signature to ensure the payload is legitimate
 - This prevents unauthorized or tampered requests from being processed
 
-## Webhook Receiver
+### Webhook Receiver
 
 To implement a filter, you need to create a web service that can handle POST requests from the gateway.
 

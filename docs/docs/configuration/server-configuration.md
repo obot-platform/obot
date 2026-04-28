@@ -38,6 +38,8 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_MCPAUDIT_LOG_RETENTION_DAYS` | The number of days to retain MCP audit logs before they are automatically deleted. Set to `0` to disable automatic cleanup. Use the [audit log export](./audit-log-export.md) functionality to preserve logs beyond this period. | `90` |
 | `OBOT_SERVER_MCPAUDIT_LOG_PERSIST_INTERVAL_SECONDS` | The interval in seconds at which buffered MCP audit logs are flushed to the database. | `5` |
 | `OBOT_SERVER_MCPAUDIT_LOGS_PERSIST_BATCH_SIZE` | The number of MCP audit log entries written to the database in a single batch. | `1000` |
+| `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` | The path to the default MCP catalog (accessible to all users). | - |
+| `OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH` | The path to the default System MCP catalog. | - |
 | `OBOT_SERVER_AUDIT_LOGS_MODE` | Configures the storage backend for audit logs in Obot. Can be 'off', 'disk', or 's3' | `off` |
 | `OBOT_SERVER_AUDIT_LOGS_STORE_S3BUCKET` | The name of the S3 bucket to store audit logs in. | - |
 | `OBOT_SERVER_AUDIT_LOGS_STORE_S3ENDPOINT` | If config.OBOT_SERVER_AUDIT_LOGS_MODE is 's3' and you are not using AWS S3, this needs to be set to the S3 api endpoint of your provider. | - |
