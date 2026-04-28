@@ -207,7 +207,18 @@ type MCPHeader struct {
 	Sensitive bool   `json:"sensitive"`
 	Required  bool   `json:"required"`
 	Prefix    string `json:"prefix,omitempty"` // Optional prefix to prepend to user-supplied values (e.g., "Bearer ")
+
+	// SecretBinding binds this value to a key in a pre-existing Kubernetes Secret
+	SecretBinding *MCPSecretBinding `json:"secretBinding,omitempty"`
 }
+
+// MCPSecretBinding references a single key in a pre-existing Kubernetes Secret
+// in the MCP-server deployments namespace
+type MCPSecretBinding struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
+}
+
 
 type MCPEnv struct {
 	MCPHeader `json:",inline"`

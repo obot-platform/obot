@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { MCPServerInfo } from '$lib/services/chat/mcp';
+	import { hasSecretBinding, type MCPServerInfo } from '$lib/services/chat/mcp';
 	import Confirm from '../Confirm.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -53,6 +53,7 @@
 		serverId?: string;
 		isNew?: boolean;
 		showAlias?: boolean;
+		disableSave?: boolean;
 		disableOutsideClick?: boolean;
 		animate?: 'slide' | 'fade' | null;
 		displayDescriptionInline?: boolean;
@@ -72,6 +73,7 @@
 		error,
 		isNew,
 		showAlias,
+		disableSave,
 		disableOutsideClick,
 		displayDescriptionInline,
 		configurationTitle,
@@ -158,7 +160,7 @@
 				if (comp.hostname && !hasUrl(comp.url)) {
 					return true;
 				}
-				if ([...envs, ...headers].some((f) => f.required && !f.value)) {
+				if ([...envs, ...headers].some((f) => !hasSecretBinding(f) && f.required && !f.value)) {
 					return true;
 				}
 			}
@@ -171,7 +173,9 @@
 		}
 		const envs = form.envs ?? [];
 		const headers = form.headers ?? [];
-		return [...envs, ...headers].some((field) => field.required && !field.value);
+		return [...envs, ...headers].some(
+			(field) => !hasSecretBinding(field) && field.required && !field.value
+		);
 	}
 
 	function highlightMissingRequiredFields(formAny: LaunchFormData | CompositeLaunchFormData) {
@@ -181,10 +185,12 @@
 			for (const [compId, comp] of Object.entries(formAny.componentConfigs || {})) {
 				if (comp.disabled) continue;
 				for (const f of comp.envs ?? []) {
-					if (f.required && !f.value) fieldsToHighlight.add(keyFor(compId, f.key));
+					if (!hasSecretBinding(f) && f.required && !f.value)
+						fieldsToHighlight.add(keyFor(compId, f.key));
 				}
 				for (const f of comp.headers ?? []) {
-					if (f.required && !f.value) fieldsToHighlight.add(keyFor(compId, f.key));
+					if (!hasSecretBinding(f) && f.required && !f.value)
+						fieldsToHighlight.add(keyFor(compId, f.key));
 				}
 				if (comp.hostname && !comp.url) fieldsToHighlight.add(keyFor(compId, 'url'));
 			}
@@ -193,7 +199,7 @@
 		}
 		const form = formAny as LaunchFormData;
 		[...(form.envs ?? []), ...(form.headers ?? [])].forEach((field) => {
-			if (field.required && !field.value) {
+			if (!hasSecretBinding(field) && field.required && !field.value) {
 				fieldsToHighlight.add(field.key);
 			}
 		});
@@ -232,7 +238,7 @@
 		if (isCompositeForm(formAny)) {
 			for (const comp of Object.values(formAny.componentConfigs || {})) {
 				const hasEnvOrHeaderFilled = [...(comp.envs ?? []), ...(comp.headers ?? [])].some(
-					(f) => f.value
+					(f) => !hasSecretBinding(f) && f.value
 				);
 				const hasHostnameAndUrl = comp.hostname && hasUrl(comp.url);
 				if (hasEnvOrHeaderFilled || hasHostnameAndUrl) return true;
@@ -241,7 +247,7 @@
 		}
 		const form = formAny as LaunchFormData;
 		const hasEnvOrHeaderFilled = [...(form.envs ?? []), ...(form.headers ?? [])].some(
-			(field) => field.value
+			(field) => !hasSecretBinding(field) && field.value
 		);
 		const hasHostnameAndUrl = form.hostname && hasUrl(form.url);
 		return hasEnvOrHeaderFilled || hasHostnameAndUrl;
@@ -263,6 +269,10 @@
 				}))
 				?.filter((item) => !item.data.isStatic) ?? []
 		);
+	}
+
+	function secretBindingLabel(field: { secretBinding?: { name: string; key: string } }) {
+		return `${field.secretBinding?.name ?? ''}:${field.secretBinding?.key ?? ''}`;
 	}
 </script>
 
@@ -417,7 +427,11 @@
 														<InfoTooltip text={env.description} />
 													{/if}
 												</span>
-												{#if env.sensitive}
+												{#if hasSecretBinding(env)}
+													<div class="mock-input-btn text-on-surface1 flex items-center text-sm">
+														Kubernetes Secret: {secretBindingLabel(env)}
+													</div>
+												{:else if env.sensitive}
 													<SensitiveInput
 														error={highlightRequired}
 														name={env.name}
@@ -480,7 +494,11 @@
 													<InfoTooltip text={header.data.description} />
 												{/if}
 											</span>
-											{#if header.data.sensitive}
+											{#if hasSecretBinding(header.data)}
+												<div class="mock-input-btn text-on-surface1 flex items-center text-sm">
+													Kubernetes Secret: {secretBindingLabel(header.data)}
+												</div>
+											{:else if header.data.sensitive}
 												<SensitiveInput
 													name={header.data.name}
 													bind:value={comp.headers![header.index].value}
@@ -546,7 +564,11 @@
 										<InfoTooltip text={env.description} />
 									{/if}
 								</span>
-								{#if env.sensitive}
+								{#if hasSecretBinding(env)}
+									<div class="mock-input-btn text-on-surface1 flex items-center text-sm">
+										Kubernetes Secret: {secretBindingLabel(env)}
+									</div>
+								{:else if env.sensitive}
 									<SensitiveInput
 										error={highlightRequired}
 										name={env.name}
@@ -598,7 +620,11 @@
 								</label>
 								<InfoTooltip text={header.data.description} />
 							</span>
-							{#if header.data.sensitive}
+							{#if hasSecretBinding(header.data)}
+								<div class="mock-input-btn text-on-surface1 flex items-center text-sm">
+									Kubernetes Secret: {secretBindingLabel(header.data)}
+								</div>
+							{:else if header.data.sensitive}
 								<SensitiveInput
 									error={highlightRequired}
 									name={header.data.name}
@@ -641,7 +667,7 @@
 					{cancelText}
 				</button>
 			{/if}
-			<button class="button-primary" onclick={handleSave} disabled={loading}>
+			<button class="button-primary" onclick={handleSave} disabled={loading || disableSave}>
 				{#if loading}
 					<LoaderCircle class="size-4 animate-spin" />
 				{:else}

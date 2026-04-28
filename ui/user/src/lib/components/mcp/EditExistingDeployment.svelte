@@ -4,8 +4,10 @@
 	import {
 		convertCompositeInfoToLaunchFormData,
 		convertCompositeLaunchFormDataToPayload,
-		convertEnvHeadersToRecord
+		convertEnvHeadersToRecord,
+		getSecretBindingEngineError
 	} from '$lib/services/chat/mcp';
+	import { version } from '$lib/stores';
 	import PageLoading from '../PageLoading.svelte';
 	import CatalogConfigureForm, {
 		type CompositeLaunchFormData,
@@ -27,6 +29,11 @@
 
 	let editingError = $state<string>();
 	let editingManifest = $derived(server?.manifest);
+	let secretBindingEngineError = $derived(
+		version.current.engine === 'kubernetes'
+			? undefined
+			: getSecretBindingEngineError(editingManifest)
+	);
 	let editing = $state(false);
 	let launchError = $state<string>();
 	let launchProgress = $state<number>(0);
@@ -42,6 +49,10 @@
 	}) {
 		server = initServer;
 		entry = initEntry;
+		editingError =
+			version.current.engine === 'kubernetes'
+				? undefined
+				: getSecretBindingEngineError(initServer.manifest);
 
 		if (entry?.manifest.runtime === 'composite') {
 			configureForm = await convertCompositeInfoToLaunchFormData(server);
@@ -182,6 +193,7 @@
 	onSave={handleConfigureForm}
 	submitText="Update"
 	loading={editing}
+	disableSave={!!secretBindingEngineError}
 	isNew={false}
 />
 

@@ -21,6 +21,8 @@ var (
 	// their clients can use them.
 	toolNameRegex = regexp.MustCompile(`^[A-Za-z0-9._/-]*$`)
 	hostnameRegex = regexp.MustCompile(`^(?:\*\.)?[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$`)
+	// envVarRefRegex matches ${VAR} references inside command/args/URL templates.
+	envVarRefRegex = regexp.MustCompile(`\${([^}]+)}`)
 )
 
 const (
@@ -1069,4 +1071,197 @@ func validateStartupTimeout(runtime types.Runtime, startupTimeoutSeconds int) er
 	}
 
 	return nil
+}
+
+// ValidateSecretBindings enforces the rules for secretBinding references on
+// env vars and headers. Bindings are GitOps-only: they may only appear on
+// catalog entries synced from git (gitManaged=true). They are mutually
+// exclusive with a static value, require non-empty name/key, and are rejected
+// in unsupported combinations (env bindings under remote runtime, file-backed
+// envs).
+func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool) error {
+	check := func(kind, key string, h types.MCPHeader) error {
+		if h.SecretBinding == nil {
+			return nil
+		}
+		if !gitManaged {
+			return fmt.Errorf("%s %q: secretBinding is only allowed on git-synced catalog entries", kind, key)
+		}
+		if h.Value != "" {
+			return fmt.Errorf("%s %q: secretBinding and value are mutually exclusive", kind, key)
+		}
+		if h.SecretBinding.Name == "" || h.SecretBinding.Key == "" {
+			return fmt.Errorf("%s %q: secretBinding requires both name and key", kind, key)
+		}
+		return nil
+	}
+
+	for _, env := range manifest.Env {
+		if env.SecretBinding != nil {
+			if manifest.Runtime == types.RuntimeRemote {
+				return fmt.Errorf("env %q: secretBinding on env vars is not supported for remote runtime", env.Key)
+			}
+			if env.File {
+				return fmt.Errorf("env %q: secretBinding on file-backed envs is not supported", env.Key)
+			}
+		}
+		if err := check("env", env.Key, env.MCPHeader); err != nil {
+			return err
+		}
+	}
+	if manifest.RemoteConfig != nil {
+		for _, h := range manifest.RemoteConfig.Headers {
+			if err := check("header", h.Key, h); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateSecretBindingsCatalogEntry is a thin wrapper around
+// ValidateSecretBindings that adapts a catalog-entry manifest (which does not
+// carry the runtime/env shape of MCPServerManifest directly) by extracting
+// the fields that matter for binding validation. The catalog-entry manifest
+// uses the same MCPEnv/MCPHeader types, so we reuse the core logic.
+func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged bool) error {
+	// Synthesize a minimal MCPServerManifest so we can reuse the core check.
+	synthetic := types.MCPServerManifest{
+		Runtime:      manifest.Runtime,
+		Env:          manifest.Env,
+		RemoteConfig: remoteCatalogToRuntime(manifest.RemoteConfig),
+	}
+	return ValidateSecretBindings(synthetic, gitManaged)
+}
+
+func remoteCatalogToRuntime(c *types.RemoteCatalogConfig) *types.RemoteRuntimeConfig {
+	if c == nil {
+		return nil
+	}
+	return &types.RemoteRuntimeConfig{Headers: c.Headers}
+}
+
+// extractEnvRefs returns the variable names referenced by ${name} patterns in s.
+func extractEnvRefs(s string) []string {
+	if s == "" {
+		return nil
+	}
+	matches := envVarRefRegex.FindAllStringSubmatch(s, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(matches))
+	for _, m := range matches {
+		if len(m) > 1 {
+			out = append(out, m[1])
+		}
+	}
+	return out
+}
+
+// serverTemplateFields returns every command/args/URL string in a server
+// manifest that may carry ${VAR} references.
+func serverTemplateFields(m types.MCPServerManifest) []string {
+	var out []string
+	switch m.Runtime {
+	case types.RuntimeUVX:
+		if m.UVXConfig != nil {
+			out = append(out, m.UVXConfig.Command)
+			out = append(out, m.UVXConfig.Args...)
+		}
+	case types.RuntimeNPX:
+		if m.NPXConfig != nil {
+			out = append(out, m.NPXConfig.Args...)
+		}
+	case types.RuntimeContainerized:
+		if m.ContainerizedConfig != nil {
+			out = append(out, m.ContainerizedConfig.Image, m.ContainerizedConfig.Command)
+			out = append(out, m.ContainerizedConfig.Args...)
+		}
+	case types.RuntimeRemote:
+		if m.RemoteConfig != nil {
+			out = append(out, m.RemoteConfig.URL)
+			for _, h := range m.RemoteConfig.Headers {
+				out = append(out, h.Value)
+			}
+		}
+	}
+	return out
+}
+
+// catalogTemplateFields is the catalog-entry counterpart to serverTemplateFields.
+// The remote runtime config differs from the server-side shape (FixedURL /
+// URLTemplate instead of URL), so we extract from those fields instead.
+func catalogTemplateFields(m types.MCPServerCatalogEntryManifest) []string {
+	var out []string
+	switch m.Runtime {
+	case types.RuntimeUVX:
+		if m.UVXConfig != nil {
+			out = append(out, m.UVXConfig.Command)
+			out = append(out, m.UVXConfig.Args...)
+		}
+	case types.RuntimeNPX:
+		if m.NPXConfig != nil {
+			out = append(out, m.NPXConfig.Args...)
+		}
+	case types.RuntimeContainerized:
+		if m.ContainerizedConfig != nil {
+			out = append(out, m.ContainerizedConfig.Image, m.ContainerizedConfig.Command)
+			out = append(out, m.ContainerizedConfig.Args...)
+		}
+	case types.RuntimeRemote:
+		if m.RemoteConfig != nil {
+			out = append(out, m.RemoteConfig.FixedURL, m.RemoteConfig.URLTemplate)
+			for _, h := range m.RemoteConfig.Headers {
+				out = append(out, h.Value)
+			}
+		}
+	}
+	return out
+}
+
+// validateTemplateReferences enforces that every ${VAR} reference inside
+// fields resolves to an env entry marked Required=true. References to
+// undeclared env vars error only when requireDeclared is set — server
+// manifests auto-extract undeclared refs into Required=true env entries
+// elsewhere, so the server-side caller passes false; catalog-entry manifests
+// have no such fixup and pass true.
+func validateTemplateReferences(envs []types.MCPEnv, fields []string, requireDeclared bool) error {
+	required := make(map[string]bool, len(envs))
+	for _, env := range envs {
+		required[env.Key] = env.Required
+	}
+	for _, f := range fields {
+		for _, name := range extractEnvRefs(f) {
+			req, ok := required[name]
+			if !ok {
+				if requireDeclared {
+					return fmt.Errorf("template references undeclared env var %q; declare it under env with required=true", name)
+				}
+				continue
+			}
+			if !req {
+				return fmt.Errorf("env var %q is referenced from a command/args/URL template and must be required=true", name)
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateTemplateReferences enforces that any ${VAR} reference inside a
+// server manifest's command/args/URL fields points to an env entry with
+// Required=true. Undeclared references are tolerated here because
+// addExtractedEnvVars in the server-create path auto-stamps a Required=true
+// entry for them; this validator catches the case where the user pre-supplied
+// the same key with Required=false, which today produces a literal
+// "${VAR}" string at runtime instead of a substituted value.
+func ValidateTemplateReferences(manifest types.MCPServerManifest) error {
+	return validateTemplateReferences(manifest.Env, serverTemplateFields(manifest), false)
+}
+
+// ValidateTemplateReferencesCatalogEntry is the catalog-entry counterpart.
+// Catalog entries don't get the auto-extraction fixup, so undeclared
+// ${VAR} references are an error.
+func ValidateTemplateReferencesCatalogEntry(manifest types.MCPServerCatalogEntryManifest) error {
+	return validateTemplateReferences(manifest.Env, catalogTemplateFields(manifest), true)
 }
