@@ -1,5 +1,6 @@
 import {
 	type MCPServerTool,
+	type MCPSecretBinding,
 	type Project,
 	type RemoteRuntimeConfig,
 	type Runtime,
@@ -110,6 +111,7 @@ export interface MCPCatalogEntryFieldManifest {
 	value: string;
 	file?: boolean;
 	prefix?: string;
+	secretBinding?: MCPSecretBinding;
 }
 
 export type MCPCatalogEntryFormData = Omit<MCPCatalogEntryServerManifest, 'metadata'> & {
@@ -154,6 +156,7 @@ export interface MCPHeaderManifest {
 	sensitive: boolean;
 	required: boolean;
 	prefix?: string;
+	secretBinding?: MCPSecretBinding;
 }
 
 export interface MCPFilterRemoteRuntimeConfig {
@@ -997,13 +1000,6 @@ export interface MessagePolicyViolationStats {
 	byDirection: MessagePolicyViolationDirectionCounts;
 }
 
-export interface DeploymentCondition {
-	type: string;
-	status: string;
-	reason?: string;
-	message?: string;
-}
-
 export interface SystemMCPServerManifest {
 	metadata?: Record<string, string>;
 	name: string;
@@ -1038,7 +1034,6 @@ export interface SystemMCPServer {
 	deploymentAvailableReplicas?: number;
 	deploymentReadyReplicas?: number;
 	deploymentReplicas?: number;
-	deploymentConditions?: DeploymentCondition[];
 	k8sSettingsHash?: string;
 }
 

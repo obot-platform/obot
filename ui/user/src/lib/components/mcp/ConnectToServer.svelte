@@ -14,6 +14,7 @@
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
 		createProjectMcp,
+		getSecretBindingEngineError,
 		hasEditableConfiguration
 	} from '$lib/services/chat/mcp';
 	import { version } from '$lib/stores';
@@ -52,6 +53,9 @@
 	let instance = $state<MCPServerInstance>();
 	let manifest = $derived(server?.manifest || entry?.manifest);
 	let isConfigured = $derived(Boolean((entry && server) || (server && instance)));
+	let secretBindingEngineError = $derived(
+		version.current.engine === 'kubernetes' ? undefined : getSecretBindingEngineError(manifest)
+	);
 
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
@@ -537,6 +541,16 @@
 
 	function initCatalogEntry() {
 		if (!entry) return;
+		error = secretBindingEngineError;
+		if (secretBindingEngineError && entry.manifest?.runtime === 'composite') {
+			initCompositeForm(entry);
+			return;
+		}
+		if (secretBindingEngineError) {
+			initConfigureForm(entry);
+			configDialog?.open();
+			return;
+		}
 		if (hasEditableConfiguration(entry) && entry.manifest?.runtime === 'composite') {
 			initCompositeForm(entry);
 		} else if (hasEditableConfiguration(entry)) {
@@ -739,6 +753,7 @@
 	onSave={handleConfigureForm}
 	submitText={isConfigured ? 'Update' : 'Launch'}
 	loading={saving}
+	disableSave={!!secretBindingEngineError}
 	isNew={!isConfigured}
 	showAlias={isConfigured}
 />

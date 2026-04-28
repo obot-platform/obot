@@ -32,13 +32,23 @@ type Handler struct {
 	gptClient         *gptscript.GPTScript
 	mcpSessionManager *mcp.SessionManager
 	serverURL         string
+
+	// localK8sClient + obotNamespace let EnsureDeployment resolve
+	// secretBindings against Secrets in the obot namespace before
+	// rendering the system MCP server config. Both may be zero when
+	// the docker backend is in use; mcp.MergeBoundCreds
+	// handles a nil kclient.
+	localK8sClient kclient.Client
+	obotNamespace  string
 }
 
-func New(gptClient *gptscript.GPTScript, mcpLoader *mcp.SessionManager, serverURL string) *Handler {
+func New(gptClient *gptscript.GPTScript, mcpLoader *mcp.SessionManager, serverURL string, localK8sClient kclient.Client, obotNamespace string) *Handler {
 	return &Handler{
 		gptClient:         gptClient,
 		mcpSessionManager: mcpLoader,
 		serverURL:         serverURL,
+		localK8sClient:    localK8sClient,
+		obotNamespace:     obotNamespace,
 	}
 }
 
@@ -205,6 +215,11 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 	}
 
 	secretsCred := tokenExchangeCred.Env
+
+	credEnv, err = mcp.MergeBoundCreds(req.Ctx, h.localK8sClient, h.obotNamespace, systemServer.Spec.Manifest.Env, systemServer.Spec.Manifest.RemoteConfig, credEnv)
+	if err != nil {
+		return fmt.Errorf("failed to resolve secret bindings: %w", err)
+	}
 
 	audiences := systemServer.ValidConnectURLs(h.serverURL)
 

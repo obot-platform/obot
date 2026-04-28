@@ -86,7 +86,7 @@ func (c *Controller) setupRoutes() {
 	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
 	oauthclients := oauthclients.NewHandler(c.services.GPTClient)
 	projectMCPServerHandler := projectmcpserver.NewHandler()
-	systemMCPServerHandler := systemmcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
+	systemMCPServerHandler := systemmcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL, c.services.LocalK8sClient, c.services.ObotNamespace)
 	nanobotAgentHandler := nanobotagent.New(c.services.GPTClient, c.services.PersistentTokenServer, c.services.GatewayClient, c.localK8sRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPLoader)
 	oktaGroupMigrationHandler := oktagroupmigration.New()
 

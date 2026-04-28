@@ -216,11 +216,9 @@
 	const POLL_INTERVAL_MS = 10000; // 10 seconds
 
 	async function checkAndPoll() {
-		// Check if there are any servers with Progressing status
-		const hasProgressing = tableData.some((row) => row.deploymentStatus === 'Progressing');
+		const hasActiveStartupState = tableData.some((row) => row.deploymentStatus === 'Progressing');
 
-		// Only reload if there are progressing servers
-		if (hasProgressing) {
+		if (hasActiveStartupState) {
 			await reload(false);
 		}
 	}
@@ -603,6 +601,8 @@
 						>
 							{d.updateStatus || '--'}
 						</div>
+					{:else if property === 'deploymentStatus'}
+						{d.deploymentStatus || '--'}
 					{:else}
 						{d[property as keyof typeof d]}
 					{/if}

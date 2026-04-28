@@ -31,8 +31,10 @@ export async function createProjectMcp(project: Project, mcpId: string, alias?: 
 
 export function isValidMcpConfig(mcpConfig: MCPServerInfo) {
 	return (
-		mcpConfig.env?.every((env) => !env.required || env.value) &&
-		mcpConfig.headers?.every((header) => !header.required || header.value)
+		mcpConfig.env?.every((env) => hasSecretBinding(env) || !env.required || env.value) &&
+		mcpConfig.headers?.every(
+			(header) => hasSecretBinding(header) || !header.required || header.value
+		)
 	);
 }
 
@@ -67,44 +69,85 @@ export function convertEnvHeadersToRecord(
 ) {
 	const secretValues: Record<string, string> = {};
 	for (const env of envs ?? []) {
-		if (env.value) {
+		if (!hasSecretBinding(env) && env.value) {
 			secretValues[env.key] = env.value;
 		}
 	}
 
 	for (const header of headers ?? []) {
-		if (header.value) {
+		if (!hasSecretBinding(header) && header.value) {
 			secretValues[header.key] = header.value;
 		}
 	}
 	return secretValues;
 }
 
+export function hasSecretBinding(field?: Partial<MCPSubField> | null): boolean {
+	return Boolean(field?.secretBinding?.name && field.secretBinding.key);
+}
+
+function hasEditableFields(fields?: MCPSubField[]) {
+	return (fields ?? []).some((field) => !hasSecretBinding(field));
+}
+
 export function hasEditableConfiguration(item: MCPCatalogEntry | SystemMCPServerCatalogEntry) {
 	if (!item.manifest) return false;
 	// For composite servers, check if any component has editable configuration
-	if ('compositeConfig' in item.manifest) {
-		if (item.manifest?.runtime === 'composite') {
-			const componentServers = item.manifest?.compositeConfig?.componentServers || [];
-			return componentServers.some((component) => {
-				const hasEnvs = component.manifest?.env && component.manifest.env.length > 0;
-				const hasHeaders =
-					(component?.manifest?.remoteConfig?.headers?.filter?.((header) => !header.value)
-						?.length ?? 0) > 0;
-				const hasUrlToFill =
-					!component.manifest?.remoteConfig?.fixedURL && component.manifest?.remoteConfig?.hostname;
-				return hasEnvs || hasHeaders || hasUrlToFill;
-			});
-		}
+	if ('compositeConfig' in item.manifest && item.manifest.runtime === 'composite') {
+		const componentServers = item.manifest.compositeConfig?.componentServers || [];
+		return componentServers.some((component) => {
+			const hasEnvs = hasEditableFields(component.manifest?.env);
+			const hasHeaders =
+				(component?.manifest?.remoteConfig?.headers?.filter?.(
+					(header) => !header.value && !hasSecretBinding(header)
+				)?.length ?? 0) > 0;
+			const hasUrlToFill =
+				!component.manifest?.remoteConfig?.fixedURL && component.manifest?.remoteConfig?.hostname;
+			return hasEnvs || hasHeaders || hasUrlToFill;
+		});
 	}
 
 	const hasUrlToFill =
 		!item.manifest?.remoteConfig?.fixedURL && item.manifest?.remoteConfig?.hostname;
-	const hasEnvsToFill = item.manifest?.env && item.manifest.env.length > 0;
+	const hasEnvsToFill = hasEditableFields(item.manifest?.env);
 	const hasHeadersToFill =
-		(item?.manifest?.remoteConfig?.headers?.filter?.((header) => !header.value)?.length ?? 0) > 0;
+		(item?.manifest?.remoteConfig?.headers?.filter?.(
+			(header) => !header.value && !hasSecretBinding(header)
+		)?.length ?? 0) > 0;
 
 	return hasUrlToFill || hasEnvsToFill || hasHeadersToFill;
+}
+
+type SecretBindingManifest = {
+	env?: MCPSubField[];
+	remoteConfig?: {
+		headers?: MCPSubField[];
+	};
+	runtime?: string;
+	compositeConfig?: {
+		componentServers?: {
+			manifest?: SecretBindingManifest;
+		}[];
+	};
+};
+
+export function manifestHasSecretBindings(manifest?: SecretBindingManifest | null): boolean {
+	if (!manifest) return false;
+	if ((manifest.env ?? []).some(hasSecretBinding)) return true;
+	if ((manifest.remoteConfig?.headers ?? []).some(hasSecretBinding)) return true;
+	if (manifest.runtime === 'composite') {
+		return (manifest.compositeConfig?.componentServers ?? []).some((component) =>
+			manifestHasSecretBindings(component.manifest)
+		);
+	}
+	return false;
+}
+
+export function getSecretBindingEngineError(
+	manifest?: SecretBindingManifest | null
+): string | undefined {
+	if (!manifestHasSecretBindings(manifest)) return undefined;
+	return 'This MCP server uses Kubernetes Secret bindings and can only be launched when Obot is using the Kubernetes engine.';
 }
 
 export function requiresUserUpdate(server?: MCPCatalogServer) {
@@ -304,7 +347,7 @@ export function convertCompositeLaunchFormDataToPayload(lf: CompositeLaunchFormD
 			...(comp.envs ?? ([] as Array<{ key: string; value: string }>)),
 			...(comp.headers ?? ([] as Array<{ key: string; value: string }>))
 		]) {
-			if (f.value) config[f.key] = f.value;
+			if (!hasSecretBinding(f) && f.value) config[f.key] = f.value;
 		}
 		payload[id] = {
 			config,

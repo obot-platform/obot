@@ -413,6 +413,16 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
+		// Catalog entries from a git source are git-managed by definition,
+		// which is the gate for allowing secretBinding references.
+		if err := validation.ValidateSecretBindingsCatalogEntry(entry, true); err != nil {
+			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
+			continue
+		}
+		if err := validation.ValidateTemplateReferencesCatalogEntry(entry); err != nil {
+			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
+			continue
+		}
 		catalogEntry.Spec.Manifest = entry
 
 		objs = append(objs, &catalogEntry)
