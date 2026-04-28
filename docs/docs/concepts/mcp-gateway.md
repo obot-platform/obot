@@ -45,11 +45,11 @@ This approach provides:
 - **Standards compliance**: Token exchange is a well-defined OAuth extension
 - **Flexibility**: Additional credentials can be passed to MCP servers without changing the gateway
 
-## Webhook Filters
+## Filters
 
-Webhook filters allow inspection and modification of MCP traffic. Existing HTTP webhooks are automatically converted to MCP servers that run alongside the shim.
+Filters allow inspection and modification of MCP traffic. They can be implemented as MCP filter servers or as HTTP webhook filters.
 
-In the future, users will be able to build webhook filters directly as MCP servers.
+MCP filter servers are deployed like other MCP servers in Obot, with one additional setting: the filter configuration must identify the tool name that Obot calls for filtering. Existing HTTP webhooks are automatically converted to MCP servers that run alongside the shim.
 
 ## Connecting to the Gateway
 
