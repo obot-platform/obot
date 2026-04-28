@@ -4,7 +4,7 @@
 		PII_FILTER_DEFAULT_OPTIONS,
 		PII_FILTER_OPTION_VALUES,
 		PII_FILTER_OPTIONAL_OPTIONS,
-		PII_MUTATE_TYPES
+		PII_REDACT_TYPES
 	} from '$lib/constants';
 	import type { MCPCatalogEntryFieldManifest } from '$lib/services';
 	import { randomUUID } from '$lib/utils';
@@ -22,7 +22,7 @@
 			.filter((type) => type.trim())
 	);
 	let redactedTypes = $derived(
-		(config.find((env) => env.key === PII_MUTATE_TYPES)?.value ?? '')
+		(config.find((env) => env.key === PII_REDACT_TYPES)?.value ?? '')
 			.split(',')
 			.filter((type) => type.trim())
 	);
@@ -39,7 +39,7 @@
 	}
 
 	function writeMutateTypes(ids: string[]) {
-		const idx = config.findIndex((env) => env.key === PII_MUTATE_TYPES);
+		const idx = config.findIndex((env) => env.key === PII_REDACT_TYPES);
 		if (idx !== -1) config[idx].value = ids.join(',');
 	}
 

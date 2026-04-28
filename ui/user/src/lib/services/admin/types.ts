@@ -608,7 +608,6 @@ export interface MCPFilter extends MCPFilterManifest {
 	type: string;
 	hasSecret: boolean;
 	configured: boolean;
-	allowedToMutate?: boolean;
 	missingRequiredEnvVars?: string[];
 }
 
