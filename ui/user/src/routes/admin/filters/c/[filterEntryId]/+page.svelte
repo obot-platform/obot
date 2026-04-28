@@ -17,7 +17,7 @@
 				secret: '',
 				selectors: [] as MCPFilterWebhookSelector[],
 				toolName: e.manifest?.filterConfig?.toolName || '',
-				allowedToMutate: false,
+				allowedToMutate: true,
 				mcpServerManifest: e.manifest as NonNullable<MCPFilterInput['mcpServerManifest']>,
 				systemMCPServerCatalogEntryID: e.id,
 				created: '',

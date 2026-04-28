@@ -124,6 +124,7 @@
 			response = await AdminService.createMCPFilter({
 				name: entry.manifest.name || '',
 				systemMCPServerCatalogEntryID: entry.id,
+				allowedToMutate: true,
 				selectors: selectorsAndMcpServersForm?.selectors,
 				resources: selectorsAndMcpServersForm?.resources
 			});
