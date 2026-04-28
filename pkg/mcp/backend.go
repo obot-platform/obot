@@ -124,7 +124,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 		case <-time.After(100 * time.Millisecond):
 		}
 
-		req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(streamableHTTPHealthcheckBody))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(streamableHTTPHealthcheckBody))
 		if err != nil {
 			return fmt.Errorf("failed to create request: %w", err)
 		}
@@ -140,7 +140,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 			if sessionID := resp.Header.Get("Mcp-Session-Id"); sessionID != "" {
 				// Send a cancellation, since we don't need this session.
 				// If we get any errors, ignore them, because it doesn't matter for us.
-				req, err := http.NewRequest(http.MethodDelete, url, nil)
+				req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
 				if err == nil {
 					req.Header.Set("Mcp-Session-Id", sessionID)
 					_, _ = http.DefaultClient.Do(req)
