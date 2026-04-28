@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import TweenedMetric from '$lib/components/TweenedMetric.svelte';
 	import McpServerGitSync from '$lib/components/admin/McpServerGitSync.svelte';
@@ -31,7 +30,7 @@
 	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { isWithinInterval, set, subMonths } from 'date-fns';
-	import { Activity, ChevronRight, Coins, Plus, Server, Siren, Users, Wrench } from 'lucide-svelte';
+	import { Activity, ChevronRight, Coins, Server, Siren, Users, Wrench } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -328,7 +327,7 @@
 			end_time: endToolStats.toISOString()
 		})
 			.then((stats) => {
-				const statsToUse = stats.items.filter(
+				const statsToUse = (stats.items ?? []).filter(
 					(s) =>
 						!s.mcpID.startsWith('sms1') &&
 						!s.mcpID.startsWith('nba1') &&
@@ -618,106 +617,69 @@
 				</div>
 			{:else}
 				<div in:fade={{ duration: 150 }} class="paper min-h-96">
-					{#if deployedCatalogEntryServers.length > 0 || deployedWorkspaceCatalogEntryServers.length > 0 || isBootStrapUser}
-						<h4 class="font-semibold">Total Servers</h4>
-						{#if doesSupportK8sUpdates}
-							<div class="mb-2 grid grid-cols-12 gap-x-2 gap-y-5">
-								{#each deploymentStatusBreakdown as row, i (row.status)}
-									<div
-										class={twMerge(
-											'flex flex-col items-center justify-center px-1 text-center',
-											deploymentStatusGridColClass(i, deploymentStatusBreakdown.length),
-											deploymentStatusGridShowBorderRight(i, deploymentStatusBreakdown.length) &&
-												'border-r border-surface2'
-										)}
-									>
-										<div class="flex items-center gap-1">
-											<div class="text-3xl font-semibold">
-												<TweenedMetric holdAtZero={serverAndEntries.loading} target={row.count} />
-											</div>
-											{#if row.status === 'Available'}
-												<Server class="size-6 text-primary" />
-											{:else if row.status === 'Needs Attention'}
-												<Siren class="size-6 text-yellow-500" />
-											{:else}
-												<Server class="size-6 text-on-surface1/75" />
-											{/if}
+					<h4 class="font-semibold">Total Servers</h4>
+					{#if doesSupportK8sUpdates}
+						<div class="mb-2 grid grid-cols-12 gap-x-2 gap-y-5">
+							{#each deploymentStatusBreakdown as row, i (row.status)}
+								<div
+									class={twMerge(
+										'flex flex-col items-center justify-center px-1 text-center',
+										deploymentStatusGridColClass(i, deploymentStatusBreakdown.length),
+										deploymentStatusGridShowBorderRight(i, deploymentStatusBreakdown.length) &&
+											'border-r border-surface2'
+									)}
+								>
+									<div class="flex items-center gap-1">
+										<div class="text-3xl font-semibold">
+											<TweenedMetric holdAtZero={serverAndEntries.loading} target={row.count} />
 										</div>
-										<div class="text-xs">{row.status}</div>
+										{#if row.status === 'Available'}
+											<Server class="size-6 text-primary" />
+										{:else if row.status === 'Needs Attention'}
+											<Siren class="size-6 text-yellow-500" />
+										{:else}
+											<Server class="size-6 text-on-surface1/75" />
+										{/if}
 									</div>
-								{/each}
-							</div>
-						{:else}
-							<div class="mb-2 flex flex-col justify-center items-center">
-								<div class="flex w-full gap-2 items-center justify-center">
-									<div class="text-3xl font-semibold">
-										<TweenedMetric holdAtZero={serverAndEntries.loading} target={totalServers} />
-									</div>
-									<Server class="size-6 text-primary" />
+									<div class="text-xs">{row.status}</div>
 								</div>
-								<div class="text-xs">Total Currently Active</div>
-							</div>
-						{/if}
-
-						<div class="h-72 flex flex-col items-center justify-center">
-							{#if graphData.some((g) => g.value > 0)}
-								<DonutGraph
-									class="h-72"
-									donutRatio={0.65}
-									data={graphData}
-									legend={doesSupportK8sUpdates ? entryTypeDonutLegend : undefined}
-								/>
-							{:else}
-								<p class="font-light text-xs text-on-surface1 pt-2 text-center">
-									No servers have been deployed yet.
-								</p>
-							{/if}
+							{/each}
 						</div>
-
-						{#if !isBootStrapUser}
-							<div class="flex justify-end">
-								<a
-									href={resolve('/admin/mcp-servers?view=deployments')}
-									class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-								>
-									See More <ChevronRight class="size-3" />
-								</a>
-							</div>
-						{/if}
 					{:else}
-						<div class="grow flex flex-col items-center justify-center gap-4">
-							<div>
-								<p class="text-sm text-center mb-1">
-									Looks like you don't have any servers created yet.
-								</p>
-								<p class="text-sm text-center">Click below to get started!</p>
+						<div class="mb-2 flex flex-col justify-center items-center">
+							<div class="flex w-full gap-2 items-center justify-center">
+								<div class="text-3xl font-semibold">
+									<TweenedMetric holdAtZero={serverAndEntries.loading} target={totalServers} />
+								</div>
+								<Server class="size-6 text-primary" />
 							</div>
-							<DotDotDot
-								class="button-primary w-full text-sm md:w-fit self-center"
-								placement="bottom"
+							<div class="text-xs">Total Currently Active</div>
+						</div>
+					{/if}
+
+					<div class="h-72 flex flex-col items-center justify-center">
+						{#if graphData.some((g) => g.value > 0)}
+							<DonutGraph
+								class="h-72"
+								donutRatio={0.65}
+								data={graphData}
+								legend={doesSupportK8sUpdates ? entryTypeDonutLegend : undefined}
+							/>
+						{:else}
+							<p class="font-light text-xs text-on-surface1 pt-2 text-center">
+								No servers have been deployed yet.
+							</p>
+						{/if}
+					</div>
+
+					{#if !isBootStrapUser && totalServers > 0}
+						<div class="flex justify-end">
+							<a
+								href={resolve('/admin/mcp-servers?view=deployments')}
+								class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
 							>
-								{#snippet icon()}
-									<span class="flex items-center justify-center gap-1">
-										<Plus class="size-4" /> Add MCP Server
-									</span>
-								{/snippet}
-								<button
-									class="menu-button"
-									onclick={() => {
-										selectServerTypeDialog?.open();
-									}}
-								>
-									Add server
-								</button>
-								<button
-									class="menu-button"
-									onclick={() => {
-										sourceDialog?.open();
-									}}
-								>
-									Add server(s) from Git
-								</button>
-							</DotDotDot>
+								See More <ChevronRight class="size-3" />
+							</a>
 						</div>
 					{/if}
 				</div>
