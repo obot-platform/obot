@@ -144,11 +144,6 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 	}
 
 	u := fmt.Sprintf("http://%s.%s.svc.%s", server.MCPServerName, k.mcpNamespace, k.mcpClusterDomain)
-	if server.NanobotAgentName != "" {
-		// Point directly to the mcp container's port
-		u = fmt.Sprintf("%s:8080", u)
-	}
-
 	var previousPodName string
 	if cachedDeployment != nil {
 		previousPodName = cachedDeployment.podName
@@ -853,22 +848,27 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		}
 	}
 
+	port80 := "http"
+	if server.NanobotAgentName != "" {
+		// For nanobot-agent-backed MCP servers, allow access via the "mcp" port.
+		port80 = "mcp"
+		// We also need to replace since there is a PVC involved.
+		dep.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
+	}
 	servicePorts := []corev1.ServicePort{
 		{
 			Name:       "http",
 			Port:       80,
-			TargetPort: intstr.FromString("http"),
+			TargetPort: intstr.FromString(port80),
 		},
 	}
-	if server.NanobotAgentName != "" {
-		dep.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
-		servicePorts = []corev1.ServicePort{
-			{
-				Name:       "mcp",
-				Port:       8080,
-				TargetPort: intstr.FromString("mcp"),
-			},
-		}
+	if server.Runtime == types.RuntimeContainerized {
+		// For containerized runtimes, expose the port of the real MCP server for health checks.
+		servicePorts = append(servicePorts, corev1.ServicePort{
+			Name:       "mcp",
+			Port:       8080,
+			TargetPort: intstr.FromString("mcp"),
+		})
 	}
 
 	objs = append(objs, &corev1.Service{
@@ -979,9 +979,6 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 	const maxRetries = 5
 	var lastErr error
 
-	// The Kubernetes backend is always going to have a Nanobot pod running. So, ensure that the runtime is "remote" instead of "containerized"
-	server.Runtime = types.RuntimeRemote
-
 	// Retry loop with smart pod status checking
 	for attempt := range maxRetries {
 		// Wait for the deployment to be updated.
@@ -1016,8 +1013,20 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 					return podName, nil
 				}
 
-				if err = ensureServerReady(ctx, url, server); err != nil {
-					return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
+				// For containerized runtimes, ensure that the server is healthy.
+				if server.Runtime == types.RuntimeContainerized {
+					if err = ensureServerReady(ctx, fmt.Sprintf("%s:%d", url, 8080), server); err != nil {
+						return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
+					}
+				}
+
+				// For non-agents, check that the shim is healthy and ready.
+				if server.NanobotAgentName == "" {
+					// We are checking the shim, so set the runtime accordingly.
+					server.Runtime = types.RuntimeRemote
+					if err = ensureServerReady(ctx, url, server); err != nil {
+						return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
+					}
 				}
 
 				return podName, nil
