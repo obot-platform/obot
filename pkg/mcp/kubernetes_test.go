@@ -2,14 +2,17 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -254,6 +257,185 @@ func TestK8sObjects_ServicePorts(t *testing.T) {
 				t.Fatalf("deployment strategy = %q, want %q", dep.Spec.Strategy.Type, tt.expectedStrategy)
 			}
 		})
+	}
+}
+
+func TestAnalyzePodStatus(t *testing.T) {
+	startedAt := time.Now().Add(-10 * time.Second)
+
+	tests := []struct {
+		name             string
+		pod              corev1.Pod
+		wantPullingImage bool
+		wantStartedAt    *time.Time
+		wantErr          error
+		wantErrContains  string
+	}{
+		{
+			name: "running mcp container returns start time",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					ContainerStatuses: []corev1.ContainerStatus{{
+						Name: "mcp",
+						State: corev1.ContainerState{
+							Running: &corev1.ContainerStateRunning{StartedAt: metav1.NewTime(startedAt)},
+						},
+					}},
+				},
+			},
+			wantStartedAt: &startedAt,
+		},
+		{
+			name: "image pull backoff is retryable image pull",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodPending,
+					ContainerStatuses: []corev1.ContainerStatus{{
+						Name: "mcp",
+						State: corev1.ContainerState{
+							Waiting: &corev1.ContainerStateWaiting{Reason: "ImagePullBackOff"},
+						},
+					}},
+				},
+			},
+			wantPullingImage: true,
+		},
+		{
+			name: "crash loop fails permanently",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					ContainerStatuses: []corev1.ContainerStatus{{
+						Name: "mcp",
+						State: corev1.ContainerState{
+							Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff", Message: "back-off restarting failed container"},
+						},
+					}},
+				},
+			},
+			wantErr:         ErrPodCrashLoopBackOff,
+			wantErrContains: "back-off restarting failed container",
+		},
+		{
+			name: "failed phase fails health check timeout",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase:   corev1.PodFailed,
+					Message: "pod failed",
+				},
+			},
+			wantErr:         ErrHealthCheckTimeout,
+			wantErrContains: "pod failed",
+		},
+		{
+			name: "repeated terminated errors fail crash loop",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					ContainerStatuses: []corev1.ContainerStatus{{
+						Name:         "mcp",
+						RestartCount: maxPodRestartsDuringSetup + 1,
+						State: corev1.ContainerState{
+							Terminated: &corev1.ContainerStateTerminated{ExitCode: 1, Reason: "Error"},
+						},
+					}},
+				},
+			},
+			wantErr:         ErrPodCrashLoopBackOff,
+			wantErrContains: "repeatedly crashing",
+		},
+		{
+			name: "evicted pod fails scheduling",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase:   corev1.PodPending,
+					Reason:  "Evicted",
+					Message: "node had disk pressure",
+				},
+			},
+			wantErr:         ErrPodSchedulingFailed,
+			wantErrContains: "node had disk pressure",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pullingImage, startedAt, err := analyzePodStatus(&tt.pod)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("analyzePodStatus() error = %v, want %v", err, tt.wantErr)
+			}
+			if tt.wantErrContains != "" && !strings.Contains(err.Error(), tt.wantErrContains) {
+				t.Fatalf("analyzePodStatus() error = %q, want to contain %q", err, tt.wantErrContains)
+			}
+			if pullingImage != tt.wantPullingImage {
+				t.Fatalf("analyzePodStatus() pullingImage = %v, want %v", pullingImage, tt.wantPullingImage)
+			}
+			if tt.wantStartedAt == nil {
+				if startedAt != nil {
+					t.Fatalf("analyzePodStatus() startedAt = %v, want nil", startedAt)
+				}
+			} else if startedAt == nil || !startedAt.Equal(*tt.wantStartedAt) {
+				t.Fatalf("analyzePodStatus() startedAt = %v, want %v", startedAt, *tt.wantStartedAt)
+			}
+		})
+	}
+}
+
+func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(appsv1) error = %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(corev1) error = %v", err)
+	}
+
+	now := time.Now()
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-server",
+			Namespace: "obot-mcp",
+		},
+		Status: appsv1.DeploymentStatus{
+			ObservedGeneration: 1,
+			UpdatedReplicas:    1,
+		},
+	}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-server-pod",
+			Namespace:         "obot-mcp",
+			CreationTimestamp: metav1.NewTime(now.Add(-time.Minute)),
+			Labels: map[string]string{
+				"app": "test-server",
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			ContainerStatuses: []corev1.ContainerStatus{{
+				Name: "mcp",
+				State: corev1.ContainerState{
+					Running: &corev1.ContainerStateRunning{StartedAt: metav1.NewTime(now.Add(-2 * time.Second))},
+				},
+			}},
+		},
+	}
+
+	k := &kubernetesBackend{
+		client:       fake.NewClientBuilder().WithScheme(scheme).WithObjects(deployment, pod).Build(),
+		mcpNamespace: "obot-mcp",
+	}
+
+	_, err := k.updatedMCPPodName(context.Background(), "http://mcp.example.com", "test-server", ServerConfig{
+		Runtime:               types.RuntimeRemote,
+		StartupTimeoutSeconds: 1,
+	}, "")
+	if !errors.Is(err, ErrHealthCheckTimeout) {
+		t.Fatalf("updatedMCPPodName() error = %v, want %v", err, ErrHealthCheckTimeout)
+	}
+	if !strings.Contains(err.Error(), "container startup exceeded 1s timeout") {
+		t.Fatalf("updatedMCPPodName() error = %q, want startup deadline message", err)
 	}
 }
 
