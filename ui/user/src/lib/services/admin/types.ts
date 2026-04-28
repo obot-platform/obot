@@ -452,6 +452,7 @@ export interface AuditLog {
 		type?: string;
 		method?: string;
 		name?: string;
+		tool?: string;
 		url?: string;
 		status?: string;
 		message?: string;
