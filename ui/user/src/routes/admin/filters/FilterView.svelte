@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
@@ -6,12 +7,15 @@
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import AuditLogsPageContent from '$lib/components/admin/audit-logs/AuditLogsPageContent.svelte';
 	import UsageGraphs from '$lib/components/admin/usage/UsageGraphs.svelte';
+	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
+	import { setVirtualPageDisabled } from '$lib/components/ui/virtual-page/context';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { AdminService } from '$lib/services';
 	import type { MCPFilterInput, SystemMCPServerCatalogEntry } from '$lib/services/admin/types';
 	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { BookOpenText, Trash2 } from 'lucide-svelte';
+	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -36,9 +40,24 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 	const mcpServerId = $derived(filter?.id ? `sms1${filter.id}` : undefined);
+
+	$effect(() => {
+		if (page.url.searchParams.get('view') === 'audit-logs') {
+			setVirtualPageDisabled(false);
+		} else {
+			setVirtualPageDisabled(true);
+		}
+	});
 </script>
 
-<Layout {title} showBackButton>
+<Layout
+	main={{
+		component: VirtualPageViewport as unknown as Component,
+		props: { class: '', as: 'main', itemHeight: 56, overscan: 5, disabled: true }
+	}}
+	{title}
+	showBackButton
+>
 	<div
 		class="h-full w-full flex flex-col gap-4"
 		in:fly={{ x: 100, duration }}
