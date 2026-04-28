@@ -8,8 +8,10 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -204,6 +206,57 @@ func TestK8sObjects_NonAgentShimKeepsAuditLogConfig(t *testing.T) {
 	assertHasAuditLogEnv(t, shimConfigSecret.Data)
 }
 
+func TestK8sObjects_ServicePorts(t *testing.T) {
+	tests := []struct {
+		name                   string
+		nanobotAgentName       string
+		expectedHTTPPortTarget intstr.IntOrString
+		expectedStrategy       appsv1.DeploymentStrategyType
+	}{
+		{
+			name:                   "standard containerized server routes http service port to shim",
+			expectedHTTPPortTarget: intstr.FromString("http"),
+		},
+		{
+			name:                   "nanobot agent routes http service port to mcp container",
+			nanobotAgentName:       "agent-1",
+			expectedHTTPPortTarget: intstr.FromString("mcp"),
+			expectedStrategy:       appsv1.RecreateDeploymentStrategyType,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k := newTestKubernetesBackend(t)
+			objs, err := k.k8sObjects(context.Background(), ServerConfig{
+				Runtime:              types.RuntimeContainerized,
+				MCPServerName:        "test-server",
+				MCPServerDisplayName: "Test Server",
+				UserID:               "user-1",
+				OwnerUserID:          "user-2",
+				ContainerImage:       "ghcr.io/obot-platform/mcp-images/phat:main",
+				ContainerPort:        8080,
+				ContainerPath:        "/mcp",
+				Command:              "server",
+				Args:                 []string{"run"},
+				NanobotAgentName:     tt.nanobotAgentName,
+			}, nil)
+			if err != nil {
+				t.Fatalf("k8sObjects() error = %v", err)
+			}
+
+			service := findService(t, objs, "test-server")
+			assertServicePort(t, service, "http", 80, tt.expectedHTTPPortTarget)
+			assertServicePort(t, service, "mcp", 8080, intstr.FromString("mcp"))
+
+			dep := findDeployment(t, objs, "test-server")
+			if dep.Spec.Strategy.Type != tt.expectedStrategy {
+				t.Fatalf("deployment strategy = %q, want %q", dep.Spec.Strategy.Type, tt.expectedStrategy)
+			}
+		})
+	}
+}
+
 func newTestKubernetesBackend(t *testing.T) *kubernetesBackend {
 	t.Helper()
 
@@ -232,6 +285,52 @@ func findSecret(t *testing.T, objs []kclient.Object, secretName string) *corev1.
 
 	t.Fatalf("secret %q not found", secretName)
 	return nil
+}
+
+func findService(t *testing.T, objs []kclient.Object, serviceName string) *corev1.Service {
+	t.Helper()
+
+	for _, obj := range objs {
+		service, ok := obj.(*corev1.Service)
+		if ok && service.Name == serviceName {
+			return service
+		}
+	}
+
+	t.Fatalf("service %q not found", serviceName)
+	return nil
+}
+
+func findDeployment(t *testing.T, objs []kclient.Object, deploymentName string) *appsv1.Deployment {
+	t.Helper()
+
+	for _, obj := range objs {
+		dep, ok := obj.(*appsv1.Deployment)
+		if ok && dep.Name == deploymentName {
+			return dep
+		}
+	}
+
+	t.Fatalf("deployment %q not found", deploymentName)
+	return nil
+}
+
+func assertServicePort(t *testing.T, service *corev1.Service, portName string, port int32, targetPort intstr.IntOrString) {
+	t.Helper()
+
+	for _, servicePort := range service.Spec.Ports {
+		if servicePort.Name == portName {
+			if servicePort.Port != port {
+				t.Fatalf("service port %q port = %d, want %d", portName, servicePort.Port, port)
+			}
+			if servicePort.TargetPort != targetPort {
+				t.Fatalf("service port %q targetPort = %v, want %v", portName, servicePort.TargetPort, targetPort)
+			}
+			return
+		}
+	}
+
+	t.Fatalf("service port %q not found", portName)
 }
 
 func assertNoAuditLogEnv(t *testing.T, env map[string][]byte) {
