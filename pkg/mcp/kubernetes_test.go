@@ -302,6 +302,20 @@ func TestAnalyzePodStatus(t *testing.T) {
 			wantPullingImage: true,
 		},
 		{
+			name: "unschedulable pod remains retryable under pull/scheduling budget",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodPending,
+					Conditions: []corev1.PodCondition{{
+						Type:   corev1.PodScheduled,
+						Status: corev1.ConditionFalse,
+						Reason: corev1.PodReasonUnschedulable,
+					}},
+				},
+			},
+			wantPullingImage: true,
+		},
+		{
 			name: "crash loop fails permanently",
 			pod: corev1.Pod{
 				Status: corev1.PodStatus{
