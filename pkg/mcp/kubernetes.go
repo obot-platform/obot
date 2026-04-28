@@ -744,7 +744,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			ProgressDeadlineSeconds: new(int32(startupTimeout(server).Seconds())),
+			ProgressDeadlineSeconds: new(int32(startupTimeout(server).Seconds() + imagePullTimeout.Seconds())),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": server.MCPServerName,
