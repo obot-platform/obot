@@ -51,6 +51,7 @@ type MCPWebhookStatus struct {
 	URL     string `json:"url,omitempty"`
 	Method  string `json:"method,omitempty"`
 	Name    string `json:"name,omitempty"`
+	Tool    string `json:"tool,omitempty"`
 	Status  string `json:"status,omitempty"`
 	Message string `json:"message,omitempty"`
 }
@@ -110,6 +111,7 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 			Method:  ws.Method,
 			URL:     ws.URL,
 			Name:    ws.Name,
+			Tool:    ws.Tool,
 			Status:  ws.Status,
 			Message: ws.Message,
 		}

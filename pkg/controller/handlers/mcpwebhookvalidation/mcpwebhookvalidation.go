@@ -117,13 +117,7 @@ func desiredSystemServer(webhookValidation *v1.MCPWebhookValidation, image strin
 	if webhookValidation.Spec.Manifest.SystemMCPServerManifest != nil {
 		manifest = *webhookValidation.Spec.Manifest.SystemMCPServerManifest.DeepCopy()
 	} else {
-		displayName := webhookValidation.Spec.Manifest.Name
-		if displayName == "" {
-			displayName = webhookValidation.Name
-		}
-
 		manifest = types.SystemMCPServerManifest{
-			Name:             displayName,
 			ShortDescription: "Managed webhook validation server",
 			Enabled:          new(!webhookValidation.Spec.Manifest.Disabled),
 			Runtime:          types.RuntimeContainerized,
@@ -146,8 +140,12 @@ func desiredSystemServer(webhookValidation *v1.MCPWebhookValidation, image strin
 		}
 	}
 
+	manifest.Name = webhookValidation.Spec.Manifest.Name
 	if manifest.Name == "" {
-		manifest.Name = webhookValidation.Spec.Manifest.Name
+		manifest.Name = webhookValidation.Spec.Manifest.SystemMCPServerManifest.Name
+		if manifest.Name == "" {
+			manifest.Name = webhookValidation.Name
+		}
 	}
 
 	return v1.SystemMCPServer{

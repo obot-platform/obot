@@ -13978,6 +13978,12 @@ func schema_obot_platform_obot_apiclient_types_WebhookStatus(ref common.Referenc
 							Format: "",
 						},
 					},
+					"tool": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

@@ -52,6 +52,7 @@ type WebhookStatus struct {
 	Method  string `json:"method,omitempty"`
 	URL     string `json:"url,omitempty"`
 	Name    string `json:"name,omitempty"`
+	Tool    string `json:"tool,omitempty"`
 	Status  string `json:"status,omitempty"`
 	Message string `json:"message"`
 }
