@@ -53,7 +53,13 @@
 <Layout
 	main={{
 		component: VirtualPageViewport as unknown as Component,
-		props: { class: '', as: 'main', itemHeight: 56, overscan: 5, disabled: true }
+		props: {
+			class: '',
+			as: 'main',
+			itemHeight: 56,
+			overscan: 5,
+			disabled: selected !== 'audit-logs'
+		}
 	}}
 	{title}
 	showBackButton
