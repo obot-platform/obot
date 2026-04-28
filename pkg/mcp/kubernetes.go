@@ -1044,7 +1044,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 
 				if pullingImage {
 					if time.Now().After(imagePullDeadline) {
-						return false, fmt.Errorf("%w: image pull exceeded %s timeout", ErrHealthCheckTimeout, imagePullTimeout)
+						return false, fmt.Errorf("%w: pod scheduling and image pull exceeded %s timeout", ErrHealthCheckTimeout, imagePullTimeout)
 					}
 					return false, nil // Retryable state, keep waiting
 				}
