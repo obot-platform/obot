@@ -67,28 +67,20 @@
 	const start = subMonths(end, 1);
 
 	function topToolCallsFromStats(stats: AuditLogUsageStats | undefined): TopToolCallRow[] {
-		return transformTopToolCalls(stats)
-			.map((t) => ({
-				compositeKey: t.toolName,
-				toolLabel: t.toolName,
-				count: t.count,
-				serverDisplayName: t.serverDisplayName
-			}))
-			.filter(
-				(t) => !t.serverDisplayName.startsWith('nba1') && !t.serverDisplayName.startsWith('Obot ')
-			);
+		return transformTopToolCalls(stats).map((t) => ({
+			compositeKey: t.toolName,
+			toolLabel: t.toolName,
+			count: t.count,
+			serverDisplayName: t.serverDisplayName
+		}));
 	}
 
 	function topServersFromStats(stats: AuditLogUsageStats | undefined): TopServerUsageRow[] {
-		return transformTopServerUsage(stats).filter(
-			(s) => !s.serverName.startsWith('nba1') && !s.serverName.startsWith('Obot ')
-		);
+		return transformTopServerUsage(stats);
 	}
 
 	function avgToolCallResponseTimeFromStats(stats: AuditLogUsageStats | undefined) {
-		return transformAvgToolCallResponseTime(stats).filter(
-			(t) => !t.serverDisplayName.startsWith('nba1') && !t.serverDisplayName.startsWith('Obot ')
-		);
+		return transformAvgToolCallResponseTime(stats);
 	}
 
 	let monthlyActiveUsers = $derived(
@@ -201,9 +193,22 @@
 			end_time: endToolStats.toISOString()
 		})
 			.then((stats) => {
-				topToolCalls = topToolCallsFromStats(stats).slice(0, TOP_TOOLS_LIMIT);
-				topServerUsage = topServersFromStats(stats).slice(0, TOP_SERVERS_LIMIT);
-				avgToolCallResponseTime = avgToolCallResponseTimeFromStats(stats).slice(0, TOP_TOOLS_LIMIT);
+				const statsToUse = stats.items.filter(
+					(s) =>
+						!s.mcpID.startsWith('sms1') &&
+						!s.mcpID.startsWith('nba1') &&
+						!s.mcpServerDisplayName.startsWith('Obot ')
+				);
+				const adjustedStats = {
+					...stats,
+					items: statsToUse
+				};
+				topToolCalls = topToolCallsFromStats(adjustedStats).slice(0, TOP_TOOLS_LIMIT);
+				topServerUsage = topServersFromStats(adjustedStats).slice(0, TOP_SERVERS_LIMIT);
+				avgToolCallResponseTime = avgToolCallResponseTimeFromStats(adjustedStats).slice(
+					0,
+					TOP_TOOLS_LIMIT
+				);
 			})
 			.catch((error) => {
 				if (error?.name === 'AbortError') return;
