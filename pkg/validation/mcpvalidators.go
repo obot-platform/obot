@@ -969,6 +969,10 @@ func ValidateServerManifest(manifest types.MCPServerManifest, isMultiUser bool) 
 		}
 	}
 
+	if err := validateStartupTimeout(manifest.Runtime, manifest.StartupTimeoutSeconds); err != nil {
+		return err
+	}
+
 	if validator, ok := getRuntimeValidators()[manifest.Runtime]; ok {
 		return validator.ValidateConfig(manifest)
 	}
@@ -981,6 +985,10 @@ func ValidateServerManifest(manifest types.MCPServerManifest, isMultiUser bool) 
 }
 
 func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
+	if err := validateStartupTimeout(manifest.Runtime, manifest.StartupTimeoutSeconds); err != nil {
+		return err
+	}
+
 	if validator, ok := getRuntimeValidators()[manifest.Runtime]; ok {
 		return validator.ValidateCatalogConfig(manifest)
 	}
@@ -1028,6 +1036,10 @@ func ValidateSystemMCPServerCatalogEntryManifest(manifest types.SystemMCPServerC
 }
 
 func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) error {
+	if err := validateStartupTimeout(manifest.Runtime, manifest.StartupTimeoutSeconds); err != nil {
+		return err
+	}
+
 	if validator, ok := getRuntimeValidators()[manifest.Runtime]; ok {
 		return validator.ValidateSystemConfig(manifest)
 	}
@@ -1037,4 +1049,16 @@ func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) err
 		Field:   "runtime",
 		Message: "unsupported runtime",
 	}
+}
+
+func validateStartupTimeout(runtime types.Runtime, startupTimeoutSeconds int) error {
+	if startupTimeoutSeconds < 0 {
+		return types.RuntimeValidationError{
+			Runtime: runtime,
+			Field:   "startupTimeoutSeconds",
+			Message: "must be greater than or equal to 0",
+		}
+	}
+
+	return nil
 }

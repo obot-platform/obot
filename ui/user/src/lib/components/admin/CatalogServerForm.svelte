@@ -311,6 +311,7 @@
 
 	function convertToEntryManifest(formData: RuntimeFormData): MCPCatalogEntryServerManifest {
 		const { categories, ...baseData } = formData;
+		const startupTimeoutSeconds = baseData.startupTimeoutSeconds;
 
 		// Build base manifest structure
 		const manifest: MCPCatalogEntryServerManifest = {
@@ -320,8 +321,10 @@
 			env: baseData.env,
 			runtime: baseData.runtime,
 			...convertCategoriesToMetadata(categories),
-			...(baseData.startupTimeoutSeconds
-				? { startupTimeoutSeconds: baseData.startupTimeoutSeconds }
+			...(typeof startupTimeoutSeconds === 'number' &&
+			Number.isInteger(startupTimeoutSeconds) &&
+			startupTimeoutSeconds > 0
+				? { startupTimeoutSeconds }
 				: {})
 		};
 

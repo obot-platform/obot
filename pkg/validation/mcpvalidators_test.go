@@ -1634,3 +1634,37 @@ func TestCompositeValidator_ValidateConfig_ToolPrefixLength(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
+	t.Run("server manifest rejects negative startup timeout", func(t *testing.T) {
+		err := ValidateServerManifest(types.MCPServerManifest{
+			Runtime:               types.RuntimeRemote,
+			StartupTimeoutSeconds: -1,
+			RemoteConfig: &types.RemoteRuntimeConfig{
+				URL: "https://example.com/mcp",
+			},
+		})
+
+		require.Equal(t, types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "startupTimeoutSeconds",
+			Message: "must be greater than or equal to 0",
+		}, err)
+	})
+
+	t.Run("catalog manifest rejects negative startup timeout", func(t *testing.T) {
+		err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
+			Runtime:               types.RuntimeRemote,
+			StartupTimeoutSeconds: -1,
+			RemoteConfig: &types.RemoteCatalogConfig{
+				FixedURL: "https://example.com/mcp",
+			},
+		})
+
+		require.Equal(t, types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "startupTimeoutSeconds",
+			Message: "must be greater than or equal to 0",
+		}, err)
+	})
+}
