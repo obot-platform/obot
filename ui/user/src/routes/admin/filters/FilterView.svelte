@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
@@ -8,7 +7,6 @@
 	import AuditLogsPageContent from '$lib/components/admin/audit-logs/AuditLogsPageContent.svelte';
 	import UsageGraphs from '$lib/components/admin/usage/UsageGraphs.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
-	import { setVirtualPageDisabled } from '$lib/components/ui/virtual-page/context';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { AdminService } from '$lib/services';
 	import type { MCPFilterInput, SystemMCPServerCatalogEntry } from '$lib/services/admin/types';
@@ -40,14 +38,6 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 	const mcpServerId = $derived(filter?.id ? `sms1${filter.id}` : undefined);
-
-	$effect(() => {
-		if (page.url.searchParams.get('view') === 'audit-logs') {
-			setVirtualPageDisabled(false);
-		} else {
-			setVirtualPageDisabled(true);
-		}
-	});
 </script>
 
 <Layout
