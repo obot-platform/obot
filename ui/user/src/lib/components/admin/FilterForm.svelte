@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { beforeNavigate } from '$app/navigation';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { PAGE_TRANSITION_DURATION, PII_MUTATE_TYPES, PII_BLOCK_TYPES } from '$lib/constants';
+	import { PAGE_TRANSITION_DURATION, PII_REDACT_TYPES, PII_BLOCK_TYPES } from '$lib/constants';
 	import {
 		AdminService,
 		type MCPFilter,
@@ -710,7 +710,7 @@
 					{readonly}
 					type="multi"
 					{isPrebuiltEntry}
-					overrideEnvField={[PII_MUTATE_TYPES, PII_BLOCK_TYPES]}
+					overrideEnvField={[PII_REDACT_TYPES, PII_BLOCK_TYPES]}
 				>
 					{#snippet overrideEnvTemplate({ config })}
 						{#if config.key === PII_BLOCK_TYPES && runtimeFormData}

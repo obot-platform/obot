@@ -105,7 +105,7 @@ export const USER_AGENT_DISABLED_MESSAGE =
 	'Agent is currently disabled. Contact your administrator to enable it.';
 
 /** Filter Constants  */
-export const PII_MUTATE_TYPES = 'PII_MUTATE_TYPES';
+export const PII_REDACT_TYPES = 'PII_REDACT_TYPES';
 export const PII_BLOCK_TYPES = 'PII_BLOCK_TYPES';
 
 export const PII_FILTER_DEFAULT_OPTIONS = [
