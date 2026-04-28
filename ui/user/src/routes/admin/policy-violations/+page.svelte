@@ -596,7 +596,12 @@
 	</div>
 
 	<!-- Detail drawer -->
-	<div bind:this={rightSidebar} popover class="drawer max-w-[85vw] min-w-lg" style="width: 32rem">
+	<div
+		bind:this={rightSidebar}
+		popover
+		class="drawer-legacy max-w-[85vw] min-w-lg"
+		style="width: 32rem"
+	>
 		{#if !responsive.isMobile && rightSidebar}
 			<div
 				role="none"

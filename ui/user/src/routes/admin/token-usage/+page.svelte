@@ -486,7 +486,7 @@
 		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
-	function handleAddUserFilter(userId: string) {
+	function handleToggleUserFilter(userId: string) {
 		if (userId === 'all_users') {
 			const currentUrl = new URL(page.url);
 			currentUrl.searchParams.delete('user');
@@ -495,13 +495,16 @@
 		}
 		const currentUrl = new URL(page.url);
 		const users = currentUrl.searchParams.getAll('user');
-		if (users.includes(userId)) return;
-		users.push(userId);
-		currentUrl.searchParams.delete('user');
-		for (const id of users) {
-			currentUrl.searchParams.append('user', id);
+		if (users.includes(userId)) {
+			handleRemoveUserFilter(userId);
+		} else {
+			users.push(userId);
+			currentUrl.searchParams.delete('user');
+			for (const id of users) {
+				currentUrl.searchParams.append('user', id);
+			}
+			goto(currentUrl, { noScroll: true, keepFocus: true });
 		}
-		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
 	function handleRemoveModelFilter(modelId: string) {
@@ -520,7 +523,7 @@
 		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
-	function handleAddModelFilter(modelId: string) {
+	function handleToggleModelFilter(modelId: string) {
 		if (modelId === 'all_models') {
 			const currentUrl = new URL(page.url);
 			currentUrl.searchParams.delete('model');
@@ -529,13 +532,16 @@
 		}
 		const currentUrl = new URL(page.url);
 		const models = currentUrl.searchParams.getAll('model');
-		if (models.includes(modelId)) return;
-		models.push(modelId);
-		currentUrl.searchParams.delete('model');
-		for (const id of models) {
-			currentUrl.searchParams.append('model', id);
+		if (models.includes(modelId)) {
+			handleRemoveModelFilter(modelId);
+		} else {
+			models.push(modelId);
+			currentUrl.searchParams.delete('model');
+			for (const id of models) {
+				currentUrl.searchParams.append('model', id);
+			}
+			goto(currentUrl, { noScroll: true, keepFocus: true });
 		}
-		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
 	function handleGroupByChange(groupBy: string) {
@@ -614,7 +620,7 @@
 					}}
 					options={usersOptions}
 					selected={selectedUserIdsForSelect}
-					onSelect={(option) => handleAddUserFilter(option.id)}
+					onSelect={(option) => handleToggleUserFilter(option.id)}
 					onClear={(option) => option && handleRemoveUserFilter(option.id)}
 					onClearAll={selectedUserIdsForSelect !== 'all_users'
 						? () => handleRemoveAllUserFilters()
@@ -634,7 +640,7 @@
 					}}
 					options={modelsOptions}
 					selected={filteredByModel}
-					onSelect={(option) => handleAddModelFilter(option.id)}
+					onSelect={(option) => handleToggleModelFilter(option.id)}
 					onClear={(option) => option && handleRemoveModelFilter(option.id)}
 					onClearAll={filteredByModel !== 'all_models'
 						? () => handleRemoveAllModelFilters()
