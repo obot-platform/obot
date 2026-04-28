@@ -15,7 +15,7 @@ When you configure a filter, you can narrow when it runs using selectors that ta
 
 ## How Filters Work
 
-1. **Tool Call Interception**: When a tool call is made, the gateway intercepts it and sends the details to your configured filter
+1. **MCP Request Interception**: When a request is made to an MCP server, the gateway intercepts it and sends the details to your configured filter
 2. **Payload Inspection**: Your filter receives the payload and can perform any custom logic or validation
 3. **Response Decision**: Your filter returns one of the following decisions:
    - Accept: Allow the tool call to proceed
@@ -28,7 +28,7 @@ Filters can be configured in Obot as HTTP webhooks, MCP servers, or by selecting
 
 ### Selectors
 
-You can configure selectors to control when your filter is triggered:
+All filter types support selectors to control when your filter is triggered:
 
 - **Specific MCP Tool Call Methods**: Target particular tools or functions
 - **MCP Tool Names, URIS**: Choose which MCP servers the filter applies to
@@ -58,7 +58,7 @@ See the [obot-platform/pii-filter](https://github.com/obot-platform/pii-filter) 
 
 ## Built-in Filters
 
-Obot also supports built-in filters. These are MCP filter servers that are already configured for deployment in Obot through the system MCP catalog.
+Obot ships with a default set of built-in filters. These are MCP filter servers that are already configured for deployment in Obot through the system MCP catalog.
 
 The default built-in filter catalog is maintained in the [obot-platform/system-mcp-catalog](https://github.com/obot-platform/system-mcp-catalog) repository.
 
