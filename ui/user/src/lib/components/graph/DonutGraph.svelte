@@ -11,6 +11,12 @@
 	export type DonutDatum = {
 		label: string;
 		value: number;
+		color?: string;
+	};
+
+	export type DonutLegendItem = {
+		label: string;
+		color?: string;
 	};
 
 	/** Tooltip payload for a slice (passed to `tooltipContent` snippet). */
@@ -28,6 +34,8 @@
 		donutRatio?: number;
 		formatValue?: (value: number) => string;
 		tooltipContent?: Snippet<[DonutTooltipItem]>;
+		/** When set, the footer legend shows these entries instead of one row per slice. */
+		legend?: DonutLegendItem[];
 	}
 
 	let {
@@ -35,7 +43,8 @@
 		class: klass = '',
 		donutRatio = 0.58,
 		formatValue = (v) => String(v),
-		tooltipContent
+		tooltipContent,
+		legend
 	}: Props = $props();
 
 	const defaultPalette = [
@@ -68,7 +77,7 @@
 
 	const total = $derived(data.reduce((sum, d) => sum + Math.max(0, Number(d.value) || 0), 0));
 
-	const dataKey = $derived(data.map((d) => `${d.label}:${d.value}`).join('|'));
+	const dataKey = $derived(data.map((d) => `${d.label}:${d.value}:${d.color ?? ''}`).join('|'));
 
 	const progress = new Tween(0, { duration: 550, easing: cubicOut });
 
@@ -118,6 +127,17 @@
 		});
 	}
 
+	const TOOLTIP_LABEL_SEP = ' · ';
+
+	function tooltipLabelParts(label: string): { main: string; detail?: string } {
+		const i = label.indexOf(TOOLTIP_LABEL_SEP);
+		if (i === -1) return { main: label };
+		return {
+			main: label.slice(0, i),
+			detail: label.slice(i + TOOLTIP_LABEL_SEP.length)
+		};
+	}
+
 	function computeSlices(p: number) {
 		if (outerRadius <= 0 || total <= 0) return [];
 		const snapshot = $state.snapshot(data);
@@ -132,7 +152,7 @@
 			};
 			return {
 				path: arcGen(scaled) ?? '',
-				color: colorAt(i),
+				color: d.data.color ?? colorAt(i),
 				label: d.data.label,
 				value: d.data.value
 			};
@@ -156,8 +176,16 @@
 				{#if tooltipContent}
 					{@render tooltipContent(currentItem)}
 				{:else}
+					{@const parts = tooltipLabelParts(currentItem.label)}
 					<div class="flex flex-col gap-0 text-xs">
-						<div class="text-on-background text-sm">{currentItem.label}</div>
+						<div class="text-on-background text-sm">
+							{#if parts.detail !== undefined}
+								<span class="font-semibold">{parts.main}</span>
+								<span>{TOOLTIP_LABEL_SEP}{parts.detail}</span>
+							{:else}
+								<span class="font-semibold">{parts.main}</span>
+							{/if}
+						</div>
 						<div class="border-on-surface1 mb-2 border-b pb-2">
 							{currentItem.percentOfTotal.toFixed(1)}% of total
 						</div>
@@ -185,7 +213,7 @@
 							aria-label="{slice.label}, {formatValue(Math.max(0, Number(slice.value) || 0))}"
 							d={slice.path}
 							fill={slice.color}
-							class="cursor-pointer stroke-background stroke-1"
+							class="cursor-pointer stroke-background dark:stroke-surface1 stroke-1"
 							onpointerenter={(e) => {
 								const el = e.currentTarget as SVGGraphicsElement;
 								highlightedArcElement = el;
@@ -215,16 +243,29 @@
 
 	{#if total > 0 && data.length > 0}
 		<ul class="flex flex-wrap gap-x-4 gap-y-1 text-xs justify-center">
-			{#each data as row, i (i)}
-				<li class="flex items-center gap-1.5">
-					<span
-						class="inline-block size-2.5 shrink-0 rounded-sm"
-						style:background-color={colorAt(i)}
-						aria-hidden="true"
-					></span>
-					<span class="text-foreground">{row.label}</span>
-				</li>
-			{/each}
+			{#if legend}
+				{#each legend as row, i (row.label)}
+					<li class="flex items-center gap-1.5">
+						<span
+							class="inline-block size-2.5 shrink-0 rounded-sm"
+							style:background-color={row.color ?? colorAt(i)}
+							aria-hidden="true"
+						></span>
+						<span class="text-foreground">{row.label}</span>
+					</li>
+				{/each}
+			{:else}
+				{#each data as row, i (i)}
+					<li class="flex items-center gap-1.5">
+						<span
+							class="inline-block size-2.5 shrink-0 rounded-sm"
+							style:background-color={row.color ?? colorAt(i)}
+							aria-hidden="true"
+						></span>
+						<span class="text-foreground">{row.label}</span>
+					</li>
+				{/each}
+			{/if}
 		</ul>
 	{/if}
 </div>
