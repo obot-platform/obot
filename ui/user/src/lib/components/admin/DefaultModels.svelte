@@ -241,7 +241,7 @@
 				disabled={loading || !changed}
 			>
 				{#if loading}
-					<LoaderCircle class="size-4 animate-spin" />
+					<LoaderCircle class="size-4 animate-spin inline-block" />
 				{:else}
 					Save Changes
 				{/if}

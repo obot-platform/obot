@@ -711,7 +711,7 @@
 <div
 	bind:this={rightSidebar}
 	popover
-	class="drawer {selectedAuditLog ? 'max-w-[85vw] min-w-lg' : 'md:w-lg lg:w-xl'}"
+	class="drawer-legacy {selectedAuditLog ? 'max-w-[85vw] min-w-lg' : 'md:w-lg lg:w-xl'}"
 	style={selectedAuditLog ? 'width: 32rem' : ''}
 >
 	{#if selectedAuditLog}
