@@ -261,30 +261,20 @@ func TestK8sObjects_ServicePorts(t *testing.T) {
 }
 
 func TestAnalyzePodStatus(t *testing.T) {
-	startedAt := time.Now().Add(-10 * time.Second)
-
 	tests := []struct {
-		name             string
-		pod              corev1.Pod
-		wantPullingImage bool
-		wantStartedAt    *time.Time
-		wantErr          error
-		wantErrContains  string
+		name            string
+		pod             corev1.Pod
+		wantErr         error
+		wantErrContains string
 	}{
 		{
-			name: "running mcp container returns start time",
+			name: "running mcp container remains retryable",
 			pod: corev1.Pod{
 				Status: corev1.PodStatus{
 					Phase: corev1.PodRunning,
-					ContainerStatuses: []corev1.ContainerStatus{{
-						Name: "mcp",
-						State: corev1.ContainerState{
-							Running: &corev1.ContainerStateRunning{StartedAt: metav1.NewTime(startedAt)},
-						},
-					}},
+					ContainerStatuses: []corev1.ContainerStatus{{Name: "mcp"}},
 				},
 			},
-			wantStartedAt: &startedAt,
 		},
 		{
 			name: "image pull backoff is retryable image pull",
@@ -299,7 +289,6 @@ func TestAnalyzePodStatus(t *testing.T) {
 					}},
 				},
 			},
-			wantPullingImage: true,
 		},
 		{
 			name: "unschedulable pod remains retryable under pull/scheduling budget",
@@ -313,7 +302,6 @@ func TestAnalyzePodStatus(t *testing.T) {
 					}},
 				},
 			},
-			wantPullingImage: true,
 		},
 		{
 			name: "crash loop fails permanently",
@@ -375,22 +363,12 @@ func TestAnalyzePodStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pullingImage, startedAt, err := analyzePodStatus(&tt.pod)
+			err := analyzePodStatus(&tt.pod)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("analyzePodStatus() error = %v, want %v", err, tt.wantErr)
 			}
-			if tt.wantErrContains != "" && !strings.Contains(err.Error(), tt.wantErrContains) {
+			if tt.wantErrContains != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErrContains)) {
 				t.Fatalf("analyzePodStatus() error = %q, want to contain %q", err, tt.wantErrContains)
-			}
-			if pullingImage != tt.wantPullingImage {
-				t.Fatalf("analyzePodStatus() pullingImage = %v, want %v", pullingImage, tt.wantPullingImage)
-			}
-			if tt.wantStartedAt == nil {
-				if startedAt != nil {
-					t.Fatalf("analyzePodStatus() startedAt = %v, want nil", startedAt)
-				}
-			} else if startedAt == nil || !startedAt.Equal(*tt.wantStartedAt) {
-				t.Fatalf("analyzePodStatus() startedAt = %v, want %v", startedAt, *tt.wantStartedAt)
 			}
 		})
 	}
@@ -448,8 +426,8 @@ func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 	if !errors.Is(err, ErrHealthCheckTimeout) {
 		t.Fatalf("updatedMCPPodName() error = %v, want %v", err, ErrHealthCheckTimeout)
 	}
-	if !strings.Contains(err.Error(), "container startup exceeded 1s timeout") {
-		t.Fatalf("updatedMCPPodName() error = %q, want startup deadline message", err)
+	if !strings.Contains(err.Error(), "timeout waiting for deployment readiness") {
+		t.Fatalf("updatedMCPPodName() error = %q, want deployment timeout message", err)
 	}
 }
 

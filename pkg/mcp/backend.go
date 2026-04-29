@@ -18,7 +18,6 @@ const (
 	defaultContainerPort          = 8099
 	defaultWebhookToolName        = "fire-webhook"
 	serviceUnavailableGracePeriod = 10 * time.Second
-	imagePullTimeout              = 3 * time.Minute
 )
 
 type backend interface {
