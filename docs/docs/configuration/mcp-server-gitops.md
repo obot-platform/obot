@@ -12,6 +12,18 @@ Obot supports managing MCP servers through Git repositories, enabling GitOps wor
 - **Collaborative Workflows**: PR-based reviews, team collaboration, and approval processes
 - **Validation & Quality Assurance**: Automated testing, CI/CD integration, and consistent formatting
 - **Automation**: Integration with existing DevOps workflows and automated deployment
+- **Stable Connection URLs**: Deterministic URLs that remain constant even if you remove and re-add the Git repository
+
+### Connection URL Stability
+
+Connection URLs for MCP servers are derived from catalog entry names. Git-synced catalog entries have deterministic names based on the repository and file path, which provides important stability guarantees:
+
+- The connection URL remains the same even if you remove and re-add the Git repository
+- URLs are predictable and consistent across environments using the same Git source
+
+In contrast, manually created catalog entries receive partially random names. Their connection URLs stay constant as long as the entry isn't deleted, but if you delete and recreate a manual entry, it will receive a new URL.
+
+For organizations distributing connection URLs to users (e.g., pre-configuring Claude Desktop for multiple team members), Git-synced catalog entries provide the most reliable URL stability.
 
 ## Getting Started
 

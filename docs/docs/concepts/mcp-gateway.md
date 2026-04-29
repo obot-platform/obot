@@ -66,17 +66,3 @@ https://your-obot-instance/mcp-connect/{server-id}
 ```
 
 All servers are exposed via `streamable-http` transport, regardless of their underlying runtime.
-
-### Connection URL Stability
-
-Connection URLs are derived from catalog entry names, and their stability depends on how the catalog entry was created:
-
-**Git-synced catalog entries** have deterministic names based on the repository and file path. This means:
-- The connection URL remains the same even if you remove and re-add the Git repository
-- URLs are predictable and consistent across environments using the same Git source
-
-**Manually created catalog entries** receive partially random names. This means:
-- The connection URL stays constant as long as you don't delete the catalog entry
-- If you delete and recreate a manual entry, it will receive a new URL
-
-For organizations distributing connection URLs to users (e.g., configuring Claude Desktop for multiple team members), Git-synced catalog entries provide the most reliable URL stability.
