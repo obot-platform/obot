@@ -34,6 +34,35 @@
 		server?: MCPCatalogServer;
 	}>();
 
+	$effect(() => {
+		const sel = selected;
+		if (!sel) return;
+
+		const { entries, servers, userConfiguredServers } = mcpServersAndEntries.current;
+
+		let nextEntry = sel.entry;
+		let nextServer = sel.server;
+
+		if (sel.entry?.id) {
+			nextEntry = entries.find((e) => e.id === sel.entry!.id) ?? sel.entry;
+		}
+		if (sel.server?.id) {
+			nextServer =
+				userConfiguredServers.find((s) => s.id === sel.server!.id) ??
+				servers.find((s) => s.id === sel.server!.id) ??
+				sel.server;
+		} else if (sel.entry?.id) {
+			const forEntry = userConfiguredServers.filter((s) => s.catalogEntryID === sel.entry!.id);
+			if (forEntry.length === 1) {
+				nextServer = forEntry[0];
+			}
+		}
+
+		if (nextEntry !== sel.entry || nextServer !== sel.server) {
+			selected = { entry: nextEntry, server: nextServer };
+		}
+	});
+
 	let catalogDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 
@@ -157,6 +186,7 @@
 				{#if selected.entry}
 					<McpServerActions
 						entry={selected.entry}
+						server={selected.server}
 						onConnect={setupProjectMcp}
 						skipConnectDialog
 						connectOnly
@@ -177,6 +207,7 @@
 		>
 			<McpServerEntryForm
 				entry={selected.entry ? selected.entry : selected.server}
+				server={selected.server}
 				{type}
 				readonly
 				entity="workspace"
