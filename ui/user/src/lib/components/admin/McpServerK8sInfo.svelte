@@ -374,6 +374,8 @@
 		};
 	}
 
+	const missingSecretBindings = $derived(getMissingSecretBindings());
+
 	function getMissingSecretBindings() {
 		const missingEnvKeys = new Set(mcpServer?.missingRequiredEnvVars ?? []);
 		const missingHeaderKeys = new Set(mcpServer?.missingRequiredHeaders ?? []);
@@ -455,6 +457,31 @@
 				This is a multi-user server instance. The server information displayed here is the root
 				server that is shared between all server instances.
 			</p>
+		</div>
+	</div>
+{/if}
+
+{#if missingSecretBindings.length > 0 && hasAdminAccess}
+	<div class="notification-alert">
+		<div class="flex grow flex-col gap-2">
+			<div class="flex items-center gap-2">
+				<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+				<p class="my-0.5 flex flex-col text-sm font-semibold">
+					Missing Kubernetes Secret{missingSecretBindings.length > 1 ? 's' : ''}
+				</p>
+			</div>
+			<span class="text-sm font-light">
+				The following Kubernetes Secrets referenced by this server could not be found:
+				<ul class="mt-1 list-disc pl-5">
+					{#each missingSecretBindings as binding}
+						<li>
+							<code class="font-mono">{binding.secretName}/{binding.secretKey}</code> (for <strong
+								>{binding.label}</strong
+							>)
+						</li>
+					{/each}
+				</ul>
+			</span>
 		</div>
 	</div>
 {/if}
@@ -544,7 +571,6 @@
 {:catch error}
 	{@const isPending = error instanceof Error && error.message.includes('ContainerCreating')}
 	{@const needsUpdate = error instanceof Error && error.message.includes('missing required config')}
-	{@const missingSecretBindings = needsUpdate ? getMissingSecretBindings() : []}
 
 	{#if needsUpdate && hasAdminAccess}
 		<div class="notification-alert">
@@ -552,29 +578,12 @@
 				<div class="flex items-center gap-2">
 					<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
 					<p class="my-0.5 flex flex-col text-sm font-semibold">
-						{#if missingSecretBindings.length > 0}
-							Missing Kubernetes Secret{missingSecretBindings.length > 1 ? 's' : ''}
-						{:else}
-							User Configuration Update Required
-						{/if}
+						User Configuration Update Required
 					</p>
 				</div>
 				<span class="text-sm font-light break-all">
-					{#if missingSecretBindings.length > 0}
-						The following Kubernetes Secrets referenced by this server could not be found:
-						<ul class="mt-1 list-disc pl-5">
-							{#each missingSecretBindings as binding}
-								<li>
-									<code class="font-mono">{binding.secretName}/{binding.secretKey}</code> (for <strong
-										>{binding.label}</strong
-									>)
-								</li>
-							{/each}
-						</ul>
-					{:else}
-						The server was recently updated and requires the user to update their configuration.
-						Server details and logs are temporarily unavailable as a result.
-					{/if}
+					The server was recently updated and requires the user to update their configuration.
+					Server details and logs are temporarily unavailable as a result.
 				</span>
 			</div>
 		</div>
