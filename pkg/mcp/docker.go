@@ -180,7 +180,7 @@ func (d *dockerBackend) cleanupDeprecatedContainers(ctx context.Context) error {
 // deployServer will deploy the underlying container for the server. It will not deploy any shims or webhooks.
 // This is only to give users the opportunity to view logs and debug the server they are trying to deploy.
 func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig, _ []Webhook) error {
-	configHash := clientID(server)
+	configHash := serverID(server)
 	// Check if container already exists
 	existing, err := d.getContainer(ctx, server.MCPServerName)
 	if err == nil && existing != nil {
@@ -266,7 +266,7 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 		webhooks[i] = webhook
 	}
 
-	configHash := clientID(server)
+	configHash := serverID(server)
 	desiredFileEnvKeysHash := fileEnvKeysHash(server.Files)
 	if len(webhooks) > 0 {
 		// Include webhooks in the config hash so that changes to webhooks trigger a redeployment
@@ -546,7 +546,7 @@ func applyServerConfigToContainerConfig(config *container.Config, server ServerC
 		config.Labels = map[string]string{}
 	}
 
-	config.Labels["mcp.config.hash"] = clientID(server)
+	config.Labels["mcp.config.hash"] = serverID(server)
 	config.Labels["mcp.file.env.keys.hash"] = fileEnvKeysHash(server.Files)
 }
 
@@ -767,6 +767,8 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		AuditLogMetadata:          server.AuditLogMetadata,
 		ContainerPath:             server.ContainerPath,
 		NanobotAgentName:          server.NanobotAgentName,
+		PassthroughHeaderNames:    server.PassthroughHeaderNames,
+		PassthroughHeaderValues:   server.PassthroughHeaderValues,
 	}, nil
 }
 
@@ -1384,7 +1386,7 @@ func (d *dockerBackend) prepareMCPServerNanobotConfig(ctx context.Context, serve
 	if server.Runtime == otypes.RuntimeComposite {
 		nanobotYAML, err = constructMCPServerNanobotYAMLForComposite(server.Components)
 	} else {
-		nanobotYAML, err = constructMCPServerNanobotYAML(server.MCPServerDisplayName, server.URL, server.Command, server.Args, allEnvVars, headers, webhooks)
+		nanobotYAML, err = constructMCPServerNanobotYAML(server.MCPServerDisplayName, server.URL, server.Command, server.Args, server.PassthroughHeaderNames, allEnvVars, headers, webhooks)
 	}
 	if err != nil {
 		return "", fmt.Errorf("failed to construct nanobot YAML: %w", err)
