@@ -32,8 +32,8 @@ var uiResources = []string{
 }
 
 func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
-	// Reject direct access to /api or /api paths for UI except for /api/image/{id}
-	if req.URL.Path == "/api" || (strings.HasPrefix(req.URL.Path, "/api/") && !strings.HasPrefix(req.URL.Path, "/api/image/")) {
+	// Reject direct access to /debug/, /api or /api paths for UI except for /api/image/{id}
+	if strings.HasPrefix(req.URL.Path, "/debug/") || req.URL.Path == "/api" || (strings.HasPrefix(req.URL.Path, "/api/") && !strings.HasPrefix(req.URL.Path, "/api/image/")) {
 		return false
 	}
 
