@@ -108,25 +108,34 @@ func For[T kclient.Object](ctx context.Context, c kclient.WithWatch, obj T, cond
 		}
 	}()
 
-	for event := range w.ResultChan() {
-		if event.Type == watch.Deleted {
-			gvk, _ := c.GroupVersionKindFor(obj)
-			return def, apierrors.NewNotFound(schema.GroupResource{
-				Group:    gvk.Group,
-				Resource: gvk.Kind,
-			}, obj.GetName())
-		}
-		switch event.Type {
-		case watch.Added, watch.Modified:
-			if ok, err := condition(event.Object.(T)); err != nil {
-				return def, err
-			} else if ok {
-				return event.Object.(T), nil
+	for {
+		select {
+		case <-ctx.Done():
+			return def, ctx.Err()
+		case event, ok := <-w.ResultChan():
+			if !ok {
+				return def, fmt.Errorf("timeout waiting for %s %s to meet condition", gvk.Kind, obj.GetName())
 			}
-		case watch.Error:
-			return def, apierrors.FromObject(event.Object)
+
+			if event.Type == watch.Deleted {
+				gvk, _ := c.GroupVersionKindFor(obj)
+				return def, apierrors.NewNotFound(schema.GroupResource{
+					Group:    gvk.Group,
+					Resource: gvk.Kind,
+				}, obj.GetName())
+			}
+			switch event.Type {
+			case watch.Added, watch.Modified:
+				if ok, err := condition(event.Object.(T)); err != nil {
+					return def, err
+				} else if ok {
+					return event.Object.(T), nil
+				}
+			case watch.Error:
+				return def, apierrors.FromObject(event.Object)
+			}
 		}
 	}
 
-	return def, fmt.Errorf("timeout waiting for %s %s to meet condition", gvk.Kind, obj.GetName())
+	// unreachable
 }
