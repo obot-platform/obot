@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 )
 
 var (
@@ -1049,6 +1050,13 @@ func validateStartupTimeout(runtime types.Runtime, startupTimeoutSeconds int) er
 			Runtime: runtime,
 			Field:   "startupTimeoutSeconds",
 			Message: "must be greater than or equal to 0",
+		}
+	}
+	if startupTimeoutSeconds > int(mcp.MaxMCPServerStartupTimeout.Seconds()) {
+		return types.RuntimeValidationError{
+			Runtime: runtime,
+			Field:   "startupTimeoutSeconds",
+			Message: fmt.Sprintf("must be less than %d", int(mcp.MaxMCPServerStartupTimeout.Seconds())),
 		}
 	}
 

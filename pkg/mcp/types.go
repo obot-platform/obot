@@ -15,6 +15,8 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 )
 
+const MaxMCPServerStartupTimeout = 10 * time.Minute
+
 type GlobalTokenStore interface {
 	ForUserAndMCP(userID, mcpID string) nmcp.TokenStorage
 }
@@ -327,6 +329,9 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 	if startupTimeout == 0 {
 		startupTimeout = defaultStartupTimeout
 	}
+	if startupTimeout > MaxMCPServerStartupTimeout {
+		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", mcpServer.Spec.Manifest.StartupTimeoutSeconds, MaxMCPServerStartupTimeout)
+	}
 
 	serverConfig := ServerConfig{
 		Env:                       make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
@@ -444,6 +449,9 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 	startupTimeout := time.Duration(systemServer.Spec.Manifest.StartupTimeoutSeconds) * time.Second
 	if startupTimeout == 0 {
 		startupTimeout = defaultStartupTimeout
+	}
+	if startupTimeout > MaxMCPServerStartupTimeout {
+		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", systemServer.Spec.Manifest.StartupTimeoutSeconds, MaxMCPServerStartupTimeout)
 	}
 
 	serverConfig := ServerConfig{
