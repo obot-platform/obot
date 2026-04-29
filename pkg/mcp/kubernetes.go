@@ -38,10 +38,7 @@ import (
 
 var olog = logger.Package()
 
-const (
-	maxDeploymentWatchRetries = 5
-	maxPodRestartsDuringSetup = 3
-)
+const maxDeploymentWatchRetries = 5
 
 type kubernetesBackend struct {
 	clientset                     *kubernetes.Clientset
@@ -913,18 +910,29 @@ func getNewestPod(pods []corev1.Pod) (*corev1.Pod, error) {
 	return newest, nil
 }
 
-// analyzePodStatus examines a pod's status to detect non-recoverable failures.
-// A non-nil error means the pod is in a state we should not retry.
-func analyzePodStatus(pod *corev1.Pod) error {
+// analyzePodStatus examines a pod's status to determine if we should retry waiting for it
+// or if we should fail immediately. Returns (shouldRetry, error).
+func analyzePodStatus(pod *corev1.Pod) (bool, error) {
 	// Check pod phase first
 	switch pod.Status.Phase {
 	case corev1.PodFailed:
-		return fmt.Errorf("%w: pod is in Failed phase: %s", ErrHealthCheckTimeout, pod.Status.Message)
+		return false, fmt.Errorf("%w: pod is in Failed phase: %s", ErrHealthCheckTimeout, pod.Status.Message)
 	case corev1.PodSucceeded:
 		// This shouldn't happen for a long-running deployment, but if it does, it's an error
-		return fmt.Errorf("%w: pod succeeded and exited", ErrHealthCheckTimeout)
+		return false, fmt.Errorf("%w: pod succeeded and exited", ErrHealthCheckTimeout)
 	case corev1.PodUnknown:
-		return fmt.Errorf("%w: pod is in Unknown phase", ErrHealthCheckTimeout)
+		return false, fmt.Errorf("%w: pod is in Unknown phase", ErrHealthCheckTimeout)
+	}
+
+	// Check pod conditions for scheduling issues
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
+			// Pod can't be scheduled - check if it's a transient issue
+			if cond.Reason == corev1.PodReasonUnschedulable {
+				// Unschedulable could be transient (e.g., waiting for autoscaler)
+				return true, fmt.Errorf("%w: pod unschedulable: %s", ErrPodSchedulingFailed, cond.Message)
+			}
+		}
 	}
 
 	for _, cs := range pod.Status.ContainerStatuses {
@@ -932,26 +940,32 @@ func analyzePodStatus(pod *corev1.Pod) error {
 		if cs.State.Waiting != nil {
 			waiting := cs.State.Waiting
 			switch waiting.Reason {
-			// Retryable states.
-			case "ContainerCreating", "ImagePullBackOff", "ErrImagePull":
-				continue
+			// Transient/recoverable states - should retry
+			case "ContainerCreating", "PodInitializing":
+				return true, fmt.Errorf("container %s is %s", cs.Name, waiting.Reason)
+
+			// Image pull states - need to check if it's temporary or permanent
+			case "ImagePullBackOff", "ErrImagePull":
+				// ImagePullBackOff can be transient (network issues) but also permanent (bad image)
+				// We'll treat it as retryable for now, but it will eventually hit max retries
+				return true, fmt.Errorf("%w: container %s: %s - %s", ErrImagePullFailed, cs.Name, waiting.Reason, waiting.Message)
 
 			// Permanent failures - should not retry
 			case "CrashLoopBackOff":
-				return fmt.Errorf("%w: container %s is in CrashLoopBackOff: %s", ErrPodCrashLoopBackOff, cs.Name, waiting.Message)
+				return false, fmt.Errorf("%w: container %s is in CrashLoopBackOff: %s", ErrPodCrashLoopBackOff, cs.Name, waiting.Message)
 			case "InvalidImageName":
-				return fmt.Errorf("%w: container %s has invalid image name: %s", ErrImagePullFailed, cs.Name, waiting.Message)
+				return false, fmt.Errorf("%w: container %s has invalid image name: %s", ErrImagePullFailed, cs.Name, waiting.Message)
 			case "CreateContainerConfigError", "CreateContainerError":
-				return fmt.Errorf("%w: container %s failed to create: %s - %s", ErrPodConfigurationFailed, cs.Name, waiting.Reason, waiting.Message)
+				return false, fmt.Errorf("%w: container %s failed to create: %s - %s", ErrPodConfigurationFailed, cs.Name, waiting.Reason, waiting.Message)
 			case "RunContainerError":
-				return fmt.Errorf("%w: container %s failed to run: %s", ErrPodConfigurationFailed, cs.Name, waiting.Message)
+				return false, fmt.Errorf("%w: container %s failed to run: %s", ErrPodConfigurationFailed, cs.Name, waiting.Message)
 			}
 		}
 
 		// Check if container terminated with errors and has high restart count
 		if cs.State.Terminated != nil && cs.State.Terminated.ExitCode != 0 {
-			if cs.RestartCount > maxPodRestartsDuringSetup {
-				return fmt.Errorf("%w: container %s repeatedly crashing (exit code %d, %d restarts): %s",
+			if cs.RestartCount > 3 {
+				return false, fmt.Errorf("%w: container %s repeatedly crashing (exit code %d, %d restarts): %s",
 					ErrPodCrashLoopBackOff, cs.Name, cs.State.Terminated.ExitCode, cs.RestartCount, cs.State.Terminated.Reason)
 			}
 		}
@@ -959,10 +973,11 @@ func analyzePodStatus(pod *corev1.Pod) error {
 
 	// Check if pod is being evicted
 	if pod.Status.Reason == "Evicted" {
-		return fmt.Errorf("%w: pod was evicted: %s", ErrPodSchedulingFailed, pod.Status.Message)
+		return false, fmt.Errorf("%w: pod was evicted: %s", ErrPodSchedulingFailed, pod.Status.Message)
 	}
 
-	return nil
+	// Default: pod is in Pending or Running but not ready yet - should retry
+	return true, fmt.Errorf("pod in phase %s, waiting for containers to be ready", pod.Status.Phase)
 }
 
 func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id string, server ServerConfig, previousPodName string) (string, error) {
@@ -1005,10 +1020,10 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 					return false, nil // Keep waiting
 				}
 
-				podErr := analyzePodStatus(newestPod)
-				if podErr != nil {
-					// Permanent failure — abort immediately
-					olog.Warnf("pod in non-retryable state: id=%s error=%v", id, podErr)
+				shouldRetry, podErr := analyzePodStatus(newestPod)
+				if !shouldRetry {
+					// Permanent failure - return the error with the appropriate type already wrapped
+					olog.Debugf("pod in non-retryable state: id=%s error=%v attempt=%d", id, podErr, attempt+1)
 					return false, podErr
 				}
 
@@ -1021,13 +1036,15 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 		}
 
 		// Errors from pod analysis or explicit deadlines are authoritative; retry only watch-level failures.
+		if errors.Is(err, context.DeadlineExceeded) {
+			return "", fmt.Errorf("%w: timeout waiting for deployment readiness", ErrHealthCheckTimeout)
+		}
 		if errors.Is(err, ErrHealthCheckTimeout) ||
 			errors.Is(err, ErrPodCrashLoopBackOff) ||
 			errors.Is(err, ErrImagePullFailed) ||
 			errors.Is(err, ErrPodSchedulingFailed) ||
 			errors.Is(err, ErrPodConfigurationFailed) ||
-			errors.Is(err, context.Canceled) ||
-			errors.Is(err, context.DeadlineExceeded) {
+			errors.Is(err, context.Canceled) {
 			return "", err
 		}
 
