@@ -63,6 +63,9 @@ func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, client
 		return nil, err
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
 	session, err := sm.loadSession(ctx, config, clientScope, opt)
 	if err != nil {
 		return nil, err
