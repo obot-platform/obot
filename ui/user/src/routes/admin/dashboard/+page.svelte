@@ -330,7 +330,7 @@
 				const statsToUse = (stats.items ?? []).filter(
 					(s) =>
 						!s.mcpID.startsWith('sms1') &&
-						!s.mcpID.startsWith('nba1') &&
+						!s.mcpServerDisplayName.startsWith('nba1') &&
 						!s.mcpServerDisplayName.startsWith('Obot ')
 				);
 				const adjustedStats = {
@@ -617,8 +617,8 @@
 				</div>
 			{:else}
 				<div in:fade={{ duration: 150 }} class="paper min-h-96">
-					<h4 class="font-semibold">Total Servers</h4>
-					{#if doesSupportK8sUpdates}
+					<h4 class="font-semibold">Server Activity</h4>
+					{#if doesSupportK8sUpdates && deploymentStatusBreakdown.length > 0}
 						<div class="mb-2 grid grid-cols-12 gap-x-2 gap-y-5">
 							{#each deploymentStatusBreakdown as row, i (row.status)}
 								<div
@@ -631,7 +631,7 @@
 								>
 									<div class="flex items-center gap-1">
 										<div class="text-3xl font-semibold">
-											<TweenedMetric holdAtZero={serverAndEntries.loading} target={row.count} />
+											<TweenedMetric target={row.count} />
 										</div>
 										{#if row.status === 'Available'}
 											<Server class="size-6 text-primary" />
@@ -649,7 +649,7 @@
 						<div class="mb-2 flex flex-col justify-center items-center">
 							<div class="flex w-full gap-2 items-center justify-center">
 								<div class="text-3xl font-semibold">
-									<TweenedMetric holdAtZero={serverAndEntries.loading} target={totalServers} />
+									<TweenedMetric target={totalServers} />
 								</div>
 								<Server class="size-6 text-primary" />
 							</div>
