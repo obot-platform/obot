@@ -168,20 +168,20 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 	// For direct access to the real MCP server (when there's a shim), use a different port
 	if server.NanobotAgentName != "" {
 		return ServerConfig{
-			URL:                   fmt.Sprintf("%s/%s", u, strings.TrimPrefix(server.ContainerPath, "/")),
-			MCPServerName:         server.MCPServerName,
-			Audiences:             server.Audiences,
-			MCPServerNamespace:    server.MCPServerNamespace,
-			MCPServerDisplayName:  server.MCPServerDisplayName,
-			Scope:                 podName,
-			UserID:                server.UserID,
-			OwnerUserID:           server.OwnerUserID,
-			Runtime:               types.RuntimeRemote,
-			Issuer:                server.Issuer,
-			ContainerPort:         server.ContainerPort,
-			ContainerPath:         server.ContainerPath,
-			NanobotAgentName:      server.NanobotAgentName,
-			StartupTimeoutSeconds: server.StartupTimeoutSeconds,
+			URL:                  fmt.Sprintf("%s/%s", u, strings.TrimPrefix(server.ContainerPath, "/")),
+			MCPServerName:        server.MCPServerName,
+			Audiences:            server.Audiences,
+			MCPServerNamespace:   server.MCPServerNamespace,
+			MCPServerDisplayName: server.MCPServerDisplayName,
+			Scope:                podName,
+			UserID:               server.UserID,
+			OwnerUserID:          server.OwnerUserID,
+			Runtime:              types.RuntimeRemote,
+			Issuer:               server.Issuer,
+			ContainerPort:        server.ContainerPort,
+			ContainerPath:        server.ContainerPath,
+			NanobotAgentName:     server.NanobotAgentName,
+			StartupTimeout:       server.StartupTimeout,
 		}, nil
 	}
 
@@ -203,7 +203,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		ContainerPath:           server.ContainerPath,
 		PassthroughHeaderNames:  server.PassthroughHeaderNames,
 		PassthroughHeaderValues: server.PassthroughHeaderValues,
-		StartupTimeoutSeconds:   server.StartupTimeoutSeconds,
+		StartupTimeout:          server.StartupTimeout,
 	}, nil
 }
 
@@ -744,7 +744,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			ProgressDeadlineSeconds: new(int32(startupTimeout(server).Seconds() + imagePullTimeout.Seconds())),
+			ProgressDeadlineSeconds: new(int32((server.StartupTimeout + imagePullTimeout).Seconds())),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": server.MCPServerName,
@@ -991,7 +991,7 @@ func analyzePodStatus(pod *corev1.Pod) (bool, *time.Time, error) {
 func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id string, server ServerConfig, previousPodName string) (string, error) {
 	// Track separate deadlines for image pulling and container startup.
 	// Image pulling gets a fixed generous timeout; the configured timeout applies to container startup.
-	timeout := startupTimeout(server)
+	timeout := server.StartupTimeout
 	imagePullDeadline := time.Now().Add(imagePullTimeout)
 	watchDeadline := time.Now().Add(imagePullTimeout + timeout + 30*time.Second)
 	var startupDeadline time.Time

@@ -291,7 +291,7 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 			existing.State = ""
 		}
 
-		readyCtx, cancel := context.WithTimeout(ctx, startupTimeout(server))
+		readyCtx, cancel := context.WithTimeout(ctx, server.StartupTimeout)
 		defer cancel()
 
 		// Container exists, check state
@@ -772,7 +772,7 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		NanobotAgentName:          server.NanobotAgentName,
 		PassthroughHeaderNames:    server.PassthroughHeaderNames,
 		PassthroughHeaderValues:   server.PassthroughHeaderValues,
-		StartupTimeoutSeconds:     server.StartupTimeoutSeconds,
+		StartupTimeout:            server.StartupTimeout,
 	}, nil
 }
 
@@ -783,7 +783,7 @@ func (d *dockerBackend) createAndStartAndWaitForContainer(ctx context.Context, s
 	}
 
 	// Use MCP Server startup timeout now that image is pulled and container is created
-	ctx, cancel := context.WithTimeout(ctx, startupTimeout(server))
+	ctx, cancel := context.WithTimeout(ctx, server.StartupTimeout)
 	defer cancel()
 
 	// Wait for container to be running and healthy
