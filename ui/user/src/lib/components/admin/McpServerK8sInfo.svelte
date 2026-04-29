@@ -374,6 +374,32 @@
 		};
 	}
 
+	function getMissingSecretBindings() {
+		const missingEnvKeys = new Set(mcpServer?.missingRequiredEnvVars ?? []);
+		const missingHeaderKeys = new Set(mcpServer?.missingRequiredHeaders ?? []);
+		const results: { label: string; secretName: string; secretKey: string }[] = [];
+
+		for (const env of catalogEntry?.manifest.env ?? []) {
+			if (env.secretBinding && missingEnvKeys.has(env.key)) {
+				results.push({
+					label: env.name ?? env.key,
+					secretName: env.secretBinding.name,
+					secretKey: env.secretBinding.key
+				});
+			}
+		}
+		for (const header of catalogEntry?.manifest.remoteConfig?.headers ?? []) {
+			if (header.secretBinding && missingHeaderKeys.has(header.key)) {
+				results.push({
+					label: header.name ?? header.key,
+					secretName: header.secretBinding.name,
+					secretKey: header.secretBinding.key
+				});
+			}
+		}
+		return results;
+	}
+
 	function getAuditLogUrl(d: (typeof connectedUsers)[number]) {
 		const id = mcpServerId || mcpServerInstanceId;
 
@@ -518,6 +544,7 @@
 {:catch error}
 	{@const isPending = error instanceof Error && error.message.includes('ContainerCreating')}
 	{@const needsUpdate = error instanceof Error && error.message.includes('missing required config')}
+	{@const missingSecretBindings = needsUpdate ? getMissingSecretBindings() : []}
 
 	{#if needsUpdate && hasAdminAccess}
 		<div class="notification-alert">
@@ -525,12 +552,29 @@
 				<div class="flex items-center gap-2">
 					<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
 					<p class="my-0.5 flex flex-col text-sm font-semibold">
-						User Configuration Update Required
+						{#if missingSecretBindings.length > 0}
+							Missing Kubernetes Secret{missingSecretBindings.length > 1 ? 's' : ''}
+						{:else}
+							User Configuration Update Required
+						{/if}
 					</p>
 				</div>
 				<span class="text-sm font-light break-all">
-					The server was recently updated and requires the user to update their configuration.
-					Server details and logs are temporarily unavailable as a result.
+					{#if missingSecretBindings.length > 0}
+						The following Kubernetes Secrets referenced by this server could not be found:
+						<ul class="mt-1 list-disc pl-5">
+							{#each missingSecretBindings as binding}
+								<li>
+									<code class="font-mono">{binding.secretName}/{binding.secretKey}</code> (for <strong
+										>{binding.label}</strong
+									>)
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						The server was recently updated and requires the user to update their configuration.
+						Server details and logs are temporarily unavailable as a result.
+					{/if}
 				</span>
 			</div>
 		</div>
