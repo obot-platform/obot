@@ -25,6 +25,12 @@ Obot supports managing MCP servers through Git repositories, enabling GitOps wor
 
 Administrators can add Git repositories as catalog sources from the **Admin → MCP Servers → Git Source URLs** tab. Click **Add server(s) from Git** and enter the repository URL.
 
+:::note
+
+Connection URLs for MCP servers are derived from catalog entry names. Git-synced catalog entries have deterministic names based on the repository and file path, so the connection URL remains the same even if you remove and re-add the Git repository.
+
+:::
+
 ### Supported URL formats
 
 | Platform | Example |
