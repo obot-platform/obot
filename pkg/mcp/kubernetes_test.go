@@ -264,6 +264,7 @@ func TestAnalyzePodStatus(t *testing.T) {
 	tests := []struct {
 		name            string
 		pod             corev1.Pod
+		wantRetryable   bool
 		wantErr         error
 		wantErrContains string
 	}{
@@ -271,10 +272,12 @@ func TestAnalyzePodStatus(t *testing.T) {
 			name: "running mcp container remains retryable",
 			pod: corev1.Pod{
 				Status: corev1.PodStatus{
-					Phase: corev1.PodRunning,
+					Phase:             corev1.PodRunning,
 					ContainerStatuses: []corev1.ContainerStatus{{Name: "mcp"}},
 				},
 			},
+			wantRetryable:   true,
+			wantErrContains: "pod in phase Running",
 		},
 		{
 			name: "image pull backoff is retryable image pull",
@@ -289,6 +292,9 @@ func TestAnalyzePodStatus(t *testing.T) {
 					}},
 				},
 			},
+			wantRetryable:   true,
+			wantErr:         ErrImagePullFailed,
+			wantErrContains: "ImagePullBackOff",
 		},
 		{
 			name: "unschedulable pod remains retryable under pull/scheduling budget",
@@ -302,6 +308,9 @@ func TestAnalyzePodStatus(t *testing.T) {
 					}},
 				},
 			},
+			wantRetryable:   true,
+			wantErr:         ErrPodSchedulingFailed,
+			wantErrContains: "unschedulable",
 		},
 		{
 			name: "crash loop fails permanently",
@@ -337,7 +346,7 @@ func TestAnalyzePodStatus(t *testing.T) {
 					Phase: corev1.PodRunning,
 					ContainerStatuses: []corev1.ContainerStatus{{
 						Name:         "mcp",
-						RestartCount: maxPodRestartsDuringSetup + 1,
+						RestartCount: 4,
 						State: corev1.ContainerState{
 							Terminated: &corev1.ContainerStateTerminated{ExitCode: 1, Reason: "Error"},
 						},
@@ -363,9 +372,16 @@ func TestAnalyzePodStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := analyzePodStatus(&tt.pod)
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("analyzePodStatus() error = %v, want %v", err, tt.wantErr)
+			retryable, err := analyzePodStatus(&tt.pod)
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("analyzePodStatus() error = %v, want %v", err, tt.wantErr)
+				}
+			} else if tt.wantErrContains == "" && err != nil {
+				t.Fatalf("analyzePodStatus() error = %v, want nil", err)
+			}
+			if retryable != tt.wantRetryable {
+				t.Fatalf("analyzePodStatus() retryable = %v, want %v", retryable, tt.wantRetryable)
 			}
 			if tt.wantErrContains != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErrContains)) {
 				t.Fatalf("analyzePodStatus() error = %q, want to contain %q", err, tt.wantErrContains)
@@ -419,7 +435,10 @@ func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 		mcpNamespace: "obot-mcp",
 	}
 
-	_, err := k.updatedMCPPodName(context.Background(), "http://mcp.example.com", "test-server", ServerConfig{
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	_, err := k.updatedMCPPodName(ctx, "http://mcp.example.com", "test-server", ServerConfig{
 		Runtime:        types.RuntimeRemote,
 		StartupTimeout: time.Second,
 	}, "")
