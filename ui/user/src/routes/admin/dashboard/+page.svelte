@@ -55,7 +55,7 @@
 		{ key: 'multi', label: 'Multi-User', baseColor: '#fee090' },
 		{ key: 'single', label: 'Single-User', baseColor: '#f46d43' },
 		{ key: 'remote', label: 'Remote', baseColor: '#4575b4' },
-		{ key: 'composite', label: 'Composite', baseColor: '#fdae61' }
+		{ key: 'composite', label: 'Composite', baseColor: '#BFB4ACFF' }
 	];
 
 	const entryTypeDonutLegend: DonutLegendItem[] = ENTRY_TYPE_GRAPH_META.map(
@@ -291,7 +291,8 @@
 					graphData.push({
 						label: `${typeLabel} · ${status}`,
 						value,
-						color: mixHex(baseColor, '#ffffff', t * maxTint)
+						color: mixHex(baseColor, '#ffffff', t * maxTint),
+						groupKey: kind
 					});
 				});
 			}
@@ -657,10 +658,10 @@
 						</div>
 					{/if}
 
-					<div class="h-72 flex flex-col items-center justify-center">
+					<div class="h-80 flex flex-col items-center justify-center">
 						{#if graphData.some((g) => g.value > 0)}
 							<DonutGraph
-								class="h-72"
+								class="h-80"
 								donutRatio={0.65}
 								data={graphData}
 								legend={doesSupportK8sUpdates ? entryTypeDonutLegend : undefined}
