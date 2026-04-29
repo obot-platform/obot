@@ -443,7 +443,7 @@ func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 
 	_, err := k.updatedMCPPodName(context.Background(), "http://mcp.example.com", "test-server", ServerConfig{
 		Runtime:               types.RuntimeRemote,
-		StartupTimeoutSeconds: 1,
+		StartupTimeout: time.Second,
 	}, "")
 	if !errors.Is(err, ErrHealthCheckTimeout) {
 		t.Fatalf("updatedMCPPodName() error = %v, want %v", err, ErrHealthCheckTimeout)

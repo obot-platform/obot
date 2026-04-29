@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
@@ -73,7 +74,7 @@ type ServerConfig struct {
 	AuditLogEndpoint string `json:"auditLogEndpoint"`
 	AuditLogMetadata string `json:"auditLogMetadata"`
 
-	StartupTimeoutSeconds int `json:"startupTimeoutSeconds,omitempty"`
+	StartupTimeout time.Duration `json:"startupTimeout,omitempty"`
 }
 
 type File struct {
@@ -88,6 +89,8 @@ type ComponentServer struct {
 	Tools      []types.ToolOverride `json:"tools"`
 	ToolPrefix string               `json:"toolPrefix"`
 }
+
+const defaultStartupTimeout = 60 * time.Second
 
 var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
@@ -320,6 +323,11 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		powerUserWorkspaceID = mcpCatalogName
 	}
 
+	startupTimeout := time.Duration(mcpServer.Spec.Manifest.StartupTimeoutSeconds) * time.Second
+	if startupTimeout == 0 {
+		startupTimeout = defaultStartupTimeout
+	}
+
 	serverConfig := ServerConfig{
 		Env:                       make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
 		UserID:                    userID,
@@ -340,7 +348,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		AuthorizeEndpoint:         fmt.Sprintf("%s/oauth/authorize", issuer),
 		ComponentMCPServer:        mcpServer.Spec.CompositeName != "",
 		NanobotAgentName:          mcpServer.Spec.NanobotAgentID,
-		StartupTimeoutSeconds:     mcpServer.Spec.Manifest.StartupTimeoutSeconds,
+		StartupTimeout:            startupTimeout,
 	}
 
 	if mcpServer.Spec.CompositeName == "" {
@@ -433,6 +441,11 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		displayName = systemServer.Name
 	}
 
+	startupTimeout := time.Duration(systemServer.Spec.Manifest.StartupTimeoutSeconds) * time.Second
+	if startupTimeout == 0 {
+		startupTimeout = defaultStartupTimeout
+	}
+
 	serverConfig := ServerConfig{
 		Env:                       make([]string, 0, len(systemServer.Spec.Manifest.Env)),
 		MCPServerNamespace:        systemServer.Namespace,
@@ -451,7 +464,7 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		AuditLogToken:             secretsCred["AUDIT_LOG_TOKEN"],
 		AuditLogMetadata:          fmt.Sprintf("mcpID=%s,mcpServerDisplayName=%s", systemServer.Name, displayName),
 		SystemMCPServer:           true,
-		StartupTimeoutSeconds:     systemServer.Spec.Manifest.StartupTimeoutSeconds,
+		StartupTimeout:            startupTimeout,
 	}
 
 	var missingRequiredNames []string
