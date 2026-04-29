@@ -741,7 +741,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			ProgressDeadlineSeconds: new(int32((server.StartupTimeout + imagePullTimeout).Seconds())),
+			ProgressDeadlineSeconds: new(int32(server.StartupTimeout.Seconds())),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": server.MCPServerName,
@@ -913,64 +913,45 @@ func getNewestPod(pods []corev1.Pod) (*corev1.Pod, error) {
 	return newest, nil
 }
 
-// analyzePodStatus examines a pod's status to detect permanent failures, image pull state,
-// and when the MCP container actually started. Returns (pullingImage, startedAt, error).
-// A non-nil error means the pod is in a non-recoverable state and we should stop retrying.
-// pullingImage is true when a container is actively pulling an image, which should not count
-// against the startup timeout.
-func analyzePodStatus(pod *corev1.Pod) (bool, *time.Time, error) {
+// analyzePodStatus examines a pod's status to detect non-recoverable failures.
+// A non-nil error means the pod is in a state we should not retry.
+func analyzePodStatus(pod *corev1.Pod) error {
 	// Check pod phase first
 	switch pod.Status.Phase {
 	case corev1.PodFailed:
-		return false, nil, fmt.Errorf("%w: pod is in Failed phase: %s", ErrHealthCheckTimeout, pod.Status.Message)
+		return fmt.Errorf("%w: pod is in Failed phase: %s", ErrHealthCheckTimeout, pod.Status.Message)
 	case corev1.PodSucceeded:
 		// This shouldn't happen for a long-running deployment, but if it does, it's an error
-		return false, nil, fmt.Errorf("%w: pod succeeded and exited", ErrHealthCheckTimeout)
+		return fmt.Errorf("%w: pod succeeded and exited", ErrHealthCheckTimeout)
 	case corev1.PodUnknown:
-		return false, nil, fmt.Errorf("%w: pod is in Unknown phase", ErrHealthCheckTimeout)
+		return fmt.Errorf("%w: pod is in Unknown phase", ErrHealthCheckTimeout)
 	}
 
-	// Check pod conditions for scheduling issues. Unschedulable pods may be transient
-	// while a cluster autoscaler reacts, so keep waiting until the overall deadline.
-	for _, cond := range pod.Status.Conditions {
-		if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse && cond.Reason == corev1.PodReasonUnschedulable {
-			return true, nil, nil
-		}
-	}
-
-	var mcpContainerStartedAt *time.Time
 	for _, cs := range pod.Status.ContainerStatuses {
-		if cs.Name == "mcp" && cs.State.Running != nil && !cs.State.Running.StartedAt.IsZero() {
-			startedAt := cs.State.Running.StartedAt.Time
-			mcpContainerStartedAt = &startedAt
-		}
-
 		// Check if container is waiting
 		if cs.State.Waiting != nil {
 			waiting := cs.State.Waiting
 			switch waiting.Reason {
-			// Image pull states - retryable and should not count against startup timeout.
-			// ContainerCreating is included because the initial image pull happens during
-			// this phase
+			// Retryable states.
 			case "ContainerCreating", "ImagePullBackOff", "ErrImagePull":
-				return true, nil, nil
+				continue
 
 			// Permanent failures - should not retry
 			case "CrashLoopBackOff":
-				return false, nil, fmt.Errorf("%w: container %s is in CrashLoopBackOff: %s", ErrPodCrashLoopBackOff, cs.Name, waiting.Message)
+				return fmt.Errorf("%w: container %s is in CrashLoopBackOff: %s", ErrPodCrashLoopBackOff, cs.Name, waiting.Message)
 			case "InvalidImageName":
-				return false, nil, fmt.Errorf("%w: container %s has invalid image name: %s", ErrImagePullFailed, cs.Name, waiting.Message)
+				return fmt.Errorf("%w: container %s has invalid image name: %s", ErrImagePullFailed, cs.Name, waiting.Message)
 			case "CreateContainerConfigError", "CreateContainerError":
-				return false, nil, fmt.Errorf("%w: container %s failed to create: %s - %s", ErrPodConfigurationFailed, cs.Name, waiting.Reason, waiting.Message)
+				return fmt.Errorf("%w: container %s failed to create: %s - %s", ErrPodConfigurationFailed, cs.Name, waiting.Reason, waiting.Message)
 			case "RunContainerError":
-				return false, nil, fmt.Errorf("%w: container %s failed to run: %s", ErrPodConfigurationFailed, cs.Name, waiting.Message)
+				return fmt.Errorf("%w: container %s failed to run: %s", ErrPodConfigurationFailed, cs.Name, waiting.Message)
 			}
 		}
 
 		// Check if container terminated with errors and has high restart count
 		if cs.State.Terminated != nil && cs.State.Terminated.ExitCode != 0 {
 			if cs.RestartCount > maxPodRestartsDuringSetup {
-				return false, nil, fmt.Errorf("%w: container %s repeatedly crashing (exit code %d, %d restarts): %s",
+				return fmt.Errorf("%w: container %s repeatedly crashing (exit code %d, %d restarts): %s",
 					ErrPodCrashLoopBackOff, cs.Name, cs.State.Terminated.ExitCode, cs.RestartCount, cs.State.Terminated.Reason)
 			}
 		}
@@ -978,40 +959,29 @@ func analyzePodStatus(pod *corev1.Pod) (bool, *time.Time, error) {
 
 	// Check if pod is being evicted
 	if pod.Status.Reason == "Evicted" {
-		return false, nil, fmt.Errorf("%w: pod was evicted: %s", ErrPodSchedulingFailed, pod.Status.Message)
+		return fmt.Errorf("%w: pod was evicted: %s", ErrPodSchedulingFailed, pod.Status.Message)
 	}
 
-	// Default: pod is in Pending or Running but not ready yet - keep waiting
-	return false, mcpContainerStartedAt, nil
+	return nil
 }
 
 func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id string, server ServerConfig, previousPodName string) (string, error) {
-	// Track separate deadlines for image pulling and container startup.
-	// Image pulling gets a fixed generous timeout; the configured timeout applies to container startup.
-	timeout := server.StartupTimeout
-	imagePullDeadline := time.Now().Add(imagePullTimeout)
-	watchDeadline := time.Now().Add(imagePullTimeout + timeout + 30*time.Second)
-	var startupDeadline time.Time
-
 	// Wait for the deployment to be ready, checking pod status on each update to fail fast on permanent errors.
-	// The watch timeout must cover both image pulling and container startup.
 	var (
 		err     error
 		lastErr error
 	)
 	for attempt := range maxDeploymentWatchRetries {
-		remaining := time.Until(watchDeadline)
-		if remaining <= 0 {
-			if lastErr != nil {
-				return "", fmt.Errorf("%w: timeout waiting for deployment readiness: %v", ErrHealthCheckTimeout, lastErr)
-			}
-			return "", fmt.Errorf("%w: timeout waiting for deployment readiness", ErrHealthCheckTimeout)
-		}
-
 		_, err := wait.For(ctx, k.client, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}},
 			func(dep *appsv1.Deployment) (bool, error) {
 				if dep.Generation == dep.Status.ObservedGeneration && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1 {
 					return true, nil
+				}
+
+				select {
+				case <-ctx.Done():
+					return false, ctx.Err()
+				default:
 				}
 
 				// Deployment not ready yet — check pod status for early failure detection.
@@ -1035,35 +1005,16 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 					return false, nil // Keep waiting
 				}
 
-				pullingImage, mcpContainerStartedAt, podErr := analyzePodStatus(newestPod)
+				podErr := analyzePodStatus(newestPod)
 				if podErr != nil {
 					// Permanent failure — abort immediately
 					olog.Warnf("pod in non-retryable state: id=%s error=%v", id, podErr)
 					return false, podErr
 				}
 
-				if pullingImage {
-					if time.Now().After(imagePullDeadline) {
-						return false, fmt.Errorf("%w: pod scheduling and image pull exceeded %s timeout", ErrHealthCheckTimeout, imagePullTimeout)
-					}
-					return false, nil // Retryable state, keep waiting
-				}
-
-				// Pod is past image pulling (container creating/starting/running).
-				// Start the startup timeout from the MCP container's Kubernetes start time
-				// when available so a long watch interval doesn't grant extra startup time.
-				if mcpContainerStartedAt != nil {
-					startupDeadline = mcpContainerStartedAt.Add(timeout)
-				} else if startupDeadline.IsZero() {
-					startupDeadline = time.Now().Add(timeout)
-				}
-				if time.Now().After(startupDeadline) {
-					return false, fmt.Errorf("%w: container startup exceeded %s timeout", ErrHealthCheckTimeout, timeout)
-				}
-
-				return false, nil // Retryable state, keep waiting
+				return false, nil // Keep waiting.
 			},
-			wait.Option{Timeout: remaining},
+			wait.Option{Timeout: server.StartupTimeout},
 		)
 		if err == nil {
 			break
@@ -1117,17 +1068,9 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 		return podName, nil
 	}
 
-	// Use the remaining startup deadline for ensureServerReady so it doesn't poll forever.
-	if startupDeadline.IsZero() {
-		startupDeadline = time.Now().Add(timeout)
-	}
-
-	healthCtx, healthCancel := context.WithDeadline(ctx, startupDeadline)
-	defer healthCancel()
-
 	// For containerized runtimes, ensure that the real MCP server is healthy.
 	if server.Runtime == types.RuntimeContainerized {
-		if err = ensureServerReady(healthCtx, fmt.Sprintf("%s:%d", url, 8080), server); err != nil {
+		if err = ensureServerReady(ctx, fmt.Sprintf("%s:%d", url, 8080), server); err != nil {
 			return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
 		}
 	}
@@ -1136,7 +1079,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 	if server.NanobotAgentName == "" {
 		// We are checking the shim, so set the runtime accordingly.
 		server.Runtime = types.RuntimeRemote
-		if err = ensureServerReady(healthCtx, url, server); err != nil {
+		if err = ensureServerReady(ctx, url, server); err != nil {
 			return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
 		}
 	}

@@ -291,22 +291,19 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 			existing.State = ""
 		}
 
-		readyCtx, cancel := context.WithTimeout(ctx, server.StartupTimeout)
-		defer cancel()
-
 		// Container exists, check state
 		switch existing.State {
 		case container.StateCreated:
 			// Container exists and is created, start it and wait for it to be ready.
-			if err := d.client.ContainerStart(readyCtx, existing.ID, container.StartOptions{}); err != nil {
+			if err := d.client.ContainerStart(ctx, existing.ID, container.StartOptions{}); err != nil {
 				return ServerConfig{}, fmt.Errorf("failed to start container: %w", err)
 			}
 
-			if err := d.waitForContainer(readyCtx, existing.ID); err != nil {
+			if err := d.waitForContainer(ctx, existing.ID); err != nil {
 				return ServerConfig{}, fmt.Errorf("failed to wait for container: %w", err)
 			}
 
-			existing, err = d.getContainer(readyCtx, server.MCPServerName)
+			existing, err = d.getContainer(ctx, server.MCPServerName)
 			if err != nil {
 				return ServerConfig{}, fmt.Errorf("failed to get running container: %w", err)
 			}
@@ -314,7 +311,7 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 			// The container is ready now, so fallthrough to the next case.
 			fallthrough
 		case container.StateRunning:
-			if err := d.syncContainerFiles(readyCtx, server, existing); err != nil {
+			if err := d.syncContainerFiles(ctx, server, existing); err != nil {
 				return ServerConfig{}, fmt.Errorf("failed syncing container files: %w", err)
 			}
 
@@ -323,7 +320,7 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 				containerPort = server.ContainerPort
 			}
 
-			if err = d.ensureServerReady(readyCtx, existing, server, containerPort); err != nil {
+			if err = d.ensureServerReady(ctx, existing, server, containerPort); err != nil {
 				return ServerConfig{}, fmt.Errorf("server running, but readiness check failed: %w", err)
 			}
 
@@ -779,10 +776,6 @@ func (d *dockerBackend) createAndStartAndWaitForContainer(ctx context.Context, s
 	if err != nil {
 		return ServerConfig{}, err
 	}
-
-	// Use MCP Server startup timeout now that image is pulled and container is created
-	ctx, cancel := context.WithTimeout(ctx, server.StartupTimeout)
-	defer cancel()
 
 	// Wait for container to be running and healthy
 	if err := d.waitForContainer(ctx, containerID); err != nil {
@@ -1335,9 +1328,6 @@ func (d *dockerBackend) populateFilesVolume(ctx context.Context, volumeName, con
 }
 
 func (d *dockerBackend) pullImage(ctx context.Context, imageName string, ifNotExists bool) error {
-	ctx, cancel := context.WithTimeout(ctx, imagePullTimeout)
-	defer cancel()
-
 	if ifNotExists {
 		// Check if image exists locally
 		_, err := d.client.ImageInspect(ctx, imageName)
