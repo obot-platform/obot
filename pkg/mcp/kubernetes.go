@@ -182,18 +182,20 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 
 	// Use the pod name as the scope, so we get a new session if the pod restarts. MCP sessions aren't persistent on the server side.
 	return ServerConfig{
-		URL:                  fullURL,
-		MCPServerName:        server.MCPServerName,
-		Audiences:            server.Audiences,
-		MCPServerNamespace:   server.MCPServerNamespace,
-		MCPServerDisplayName: server.MCPServerDisplayName,
-		Scope:                podName,
-		UserID:               server.UserID,
-		OwnerUserID:          server.OwnerUserID,
-		Runtime:              types.RuntimeRemote,
-		Issuer:               server.Issuer,
-		ContainerPort:        server.ContainerPort,
-		ContainerPath:        server.ContainerPath,
+		URL:                     fullURL,
+		MCPServerName:           server.MCPServerName,
+		Audiences:               server.Audiences,
+		MCPServerNamespace:      server.MCPServerNamespace,
+		MCPServerDisplayName:    server.MCPServerDisplayName,
+		Scope:                   podName,
+		UserID:                  server.UserID,
+		OwnerUserID:             server.OwnerUserID,
+		Runtime:                 types.RuntimeRemote,
+		Issuer:                  server.Issuer,
+		ContainerPort:           server.ContainerPort,
+		ContainerPath:           server.ContainerPath,
+		PassthroughHeaderNames:  server.PassthroughHeaderNames,
+		PassthroughHeaderValues: server.PassthroughHeaderValues,
 	}, nil
 }
 
@@ -547,6 +549,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				fmt.Sprintf("http://127.0.0.1:%d/%s", port, strings.TrimPrefix(server.ContainerPath, "/")),
 				"",
 				nil,
+				server.PassthroughHeaderNames,
 				nil,
 				nil, webhooks,
 			)
@@ -809,7 +812,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			nanobotFileString, err = constructMCPServerNanobotYAMLForComposite(server.Components)
 			annotations["nanobot-composite-file-rev"] = hash.Digest(nanobotFileString)
 		} else {
-			nanobotFileString, err = constructMCPServerNanobotYAML(server.MCPServerDisplayName, server.URL, server.Command, server.Args, secretEnvData, headerData, webhooks)
+			nanobotFileString, err = constructMCPServerNanobotYAML(server.MCPServerDisplayName, server.URL, server.Command, server.Args, server.PassthroughHeaderNames, secretEnvData, headerData, webhooks)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)

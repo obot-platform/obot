@@ -1253,6 +1253,15 @@ func serverFromMCPServerInstance(req api.Context, instance v1.MCPServerInstance)
 		return server, mcp.ServerConfig{}, err
 	}
 
+	instanceCredEnv, err := mcpServerInstanceCredEnv(req, instance)
+	if err != nil {
+		return server, mcp.ServerConfig{}, err
+	}
+
+	var missingInstanceConfig []string
+	serverConfig.PassthroughHeaderNames, serverConfig.PassthroughHeaderValues, missingInstanceConfig = mcpServerInstanceHeaders(instance, instanceCredEnv)
+	missingConfig = append(missingConfig, missingInstanceConfig...)
+
 	if len(missingConfig) > 0 {
 		return server, mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
 	}
@@ -1686,7 +1695,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return types.NewErrBadRequest("catalogEntryID is required")
 	}
 
-	if err := validation.ValidateServerManifest(server.Spec.Manifest); err != nil {
+	if err := validation.ValidateServerManifest(server.Spec.Manifest, server.Spec.MCPCatalogID != "" || server.Spec.PowerUserWorkspaceID != ""); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -1773,7 +1782,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return err
 	}
 
-	if err := validation.ValidateServerManifest(updated); err != nil {
+	if err := validation.ValidateServerManifest(updated, existing.Spec.MCPCatalogID != "" || existing.Spec.PowerUserWorkspaceID != ""); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -1896,7 +1905,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			}
 			mcpServer.Spec.Manifest.RemoteConfig.URL = finalURL
 
-			if err := validation.ValidateServerManifest(mcpServer.Spec.Manifest); err != nil {
+			if err := validation.ValidateServerManifest(mcpServer.Spec.Manifest, mcpServer.Spec.MCPCatalogID != "" || mcpServer.Spec.PowerUserWorkspaceID != ""); err != nil {
 				return types.NewErrBadRequest("validation failed: %v", err)
 			}
 
@@ -2023,7 +2032,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 				if remoteConfig.URL != originalURL {
 					// Capture and validate the changes
 					component.Manifest.RemoteConfig = remoteConfig
-					if err := validation.ValidateServerManifest(component.Manifest); err != nil {
+					if err := validation.ValidateServerManifest(component.Manifest, false); err != nil {
 						return fmt.Errorf("failed to validate server manifest %w", err)
 					}
 
@@ -2869,8 +2878,11 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 	if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
 	}
-	if err := req.GatewayClient.DeleteMCPOAuthTokenForURL(req.Context(), req.User.GetUID(), server.Name, server.Spec.Manifest.URL); err != nil {
-		return fmt.Errorf("failed to delete OAuth credentials: %v", err)
+
+	if server.Spec.Manifest.RemoteConfig != nil {
+		if err := req.GatewayClient.DeleteMCPOAuthTokenForURL(req.Context(), req.User.GetUID(), server.Name, server.Spec.Manifest.RemoteConfig.URL); err != nil {
+			return fmt.Errorf("failed to delete OAuth credentials: %v", err)
+		}
 	}
 
 	req.WriteHeader(http.StatusNoContent)
@@ -3444,7 +3456,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 	mcpServer.Spec.NeedsURL = false
 	mcpServer.Spec.PreviousURL = ""
 
-	if err := validation.ValidateServerManifest(mcpServer.Spec.Manifest); err != nil {
+	if err := validation.ValidateServerManifest(mcpServer.Spec.Manifest, mcpServer.Spec.MCPCatalogID != "" || mcpServer.Spec.PowerUserWorkspaceID != ""); err != nil {
 		return err
 	}
 
@@ -3717,7 +3729,12 @@ func (m *MCPHandler) ListServerInstances(req api.Context) error {
 			return fmt.Errorf("failed to determine slug for instance %s: %w", instance.Name, err)
 		}
 
-		convertedInstances = append(convertedInstances, ConvertMCPServerInstance(instance, m.serverURL, slug))
+		credEnv, err := mcpServerInstanceCredEnv(req, instance)
+		if err != nil {
+			return err
+		}
+
+		convertedInstances = append(convertedInstances, ConvertMCPServerInstance(instance, credEnv, m.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerInstanceList{

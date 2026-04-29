@@ -595,6 +595,7 @@ export const convertServerRuntimeFormDataToManifest = (
 			description: baseData.description,
 			icon: baseData.icon,
 			env: baseData.env,
+			multiUserConfig: baseData.multiUserConfig,
 			runtime: baseData.runtime,
 			...convertCategoriesToMetadata(categories)
 		}

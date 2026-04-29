@@ -44,6 +44,7 @@
 		SatelliteDish,
 		Server,
 		ServerCog,
+		Settings,
 		Trash2
 	} from 'lucide-svelte';
 	import { onDestroy, onMount, type Snippet } from 'svelte';
@@ -261,6 +262,10 @@
 		if (isInitialLoad) {
 			loading = false;
 		}
+	}
+
+	function hasInstanceConfiguration(server: MCPCatalogServer) {
+		return (server.manifest.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
 	}
 
 	async function handleBulkUpdate() {
@@ -611,6 +616,8 @@
 				{#snippet actions(d)}
 					{@const isComposite = !!d.compositeName}
 					{@const auditLogsUrl = getAuditLogsUrl(d)}
+					{@const instance = instancesMap.get(d.id)}
+					{@const hasMyConnection = d.isMyServer || !!instance}
 
 					<DotDotDot class="icon-button hover:dark:bg-background/50" classes={{ menu: 'p-0' }}>
 						{#snippet icon()}
@@ -618,7 +625,7 @@
 						{/snippet}
 
 						{#snippet children({ toggle })}
-							{#if !isComposite && d.isMyServer}
+							{#if !isComposite && hasMyConnection}
 								<div
 									class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
 								>
@@ -635,7 +642,7 @@
 											connectToServerDialog?.open({
 												entry,
 												server: d,
-												instance: instancesMap.get(d.id)
+												instance
 											});
 											toggle(false);
 										}}
@@ -648,7 +655,7 @@
 											onclick={async (e) => {
 												e.stopPropagation();
 												if (d) {
-													connectToServerDialog?.handleSetupChat(d, instancesMap.get(d.id));
+													connectToServerDialog?.handleSetupChat(d, instance);
 												}
 												toggle(false);
 											}}
@@ -687,6 +694,22 @@
 										{/if}
 									</span>
 								</a>
+								{#if instance && hasInstanceConfiguration(d)}
+									<button
+										class="menu-button"
+										onclick={(e) => {
+											e.stopPropagation();
+											connectToServerDialog?.open({
+												server: d,
+												instance,
+												configureInstance: true
+											});
+											toggle(false);
+										}}
+									>
+										<Settings class="size-4" /> Update Configuration
+									</button>
+								{/if}
 								{#if d.needsUpdate && (d.isMyServer || (hasAdminAccess && !readonly))}
 									<button
 										class="menu-button-primary"

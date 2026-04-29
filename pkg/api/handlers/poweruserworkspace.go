@@ -329,7 +329,12 @@ func (p *PowerUserWorkspaceHandler) ListAllServerInstances(req api.Context) erro
 			return fmt.Errorf("failed to determine slug for instance %s: %w", instance.Name, err)
 		}
 
-		convertedInstances = append(convertedInstances, ConvertMCPServerInstance(instance, p.serverURL, slug))
+		credEnv, err := mcpServerInstanceCredEnv(req, instance)
+		if err != nil {
+			return err
+		}
+
+		convertedInstances = append(convertedInstances, ConvertMCPServerInstance(instance, credEnv, p.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerInstanceList{

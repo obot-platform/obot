@@ -195,6 +195,10 @@
 		);
 	}
 
+	function hasInstanceConfiguration(server: MCPCatalogServer) {
+		return (server.manifest.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
+	}
+
 	function handleShowSelectServerDialog(
 		entry: MCPCatalogEntry,
 		mode: ServerSelectMode = 'connect'
@@ -463,6 +467,23 @@
 								{#if catalogEntry}
 									{@render editCatalogEntryAction(catalogEntry, matchingServers)}
 									{@render renameCatalogEntryAction(catalogEntry, matchingServers)}
+								{/if}
+
+								{#if matchingInstance && !isCatalogEntry && hasInstanceConfiguration(d.data as MCPCatalogServer)}
+									<button
+										class="menu-button hover:bg-surface3"
+										onclick={(e) => {
+											e.stopPropagation();
+											connectToServerDialog?.open({
+												server: d.data as MCPCatalogServer,
+												instance: matchingInstance,
+												configureInstance: true
+											});
+											toggle(false);
+										}}
+									>
+										<Settings class="size-4" /> Update Configuration
+									</button>
 								{/if}
 
 								{#if matchingServers.length > 0 && catalogEntry}

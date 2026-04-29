@@ -81,7 +81,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 		sm.sessions.Store(server.MCPServerName, clientSessions)
 	}
 
-	clientScope = clientID(server) + clientScope
+	clientScope = clientID(server, clientScope)
 
 	existing, ok := clientSessions.Load(clientScope)
 	if ok && existing != nil {
@@ -103,7 +103,9 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	}
 	sm.contextLock.Unlock()
 
-	headers := splitIntoMap(server.Headers)
+	headers := make(headerMap, len(server.PassthroughHeaderNames)+len(server.Headers))
+	copyHeaders(headers, server.PassthroughHeaderNames, server.PassthroughHeaderValues)
+	copyListIntoMap(headers, server.Headers)
 
 	var jwtToken *jwt.Token
 	// If the token storage is not set, then this is a client we use in our API.
@@ -127,13 +129,10 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 			return nil, fmt.Errorf("failed to create JWT token for client: %w", err)
 		}
 
-		headers["Authorization"] = "Bearer " + token
+		headers.Set("Authorization", "Bearer "+token)
 	}
 
 	c, err := nmcp.NewClient(sm.sessionCtx, server.MCPServerDisplayName, nmcp.Server{
-		Env:     splitIntoMap(server.Env),
-		Command: server.Command,
-		Args:    server.Args,
 		BaseURL: server.URL,
 		Headers: headers,
 	}, clientOpts)
@@ -185,13 +184,11 @@ func (sm *SessionManager) getClient(id, clientScope string) *Client {
 	return nil
 }
 
-func splitIntoMap(list []string) map[string]string {
-	result := make(map[string]string, len(list))
+func copyListIntoMap(m map[string]string, list []string) {
 	for _, s := range list {
 		k, v, ok := strings.Cut(s, "=")
 		if ok {
-			result[k] = v
+			m[k] = v
 		}
 	}
-	return result
 }

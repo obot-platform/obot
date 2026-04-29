@@ -56,6 +56,7 @@
 		disableOutsideClick?: boolean;
 		animate?: 'slide' | 'fade' | null;
 		displayDescriptionInline?: boolean;
+		configurationTitle?: string;
 	}
 	let {
 		form = $bindable(),
@@ -73,6 +74,7 @@
 		showAlias,
 		disableOutsideClick,
 		displayDescriptionInline,
+		configurationTitle,
 		animate = 'slide'
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -528,6 +530,10 @@
 						</div>
 					{/each}
 				{:else}
+					{#if configurationTitle}
+						<h4 class="text-sm font-semibold">{configurationTitle}</h4>
+					{/if}
+
 					{#if form.envs && form.envs.length > 0}
 						{#each form.envs as env, i (env.key)}
 							{@const highlightRequired = highlightedFields.has(env.key) && !env.value}
