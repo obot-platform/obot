@@ -2413,10 +2413,7 @@ func (m *MCPHandler) revealCompositeServer(req api.Context, compositeServer v1.M
 }
 
 func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, server v1.MCPServer, serverConfig mcp.ServerConfig, allowedTools []string) ([]types.MCPServerTool, error) {
-	listCtx, cancel := contextWithDefaultTimeout(ctx, time.Minute)
-	defer cancel()
-
-	gTools, err := mcpSessionManager.ListTools(listCtx, serverConfig)
+	gTools, err := mcpSessionManager.ListTools(ctx, serverConfig)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil
