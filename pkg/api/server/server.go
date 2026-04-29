@@ -24,8 +24,8 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/storage"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )

@@ -192,7 +192,7 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (m
 
 	credEnv, err = mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, systemServer.Spec.Manifest.Env, systemServer.Spec.Manifest.RemoteConfig, credEnv)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to resolve secret bindings: %w", err)
+		return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
 
 	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")

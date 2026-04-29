@@ -144,8 +144,12 @@
 
 	function componentHasConfig(comp?: ComponentLaunchFormData) {
 		if (!comp) return false;
-		const hasEnvs = Array.isArray(comp.envs) && comp.envs.length > 0;
-		const hasHeaders = Array.isArray(comp.headers) && comp.headers.length > 0;
+		// Multi-user component servers should not expose any configuration
+		// fields in this dialog; they are configured at the multi-user level.
+		if (comp.isMultiUser) return false;
+		const hasEnvs = Array.isArray(comp.envs) && comp.envs.some((e) => !hasSecretBinding(e));
+		const hasHeaders =
+			Array.isArray(comp.headers) && comp.headers.some((h) => !hasSecretBinding(h));
 		const needsURL = Boolean(comp.hostname);
 		return hasEnvs || hasHeaders || needsURL;
 	}
@@ -269,10 +273,6 @@
 				}))
 				?.filter((item) => !item.data.isStatic) ?? []
 		);
-	}
-
-	function secretBindingLabel(field: { secretBinding?: { name: string; key: string } }) {
-		return `${field.secretBinding?.name ?? ''}:${field.secretBinding?.key ?? ''}`;
 	}
 </script>
 
@@ -410,54 +410,101 @@
 								<div class="border-t border-gray-200 p-3">
 									{#if comp.envs && comp.envs.length > 0}
 										{#each comp.envs as env, i (env.key)}
+											{#if !hasSecretBinding(env)}
+												{@const highlightRequired =
+													highlightedFields.has(`${compId}:${env.key}`) && !env.value}
+												<div class="flex flex-col gap-1">
+													<span class="flex items-center gap-2">
+														<label
+															for={`${compId}-${env.key}`}
+															class={highlightRequired ? 'text-red-500' : ''}
+														>
+															{env.name}
+															{#if !env.required}
+																<span class="text-on-surface1">(optional)</span>
+															{/if}
+														</label>
+														{#if !displayDescriptionInline}
+															<InfoTooltip text={env.description} />
+														{/if}
+													</span>
+													{#if env.sensitive}
+														<SensitiveInput
+															error={highlightRequired}
+															name={env.name}
+															bind:value={comp.envs[i].value}
+															disabled={form.componentConfigs[compId].disabled}
+															textarea={env.file}
+															growable
+														/>
+													{:else if env.file}
+														<textarea
+															id={`${compId}-${env.key}`}
+															bind:value={comp.envs[i].value}
+															disabled={form.componentConfigs[compId].disabled}
+															class={twMerge(
+																'text-input-filled h-32 resize-y whitespace-pre-wrap',
+																highlightRequired &&
+																	'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+															)}
+															onmousedown={() => (resizing = true)}
+															onmouseup={() => (resizing = false)}
+														></textarea>
+													{:else}
+														<input
+															type="text"
+															id={`${compId}-${env.key}`}
+															bind:value={comp.envs[i].value}
+															disabled={form.componentConfigs[compId].disabled}
+															class={twMerge(
+																'text-input-filled',
+																highlightRequired &&
+																	'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+															)}
+														/>
+													{/if}
+													{#if displayDescriptionInline}
+														<p class="text-on-surface1 text-xs font-light break-all">
+															{env.description}
+														</p>
+													{/if}
+												</div>
+											{/if}
+										{/each}
+									{/if}
+
+									{#each headers as header (header.data.key)}
+										{#if !hasSecretBinding(header.data)}
 											{@const highlightRequired =
-												highlightedFields.has(`${compId}:${env.key}`) && !env.value}
+												highlightedFields.has(`${compId}:${header.data.key}`) && !header.data.value}
+
 											<div class="flex flex-col gap-1">
 												<span class="flex items-center gap-2">
 													<label
-														for={`${compId}-${env.key}`}
+														for={`${compId}-${header.data.key}`}
 														class={highlightRequired ? 'text-red-500' : ''}
 													>
-														{env.name}
-														{#if !env.required}
+														{header.data.name}
+														{#if !header.data.required}
 															<span class="text-on-surface1">(optional)</span>
 														{/if}
 													</label>
 													{#if !displayDescriptionInline}
-														<InfoTooltip text={env.description} />
+														<InfoTooltip text={header.data.description} />
 													{/if}
 												</span>
-												{#if hasSecretBinding(env)}
-													<div class="mock-input-btn text-on-surface1 flex items-center text-sm">
-														Kubernetes Secret: {secretBindingLabel(env)}
-													</div>
-												{:else if env.sensitive}
+												{#if header.data.sensitive}
 													<SensitiveInput
+														name={header.data.name}
+														bind:value={comp.headers![header.index].value}
+														disabled={form.componentConfigs[compId].disabled}
 														error={highlightRequired}
-														name={env.name}
-														bind:value={comp.envs[i].value}
-														disabled={form.componentConfigs[compId].disabled}
-														textarea={env.file}
-														growable
 													/>
-												{:else if env.file}
-													<textarea
-														id={`${compId}-${env.key}`}
-														bind:value={comp.envs[i].value}
-														disabled={form.componentConfigs[compId].disabled}
-														class={twMerge(
-															'text-input-filled h-32 resize-y whitespace-pre-wrap',
-															highlightRequired &&
-																'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
-														)}
-														onmousedown={() => (resizing = true)}
-														onmouseup={() => (resizing = false)}
-													></textarea>
 												{:else}
 													<input
 														type="text"
-														id={`${compId}-${env.key}`}
-														bind:value={comp.envs[i].value}
+														id={`${compId}-${header.data.key}`}
+														bind:value={comp.headers![header.index].value}
 														disabled={form.componentConfigs[compId].disabled}
 														class={twMerge(
 															'text-input-filled',
@@ -468,62 +515,11 @@
 												{/if}
 												{#if displayDescriptionInline}
 													<p class="text-on-surface1 text-xs font-light break-all">
-														{env.description}
+														{header.data.description}
 													</p>
 												{/if}
 											</div>
-										{/each}
-									{/if}
-
-									{#each headers as header (header.data.key)}
-										{@const highlightRequired =
-											highlightedFields.has(`${compId}:${header.data.key}`) && !header.data.value}
-
-										<div class="flex flex-col gap-1">
-											<span class="flex items-center gap-2">
-												<label
-													for={`${compId}-${header.data.key}`}
-													class={highlightRequired ? 'text-red-500' : ''}
-												>
-													{header.data.name}
-													{#if !header.data.required}
-														<span class="text-on-surface1">(optional)</span>
-													{/if}
-												</label>
-												{#if !displayDescriptionInline}
-													<InfoTooltip text={header.data.description} />
-												{/if}
-											</span>
-											{#if hasSecretBinding(header.data)}
-												<div class="mock-input-btn text-on-surface1 flex items-center text-sm">
-													Kubernetes Secret: {secretBindingLabel(header.data)}
-												</div>
-											{:else if header.data.sensitive}
-												<SensitiveInput
-													name={header.data.name}
-													bind:value={comp.headers![header.index].value}
-													disabled={form.componentConfigs[compId].disabled}
-													error={highlightRequired}
-												/>
-											{:else}
-												<input
-													type="text"
-													id={`${compId}-${header.data.key}`}
-													bind:value={comp.headers![header.index].value}
-													disabled={form.componentConfigs[compId].disabled}
-													class={twMerge(
-														'text-input-filled',
-														highlightRequired &&
-															'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
-													)}
-												/>
-											{/if}
-											{#if displayDescriptionInline}
-												<p class="text-on-surface1 text-xs font-light break-all">
-													{header.data.description}
-												</p>
-											{/if}
-										</div>
+										{/if}
 									{/each}
 
 									{#if comp.hostname}
@@ -551,97 +547,95 @@
 
 					{#if form.envs && form.envs.length > 0}
 						{#each form.envs as env, i (env.key)}
-							{@const highlightRequired = highlightedFields.has(env.key) && !env.value}
+							{#if !hasSecretBinding(env)}
+								{@const highlightRequired = highlightedFields.has(env.key) && !env.value}
+								<div class="flex flex-col gap-1">
+									<span class="flex items-center gap-2">
+										<label for={env.key} class={highlightRequired ? 'text-red-500' : ''}>
+											{env.name}
+											{#if !env.required}
+												<span class="text-on-surface1">(optional)</span>
+											{/if}
+										</label>
+										{#if !displayDescriptionInline}
+											<InfoTooltip text={env.description} />
+										{/if}
+									</span>
+									{#if env.sensitive}
+										<SensitiveInput
+											error={highlightRequired}
+											name={env.name}
+											bind:value={form.envs[i].value}
+											textarea={env.file}
+											growable
+										/>
+									{:else if env.file}
+										<textarea
+											id={env.key}
+											bind:value={form.envs[i].value}
+											class={twMerge(
+												'text-input-filled h-32 resize-y whitespace-pre-wrap',
+												highlightRequired &&
+													'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+											)}
+											onmousedown={() => (resizing = true)}
+											onmouseup={() => (resizing = false)}
+										></textarea>
+									{:else}
+										<input
+											type="text"
+											id={env.key}
+											bind:value={form.envs[i].value}
+											class={twMerge(
+												'text-input-filled',
+												highlightRequired &&
+													'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+											)}
+										/>
+									{/if}
+									{#if displayDescriptionInline}
+										<p class="text-on-surface1 text-xs font-light break-all">
+											{env.description}
+										</p>
+									{/if}
+								</div>
+							{/if}
+						{/each}
+					{/if}
+
+					{#each remoteHeaders as header (header.data.key)}
+						{#if !hasSecretBinding(header.data)}
+							{@const highlightRequired =
+								highlightedFields.has(header.data.key) && !header.data.value}
 							<div class="flex flex-col gap-1">
 								<span class="flex items-center gap-2">
-									<label for={env.key} class={highlightRequired ? 'text-red-500' : ''}>
-										{env.name}
-										{#if !env.required}
+									<label for={header.data.key} class={highlightRequired ? 'text-red-500' : ''}>
+										{header.data.name}
+										{#if !header.data.required}
 											<span class="text-on-surface1">(optional)</span>
 										{/if}
 									</label>
-									{#if !displayDescriptionInline}
-										<InfoTooltip text={env.description} />
-									{/if}
+									<InfoTooltip text={header.data.description} />
 								</span>
-								{#if hasSecretBinding(env)}
-									<div class="mock-input-btn text-on-surface1 flex items-center text-sm">
-										Kubernetes Secret: {secretBindingLabel(env)}
-									</div>
-								{:else if env.sensitive}
+								{#if header.data.sensitive}
 									<SensitiveInput
 										error={highlightRequired}
-										name={env.name}
-										bind:value={form.envs[i].value}
-										textarea={env.file}
-										growable
+										name={header.data.name}
+										bind:value={form.headers![header.index].value}
 									/>
-								{:else if env.file}
-									<textarea
-										id={env.key}
-										bind:value={form.envs[i].value}
-										class={twMerge(
-											'text-input-filled h-32 resize-y whitespace-pre-wrap',
-											highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
-										)}
-										onmousedown={() => (resizing = true)}
-										onmouseup={() => (resizing = false)}
-									></textarea>
 								{:else}
 									<input
 										type="text"
-										id={env.key}
-										bind:value={form.envs[i].value}
+										id={header.data.key}
+										bind:value={form!.headers![header.index].value}
 										class={twMerge(
 											'text-input-filled',
 											highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
 										)}
 									/>
 								{/if}
-								{#if displayDescriptionInline}
-									<p class="text-on-surface1 text-xs font-light break-all">
-										{env.description}
-									</p>
-								{/if}
 							</div>
-						{/each}
-					{/if}
-
-					{#each remoteHeaders as header (header.data.key)}
-						{@const highlightRequired =
-							highlightedFields.has(header.data.key) && !header.data.value}
-						<div class="flex flex-col gap-1">
-							<span class="flex items-center gap-2">
-								<label for={header.data.key} class={highlightRequired ? 'text-red-500' : ''}>
-									{header.data.name}
-									{#if !header.data.required}
-										<span class="text-on-surface1">(optional)</span>
-									{/if}
-								</label>
-								<InfoTooltip text={header.data.description} />
-							</span>
-							{#if hasSecretBinding(header.data)}
-								<div class="mock-input-btn text-on-surface1 flex items-center text-sm">
-									Kubernetes Secret: {secretBindingLabel(header.data)}
-								</div>
-							{:else if header.data.sensitive}
-								<SensitiveInput
-									error={highlightRequired}
-									name={header.data.name}
-									bind:value={form.headers![header.index].value}
-								/>
-							{:else}
-								<input
-									type="text"
-									id={header.data.key}
-									bind:value={form!.headers![header.index].value}
-									class={twMerge(
-										'text-input-filled',
-										highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
-									)}
-								/>
-							{/if}
-						</div>
+						{/if}
 					{/each}
 
 					{#if form.hostname}

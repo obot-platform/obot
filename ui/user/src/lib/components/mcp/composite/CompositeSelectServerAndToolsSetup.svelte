@@ -12,9 +12,10 @@
 	import {
 		convertEnvHeadersToRecord,
 		deriveToolPrefix,
+		getSecretBindingEngineError,
 		hasEditableConfiguration
 	} from '$lib/services/chat/mcp';
-	import { mcpServersAndEntries } from '$lib/stores';
+	import { mcpServersAndEntries, version } from '$lib/stores';
 	import CatalogConfigureForm, { type LaunchFormData } from '../CatalogConfigureForm.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
 	import { LoaderCircle } from 'lucide-svelte';
@@ -73,6 +74,11 @@
 	let oauthURL = $state<string>();
 	let listeningOauthVisibility = $state(false);
 	let error = $state<string>();
+	let secretBindingEngineError = $derived(
+		version.current.engine === 'kubernetes'
+			? undefined
+			: getSecretBindingEngineError(configuringEntry?.manifest)
+	);
 
 	function handleVisibilityChange() {
 		if (!componentConfig) return;
@@ -142,6 +148,7 @@
 
 	async function handleConfigureToolsInit() {
 		if (!configuringEntry) return;
+		if (secretBindingEngineError) return;
 
 		if ('isCatalogEntry' in configuringEntry && hasEditableConfiguration(configuringEntry)) {
 			choiceDialog?.close();
@@ -405,6 +412,8 @@
 							In order to request tools from the server, you'll need to pass some configuration
 							information first.
 						</p>
+					{:else if secretBindingEngineError}
+						<p>{secretBindingEngineError}</p>
 					{:else if oauthURL}
 						<p>
 							In order to request tools from the server, OAuth authentication is required first.
@@ -439,7 +448,7 @@
 				{:else}
 					<button
 						class="button-primary flex w-full justify-center"
-						disabled={loading}
+						disabled={loading || !!secretBindingEngineError}
 						onclick={handleConfigureToolsInit}
 					>
 						{#if loading}

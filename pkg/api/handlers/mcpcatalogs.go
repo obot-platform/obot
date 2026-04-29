@@ -1716,7 +1716,7 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	// Preserve the git-managed status of the original entry when re-validating.
-	entryGitManaged := !entry.Spec.Editable && entry.Spec.SourceURL != ""
+	entryGitManaged := entry.IsGitManaged()
 	if err := validation.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entryGitManaged); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}

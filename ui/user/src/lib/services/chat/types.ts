@@ -393,6 +393,8 @@ export interface MCPSubField {
 export interface MCPSecretBinding {
 	name: string;
 	key: string;
+	file?: boolean;
+	dynamic?: boolean;
 }
 
 export interface MCP {

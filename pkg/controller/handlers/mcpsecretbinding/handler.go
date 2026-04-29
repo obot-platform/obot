@@ -16,6 +16,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -87,24 +88,35 @@ func (h *Handler) SecretChanged(req router.Request, _ router.Response) error {
 			continue
 		}
 
-		// Bump a spec-level annotation as a sentinel write. Any spec
-		// change emits a watch event the existing MCPServer handlers
-		// pick up; the deploy pipeline then re-resolves bindings
-		// against the just-changed Secret. The annotation value is
-		// the Secret's resourceVersion (empty string on delete) so
-		// repeated identical changes don't loop.
-		var rev string
-		if secret, ok := req.Object.(*corev1.Secret); ok && secret != nil {
-			rev = secret.ResourceVersion
-		}
-		if s.Annotations[rotationAnnotation] == rev {
-			continue
-		}
-		if s.Annotations == nil {
-			s.Annotations = map[string]string{}
-		}
-		s.Annotations[rotationAnnotation] = rev
-		if err := h.storage.Update(req.Ctx, s); err != nil {
+		// secret is derived from req.Object and is constant across retries.
+		secret, _ := req.Object.(*corev1.Secret)
+		secretDeleted := secret == nil
+
+		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			var latest v1.MCPServer
+			if err := h.storage.Get(req.Ctx, kclient.ObjectKey{Namespace: s.Namespace, Name: s.Name}, &latest); err != nil {
+				return err
+			}
+
+			if !mcp.ManifestReferencesSecret(latest.Spec.Manifest, name) {
+				return nil
+			}
+
+			referencedHash := mcp.HashReferencedKeys(latest.Spec.Manifest, name, secret)
+			if latest.Annotations == nil {
+				latest.Annotations = map[string]string{}
+			}
+			// When the Secret is deleted, referencedHash is "". A
+			// never-annotated server also has "" — skip the no-op guard
+			// on deletion so every referencing server is reconciled.
+			if !secretDeleted && latest.Annotations[rotationAnnotation] == referencedHash {
+				return nil
+			}
+			latest.Annotations[rotationAnnotation] = referencedHash
+
+			return h.storage.Update(req.Ctx, &latest)
+		})
+		if err != nil {
 			return fmt.Errorf("trigger reconcile on mcpserver %s: %w", s.Name, err)
 		}
 	}

@@ -10,10 +10,11 @@ import (
 
 func TestValidateSystemMCPServerManifest(t *testing.T) {
 	tests := []struct {
-		name        string
-		manifest    types.SystemMCPServerManifest
-		expectError bool
-		errorField  string
+		name                string
+		manifest            types.SystemMCPServerManifest
+		expectError         bool
+		errorField          string
+		expectedErrContains string
 	}{
 		{
 			name: "valid containerized hook",
@@ -150,6 +151,44 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 			expectError: true,
 			errorField:  "startupTimeoutSeconds",
 		},
+		{
+			name: "invalid - env secret binding is not allowed",
+			manifest: types.SystemMCPServerManifest{
+				Runtime: types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{
+					Package: "@example/server",
+				},
+				Env: []types.MCPEnv{{
+					MCPHeader: types.MCPHeader{
+						Key: "API_KEY",
+						SecretBinding: &types.MCPSecretBinding{
+							Name: "my-secret",
+							Key:  "token",
+						},
+					},
+				}},
+			},
+			expectError:         true,
+			expectedErrContains: "secretBinding is not supported for system MCP servers",
+		},
+		{
+			name: "invalid - remote header secret binding is not allowed",
+			manifest: types.SystemMCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://example.com/mcp",
+					Headers: []types.MCPHeader{{
+						Key: "Authorization",
+						SecretBinding: &types.MCPSecretBinding{
+							Name: "my-secret",
+							Key:  "token",
+						},
+					}},
+				},
+			},
+			expectError:         true,
+			expectedErrContains: "secretBinding is not supported for system MCP servers",
+		},
 	}
 
 	for _, tt := range tests {
@@ -157,6 +196,9 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 			err := ValidateSystemMCPServerManifest(tt.manifest)
 			if tt.expectError {
 				assert.Error(t, err)
+				if tt.expectedErrContains != "" {
+					assert.Contains(t, err.Error(), tt.expectedErrContains)
+				}
 				if validationErr, ok := err.(types.RuntimeValidationError); ok {
 					assert.Equal(t, tt.errorField, validationErr.Field)
 				}

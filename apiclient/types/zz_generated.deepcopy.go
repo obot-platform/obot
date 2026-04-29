@@ -3545,7 +3545,9 @@ func (in *MultiUserConfig) DeepCopyInto(out *MultiUserConfig) {
 	if in.UserDefinedHeaders != nil {
 		in, out := &in.UserDefinedHeaders, &out.UserDefinedHeaders
 		*out = make([]MCPHeader, len(*in))
-		copy(*out, *in)
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 }
 

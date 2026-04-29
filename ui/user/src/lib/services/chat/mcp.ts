@@ -83,7 +83,7 @@ export function convertEnvHeadersToRecord(
 }
 
 export function hasSecretBinding(field?: Partial<MCPSubField> | null): boolean {
-	return Boolean(field?.secretBinding?.name && field.secretBinding.key);
+	return Boolean(field?.secretBinding?.name && field?.secretBinding?.key);
 }
 
 function hasEditableFields(fields?: MCPSubField[]) {

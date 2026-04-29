@@ -1777,7 +1777,7 @@ func TestValidateSecretBindings(t *testing.T) {
 			wantErr:    "not supported for remote runtime",
 		},
 		{
-			name: "bound file env is rejected in MVP",
+			name: "legacy env.file with secret binding is rejected",
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeContainerized,
 				Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "DD_API_KEY", SecretBinding: binding}, File: true}},
@@ -1793,11 +1793,117 @@ func TestValidateSecretBindings(t *testing.T) {
 			},
 			gitManaged: true,
 		},
+		// secretBinding.file / secretBinding.dynamic rules
+		{
+			name: "secretBinding.file on a header is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{
+						Key:           "DD-API-KEY",
+						SecretBinding: &types.MCPSecretBinding{Name: "datadog-prod", Key: "api-key", File: true},
+					}},
+				},
+			},
+			gitManaged: true,
+			wantErr:    "secretBinding.file is not supported on headers",
+		},
+		{
+			name: "secretBinding.dynamic without file is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "DD_API_KEY",
+					SecretBinding: &types.MCPSecretBinding{Name: "datadog-prod", Key: "api-key", Dynamic: true},
+				}}},
+			},
+			gitManaged: true,
+			wantErr:    "secretBinding.dynamic requires secretBinding.file",
+		},
+		{
+			name: "secretBinding.file and dynamic together are accepted",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "DD_API_KEY",
+					SecretBinding: &types.MCPSecretBinding{Name: "datadog-prod", Key: "api-key", File: true, Dynamic: true},
+				}}},
+			},
+			gitManaged: true,
+		},
+		{
+			name: "secretBinding.file without dynamic is accepted",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "DD_API_KEY",
+					SecretBinding: &types.MCPSecretBinding{Name: "datadog-prod", Key: "api-key", File: true},
+				}}},
+			},
+			gitManaged: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateSecretBindings(tt.manifest, tt.gitManaged)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
+	binding := &types.MCPSecretBinding{Name: "my-secret", Key: "token"}
+
+	tests := []struct {
+		name     string
+		manifest types.MCPServerCatalogEntryManifest
+		wantErr  string
+	}{
+		{
+			name: "urlTemplate referencing secret-bound env is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "TOKEN", Required: true, SecretBinding: binding,
+				}}},
+				RemoteConfig: &types.RemoteCatalogConfig{
+					URLTemplate: "https://example.com/${TOKEN}/mcp",
+				},
+			},
+			wantErr: "remoteConfig.urlTemplate references secret-bound env var",
+		},
+		{
+			name: "urlTemplate referencing non-bound env is allowed",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "HOST", Required: true,
+				}}},
+				RemoteConfig: &types.RemoteCatalogConfig{
+					URLTemplate: "https://${HOST}/mcp",
+				},
+			},
+		},
+		{
+			name: "no urlTemplate with bound env passes to core check",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "TOKEN", Required: true, SecretBinding: binding,
+				}}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true)
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 				return
@@ -1942,6 +2048,15 @@ func TestValidateTemplateReferences_CatalogEntry(t *testing.T) {
 				},
 				Env: []types.MCPEnv{required},
 			},
+		},
+		{
+			name: "npx templated arg with optional env is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--tag=${TAG}"}},
+				Env:       []types.MCPEnv{optional},
+			},
+			wantErr: "must be required=true",
 		},
 		{
 			name: "remote URLTemplate with optional env is rejected",

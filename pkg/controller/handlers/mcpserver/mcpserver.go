@@ -21,6 +21,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -271,7 +272,8 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 		return true, nil
 	}
 
-	return hash.Digest(serverManifest.Env) != hash.Digest(entryManifest.Env), nil
+	// Check environment
+	return !utils.SlicesEqualIgnoreOrder(serverManifest.Env, entryManifest.Env), nil
 }
 
 // uvxConfigHasDrifted checks if UVX configuration has drifted
@@ -349,7 +351,7 @@ func remoteConfigHasDrifted(serverConfig *types.RemoteRuntimeConfig, entryConfig
 	}
 
 	// Check if headers have drifted
-	return hash.Digest(serverConfig.Headers) != hash.Digest(entryConfig.Headers)
+	return !utils.SlicesEqualIgnoreOrder(serverConfig.Headers, entryConfig.Headers)
 }
 
 // compositeConfigHasDrifted checks if the composite configuration has drifted

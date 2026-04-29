@@ -33,7 +33,21 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-var log = logger.Package()
+var (
+	log              = logger.Package()
+	invalidNameChars = regexp.MustCompile(`[^a-z0-9-]+`)
+	multipleDashes   = regexp.MustCompile(`-{2,}`)
+)
+
+// sanitizeName lowercases the input, replaces any characters that are invalid
+// for RFC 1123 subdomain names with dashes, collapses consecutive dashes, and
+// trims leading/trailing dashes.
+func sanitizeName(n string) string {
+	n = strings.ToLower(n)
+	n = invalidNameChars.ReplaceAllString(n, "-")
+	n = multipleDashes.ReplaceAllString(n, "-")
+	return strings.Trim(n, "-")
+}
 
 // CatalogCredentialToolName is the fixed tool name used for the single
 // credential that stores all source-URL tokens for a catalog. Each URL's
@@ -255,7 +269,13 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 			delete(entry.Metadata, "categories")
 		}
 
-		cleanName := strings.ToLower(strings.ReplaceAll(entry.Name, " ", "-"))
+		cleanName := sanitizeName(entry.Name)
+		if cleanName == "" {
+			err := fmt.Errorf("invalid system catalog entry name after sanitization: original=%q sanitized=%q", entry.Name, cleanName)
+			errs = append(errs, err)
+			continue
+		}
+
 		mcpManifest := systemCatalogEntryManifestToMCP(entry)
 		sanitizeCatalogEntryManifest(&mcpManifest)
 		entry = mcpCatalogEntryManifestToSystem(mcpManifest, entry.SystemMCPServerType, entry.FilterConfig)
@@ -388,7 +408,12 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			// We don't want to mark random MCP servers from the catalog as official.
 		}
 
-		cleanName := strings.ToLower(strings.ReplaceAll(entry.Name, " ", "-"))
+		cleanName := sanitizeName(entry.Name)
+		if cleanName == "" {
+			err := fmt.Errorf("invalid catalog entry name after sanitization: original=%q sanitized=%q", entry.Name, cleanName)
+			errs = append(errs, err)
+			continue
+		}
 
 		catalogEntry := v1.MCPServerCatalogEntry{
 			ObjectMeta: metav1.ObjectMeta{
@@ -413,9 +438,8 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
-		// Catalog entries from a git source are git-managed by definition,
-		// which is the gate for allowing secretBinding references.
-		if err := validation.ValidateSecretBindingsCatalogEntry(entry, true); err != nil {
+		// secretBinding references are only allowed for git-managed entries.
+		if err := validation.ValidateSecretBindingsCatalogEntry(entry, catalogEntry.IsGitManaged()); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}

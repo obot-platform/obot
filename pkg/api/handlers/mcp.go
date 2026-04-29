@@ -37,6 +37,26 @@ var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
 const requestTimeUpdateInterval = 15 * time.Minute
 
+type missingRequiredConfigErr struct {
+	missing []string
+	err     *types.ErrHTTP
+}
+
+func newMissingRequiredConfigErr(missing []string) *missingRequiredConfigErr {
+	return &missingRequiredConfigErr{
+		missing: missing,
+		err:     types.NewErrBadRequest("missing required config: %s", strings.Join(missing, ", ")),
+	}
+}
+
+func (e *missingRequiredConfigErr) Error() string {
+	return e.err.Error()
+}
+
+func (e *missingRequiredConfigErr) Unwrap() error {
+	return e.err
+}
+
 // MCPOAuthChecker will check the OAuth status for an MCP server. This interface breaks an import cycle.
 type MCPOAuthChecker interface {
 	CheckForMCPAuth(req api.Context, server v1.MCPServer, config mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error)
@@ -1478,7 +1498,7 @@ func serverConfigForAction(req api.Context, server v1.MCPServer) (mcp.ServerConf
 	}
 
 	if len(missingConfig) > 0 {
-		return mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
+		return mcp.ServerConfig{}, newMissingRequiredConfigErr(missingConfig)
 	}
 
 	// Best effort to update the last request time.
@@ -1501,6 +1521,28 @@ func serverForAction(req api.Context) (v1.MCPServer, mcp.ServerConfig, error) {
 
 	serverConfig, err := serverConfigForAction(req, server)
 	return server, serverConfig, err
+}
+
+// serverForRead is like serverForAction but tolerates a "missing required config"
+// error by falling back to a minimal ServerConfig containing only MCPServerName.
+// Use this for read-only observation endpoints (details, logs) that only need the
+// deployment name and must remain functional even when a required secret is absent.
+// If the deployment is not running and config is incomplete, the caller will get a
+// meaningful error from the backend rather than a premature 400.
+func serverForRead(req api.Context) (v1.MCPServer, mcp.ServerConfig, error) {
+	var server v1.MCPServer
+	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
+		return server, mcp.ServerConfig{}, err
+	}
+
+	serverConfig, err := serverConfigForAction(req, server)
+	if err != nil {
+		if _, ok := errors.AsType[*missingRequiredConfigErr](err); ok {
+			return server, mcp.ServerConfig{MCPServerName: server.Name}, nil
+		}
+		return server, mcp.ServerConfig{}, err
+	}
+	return server, serverConfig, nil
 }
 
 func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
@@ -1751,7 +1793,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 
 		server.Spec.Manifest = manifest
 		server.Spec.UnsupportedTools = catalogEntry.Spec.UnsupportedTools
-		gitManagedEntry = !catalogEntry.Spec.Editable && catalogEntry.Spec.SourceURL != ""
+		gitManagedEntry = catalogEntry.IsGitManaged()
 	} else if req.UserIsAdmin() || workspaceID != "" {
 		// If the user is an admin, or if this server is being created in a workspace by a PowerUserPlus,
 		// they can create a server with a manifest that is not in the catalog.
@@ -1873,7 +1915,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	if existing.Spec.MCPServerCatalogEntryName != "" {
 		var catalogEntry v1.MCPServerCatalogEntry
 		if err := req.Get(&catalogEntry, existing.Spec.MCPServerCatalogEntryName); err == nil {
-			gitManagedEntry = !catalogEntry.Spec.Editable && catalogEntry.Spec.SourceURL != ""
+			gitManagedEntry = catalogEntry.IsGitManaged()
 		}
 	}
 	if err := validation.ValidateSecretBindings(updated, gitManagedEntry); err != nil {
@@ -1986,10 +2028,8 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 	}
 
 	// Check if this server is from a catalog and has a URL template that needs to be processed.
-	// URL templates can reference both user-supplied envs and secretBinding-resolved values, so
-	// merge bound values into a copy of envVars before applying the template. The original
-	// envVars (which may be persisted to the credential store later in this handler) is left
-	// untouched so we never write resolved Secret values back into the cred store.
+	// URL templates may only reference user-supplied env vars. References to secret-bound env
+	// vars are rejected to avoid resolving Secret-backed values during template expansion.
 	if mcpServer.Spec.MCPServerCatalogEntryName != "" {
 		var catalogEntry v1.MCPServerCatalogEntry
 		if err := req.Get(&catalogEntry, mcpServer.Spec.MCPServerCatalogEntryName); err != nil {
@@ -2002,21 +2042,12 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		if catalogEntry.Spec.Manifest.Runtime == types.RuntimeRemote &&
 			catalogEntry.Spec.Manifest.RemoteConfig != nil &&
 			catalogEntry.Spec.Manifest.RemoteConfig.URLTemplate != "" {
-			// Resolve secretBindings against the catalog entry's envs and
-			// merge into envVars so ${VAR} references for bound values
-			// substitute correctly. URL templates only reference envs, so
-			// we pass the catalog entry's Env and nil for the remote
-			// config. The merged map is local to this call — envVars
-			// (which gets persisted to the credential store below) is
-			// unchanged so we never write resolved Secret values into the
-			// cred store.
-			templateEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, catalogEntry.Spec.Manifest.Env, nil, envVars)
-			if err != nil {
-				return fmt.Errorf("failed to resolve secret bindings: %w", err)
+			if boundKeys := secretBoundTemplateKeys(catalogEntry.Spec.Manifest.RemoteConfig.URLTemplate, catalogEntry.Spec.Manifest.Env); len(boundKeys) > 0 {
+				return types.NewErrBadRequest("url template cannot reference secret-bound env vars: %s", strings.Join(boundKeys, ", "))
 			}
 
 			// Apply the URL template with environment variables
-			finalURL, err := applyURLTemplate(catalogEntry.Spec.Manifest.RemoteConfig.URLTemplate, templateEnv)
+			finalURL, err := applyURLTemplate(catalogEntry.Spec.Manifest.RemoteConfig.URLTemplate, envVars)
 			if err != nil {
 				return fmt.Errorf("failed to apply URL template: %w", err)
 			}
@@ -2201,15 +2232,10 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 				// Handle URL changes for templates and hostname constraints
 				originalURL := remoteConfig.URL
 				if remoteConfig.URLTemplate != "" {
-					// Merge bound values into a local copy so ${VAR}
-					// references for bound keys substitute correctly.
-					// config.Config (persisted to credstore below) stays
-					// untouched.
-					templateEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, component.Manifest.Env, component.Manifest.RemoteConfig, config.Config)
-					if err != nil {
-						return fmt.Errorf("failed to resolve secret bindings: %w", err)
+					if boundKeys := secretBoundTemplateKeys(remoteConfig.URLTemplate, component.Manifest.Env); len(boundKeys) > 0 {
+						return types.NewErrBadRequest("component %s url template cannot reference secret-bound env vars: %s", componentID, strings.Join(boundKeys, ", "))
 					}
-					finalURL, err := applyURLTemplate(remoteConfig.URLTemplate, templateEnv)
+					finalURL, err := applyURLTemplate(remoteConfig.URLTemplate, config.Config)
 					if err != nil {
 						return fmt.Errorf("failed to apply URL template %w", err)
 					}
@@ -2331,6 +2357,39 @@ func kickMCPServerControllers(req api.Context, server *v1.MCPServer) error {
 		server.Annotations["obot.obot.ai/configured-at"] = metav1.Now().Format(time.RFC3339)
 		return req.Update(server)
 	})
+}
+
+func secretBoundTemplateKeys(urlTemplate string, envs []types.MCPEnv) []string {
+	if urlTemplate == "" || len(envs) == 0 {
+		return nil
+	}
+
+	referenced := map[string]struct{}{}
+	for _, match := range envVarRegex.FindAllStringSubmatch(urlTemplate, -1) {
+		if len(match) > 1 {
+			referenced[match[1]] = struct{}{}
+		}
+	}
+
+	if len(referenced) == 0 {
+		return nil
+	}
+
+	bound := make([]string, 0)
+	for _, env := range envs {
+		if env.SecretBinding != nil {
+			if _, ok := referenced[env.Key]; ok {
+				bound = append(bound, env.Key)
+			}
+		}
+	}
+
+	slices.Sort(bound)
+	bound = slices.Compact(bound)
+	if len(bound) == 0 {
+		return nil
+	}
+	return bound
 }
 
 // applyURLTemplate applies a URL template with environment variables
@@ -3080,7 +3139,11 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 				return err
 			}
 		}
-		parent := ConvertMCPServer(server, credMap[server.Name], m.serverURL, slug, components...)
+		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credMap[server.Name])
+		if err != nil {
+			return fmt.Errorf("failed to resolve secret bindings for server %s: %w", server.Name, err)
+		}
+		parent := ConvertMCPServer(server, mergedEnv, m.serverURL, slug, components...)
 		mcpServers = append(mcpServers, parent)
 	}
 
@@ -3149,12 +3212,17 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		// Don't fail if catalog entry is missing, just continue without preview
 	}
 
+	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Env)
+	if err != nil {
+		return fmt.Errorf("failed to resolve secret bindings: %w", err)
+	}
+
 	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), system.DefaultCatalog, server.Spec.PowerUserWorkspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(ConvertMCPServer(server, cred.Env, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(server, mergedEnv, m.serverURL, slug))
 }
 
 func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
@@ -3184,7 +3252,7 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 }
 
 func (m *MCPHandler) GetServerDetails(req api.Context) error {
-	server, serverConfig, err := serverForAction(req)
+	server, serverConfig, err := serverForRead(req)
 	if err != nil {
 		return err
 	}
@@ -3331,9 +3399,8 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 	workspaceID := req.PathValue("workspace_id")
 	entryID := req.PathValue("entry_id")
 
-	// Get the server and load the config
-	server, _, err := serverForAction(req)
-	if err != nil {
+	var server v1.MCPServer
+	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
 		return err
 	}
 
@@ -3506,13 +3573,18 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
+	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Env)
+	if err != nil {
+		return fmt.Errorf("failed to resolve secret bindings: %w", err)
+	}
+
 	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
 	// Return updated server
-	return req.Write(ConvertMCPServer(server, cred.Env, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(server, mergedEnv, m.serverURL, slug))
 }
 
 // ListServersNeedingK8sUpdateInCatalog lists all servers in a catalog that need redeployment with new K8s settings
@@ -3636,7 +3708,7 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context
 }
 
 func (m *MCPHandler) StreamServerLogs(req api.Context) error {
-	server, serverConfig, err := serverForAction(req)
+	server, serverConfig, err := serverForRead(req)
 	if err != nil {
 		return err
 	}

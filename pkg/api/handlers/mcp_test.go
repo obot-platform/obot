@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/stretchr/testify/assert"
 )
 
 // Test functions for applyURLTemplate
@@ -274,6 +277,43 @@ func TestApplyURLTemplateRealWorldExamples(t *testing.T) {
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
 			}
+		})
+	}
+}
+
+func TestSecretBoundTemplateKeys(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		envs     []types.MCPEnv
+		expected []string
+	}{
+		{
+			name:     "no referenced bound keys",
+			template: "https://${HOST}/mcp/${PROJECT}",
+			envs:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "TOKEN", SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"}}}},
+			expected: nil,
+		},
+		{
+			name:     "referenced bound key detected",
+			template: "https://${HOST}/mcp/${TOKEN}",
+			envs:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "TOKEN", SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"}}}},
+			expected: []string{"TOKEN"},
+		},
+		{
+			name:     "deduplicates and sorts",
+			template: "https://${Z_KEY}/${A_KEY}/${Z_KEY}",
+			envs: []types.MCPEnv{
+				{MCPHeader: types.MCPHeader{Key: "Z_KEY", SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "kz"}}},
+				{MCPHeader: types.MCPHeader{Key: "A_KEY", SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "ka"}}},
+			},
+			expected: []string{"A_KEY", "Z_KEY"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, secretBoundTemplateKeys(tt.template, tt.envs))
 		})
 	}
 }

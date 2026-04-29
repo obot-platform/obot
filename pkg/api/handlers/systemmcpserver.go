@@ -527,11 +527,6 @@ func systemServerToServerConfig(req api.Context, server v1.SystemMCPServer) (mcp
 		return mcp.ServerConfig{}, nil, err
 	}
 
-	credEnv, err = mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credEnv)
-	if err != nil {
-		return mcp.ServerConfig{}, nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
-	}
-
 	var (
 		tokenExchangeCred gptscript.Credential
 		tokenCredErr      error

@@ -238,8 +238,7 @@ type Services struct {
 	LocalK8sClient kclient.Client
 
 	// ObotNamespace is the Kubernetes namespace in which the obot server
-	// runs; mcp.MergeBoundCreds reads source Secrets from here. Empty
-	// when LocalK8sClient is nil.
+	// runs; mcp.MergeBoundCreds reads source Secrets from here.
 	ObotNamespace string
 
 	// Parsed settings from Helm for k8s to pass to controller
@@ -762,10 +761,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	// Build a local kclient for the obot pod's cluster — used by the API
-	// server to resolve secretBindings against Secrets in the obot
-	// namespace via mcp.MergeBoundCreds. nil on the docker backend, in
-	// which case mcp.MergeBoundCreds is a no-op.
 	var apiLocalK8sClient kclient.Client
 	if localK8sConfig != nil {
 		apiLocalK8sClient, err = kclient.New(localK8sConfig, kclient.Options{})
@@ -1070,14 +1065,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		StorageClient:         storageClient,
 		Router:                r,
 		GPTClient:             gptscriptClient,
-		LocalK8sClient: apiLocalK8sClient,
-		ObotNamespace:  config.MCPConfig.ServiceNamespace,
+		LocalK8sClient:        apiLocalK8sClient,
+		ObotNamespace:         config.ServiceNamespace,
 		APIServer: server.NewServer(
 			storageClient,
 			gatewayClient,
 			gptscriptClient,
 			apiLocalK8sClient,
-			config.MCPConfig.ServiceNamespace,
+			config.ServiceNamespace,
 			authn.NewAuthenticator(authenticators),
 			authz.NewAuthorizer(r.Backend(), storageClient, config.DevMode, acrHelper, registryNoAuth),
 			proxyManager,

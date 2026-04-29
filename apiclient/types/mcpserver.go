@@ -213,10 +213,19 @@ type MCPHeader struct {
 }
 
 // MCPSecretBinding references a single key in a pre-existing Kubernetes Secret
-// in the MCP-server deployments namespace
+// in the Obot namespace (the namespace where the Obot server runs)
 type MCPSecretBinding struct {
 	Name string `json:"name"`
 	Key  string `json:"key"`
+	// File mounts the secret value as a file under /files/ instead of injecting
+	// it as an environment variable. The env var KEY is still set, pointing to
+	// the file path (/files/...), so the process can locate it via os.Getenv.
+	File bool `json:"file,omitempty"`
+	// Dynamic is only valid when File is true. When set, changes to the source
+	// Kubernetes Secret propagate to the mounted file without restarting the pod
+	// (kubelet updates the volume in place). Without Dynamic, a secret change
+	// triggers a pod restart to pick up the new value.
+	Dynamic bool `json:"dynamic,omitempty"`
 }
 
 

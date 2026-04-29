@@ -608,5 +608,5 @@ func (c *Controller) setupLocalK8sRoutes() {
 	// IncludeRemoved() so a delete event also fans out (mark referenced
 	// MCPServers' bindings as missing on the next reconcile).
 	secretBindingHandler := mcpsecretbinding.New(c.services.Router.Backend(), c.services.ObotNamespace)
-	c.localK8sRouter.Type(&corev1.Secret{}).IncludeRemoved().HandlerFunc(secretBindingHandler.SecretChanged)
+	c.localK8sRouter.Type(&corev1.Secret{}).Namespace(c.services.ObotNamespace).IncludeRemoved().HandlerFunc(secretBindingHandler.SecretChanged)
 }

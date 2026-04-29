@@ -1044,7 +1044,25 @@ func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) err
 	}
 
 	if validator, ok := getRuntimeValidators()[manifest.Runtime]; ok {
-		return validator.ValidateSystemConfig(manifest)
+		if err := validator.ValidateSystemConfig(manifest); err != nil {
+			return err
+		}
+
+		for _, env := range manifest.Env {
+			if env.SecretBinding != nil {
+				return fmt.Errorf("env %q: secretBinding is not supported for system MCP servers", env.Key)
+			}
+		}
+
+		if manifest.RemoteConfig != nil {
+			for _, header := range manifest.RemoteConfig.Headers {
+				if header.SecretBinding != nil {
+					return fmt.Errorf("header %q: secretBinding is not supported for system MCP servers", header.Key)
+				}
+			}
+		}
+
+		return nil
 	}
 
 	return types.RuntimeValidationError{
@@ -1078,7 +1096,9 @@ func validateStartupTimeout(runtime types.Runtime, startupTimeoutSeconds int) er
 // catalog entries synced from git (gitManaged=true). They are mutually
 // exclusive with a static value, require non-empty name/key, and are rejected
 // in unsupported combinations (env bindings under remote runtime, file-backed
-// envs).
+// envs). The secretBinding.file and secretBinding.dynamic fields follow
+// additional constraints: file is not valid on header bindings, and dynamic
+// requires file.
 func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool) error {
 	check := func(kind, key string, h types.MCPHeader) error {
 		if h.SecretBinding == nil {
@@ -1092,6 +1112,9 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool) e
 		}
 		if h.SecretBinding.Name == "" || h.SecretBinding.Key == "" {
 			return fmt.Errorf("%s %q: secretBinding requires both name and key", kind, key)
+		}
+		if h.SecretBinding.Dynamic && !h.SecretBinding.File {
+			return fmt.Errorf("%s %q: secretBinding.dynamic requires secretBinding.file to be true", kind, key)
 		}
 		return nil
 	}
@@ -1111,6 +1134,9 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool) e
 	}
 	if manifest.RemoteConfig != nil {
 		for _, h := range manifest.RemoteConfig.Headers {
+			if h.SecretBinding != nil && h.SecretBinding.File {
+				return fmt.Errorf("header %q: secretBinding.file is not supported on headers", h.Key)
+			}
 			if err := check("header", h.Key, h); err != nil {
 				return err
 			}
@@ -1125,6 +1151,22 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool) e
 // the fields that matter for binding validation. The catalog-entry manifest
 // uses the same MCPEnv/MCPHeader types, so we reuse the core logic.
 func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged bool) error {
+	// Reject URL templates that reference secret-bound env vars. The secret
+	// value would be expanded into the stored URL, leaking it via the API.
+	if manifest.RemoteConfig != nil && manifest.RemoteConfig.URLTemplate != "" {
+		bound := make(map[string]bool, len(manifest.Env))
+		for _, env := range manifest.Env {
+			if env.SecretBinding != nil {
+				bound[env.Key] = true
+			}
+		}
+		for _, ref := range extractEnvRefs(manifest.RemoteConfig.URLTemplate) {
+			if bound[ref] {
+				return fmt.Errorf("remoteConfig.urlTemplate references secret-bound env var %q; use a header binding instead", ref)
+			}
+		}
+	}
+
 	// Synthesize a minimal MCPServerManifest so we can reuse the core check.
 	synthetic := types.MCPServerManifest{
 		Runtime:      manifest.Runtime,

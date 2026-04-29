@@ -197,9 +197,12 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 		if header.Value != "" {
 			val = header.Value
 			hasValue = true
-		} else if credVal, ok := credEnv[header.Key]; ok && credVal != "" {
-			val = credVal
-			hasValue = true
+		} else {
+			credVal, ok := credEnv[header.Key]
+			if ok && credVal != "" {
+				val = credVal
+				hasValue = true
+			}
 		}
 
 		if !hasValue {
@@ -415,7 +418,10 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		// Apply prefix if specified (e.g., "Bearer ", "sk-")
 		val = applyPrefix(val, env.Prefix)
 
-		if !env.File {
+		isFile := env.File || (env.SecretBinding != nil && env.SecretBinding.File)
+		isDynamic := env.DynamicFile || (env.SecretBinding != nil && env.SecretBinding.Dynamic)
+
+		if !isFile {
 			serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))
 			continue
 		}
@@ -423,7 +429,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		serverConfig.Files = append(serverConfig.Files, File{
 			Data:    val,
 			EnvKey:  env.Key,
-			Dynamic: env.DynamicFile,
+			Dynamic: isDynamic,
 		})
 	}
 
@@ -522,9 +528,13 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 			val = env.Value
 			hasValue = true
 			fromLiteral = true
-		} else if credVal, ok := credEnv[env.Key]; ok && credVal != "" {
-			val = credVal
-			hasValue = true
+		} else {
+			// Fall back to user-configured value from credentials
+			credVal, ok := credEnv[env.Key]
+			if ok && credVal != "" {
+				val = credVal
+				hasValue = true
+			}
 		}
 
 		if !hasValue {
@@ -535,7 +545,7 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		}
 
 		// Apply prefix to non-literal values. Static (env.Value) values
-		// keep today's "no prefix" semantics.
+		// keep "no prefix" semantics.
 		if !fromLiteral {
 			val = applyPrefix(val, env.Prefix)
 		}

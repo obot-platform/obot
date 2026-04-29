@@ -36,8 +36,7 @@ type Context struct {
 
 	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
 	// cluster the obot pod runs in, where source Secrets for
-	// secretBindings live. Nil on the docker backend; mcp.MergeBoundCreds
-	// handles nil by returning credEnv unchanged.
+	// secretBindings live. Nil on the docker backend
 	LocalK8sClient client.Client
 
 	// ObotNamespace is the Kubernetes namespace in which the obot server
