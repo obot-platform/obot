@@ -154,7 +154,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 		}
 
 		if resp.StatusCode == http.StatusOK {
-			readCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			readCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 
 			// Start looking for an event with "endpoint".
 			scanner := bufio.NewScanner(resp.Body)
