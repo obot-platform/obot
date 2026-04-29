@@ -12,7 +12,6 @@ Obot supports managing MCP servers through Git repositories, enabling GitOps wor
 - **Collaborative Workflows**: PR-based reviews, team collaboration, and approval processes
 - **Validation & Quality Assurance**: Automated testing, CI/CD integration, and consistent formatting
 - **Automation**: Integration with existing DevOps workflows and automated deployment
-- **Stable Connection URLs**: Deterministic URLs that remain constant even if you remove and re-add the Git repository
 
 ## Getting Started
 
