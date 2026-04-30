@@ -2346,15 +2346,6 @@ func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, 
 	return mcp.ConvertTools(gTools, allowedTools, server.Spec.UnsupportedTools)
 }
 
-// contextWithDefaultTimeout adds a context timeout when one does not already exist
-func contextWithDefaultTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
-	if _, ok := ctx.Deadline(); ok {
-		return ctx, func() {}
-	}
-
-	return context.WithTimeout(ctx, timeout)
-}
-
 func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer) error {
 	if err := m.mcpSessionManager.ShutdownServer(ctx, mcpServer.Name); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)

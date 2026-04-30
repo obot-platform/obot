@@ -1,52 +1,10 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 )
-
-func TestContextWithDefaultTimeout(t *testing.T) {
-	t.Run("adds timeout when missing", func(t *testing.T) {
-		ctx := context.Background()
-
-		withTimeout, cancel := contextWithDefaultTimeout(ctx, time.Minute)
-		defer cancel()
-
-		deadline, ok := withTimeout.Deadline()
-		if !ok {
-			t.Fatalf("expected deadline to be set")
-		}
-
-		remaining := time.Until(deadline)
-		if remaining <= 0 || remaining > time.Minute {
-			t.Fatalf("expected remaining timeout in (0, 1m], got %v", remaining)
-		}
-	})
-
-	t.Run("preserves existing timeout", func(t *testing.T) {
-		baseCtx, baseCancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		defer baseCancel()
-
-		originalDeadline, ok := baseCtx.Deadline()
-		if !ok {
-			t.Fatalf("expected base context deadline")
-		}
-
-		withTimeout, cancel := contextWithDefaultTimeout(baseCtx, time.Minute)
-		defer cancel()
-
-		newDeadline, ok := withTimeout.Deadline()
-		if !ok {
-			t.Fatalf("expected deadline to be preserved")
-		}
-
-		if !newDeadline.Equal(originalDeadline) {
-			t.Fatalf("expected deadline %v, got %v", originalDeadline, newDeadline)
-		}
-	})
-}
 
 // Test functions for applyURLTemplate
 func TestApplyURLTemplate(t *testing.T) {
