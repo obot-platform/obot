@@ -5049,8 +5049,9 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 					},
 					"startupTimeoutSeconds": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Description: "StartupTimeout configures the timeout to start and connect to an MCP Server. When unset, it defaults to 60s. The maximum allowed value is 600s (10 minutes). Attempting to set a higher value will cause an error.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},
