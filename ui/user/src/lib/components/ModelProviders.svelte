@@ -159,7 +159,7 @@
 	</div>
 
 	{#if error}
-		<div class="mb-4 text-red-500">{error}</div>
+		<div class="mb-4 text-error">{error}</div>
 		<button
 			class="bg-secondary text-secondary-foreground rounded-md px-4 py-2 text-sm font-medium"
 			onclick={loadModelProviders}
@@ -183,14 +183,14 @@
 			<!-- TODO: Use a 3rd-party UI library or create an internal custom component in the future -->
 			<div class="relative">
 				<select
-					class="border-surface2 dark:bg-surface1 w-full appearance-none rounded-md border px-4 py-4 text-sm"
+					class="border-base-300 dark:bg-base-200 w-full appearance-none rounded-md border px-4 py-4 text-sm"
 					value={defaultModelProvider && defaultModel
 						? `${defaultModel}|||${defaultModelProvider}`
 						: ''}
 					onchange={(e) => updateDefaultModel(e.currentTarget.value)}
 					onclick={() => (isDefaultModelSelectOpen = !isDefaultModelSelectOpen)}
 				>
-					<option class="dark:bg-surface3" value="" disabled
+					<option class="dark:bg-base-400" value="" disabled
 						>Select the default model for this project</option
 					>
 					{#if hasOneModelSelected}
@@ -200,7 +200,7 @@
 									{@const provider = modelProviders.find((p) => p.id === providerId)}
 
 									{#if provider}
-										<option class="dark:bg-surface3" value={`${model}|||${providerId}`}>
+										<option class="dark:bg-base-400" value={`${model}|||${providerId}`}>
 											{model} ({provider.name})
 										</option>
 									{/if}

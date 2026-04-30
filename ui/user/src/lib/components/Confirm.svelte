@@ -69,14 +69,14 @@
 				<div
 					class={twMerge(
 						'rounded-full p-2',
-						type === 'delete' ? 'bg-red-500/10' : 'bg-primary/10',
+						type === 'delete' ? 'bg-error/10' : 'bg-primary/10',
 						classes?.iconContainer
 					)}
 				>
 					<CircleAlert
 						class={twMerge(
 							'size-8',
-							type === 'delete' ? 'text-red-500' : 'text-primary',
+							type === 'delete' ? 'text-error' : 'text-primary',
 							classes?.icon
 						)}
 					/>

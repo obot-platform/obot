@@ -67,7 +67,7 @@
 			{value}
 			rows="1"
 			placeholder="Instructions..."
-			class="ghost-input border-surface2 h-auto grow resize-none"
+			class="ghost-input border-base-300 h-auto grow resize-none"
 			disabled={isReadOnly}
 			readonly={isReadOnly || isTaskRunning}
 			onkeydown={onKeydown}

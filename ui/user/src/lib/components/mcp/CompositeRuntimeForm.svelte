@@ -351,25 +351,25 @@
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 >
 	<h4 class="text-md font-semibold">Component Servers</h4>
 
 	<div class="flex flex-col gap-2">
 		{#if loading}
-			<div class="text-on-surface1 text-sm">Loading component servers...</div>
+			<div class="text-base-content/40 text-sm">Loading component servers...</div>
 		{:else if config.componentServers.length > 0}
 			{#each config.componentServers as entry (getComponentId(entry))}
 				{@const componentId = getComponentId(entry)}
 				{@const headerSeverity = componentSeverity(entry)}
 				<div
-					class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-gray-200 bg-gray-50"
+					class="dark:bg-base-300 dark:border-base-400 rounded-lg border border-gray-200 bg-gray-50"
 				>
 					<div class="flex items-center gap-3 p-3">
 						{#if entry.manifest?.icon}
 							<img src={entry.manifest.icon} alt={entry.manifest.name} class="size-8" />
 						{:else}
-							<Server class="text-on-surface1 size-8" />
+							<Server class="text-base-content/40 size-8" />
 						{/if}
 						<div class="flex min-w-0 flex-1 items-center gap-1.5">
 							<div class="truncate font-medium" title={entry.manifest?.name || 'Unnamed Server'}>
@@ -408,7 +408,7 @@
 							{/if}
 						</button>
 						{#if !readonly}
-							<button class="icon-button text-red-500" onclick={() => removeServer(componentId)}>
+							<button class="icon-button text-error" onclick={() => removeServer(componentId)}>
 								<Trash2 class="size-4" />
 							</button>
 						{/if}
@@ -417,7 +417,7 @@
 						{@const issue = prefixIssue(entry)}
 						<div class="border-t border-gray-200 p-3" in:slide={{ axis: 'y' }}>
 							<div class="mb-3 flex flex-col gap-1">
-								<p class="flex items-center gap-1.5 text-xs text-gray-500">
+								<p class="flex items-center gap-1.5 text-xs text-base-content/40">
 									<span>Tool name prefix</span>
 									{#if issue}
 										<ToolNameIssueIcon {issue} />
@@ -444,22 +444,22 @@
 								</div>
 								{#if issue}
 									<p
-										class={`text-xs ${issue.severity === 'error' ? 'text-red-500' : 'text-yellow-500'}`}
+										class={`text-xs ${issue.severity === 'error' ? 'text-error' : 'text-warning'}`}
 									>
 										{issue.message}
 									</p>
 								{:else}
-									<p class="text-on-surface2 text-[11px]">
+									<p class="text-base-content/40 text-[11px]">
 										Prepended to every tool name exposed by this component. Clear to remove.
 									</p>
 								{/if}
 							</div>
 							{#if !populatedByEntry[componentId]}
 								<div class="flex flex-col items-center justify-center pb-2">
-									<p class="text-on-surface1 text-sm font-light">
+									<p class="text-base-content/40 text-sm font-light">
 										All tools are enabled by default.
 									</p>
-									<p class="text-on-surface1 mb-4 text-sm font-light">
+									<p class="text-base-content/40 mb-4 text-sm font-light">
 										Click below to further modify tool availability or details.
 									</p>
 									<button
@@ -503,7 +503,7 @@
 												: undefined}
 
 										<div
-											class="dark:bg-surface2 dark:border-surface3 flex items-start gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
+											class="dark:bg-base-300 dark:border-base-400 flex items-start gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
 										>
 											<div class="flex min-w-0 grow flex-col gap-2">
 												<div class="flex items-start justify-between gap-2">
@@ -513,7 +513,7 @@
 																class="min-w-0 flex-1 truncate text-sm font-medium"
 																title={effectiveName}
 															>
-																{#if entry.toolPrefix}<span class="text-on-surface2"
+																{#if entry.toolPrefix}<span class="text-base-content/75"
 																		>{entry.toolPrefix}</span
 																	>{/if}{currentName}
 															</div>
@@ -574,7 +574,7 @@
 												{#if expandedTools[`${componentId}-${tool.name}`]}
 													<div class="mt-2 flex flex-col gap-2">
 														<div class="flex flex-col gap-1">
-															<p class="text-xs text-gray-500">Tool name</p>
+															<p class="text-xs text-base-content/40">Tool name</p>
 															<input
 																class="text-input-filled flex-1 text-sm"
 																bind:value={tool.overrideName}
@@ -582,7 +582,7 @@
 														</div>
 
 														<div class="flex flex-col gap-1">
-															<p class="text-xs text-gray-500">Description</p>
+															<p class="text-xs text-base-content/40">Description</p>
 															<textarea
 																class="text-input-filled h-24 resize-none text-xs"
 																bind:value={tool.overrideDescription}
@@ -614,7 +614,7 @@
 				</div>
 			{/each}
 		{:else}
-			<div class="text-on-surface1 text-sm">
+			<div class="text-base-content/40 text-sm">
 				Select one or more MCP servers to include in the composite server. Users will see this as a
 				single server with aggregated tools and resources.
 			</div>
@@ -631,7 +631,7 @@
 				toolsToEdit = [];
 				compositeToolsSetupDialog?.open();
 			}}
-			class="dark:bg-surface2 dark:border-surface3 dark:hover:bg-surface3 bg-background flex items-center justify-center gap-2 rounded-lg border border-gray-200 p-2 text-sm font-medium hover:bg-gray-50"
+			class="dark:bg-base-300 dark:border-base-400 dark:hover:bg-base-400 bg-base-100 flex items-center justify-center gap-2 rounded-lg border border-gray-200 p-2 text-sm font-medium hover:bg-gray-50"
 		>
 			<Plus class="size-4" />
 			Add MCP Server

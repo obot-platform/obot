@@ -47,7 +47,7 @@
 				<div class="flex grow flex-col gap-4">
 					<div class="flex flex-col gap-1">
 						<h4 class="text-lg font-semibold">Default User Role</h4>
-						<p class="text-on-surface1 text-sm font-light">
+						<p class="text-base-content/40 text-sm font-light">
 							Set the initial default role for all new users when they first log into the system.
 							User roles can be changed individually from the "Users" page.
 						</p>
@@ -65,7 +65,7 @@
 									/>
 									<div class="flex flex-col">
 										<p class="text-sm font-medium">{role.label}</p>
-										<p class="text-on-surface1 text-sm font-light">{role.description}</p>
+										<p class="text-base-content/40 text-sm font-light">{role.description}</p>
 									</div>
 								</label>
 							{/each}
@@ -79,19 +79,19 @@
 
 		{#if !isAdminReadonly}
 			<div
-				class="bg-surface1 dark:bg-background sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
+				class="bg-base-200 dark:bg-base-100 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
 			>
 				{#if showSaved}
 					<span
 						in:fade={{ duration: 200 }}
-						class="text-on-surface1 flex min-h-10 items-center px-4 text-sm font-extralight"
+						class="text-base-content/40 flex min-h-10 items-center px-4 text-sm font-extralight"
 					>
 						Your changes have been saved.
 					</span>
 				{/if}
 
 				<button
-					class="button hover:bg-surface3 flex items-center gap-1 bg-transparent"
+					class="button hover:bg-base-400 flex items-center gap-1 bg-transparent"
 					onclick={() => {
 						baseDefaultRole = prevBaseDefaultRole;
 					}}

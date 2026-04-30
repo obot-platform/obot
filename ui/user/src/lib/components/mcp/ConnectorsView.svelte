@@ -340,7 +340,7 @@
 				return 'isCatalogEntry' in d.data && d.data.needsUpdate
 					? 'bg-primary/10'
 					: matchingServers.some(requiresUserUpdate)
-						? 'bg-yellow-500/10'
+						? 'bg-warning/10'
 						: '';
 			}}
 		>
@@ -372,7 +372,7 @@
 								</span>
 							{:else if matchingServers.some(requiresUserUpdate)}
 								<span
-									class="text-yellow-500"
+									class="text-warning"
 									use:tooltip={{
 										text: 'Server requires an update.'
 									}}
@@ -420,7 +420,7 @@
 				{@const requiresOAuth =
 					catalogEntry?.manifest?.runtime === 'remote' &&
 					catalogEntry.manifest?.remoteConfig?.staticOAuthRequired}
-				<DotDotDot class="icon-button hover:dark:bg-background/50" classes={{ menu: 'p-0' }}>
+				<DotDotDot class="icon-button hover:dark:bg-base-100/50" classes={{ menu: 'p-0' }}>
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
 					{/snippet}
@@ -428,17 +428,17 @@
 					{#snippet children({ toggle })}
 						{#if hasConnectedOptions}
 							<div
-								class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+								class="bg-base-100 dark:bg-base-300 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
 							>
 								My Connection(s)
 							</div>
-							<div class="bg-surface1 flex flex-col gap-1 p-2">
+							<div class="bg-base-200 flex flex-col gap-1 p-2">
 								{#if !requiresOAuth || catalogEntry?.oauthCredentialConfigured}
 									{@render connectToServerAction(d.data, toggle)}
 								{/if}
 								{#if version.current.disableLegacyChat !== true}
 									<button
-										class="menu-button hover:bg-surface3"
+										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
 											e.stopPropagation();
 											if (catalogEntry) {
@@ -467,7 +467,7 @@
 
 								{#if matchingServers.length > 0 && catalogEntry}
 									<button
-										class="menu-button hover:bg-surface3"
+										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
 											e.stopPropagation();
 											if (matchingServers.length === 1) {
@@ -488,7 +488,7 @@
 
 								{#if matchingServers.length > 0 && catalogEntry}
 									<button
-										class="menu-button hover:bg-surface3"
+										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
 											e.stopPropagation();
 											if (matchingServers.length === 1) {
@@ -506,7 +506,7 @@
 
 								{#if matchingServers.length > 0 && catalogEntry}
 									<button
-										class="menu-button hover:bg-surface3"
+										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
 											e.stopPropagation();
 
@@ -524,7 +524,7 @@
 									</button>
 								{:else if matchingInstance}
 									<button
-										class="menu-button hover:bg-surface3"
+										class="menu-button hover:bg-base-400"
 										onclick={async (e) => {
 											e.stopPropagation();
 											await ChatService.deleteMcpServerInstance(matchingInstance.id);
@@ -545,7 +545,7 @@
 							{/if}
 							{#if requiresOAuth && catalogEntry}
 								<button
-									class="menu-button hover:bg-surface3"
+									class="menu-button hover:bg-base-400"
 									onclick={async (e) => {
 										e.stopPropagation();
 										await handleConfigureOAuth(catalogEntry);
@@ -597,8 +597,8 @@
 	{#if canConfigure}
 		<button
 			class={twMerge(
-				'menu-button hover:bg-surface3',
-				requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
+				'menu-button hover:bg-base-400',
+				requiresUpdate && 'bg-warning/10 text-warning hover:bg-warning/30'
 			)}
 			onclick={() => {
 				if (configuredServers.length === 1) {
@@ -618,7 +618,7 @@
 
 {#snippet renameCatalogEntryAction(d: MCPCatalogEntry, configuredServers: MCPCatalogServer[])}
 	<button
-		class="menu-button hover:bg-surface3"
+		class="menu-button hover:bg-base-400"
 		onclick={() => {
 			if (configuredServers.length === 1) {
 				editExistingDialog?.rename({
@@ -806,7 +806,7 @@
 />
 
 <ResponsiveDialog
-	class="bg-surface1 dark:bg-background"
+	class="bg-base-200 dark:bg-base-100"
 	bind:this={selectServerDialog}
 	title="Select Your Server"
 >
@@ -887,7 +887,7 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
-			<button class="icon-button hover:dark:bg-background/50">
+			<button class="icon-button hover:dark:bg-base-100/50">
 				<StepForward class="size-4" />
 			</button>
 		{/snippet}

@@ -108,12 +108,12 @@
 		style="scroll-behavior: smooth;"
 	>
 		{#each options as option (option.key)}
-			<li class="w-49 flex-shrink-0">
+			<li class="w-49 shrink-0">
 				<button
 					class={twMerge(
-						'dark:hover:bg-surface3 relative flex w-full items-center justify-center gap-1.5 rounded-t-xs border-b-2 border-transparent py-2 text-[13px] font-light transition-all duration-200 hover:bg-gray-50',
+						'dark:hover:bg-base-400 relative flex w-full items-center justify-center gap-1.5 rounded-t-xs border-b-2 border-transparent py-2 text-[13px] font-light transition-all duration-200 hover:bg-gray-50',
 						selected === option.key &&
-							'dark:bg-surface2 bg-background hover:bg-transparent dark:hover:bg-transparent'
+							'dark:bg-base-300 bg-base-100 hover:bg-transparent dark:hover:bg-transparent'
 					)}
 					onclick={() => {
 						handleSelectionChange(option.key);
@@ -122,7 +122,7 @@
 					<img
 						src={option.value.icon}
 						alt={option.value.label}
-						class="size-5 rounded-sm p-0.5 dark:bg-gray-600"
+						class="size-5 rounded-sm p-0.5 dark:bg-base-300"
 					/>
 					{option.value.label}
 
@@ -248,14 +248,14 @@ ${servers
 
 <style lang="postcss">
 	.snippet {
-		background-color: var(--surface1);
+		background-color: var(--color-base-200);
 		border-radius: 0.375rem;
 		padding: 0.125rem 0.5rem;
 		font-size: 13px;
 		font-weight: 300;
 
 		.dark & {
-			background-color: var(--surface3);
+			background-color: var(--color-base-400);
 		}
 	}
 	@keyframes slideOut {

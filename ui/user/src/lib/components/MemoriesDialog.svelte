@@ -203,7 +203,7 @@
 				></div>
 			</div>
 		{:else if memories.length === 0 && !preview}
-			<p in:fade class="text-on-surface1 pt-6 pb-3 text-center text-sm" class:text-xs={preview}>
+			<p in:fade class="text-base-content/40 pt-6 pb-3 text-center text-sm" class:text-xs={preview}>
 				No memories stored
 			</p>
 		{:else if !preview}
@@ -218,7 +218,7 @@
 					]}
 					data={memories}
 					classes={{
-						root: 'bg-surface1 dark:bg-background'
+						root: 'bg-base-200 dark:bg-base-100'
 					}}
 				>
 					{#snippet onRenderColumn(field, memory)}
@@ -237,7 +237,7 @@
 			<div class="flex w-full flex-col gap-4">
 				{#each memories as memory (memory.id)}
 					<div
-						class="text-md dark:bg-surface1 dark:border-surface3 bg-background flex items-center justify-between gap-4 rounded-md border border-transparent p-4 shadow-sm"
+						class="text-md dark:bg-base-200 dark:border-base-400 bg-base-100 flex items-center justify-between gap-4 rounded-md border border-transparent p-4 shadow-sm"
 					>
 						{#if editingMemoryId === memory.id}
 							<div class="flex w-full flex-col gap-4">
@@ -265,14 +265,11 @@
 							</p>
 						{/if}
 						{#if editingMemoryId !== memory.id}
-							<DotDotDot class="hover:text-on-background text-on-surface1  p-0">
+							<DotDotDot class="hover:text-base-content/40 text-base-content/40  p-0">
 								<button class="menu-button" onclick={() => startEdit(memory, true)}>
 									<Pencil class="size-4" /> Edit
 								</button>
-								<button
-									class="menu-button text-red-500"
-									onclick={() => (deleteMemoryId = memory.id)}
-								>
+								<button class="menu-button text-error" onclick={() => (deleteMemoryId = memory.id)}>
 									<Trash2 class="size-4" /> Delete
 								</button>
 							</DotDotDot>
@@ -288,7 +285,7 @@
 	{#if editingMemoryId === memory.id && preview === editingPreview}
 		<textarea
 			bind:value={editContent}
-			class="text-input-filled border-surface1 bg-background min-h-[80px] w-full resize-none border"
+			class="text-input-filled border-base-400 bg-base-100 min-h-[80px] w-full resize-none border"
 			rows="3"
 		></textarea>
 	{:else}
@@ -301,14 +298,14 @@
 {#snippet options(memory: Memory, inline: boolean)}
 	{#if editingMemoryId === memory.id && inline === editingPreview}
 		<button
-			class={twMerge('icon-button text-green-500', inline && 'min-h-auto min-w-auto p-1.5')}
+			class={twMerge('icon-button text-success', inline && 'min-h-auto min-w-auto p-1.5')}
 			onclick={saveEdit}
 			use:tooltip={'Save changes'}
 		>
 			<Check class="size-4" />
 		</button>
 		<button
-			class={twMerge('icon-button text-red-500', inline && 'min-h-auto min-w-auto p-1.5')}
+			class={twMerge('icon-button text-error', inline && 'min-h-auto min-w-auto p-1.5')}
 			onclick={cancelEdit}
 			use:tooltip={'Cancel'}
 		>
@@ -378,12 +375,12 @@
 
 	:global(.dark) .memory {
 		color: white;
-		background-color: var(--color-surface2);
+		background-color: var(--color-base-300);
 	}
 
 	:global(.dark) .memory::before,
 	:global(.dark) .memory::after {
-		background-color: var(--color-surface2);
+		background-color: var(--color-base-300);
 	}
 
 	.memory::before {

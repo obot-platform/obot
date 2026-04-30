@@ -83,7 +83,7 @@
 {#if current}
 	{@const dropdown = popover({ placement: 'bottom-end' })}
 	<div
-		class="bg-surface1 text-on-background mb-2 w-full max-w-[900px] overflow-hidden rounded-xl px-5 shadow-lg"
+		class="bg-base-200 text-base-content mb-2 w-full max-w-[900px] overflow-hidden rounded-xl px-5 shadow-lg"
 	>
 		{#key current.confirm.id}
 			<div class="flex min-h-[48px] items-center gap-3 px-4 py-2.5">
@@ -92,7 +92,7 @@
 
 					{#if current.confirm.input}
 						<button
-							class="text-on-surface1 hover:text-on-background flex items-center gap-1 text-xs"
+							class="text-base-content/40 hover:text-base-content flex items-center gap-1 text-xs"
 							onclick={() => (isExpanded = !isExpanded)}
 						>
 							{#if isExpanded}Hide details{:else}Show details{/if}
@@ -100,22 +100,22 @@
 					{/if}
 
 					{#if isSubmitted}
-						<LoaderCircle class="text-on-surface1 size-5 animate-spin" />
+						<LoaderCircle class="text-base-content/40 size-5 animate-spin" />
 					{/if}
 				</div>
 
-				<div class="flex flex-shrink-0 items-center gap-2">
+				<div class="flex shrink-0 items-center gap-2">
 					{#if !isSubmitted}
 						<button
-							class="text-on-surface1 hover:bg-surface2 hover:text-on-background rounded px-3 py-1 text-xs transition-colors"
+							class="text-base-content/40 hover:bg-base-300 hover:text-base-content rounded px-3 py-1 text-xs transition-colors"
 							onclick={() => handleConfirm(current.confirm, 'deny')}
 						>
 							Deny
 						</button>
 
-						<div class="bg-surface2 border-surface2 flex rounded-lg border">
+						<div class="bg-base-300 border-base-300 flex rounded-lg border">
 							<button
-								class="text-on-background hover:bg-surface3 border-surface3 flex flex-1 items-center justify-center gap-1 rounded-l-lg rounded-r-none border-r px-3 py-1 text-xs transition-colors hover:opacity-80"
+								class="text-base-content/40 hover:bg-base-400 border-base-400 flex flex-1 items-center justify-center gap-1 rounded-l-lg rounded-r-none border-r px-3 py-1 text-xs transition-colors hover:opacity-80"
 								onclick={() => handleConfirm(current.confirm, 'approve')}
 							>
 								Allow
@@ -123,19 +123,19 @@
 
 							<button
 								use:dropdown.ref
-								class="hover:bg-surface3 flex items-center justify-center rounded-l-none rounded-r-lg px-2 py-1 transition-colors hover:opacity-80"
+								class="hover:bg-base-400 flex items-center justify-center rounded-l-none rounded-r-lg px-2 py-1 transition-colors hover:opacity-80"
 								onclick={() => dropdown.toggle()}
 							>
-								<ChevronDown class="text-on-background size-3" />
+								<ChevronDown class="text-base-content size-3" />
 							</button>
 						</div>
 
 						<div
 							use:dropdown.tooltip
-							class="bg-surface2 border-surface3 z-50 flex min-w-[180px] flex-col rounded-lg border py-1 shadow-xl"
+							class="bg-base-300 border-base-400 z-50 flex min-w-[180px] flex-col rounded-lg border py-1 shadow-xl"
 						>
 							<button
-								class="text-on-background hover:bg-surface3 px-3 py-1.5 text-left text-xs transition-colors"
+								class="text-base-content hover:bg-base-400 px-3 py-1.5 text-left text-xs transition-colors"
 								onclick={() => {
 									dropdown.toggle(false);
 									handleConfirm(current.confirm, 'approve_thread', current.confirm.toolName);
@@ -146,7 +146,7 @@
 
 							{#if current.serverPrefix}
 								<button
-									class="text-on-background hover:bg-surface3 px-3 py-1.5 text-left text-xs transition-colors"
+									class="text-base-content hover:bg-base-400 px-3 py-1.5 text-left text-xs transition-colors"
 									onclick={() => {
 										dropdown.toggle(false);
 										handleConfirm(current.confirm, 'approve_thread', current.serverPrefix + '*');
@@ -157,7 +157,7 @@
 							{/if}
 
 							<button
-								class="text-on-background hover:bg-surface3 px-3 py-1.5 text-left text-xs transition-colors"
+								class="text-base-content hover:bg-base-400 px-3 py-1.5 text-left text-xs transition-colors"
 								onclick={() => {
 									dropdown.toggle(false);
 									handleConfirm(current.confirm, 'approve_thread', '*');
@@ -171,8 +171,8 @@
 			</div>
 
 			{#if isExpanded && current.confirm.input}
-				<div class="border-surface2 border-t px-4 py-3" transition:slide={{ duration: 150 }}>
-					<pre class="bg-background text-on-background max-h-48 overflow-auto rounded p-3 text-xs">
+				<div class="border-base-300 border-t px-4 py-3" transition:slide={{ duration: 150 }}>
+					<pre class="bg-base-200 text-base-content max-h-48 overflow-auto rounded p-3 text-xs">
 {formatJson(current.confirm.input)}</pre>
 				</div>
 			{/if}

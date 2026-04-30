@@ -153,20 +153,20 @@
 	}
 </script>
 
-<Layout classes={{ navbar: 'bg-surface1' }} title="Skills">
+<Layout classes={{ navbar: 'bg-base-200' }} title="Skills">
 	<div class="flex min-h-full flex-col gap-8">
 		<div class="flex min-h-full flex-col">
-			<div class="bg-surface1 dark:bg-background sticky top-16 left-0 z-20 w-full py-1">
+			<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
 				<div class="mb-2">
 					<Search
-						class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+						class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 						value={query}
 						onChange={updateSearchQuery}
 						placeholder={view == 'skills' ? 'Search skills...' : 'Search sources...'}
 					/>
 				</div>
 			</div>
-			<div class="dark:bg-surface2 bg-background rounded-t-md shadow-sm">
+			<div class="dark:bg-base-300 bg-base-100 rounded-t-md shadow-sm">
 				<div class="flex">
 					<button
 						class={twMerge('page-tab max-w-1/2', view === 'skills' && 'page-tab-active')}
@@ -254,7 +254,7 @@
 							{d.displayName}
 							{#if d.validationError}
 								<div use:tooltip={{ text: d.validationError }}>
-									<TriangleAlert class="size-3 text-yellow-500" />
+									<TriangleAlert class="size-3 text-warning" />
 								</div>
 							{/if}
 						</span>
@@ -272,9 +272,9 @@
 			</Table>
 		{:else}
 			<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-				<PencilRuler class="text-surface3 size-24" />
-				<h4 class="text-on-surface1 text-lg font-semibold">No current skills.</h4>
-				<p class="text-on-surface1 text-sm font-light">
+				<PencilRuler class="text-base-content/80 size-24" />
+				<h4 class="text-base-content/40 text-lg font-semibold">No current skills.</h4>
+				<p class="text-base-content/40 text-sm font-light">
 					Once a Git Source URL has been added, the skills <br />
 					discovered will be viewable from here.
 				</p>
@@ -302,7 +302,7 @@
 				noDataMessage="No Git Source URLs added."
 				setRowClasses={(d) => {
 					if (d.syncError) {
-						return 'bg-yellow-500/10';
+						return 'bg-warning/10';
 					}
 					return '';
 				}}
@@ -314,7 +314,7 @@
 				{#snippet actions(d)}
 					{#if !isAdminReadonly}
 						<button
-							class="icon-button hover:text-red-500"
+							class="icon-button hover:text-error"
 							onclick={(e) => {
 								e.stopPropagation();
 								deletingSources = [d];
@@ -343,7 +343,7 @@
 										classes: ['break-words']
 									}}
 								>
-									<TriangleAlert class="size-4 text-yellow-500" />
+									<TriangleAlert class="size-4 text-warning" />
 								</button>
 							{/if}
 						</div>
@@ -382,9 +382,9 @@
 			</Table>
 		{:else}
 			<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-				<PencilRuler class="text-surface3 size-24" />
-				<h4 class="text-on-surface1 text-lg font-semibold">No current Git Source URLs.</h4>
-				<p class="text-on-surface1 text-sm font-light">
+				<PencilRuler class="text-base-content/80 size-24" />
+				<h4 class="text-base-content/40 text-lg font-semibold">No current Git Source URLs.</h4>
+				<p class="text-base-content/40 text-sm font-light">
 					Once a Git Source URL has been added, its <br />
 					information will be quickly accessible here.
 				</p>
@@ -439,7 +439,7 @@
 	<div class="mb-4 flex flex-col gap-4">
 		<div class="notification-alert flex flex-col gap-2">
 			<div class="flex items-center gap-2">
-				<TriangleAlert class="size-6 flex-shrink-0 self-start text-yellow-500" />
+				<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 				<p class="my-0.5 flex flex-col text-sm font-semibold">
 					An issue occurred fetching this source URL:
 				</p>
@@ -485,16 +485,16 @@
 						>Reference
 					</label>
 					<input id="catalog-source-ref" bind:value={editingSource.ref} class="text-input-filled" />
-					<span class="text-on-surface1 text-xs"
+					<span class="text-base-content/40 text-xs"
 						>The branch, commit SHA, or tag to index and pull skills from.</span
 					>
 				</div>
 			</div>
 
 			{#if sourceError}
-				<div class="mb-4 flex flex-col gap-2 text-red-500 dark:text-red-400">
+				<div class="mb-4 flex flex-col gap-2 text-error">
 					<div class="flex items-center gap-2">
-						<TriangleAlert class="size-6 flex-shrink-0 self-start" />
+						<TriangleAlert class="size-6 shrink-0 self-start" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">Error adding source URL:</p>
 					</div>
 					<span class="font-sm font-light break-all">{sourceError}</span>

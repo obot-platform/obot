@@ -83,7 +83,7 @@
 	<div class="flex items-center justify-between">
 		<p class="text-md grow font-medium">Tasks</p>
 		<button
-			class="hover:text-on-background text-on-surface1 p-2 transition-colors duration-200"
+			class="hover:text-base-content text-base-content/40 p-2 transition-colors duration-200"
 			onclick={() => newTask()}
 			use:tooltip={'Start New Task'}
 		>

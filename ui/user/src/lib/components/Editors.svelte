@@ -122,7 +122,7 @@
 </div>
 
 {#snippet fileHeader(name?: string)}
-	<h4 class="text-on-surface1 flex items-center gap-1 px-2 text-base font-semibold">
+	<h4 class="text-base-content/40 flex items-center gap-1 px-2 text-base font-semibold">
 		{name}
 		{#if isMdFile}
 			<button

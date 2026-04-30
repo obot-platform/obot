@@ -125,10 +125,10 @@
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 >
 	<h4 class="text-sm font-semibold">Containerized Runtime Configuration</h4>
-	<p class="text-on-surface1 text-xs">Only Streamable HTTP and SSE servers are supported.</p>
+	<p class="text-base-content/40 text-xs">Only Streamable HTTP and SSE servers are supported.</p>
 
 	<!-- Image field (required) -->
 	<div class="flex items-center gap-4">
@@ -138,7 +138,7 @@
 		>
 		<input
 			id="containerized-image"
-			class={twMerge('text-input-filled dark:bg-background w-full', showRequired?.image && 'error')}
+			class={twMerge('text-input-filled dark:bg-base-100 w-full', showRequired?.image && 'error')}
 			bind:value={config.image}
 			disabled={readonly}
 			placeholder="e.g. docker.io/myorg/mcp-server:latest"
@@ -163,7 +163,7 @@
 		<input
 			id="containerized-port"
 			type="number"
-			class={twMerge('text-input-filled dark:bg-background w-full', showRequired?.port && 'error')}
+			class={twMerge('text-input-filled dark:bg-base-100 w-full', showRequired?.port && 'error')}
 			value={config.port > 0 ? config.port : ''}
 			disabled={readonly}
 			placeholder="e.g. 8080"
@@ -185,7 +185,7 @@
 		>
 		<input
 			id="containerized-path"
-			class={twMerge('text-input-filled dark:bg-background w-full', showRequired?.path && 'error')}
+			class={twMerge('text-input-filled dark:bg-base-100 w-full', showRequired?.path && 'error')}
 			bind:value={config.path}
 			disabled={readonly}
 			placeholder="e.g. /mcp"
@@ -206,7 +206,7 @@
 		<label for="containerized-command" class="w-20 text-sm font-light">Command</label>
 		<input
 			id="containerized-command"
-			class="text-input-filled dark:bg-background w-full"
+			class="text-input-filled dark:bg-base-100 w-full"
 			bind:value={config.command}
 			disabled={readonly}
 			placeholder="e.g. node server.js"
@@ -226,7 +226,7 @@
 				{#each config.args as _arg, i (i)}
 					<div class="flex items-center gap-2">
 						<input
-							class="text-input-filled dark:bg-background w-full"
+							class="text-input-filled dark:bg-base-100 w-full"
 							bind:value={config.args[i]}
 							disabled={readonly}
 							placeholder="e.g. --config /app/config.json"

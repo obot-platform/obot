@@ -102,7 +102,7 @@
 <div class="h-svh">
 	{#if project}
 		{#key project.id}
-			<div class="bg-surface1 flex size-full flex-col">
+			<div class="bg-base-200 flex size-full flex-col">
 				<div class="flex grow overflow-auto">
 					<div class="contents h-full grow border-r-0">
 						<div class="size-full overflow-clip rounded-none transition-all">

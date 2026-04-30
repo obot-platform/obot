@@ -26,17 +26,8 @@
 	<div class="mt-5 flex flex-col gap-3">
 		<h2 class="self-center text-xl">Surfaces</h2>
 		<div class="colors grid grid-cols-4 gap-4">
-			<div class="bg-background text-on-background">
+			<div class="bg-base-100 text-base-content">
 				<span>background</span>
-			</div>
-			<div class="bg-surface1 text-on-surface1">
-				<span>surface1</span>
-			</div>
-			<div class="bg-surface2 text-on-surface2">
-				<span>surface2</span>
-			</div>
-			<div class="bg-surface3 text-on-surface3">
-				<span>surface3</span>
 			</div>
 		</div>
 	</div>

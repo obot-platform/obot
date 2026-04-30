@@ -48,9 +48,9 @@
 			referrerpolicy="no-referrer"
 		/>
 	{:else if profile.current.isBootstrapUser?.()}
-		<ShieldUser class="text-on-surface1 size-8 rounded-full" />
+		<ShieldUser class="text-base-content/40 size-8 rounded-full" />
 	{:else}
-		<div class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-600 text-white">
+		<div class="flex h-8 w-8 items-center justify-center rounded-full bg-base-300 text-white">
 			{initials}
 		</div>
 	{/if}

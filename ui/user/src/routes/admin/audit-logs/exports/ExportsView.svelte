@@ -129,9 +129,9 @@
 		</div>
 	{:else if exports.length === 0}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<FileArchive class="text-surface3 size-24 opacity-25" />
-			<h4 class="text-on-surface1 text-lg font-semibold">No exports found.</h4>
-			<p class="text-on-surface1 text-sm font-light">
+			<FileArchive class="text-base-content/80 size-24 opacity-25" />
+			<h4 class="text-base-content/40 text-lg font-semibold">No exports found.</h4>
+			<p class="text-base-content/40 text-sm font-light">
 				Create your first audit log export to get started.
 			</p>
 		</div>
@@ -158,9 +158,9 @@
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
-					<div class="flex flex-shrink-0 items-center gap-2">
+					<div class="flex shrink-0 items-center gap-2">
 						<div
-							class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
+							class="bg-base-200 flex items-center justify-center rounded-sm p-0.5 dark:bg-base-300"
 						>
 							<FileArchive class="size-6" />
 						</div>
@@ -176,7 +176,7 @@
 						{#if d.state === 'failed' && d.error}
 							<button
 								type="button"
-								class="text-red-500 transition-colors hover:text-red-600"
+								class="text-error transition-colors hover:text-error"
 								use:tooltip={{
 									text: d.error,
 									placement: 'top',
@@ -184,8 +184,8 @@
 										'max-w-80',
 										'break-words',
 										'whitespace-pre-wrap',
-										'bg-background',
-										'text-gray-900',
+										'bg-base-100',
+										'text-base-content',
 										'border',
 										'shadow-lg'
 									]

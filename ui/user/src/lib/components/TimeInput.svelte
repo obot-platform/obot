@@ -144,7 +144,7 @@
 	}
 </script>
 
-<div class={twMerge('time-input bg-surface1 flex h-14 items-center gap-2 rounded-md', klass)}>
+<div class={twMerge('time-input bg-base-200 flex h-14 items-center gap-2 rounded-md', klass)}>
 	<div class="flex h-full flex-1 text-xl">
 		<input
 			class="w-[3ch] flex-1 bg-transparent px-4 text-end"
@@ -221,7 +221,7 @@
 		<div class="flex h-full flex-col gap-1 p-1 text-xs">
 			<button
 				class={twMerge(
-					'bg-surface3/30 flex-1 rounded-sm px-1',
+					'bg-base-400/30 flex-1 rounded-sm px-1',
 					isAm && 'bg-primary/10 border-primary/50 text-primary'
 				)}
 				onclick={() => {
@@ -233,7 +233,7 @@
 
 			<button
 				class={twMerge(
-					'bg-surface3/30 flex-1 rounded-sm px-1',
+					'bg-base-400/30 flex-1 rounded-sm px-1',
 					!isAm && 'text-primary bg-primary/10'
 				)}
 				onclick={() => {

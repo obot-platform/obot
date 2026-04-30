@@ -262,7 +262,7 @@
 	as="li"
 	class={twMerge(
 		'w-full gap-2 rounded-md',
-		toDelete && 'bg-surface1 dark:bg-surface2',
+		toDelete && 'bg-base-200 dark:bg-base-300',
 		isTaskRunning &&
 			((index > 0 && !isRunning) || (index === 0 && messages.length && !isRunning)) &&
 			'opacity-50'
@@ -281,7 +281,7 @@
 					use:autoHeight
 					id={'step' + step.id}
 					value={step.step}
-					class="ghost-input border-surface2 ml-1 grow resize-none"
+					class="ghost-input border-base-300 ml-1 grow resize-none"
 					readonly={readOnly}
 					oninput={(ev) => {
 						const value = (ev.target as HTMLInputElement).value;
@@ -393,7 +393,7 @@
 							}
 							class={twMerge(
 								'rounded-md',
-								loopStepToDeleteIndex === i && 'bg-surface1 dark:bg-surface2'
+								loopStepToDeleteIndex === i && 'bg-base-200 dark:bg-base-300'
 							)}
 							{project}
 							messages={stepMessages}
@@ -427,7 +427,7 @@
 				{@const shouldShowOutline = isRunning || (isTaskRunning && !messages.length && index === 0)}
 
 				<div
-					class="transition-height bg-background relative my-3 -ml-4 box-content flex min-h-6 flex-col gap-4 overflow-hidden rounded-lg p-5"
+					class="transition-height bg-base-100 relative my-3 -ml-4 box-content flex min-h-6 flex-col gap-4 overflow-hidden rounded-lg p-5"
 					class:outline-2={shouldShowOutline}
 					class:outline-primary={shouldShowOutline}
 					transition:slide={{
@@ -483,7 +483,7 @@
 							{@const messages = iteration ?? []}
 
 							<div
-								class="iteration border-surface2 -ml-4 flex flex-col rounded-lg border pt-4"
+								class="iteration border-base-300 -ml-4 flex flex-col rounded-lg border pt-4"
 								in:fade|global={{ duration: 200 }}
 								out:fade={{ duration: 0 }}
 							>
@@ -500,7 +500,7 @@
 										{@const stepMessages = messages[j] ?? []}
 
 										<LoopStep
-											class="border-surface2 border-b pr-4 last:border-none"
+											class="border-base-300 border-b pr-4 last:border-none"
 											value={step.loop![j]}
 											{project}
 											messages={stepMessages}

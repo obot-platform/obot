@@ -15,14 +15,6 @@
 		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
 
 	--color-*: initial;
-	--color-background: var(--background);
-	--color-on-background: var(--on-background);
-	--color-surface1: var(--surface1);
-	--color-on-surface1: var(--on-surface1);
-	--color-surface2: var(--surface2);
-	--color-on-surface2: var(--on-surface2);
-	--color-surface3: var(--surface3);
-	--color-on-surface3: var(--on-surface3);
 	--color-transparent: transparent;
 	--color-current: currentColor;
 
@@ -229,27 +221,27 @@
 	}
 
 	body {
-		background-color: var(--background);
-		color: var(--on-background);
+		background-color: var(--color-base-100);
+		color: var(--color-base-content);
 	}
 
 	textarea,
 	input {
 		accent-color: var(--color-primary);
-		background-color: var(--background);
-		color: var(--on-background);
+		background-color: var(--color-base-100);
+		color: var(--color-base-content);
 		color-scheme: light;
 
 		&:disabled {
-			color: var(--color-gray-300);
+			color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 		}
 
 		.dark &:disabled {
-			color: var(--color-gray-500);
+			color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 		}
 
 		&::placeholder {
-			color: var(--color-gray-400);
+			color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 		}
 
 		.dark & {
@@ -257,13 +249,13 @@
 		}
 
 		.dark &::placeholder {
-			color: var(--color-gray-600);
+			color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 		}
 	}
 
 	blockquote {
 		border-left-width: 2px;
-		border-color: var(--color-gray-200);
+		border-color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
 		padding-left: 1rem;
 		/* pl-4 */
 		font-style: italic;
@@ -457,18 +449,14 @@
 	}
 
 	.icon-button-colors {
-		color: var(--color-gray-500);
+		color: var(--color-secondary);
 
 		&:hover {
-			background-color: var(--surface3);
+			background-color: var(--color-base-400);
 		}
 
 		&:focus {
 			outline: none;
-		}
-
-		.dark & {
-			color: var(--color-gray-400);
 		}
 	}
 
@@ -488,18 +476,14 @@
 		/* text-sm */
 		transition-property: all;
 		transition-duration: 200ms;
-		color: var(--color-gray-500);
+		color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 
 		&:hover {
-			background-color: var(--surface3);
+			background-color: var(--color-base-500);
 		}
 
 		&:focus {
 			outline: none;
-		}
-
-		.dark & {
-			color: var(--color-gray-400);
 		}
 
 		&:disabled {
@@ -527,18 +511,14 @@
 		/* text-sm */
 		transition-property: all;
 		transition-duration: 200ms;
-		color: var(--color-gray-500);
+		color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 
 		&:hover {
-			background-color: var(--surface3);
+			background-color: var(--color-base-400);
 		}
 
 		&:focus {
 			outline: none;
-		}
-
-		.dark & {
-			color: var(--color-gray-400);
 		}
 
 		&:disabled {
@@ -566,18 +546,14 @@
 		/* text-sm */
 		transition-property: all;
 		transition-duration: 200ms;
-		color: var(--color-gray-500);
+		color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 
 		&:hover {
-			background-color: var(--surface3);
+			background-color: var(--color-base-400);
 		}
 
 		&:focus {
 			outline: none;
-		}
-
-		.dark & {
-			color: var(--color-gray-400);
 		}
 	}
 
@@ -589,16 +565,11 @@
 	}
 
 	.button-colors {
-		background-color: var(--surface3);
+		background-color: var(--color-base-300);
 		border-width: 0;
 
 		&:hover {
-			background-color: rgb(229 231 235 / 0.5);
-			/* bg-gray-200/50 */
-		}
-
-		.dark &:hover {
-			background-color: var(--color-gray-700);
+			background-color: var(--color-base-400);
 		}
 	}
 
@@ -606,19 +577,19 @@
 		border-radius: 1.5rem;
 		border-width: 2px;
 		padding: 0.5rem 1.25rem;
-		background-color: var(--surface3);
-		border-color: var(--surface3);
+		background-color: var(--color-base-400);
+		border-color: var(--color-base-400);
 		transition-property: all;
 		transition-duration: 200ms;
 
 		&:hover {
-			background-color: color-mix(in oklab, var(--surface3) 90%, var(--color-black));
-			border-color: color-mix(in oklab, var(--surface3) 90%, var(--color-black));
+			background-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-black));
+			border-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-black));
 		}
 
 		.dark &:hover {
-			background-color: color-mix(in oklab, var(--surface3) 90%, var(--color-white));
-			border-color: color-mix(in oklab, var(--surface3) 90%, var(--color-white));
+			background-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-white));
+			border-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-white));
 		}
 
 		&:disabled {
@@ -626,8 +597,8 @@
 		}
 
 		&:disabled:hover {
-			background-color: var(--surface3);
-			border-color: var(--surface3);
+			background-color: var(--color-base-400);
+			border-color: var(--color-base-400);
 		}
 	}
 
@@ -641,18 +612,18 @@
 
 		border-radius: 1.5rem;
 		padding: 0.5rem 1.25rem;
-		background-color: var(--surface3);
+		background-color: var(--color-base-400);
 		border-width: 0;
 		transition-property: color, background-color;
 		transition-duration: 200ms;
 
 		&:hover {
-			background-color: color-mix(in oklab, var(--surface3) 90%, var(--color-black));
-			border-color: color-mix(in oklab, var(--surface3) 90%, var(--color-black));
+			background-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-black));
+			border-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-black));
 		}
 
 		.dark &:hover {
-			background-color: color-mix(in oklab, var(--surface3) 90%, var(--color-white));
+			background-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-white));
 		}
 	}
 
@@ -663,22 +634,13 @@
 		/* border-2 */
 		padding: 0.5rem 1.25rem;
 		/* px-5 py-2 */
-		border-color: var(--color-gray-100);
+		border-color: var(--color-base-200);
 		transition-property: all;
 		transition-duration: 300ms;
 
 		&:hover {
-			border-color: var(--color-gray-200);
-			background-color: var(--color-gray-200);
-		}
-
-		.dark & {
-			border-color: var(--color-gray-900);
-		}
-
-		.dark &:hover {
-			border-color: var(--color-gray-800);
-			background-color: var(--color-gray-800);
+			border-color: var(--color-base-300);
+			background-color: var(--color-base-300);
 		}
 	}
 
@@ -691,16 +653,12 @@
 		/* px-5 py-2 */
 		border-color: var(--color-primary);
 		background-color: var(--color-primary);
-		color: white;
+		color: var(--color-primary-content);
 		transition-property: all;
 		transition-duration: 300ms;
 
 		&:hover {
-			border-color: color-mix(in oklab, var(--color-primary) 75%, var(--color-background));
-		}
-
-		.dark & {
-			color: var(--color-gray-50);
+			border-color: color-mix(in oklab, var(--color-primary) 75%, var(--color-base-100));
 		}
 
 		&:disabled {
@@ -722,11 +680,11 @@
 		/* rounded-full */
 		padding: 0.5rem;
 		/* p-2 */
-		color: var(--color-gray);
+		color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 
 		&:hover {
 			color: var(--color-primary);
-			background-color: var(--color-gray-100);
+			background-color: color-mix(in oklab, var(--color-base-200) 70%, transparent);
 		}
 
 		&:focus {
@@ -734,17 +692,17 @@
 		}
 
 		.dark &:hover {
-			background-color: var(--color-gray-950);
+			background-color: color-mix(in oklab, var(--color-base-content) 10%, transparent);
 		}
 
 		&:disabled:hover {
-			color: var(--color-gray);
+			color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 			background-color: transparent;
 		}
 	}
 
 	.button-text {
-		color: var(--color-gray);
+		color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 		width: fit-content;
 		justify-content: flex-start;
 		padding: 1rem;
@@ -772,18 +730,16 @@
 		align-items: center;
 		gap: 0.25rem;
 		border-radius: 9999px;
-		background-color: rgb(239 68 68 / 0.2);
-		/* bg-red-500/20 */
+		background-color: color-mix(in oklab, var(--color-error) 20%, transparent);
 		padding: 1rem 1rem;
-		/* px-4 py-2 */
 		font-size: 0.875rem;
-		color: var(--color-red-500);
+		color: var(--color-error);
 		transition-property: all;
 		transition-duration: 200ms;
 
 		&:hover {
-			background-color: var(--color-red-500);
-			color: white;
+			background-color: var(--color-error);
+			color: var(--color-error-content);
 		}
 
 		&:disabled {
@@ -807,20 +763,20 @@
 		/* text-lg */
 		font-weight: 600;
 		/* font-semibold */
-		background-color: var(--surface1);
+		background-color: var(--color-base-200);
 		transition-property: background-color;
 		transition-duration: 200ms;
 
 		&:hover {
-			background-color: var(--surface2);
+			background-color: var(--color-base-300);
 		}
 
 		.dark & {
-			background-color: var(--surface1);
+			background-color: var(--color-base-200);
 		}
 
 		.dark &:hover {
-			background-color: var(--surface3);
+			background-color: var(--color-base-400);
 		}
 	}
 
@@ -830,7 +786,7 @@
 		justify-content: center;
 		border-radius: 9999px;
 		/* rounded-full */
-		color: var(--color-gray);
+		color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 		padding: 0;
 
 		&:focus {
@@ -838,8 +794,7 @@
 		}
 
 		.dark &:hover {
-			background-color: rgb(55 65 81 / 0.3);
-			/* bg-gray-700/30 */
+			background-color: color-mix(in oklab, var(--color-base-400) 30%, transparent);
 		}
 
 		&:hover {
@@ -864,11 +819,11 @@
 		transition-duration: var(--tw-duration, var(--default-transition-duration));
 
 		&:hover {
-			background-color: color-mix(in oklab, var(--color-surface1) 50%, transparent);
+			background-color: color-mix(in oklab, var(--color-base-200) 50%, transparent);
 		}
 
 		.dark &:hover {
-			background-color: color-mix(in oklab, var(--color-surface3) 50%, transparent);
+			background-color: color-mix(in oklab, var(--color-base-400) 50%, transparent);
 		}
 
 		@media (max-width: 768px) {
@@ -881,7 +836,7 @@
 	}
 
 	label.error {
-		color: var(--color-red-500);
+		color: var(--color-error);
 	}
 
 	.text-input-filled,
@@ -889,7 +844,7 @@
 		width: 100%;
 		border-radius: 0.5rem;
 		border: 1px solid transparent;
-		background-color: var(--surface1);
+		background-color: var(--color-base-200);
 		padding: 0.5rem;
 		outline: none;
 		--tw-shadow: inset 0 2px 4px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.05));
@@ -904,16 +859,16 @@
 		}
 
 		.dark & {
-			background-color: var(--surface1);
-			border: 1px solid var(--surface3);
+			background-color: var(--color-base-200);
+			border: 1px solid var(--color-base-400);
 		}
 
 		&.error {
 			/* important to override default styles & precedence over dark mode */
-			border: 1px solid var(--color-red-500) !important;
-			background-color: rgb(239 68 68 / 0.2) !important;
-			color: var(--color-red-500) !important;
-			--tw-ring-color: var(--color-red-500);
+			border: 1px solid var(--color-error) !important;
+			background-color: color-mix(in oklab, var(--color-error) 20%, transparent) !important;
+			color: var(--color-error) !important;
+			--tw-ring-color: var(--color-error);
 
 			&:focus-within {
 				--tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(1px + var(--tw-ring-offset-width))
@@ -925,7 +880,7 @@
 	}
 
 	.input-description {
-		color: var(--color-gray-500);
+		color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 		font-size: var(--text-xs);
 		line-height: var(--text-xs--line-height);
 	}
@@ -939,7 +894,7 @@
 	.text-input,
 	.input-text {
 		border-bottom-width: 1px;
-		border-color: var(--surface3);
+		border-color: var(--color-base-400);
 		background-color: transparent;
 		padding-top: 0.5rem;
 		padding-bottom: 0.5rem;
@@ -956,11 +911,11 @@
 	.default-scrollbar-thin {
 		overflow: auto;
 		scrollbar-width: thin;
-		scrollbar-color: var(--surface3) var(--surface2);
+		scrollbar-color: var(--color-base-400) var(--color-base-300);
 	}
 
 	.default-scrollbar {
-		scrollbar-color: var(--surface3) var(--surface1);
+		scrollbar-color: var(--color-base-400) var(--color-base-200);
 	}
 
 	.scrollbar-stable-gutter {
@@ -1010,7 +965,7 @@
 		position: relative;
 
 		&.mobile {
-			border-color: var(--surface3);
+			border-color: var(--color-base-400);
 			width: 100%;
 			border-bottom-width: 1px;
 			min-height: 3.5rem;
@@ -1024,10 +979,10 @@
 	.dialog-container {
 		border-radius: var(--radius-xl);
 		border-width: 1px;
-		border-color: var(--surface3);
-		background-color: var(--background);
+		border-color: var(--color-base-400);
+		background-color: var(--color-base-100);
 		font-size: 0.875rem;
-		color: var(--on-background);
+		color: var(--color-base-content);
 		box-shadow: var(--shadow-lg);
 		grid-row-start: 1;
 		grid-column-start: 1;
@@ -1036,7 +991,7 @@
 		max-height: 100dvh;
 
 		.dark & {
-			background-color: var(--surface2);
+			background-color: var(--color-base-300);
 		}
 
 		&.mobile {
@@ -1066,19 +1021,15 @@
 		padding: 0.625rem;
 		transition-property: all;
 		transition-duration: 200ms;
-		color: var(--color-gray-500);
+		color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 		border-radius: 9999px;
 
 		&:hover {
-			background-color: var(--surface3);
+			background-color: var(--color-base-400);
 		}
 
 		&:focus {
 			outline: none;
-		}
-
-		.dark & {
-			color: var(--color-gray-400);
 		}
 
 		.mobile & {
@@ -1097,10 +1048,10 @@
 	.popover {
 		border-radius: var(--radius-xl);
 		border-width: 1px;
-		border-color: var(--surface3);
-		background-color: var(--background);
+		border-color: var(--color-base-400);
+		background-color: var(--color-base-100);
 		font-size: 0.875rem;
-		color: var(--on-background);
+		color: var(--color-base-content);
 		box-shadow: var(--shadow-lg);
 		grid-row-start: 1;
 		grid-column-start: 1;
@@ -1108,7 +1059,7 @@
 		overflow-y: auto;
 
 		.dark & {
-			background-color: var(--surface2);
+			background-color: var(--color-base-300);
 		}
 	}
 
@@ -1134,7 +1085,7 @@
 		padding: 0.5rem;
 	}
 	.dropdown-link:hover {
-		background-color: var(--surface3);
+		background-color: var(--color-base-400);
 	}
 
 	.drawer-legacy[popover] {
@@ -1151,7 +1102,7 @@
 		border-radius: 0;
 		border-width: 0;
 		outline: none;
-		background-color: var(--background);
+		background-color: var(--color-base-100);
 		box-shadow: var(--shadow-lg);
 		transition:
 			transform 0.2s ease-out,
@@ -1160,8 +1111,8 @@
 			display 0.2s ease-out allow-discrete;
 
 		.dark & {
-			background-color: var(--surface1);
-			border-color: var(--surface1);
+			background-color: var(--color-base-200);
+			border-color: var(--color-base-200);
 		}
 	}
 
@@ -1182,6 +1133,9 @@
 		}
 	}
 
+	/**
+	remove these 
+	**/
 	.colors-background {
 		background-color: var(--background);
 		color: var(--on-background);
@@ -1198,9 +1152,10 @@
 	}
 
 	.colors-surface3 {
-		background-color: var(--surface3);
-		color: var(--on-surface3);
+		background-color: var(--color-base-400);
+		color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 	}
+	/** up here **/
 
 	.card {
 		display: flex;
@@ -1212,7 +1167,7 @@
 		border-radius: 0.375rem;
 		/* rounded-md */
 		border: 1px solid transparent;
-		background-color: white;
+		background-color: var(--color-base-100);
 		padding: 1rem;
 		/* p-4 */
 		box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -1224,15 +1179,15 @@
 		}
 
 		.dark & {
-			background-color: var(--surface1);
-			border-color: var(--surface3);
+			background-color: var(--color-base-200);
+			border-color: var(--color-base-400);
 		}
 	}
 
 	.tooltip {
 		border-radius: 0.5rem;
-		border: 1px solid var(--surface3);
-		background-color: var(--surface2);
+		border: 1px solid var(--color-base-400);
+		background-color: var(--color-base-300);
 		padding: 0.5rem;
 		font-size: 0.875rem;
 		font-weight: 300;
@@ -1252,7 +1207,7 @@
 		transition-duration: 200ms;
 
 		&:hover {
-			background-color: var(--surface2);
+			background-color: var(--color-base-300);
 		}
 
 		&:disabled {
@@ -1261,7 +1216,7 @@
 		}
 
 		.dark &:hover {
-			background-color: var(--surface3);
+			background-color: var(--color-base-400);
 		}
 	}
 
@@ -1275,19 +1230,19 @@
 		border-width: 1px;
 		border-style: solid;
 		border-color: transparent;
-		background-color: var(--background);
+		background-color: var(--color-base-100);
 		padding: 1.5rem;
 		box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
 
 		.dark & {
-			background-color: var(--surface1, #f5f5f5);
-			border-color: var(--surface3, #d4d4d8);
+			background-color: var(--color-base-200, #f5f5f5);
+			border-color: var(--color-base-400, #d4d4d8);
 		}
 	}
 
 	.paper .text-input-filled {
 		.dark & {
-			background-color: var(--background);
+			background-color: var(--color-base-100);
 		}
 	}
 
@@ -1304,11 +1259,11 @@
 		font-size: 0.875rem;
 		transition-property: all;
 		transition-duration: 200ms;
-		background-color: rgb(239 68 68 / 0.1);
-		color: var(--color-red-500);
+		background-color: color-mix(in oklab, var(--color-error) 10%, transparent);
+		color: var(--color-error);
 
 		&:hover {
-			background-color: rgb(239 68 68 / 0.2);
+			background-color: color-mix(in oklab, var(--color-error) 20%, transparent);
 		}
 
 		&:disabled {
@@ -1317,7 +1272,7 @@
 		}
 
 		&:disabled:hover {
-			background-color: rgb(239 68 68 / 0.1);
+			background-color: color-mix(in oklab, var(--color-error) 10%, transparent);
 		}
 
 		@media (min-width: 768px) {
@@ -1372,22 +1327,17 @@
 		transition-duration: 300ms;
 
 		&:hover {
-			border-color: var(--surface2);
+			border-color: var(--color-base-300);
 		}
 	}
 
 	.mock-input-btn {
-		background-color: var(--color-surface1);
+		background-color: var(--color-base-200);
 		padding: 0.5rem;
-		color: var(--color-gray-500);
+		color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 		width: 100%;
 		border-radius: 0.5rem;
 		text-align: left;
-
-		.dark {
-			background-color: var(--color-black);
-			color: var(--color-gray-300);
-		}
 	}
 
 	.nav-link {
@@ -1415,20 +1365,20 @@
 
 	.notification-error {
 		border-radius: 0.5rem;
-		border: 1px solid var(--color-red-500);
-		background-color: rgb(239 68 68 / 0.15);
+		border: 1px solid var(--color-error);
+		background-color: color-mix(in oklab, var(--color-error) 10%, transparent);
 		padding: 0.5rem 1rem;
-		color: var(--color-red-500);
+		color: var(--color-error);
 	}
 
 	.notification-alert {
 		border-radius: 0.5rem;
-		border: 1px solid var(--color-yellow-500);
-		background-color: rgba(252, 199, 93, 0.15);
+		border: 1px solid var(--color-warning);
+		background-color: color-mix(in oklab, var(--color-warning) 10%, transparent);
 		padding: 0.5rem 1rem;
 
 		svg {
-			color: var(--color-yellow-500);
+			color: var(--color-warning);
 		}
 	}
 
@@ -1461,14 +1411,14 @@
 		align-items: center;
 		gap: 0.25rem;
 		width: fit-content;
-		background-color: var(--surface3);
+		background-color: var(--color-base-400);
 		border-radius: 9999px;
 		padding: 0.25rem 0.75rem;
 		font-size: 0.75rem;
 		line-height: 1rem;
 
 		.dark & {
-			background-color: var(--surface2);
+			background-color: var(--color-base-300);
 		}
 	}
 
@@ -1487,8 +1437,8 @@
 
 	.pill-warning {
 		border-radius: var(--radius-sm);
-		background-color: color-mix(in oklab, var(--color-yellow-500) 10%, transparent);
-		color: var(--color-yellow-500);
+		background-color: color-mix(in oklab, var(--color-warning) 10%, transparent);
+		color: var(--color-warning);
 		padding: 0.125rem 0.25rem;
 		font-size: 11px;
 		line-height: 1rem;
@@ -1498,13 +1448,9 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background-color: var(--color-surface1);
+		background-color: var(--color-base-200);
 		border-radius: var(--radius-sm);
 		padding: 0.125rem;
-
-		.dark & {
-			background-color: var(--color-gray-600);
-		}
 	}
 
 	.filter-primary {
@@ -1534,7 +1480,7 @@
 	.tooltip-divider {
 		height: 1px;
 		width: 100%;
-		background-color: var(--color-surface3);
+		background-color: var(--color-base-400);
 		margin-top: 0.5rem;
 		margin-bottom: 0.5rem;
 	}
@@ -1543,25 +1489,25 @@
 @layer utilities {
 	.toggle {
 		border-color: transparent;
-		background-color: var(--surface3);
-		--input-color: var(--background);
+		background-color: var(--color-base-400);
+		--input-color: var(--color-base-100);
 	}
 
 	.dark .toggle {
-		--input-color: var(--surface2);
+		--input-color: var(--color-base-300);
 	}
 
 	.toggle:checked,
 	.toggle[aria-checked='true'],
 	.toggle:has(> input:checked) {
 		background-color: var(--color-primary);
-		--input-color: var(--background);
+		--input-color: var(--color-base-100);
 	}
 
 	.dark .toggle:checked,
 	.dark .toggle[aria-checked='true'],
 	.dark .toggle:has(> input:checked) {
-		--input-color: var(--surface2);
+		--input-color: var(--color-base-300);
 	}
 }
 
@@ -1597,13 +1543,13 @@
 
 	& ol {
 		& ::marker {
-			color: var(--color-gray-500);
+			color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 		}
 	}
 
 	& ul {
 		& ::marker {
-			color: var(--color-gray-500);
+			color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 		}
 	}
 

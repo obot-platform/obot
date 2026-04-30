@@ -157,7 +157,7 @@
 			aria-expanded={popover?.matches(':popover-open') ?? false}
 			aria-controls={`${id}-popover`}
 			class={twMerge(
-				'dark:bg-surface1 text-md bg-background flex min-h-10 w-full grow cursor-pointer resize-none items-center gap-2 rounded-lg px-2 py-2 text-left shadow-sm',
+				'dark:bg-base-200 text-md bg-base-100 flex min-h-10 w-full grow cursor-pointer resize-none items-center gap-2 rounded-lg px-2 py-2 text-left shadow-sm',
 				disabled && 'pointer-events-none cursor-default opacity-50',
 				multiple && 'flex-wrap',
 				klass
@@ -199,7 +199,7 @@
 						{#each selectedOptions as selectedOption (selectedOption.id)}
 							<div
 								class={twMerge(
-									'text-md bg-surface3/50 dark:bg-surface2 inline-flex items-center gap-1 rounded-sm px-1',
+									'text-md bg-base-400/50 dark:bg-base-300 inline-flex items-center gap-1 rounded-sm px-1',
 									onClear && '',
 									classes?.buttonContent
 								)}
@@ -290,7 +290,7 @@
 	>
 		{#if searchInDropdown}
 			<div
-				class="border-surface3 flex h-12 items-center border-b p-2"
+				class="border-base-400 flex h-12 items-center border-b p-2"
 				role="presentation"
 				onclick={() => input?.focus()}
 			>
@@ -299,7 +299,7 @@
 			</div>
 		{/if}
 		{#if availableOptions.length === 0}
-			<div class="text-on-surface1 px-4 py-2 font-light">No options available</div>
+			<div class="text-base-content/40 px-4 py-2 font-light">No options available</div>
 		{:else}
 			{#each availableOptions as option, index (option.id)}
 				{@const isSelected = selectedValues.some((d) => d === option.id)}
@@ -307,10 +307,10 @@
 
 				<button
 					class={twMerge(
-						'dark:hover:bg-surface3/50 hover:bg-surface2/50 text-md flex w-full items-center px-4 py-2 text-left break-all transition-colors duration-100',
+						'dark:hover:bg-base-400/50 hover:bg-base-300/50 text-md flex w-full items-center px-4 py-2 text-left break-all transition-colors duration-100',
 						isSelected &&
-							'dark:bg-surface3/90 dark:hover:bg-surface3/50 bg-surface2/90 hover:bg-surface3/50',
-						isHighlighted && 'dark:bg-surface3 bg-surface3',
+							'dark:bg-base-400/90 dark:hover:bg-base-400/50 bg-base-300/90 hover:bg-base-400/50',
+						isHighlighted && 'dark:bg-base-400 bg-base-400',
 						classes?.option
 					)}
 					type="button"
@@ -335,7 +335,7 @@
 {#snippet clearAllButton()}
 	<button
 		class={twMerge(
-			'bg-surface3/50 dark:bg-surface2 hover:bg-surface3 dark:hover:bg-surface3 inline-flex rounded-sm px-1 text-xs transition-colors duration-300',
+			'bg-base-400/50 dark:bg-base-300 hover:bg-base-400 dark:hover:bg-base-400 inline-flex rounded-sm px-1 text-xs transition-colors duration-300',
 			classes?.buttonContent
 		)}
 		onclick={(ev) => {

@@ -95,7 +95,7 @@
 	<div class="relative flex h-full">
 		{#if layout.sidebarOpen && !layout.fileEditorOpen}
 			<div
-				class="bg-surface1 w-screen min-w-screen flex-shrink-0 md:w-1/6 md:min-w-[250px]"
+				class="bg-base-200 w-screen min-w-screen shrink-0 md:w-1/6 md:min-w-[250px]"
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
@@ -232,15 +232,17 @@
 				class="relative h-full w-8 cursor-grab"
 				transition:slide={{ axis: 'x' }}
 			>
-				<div class="text-on-surface1 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-					<GripVertical class="text-surface3 size-3" />
+				<div
+					class="text-base-content/40 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+				>
+					<GripVertical class="text-base-400 size-3" />
 				</div>
 			</div>
 		{/if}
 		<div
 			bind:this={editor}
 			class={twMerge(
-				'border-surface2 bg-surface1 absolute right-0 z-30 float-right flex w-full flex-shrink-0 translate-x-full transform border border-r-0 transition-transform duration-300 md:w-3/5 md:max-w-[calc(100%-320px)] md:min-w-[320px]',
+				'border-base-300 bg-base-200 absolute right-0 z-30 float-right flex w-full shrink-0 translate-x-full transform border border-r-0 transition-transform duration-300 md:w-3/5 md:max-w-[calc(100%-320px)] md:min-w-[320px]',
 				layout.fileEditorOpen && 'relative w-full translate-x-0',
 				!layout.fileEditorOpen && 'w-0'
 			)}

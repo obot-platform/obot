@@ -92,7 +92,7 @@
 	<div class="mb-2 flex items-center justify-between">
 		<div class="flex flex-col gap-1">
 			<h2 class="text-lg font-semibold">Selectors</h2>
-			<p class="text-on-surface1 text-sm">
+			<p class="text-base-content/40 text-sm">
 				Specify which requests should be matched by this filter.
 			</p>
 		</div>
@@ -106,14 +106,14 @@
 	</div>
 
 	{#if form.selectors.length === 0}
-		<div class="text-on-surface1 p-4 text-center font-light text-sm">
+		<div class="text-base-content/40 p-4 text-center font-light text-sm">
 			No selectors added. This filter will match all MCP requests.<br />Click "Add Selector" to
 			specify filter criteria.
 		</div>
 	{:else}
 		{#each form.selectors as selector, selectorIndex (selectorIndex)}
 			{#if inDialog}
-				<div class="bg-surface1 dark:bg-background rounded-lg p-2 shadow-inner">
+				<div class="bg-base-200 dark:bg-base-100 rounded-lg p-2 shadow-inner">
 					{@render selectorView(selector, selectorIndex)}
 				</div>
 			{:else}
@@ -127,7 +127,7 @@
 	<div class="mb-2 flex items-center justify-between">
 		<div class="flex flex-col gap-1">
 			<h2 class="text-lg font-semibold">MCP Servers</h2>
-			<p class="text-on-surface1 text-sm">
+			<p class="text-base-content/40 text-sm">
 				Specify which MCP servers this filter should be applied to.
 			</p>
 		</div>
@@ -145,7 +145,7 @@
 		{/if}
 	</div>
 	{#if inDialog}
-		<div class="bg-surface1 dark:bg-background rounded-lg p-2 shadow-inner">
+		<div class="bg-base-200 dark:bg-base-100 rounded-lg p-2 shadow-inner">
 			{@render mcpServersTable()}
 		</div>
 	{:else}
@@ -186,18 +186,18 @@
 {#snippet selectorView(selector: MCPFilterWebhookSelector, selectorIndex: number)}
 	<div
 		class={twMerge(
-			'dark:border-surface3 bg-background rounded-lg border border-transparent p-4',
-			inDialog ? 'dark:bg-surface2' : 'dark:bg-surface1 '
+			'dark:border-base-400 bg-base-100 rounded-lg border border-transparent p-4',
+			inDialog ? 'dark:bg-base-400' : 'dark:bg-base-100 '
 		)}
 		in:slide|global={{ axis: 'y', duration: 150 }}
 	>
 		<div class="mb-1 flex items-center justify-between">
-			<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+			<h3 class="text-sm font-medium text-base-content/40 dark:text-base-content/40">
 				Selector {selectorIndex + 1}
 			</h3>
 			{#if !readonly}
 				<button
-					class="icon-button text-red-500 hover:text-red-600"
+					class="icon-button text-error/50 hover:text-error"
 					onclick={() => removeSelector(selectorIndex)}
 					use:tooltip={'Remove Selector'}
 				>
@@ -234,7 +234,7 @@
 				</div>
 
 				{#if !selector.identifiers || selector.identifiers.length === 0}
-					<div class="text-on-surface1 p-3 text-center text-sm">
+					<div class="text-base-content/40 p-3 text-center text-sm">
 						{#if !readonly}
 							No identifiers added. Click "Add Identifier" to specify filter criteria.
 						{:else}
@@ -254,7 +254,7 @@
 							{#if !readonly}
 								<button
 									type="button"
-									class="icon-button text-red-500 hover:text-red-600"
+									class="icon-button text-error/50 hover:text-error"
 									onclick={() => removeIdentifier(selectorIndex, identifierIndex)}
 									use:tooltip={'Remove Identifier'}
 								>
@@ -274,7 +274,7 @@
 		{#snippet actions(d)}
 			{#if !readonly}
 				<button
-					class="icon-button hover:text-red-500"
+					class="icon-button hover:text-error"
 					onclick={() => {
 						form.resources = form.resources.filter((resource) => resource.id !== d.id);
 					}}

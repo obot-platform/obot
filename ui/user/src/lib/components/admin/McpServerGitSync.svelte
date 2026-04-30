@@ -69,7 +69,7 @@
 							disablePortal: true
 						}}
 					>
-						<Info class="text-surface3 size-3.5" />
+						<Info class="text-base-content/40 size-3.5" />
 					</span>
 				</label>
 				<input
@@ -86,7 +86,7 @@
 					</label>
 					{#if editingSource.index >= 0 && defaultCatalog?.sourceURLCredentials?.[defaultCatalog?.sourceURLs?.[editingSource.index]] === '*' && !editingSource.clearToken}
 						<button
-							class="text-xs text-red-500 hover:underline dark:text-red-400"
+							class="text-xs text-error hover:underline"
 							onclick={() => {
 								if (editingSource) editingSource.clearToken = true;
 							}}
@@ -96,7 +96,7 @@
 					{/if}
 				</div>
 				{#if editingSource.clearToken}
-					<p class="text-surface3 text-xs">Token will be removed on save.</p>
+					<p class="text-base-content/40 text-xs">Token will be removed on save.</p>
 				{:else}
 					<SensitiveInput
 						name="catalog-source-token"
@@ -112,7 +112,7 @@
 			</div>
 
 			{#if sourceError}
-				<div class="mb-4 flex flex-col gap-2 text-red-500 dark:text-red-400">
+				<div class="mb-4 flex flex-col gap-2 text-error">
 					<div class="flex items-center gap-2">
 						<TriangleAlert class="size-6 shrink-0 self-start" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">Error adding source URL:</p>

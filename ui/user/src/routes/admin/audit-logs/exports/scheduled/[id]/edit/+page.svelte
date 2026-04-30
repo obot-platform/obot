@@ -39,7 +39,7 @@
 	let title = $derived(scheduleData?.name ?? 'Edit Scheduled Export');
 </script>
 
-<Layout classes={{ navbar: 'bg-surface1' }} {title} showBackButton>
+<Layout classes={{ navbar: 'bg-base-200' }} {title} showBackButton>
 	<div class="flex min-h-full flex-col gap-8" in:fade>
 		{#if loading}
 			<div class="flex items-center justify-center py-8">

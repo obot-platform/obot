@@ -145,7 +145,7 @@
 			<div class="flex flex-col gap-2">
 				<Search
 					value={query}
-					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 					onChange={updateQuery}
 					placeholder="Search threads..."
 				/>
@@ -156,9 +156,9 @@
 					</div>
 				{:else if tasks.length === 0}
 					<div class="flex w-full flex-col items-center justify-center py-12 text-center">
-						<MessageCircle class="text-on-surface1 size-24 opacity-50" />
-						<h3 class="text-on-surface1 mt-4 text-lg font-semibold">No task available</h3>
-						<p class="text-on-surface1 mt-2 text-sm font-light">
+						<MessageCircle class="text-base-content/80 size-24 opacity-50" />
+						<h3 class="text-base-content/40 mt-4 text-lg font-semibold">No task available</h3>
+						<p class="text-base-content/40 mt-2 text-sm font-light">
 							Task will appear here once they are created.
 						</p>
 					</div>
@@ -210,7 +210,7 @@
 							{#if property === 'name'}
 								<span>{task.name || 'Unnamed Task'}</span>
 							{:else if property === 'created'}
-								<span class="text-on-surface1 text-sm">
+								<span class="text-base-content/40 text-sm">
 									{formatTimeAgo(task.created).relativeTime}
 								</span>
 							{:else if property === 'runs'}

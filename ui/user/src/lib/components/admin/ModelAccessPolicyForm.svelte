@@ -313,7 +313,7 @@
 
 		{#if !modelAccessPolicy.id}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
+				class="dark:bg-base-200 dark:border-base-400 bg-base-100 rounded-lg border border-transparent p-4"
 			>
 				<div class="flex flex-col gap-6">
 					<div class="flex flex-col gap-2">
@@ -372,7 +372,7 @@
 					{#snippet actions(d)}
 						{#if !readonly}
 							<button
-								class="icon-button hover:text-red-500"
+								class="icon-button hover:text-error"
 								onclick={() => {
 									modelAccessPolicy.subjects = modelAccessPolicy.subjects?.filter(
 										(subject) => subject.id !== d.id
@@ -422,17 +422,17 @@
 								<div class="flex flex-col">
 									<div class="flex items-center gap-2">
 										<span class="font-medium">{d.aliasName}</span>
-										<span class="text-on-surface1 text-xs" class:text-yellow-500={!d.isConfigured}>
+										<span class="text-base-content/40 text-xs" class:text-warning={!d.isConfigured}>
 											{d.effectiveModel}
 										</span>
 									</div>
-									<span class="text-on-surface1 text-xs">{d.name}</span>
+									<span class="text-base-content/40 text-xs">{d.name}</span>
 								</div>
 							{:else}
 								<div class="flex flex-col">
 									<span class="font-medium">{d.name}</span>
 									{#if d.usage}
-										<span class="text-on-surface1 text-xs">
+										<span class="text-base-content/40 text-xs">
 											{ModelUsageLabels[d.usage as ModelUsage] || d.usage}
 										</span>
 									{/if}
@@ -445,7 +445,7 @@
 					{#snippet actions(d)}
 						{#if !readonly}
 							<button
-								class="icon-button hover:text-red-500"
+								class="icon-button hover:text-error"
 								onclick={() => {
 									modelAccessPolicy.models =
 										modelAccessPolicy.models?.filter((m) => m.id !== d.id) ?? [];
@@ -462,7 +462,7 @@
 	</div>
 	{#if !readonly}
 		<div
-			class="bg-surface1 text-on-surface1 dark:bg-background sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4"
+			class="bg-base-200 text-base-content/40 dark:bg-base-100 sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4"
 			out:fly={{ x: -100, duration }}
 			in:fly={{ x: -100 }}
 		>

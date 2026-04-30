@@ -290,7 +290,7 @@
 						{#if initialAccessControlRule}
 							{@const registry = getUserRegistry(initialAccessControlRule, usersMap)}
 							{#if registry}
-								<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
+								<div class="dark:bg-base-300 bg-base-400 rounded-full px-3 py-1 text-xs">
 									{registry}
 								</div>
 							{/if}
@@ -313,7 +313,7 @@
 
 		{#if !accessControlRule.id}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
+				class="dark:bg-base-300 dark:border-base-400 bg-base-100 rounded-lg border border-transparent p-4"
 			>
 				<div class="flex flex-col gap-6">
 					<div class="flex flex-col gap-2">
@@ -372,7 +372,7 @@
 					{#snippet actions(d)}
 						{#if !readonly}
 							<button
-								class="icon-button hover:text-red-500"
+								class="icon-button hover:text-error"
 								onclick={() => {
 									accessControlRule.subjects = accessControlRule.subjects?.filter(
 										(subject) => subject.id !== d.id
@@ -408,7 +408,7 @@
 				{#snippet actions(d)}
 					{#if !readonly}
 						<button
-							class="icon-button hover:text-red-500"
+							class="icon-button hover:text-error"
 							onclick={() => {
 								accessControlRule.resources =
 									accessControlRule.resources?.filter((resource) => resource.id !== d.id) ?? [];
@@ -424,7 +424,7 @@
 	</div>
 	{#if !readonly}
 		<div
-			class="bg-surface1 text-on-surface1 dark:bg-background sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4"
+			class="bg-base-200 text-base-content/40 dark:bg-base-100 sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4"
 			out:fly={{ x: -100, duration }}
 			in:fly={{ x: -100 }}
 		>

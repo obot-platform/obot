@@ -203,11 +203,11 @@
 	{#snippet errorPostContent()}
 		{#if launchLogs.length > 0}
 			<div
-				class="default-scrollbar-thin bg-surface1 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
+				class="default-scrollbar-thin bg-base-200 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
 			>
 				{#each launchLogs as log, i (i)}
 					<div class="font-mono text-sm">
-						<span class="text-on-surface1">{log}</span>
+						<span class="text-base-content/40">{log}</span>
 					</div>
 				{/each}
 			</div>

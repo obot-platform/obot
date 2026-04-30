@@ -318,7 +318,7 @@
 						</td>
 						<td class="text-right" onclick={(event) => event.stopPropagation()}>
 							<DotDotDot
-								class="icon-button hover:bg-base-200 dark:hover:bg-surface3"
+								class="icon-button hover:bg-base-200 dark:hover:bg-base-400"
 								placement="bottom-end"
 								disablePortal
 								classes={{
@@ -331,7 +331,7 @@
 								{#snippet children({ toggle })}
 									<button
 										type="button"
-										class="hover:bg-base-200 dark:hover:bg-surface3 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors"
+										class="hover:bg-base-200 dark:hover:bg-base-400 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors"
 										disabled={mutatingTaskURI === task.uri}
 										onclick={async (event) => {
 											event.preventDefault();
@@ -345,7 +345,7 @@
 									</button>
 									<button
 										type="button"
-										class="hover:bg-base-200 dark:hover:bg-surface3 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors"
+										class="hover:bg-base-200 dark:hover:bg-base-400 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors"
 										disabled={mutatingTaskURI === task.uri}
 										onclick={async (event) => {
 											event.preventDefault();

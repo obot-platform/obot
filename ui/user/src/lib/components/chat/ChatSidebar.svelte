@@ -74,10 +74,8 @@
 	}
 </script>
 
-<div
-	class="border-surface2 dark:bg-gray-990 bg-background relative flex size-full flex-col border-r"
->
-	<div class="flex h-16 w-full flex-shrink-0 items-center justify-between px-2 md:justify-start">
+<div class="border-base-400 dark:bg-base-200 bg-base-100 relative flex size-full flex-col border-r">
+	<div class="flex h-16 w-full shrink-0 items-center justify-between px-2 md:justify-start">
 		<BetaLogo chat />
 		{#if responsive.isMobile}
 			{@render closeSidebar()}
@@ -105,7 +103,7 @@
 					onclick={() => (layout.sidebarConfig = 'project-configuration')}
 					use:tooltip={upgradeAvailable ? 'Upgrade available' : 'Configure Project'}
 				>
-					<Settings class="text-on-surface1 size-6" />
+					<Settings class="text-base-content/40 size-6" />
 					{#if upgradeAvailable}
 						<span
 							class="absolute top-0 right-0 flex h-4 w-4 animate-[pulse_2s_ease-in-out_5] items-center
@@ -118,7 +116,7 @@
 			</div>
 			{#if !shared}
 				<button class="icon-button" onclick={openTemplatePanel} use:tooltip={'Project Sharing'}>
-					<Share class="text-on-surface1 size-6" />
+					<Share class="text-base-content/40 size-6" />
 				</button>
 			{/if}
 		</div>

@@ -17,9 +17,9 @@
 	});
 </script>
 
-<div class="bg-surface1 dark:bg-background flex h-dvh w-dvw flex-col">
+<div class="bg-base-200 dark:bg-base-100 flex h-dvh w-dvw flex-col">
 	<div
-		class="bg-surface1 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 shadow-md md:gap-8"
+		class="bg-base-200 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 shadow-md md:gap-8"
 	>
 		<div class="flex shrink-0 items-center gap-2">
 			<Logo />

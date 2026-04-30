@@ -158,13 +158,13 @@
 
 {#snippet groupList()}
 	<div class="flex h-full flex-col gap-4 overflow-y-auto px-1 pr-2">
-		<div class="bg-background dark:bg-surface2 sticky top-0 w-full pt-1">
+		<div class="bg-base-100 dark:bg-base-300 sticky top-0 w-full pt-1">
 			<Search value={searchQuery} onChange={updateSearch} />
 		</div>
 
 		<div class="flex flex-col gap-2">
 			{#if availableGroups.length === 0}
-				<p class="text-on-surface1 py-8 text-center text-sm">
+				<p class="text-base-content/40 py-8 text-center text-sm">
 					{searchQuery ? 'No groups found matching your search.' : 'No groups available.'}
 				</p>
 			{:else}
@@ -174,7 +174,7 @@
 					<button
 						onclick={() => handleGroupSelect(group)}
 						class={twMerge(
-							'border-surface3 hover:bg-background/5 flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
+							'border-base-400 hover:bg-base-100/5 flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
 							selectedGroup?.id === group.id && 'bg-primary/10 border-primary'
 						)}
 					>
@@ -182,7 +182,7 @@
 							<div class="flex flex-1 flex-col">
 								<span class="font-medium">{group.name}</span>
 								{#if hasAssignment && assignedRole}
-									<span class="text-on-surface1 text-xs">{getUserRoleLabel(assignedRole)}</span>
+									<span class="text-base-content/40 text-xs">{getUserRoleLabel(assignedRole)}</span>
 								{/if}
 							</div>
 						</div>
@@ -196,11 +196,11 @@
 {#snippet roleForm()}
 	<div class="flex h-full flex-col gap-4 overflow-y-auto pr-2">
 		{#if selectedGroup}
-			<div class="dark:bg-surface1 flex flex-col gap-1 rounded-lg bg-gray-50 p-3">
+			<div class="dark:bg-base-200 flex flex-col gap-1 rounded-lg bg-gray-50 p-3">
 				<div class="text-md flex items-center gap-2">
 					<span class="font-semibold">{selectedGroup.name}</span>
 				</div>
-				<div class="text-on-surface1 text-xs">
+				<div class="text-base-content/40 text-xs">
 					{#if groupRoleMap[selectedGroup.id]}
 						Update the role for this group
 					{:else}
@@ -215,7 +215,7 @@
 				bind:hasUserImpersonationPrivilege={draftHaveUserImpersonationPrivilege}
 			/>
 		{:else}
-			<div class="text-on-surface1 flex h-full items-center justify-center py-12 text-sm">
+			<div class="text-base-content/40 flex h-full items-center justify-center py-12 text-sm">
 				Select a group to assign a role
 			</div>
 		{/if}

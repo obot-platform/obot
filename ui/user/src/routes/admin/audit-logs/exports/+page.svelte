@@ -162,7 +162,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<Layout classes={{ navbar: 'bg-surface1' }} showBackButton title="Audit Log Exports">
+<Layout classes={{ navbar: 'bg-base-200' }} showBackButton title="Audit Log Exports">
 	<div class="flex min-h-full flex-col gap-8" in:fade>
 		{#if showForm}
 			{@render formScreen()}
@@ -201,17 +201,17 @@
 			</div>
 		</div>
 
-		<div class="bg-surface1 dark:bg-background sticky top-16 left-0 z-20 w-full pb-1">
+		<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full pb-1">
 			<div class="mb-2">
 				<Search
-					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 					onChange={(val) => (query = val)}
 					placeholder={view === 'exports' ? 'Search exports...' : 'Search schedules...'}
 				/>
 			</div>
 		</div>
 
-		<div class="dark:bg-surface2 bg-background rounded-t-md shadow-sm">
+		<div class="dark:bg-base-300 bg-base-100 rounded-t-md shadow-sm">
 			<div class="flex">
 				<button
 					class={twMerge('page-tab', view === 'exports' && 'page-tab-active')}

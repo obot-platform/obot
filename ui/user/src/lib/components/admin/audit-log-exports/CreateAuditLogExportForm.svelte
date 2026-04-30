@@ -218,7 +218,7 @@
 	}
 </script>
 
-<div class="dark:bg-surface2 bg-background rounded-md p-6 shadow-sm">
+<div class="dark:bg-base-400 bg-base-100 rounded-md p-6 shadow-sm">
 	<form
 		class="space-y-8"
 		onsubmit={(e) => {
@@ -227,10 +227,8 @@
 		}}
 	>
 		{#if !hasAuditorPermissions}
-			<div
-				class="flex items-start gap-3 rounded-md border border-yellow-500 bg-yellow-500/10 p-4 dark:bg-yellow-500/10"
-			>
-				<AlertTriangle class="size-5 text-yellow-500 dark:text-yellow-500" />
+			<div class="flex items-start gap-3 rounded-md border border-warning bg-warning/10 p-4">
+				<AlertTriangle class="size-5 text-warning" />
 				<div class="text-sm">
 					Exported logs will not include request/response headers and body information. Auditor role
 					is required to access this data.
@@ -254,7 +252,7 @@
 					<input
 						class={twMerge(
 							'text-input-filled',
-							isViewMode && '[color:currentColor] disabled:opacity-100'
+							isViewMode && 'text-[currentColor] disabled:opacity-100'
 						)}
 						id="name"
 						bind:value={form.name}
@@ -264,7 +262,7 @@
 						disabled={isViewMode}
 					/>
 					{#if (isViewMode && form.name) || !isViewMode}
-						<p class="text-on-surface1 text-xs">Unique name for this export</p>
+						<p class="text-base-content/40 text-xs">Unique name for this export</p>
 					{/if}
 				</div>
 				<div class="flex flex-col gap-1">
@@ -272,7 +270,7 @@
 					<input
 						class={twMerge(
 							'text-input-filled',
-							isViewMode && '[color:currentColor] disabled:opacity-100'
+							isViewMode && 'text-[currentColor] disabled:opacity-100'
 						)}
 						id="bucket"
 						bind:value={form.bucket}
@@ -282,7 +280,9 @@
 						disabled={isViewMode}
 					/>
 					{#if (isViewMode && form.bucket) || !isViewMode}
-						<p class="text-on-surface1 text-xs">Storage bucket name where exports will be saved</p>
+						<p class="text-base-content/40 text-xs">
+							Storage bucket name where exports will be saved
+						</p>
 					{/if}
 				</div>
 			</div>
@@ -292,7 +292,7 @@
 				<input
 					class={twMerge(
 						'text-input-filled',
-						isViewMode && '[color:currentColor] disabled:opacity-100'
+						isViewMode && 'text-[currentColor] disabled:opacity-100'
 					)}
 					id="keyPrefix"
 					bind:value={form.keyPrefix}
@@ -301,7 +301,7 @@
 					disabled={isViewMode}
 				/>
 				{#if (isViewMode && form.keyPrefix) || !isViewMode}
-					<p class="text-on-surface1 text-xs">
+					<p class="text-base-content/40 text-xs">
 						Path prefix within the bucket. If empty, defaults to "mcp-audit-logs/YYYY/MM/DD/" format
 						based on current date.
 					</p>
@@ -347,12 +347,12 @@
 							<label class="text-sm font-medium" for="user_id">Users</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
-									isViewMode && '[color:currentColor] disabled:opacity-100'
+									'dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner',
+									isViewMode && 'text-[currentColor] disabled:opacity-100'
 								)}
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['user_id']?.map?.((d) => ({
 									id: d,
@@ -368,7 +368,7 @@
 							/>
 
 							{#if (isViewMode && form.filters.user_id) || !isViewMode}
-								<p class="text-on-surface1 text-xs">List of users</p>
+								<p class="text-base-content/40 text-xs">List of users</p>
 							{/if}
 						</div>
 
@@ -376,12 +376,12 @@
 							<label class="text-sm font-medium" for="mcp_id">Server IDs</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
-									isViewMode && '[color:currentColor] disabled:opacity-100'
+									'dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner',
+									isViewMode && 'text-[currentColor] disabled:opacity-100'
 								)}
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['mcp_id']?.map?.((d) => ({ id: d, label: d })) ?? []}
 								bind:selected={
@@ -393,7 +393,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.mcp_id) || !isViewMode}
-								<p class="text-on-surface1 text-xs">List of server IDs</p>
+								<p class="text-base-content/40 text-xs">List of server IDs</p>
 							{/if}
 						</div>
 
@@ -401,12 +401,12 @@
 							<label class="text-sm font-medium" for="mcp_server_display_name">Server Names</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
-									isViewMode && '[color:currentColor] disabled:opacity-100'
+									'dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner',
+									isViewMode && 'text-[currentColor] disabled:opacity-100'
 								)}
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['mcp_server_display_name']?.map?.((d) => ({
 									id: d,
@@ -422,7 +422,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.mcp_server_display_name) || !isViewMode}
-								<p class="text-on-surface1 text-xs">List of server display names</p>
+								<p class="text-base-content/40 text-xs">List of server display names</p>
 							{/if}
 						</div>
 
@@ -430,12 +430,12 @@
 							<label class="text-sm font-medium" for="call_type">Call Types</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
-									isViewMode && '[color:currentColor] disabled:opacity-100'
+									'dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner',
+									isViewMode && 'text-[currentColor] disabled:opacity-100'
 								)}
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['call_type']?.map?.((d) => ({ id: d, label: d })) ?? []}
 								bind:selected={
@@ -447,7 +447,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.call_type) || !isViewMode}
-								<p class="text-on-surface1 text-xs">List of call types</p>
+								<p class="text-base-content/40 text-xs">List of call types</p>
 							{/if}
 						</div>
 
@@ -455,12 +455,12 @@
 							<label class="text-sm font-medium" for="client_name">Client Names</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
-									isViewMode && '[color:currentColor] disabled:opacity-100'
+									'dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner',
+									isViewMode && 'text-[currentColor] disabled:opacity-100'
 								)}
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['client_name']?.map?.((d) => ({ id: d, label: d })) ?? []}
 								bind:selected={
@@ -472,7 +472,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.client_name) || !isViewMode}
-								<p class="text-on-surface1 text-xs">List of client names</p>
+								<p class="text-base-content/40 text-xs">List of client names</p>
 							{/if}
 						</div>
 
@@ -480,12 +480,12 @@
 							<label class="text-sm font-medium" for="response_status">Response Status</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
-									isViewMode && '[color:currentColor] disabled:opacity-100'
+									'dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner',
+									isViewMode && 'text-[currentColor] disabled:opacity-100'
 								)}
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['response_status']?.map?.((d) => ({ id: d, label: d })) ??
 									[]}
@@ -499,7 +499,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.response_status) || !isViewMode}
-								<p class="text-on-surface1 text-xs">List of HTTP status codes</p>
+								<p class="text-base-content/40 text-xs">List of HTTP status codes</p>
 							{/if}
 						</div>
 
@@ -507,12 +507,12 @@
 							<label class="text-sm font-medium" for="session_id">Session IDs</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
-									isViewMode && '[color:currentColor] disabled:opacity-100'
+									'dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner',
+									isViewMode && 'text-[currentColor] disabled:opacity-100'
 								)}
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['session_id']?.map?.((d) => ({ id: d, label: d })) ?? []}
 								bind:selected={
@@ -524,7 +524,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.session_id) || !isViewMode}
-								<p class="text-on-surface1 text-xs">List of session IDs</p>
+								<p class="text-base-content/40 text-xs">List of session IDs</p>
 							{/if}
 						</div>
 
@@ -532,12 +532,12 @@
 							<label class="text-sm font-medium" for="client_ip">Client IPs</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
-									isViewMode && '[color:currentColor] disabled:opacity-100'
+									'dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner',
+									isViewMode && 'text-[currentColor] disabled:opacity-100'
 								)}
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['client_ip']?.map?.((d) => ({ id: d, label: d })) ?? []}
 								bind:selected={
@@ -549,19 +549,19 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.client_ip) || !isViewMode}
-								<p class="text-on-surface1 text-xs">List of IP addresses</p>
+								<p class="text-base-content/40 text-xs">List of IP addresses</p>
 							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="call_identifier">Call Identifier</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
-									isViewMode && '[color:currentColor] disabled:opacity-100'
+									'dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner',
+									isViewMode && 'text-[currentColor] disabled:opacity-100'
 								)}
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['call_identifier']?.map?.((d) => ({ id: d, label: d })) ??
 									[]}
@@ -575,19 +575,19 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.call_identifier) || !isViewMode}
-								<p class="text-on-surface1 text-xs">List of call identifiers</p>
+								<p class="text-base-content/40 text-xs">List of call identifiers</p>
 							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_version">Client Versions</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
-									isViewMode && '[color:currentColor] disabled:opacity-100'
+									'dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner',
+									isViewMode && 'text-[currentColor] disabled:opacity-100'
 								)}
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['client_version']?.map?.((d) => ({ id: d, label: d })) ??
 									[]}
@@ -601,7 +601,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.client_version) || !isViewMode}
-								<p class="text-on-surface1 text-xs">List of client versions</p>
+								<p class="text-base-content/40 text-xs">List of client versions</p>
 							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
@@ -610,12 +610,12 @@
 							>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
-									isViewMode && '[color:currentColor] disabled:opacity-100'
+									'dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner',
+									isViewMode && 'text-[currentColor] disabled:opacity-100'
 								)}
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['mcp_server_catalog_entry_name']?.map?.((d) => ({
 									id: d,
@@ -631,7 +631,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.mcp_server_catalog_entry_name) || !isViewMode}
-								<p class="text-on-surface1 text-xs">List of catalog entry names</p>
+								<p class="text-base-content/40 text-xs">List of catalog entry names</p>
 							{/if}
 						</div>
 					</div>

@@ -400,7 +400,7 @@
 							class="group bg-base-300 hover:bg-base-400 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold transition-colors duration-200"
 						>
 							<img
-								class="h-6 w-6 rounded-full bg-transparent p-1 dark:bg-gray-600"
+								class="h-6 w-6 rounded-full bg-transparent p-1 dark:bg-base-300"
 								src="/user/images/github-mark/github-mark.svg"
 								alt="Github"
 							/>

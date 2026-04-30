@@ -251,10 +251,13 @@
 			formatted = formatted.replace(/"([^"]+)":/g, '<span class="text-primary">"$1"</span>:');
 
 			// Replace string values (must come after keys)
-			formatted = formatted.replace(/: "([^"]+)"/g, ': <span class="text-on-surface1">"$1"</span>');
+			formatted = formatted.replace(
+				/: "([^"]+)"/g,
+				': <span class="text-base-content/40">"$1"</span>'
+			);
 
 			// Replace null
-			formatted = formatted.replace(/: (null)/g, ': <span class="text-on-surface1">$1</span>');
+			formatted = formatted.replace(/: (null)/g, ': <span class="text-base-content/40">$1</span>');
 
 			// Replace brackets and braces
 			formatted = formatted.replace(/(".*?")|([{}[\]])/g, (match, stringContent, bracket) => {
@@ -263,7 +266,7 @@
 					return stringContent;
 				}
 				// If it's a bracket/brace outside of strings, wrap it
-				return `<span class="text-on-background">${bracket}</span>`;
+				return `<span class="text-base-content">${bracket}</span>`;
 			});
 
 			return formatted;
@@ -345,16 +348,16 @@
 {#snippet timeAndUsername()}
 	{#if msg.time}
 		<div
-			class="text-on-surface1 mt-1 flex items-center justify-end gap-2 self-end text-xs whitespace-nowrap"
+			class="text-base-content/40 mt-1 flex items-center justify-end gap-2 self-end text-xs whitespace-nowrap"
 		>
 			{#if msg.userNotice}
 				<span class="inline-flex cursor-help" use:tooltip={msg.userNotice}>
-					<TriangleAlert class="size-3 text-yellow-500" />
+					<TriangleAlert class="size-3 text-warning" />
 				</span>
 			{/if}
 			<span>{formatTime(msg.time, timePreference.timeFormat)}</span>
 			{#if msg.username}
-				<span class="text-on-surface1">•</span>
+				<span class="text-base-content/40">•</span>
 				<span class="max-w-[100px] truncate font-medium">by {msg.username?.split(' ')[0]}</span>
 			{/if}
 		</div>
@@ -424,13 +427,13 @@
 		class:contents={!showBubble}
 		class:message-content={renderMarkdown}
 		class={twMerge(
-			'bg-gray-70 text-on-background flex w-full flex-col rounded-2xl px-6 py-3 dark:bg-gray-950 ',
+			'bg-gray-70 text-base-content flex w-full flex-col rounded-2xl px-6 py-3 dark:bg-gray-950 ',
 			classes?.messageBody
 		)}
 	>
 		{#if clearable}
 			<button
-				class="text-on-surface1 absolute top-0 right-0 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+				class="text-base-content/40 absolute top-0 right-0 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
 				aria-label="Clear message"
 				onclick={() => (msg.ignore = true)}
 			>
@@ -456,7 +459,7 @@
 	{#if msg.file}
 		<button
 			class={twMerge(
-				'bg-background my-2 flex w-md max-w-full cursor-pointer flex-col rounded-3xl border border-gray-300 text-start text-black shadow-lg md:w-[750px] dark:text-gray-50',
+				'bg-base-100 my-2 flex w-md max-w-full cursor-pointer flex-col rounded-3xl border border-base-300 text-start text-base-content shadow-lg md:w-[750px]',
 				!msg.file?.filename && !msg.aborted && !msg.done && 'cursor-wait'
 			)}
 			disabled={!msg.file?.filename}
@@ -468,17 +471,17 @@
 					{#if msg.file?.filename}
 						<span use:overflowToolTip>{msg.file.filename}</span>
 					{:else}
-						<span class="text-on-surface1">...</span>
+						<span class="text-base-content/40">...</span>
 					{/if}
 				</div>
 			</div>
 			<div class="relative" transition:slide={{ axis: 'y', duration: 50 }}>
 				{#if compactFilePreview}
-					<div class="font-body text-md p-5 whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+					<div class="font-body text-md p-5 whitespace-pre-wrap text-base-content/40">
 						{msg.file.content.split('\n').splice(0, 6).join('\n')}
 					</div>
 				{:else}
-					<div class="font-body text-md p-5 whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+					<div class="font-body text-md p-5 whitespace-pre-wrap text-base-content/40">
 						{animatedFileContent}
 					</div>
 				{/if}
@@ -509,11 +512,11 @@
 	{#if msg.explain}
 		<div
 			role="none"
-			class="bg-background -m-6 mt-2 -mb-4 flex
+			class="bg-base-100 -m-6 mt-2 -mb-4 flex
 		 flex-col divide-y
-		 divide-gray-300 rounded-3xl
-		 border border-gray-300
-		 text-black shadow-lg dark:text-gray-50"
+		 divide-base-300 rounded-3xl
+		 border border-base-300
+		 text-base-content shadow-lg"
 		>
 			<div class="flex gap-2 px-5 py-4">
 				<Paperclip />
@@ -527,7 +530,7 @@
 					}}>{msg.explain.filename}</button
 				>
 			</div>
-			<div class="font-body text-md p-5 whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+			<div class="font-body text-md p-5 whitespace-pre-wrap text-base-content/40">
 				{msg.explain.selection}
 			</div>
 		</div>
@@ -539,7 +542,7 @@
 		<p class="p-0 text-xs font-semibold">{title}</p>
 		<pre
 			transition:slide={{ duration: 300 }}
-			class="default-scrollbar-thin bg-surface1 text-on-background mt-0! max-h-[300px] w-fit max-w-full overflow-auto rounded-lg px-4 py-2 text-xs break-all whitespace-pre-wrap">{@html formatJson(
+			class="default-scrollbar-thin bg-base-200 text-base-content mt-0! max-h-[300px] w-fit max-w-full overflow-auto rounded-lg px-4 py-2 text-xs break-all whitespace-pre-wrap">{@html formatJson(
 				stringifiedJson ?? ''
 			)}</pre>
 	</div>
@@ -596,7 +599,7 @@
 									const img = e.currentTarget as HTMLImageElement;
 									img.style.display = 'none';
 									const fallbackDiv = document.createElement('div');
-									fallbackDiv.className = 'text-on-surface1 text-xs';
+									fallbackDiv.className = 'text-base-content/40 text-xs';
 									fallbackDiv.textContent = '[Image Failed to Load.]';
 									img.parentNode?.insertBefore(fallbackDiv, img.nextSibling);
 								}}
@@ -632,7 +635,7 @@
 		{/if}
 	{/if}
 	{#if shell.input && shell.output}
-		<div class="mt-1 rounded-3xl bg-gray-100 p-5 dark:bg-gray-900 dark:text-gray-50">
+		<div class="mt-1 rounded-3xl bg-base-300 p-5 dark:bg-base-200 text-base-content">
 			<div class="pb-1 font-mono">
 				> {shell.input}
 			</div>
@@ -709,7 +712,7 @@
 							{/each}
 							{#if onSendCredentialsCancel}
 								<button
-									class="button-secondary hover:bg-surface3 border-transparent"
+									class="button-secondary hover:bg-base-400 border-transparent"
 									type="button"
 									onclick={() => onSendCredentialsCancel(msg.promptId ?? '')}
 								>
@@ -733,14 +736,14 @@
 							</div>
 						{:else}
 							<input
-								class="bg-background dark:bg-surface2 rounded-lg p-2 outline-hidden"
+								class="bg-base-100 dark:bg-base-300 rounded-lg p-2 outline-hidden"
 								type={field.sensitive ? 'password' : 'text'}
 								name={field.name}
 								bind:value={promptCredentials[field.name]}
 							/>
 						{/if}
 						{#if field.description}
-							<p class="text-on-surface1 text-xs">{field.description}</p>
+							<p class="text-base-content/40 text-xs">{field.description}</p>
 						{/if}
 					</div>
 				{/each}
@@ -778,7 +781,7 @@
 						href={citationURL(url)}
 						rel="external"
 						target="_blank"
-						class="flex w-fit items-center gap-2 rounded-full bg-gray-100 p-2 text-sm dark:bg-gray-900"
+						class="flex w-fit items-center gap-2 rounded-full bg-base-300 p-2 text-sm dark:bg-gray-900"
 						transition:fly={{ y: 100, delay: 50 * i, duration: 250 }}
 					>
 						<img
@@ -804,7 +807,7 @@
 	<div
 		class={twMerge(
 			'group relative flex items-start gap-3',
-			isPrompt && '-m-5 rounded-3xl bg-gray-100 p-5 dark:bg-gray-950',
+			isPrompt && '-m-5 rounded-3xl bg-base-300 p-5',
 			isPrompt && classes?.prompt,
 			classes?.root
 		)}

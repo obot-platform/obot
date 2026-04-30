@@ -172,7 +172,7 @@
 			</div>
 		</div>
 		<div
-			class="bg-surface1 dark:bg-background flex h-full flex-col gap-6 p-4"
+			class="bg-base-200 dark:bg-base-100 flex h-full flex-col gap-6 p-4"
 			in:fly={{ x: 100, delay: duration, duration }}
 		>
 			<McpServerEntryForm
@@ -201,7 +201,7 @@
 			</button>
 		</div>
 		<Search
-			class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner"
+			class="bg-base-200 dark:border-base-400 border border-transparent shadow-inner"
 			value={query}
 			onChange={(value) => (query = value)}
 			placeholder="Search servers..."

@@ -138,7 +138,7 @@
 {#snippet authDisabledNote()}
 	{#if !version.current.authEnabled}
 		<p class="mt-1 text-sm">
-			<span class="text-on-surface1">Auth is disabled.</span>
+			<span class="text-base-content/40">Auth is disabled.</span>
 			<a
 				href="https://docs.obot.ai/installation/enabling-authentication"
 				rel="external noopener noreferrer"
@@ -152,11 +152,14 @@
 {#snippet renderChecklistItem(label: string, isChecked: boolean, note?: Snippet)}
 	<li>
 		<span
-			class={twMerge('flex items-center gap-1', isChecked ? 'text-on-surface1 line-through' : '')}
+			class={twMerge(
+				'flex items-center gap-1',
+				isChecked ? 'text-base-content/40 line-through' : ''
+			)}
 		>
 			{label}
 			{#if isChecked}
-				<CircleCheckBig class="size-5 text-green-500" />
+				<CircleCheckBig class="size-5 text-success" />
 			{/if}
 		</span>
 		{#if note}

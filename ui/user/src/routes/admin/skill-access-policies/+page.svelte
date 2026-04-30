@@ -48,9 +48,9 @@
 			>
 				{#if skillAccessPolicies.length === 0}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-						<Vault class="text-on-surface1 size-24 opacity-25" />
-						<h4 class="text-on-surface1 text-lg font-semibold">No skill access policies</h4>
-						<p class="text-on-surface1 text-sm font-light">
+						<Vault class="text-base-content/40 size-24 opacity-25" />
+						<h4 class="text-base-content/40 text-lg font-semibold">No skill access policies</h4>
+						<p class="text-base-content/40 text-sm font-light">
 							Looks like you don't have any skill access policies created yet. <br />
 							{#if !isReadonly}
 								Click the button below to get started.
@@ -91,7 +91,7 @@
 		{#snippet actions(d)}
 			{#if !isReadonly}
 				<button
-					class="icon-button hover:text-red-500"
+					class="icon-button hover:text-error"
 					onclick={(e) => {
 						e.stopPropagation();
 						policyToDelete = d;

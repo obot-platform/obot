@@ -296,9 +296,9 @@
 ></div>
 
 <div class="absolute flex">
-	<div class="bg-gray-70 flex rounded-3xl shadow-lg" bind:this={explain} class:hidden={!ttVisible}>
+	<div class="bg-base-200 flex rounded-3xl shadow-lg" bind:this={explain} class:hidden={!ttVisible}>
 		<button
-			class="flex items-center gap-2 rounded-s-3xl p-4 ps-5 hover:bg-gray-100 dark:bg-gray-950 dark:hover:bg-gray-900"
+			class="flex items-center gap-2 rounded-s-3xl p-4 ps-5 btn btn-secondary"
 			onclick={onExplain}
 			class:hidden={ttImprove}
 		>
@@ -306,7 +306,7 @@
 			<CircleHelp class="h-5 w-5" />
 		</button>
 		<button
-			class="flex items-center gap-2 rounded-e-3xl p-4 pe-5 hover:bg-gray-100 dark:bg-gray-950 dark:hover:bg-gray-900"
+			class="flex items-center gap-2 rounded-e-3xl p-4 pe-5 btn btn-secondary"
 			onclick={async () => {
 				ttImprove = true;
 				await tick();

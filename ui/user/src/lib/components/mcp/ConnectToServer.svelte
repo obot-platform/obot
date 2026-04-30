@@ -651,7 +651,7 @@
 		{#if server}
 			{@const icon = server.manifest.icon ?? ''}
 
-			<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
+			<div class="bg-base-200 rounded-sm p-1 dark:bg-base-300">
 				{#if icon}
 					<img src={icon} alt={name} class="size-8" />
 				{:else}
@@ -700,7 +700,7 @@
 		{/if}
 
 		{#if entry && !hideActions}
-			<p class="text-on-surface1 flex items-center justify-end gap-2 text-sm font-light">
+			<p class="text-base-content/40 flex items-center justify-end gap-2 text-sm font-light">
 				Need to set up a different instance?
 				<button
 					class="button-small button-primary hover:bg-primary px-3 text-xs"
@@ -760,11 +760,11 @@
 	{#snippet errorPostContent()}
 		{#if launchLogs.length > 0}
 			<div
-				class="default-scrollbar-thin bg-surface1 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
+				class="default-scrollbar-thin bg-base-200 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
 			>
 				{#each launchLogs as log, i (i)}
 					<div class="font-mono text-sm">
-						<span class="text-on-surface1">{log}</span>
+						<span class="text-base-content/40">{log}</span>
 					</div>
 				{/each}
 			</div>
@@ -806,7 +806,7 @@
 					</button>
 				</div>
 				<div class="flex items-center gap-2">
-					<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+					<div class="h-fit shrink-0 self-start rounded-md bg-base-200 p-1 dark:bg-base-300">
 						{#if server?.manifest.icon}
 							<img
 								src={server?.manifest.icon}

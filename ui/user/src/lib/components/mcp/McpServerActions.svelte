@@ -222,7 +222,7 @@
 
 	<div class:hidden={loading || !hasActions}>
 		<DotDotDot
-			class="icon-button hover:bg-surface1 dark:hover:bg-surface2 hover:text-primary flex-shrink-0"
+			class="icon-button hover:bg-base-200 dark:hover:bg-base-300 hover:text-primary flex-shrink-0"
 			disablePortal={connectOnly}
 			classes={{ menu: 'min-w-48 p-0', popover: 'z-60' }}
 		>
@@ -247,7 +247,7 @@
 <EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
 
 <ResponsiveDialog
-	class="bg-surface1 dark:bg-background"
+	class="bg-base-200 dark:bg-base-100"
 	bind:this={selectServerDialog}
 	title="Select Your Server"
 >
@@ -329,7 +329,7 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
-			<button class="icon-button hover:dark:bg-background/50">
+			<button class="icon-button hover:dark:bg-base-100/50">
 				<StepForward class="size-4" />
 			</button>
 		{/snippet}
@@ -385,7 +385,7 @@
 
 {#snippet serverActions(toggle: (value: boolean) => void)}
 	{#if server && server.userID === profile.current.id}
-		<div class="flex flex-col gap-1 p-2 {!isProjectMcp && 'bg-surface1 rounded-t-xl'}">
+		<div class="flex flex-col gap-1 p-2 {!isProjectMcp && 'bg-base-200 rounded-t-xl'}">
 			{#if !isProjectMcp && !connectOnly && version.current.disableLegacyChat !== true}
 				<button
 					class="menu-button"
@@ -414,7 +414,7 @@
 					<button
 						class={twMerge(
 							'menu-button',
-							requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
+							requiresUpdate && 'bg-warning/10 text-warning hover:bg-warning/30'
 						)}
 						onclick={() => {
 							editExistingDialog?.edit({
@@ -518,11 +518,11 @@
 		</div>
 	{:else if entry && configuredServers.length > 0}
 		<div
-			class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+			class="bg-base-100 dark:bg-base-300 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
 		>
 			My Connection(s)
 		</div>
-		<div class="bg-surface1 flex flex-col gap-1 p-2">
+		<div class="bg-base-200 flex flex-col gap-1 p-2">
 			{#if !connectOnly && version.current.disableLegacyChat !== true}
 				<button
 					class="menu-button"
@@ -557,7 +557,7 @@
 					<button
 						class={twMerge(
 							'menu-button',
-							requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
+							requiresUpdate && 'bg-warning/10 text-warning hover:bg-warning/30'
 						)}
 						onclick={() => {
 							if (configuredServers.length === 1) {
@@ -646,7 +646,7 @@
 	{#if showDisconnectUser && server}
 		<div class="flex flex-col gap-2 p-2">
 			<button
-				class="menu-button text-red-500"
+				class="menu-button text-error"
 				onclick={async (e) => {
 					e.stopPropagation();
 					await ChatService.deleteSingleOrRemoteMcpServer(server.id);

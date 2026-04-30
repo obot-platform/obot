@@ -94,7 +94,7 @@
 
 							openUrl(url, isCtrlClick);
 						}}
-						class="dark:bg-surface1 dark:border-surface3 dark:hover:bg-surface2 bg-background flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 shadow-sm hover:bg-gray-50"
+						class="dark:bg-base-200 dark:border-base-400 dark:hover:bg-base-200 bg-base-100 flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 shadow-sm hover:bg-gray-50"
 					>
 						<div class="flex items-center gap-2">
 							<div class="icon">
@@ -110,7 +110,7 @@
 							</div>
 							<p class="text-sm">{componentServer.manifest?.name}</p>
 							{#if catalogEntryServerId}
-								<span class="text-on-surface1 text-sm">({catalogEntryServerId})</span>
+								<span class="text-base-content/40 text-sm">({catalogEntryServerId})</span>
 							{/if}
 						</div>
 						<div class="icon-button">
@@ -119,7 +119,7 @@
 					</button>
 				{:else}
 					<div
-						class="dark:bg-surface1 dark:border-surface3 bg-background flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 opacity-60 shadow-sm"
+						class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 opacity-60 shadow-sm"
 					>
 						<div class="flex items-center gap-2">
 							<div class="icon">
@@ -135,7 +135,7 @@
 							</div>
 							<p class="text-sm">{componentServer.manifest?.name}</p>
 							<span
-								class="text-on-surface1 flex items-center gap-1 text-xs"
+								class="text-base-content/40 flex items-center gap-1 text-xs"
 								title="This component server no longer exists"
 							>
 								<AlertCircle class="size-4" />

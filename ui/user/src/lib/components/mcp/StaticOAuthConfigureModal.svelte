@@ -125,18 +125,18 @@
 	>
 		{#if error}
 			<div class="notification-error flex items-center gap-2">
-				<AlertCircle class="size-6 text-red-500" />
+				<AlertCircle class="size-6 text-error" />
 				<p class="text-sm font-light">{error}</p>
 			</div>
 		{/if}
 
 		{#if oauthStatus?.configured}
-			<p class="text-on-surface1 text-sm font-light">
+			<p class="text-base-content/40 text-sm font-light">
 				OAuth credentials are configured. To change the client ID or secret, clear the credentials
 				and re-enter all values.
 			</p>
 		{:else}
-			<p class="text-on-surface1 text-sm font-light">
+			<p class="text-base-content/40 text-sm font-light">
 				This remote MCP server requires OAuth configuration. Provide the client credentials from
 				your OAuth provider.
 			</p>
@@ -144,9 +144,7 @@
 
 		<div class="flex flex-col gap-4">
 			<div class="flex flex-col gap-1">
-				<label for="clientID" class:text-red-500={showRequired && !form.clientID}>
-					Client ID
-				</label>
+				<label for="clientID" class:text-error={showRequired && !form.clientID}> Client ID </label>
 				<input
 					type="text"
 					id="clientID"
@@ -160,7 +158,7 @@
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<label for="clientSecret" class:text-red-500={showRequired && !form.clientSecret}>
+				<label for="clientSecret" class:text-error={showRequired && !form.clientSecret}>
 					Client Secret
 				</label>
 				<SensitiveInput

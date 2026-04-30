@@ -100,7 +100,7 @@
 			>. Any actions you take will be attributed to this user. Are you sure you wish to continue?
 		</p>
 
-		<p class="text-on-surface1 mt-4 text-sm">Note: This will open in a new window.</p>
+		<p class="text-base-content/40 mt-4 text-sm">Note: This will open in a new window.</p>
 	{/snippet}
 </Confirm>
 

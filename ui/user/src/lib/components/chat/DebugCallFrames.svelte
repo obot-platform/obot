@@ -81,7 +81,7 @@
 <ResponsiveDialog
 	bind:this={dialog}
 	class={twMerge(
-		'bg-surface1 dark:bg-surface2 h-full transition-all',
+		'bg-base-200 dark:bg-base-300 h-full transition-all',
 		maximized ? 'h-dvh max-h-dvh w-full max-w-dvw' : 'max-h-[75vh] w-full max-w-2xl'
 	)}
 	classes={{ title: 'w-full justify-between', header: 'px-4', content: 'px-0 pb-0' }}
@@ -103,7 +103,7 @@
 			{/if}
 		</button>
 	{/snippet}
-	<div class="bg-background flex max-h-[calc(100%-4rem)] grow flex-col rounded-md">
+	<div class="bg-base-100 flex max-h-[calc(100%-4rem)] grow flex-col rounded-md">
 		<div class="flex items-center justify-between gap-4 px-4 pt-2 pb-4">
 			<h4 class="text-lg font-semibold">Call Frames</h4>
 			<div class="flex items-center gap-2">
@@ -155,7 +155,7 @@
 		</summary>
 		<div class="my-2 ml-5">
 			{#if call?.tool?.source?.location && call.tool.source.location !== 'inline'}
-				<div class="text-on-surface1 mb-2 text-sm">
+				<div class="text-base-content/40 mb-2 text-sm">
 					Source:
 					<!-- eslint-disable svelte/no-navigation-without-resolve -- external URL -->
 					<a
@@ -178,7 +178,7 @@
 						{@render inputContent(call.input)}
 					</div>
 				{:else}
-					<p class="text-on-surface1 ml-5">No input available</p>
+					<p class="text-base-content/40 ml-5">No input available</p>
 				{/if}
 			</details>
 			<details open={expandAll}>
@@ -294,7 +294,7 @@
 		<span class="mr-2 text-base font-semibold">
 			{typeof name === 'string' ? name : name.Name}
 		</span>
-		<span class="text-on-surface1 text-sm font-light">{info}</span>
+		<span class="text-base-content/40 text-sm font-light">{info}</span>
 	</p>
 {/snippet}
 

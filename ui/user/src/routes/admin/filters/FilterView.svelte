@@ -83,8 +83,8 @@
 						class={twMerge(
 							'min-w-fit flex-1 rounded-md border border-transparent px-3 py-2 text-center whitespace-nowrap transition-colors duration-300',
 							selected === tab.view &&
-								'dark:bg-surface1 dark:border-surface3 bg-background shadow-sm',
-							selected !== tab.view && 'hover:bg-surface3'
+								'dark:bg-base-200 dark:border-base-400 bg-base-100 shadow-sm',
+							selected !== tab.view && 'hover:bg-base-400'
 						)}
 					>
 						{tab.label}
@@ -121,9 +121,9 @@
 					<AuditLogsPageContent mcpId={mcpServerId} mcpServerDisplayName={filter.name}>
 						{#snippet emptyContent()}
 							<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-								<BookOpenText class="text-on-surface1 size-24 opacity-50" />
-								<h4 class="text-on-surface1 text-lg font-semibold">No recent audit logs</h4>
-								<p class="text-on-surface1 text-sm font-light">
+								<BookOpenText class="text-base-content/40 size-24 opacity-50" />
+								<h4 class="text-base-content/40 text-lg font-semibold">No recent audit logs</h4>
+								<p class="text-base-content/40 text-sm font-light">
 									This web validation server has not had any active usage in the last 7 days.
 								</p>
 							</div>

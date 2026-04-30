@@ -147,7 +147,7 @@
 			{#if !atLeastOneConfigured}
 				<div class="notification-alert mb-4 flex flex-col gap-2">
 					<div class="flex items-center gap-2">
-						<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+						<AlertTriangle class="size-6 shrink-0 self-start text-warning" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">No Model Providers Configured!</p>
 					</div>
 					<span class="text-sm font-light break-all">
@@ -214,7 +214,7 @@
 >
 	{#snippet note()}
 		{#if configuringModelProvider && isAnthropic(configuringModelProvider)}
-			<p class="text-on-surface1 py-4 font-light">
+			<p class="text-base-content/40 py-4 font-light">
 				Note: Anthropic does not have an embeddings model.
 			</p>
 		{/if}

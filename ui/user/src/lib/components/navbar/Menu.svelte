@@ -109,7 +109,7 @@
 				</div>
 			{/if}
 			{#if description}
-				<p class="mt-1 text-xs font-normal text-gray-700 dark:text-gray-300">{description}</p>
+				<p class="mt-1 text-xs font-normal text-base-content/40">{description}</p>
 			{/if}
 		</div>
 	{/if}

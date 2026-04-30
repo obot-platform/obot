@@ -49,8 +49,8 @@
 			<div class="flex flex-col gap-2">
 				<p class="text-sm font-medium">Your API Key</p>
 				<div class="flex items-center gap-2">
-					<div class="bg-surface1 flex flex-1 items-center gap-2 rounded-md border px-3 py-2">
-						<KeyRound class="text-on-surface1 size-4 flex-shrink-0" />
+					<div class="bg-base-200 flex flex-1 items-center gap-2 rounded-md border px-3 py-2">
+						<KeyRound class="text-base-content/40 size-4 shrink-0" />
 						<code class="flex-1 font-mono text-sm break-all">{keyValue}</code>
 					</div>
 					<CopyButton text={keyValue} buttonText="Copy" />

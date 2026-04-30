@@ -556,7 +556,7 @@
 		{:else if layout.sidebarOpen && !hideSidebar}
 			<div
 				class={twMerge(
-					'bg-background flex max-h-dvh w-full min-w-dvw shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[310px]',
+					'bg-base-100 flex max-h-dvh w-full min-w-dvw shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[310px]',
 					classes?.sidebarRoot
 				)}
 				transition:slide={{ axis: 'x' }}
@@ -586,7 +586,7 @@
 											href={resolve(link.href as `/${string}`)}
 											class={twMerge(
 												'sidebar-link',
-												link.href && link.href === pathname && 'bg-surface2'
+												link.href && link.href === pathname && 'bg-base-300'
 											)}
 										>
 											<link.icon class="size-5" />
@@ -629,7 +629,7 @@
 												<div class="relative flex items-center gap-2" id={item.id}>
 													<div
 														class={twMerge(
-															'bg-surface3 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
+															'bg-base-400 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
 															item.href === pathname && 'bg-primary'
 														)}
 													></div>
@@ -645,7 +645,7 @@
 															href={resolve(item.href as `/${string}`)}
 															class={twMerge(
 																'sidebar-link',
-																item.href === pathname && 'bg-surface2'
+																item.href === pathname && 'bg-base-300'
 															)}
 														>
 															<item.icon class="size-4" />
@@ -685,7 +685,7 @@
 			{#if !responsive.isMobile && !disableResize}
 				<div
 					role="none"
-					class="h-inherit border-r-surface2 dark:border-r-surface2 relative -ml-3 w-3 cursor-col-resize border-r"
+					class="h-inherit border-r-base-300 dark:border-r-base-300 relative -ml-3 w-3 cursor-col-resize border-r"
 					use:columnResize={{ column: nav }}
 				></div>
 			{/if}
@@ -694,7 +694,7 @@
 		<Render
 			class={twMerge(
 				'default-scrollbar-thin relative flex h-svh w-full min-w-0 grow flex-col overflow-y-auto',
-				whiteBackground ? 'bg-background' : 'bg-surface1 dark:bg-background'
+				whiteBackground ? 'bg-base-100' : 'bg-base-200 dark:bg-base-100'
 			)}
 			component={main?.component}
 			as="main"
@@ -704,7 +704,7 @@
 				{@render banner()}
 			{/if}
 			<Navbar
-				class={twMerge('dark:bg-background sticky top-0 left-0 z-50 w-full', classes?.navbar)}
+				class={twMerge('dark:bg-base-100 sticky top-0 left-0 z-50 w-full', classes?.navbar)}
 				{hideProfileButton}
 			>
 				{#snippet leftContent()}
@@ -865,7 +865,7 @@
 		padding: 0.5rem;
 		transition: background-color 200ms;
 		&:hover {
-			background-color: var(--surface3);
+			background-color: var(--color-base-400);
 		}
 
 		&.disabled {

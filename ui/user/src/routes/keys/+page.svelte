@@ -84,9 +84,9 @@
 		<div class="flex flex-col gap-4">
 			{#if apiKeys.length === 0}
 				<div class="mt-26 flex w-lg flex-col items-center gap-4 self-center text-center">
-					<KeyRound class="text-on-surface1 size-24 opacity-50" />
-					<h4 class="text-on-surface1 text-lg font-semibold">No API keys</h4>
-					<p class="text-on-surface1 text-sm font-light">
+					<KeyRound class="text-base-content/80 size-24 opacity-50" />
+					<h4 class="text-base-content/40 text-lg font-semibold">No API keys</h4>
+					<p class="text-base-content/40 text-sm font-light">
 						Looks like you don't have any API keys yet! <br />
 						Click the "Create API Key" button above to get started.
 					</p>

@@ -80,7 +80,7 @@
 		<div
 			transition:slide
 			class={twMerge(
-				'border-surface1 bg-surface2 dark:bg-surface1 flex flex-col p-5 shadow-inner',
+				'border-base-400 bg-base-200 dark:bg-base-100 flex flex-col p-5 shadow-inner',
 				classes.content
 			)}
 		>

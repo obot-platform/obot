@@ -433,7 +433,7 @@
 			{#if taskRunData?.warning}
 				<div class="notification-alert flex w-full flex-col gap-2">
 					<div class="flex items-center gap-2">
-						<TriangleAlert class="size-6 flex-shrink-0 self-start text-yellow-500" />
+						<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">Warning</p>
 					</div>
 					<span class="text-sm font-light break-all">{taskRunData.warning}</span>
@@ -441,7 +441,7 @@
 			{/if}
 			<div class="flex w-full justify-center">
 				<div
-					class="bg-surface1 dark:bg-background flex w-full flex-col gap-4 rounded-xl p-4 shadow-inner md:max-w-[1200px]"
+					class="bg-base-200 dark:bg-base-100 flex w-full flex-col gap-4 rounded-xl p-4 shadow-inner md:max-w-[1200px]"
 				>
 					<div class="flex flex-col gap-4">
 						<TaskOptions bind:task {readOnly} />
@@ -468,7 +468,7 @@
 			<div class="grow"></div>
 
 			<div
-				class="bg-background sticky bottom-0 z-50 flex items-center justify-center px-6 opacity-0 transition-opacity"
+				class="bg-base-100 sticky bottom-0 z-50 flex items-center justify-center px-6 opacity-0 transition-opacity"
 				class:chat-overlay={showChat}
 			>
 				{#if allMessages.messages.length > 0 && showChat}

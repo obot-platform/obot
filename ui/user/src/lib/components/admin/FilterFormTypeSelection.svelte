@@ -88,7 +88,7 @@
 				classes={{
 					root: 'w-full md:w-96'
 				}}
-				class="bg-surface1 shadow-inner! dark:bg-background dark:border-surface3 border border-transparent"
+				class="bg-base-200 shadow-inner! dark:bg-base-100 dark:border-base-400 border border-transparent"
 				options={PII_FILTER_OPTION_VALUES}
 				selected={isBlocked ? 'block' : isRedacted ? 'redact' : 'none'}
 				id={`pii-filter-type-${option.id}`}
@@ -107,7 +107,7 @@
 		<div class="w-full flex-col md:flex-row flex md:items-center md:justify-between md:gap-4 gap-1">
 			<Select
 				classes={{ root: 'flex grow' }}
-				class="bg-surface1 shadow-inner! dark:bg-background dark:border-surface3 border border-transparent"
+				class="bg-base-200 shadow-inner! dark:bg-base-100 dark:border-base-400 border border-transparent"
 				options={PII_FILTER_OPTIONAL_OPTIONS}
 				selected={option}
 				id={`pii-filter-type-${option}-selector`}
@@ -118,7 +118,7 @@
 				classes={{
 					root: 'w-full md:w-82'
 				}}
-				class="bg-surface1 shadow-inner! dark:bg-background dark:border-surface3 border border-transparent"
+				class="bg-base-200 shadow-inner! dark:bg-base-100 dark:border-base-400 border border-transparent"
 				options={PII_FILTER_OPTION_VALUES}
 				selected={isBlocked ? 'block' : isRedacted ? 'redact' : 'none'}
 				id={`pii-filter-type-${option}`}
@@ -133,7 +133,7 @@
 				}}
 			/>
 			<button
-				class="icon-button hover:text-red-500"
+				class="icon-button hover:text-error"
 				onclick={() => {
 					if (isBlocked) removeTypeFromOneList(option, 'block');
 					else if (isRedacted) removeTypeFromOneList(option, 'mutate');
@@ -147,7 +147,7 @@
 		<div class="w-full flex-col md:flex-row flex md:items-center md:justify-between md:gap-4 gap-1">
 			<Select
 				classes={{ root: 'flex grow' }}
-				class="bg-surface1 shadow-inner! dark:bg-background dark:border-surface3 border border-transparent"
+				class="bg-base-200 shadow-inner! dark:bg-base-100 dark:border-base-400 border border-transparent"
 				options={PII_FILTER_OPTIONAL_OPTIONS}
 				id={`pii-filter-type-${option.id}-selector`}
 				placeholder="Select filter type..."
@@ -161,7 +161,7 @@
 				classes={{
 					root: 'w-full md:w-82'
 				}}
-				class="bg-surface1 shadow-inner! dark:bg-background dark:border-surface3 border border-transparent"
+				class="bg-base-200 shadow-inner! dark:bg-base-100 dark:border-base-400 border border-transparent"
 				options={PII_FILTER_OPTION_VALUES}
 				selected={option.value}
 				id={`pii-filter-type-${option.id}`}
@@ -171,7 +171,7 @@
 				}}
 			/>
 			<button
-				class="icon-button hover:text-red-500"
+				class="icon-button hover:text-error"
 				onclick={() => {
 					unassignedCustomOptions.splice(i, 1);
 				}}

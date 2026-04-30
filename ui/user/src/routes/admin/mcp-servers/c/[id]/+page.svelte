@@ -263,7 +263,7 @@
 									{diff.name}
 									{#if !diff.newManifest}
 										<span
-											class="ml-2 rounded bg-red-500/10 px-2 py-0.5 text-xs font-normal text-red-500"
+											class="ml-2 rounded bg-error/10 px-2 py-0.5 text-xs font-normal text-error"
 										>
 											Removed
 										</span>

@@ -141,10 +141,10 @@
 							selected = tab.view;
 						}}
 						class={twMerge(
-							'w-48 flex-shrink-0 rounded-md border border-transparent px-4 py-2 text-center transition-colors duration-300',
+							'w-48 shrink-0 rounded-md border border-transparent px-4 py-2 text-center transition-colors duration-300',
 							selected === tab.view &&
-								'dark:bg-surface1 dark:border-surface3 bg-background shadow-sm',
-							selected !== tab.view && 'hover:bg-surface3'
+								'dark:bg-base-200 dark:border-base-400 bg-base-100 shadow-sm',
+							selected !== tab.view && 'hover:bg-base-400'
 						)}
 					>
 						{tab.label}
@@ -167,7 +167,7 @@
 							<div class="notification-alert mb-4 flex gap-2">
 								<div class="flex grow flex-col gap-2">
 									<div class="flex items-center gap-2">
-										<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+										<AlertTriangle class="size-6 shrink-0 self-start text-warning" />
 										<p class="my-0.5 flex flex-col text-sm font-semibold">
 											{#if isAdminOAuthOnly}
 												Admin Configuration Required

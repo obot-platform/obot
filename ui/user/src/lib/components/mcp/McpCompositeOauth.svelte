@@ -128,7 +128,7 @@
 <div class="colors-background flex min-h-screen items-center justify-center p-4">
 	<div class="popover w-full max-w-lg p-6">
 		<div class="mb-6 flex items-center gap-3">
-			<div class="bg-surface1 flex-shrink-0 rounded-md p-2">
+			<div class="bg-base-200 shrink-0 rounded-md p-2">
 				{#if compositeServer?.manifest?.icon}
 					<img
 						src={compositeServer.manifest.icon}
@@ -164,7 +164,7 @@
 			<div class="flex flex-col gap-4">
 				{#each pending as item (item.mcpServerID)}
 					<div
-						class="border-surface3 bg-surface1 flex items-center justify-between rounded-lg border p-4"
+						class="border-base-400 bg-base-200 flex items-center justify-between rounded-lg border p-4"
 					>
 						<div class="flex items-center gap-3">
 							{#if componentInfos[item.catalogEntryID || '']?.icon}

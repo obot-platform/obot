@@ -83,7 +83,7 @@
 </script>
 
 <div class="flex min-h-svh flex-col">
-	<header class="bg-surface1 border-surface2 sticky top-0 z-40 border-b">
+	<header class="bg-base-200 border-base-300 sticky top-0 z-40 border-b">
 		<div class="colors-background sticky top-0 z-30 flex h-16 w-full items-center">
 			<div class="relative flex items-end p-5">
 				<BetaLogo />
@@ -91,12 +91,10 @@
 		</div>
 	</header>
 
-	<main
-		class="bg-surface1 dark:bg-gray-980 flex w-full grow flex-col items-center justify-center px-4 py-8"
-	>
+	<main class="bg-base-100 flex w-full grow flex-col items-center justify-center px-4 py-8">
 		{#if invitation.status !== 'pending'}
 			<div
-				class="dark:bg-surface1 dark:border-surface3 bg-background w-full max-w-lg rounded-xl p-8 shadow-md dark:border"
+				class="dark:bg-base-200 dark:border-base-400 bg-base-100 w-full max-w-lg rounded-xl p-8 shadow-md dark:border"
 			>
 				<div class="flex flex-col items-center gap-4">
 					<img src="/user/images/sharing-agent-expired.webp" alt="invitation" />
@@ -117,7 +115,7 @@
 			</div>
 		{:else if view === 'rejected'}
 			<div
-				class="dark:bg-surface1 dark:border-surface3 bg-background w-full max-w-lg rounded-xl p-8 shadow-md dark:border"
+				class="dark:bg-base-200 dark:border-base-400 bg-base-100 w-full max-w-lg rounded-xl p-8 shadow-md dark:border"
 			>
 				<div class="flex flex-col items-center gap-4">
 					<img src="/user/images/sharing-agent-expired.webp" alt="invitation" />
@@ -137,7 +135,7 @@
 			</div>
 		{:else if view === 'joined'}
 			<div
-				class="dark:bg-surface1 dark:border-surface3 bg-background w-full max-w-lg rounded-xl p-8 shadow-md dark:border"
+				class="dark:bg-base-200 dark:border-base-400 bg-base-100 w-full max-w-lg rounded-xl p-8 shadow-md dark:border"
 			>
 				<div class="flex flex-col items-center gap-4">
 					<img src="/user/images/sharing-agent.webp" alt="invitation" />
@@ -166,7 +164,7 @@
 			</div>
 		{:else}
 			<div
-				class="dark:bg-surface1 dark:border-surface3 bg-background w-full max-w-lg rounded-xl p-8 text-center shadow-md dark:border"
+				class="dark:bg-base-200 dark:border-base-400 bg-base-100 w-full max-w-lg rounded-xl p-8 text-center shadow-md dark:border"
 			>
 				<div class="flex flex-col items-center gap-4">
 					<img src="/user/images/sharing-agent.webp" alt="invitation" />
@@ -176,7 +174,7 @@
 					</h2>
 					{#if invitation.project}
 						<div
-							class="bg-surface1 dark:bg-surface2 flex w-full max-w-xs flex-col items-center gap-4 rounded-xl p-4 text-center"
+							class="bg-base-200 dark:bg-base-300 flex w-full max-w-xs flex-col items-center gap-4 rounded-xl p-4 text-center"
 						>
 							<img
 								src={getProjectImage(invitation.project, darkMode.isDark)}
@@ -184,13 +182,13 @@
 								class="size-16 rounded-full"
 							/>
 							{#if projectDescription}
-								<p class="text-md text-on-surface1">
+								<p class="text-md text-base-content/40">
 									{projectDescription}
 								</p>
 							{/if}
 						</div>
 					{/if}
-					<p class="text-on-surface1 text-xs">
+					<p class="text-base-content/40 text-xs">
 						Invitation sent on {invitationDate}
 					</p>
 					<div class="mt-6 flex w-full justify-center gap-4">
@@ -203,7 +201,7 @@
 							Reject
 						</button>
 						<button
-							class="button dark:hover:bg-surface2 hover:bg-surface1 flex w-full items-center justify-center gap-1 rounded-full bg-transparent p-4 px-6"
+							class="button dark:hover:bg-base-300 hover:bg-base-200 flex w-full items-center justify-center gap-1 rounded-full bg-transparent p-4 px-6"
 							disabled={isProcessing}
 							onclick={acceptInvitation}
 						>
@@ -213,7 +211,7 @@
 					</div>
 
 					{#if responseMessage}
-						<p class="mt-4 text-center {responseError ? 'text-red-500' : 'text-green-500'}">
+						<p class="mt-4 text-center {responseError ? 'text-error' : 'text-success'}">
 							{responseMessage}
 						</p>
 					{/if}

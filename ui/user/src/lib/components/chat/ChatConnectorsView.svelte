@@ -123,7 +123,7 @@
 							)
 						: d.data}
 				{#if property === 'name'}
-					<div class="flex flex-shrink-0 items-center gap-2">
+					<div class="flex shrink-0 items-center gap-2">
 						<div class="icon">
 							{#if d.icon}
 								<img src={d.icon} alt={d.name} class="size-6" />
@@ -135,7 +135,7 @@
 							{d.name}
 							{#if server && requiresUserUpdate(server)}
 								<span
-									class="text-yellow-500"
+									class="text-warning"
 									use:tooltip={{
 										text: 'Server requires an update.',
 										disablePortal: true
@@ -171,7 +171,7 @@
 					d.data.manifest?.remoteConfig?.staticOAuthRequired &&
 					!d.data.oauthCredentialConfigured}
 				<button
-					class="icon-button hover:dark:bg-background/50 disabled:cursor-not-allowed disabled:opacity-50"
+					class="icon-button hover:dark:bg-base-100/50 disabled:cursor-not-allowed disabled:opacity-50"
 					disabled={requiresOAuthConfig}
 					use:tooltip={{
 						text: requiresOAuthConfig ? 'OAuth configuration required' : '',
@@ -257,7 +257,7 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
-			<button class="icon-button hover:dark:bg-background/50">
+			<button class="icon-button hover:dark:bg-base-100/50">
 				<StepForward class="size-4" />
 			</button>
 		{/snippet}

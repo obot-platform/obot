@@ -159,7 +159,7 @@
 </script>
 
 <div
-	class="dark:border-surface3 text-on-background h-dvh w-screen border-l border-transparent md:w-lg lg:w-xl"
+	class="dark:border-base-400 text-base-content h-dvh w-screen border-l border-transparent md:w-lg lg:w-xl"
 >
 	<div class="relative w-full text-center">
 		<h4 class="p-4 text-xl font-semibold">Filters</h4>

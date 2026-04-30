@@ -35,7 +35,7 @@
 		{@render input()}
 	</label>
 {:else}
-	<label class={twMerge('text-on-surface1 flex items-center gap-1 text-xs', classes?.label)}>
+	<label class={twMerge('text-base-content/40 flex items-center gap-1 text-xs', classes?.label)}>
 		<span>{label}</span>
 		<div class="relative flex h-4.5 w-8.25">
 			{@render input()}
@@ -70,13 +70,13 @@
 			left: 0;
 			right: 0;
 			bottom: 0;
-			background-color: var(--color-surface3);
+			background-color: var(--color-base-400);
 			-webkit-transition: 0.4s;
 			transition: 0.4s;
 
 			.dark & {
 				&::before {
-					background-color: var(--color-surface1);
+					background-color: var(--color-base-200);
 				}
 			}
 		}

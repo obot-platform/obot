@@ -344,7 +344,7 @@
 					</button>
 				</div>
 				<div class="flex items-center gap-2">
-					<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+					<div class="h-fit shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-base-300">
 						{#if oauth.icon}
 							<img src={oauth.icon} alt={oauth.name} class="size-6" />
 						{:else}
@@ -394,7 +394,7 @@
 					</button>
 				</div>
 				<div class="flex items-center gap-2">
-					<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+					<div class="h-fit shrink-0 self-start rounded-md bg-base-200 p-1 dark:bg-base-300">
 						{#if adminOauth.icon}
 							<img src={adminOauth.icon} alt={adminOauth.name} class="size-6" />
 						{:else}
@@ -407,7 +407,7 @@
 				</div>
 
 				<div class="notification-warning flex items-start gap-2 p-3">
-					<AlertTriangle class="size-5 flex-shrink-0 text-yellow-500" />
+					<AlertTriangle class="size-5 shrink-0 text-warning" />
 					<p class="text-sm">
 						This MCP server requires OAuth credentials to be configured by an administrator.
 					</p>

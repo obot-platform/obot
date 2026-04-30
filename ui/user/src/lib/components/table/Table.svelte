@@ -587,7 +587,7 @@
 
 <div bind:this={wrapperRef} data-table-root>
 	<div
-		class={twMerge('dark:bg-surface1 bg-surface2 sticky left-0 z-40 w-full', classes?.thead)}
+		class={twMerge('dark:bg-base-200 bg-base-300 sticky left-0 z-40 w-full', classes?.thead)}
 		style="top: {stickyTop}px;"
 	>
 		{#if tableSelectActions && Object.keys(selected).length > 0}
@@ -595,7 +595,7 @@
 				<div class="shrink-0 p-2">
 					{@render selectAll()}
 				</div>
-				<div class="text-on-surface1 px-4 py-2 text-left text-sm font-semibold">
+				<div class="text-base-content/40 px-4 py-2 text-left text-sm font-semibold">
 					{Object.keys(selected).length} of {totalSelectable} selected
 				</div>
 				<div class="flex grow items-center justify-end">
@@ -632,7 +632,7 @@
 	</div>
 	<div
 		class={twMerge(
-			'dark:bg-surface2 default-scrollbar-thin bg-background relative overflow-hidden rounded-b-md shadow-sm',
+			'dark:bg-base-300 default-scrollbar-thin bg-base-100 relative overflow-hidden rounded-b-md shadow-sm',
 			classes?.root
 		)}
 		bind:this={bodyScrollRef}
@@ -668,7 +668,7 @@
 
 							{#if sectionA.length > 0}
 								{#if sectionB.length > 0}
-									<tr class="bg-surface3" data-section-header>
+									<tr class="bg-base-400" data-section-header>
 										<th
 											colspan={visibleFields.length +
 												(tableSelectActions ? 1 : 0) +
@@ -685,7 +685,7 @@
 							{/if}
 							{#if sectionB.length > 0}
 								{#if sectionA.length > 0}
-									<tr class="bg-surface3" data-section-header>
+									<tr class="bg-base-400" data-section-header>
 										<th
 											colspan={visibleFields.length +
 												(tableSelectActions ? 1 : 0) +
@@ -714,7 +714,7 @@
 {#if tableData.length === 0}
 	<div class="my-2 flex flex-col items-center justify-center gap-2">
 		{#if Object.keys(filteredBy || {}).length > 0}
-			<p class="text-on-surface1 text-sm font-light">No results found.</p>
+			<p class="text-base-content/40 text-sm font-light">No results found.</p>
 			<button
 				class="button text-sm"
 				onclick={() => {
@@ -725,7 +725,7 @@
 				Clear All Filters
 			</button>
 		{:else}
-			<p class="text-on-surface1 text-sm font-light">{noDataMessage}</p>
+			<p class="text-base-content/40 text-sm font-light">{noDataMessage}</p>
 		{/if}
 	</div>
 {/if}
@@ -740,7 +740,7 @@
 			<ChevronsLeft class="size-4" /> Previous
 		</button>
 
-		<p class="text-on-surface1 text-xs">
+		<p class="text-base-content/40 text-xs">
 			{page + 1} of {Math.ceil(total / pageSize)}
 		</p>
 
@@ -785,7 +785,7 @@
 			{/if}
 		</button>
 		{#if validateSelect}
-			<DotDotDot class="text-on-surface1" {disablePortal}>
+			<DotDotDot class="text-base-content/40" {disablePortal}>
 				{#snippet icon()}
 					<ChevronDown class="size-4" />
 				{/snippet}
@@ -830,7 +830,7 @@
 {#snippet header(hidden?: boolean)}
 	<thead
 		class={twMerge(
-			'dark:bg-surface1 bg-surface2 border-surface2 border-b',
+			'dark:bg-base-200 bg-base-300 border-base-400 border-b',
 			hidden && 'hidden',
 			classes?.thead
 		)}
@@ -868,7 +868,7 @@
 				{@const actionHeaderClass = headerClasses?.find((hc) => hc.property === 'actions')?.class}
 				<th
 					class={twMerge(
-						'text-md text-on-surface1 float-right w-auto px-4 py-2 text-left font-medium',
+						'text-md text-base-content/40 float-right w-auto px-4 py-2 text-left font-medium',
 						actionHeaderClass
 					)}
 				>
@@ -890,8 +890,8 @@
 {#snippet row(d: T)}
 	<tr
 		class={twMerge(
-			'border-surface2 dark:border-surface2 border-b shadow-xs transition-colors duration-300 last:border-b-0',
-			onClickRow && ' hover:bg-surface1 dark:hover:bg-surface3 cursor-pointer',
+			'border-base-400 dark:border-base-400 border-b shadow-xs transition-colors duration-300 last:border-b-0',
+			onClickRow && ' hover:bg-base-200 dark:hover:bg-base-400 cursor-pointer',
 			setRowClasses?.(d)
 		)}
 		onclick={(e) => {

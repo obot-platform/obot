@@ -46,7 +46,7 @@
 			noDataMessage="No Git Source URLs added."
 			setRowClasses={(d) => {
 				if (catalog?.syncErrors?.[d.url]) {
-					return 'bg-yellow-500/10';
+					return 'bg-warning/10';
 				}
 				return '';
 			}}
@@ -68,7 +68,7 @@
 						</button>
 					{/if}
 					<button
-						class="icon-button hover:text-red-500"
+						class="icon-button hover:text-error"
 						onclick={() => {
 							deletingSource = { type: 'single', source: d.url };
 						}}
@@ -95,7 +95,7 @@
 									classes: ['break-words']
 								}}
 							>
-								<TriangleAlert class="size-4 text-yellow-500" />
+								<TriangleAlert class="size-4 text-warning" />
 							</button>
 						{/if}
 					</div>
@@ -118,9 +118,9 @@
 		</Table>
 	{:else}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<Link2 class="text-surface3 size-24" />
-			<h4 class="text-on-surface1 text-lg font-semibold">No current Git Source URLs.</h4>
-			<p class="text-on-surface1 text-sm font-light">
+			<Link2 class="text-base-content/80 size-24" />
+			<h4 class="text-base-content/40 text-lg font-semibold">No current Git Source URLs.</h4>
+			<p class="text-base-content/40 text-sm font-light">
 				Once a Git Source URL has been added, its <br />
 				information will be quickly accessible here.
 			</p>
@@ -164,7 +164,7 @@
 	<div class="mb-4 flex flex-col gap-4">
 		<div class="notification-alert flex flex-col gap-2">
 			<div class="flex items-center gap-2">
-				<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+				<AlertTriangle class="size-6 shrink-0 self-start text-warning" />
 				<p class="my-0.5 flex flex-col text-sm font-semibold">
 					An issue occurred fetching this source URL:
 				</p>

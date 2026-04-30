@@ -570,7 +570,7 @@
 					}
 
 					if (d.needsK8sUpdate) {
-						return 'bg-yellow-500/5 hover:bg-yellow-500/10 border-yellow-500/20';
+						return 'bg-warning/5 hover:bg-warning/10 border-warning/20';
 					}
 
 					return '';
@@ -589,7 +589,7 @@
 							<p class="flex flex-col">
 								{d.displayName}
 								{#if d.compositeParentName}
-									<span class="text-on-surface1 text-xs">
+									<span class="text-base-content/40 text-xs">
 										({d.compositeParentName})
 									</span>
 								{/if}
@@ -612,7 +612,7 @@
 					{@const isComposite = !!d.compositeName}
 					{@const auditLogsUrl = getAuditLogsUrl(d)}
 
-					<DotDotDot class="icon-button hover:dark:bg-background/50" classes={{ menu: 'p-0' }}>
+					<DotDotDot class="icon-button hover:dark:bg-base-100/50" classes={{ menu: 'p-0' }}>
 						{#snippet icon()}
 							<Ellipsis class="size-4" />
 						{/snippet}
@@ -620,12 +620,12 @@
 						{#snippet children({ toggle })}
 							{#if !isComposite && d.isMyServer}
 								<div
-									class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+									class="bg-base-100 dark:bg-base-300 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
 								>
 									My Connection
 								</div>
 								<div
-									class={twMerge('flex flex-col gap-1 p-2', d.isMyServer ? 'bg-surface1' : 'pb-0')}
+									class={twMerge('flex flex-col gap-1 p-2', d.isMyServer ? 'bg-base-200' : 'pb-0')}
 								>
 									<button
 										class="menu-button"
@@ -740,7 +740,7 @@
 
 								{#if (d.isMyServer || (hasAdminAccess && !readonly)) && d.needsK8sUpdate}
 									<button
-										class="menu-button-primary bg-yellow-500/10 text-yellow-500 text-yellow-700 hover:bg-yellow-500/20"
+										class="menu-button-primary bg-warning/10 text-warning hover:bg-warning/20"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
 										onclick={(e) => {
 											e.stopPropagation();
@@ -952,7 +952,7 @@
 		<button
 			class={twMerge(
 				'menu-button',
-				requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
+				requiresUpdate && 'bg-warning/10 text-warning hover:bg-warning/30'
 			)}
 			onclick={() => {
 				editExistingDialog?.edit({

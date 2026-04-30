@@ -62,7 +62,7 @@
 <Layout title="Agents">
 	<div class="flex flex-col gap-4">
 		<div class="flex items-center justify-between">
-			<p class="text-sm text-gray-500">
+			<p class="text-sm text-base-content/40">
 				Browse and connect to agents across all users. Clicking "Connect" will open the agent's chat
 				interface in a new tab.
 			</p>
@@ -70,7 +70,7 @@
 
 		<Search
 			value={query}
-			class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 			onChange={(v) => {
 				const currentUrl = new URL(page.url);
 				if (v) {
@@ -154,7 +154,7 @@
 				>{confirmImpersonate?.userDisplayName || 'user'}</b
 			>. Any actions you take will be attributed to this user. Are you sure you wish to continue?
 		</p>
-		<p class="text-on-surface1 mt-4 text-sm">Note: This will open in a new window.</p>
+		<p class="text-base-content/40 mt-4 text-sm">Note: This will open in a new window.</p>
 	{/snippet}
 </Confirm>
 

@@ -47,7 +47,9 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<div class={twMerge('flex items-center gap-2', !hasKnowledgeCapability && 'text-on-surface1')}>
+	<div
+		class={twMerge('flex items-center gap-2', !hasKnowledgeCapability && 'text-base-content/40')}
+	>
 		<h2 class="text-xl font-semibold">Knowledge Files</h2>
 		{#if !hasKnowledgeCapability}
 			<div use:tooltip={'Capability Required'}>
@@ -60,7 +62,7 @@
 
 	<div class="flex flex-col gap-4">
 		{#if !hasKnowledgeCapability}
-			<p class="text-on-surface1 flex items-center gap-1 text-sm font-light">
+			<p class="text-base-content/40 flex items-center gap-1 text-sm font-light">
 				<span> Enable Knowledge in "Built-In Capabilities" to add knowledge to your project. </span>
 			</p>
 		{/if}
@@ -68,7 +70,7 @@
 			<div class="flex flex-col gap-2">
 				{#if knowledgeFiles.length > 0}
 					<div
-						class="text-md dark:bg-surface1 dark:border-surface3 bg-background gap-4 rounded-md border border-transparent shadow-sm"
+						class="text-md dark:bg-base-200 dark:border-base-400 bg-base-100 gap-4 rounded-md border border-transparent shadow-sm"
 					>
 						{#each knowledgeFiles as file (file.fileName)}
 							{#key file.fileName}
@@ -110,7 +112,7 @@
 			<div class="flex flex-col gap-2">
 				{#each project.websiteKnowledge.sites as _, i (i)}
 					<div
-						class="group dark:border-surface3 bg-background flex gap-2 rounded-md p-2 text-xs shadow-sm dark:border"
+						class="group dark:border-base-400 bg-base-100 flex gap-2 rounded-md p-2 text-xs shadow-sm dark:border"
 					>
 						<div class="flex grow flex-col gap-2">
 							<div>
@@ -121,7 +123,7 @@
 									id={`website-address-${i}`}
 									bind:value={project.websiteKnowledge.sites[i].site}
 									placeholder="example.com"
-									class="ghost-input border-surface2 w-full"
+									class="ghost-input border-base-300 w-full"
 								/>
 							</div>
 							<div>
@@ -130,7 +132,7 @@
 								>
 								<textarea
 									id={`website-description-${i}`}
-									class="ghost-input border-surface2 w-full resize-none"
+									class="ghost-input border-base-300 w-full resize-none"
 									bind:value={project.websiteKnowledge.sites[i].description}
 									rows="1"
 									placeholder="Description"

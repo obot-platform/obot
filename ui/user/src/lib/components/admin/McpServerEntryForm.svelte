@@ -563,8 +563,8 @@
 	{/if}
 
 	{#if requiresStaticOauth}
-		<div class="flex items-center gap-3 rounded-lg border border-yellow-500 bg-yellow-500/10 p-4">
-			<Info class="size-5 flex-shrink-0 text-yellow-500" />
+		<div class="flex items-center gap-3 rounded-lg border border-warning bg-warning/10 p-4">
+			<Info class="size-5 shrink-0 text-warning" />
 			<div class="flex-1">
 				<p class="text-sm font-medium">Requires Oauth Config</p>
 				<p class="text-muted-foreground mt-1 text-xs">
@@ -594,7 +594,7 @@
 						<button
 							disabled={!showLeftChevron}
 							onclick={scrollLeft}
-							class="bg-surface1 dark:bg-background sticky left-0 flex aspect-square h-full items-center justify-center rounded-l-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
+							class="bg-base-200 dark:bg-base-100 sticky left-0 flex aspect-square h-full items-center justify-center rounded-l-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
 						>
 							<ChevronLeft class="size-full" />
 						</button>
@@ -609,8 +609,8 @@
 								class={twMerge(
 									'min-w-fit flex-1 rounded-md border border-transparent px-3 py-2 text-center whitespace-nowrap transition-colors duration-300',
 									selected === tab.view &&
-										'dark:bg-surface1 dark:border-surface3 bg-background shadow-sm',
-									selected !== tab.view && 'hover:bg-surface3'
+										'dark:bg-base-200 dark:border-base-400 bg-base-100 shadow-sm',
+									selected !== tab.view && 'hover:bg-base-400'
 								)}
 							>
 								{tab.label}
@@ -622,7 +622,7 @@
 						<button
 							disabled={!showRightChevron}
 							onclick={scrollRight}
-							class="bg-surface1 dark:bg-background sticky right-0 flex aspect-square h-full items-center justify-center rounded-r-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
+							class="bg-base-200 dark:bg-base-100 sticky right-0 flex aspect-square h-full items-center justify-center rounded-r-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
 						>
 							<ChevronRight class="size-full" />
 						</button>
@@ -665,14 +665,14 @@
 				>
 					{#snippet noToolsContent()}
 						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-							<Wrench class="text-on-surface1 size-24 opacity-50" />
+							<Wrench class="text-base-content/40 size-24 opacity-50" />
 							{#if !entry || (entry && (readonly || server))}
-								<h4 class="text-on-surface1 text-lg font-semibold">No tools</h4>
-								<p class="text-on-surface1 text-sm font-light">
+								<h4 class="text-base-content/40 text-lg font-semibold">No tools</h4>
+								<p class="text-base-content/40 text-sm font-light">
 									Looks like this MCP server doesn't have any tools available currently.
 								</p>
 							{:else if !readonly}
-								<h4 class="text-on-surface1 text-lg font-semibold">No tools</h4>
+								<h4 class="text-base-content/40 text-lg font-semibold">No tools</h4>
 								<button
 									class="button-primary flex items-center gap-1 text-sm"
 									onclick={handleInitTemporaryInstance}
@@ -685,7 +685,7 @@
 									{/if}
 								</button>
 								{#if !error}
-									<p class="text-on-surface1 text-sm font-light">
+									<p class="text-base-content/40 text-sm font-light">
 										{#if type === 'remote'}
 											Click above to connect to the remote MCP server to populate capabilities and
 											tools.
@@ -744,7 +744,7 @@
 				{#if entry && 'sourceURL' in entry && !!entry.sourceURL}
 					<p>
 						This MCP Server comes from an external Git Source URL <span
-							class="text-no-surface1 text-xs">({entry.sourceURL.split('/').pop()})</span
+							class="text-base-content/40 text-xs">({entry.sourceURL.split('/').pop()})</span
 						> and cannot be edited.
 					</p>
 				{:else}
@@ -821,9 +821,9 @@
 			</Table>
 		{:else}
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-				<GlobeLock class="text-on-surface1 size-24 opacity-50" />
-				<h4 class="text-on-surface1 text-lg font-semibold">No MCP registries</h4>
-				<p class="text-on-surface1 text-sm font-light">
+				<GlobeLock class="text-base-content/40 size-24 opacity-50" />
+				<h4 class="text-base-content/40 text-lg font-semibold">No MCP registries</h4>
+				<p class="text-base-content/40 text-sm font-light">
 					This server is not tied to any registries.
 				</p>
 			</div>
@@ -872,14 +872,14 @@
 			>
 				{#snippet emptyContent()}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-						<Users class="text-on-surface1 size-24 opacity-50" />
-						<h4 class="text-on-surface1 text-lg font-semibold">No recent audit logs</h4>
-						<p class="text-on-surface1 text-sm font-light">
+						<Users class="text-base-content/40 size-24 opacity-50" />
+						<h4 class="text-base-content/40 text-lg font-semibold">No recent audit logs</h4>
+						<p class="text-base-content/40 text-sm font-light">
 							This server has not had any active usage in the last 7 days.
 						</p>
 						{#if entryId || mcpCatalogEntryId}
 							{@const param = entryId ? 'mcpId=' + entryId : 'entryId=' + mcpCatalogEntryId}
-							<p class="text-on-surface1 text-sm font-light">
+							<p class="text-base-content/40 text-sm font-light">
 								See more usage details in the server's <a
 									href={resolve(`/admin/audit-logs?${param}`)}
 									class="text-link"
@@ -933,9 +933,9 @@
 				</Table>
 			{:else}
 				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-					<ListFilter class="text-on-surface1 size-24 opacity-50" />
-					<h4 class="text-on-surface1 text-lg font-semibold">No filters configured</h4>
-					<p class="text-on-surface1 text-sm font-light">
+					<ListFilter class="text-base-content/40 size-24 opacity-50" />
+					<h4 class="text-base-content/40 text-lg font-semibold">No filters configured</h4>
+					<p class="text-base-content/40 text-sm font-light">
 						This server is not referenced by any filters.
 					</p>
 				</div>
@@ -943,9 +943,9 @@
 		{/await}
 	{:else}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<ListFilter class="text-on-surface1 size-24 opacity-50" />
-			<h4 class="text-on-surface1 text-lg font-semibold">No filters available</h4>
-			<p class="text-on-surface1 text-sm font-light">
+			<ListFilter class="text-base-content/40 size-24 opacity-50" />
+			<h4 class="text-base-content/40 text-lg font-semibold">No filters available</h4>
+			<p class="text-base-content/40 text-sm font-light">
 				No filters have been configured in the system.
 			</p>
 		</div>
@@ -1060,7 +1060,7 @@
 	{:else if oauthURLs && Object.keys(oauthURLs).length > 0}
 		<!-- Composite server OAuth - multiple components -->
 		<div class="flex flex-col gap-3">
-			<p class="text-on-surface1 text-sm">
+			<p class="text-base-content/40 text-sm">
 				Multiple components require authentication. Please authenticate each component below:
 			</p>
 			{#each Object.entries(oauthURLs).filter(([id]) => !authenticatedComponents.has(id)) as [componentId, url] (componentId)}
@@ -1127,7 +1127,7 @@
 
 {#snippet errorSnippet()}
 	<div class="notification-error flex items-center gap-2">
-		<AlertCircle class="size-6 flex-shrink-0 text-red-500" />
+		<AlertCircle class="size-6 shrink-0 text-error" />
 		<p class="flex flex-col text-left text-sm font-light">
 			<span class="font-semibold">Error with launching temporary instance:</span>
 			<span>

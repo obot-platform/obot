@@ -81,7 +81,7 @@
 			</div>
 
 			<div
-				class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
+				class="dark:bg-base-300 dark:border-base-400 bg-base-100 rounded-lg border border-transparent p-4"
 			>
 				<div class="flex flex-col gap-6">
 					<div class="flex flex-col gap-2">
@@ -182,27 +182,27 @@
 								<div
 									class={twMerge(
 										'flex w-full items-center gap-3 px-4 py-3',
-										!d.exists && 'bg-yellow-500/5'
+										!d.exists && 'bg-warning/5'
 									)}
 								>
-									<div class="flex-shrink-0">
+									<div class="shrink-0">
 										{#if d.icon}
 											<img src={d.icon} alt={d.name} class="size-6" />
 										{:else}
-											<Server class="text-on-surface1 size-6" />
+											<Server class="text-base-content/40 size-6" />
 										{/if}
 									</div>
 									<div class="flex min-w-0 grow flex-col">
 										<p
 											class={twMerge(
 												'truncate text-sm',
-												!d.exists && 'text-on-surface1 font-light italic'
+												!d.exists && 'text-base-content/40 font-light italic'
 											)}
 										>
 											{d.name}
 										</p>
 										{#if d.description}
-											<span class="text-on-surface1 line-clamp-1 text-xs">
+											<span class="text-base-content/40 line-clamp-1 text-xs">
 												{stripMarkdownToText(d.description)}
 											</span>
 										{/if}
