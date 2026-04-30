@@ -26,14 +26,14 @@
 <div class="relative flex flex-col">
 	<button
 		class={twMerge(
-			'dark:bg-surface1 dark:border-surface3 bg-background flex h-full min-h-[120px] w-full flex-col rounded-lg border border-transparent p-3 text-left shadow-sm',
-			needsUpdate && 'bg-background border-yellow-500 dark:border-yellow-500 dark:bg-yellow-500/20'
+			'dark:bg-base-200 dark:border-base-400 bg-base-100 flex h-full min-h-[120px] w-full flex-col rounded-lg border border-transparent p-3 text-left shadow-sm',
+			needsUpdate && 'bg-base-100 border-warning dark:border-warning dark:bg-warning/20'
 		)}
 		onclick={onClick}
 	>
 		<div class="flex items-center gap-2 pr-6">
 			<div
-				class="flex size-5 flex-shrink-0 items-center justify-center self-start rounded-md bg-transparent p-0.5 dark:bg-gray-600"
+				class="flex size-5 shrink-0 items-center justify-center self-start rounded-md bg-transparent p-0.5 dark:bg-base-300"
 			>
 				{#if icon}
 					<img src={icon} alt={name} />
@@ -47,7 +47,7 @@
 		</div>
 		<span
 			class={twMerge(
-				'text-on-surface1 mt-2 text-xs leading-4.5 font-light break-all',
+				'text-muted-content mt-2 text-xs leading-4.5 font-light break-all',
 				categories.length > 0 ? 'line-clamp-2' : 'line-clamp-3'
 			)}
 		>
@@ -56,7 +56,7 @@
 		<div class="line-clamp-1 flex w-full gap-1 pt-2">
 			{#each categories as category (category)}
 				<div
-					class="border-surface3 text-on-surface1 truncate rounded-full border px-1.5 py-0.5 text-[10px] font-light"
+					class="border-base-400 text-muted-content truncate rounded-full border px-1.5 py-0.5 text-[10px] font-light"
 				>
 					{category}
 				</div>
@@ -73,7 +73,7 @@
 			class="absolute -top-1 right-7 flex h-full translate-y-2 flex-col justify-between gap-4 p-2"
 			use:tooltip={'Server requires an update.'}
 		>
-			<TriangleAlert class="size-4 text-yellow-500" />
+			<TriangleAlert class="size-4 text-warning" />
 		</div>
 	{/if}
 </div>

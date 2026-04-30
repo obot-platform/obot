@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import {
@@ -16,6 +15,7 @@
 	import McpServerEntryForm from '../admin/McpServerEntryForm.svelte';
 	import ConnectToServer from '../mcp/ConnectToServer.svelte';
 	import McpServerActions from '../mcp/McpServerActions.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import ChatConnectorsView from './ChatConnectorsView.svelte';
 	import { ChevronLeft, X } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
@@ -144,9 +144,9 @@
 	{#if selected}
 		<div class="flex items-center justify-between gap-4 py-2 pr-4 pl-2">
 			<div class="flex items-center gap-2">
-				<button class="icon-button" onclick={() => (selected = undefined)}>
+				<IconButton onclick={() => (selected = undefined)}>
 					<ChevronLeft class="size-6" />
-				</button>
+				</IconButton>
 				<h4 class="text-lg font-semibold">
 					{selected.server?.alias ||
 						selected.server?.manifest.name ||
@@ -172,7 +172,7 @@
 			</div>
 		</div>
 		<div
-			class="bg-surface1 dark:bg-background flex h-full flex-col gap-6 p-4"
+			class="bg-base-200 dark:bg-base-100 flex h-full flex-col gap-6 p-4"
 			in:fly={{ x: 100, delay: duration, duration }}
 		>
 			<McpServerEntryForm
@@ -192,16 +192,15 @@
 	<div class="w-full px-4 py-2">
 		<div class="mb-2 flex items-center justify-between gap-4">
 			<h4 class="text-lg font-semibold">Add MCP Server</h4>
-			<button
-				class="icon-button"
+			<IconButton
 				onclick={() => closeCatalogDialog()}
-				use:tooltip={{ disablePortal: true, text: 'Close' }}
+				tooltip={{ disablePortal: true, text: 'Close' }}
 			>
 				<X class="size-6" />
-			</button>
+			</IconButton>
 		</div>
 		<Search
-			class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner"
+			class="bg-base-200 dark:border-base-400 border border-transparent shadow-inner"
 			value={query}
 			onChange={(value) => (query = value)}
 			placeholder="Search servers..."

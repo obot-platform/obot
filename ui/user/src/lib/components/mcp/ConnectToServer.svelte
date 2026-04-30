@@ -22,6 +22,7 @@
 	import CopyButton from '../CopyButton.svelte';
 	import PageLoading from '../PageLoading.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import CatalogConfigureForm, {
 		type CompositeLaunchFormData,
 		type LaunchFormData
@@ -759,7 +760,7 @@
 		{#if server}
 			{@const icon = server.manifest.icon ?? ''}
 
-			<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
+			<div class="bg-base-200 rounded-sm p-1 dark:bg-base-300">
 				{#if icon}
 					<img src={icon} alt={name} class="size-8" />
 				{:else}
@@ -786,21 +787,22 @@
 						showTextLeft
 						text={url}
 						classes={{
-							button: 'flex-shrink-0 flex items-center gap-1 text-xs font-light hover:text-blue-500'
+							button: 'shrink-0 flex items-center gap-1 text-xs font-light hover:text-blue-500'
 						}}
 					/>
 				</div>
+
+				{#if !hideActions && version.current.disableLegacyChat !== true}
+					<div class="w-32">
+						<button
+							class="btn btn-primary flex h-9 w-full grow items-center justify-center gap-2 text-sm"
+							onclick={() => handleSetupChat(server!, instance)}
+						>
+							Chat <ExternalLink class="size-4" />
+						</button>
+					</div>
+				{/if}
 			</div>
-			{#if !hideActions && version.current.disableLegacyChat !== true}
-				<div class="w-32">
-					<button
-						class="button-primary flex h-fit w-full grow items-center justify-center gap-2 text-sm"
-						onclick={() => handleSetupChat(server!, instance)}
-					>
-						Chat <ExternalLink class="size-4" />
-					</button>
-				</div>
-			{/if}
 		</div>
 
 		{#if url}
@@ -809,11 +811,11 @@
 
 		{#if entry && !hideActions}
 			<p
-				class="text-on-surface1 flex items-center justify-end gap-2 text-sm font-light md:px-0 px-4"
+				class="text-muted-content flex items-center justify-end gap-2 text-sm font-light md:px-0 px-4"
 			>
 				Need to set up a different instance?
 				<button
-					class="button-small button-primary hover:bg-primary px-3 text-xs"
+					class="btn btn-sm btn-primary text-xs"
 					onclick={() => {
 						server = undefined;
 						initCatalogEntry();
@@ -872,11 +874,11 @@
 	{#snippet errorPostContent()}
 		{#if launchLogs.length > 0}
 			<div
-				class="default-scrollbar-thin bg-surface1 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
+				class="default-scrollbar-thin bg-base-200 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
 			>
 				{#each launchLogs as log, i (i)}
 					<div class="font-mono text-sm">
-						<span class="text-on-surface1">{log}</span>
+						<span class="text-muted-content">{log}</span>
 					</div>
 				{/each}
 			</div>
@@ -887,7 +889,7 @@
 		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
 			{#if entry}
 				<button
-					class="button-primary w-full md:w-1/2 md:flex-1"
+					class="btn btn-primary w-full md:w-1/2 md:flex-1"
 					onclick={() => {
 						launchState = 'relaunching';
 						launchError = undefined;
@@ -901,7 +903,7 @@
 					Update Configuration and Try Again
 				</button>
 			{/if}
-			<button class="button w-full md:w-1/2 md:flex-1" onclick={handleCancelLaunch}>
+			<button class="btn btn-secondary w-full md:w-1/2 md:flex-1" onclick={handleCancelLaunch}>
 				Cancel and Delete Server
 			</button>
 		</div>
@@ -913,12 +915,12 @@
 		<div class="flex flex-col gap-4 p-4">
 			{#if oauthURL}
 				<div class="absolute top-2 right-2">
-					<button class="icon-button" onclick={handleOauthClose}>
+					<IconButton onclick={handleOauthClose}>
 						<X class="size-4" />
-					</button>
+					</IconButton>
 				</div>
 				<div class="flex items-center gap-2">
-					<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+					<div class="h-fit shrink-0 self-start rounded-md bg-base-200 p-1 dark:bg-base-300">
 						{#if server?.manifest.icon}
 							<img
 								src={server?.manifest.icon}
@@ -946,7 +948,7 @@
 					href={oauthURL}
 					rel="external"
 					target="_blank"
-					class="button-primary text-center text-sm outline-none"
+					class="btn btn-primary text-center text-sm outline-none"
 					onclick={() => {
 						oauthVerifying = true;
 					}}

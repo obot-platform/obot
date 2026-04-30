@@ -797,18 +797,33 @@ export interface AppPreferencesManifest {
 	theme?: {
 		backgroundColor?: string;
 		onBackgroundColor?: string;
-		onSurfaceColor?: string;
 		surface1Color?: string;
 		surface2Color?: string;
 		surface3Color?: string;
+		secondaryColor?: string;
+		successColor?: string;
+		warningColor?: string;
+		errorColor?: string;
 		primaryColor?: string;
+		onPrimaryColor?: string;
+		onSuccessColor?: string;
+		onWarningColor?: string;
+		onErrorColor?: string;
 		darkBackgroundColor?: string;
 		darkOnBackgroundColor?: string;
-		darkOnSurfaceColor?: string;
 		darkSurface1Color?: string;
 		darkSurface2Color?: string;
 		darkSurface3Color?: string;
+		darkSecondaryColor?: string;
+		darkSuccessColor?: string;
+		darkWarningColor?: string;
+		darkErrorColor?: string;
 		darkPrimaryColor?: string;
+		darkOnPrimaryColor?: string;
+		darkOnSuccessColor?: string;
+		darkOnWarningColor?: string;
+		darkOnErrorColor?: string;
+		fontFamily?: string;
 	};
 }
 
@@ -827,18 +842,33 @@ export interface AppPreferences {
 	theme: {
 		backgroundColor: string;
 		onBackgroundColor: string;
-		onSurfaceColor: string;
+		onPrimaryColor: string;
+		onSuccessColor: string;
+		onWarningColor: string;
+		onErrorColor: string;
 		surface1Color: string;
 		surface2Color: string;
 		surface3Color: string;
+		secondaryColor: string;
 		primaryColor: string;
+		successColor: string;
+		warningColor: string;
+		errorColor: string;
 		darkBackgroundColor: string;
 		darkOnBackgroundColor: string;
-		darkOnSurfaceColor: string;
+		darkOnPrimaryColor: string;
+		darkOnSuccessColor: string;
+		darkOnWarningColor: string;
+		darkOnErrorColor: string;
 		darkSurface1Color: string;
 		darkSurface2Color: string;
 		darkSurface3Color: string;
+		darkSecondaryColor: string;
 		darkPrimaryColor: string;
+		darkSuccessColor: string;
+		darkWarningColor: string;
+		darkErrorColor: string;
+		fontFamily: string;
 	};
 }
 

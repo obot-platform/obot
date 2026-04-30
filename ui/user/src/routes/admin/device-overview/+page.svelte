@@ -190,15 +190,15 @@
 
 		{#if !stats || stats.deviceCount === 0}
 			<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
-				<ScanLine class="text-on-surface1 size-24 opacity-50" />
-				<h4 class="text-on-surface1 text-lg font-semibold">No device scans in this window</h4>
-				<p class="text-on-surface1 text-sm font-light">
+				<ScanLine class="text-muted-content size-24 opacity-50" />
+				<h4 class="text-muted-content text-lg font-semibold">No device scans in this window</h4>
+				<p class="text-muted-content text-sm font-light">
 					Adjust the date range or run <code class="font-mono">obot scan</code> from a managed device.
 				</p>
 			</div>
 		{:else}
 			<div
-				class="paper dark:divide-surface3 divide-surface2 grid grid-cols-2 divide-x sm:grid-cols-3 lg:grid-cols-5"
+				class="paper dark:divide-base-400 divide-base-300 grid grid-cols-2 divide-x sm:grid-cols-3 lg:grid-cols-5"
 			>
 				{#each tiles as tile (tile.key)}
 					{@render statCell(tile)}
@@ -243,7 +243,7 @@
 				e.preventDefault();
 				openUrl(resolve('/admin/devices'), e.ctrlKey || e.metaKey);
 			}}
-			class="hover:bg-surface2/50 group flex items-center justify-between gap-3 p-4 transition-colors"
+			class="hover:bg-base-300/50 group flex items-center justify-between gap-3 p-4 transition-colors"
 		>
 			{@render statCellInner(tile, true)}
 		</a>
@@ -254,7 +254,7 @@
 				e.preventDefault();
 				openUrl(resolve('/admin/device-mcp-servers'), e.ctrlKey || e.metaKey);
 			}}
-			class="hover:bg-surface2/50 group flex items-center justify-between gap-3 p-4 transition-colors"
+			class="hover:bg-base-300/50 group flex items-center justify-between gap-3 p-4 transition-colors"
 		>
 			{@render statCellInner(tile, true)}
 		</a>
@@ -265,7 +265,7 @@
 				e.preventDefault();
 				openUrl(resolve('/admin/device-skills'), e.ctrlKey || e.metaKey);
 			}}
-			class="hover:bg-surface2/50 group flex items-center justify-between gap-3 p-4 transition-colors"
+			class="hover:bg-base-300/50 group flex items-center justify-between gap-3 p-4 transition-colors"
 		>
 			{@render statCellInner(tile, true)}
 		</a>
@@ -278,7 +278,7 @@
 
 {#snippet statCellInner(tile: StatTile, clickable: boolean)}
 	<div class="flex min-w-0 flex-col">
-		<span class="text-on-surface1 truncate text-xs">
+		<span class="text-muted-content truncate text-xs">
 			{tile.label}{#if clickable}<ChevronRight
 					class="ml-0.5 inline size-3 -translate-x-0.5 opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100"
 				/>{/if}

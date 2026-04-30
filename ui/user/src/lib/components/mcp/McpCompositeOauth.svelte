@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { parseErrorContent } from '$lib/errors';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { ChatService, type MCPCatalogServer } from '$lib/services';
-	import { LoaderCircle, Server } from 'lucide-svelte';
+	import { Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -128,7 +129,7 @@
 <div class="colors-background flex min-h-screen items-center justify-center p-4">
 	<div class="popover w-full max-w-lg p-6">
 		<div class="mb-6 flex items-center gap-3">
-			<div class="bg-surface1 flex-shrink-0 rounded-md p-2">
+			<div class="bg-base-200 shrink-0 rounded-md p-2">
 				{#if compositeServer?.manifest?.icon}
 					<img
 						src={compositeServer.manifest.icon}
@@ -153,7 +154,7 @@
 
 		{#if loading && pending.length === 0}
 			<div class="flex items-center justify-center gap-2 py-8">
-				<LoaderCircle class="size-6 animate-spin" />
+				<Loading class="size-6" />
 				<span>Loading servers...</span>
 			</div>
 		{:else if error}
@@ -164,7 +165,7 @@
 			<div class="flex flex-col gap-4">
 				{#each pending as item (item.mcpServerID)}
 					<div
-						class="border-surface3 bg-surface1 flex items-center justify-between rounded-lg border p-4"
+						class="border-base-400 bg-base-200 flex items-center justify-between rounded-lg border p-4"
 					>
 						<div class="flex items-center gap-3">
 							{#if componentInfos[item.catalogEntryID || '']?.icon}
@@ -184,17 +185,17 @@
 						</div>
 						<div class="flex items-center gap-2">
 							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
-							<a href={item.authURL} rel="external" target="_blank" class="button-primary"
+							<a href={item.authURL} rel="external" target="_blank" class="btn btn-primary"
 								>Authenticate</a
 							>
 							{#if enabledCount > 1}
 								<button
-									class="button-text"
+									class="btn btn-text"
 									disabled={item.loading}
 									onclick={() => skip(item.mcpServerID)}
 								>
 									{#if item.loading}
-										<LoaderCircle class="size-4 animate-spin" />
+										<Loading class="size-4" />
 									{:else}
 										Skip
 									{/if}

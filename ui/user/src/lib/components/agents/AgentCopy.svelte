@@ -30,7 +30,7 @@
 				{template.projectSnapshot.name || 'Unnamed Project'}
 			</h3>
 			{#if template.projectSnapshotLastUpgraded}
-				<div class="text-on-surface1 mt-0.5 text-[12px]">
+				<div class="text-muted-content mt-0.5 text-[12px]">
 					Last Updated: {new Date(template.projectSnapshotLastUpgraded).toLocaleString(undefined, {
 						year: 'numeric',
 						month: 'short',
@@ -50,8 +50,8 @@
 			</div>
 		{/if}
 
-		<div class="mt-2 flex flex-col gap-4 border-t border-gray-100 pt-4 dark:border-gray-700">
-			<p class="text-on-surface1 px-2 text-sm font-light">
+		<div class="mt-2 flex flex-col gap-4 border-t border-base-400 pt-4">
+			<p class="text-muted-content px-2 text-sm font-light">
 				This project was shared by a user and may include instructions, MCP servers, knowledge
 				files, and task definitions that were not reviewed or verified by our team. It could
 				interact with external systems, access additional data sources, or behave in unexpected
@@ -59,11 +59,11 @@
 				to proceed at your own discretion.
 			</p>
 			<div class="flex flex-col items-center gap-3">
-				<button onclick={launchProject} class="button-primary w-full max-w-xs">
+				<button onclick={launchProject} class="btn btn-primary w-full max-w-xs">
 					Launch Project
 				</button>
 				{#if onBack}
-					<button onclick={onBack} class="button w-full max-w-xs"> Go Back </button>
+					<button onclick={onBack} class="btn btn-secondary w-full max-w-xs"> Go Back </button>
 				{/if}
 			</div>
 		</div>

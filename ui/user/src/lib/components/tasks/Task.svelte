@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Steps from '$lib/components/tasks/Steps.svelte';
 	import { TASK_NEW_ID } from '$lib/constants';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { newSaveMonitor } from '$lib/save.js';
 	import {
 		ChatService,
@@ -18,9 +18,10 @@
 	import { errors, responsive } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import ChatInput from '../messages/Input.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Input from './Input.svelte';
 	import TaskOptions from './TaskOptions.svelte';
-	import { LoaderCircle, OctagonX, Play } from 'lucide-svelte';
+	import { OctagonX, Play } from 'lucide-svelte';
 	import { MessageCircle, MessageCircleOff, Trash2, TriangleAlert } from 'lucide-svelte/icons';
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -313,34 +314,31 @@
 {#snippet mainActions()}
 	<div class="flex items-center gap-2">
 		{#if allMessages.messages.length > 0 && !noChat}
-			<button
-				class="icon-button"
-				onclick={() => (showChat = !showChat)}
-				use:tooltip={'Toggle Chat'}
-				transition:fade
-			>
-				{#if showChat}
-					<MessageCircleOff class="size-6" />
-				{:else}
-					<MessageCircle class="size-6" />
-				{/if}
-			</button>
+			<div transition:fade>
+				<IconButton onclick={() => (showChat = !showChat)} tooltip={{ text: 'Toggle Chat' }}>
+					{#if showChat}
+						<MessageCircleOff class="size-6" />
+					{:else}
+						<MessageCircle class="size-6" />
+					{/if}
+				</IconButton>
+			</div>
 		{/if}
 		{#if !readOnly}
 			<button
-				class="bg-primary hover:bg-primary/50 flex items-center justify-center gap-2 rounded-2xl px-12 py-2 text-white transition-all duration-200"
+				class="bg-primary hover:bg-primary/50 flex items-center justify-center gap-2 rounded-sm px-12 py-2 text-white transition-all duration-200"
 				onclick={click}
 				class:grow={responsive.isMobile}
 			>
 				{#if isRunning}
 					Stop
-					<OctagonX class="h-4 w-4" />
+					<OctagonX class="size-4" />
 				{:else if pending}
 					Cancel
-					<LoaderCircle class="h-4 w-4 animate-spin" />
+					<Loading class="size-4" />
 				{:else}
 					Run
-					<Play class="h-4 w-4" />
+					<Play class="size-4" />
 				{/if}
 			</button>
 		{/if}
@@ -406,13 +404,11 @@
 						>
 							{@render mainActions()}
 							{#if !readOnly}
-								<button
-									in:slide={{ axis: 'x', duration: 150 }}
-									class="button-destructive p-3"
-									onclick={() => (toDelete = true)}
-								>
-									<Trash2 class="size-4" />
-								</button>
+								<div in:slide={{ axis: 'x', duration: 150 }}>
+									<IconButton variant="danger2" onclick={() => (toDelete = true)}>
+										<Trash2 class="size-4" />
+									</IconButton>
+								</div>
 							{/if}
 						</div>
 					{/if}
@@ -423,9 +419,9 @@
 							{@render mainActions()}
 						</div>
 						{#if !readOnly}
-							<button class="button-destructive p-4" onclick={() => (toDelete = true)}>
+							<IconButton variant="danger2" onclick={() => (toDelete = true)}>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					</div>
 				{/if}
@@ -433,7 +429,7 @@
 			{#if taskRunData?.warning}
 				<div class="notification-alert flex w-full flex-col gap-2">
 					<div class="flex items-center gap-2">
-						<TriangleAlert class="size-6 flex-shrink-0 self-start text-yellow-500" />
+						<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">Warning</p>
 					</div>
 					<span class="text-sm font-light break-all">{taskRunData.warning}</span>
@@ -441,7 +437,7 @@
 			{/if}
 			<div class="flex w-full justify-center">
 				<div
-					class="bg-surface1 dark:bg-background flex w-full flex-col gap-4 rounded-xl p-4 shadow-inner md:max-w-[1200px]"
+					class="bg-base-200 dark:bg-base-100 flex w-full flex-col gap-4 rounded-xl p-4 shadow-inner md:max-w-[1200px]"
 				>
 					<div class="flex flex-col gap-4">
 						<TaskOptions bind:task {readOnly} />
@@ -468,7 +464,7 @@
 			<div class="grow"></div>
 
 			<div
-				class="bg-background sticky bottom-0 z-50 flex items-center justify-center px-6 opacity-0 transition-opacity"
+				class="bg-base-100 sticky bottom-0 z-50 flex items-center justify-center px-6 opacity-0 transition-opacity"
 				class:chat-overlay={showChat}
 			>
 				{#if allMessages.messages.length > 0 && showChat}
@@ -507,7 +503,7 @@
 				<div class="flex grow"></div>
 				<div class="flex w-full flex-col justify-between gap-4 md:flex-row md:justify-end">
 					<button
-						class="button-primary w-full md:w-fit"
+						class="btn btn-primary w-full md:w-fit"
 						onclick={() => {
 							run();
 							inputDialog?.close();
@@ -530,7 +526,7 @@
 			left: 0;
 			width: 100%;
 			height: 3rem;
-			background: linear-gradient(to bottom, transparent, var(--background));
+			background: linear-gradient(to bottom, transparent, var(--color-base-100));
 		}
 	}
 </style>

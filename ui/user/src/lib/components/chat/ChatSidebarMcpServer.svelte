@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { closeAll, closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import { ChatService, type Project, type ProjectMCP } from '$lib/services';
@@ -9,6 +8,7 @@
 	import EditExistingDeployment from '../mcp/EditExistingDeployment.svelte';
 	import McpServerActions from '../mcp/McpServerActions.svelte';
 	import McpServerInfoAndTools from '../mcp/McpServerInfoAndTools.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { ChevronLeft, Server, Trash2 } from 'lucide-svelte';
 
 	interface Props {
@@ -42,17 +42,17 @@
 	}
 </script>
 
-<div class="bg-surface1 dark:bg-background flex w-full justify-center">
+<div class="bg-base-200 dark:bg-base-100 flex w-full justify-center">
 	<div class="w-full md:max-w-[1200px]">
 		{#if !layout.sidebarOpen || responsive.isMobile}
 			<div class="flex w-full items-center justify-between gap-2 px-4 pt-4">
-				<div class="flex flex-shrink-0 items-center gap-2">
-					<button class="icon-button" onclick={() => closeSidebarConfig(layout)}>
+				<div class="flex shrink-0 items-center gap-2">
+					<IconButton onclick={() => closeSidebarConfig(layout)}>
 						<ChevronLeft class="size-6" />
-					</button>
+					</IconButton>
 					<h1 class="text-xl font-semibold capitalize">{mcpServer.alias || mcpServer.name}</h1>
 				</div>
-				<div class="flex flex-shrink-0 items-center gap-2">
+				<div class="flex shrink-0 items-center gap-2">
 					<McpServerActions entry={matchingEntry} server={matchingConfiguredServer} isProjectMcp />
 				</div>
 			</div>
@@ -63,22 +63,22 @@
 				<img
 					src={mcpServer.icon}
 					alt={mcpServer.name}
-					class="bg-surface1 size-10 rounded-md p-1 dark:bg-gray-600"
+					class="bg-base-200 size-10 rounded-md p-1 dark:bg-base-300"
 				/>
 			{:else}
-				<Server class="bg-surface1 size-10 rounded-md p-1 dark:bg-gray-600" />
+				<Server class="bg-base-200 size-10 rounded-md p-1 dark:bg-base-300" />
 			{/if}
 			<h1 class="text-2xl font-semibold capitalize">
 				{mcpServer.alias || mcpServer.name}
 			</h1>
 			<div class="flex grow justify-end gap-2">
-				<button
-					class="button-destructive"
-					use:tooltip={'Delete'}
+				<IconButton
+					variant="danger2"
+					tooltip={{ text: 'Delete' }}
 					onclick={() => (showDeleteConfirm = true)}
 				>
 					<Trash2 class="size-4" />
-				</button>
+				</IconButton>
 			</div>
 		</div>
 		<McpServerInfoAndTools

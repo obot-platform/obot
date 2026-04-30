@@ -2,21 +2,14 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import type { ScheduledAuditLogExport } from '$lib/services/admin/types';
 	import type { ScheduledAuditLogExportInput } from '$lib/services/admin/types';
 	import type { Schedule } from '$lib/services/chat/types';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
-	import {
-		Calendar,
-		LoaderCircle,
-		Ellipsis,
-		Trash2,
-		PlayCircle,
-		PauseCircle,
-		CircleAlert
-	} from 'lucide-svelte';
+	import { Calendar, Ellipsis, Trash2, CircleAlert, CirclePlay, CirclePause } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -177,13 +170,13 @@
 <div class="flex flex-col gap-2">
 	{#if loading}
 		<div class="my-2 flex items-center justify-center">
-			<LoaderCircle class="size-6 animate-spin" />
+			<Loading class="size-6" />
 		</div>
 	{:else if scheduledExports.length === 0}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<Calendar class="text-surface3 size-24 opacity-50" />
-			<h4 class="text-on-surface1 text-lg font-semibold">No export schedules found.</h4>
-			<p class="text-on-surface1 text-sm font-light">
+			<Calendar class="text-base-content/80 size-24 opacity-50" />
+			<h4 class="text-muted-content text-lg font-semibold">No export schedules found.</h4>
+			<p class="text-muted-content text-sm font-light">
 				Create your first export schedule to automate your audit log exports.
 			</p>
 		</div>
@@ -209,9 +202,9 @@
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
-					<div class="flex flex-shrink-0 items-center gap-2">
+					<div class="flex shrink-0 items-center gap-2">
 						<div
-							class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
+							class="bg-base-200 flex items-center justify-center rounded-sm p-0.5 dark:bg-base-300"
 						>
 							<Calendar class="size-6" />
 						</div>
@@ -226,7 +219,7 @@
 				{/if}
 			{/snippet}
 			{#snippet actions(d)}
-				<DotDotDot class="icon-button hover:dark:bg-background/50">
+				<DotDotDot class="hover:dark:bg-base-100/50">
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
 					{/snippet}
@@ -245,9 +238,9 @@
 									}}
 								>
 									{#if toggleAction?.id === d.id && toggleAction.action === 'pause'}
-										<LoaderCircle class="size-4 animate-spin" />
+										<Loading class="size-4" />
 									{:else}
-										<PauseCircle class="size-4" />
+										<CirclePause class="size-4" />
 									{/if}
 									Pause Schedule
 								</button>
@@ -262,9 +255,9 @@
 									}}
 								>
 									{#if toggleAction?.id === d.id && toggleAction.action === 'resume'}
-										<LoaderCircle class="size-4 animate-spin" />
+										<Loading class="size-4" />
 									{:else}
-										<PlayCircle class="size-4" />
+										<CirclePlay class="size-4" />
 									{/if}
 									Resume Schedule
 								</button>
@@ -293,14 +286,14 @@
 				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 					{#if bulkActionState === 'pause'}
 						<button
-							class="button flex items-center gap-1 text-sm font-normal"
+							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => {
 								selected = currentSelected;
 								handleBulkPause();
 							}}
 							disabled={readonly}
 						>
-							<PauseCircle class="size-4" /> Pause
+							<CirclePause class="size-4" /> Pause
 							{#if !readonly}
 								<span class="pill-primary">
 									{Object.keys(currentSelected).length}
@@ -309,14 +302,14 @@
 						</button>
 					{:else if bulkActionState === 'resume'}
 						<button
-							class="button flex items-center gap-1 text-sm font-normal"
+							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => {
 								selected = currentSelected;
 								handleBulkResume();
 							}}
 							disabled={readonly}
 						>
-							<PlayCircle class="size-4" /> Resume
+							<CirclePause class="size-4" /> Resume
 							{#if !readonly}
 								<span class="pill-primary">
 									{Object.keys(currentSelected).length}
@@ -325,7 +318,7 @@
 						</button>
 					{/if}
 					<button
-						class="button flex items-center gap-1 text-sm font-normal"
+						class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 						onclick={() => {
 							selected = currentSelected;
 							showDeleteConfirm = {

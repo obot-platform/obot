@@ -583,7 +583,7 @@
 			class="bg-base-300 hover:bg-primary w-1 cursor-col-resize transition-colors"
 			onmousedown={startResize}
 			aria-label="Resize browser viewer panel"
-			role="separator"
+			role="slider"
 			aria-orientation="vertical"
 			aria-valuenow={browserViewerWidth}
 			aria-valuemin="20"

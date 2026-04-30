@@ -5,6 +5,7 @@
 	import { ChatService, EditorService, type InvokeInput, type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { isTextFile } from '$lib/utils';
+	import IconButton from './primitives/IconButton.svelte';
 	import { Copy, Download, SquareChartGantt, SquareCode } from 'lucide-svelte';
 	import { X } from 'lucide-svelte/icons';
 
@@ -75,7 +76,7 @@
 			<div class="flex items-center gap-2">
 				{#if copyable}
 					<button
-						class="icon-button"
+						class="btn btn-square"
 						onclick={() => {
 							if (selected?.file?.contents) {
 								navigator.clipboard.writeText(selected.file.contents);
@@ -88,7 +89,7 @@
 				{/if}
 				{#if downloadable}
 					<button
-						class="icon-button"
+						class="btn btn-square"
 						onclick={() => {
 							if (selected) {
 								EditorService.download(layout.items, project, selected.name, {
@@ -104,7 +105,7 @@
 					</button>
 				{/if}
 				<button
-					class="icon-button"
+					class="btn btn-square btn-ghost"
 					onclick={() => {
 						layout.fileEditorOpen = false;
 					}}
@@ -122,22 +123,21 @@
 </div>
 
 {#snippet fileHeader(name?: string)}
-	<h4 class="text-on-surface1 flex items-center gap-1 px-2 text-base font-semibold">
+	<h4 class="text-muted-content flex items-center gap-1 px-2 text-base font-semibold">
 		{name}
 		{#if isMdFile}
-			<button
-				class="icon-button"
+			<IconButton
 				onclick={() => {
 					mdMode = mdMode === 'wysiwyg' ? 'raw' : 'wysiwyg';
 				}}
-				use:tooltip={mdMode === 'wysiwyg' ? 'Edit as raw markdown' : 'Use WYSIWYG editor'}
+				tooltip={{ text: mdMode === 'wysiwyg' ? 'Edit as raw markdown' : 'Use WYSIWYG editor' }}
 			>
 				{#if mdMode === 'wysiwyg'}
 					<SquareCode class="size-5" />
 				{:else}
 					<SquareChartGantt class="size-5" />
 				{/if}
-			</button>
+			</IconButton>
 		{/if}
 	</h4>
 {/snippet}

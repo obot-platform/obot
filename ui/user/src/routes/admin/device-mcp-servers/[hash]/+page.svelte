@@ -86,19 +86,19 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !detail}
-			<p class="text-on-surface1 text-sm font-light">MCP server not found.</p>
+			<p class="text-muted-content text-sm font-light">MCP server not found.</p>
 		{:else}
-			<div class="dark:bg-surface2 bg-background flex flex-col gap-4 rounded-md p-4 shadow-sm">
+			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm">
 				<div class="flex flex-col gap-2">
 					<h2 class="flex items-center gap-2 text-xl font-semibold">
 						{#if detail.name?.trim()}
 							{detail.name}
 						{:else}
-							<span class="text-on-surface2 italic">(unnamed)</span>
+							<span class="text-muted-content italic">(unnamed)</span>
 						{/if}
 						<span class="pill-primary bg-primary text-xs">{detail.transport}</span>
 					</h2>
-					<div class="text-on-surface1 flex flex-wrap items-center gap-3 text-xs">
+					<div class="text-muted-content flex flex-wrap items-center gap-3 text-xs">
 						<span>{detail.deviceCount} device{detail.deviceCount === 1 ? '' : 's'}</span>
 						<span>·</span>
 						<span>{detail.userCount} user{detail.userCount === 1 ? '' : 's'}</span>
@@ -110,7 +110,7 @@
 				<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
 					{#if detail.command}
 						<div class="flex flex-col gap-1">
-							<span class="text-on-surface2 text-xs uppercase">Command</span>
+							<span class="text-muted-content text-xs uppercase">Command</span>
 							<code class="font-mono text-xs break-all">
 								{[detail.command, ...(detail.args ?? [])].join(' ')}
 							</code>
@@ -118,26 +118,26 @@
 					{/if}
 					{#if detail.url}
 						<div class="flex flex-col gap-1">
-							<span class="text-on-surface2 text-xs uppercase">URL</span>
+							<span class="text-muted-content text-xs uppercase">URL</span>
 							<code class="font-mono text-xs break-all">{detail.url}</code>
 						</div>
 					{/if}
 					{#if detail.envKeys?.length}
 						<div class="flex flex-col gap-1">
-							<span class="text-on-surface2 text-xs uppercase">Env keys</span>
+							<span class="text-muted-content text-xs uppercase">Env keys</span>
 							<div class="flex flex-wrap gap-1">
 								{#each detail.envKeys as k (k)}
-									<code class="bg-surface3 rounded px-1.5 py-0.5 font-mono text-xs">{k}</code>
+									<code class="bg-base-400 rounded px-1.5 py-0.5 font-mono text-xs">{k}</code>
 								{/each}
 							</div>
 						</div>
 					{/if}
 					{#if detail.headerKeys?.length}
 						<div class="flex flex-col gap-1">
-							<span class="text-on-surface2 text-xs uppercase">Header keys</span>
+							<span class="text-muted-content text-xs uppercase">Header keys</span>
 							<div class="flex flex-wrap gap-1">
 								{#each detail.headerKeys as k (k)}
-									<code class="bg-surface3 rounded px-1.5 py-0.5 font-mono text-xs">{k}</code>
+									<code class="bg-base-400 rounded px-1.5 py-0.5 font-mono text-xs">{k}</code>
 								{/each}
 							</div>
 						</div>
@@ -146,7 +146,7 @@
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<h3 class="text-on-surface1 text-sm font-semibold">
+				<h3 class="text-muted-content text-sm font-semibold">
 					Occurrences · {total}
 				</h3>
 				<Table
@@ -170,7 +170,7 @@
 						{#if property === 'shortDeviceID'}
 							<a
 								href={resolve(`/admin/devices/${d.deviceID}`)}
-								class="font-mono text-xs btn-link text-blue-500"
+								class="font-mono text-xs btn-link text-primary"
 								title={d.deviceID}
 								onclick={(e) => e.stopPropagation()}
 							>

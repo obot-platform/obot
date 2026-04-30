@@ -20,7 +20,8 @@
 	import McpServerRequirements from './chat/McpServerRequirements.svelte';
 	import McpServerActions from './mcp/McpServerActions.svelte';
 	import BetaLogo from './navbar/BetaLogo.svelte';
-	import { ChevronLeft, GripVertical, SidebarOpen } from 'lucide-svelte';
+	import IconButton from './primitives/IconButton.svelte';
+	import { ChevronLeft, GripVertical, PanelLeftOpen } from 'lucide-svelte';
 	import { X } from 'lucide-svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -95,7 +96,7 @@
 	<div class="relative flex h-full">
 		{#if layout.sidebarOpen && !layout.fileEditorOpen}
 			<div
-				class="bg-surface1 w-screen min-w-screen flex-shrink-0 md:w-1/6 md:min-w-[250px]"
+				class="bg-base-200 w-screen min-w-screen shrink-0 md:w-1/6 md:min-w-[250px]"
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
@@ -203,9 +204,9 @@
 				<div class="dialog-container p-4">
 					<div class="dialog-title">
 						<h3 class="text-lg font-semibold">Keyboard Shortcuts</h3>
-						<button class="dialog-close-btn" onclick={() => shortcutsDialog?.close()}>
-							<X class="icon-default" />
-						</button>
+						<IconButton class="btn-sm dialog-close-btn" onclick={() => shortcutsDialog?.close()}>
+							<X class="size-5" />
+						</IconButton>
 					</div>
 					<div class="space-y-4">
 						<div class="grid grid-cols-2 gap-2">
@@ -232,15 +233,15 @@
 				class="relative h-full w-8 cursor-grab"
 				transition:slide={{ axis: 'x' }}
 			>
-				<div class="text-on-surface1 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-					<GripVertical class="text-surface3 size-3" />
+				<div class="text-muted-content absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+					<GripVertical class="text-base-400 size-3" />
 				</div>
 			</div>
 		{/if}
 		<div
 			bind:this={editor}
 			class={twMerge(
-				'border-surface2 bg-surface1 absolute right-0 z-30 float-right flex w-full flex-shrink-0 translate-x-full transform border border-r-0 transition-transform duration-300 md:w-3/5 md:max-w-[calc(100%-320px)] md:min-w-[320px]',
+				'border-base-300 bg-base-200 absolute right-0 z-30 float-right flex w-full shrink-0 translate-x-full transform border border-r-0 transition-transform duration-300 md:w-3/5 md:max-w-[calc(100%-320px)] md:min-w-[320px]',
 				layout.fileEditorOpen && 'relative w-full translate-x-0',
 				!layout.fileEditorOpen && 'w-0'
 			)}
@@ -253,20 +254,20 @@
 <McpServerRequirements assistantId={assistant?.id || ''} projectId={project.id} />
 
 {#snippet openSidebar()}
-	<button class="icon-button" onclick={() => (layout.sidebarOpen = true)}>
-		<SidebarOpen class="size-6" />
-	</button>
+	<IconButton onclick={() => (layout.sidebarOpen = true)}>
+		<PanelLeftOpen class="size-6" />
+	</IconButton>
 {/snippet}
 
 {#snippet projectMcpHeader(mcpServer: ProjectMCP)}
-	<button
-		class="icon-button mr-2 flex-shrink-0"
+	<IconButton
+		class="mr-2"
 		onclick={() => {
 			closeSidebarConfig(layout);
 		}}
 	>
 		<ChevronLeft class="size-6" />
-	</button>
+	</IconButton>
 	<h1 class="text-xl font-semibold">
 		{mcpServer.alias || mcpServer.name || 'MCP Server'}
 	</h1>

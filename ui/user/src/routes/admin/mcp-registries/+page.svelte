@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { invalidate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { type AccessControlRule, type OrgUser } from '$lib/services/admin/types';
@@ -115,9 +115,9 @@
 			>
 				{#if accessControlRules.length === 0}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-						<BookOpenText class="text-on-surface1 size-24 opacity-25" />
-						<h4 class="text-on-surface1 text-lg font-semibold">No created MCP registries</h4>
-						<p class="text-on-surface1 text-sm font-light">
+						<BookOpenText class="text-muted-content size-24 opacity-25" />
+						<h4 class="text-muted-content text-lg font-semibold">No created MCP registries</h4>
+						<p class="text-muted-content text-sm font-light">
 							Looks like you don't have any registries created yet. <br />
 							{#if !isReadonly}
 								Click the button below to get started.
@@ -178,16 +178,16 @@
 	>
 		{#snippet actions(d)}
 			{#if !isReadonly}
-				<button
-					class="icon-button hover:text-red-500"
+				<IconButton
+					variant="danger"
 					onclick={(e) => {
 						e.stopPropagation();
 						ruleToDelete = d;
 					}}
-					use:tooltip={'Delete Rule'}
+					tooltip={{ text: 'Delete Rule' }}
 				>
 					<Trash2 class="size-4" />
-				</button>
+				</IconButton>
 			{/if}
 		{/snippet}
 		{#snippet onRenderColumn(property, d)}
@@ -203,7 +203,7 @@
 {#snippet addRuleButton()}
 	{#if !profile.current.isAdminReadonly?.()}
 		<button
-			class="button-primary flex items-center gap-1 text-sm"
+			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => {
 				goto(`/admin/mcp-registries?new=true`);
 			}}

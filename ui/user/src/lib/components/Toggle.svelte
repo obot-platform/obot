@@ -35,7 +35,7 @@
 		{@render input()}
 	</label>
 {:else}
-	<label class={twMerge('text-on-surface1 flex items-center gap-1 text-xs', classes?.label)}>
+	<label class={twMerge('text-muted-content flex items-center gap-1 text-xs', classes?.label)}>
 		<span>{label}</span>
 		<div class="relative flex h-4.5 w-8.25">
 			{@render input()}
@@ -48,8 +48,7 @@
 		type="checkbox"
 		{checked}
 		{disabled}
-		class={twMerge('opacity-0', classes?.input)}
-		readonly
+		class={twMerge('toggle toggle-sm', classes?.input)}
 		onchange={(e) => {
 			e.preventDefault();
 			if (!disabled) {
@@ -57,60 +56,4 @@
 			}
 		}}
 	/>
-	<span class="slider rounded-2xl" class:checked class:disabled></span>
 {/snippet}
-
-<style lang="postcss">
-	/* The slider */
-	:global {
-		.slider {
-			position: absolute;
-			cursor: pointer;
-			top: 0;
-			left: 0;
-			right: 0;
-			bottom: 0;
-			background-color: var(--color-surface3);
-			-webkit-transition: 0.4s;
-			transition: 0.4s;
-
-			.dark & {
-				&::before {
-					background-color: var(--color-surface1);
-				}
-			}
-		}
-
-		.slider.disabled {
-			cursor: default;
-			opacity: 0.6;
-		}
-
-		.slider:before {
-			position: absolute;
-			content: '';
-			height: 0.825rem;
-			width: 0.825rem;
-			left: 0.145rem;
-			bottom: 0.145rem;
-			background-color: var(--color-white);
-			-webkit-transition: 0.4s;
-			transition: 0.4s;
-			border-radius: 50%;
-		}
-
-		.slider.checked {
-			background-color: var(--color-primary);
-		}
-
-		.slider.checked:before {
-			-webkit-transform: translateX(0.925rem);
-			-ms-transform: translateX(0.925rem);
-			transform: translateX(0.925rem);
-		}
-
-		input:focus + .slider {
-			box-shadow: 0 0 1px var(--color-primary);
-		}
-	}
-</style>

@@ -87,9 +87,9 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !detail}
-			<p class="text-on-surface1 text-sm font-light">Skill not found.</p>
+			<p class="text-muted-content text-sm font-light">Skill not found.</p>
 		{:else}
-			<div class="dark:bg-surface2 bg-background flex flex-col gap-4 rounded-md p-4 shadow-sm">
+			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm">
 				<div class="flex flex-col gap-2">
 					<h2 class="flex items-center gap-2 text-xl font-semibold">
 						{detail.name}
@@ -97,7 +97,7 @@
 							<span class="pill-primary bg-primary text-xs">has scripts</span>
 						{/if}
 					</h2>
-					<div class="text-on-surface1 flex flex-wrap items-center gap-3 text-xs">
+					<div class="text-muted-content flex flex-wrap items-center gap-3 text-xs">
 						<span>{detail.deviceCount} device{detail.deviceCount === 1 ? '' : 's'}</span>
 						<span>·</span>
 						<span>{detail.userCount} user{detail.userCount === 1 ? '' : 's'}</span>
@@ -110,7 +110,7 @@
 
 				{#if detail.description}
 					<div class="flex flex-col gap-1">
-						<span class="text-on-surface2 text-xs uppercase">Description</span>
+						<span class="text-muted-content text-xs uppercase">Description</span>
 						<p class="text-sm">{detail.description}</p>
 					</div>
 				{/if}
@@ -118,19 +118,19 @@
 				<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
 					{#if detail.gitRemoteURL}
 						<div class="flex flex-col gap-1">
-							<span class="text-on-surface2 text-xs uppercase">Git remote</span>
+							<span class="text-muted-content text-xs uppercase">Git remote</span>
 							<code class="font-mono text-xs break-all">{detail.gitRemoteURL}</code>
 						</div>
 					{/if}
 					{#if detail.files?.length}
 						<div class="flex flex-col gap-1 md:col-span-2">
-							<span class="text-on-surface2 text-xs uppercase">
+							<span class="text-muted-content text-xs uppercase">
 								Files ({detail.files.length})
 							</span>
 							<ul class="flex flex-col gap-0.5">
 								{#each detail.files as f (f)}
 									<li class="flex items-center gap-1.5 font-mono text-xs">
-										<FileText class="text-on-surface1 size-3 shrink-0" />
+										<FileText class="text-muted-content size-3 shrink-0" />
 										<span class="break-all">{f}</span>
 									</li>
 								{/each}
@@ -141,7 +141,7 @@
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<h3 class="text-on-surface1 text-sm font-semibold">
+				<h3 class="text-muted-content text-sm font-semibold">
 					Occurrences · {total}
 				</h3>
 				<Table
@@ -173,14 +173,14 @@
 						{#if property === 'shortDeviceID'}
 							<a
 								href={resolve(`/admin/devices/${d.deviceID}`)}
-								class="font-mono text-xs btn-link text-blue-500"
+								class="font-mono text-xs btn-link text-primary"
 								title={d.deviceID}
 								onclick={(e) => e.stopPropagation()}
 							>
 								{d.shortDeviceID}
 							</a>
 						{:else if property === 'projectPath'}
-							<span class="text-on-surface1 font-mono text-xs">{d.projectPath ?? '—'}</span>
+							<span class="text-muted-content font-mono text-xs">{d.projectPath ?? '—'}</span>
 						{:else}
 							{d[property as keyof Row]}
 						{/if}

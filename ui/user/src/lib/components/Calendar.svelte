@@ -131,7 +131,7 @@
 			'w-8 h-8 flex items-center justify-center text-sm rounded-md transition-colors';
 
 		if (isDateDisabled(date, minDate, maxDate)) {
-			return twMerge(baseClasses, 'text-on-surface1 cursor-default');
+			return twMerge(baseClasses, 'text-muted-content cursor-default');
 		}
 
 		if (isStartDate(date) || isEndDate(date)) {
@@ -147,10 +147,10 @@
 		}
 
 		if (!isCurrentMonth(date, currentDate)) {
-			return twMerge(baseClasses, 'text-on-surface1');
+			return twMerge(baseClasses, 'text-muted-content');
 		}
 
-		return twMerge(baseClasses, 'hover:bg-surface3 cursor-pointer');
+		return twMerge(baseClasses, 'hover:bg-base-400 cursor-pointer');
 	}
 
 	const calendarPopover = popover({
@@ -185,11 +185,7 @@
 	{id}
 	{disabled}
 	type="button"
-	class={twMerge(
-		'dark:bg-surface1 text-md bg-background flex min-h-10 resize-none items-center justify-between rounded-lg px-4 py-2 text-left shadow-sm',
-		disabled && 'cursor-default opacity-50',
-		klass
-	)}
+	class={twMerge('btn btn-neutral h-12.5', disabled && 'cursor-default opacity-50', klass)}
 	use:popoverRef
 	onclick={() => !disabled && calendarPopover.toggle()}
 	{@attach (node: HTMLElement) => {
@@ -259,7 +255,7 @@
 						out:slide={{ duration: 100 }}
 					>
 						<div class="flex flex-col gap-1">
-							<div class="text-on-surface1 text-xs">{start.toDateString()}</div>
+							<div class="text-muted-content text-xs">{start.toDateString()}</div>
 							<TimeInput
 								format={timePreference.timeFormat}
 								clockAnchorPlacement="left"
@@ -274,7 +270,7 @@
 							<!-- In case start and end dates in the same day do not render the label -->
 							{#if !isSameDay(end ?? start, start)}
 								<div
-									class="text-on-surface1 text-xs"
+									class="text-muted-content text-xs"
 									in:slide={{ duration: 200 }}
 									out:slide={{ duration: 100 }}
 								>
@@ -295,8 +291,10 @@
 				{/if}
 
 				<div class="mt-4 flex justify-end gap-2">
-					<button type="button" class="button text-xs" onclick={handleCancel}>Cancel</button>
-					<button type="button" class="button-primary text-xs" onclick={handleApply}>Apply</button>
+					<button type="button" class="btn btn-sm btn-secondary" onclick={handleCancel}
+						>Cancel</button
+					>
+					<button type="button" class="btn btn-primary btn-sm" onclick={handleApply}>Apply</button>
 				</div>
 			</CalendarGrid>
 		</div>

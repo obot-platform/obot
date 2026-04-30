@@ -57,9 +57,9 @@
 			bind:value={contents}
 			{disabled}
 			disablePreview
-			class="border-surface3 h-full grow rounded-none border-0 bg-inherit shadow-none"
+			class="border-base-400 h-full grow rounded-none border-0 bg-inherit shadow-none"
 			classes={{
-				input: 'bg-surface1 h-full max-h-full pb-8 grid'
+				input: 'bg-base-200 h-full max-h-full pb-8 grid'
 			}}
 			typewriterOnAutonomous
 			{overrideContent}

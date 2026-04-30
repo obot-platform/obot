@@ -2,9 +2,10 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { AdminService, type MCPCatalog } from '$lib/services';
-	import { AlertTriangle, Link2, Pencil, Trash2, TriangleAlert } from 'lucide-svelte';
+	import { TriangleAlert, Link2, Pencil, Trash2 } from 'lucide-svelte';
 
 	interface Props {
 		catalog?: MCPCatalog;
@@ -46,7 +47,7 @@
 			noDataMessage="No Git Source URLs added."
 			setRowClasses={(d) => {
 				if (catalog?.syncErrors?.[d.url]) {
-					return 'bg-yellow-500/10';
+					return 'bg-warning/10';
 				}
 				return '';
 			}}
@@ -57,24 +58,23 @@
 			{#snippet actions(d)}
 				{#if !readonly}
 					{#if onEdit}
-						<button
-							class="icon-button"
+						<IconButton
 							onclick={() => {
 								const index = catalog?.sourceURLs?.indexOf(d.url) ?? -1;
 								onEdit(d.url, index);
 							}}
 						>
 							<Pencil class="size-4" />
-						</button>
+						</IconButton>
 					{/if}
-					<button
-						class="icon-button hover:text-red-500"
+					<IconButton
+						variant="danger"
 						onclick={() => {
 							deletingSource = { type: 'single', source: d.url };
 						}}
 					>
 						<Trash2 class="size-4" />
-					</button>
+					</IconButton>
 				{/if}
 			{/snippet}
 			{#snippet onRenderColumn(property, d)}
@@ -92,10 +92,10 @@
 								}}
 								use:tooltip={{
 									text: 'An issue occurred. Click to see more details.',
-									classes: ['break-words']
+									classes: ['wrap-break-word']
 								}}
 							>
-								<TriangleAlert class="size-4 text-yellow-500" />
+								<TriangleAlert class="size-4 text-warning" />
 							</button>
 						{/if}
 					</div>
@@ -104,7 +104,7 @@
 			{#snippet tableSelectActions(currentSelected)}
 				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 					<button
-						class="button flex items-center gap-1 text-sm font-normal"
+						class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 						onclick={() => {
 							selected = Object.values(currentSelected).map((d) => d.url);
 							deletingSource = { type: 'multi' };
@@ -118,9 +118,9 @@
 		</Table>
 	{:else}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<Link2 class="text-surface3 size-24" />
-			<h4 class="text-on-surface1 text-lg font-semibold">No current Git Source URLs.</h4>
-			<p class="text-on-surface1 text-sm font-light">
+			<Link2 class="text-base-content/80 size-24" />
+			<h4 class="text-muted-content text-lg font-semibold">No current Git Source URLs.</h4>
+			<p class="text-muted-content text-sm font-light">
 				Once a Git Source URL has been added, its <br />
 				information will be quickly accessible here.
 			</p>
@@ -164,7 +164,7 @@
 	<div class="mb-4 flex flex-col gap-4">
 		<div class="notification-alert flex flex-col gap-2">
 			<div class="flex items-center gap-2">
-				<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+				<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 				<p class="my-0.5 flex flex-col text-sm font-semibold">
 					An issue occurred fetching this source URL:
 				</p>

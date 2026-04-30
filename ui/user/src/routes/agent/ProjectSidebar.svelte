@@ -99,7 +99,7 @@
 
 <div
 	class={twMerge(
-		'bg-base-200 z-10 h-[100dvh] w-18 min-w-18 flex-shrink-0 overflow-visible',
+		'bg-base-200 z-10 h-dvh w-18 min-w-18 shrink-0 overflow-visible',
 		layout.sidebarOpen && 'w-[300px] md:min-w-[300px]'
 	)}
 >
@@ -126,7 +126,7 @@
 				>
 					<button
 						type="button"
-						class="btn btn-ghost text-base-content/50 text-md justify-between rounded-none"
+						class="btn btn-ghost text-muted-content text-md justify-between rounded-none"
 						onclick={() => goto(`/agent/p/${projectId}/workflows`)}
 						class:bg-base-100={activeView === 'workflows'}
 					>
@@ -135,7 +135,7 @@
 
 					<button
 						type="button"
-						class="btn btn-ghost text-base-content/50 text-md justify-between rounded-none"
+						class="btn btn-ghost text-muted-content text-md justify-between rounded-none"
 						onclick={() => goto(`/agent/p/${projectId}/scheduler`)}
 						class:bg-base-100={activeView === 'scheduler'}
 					>
@@ -144,7 +144,7 @@
 
 					<button
 						type="button"
-						class="btn btn-ghost text-base-content/50 text-md justify-between rounded-none"
+						class="btn btn-ghost text-muted-content text-md justify-between rounded-none"
 						onclick={() => goto(`/agent/p/${projectId}/files`)}
 						class:bg-base-100={activeView === 'files'}
 					>
@@ -161,7 +161,7 @@
 					/>
 				</div>
 			{:else}
-				<div class="flex flex-shrink-0 flex-col items-center justify-center gap-4 pb-3">
+				<div class="flex shrink-0 flex-col items-center justify-center gap-4 pb-3">
 					<div class="w-fit">
 						<button
 							class="btn btn-ghost btn-circle tooltip tooltip-right size-10 self-center"
@@ -172,7 +172,7 @@
 							<Workflow
 								class={twMerge(
 									'size-6',
-									activeView === 'workflows' ? 'text-primary' : 'text-base-content/50'
+									activeView === 'workflows' ? 'text-primary' : 'text-muted-content'
 								)}
 							/>
 						</button>
@@ -187,7 +187,7 @@
 							<Clock3
 								class={twMerge(
 									'size-6',
-									activeView === 'scheduler' ? 'text-primary' : 'text-base-content/50'
+									activeView === 'scheduler' ? 'text-primary' : 'text-muted-content'
 								)}
 							/>
 						</button>
@@ -202,7 +202,7 @@
 							<Folders
 								class={twMerge(
 									'size-6',
-									activeView === 'files' ? 'text-primary' : 'text-base-content/50'
+									activeView === 'files' ? 'text-primary' : 'text-muted-content'
 								)}
 							/>
 						</button>
@@ -214,16 +214,14 @@
 							data-tip="Start new conversation"
 							onclick={handleCreateSession}
 						>
-							<Plus class="text-base-content/50 size-6" />
+							<Plus class="text-muted-content size-6" />
 						</button>
 					</div>
 				</div>
 				<div class="flex grow"></div>
 			{/if}
 
-			<div
-				class="bg-base-200 sticky bottom-0 flex flex-shrink-0 justify-end overflow-visible pr-4 pb-3"
-			>
+			<div class="bg-base-200 sticky bottom-0 flex shrink-0 justify-end overflow-visible pr-4 pb-3">
 				<button
 					class={twMerge(
 						'btn btn-ghost btn-circle tooltip size-10 self-center',
@@ -234,9 +232,9 @@
 					onclick={toggleSidebar}
 				>
 					{#if layout.sidebarOpen}
-						<SidebarClose class="text-base-content/50 size-6" />
+						<SidebarClose class="text-muted-content size-6" />
 					{:else}
-						<SidebarOpen class="text-base-content/50 size-6" />
+						<SidebarOpen class="text-muted-content size-6" />
 					{/if}
 				</button>
 			</div>

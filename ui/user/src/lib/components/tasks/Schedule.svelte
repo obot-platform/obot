@@ -140,7 +140,7 @@
 
 <style lang="postcss">
 	:global(.schedule-dropdown) {
-		background-color: var(--surface2);
+		background-color: var(--color-base-300);
 		font-size: var(--text-md);
 		display: flex;
 		flex-grow: 1;

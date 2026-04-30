@@ -46,7 +46,7 @@
 </script>
 
 {#snippet serverName(item: DisplayItem)}
-	{#if item.deleted}<i class="text-on-surface1 font-light italic">({item.name})</i
+	{#if item.deleted}<i class="text-muted-content font-light italic">({item.name})</i
 		>{:else}{item.name}{/if}
 {/snippet}
 
@@ -70,7 +70,7 @@
 			class="inline-block"
 			use:tooltip={`Includes ${deletedServersCount} deleted server${deletedServersCount === 1 ? '' : 's'}.`}
 		>
-			<TriangleAlert class="size-3 text-yellow-500" />
+			<TriangleAlert class="size-3 text-warning" />
 		</span>
 	{/if}
 </div>

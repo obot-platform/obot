@@ -23,6 +23,7 @@
 	} from '$lib/services';
 	import { sortShownToolsPriority } from '$lib/sort';
 	import { poll } from '$lib/utils';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { XIcon, Loader2, Trash2, Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -151,19 +152,19 @@
 {#snippet displayTasks(taskList: Task[])}
 	{#if taskList.length > 0}
 		<div class="p-3">
-			<h4 class="text-on-surface1 mb-1 text-xs font-medium">Tasks</h4>
+			<h4 class="text-muted-content mb-1 text-xs font-medium">Tasks</h4>
 			<div class="flex flex-col gap-2">
 				{#each taskList as t (t.id)}
-					<div class="rounded-md border border-gray-100 p-2 text-xs dark:border-gray-700">
-						<div class="font-medium text-gray-700 dark:text-gray-200">{t.name || t.id}</div>
+					<div class="rounded-md border border-base-400 p-2 text-xs">
+						<div class="font-medium text-muted-content">{t.name || t.id}</div>
 						{#if t.description}
-							<div class="text-on-surface1 mt-0.5">{t.description}</div>
+							<div class="text-muted-content mt-0.5">{t.description}</div>
 						{/if}
 						{#if t.steps && t.steps.length > 0}
-							<div class="text-on-surface1 mt-1">
+							<div class="text-muted-content mt-1">
 								{t.steps.length} step{t.steps.length === 1 ? '' : 's'}
 							</div>
-							<ol class="text-on-surface1 mt-1 list-decimal pl-4 text-[11px]">
+							<ol class="text-muted-content mt-1 list-decimal pl-4 text-[11px]">
 								{#each t.steps as s, idx (s.id)}
 									<li>
 										<span>{s.step || 'Step ' + (idx + 1)}</span>
@@ -188,8 +189,8 @@
 {#if loading}
 	<div class="flex items-center justify-center p-6">
 		<div class="flex flex-col items-center gap-2">
-			<Loader2 class="text-on-surface1 size-6 animate-spin" />
-			<span class="text-on-surface1 text-sm">Loading Project Share...</span>
+			<Loader2 class="text-muted-content size-6 animate-spin" />
+			<span class="text-muted-content text-sm">Loading Project Share...</span>
 		</div>
 	</div>
 {:else}
@@ -197,7 +198,7 @@
 		<div class="flex w-full items-center justify-end">
 			<button
 				onclick={() => closeSidebarConfig(layout)}
-				class="ml-auto text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+				class="ml-auto text-muted-content hover:text-base-content dark:text-muted-content dark:hover:text-base-content"
 			>
 				<XIcon class="size-6" />
 			</button>
@@ -224,7 +225,7 @@
 						</p>
 					</div>
 					<button
-						class="button-primary"
+						class="btn btn-primary"
 						onclick={createFromSnapshot}
 						disabled={hasCompositeServer}
 						use:tooltip={hasCompositeServer
@@ -248,13 +249,13 @@
 					<div class="flex items-center gap-2">
 						{#if template.projectSnapshotStale}
 							{#if template.projectSnapshotUpgradeInProgress}
-								<div class="text-on-surface1 flex items-center gap-1 text-xs">
+								<div class="text-muted-content flex items-center gap-1 text-xs">
 									<Loader2 class="size-4 animate-spin" />
 									Updating...
 								</div>
 							{:else}
 								<button
-									class="button-primary px-3 py-1 text-sm"
+									class="btn btn-primary px-3 py-1 text-sm"
 									onclick={createFromSnapshot}
 									disabled={hasCompositeServer}
 									use:tooltip={hasCompositeServer
@@ -268,20 +269,20 @@
 								</button>
 							{/if}
 						{/if}
-						<button
-							class="icon-button hover:text-red-500"
+						<IconButton
+							variant="danger"
 							onclick={() => (toDelete = true)}
-							use:tooltip={'Delete Project Share'}
+							tooltip={{ text: 'Delete Project Share' }}
 						>
 							<Trash2 class="size-4" />
-						</button>
+						</IconButton>
 					</div>
 				</div>
 			</div>
 
 			{#if template.publicID}
-				<div class="rounded-md border border-gray-100 dark:border-gray-700">
-					<div class="border-b border-gray-100 p-3 dark:border-gray-700">
+				<div class="rounded-md border border-base-400">
+					<div class="border-b border-base-400 p-3">
 						<h3 class="text-sm font-medium">Project Share URL</h3>
 					</div>
 					<div class="p-3">
@@ -297,14 +298,14 @@
 			{/if}
 
 			{#if templateTools.length > 0}
-				<div class="rounded-md border border-gray-100 dark:border-gray-700">
-					<div class="border-b border-gray-100 p-3 dark:border-gray-700">
+				<div class="rounded-md border border-base-400">
+					<div class="border-b border-base-400 p-3">
 						<h3 class="text-sm font-medium">Tools</h3>
 					</div>
 					<div class="flex flex-wrap gap-2 p-3">
 						{#each templateTools as tool (tool.id)}
 							<div
-								class="flex items-center gap-2 rounded-md bg-gray-50 px-2 py-1 text-xs dark:bg-gray-700"
+								class="flex items-center gap-2 rounded-md bg-base-200 dark:bg-base-400 px-2 py-1 text-xs"
 							>
 								<ToolPill {tool} />
 								<span>{tool.name}</span>
@@ -314,14 +315,14 @@
 				</div>
 			{/if}
 
-			<div class="rounded-md border border-gray-100 dark:border-gray-700">
-				<div class="border-b border-gray-100 p-3 dark:border-gray-700">
+			<div class="rounded-md border border-base-400">
+				<div class="border-b border-base-400 p-3">
 					<h3 class="text-sm font-medium">Project Share details</h3>
 				</div>
-				<div class="flex flex-col divide-y divide-gray-100 dark:divide-gray-700">
+				<div class="flex flex-col divide-y divide-base-400">
 					{#if template.projectSnapshotLastUpgraded}
 						<div class="p-3">
-							<h4 class="text-on-surface1 mb-1 text-xs font-medium">Last Updated</h4>
+							<h4 class="text-muted-content mb-1 text-xs font-medium">Last Updated</h4>
 							<p class="text-sm text-gray-600 dark:text-gray-300">
 								{formatDate(template.projectSnapshotLastUpgraded)}
 							</p>
@@ -330,7 +331,7 @@
 
 					{#if template.projectSnapshot.description}
 						<div class="p-3">
-							<h4 class="text-on-surface1 mb-1 text-xs font-medium">Description</h4>
+							<h4 class="text-muted-content mb-1 text-xs font-medium">Description</h4>
 							<p class="text-sm text-gray-600 dark:text-gray-300">
 								{template.projectSnapshot.description}
 							</p>
@@ -339,7 +340,7 @@
 
 					{#if template.projectSnapshot.prompt}
 						<div class="p-3">
-							<h4 class="text-on-surface1 mb-1 text-xs font-medium">System Prompt</h4>
+							<h4 class="text-muted-content mb-1 text-xs font-medium">System Prompt</h4>
 							<p class="text-xs whitespace-pre-wrap text-gray-600 dark:text-gray-300">
 								{template.projectSnapshot.prompt}
 							</p>
@@ -348,7 +349,7 @@
 
 					{#if template.projectSnapshot.introductionMessage}
 						<div class="p-3">
-							<h4 class="text-on-surface1 mb-1 text-xs font-medium">Introduction Message</h4>
+							<h4 class="text-muted-content mb-1 text-xs font-medium">Introduction Message</h4>
 							<p class="text-xs whitespace-pre-wrap text-gray-600 dark:text-gray-300">
 								{template.projectSnapshot.introductionMessage}
 							</p>
@@ -357,11 +358,11 @@
 
 					{#if template.projectSnapshot.starterMessages && template.projectSnapshot.starterMessages.length > 0}
 						<div class="p-3">
-							<h4 class="text-on-surface1 mb-2 text-xs font-medium">Conversation Starters</h4>
+							<h4 class="text-muted-content mb-2 text-xs font-medium">Conversation Starters</h4>
 							<div class="flex flex-col gap-2">
 								{#each template.projectSnapshot.starterMessages as message (message)}
 									<div
-										class="bg-primary/10 w-fit max-w-[90%] rounded-lg rounded-tl-none p-2 text-xs whitespace-pre-wrap text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+										class="bg-primary/10 w-fit max-w-[90%] rounded-lg rounded-tl-none p-2 text-xs whitespace-pre-wrap text-muted-content"
 									>
 										{message}
 									</div>
@@ -372,13 +373,13 @@
 
 					{#if mcpServers.length > 0}
 						<div class="p-3">
-							<h4 class="text-on-surface1 mb-2 text-xs font-medium">MCP Servers</h4>
+							<h4 class="text-muted-content mb-2 text-xs font-medium">MCP Servers</h4>
 							<div class="flex flex-col gap-2">
 								{#each mcpServers as mcpServer (mcpServer.id)}
 									<div
-										class="group hover:bg-surface3 flex w-full items-center rounded-md transition-colors duration-200"
+										class="group hover:bg-base-400 flex w-full items-center rounded-md transition-colors duration-200"
 									>
-										<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+										<div class="rounded-md bg-base-200 p-1 dark:bg-base-300">
 											{#if mcpServer.icon}
 												<img
 													src={mcpServer.icon}
@@ -402,7 +403,7 @@
 
 					{#if knowledgeFiles.length > 0}
 						<div class="p-3">
-							<h4 class="text-on-surface1 mb-1 text-xs font-medium">Knowledge Files</h4>
+							<h4 class="text-muted-content mb-1 text-xs font-medium">Knowledge Files</h4>
 							<ul class="mt-2">
 								{#each knowledgeFiles as file (file.fileName)}
 									<li class="mb-1 text-xs text-gray-600 last:mb-0 dark:text-gray-300">

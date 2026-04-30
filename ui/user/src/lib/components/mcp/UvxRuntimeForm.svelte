@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
 	import type { UVXRuntimeConfig } from '$lib/services/chat/types';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -111,10 +111,10 @@
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 >
 	<h4 class="text-sm font-semibold">UVX Runtime Configuration</h4>
-	<p class="text-on-surface1 text-xs">Only STDIO servers are supported.</p>
+	<p class="text-muted-content text-xs">Only STDIO servers are supported.</p>
 
 	<!-- Package field (required) -->
 	<div class="flex items-center gap-4">
@@ -125,10 +125,7 @@
 		>
 		<input
 			id="uvx-package"
-			class={twMerge(
-				'text-input-filled dark:bg-background w-full',
-				showRequired?.package && 'error'
-			)}
+			class={twMerge('text-input-filled dark:bg-base-100 w-full', showRequired?.package && 'error')}
 			bind:value={config.package}
 			disabled={readonly}
 			placeholder="e.g. @modelcontextprotocol/server-filesystem"
@@ -149,7 +146,7 @@
 		<label for="uvx-command" class="text-sm font-light">Command</label>
 		<input
 			id="uvx-command"
-			class="text-input-filled dark:bg-background w-full"
+			class="text-input-filled dark:bg-base-100 w-full"
 			bind:value={config.command}
 			disabled={readonly}
 			placeholder="e.g. mcp-server-filesystem"
@@ -169,7 +166,7 @@
 				{#each config.args as _arg, i (i)}
 					<div class="flex items-center gap-2">
 						<input
-							class="text-input-filled dark:bg-background w-full"
+							class="text-input-filled dark:bg-base-100 w-full"
 							bind:value={config.args[i]}
 							disabled={readonly}
 							placeholder="e.g. /path/to/directory"
@@ -181,20 +178,20 @@
 							onpaste={(e) => handlePaste(e, i)}
 						/>
 						{#if !readonly}
-							<button
-								class="icon-button"
+							<IconButton
+								variant="danger"
 								onclick={() => removeArgument(i)}
-								use:tooltip={'Remove argument'}
+								tooltip={{ text: 'Remove argument' }}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					</div>
 				{/each}
 
 				{#if !readonly}
 					<div class="flex justify-end">
-						<button class="button flex items-center gap-1 text-xs" onclick={addArgument}>
+						<button class="btn btn-secondary btn-sm flex items-center gap-1" onclick={addArgument}>
 							<Plus class="size-4" /> Argument
 						</button>
 					</div>
@@ -216,11 +213,11 @@
 				/>
 				<MultiValueInput
 					bind:value={config.egressDomains}
-					class="text-input-filled dark:bg-background"
+					class="text-input-filled dark:bg-base-100"
 					readonly={inputReadonly}
 					placeholder="hit &quot;Enter&quot; to insert"
 				/>
-				<p class="text-on-surface1 text-xs">{egressHelpText}</p>
+				<p class="text-muted-content text-xs">{egressHelpText}</p>
 			</div>
 		</div>
 	{/if}
@@ -239,7 +236,7 @@
 			placeholder="60"
 			bind:value={startupTimeoutSeconds}
 			class={twMerge(
-				'text-input-filled dark:bg-background w-32',
+				'text-input-filled dark:bg-base-100 w-32',
 				showRequired?.startupTimeoutSeconds && 'error'
 			)}
 			disabled={readonly}

@@ -42,4 +42,5 @@
 	class={klass}
 	{onpointerenter}
 	{onpointerleave}
+	role="presentation"
 />

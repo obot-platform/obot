@@ -119,7 +119,7 @@
 	<div class="flex items-center justify-between">
 		<p class="text-md grow font-medium">MCP Servers</p>
 		<button
-			class="hover:text-on-background text-on-surface1 p-2 transition-colors duration-200"
+			class="hover:text-base-content text-muted-content p-2 transition-colors duration-200"
 			onclick={() => mcpServerSetup?.open()}
 			use:tooltip={'Add MCP Server'}
 		>
@@ -134,7 +134,7 @@
 					? entriesMap.get(matchingConfiguredServer?.catalogEntryID)
 					: undefined}
 				<div
-					class="group hover:bg-surface3 flex w-full items-center rounded-md transition-colors duration-200"
+					class="group hover:bg-base-400 flex w-full items-center rounded-md transition-colors duration-200"
 				>
 					<button
 						class="flex grow items-center gap-1 py-2 pl-1.5"
@@ -142,7 +142,7 @@
 							openMCPServer(layout, mcpServer);
 						}}
 					>
-						<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+						<div class="rounded-md bg-base-200 p-1 dark:bg-base-300">
 							{#if mcpServer.icon}
 								<img src={mcpServer.icon} class="size-4" alt={mcpServer.alias || mcpServer.name} />
 							{:else}
@@ -162,7 +162,7 @@
 					</button>
 
 					<DotDotDot
-						class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
+						class="p-0 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0 dark:hover:bg-base-300 dark:hover:border-base-300"
 					>
 						{#if matchingEntry && matchingConfiguredServer && hasEditableConfiguration(matchingEntry)}
 							<button

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
 	import {
 		type MCPCatalogEntry,
@@ -25,7 +26,7 @@
 	import RuntimeSelector from '../mcp/RuntimeSelector.svelte';
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
-	import { Info, LoaderCircle } from 'lucide-svelte';
+	import { Info } from 'lucide-svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -549,7 +550,7 @@
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-8 rounded-lg border border-transparent p-4 shadow-sm"
+	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-8 rounded-lg border border-transparent p-4 shadow-sm"
 >
 	<div class="flex flex-col gap-8">
 		{#if readonly && readonlyMessage}
@@ -572,7 +573,7 @@
 				type="text"
 				id="name"
 				bind:value={formData.name}
-				class={twMerge('text-input-filled dark:bg-background', showRequired.name && 'error')}
+				class={twMerge('text-input-filled dark:bg-base-100', showRequired.name && 'error')}
 				disabled={readonly}
 				oninput={() => {
 					updateRequired('name');
@@ -582,7 +583,7 @@
 
 		<div class="flex flex-col gap-1">
 			<label for="name" class="text-sm font-light capitalize"
-				>Description <span class="text-on-surface1 text-xs">(Markdown syntax supported)</span
+				>Description <span class="text-muted-content text-xs">(Markdown syntax supported)</span
 				></label
 			>
 			<MarkdownInput
@@ -598,7 +599,7 @@
 				type="text"
 				id="icon"
 				bind:value={formData.icon}
-				class="text-input-filled dark:bg-background"
+				class="text-input-filled dark:bg-base-100"
 				disabled={readonly}
 			/>
 		</div>
@@ -684,14 +685,16 @@
 
 {#if !readonly}
 	<div
-		class="bg-surface1 dark:bg-background sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 items-center justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
+		class="bg-base-200 dark:bg-base-100 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 items-center justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
 	>
 		{#if Object.keys(showRequired).length > 0}
-			<span class="text-sm font-medium text-red-500">Fill out all required fields</span>
+			<span class="text-sm font-medium text-error">Fill out all required fields</span>
 		{/if}
-		<button class="button flex items-center gap-1" onclick={() => onCancel?.()}> Cancel </button>
+		<button class="btn btn-secondary flex items-center gap-1" onclick={() => onCancel?.()}>
+			Cancel
+		</button>
 		<button
-			class="button-primary flex items-center gap-1"
+			class="btn btn-primary flex items-center gap-1"
 			onclick={handleSubmit}
 			disabled={loading ||
 				(formData.runtime === 'composite' &&
@@ -700,7 +703,7 @@
 						compositeHasToolNameErrors))}
 		>
 			{#if loading}
-				<LoaderCircle class="size-4 animate-spin" />
+				<Loading class="size-4" />
 			{:else}
 				{entry ? 'Update' : 'Save'}
 			{/if}

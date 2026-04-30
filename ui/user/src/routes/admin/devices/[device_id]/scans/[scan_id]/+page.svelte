@@ -213,14 +213,14 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !scan}
-			<p class="text-on-surface1 text-sm font-light">Scan not found.</p>
+			<p class="text-muted-content text-sm font-light">Scan not found.</p>
 		{:else}
 			<!-- Header card -->
 			<div
-				class="dark:bg-surface2 bg-background flex flex-col gap-4 rounded-md p-4 shadow-sm md:flex-row md:items-start md:justify-between"
+				class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm md:flex-row md:items-start md:justify-between"
 			>
 				<dl class="grid flex-1 grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2 text-sm">
-					<dt class="text-on-surface1 text-xs font-medium uppercase tracking-wide">Device ID</dt>
+					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">Device ID</dt>
 					<dd class="flex items-center gap-2">
 						<span class="font-mono text-base font-semibold">{scan.deviceID}</span>
 						<CopyButton text={scan.deviceID} />
@@ -233,17 +233,19 @@
 						{/if}
 					</dd>
 
-					<dt class="text-on-surface1 text-xs font-medium uppercase tracking-wide">OS / Arch</dt>
+					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">OS / Arch</dt>
 					<dd>
 						<span class="pill-primary bg-primary">{scan.os}/{scan.arch}</span>
 					</dd>
 
-					<dt class="text-on-surface1 text-xs font-medium uppercase tracking-wide">Submitted by</dt>
+					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">
+						Submitted by
+					</dt>
 					<dd>
 						{#if submittedByUser}
 							<div class="flex items-center gap-2">
 								<div
-									class="size-6 shrink-0 overflow-hidden rounded-full bg-gray-50 dark:bg-gray-600"
+									class="size-6 shrink-0 overflow-hidden rounded-full bg-base-100 dark:bg-base-300"
 								>
 									{#if submittedByUser.iconURL}
 										<img
@@ -259,14 +261,14 @@
 						{:else if scan.submittedBy}
 							<span class="font-mono text-xs">{scan.submittedBy}</span>
 						{:else}
-							<span class="text-on-surface1">—</span>
+							<span class="text-muted-content">—</span>
 						{/if}
 					</dd>
 
-					<dt class="text-on-surface1 text-xs font-medium uppercase tracking-wide">Scanner</dt>
+					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">Scanner</dt>
 					<dd class="font-mono">{scan.scannerVersion || '—'}</dd>
 
-					<dt class="text-on-surface1 text-xs font-medium uppercase tracking-wide">Scanned</dt>
+					<dt class="text-muted-content text-xs font-medium uppercase tracking-wide">Scanned</dt>
 					<dd use:tooltip={scannedTime.fullDate}>
 						{scannedTime.relativeTime || '—'}
 					</dd>
@@ -274,7 +276,7 @@
 				{#if canDelete}
 					<button
 						type="button"
-						class="button-destructive flex items-center gap-1.5 self-start"
+						class="btn btn-error flex items-center gap-1.5 self-start"
 						onclick={() => (deleteOpen = true)}
 					>
 						<Trash2 class="size-4" /> Delete
@@ -284,14 +286,14 @@
 
 			<!-- Tabs -->
 			<div class="flex flex-col gap-2">
-				<div class="border-surface2 dark:border-surface2 flex gap-2 border-b">
+				<div class="border-base-300 flex gap-2 border-b">
 					<button
 						class="tab-button"
 						class:tab-active={activeTab === 'mcp'}
 						onclick={() => (activeTab = 'mcp')}
 					>
 						<Server class="size-4" /> MCP Servers
-						<span class="text-on-surface1">({mcpServers.length})</span>
+						<span class="text-muted-content">({mcpServers.length})</span>
 					</button>
 					<button
 						class="tab-button"
@@ -299,7 +301,7 @@
 						onclick={() => (activeTab = 'skills')}
 					>
 						<PencilRuler class="size-4" /> Skills
-						<span class="text-on-surface1">({skills.length})</span>
+						<span class="text-muted-content">({skills.length})</span>
 					</button>
 					<button
 						class="tab-button"
@@ -307,7 +309,7 @@
 						onclick={() => (activeTab = 'plugins')}
 					>
 						<Boxes class="size-4" /> Plugins
-						<span class="text-on-surface1">({plugins.length})</span>
+						<span class="text-muted-content">({plugins.length})</span>
 					</button>
 					<button
 						class="tab-button"
@@ -315,7 +317,7 @@
 						onclick={() => (activeTab = 'clients')}
 					>
 						<MonitorCheck class="size-4" /> Clients
-						<span class="text-on-surface1">({clients.length})</span>
+						<span class="text-muted-content">({clients.length})</span>
 					</button>
 				</div>
 
@@ -383,7 +385,7 @@
 						>
 							{#snippet onRenderColumn(property, d: SkillRow)}
 								{#if property === 'description'}
-									<span class="text-on-surface1 text-xs">{d.description ?? '—'}</span>
+									<span class="text-muted-content text-xs">{d.description ?? '—'}</span>
 								{:else if property === 'hasScripts'}
 									{d.hasScripts ? 'yes' : 'no'}
 								{:else if property === 'client'}
@@ -513,7 +515,7 @@
 {/snippet}
 
 {#snippet emptyTab(msg: string)}
-	<div class="text-on-surface1 flex items-center gap-2 p-4 text-sm font-light">
+	<div class="text-muted-content flex items-center gap-2 p-4 text-sm font-light">
 		<Cpu class="size-4 opacity-50" />
 		{msg}
 	</div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CheckCircle2, X } from 'lucide-svelte/icons';
+	import { CircleCheckBig, X } from 'lucide-svelte/icons';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
@@ -13,12 +13,12 @@
 <div
 	in:fade
 	out:fade={{ duration: 100 }}
-	class="relative flex max-w-sm items-center gap-2 rounded-xl bg-gray-50 p-5 pr-12 dark:bg-gray-950"
+	class="relative flex max-w-sm items-center gap-2 rounded-xl bg-base-200/50 p-5 pr-12"
 >
 	<div>
-		<CheckCircle2 class="h-5 w-5 text-green-500" />
+		<CircleCheckBig class="h-5 w-5 text-success" />
 	</div>
-	<div class="line-clamp-3 pr-5 text-sm font-normal break-words">
+	<div class="line-clamp-3 pr-5 text-sm font-normal wrap-break-word">
 		{message}
 	</div>
 	{#if onClose}

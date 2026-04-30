@@ -22,7 +22,7 @@
 	<div class="flex items-baseline justify-between gap-2">
 		<h4 class="font-semibold">Scan Timeline</h4>
 		{#if totalSubmissions > 0}
-			<span class="text-on-surface1 text-xs">
+			<span class="text-muted-content text-xs">
 				{totalSubmissions}
 				{totalSubmissions === 1 ? 'submission' : 'submissions'}
 			</span>
@@ -30,11 +30,13 @@
 	</div>
 
 	{#if timelineRows.length === 0}
-		<p class="text-on-surface1 flex min-h-56 flex-1 items-center justify-center text-sm font-light">
+		<p
+			class="text-muted-content flex min-h-56 flex-1 items-center justify-center text-sm font-light"
+		>
 			{emptyMsg}
 		</p>
 	{:else}
-		<div class="text-on-surface1 flex min-h-56 flex-1 items-center justify-center">
+		<div class="text-muted-content flex min-h-56 flex-1 items-center justify-center">
 			<StackedTimeline
 				start={new Date(rangeStart)}
 				end={new Date(rangeEnd)}

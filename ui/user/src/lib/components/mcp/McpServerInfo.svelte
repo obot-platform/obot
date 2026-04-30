@@ -143,14 +143,14 @@
 
 <div class="flex w-full flex-col gap-4 md:flex-row">
 	<div
-		class="dark:bg-surface1 dark:border-surface3 bg-background flex h-fit w-full flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex h-fit w-full flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 	>
 		{#if description && browser}
 			<div class="milkdown-content">
 				{@html toHTMLFromMarkdownWithNewTabLinks(description, true)}
 			</div>
 		{:else}
-			<p class="text-md text-on-surface1 text-center font-light italic">
+			<p class="text-md text-muted-content text-center font-light italic">
 				{descriptionPlaceholder}
 			</p>
 		{/if}
@@ -165,7 +165,7 @@
 		<div class="flex flex-col gap-4">
 			{#each details.filter( (d) => (Array.isArray(d.value) ? d.value.length > 0 : d.value) ) as detail, i (i)}
 				<div
-					class="dark:bg-surface2 dark:border-surface3 border-surface2 rounded-md border bg-gray-50 p-3"
+					class="dark:bg-base-300 dark:border-base-400 border-base-200 rounded-md border bg-gray-50 p-3"
 				>
 					<p class="mb-1 text-xs font-medium">{detail.label}</p>
 					{#if detail.link}

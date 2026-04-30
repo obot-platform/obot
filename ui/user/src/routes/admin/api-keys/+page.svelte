@@ -93,9 +93,9 @@
 		<div class="flex flex-col gap-4">
 			{#if allApiKeys.length === 0}
 				<div class="mt-26 flex w-md flex-col items-center gap-4 self-center text-center">
-					<KeyRound class="text-on-surface1 size-24 opacity-50" />
-					<h4 class="text-on-surface1 text-lg font-semibold">No API keys</h4>
-					<p class="text-on-surface1 text-sm font-light">
+					<KeyRound class="text-muted-content size-24 opacity-50" />
+					<h4 class="text-muted-content text-lg font-semibold">No API keys</h4>
+					<p class="text-muted-content text-sm font-light">
 						Looks like there aren't any API keys in the system yet. <br />
 						Click the "Create API Key" button above to get started.
 					</p>
@@ -157,7 +157,7 @@
 					{#snippet actions(d)}
 						{#if !isAdminReadonly}
 							<DotDotDot>
-								<button class="menu-button text-red-500" onclick={() => (deletingKey = d)}>
+								<button class="menu-button text-error" onclick={() => (deletingKey = d)}>
 									<Trash2 class="size-4" />
 									Delete
 								</button>
@@ -171,7 +171,7 @@
 
 	{#snippet rightNavActions()}
 		{#if !showCreateNew && !profile.current.isAdminReadonly?.()}
-			<button class="button-primary flex items-center gap-2 text-sm" onclick={showCreateForm}>
+			<button class="btn btn-primary flex items-center gap-2 text-sm" onclick={showCreateForm}>
 				<Plus class="size-4" />
 				Create API Key
 			</button>

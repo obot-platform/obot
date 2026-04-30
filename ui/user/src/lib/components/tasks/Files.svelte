@@ -3,6 +3,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import { ChatService, EditorService, type Files, type Project } from '$lib/services';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Download, RotateCw } from 'lucide-svelte';
 	import { FileText, Trash2 } from 'lucide-svelte/icons';
 	import { onDestroy } from 'svelte';
@@ -71,7 +72,7 @@
 
 {#if files && files.items.length > 0}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 bg-background rounded-3xl p-5 shadow-md dark:border"
+		class="dark:bg-base-200 dark:border-base-400 bg-base-100 rounded-3xl p-5 shadow-md dark:border"
 	>
 		<div class="mb-3 flex items-center justify-between">
 			<h4 class="text-xl font-semibold">Files</h4>
@@ -100,27 +101,27 @@
 							<FileText />
 							<span class="ms-3">{file.name}</span>
 						</button>
-						<button
-							class="icon-button ms-2 opacity-0 group-hover:opacity-100"
+						<IconButton
+							class="ms-2 opacity-0 group-hover:opacity-100"
 							onclick={() => {
 								EditorService.download(layout.items, project, file.name, {
 									taskID,
 									runID
 								});
 							}}
-							use:tooltip={'Download File'}
+							tooltip={{ text: 'Download File' }}
 						>
-							<Download class="text-gray size-5" />
-						</button>
-						<button
-							class="icon-button ms-2 opacity-0 group-hover:opacity-100"
+							<Download class="text-muted-content size-5" />
+						</IconButton>
+						<IconButton
+							class="ms-2 opacity-0 group-hover:opacity-100"
 							onclick={() => {
 								fileToDelete = file.name;
 							}}
-							use:tooltip={'Delete File'}
+							tooltip={{ text: 'Delete File' }}
 						>
-							<Trash2 class="text-gray size-5" />
-						</button>
+							<Trash2 class="text-muted-content size-5" />
+						</IconButton>
 					</div>
 				</li>
 			{/each}

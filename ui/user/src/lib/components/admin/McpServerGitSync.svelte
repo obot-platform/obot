@@ -2,6 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { AdminService, type MCPCatalog } from '$lib/services';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Info, TriangleAlert, X } from 'lucide-svelte';
 
 	interface Props {
@@ -54,9 +55,9 @@
 		{#if editingSource}
 			<h3 class="dialog-title">
 				{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
-				<button onclick={closeSourceDialog} class="icon-button dialog-close-btn">
+				<IconButton onclick={closeSourceDialog} class="btn-sm dialog-close-btn">
 					<X class="size-5" />
-				</button>
+				</IconButton>
 			</h3>
 
 			<div class="my-4 flex flex-col gap-1">
@@ -69,7 +70,7 @@
 							disablePortal: true
 						}}
 					>
-						<Info class="text-surface3 size-3.5" />
+						<Info class="text-muted-content size-3.5" />
 					</span>
 				</label>
 				<input
@@ -90,12 +91,12 @@
 								disablePortal: true
 							}}
 						>
-							<Info class="text-surface3 size-3.5" />
+							<Info class="text-base-content size-3.5" />
 						</span>
 					</label>
 					{#if editingSource.index >= 0 && defaultCatalog?.sourceURLCredentials?.[defaultCatalog?.sourceURLs?.[editingSource.index]] === '*' && !editingSource.clearToken}
 						<button
-							class="text-xs text-red-500 hover:underline dark:text-red-400"
+							class="text-xs text-error hover:underline"
 							onclick={() => {
 								if (editingSource) editingSource.clearToken = true;
 							}}
@@ -105,7 +106,7 @@
 					{/if}
 				</div>
 				{#if editingSource.clearToken}
-					<p class="text-surface3 text-xs">Token will be removed on save.</p>
+					<p class="text-muted-content text-xs">Token will be removed on save.</p>
 				{:else}
 					<SensitiveInput
 						name="catalog-source-token"
@@ -121,7 +122,7 @@
 			</div>
 
 			{#if sourceError}
-				<div class="mb-4 flex flex-col gap-2 text-red-500 dark:text-red-400">
+				<div class="mb-4 flex flex-col gap-2 text-error">
 					<div class="flex items-center gap-2">
 						<TriangleAlert class="size-6 shrink-0 self-start" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">Error adding source URL:</p>
@@ -131,9 +132,11 @@
 			{/if}
 
 			<div class="flex w-full justify-end gap-2">
-				<button class="button" disabled={saving} onclick={closeSourceDialog}>Cancel</button>
+				<button class="btn btn-secondary" disabled={saving} onclick={closeSourceDialog}
+					>Cancel</button
+				>
 				<button
-					class="button-primary"
+					class="btn btn-primary"
 					disabled={saving}
 					onclick={async () => {
 						if (!editingSource || (!defaultCatalog && !defaultCatalogId)) {

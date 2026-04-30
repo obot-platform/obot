@@ -83,7 +83,7 @@
 			'w-8 h-8 flex items-center justify-center text-sm rounded-md transition-colors';
 
 		if (isDateDisabled(date, minDate, maxDate)) {
-			return twMerge(baseClasses, 'text-on-surface1 cursor-default opacity-50');
+			return twMerge(baseClasses, 'text-muted-content cursor-default opacity-50');
 		}
 
 		if (isSelected(date)) {
@@ -95,10 +95,10 @@
 		}
 
 		if (!isCurrentMonth(date, currentDate)) {
-			return twMerge(baseClasses, 'text-on-surface1');
+			return twMerge(baseClasses, 'text-muted-content');
 		}
 
-		return twMerge(baseClasses, 'hover:bg-surface3 cursor-pointer');
+		return twMerge(baseClasses, 'hover:bg-base-400 cursor-pointer');
 	}
 </script>
 
@@ -116,8 +116,8 @@
 		style={`anchor-name: --${id}-anchor`}
 	>
 		<span class="flex grow items-center gap-2 truncate">
-			<Calendar class="text-on-surface1 size-4 flex-shrink-0" />
-			<span class={twMerge(!value && 'text-on-surface1')}>
+			<Calendar class="text-muted-content size-4 shrink-0" />
+			<span class={twMerge(!value && 'text-muted-content')}>
 				{value ? formatDate(value) : placeholder}
 			</span>
 		</span>
@@ -125,7 +125,7 @@
 			<span
 				role="button"
 				tabindex="0"
-				class="hover:bg-surface3 -mr-1 rounded p-1"
+				class="hover:bg-base-400 -mr-1 rounded p-1"
 				onclick={handleClear}
 				onkeydown={(e) => e.key === 'Enter' && handleClear(e as unknown as MouseEvent)}
 				{@attach (node: HTMLElement) => {
@@ -160,7 +160,7 @@
 					<div class="mt-4 flex justify-end">
 						<button
 							type="button"
-							class="button text-xs"
+							class="btn btn-secondary btn-sm"
 							onclick={() => {
 								value = null;
 								onChange(null);

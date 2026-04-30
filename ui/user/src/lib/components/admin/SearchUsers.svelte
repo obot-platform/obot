@@ -1,11 +1,12 @@
 <script lang="ts">
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
 	import { type OrgGroup, type OrgUser } from '$lib/services/admin/types';
 	import { getUserRoleLabel } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
 	import { debounce } from 'es-toolkit';
-	import { Check, LoaderCircle, User, Users } from 'lucide-svelte';
+	import { Check, User, Users } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -132,7 +133,7 @@
 	<div class="default-scrollbar-thin flex grow flex-col gap-4 overflow-y-auto pt-1">
 		<div class="px-4">
 			<Search
-				class="dark:bg-surface1 dark:border-surface3 shadow-inner dark:border"
+				class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 				value={searchNames}
 				onChange={(val) => {
 					searchNames = val;
@@ -143,15 +144,15 @@
 		</div>
 		{#if loading}
 			<div class="flex grow items-center justify-center">
-				<LoaderCircle class="size-6 animate-spin" />
+				<Loading class="size-6" />
 			</div>
 		{:else}
 			<div class="flex flex-col">
 				{#each filteredData ?? [] as item (item.id)}
 					<button
 						class={twMerge(
-							'dark:hover:bg-surface1 hover:bg-surface2 flex items-center gap-2 px-4 py-2 text-left',
-							selectedUsersMap.has(item.id) && 'dark:bg-gray-920 bg-gray-50'
+							'dark:hover:bg-base-200 hover:bg-base-400 flex items-center gap-2 px-4 py-2 text-left',
+							selectedUsersMap.has(item.id) && 'bg-base-200/50'
 						)}
 						onclick={() => {
 							if (selectedUsersMap.has(item.id)) {
@@ -168,12 +169,12 @@
 						<div class="flex grow flex-col">
 							{#if !isGroup(item)}
 								<p>{item.displayName ?? item.email ?? item.username ?? item.id}</p>
-								<p class="text-on-surface1 font-light">
+								<p class="text-muted-content font-light">
 									{item.effectiveRole ? getUserRoleLabel(item.effectiveRole) : 'User'}
 								</p>
 							{:else}
 								<p>{item.name}</p>
-								<p class="text-on-surface1 font-light">Group</p>
+								<p class="text-muted-content font-light">Group</p>
 							{/if}
 						</div>
 						<div class="flex items-center justify-center">
@@ -198,11 +199,11 @@
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
-			<button class="button w-full md:w-fit" onclick={() => addUserGroupDialog?.close()}>
+			<button class="btn btn-secondary w-full md:w-fit" onclick={() => addUserGroupDialog?.close()}>
 				Cancel
 			</button>
 			<button
-				class="button-primary w-full md:w-fit"
+				class="btn btn-primary w-full md:w-fit"
 				onclick={() => {
 					const users = selectedUsers.filter((user) => !isGroup(user)) as OrgUser[];
 					const groups = selectedUsers.filter((user) => isGroup(user)) as OrgGroup[];

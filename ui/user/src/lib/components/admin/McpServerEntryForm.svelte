@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
 		type MCPFilter,
@@ -31,6 +31,7 @@
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import StaticOAuthConfigureModal from '../mcp/StaticOAuthConfigureModal.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
 	import CatalogServerForm from './CatalogServerForm.svelte';
@@ -38,13 +39,12 @@
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import UsageGraphs from './usage/UsageGraphs.svelte';
 	import {
-		AlertCircle,
+		CircleAlert,
 		ChevronLeft,
 		ChevronRight,
 		GlobeLock,
 		Info,
 		ListFilter,
-		LoaderCircle,
 		Server,
 		Settings,
 		Trash2,
@@ -586,22 +586,22 @@
 				{/if}
 			</div>
 			{#if belongsToUser && !readonly}
-				<button
-					class="button-destructive flex items-center gap-1 text-xs font-normal"
-					use:tooltip={'Delete Server'}
+				<IconButton
+					variant="danger2"
+					tooltip={{ text: 'Delete Server' }}
 					onclick={() => {
 						deleteServer = true;
 					}}
 				>
 					<Trash2 class="size-4" />
-				</button>
+				</IconButton>
 			{/if}
 		</div>
 	{/if}
 
 	{#if requiresStaticOauth}
-		<div class="flex items-center gap-3 rounded-lg border border-yellow-500 bg-yellow-500/10 p-4">
-			<Info class="size-5 flex-shrink-0 text-yellow-500" />
+		<div class="flex items-center gap-3 rounded-lg border border-warning bg-warning/10 p-4">
+			<Info class="size-5 shrink-0 text-warning" />
 			<div class="flex-1">
 				<p class="text-sm font-medium">Requires Oauth Config</p>
 				<p class="text-muted-foreground mt-1 text-xs">
@@ -610,7 +610,7 @@
 				</p>
 			</div>
 			<button
-				class="button flex items-center gap-1.5 text-sm font-normal"
+				class="btn btn-secondary flex items-center gap-1.5 font-normal"
 				onclick={handleConfigureOAuth}
 			>
 				<Settings class="size-4" />
@@ -620,53 +620,55 @@
 	{/if}
 
 	<div class="flex grow flex-col gap-2">
-		<OverflowContainer
-			class="scrollbar-none flex min-h-12 w-full items-center gap-2 overflow-x-auto"
-			style="scroll-behavior: smooth;"
-			{@attach (node: HTMLDivElement) => (scrollContainer = node)}
-		>
-			{#snippet children({ x })}
-				{#if tabs.length > 0 && (entry?.id || server?.id)}
-					{#if x}
-						<button
-							disabled={!showLeftChevron}
-							onclick={scrollLeft}
-							class="bg-surface1 dark:bg-background sticky left-0 flex aspect-square h-full items-center justify-center rounded-l-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
-						>
-							<ChevronLeft class="size-full" />
-						</button>
-					{/if}
-
-					<div class="flex flex-1 gap-2 py-1 text-sm font-light">
-						{#each tabs as tab (tab.view)}
+		{#if tabs.length > 0 && (entry?.id || server?.id)}
+			<OverflowContainer
+				class="scrollbar-none flex min-h-12 w-full items-center gap-2 overflow-x-auto"
+				style="scroll-behavior: smooth;"
+				{@attach (node: HTMLDivElement) => (scrollContainer = node)}
+			>
+				{#snippet children({ x })}
+					{#if tabs.length > 0 && (entry?.id || server?.id)}
+						{#if x}
 							<button
-								onclick={() => {
-									handleSelectionChange(tab.view);
-								}}
-								class={twMerge(
-									'min-w-fit flex-1 rounded-md border border-transparent px-3 py-2 text-center whitespace-nowrap transition-colors duration-300',
-									selected === tab.view &&
-										'dark:bg-surface1 dark:border-surface3 bg-background shadow-sm',
-									selected !== tab.view && 'hover:bg-surface3'
-								)}
+								disabled={!showLeftChevron}
+								onclick={scrollLeft}
+								class="bg-base-200 dark:bg-base-100 sticky left-0 flex aspect-square h-full items-center justify-center rounded-l-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
 							>
-								{tab.label}
+								<ChevronLeft class="size-full" />
 							</button>
-						{/each}
-					</div>
+						{/if}
 
-					{#if x}
-						<button
-							disabled={!showRightChevron}
-							onclick={scrollRight}
-							class="bg-surface1 dark:bg-background sticky right-0 flex aspect-square h-full items-center justify-center rounded-r-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
-						>
-							<ChevronRight class="size-full" />
-						</button>
+						<div class="flex flex-1 gap-2 py-1 text-sm font-light">
+							{#each tabs as tab (tab.view)}
+								<button
+									onclick={() => {
+										handleSelectionChange(tab.view);
+									}}
+									class={twMerge(
+										'min-w-fit flex-1 rounded-md border border-transparent px-3 py-2 text-center whitespace-nowrap transition-colors duration-300',
+										selected === tab.view &&
+											'dark:bg-base-200 dark:border-base-400 bg-base-100 shadow-sm',
+										selected !== tab.view && 'hover:bg-base-400'
+									)}
+								>
+									{tab.label}
+								</button>
+							{/each}
+						</div>
+
+						{#if x}
+							<button
+								disabled={!showRightChevron}
+								onclick={scrollRight}
+								class="bg-base-200 dark:bg-base-100 sticky right-0 flex aspect-square h-full items-center justify-center rounded-r-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
+							>
+								<ChevronRight class="size-full" />
+							</button>
+						{/if}
 					{/if}
-				{/if}
-			{/snippet}
-		</OverflowContainer>
+				{/snippet}
+			</OverflowContainer>
+		{/if}
 
 		{#if selected === 'overview' && entry}
 			<div class="pb-8">
@@ -692,7 +694,7 @@
 		{:else if selected === 'tools' && entry}
 			<div class="pb-8">
 				{#if showRegenerateToolsButton}
-					<button class="button-primary mb-4 text-sm" onclick={handleInitTemporaryInstance}>
+					<button class="btn btn-primary mb-4 text-sm" onclick={handleInitTemporaryInstance}>
 						Regenerate Tools & Capabilities
 					</button>
 				{/if}
@@ -702,27 +704,27 @@
 				>
 					{#snippet noToolsContent()}
 						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-							<Wrench class="text-on-surface1 size-24 opacity-50" />
+							<Wrench class="text-muted-content size-24 opacity-50" />
 							{#if !entry || (entry && (readonly || server))}
-								<h4 class="text-on-surface1 text-lg font-semibold">No tools</h4>
-								<p class="text-on-surface1 text-sm font-light">
+								<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
+								<p class="text-muted-content text-sm font-light">
 									Looks like this MCP server doesn't have any tools available currently.
 								</p>
 							{:else if !readonly}
-								<h4 class="text-on-surface1 text-lg font-semibold">No tools</h4>
+								<h4 class="text-muted-content text-lg font-semibold">No tools</h4>
 								<button
-									class="button-primary flex items-center gap-1 text-sm"
+									class="btn btn-primary flex items-center gap-1 text-sm"
 									onclick={handleInitTemporaryInstance}
 									disabled={saving}
 								>
 									{#if saving}
-										<LoaderCircle class="size-4 animate-spin" />
+										<Loading class="size-4" />
 									{:else}
 										Populate Tool Preview
 									{/if}
 								</button>
 								{#if !error}
-									<p class="text-on-surface1 text-sm font-light">
+									<p class="text-muted-content text-sm font-light">
 										{#if type === 'remote'}
 											Click above to connect to the remote MCP server to populate capabilities and
 											tools.
@@ -781,7 +783,7 @@
 				{#if entry && 'sourceURL' in entry && !!entry.sourceURL}
 					<p>
 						This MCP Server comes from an external Git Source URL <span
-							class="text-no-surface1 text-xs">({entry.sourceURL.split('/').pop()})</span
+							class="text-muted-content text-xs">({entry.sourceURL.split('/').pop()})</span
 						> and cannot be edited.
 					</p>
 				{:else}
@@ -795,7 +797,7 @@
 {#snippet accessControlView()}
 	{#await listAccessControlRules}
 		<div class="flex w-full justify-center">
-			<LoaderCircle class="size-6 animate-spin" />
+			<Loading class="size-6" />
 		</div>
 	{:then rules}
 		{@const serverRules = entry ? filterRulesByEntry(rules) : []}
@@ -858,9 +860,9 @@
 			</Table>
 		{:else}
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-				<GlobeLock class="text-on-surface1 size-24 opacity-50" />
-				<h4 class="text-on-surface1 text-lg font-semibold">No MCP registries</h4>
-				<p class="text-on-surface1 text-sm font-light">
+				<GlobeLock class="text-muted-content size-24 opacity-50" />
+				<h4 class="text-muted-content text-lg font-semibold">No MCP registries</h4>
+				<p class="text-muted-content text-sm font-light">
 					This server is not tied to any registries.
 				</p>
 			</div>
@@ -909,14 +911,14 @@
 			>
 				{#snippet emptyContent()}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-						<Users class="text-on-surface1 size-24 opacity-50" />
-						<h4 class="text-on-surface1 text-lg font-semibold">No recent audit logs</h4>
-						<p class="text-on-surface1 text-sm font-light">
+						<Users class="text-muted-content size-24 opacity-50" />
+						<h4 class="text-muted-content text-lg font-semibold">No recent audit logs</h4>
+						<p class="text-muted-content text-sm font-light">
 							This server has not had any active usage in the last 7 days.
 						</p>
 						{#if entryId || mcpCatalogEntryId}
 							{@const param = entryId ? 'mcpId=' + entryId : 'entryId=' + mcpCatalogEntryId}
-							<p class="text-on-surface1 text-sm font-light">
+							<p class="text-muted-content text-sm font-light">
 								See more usage details in the server's <a
 									href={resolve(`/admin/audit-logs?${param}`)}
 									class="text-link"
@@ -936,7 +938,7 @@
 	{#if listFilters}
 		{#await listFilters}
 			<div class="flex w-full justify-center">
-				<LoaderCircle class="size-6 animate-spin" />
+				<Loading class="size-6" />
 			</div>
 		{:then filters}
 			{@const serverFilters = entry ? filterFiltersByEntry(filters) : []}
@@ -970,9 +972,9 @@
 				</Table>
 			{:else}
 				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-					<ListFilter class="text-on-surface1 size-24 opacity-50" />
-					<h4 class="text-on-surface1 text-lg font-semibold">No filters configured</h4>
-					<p class="text-on-surface1 text-sm font-light">
+					<ListFilter class="text-muted-content size-24 opacity-50" />
+					<h4 class="text-muted-content text-lg font-semibold">No filters configured</h4>
+					<p class="text-muted-content text-sm font-light">
 						This server is not referenced by any filters.
 					</p>
 				</div>
@@ -980,9 +982,9 @@
 		{/await}
 	{:else}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<ListFilter class="text-on-surface1 size-24 opacity-50" />
-			<h4 class="text-on-surface1 text-lg font-semibold">No filters available</h4>
-			<p class="text-on-surface1 text-sm font-light">
+			<ListFilter class="text-muted-content size-24 opacity-50" />
+			<h4 class="text-muted-content text-lg font-semibold">No filters available</h4>
+			<p class="text-muted-content text-sm font-light">
 				No filters have been configured in the system.
 			</p>
 		</div>
@@ -1086,18 +1088,18 @@
 	{/if}
 	{#if saving}
 		<div class="flex w-full justify-center">
-			<LoaderCircle class="size-6 animate-spin" />
+			<Loading class="size-6" />
 		</div>
 	{:else if oauthURL}
 		<!-- Single server OAuth -->
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
-		<a href={oauthURL} rel="external" target="_blank" class="button-primary text-center"
+		<a href={oauthURL} rel="external" target="_blank" class="btn btn-primary text-center"
 			>Authenticate</a
 		>
 	{:else if oauthURLs && Object.keys(oauthURLs).length > 0}
 		<!-- Composite server OAuth - multiple components -->
 		<div class="flex flex-col gap-3">
-			<p class="text-on-surface1 text-sm">
+			<p class="text-muted-content text-sm">
 				Multiple components require authentication. Please authenticate each component below:
 			</p>
 			{#each Object.entries(oauthURLs).filter(([id]) => !authenticatedComponents.has(id)) as [componentId, url] (componentId)}
@@ -1105,18 +1107,16 @@
 					(c) => c.catalogEntryID === componentId || c.mcpServerID === componentId
 				)}
 				{@const componentName = component?.manifest?.name || componentId}
-				<div
-					class="flex items-center justify-between gap-2 rounded border border-gray-200 p-3 dark:border-gray-700"
-				>
+				<div class="flex items-center justify-between gap-2 rounded border border-base-400 p-3">
 					<div class="flex items-center gap-2">
 						{#if component?.manifest?.icon}
-							<img src={component.manifest.icon} alt={componentName} class="size-6 flex-shrink-0" />
+							<img src={component.manifest.icon} alt={componentName} class="size-6 shrink-0" />
 						{/if}
 						<span class="text-sm font-medium">{componentName}</span>
 					</div>
 					<button
 						type="button"
-						class="button-primary text-sm"
+						class="btn btn-primary text-sm"
 						onclick={() => {
 							markComponentAuthenticated(componentId);
 							const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
@@ -1164,7 +1164,7 @@
 
 {#snippet errorSnippet()}
 	<div class="notification-error flex items-center gap-2">
-		<AlertCircle class="size-6 flex-shrink-0 text-red-500" />
+		<CircleAlert class="size-6 shrink-0 text-error" />
 		<p class="flex flex-col text-left text-sm font-light">
 			<span class="font-semibold">Error with launching temporary instance:</span>
 			<span>

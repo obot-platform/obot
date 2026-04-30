@@ -336,7 +336,7 @@
 	>
 		{#if highlightedArcElement && currentItem}
 			<div
-				class="tooltip bg-background dark:bg-surface2 pointer-events-none fixed top-0 left-0 z-50 flex flex-col shadow-md min-w-32"
+				class="tooltip bg-base-100 dark:bg-base-300 pointer-events-none fixed top-0 left-0 z-50 flex flex-col shadow-md min-w-32"
 				{@attach (node) => tooltip(highlightedArcElement!, node)}
 				in:fade={{ duration: 100, delay: 10 }}
 				out:fade={{ duration: 100 }}
@@ -346,7 +346,7 @@
 				{:else}
 					{@const parts = tooltipLabelParts(currentItem.label)}
 					<div class="flex flex-col gap-0 text-xs">
-						<div class="text-on-background text-sm">
+						<div class="text-base-content text-sm">
 							{#if parts.detail !== undefined}
 								<span class="font-semibold">{parts.main}</span>
 								<span>{TOOLTIP_LABEL_SEP}{parts.detail}</span>
@@ -354,17 +354,17 @@
 								<span class="font-semibold">{parts.main}</span>
 							{/if}
 						</div>
-						<div class="border-on-surface1 mb-2 border-b pb-2">
+						<div class="text-muted-content mb-2 border-b pb-2">
 							{currentItem.percentOfTotal.toFixed(1)}% of total
 						</div>
 					</div>
-					<div class="text-on-background text-2xl font-bold">{formatValue(currentItem.value)}</div>
+					<div class="text-base-content text-2xl font-bold">{formatValue(currentItem.value)}</div>
 				{/if}
 			</div>
 		{/if}
 
 		{#if total <= 0}
-			<p class="text-on-surface1 font-light text-sm">No data</p>
+			<p class="text-muted-content font-light text-sm">No data</p>
 		{:else}
 			<svg
 				class="max-h-full max-w-full overflow-visible"
@@ -383,7 +383,7 @@
 							fill={slice.color}
 							class={twMerge(
 								'cursor-pointer stroke-1',
-								useGroupSeparators ? '' : 'stroke-background dark:stroke-surface1'
+								useGroupSeparators ? '' : 'stroke-base-100 dark:stroke-base-200'
 							)}
 							onpointerenter={(e) => {
 								cancelHoverSliceClear();
@@ -421,7 +421,7 @@
 						<path
 							d={sepPath}
 							fill="none"
-							class="stroke-background dark:stroke-surface1 stroke-1 pointer-events-none"
+							class="stroke-base-100 dark:stroke-base-200 stroke-1 pointer-events-none"
 							aria-hidden="true"
 						/>
 					{/each}

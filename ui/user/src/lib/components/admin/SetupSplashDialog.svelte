@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, Group } from '$lib/services';
 	import { profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { goto } from '$lib/url';
 	import Logo from '../Logo.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { CircleCheckBig, LoaderCircle } from 'lucide-svelte';
+	import { CircleCheckBig } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -92,7 +93,7 @@
 
 	{#if isBootstrapUser}
 		<button
-			class="button-primary mt-8 flex justify-center text-center"
+			class="btn btn-primary mt-8 flex justify-center text-center"
 			disabled={loading}
 			onclick={async () => {
 				handleAcceptEula();
@@ -112,14 +113,14 @@
 			}}
 		>
 			{#if loading}
-				<LoaderCircle class="size-4 animate-spin" />
+				<Loading class="size-4" />
 			{:else}
 				Get Started
 			{/if}
 		</button>
 	{:else}
 		<button
-			class="button-primary mt-8 flex justify-center text-center"
+			class="btn btn-primary mt-8 flex justify-center text-center"
 			onclick={() => {
 				handleAcceptEula();
 				localStorage.setItem('seenSplashDialog', new Date().toISOString());
@@ -138,7 +139,7 @@
 {#snippet authDisabledNote()}
 	{#if !version.current.authEnabled}
 		<p class="mt-1 text-sm">
-			<span class="text-on-surface1">Auth is disabled.</span>
+			<span class="text-muted-content">Auth is disabled.</span>
 			<a
 				href="https://docs.obot.ai/installation/enabling-authentication"
 				rel="external noopener noreferrer"
@@ -152,11 +153,11 @@
 {#snippet renderChecklistItem(label: string, isChecked: boolean, note?: Snippet)}
 	<li>
 		<span
-			class={twMerge('flex items-center gap-1', isChecked ? 'text-on-surface1 line-through' : '')}
+			class={twMerge('flex items-center gap-1', isChecked ? 'text-muted-content line-through' : '')}
 		>
 			{label}
 			{#if isChecked}
-				<CircleCheckBig class="size-5 text-green-500" />
+				<CircleCheckBig class="size-5 text-success" />
 			{/if}
 		</span>
 		{#if note}

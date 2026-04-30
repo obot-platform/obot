@@ -46,7 +46,9 @@
 <label
 	class={twMerge(
 		'flex cursor-pointer items-center justify-center gap-2 px-4 py-2',
-		variant === 'icon' ? 'icon-button' : 'border-surface3 min-h-72 border-2 border-dashed p-4'
+		variant === 'icon'
+			? 'btn btn-square btn-ghost'
+			: 'border-base-400 min-h-72 border-2 border-dashed p-4'
 	)}
 >
 	{#await uploadInProgress}
@@ -58,7 +60,7 @@
 	{#if !uploadInProgress}
 		{#if variant !== 'preview' || (variant === 'preview' && !previewUrl)}
 			<Upload class="h-5 w-5" />
-			<span class="text-on-surface">{label}</span>
+			<span class="text-muted-content">{label}</span>
 		{:else if variant === 'preview' && previewUrl}
 			{#key previewUrl}
 				<img src={previewUrl} alt={label} class="max-h-72 object-contain" />

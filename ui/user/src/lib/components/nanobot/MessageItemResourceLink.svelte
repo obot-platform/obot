@@ -4,6 +4,7 @@
 	import type { ChatMessageItemResourceLink, ResourceContents } from '$lib/services/nanobot/types';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 	import PDF from './PDF.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		item: ChatMessageItemResourceLink;
@@ -167,9 +168,12 @@
 
 <button
 	type="button"
-	class="mb-2 inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors {isMissing
-		? 'border-error/30 bg-error/10 text-error hover:bg-error/20'
-		: 'border-base-300 bg-base-200 hover:bg-base-300'}"
+	class={twMerge(
+		'mb-2 inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors',
+		isMissing
+			? 'border-error/30 bg-error/10 text-error hover:bg-error/20'
+			: 'border-base-300 bg-base-200 hover:bg-base-300'
+	)}
 	onclick={handleClick}
 	title={displayName}
 >
@@ -233,7 +237,7 @@
 			{:else}
 				<div class="py-8 text-center">
 					<p class="text-base-content/60">Preview not available for this resource type</p>
-					<p class="text-base-content/40 mt-2 text-sm break-all">{item.uri}</p>
+					<p class="text-muted-content mt-2 text-sm break-all">{item.uri}</p>
 				</div>
 			{/if}
 		</div>

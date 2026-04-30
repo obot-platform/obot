@@ -6,6 +6,7 @@
 	 */
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { responsive } from '$lib/stores';
+	import IconButton from './primitives/IconButton.svelte';
 	import { ChevronRight, X } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -90,9 +91,9 @@
 							{/if}
 						</span>
 						{#if !hideClose}
-							<button
+							<IconButton
 								class={twMerge(
-									'icon-button dialog-close-btn',
+									'btn-sm dialog-close-btn',
 									responsive.isMobile && 'mobile',
 									classes?.closeBtn
 								)}
@@ -106,7 +107,7 @@
 								{:else}
 									<X class="size-5" />
 								{/if}
-							</button>
+							</IconButton>
 						{/if}
 					</h3>
 				</div>

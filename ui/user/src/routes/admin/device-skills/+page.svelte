@@ -85,16 +85,16 @@
 	>
 		<Search
 			value={nameFilter}
-			class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 			onChange={updateName}
 			placeholder="Search by skill name..."
 		/>
 
 		{#if total === 0 && !loading}
 			<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
-				<PencilRuler class="text-on-surface1 size-24 opacity-50" />
-				<h4 class="text-on-surface1 text-lg font-semibold">No skills observed yet</h4>
-				<p class="text-on-surface1 text-sm font-light">
+				<PencilRuler class="text-muted-content size-24 opacity-50" />
+				<h4 class="text-muted-content text-lg font-semibold">No skills observed yet</h4>
+				<p class="text-muted-content text-sm font-light">
 					Run <code class="font-mono">obot scan</code> from a managed device with SKILL.md files to populate
 					this view.
 				</p>

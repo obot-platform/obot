@@ -56,14 +56,14 @@
 		out:fly={{ x: -100, duration }}
 	>
 		{#if !client}
-			<p class="text-on-surface1 text-sm font-light">Client not found.</p>
+			<p class="text-muted-content text-sm font-light">Client not found.</p>
 		{:else}
-			<div class="dark:bg-surface2 bg-background flex flex-col gap-4 rounded-md p-4 shadow-sm">
+			<div class="dark:bg-base-300 bg-base-100 flex flex-col gap-4 rounded-md p-4 shadow-sm">
 				<div class="flex flex-col gap-2">
 					<h2 class="flex items-center gap-2 text-xl font-semibold">
 						{detail.name}
 					</h2>
-					<div class="text-on-surface1 flex flex-wrap items-center gap-3 text-xs">
+					<div class="text-muted-content flex flex-wrap items-center gap-3 text-xs">
 						<span>{detail.users.length} user{detail.users.length === 1 ? '' : 's'}</span>
 						<span>·</span>
 						{#if detail.mcpServers}
@@ -82,7 +82,7 @@
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<div class="border-surface2 dark:border-surface2 flex gap-2 border-b">
+				<div class="border-base-300 dark:border-base-400 flex gap-2 border-b">
 					{@render tabButton('users', Users, 'Users', detail.users.length)}
 					{@render tabButton('mcp', Server, 'MCP Servers', detail.mcpServers?.length ?? 0)}
 					{@render tabButton('skills', PencilRuler, 'Skills', detail.skills?.length ?? 0)}
@@ -162,12 +162,12 @@
 								{#if property === 'name'}
 									{d.name}
 								{:else if property === 'description'}
-									<span class="text-on-surface1 text-xs">{d.description ?? '—'}</span>
+									<span class="text-muted-content text-xs">{d.description ?? '—'}</span>
 								{:else if property === 'hasScripts'}
 									{#if d.hasScripts}
 										<CheckIcon class="text-primary size-3 shrink-0" />
 									{:else}
-										<XIcon class="text-on-surface1 size-3 shrink-0" />
+										<XIcon class="text-muted-content size-3 shrink-0" />
 									{/if}
 								{:else if property === 'files'}
 									{d.files ?? '-'}
@@ -185,12 +185,12 @@
 	<button class="tab-button" class:tab-active={activeTab === tab} onclick={() => (activeTab = tab)}>
 		<Icon class="size-4" />
 		{label}
-		<span class="text-on-surface1">({count})</span>
+		<span class="text-muted-content">({count})</span>
 	</button>
 {/snippet}
 
 {#snippet emptyTab(msg: string)}
-	<div class="text-on-surface1 flex items-center gap-2 p-4 text-sm font-light">
+	<div class="text-muted-content flex items-center gap-2 p-4 text-sm font-light">
 		{msg}
 	</div>
 {/snippet}

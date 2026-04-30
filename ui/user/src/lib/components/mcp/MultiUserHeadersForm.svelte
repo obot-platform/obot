@@ -2,6 +2,7 @@
 	import type { MCPSubField } from '$lib/services';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import Toggle from '../Toggle.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2 } from 'lucide-svelte';
 
 	interface Props {
@@ -13,11 +14,11 @@
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 >
 	<div class="flex flex-col gap-1">
 		<h4 class="text-sm font-semibold">User-Defined Headers</h4>
-		<p class="text-on-surface1 text-xs font-light">
+		<p class="text-muted-content text-xs font-light">
 			These headers are collected from each user when they connect to this multi-user MCP server.
 		</p>
 	</div>
@@ -25,14 +26,14 @@
 	{#if headers}
 		{#each headers as header, i (i)}
 			<div
-				class="dark:border-surface3 bg-surface2 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
+				class="dark:border-base-400 bg-base-300 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
 			>
 				<div class="flex w-full flex-col gap-4">
 					<div class="flex w-full flex-col gap-1">
 						<label for={`multi-user-header-name-${i}`} class="text-sm font-light">Name</label>
 						<input
 							id={`multi-user-header-name-${i}`}
-							class="text-input-filled bg-background w-full shadow-none"
+							class="text-input-filled bg-base-100 w-full shadow-none"
 							bind:value={headers[i].name}
 							disabled={readonly}
 						/>
@@ -44,7 +45,7 @@
 						>
 						<input
 							id={`multi-user-header-description-${i}`}
-							class="text-input-filled bg-background w-full shadow-none"
+							class="text-input-filled bg-base-100 w-full shadow-none"
 							bind:value={headers[i].description}
 							disabled={readonly}
 						/>
@@ -54,7 +55,7 @@
 						<label for={`multi-user-header-key-${i}`} class="text-sm font-light">Key</label>
 						<input
 							id={`multi-user-header-key-${i}`}
-							class="text-input-filled bg-background w-full shadow-none"
+							class="text-input-filled bg-base-100 w-full shadow-none"
 							bind:value={headers[i].key}
 							placeholder="e.g. X-API-Key"
 							disabled={readonly}
@@ -74,7 +75,7 @@
 						</label>
 						<input
 							id={`multi-user-header-prefix-${i}`}
-							class="text-input-filled bg-background w-full shadow-none"
+							class="text-input-filled bg-base-100 w-full shadow-none"
 							bind:value={headers[i].prefix}
 							disabled={readonly}
 						/>
@@ -105,14 +106,15 @@
 				</div>
 
 				{#if !readonly}
-					<button
-						class="icon-button hover:text-red-500"
+					<IconButton
+						class="hover:text-error"
 						onclick={() => {
 							headers?.splice(i, 1);
 						}}
+						variant="danger"
 					>
 						<Trash2 class="size-4" />
-					</button>
+					</IconButton>
 				{/if}
 			</div>
 		{/each}

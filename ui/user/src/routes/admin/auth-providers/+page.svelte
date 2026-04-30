@@ -14,7 +14,7 @@
 	import { AdminService, Role } from '$lib/services/index.js';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { darkMode, errors, profile } from '$lib/stores/index.js';
-	import { AlertTriangle, Info } from 'lucide-svelte';
+	import { TriangleAlert, Info } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -181,7 +181,7 @@
 			{#if !atLeastOneConfigured}
 				<div class="notification-alert mb-4 flex flex-col gap-2">
 					<div class="flex items-center gap-2">
-						<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+						<TriangleAlert class="size-6 shrink-0 self-start text-warning" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">No Auth Providers Configured!</p>
 					</div>
 					<span class="text-sm font-light break-all">
@@ -282,7 +282,7 @@
 				alt={confirmDeconfigureAuthProvider?.name}
 				class={twMerge(
 					'size-6 rounded-sm p-0.5',
-					!confirmDeconfigureAuthProvider?.iconDark && 'bg-surface1 dark:bg-gray-600'
+					!confirmDeconfigureAuthProvider?.iconDark && 'bg-base-200 dark:bg-base-300'
 				)}
 			/>
 			<h3 class="text-lg font-semibold">Deconfigure {confirmDeconfigureAuthProvider?.name}</h3>
@@ -332,10 +332,10 @@
 
 		<div class="my-4 flex flex-col gap-2">
 			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external temp login URL -->
-			<a class="button-auth group" href={setupTempLoginUrl} rel="external">
+			<a class="btn btn-secondary w-full" href={setupTempLoginUrl} rel="external">
 				{#if configuringAuthProvider?.icon}
 					<img
-						class="h-6 w-6 rounded-full bg-transparent p-1 dark:bg-gray-600"
+						class="h-6 w-6 rounded-full bg-base-100 p-1 dark:bg-gray-600"
 						src={configuringAuthProvider.icon}
 						alt={configuringAuthProvider.name}
 					/>

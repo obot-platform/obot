@@ -366,7 +366,7 @@
 </script>
 
 <div
-	class="model-provider-card border-surface2 flex max-h-[600px] min-h-fit w-full flex-col rounded-md border py-4 shadow-sm 2xl:mb-4 2xl:min-h-[514px] 2xl:last:mb-0"
+	class="model-provider-card border-base-300 flex max-h-[600px] min-h-fit w-full flex-col rounded-md border py-4 shadow-sm 2xl:mb-4 2xl:min-h-[514px] 2xl:last:mb-0"
 	data-provider-id={provider.id}
 >
 	<div class="flex flex-col px-4">
@@ -402,14 +402,14 @@
 			<!-- Models Selection Section -->
 			<div
 				class={twMerge(
-					'bg-surface1/0 flex flex-1 flex-col gap-2 rounded-md',
+					'bg-base-200 flex flex-1 flex-col gap-2 rounded-md',
 					isProviderConfigurationShown && 'pointer-events-none opacity-50'
 				)}
 				in:fade={{ duration: 200 }}
 				out:fade={{ duration: 0 }}
 			>
 				<div
-					class="model-provider-search-input bg-surface1 dark:bg-surface2 relative flex h-10 w-full items-center gap-2 rounded-md text-sm"
+					class="model-provider-search-input bg-base-200 dark:bg-base-300 relative flex h-10 w-full items-center gap-2 rounded-md text-sm"
 				>
 					<div class="absolute inset-x-0 left-2 aspect-square h-5 opacity-50">
 						<Search class="h-full" />
@@ -431,11 +431,11 @@
 					{/if}
 				</div>
 
-				<div class="border-surface1 flex flex-1 flex-col gap-2 rounded-md border">
+				<div class="border-base-300 flex flex-1 flex-col gap-2 rounded-md border">
 					<div class="flex items-center gap-2 px-4 py-2 text-sm font-medium">
 						<h5 class="flex items-center">
 							<input
-								class="bg-surface3 mr-2 h-4 w-4"
+								class="bg-base-400 mr-2 h-4 w-4"
 								type="checkbox"
 								id={`model-${provider.id}-toggle-all`}
 								bind:checked={
@@ -474,9 +474,9 @@
 							class="default-scrollbar-thin scrollbar-track-rounded-full absolute inset-0 flex h-full max-h-full flex-col overflow-y-auto px-2"
 						>
 							{#each filteredModels as model (model)}
-								<div class="hover:bg-surface1 bored flex items-center rounded px-2 py-2">
+								<div class="hover:bg-base-400 bored flex items-center rounded px-2 py-2">
 									<input
-										class="bg-surface3 mr-2 h-4 w-4"
+										class="bg-base-400 mr-2 h-4 w-4"
 										type="checkbox"
 										id={`model-${provider.id}-${model}`}
 										bind:checked={
@@ -494,7 +494,7 @@
 								</div>
 							{:else}
 								<div
-									class="w-full h-full flex items-center justify-center text-on-surface1 text-lg font-semibold rounded-lg absolute inset-0 p-8"
+									class="w-full h-full flex items-center justify-center text-muted-content text-lg font-semibold rounded-lg absolute inset-0 p-8"
 									transition:fade={{ duration: 100 }}
 								>
 									{#if isModelsLoading}
@@ -511,11 +511,11 @@
 		{:else}
 			<!-- TODO: this is an example placeholder, feel free to change if you have a better one -->
 			<div
-				class="bg-surface1 flex flex-1 flex-col items-center justify-center rounded-lg p-8"
+				class="bg-base-200 flex flex-1 flex-col items-center justify-center rounded-lg p-8"
 				in:fade={{ duration: 200 }}
 				out:fade={{ duration: 0 }}
 			>
-				<div class="text-on-surface1 mb-2 text-lg font-semibold">
+				<div class="text-muted-content mb-2 text-lg font-semibold">
 					Provider is not yet configured
 				</div>
 				<p class="text-center text-xs opacity-50">
@@ -531,7 +531,7 @@
 					<div class="flex items-center font-medium">
 						<span>Configurations</span>
 					</div>
-					<div class="border-surface2 flex-1 border-b"></div>
+					<div class="border-base-300 flex-1 border-b"></div>
 				</div>
 
 				<div class="flex flex-col gap-4">
@@ -558,7 +558,7 @@
 		{/if}
 	</div>
 
-	<div class="border-surface2 flex min-h-14 w-full justify-between gap-4 border-t px-4 pt-4">
+	<div class="border-base-300 flex min-h-14 w-full justify-between gap-4 border-t px-4 pt-4">
 		{#if isProviderConfigurationShown}
 			{@const isDirty =
 				JSON.stringify($state.snapshot(configuration)) !==
@@ -570,7 +570,7 @@
 						in:fade={{ duration: 100 }}
 						out:fade={{ duration: 0 }}
 						type="button"
-						class="button hover:bg-surface1 rounded-full px-4 py-2 text-sm transition-colors duration-100"
+						class="btn btn-secondary"
 						onclick={() => {
 							configuration = $state.snapshot(oldConfiguration);
 						}}
@@ -582,9 +582,7 @@
 						in:fade={{ duration: 100 }}
 						out:fade={{ duration: 0 }}
 						type="button"
-						class={twMerge(
-							'button hover:bg-surface1 rounded-full px-4 py-2 text-sm transition-colors duration-100'
-						)}
+						class="btn btn-secondary"
 						onclick={() => {
 							// Close configuration UI
 							isProviderConfigurationShown = false;
@@ -599,7 +597,7 @@
 						in:fade={{ duration: 100 }}
 						out:fade={{ duration: 0 }}
 						type="button"
-						class="button bg-primary/10 text-primary hover:bg-primary/15 active:bg-primary/20 rounded-full border-none px-4 py-2 text-sm transition-colors duration-100"
+						class="btn btn-primary"
 						disabled={!isDirty}
 						onclick={(ev) => saveHandler(ev)}
 					>
@@ -611,17 +609,14 @@
 
 		<div class="ml-auto flex gap-2">
 			{#if !isProviderConfigurationShown}
-				<button
-					class="button hover:bg-surface3/80 active:bg-surface3/100 bg-transparent text-sm font-medium"
-					onclick={onConfigureProviderClickHandler}
-				>
+				<button class="btn btn-secondary" onclick={onConfigureProviderClickHandler}>
 					{provider.configured ? 'Reconfigure' : 'Configure'}
 				</button>
 			{/if}
 
 			{#if provider.configured}
 				<button
-					class="button bg-red-500/5 text-sm font-medium text-red-500 transition-colors duration-100 hover:bg-red-500/10 active:bg-red-500/15"
+					class="btn btn-error"
 					onclick={() => {
 						isUnconfigureProviderDialogShown = true;
 					}}

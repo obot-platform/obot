@@ -324,7 +324,7 @@
 							<td>
 								<div class="w-full min-w-0">
 									<p
-										class="text-base-content/50 w-full min-w-0 truncate text-sm font-light break-all italic"
+										class="text-muted-content w-full min-w-0 truncate text-sm font-light break-all italic"
 									>
 										{resource.uri}
 									</p>

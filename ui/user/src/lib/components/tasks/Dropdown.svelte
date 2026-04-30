@@ -15,6 +15,7 @@
 		placement: 'bottom-start'
 	});
 	let { values, selected, disabled = false, onSelected, class: kclass = '' }: Props = $props();
+	let button = $state<HTMLButtonElement>();
 
 	async function select(value: string) {
 		await onSelected?.(value);
@@ -25,37 +26,41 @@
 {#if disabled}
 	<span
 		class={twMerge(
-			'text-gray flex items-center justify-between gap-2 rounded-3xl p-3 px-4 capitalize dark:hover:bg-gray-900',
+			'text-muted-content bg-base-100 flex items-center justify-between gap-2 p-3 px-4 capitalize',
 			kclass
 		)}
 	>
 		{selected ? values[selected] : values[''] || ''}
-		<ChevronDown class="text-gray" />
+		<ChevronDown class="text-muted-content" />
 	</span>
 {:else}
 	<button
+		bind:this={button}
 		use:ref
 		type="button"
 		onclick={() => {
 			toggle();
 		}}
 		class={twMerge(
-			'hover:bg-gray-70 flex items-center justify-between gap-2 rounded-3xl p-3 px-4 capitalize dark:hover:bg-gray-900',
+			'flex items-center justify-between gap-2 rounded-sm p-3 px-4 capitalize',
 			kclass
 		)}
 	>
 		{selected ? values[selected] : values[''] || ''}
 		<ChevronDown />
 	</button>
-	<div use:tooltip class="bg-background min-w-[150px] rounded-3xl shadow dark:bg-gray-900">
+	<div
+		use:tooltip
+		class="bg-base-100 min-w-[150px] rounded-sm shadow"
+		style="width: {button?.getBoundingClientRect().width || 150}px;"
+	>
 		<ul>
 			{#each Object.keys(values) as key (key)}
 				{@const value = values[key]}
 				<li>
 					<button
-						class:bg-gray-70={selected === key}
-						class:dark:bg-gray-800={selected === key}
-						class="w-full px-6 py-2.5 text-start capitalize hover:bg-gray-100 dark:hover:bg-gray-800"
+						class:bg-base-200={selected === key}
+						class="w-full px-6 py-2.5 text-start capitalize hover:bg-base-300"
 						onclick={() => select(key)}
 					>
 						{value}
@@ -65,16 +70,3 @@
 		</ul>
 	</div>
 {/if}
-
-<style lang="postcss">
-	li:first-child button {
-		border-top-left-radius: 1.5rem;
-		border-top-right-radius: 1.5rem;
-		padding-top: 1rem;
-	}
-	li:last-child button {
-		border-bottom-left-radius: 1.5rem;
-		border-bottom-right-radius: 1.5rem;
-		padding-bottom: 1rem;
-	}
-</style>
