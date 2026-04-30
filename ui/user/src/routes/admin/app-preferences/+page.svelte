@@ -23,6 +23,19 @@
 		SHADE_TICK_NEUTRAL,
 		type TintedSurfaceSnapshot
 	} from '$lib/utils/color';
+	import {
+		MOCK_CONNECTOR_TABLE_DATA,
+		type BrandingMockConnectorRow,
+		themeLightSurfaceFields,
+		themeDarkSurfaceFields,
+		themeLightIndicatorFields,
+		themeDarkIndicatorFields,
+		textLightFields,
+		textDarkFields,
+		themeLightLogoFields,
+		themeDarkLogoFields,
+		standardIconFields
+	} from './constants.js';
 	import 'devicon/devicon.min.css';
 	import { CircleAlert, HouseIcon, Info, LoaderCircle, Pencil, X } from 'lucide-svelte';
 	import { onDestroy, untrack } from 'svelte';
@@ -36,83 +49,6 @@
 	let saving = $state(false);
 	let showSaved = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();
-
-	/** Preview rows for the MCP Servers-style table; `devicon` is a Devicon class name (e.g. `devicon-python-plain`). */
-	type BrandingMockConnectorRow = {
-		id: string;
-		name: string;
-		devicon: string;
-		/** Optional manifest-style icon URL; UI can prefer this over `devicon` when set */
-		icon?: string;
-		type: 'single' | 'multi' | 'remote' | 'composite';
-		status: string;
-		created: string;
-		registry: string;
-		users: number;
-	};
-
-	const mockTableData: BrandingMockConnectorRow[] = [
-		{
-			id: 'mock-braintree',
-			name: 'Braintree MCP',
-			devicon: 'devicon-python-plain',
-			type: 'single',
-			status: 'Connected',
-			created: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-			registry: 'Global Registry',
-			users: 1
-		},
-		{
-			id: 'mock-acme-api',
-			name: 'Acme Remote API',
-			devicon: 'devicon-typescript-plain',
-			type: 'remote',
-			status: 'Requires OAuth Config',
-			created: new Date(Date.now() - 1000 * 60 * 60 * 20).toISOString(),
-			registry: 'Global Registry',
-			users: 0
-		},
-		{
-			id: 'mock-analytics',
-			name: 'Analytics Warehouse',
-			devicon: 'devicon-postgresql-plain',
-			type: 'multi',
-			status: 'Connected',
-			created: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(),
-			registry: 'My Registry',
-			users: 12
-		},
-		{
-			id: 'mock-compose',
-			name: 'Composite Toolkit',
-			devicon: 'devicon-docker-plain',
-			type: 'composite',
-			status: '',
-			created: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14).toISOString(),
-			registry: 'Global Registry',
-			users: 4
-		},
-		{
-			id: 'mock-slack',
-			name: 'Slack Connector',
-			devicon: 'devicon-slack-plain',
-			type: 'remote',
-			status: '',
-			created: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(),
-			registry: "Partner's Registry",
-			users: 0
-		},
-		{
-			id: 'mock-react',
-			name: 'UI Automation Server',
-			devicon: 'devicon-react-original',
-			type: 'single',
-			status: 'Connected',
-			created: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
-			registry: 'Global Registry',
-			users: 2
-		}
-	];
 
 	let editUrlDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let uploadImage = $state<ReturnType<typeof UploadImage>>();
@@ -221,6 +157,15 @@
 		tintedSurfaceSnapshot = surfacesSnapshotFromTheme(defaultTheme);
 	}
 
+	function resetTintedControls() {
+		tintedHueLight = 0;
+		tintedHueDark = 0;
+		tintedTintLight = 0;
+		tintedTintDark = 0;
+		tintedShadeLight = SHADE_TICK_NEUTRAL;
+		tintedShadeDark = SHADE_TICK_NEUTRAL;
+	}
+
 	$effect(() => {
 		if (!browser) return;
 		if (selectedSurfaceMode !== 'tinted') return;
@@ -293,173 +238,6 @@
 			saving = false;
 		}
 	}
-
-	const standardIconFields: { id: keyof AppPreferences['logos']; label: string }[] = [
-		{
-			id: 'logoIcon',
-			label: 'Default Icon'
-		},
-		{
-			id: 'logoIconError',
-			label: 'Error Icon'
-		},
-		{
-			id: 'logoIconWarning',
-			label: 'Warning Icon'
-		}
-	];
-
-	const themeLightLogoFields: { id: keyof AppPreferences['logos']; label: string }[] = [
-		{
-			id: 'logoDefault',
-			label: 'Full Logo'
-		},
-		{
-			id: 'logoEnterprise',
-			label: 'Full Enterprise Logo'
-		},
-		{
-			id: 'logoChat',
-			label: 'Full Chat Logo'
-		}
-	];
-
-	const themeDarkLogoFields: { id: keyof AppPreferences['logos']; label: string }[] = [
-		{
-			id: 'darkLogoDefault',
-			label: 'Full Logo'
-		},
-		{
-			id: 'darkLogoEnterprise',
-			label: 'Full Enterprise Logo'
-		},
-		{
-			id: 'darkLogoChat',
-			label: 'Full Chat Logo'
-		}
-	];
-
-	const themeLightSurfaceFields: { id: keyof AppPreferences['theme']; label: string }[] = [
-		{
-			id: 'backgroundColor',
-			label: 'Background'
-		},
-		{
-			id: 'surface1Color',
-			label: 'Surface 1'
-		},
-		{
-			id: 'surface2Color',
-			label: 'Surface 2'
-		},
-		{
-			id: 'surface3Color',
-			label: 'Surface 3'
-		}
-	];
-
-	const themeDarkSurfaceFields: { id: keyof AppPreferences['theme']; label: string }[] = [
-		{
-			id: 'darkBackgroundColor',
-			label: 'Background'
-		},
-		{
-			id: 'darkSurface1Color',
-			label: 'Surface 1'
-		},
-		{
-			id: 'darkSurface2Color',
-			label: 'Surface 2'
-		},
-		{
-			id: 'darkSurface3Color',
-			label: 'Surface 3'
-		}
-	];
-
-	const themeLightIndicatorFields: { id: keyof AppPreferences['theme']; label: string }[] = [
-		{
-			id: 'secondaryColor',
-			label: 'Secondary'
-		},
-		{
-			id: 'successColor',
-			label: 'Success'
-		},
-		{
-			id: 'warningColor',
-			label: 'Warning'
-		},
-		{
-			id: 'errorColor',
-			label: 'Error'
-		}
-	];
-
-	const themeDarkIndicatorFields: { id: keyof AppPreferences['theme']; label: string }[] = [
-		{
-			id: 'darkSecondaryColor',
-			label: 'Secondary'
-		},
-		{
-			id: 'darkSuccessColor',
-			label: 'Success'
-		},
-		{
-			id: 'darkWarningColor',
-			label: 'Warning'
-		},
-		{
-			id: 'darkErrorColor',
-			label: 'Error'
-		}
-	];
-
-	const textLightFields: { id: keyof AppPreferences['theme']; label: string }[] = [
-		{
-			id: 'onBackgroundColor',
-			label: 'Primary Text'
-		},
-		{
-			id: 'onPrimaryColor',
-			label: 'Primary Text'
-		},
-		{
-			id: 'onSuccessColor',
-			label: 'Success Text'
-		},
-		{
-			id: 'onWarningColor',
-			label: 'Warning Text'
-		},
-		{
-			id: 'onErrorColor',
-			label: 'Error Text'
-		}
-	];
-
-	const textDarkFields: { id: keyof AppPreferences['theme']; label: string }[] = [
-		{
-			id: 'darkOnBackgroundColor',
-			label: 'Primary Text'
-		},
-		{
-			id: 'darkOnPrimaryColor',
-			label: 'Primary Text'
-		},
-		{
-			id: 'darkOnSuccessColor',
-			label: 'Success Text'
-		},
-		{
-			id: 'darkOnWarningColor',
-			label: 'Warning Text'
-		},
-		{
-			id: 'darkOnErrorColor',
-			label: 'Error Text'
-		}
-	];
 </script>
 
 <Layout title="Branding" classes={{ container: 'pb-0' }}>
@@ -537,7 +315,7 @@
 				>
 					<div class="flex justify-between items-center gap-2">
 						<button
-							class="btn btn-sm"
+							class="btn btn-sm btn-secondary font-medium"
 							onclick={() => {
 								form = compileAppPreferences();
 								customSurfaces = surfacesSnapshotFromTheme(form.theme);
@@ -564,11 +342,11 @@
 								onclick={() => {
 									form = prevAppPreferences;
 									customSurfaces = surfacesSnapshotFromTheme(prevAppPreferences.theme);
+									form = applyCustomSurfacesToForm();
 									appPreferences.current = compileAppPreferences(prevAppPreferences);
-									appPreferences.setThemeColors(prevAppPreferences.theme);
-									if (selectedSurfaceMode === 'tinted') {
-										captureTintedSurfaceSnapshot();
-									}
+									appPreferences.setThemeColors(form.theme);
+									resetTintedControls();
+									selectedSurfaceMode = 'solid';
 									editUrlDialog?.close();
 								}}>Cancel</button
 							>
@@ -582,7 +360,7 @@
 		<div class="absolute bottom-0 right-0">
 			<span
 				in:fade={{ duration: 200 }}
-				class="text-on-surface1 flex min-h-10 items-center px-4 text-sm font-extralight"
+				class="text-base-content/40 flex min-h-10 items-center px-4 text-sm font-extralight"
 			>
 				Your changes have been saved.
 			</span>
@@ -611,15 +389,15 @@
 				>
 					<Logo class="h-16" />
 					<h1 class="text-2xl font-semibold">Welcome to Obot</h1>
-					<p class="text-md text-on-surface1 mb-1 text-center font-light">
+					<p class="text-md text-base-content/40 mb-1 text-center font-light">
 						Log in or create your account to continue
 					</p>
 
 					<div
-						class="dark:border-surface3 dark:bg-surface1 bg-background flex w-sm flex-col gap-4 rounded-xl border border-transparent p-4 shadow-sm"
+						class="dark:border-base-400 dark:bg-base-200 bg-base-100 flex w-sm flex-col gap-4 rounded-xl border border-transparent p-4 shadow-sm"
 					>
 						<button
-							class="group bg-surface2 hover:bg-surface3 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold transition-colors duration-200"
+							class="group bg-base-300 hover:bg-base-400 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold transition-colors duration-200"
 						>
 							<img
 								class="h-6 w-6 rounded-full bg-transparent p-1 dark:bg-gray-600"
@@ -691,13 +469,13 @@
 			</div>
 		</div>
 		<div class="w-full mt-8">
-			<div class="dark:bg-surface2 bg-background rounded-t-md shadow-sm">
+			<div class="dark:bg-base-300 bg-base-100 rounded-t-md shadow-sm">
 				<div class="flex">
 					<button class="page-tab w-1/2 max-w-1/2 page-tab-active"> Servers </button>
 					<button class="page-tab w-1/2 max-w-1/2"> Users </button>
 				</div>
 				<Table
-					data={mockTableData}
+					data={MOCK_CONNECTOR_TABLE_DATA}
 					fields={['name', 'status', 'created']}
 					filterable={['name', 'status']}
 					sortable={['name', 'created', 'status']}
@@ -734,7 +512,7 @@
 				<p class="text-sm font-light">Example Selector</p>
 				<div class="flex grow">
 					<Select
-						class="bg-surface1 dark:bg-background dark:border-surface3 border border-transparent shadow-inner"
+						class="bg-base-200 dark:bg-base-100 dark:border-base-400 border border-transparent shadow-inner"
 						classes={{
 							root: 'flex grow'
 						}}

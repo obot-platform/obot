@@ -30,18 +30,11 @@ export const DEFAULT_FONT_FAMILY =
 export const FONT_FAMILY_PRESETS: { label: string; value: string }[] = [
 	{ label: 'Poppins', value: DEFAULT_FONT_FAMILY },
 	{
-		label: 'Inter',
-		value: 'Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji'
-	},
-	{
-		label: 'Roboto',
-		value: 'Roboto, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji'
-	},
-	{
 		label: 'Helvetica Neue',
-		value: 'Helvetica Neue, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji'
+		value:
+			'Helvetica Neue, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji'
 	},
-	{ label: 'System UI', value: 'ui-sans-serif, system-ui, sans-serif' }
+	{ label: 'System Default', value: 'ui-sans-serif, system-ui, sans-serif' }
 ];
 
 export function compileAppPreferences(preferences?: AppPreferences): AppPreferences {
