@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import TweenedMetric from '$lib/components/TweenedMetric.svelte';
 	import McpServerGitSync from '$lib/components/admin/McpServerGitSync.svelte';
@@ -9,7 +8,10 @@
 		transformTopServerUsage,
 		transformAvgToolCallResponseTime
 	} from '$lib/components/admin/usage/utils';
-	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
+	import DonutGraph, {
+		type DonutDatum,
+		type DonutLegendItem
+	} from '$lib/components/graph/DonutGraph.svelte';
 	import HorizontalBarGraph from '$lib/components/graph/HorizontalBarGraph.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
@@ -25,15 +27,106 @@
 		type OrgUser,
 		type TotalTokenUsage
 	} from '$lib/services';
-	import { errors, mcpServersAndEntries, profile } from '$lib/stores';
+	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { isWithinInterval, set, subMonths } from 'date-fns';
-	import { Activity, ChevronRight, Coins, Plus, Server, Users, Wrench } from 'lucide-svelte';
+	import { Activity, ChevronRight, Coins, Server, Siren, Users, Wrench } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	const TOP_TOOLS_LIMIT = 5;
 	const TOP_SERVERS_LIMIT = 12;
+
+	const DEPLOYMENT_STATUS_ORDER = [
+		'Available',
+		'Progressing',
+		'Unavailable',
+		'Needs Attention',
+		'Shutdown',
+		'Unknown'
+	] as const;
+
+	const ENTRY_TYPE_GRAPH_META: {
+		key: 'multi' | 'single' | 'remote' | 'composite';
+		label: string;
+		baseColor: string;
+	}[] = [
+		{ key: 'multi', label: 'Multi-User', baseColor: '#fee090' },
+		{ key: 'single', label: 'Single-User', baseColor: '#f46d43' },
+		{ key: 'remote', label: 'Remote', baseColor: '#4575b4' },
+		{ key: 'composite', label: 'Composite', baseColor: '#BFB4ACFF' }
+	];
+
+	const entryTypeDonutLegend: DonutLegendItem[] = ENTRY_TYPE_GRAPH_META.map(
+		({ label, baseColor }) => ({ label, color: baseColor })
+	);
+
+	function mixHex(base: string, toward: string, t: number): string {
+		const parse = (hex: string) => {
+			const s = hex.replace('#', '');
+			const full = s.length === 3 ? [...s].map((c) => c + c).join('') : s;
+			return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
+		};
+		const [r1, g1, b1] = parse(base);
+		const [r2, g2, b2] = parse(toward);
+		const blend = (a: number, b: number) => Math.round(a + (b - a) * t);
+		const r = blend(r1, r2);
+		const g = blend(g1, g2);
+		const b = blend(b1, b2);
+		return `#${[r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('')}`;
+	}
+
+	function deploymentStatusSortKey(status: string): number {
+		const i = DEPLOYMENT_STATUS_ORDER.indexOf(status as (typeof DEPLOYMENT_STATUS_ORDER)[number]);
+		return i >= 0 ? i : DEPLOYMENT_STATUS_ORDER.length;
+	}
+
+	function catalogServerEntryKind(
+		server: MCPCatalogServer
+	): 'multi' | 'single' | 'remote' | 'composite' {
+		if (!server.catalogEntryID) return 'multi';
+		if (server.manifest.runtime === 'composite') return 'composite';
+		if (server.manifest.runtime === 'remote') return 'remote';
+		return 'single';
+	}
+
+	function normalizeServerDeploymentStatus(server: MCPCatalogServer): string {
+		const raw = server.deploymentStatus?.trim();
+		if (raw && DEPLOYMENT_STATUS_ORDER.includes(raw as (typeof DEPLOYMENT_STATUS_ORDER)[number]))
+			return raw;
+		if (raw) return raw;
+		return 'Unknown';
+	}
+
+	/** 12-column grid: 3× col-span-4 per full row; last row fills width (6+6 or 12). */
+	function deploymentStatusRowLayout(total: number): {
+		itemsInLastRow: number;
+		lastRowStart: number;
+	} {
+		const rem = total % 3;
+		const itemsInLastRow = rem === 0 ? 3 : rem;
+		const lastRowStart = total - itemsInLastRow;
+		return { itemsInLastRow, lastRowStart };
+	}
+
+	function deploymentStatusGridColClass(i: number, total: number): string {
+		const { itemsInLastRow, lastRowStart } = deploymentStatusRowLayout(total);
+		if (i < lastRowStart) return 'col-span-4';
+		if (itemsInLastRow === 1) return 'col-span-12';
+		if (itemsInLastRow === 2) return 'col-span-6';
+		return 'col-span-4';
+	}
+
+	function deploymentStatusGridShowBorderRight(i: number, total: number): boolean {
+		const { itemsInLastRow, lastRowStart } = deploymentStatusRowLayout(total);
+		if (i >= lastRowStart) {
+			if (itemsInLastRow === 1) return false;
+			if (itemsInLastRow === 2) return i === lastRowStart;
+			return i < lastRowStart + 2;
+		}
+		return i % 3 !== 2;
+	}
 
 	let loading = $state(true);
 	let loadingToolUsage = $state(true);
@@ -43,6 +136,8 @@
 
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 	let sourceDialog = $state<ReturnType<typeof McpServerGitSync>>();
+
+	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
 
 	type TopToolCallRow = {
 		compositeKey: string;
@@ -67,28 +162,20 @@
 	const start = subMonths(end, 1);
 
 	function topToolCallsFromStats(stats: AuditLogUsageStats | undefined): TopToolCallRow[] {
-		return transformTopToolCalls(stats)
-			.map((t) => ({
-				compositeKey: t.toolName,
-				toolLabel: t.toolName,
-				count: t.count,
-				serverDisplayName: t.serverDisplayName
-			}))
-			.filter(
-				(t) => !t.serverDisplayName.startsWith('nba1') && !t.serverDisplayName.startsWith('Obot ')
-			);
+		return transformTopToolCalls(stats).map((t) => ({
+			compositeKey: t.toolName,
+			toolLabel: t.toolName,
+			count: t.count,
+			serverDisplayName: t.serverDisplayName
+		}));
 	}
 
 	function topServersFromStats(stats: AuditLogUsageStats | undefined): TopServerUsageRow[] {
-		return transformTopServerUsage(stats).filter(
-			(s) => !s.serverName.startsWith('nba1') && !s.serverName.startsWith('Obot ')
-		);
+		return transformTopServerUsage(stats);
 	}
 
 	function avgToolCallResponseTimeFromStats(stats: AuditLogUsageStats | undefined) {
-		return transformAvgToolCallResponseTime(stats).filter(
-			(t) => !t.serverDisplayName.startsWith('nba1') && !t.serverDisplayName.startsWith('Obot ')
-		);
+		return transformAvgToolCallResponseTime(stats);
 	}
 
 	let monthlyActiveUsers = $derived(
@@ -162,34 +249,74 @@
 			}
 		);
 
+		let graphData: DonutDatum[] = [];
+		let deploymentStatusBreakdown: { status: string; count: number }[] = [];
+		if (doesSupportK8sUpdates) {
+			const overallByStatus: Record<string, number> = {};
+			for (const server of data) {
+				const s = normalizeServerDeploymentStatus(server);
+				overallByStatus[s] = (overallByStatus[s] ?? 0) + 1;
+			}
+			deploymentStatusBreakdown = Object.entries(overallByStatus)
+				.filter(([, count]) => count > 0)
+				.sort(([a], [b]) => {
+					const d = deploymentStatusSortKey(a) - deploymentStatusSortKey(b);
+					return d !== 0 ? d : a.localeCompare(b);
+				})
+				.map(([status, count]) => ({ status, count }));
+
+			const countsByKindAndStatus: Record<string, number> = {};
+			for (const server of data) {
+				const kind = catalogServerEntryKind(server);
+				const status = normalizeServerDeploymentStatus(server);
+				const key = `${kind}\0${status}`;
+				countsByKindAndStatus[key] = (countsByKindAndStatus[key] ?? 0) + 1;
+			}
+
+			for (const { key: kind, label: typeLabel, baseColor } of ENTRY_TYPE_GRAPH_META) {
+				const prefix = `${kind}\0`;
+				const statusEntries = Object.entries(countsByKindAndStatus)
+					.filter(([k]) => k.startsWith(prefix))
+					.map(([k, value]) => [k.slice(prefix.length), value] as [string, number])
+					.filter(([, value]) => value > 0)
+					.sort(([a], [b]) => {
+						const d = deploymentStatusSortKey(a) - deploymentStatusSortKey(b);
+						return d !== 0 ? d : a.localeCompare(b);
+					});
+
+				const n = statusEntries.length;
+				const maxTint = 0.25;
+				statusEntries.forEach(([status, value], i) => {
+					const t = n <= 1 ? 0 : i / (n - 1);
+					graphData.push({
+						label: `${typeLabel} · ${status}`,
+						value,
+						color: mixHex(baseColor, '#ffffff', t * maxTint),
+						groupKey: kind
+					});
+				});
+			}
+		} else {
+			graphData = ENTRY_TYPE_GRAPH_META.map(({ key, label, baseColor }) => ({
+				label,
+				value: entryTypes[key],
+				color: baseColor
+			}));
+		}
+
 		return {
-			graphData: [
-				{
-					label: 'Multi-User',
-					value: entryTypes.multi
-				},
-				{
-					label: 'Single-User',
-					value: entryTypes.single
-				},
-				{
-					label: 'Remote',
-					value: entryTypes.remote
-				},
-				{
-					label: 'Composite',
-					value: entryTypes.composite
-				}
-			],
+			graphData,
 			popularServers: sortByCountDescending.filter((s) => s.count > 0).slice(0, 5),
-			totalServers: data.length
+			totalServers: data.length,
+			deploymentStatusBreakdown
 		};
 	}
 
 	const serverAndEntries = $derived(mcpServersAndEntries.current);
-	const { graphData, popularServers, totalServers } = $derived(
+	const { graphData, popularServers, totalServers, deploymentStatusBreakdown } = $derived(
 		compileServerAndEntries(serversData, serverAndEntries.entries)
 	);
+
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 
 	onMount(async () => {
@@ -201,9 +328,22 @@
 			end_time: endToolStats.toISOString()
 		})
 			.then((stats) => {
-				topToolCalls = topToolCallsFromStats(stats).slice(0, TOP_TOOLS_LIMIT);
-				topServerUsage = topServersFromStats(stats).slice(0, TOP_SERVERS_LIMIT);
-				avgToolCallResponseTime = avgToolCallResponseTimeFromStats(stats).slice(0, TOP_TOOLS_LIMIT);
+				const statsToUse = (stats.items ?? []).filter(
+					(s) =>
+						!s.mcpID.startsWith('sms1') &&
+						!s.mcpServerDisplayName.startsWith('nba1') &&
+						!s.mcpServerDisplayName.startsWith('Obot ')
+				);
+				const adjustedStats = {
+					...stats,
+					items: statsToUse
+				};
+				topToolCalls = topToolCallsFromStats(adjustedStats).slice(0, TOP_TOOLS_LIMIT);
+				topServerUsage = topServersFromStats(adjustedStats).slice(0, TOP_SERVERS_LIMIT);
+				avgToolCallResponseTime = avgToolCallResponseTimeFromStats(adjustedStats).slice(
+					0,
+					TOP_TOOLS_LIMIT
+				);
 			})
 			.catch((error) => {
 				if (error?.name === 'AbortError') return;
@@ -234,16 +374,16 @@
 
 	function getServerUrl(server: MCPCatalogServer) {
 		if (server.powerUserWorkspaceID) {
-			return `/admin/mcp-servers/w/${server.powerUserWorkspaceID}/s/${server.id}?view=audit-logs`;
+			return `/admin/mcp-servers/w/${server.powerUserWorkspaceID}/s/${server.id}`;
 		}
-		return `/admin/mcp-servers/s/${server.id}?view=audit-logs`;
+		return `/admin/mcp-servers/s/${server.id}`;
 	}
 
 	function getEntryUrl(entry: MCPCatalogEntry) {
 		if (entry.powerUserWorkspaceID) {
-			return `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}?view=audit-logs`;
+			return `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}`;
 		}
-		return `/admin/mcp-servers/c/${entry.id}?view=audit-logs`;
+		return `/admin/mcp-servers/c/${entry.id}`;
 	}
 </script>
 
@@ -478,74 +618,69 @@
 				</div>
 			{:else}
 				<div in:fade={{ duration: 150 }} class="paper min-h-96">
-					{#if deployedCatalogEntryServers.length > 0 || deployedWorkspaceCatalogEntryServers.length > 0 || isBootStrapUser}
-						<h4 class="font-semibold">Active Servers</h4>
-						<div class="mb-2 flex flex-col justify-center items-center gap-2">
+					<h4 class="font-semibold">Server Activity</h4>
+					{#if doesSupportK8sUpdates && deploymentStatusBreakdown.length > 0}
+						<div class="mb-2 grid grid-cols-12 gap-x-2 gap-y-5">
+							{#each deploymentStatusBreakdown as row, i (row.status)}
+								<div
+									class={twMerge(
+										'flex flex-col items-center justify-center px-1 text-center',
+										deploymentStatusGridColClass(i, deploymentStatusBreakdown.length),
+										deploymentStatusGridShowBorderRight(i, deploymentStatusBreakdown.length) &&
+											'border-r border-surface2'
+									)}
+								>
+									<div class="flex items-center gap-1">
+										<div class="text-3xl font-semibold">
+											<TweenedMetric target={row.count} />
+										</div>
+										{#if row.status === 'Available'}
+											<Server class="size-6 text-primary" />
+										{:else if row.status === 'Needs Attention'}
+											<Siren class="size-6 text-yellow-500" />
+										{:else}
+											<Server class="size-6 text-on-surface1/75" />
+										{/if}
+									</div>
+									<div class="text-xs">{row.status}</div>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="mb-2 flex flex-col justify-center items-center">
 							<div class="flex w-full gap-2 items-center justify-center">
 								<div class="text-3xl font-semibold">
-									<TweenedMetric holdAtZero={serverAndEntries.loading} target={totalServers} />
+									<TweenedMetric target={totalServers} />
 								</div>
-								<Server class="size-8 text-primary" />
+								<Server class="size-6 text-primary" />
 							</div>
 							<div class="text-xs">Total Currently Active</div>
 						</div>
+					{/if}
 
-						<div class="h-px w-full bg-surface2 mb-4"></div>
-
-						<div class="h-72 flex flex-col items-center justify-center">
-							{#if graphData.some((g) => g.value > 0)}
-								<DonutGraph class="h-72" donutRatio={0.65} data={graphData} />
-							{:else}
-								<p class="font-light text-xs text-on-surface1 pt-2 text-center">
-									No servers have been deployed yet.
-								</p>
-							{/if}
-						</div>
-
-						{#if !isBootStrapUser}
-							<div class="flex justify-end">
-								<a
-									href={resolve('/admin/mcp-servers?view=deployments')}
-									class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-								>
-									See More <ChevronRight class="size-3" />
-								</a>
-							</div>
+					<div class="h-80 flex flex-col items-center justify-center">
+						{#if graphData.some((g) => g.value > 0)}
+							<DonutGraph
+								class="h-80"
+								donutRatio={0.65}
+								data={graphData}
+								legend={doesSupportK8sUpdates ? entryTypeDonutLegend : undefined}
+							/>
+						{:else}
+							<p class="font-light text-xs text-on-surface1 pt-2 text-center">
+								No servers have been deployed yet.
+							</p>
 						{/if}
-					{:else}
-						<div class="grow flex flex-col items-center justify-center gap-4">
-							<div>
-								<p class="text-sm text-center mb-1">
-									Looks like you don't have any servers created yet.
-								</p>
-								<p class="text-sm text-center">Click below to get started!</p>
-							</div>
-							<DotDotDot
-								class="button-primary w-full text-sm md:w-fit self-center"
-								placement="bottom"
+					</div>
+
+					{#if !isBootStrapUser && totalServers > 0}
+						<div class="flex justify-end">
+							<a
+								href={resolve('/admin/mcp-servers?view=deployments')}
+								class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
 							>
-								{#snippet icon()}
-									<span class="flex items-center justify-center gap-1">
-										<Plus class="size-4" /> Add MCP Server
-									</span>
-								{/snippet}
-								<button
-									class="menu-button"
-									onclick={() => {
-										selectServerTypeDialog?.open();
-									}}
-								>
-									Add server
-								</button>
-								<button
-									class="menu-button"
-									onclick={() => {
-										sourceDialog?.open();
-									}}
-								>
-									Add server(s) from Git
-								</button>
-							</DotDotDot>
+								See More <ChevronRight class="size-3" />
+							</a>
 						</div>
 					{/if}
 				</div>
