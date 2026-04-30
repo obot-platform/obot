@@ -449,11 +449,7 @@
 							Runs until it is disabled or reaches its expiration.
 						</p>
 					</div>
-					<input
-						type="checkbox"
-						class="toggle text-background dark:text-surface2 bg-surface3 checked:bg-primary border-transparent"
-						bind:checked={enabled}
-					/>
+					<input type="checkbox" class="toggle" bind:checked={enabled} />
 				</div>
 				{#if currentTask}
 					<div class="text-on-surface1 mt-4 text-sm">

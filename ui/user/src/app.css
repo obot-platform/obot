@@ -107,26 +107,27 @@
 	default: true;
 	prefersdark: false;
 	color-scheme: light;
-	--color-base-100: hsl(0 0 100);
-	--color-base-200: hsl(0 0 95.5);
-	--color-base-300: hsl(0 0 92.5);
-	--color-base-content: hsl(0 0 0);
-	--color-primary: var(--primary);
-	--color-primary-content: hsl(0 0 100);
-	--color-secondary: hsl(0 0 82.5);
-	--color-secondary-content: hsl(0 0 0);
+	--color-base-100: var(--theme-background-light, var(--color-white));
+	--color-base-200: var(--theme-surface1-light, var(--color-gray-70));
+	--color-base-300: var(--theme-surface2-light, var(--color-gray-100));
+	--color-base-400: var(--theme-surface3-light, var(--color-gray-200));
+	--color-base-content: var(--theme-on-background-light, var(--color-black));
+	--color-primary: var(--theme-primary-light, var(--primary));
+	--color-primary-content: var(--theme-on-primary-light, var(--color-white));
+	--color-secondary: var(--theme-secondary-light, hsl(0 0 82.5));
+	--color-secondary-content: var(--theme-on-secondary-light, hsl(0 0 0));
 	--color-accent: #95bcfb;
 	--color-accent-content: hsl(0 0 0);
 	--color-neutral: hsl(0 0 82.5);
 	--color-neutral-content: hsl(0 0 0);
 	--color-info: var(--primary);
 	--color-info-content: hsl(0 0 100);
-	--color-success: oklch(67% 0.13 149);
-	--color-success-content: hsl(0 0 0);
-	--color-warning: oklch(79.5% 0.184 86.047);
-	--color-warning-content: hsl(0 0 100);
-	--color-error: #ef4444;
-	--color-error-content: hsl(0 0 100);
+	--color-success: var(--theme-success-light, oklch(67% 0.13 149));
+	--color-success-content: var(--theme-on-success-light, hsl(0 0 0));
+	--color-warning: var(--theme-warning-light, oklch(79.5% 0.184 86.047));
+	--color-warning-content: var(--theme-on-warning-light, hsl(0 0 100));
+	--color-error: var(--theme-error-light, #ef4444);
+	--color-error-content: var(--theme-on-error-light, hsl(0 0 100));
 	--radius-selector: 1rem;
 	--radius-field: 0.25rem;
 	--radius-box: 0.5rem;
@@ -143,26 +144,27 @@
 	prefersdark: true;
 	color-scheme: dark;
 
-	--color-base-100: hsl(0 0 0);
-	--color-base-200: hsl(0 0 5.5);
-	--color-base-300: hsl(0 0 12.5);
-	--color-base-content: hsl(0 0 97.5);
-	--color-primary: var(--primary);
-	--color-primary-content: hsl(0 0 97.5);
-	--color-secondary: hsl(0 0 22.5);
-	--color-secondary-content: hsl(0 0 97.5);
+	--color-base-100: var(--theme-background-dark, var(--color-black));
+	--color-base-200: var(--theme-surface1-dark, var(--color-gray-950));
+	--color-base-300: var(--theme-surface2-dark, var(--color-gray-900));
+	--color-base-400: var(--theme-surface3-dark, var(--color-gray-800));
+	--color-base-content: var(--theme-on-background-light, var(--color-black));
+	--color-primary: var(--theme-primary-dark, var(--color-blue-500));
+	--color-primary-content: var(--theme-on-primary-dark, hsl(0 0 97.5));
+	--color-secondary: var(--theme-secondary-dark, hsl(0 0 22.5));
+	--color-secondary-content: var(--theme-on-secondary-dark, hsl(0 0 97.5));
 	--color-accent: #203188;
 	--color-accent-content: hsl(0 0 97.5);
 	--color-neutral: hsl(0 0 22.5);
 	--color-neutral-content: hsl(0 0 97.5);
 	--color-info: var(--primary);
 	--color-info-content: hsl(0 0 97.5);
-	--color-success: oklch(67% 0.13 149);
-	--color-success-content: hsl(0 0 97.5);
-	--color-warning: oklch(79.5% 0.184 86.047);
-	--color-warning-content: hsl(0 0 97.5);
-	--color-error: #ef4444;
-	--color-error-content: hsl(0 0 97.5);
+	--color-success: var(--theme-success-dark, oklch(67% 0.13 149));
+	--color-success-content: var(--theme-on-success-dark, hsl(0 0 97.5));
+	--color-warning: var(--theme-warning-dark, oklch(79.5% 0.184 86.047));
+	--color-warning-content: var(--theme-on-warning-dark, hsl(0 0 97.5));
+	--color-error: var(--theme-error-dark, #ef4444);
+	--color-error-content: var(--theme-on-error-dark, hsl(0 0 97.5));
 	--radius-selector: 1rem;
 	--radius-field: 0.25rem;
 	--radius-box: 0.5rem;
@@ -177,24 +179,40 @@
 	--background: var(--theme-background-light, var(--color-white));
 	--on-background: var(--theme-on-background-light, var(--color-black));
 	--surface1: var(--theme-surface1-light, var(--color-gray-70));
-	--on-surface1: var(--theme-on-surface-light, var(--color-gray-400));
+	--on-surface1: var(--color-gray-400);
 	--surface2: var(--theme-surface2-light, var(--color-gray-100));
-	--on-surface2: var(--theme-on-surface-light, var(--color-black));
+	--on-surface2: var(--color-black);
 	--surface3: var(--theme-surface3-light, var(--color-gray-200));
-	--on-surface3: var(--theme-on-surface-light, var(--color-black));
+	--on-surface3: var(--color-black);
 	--primary: var(--theme-primary-light, var(--color-blue-500));
+	--on-primary: var(--theme-on-primary-light, var(--color-gray-400));
+	--on-success: var(--theme-on-success-light, var(--color-gray-400));
+	--on-warning: var(--theme-on-warning-light, var(--color-gray-400));
+	--on-error: var(--theme-on-error-light, var(--color-gray-400));
+	--secondary: var(--theme-secondary-light, var(--color-gray-400));
+	--success: var(--theme-success-light, var(--color-gray-400));
+	--warning: var(--theme-warning-light, var(--color-gray-400));
+	--error: var(--theme-error-light, var(--color-gray-400));
 }
 
 .nanobot[data-theme='nanobotdark'] {
 	--background: var(--theme-background-dark, var(--color-black));
 	--on-background: var(--theme-on-background-dark, var(--color-gray-50));
 	--surface1: var(--theme-surface1-dark, var(--color-gray-950));
-	--on-surface1: var(--theme-on-surface-dark, var(--color-gray-500));
+	--on-surface1: var(--color-gray-500);
 	--surface2: var(--theme-surface2-dark, var(--color-gray-900));
-	--on-surface2: var(--theme-on-surface-dark, var(--color-gray-50));
+	--on-surface2: var(--color-gray-50);
 	--surface3: var(--theme-surface3-dark, var(--color-gray-800));
-	--on-surface3: var(--theme-on-surface-dark, var(--color-gray-50));
+	--on-surface3: var(--color-gray-50);
 	--primary: var(--theme-primary-dark, var(--color-blue-500));
+	--on-primary: var(--theme-on-primary-dark, var(--color-gray-400));
+	--on-success: var(--theme-on-success-dark, var(--color-gray-400));
+	--on-warning: var(--theme-on-warning-dark, var(--color-gray-400));
+	--on-error: var(--theme-on-error-dark, var(--color-gray-400));
+	--secondary: var(--theme-secondary-dark, var(--color-gray-400));
+	--success: var(--theme-success-dark, var(--color-gray-400));
+	--warning: var(--theme-warning-dark, var(--color-gray-400));
+	--error: var(--theme-error-dark, var(--color-gray-400));
 }
 
 /*
@@ -1526,6 +1544,31 @@
 	}
 }
 
+@layer utilities {
+	.toggle {
+		border-color: transparent;
+		background-color: var(--surface3);
+		--input-color: var(--background);
+	}
+
+	.dark .toggle {
+		--input-color: var(--surface2);
+	}
+
+	.toggle:checked,
+	.toggle[aria-checked='true'],
+	.toggle:has(> input:checked) {
+		background-color: var(--color-primary);
+		--input-color: var(--background);
+	}
+
+	.dark .toggle:checked,
+	.dark .toggle[aria-checked='true'],
+	.dark .toggle:has(> input:checked) {
+		--input-color: var(--surface2);
+	}
+}
+
 .nanobot .prose,
 .nanobot .milkdown .ProseMirror {
 	& h1 {
@@ -1843,11 +1886,11 @@
 	--background: var(--theme-background-dark, var(--color-black));
 	--on-background: var(--theme-on-background-dark, var(--color-gray-50));
 	--surface1: var(--theme-surface1-dark, var(--color-gray-950));
-	--on-surface1: var(--theme-on-surface-dark, var(--color-gray-500));
+	--on-surface1: var(--color-gray-500);
 	--surface2: var(--theme-surface2-dark, var(--color-gray-900));
-	--on-surface2: var(--theme-on-surface-dark, var(--color-gray-50));
+	--on-surface2: var(--color-gray-50);
 	--surface3: var(--theme-surface3-dark, var(--color-gray-800));
-	--on-surface3: var(--theme-on-surface-dark, var(--color-gray-50));
+	--on-surface3: var(--color-gray-50);
 	--primary: var(--theme-primary-dark, var(--color-blue-500));
 }
 
@@ -1855,11 +1898,11 @@ html {
 	--background: var(--theme-background-light, var(--color-white));
 	--on-background: var(--theme-on-background-light, var(--color-black));
 	--surface1: var(--theme-surface1-light, var(--color-gray-70));
-	--on-surface1: var(--theme-on-surface-light, var(--color-gray-400));
+	--on-surface1: var(--color-gray-400);
 	--surface2: var(--theme-surface2-light, var(--color-gray-100));
-	--on-surface2: var(--theme-on-surface-light, var(--color-black));
+	--on-surface2: var(--color-black);
 	--surface3: var(--theme-surface3-light, var(--color-gray-200));
-	--on-surface3: var(--theme-on-surface-light, var(--color-black));
+	--on-surface3: var(--color-black);
 	--primary: var(--theme-primary-light, var(--color-blue-500));
 }
 
