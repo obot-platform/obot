@@ -856,6 +856,9 @@ func TestEnsureMCPNetworkPolicyDeletesPolicyWhenProviderDisabled(t *testing.T) {
 			Name:      server.Name,
 			Namespace: server.Namespace,
 		},
+		Spec: v1.MCPNetworkPolicySpec{
+			MCPServerName: server.Name,
+		},
 	}
 
 	client := newFakeClient(t, server, existing)
@@ -914,6 +917,9 @@ func TestEnsureMCPNetworkPolicyDeletesPolicyForUnsupportedRuntime(t *testing.T) 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      server.Name,
 			Namespace: server.Namespace,
+		},
+		Spec: v1.MCPNetworkPolicySpec{
+			MCPServerName: server.Name,
 		},
 	}
 
