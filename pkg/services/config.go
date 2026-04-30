@@ -51,13 +51,16 @@ import (
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/proxy"
+	"github.com/obot-platform/obot/pkg/serviceaccounts"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storageauthn "github.com/obot-platform/obot/pkg/storage/authn"
 	"github.com/obot-platform/obot/pkg/storage/blob"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
+	"gorm.io/gorm"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -284,8 +287,8 @@ func copyKeys(envs []string) []string {
 	return newEnvs
 }
 
-// buildLocalK8sConfig creates a Kubernetes config for local cluster access
-func buildLocalK8sConfig() (*rest.Config, error) {
+// BuildLocalK8sConfig creates a Kubernetes config for local cluster access.
+func BuildLocalK8sConfig() (*rest.Config, error) {
 	cfg, err := rest.InClusterConfig()
 	if err == nil {
 		return cfg, nil
@@ -481,7 +484,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// Sanitize DSN for logging (remove credentials)
 	sanitizedDSN := logutil.SanitizeDSN(config.DSN)
 	pkgLog.Infof("Connecting to database: dsn=%s", sanitizedDSN)
-	storageClient, restConfig, dbAccess, err := storage.Start(ctx, config.Config)
+	storageClient, restConfig, dbAccess, storageServices, err := storage.Start(ctx, config.Config)
 	if err != nil {
 		pkgLog.Errorf("Failed to connect to database: dsn=%s error=%v", sanitizedDSN, err)
 		return nil, err
@@ -552,12 +555,26 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.MCPAuditLogsPersistBatchSize,
 		config.MCPAuditLogRetentionDays,
 	)
+	storageServices.Authn.SetServiceAccountValidator(func(ctx context.Context, token string) (string, error) {
+		apiKey, err := gatewayClient.ValidateStorageServiceAccountToken(ctx, token)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return "", storageauthn.ErrInvalidServiceAccountToken
+			}
+			return "", err
+		}
+		account, ok := serviceaccounts.Get(apiKey.ServiceAccountName)
+		if !ok || !serviceaccounts.Enabled(account, config.MCPRuntimeBackend) {
+			return "", fmt.Errorf("%w: service account %q disabled for backend %q", storageauthn.ErrInvalidServiceAccountToken, apiKey.ServiceAccountName, config.MCPRuntimeBackend)
+		}
+		return apiKey.ServiceAccountName, nil
+	})
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
 	// Build local Kubernetes config for deployment monitoring (optional)
 	var localK8sConfig *rest.Config
 	if config.MCPRuntimeBackend == "kubernetes" {
-		localK8sConfig, err = buildLocalK8sConfig()
+		localK8sConfig, err = BuildLocalK8sConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to build local Kubernetes config: %w", err)
 		}
