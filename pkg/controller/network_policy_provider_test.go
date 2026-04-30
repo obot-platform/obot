@@ -31,7 +31,6 @@ func (f *fakeNetworkPolicyProviderInstaller) Uninstall(_ context.Context, releas
 
 func newNetworkPolicyProviderController(t *testing.T, installer networkPolicyProviderInstaller) *Controller {
 	t.Helper()
-	t.Setenv("POD_NAMESPACE", "default")
 
 	return &Controller{
 		services: &services.Services{
@@ -59,7 +58,7 @@ func TestEnsureNetworkPolicyProviderInstallsChartRelease(t *testing.T) {
 	require.NoError(t, controller.reconcileNetworkPolicyProvider(ctx))
 	require.NotNil(t, installer.installed)
 	assert.Equal(t, networkPolicyProviderReleaseName, installer.installed.ReleaseName)
-	assert.Equal(t, "default", installer.installed.ReleaseNamespace)
+	assert.Equal(t, "obot-system", installer.installed.ReleaseNamespace)
 	assert.Equal(t, "https://charts.example.com", installer.installed.ChartRepoURL)
 	assert.Equal(t, "network-policy-provider", installer.installed.ChartName)
 	assert.Equal(t, "1.2.3", installer.installed.ChartVersion)
@@ -70,7 +69,7 @@ func TestEnsureNetworkPolicyProviderInstallsChartRelease(t *testing.T) {
 	obotValues := installer.installed.Values["obot"].(map[string]any)
 	serviceAccountValues := obotValues["serviceAccount"].(map[string]any)
 	assert.Equal(t, "obot-obot", serviceAccountValues["name"])
-	assert.Equal(t, "default", serviceAccountValues["namespace"])
+	assert.Equal(t, "obot-system", serviceAccountValues["namespace"])
 }
 
 func TestEnsureNetworkPolicyProviderMergesValuesBlob(t *testing.T) {
@@ -97,7 +96,7 @@ func TestEnsureNetworkPolicyProviderUninstallsWhenDisabled(t *testing.T) {
 
 	require.NoError(t, controller.reconcileNetworkPolicyProvider(ctx))
 	assert.True(t, installer.uninstallCalled)
-	assert.Equal(t, "default", installer.uninstallNS)
+	assert.Equal(t, "obot-system", installer.uninstallNS)
 	assert.Nil(t, installer.installed)
 }
 

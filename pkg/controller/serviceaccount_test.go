@@ -52,6 +52,7 @@ func TestReconcileServiceAccountKeyBootstrapsSecret(t *testing.T) {
 		services: &services.Services{
 			GatewayClient:     gatewayClient,
 			MCPRuntimeBackend: "kubernetes",
+			ServiceNamespace:  "obot",
 		},
 		runtimeClient: newRuntimeSecretClient(),
 		now:           func() time.Time { return base },
@@ -62,7 +63,6 @@ func TestReconcileServiceAccountKeyBootstrapsSecret(t *testing.T) {
 		t.Fatal("expected hardcoded service account to exist")
 	}
 
-	t.Setenv("POD_NAMESPACE", "obot")
 	if err := controller.reconcileServiceAccountKey(ctx, account); err != nil {
 		t.Fatalf("unexpected reconcile error: %v", err)
 	}
@@ -107,13 +107,13 @@ func TestReconcileServiceAccountKeyRotatesWithOverlap(t *testing.T) {
 		services: &services.Services{
 			GatewayClient:     gatewayClient,
 			MCPRuntimeBackend: "kubernetes",
+			ServiceNamespace:  "obot",
 		},
 		runtimeClient: newRuntimeSecretClient(),
 		now:           func() time.Time { return base },
 	}
 
 	account, _ := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)
-	t.Setenv("POD_NAMESPACE", "obot")
 	if err := controller.reconcileServiceAccountKey(ctx, account); err != nil {
 		t.Fatalf("unexpected reconcile error: %v", err)
 	}
@@ -183,13 +183,13 @@ func TestReconcileServiceAccountSecretChangeRecreatesDeletedSecret(t *testing.T)
 			GatewayClient:           gatewayClient,
 			MCPRuntimeBackend:       "kubernetes",
 			MCPNetworkPolicyEnabled: true,
+			ServiceNamespace:        "obot",
 		},
 		runtimeClient: newRuntimeSecretClient(),
 		now:           func() time.Time { return base },
 	}
 
 	account, _ := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)
-	t.Setenv("POD_NAMESPACE", "obot")
 	if err := controller.reconcileServiceAccountKey(ctx, account); err != nil {
 		t.Fatalf("unexpected reconcile error: %v", err)
 	}
@@ -254,6 +254,7 @@ func TestReconcileServiceAccountKeyRecreatesMissingFreshSecret(t *testing.T) {
 		services: &services.Services{
 			GatewayClient:     gatewayClient,
 			MCPRuntimeBackend: "kubernetes",
+			ServiceNamespace:  "obot",
 		},
 		runtimeClient: newRuntimeSecretClient(),
 		now:           func() time.Time { return base.Add(time.Minute) },
@@ -265,7 +266,6 @@ func TestReconcileServiceAccountKeyRecreatesMissingFreshSecret(t *testing.T) {
 		t.Fatalf("failed to create service account key fixture: %v", err)
 	}
 
-	t.Setenv("POD_NAMESPACE", "obot")
 	if err := controller.reconcileServiceAccountKey(ctx, account); err != nil {
 		t.Fatalf("unexpected reconcile error: %v", err)
 	}
@@ -309,13 +309,13 @@ func TestReconcileServiceAccountKeyDeletesExpiredOverlapKeys(t *testing.T) {
 		services: &services.Services{
 			GatewayClient:     gatewayClient,
 			MCPRuntimeBackend: "kubernetes",
+			ServiceNamespace:  "obot",
 		},
 		runtimeClient: newRuntimeSecretClient(),
 		now:           func() time.Time { return base },
 	}
 
 	account, _ := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)
-	t.Setenv("POD_NAMESPACE", "obot")
 	if err := controller.reconcileServiceAccountKey(ctx, account); err != nil {
 		t.Fatalf("unexpected reconcile error: %v", err)
 	}
@@ -347,6 +347,7 @@ func TestReconcileServiceAccountKeysSkipsWhenBackendNotKubernetes(t *testing.T) 
 		services: &services.Services{
 			GatewayClient:     gatewayClient,
 			MCPRuntimeBackend: "docker",
+			ServiceNamespace:  "obot",
 		},
 		now: func() time.Time { return base },
 	}
@@ -427,12 +428,12 @@ func TestReconcileServiceAccountKeysCleansUpWhenBackendDisabled(t *testing.T) {
 		services: &services.Services{
 			GatewayClient:     gatewayClient,
 			MCPRuntimeBackend: "docker",
+			ServiceNamespace:  "obot",
 		},
 		runtimeClient: runtimeClient,
 		now:           func() time.Time { return base },
 	}
 
-	t.Setenv("POD_NAMESPACE", "obot")
 	if err := controller.reconcileServiceAccountKeys(ctx); err != nil {
 		t.Fatalf("unexpected reconcile error: %v", err)
 	}
@@ -481,12 +482,12 @@ func TestReconcileServiceAccountKeysCleansUpWhenNetworkPolicyProviderDisabled(t 
 			GatewayClient:           gatewayClient,
 			MCPRuntimeBackend:       "kubernetes",
 			MCPNetworkPolicyEnabled: false,
+			ServiceNamespace:        "obot",
 		},
 		runtimeClient: runtimeClient,
 		now:           func() time.Time { return base },
 	}
 
-	t.Setenv("POD_NAMESPACE", "obot")
 	if err := controller.reconcileServiceAccountKeys(ctx); err != nil {
 		t.Fatalf("unexpected reconcile error: %v", err)
 	}

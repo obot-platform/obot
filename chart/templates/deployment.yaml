@@ -101,10 +101,6 @@ spec:
             failureThreshold: 5
             periodSeconds: 10
           env:
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
             - name: OBOT_SERVER_SERVICE_ACCOUNT_NAME
               valueFrom:
                 fieldRef:

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -287,10 +286,10 @@ func (c *Controller) deleteServiceAccountSecret(ctx context.Context, account ser
 }
 
 func (c *Controller) runtimeNamespace() (string, error) {
-	if namespace := os.Getenv("POD_NAMESPACE"); namespace != "" {
-		return namespace, nil
+	if c.services.ServiceNamespace != "" {
+		return c.services.ServiceNamespace, nil
 	}
-	return "", errors.New("could not determine runtime namespace: POD_NAMESPACE environment variable not set")
+	return "", errors.New("could not determine runtime namespace: service namespace not configured")
 }
 
 func (c *Controller) runtimeK8sClient() (kclient.Client, error) {

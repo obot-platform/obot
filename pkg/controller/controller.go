@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/obot-platform/nah"
@@ -554,7 +553,7 @@ func (c *Controller) createLocalK8sRouter() (*router.Router, error) {
 		Namespace:  c.services.MCPServerNamespace,
 		// The router is scoped to the MCP namespace, but the managed provider token
 		// secret lives in Obot's runtime namespace. Expand only Secret watches.
-		ByObject:       localK8sCacheByObject(c.services.MCPServerNamespace, os.Getenv("POD_NAMESPACE")),
+		ByObject:       localK8sCacheByObject(c.services.MCPServerNamespace, c.services.ServiceNamespace),
 		ElectionConfig: nil, // No leader election for local router
 		HealthzPort:    -1,  // Disable healthz port
 	})
