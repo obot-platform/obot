@@ -1856,6 +1856,15 @@ func TestValidateTemplateReferences_CatalogEntry(t *testing.T) {
 			},
 		},
 		{
+			name: "npx templated arg with optional env is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--tag=${TAG}"}},
+				Env:       []types.MCPEnv{optional},
+			},
+			wantErr: "must be required=true",
+		},
+		{
 			name: "remote URLTemplate with optional env is rejected",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeRemote,
