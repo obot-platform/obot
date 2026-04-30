@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { darkMode } from '$lib/stores';
 	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
-	import { arc, pie, select, type PieArcDatum } from 'd3';
+	import { arc, pie, type PieArcDatum } from 'd3';
 	import type { Snippet } from 'svelte';
-	import { cubicOut } from 'svelte/easing';
+	import { cubicInOut, cubicOut } from 'svelte/easing';
 	import { Tween } from 'svelte/motion';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -11,6 +11,17 @@
 	export type DonutDatum = {
 		label: string;
 		value: number;
+		color?: string;
+		/**
+		 * Same groupKey = no radial divider between adjacent arcs (e.g. status shades within one entry type).
+		 * Omit for default: divider after every arc.
+		 */
+		groupKey?: string;
+	};
+
+	export type DonutLegendItem = {
+		label: string;
+		color?: string;
 	};
 
 	/** Tooltip payload for a slice (passed to `tooltipContent` snippet). */
@@ -28,6 +39,8 @@
 		donutRatio?: number;
 		formatValue?: (value: number) => string;
 		tooltipContent?: Snippet<[DonutTooltipItem]>;
+		/** When set, the footer legend shows these entries instead of one row per slice. */
+		legend?: DonutLegendItem[];
 	}
 
 	let {
@@ -35,7 +48,8 @@
 		class: klass = '',
 		donutRatio = 0.58,
 		formatValue = (v) => String(v),
-		tooltipContent
+		tooltipContent,
+		legend
 	}: Props = $props();
 
 	const defaultPalette = [
@@ -66,11 +80,90 @@
 	const outerRadius = $derived(Math.max(0, size / 2 - 2));
 	const innerRadius = $derived(outerRadius * donutRatio);
 
+	/** Slightly enlarges the hovered wedge radially (outer radius multiplier at full hover). */
+	const HOVER_OUTER_RADIUS_SCALE = 1.025;
+
+	/**
+	 * ViewBox half-extent in user units so the hovered wedge (max radius
+	 * `outerRadius * HOVER_OUTER_RADIUS_SCALE`) and strokes fit without clipping.
+	 * Wider viewBox than `size/2` slightly scales the chart down within the same pixel `size`.
+	 */
+	const VIEWBOX_EDGE_PAD = 4;
+	const viewBoxHalf = $derived(
+		outerRadius > 0 ? outerRadius * HOVER_OUTER_RADIUS_SCALE + VIEWBOX_EDGE_PAD : 1
+	);
+
 	const total = $derived(data.reduce((sum, d) => sum + Math.max(0, Number(d.value) || 0), 0));
 
-	const dataKey = $derived(data.map((d) => `${d.label}:${d.value}`).join('|'));
+	const useGroupSeparators = $derived(
+		data.some((d) => d.groupKey !== undefined && d.groupKey !== '')
+	);
+
+	const dataKey = $derived(
+		data.map((d) => `${d.label}:${d.value}:${d.color ?? ''}:${d.groupKey ?? ''}`).join('|')
+	);
 
 	const progress = new Tween(0, { duration: 550, easing: cubicOut });
+
+	/** Animates hover expansion/collapse (interpolates toward `HOVER_OUTER_RADIUS_SCALE`). */
+	const HOVER_EXPAND_MS = 200;
+	const hoverExpand = new Tween(0, { duration: HOVER_EXPAND_MS, easing: cubicOut });
+
+	/** Crossfade when moving hover from one slice to another (shrink old / grow new). */
+	const HANDOFF_MS = 200;
+	const handoffProgress = new Tween(0, { duration: HANDOFF_MS, easing: cubicInOut });
+
+	let hoveredSliceIndex = $state<number | undefined>();
+	let handoff = $state<{ from: number; to: number } | null>(null);
+	let handoffGen = 0;
+	let hoverClearTimeout: ReturnType<typeof setTimeout> | undefined;
+	/** Invalidates a pending collapse so `.then` does not clear hover after re-entry. */
+	let pendingHoverCollapse: symbol | undefined;
+
+	function invalidateHandoffTween() {
+		handoffGen += 1;
+		void handoffProgress.set(0, { duration: 0 });
+	}
+
+	function cancelHoverSliceClear() {
+		if (hoverClearTimeout !== undefined) {
+			clearTimeout(hoverClearTimeout);
+			hoverClearTimeout = undefined;
+		}
+		pendingHoverCollapse = undefined;
+	}
+
+	function startHandoff(from: number, to: number) {
+		handoffGen += 1;
+		const id = handoffGen;
+		handoff = { from, to };
+		void handoffProgress.set(0, { duration: 0 }).then(
+			() =>
+				void handoffProgress.set(1).then(() => {
+					if (handoffGen === id) {
+						hoveredSliceIndex = to;
+						handoff = null;
+					}
+				})
+		);
+	}
+
+	function scheduleHoverSliceClear() {
+		cancelHoverSliceClear();
+		handoff = null;
+		invalidateHandoffTween();
+		const token = Symbol();
+		pendingHoverCollapse = token;
+		hoverClearTimeout = setTimeout(() => {
+			hoverClearTimeout = undefined;
+			void hoverExpand.set(0).then(() => {
+				if (pendingHoverCollapse === token) {
+					hoveredSliceIndex = undefined;
+					pendingHoverCollapse = undefined;
+				}
+			});
+		}, 0);
+	}
 
 	function scheduleDonutEntryAnimation(_seriesKey: string) {
 		void progress.set(0, { duration: 0 }).then(() => void progress.set(1));
@@ -79,9 +172,18 @@
 	$effect(() => {
 		if (total <= 0) {
 			void progress.set(0, { duration: 0 });
+			void hoverExpand.set(0, { duration: 0 });
+			hoveredSliceIndex = undefined;
+			handoff = null;
+			invalidateHandoffTween();
+			cancelHoverSliceClear();
 			return;
 		}
 		scheduleDonutEntryAnimation(dataKey);
+	});
+
+	$effect(() => {
+		return () => cancelHoverSliceClear();
 	});
 
 	let highlightedArcElement = $state<SVGGraphicsElement>();
@@ -118,26 +220,109 @@
 		});
 	}
 
-	function computeSlices(p: number) {
-		if (outerRadius <= 0 || total <= 0) return [];
+	const TOOLTIP_LABEL_SEP = ' · ';
+
+	function tooltipLabelParts(label: string): { main: string; detail?: string } {
+		const i = label.indexOf(TOOLTIP_LABEL_SEP);
+		if (i === -1) return { main: label };
+		return {
+			main: label.slice(0, i),
+			detail: label.slice(i + TOOLTIP_LABEL_SEP.length)
+		};
+	}
+
+	function sliceGroupKey(d: PieArcDatum<DonutDatum>, i: number) {
+		const g = d.data.groupKey;
+		return g !== undefined && g !== '' ? g : `__slice_${i}`;
+	}
+
+	/** Radial line at angle a (d3 pie convention): inner → outer, center (0,0). */
+	function radialSeparatorPath(a: number, outerEnd: number) {
+		const x1 = innerRadius * Math.sin(a);
+		const y1 = -innerRadius * Math.cos(a);
+		const x2 = outerEnd * Math.sin(a);
+		const y2 = -outerEnd * Math.cos(a);
+		return `M${x1},${y1}L${x2},${y2}`;
+	}
+
+	type SliceBundle = {
+		arcs: { path: string; color: string; label: string; value: number }[];
+		separators: string[];
+	};
+
+	function computeSlices(
+		p: number,
+		hoverIndex: number | undefined,
+		hoverT: number,
+		handoffPair: { from: number; to: number } | null,
+		handoffU: number
+	): SliceBundle {
+		if (outerRadius <= 0 || total <= 0) return { arcs: [], separators: [] };
 		const snapshot = $state.snapshot(data);
-		const arcGen = arc<PieArcDatum<DonutDatum>>()
-			.innerRadius(innerRadius)
-			.outerRadius(outerRadius)
-			.cornerRadius(0.5);
-		return pieGenerator(snapshot).map((d, i) => {
+		const layout = pieGenerator(snapshot);
+		const n = layout.length;
+
+		const dUnit = HOVER_OUTER_RADIUS_SCALE - 1;
+
+		function sliceOuterAt(i: number): number {
+			if (handoffPair !== null && hoverT > 0) {
+				const d = dUnit * hoverT;
+				const u = handoffU;
+				const { from, to } = handoffPair;
+				if (i === from) return outerRadius * (1 + d * (1 - 2 * u));
+				if (i === to) return outerRadius * (1 + d * (2 * u - 1));
+				return outerRadius * (1 - d);
+			}
+
+			const hoverDelta = hoverIndex !== undefined && hoverT > 0 ? dUnit * hoverT : 0;
+			if (hoverDelta <= 0 || hoverIndex === undefined) return outerRadius;
+			if (hoverIndex === i) return outerRadius * (1 + hoverDelta);
+			return outerRadius * (1 - hoverDelta);
+		}
+
+		const arcs = layout.map((d, i) => {
+			const sliceOuter = sliceOuterAt(i);
+			const arcGen = arc<PieArcDatum<DonutDatum>>()
+				.innerRadius(innerRadius)
+				.outerRadius(sliceOuter)
+				.cornerRadius(useGroupSeparators ? 0 : 0.5);
 			const scaled: PieArcDatum<DonutDatum> = {
 				...d,
 				endAngle: d.startAngle + (d.endAngle - d.startAngle) * p
 			};
 			return {
 				path: arcGen(scaled) ?? '',
-				color: colorAt(i),
+				color: d.data.color ?? colorAt(i),
 				label: d.data.label,
 				value: d.data.value
 			};
 		});
+
+		const separators: string[] = [];
+		if (useGroupSeparators && n >= 2) {
+			for (let i = 0; i < n; i++) {
+				const a = layout[i]!;
+				const b = layout[(i + 1) % n]!;
+				if (sliceGroupKey(a, i) !== sliceGroupKey(b, (i + 1) % n)) {
+					const scaledEnd = a.startAngle + (a.endAngle - a.startAngle) * p;
+					const outerEnd = Math.max(sliceOuterAt(i), sliceOuterAt((i + 1) % n));
+					separators.push(radialSeparatorPath(scaledEnd, outerEnd));
+				}
+			}
+		}
+
+		return { arcs, separators };
 	}
+
+	const donut = $derived(
+		computeSlices(
+			progress.current,
+			hoveredSliceIndex,
+			hoverExpand.current,
+			handoff,
+			handoffProgress.current
+		)
+	);
 </script>
 
 <div class={twMerge('group relative flex min-h-0 min-w-0 flex-col gap-3', klass)}>
@@ -156,8 +341,16 @@
 				{#if tooltipContent}
 					{@render tooltipContent(currentItem)}
 				{:else}
+					{@const parts = tooltipLabelParts(currentItem.label)}
 					<div class="flex flex-col gap-0 text-xs">
-						<div class="text-on-background text-sm">{currentItem.label}</div>
+						<div class="text-on-background text-sm">
+							{#if parts.detail !== undefined}
+								<span class="font-semibold">{parts.main}</span>
+								<span>{TOOLTIP_LABEL_SEP}{parts.detail}</span>
+							{:else}
+								<span class="font-semibold">{parts.main}</span>
+							{/if}
+						</div>
 						<div class="border-on-surface1 mb-2 border-b pb-2">
 							{currentItem.percentOfTotal.toFixed(1)}% of total
 						</div>
@@ -171,22 +364,38 @@
 			<p class="text-on-surface1 font-light text-sm">No data</p>
 		{:else}
 			<svg
-				class="max-h-full max-w-full"
+				class="max-h-full max-w-full overflow-visible"
 				width={size}
 				height={size}
-				viewBox="{-size / 2} {-size / 2} {size} {size}"
+				viewBox="{-viewBoxHalf} {-viewBoxHalf} {viewBoxHalf * 2} {viewBoxHalf * 2}"
 				role="img"
 				aria-label="Donut chart"
 			>
 				<g>
-					{#each computeSlices(progress.current) as slice, i (i)}
+					{#each donut.arcs as slice, i (i)}
 						<path
 							role="graphics-symbol"
 							aria-label="{slice.label}, {formatValue(Math.max(0, Number(slice.value) || 0))}"
 							d={slice.path}
 							fill={slice.color}
-							class="cursor-pointer stroke-background stroke-1"
+							class={twMerge(
+								'cursor-pointer stroke-1',
+								useGroupSeparators ? '' : 'stroke-background dark:stroke-surface1'
+							)}
 							onpointerenter={(e) => {
+								cancelHoverSliceClear();
+								if (handoff !== null) {
+									hoveredSliceIndex = handoff.to;
+									handoff = null;
+									invalidateHandoffTween();
+								}
+								const prev = hoveredSliceIndex;
+								if (prev !== undefined && prev !== i && hoverExpand.current > 0.001) {
+									startHandoff(prev, i);
+								} else {
+									hoveredSliceIndex = i;
+									void hoverExpand.set(1);
+								}
 								const el = e.currentTarget as SVGGraphicsElement;
 								highlightedArcElement = el;
 								const raw = Math.max(0, Number(slice.value) || 0);
@@ -195,17 +404,22 @@
 									value: raw,
 									percentOfTotal: total > 0 ? (raw / total) * 100 : 0
 								};
-								select(el).attr('stroke', 'currentColor').attr('stroke-width', 2);
 							}}
 							onpointerleave={(e) => {
+								scheduleHoverSliceClear();
 								if (e.currentTarget === highlightedArcElement) {
 									highlightedArcElement = undefined;
 									currentItem = undefined;
 								}
-								select(e.currentTarget as SVGGraphicsElement)
-									.attr('stroke-width', 0)
-									.attr('stroke', null);
 							}}
+						/>
+					{/each}
+					{#each donut.separators as sepPath, sepIdx (sepIdx)}
+						<path
+							d={sepPath}
+							fill="none"
+							class="stroke-background dark:stroke-surface1 stroke-1 pointer-events-none"
+							aria-hidden="true"
 						/>
 					{/each}
 				</g>
@@ -215,16 +429,29 @@
 
 	{#if total > 0 && data.length > 0}
 		<ul class="flex flex-wrap gap-x-4 gap-y-1 text-xs justify-center">
-			{#each data as row, i (i)}
-				<li class="flex items-center gap-1.5">
-					<span
-						class="inline-block size-2.5 shrink-0 rounded-sm"
-						style:background-color={colorAt(i)}
-						aria-hidden="true"
-					></span>
-					<span class="text-foreground">{row.label}</span>
-				</li>
-			{/each}
+			{#if legend}
+				{#each legend as row, i (row.label)}
+					<li class="flex items-center gap-1.5">
+						<span
+							class="inline-block size-2.5 shrink-0 rounded-sm"
+							style:background-color={row.color ?? colorAt(i)}
+							aria-hidden="true"
+						></span>
+						<span class="text-foreground">{row.label}</span>
+					</li>
+				{/each}
+			{:else}
+				{#each data as row, i (i)}
+					<li class="flex items-center gap-1.5">
+						<span
+							class="inline-block size-2.5 shrink-0 rounded-sm"
+							style:background-color={row.color ?? colorAt(i)}
+							aria-hidden="true"
+						></span>
+						<span class="text-foreground">{row.label}</span>
+					</li>
+				{/each}
+			{/if}
 		</ul>
 	{/if}
 </div>
