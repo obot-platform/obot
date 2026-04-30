@@ -12,12 +12,15 @@ import (
 	"fmt"
 
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var log = logger.Package()
 
 // rotationAnnotation is the spec-level sentinel we bump on referencing
 // MCPServers when a watched Secret changes. Bumping any spec annotation
@@ -39,8 +42,9 @@ const rotationAnnotation = "obot.ai/secret-binding-rotation"
 // secondary-resource watch that fans into MCPServer reconciles by
 // touching them in storage.
 type Handler struct {
-	storage       kclient.Client
-	obotNamespace string
+	storage           kclient.Client
+	obotNamespace     string
+	mcpSessionManager *mcp.SessionManager
 }
 
 // New constructs the handler. obotNamespace is the Kubernetes namespace
@@ -48,10 +52,11 @@ type Handler struct {
 // namespace). Empty obotNamespace disables the watch — events for
 // other namespaces are no-ops anyway, but with no obot namespace we
 // can't distinguish them. storage must be non-nil.
-func New(storage kclient.Client, obotNamespace string) *Handler {
+func New(storage kclient.Client, obotNamespace string, mcpSessionManager *mcp.SessionManager) *Handler {
 	return &Handler{
-		storage:       storage,
-		obotNamespace: obotNamespace,
+		storage:           storage,
+		obotNamespace:     obotNamespace,
+		mcpSessionManager: mcpSessionManager,
 	}
 }
 
@@ -106,6 +111,17 @@ func (h *Handler) SecretChanged(req router.Request, _ router.Response) error {
 		s.Annotations[rotationAnnotation] = rev
 		if err := h.storage.Update(req.Ctx, s); err != nil {
 			return fmt.Errorf("trigger reconcile on mcpserver %s: %w", s.Name, err)
+		}
+
+		// Shut down the running deployment so it stops serving the stale
+		// secret value immediately. The next user connection will trigger a
+		// fresh deploy that picks up the updated Secret — matching the
+		// behaviour of the configure UI flow. Errors are non-fatal: the
+		// annotation bump above already ensures fresh values on the next deploy.
+		if h.mcpSessionManager != nil {
+			if err := h.mcpSessionManager.ShutdownIdleServer(req.Ctx, s.Name); err != nil {
+				log.Errorf("shutdown mcpserver %s after secret rotation: %v", s.Name, err)
+			}
 		}
 	}
 

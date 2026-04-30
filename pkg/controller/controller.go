@@ -603,6 +603,6 @@ func (c *Controller) setupLocalK8sRoutes() {
 	// Watch source Secrets for secretBindings in the obot namespace.
 	// IncludeRemoved() so a delete event also fans out (mark referenced
 	// MCPServers' bindings as missing on the next reconcile).
-	secretBindingHandler := mcpsecretbinding.New(c.services.Router.Backend(), c.services.ObotNamespace)
+	secretBindingHandler := mcpsecretbinding.New(c.services.Router.Backend(), c.services.ObotNamespace, c.services.MCPLoader)
 	c.localK8sRouter.Type(&corev1.Secret{}).IncludeRemoved().HandlerFunc(secretBindingHandler.SecretChanged)
 }
