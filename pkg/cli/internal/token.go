@@ -22,6 +22,21 @@ import (
 	"github.com/pkg/browser"
 )
 
+// Logout removes the local token file. Returns true if a file was removed.
+func Logout() (bool, error) {
+	tokenFile, err := xdg.ConfigFile(filepath.Join("obot", "token"))
+	if err != nil {
+		return false, err
+	}
+	if err := os.Remove(tokenFile); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return false, nil
+		}
+		return false, fmt.Errorf("removing %s: %w", tokenFile, err)
+	}
+	return true, nil
+}
+
 func enter(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

@@ -58,7 +58,9 @@
 		ShieldX,
 		Bot,
 		LayoutDashboard,
-		Notebook
+		Notebook,
+		Laptop,
+		ScanLine
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -255,6 +257,30 @@
 								href: '/admin/skill-access-policies',
 								icon: Vault,
 								label: 'Skill Access Policies',
+								collapsible: false
+							}
+						]
+					},
+					{
+						id: 'device-management',
+						icon: Laptop,
+						label: 'Device Management',
+						collapsible: true,
+						items: [
+							{
+								id: 'device-overview',
+								href: '/admin/device-overview',
+								icon: LayoutDashboard,
+								label: 'Dashboard',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'devices',
+								href: '/admin/devices',
+								icon: ScanLine,
+								label: 'Devices',
+								disabled: isBootStrapUser,
 								collapsible: false
 							}
 						]

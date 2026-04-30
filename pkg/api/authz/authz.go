@@ -90,6 +90,12 @@ var (
 		"/api/message-policy-violations",
 		"/api/message-policy-violations/",
 		"GET /api/message-policy-violation-stats",
+		"/api/devices/scans",
+		"/api/devices/scans/",
+		"/api/devices/scan-stats",
+		"/api/devices/mcp-servers/",
+		"/api/devices/skills",
+		"/api/devices/skills/",
 		"/api/available-models",
 		"/api/available-models/",
 		"/api/default-model-aliases",
@@ -213,6 +219,12 @@ var (
 			"GET /api/message-policy-violations/filter-options/{filter}",
 			"GET /api/message-policy-violations/{id}",
 			"GET /api/message-policy-violation-stats",
+			"GET /api/devices/scans",
+			"GET /api/devices/scans/",
+			"GET /api/devices/scan-stats",
+			"GET /api/devices/mcp-servers/",
+			"GET /api/devices/skills",
+			"GET /api/devices/skills/",
 			"GET /api/token-usage",
 			"GET /api/total-token-usage",
 			"GET /api/nanobot-agents",
@@ -326,6 +338,13 @@ var (
 			// Allow basic users to create and list ProjectV2 resources
 			"POST /api/projectsv2",
 			"GET /api/projectsv2",
+
+			// Device scans: any authenticated user can submit and read
+			// their own scans. The handler enforces own-vs-all so non-
+			// privileged callers only see scans they submitted.
+			"POST /api/devices/scans",
+			"GET /api/devices/scans",
+			"GET /api/devices/scans/{scan_id}",
 		},
 
 		types.GroupPowerUserPlus: {

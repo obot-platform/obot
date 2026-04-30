@@ -1,0 +1,203 @@
+<script lang="ts">
+	import { page } from '$app/state';
+	import Layout from '$lib/components/Layout.svelte';
+	import Table from '$lib/components/table/Table.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import {
+		AdminService,
+		type DeviceMCPServerDetail,
+		type DeviceMCPServerOccurrence,
+		type DeviceMCPServerOccurrenceList
+	} from '$lib/services';
+	import { formatTimeAgo } from '$lib/time';
+	import { goto, replaceState } from '$lib/url';
+	import { openUrl } from '$lib/utils';
+	import { ChevronsLeft, ChevronsRight } from 'lucide-svelte';
+	import { untrack } from 'svelte';
+	import { fly } from 'svelte/transition';
+
+	let { data } = $props();
+	const PAGE_SIZE = untrack(() => data?.pageSize ?? 50);
+
+	let detail = $derived<DeviceMCPServerDetail | null | undefined>(data?.detail);
+	let occurrencesResp = $state<DeviceMCPServerOccurrenceList>(
+		untrack(() => data?.occurrences ?? { items: [], total: 0, limit: PAGE_SIZE, offset: 0 })
+	);
+	let pageIndex = $state(untrack(() => Math.floor((data?.occurrences?.offset ?? 0) / PAGE_SIZE)));
+	let loading = $state(false);
+
+	let configHash = $derived(page.params.hash);
+
+	type Row = DeviceMCPServerOccurrence & {
+		id: string;
+		short_device_id: string;
+		scanned_relative: string;
+	};
+
+	let rows = $derived<Row[]>(
+		(occurrencesResp.items ?? []).map((o, i) => ({
+			...o,
+			id: `${o.device_scan_id}-${o.index}-${i}`,
+			short_device_id: (o.device_id ?? '').slice(0, 12),
+			scanned_relative: formatTimeAgo(o.scanned_at).relativeTime
+		}))
+	);
+
+	let total = $derived(occurrencesResp.total ?? 0);
+	let lastPageIndex = $derived(total > 0 ? Math.ceil(total / PAGE_SIZE) - 1 : 0);
+
+	async function fetchPage(idx: number) {
+		if (!configHash) return;
+		loading = true;
+		try {
+			occurrencesResp = await AdminService.listDeviceMCPServerOccurrences(configHash, {
+				limit: PAGE_SIZE,
+				offset: idx * PAGE_SIZE
+			});
+			pageIndex = idx;
+			const next = new URL(page.url);
+			if (idx > 0) next.searchParams.set('offset', String(idx * PAGE_SIZE));
+			else next.searchParams.delete('offset');
+			replaceState(next, {});
+		} finally {
+			loading = false;
+		}
+	}
+
+	const duration = PAGE_TRANSITION_DURATION;
+</script>
+
+<svelte:head>
+	<title>Obot | MCP Server</title>
+</svelte:head>
+
+<Layout
+	title="MCP Server"
+	showBackButton
+	onBackButtonClick={() => {
+		if (typeof window !== 'undefined' && window.history.length > 1) {
+			window.history.back();
+		} else {
+			goto('/admin/device-mcp-servers');
+		}
+	}}
+>
+	<div
+		class="flex flex-col gap-6"
+		in:fly={{ x: 100, duration, delay: duration }}
+		out:fly={{ x: -100, duration }}
+	>
+		{#if !detail}
+			<p class="text-on-surface1 text-sm font-light">MCP server not found.</p>
+		{:else}
+			<div class="dark:bg-surface2 bg-background flex flex-col gap-4 rounded-md p-4 shadow-sm">
+				<div class="flex flex-col gap-2">
+					<h2 class="flex items-center gap-2 text-xl font-semibold">
+						{#if detail.name?.trim()}
+							{detail.name}
+						{:else}
+							<span class="text-on-surface2 italic">(unnamed)</span>
+						{/if}
+						<span class="pill-primary bg-primary text-xs">{detail.transport}</span>
+					</h2>
+					<div class="text-on-surface1 flex flex-wrap items-center gap-3 text-xs">
+						<span>{detail.device_count} device{detail.device_count === 1 ? '' : 's'}</span>
+						<span>·</span>
+						<span>{detail.user_count} user{detail.user_count === 1 ? '' : 's'}</span>
+						<span>·</span>
+						<span>{detail.client_count} client{detail.client_count === 1 ? '' : 's'}</span>
+					</div>
+				</div>
+
+				<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+					{#if detail.command}
+						<div class="flex flex-col gap-1">
+							<span class="text-on-surface2 text-xs uppercase">Command</span>
+							<code class="font-mono text-xs break-all">
+								{[detail.command, ...(detail.args ?? [])].join(' ')}
+							</code>
+						</div>
+					{/if}
+					{#if detail.url}
+						<div class="flex flex-col gap-1">
+							<span class="text-on-surface2 text-xs uppercase">URL</span>
+							<code class="font-mono text-xs break-all">{detail.url}</code>
+						</div>
+					{/if}
+					{#if detail.env_keys?.length}
+						<div class="flex flex-col gap-1">
+							<span class="text-on-surface2 text-xs uppercase">Env keys</span>
+							<div class="flex flex-wrap gap-1">
+								{#each detail.env_keys as k (k)}
+									<code class="bg-surface3 rounded px-1.5 py-0.5 font-mono text-xs">{k}</code>
+								{/each}
+							</div>
+						</div>
+					{/if}
+					{#if detail.header_keys?.length}
+						<div class="flex flex-col gap-1">
+							<span class="text-on-surface2 text-xs uppercase">Header keys</span>
+							<div class="flex flex-wrap gap-1">
+								{#each detail.header_keys as k (k)}
+									<code class="bg-surface3 rounded px-1.5 py-0.5 font-mono text-xs">{k}</code>
+								{/each}
+							</div>
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<div class="flex flex-col gap-2">
+				<h3 class="text-on-surface1 text-sm font-semibold">
+					Devices · {total} occurrence{total === 1 ? '' : 's'}
+				</h3>
+				<Table
+					data={rows}
+					fields={['short_device_id', 'scanned_relative', 'client', 'scope']}
+					headers={[
+						{ title: 'Device', property: 'short_device_id' },
+						{ title: 'Scanned', property: 'scanned_relative' },
+						{ title: 'Client', property: 'client' },
+						{ title: 'Scope', property: 'scope' }
+					]}
+					onClickRow={(d, isCtrlClick) => {
+						openUrl(
+							`/admin/devices/${d.device_id}/scans/${d.device_scan_id}/mcp/${d.index}`,
+							isCtrlClick
+						);
+					}}
+				>
+					{#snippet onRenderColumn(property, d: Row)}
+						{#if property === 'short_device_id'}
+							<span class="font-mono text-xs" title={d.device_id}>{d.short_device_id}</span>
+						{:else}
+							{d[property as keyof Row]}
+						{/if}
+					{/snippet}
+				</Table>
+
+				{#if total > PAGE_SIZE}
+					<div class="flex items-center justify-center gap-4 pt-2">
+						<button
+							class="button-text flex items-center gap-1 text-xs"
+							disabled={pageIndex === 0 || loading}
+							onclick={() => fetchPage(pageIndex - 1)}
+						>
+							<ChevronsLeft class="size-4" /> Previous
+						</button>
+						<p class="text-on-surface1 text-xs">
+							{pageIndex + 1} of {lastPageIndex + 1}
+						</p>
+						<button
+							class="button-text flex items-center gap-1 text-xs"
+							disabled={pageIndex >= lastPageIndex || loading}
+							onclick={() => fetchPage(pageIndex + 1)}
+						>
+							Next <ChevronsRight class="size-4" />
+						</button>
+					</div>
+				{/if}
+			</div>
+		{/if}
+	</div>
+</Layout>
