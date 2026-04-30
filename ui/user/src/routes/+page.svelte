@@ -53,7 +53,7 @@
 				</p>
 
 				<div
-					class="dark:border-surface3 dark:bg-gray-930 bg-background flex w-sm flex-col gap-4 rounded-xl border border-transparent p-4 shadow-sm"
+					class="dark:border-surface3 dark:bg-surface1 bg-background flex w-sm flex-col gap-4 rounded-xl border border-transparent p-4 shadow-sm"
 				>
 					{#each authProviders as provider (provider.id)}
 						<button

@@ -23,6 +23,27 @@ export const DEFAULT_LOGOS = {
 	}
 } as const;
 
+/** Default UI font stack; kept in sync with `app.css` (`--theme-font-family` fallback). */
+export const DEFAULT_FONT_FAMILY =
+	'Poppins, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial, Noto Sans, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji';
+
+export const FONT_FAMILY_PRESETS: { label: string; value: string }[] = [
+	{ label: 'Poppins', value: DEFAULT_FONT_FAMILY },
+	{
+		label: 'Inter',
+		value: 'Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji'
+	},
+	{
+		label: 'Roboto',
+		value: 'Roboto, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji'
+	},
+	{
+		label: 'Helvetica Neue',
+		value: 'Helvetica Neue, Helvetica, Arial, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji'
+	},
+	{ label: 'System UI', value: 'ui-sans-serif, system-ui, sans-serif' }
+];
+
 export function compileAppPreferences(preferences?: AppPreferences): AppPreferences {
 	return {
 		logos: {
@@ -65,7 +86,8 @@ export function compileAppPreferences(preferences?: AppPreferences): AppPreferen
 			darkOnPrimaryColor: preferences?.theme?.darkOnPrimaryColor ?? 'hsl(0 0 97.5)',
 			darkOnSuccessColor: preferences?.theme?.darkOnSuccessColor ?? 'hsl(0 0 97.5)',
 			darkOnWarningColor: preferences?.theme?.darkOnWarningColor ?? 'hsl(0 0 97.5)',
-			darkOnErrorColor: preferences?.theme?.darkOnErrorColor ?? 'hsl(0 0 97.5)'
+			darkOnErrorColor: preferences?.theme?.darkOnErrorColor ?? 'hsl(0 0 97.5)',
+			fontFamily: preferences?.theme?.fontFamily ?? DEFAULT_FONT_FAMILY
 		}
 	};
 }
@@ -120,6 +142,7 @@ function setThemeColors(colors: AppPreferences['theme']) {
 	document.documentElement.style.setProperty('--theme-success-dark', colors.darkSuccessColor);
 	document.documentElement.style.setProperty('--theme-warning-dark', colors.darkWarningColor);
 	document.documentElement.style.setProperty('--theme-error-dark', colors.darkErrorColor);
+	document.documentElement.style.setProperty('--theme-font-family', colors.fontFamily);
 }
 
 function initialize(preferences: AppPreferences) {

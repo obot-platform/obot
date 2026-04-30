@@ -37,6 +37,6 @@
 	const paddingClass = $derived(chat ? 'pl-[1px]' : '');
 </script>
 
-<div class={twMerge('flex flex-shrink-0', klass)}>
+<div class={twMerge('flex shrink-0', klass)}>
 	<img src={logoSrc} class={twMerge(heightClass, paddingClass)} alt="Obot logo" />
 </div>

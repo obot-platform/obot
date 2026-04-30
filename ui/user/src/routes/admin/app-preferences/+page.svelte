@@ -5,14 +5,24 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Select from '$lib/components/Select.svelte';
+	import SpectrumSlider from '$lib/components/SpectrumSlider.svelte';
 	import UploadImage from '$lib/components/UploadImage.svelte';
 	import CustomConfigurationForm from '$lib/components/mcp/CustomConfigurationForm.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, type AppPreferences } from '$lib/services';
 	import { darkMode, profile } from '$lib/stores';
-	import appPreferences, { compileAppPreferences } from '$lib/stores/appPreferences.svelte';
+	import appPreferences, {
+		compileAppPreferences,
+		FONT_FAMILY_PRESETS
+	} from '$lib/stores/appPreferences.svelte';
 	import { formatTimeAgo } from '$lib/time';
+	import {
+		computeTintedThemePatch,
+		SHADE_TICK_MAX,
+		SHADE_TICK_NEUTRAL,
+		type TintedSurfaceSnapshot
+	} from '$lib/utils/color';
 	import 'devicon/devicon.min.css';
 	import { CircleAlert, HouseIcon, Info, LoaderCircle, Pencil, X } from 'lucide-svelte';
 	import { onDestroy, untrack } from 'svelte';
@@ -26,7 +36,6 @@
 	let saving = $state(false);
 	let showSaved = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();
-	let displayPreviewMode = $state(false);
 
 	/** Preview rows for the MCP Servers-style table; `devicon` is a Devicon class name (e.g. `devicon-python-plain`). */
 	type BrandingMockConnectorRow = {
@@ -110,13 +119,131 @@
 	let selectedImageField = $state<keyof AppPreferences['logos']>();
 	let editImageUrl = $state<string>('');
 
+	function isLogoAssetUrl(s: string): boolean {
+		const t = s.trim();
+		if (!t) return false;
+		return (
+			t.startsWith('http://') ||
+			t.startsWith('https://') ||
+			t.startsWith('blob:') ||
+			t.startsWith('data:') ||
+			t.startsWith('/')
+		);
+	}
+
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 
 	let selectedColorScheme = $state(untrack(() => (darkMode.isDark ? 'dark' : 'light')));
 	let initialColorScheme = $state(untrack(() => (darkMode.isDark ? 'dark' : 'light')));
 	let selectedSurfaceMode = $state<'solid' | 'tinted'>('solid');
-	let selectedIndicatorMode = $state<'solid' | 'tinted'>('solid');
 	let selectedConfigurationMode = $state<'theme' | 'logos'>('theme');
+
+	function surfacesSnapshotFromTheme(theme: AppPreferences['theme']): TintedSurfaceSnapshot {
+		return {
+			light: {
+				backgroundColor: theme.backgroundColor,
+				surface1Color: theme.surface1Color,
+				surface2Color: theme.surface2Color,
+				surface3Color: theme.surface3Color
+			},
+			dark: {
+				darkBackgroundColor: theme.darkBackgroundColor,
+				darkSurface1Color: theme.darkSurface1Color,
+				darkSurface2Color: theme.darkSurface2Color,
+				darkSurface3Color: theme.darkSurface3Color
+			}
+		};
+	}
+
+	/** Surfaces under Custom (solid); unchanged while editing Tinted so switching modes restores each side. */
+	let customSurfaces = $state<TintedSurfaceSnapshot>(
+		surfacesSnapshotFromTheme(compileAppPreferences(untrack(() => data.appPreferences)).theme)
+	);
+
+	let tintedHueLight = $state(0);
+	let tintedHueDark = $state(0);
+	let tintedTintLight = $state(0);
+	let tintedTintDark = $state(0);
+	let tintedShadeLight = $state(SHADE_TICK_NEUTRAL);
+	let tintedShadeDark = $state(SHADE_TICK_NEUTRAL);
+	let tintedSurfaceSnapshot = $state<TintedSurfaceSnapshot | null>(null);
+
+	function themeSurfacePatch(snapshot: TintedSurfaceSnapshot): Partial<AppPreferences['theme']> {
+		return {
+			backgroundColor: snapshot.light.backgroundColor,
+			surface1Color: snapshot.light.surface1Color,
+			surface2Color: snapshot.light.surface2Color,
+			surface3Color: snapshot.light.surface3Color,
+			darkBackgroundColor: snapshot.dark.darkBackgroundColor,
+			darkSurface1Color: snapshot.dark.darkSurface1Color,
+			darkSurface2Color: snapshot.dark.darkSurface2Color,
+			darkSurface3Color: snapshot.dark.darkSurface3Color
+		};
+	}
+
+	function patchCustomSurface(
+		snapshot: TintedSurfaceSnapshot,
+		key: keyof AppPreferences['theme'],
+		value: string
+	): TintedSurfaceSnapshot {
+		switch (key) {
+			case 'backgroundColor':
+			case 'surface1Color':
+			case 'surface2Color':
+			case 'surface3Color':
+				return {
+					...snapshot,
+					light: { ...snapshot.light, [key]: value }
+				};
+			case 'darkBackgroundColor':
+			case 'darkSurface1Color':
+			case 'darkSurface2Color':
+			case 'darkSurface3Color':
+				return {
+					...snapshot,
+					dark: { ...snapshot.dark, [key]: value }
+				};
+			default:
+				return snapshot;
+		}
+	}
+
+	function applyCustomSurfacesToForm(): AppPreferences {
+		return {
+			...form,
+			theme: { ...form.theme, ...themeSurfacePatch(customSurfaces) }
+		};
+	}
+
+	/** Tinted bases always use the stock default surface ladder from compile defaults—not Custom colors. */
+	function captureTintedSurfaceSnapshot() {
+		const defaultTheme = compileAppPreferences().theme;
+		tintedSurfaceSnapshot = surfacesSnapshotFromTheme(defaultTheme);
+	}
+
+	$effect(() => {
+		if (!browser) return;
+		if (selectedSurfaceMode !== 'tinted') return;
+		const snap = tintedSurfaceSnapshot;
+		if (!snap) return;
+		const patch = computeTintedThemePatch(
+			snap,
+			{
+				hueDeg: tintedHueLight,
+				tint0to100: tintedTintLight,
+				shadeTick: tintedShadeLight
+			},
+			{
+				hueDeg: tintedHueDark,
+				tint0to100: tintedTintDark,
+				shadeTick: tintedShadeDark
+			}
+		);
+		untrack(() => {
+			form = { ...form, theme: { ...form.theme, ...patch } };
+			appPreferences.setThemeColors(form.theme);
+		});
+	});
 
 	onDestroy(() => {
 		if (browser) {
@@ -125,17 +252,36 @@
 		}
 	});
 
+	function isSurfaceThemeKey(id: keyof AppPreferences['theme']): boolean {
+		return (
+			id === 'backgroundColor' ||
+			id === 'surface1Color' ||
+			id === 'surface2Color' ||
+			id === 'surface3Color' ||
+			id === 'darkBackgroundColor' ||
+			id === 'darkSurface1Color' ||
+			id === 'darkSurface2Color' ||
+			id === 'darkSurface3Color'
+		);
+	}
+
 	async function handleSave() {
 		if (timeout) {
 			clearTimeout(timeout);
 		}
 		saving = true;
 		try {
-			appPreferences.current = form;
-			appPreferences.setThemeColors(form.theme);
-			await AdminService.updateAppPreferences(form);
+			let saveForm = form;
+			if (selectedSurfaceMode === 'solid') {
+				saveForm = applyCustomSurfacesToForm();
+				form = saveForm;
+			}
+			appPreferences.current = saveForm;
+			appPreferences.setThemeColors(saveForm.theme);
+			await AdminService.updateAppPreferences(saveForm);
 			await invalidateAll();
-			prevAppPreferences = form;
+			prevAppPreferences = saveForm;
+			customSurfaces = surfacesSnapshotFromTheme(saveForm.theme);
 			showSaved = true;
 			timeout = setTimeout(() => {
 				showSaved = false;
@@ -324,7 +470,9 @@
 			<div class="flex flex-col divide-y divide-base-300">
 				<div class="flex items-center justify-between px-4 py-2">
 					<h3 class="text-base font-semibold">Configuration</h3>
-					<div class="flex items-center gap-2 p-1.5 bg-base-200 rounded-md shadow-inner">
+					<div
+						class="flex items-center gap-2 p-1.5 bg-base-200 dark:bg-base-300 rounded-md shadow-inner"
+					>
 						<button
 							class={twMerge(
 								'btn btn-sm',
@@ -347,7 +495,9 @@
 				</div>
 				<div class="flex items-center justify-between px-4 py-2">
 					<p class="text-sm font-medium">Mode</p>
-					<div class="flex items-center gap-2 p-1.5 bg-base-200 rounded-md shadow-inner">
+					<div
+						class="flex items-center gap-2 p-1.5 bg-base-200 dark:bg-base-300 rounded-md shadow-inner"
+					>
 						<button
 							class={twMerge(
 								'btn btn-sm',
@@ -387,12 +537,16 @@
 				>
 					<div class="flex justify-between items-center gap-2">
 						<button
-							class="btn btn-sm dark:text-white"
+							class="btn btn-sm"
 							onclick={() => {
 								form = compileAppPreferences();
-								if (displayPreviewMode) {
-									appPreferences.setThemeColors(form.theme);
+								customSurfaces = surfacesSnapshotFromTheme(form.theme);
+								appPreferences.current = compileAppPreferences(form);
+								appPreferences.setThemeColors(form.theme);
+								if (selectedSurfaceMode === 'tinted') {
+									captureTintedSurfaceSnapshot();
 								}
+								editUrlDialog?.close();
 							}}
 						>
 							Restore Default
@@ -409,7 +563,13 @@
 								class="btn btn-secondary"
 								onclick={() => {
 									form = prevAppPreferences;
+									customSurfaces = surfacesSnapshotFromTheme(prevAppPreferences.theme);
+									appPreferences.current = compileAppPreferences(prevAppPreferences);
 									appPreferences.setThemeColors(prevAppPreferences.theme);
+									if (selectedSurfaceMode === 'tinted') {
+										captureTintedSurfaceSnapshot();
+									}
+									editUrlDialog?.close();
 								}}>Cancel</button
 							>
 						</div>
@@ -456,7 +616,7 @@
 					</p>
 
 					<div
-						class="dark:border-surface3 dark:bg-gray-930 bg-background flex w-sm flex-col gap-4 rounded-xl border border-transparent p-4 shadow-sm"
+						class="dark:border-surface3 dark:bg-surface1 bg-background flex w-sm flex-col gap-4 rounded-xl border border-transparent p-4 shadow-sm"
 					>
 						<button
 							class="group bg-surface2 hover:bg-surface3 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold transition-colors duration-200"
@@ -508,23 +668,23 @@
 		</div>
 		<div class="flex gap-4 items-center flex-wrap mt-8">
 			<div class="flex gap-4 grow flex-wrap">
-				<div class="bg-base-100 dark:bg-base-200 rounded-md p-4 flex gap-4">
+				<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 					<button class="btn btn-circle btn-primary"><HouseIcon /></button>
 					<button class="btn btn-primary">Confirm</button>
 				</div>
-				<div class="bg-base-100 dark:bg-base-200 rounded-md p-4 flex gap-4">
+				<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 					<button class="btn btn-circle btn-secondary"><HouseIcon /></button>
 					<button class="btn btn-secondary">Confirm</button>
 				</div>
-				<div class="bg-base-100 dark:bg-base-200 rounded-md p-4 flex gap-4">
+				<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 					<button class="btn btn-circle btn-success"><HouseIcon /></button>
 					<button class="btn btn-success">Confirm</button>
 				</div>
-				<div class="bg-base-100 dark:bg-base-200 rounded-md p-4 flex gap-4">
+				<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 					<button class="btn btn-circle btn-warning"><HouseIcon /></button>
 					<button class="btn btn-warning">Confirm</button>
 				</div>
-				<div class="bg-base-100 dark:bg-base-200 rounded-md p-4 flex gap-4">
+				<div class="bg-base-100 dark:bg-base-200 rounded-md p-3 flex gap-4">
 					<button class="btn btn-circle btn-error"><HouseIcon /></button>
 					<button class="btn btn-error">Confirm</button>
 				</div>
@@ -536,7 +696,12 @@
 					<button class="page-tab w-1/2 max-w-1/2 page-tab-active"> Servers </button>
 					<button class="page-tab w-1/2 max-w-1/2"> Users </button>
 				</div>
-				<Table data={mockTableData} fields={['name', 'status', 'created', 'registry', 'users']}>
+				<Table
+					data={mockTableData}
+					fields={['name', 'status', 'created']}
+					filterable={['name', 'status']}
+					sortable={['name', 'created', 'status']}
+				>
 					{#snippet onRenderColumn(field: string, row: BrandingMockConnectorRow)}
 						{#if field === 'name'}
 							<span class="flex items-center gap-2">
@@ -592,7 +757,16 @@
 		</div>
 
 		<CustomConfigurationForm
-			config={[{ key: 'Example Key', value: 'Example Value', type: 'text' }]}
+			config={[
+				{
+					key: 'Example Key',
+					value: 'Example Value',
+					description: 'Example Description',
+					name: 'Example Name',
+					required: true,
+					sensitive: false
+				}
+			]}
 		/>
 	</div>
 </Layout>
@@ -600,27 +774,39 @@
 {#snippet themeConfiguration()}
 	<div class="flex justify-between items-center gap-4 px-4 py-2">
 		<p class="text-sm font-medium">Accent Color</p>
-		{@render colorSelector({ id: 'primaryColor', label: 'Primary' })}
+		{@render colorSelector({
+			id: selectedColorScheme === 'light' ? 'primaryColor' : 'darkPrimaryColor',
+			label: 'Primary'
+		})}
 	</div>
 
 	<div class="flex flex-col gap-2 px-4 pt-2 pb-4">
 		<div class="flex items-center justify-between">
 			<p class="text-sm font-medium">Surfaces</p>
 
-			<div class="flex items-center gap-2 p-1.5 bg-base-200 rounded-md shadow-inner">
+			<div
+				class="flex items-center gap-2 p-1.5 bg-base-200 dark:bg-base-300 rounded-md shadow-inner"
+			>
 				<button
 					class={twMerge(
 						'btn btn-sm',
 						selectedSurfaceMode === 'solid' ? 'btn-primary' : 'btn-secondary'
 					)}
-					onclick={() => (selectedSurfaceMode = 'solid')}>Custom</button
+					onclick={() => {
+						selectedSurfaceMode = 'solid';
+						form = applyCustomSurfacesToForm();
+						appPreferences.setThemeColors(form.theme);
+					}}>Custom</button
 				>
 				<button
 					class={twMerge(
 						'btn btn-sm',
 						selectedSurfaceMode === 'tinted' ? 'btn-primary' : 'btn-secondary'
 					)}
-					onclick={() => (selectedSurfaceMode = 'tinted')}>Tinted</button
+					onclick={() => {
+						selectedSurfaceMode = 'tinted';
+						captureTintedSurfaceSnapshot();
+					}}>Tinted</button
 				>
 			</div>
 		</div>
@@ -634,24 +820,124 @@
 				</div>
 			{/each}
 		{:else}
-			<!-- tinted -->
+			<p class="text-xs font-light text-base-content/40">
+				Tinted always starts from the built-in default surface ramp; hue, tint, and shade adjust
+				that. Custom picker colors stay on Custom only.
+			</p>
+			{#if selectedColorScheme === 'light'}
+				<div class="flex items-center justify-between gap-2">
+					<p class="text-sm font-light w-20 shrink-0">Hue</p>
+					<SpectrumSlider
+						bind:hue={tintedHueLight}
+						aria-label="Light mode surface hue"
+						class="min-w-0 grow"
+					/>
+				</div>
+
+				<div class="flex items-center justify-between gap-2 mb-2">
+					<p class="text-sm font-light w-20 shrink-0">Tint</p>
+					<input
+						type="range"
+						min="0"
+						max="100"
+						bind:value={tintedTintLight}
+						class="range grow"
+						aria-valuetext={`${tintedTintLight}%`}
+					/>
+				</div>
+
+				<div class="flex flex-col gap-1">
+					<div class="flex items-center justify-between gap-2">
+						<p class="text-sm font-light w-20 shrink-0">Shade</p>
+						<div class="flex grow items-center gap-2 min-w-0 justify-end">
+							<input
+								type="range"
+								min="0"
+								max={SHADE_TICK_MAX}
+								step="1"
+								bind:value={tintedShadeLight}
+								class="range grow"
+								aria-valuemin={0}
+								aria-valuemax={SHADE_TICK_MAX}
+								aria-valuenow={tintedShadeLight}
+								aria-valuetext={tintedShadeLight === SHADE_TICK_NEUTRAL
+									? 'Balanced'
+									: tintedShadeLight < SHADE_TICK_NEUTRAL
+										? 'Darker'
+										: 'Lighter'}
+							/>
+							<span
+								class="text-xs font-light tabular-nums text-base-content/60 w-4 shrink-0 text-right"
+								>{tintedShadeLight}</span
+							>
+						</div>
+					</div>
+				</div>
+			{:else}
+				<div class="flex items-center justify-between gap-2">
+					<p class="text-sm font-light w-20 shrink-0">Hue</p>
+					<SpectrumSlider
+						bind:hue={tintedHueDark}
+						aria-label="Dark mode surface hue"
+						class="min-w-0 grow"
+					/>
+				</div>
+
+				<div class="flex items-center justify-between gap-2 mb-2">
+					<p class="text-sm font-light w-20 shrink-0">Tint</p>
+					<input
+						type="range"
+						min="0"
+						max="100"
+						bind:value={tintedTintDark}
+						class="range grow"
+						aria-valuetext={`${tintedTintDark}%`}
+					/>
+				</div>
+
+				<div class="flex flex-col gap-1">
+					<div class="flex items-center justify-between gap-2">
+						<p class="text-sm font-light w-20 shrink-0">Shade</p>
+						<div class="flex grow items-center gap-2 min-w-0 justify-end">
+							<input
+								type="range"
+								min="0"
+								max={SHADE_TICK_MAX}
+								step="1"
+								bind:value={tintedShadeDark}
+								class="range grow"
+								aria-valuemin={0}
+								aria-valuemax={SHADE_TICK_MAX}
+								aria-valuenow={tintedShadeDark}
+								aria-valuetext={tintedShadeDark === SHADE_TICK_NEUTRAL
+									? 'Balanced'
+									: tintedShadeDark < SHADE_TICK_NEUTRAL
+										? 'Darker'
+										: 'Lighter'}
+							/>
+							<span
+								class="text-xs font-light tabular-nums text-base-content/60 w-4 shrink-0 text-right"
+								>{tintedShadeDark}</span
+							>
+						</div>
+					</div>
+				</div>
+			{/if}
+			<p class="text-xs font-light text-base-content/40 pl-22 mt-1">
+				{SHADE_TICK_NEUTRAL} is neutral for shade. Light and dark each have their own hue, tint, and shade—adjusting
+				one scheme does not change the other’s sliders.
+			</p>
 		{/if}
 	</div>
 
 	<div class="flex flex-col gap-2 p-4">
 		<p class="text-sm font-medium">Buttons & Indicators</p>
-
-		{#if selectedIndicatorMode === 'solid'}
-			<!-- solid custom -->
-			{#each selectedColorScheme === 'light' ? themeLightIndicatorFields : themeDarkIndicatorFields as field (field.id)}
-				<div class="flex items-center justify-between">
-					<p class="text-sm font-light">{field.label}</p>
-					{@render colorSelector({ id: field.id, label: field.label })}
-				</div>
-			{/each}
-		{:else}
-			<!-- tinted -->
-		{/if}
+		{#each selectedColorScheme === 'light' ? themeLightIndicatorFields : themeDarkIndicatorFields as field (field.id)}
+			<div class="flex items-center justify-between">
+				<p class="text-sm font-light">{field.label}</p>
+				{@render colorSelector({ id: field.id, label: field.label })}
+			</div>
+		{/each}
 	</div>
 
 	<div class="flex flex-col gap-2 p-4">
@@ -662,14 +948,21 @@
 				{@render colorSelector({ id: field.id, label: field.label })}
 			</div>
 		{/each}
-		<div class="flex items-center justify-between">
+		<div class="flex items-center justify-between gap-2">
 			<p class="text-sm font-light shrink-0">Font Family</p>
-			<select class="select select-sm max-w-46">
-				<option value="Poppins">Poppins</option>
-				<option value="Inter">Inter</option>
-				<option value="Roboto">Roboto</option>
-				<option value="Helvetica">Helvetica</option>
-				<option value="system-ui">System Default</option>
+			<select
+				class="select select-sm max-w-46 min-w-0"
+				value={form.theme.fontFamily}
+				onchange={(e) => {
+					const fontFamily = e.currentTarget.value;
+					const newForm = { ...form, theme: { ...form.theme, fontFamily } };
+					form = newForm;
+					appPreferences.setThemeColors(newForm.theme);
+				}}
+			>
+				{#each FONT_FAMILY_PRESETS as preset (preset.value)}
+					<option value={preset.value}>{preset.label}</option>
+				{/each}
 			</select>
 		</div>
 	</div>
@@ -710,14 +1003,16 @@
 					if (!e.currentTarget.value.startsWith('#')) {
 						return;
 					}
+					const value = e.currentTarget.value;
 					const newForm = {
 						...form,
-						theme: { ...form.theme, [field.id]: e.currentTarget.value }
+						theme: { ...form.theme, [field.id]: value }
 					};
-					if (displayPreviewMode) {
-						appPreferences.setThemeColors(newForm.theme);
-					}
+					appPreferences.setThemeColors(newForm.theme);
 					form = newForm;
+					if (selectedSurfaceMode === 'solid' && isSurfaceThemeKey(field.id)) {
+						customSurfaces = patchCustomSurface(customSurfaces, field.id, value);
+					}
 				}}
 			/>
 		</div>
@@ -730,9 +1025,7 @@
 	type: 'standard' | 'light' | 'dark'
 )}
 	<button
-		class={twMerge(
-			'group active:bg-surface1 dark:active:bg-surface3 flex flex-col items-center justify-center gap-2'
-		)}
+		class={twMerge('group flex flex-col items-center justify-center gap-2')}
 		onclick={() => {
 			editImageUrl = form.logos[field.id].startsWith('/user/images/') ? '' : form.logos[field.id];
 			selectedImageField = field.id;
@@ -743,7 +1036,7 @@
 			src={form.logos[field.id]}
 			alt={field.label}
 			class={twMerge(
-				'shrink-0 object-contain',
+				'shrink-0 object-contain transition-transform group-hover:scale-115 group-active:brightness-135',
 				type === 'standard' ? 'size-18' : 'max-h-18 max-w-full'
 			)}
 		/>
@@ -756,6 +1049,11 @@
 <ResponsiveDialog
 	bind:this={editUrlDialog}
 	title={editImageUrl ? 'Edit Image URL' : 'Add Image URL'}
+	onClose={() => {
+		editImageUrl = '';
+		selectedImageField = undefined;
+		uploadImage?.clearPreview();
+	}}
 >
 	<UploadImage
 		label="Upload Image"
@@ -766,16 +1064,28 @@
 		bind:this={uploadImage}
 	/>
 	<div class="flex grow"></div>
-	<div class="flex justify-end gap-2">
+	<div class="flex flex-wrap justify-end gap-2">
 		<button
+			type="button"
+			class="btn btn-secondary mt-4 w-full md:w-fit"
+			onclick={() => editUrlDialog?.close()}>Cancel</button
+		>
+		<button
+			type="button"
 			class="button-primary mt-4 w-full md:w-fit"
 			onclick={() => {
 				if (!selectedImageField) return;
+				const candidate = editImageUrl.trim();
+				const resolvedUrl =
+					candidate !== '' && isLogoAssetUrl(candidate)
+						? candidate
+						: form.logos[selectedImageField];
 				const newForm = {
 					...form,
-					logos: { ...form.logos, [selectedImageField]: editImageUrl }
+					logos: { ...form.logos, [selectedImageField]: resolvedUrl }
 				};
 				form = newForm;
+				appPreferences.current = compileAppPreferences(newForm);
 				editImageUrl = '';
 				selectedImageField = undefined;
 				editUrlDialog?.close();

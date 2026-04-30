@@ -34,6 +34,7 @@ type ThemePreferences struct {
 	OnSuccessColor    string `json:"onSuccessColor,omitempty"`
 	OnWarningColor    string `json:"onWarningColor,omitempty"`
 	OnErrorColor      string `json:"onErrorColor,omitempty"`
+	FontFamily        string `json:"fontFamily,omitempty"`
 
 	DarkBackgroundColor   string `json:"darkBackgroundColor,omitempty"`
 	DarkOnBackgroundColor string `json:"darkOnBackgroundColor,omitempty"`

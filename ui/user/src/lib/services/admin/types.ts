@@ -811,6 +811,7 @@ export interface AppPreferencesManifest {
 		darkOnSuccessColor?: string;
 		darkOnWarningColor?: string;
 		darkOnErrorColor?: string;
+		fontFamily?: string;
 	};
 }
 
@@ -855,6 +856,7 @@ export interface AppPreferences {
 		darkSuccessColor: string;
 		darkWarningColor: string;
 		darkErrorColor: string;
+		fontFamily: string;
 	};
 }
 

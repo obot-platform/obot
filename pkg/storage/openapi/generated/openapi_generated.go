@@ -12568,6 +12568,12 @@ func schema_obot_platform_obot_apiclient_types_ThemePreferences(ref common.Refer
 							Format: "",
 						},
 					},
+					"fontFamily": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"darkBackgroundColor": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

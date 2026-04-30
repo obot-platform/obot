@@ -9,14 +9,8 @@
 
 @theme {
 	--font-*: initial;
-	--font-sans:
-		Poppins, ui-sans-serif, system-ui, -apple-system, system-ui, Segoe UI, Roboto, Helvetica Neue,
-		Arial, Noto Sans, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol,
-		Noto Color Emoji;
-	--font-body:
-		Poppins, ui-sans-serif, system-ui, -apple-system, system-ui, Segoe UI, Roboto, Helvetica Neue,
-		Arial, Noto Sans, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol,
-		Noto Color Emoji;
+	--font-sans: var(--theme-font-family);
+	--font-body: var(--theme-font-family);
 	--font-mono:
 		ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
 
@@ -148,7 +142,7 @@
 	--color-base-200: var(--theme-surface1-dark, var(--color-gray-950));
 	--color-base-300: var(--theme-surface2-dark, var(--color-gray-900));
 	--color-base-400: var(--theme-surface3-dark, var(--color-gray-800));
-	--color-base-content: var(--theme-on-background-light, var(--color-black));
+	--color-base-content: var(--theme-on-background-dark, var(--color-white));
 	--color-primary: var(--theme-primary-dark, var(--color-blue-500));
 	--color-primary-content: var(--theme-on-primary-dark, hsl(0 0 97.5));
 	--color-secondary: var(--theme-secondary-dark, hsl(0 0 22.5));
@@ -1895,6 +1889,9 @@
 }
 
 html {
+	--theme-font-family:
+		Poppins, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial,
+		Noto Sans, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
 	--background: var(--theme-background-light, var(--color-white));
 	--on-background: var(--theme-on-background-light, var(--color-black));
 	--surface1: var(--theme-surface1-light, var(--color-gray-70));

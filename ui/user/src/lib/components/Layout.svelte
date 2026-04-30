@@ -735,7 +735,7 @@
 					{#if overrideRightMenu}
 						{@render overrideRightMenu()}
 					{:else if !hideProfileButton}
-						<div class="flex h-16 flex-shrink-0 items-center">
+						<div class="flex h-16 shrink-0 items-center">
 							<Profile />
 						</div>
 					{/if}
@@ -765,7 +765,7 @@
 							)}
 						>
 							{@render layoutHeaderContent()}
-							<div class="flex flex-shrink-0 items-center gap-2">
+							<div class="flex shrink-0 items-center gap-2">
 								{#if rightNavActions}
 									{@render rightNavActions()}
 								{/if}
@@ -810,7 +810,7 @@
 {#snippet layoutHeaderContent()}
 	{#if showBackButton}
 		<button
-			class="icon-button flex-shrink-0"
+			class="icon-button shrink-0"
 			onclick={() => {
 				if (onBackButtonClick) {
 					onBackButtonClick();
