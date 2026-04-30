@@ -15,7 +15,12 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 )
 
-const MaxMCPServerStartupTimeout = 10 * time.Minute
+const (
+	// MaxMCPServerStartupTimeout is the maximum value allowed to be used in ServerConfig.StartupTimeout
+	MaxMCPServerStartupTimeout = 10 * time.Minute
+	// defaultStartupTimeout is the default value used when ServerConfig.StartupTimeout is not set
+	defaultStartupTimeout = 60 * time.Second
+)
 
 type GlobalTokenStore interface {
 	ForUserAndMCP(userID, mcpID string) nmcp.TokenStorage
@@ -93,8 +98,6 @@ type ComponentServer struct {
 	Tools      []types.ToolOverride `json:"tools"`
 	ToolPrefix string               `json:"toolPrefix"`
 }
-
-const defaultStartupTimeout = 60 * time.Second
 
 var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
