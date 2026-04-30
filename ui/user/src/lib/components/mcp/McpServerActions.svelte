@@ -91,7 +91,7 @@
 	let configuredServers = $derived(
 		entry
 			? mcpServersAndEntries.current.userConfiguredServers.filter(
-					(server) => server.catalogEntryID === entry.id
+					(server) => server.catalogEntryID === entry.id && !server.deleted
 				)
 			: []
 	);
@@ -254,7 +254,7 @@
 	<Table
 		data={configuredServers || []}
 		fields={['name', 'created']}
-		onClickRow={(d) => {
+		onClickRow={async (d) => {
 			selectServerDialog?.close();
 			switch (selectServerMode) {
 				case 'chat': {
@@ -296,7 +296,7 @@
 					break;
 				}
 				case 'disconnect': {
-					ChatService.deleteSingleOrRemoteMcpServer(d.id);
+					await ChatService.deleteSingleOrRemoteMcpServer(d.id);
 					mcpServersAndEntries.refreshUserConfiguredServers();
 					break;
 				}

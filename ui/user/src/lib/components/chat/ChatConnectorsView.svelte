@@ -123,7 +123,7 @@
 							)
 						: d.data}
 				{#if property === 'name'}
-					<div class="flex flex-shrink-0 items-center gap-2">
+					<div class="flex shrink-0 items-center gap-2">
 						<div class="icon">
 							{#if d.icon}
 								<img src={d.icon} alt={d.name} class="size-6" />
@@ -230,7 +230,7 @@
 	>
 		{#snippet onRenderColumn(property, d)}
 			{#if property === 'name'}
-				<div class="flex flex-shrink-0 items-center gap-2">
+				<div class="flex shrink-0 items-center gap-2">
 					<div class="icon">
 						{#if d.manifest.icon}
 							<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />

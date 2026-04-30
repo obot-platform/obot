@@ -179,9 +179,16 @@ function convertEntriesToTableData(
 		return [];
 	}
 
-	const userConfiguredServersMap = userConfiguredServers
-		? new Map(userConfiguredServers.map((server) => [server.catalogEntryID, server]))
-		: undefined;
+	let userConfiguredServersMap: Map<string, MCPCatalogServer> | undefined;
+	const userConfiguredServersCount: Record<string, number> = {};
+	if (userConfiguredServers) {
+		userConfiguredServersMap = new Map();
+		for (const server of userConfiguredServers) {
+			userConfiguredServersMap.set(server.catalogEntryID, server);
+			userConfiguredServersCount[server.catalogEntryID] =
+				(userConfiguredServersCount[server.catalogEntryID] ?? 0) + 1;
+		}
+	}
 
 	return entries
 		.filter((entry) => !entry.deleted)
@@ -190,7 +197,10 @@ function convertEntriesToTableData(
 			const connected = userConfiguredServersMap?.has(entry.id);
 			return {
 				id: entry.id,
-				name: entry.manifest?.name ?? '',
+				name:
+					userConfiguredServersCount[entry.id] === 1
+						? ((userConfiguredServersMap?.get(entry.id)?.alias || entry.manifest?.name) ?? '')
+						: (entry.manifest?.name ?? ''),
 				icon: entry.manifest?.icon,
 				data: entry,
 				users: entry.userCount ?? 0,
