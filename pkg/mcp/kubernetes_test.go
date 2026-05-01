@@ -15,6 +15,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/watch"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -390,6 +392,15 @@ func TestAnalyzePodStatus(t *testing.T) {
 	}
 }
 
+type fakeWithWatch struct {
+	client.Client // controller-runtime fake for Get/List/Create etc.
+	watcher       *watch.FakeWatcher
+}
+
+func (f *fakeWithWatch) Watch(ctx context.Context, obj client.ObjectList, opts ...client.ListOption) (watch.Interface, error) {
+	return f.watcher, nil
+}
+
 func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := appsv1.AddToScheme(scheme); err != nil {
@@ -430,8 +441,22 @@ func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 		},
 	}
 
+	watcher := watch.NewFake()
+
+	go func() {
+		watcher.Add(&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-server", Namespace: "obot-mcp"},
+		})
+		watcher.Stop()
+	}()
+
+	client := &fakeWithWatch{
+		Client:  fake.NewClientBuilder().WithScheme(scheme).WithObjects(deployment, pod).Build(),
+		watcher: watcher,
+	}
+
 	k := &kubernetesBackend{
-		client:       fake.NewClientBuilder().WithScheme(scheme).WithObjects(deployment, pod).Build(),
+		client:       client,
 		mcpNamespace: "obot-mcp",
 	}
 
@@ -445,7 +470,7 @@ func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 	if !errors.Is(err, ErrHealthCheckTimeout) {
 		t.Fatalf("updatedMCPPodName() error = %v, want %v", err, ErrHealthCheckTimeout)
 	}
-	if !strings.Contains(err.Error(), "timeout waiting for deployment readiness") {
+	if err.Error() != "timed out waiting for MCP server to be ready after 5 watch retries: timeout waiting for Deployment test-server to meet condition" {
 		t.Fatalf("updatedMCPPodName() error = %q, want deployment timeout message", err)
 	}
 }

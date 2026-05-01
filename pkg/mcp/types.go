@@ -323,8 +323,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 	startupTimeout := time.Duration(mcpServer.Spec.Manifest.StartupTimeoutSeconds) * time.Second
 	if startupTimeout == 0 {
 		startupTimeout = defaultStartupTimeout
-	}
-	if startupTimeout > MaxMCPServerStartupTimeout {
+	} else if startupTimeout > MaxMCPServerStartupTimeout {
 		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", mcpServer.Spec.Manifest.StartupTimeoutSeconds, MaxMCPServerStartupTimeout)
 	}
 
@@ -445,8 +444,7 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 	startupTimeout := time.Duration(systemServer.Spec.Manifest.StartupTimeoutSeconds) * time.Second
 	if startupTimeout == 0 {
 		startupTimeout = defaultStartupTimeout
-	}
-	if startupTimeout > MaxMCPServerStartupTimeout {
+	} else if startupTimeout > MaxMCPServerStartupTimeout {
 		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", systemServer.Spec.Manifest.StartupTimeoutSeconds, MaxMCPServerStartupTimeout)
 	}
 
