@@ -18,17 +18,6 @@ const (
 	RuntimeComposite     Runtime = "composite"
 )
 
-func BoolValue(v *bool) bool {
-	return v != nil && *v
-}
-
-func EffectiveDenyAllEgress(v *bool, domains []string, defaultWhenEmpty bool) bool {
-	if v != nil {
-		return *v
-	}
-	return defaultWhenEmpty && len(domains) == 0
-}
-
 // UVXRuntimeConfig represents configuration for UVX runtime (Python packages via uvx)
 type UVXRuntimeConfig struct {
 	Package       string   `json:"package"`                 // Required: Python package name

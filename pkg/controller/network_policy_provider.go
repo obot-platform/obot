@@ -39,7 +39,7 @@ type networkPolicyProviderInstallSpec struct {
 
 type networkPolicyProviderInstaller interface {
 	InstallOrUpgrade(ctx context.Context, spec networkPolicyProviderInstallSpec) error
-	Uninstall(ctx context.Context, releaseNamespace string) error
+	Uninstall(releaseNamespace string) error
 }
 
 type helmNetworkPolicyProviderInstaller struct {
@@ -92,7 +92,7 @@ func (c *Controller) reconcileNetworkPolicyProvider(ctx context.Context) error {
 	}
 
 	if !c.services.MCPNetworkPolicyEnabled {
-		return installer.Uninstall(ctx, ns)
+		return installer.Uninstall(ns)
 	}
 
 	spec, err := c.desiredNetworkPolicyProviderInstallSpec()
@@ -109,7 +109,7 @@ func (c *Controller) networkPolicyProviderInstaller() (networkPolicyProviderInst
 	}
 
 	c.providerInstaller = &helmNetworkPolicyProviderInstaller{
-		restConfigFn: c.runtimeRESTConfig,
+		restConfigFn: services.BuildLocalK8sConfig,
 	}
 	return c.providerInstaller, nil
 }
@@ -147,12 +147,7 @@ func (c *Controller) networkPolicyProviderStorageURL() (string, error) {
 		return "", fmt.Errorf("service name, service namespace, and storage listen port must be configured for the network policy provider")
 	}
 
-	clusterDomain := c.services.MCPClusterDomain
-	if clusterDomain == "" {
-		clusterDomain = "cluster.local"
-	}
-
-	return fmt.Sprintf("https://%s.%s.svc.%s:%d", c.services.ServiceName, c.services.ServiceNamespace, clusterDomain, c.services.StorageListenPort), nil
+	return fmt.Sprintf("https://%s.%s.svc.%s:%d", c.services.ServiceName, c.services.ServiceNamespace, c.services.MCPClusterDomain, c.services.StorageListenPort), nil
 }
 
 func (c *Controller) networkPolicyProviderValues(storageURL, releaseNamespace string) (map[string]any, error) {
@@ -327,7 +322,7 @@ func recoverPendingRelease(actionConfig *action.Configuration, rel *release.Rele
 	return rel, nil
 }
 
-func (h *helmNetworkPolicyProviderInstaller) Uninstall(_ context.Context, releaseNamespace string) error {
+func (h *helmNetworkPolicyProviderInstaller) Uninstall(releaseNamespace string) error {
 	helmLogs := &helmLogCapture{}
 	actionConfig, err := h.newActionConfigWithLog(releaseNamespace, helmLogs.Debugf)
 	if err != nil {
@@ -400,8 +395,4 @@ func (h *helmNetworkPolicyProviderInstaller) newActionConfigWithLog(namespace st
 	}
 
 	return actionConfig, nil
-}
-
-func (c *Controller) runtimeRESTConfig() (*rest.Config, error) {
-	return services.BuildLocalK8sConfig()
 }

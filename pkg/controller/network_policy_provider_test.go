@@ -23,7 +23,7 @@ func (f *fakeNetworkPolicyProviderInstaller) InstallOrUpgrade(_ context.Context,
 	return nil
 }
 
-func (f *fakeNetworkPolicyProviderInstaller) Uninstall(_ context.Context, releaseNamespace string) error {
+func (f *fakeNetworkPolicyProviderInstaller) Uninstall(releaseNamespace string) error {
 	f.uninstallCalled = true
 	f.uninstallNS = releaseNamespace
 	return nil
@@ -51,7 +51,7 @@ func newNetworkPolicyProviderController(t *testing.T, installer networkPolicyPro
 }
 
 func TestEnsureNetworkPolicyProviderInstallsChartRelease(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	installer := &fakeNetworkPolicyProviderInstaller{}
 	controller := newNetworkPolicyProviderController(t, installer)
 
@@ -73,7 +73,7 @@ func TestEnsureNetworkPolicyProviderInstallsChartRelease(t *testing.T) {
 }
 
 func TestEnsureNetworkPolicyProviderMergesValuesBlob(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	installer := &fakeNetworkPolicyProviderInstaller{}
 	controller := newNetworkPolicyProviderController(t, installer)
 	controller.services.MCPNetworkPolicyProviderValues = `
@@ -89,7 +89,7 @@ extraFlag: true
 }
 
 func TestEnsureNetworkPolicyProviderUninstallsWhenDisabled(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	installer := &fakeNetworkPolicyProviderInstaller{}
 	controller := newNetworkPolicyProviderController(t, installer)
 	controller.services.MCPNetworkPolicyEnabled = false
@@ -101,7 +101,7 @@ func TestEnsureNetworkPolicyProviderUninstallsWhenDisabled(t *testing.T) {
 }
 
 func TestEnsureNetworkPolicyProviderSkipsUninstallOutsideKubernetes(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	installer := &fakeNetworkPolicyProviderInstaller{}
 	controller := newNetworkPolicyProviderController(t, installer)
 	controller.services.MCPRuntimeBackend = "docker"
@@ -113,7 +113,7 @@ func TestEnsureNetworkPolicyProviderSkipsUninstallOutsideKubernetes(t *testing.T
 }
 
 func TestEnsureNetworkPolicyProviderRequiresStorageSettings(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	installer := &fakeNetworkPolicyProviderInstaller{}
 	controller := newNetworkPolicyProviderController(t, installer)
 	controller.services.ServiceName = ""
@@ -124,7 +124,7 @@ func TestEnsureNetworkPolicyProviderRequiresStorageSettings(t *testing.T) {
 }
 
 func TestEnsureNetworkPolicyProviderRequiresServiceAccountName(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	installer := &fakeNetworkPolicyProviderInstaller{}
 	controller := newNetworkPolicyProviderController(t, installer)
 	controller.services.ServiceAccountName = ""
@@ -135,7 +135,7 @@ func TestEnsureNetworkPolicyProviderRequiresServiceAccountName(t *testing.T) {
 }
 
 func TestEnsureNetworkPolicyProviderUsesConfiguredClusterDomain(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	installer := &fakeNetworkPolicyProviderInstaller{}
 	controller := newNetworkPolicyProviderController(t, installer)
 	controller.services.MCPClusterDomain = "example.internal"

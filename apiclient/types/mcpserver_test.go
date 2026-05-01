@@ -40,7 +40,7 @@ func TestMapCatalogEntryToServer_UVX(t *testing.T) {
 		t.Errorf("Expected egressDomains ['api.example.com'], got %v", result.UVXConfig.EgressDomains)
 	}
 
-	if BoolValue(result.UVXConfig.DenyAllEgress) {
+	if result.UVXConfig.DenyAllEgress == nil || *result.UVXConfig.DenyAllEgress {
 		t.Errorf("Expected denyAllEgress false, got %v", result.UVXConfig.DenyAllEgress)
 	}
 }
@@ -79,7 +79,7 @@ func TestMapCatalogEntryToServer_NPX(t *testing.T) {
 		t.Errorf("Expected egressDomains ['*.example.com'], got %v", result.NPXConfig.EgressDomains)
 	}
 
-	if BoolValue(result.NPXConfig.DenyAllEgress) {
+	if result.NPXConfig.DenyAllEgress == nil || *result.NPXConfig.DenyAllEgress {
 		t.Errorf("Expected denyAllEgress false, got %v", result.NPXConfig.DenyAllEgress)
 	}
 }
@@ -127,7 +127,7 @@ func TestMapCatalogEntryToServer_Containerized(t *testing.T) {
 		t.Errorf("Expected egressDomains [], got %v", result.ContainerizedConfig.EgressDomains)
 	}
 
-	if !BoolValue(result.ContainerizedConfig.DenyAllEgress) {
+	if result.ContainerizedConfig.DenyAllEgress == nil || !*result.ContainerizedConfig.DenyAllEgress {
 		t.Errorf("Expected denyAllEgress true, got %v", result.ContainerizedConfig.DenyAllEgress)
 	}
 }

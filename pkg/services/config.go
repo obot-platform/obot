@@ -511,7 +511,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// Validate network policy provider configuration
 	mcpNetworkPolicyEnabled := config.MCPNetworkPolicyProviderChartPath != "" || config.MCPNetworkPolicyProviderChartName != ""
 	if mcpNetworkPolicyEnabled && !runtimeIsK8s {
-		return nil, fmt.Errorf("network policy provider requires OBOT_SERVER_MCPRUNTIME_BACKEND to be kubernetes")
+		return nil, fmt.Errorf("network policy provider requires MCP runtime backend to be kubernetes")
 	}
 	if !mcpNetworkPolicyEnabled {
 		config.MCPNetworkPolicyProviderChartRepo = ""
@@ -524,10 +524,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			(config.MCPNetworkPolicyProviderChartRepo != "" ||
 				config.MCPNetworkPolicyProviderChartName != "" ||
 				config.MCPNetworkPolicyProviderChartVersion != "") {
-			return nil, fmt.Errorf("OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_PATH cannot be combined with chart repo, name, or version")
+			return nil, fmt.Errorf("network policy provider chart path cannot be combined with chart repo, name, or version")
 		}
 		if config.MCPNetworkPolicyProviderChartPath == "" && config.MCPNetworkPolicyProviderChartRepo == "" {
-			return nil, fmt.Errorf("network policy provider requires OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO when using a remote chart")
+			return nil, fmt.Errorf("network policy provider requires chart repo when using a remote chart")
 		}
 	}
 

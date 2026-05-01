@@ -32,7 +32,7 @@ type Client struct {
 	apiKeyCacheLock         sync.RWMutex
 	apiKeyCache             map[[32]byte]apiKeyValidationCacheEntry
 	apiKeyCacheTTL          time.Duration
-	serviceAccountCacheLock sync.Mutex
+	serviceAccountCacheLock sync.RWMutex
 	serviceAccountCache     map[[32]byte]serviceAccountValidationCacheEntry
 	serviceAccountCacheTTL  time.Duration
 	auditLogCleanupInterval time.Duration

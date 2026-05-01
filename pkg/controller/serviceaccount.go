@@ -63,14 +63,6 @@ func (c *Controller) reconcileServiceAccountKeys(ctx context.Context) error {
 // reconcileServiceAccountSecretChange restores the managed provider token secret
 // after manual changes or deletion, while preserving disabled-state cleanup.
 func (c *Controller) reconcileServiceAccountSecretChange(req router.Request, _ router.Response) error {
-	ns, err := c.runtimeNamespace()
-	if err != nil {
-		return err
-	}
-	if req.Namespace != ns {
-		return nil
-	}
-
 	account, ok := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)
 	if !ok {
 		return nil

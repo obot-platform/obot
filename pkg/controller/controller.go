@@ -597,5 +597,5 @@ func (c *Controller) setupLocalK8sRoutes() {
 	c.localK8sRouter.Type(&corev1.Secret{}).Namespace(c.services.MCPServerNamespace).HandlerFunc(secretHandler.UpdateNanobotAgentCreds)
 	// Reconcile delete/update events for the provider token secret immediately,
 	// instead of waiting for the periodic service-account key rotation loop.
-	c.localK8sRouter.Type(&corev1.Secret{}).Name(serviceaccounts.NetworkPolicySecretName).IncludeRemoved().HandlerFunc(c.reconcileServiceAccountSecretChange)
+	c.localK8sRouter.Type(&corev1.Secret{}).Namespace(c.services.ServiceNamespace).Name(serviceaccounts.NetworkPolicySecretName).IncludeRemoved().HandlerFunc(c.reconcileServiceAccountSecretChange)
 }

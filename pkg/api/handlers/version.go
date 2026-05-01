@@ -141,11 +141,6 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 	values["enterprise"] = v.enterprise
 	values["engine"] = v.engine
 	values["mcpNetworkPolicyEnabled"] = v.mcpNetworkPolicyEnabled
-	if v.mcpNetworkPolicyEnabled {
-		values["mcpNetworkPolicyProvider"] = "configured"
-	} else {
-		values["mcpNetworkPolicyProvider"] = ""
-	}
 	values["mcpDefaultDenyAllEgress"] = v.mcpDefaultDenyAllEgress
 	values["autonomousToolUseEnabled"] = v.autonomousToolUseEnabled
 	values["nanobotIntegration"] = v.nanobotIntegration

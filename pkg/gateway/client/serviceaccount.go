@@ -148,14 +148,32 @@ func (c *Client) getValidatedServiceAccountAPIKeyFromCache(token string, now tim
 
 	fingerprint := serviceAccountCacheFingerprint(token)
 
-	c.serviceAccountCacheLock.Lock()
-	defer c.serviceAccountCacheLock.Unlock()
-
+	c.serviceAccountCacheLock.RLock()
 	entry, ok := c.serviceAccountCache[fingerprint]
 	if !ok {
+		c.serviceAccountCacheLock.RUnlock()
 		return nil, false
 	}
 
+	entryExpired := now.After(entry.expiresAt) || entry.apiKey.ValidAfter.After(now) || (entry.apiKey.RetireAfter != nil && !entry.apiKey.RetireAfter.After(now))
+	if !entryExpired {
+		apiKey := cloneServiceAccountAPIKey(entry.apiKey)
+		c.serviceAccountCacheLock.RUnlock()
+		apiKey.Token = token
+		return &apiKey, true
+	}
+	c.serviceAccountCacheLock.RUnlock()
+
+	// The entry looked expired under the read lock. Re-check under the write
+	// lock before deleting because another goroutine may have refreshed it
+	// between releasing RLock and acquiring Lock.
+	c.serviceAccountCacheLock.Lock()
+	defer c.serviceAccountCacheLock.Unlock()
+
+	entry, ok = c.serviceAccountCache[fingerprint]
+	if !ok {
+		return nil, false
+	}
 	if now.After(entry.expiresAt) || entry.apiKey.ValidAfter.After(now) || (entry.apiKey.RetireAfter != nil && !entry.apiKey.RetireAfter.After(now)) {
 		delete(c.serviceAccountCache, fingerprint)
 		return nil, false
@@ -184,10 +202,6 @@ func (c *Client) putValidatedServiceAccountAPIKeyInCache(token string, apiKey *t
 }
 
 func (c *Client) pruneExpiredValidatedServiceAccountAPIKeys(now time.Time) {
-	if c.serviceAccountCache == nil {
-		return
-	}
-
 	c.serviceAccountCacheLock.Lock()
 	defer c.serviceAccountCacheLock.Unlock()
 

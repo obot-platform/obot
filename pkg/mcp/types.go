@@ -40,11 +40,9 @@ type ServerConfig struct {
 	Headers []string `json:"headers"`
 
 	// Containerized configuration.
-	ContainerImage string   `json:"containerImage"`
-	ContainerPort  int      `json:"containerPort"`
-	ContainerPath  string   `json:"containerPath"`
-	EgressDomains  []string `json:"egressDomains"`
-	DenyAllEgress  bool     `json:"denyAllEgress"`
+	ContainerImage string `json:"containerImage"`
+	ContainerPort  int    `json:"containerPort"`
+	ContainerPath  string `json:"containerPath"`
 
 	// Composite configuration.
 	Components []ComponentServer `json:"components"`
@@ -124,8 +122,6 @@ func configureUVXRuntime(serverConfig *ServerConfig, uvxConfig *types.UVXRuntime
 	}
 
 	serverConfig.Command = "uvx"
-	serverConfig.EgressDomains = uvxConfig.EgressDomains
-	serverConfig.DenyAllEgress = types.BoolValue(uvxConfig.DenyAllEgress)
 	if uvxConfig.Command != "" {
 		serverConfig.Args = []string{"--from", uvxConfig.Package, expandEnvVars(uvxConfig.Command, credEnv, fileEnvVars)}
 	} else {
@@ -145,8 +141,6 @@ func configureNPXRuntime(serverConfig *ServerConfig, npxConfig *types.NPXRuntime
 	}
 
 	serverConfig.Command = "npx"
-	serverConfig.EgressDomains = npxConfig.EgressDomains
-	serverConfig.DenyAllEgress = types.BoolValue(npxConfig.DenyAllEgress)
 	serverConfig.Args = []string{npxConfig.Package}
 	for _, arg := range npxConfig.Args {
 		serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
@@ -166,8 +160,6 @@ func configureContainerizedRuntime(serverConfig *ServerConfig, containerizedConf
 	}
 	serverConfig.ContainerPort = containerizedConfig.Port
 	serverConfig.ContainerPath = containerizedConfig.Path
-	serverConfig.EgressDomains = containerizedConfig.EgressDomains
-	serverConfig.DenyAllEgress = types.BoolValue(containerizedConfig.DenyAllEgress)
 	serverConfig.Command = expandEnvVars(containerizedConfig.Command, credEnv, fileEnvVars)
 	for _, arg := range containerizedConfig.Args {
 		serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))

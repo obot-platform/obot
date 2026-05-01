@@ -40,6 +40,13 @@ type Handler struct {
 	baseURL                      string
 }
 
+func effectiveDenyAllEgress(v *bool, domains []string, defaultWhenEmpty bool) bool {
+	if v != nil {
+		return *v
+	}
+	return defaultWhenEmpty && len(domains) == 0
+}
+
 func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, networkPolicyProviderEnabled, defaultDenyAllEgress bool, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay, agentIdleShutdownDelay time.Duration, baseURL string) *Handler {
 	return &Handler{
 		gptClient:                    gptClient,
@@ -98,17 +105,17 @@ func (h *Handler) EnsureMCPNetworkPolicy(req router.Request, _ router.Response) 
 	case types.RuntimeNPX:
 		if server.Spec.Manifest.NPXConfig != nil {
 			egressDomains = server.Spec.Manifest.NPXConfig.EgressDomains
-			denyAllEgress = types.EffectiveDenyAllEgress(server.Spec.Manifest.NPXConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
+			denyAllEgress = effectiveDenyAllEgress(server.Spec.Manifest.NPXConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
 		}
 	case types.RuntimeUVX:
 		if server.Spec.Manifest.UVXConfig != nil {
 			egressDomains = server.Spec.Manifest.UVXConfig.EgressDomains
-			denyAllEgress = types.EffectiveDenyAllEgress(server.Spec.Manifest.UVXConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
+			denyAllEgress = effectiveDenyAllEgress(server.Spec.Manifest.UVXConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
 		}
 	case types.RuntimeContainerized:
 		if server.Spec.Manifest.ContainerizedConfig != nil {
 			egressDomains = server.Spec.Manifest.ContainerizedConfig.EgressDomains
-			denyAllEgress = types.EffectiveDenyAllEgress(server.Spec.Manifest.ContainerizedConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
+			denyAllEgress = effectiveDenyAllEgress(server.Spec.Manifest.ContainerizedConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
 		}
 	default:
 		return h.deleteMCPNetworkPolicy(req, server.Namespace, server.Name)
@@ -277,8 +284,8 @@ func uvxConfigHasDrifted(serverConfig, entryConfig *types.UVXRuntimeConfig, defa
 		serverConfig.Command != entryConfig.Command ||
 		!slices.Equal(serverConfig.Args, entryConfig.Args) ||
 		!slices.Equal(serverConfig.EgressDomains, entryConfig.EgressDomains) ||
-		types.EffectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
-			types.EffectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
+		effectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
+			effectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
 }
 
 // npxConfigHasDrifted checks if NPX configuration has drifted
@@ -293,8 +300,8 @@ func npxConfigHasDrifted(serverConfig, entryConfig *types.NPXRuntimeConfig, defa
 	return serverConfig.Package != entryConfig.Package ||
 		!slices.Equal(serverConfig.Args, entryConfig.Args) ||
 		!slices.Equal(serverConfig.EgressDomains, entryConfig.EgressDomains) ||
-		types.EffectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
-			types.EffectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
+		effectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
+			effectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
 }
 
 // containerizedConfigHasDrifted checks if containerized configuration has drifted
@@ -312,8 +319,8 @@ func containerizedConfigHasDrifted(serverConfig, entryConfig *types.Containerize
 		serverConfig.Path != entryConfig.Path ||
 		!slices.Equal(serverConfig.Args, entryConfig.Args) ||
 		!slices.Equal(serverConfig.EgressDomains, entryConfig.EgressDomains) ||
-		types.EffectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
-			types.EffectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
+		effectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
+			effectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
 }
 
 // remoteConfigHasDrifted checks if remote configuration has drifted

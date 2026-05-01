@@ -166,7 +166,6 @@ export interface Version {
 	upgradeAvailable?: boolean;
 	engine?: 'docker' | 'kubernetes' | 'local';
 	mcpNetworkPolicyEnabled?: boolean;
-	mcpNetworkPolicyProvider?: string;
 	mcpDefaultDenyAllEgress?: boolean;
 	autonomousToolUseEnabled?: boolean;
 	nanobotIntegration?: boolean;
