@@ -92,23 +92,21 @@ func (h *Handler) SecretChanged(req router.Request, _ router.Response) error {
 			continue
 		}
 
-		// Bump a spec-level annotation as a sentinel write. Any spec
-		// change emits a watch event the existing MCPServer handlers
-		// pick up; the deploy pipeline then re-resolves bindings
-		// against the just-changed Secret. The annotation value is
-		// the Secret's resourceVersion (empty string on delete) so
-		// repeated identical changes don't loop.
-		var rev string
-		if secret, ok := req.Object.(*corev1.Secret); ok && secret != nil {
-			rev = secret.ResourceVersion
-		}
-		if s.Annotations[rotationAnnotation] == rev {
+		// Compute a hash of only the Secret keys actually referenced by
+		// this MCPServer's bindings. Using a content hash (rather than
+		// ResourceVersion) means that changes to other keys in the same
+		// Secret — or metadata-only updates — do not trigger a spurious
+		// redeploy. The annotation value is empty string when the Secret
+		// is deleted, which will always differ from any non-empty hash.
+		secret, _ := req.Object.(*corev1.Secret)
+		referencedHash := mcp.HashReferencedKeys(s.Spec.Manifest, name, secret)
+		if s.Annotations[rotationAnnotation] == referencedHash {
 			continue
 		}
 		if s.Annotations == nil {
 			s.Annotations = map[string]string{}
 		}
-		s.Annotations[rotationAnnotation] = rev
+		s.Annotations[rotationAnnotation] = referencedHash
 		if err := h.storage.Update(req.Ctx, s); err != nil {
 			return fmt.Errorf("trigger reconcile on mcpserver %s: %w", s.Name, err)
 		}

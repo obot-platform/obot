@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/obot/apiclient/types"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -191,6 +192,37 @@ func ManifestHasOnlyDynamicFileBindingsForSecret(manifest types.MCPServerManifes
 		}
 	}
 	return true
+}
+
+// HashReferencedKeys returns a deterministic hash of the values of every
+// key in secret that is referenced by a secretBinding in manifest. Only the
+// specific binding keys are included — other keys in the Secret that the
+// manifest does not reference are ignored. This is used by the secret-watch
+// handler as the rotation annotation value so that a change to an
+// unreferenced key in the same Secret does not spuriously trigger a redeploy.
+//
+// When secret is nil (Secret was deleted), the empty string is returned; this
+// will always differ from any non-empty hash, so deletions always trigger a
+// reconcile.
+func HashReferencedKeys(manifest types.MCPServerManifest, secretName string, secret *corev1.Secret) string {
+	if secret == nil {
+		return ""
+	}
+	// Collect values keyed by binding key name for a deterministic digest.
+	vals := make(map[string]string)
+	for _, e := range manifest.Env {
+		if e.SecretBinding != nil && e.SecretBinding.Name == secretName {
+			vals[e.SecretBinding.Key] = string(secret.Data[e.SecretBinding.Key])
+		}
+	}
+	if manifest.RemoteConfig != nil {
+		for _, h := range manifest.RemoteConfig.Headers {
+			if h.SecretBinding != nil && h.SecretBinding.Name == secretName {
+				vals[h.SecretBinding.Key] = string(secret.Data[h.SecretBinding.Key])
+			}
+		}
+	}
+	return hash.Digest(vals)
 }
 
 // ManifestReferencesSecret reports whether any env or header
