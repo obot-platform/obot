@@ -993,12 +993,6 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 					return true, nil
 				}
 
-				select {
-				case <-ctx.Done():
-					return false, ctx.Err()
-				default:
-				}
-
 				// Deployment not ready yet — check pod status for early failure detection.
 				var pods corev1.PodList
 				if listErr := k.client.List(ctx, &pods, &kclient.ListOptions{
