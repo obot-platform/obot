@@ -96,11 +96,10 @@ func (h *Handler) SecretChanged(req router.Request, _ router.Response) error {
 		// this MCPServer's bindings. Using a content hash (rather than
 		// ResourceVersion) means that changes to other keys in the same
 		// Secret — or metadata-only updates — do not trigger a spurious
-		// redeploy. The annotation value is empty string when the Secret
-		// is deleted, which will always differ from any non-empty hash.
+		// redeploy.
 		secret, _ := req.Object.(*corev1.Secret)
 		referencedHash := mcp.HashReferencedKeys(s.Spec.Manifest, name, secret)
-		if s.Annotations[rotationAnnotation] == referencedHash {
+		if secret != nil && s.Annotations[rotationAnnotation] == referencedHash {
 			continue
 		}
 		if s.Annotations == nil {

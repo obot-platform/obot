@@ -204,6 +204,25 @@ func TestSecretChanged_DeleteSetsEmptyHash(t *testing.T) {
 	assert.Empty(t, s.Annotations[rotationAnnotation], "deleted secret should set empty hash")
 }
 
+func TestSecretChanged_DeleteFansOutEvenWhenNeverAnnotated(t *testing.T) {
+	server := newServer("srv", "my-secret", "tok")
+	storage := newFakeClient(t, server)
+	h := New(storage, obotNS, nil)
+
+	// Precondition: annotation is absent before the delete event.
+	require.Empty(t, getServer(t, storage, "srv").Annotations[rotationAnnotation])
+
+	// Delete event with no prior annotation on the server.
+	require.NoError(t, h.SecretChanged(request(context.Background(), nil, obotNS, "my-secret"), nil))
+
+	// The Annotations map must have been explicitly written (Update was called),
+	// proving the reconcile fan-out happened.
+	s := getServer(t, storage, "srv")
+	require.NotNil(t, s.Annotations, "Update must have been called to initialise Annotations")
+	_, wasSet := s.Annotations[rotationAnnotation]
+	assert.True(t, wasSet, "rotationAnnotation must be explicitly set even when its value is empty")
+}
+
 func TestSecretChanged_FansOutToMultipleServers(t *testing.T) {
 	srv1 := newServer("srv1", "shared-secret", "key")
 	srv2 := newServer("srv2", "shared-secret", "key")
