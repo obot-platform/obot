@@ -295,8 +295,8 @@
 				{/if}
 
 				<div class="mt-4 flex justify-end gap-2">
-					<button type="button" class="button text-xs" onclick={handleCancel}>Cancel</button>
-					<button type="button" class="button-primary text-xs" onclick={handleApply}>Apply</button>
+					<button type="button" class="btn btn-sm" onclick={handleCancel}>Cancel</button>
+					<button type="button" class="btn btn-primary btn-sm" onclick={handleApply}>Apply</button>
 				</div>
 			</CalendarGrid>
 		</div>

@@ -465,7 +465,7 @@
 					></textarea>
 				</div>
 				<button
-					class="button-primary w-full text-sm"
+					class="btn btn-primary btn-sm w-full"
 					disabled={savingNewProject}
 					onclick={handleSaveNewProject}
 				>

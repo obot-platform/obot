@@ -136,7 +136,7 @@
 											buttonText={shareUrl}
 											classes={{
 												button:
-													'button-small flex items-center gap-1 rounded-full border border-base-300 bg-transparent px-4 py-2 text-base-content/40 hover:bg-base-200 hover:text-white disabled:bg-transparent'
+													'btn btn-sm flex items-center gap-1 rounded-full border border-base-300 bg-transparent px-4 py-2 text-base-content/40 hover:bg-base-200 hover:text-white disabled:bg-transparent'
 											}}
 										/>
 									</div>
@@ -154,7 +154,7 @@
 										>
 										{#if showUpgradeButton}
 											<button
-												class="button flex gap-1"
+												class="btn btn-primary btn-soft flex gap-1"
 												onclick={upgradeFromTemplate}
 												disabled={upgradeLoading}
 											>
@@ -162,7 +162,7 @@
 													<LoaderCircle class="size-4 animate-spin" />
 												{:else}
 													Upgrade
-													<CircleFadingArrowUp class="relative top-[1px] size-4 shrink-0" />
+													<CircleFadingArrowUp class="relative top-px size-4 shrink-0" />
 												{/if}
 											</button>
 										{/if}
@@ -236,7 +236,7 @@
 							<p class="font-semibold">Delete Project</p>
 							<span class="text-sm font-light">Delete this project and all associated data.</span>
 						</div>
-						<button class="button-destructive text-md" onclick={() => (confirmDelete = true)}>
+						<button class="btn btn-error text-md" onclick={() => (confirmDelete = true)}>
 							Delete this project
 						</button>
 					</div>
@@ -247,8 +247,10 @@
 	<div
 		class="dark:bg-base-100 bg-base-200 sticky bottom-0 left-0 flex w-full justify-end gap-4 p-4 md:px-8"
 	>
-		<button disabled={saving} class="button" onclick={() => closeAll(layout)}> Cancel </button>
-		<button disabled={saving} class="button-primary" onclick={handleUpdate}>
+		<button disabled={saving} class="btn btn-secondary" onclick={() => closeAll(layout)}>
+			Cancel
+		</button>
+		<button disabled={saving} class="btn btn-primary" onclick={handleUpdate}>
 			{#if saving}
 				<LoaderCircle class="size-4 animate-spin" />
 			{:else}

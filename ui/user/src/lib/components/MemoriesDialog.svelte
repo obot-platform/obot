@@ -255,8 +255,8 @@
 									class="default-scrollbar-thin text-on-background min-h-10 w-full border-none bg-transparent pr-0 ring-0 outline-hidden"
 								></textarea>
 								<div class="flex justify-end gap-4">
-									<button class="button text-xs" onclick={cancelEdit}> Cancel </button>
-									<button class="button-primary text-xs" onclick={saveEdit}> Save </button>
+									<button class="btn btn-sm" onclick={cancelEdit}> Cancel </button>
+									<button class="btn btn-sm btn-primary" onclick={saveEdit}> Save </button>
 								</div>
 							</div>
 						{:else}
@@ -333,7 +333,7 @@
 
 {#snippet deleteAllButton(inline?: boolean)}
 	<button
-		class={twMerge('button-destructive', inline && 'py-2 text-xs')}
+		class={twMerge('btn btn-error btn-sm', inline && 'py-2')}
 		onclick={() => (toDeleteAll = true)}
 		disabled={loading || memories.length === 0}
 	>

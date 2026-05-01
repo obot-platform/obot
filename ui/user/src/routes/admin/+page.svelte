@@ -89,7 +89,7 @@
 						</p>
 					</div>
 					<button
-						class="button place-items-center"
+						class="btn btn-secondary place-items-center"
 						onclick={async () => {
 							await AdminService.bootstrapLogout();
 							// make sure to clear seenSplashDialog so splash will show for logged in owner if needed
@@ -136,7 +136,7 @@
 					<div class="flex flex-col gap-2">
 						{#if !isExplicitAdmin}
 							<button
-								class="button-primary place-items-center"
+								class="btn btn-primary place-items-center"
 								onclick={async () => {
 									loadingConfirmTempUser = true;
 									await AdminService.confirmTempUserAsOwner(tempUser.email);
@@ -153,7 +153,7 @@
 							</button>
 						{/if}
 						<button
-							class="button place-items-center"
+							class="btn btn-secondary place-items-center"
 							onclick={async () => {
 								loadingCancelTempUser = true;
 								await AdminService.cancelTempLogin();
@@ -269,7 +269,7 @@
 					'Bootstrap Token', or configure it directly through environment variables at startup.
 				</i>
 
-				<button class="button-primary mt-4 text-sm" onclick={handleBootstrapLogin}> Login </button>
+				<button class="btn btn-primary mt-4 text-sm" onclick={handleBootstrapLogin}> Login </button>
 			</div>
 		{/if}
 	</form>

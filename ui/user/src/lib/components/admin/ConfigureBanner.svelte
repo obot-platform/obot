@@ -57,18 +57,12 @@
 				{/if}
 				<div class="flex flex-row flex-wrap gap-2">
 					{#if !isModelProviderConfigured}
-						<a
-							href={resolve('/admin/model-providers')}
-							class="button grow bg-warning text-center text-sm text-warning-content hover:bg-warning/70"
-						>
+						<a href={resolve('/admin/model-providers')} class="btn btn-warning">
 							Configure Model Provider
 						</a>
 					{/if}
 					{#if !isAuthProviderConfigured}
-						<a
-							href={resolve('/admin/auth-providers')}
-							class="button grow bg-warning text-center text-sm text-warning-content hover:bg-warning/70"
-						>
+						<a href={resolve('/admin/auth-providers')} class="btn btn-warning">
 							Configure Auth Provider
 						</a>
 					{/if}

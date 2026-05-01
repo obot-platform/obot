@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService } from '$lib/services';
 	import {
@@ -248,15 +247,15 @@
 					</h1>
 				</div>
 				{#if !readonly}
-					<button
-						class="button-destructive flex items-center gap-1 text-xs font-normal"
-						use:tooltip={'Delete Policy'}
+					<IconButton
+						variant="danger2"
+						tooltip={{ text: 'Delete Policy' }}
 						onclick={() => {
 							deletingPolicy = true;
 						}}
 					>
 						<Trash2 class="size-4" />
-					</button>
+					</IconButton>
 				{/if}
 			</div>
 		{/if}
@@ -287,12 +286,12 @@
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						{#if loadingUsersAndGroups}
-							<button class="button-primary flex items-center gap-1 text-sm" disabled>
+							<button class="btn btn-primary flex items-center gap-1 text-sm" disabled>
 								<Plus class="size-4" /> Add User/Group
 							</button>
 						{:else}
 							<button
-								class="button-primary flex items-center gap-1 text-sm"
+								class="btn btn-primary flex items-center gap-1 text-sm"
 								onclick={() => {
 									addUserGroupDialog?.open();
 								}}
@@ -338,7 +337,7 @@
 				<h2 class="text-lg font-semibold">Skills</h2>
 				{#if !readonly}
 					<button
-						class="button-primary flex items-center gap-1 text-sm"
+						class="btn btn-primary flex items-center gap-1 text-sm"
 						onclick={() => {
 							addSkillDialog?.open();
 						}}
@@ -395,7 +394,7 @@
 			<div class="flex w-full justify-end gap-2">
 				{#if !skillAccessPolicy.id}
 					<button
-						class="button text-sm"
+						class="btn btn-secondary text-sm"
 						onclick={() => {
 							goto('/admin/skill-access-policies');
 						}}
@@ -403,7 +402,7 @@
 						Cancel
 					</button>
 					<button
-						class="button-primary text-sm"
+						class="btn btn-primary text-sm"
 						disabled={!validate(skillAccessPolicy) || saving}
 						onclick={async () => {
 							saving = true;
@@ -424,7 +423,7 @@
 					</button>
 				{:else}
 					<button
-						class="button-primary text-sm"
+						class="btn btn-primary text-sm"
 						disabled={!validate(skillAccessPolicy) || !hasChanges || saving}
 						onclick={async () => {
 							if (!skillAccessPolicy.id) return;

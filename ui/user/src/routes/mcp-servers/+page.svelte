@@ -192,7 +192,7 @@
 
 {#snippet addServerButton()}
 	<button
-		class="button-primary flex w-full items-center gap-1 text-sm md:w-fit"
+		class="btn btn-primary flex w-full items-center gap-1 text-sm md:w-fit"
 		onclick={() => {
 			selectServerTypeDialog?.open();
 		}}

@@ -116,8 +116,8 @@
 			<button
 				onclick={onConfigure}
 				class={twMerge(
-					'w-full border-0 text-sm',
-					provider.configured ? 'button' : 'button-primary'
+					'w-full border-0 text-sm btn',
+					provider.configured ? 'btn-secondary' : 'btn-primary'
 				)}
 				disabled={disableConfigure}
 			>

@@ -457,7 +457,12 @@
 		</form>
 		{#if !readonly}
 			<div class="mt-4 flex justify-end gap-2 p-4 pt-0">
-				<button class="button-primary" type="button" onclick={() => configure()} disabled={loading}>
+				<button
+					class="btn btn-primary"
+					type="button"
+					onclick={() => configure()}
+					disabled={loading}
+				>
 					{#if loading}
 						<LoaderCircle class="size-4 animate-spin" />
 					{:else}

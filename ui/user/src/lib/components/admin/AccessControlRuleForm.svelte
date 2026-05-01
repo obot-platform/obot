@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import {
 		PAGE_TRANSITION_DURATION,
 		ADMIN_SESSION_STORAGE,
@@ -299,15 +298,15 @@
 					{/if}
 				</div>
 				{#if !readonly}
-					<button
-						class="button-destructive flex items-center gap-1 text-xs font-normal"
-						use:tooltip={'Delete Catalog'}
+					<IconButton
+						variant="danger2"
+						tooltip={{ text: 'Delete Catalog' }}
 						onclick={() => {
 							deletingRule = true;
 						}}
 					>
 						<Trash2 class="size-4" />
-					</button>
+					</IconButton>
 				{/if}
 			</div>
 		{/if}
@@ -338,12 +337,12 @@
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						{#if loadingUsersAndGroups}
-							<button class="button-primary flex items-center gap-1 text-sm" disabled>
+							<button class="btn btn-primary flex items-center gap-1 text-sm" disabled>
 								<Plus class="size-4" /> Add User/Group
 							</button>
 						{:else}
 							<button
-								class="button-primary flex items-center gap-1 text-sm"
+								class="btn btn-primary flex items-center gap-1 text-sm"
 								onclick={() => {
 									addUserGroupDialog?.open();
 								}}
@@ -432,7 +431,7 @@
 			<div class="flex w-full justify-end gap-2">
 				{#if !accessControlRule.id}
 					<button
-						class="button text-sm"
+						class="btn btn-secondary btn-sm"
 						onclick={() => {
 							if (redirect) {
 								goto(redirect);
@@ -446,7 +445,7 @@
 						Cancel
 					</button>
 					<button
-						class="button-primary text-sm"
+						class="btn btn-primary btn-sm"
 						disabled={!validate(accessControlRule) || saving}
 						onclick={async () => {
 							if (!id) return;
@@ -472,7 +471,7 @@
 					</button>
 				{:else}
 					<button
-						class="button text-sm"
+						class="btn btn-secondary"
 						disabled={saving}
 						onclick={async () => {
 							if (!accessControlRule.id || !id) return;
@@ -487,7 +486,7 @@
 						Reset
 					</button>
 					<button
-						class="button-primary text-sm"
+						class="btn btn-primary"
 						disabled={!validate(accessControlRule) || saving}
 						onclick={async () => {
 							if (!accessControlRule.id || !id) return;

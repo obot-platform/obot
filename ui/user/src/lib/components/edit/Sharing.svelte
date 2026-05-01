@@ -73,7 +73,7 @@
 				</p>
 				<div class="mt-2 flex justify-end" in:fade>
 					<button
-						class="button flex cursor-pointer items-center justify-end gap-1 text-xs"
+						class="btn btn-secondary btn-sm flex cursor-pointer items-center justify-end gap-1"
 						onclick={openChatbotConfig}
 					>
 						<span>Configure ChatBot</span>

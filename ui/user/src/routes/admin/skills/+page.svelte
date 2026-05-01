@@ -205,7 +205,7 @@
 	{#snippet rightNavActions()}
 		{#if !isAdminReadonly}
 			<button
-				class="button-primary flex items-center gap-1 text-sm"
+				class="btn btn-primary flex items-center gap-1 text-sm"
 				onclick={() => {
 					editingSource = { index: -1, value: '', name: '', ref: 'main' };
 					sourceDialog?.showModal();
@@ -355,7 +355,7 @@
 				{#snippet tableSelectActions(currentSelected)}
 					<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 						<button
-							class="button flex items-center gap-1 text-sm font-normal"
+							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => {
 								for (const id of Object.keys(currentSelected)) {
 									sync(id);
@@ -370,7 +370,7 @@
 							{/if}
 						</button>
 						<button
-							class="button flex items-center gap-1 text-sm font-normal"
+							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => {
 								deletingSources = Object.values(currentSelected);
 							}}
@@ -503,9 +503,11 @@
 			{/if}
 
 			<div class="flex w-full justify-end gap-2">
-				<button class="button" disabled={saving} onclick={() => closeSourceDialog()}>Cancel</button>
+				<button class="btn btn-secondary" disabled={saving} onclick={() => closeSourceDialog()}
+					>Cancel</button
+				>
 				<button
-					class="button-primary"
+					class="btn btn-primary"
 					disabled={saving}
 					onclick={async () => {
 						if (!editingSource) {

@@ -33,7 +33,7 @@
 			<HatGlasses class="inline-block size-5" /> <span class="font-semibold">CAUTION!</span> You are
 			currently impersonating <span class="font-semibold">{ownerEmail}.</span> <br />
 		</p>
-		<a href={resolve('/admin/agents')} class="button text-on-background text-xs font-normal"
+		<a href={resolve('/admin/agents')} class="btn btn-sm text-base-content font-normal"
 			>Stop Impersonating</a
 		>
 	</div>

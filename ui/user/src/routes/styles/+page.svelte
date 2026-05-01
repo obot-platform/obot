@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Trash2 } from 'lucide-svelte';
 </script>
 
 <div class="flex h-dvh flex-col items-center justify-center gap-2 p-5">
@@ -8,20 +7,7 @@
 		<button class="btn">button</button>
 		<button class="btn btn-secondary">button-secondary</button>
 		<button class="btn btn-primary">button-primary</button>
-		<button class="btn btn-error">button-primary</button>
-	</div>
-
-	<h2 class="mt-5 self-center text-xl">Icons</h2>
-	<div class="flex items-center gap-2">
-		<Trash2 class="icon-default" />
-		icon-default
-	</div>
-
-	<div class="flex items-center gap-2">
-		<button class="icon-button">
-			<Trash2 class="icon-default" />
-		</button>
-		icon-button
+		<button class="btn btn-primary">button-primary</button>
 	</div>
 
 	<div class="mt-5 flex flex-col gap-3">

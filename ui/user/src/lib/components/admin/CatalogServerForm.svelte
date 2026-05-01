@@ -633,9 +633,11 @@
 		{#if Object.keys(showRequired).length > 0}
 			<span class="text-sm font-medium text-error">Fill out all required fields</span>
 		{/if}
-		<button class="button flex items-center gap-1" onclick={() => onCancel?.()}> Cancel </button>
+		<button class="btn btn-secondary flex items-center gap-1" onclick={() => onCancel?.()}>
+			Cancel
+		</button>
 		<button
-			class="button-primary flex items-center gap-1"
+			class="btn btn-primary flex items-center gap-1"
 			onclick={handleSubmit}
 			disabled={loading ||
 				(formData.runtime === 'composite' &&

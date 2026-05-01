@@ -436,7 +436,7 @@
 				aria-label="Clear message"
 				onclick={() => (msg.ignore = true)}
 			>
-				<X class="icon-default" />
+				<X class="size-5" />
 			</button>
 		{/if}
 		{#if msg.oauthURL}

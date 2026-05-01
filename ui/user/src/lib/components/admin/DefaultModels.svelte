@@ -168,7 +168,7 @@
 </script>
 
 <button
-	class="button-primary text-sm font-normal"
+	class="btn btn-primary"
 	disabled={availableModels.length === 0 || loading}
 	onclick={() => open()}
 >
@@ -234,9 +234,9 @@
 		{/each}
 	</div>
 	{#if !readonly}
-		<div class="flex flex-col gap-4 pt-4">
+		<div class="flex flex-col gap-2 pt-4">
 			<button
-				class="button-primary w-full text-sm font-normal"
+				class="btn btn-primary w-full"
 				onclick={handleSaveChanges}
 				disabled={loading || !changed}
 			>
@@ -247,9 +247,7 @@
 				{/if}
 			</button>
 			{#if !required}
-				<button class="button w-full text-sm font-normal" onclick={() => dialog?.close()}>
-					Skip
-				</button>
+				<button class="btn btn-secondary w-full" onclick={() => dialog?.close()}> Skip </button>
 			{/if}
 		</div>
 	{/if}

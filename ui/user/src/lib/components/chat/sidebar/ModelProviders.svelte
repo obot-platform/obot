@@ -139,7 +139,7 @@
 		</div>
 
 		<div class="flex justify-end">
-			<button class="button flex items-center gap-1" onclick={openModelProvidersConfig}>
+			<button class="btn btn-secondary flex items-center gap-1" onclick={openModelProvidersConfig}>
 				<span class="text-xs">Manage Model Providers</span>
 			</button>
 		</div>

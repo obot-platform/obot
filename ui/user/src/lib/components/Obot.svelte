@@ -205,7 +205,7 @@
 					<div class="dialog-title">
 						<h3 class="text-lg font-semibold">Keyboard Shortcuts</h3>
 						<IconButton class="btn-sm dialog-close-btn" onclick={() => shortcutsDialog?.close()}>
-							<X class="icon-default" />
+							<X class="size-5" />
 						</IconButton>
 					</div>
 					<div class="space-y-4">

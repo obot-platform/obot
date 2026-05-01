@@ -617,7 +617,7 @@
 				{#if form.provider !== 'custom'}
 					<button
 						type="button"
-						class="button-secondary"
+						class="btn btn-secondary"
 						onclick={handleTest}
 						disabled={testing || saving}
 					>
@@ -633,7 +633,7 @@
 				{#if !!existingCredentials}
 					<button
 						type="button"
-						class="button-destructive"
+						class="btn btn-error"
 						onclick={confirmDeleteCredentials}
 						disabled={testing || saving || deleting}
 					>
@@ -648,10 +648,15 @@
 				{/if}
 
 				<div class="ml-auto flex gap-3">
-					<button type="button" class="button" onclick={onCancel} disabled={saving || testing}>
+					<button
+						type="button"
+						class="btn btn-secondary"
+						onclick={onCancel}
+						disabled={saving || testing}
+					>
 						Cancel
 					</button>
-					<button type="submit" class="button-primary" disabled={saving || testing}>
+					<button type="submit" class="btn btn-primary" disabled={saving || testing}>
 						{#if saving}
 							<LoaderCircle class="size-4 animate-spin" />
 							Saving...

@@ -562,7 +562,7 @@
 				/>
 
 				<button
-					class="hover:bg-base-200 dark:bg-base-200 dark:hover:bg-base-400 dark:border-base-400 button bg-base-100 flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent shadow-sm"
+					class="btn btn-neutral h-12.5"
 					onclick={() => {
 						showFilters = true;
 						selectedAuditLog = undefined;
@@ -577,7 +577,7 @@
 	</div>
 	{#if profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.OWNER)}
 		<div class="mt-4 flex justify-end gap-2">
-			<DotDotDot class="button-primary w-fit text-sm" placement="bottom">
+			<DotDotDot class="btn btn-block btn-primary w-fit text-sm" placement="bottom">
 				{#snippet icon()}
 					<span class="flex items-center justify-center gap-1">
 						<Plus class="size-4" /> Create Export
@@ -592,7 +592,7 @@
 			</DotDotDot>
 
 			<button
-				class="hover:bg-base-200 dark:bg-base-200 dark:hover:bg-base-400 dark:border-base-400 button bg-base-100 flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent shadow-sm"
+				class="btn btn-neutral"
 				onclick={() => {
 					goto('/admin/audit-logs/exports');
 				}}
@@ -865,8 +865,10 @@
 			{/if}
 
 			<div class="flex justify-end gap-3">
-				<button class="button" onclick={() => handleFilterConfirmation(false)}> No </button>
-				<button class="button-primary" onclick={() => handleFilterConfirmation(true)}>
+				<button class="btn btn-secondary" onclick={() => handleFilterConfirmation(false)}>
+					No
+				</button>
+				<button class="btn btn-primary" onclick={() => handleFilterConfirmation(true)}>
 					Yes, Include Filters
 				</button>
 			</div>

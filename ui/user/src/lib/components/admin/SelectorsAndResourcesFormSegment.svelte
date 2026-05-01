@@ -98,7 +98,7 @@
 		</div>
 		{#if !readonly}
 			<div class="relative flex items-center gap-4">
-				<button class="button-primary flex items-center gap-1 text-sm" onclick={addSelector}>
+				<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={addSelector}>
 					<Plus class="size-4" /> Add Selector
 				</button>
 			</div>
@@ -134,7 +134,7 @@
 		{#if !readonly}
 			<div class="relative flex items-center gap-4">
 				<button
-					class="button-primary flex items-center gap-1 text-sm"
+					class="btn btn-primary flex items-center gap-1 text-sm"
 					onclick={() => {
 						addMcpServerDialog?.open();
 					}}
@@ -225,7 +225,7 @@
 						<button
 							id="identifier-btn"
 							type="button"
-							class="button-text flex items-center gap-1 text-xs"
+							class="btn btn-secondary btn-sm flex items-center gap-1"
 							onclick={() => addIdentifier(selectorIndex)}
 						>
 							<Plus class="size-3" /> Add Identifier

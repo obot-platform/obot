@@ -172,10 +172,10 @@
 			/>
 		</div>
 
-		<div class="mt-4 flex flex-shrink-0 justify-end gap-2">
-			<button class="button" onclick={handleClose}>Cancel</button>
+		<div class="mt-4 flex shrink-0 justify-end gap-2">
+			<button class="btn btn-secondary" onclick={handleClose}>Cancel</button>
 			<button
-				class="button-primary"
+				class="btn btn-primary"
 				onclick={handleConfirm}
 				disabled={loading || (!!groupAssignment.assignment.role && !hasChanges)}
 			>

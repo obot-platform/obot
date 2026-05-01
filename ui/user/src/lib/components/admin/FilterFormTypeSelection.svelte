@@ -184,7 +184,7 @@
 </div>
 <div class="flex justify-end">
 	<button
-		class="button flex items-center gap-1 text-xs"
+		class="btn btn-secondary flex items-center gap-1 btn-sm"
 		onclick={() => {
 			unassignedCustomOptions.push({ id: randomUUID(), key: '', value: 'none' });
 		}}

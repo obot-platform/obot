@@ -19,7 +19,7 @@
 		<div class="flex flex-col items-center gap-4">
 			<h2 class="text-xl font-semibold">Session Expired</h2>
 			<p class="text-center">Your session has expired. Please log in again to continue.</p>
-			<button onclick={handleLogin} class="button-primary w-full"> Log In </button>
+			<button onclick={handleLogin} class="btn btn-primary w-full"> Log In </button>
 		</div>
 	</div>
 </dialog>

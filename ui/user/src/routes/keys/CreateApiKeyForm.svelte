@@ -252,8 +252,8 @@
 		in:fly={{ x: -100 }}
 	>
 		<div class="flex w-full justify-end gap-2">
-			<button class="button text-sm" onclick={onCancel}>Cancel</button>
-			<button class="button-primary text-sm" disabled={loading} onclick={handleCreate}>
+			<button class="btn btn-secondary text-sm" onclick={onCancel}>Cancel</button>
+			<button class="btn btn-primary text-sm" disabled={loading} onclick={handleCreate}>
 				{#if loading}
 					<LoaderCircle class="size-4 animate-spin" />
 				{:else}

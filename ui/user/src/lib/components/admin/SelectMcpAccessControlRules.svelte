@@ -192,10 +192,10 @@
 	{/if}
 	{#if accessControlRules.length > 0}
 		<div class="mt-auto flex justify-between gap-4">
-			<button class="button-primary" onclick={handleCreateNewRule}> Create New Registry </button>
+			<button class="btn btn-primary" onclick={handleCreateNewRule}> Create New Registry </button>
 			<div class="flex items-center gap-4">
 				<button
-					class="button-primary flex items-center gap-1"
+					class="btn btn-primary flex items-center gap-1"
 					onclick={handleAddToRules}
 					disabled={savingRules}
 				>
@@ -209,8 +209,8 @@
 		</div>
 	{:else}
 		<div class="mt-auto flex justify-end gap-4">
-			<button class="button" onclick={close}> Skip Step </button>
-			<button class="button-primary" onclick={handleCreateNewRule}> Create MCP Registry </button>
+			<button class="btn btn-secondary" onclick={close}> Skip Step </button>
+			<button class="btn btn-primary" onclick={handleCreateNewRule}> Create MCP Registry </button>
 		</div>
 	{/if}
 </ResponsiveDialog>

@@ -564,7 +564,7 @@
 
 			{#if !mcpId}
 				<button
-					class="hover:bg-base-200 dark:bg-base-200 dark:hover:bg-base-400 dark:border-base-400 button bg-base-100 flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent shadow-sm"
+					class="btn btn-neutral h-12.5"
 					onclick={() => {
 						showFilters = true;
 						rightSidebar?.showPopover();

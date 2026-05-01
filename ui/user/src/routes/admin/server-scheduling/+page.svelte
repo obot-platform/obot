@@ -415,7 +415,7 @@
 						{/if}
 
 						<button
-							class="button hover:bg-base-400 flex items-center gap-1 bg-transparent"
+							class="btn btn-secondary hover:bg-base-400 flex items-center gap-1 bg-transparent"
 							onclick={() => {
 								k8sSettings = prevK8sSettings;
 								resourceInfo = convertResourcesForInput(prevK8sSettings?.resources);
@@ -424,7 +424,7 @@
 							Reset
 						</button>
 						<button
-							class="button-primary flex items-center gap-1"
+							class="btn btn-primary flex items-center gap-1"
 							disabled={saving}
 							onclick={handleSave}
 						>

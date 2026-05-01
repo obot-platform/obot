@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { stripMarkdownToText } from '$lib/markdown';
@@ -8,6 +7,7 @@
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import Confirm from '../Confirm.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Server, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -69,14 +69,14 @@
 					{apiKey.name || 'API Key'}
 				</h1>
 				{#if apiKey.userId.toString() === profile.current.id}
-					<button
-						class="button-destructive flex items-center gap-1 text-xs font-normal"
-						use:tooltip={'Delete API Key'}
+					<IconButton
+						variant="danger2"
+						tooltip={{ text: 'Delete API Key' }}
 						disabled={saving}
 						onclick={() => (deletingApiKey = true)}
 					>
 						<Trash2 class="size-4" />
-					</button>
+					</IconButton>
 				{/if}
 			</div>
 

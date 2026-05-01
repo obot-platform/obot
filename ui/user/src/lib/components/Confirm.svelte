@@ -104,8 +104,8 @@
 						onclick={onsuccess}
 						type="button"
 						class={twMerge(
-							'flex w-full justify-center p-3',
-							type === 'delete' ? 'button-destructive' : 'button-primary',
+							'flex flex-1 justify-center p-3 btn',
+							type === 'delete' ? 'btn-error' : 'btn-primary',
 							classes?.confirm
 						)}
 						disabled={loading || disabled}
@@ -120,7 +120,7 @@
 				<button
 					onclick={oncancel}
 					type="button"
-					class="button w-full justify-center"
+					class="btn flex-1 flex justify-center"
 					disabled={loading}>{cancelText}</button
 				>
 			</div>

@@ -198,11 +198,11 @@
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
-			<button class="button w-full md:w-fit" onclick={() => addUserGroupDialog?.close()}>
+			<button class="btn btn-secondary w-full md:w-fit" onclick={() => addUserGroupDialog?.close()}>
 				Cancel
 			</button>
 			<button
-				class="button-primary w-full md:w-fit"
+				class="btn btn-primary w-full md:w-fit"
 				onclick={() => {
 					const users = selectedUsers.filter((user) => !isGroup(user)) as OrgUser[];
 					const groups = selectedUsers.filter((user) => isGroup(user)) as OrgGroup[];

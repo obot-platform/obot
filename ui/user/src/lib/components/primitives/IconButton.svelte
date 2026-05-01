@@ -7,11 +7,10 @@
 	interface Props extends HTMLButtonAttributes {
 		children: Snippet;
 		tooltip?: TooltipOptions;
-		variant?: 'default' | 'error' | 'danger' | 'primary';
+		variant?: 'default' | 'danger' | 'danger2' | 'primary';
 	}
 
-	const defaultClasses =
-		'btn btn-ghost btn-square shrink-0 disabled:cursor-not-allowed disabled:opacity-50';
+	const defaultClasses = 'btn btn-square shrink-0 disabled:cursor-not-allowed disabled:opacity-50';
 	let {
 		children,
 		class: className,
@@ -19,30 +18,37 @@
 		variant = 'default',
 		...props
 	}: Props = $props();
+
+	const variantClasses = $derived(
+		variant === 'danger2'
+			? 'btn-error'
+			: variant === 'primary'
+				? 'btn-primary btn-soft'
+				: variant === 'danger'
+					? 'btn-ghost text-base-content/40 hover:text-error'
+					: 'btn-ghost text-base-content/40'
+	);
 </script>
 
 {#if tooltipOptions}
 	<button
 		type="button"
 		aria-label={tooltipOptions.text}
-		class={twMerge(
-			defaultClasses,
-			variant === 'error'
-				? 'btn-error'
-				: variant === 'primary'
-					? 'btn-primary btn-soft'
-					: variant === 'danger'
-						? 'hover:text-error'
-						: '',
-			className as ClassNameValue
-		)}
+		class={twMerge(defaultClasses, variantClasses, className as ClassNameValue)}
 		{...props}
-		use:tooltip={tooltipOptions}
+		use:tooltip={{
+			...tooltipOptions,
+			classes: [...(tooltipOptions?.classes ?? []), 'z-50']
+		}}
 	>
 		{@render children()}
 	</button>
 {:else}
-	<button type="button" class={twMerge(defaultClasses, className as ClassNameValue)} {...props}>
+	<button
+		type="button"
+		class={twMerge(defaultClasses, variantClasses, className as ClassNameValue)}
+		{...props}
+	>
 		{@render children()}
 	</button>
 {/if}

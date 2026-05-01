@@ -541,7 +541,7 @@
 			{#snippet actions(d)}
 				{@const auditLogsUrl = getAuditLogUrl(d)}
 				{#if auditLogsUrl}
-					<a href={resolve(auditLogsUrl as `/${string}`)} class="button-text"> View Audit Logs </a>
+					<a href={resolve(auditLogsUrl as `/${string}`)} class="btn btn-link"> View Audit Logs </a>
 				{/if}
 			{/snippet}
 		</Table>
@@ -559,7 +559,7 @@
 				{#if id === 'status' && !readonly}
 					<button
 						onclick={() => (showRestartConfirm = true)}
-						class="button-primary flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+						class="btn btn-primary flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
 						disabled={restarting}
 					>
 						<RotateCcw class="size-3" />

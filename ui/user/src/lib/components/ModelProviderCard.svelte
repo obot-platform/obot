@@ -570,7 +570,7 @@
 						in:fade={{ duration: 100 }}
 						out:fade={{ duration: 0 }}
 						type="button"
-						class="button hover:bg-base-200 rounded-full px-4 py-2 text-sm transition-colors duration-100"
+						class="btn btn-secondary"
 						onclick={() => {
 							configuration = $state.snapshot(oldConfiguration);
 						}}
@@ -582,9 +582,7 @@
 						in:fade={{ duration: 100 }}
 						out:fade={{ duration: 0 }}
 						type="button"
-						class={twMerge(
-							'button hover:bg-base-200 rounded-full px-4 py-2 text-sm transition-colors duration-100'
-						)}
+						class="btn btn-secondary"
 						onclick={() => {
 							// Close configuration UI
 							isProviderConfigurationShown = false;
@@ -599,7 +597,7 @@
 						in:fade={{ duration: 100 }}
 						out:fade={{ duration: 0 }}
 						type="button"
-						class="button bg-primary/10 text-primary hover:bg-primary/15 active:bg-primary/20 rounded-full border-none px-4 py-2 text-sm transition-colors duration-100"
+						class="btn btn-primary"
 						disabled={!isDirty}
 						onclick={(ev) => saveHandler(ev)}
 					>
@@ -611,17 +609,14 @@
 
 		<div class="ml-auto flex gap-2">
 			{#if !isProviderConfigurationShown}
-				<button
-					class="button hover:bg-base-400/80 active:bg-base-400 bg-transparent text-sm font-medium"
-					onclick={onConfigureProviderClickHandler}
-				>
+				<button class="btn btn-secondary" onclick={onConfigureProviderClickHandler}>
 					{provider.configured ? 'Reconfigure' : 'Configure'}
 				</button>
 			{/if}
 
 			{#if provider.configured}
 				<button
-					class="button bg-error/5 text-sm font-medium text-error transition-colors duration-100 hover:bg-error/10 active:bg-error/15"
+					class="btn btn-error"
 					onclick={() => {
 						isUnconfigureProviderDialogShown = true;
 					}}

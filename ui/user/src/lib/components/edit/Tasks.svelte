@@ -115,7 +115,7 @@
 	<div class="flex grow"></div>
 	<div class="mt-4 flex w-full flex-col justify-between gap-4 md:flex-row md:justify-end">
 		<button
-			class="button-primary w-full md:w-fit"
+			class="btn btn-primary w-full md:w-fit"
 			onclick={() => {
 				runTask(waitingTask);
 				inputDialog?.close();

@@ -194,7 +194,7 @@
 					</p>
 				</div>
 				<button
-					class="button-primary flex items-center gap-1.5 text-sm font-normal"
+					class="btn btn-primary flex items-center gap-1.5 text-sm font-normal"
 					onclick={handleUpgradeClick}
 					disabled={upgrading}
 				>

@@ -171,7 +171,7 @@
 
 	{#snippet rightNavActions()}
 		{#if !showCreateNew && !profile.current.isAdminReadonly?.()}
-			<button class="button-primary flex items-center gap-2 text-sm" onclick={showCreateForm}>
+			<button class="btn btn-primary flex items-center gap-2 text-sm" onclick={showCreateForm}>
 				<Plus class="size-4" />
 				Create API Key
 			</button>

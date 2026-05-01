@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import {
 		AdminService,
@@ -30,6 +29,7 @@
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import StaticOAuthConfigureModal from '../mcp/StaticOAuthConfigureModal.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
 	import CatalogServerForm from './CatalogServerForm.svelte';
@@ -523,11 +523,7 @@
 			<div class="flex items-center gap-2">
 				<div class="icon">
 					{#if entry.manifest.icon}
-						<img
-							src={entry.manifest.icon}
-							alt={entry.manifest.name}
-							class="size-10 flex-shrink-0"
-						/>
+						<img src={entry.manifest.icon} alt={entry.manifest.name} class="size-10 shrink-0" />
 					{:else}
 						<Server class="size-10" />
 					{/if}
@@ -549,15 +545,15 @@
 				{/if}
 			</div>
 			{#if belongsToUser && !readonly}
-				<button
-					class="button-destructive flex items-center gap-1 text-xs font-normal"
-					use:tooltip={'Delete Server'}
+				<IconButton
+					variant="danger2"
+					tooltip={{ text: 'Delete Server' }}
 					onclick={() => {
 						deleteServer = true;
 					}}
 				>
 					<Trash2 class="size-4" />
-				</button>
+				</IconButton>
 			{/if}
 		</div>
 	{/if}
@@ -573,7 +569,7 @@
 				</p>
 			</div>
 			<button
-				class="button flex items-center gap-1.5 text-sm font-normal"
+				class="btn btn-secondary flex items-center gap-1.5 font-normal"
 				onclick={handleConfigureOAuth}
 			>
 				<Settings class="size-4" />
@@ -655,7 +651,7 @@
 		{:else if selected === 'tools' && entry}
 			<div class="pb-8">
 				{#if showRegenerateToolsButton}
-					<button class="button-primary mb-4 text-sm" onclick={handleInitTemporaryInstance}>
+					<button class="btn btn-primary mb-4 text-sm" onclick={handleInitTemporaryInstance}>
 						Regenerate Tools & Capabilities
 					</button>
 				{/if}
@@ -674,7 +670,7 @@
 							{:else if !readonly}
 								<h4 class="text-base-content/40 text-lg font-semibold">No tools</h4>
 								<button
-									class="button-primary flex items-center gap-1 text-sm"
+									class="btn btn-primary flex items-center gap-1 text-sm"
 									onclick={handleInitTemporaryInstance}
 									disabled={saving}
 								>
@@ -1054,7 +1050,7 @@
 	{:else if oauthURL}
 		<!-- Single server OAuth -->
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
-		<a href={oauthURL} rel="external" target="_blank" class="button-primary text-center"
+		<a href={oauthURL} rel="external" target="_blank" class="btn btn-primary text-center"
 			>Authenticate</a
 		>
 	{:else if oauthURLs && Object.keys(oauthURLs).length > 0}
@@ -1073,13 +1069,13 @@
 				>
 					<div class="flex items-center gap-2">
 						{#if component?.manifest?.icon}
-							<img src={component.manifest.icon} alt={componentName} class="size-6 flex-shrink-0" />
+							<img src={component.manifest.icon} alt={componentName} class="size-6 shrink-0" />
 						{/if}
 						<span class="text-sm font-medium">{componentName}</span>
 					</div>
 					<button
 						type="button"
-						class="button-primary text-sm"
+						class="btn btn-primary text-sm"
 						onclick={() => {
 							markComponentAuthenticated(componentId);
 							const newWindow = window.open(url, '_blank', 'noopener,noreferrer');

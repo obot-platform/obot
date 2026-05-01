@@ -185,11 +185,11 @@
 				<h1 class="text-2xl font-semibold">Audit Log Exports</h1>
 			</div>
 
-			<div class="mt-4 w-full flex-shrink-0 md:mt-0 md:w-fit">
+			<div class="mt-4 w-full shrink-0 md:mt-0 md:w-fit">
 				<div class="flex gap-2">
 					{#if !isAdminReadonly}
 						<button
-							class="button-secondary flex items-center gap-1 text-sm font-normal"
+							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => openForm('storage')}
 						>
 							<Settings class="size-4" />
@@ -253,7 +253,7 @@
 {/snippet}
 
 {#snippet addButton()}
-	<DotDotDot class="button-primary w-full text-sm md:w-fit" placement="bottom">
+	<DotDotDot class="btn btn-block btn-primary w-full text-sm md:w-fit" placement="bottom">
 		{#snippet icon()}
 			<span class="flex items-center justify-center gap-1">
 				<Plus class="size-4" /> Add Export

@@ -51,7 +51,7 @@
 	{#if icon}
 		{@render icon()}
 	{:else}
-		<EllipsisVertical class="icon-default transition-colors duration-300" />
+		<EllipsisVertical class="size-5 transition-colors duration-300" />
 	{/if}
 </button>
 <div

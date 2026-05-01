@@ -72,7 +72,7 @@
 		</div>
 
 		<div class="mt-6 flex justify-end">
-			<button class="button-primary" onclick={handleClose}> I've saved my key </button>
+			<button class="btn btn-primary" onclick={handleClose}> I've saved my key </button>
 		</div>
 	</ResponsiveDialog>
 {/if}

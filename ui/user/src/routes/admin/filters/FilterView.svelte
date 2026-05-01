@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import AuditLogsPageContent from '$lib/components/admin/audit-logs/AuditLogsPageContent.svelte';
 	import UsageGraphs from '$lib/components/admin/usage/UsageGraphs.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { AdminService } from '$lib/services';
@@ -65,13 +65,13 @@
 					{title || filter.name || 'Filter'}
 				</h1>
 				{#if !profile.current.isAdminReadonly?.() && !entry?.id}
-					<button
-						class="button-destructive flex items-center gap-1 text-xs font-normal"
-						use:tooltip={{ text: 'Delete Filter', placement: 'left' }}
+					<IconButton
+						variant="danger2"
+						tooltip={{ text: 'Delete Filter', placement: 'left' }}
 						onclick={() => (deletingFilter = true)}
 					>
 						<Trash2 class="size-4" />
-					</button>
+					</IconButton>
 				{/if}
 			</div>
 			<div class="flex flex-1 gap-2 py-1 text-sm font-light max-h-11.5">

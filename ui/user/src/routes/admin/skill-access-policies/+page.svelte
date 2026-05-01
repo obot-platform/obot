@@ -111,7 +111,7 @@
 {#snippet addPolicyButton()}
 	{#if !profile.current.isAdminReadonly?.()}
 		<button
-			class="button-primary flex items-center gap-1 text-sm"
+			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => {
 				goto(`/admin/skill-access-policies?new=true`);
 			}}

@@ -166,7 +166,7 @@
 		{#snippet actions(d)}
 			{@const auditLogsUrl = getAuditLogUrl(d)}
 			{#if auditLogsUrl}
-				<a href={resolve(auditLogsUrl as `/${string}`)} class="button-text"> View Audit Logs </a>
+				<a href={resolve(auditLogsUrl as `/${string}`)} class="btn btn-link"> View Audit Logs </a>
 			{/if}
 		{/snippet}
 	</Table>

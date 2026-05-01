@@ -105,7 +105,7 @@
 				/>
 			</div>
 			<button
-				class="button self-end"
+				class="btn btn-secondary self-end"
 				onclick={() => {
 					project.icons = urlIcon;
 					urlIcon = undefined;

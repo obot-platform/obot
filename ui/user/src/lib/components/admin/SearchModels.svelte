@@ -269,10 +269,10 @@
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
-			<button class="button w-full md:w-fit" onclick={() => addModelDialog?.close()}>
+			<button class="btn btn-secondary w-full md:w-fit" onclick={() => addModelDialog?.close()}>
 				Cancel
 			</button>
-			<button class="button-primary w-full md:w-fit" onclick={handleAdd}> Confirm </button>
+			<button class="btn btn-primary w-full md:w-fit" onclick={handleAdd}> Confirm </button>
 		</div>
 	</div>
 </ResponsiveDialog>

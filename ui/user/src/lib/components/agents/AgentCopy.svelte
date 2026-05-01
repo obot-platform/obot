@@ -59,11 +59,11 @@
 				to proceed at your own discretion.
 			</p>
 			<div class="flex flex-col items-center gap-3">
-				<button onclick={launchProject} class="button-primary w-full max-w-xs">
+				<button onclick={launchProject} class="btn btn-primary w-full max-w-xs">
 					Launch Project
 				</button>
 				{#if onBack}
-					<button onclick={onBack} class="button w-full max-w-xs"> Go Back </button>
+					<button onclick={onBack} class="btn btn-secondary w-full max-w-xs"> Go Back </button>
 				{/if}
 			</div>
 		</div>

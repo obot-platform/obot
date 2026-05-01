@@ -213,7 +213,7 @@
 						{/if}
 
 						<button
-							class="button hover:bg-base-400 flex items-center gap-1 bg-transparent"
+							class="btn btn-secondary hover:bg-base-400 flex items-center gap-1 bg-transparent"
 							onclick={() => {
 								baseAgent = prevAgent;
 							}}
@@ -221,7 +221,7 @@
 							Reset
 						</button>
 						<button
-							class="button-primary flex items-center gap-1"
+							class="btn btn-primary flex items-center gap-1"
 							disabled={saving}
 							onclick={handleSave}
 						>
@@ -308,8 +308,8 @@
 	{/if}
 
 	<div class="mt-auto flex justify-end gap-4 p-4">
-		<button class="button" onclick={resetAddModels}> Cancel </button>
-		<button class="button-primary" onclick={handleAddModels}> Add </button>
+		<button class="btn btn-secondary" onclick={resetAddModels}> Cancel </button>
+		<button class="btn btn-primary" onclick={handleAddModels}> Add </button>
 	</div>
 </ResponsiveDialog>
 

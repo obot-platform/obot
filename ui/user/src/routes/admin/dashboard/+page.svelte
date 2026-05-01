@@ -679,7 +679,7 @@
 						<div class="flex justify-end">
 							<a
 								href={resolve('/admin/mcp-servers?view=deployments')}
-								class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+								class="text-[11px] btn btn-secondary btn-xs"
 							>
 								See More <ChevronRight class="size-3" />
 							</a>

@@ -111,8 +111,8 @@
 					{/if}
 				</div>
 
-				<button class="button-primary mt-2 w-full" onclick={createProject}>I Understand</button>
-				<button class="button w-full" onclick={() => goto('/')}>Go Back</button>
+				<button class="btn btn-primary mt-2 w-full" onclick={createProject}>I Understand</button>
+				<button class="btn btn-secondary w-full" onclick={() => goto('/')}>Go Back</button>
 			</div>
 		</div>
 	{:else if project}

@@ -293,7 +293,7 @@
 				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 					{#if bulkActionState === 'pause'}
 						<button
-							class="button flex items-center gap-1 text-sm font-normal"
+							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => {
 								selected = currentSelected;
 								handleBulkPause();
@@ -309,7 +309,7 @@
 						</button>
 					{:else if bulkActionState === 'resume'}
 						<button
-							class="button flex items-center gap-1 text-sm font-normal"
+							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => {
 								selected = currentSelected;
 								handleBulkResume();
@@ -325,7 +325,7 @@
 						</button>
 					{/if}
 					<button
-						class="button flex items-center gap-1 text-sm font-normal"
+						class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 						onclick={() => {
 							selected = currentSelected;
 							showDeleteConfirm = {

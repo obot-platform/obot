@@ -104,7 +104,7 @@
 			{#snippet tableSelectActions(currentSelected)}
 				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 					<button
-						class="button flex items-center gap-1 text-sm font-normal"
+						class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 						onclick={() => {
 							selected = Object.values(currentSelected).map((d) => d.url);
 							deletingSource = { type: 'multi' };

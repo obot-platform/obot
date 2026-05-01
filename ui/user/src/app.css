@@ -408,76 +408,6 @@
 		transform-origin: center;
 	}
 
-	.icon-default {
-		height: 1.25rem;
-		/* h-5 */
-		width: 1.25rem;
-		/* w-5 */
-	}
-
-	.button-colors {
-		background-color: var(--color-base-300);
-		border-width: 0;
-
-		&:hover {
-			background-color: var(--color-base-400);
-		}
-	}
-
-	.button {
-		border-radius: 1.5rem;
-		border-width: 2px;
-		padding: 0.5rem 1.25rem;
-		background-color: var(--color-base-400);
-		border-color: var(--color-base-400);
-		transition-property: all;
-		transition-duration: 200ms;
-
-		&:hover {
-			background-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-black));
-			border-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-black));
-		}
-
-		.dark &:hover {
-			background-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-white));
-			border-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-white));
-		}
-
-		&:disabled {
-			opacity: 0.5;
-		}
-
-		&:disabled:hover {
-			background-color: var(--color-base-400);
-			border-color: var(--color-base-400);
-		}
-	}
-
-	.button-small {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-		/* gap-1 */
-		font-size: 0.875rem;
-		/* text-sm */
-
-		border-radius: 1.5rem;
-		padding: 0.5rem 1.25rem;
-		background-color: var(--color-base-400);
-		border-width: 0;
-		transition-property: color, background-color;
-		transition-duration: 200ms;
-
-		&:hover {
-			background-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-black));
-			border-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-black));
-		}
-
-		.dark &:hover {
-			background-color: color-mix(in oklab, var(--color-base-400) 90%, var(--color-white));
-		}
-	}
-
 	.button-secondary {
 		border-radius: 1.5rem;
 		/* rounded-3xl */
@@ -492,81 +422,6 @@
 		&:hover {
 			border-color: var(--color-base-300);
 			background-color: var(--color-base-300);
-		}
-	}
-
-	.button-primary {
-		border-radius: 1.5rem;
-		/* rounded-3xl */
-		border-width: 2px;
-		/* border-2 */
-		padding: 0.5rem 1.25rem;
-		/* px-5 py-2 */
-		border-color: var(--color-primary);
-		background-color: var(--color-primary);
-		color: var(--color-primary-content);
-		transition-property: all;
-		transition-duration: 300ms;
-
-		&:hover {
-			border-color: color-mix(in oklab, var(--color-primary) 75%, var(--color-base-100));
-		}
-
-		&:disabled {
-			cursor: default;
-			opacity: 0.5;
-		}
-
-		&:disabled:hover {
-			border-color: var(--color-primary);
-			background-color: var(--color-primary);
-		}
-	}
-
-	.button-text {
-		color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
-		width: fit-content;
-		justify-content: flex-start;
-		padding: 1rem;
-		text-align: left;
-		font-size: var(--text-sm);
-
-		&:hover {
-			text-decoration: underline;
-		}
-
-		&:disabled {
-			&:hover {
-				@media (hover: hover) {
-					text-decoration-line: none;
-				}
-			}
-
-			cursor: default;
-			opacity: 0.5;
-		}
-	}
-
-	.button-destructive {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-		border-radius: 9999px;
-		background-color: color-mix(in oklab, var(--color-error) 20%, transparent);
-		padding: 1rem 1rem;
-		font-size: 0.875rem;
-		color: var(--color-error);
-		transition-property: all;
-		transition-duration: 200ms;
-
-		&:hover {
-			background-color: var(--color-error);
-			color: var(--color-error-content);
-		}
-
-		&:disabled {
-			cursor: default;
-			opacity: 0.5;
 		}
 	}
 
@@ -1322,6 +1177,31 @@
 	.dark .toggle[aria-checked='true'],
 	.dark .toggle:has(> input:checked) {
 		--input-color: var(--color-base-300);
+	}
+
+	.btn {
+		font-weight: var(--font-weight-normal);
+	}
+
+	.btn-link {
+		font-weight: var(--font-weight-light);
+		color: var(--color-base-content);
+		text-decoration: none;
+		&:hover {
+			color: var(--color-blue-500);
+			text-decoration: underline;
+		}
+	}
+
+	.btn-neutral {
+		color: var(--color-base-content);
+		background-color: var(--color-base-100);
+		border-color: var(--color-base-100);
+		box-shadow: var(--shadow-sm);
+
+		&:hover {
+			background-color: color-mix(in oklab, var(--color-base-100) 80%, transparent);
+		}
 	}
 }
 

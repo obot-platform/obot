@@ -363,9 +363,9 @@
 		</div>
 		<div class="flex grow"></div>
 		<div class="mt-4 flex flex-col justify-end gap-2 p-4 md:flex-row md:p-0">
-			<button class="button" onclick={() => closeUpdateRoleDialog()}>Cancel</button>
+			<button class="btn btn-secondary" onclick={() => closeUpdateRoleDialog()}>Cancel</button>
 			<button
-				class="button-primary"
+				class="btn btn-primary"
 				onclick={async () => {
 					if (!updatingRole) return;
 					roleUpdateError = '';

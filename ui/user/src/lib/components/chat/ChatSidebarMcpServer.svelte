@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { closeAll, closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import { ChatService, type Project, type ProjectMCP } from '$lib/services';
@@ -73,13 +72,13 @@
 				{mcpServer.alias || mcpServer.name}
 			</h1>
 			<div class="flex grow justify-end gap-2">
-				<button
-					class="button-destructive"
-					use:tooltip={'Delete'}
+				<IconButton
+					variant="danger2"
+					tooltip={{ text: 'Delete' }}
 					onclick={() => (showDeleteConfirm = true)}
 				>
 					<Trash2 class="size-4" />
-				</button>
+				</IconButton>
 			</div>
 		</div>
 		<McpServerInfoAndTools

@@ -107,7 +107,7 @@
 						error, please contact support.
 					</p>
 					<div class="mt-4 flex w-full justify-center">
-						<a href={resolve('/')} class="button-primary w-full rounded-full p-2 px-6 text-center">
+						<a href={resolve('/')} class="btn btn-primary w-full rounded-full p-2 px-6 text-center">
 							Go Home
 						</a>
 					</div>
@@ -127,7 +127,7 @@
 					</h2>
 					<p class="text-md text-center leading-6 font-light">Thank you for your response!</p>
 					<div class="mt-4 flex w-full justify-center">
-						<a href={resolve('/')} class="button-primary w-full rounded-full p-2 px-6 text-center">
+						<a href={resolve('/')} class="btn btn-primary w-full rounded-full p-2 px-6 text-center">
 							Go Home
 						</a>
 					</div>
@@ -150,13 +150,16 @@
 					<div class="mt-4 flex w-full justify-center">
 						<a
 							href={resolve(`/o/${invitation.project?.id}`)}
-							class="button-primary w-full rounded-full p-2 px-6 text-center"
+							class="btn btn-primary w-full rounded-full p-2 px-6 text-center"
 						>
 							Go To Project
 						</a>
 					</div>
 					<div class="flex w-full justify-center">
-						<a href={resolve('/')} class="button w-full rounded-full p-2 px-6 text-center">
+						<a
+							href={resolve('/')}
+							class="btn btn-secondary w-full rounded-full p-2 px-6 text-center"
+						>
 							Go Home
 						</a>
 					</div>
@@ -192,19 +195,11 @@
 						Invitation sent on {invitationDate}
 					</p>
 					<div class="mt-6 flex w-full justify-center gap-4">
-						<button
-							class="button-destructive text-md w-full justify-center rounded-full p-4 px-6"
-							disabled={isProcessing}
-							onclick={rejectInvitation}
-						>
+						<button class="btn btn-error" disabled={isProcessing} onclick={rejectInvitation}>
 							<X class="size-5" />
 							Reject
 						</button>
-						<button
-							class="button dark:hover:bg-base-300 hover:bg-base-200 flex w-full items-center justify-center gap-1 rounded-full bg-transparent p-4 px-6"
-							disabled={isProcessing}
-							onclick={acceptInvitation}
-						>
+						<button class="btn btn-secondary" disabled={isProcessing} onclick={acceptInvitation}>
 							<Check class="size-5" />
 							Accept
 						</button>

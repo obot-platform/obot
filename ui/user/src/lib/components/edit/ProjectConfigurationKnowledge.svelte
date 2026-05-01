@@ -156,7 +156,7 @@
 		{/if}
 		<div class="self-end">
 			<button
-				class="button-small text-xs"
+				class="btn btn-secondary btn-sm"
 				onclick={() => {
 					if (!project.websiteKnowledge) {
 						project.websiteKnowledge = {

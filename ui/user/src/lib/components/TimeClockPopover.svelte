@@ -401,8 +401,8 @@
 
 		<!-- Footer -->
 		<div class="border-base-400 flex justify-end gap-2 border-t px-3 py-2">
-			<button type="button" class="button text-xs uppercase" onclick={cancel}>Cancel</button>
-			<button type="button" class="button-primary text-xs uppercase" onclick={ok}>OK</button>
+			<button type="button" class="btn btn-secondary btn-sm" onclick={cancel}>Cancel</button>
+			<button type="button" class="btn btn-primary btn-sm" onclick={ok}>OK</button>
 		</div>
 	</div>
 {/if}

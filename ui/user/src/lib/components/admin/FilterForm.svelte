@@ -639,7 +639,7 @@
 							{#if !readonly}
 								<button
 									type="button"
-									class="button-destructive shrink-0 text-xs"
+									class="btn btn-error btn-sm shrink-0"
 									disabled={removingSecret || saving || isPrebuiltEntry}
 									onclick={handleRemoveSecret}
 								>
@@ -735,10 +735,7 @@
 				<div>
 					{#if initialFilter?.id}
 						<button
-							class={twMerge(
-								'text-sm',
-								filter.disabled ? 'button-primary' : 'button-destructive py-2'
-							)}
+							class={twMerge('text-sm btn btn-soft', filter.disabled ? 'btn-primary' : 'btn-error')}
 							disabled={saving}
 							onclick={() => {
 								filter.disabled = !filter.disabled;
@@ -755,7 +752,7 @@
 				</div>
 				<div class="flex gap-2">
 					<button
-						class="button text-sm"
+						class="btn btn-secondary"
 						onclick={() => {
 							if (initialFilterId) {
 								onUpdate?.(undefined);
@@ -766,7 +763,7 @@
 					>
 						Cancel
 					</button>
-					<button class="button-primary text-sm" disabled={saving} onclick={handleSave}>
+					<button class="btn btn-primary text-sm" disabled={saving} onclick={handleSave}>
 						{#if saving}
 							<LoaderCircle class="size-4 animate-spin" />
 						{:else}
@@ -810,7 +807,9 @@
 		{/if}
 
 		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
-			<button class="button w-full md:w-1/2 md:flex-1" onclick={handleCloseLaunch}>Close</button>
+			<button class="btn btn-secondary w-full md:w-1/2 md:flex-1" onclick={handleCloseLaunch}
+				>Close</button
+			>
 		</div>
 	{/snippet}
 </PageLoading>

@@ -190,11 +190,11 @@
 		{/each}
 		<div class="mt-auto flex flex-col gap-2">
 			<button
-				class="button-secondary text-md w-full rounded-lg px-4 py-2"
+				class="btn btn-secondary text-md w-full rounded-lg px-4 py-2"
 				onclick={handleClearAllFilters}>Clear All</button
 			>
 			<button
-				class="button-primary text-md w-full rounded-lg px-4 py-2"
+				class="btn btn-primary text-md w-full rounded-lg px-4 py-2"
 				onclick={handleApplyFilters}>Apply Filters</button
 			>
 		</div>

@@ -92,7 +92,7 @@
 
 	{#if isBootstrapUser}
 		<button
-			class="button-primary mt-8 flex justify-center text-center"
+			class="btn btn-primary mt-8 flex justify-center text-center"
 			disabled={loading}
 			onclick={async () => {
 				handleAcceptEula();
@@ -119,7 +119,7 @@
 		</button>
 	{:else}
 		<button
-			class="button-primary mt-8 flex justify-center text-center"
+			class="btn btn-primary mt-8 flex justify-center text-center"
 			onclick={() => {
 				handleAcceptEula();
 				localStorage.setItem('seenSplashDialog', new Date().toISOString());

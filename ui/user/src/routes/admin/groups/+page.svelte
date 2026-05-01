@@ -201,7 +201,7 @@
 	{#snippet rightNavActions()}
 		{#if !isAdminReadonly}
 			<button
-				class="button-primary w-full text-sm sm:w-auto"
+				class="btn btn-primary w-full text-sm sm:w-auto"
 				onclick={() => {
 					showAddAssignment = true;
 					addGroupAssignmentDialog?.clear();

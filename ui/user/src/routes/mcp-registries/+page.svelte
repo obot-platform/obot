@@ -126,7 +126,7 @@
 
 {#snippet addRuleButton()}
 	<button
-		class="button-primary flex items-center gap-1 text-sm"
+		class="btn btn-primary flex items-center gap-1 text-sm"
 		onclick={() => {
 			goto(`/mcp-registries?new=true`);
 		}}

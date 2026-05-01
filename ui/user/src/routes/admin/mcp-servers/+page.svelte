@@ -178,7 +178,7 @@
 	</div>
 	{#snippet rightNavActions()}
 		{#if !isAdminReadonly && !showServerForm}
-			<button class="button flex items-center gap-1 text-sm" onclick={sync}>
+			<button class="btn btn-secondary flex items-center gap-1 text-sm" onclick={sync}>
 				{#if syncing}
 					<LoaderCircle class="size-4 animate-spin" /> Syncing...
 				{:else}

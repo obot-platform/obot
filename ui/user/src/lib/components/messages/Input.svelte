@@ -4,6 +4,7 @@
 	import PlaintextEditor from './PlaintextEditor.svelte';
 	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
 	import { onMount, type Snippet, tick, untrack } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		id?: string;
@@ -139,9 +140,7 @@
 		type="submit"
 		onclick={() => submit()}
 		{disabled}
-		class="button-colors text-primary h-fit self-end rounded-full p-2 transition-all duration-100 hover:border-none {disabled
-			? 'cursor-not-allowed opacity-50'
-			: ''}"
+		class={twMerge('btn btn-circle', disabled ? 'cursor-not-allowed opacity-50' : '')}
 		title={disabled ? 'No model selected' : ''}
 	>
 		{#if readonly}

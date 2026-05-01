@@ -48,7 +48,7 @@
 <Layout {title} showBackButton>
 	{#snippet rightNavActions()}
 		<button
-			class="button-primary flex items-center gap-1 text-sm"
+			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => (confirmImpersonate = true)}
 			use:tooltip={profile.current.canImpersonate?.() && agent?.userID !== profile.current.id
 				? undefined

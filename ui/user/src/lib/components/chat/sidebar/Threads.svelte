@@ -310,7 +310,10 @@
 			</div>
 			{#if (layout.threads?.length ?? 0) === 0}
 				<div class="flex justify-end" in:fade>
-					<button class="button flex items-center gap-1 text-xs" onclick={() => createThread()}>
+					<button
+						class="btn btn-sm btn-secondary flex items-center gap-1 text-xs"
+						onclick={() => createThread()}
+					>
 						<Plus class="size-4" /> Start New Chat
 					</button>
 				</div>

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import {
@@ -130,13 +129,13 @@
 							</div>
 						</div>
 						{#if isOwnerOrAdmin && profile.current.email !== member.email && !member.isOwner}
-							<button
-								class="button-destructive"
+							<IconButton
+								variant="danger2"
+								tooltip={{ text: 'Remove member' }}
 								onclick={() => (toDelete = member.email)}
-								use:tooltip={'Remove member'}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					</div>
 				{/each}
@@ -146,7 +145,7 @@
 				<h2 class="text-xl font-semibold">Project Invitations</h2>
 				{#if isOwnerOrAdmin}
 					<button
-						class="button flex items-center gap-1 text-sm"
+						class="btn btn-secondary flex items-center gap-1 text-sm"
 						onclick={createInvitation}
 						disabled={isCreating}
 					>
@@ -208,7 +207,7 @@
 									/>
 								{/if}
 							</div>
-							<div class="flex flex-shrink-0 gap-4 self-start md:self-center">
+							<div class="flex shrink-0 gap-4 self-start md:self-center">
 								{#if invitation.status === 'pending' && !responsive.isMobile}
 									<CopyButton
 										text={`${window.location.protocol}//${window.location.host}/i/${invitation.code}`}
@@ -216,7 +215,7 @@
 									/>
 								{/if}
 								<button
-									class="button-destructive flex-shrink-0"
+									class="btn btn-error shrink-0"
 									onclick={() => (deleteInvitationCode = invitation.code)}
 								>
 									<Trash2 class="size-4" />

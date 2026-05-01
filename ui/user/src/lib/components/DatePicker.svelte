@@ -160,7 +160,7 @@
 					<div class="mt-4 flex justify-end">
 						<button
 							type="button"
-							class="button text-xs"
+							class="btn btn-secondary btn-sm"
 							onclick={() => {
 								value = null;
 								onChange(null);

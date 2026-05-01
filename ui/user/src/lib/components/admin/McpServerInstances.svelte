@@ -321,7 +321,7 @@
 				{@const auditLogsUrl = getAuditLogUrl(d)}
 				<div class="flex shrink-0 items-center gap-1">
 					{#if auditLogsUrl}
-						<a class="button-text" href={resolve(auditLogsUrl as `/${string}`)}>
+						<a class="btn btn-link" href={resolve(auditLogsUrl as `/${string}`)}>
 							View Audit Logs
 						</a>
 					{/if}
@@ -404,7 +404,7 @@
 					</p>
 					<div class="flex items-center gap-4">
 						<button
-							class="button flex items-center gap-1"
+							class="btn btn-secondary flex items-center gap-1"
 							onclick={() => {
 								selected = {};
 								updating = {};
@@ -413,7 +413,7 @@
 							Cancel
 						</button>
 						<button
-							class="button-primary flex items-center gap-1"
+							class="btn btn-primary flex items-center gap-1"
 							onclick={() => {
 								showConfirm = {
 									type: 'multi'

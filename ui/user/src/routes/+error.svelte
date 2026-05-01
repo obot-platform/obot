@@ -54,5 +54,5 @@
 		</div>
 	{/if}
 
-	<a href={resolve('/')} class="button-primary"> Go Home </a>
+	<a href={resolve('/')} class="btn btn-primary"> Go Home </a>
 </div>

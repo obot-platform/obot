@@ -850,7 +850,7 @@
 		>
 		<button
 			type="button"
-			class="button-primary mt-4 w-full md:w-fit"
+			class="btn btn-primary mt-4 w-full md:w-fit"
 			onclick={() => {
 				if (!selectedImageField) return;
 				const candidate = editImageUrl.trim();

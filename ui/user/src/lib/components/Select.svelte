@@ -146,6 +146,9 @@
 			});
 		}
 	}
+
+	const clearBtnClasses =
+		'btn btn-square border-transparent size-4 text-base-content/40 hover:text-base-content';
 </script>
 
 <div class={twMerge(classes?.root, (readonly || disabled) && 'pointer-events-none')}>
@@ -217,10 +220,7 @@
 
 								<div class="flex h-[22.5px] items-center place-self-start">
 									<button
-										class={twMerge(
-											'button rounded-xs p-0 transition-colors duration-300',
-											classes?.clear
-										)}
+										class={twMerge(clearBtnClasses, classes?.clear)}
 										{disabled}
 										onclick={(ev) => {
 											ev.preventDefault();
@@ -233,7 +233,7 @@
 											onClear?.(selectedOption, selected);
 										}}
 									>
-										<X class="size-4" />
+										<X class="size-3" />
 									</button>
 								</div>
 							</div>
@@ -266,7 +266,8 @@
 		{#if onClear && !multiple}
 			<button
 				class={twMerge(
-					'button absolute top-1/2 right-12 -translate-y-1/2 p-1 transition-colors duration-300',
+					clearBtnClasses,
+					'absolute top-1/2 right-12 -translate-y-1/2',
 					classes?.clear
 				)}
 				onclick={() => {

@@ -255,11 +255,11 @@
 			<!-- Large screen: two-column layout -->
 			<div class="grid flex-1 grid-cols-2 gap-8 overflow-hidden">
 				<div class="flex flex-col overflow-hidden">
-					<h4 class="mb-4 flex-shrink-0 text-sm font-semibold">Select Group</h4>
+					<h4 class="mb-4 shrink-0 text-sm font-semibold">Select Group</h4>
 					{@render groupList()}
 				</div>
 				<div class="flex flex-col overflow-hidden">
-					<h4 class="mb-4 flex-shrink-0 text-sm font-semibold">Assign Role</h4>
+					<h4 class="mb-4 shrink-0 text-sm font-semibold">Assign Role</h4>
 					{@render roleForm()}
 				</div>
 			</div>
@@ -267,7 +267,7 @@
 			<!-- Small screen: single column with conditional rendering -->
 			{#if !selectedGroup}
 				<div class="flex flex-1 flex-col overflow-hidden">
-					<h4 class="mb-4 flex-shrink-0 text-sm font-semibold">Select Group</h4>
+					<h4 class="mb-4 shrink-0 text-sm font-semibold">Select Group</h4>
 					{@render groupList()}
 				</div>
 			{:else}
@@ -277,10 +277,10 @@
 			{/if}
 		{/if}
 
-		<div class="mt-6 flex flex-shrink-0 flex-col justify-end gap-2 md:flex-row">
-			<button class="button" onclick={handleClose}>Cancel</button>
+		<div class="mt-6 flex shrink-0 flex-col justify-end gap-2 md:flex-row">
+			<button class="btn btn-secondary" onclick={handleClose}>Cancel</button>
 			<button
-				class="button-primary"
+				class="btn btn-primary"
 				onclick={handleConfirm}
 				disabled={loading || !selectedGroup || draftRoleId === 0}
 			>

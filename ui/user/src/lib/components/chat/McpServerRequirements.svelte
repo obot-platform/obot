@@ -368,7 +368,7 @@
 					href={oauth.oauthURL}
 					rel="external"
 					target="_blank"
-					class="button-primary text-center text-sm outline-none"
+					class="btn btn-primary text-center text-sm outline-none"
 					onclick={() => {
 						if (currentOauthId) return;
 						currentOauthId = oauth.id;
@@ -418,7 +418,7 @@
 					Please contact your administrator to configure the OAuth credentials for this server.
 				</p>
 
-				<button class="button" onclick={dismissCurrent}> Dismiss </button>
+				<button class="btn btn-secondary" onclick={dismissCurrent}> Dismiss </button>
 			</div>
 			<form class="dialog-backdrop">
 				<button type="button" aria-label="Close dialog" onclick={dismissCurrent}>close</button>

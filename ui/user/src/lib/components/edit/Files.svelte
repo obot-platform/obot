@@ -197,7 +197,7 @@
 	{#if thread}
 		<div class="flex items-center justify-end gap-4">
 			<McpResources {project} bind:threadID={currentThreadID} bind:currentThreadFiles={files} />
-			<label class="button mt-3 flex items-center justify-end gap-1 text-sm">
+			<label class="btn btn-secondary mt-3 flex items-center justify-end gap-1 text-sm">
 				{#await uploadInProgress}
 					<Loading class="size-4" />
 				{:catch error}
@@ -247,7 +247,7 @@
 			<div class="flex flex-col gap-4">
 				{@render content()}
 				<div class="flex justify-end">
-					<label class="button flex cursor-pointer items-center justify-end gap-1 text-xs">
+					<label class="btn btn-sm flex cursor-pointer items-center justify-end gap-1 text-xs">
 						{#await uploadInProgress}
 							<Loading class="size-4" />
 						{:catch error}

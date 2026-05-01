@@ -743,14 +743,14 @@
 		<div class="flex justify-end gap-3 pt-6">
 			<button
 				type="button"
-				class="button"
+				class="btn btn-secondary"
 				onclick={onCancel}
 				disabled={creating && mode !== 'view'}
 			>
 				{mode === 'view' ? 'Back' : 'Cancel'}
 			</button>
 			{#if mode !== 'view'}
-				<button type="submit" class="button-primary" disabled={creating}>
+				<button type="submit" class="btn btn-primary" disabled={creating}>
 					{#if creating}
 						<LoaderCircle class="size-4 animate-spin" />
 						{mode === 'edit' ? 'Saving Changes...' : 'Creating Schedule...'}

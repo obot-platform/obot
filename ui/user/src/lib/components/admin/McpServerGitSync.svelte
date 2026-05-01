@@ -125,7 +125,7 @@
 			<div class="flex w-full justify-end gap-2">
 				<button class="button" disabled={saving} onclick={closeSourceDialog}>Cancel</button>
 				<button
-					class="button-primary"
+					class="btn btn-primary"
 					disabled={saving}
 					onclick={async () => {
 						if (!editingSource || (!defaultCatalog && !defaultCatalogId)) {

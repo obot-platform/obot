@@ -192,7 +192,7 @@
 
 {#snippet addFilterButton()}
 	<DotDotDot
-		class="button-primary w-full text-sm md:w-fit"
+		class="btn btn-block btn-primary w-full text-sm md:w-fit"
 		placement="bottom"
 		classes={{ popover: 'z-50' }}
 	>
