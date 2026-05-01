@@ -2020,6 +2020,11 @@ func (in *MCPServerCatalogEntryManifest) DeepCopyInto(out *MCPServerCatalogEntry
 		*out = new(CompositeCatalogConfig)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.MultiUserConfig != nil {
+		in, out := &in.MultiUserConfig, &out.MultiUserConfig
+		*out = new(MultiUserConfig)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Env != nil {
 		in, out := &in.Env, &out.Env
 		*out = make([]MCPEnv, len(*in))

@@ -94,7 +94,9 @@ func (h *Handler) Proxy(req api.Context) error {
 			r.URL.RawQuery = upstreamQuery.Encode()
 
 			for i := range serverConfig.PassthroughHeaderNames {
-				r.Header.Set(serverConfig.PassthroughHeaderNames[i], serverConfig.PassthroughHeaderValues[i])
+				if i < len(serverConfig.PassthroughHeaderValues) {
+					r.Header.Set(serverConfig.PassthroughHeaderNames[i], serverConfig.PassthroughHeaderValues[i])
+				}
 			}
 		},
 	}).ServeHTTP(req.ResponseWriter, req.Request)

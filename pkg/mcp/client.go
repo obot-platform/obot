@@ -33,14 +33,6 @@ func (sm *SessionManager) ClientForMCPServerForOAuthCheck(ctx context.Context, c
 	return sm.clientForServerWithOptions(ctx, clientScope, serverConfig, false, opt)
 }
 
-func (sm *SessionManager) clientForMCPServer(ctx context.Context, serverConfig ServerConfig) (*Client, error) {
-	return sm.clientForMCPServerWithClientScope(ctx, "default", serverConfig)
-}
-
-func (sm *SessionManager) clientForMCPServerWithClientScope(ctx context.Context, clientScope string, serverConfig ServerConfig) (*Client, error) {
-	return sm.clientForServerWithScope(ctx, clientScope, serverConfig)
-}
-
 func (sm *SessionManager) clientForServer(ctx context.Context, serverConfig ServerConfig) (*Client, error) {
 	return sm.clientForServerWithScope(ctx, "default", serverConfig)
 }

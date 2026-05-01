@@ -1993,10 +1993,26 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 		}
 	}
 
+	var componentInstances v1.MCPServerInstanceList
+	if err := req.List(&componentInstances,
+		kclient.InNamespace(compositeServer.Namespace),
+		kclient.MatchingFields{"spec.compositeName": compositeServer.Name},
+	); err != nil {
+		return fmt.Errorf("failed to list component instances: %w", err)
+	}
+
+	existingInstances := make(map[string]v1.MCPServerInstance, len(componentInstances.Items))
+	for _, instance := range componentInstances.Items {
+		if id := instance.Spec.MCPServerName; id != "" {
+			existingInstances[id] = instance
+		}
+	}
+
 	var (
-		manifestChanged bool
-		oldManifestHash = hash.Digest(compositeServer.Spec.Manifest)
-		componentCreds  = make(map[string]gptscript.Credential, len(existingServers))
+		manifestChanged   bool
+		oldManifestHash   = hash.Digest(compositeServer.Spec.Manifest)
+		componentCreds    = make(map[string]gptscript.Credential, len(existingServers))
+		componentInstance = make(map[string]v1.MCPServerInstance, len(existingInstances))
 	)
 	for i, component := range compositeServer.Spec.Manifest.CompositeConfig.ComponentServers {
 		componentID := component.ComponentID()
@@ -2006,13 +2022,29 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 
 		config, hasConfig := configRequest.ComponentConfigs[componentID]
 		if !hasConfig {
-			// Skip components we're not configuring and multi-user components
+			// Skip components we're not configuring
 			continue
 		}
 
 		if component.Disabled != config.Disabled {
 			component.Disabled = config.Disabled
 			manifestChanged = true
+		}
+
+		if instance, instanceExists := existingInstances[componentID]; instanceExists && !component.Disabled {
+			for key, val := range config.Config {
+				if val == "" {
+					delete(config.Config, key)
+				}
+			}
+
+			componentCreds[componentID] = gptscript.Credential{
+				Context:  MCPServerInstanceCredentialContext(instance),
+				ToolName: instance.Name,
+				Type:     gptscript.CredentialTypeTool,
+				Env:      config.Config,
+			}
+			componentInstance[componentID] = instance
 		}
 
 		if server, serverExists := existingServers[componentID]; serverExists && !component.Disabled {
@@ -2073,9 +2105,19 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 			}
 
 			if modified {
-				// Only remove the server if the credential was created or updated
-				if err := m.removeMCPServer(ctx, existingServers[id]); err != nil {
-					return fmt.Errorf("failed to remove MCP server: %w", err)
+				if instance, ok := componentInstance[id]; ok {
+					_, serverConfig, err := serverFromMCPServerInstance(req, instance)
+					if err != nil {
+						return fmt.Errorf("failed to get server config for instance %s: %w", instance.Name, err)
+					}
+					if err = m.mcpSessionManager.CloseClient(ctx, serverConfig, "default"); err != nil {
+						return fmt.Errorf("failed to shutdown MCP server instance: %w", err)
+					}
+				} else {
+					// Only remove the server if the credential was created or updated
+					if err := m.removeMCPServer(ctx, existingServers[id]); err != nil {
+						return fmt.Errorf("failed to remove MCP server: %w", err)
+					}
 				}
 			}
 
@@ -2189,7 +2231,7 @@ func (m *MCPHandler) deconfigureCompositeServer(req api.Context, compositeServer
 		}
 	}
 
-	// Delete any component MCPServerInstances created for this composite
+	// Deconfigure any component MCPServerInstances created for this composite
 	var componentInstances v1.MCPServerInstanceList
 	if err := req.List(&componentInstances,
 		kclient.InNamespace(compositeServer.Namespace),
@@ -2197,9 +2239,16 @@ func (m *MCPHandler) deconfigureCompositeServer(req api.Context, compositeServer
 	); err != nil {
 		return fmt.Errorf("failed to list component instances: %w", err)
 	}
-	for _, inst := range componentInstances.Items {
-		if err := kclient.IgnoreNotFound(req.Delete(&inst)); err != nil {
-			return fmt.Errorf("failed to delete component instance %s: %w", inst.Name, err)
+	for _, instance := range componentInstances.Items {
+		if err := DeleteCredentialIfExists(req.Context(), req.GPTClient, []string{MCPServerInstanceCredentialContext(instance)}, instance.Name); err != nil {
+			return fmt.Errorf("failed to delete component instance configuration %s: %w", instance.Name, err)
+		}
+		_, serverConfig, err := serverFromMCPServerInstance(req, instance)
+		if err != nil {
+			return fmt.Errorf("failed to get server config for instance %s: %w", instance.Name, err)
+		}
+		if err = m.mcpSessionManager.CloseClient(req.Context(), serverConfig, "default"); err != nil {
+			return fmt.Errorf("failed to shutdown MCP server instance: %w", err)
 		}
 	}
 
@@ -2273,6 +2322,14 @@ func (m *MCPHandler) revealCompositeServer(req api.Context, compositeServer v1.M
 		return fmt.Errorf("failed to list component servers: %w", err)
 	}
 
+	var componentInstances v1.MCPServerInstanceList
+	if err := req.List(&componentInstances,
+		kclient.InNamespace(compositeServer.Namespace),
+		kclient.MatchingFields{"spec.compositeName": compositeServer.Name},
+	); err != nil {
+		return fmt.Errorf("failed to list component instances: %w", err)
+	}
+
 	var compositeConfig types.CompositeRuntimeConfig
 	if compositeServer.Spec.Manifest.CompositeConfig != nil {
 		compositeConfig = *compositeServer.Spec.Manifest.CompositeConfig
@@ -2321,6 +2378,23 @@ func (m *MCPHandler) revealCompositeServer(req api.Context, compositeServer v1.M
 			Config:   cfg,
 			URL:      url,
 			Disabled: disabledComponents[catalogEntryID],
+		}
+	}
+
+	for _, instance := range componentInstances.Items {
+		cred, err := req.GPTClient.RevealCredential(
+			req.Context(),
+			[]string{MCPServerInstanceCredentialContext(instance)},
+			instance.Name,
+		)
+		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to find credential for component instance %s: %w", instance.Name, err)
+		}
+
+		mcpServerID := instance.Spec.MCPServerName
+		result[mcpServerID] = componentConfig{
+			Config:   cred.Env,
+			Disabled: disabledComponents[mcpServerID],
 		}
 	}
 
@@ -2656,11 +2730,12 @@ func SlugForMCPServer(ctx context.Context, client kclient.Client, server v1.MCPS
 	return slug, nil
 }
 
-// resolveCompositeComponents lists catalog entry-based components of a composite MCP server, reveals their credentials, and
+// resolveCompositeComponents lists components of a composite MCP server, reveals their credentials, and
 // converts them to the public API type.
 func resolveCompositeComponents(req api.Context, composite v1.MCPServer) ([]types.MCPServer, error) {
 	var (
 		componentServers    v1.MCPServerList
+		componentInstances  v1.MCPServerInstanceList
 		convertedComponents []types.MCPServer
 	)
 
@@ -2669,6 +2744,13 @@ func resolveCompositeComponents(req api.Context, composite v1.MCPServer) ([]type
 		Namespace:     composite.Namespace,
 	}); err != nil {
 		return nil, fmt.Errorf("failed to list composite child servers: %w", err)
+	}
+
+	if err := req.List(&componentInstances, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", composite.Name),
+		Namespace:     composite.Namespace,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list composite child server instances: %w", err)
 	}
 
 	for _, component := range componentServers.Items {
@@ -2680,6 +2762,21 @@ func resolveCompositeComponents(req api.Context, composite v1.MCPServer) ([]type
 		addExtractedEnvVars(&component)
 		// No slug/URL needed; only Configured/NeedsURL are used from the component
 		convertedComponents = append(convertedComponents, ConvertMCPServer(component, cred.Env, "", ""))
+	}
+
+	for _, instance := range componentInstances.Items {
+		credEnv, err := mcpServerInstanceCredEnv(req, instance)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reveal credential for component instance %s: %w", instance.Name, err)
+		}
+
+		_, _, missingHeaders := mcpServerInstanceHeaders(instance, credEnv)
+		// No slug/URL needed; only CatalogEntryID and Configured are used from the component.
+		convertedComponents = append(convertedComponents, types.MCPServer{
+			CatalogEntryID:         instance.Spec.MCPServerName,
+			Configured:             len(missingHeaders) == 0,
+			MissingRequiredHeaders: missingHeaders,
+		})
 	}
 
 	return convertedComponents, nil

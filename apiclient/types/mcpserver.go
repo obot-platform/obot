@@ -162,6 +162,9 @@ type MCPServerCatalogEntryManifest struct {
 	RemoteConfig        *RemoteCatalogConfig        `json:"remoteConfig,omitempty"`
 	CompositeConfig     *CompositeCatalogConfig     `json:"compositeConfig,omitempty"`
 
+	// MultiUserConfig is the multi-user specific configuration for this component server, if applicable.
+	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
+
 	Env []MCPEnv `json:"env,omitempty"`
 }
 

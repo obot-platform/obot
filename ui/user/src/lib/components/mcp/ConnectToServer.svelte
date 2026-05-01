@@ -203,7 +203,12 @@
 								value: ''
 							})),
 					headers: isMultiUser
-						? []
+						? (m.multiUserConfig?.userDefinedHeaders ?? []).map((h) => ({
+								...(h as unknown as Record<string, unknown>),
+								key: h.key,
+								value: '',
+								isStatic: false
+							}))
 						: (m.remoteConfig?.headers ?? []).map((h) => ({
 								...(h as unknown as Record<string, unknown>),
 								key: h.key,

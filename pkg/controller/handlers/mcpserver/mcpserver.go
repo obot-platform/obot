@@ -694,6 +694,7 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 						MCPServerName:        component.MCPServerID,
 						MCPCatalogName:       multiUserServer.Spec.MCPCatalogID,
 						PowerUserWorkspaceID: multiUserServer.Spec.PowerUserWorkspaceID,
+						MultiUserConfig:      multiUserServer.Spec.Manifest.MultiUserConfig,
 						UserID:               compositeServer.Spec.UserID,
 						CompositeName:        compositeServer.Name,
 					},
@@ -701,6 +702,19 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 					return fmt.Errorf("failed to create instance for multi-user component: %w", err)
 				}
 				log.Infof("Created component MCPServerInstance for composite server: composite=%s componentServer=%s userID=%s", compositeServer.Name, component.MCPServerID, compositeServer.Spec.UserID)
+			} else {
+				existingInstance := existingInstances[component.MCPServerID]
+				var multiUserServer v1.MCPServer
+				if err := req.Get(&multiUserServer, compositeServer.Namespace, component.MCPServerID); err != nil {
+					return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
+				}
+
+				if hash.Digest(existingInstance.Spec.MultiUserConfig) != hash.Digest(multiUserServer.Spec.Manifest.MultiUserConfig) {
+					existingInstance.Spec.MultiUserConfig = multiUserServer.Spec.Manifest.MultiUserConfig
+					if err := req.Client.Update(req.Ctx, &existingInstance); err != nil {
+						return fmt.Errorf("failed to update instance for multi-user component: %w", err)
+					}
+				}
 			}
 
 			// Remove the instance to build the list of existing instances to delete
