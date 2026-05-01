@@ -1,0 +1,9 @@
+overrides:
+  cookie: 0.7.0
+  devalue: 5.6.4
+  hono: 4.12.14
+engineStrict: true
+allowBuilds:
+  '@modelcontextprotocol/ext-apps': true
+  '@tailwindcss/oxide': true
+  esbuild: true
