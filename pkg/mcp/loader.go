@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/gptscript-ai/gptscript/pkg/hash"
@@ -24,6 +25,21 @@ import (
 
 var log = logger.Package()
 
+const (
+	RuntimeBackendDocker          = "docker"
+	RuntimeBackendKubernetes      = "kubernetes"
+	RuntimeBackendKubernetesShort = "k8s"
+	RuntimeBackendKubernetesLocal = "k8s-local"
+)
+
+func IsKubernetesRuntimeBackend(backend string) bool {
+	return backend == RuntimeBackendKubernetes || backend == RuntimeBackendKubernetesShort || backend == RuntimeBackendKubernetesLocal
+}
+
+func IsLocalKubernetesRuntimeBackend(backend string) bool {
+	return backend == RuntimeBackendKubernetesLocal
+}
+
 type Options struct {
 	MCPBaseImage                      string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.20.4"`
 	MCPHTTPWebhookBaseImage           string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.20.4"`
@@ -31,8 +47,10 @@ type Options struct {
 	MCPNamespace                      string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
 	MCPClusterDomain                  string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
 	DisallowLocalhostMCP              bool     `usage:"Allow MCP containers to run on localhost"`
-	MCPRuntimeBackend                 string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or local. Defaults to docker." default:"docker"`
+	MCPRuntimeBackend                 string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or k8s-local. Defaults to docker." default:"docker"`
 	MCPImagePullSecrets               []string `usage:"The name of the image pull secret to use for pulling MCP images"`
+	MCPImagePullPolicy                string   `usage:"The image pull policy to use for MCP containers (Always, IfNotPresent, Never)" default:"Always"`
+	MCPInternalBaseURL                string   `usage:"Internal base URL for MCP clients running inside the cluster to reach Obot (e.g. http://obot.obot-mcp.svc.cluster.local). Only used with the k8s-local backend to advertise internal OAuth metadata URLs."`
 	SingleUserIdleServerShutdownHours int      `usage:"The interval in hours to check for idle MCP servers designated to a single user and shut them down, set to -1 to disable shutdown" default:"24"`
 	MultiUserIdleServerShutdownHours  int      `usage:"The interval in hours to check for idle multi-user MCP servers and shut them down, set to -1 to disable" default:"168"`
 	IdleAgentShutdownHours            int      `usage:"The interval in hours to check for idle agents and shut them down, set to -1 to disable" default:"72"`
@@ -75,6 +93,7 @@ type SessionManager struct {
 	sessions          sync.Map
 	tokenService      TokenService
 	baseURL           string
+	internalBaseURL   string
 	allowLocalhostMCP bool
 
 	webhookHelper *WebhookHelper
@@ -98,14 +117,14 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 	var backend backend
 
 	switch opts.MCPRuntimeBackend {
-	case "docker":
+	case RuntimeBackendDocker:
 		dockerBackend, err := newDockerBackend(ctx, httpListenPort, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize Docker backend: %w", err)
 		}
 
 		backend = dockerBackend
-	case "kubernetes", "k8s":
+	case RuntimeBackendKubernetes, RuntimeBackendKubernetesShort, RuntimeBackendKubernetesLocal:
 		if localK8sConfig == nil {
 			return nil, fmt.Errorf("use of Kubernetes backend requested but no local K8s config available")
 		}
@@ -148,17 +167,37 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
 	}
 
+	var internalBaseURL string
+	if IsLocalKubernetesRuntimeBackend(opts.MCPRuntimeBackend) && opts.MCPInternalBaseURL != "" {
+		u, err := url.Parse(strings.TrimSuffix(opts.MCPInternalBaseURL, "/"))
+		if err != nil {
+			return nil, fmt.Errorf("invalid MCPInternalBaseURL %q: %w", opts.MCPInternalBaseURL, err)
+		}
+		if u.Scheme == "" || u.Host == "" {
+			return nil, fmt.Errorf("invalid MCPInternalBaseURL %q: must include scheme and host", opts.MCPInternalBaseURL)
+		}
+		if u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+			return nil, fmt.Errorf("invalid MCPInternalBaseURL %q: must not include path, query, or fragment", opts.MCPInternalBaseURL)
+		}
+		internalBaseURL = u.String()
+	}
+
 	return &SessionManager{
 		webhookHelper:     webhookHelper,
 		tokenService:      tokenService,
 		backend:           backend,
 		baseURL:           baseURL,
+		internalBaseURL:   internalBaseURL,
 		allowLocalhostMCP: !opts.DisallowLocalhostMCP,
 	}, nil
 }
 
 func (sm *SessionManager) TransformObotHostname(hostname string) string {
 	return sm.backend.transformObotHostname(hostname)
+}
+
+func (sm *SessionManager) InternalBaseURL() string {
+	return sm.internalBaseURL
 }
 
 // Load is used by GPTScript to load tools from dynamic MCP server tool definitions.
