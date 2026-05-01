@@ -77,7 +77,7 @@
 
 <button
 	use:ref
-	class={twMerge('icon-button z-20', classes?.button)}
+	class={twMerge('btn btn-ghost btn-square z-20', classes?.button)}
 	onclick={() => {
 		load();
 		toggle();

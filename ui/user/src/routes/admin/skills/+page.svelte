@@ -314,15 +314,15 @@
 			>
 				{#snippet actions(d)}
 					{#if !isAdminReadonly}
-						<button
-							class="icon-button hover:text-error"
+						<IconButton
+							variant="danger"
 							onclick={(e) => {
 								e.stopPropagation();
 								deletingSources = [d];
 							}}
 						>
 							<Trash2 class="size-4" />
-						</button>
+						</IconButton>
 					{/if}
 				{/snippet}
 				{#snippet onRenderColumn(property, d)}

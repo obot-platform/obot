@@ -23,6 +23,7 @@
 	} from '$lib/services';
 	import { sortShownToolsPriority } from '$lib/sort';
 	import { poll } from '$lib/utils';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { XIcon, Loader2, Trash2, Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -268,13 +269,13 @@
 								</button>
 							{/if}
 						{/if}
-						<button
-							class="icon-button hover:text-error"
+						<IconButton
+							variant="danger"
 							onclick={() => (toDelete = true)}
-							use:tooltip={'Delete Project Share'}
+							tooltip={{ text: 'Delete Project Share' }}
 						>
 							<Trash2 class="size-4" />
-						</button>
+						</IconButton>
 					</div>
 				</div>
 			</div>

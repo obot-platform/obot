@@ -5,6 +5,7 @@
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import type { Project } from '$lib/services';
 	import { responsive } from '$lib/stores';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { ChevronRight, CircleX, Pencil } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -45,7 +46,7 @@
 {:else}
 	<div class="flex w-full items-center justify-center">
 		<button
-			class="icon-button group relative flex items-center gap-2 p-0 shadow-md"
+			class="btn btn-square btn-ghost group relative flex items-center gap-2 p-0 shadow-md"
 			class:cursor-default={!canEdit}
 			use:ref
 			onclick={() => toggle()}
@@ -78,12 +79,9 @@
 	{#if responsive.isMobile}
 		<div class="border-base-400 relative mb-6 flex items-center justify-center border-b py-4">
 			<h4 class="text-lg font-medium">Edit Icon</h4>
-			<button
-				class="icon-button absolute top-1/2 right-0 -translate-y-1/2"
-				onclick={() => toggle()}
-			>
+			<IconButton class="absolute top-1/2 right-0 -translate-y-1/2" onclick={() => toggle()}>
 				<ChevronRight class="size-6" />
-			</button>
+			</IconButton>
 		</div>
 	{/if}
 	{#if urlIcon}
@@ -138,7 +136,7 @@
 				/>
 
 				<button
-					class="icon-button flex items-center justify-center gap-2 px-4 py-2"
+					class="btn btn-secondary flex items-center justify-center gap-2 px-4 py-2"
 					onclick={() => {
 						project.icons = undefined;
 						onSubmit?.();

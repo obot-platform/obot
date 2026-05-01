@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import type {
 		RemoteCatalogConfigAdmin,
 		RemoteRuntimeConfigAdmin
@@ -7,6 +6,7 @@
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2, Info, Settings } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -187,15 +187,15 @@
 						</div>
 
 						{#if !readonly}
-							<button
-								class="icon-button"
+							<IconButton
+								variant="danger"
 								onclick={() => {
 									config.headers?.splice(i, 1);
 								}}
-								use:tooltip={'Delete Header'}
+								tooltip={{ text: 'Delete Header' }}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					</div>
 				{/each}

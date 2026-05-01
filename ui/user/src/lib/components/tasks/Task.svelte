@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Steps from '$lib/components/tasks/Steps.svelte';
 	import { TASK_NEW_ID } from '$lib/constants';
@@ -18,6 +17,7 @@
 	import { errors, responsive } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import ChatInput from '../messages/Input.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Input from './Input.svelte';
 	import TaskOptions from './TaskOptions.svelte';
 	import { LoaderCircle, OctagonX, Play } from 'lucide-svelte';
@@ -313,18 +313,15 @@
 {#snippet mainActions()}
 	<div class="flex items-center gap-2">
 		{#if allMessages.messages.length > 0 && !noChat}
-			<button
-				class="icon-button"
-				onclick={() => (showChat = !showChat)}
-				use:tooltip={'Toggle Chat'}
-				transition:fade
-			>
-				{#if showChat}
-					<MessageCircleOff class="size-6" />
-				{:else}
-					<MessageCircle class="size-6" />
-				{/if}
-			</button>
+			<div transition:fade>
+				<IconButton onclick={() => (showChat = !showChat)} tooltip={{ text: 'Toggle Chat' }}>
+					{#if showChat}
+						<MessageCircleOff class="size-6" />
+					{:else}
+						<MessageCircle class="size-6" />
+					{/if}
+				</IconButton>
+			</div>
 		{/if}
 		{#if !readOnly}
 			<button

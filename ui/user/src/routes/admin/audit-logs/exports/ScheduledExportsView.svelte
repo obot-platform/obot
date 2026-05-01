@@ -226,7 +226,7 @@
 				{/if}
 			{/snippet}
 			{#snippet actions(d)}
-				<DotDotDot class="icon-button hover:dark:bg-base-100/50">
+				<DotDotDot class="hover:dark:bg-base-100/50">
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
 					{/snippet}

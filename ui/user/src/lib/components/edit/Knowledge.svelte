@@ -10,6 +10,7 @@
 	import { type KnowledgeFile as KnowledgeFileType } from '$lib/services';
 	import { hasTool } from '$lib/tools';
 	import InfoTooltip from '../InfoTooltip.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2, TriangleAlert } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -151,14 +152,13 @@
 							</div>
 						</div>
 						<div class="flex items-center justify-end">
-							<button
-								class="icon-button size-fit"
+							<IconButton
 								onclick={() => {
 									project.websiteKnowledge?.sites?.splice(i, 1);
 								}}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						</div>
 					</div>
 				{/each}

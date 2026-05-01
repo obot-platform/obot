@@ -318,7 +318,7 @@
 						</td>
 						<td class="text-right" onclick={(event) => event.stopPropagation()}>
 							<DotDotDot
-								class="icon-button hover:bg-base-200 dark:hover:bg-base-400"
+								class="hover:bg-base-200 dark:hover:bg-base-400"
 								placement="bottom-end"
 								disablePortal
 								classes={{

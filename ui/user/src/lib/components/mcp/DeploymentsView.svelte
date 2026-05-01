@@ -612,7 +612,7 @@
 					{@const isComposite = !!d.compositeName}
 					{@const auditLogsUrl = getAuditLogsUrl(d)}
 
-					<DotDotDot class="icon-button hover:dark:bg-base-100/50" classes={{ menu: 'p-0' }}>
+					<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0' }}>
 						{#snippet icon()}
 							<Ellipsis class="size-4" />
 						{/snippet}

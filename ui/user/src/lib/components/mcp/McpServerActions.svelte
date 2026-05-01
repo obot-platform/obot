@@ -14,6 +14,7 @@
 	import { goto } from '$lib/url';
 	import DotDotDot from '../DotDotDot.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
@@ -222,7 +223,7 @@
 
 	<div class:hidden={loading || !hasActions}>
 		<DotDotDot
-			class="icon-button hover:bg-base-200 dark:hover:bg-base-300 hover:text-primary flex-shrink-0"
+			class="hover:bg-base-200 dark:hover:bg-base-300"
 			disablePortal={connectOnly}
 			classes={{ menu: 'min-w-48 p-0', popover: 'z-60' }}
 		>
@@ -312,7 +313,7 @@
 	>
 		{#snippet onRenderColumn(property, d)}
 			{#if property === 'name'}
-				<div class="flex flex-shrink-0 items-center gap-2">
+				<div class="flex shrink-0 items-center gap-2">
 					<div class="icon">
 						{#if d.manifest.icon}
 							<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
@@ -329,9 +330,9 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
-			<button class="icon-button hover:dark:bg-base-100/50">
+			<IconButton class="hover:dark:bg-base-100/50">
 				<StepForward class="size-4" />
-			</button>
+			</IconButton>
 		{/snippet}
 	</Table>
 </ResponsiveDialog>

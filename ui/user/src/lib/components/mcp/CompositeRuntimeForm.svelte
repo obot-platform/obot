@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import {
 		AdminService,
 		type CompositeCatalogConfig,
@@ -19,6 +18,7 @@
 		type ToolNameIssue
 	} from '$lib/services/chat/mcp';
 	import Toggle from '../Toggle.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import ToolNameIssueIcon from './ToolNameIssueIcon.svelte';
 	import CompositeToolsSetup from './composite/CompositeSelectServerAndToolsSetup.svelte';
 	import {
@@ -385,32 +385,28 @@
 							{/if}
 						</div>
 						{#if entry.toolOverrides?.length && !readonly}
-							<button
-								type="button"
-								class="icon-button"
-								use:tooltip={'Refresh tool overrides'}
+							<IconButton
+								tooltip={{ text: 'Refresh tool overrides' }}
 								disabled={loadingByEntry[componentId]}
 								onclick={() => openToolsConfigurator(componentId)}
 							>
 								<RefreshCcw class={`size-4 ${loadingByEntry[componentId] ? 'animate-spin' : ''}`} />
-							</button>
+							</IconButton>
 						{/if}
-						<button
-							type="button"
-							class="icon-button"
+						<IconButton
+							tooltip={{ text: expanded[componentId] ? 'Collapse' : 'Expand' }}
 							onclick={() => (expanded[componentId] = !expanded[componentId])}
-							aria-label={expanded[componentId] ? 'Collapse' : 'Expand'}
 						>
 							{#if expanded[componentId]}
 								<ChevronUp class="size-4" />
 							{:else}
 								<ChevronDown class="size-4" />
 							{/if}
-						</button>
+						</IconButton>
 						{#if !readonly}
-							<button class="icon-button text-error" onclick={() => removeServer(componentId)}>
+							<IconButton variant="danger" onclick={() => removeServer(componentId)}>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					</div>
 					{#if expanded[componentId]}

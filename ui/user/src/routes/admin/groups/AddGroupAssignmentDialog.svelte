@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { Role, type OrgGroup, type GroupRoleAssignment } from '$lib/services/admin/types';
 	import { responsive } from '$lib/stores/index.js';
 	import { getUserRoleLabel } from '$lib/utils';
@@ -234,13 +235,9 @@
 	>
 		{#snippet titleContent()}
 			{#if isSmallScreen && selectedGroup}
-				<button
-					onclick={handleBack}
-					class="icon-button mr-2 -ml-2 flex-shrink-0"
-					aria-label="Go back"
-				>
+				<IconButton onclick={handleBack} class="mr-2 -ml-2" aria-label="Go back">
 					<ChevronLeft class="size-6" />
-				</button>
+				</IconButton>
 			{:else if isSmallScreen}
 				<div class="size-11"></div>
 			{/if}

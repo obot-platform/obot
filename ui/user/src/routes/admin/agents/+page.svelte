@@ -4,6 +4,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { NanobotService } from '$lib/services';
 	import type { OrgUser } from '$lib/services/admin/types';
@@ -117,8 +118,8 @@
 				{/if}
 			{/snippet}
 			{#snippet actions(agent)}
-				<button
-					class="icon-button hover:text-primary"
+				<IconButton
+					variant="primary"
 					onclick={(e) => {
 						e.stopPropagation();
 						confirmImpersonate = { userDisplayName: agent.ownerDisplay, agent };
@@ -126,14 +127,17 @@
 					disabled={launchingAgentId === agent.id ||
 						!profile.current.canImpersonate?.() ||
 						agent.userID === profile.current.id}
-					use:tooltip={profile.current.canImpersonate?.() && agent.userID !== profile.current.id
-						? `Impersonate ${agent.ownerDisplay}`
-						: agent.userID === profile.current.id
-							? 'You cannot impersonate yourself.'
-							: 'You do not have permission to impersonate other users.'}
+					tooltip={{
+						text:
+							profile.current.canImpersonate?.() && agent.userID !== profile.current.id
+								? `Impersonate ${agent.ownerDisplay}`
+								: agent.userID === profile.current.id
+									? 'You cannot impersonate yourself.'
+									: 'You do not have permission to impersonate other users.'
+					}}
 				>
 					<HatGlasses class="size-4" />
-				</button>
+				</IconButton>
 			{/snippet}
 		</Table>
 	</div>

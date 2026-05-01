@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { LaunchServerType, MCPCatalogEntryFieldManifest } from '$lib/services';
 	import Select from '../Select.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 
@@ -181,15 +182,15 @@
 							{/if}
 						</div>
 						{#if !readonly && !isPrebuiltEntry}
-							<button
-								class="icon-button hover:text-error"
+							<IconButton
+								variant="danger"
 								onclick={() => {
 									config.splice(i, 1);
 								}}
 								disabled={isPrebuiltEntry}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					</div>
 				{/if}

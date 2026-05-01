@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { scrollFocus } from '$lib/actions/scrollFocus.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Threads from '$lib/components/chat/sidebar/Threads.svelte';
 	import McpServers from '$lib/components/edit/McpServers.svelte';
 	import Tasks from '$lib/components/edit/Tasks.svelte';
@@ -10,7 +9,8 @@
 	import { responsive } from '$lib/stores';
 	import BetaLogo from '../navbar/BetaLogo.svelte';
 	import Projects from '../navbar/Projects.svelte';
-	import { Settings, SidebarClose, Share, CircleFadingArrowUp } from 'lucide-svelte';
+	import IconButton from '../primitives/IconButton.svelte';
+	import { Settings, Share, CircleFadingArrowUp, PanelLeftClose } from 'lucide-svelte';
 	import { onDestroy } from 'svelte';
 
 	interface Props {
@@ -98,10 +98,10 @@
 	<div class="flex w-full items-center justify-between gap-2 px-2 py-2">
 		<div class="flex items-center gap-1">
 			<div class="relative">
-				<button
-					class="icon-button relative"
+				<IconButton
+					class="relative"
 					onclick={() => (layout.sidebarConfig = 'project-configuration')}
-					use:tooltip={upgradeAvailable ? 'Upgrade available' : 'Configure Project'}
+					tooltip={{ text: upgradeAvailable ? 'Upgrade available' : 'Configure Project' }}
 				>
 					<Settings class="text-base-content/40 size-6" />
 					{#if upgradeAvailable}
@@ -112,12 +112,12 @@
 							<CircleFadingArrowUp class="text-primary size-4" />
 						</span>
 					{/if}
-				</button>
+				</IconButton>
 			</div>
 			{#if !shared}
-				<button class="icon-button" onclick={openTemplatePanel} use:tooltip={'Project Sharing'}>
+				<IconButton onclick={openTemplatePanel} tooltip={{ text: 'Project Sharing' }}>
 					<Share class="text-base-content/40 size-6" />
-				</button>
+				</IconButton>
 			{/if}
 		</div>
 		{#if !responsive.isMobile}
@@ -127,7 +127,7 @@
 </div>
 
 {#snippet closeSidebar()}
-	<button class="icon-button" onclick={() => (layout.sidebarOpen = false)}>
-		<SidebarClose class="size-6" />
-	</button>
+	<IconButton onclick={() => (layout.sidebarOpen = false)}>
+		<PanelLeftClose class="size-6" />
+	</IconButton>
 {/snippet}

@@ -13,6 +13,7 @@
 	import Confirm from '../Confirm.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import PageLoading from '../PageLoading.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import MyAccount from '../profile/MyAccount.svelte';
 	import {
 		Book,
@@ -342,14 +343,13 @@
 <dialog bind:this={versionDialog} class="dialog">
 	<div class="dialog-container relative z-50 max-w-lg min-w-sm p-4">
 		<div class="absolute top-2 right-2">
-			<button
+			<IconButton
 				onclick={() => {
 					versionDialog?.close();
 				}}
-				class="icon-button"
 			>
 				<X class="size-4" />
-			</button>
+			</IconButton>
 		</div>
 		<h4 class="mb-4 text-base font-semibold">Version Information</h4>
 		<div class="flex flex-col gap-1 text-xs">

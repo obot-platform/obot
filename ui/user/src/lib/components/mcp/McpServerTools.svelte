@@ -13,6 +13,7 @@
 	import { responsive } from '$lib/stores';
 	import Search from '../Search.svelte';
 	import Toggle from '../Toggle.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import McpOauth from './McpOauth.svelte';
 	import ToolNameIssueIcon from './ToolNameIssueIcon.svelte';
 	import { AlertCircle, ChevronDown, ChevronUp, Info, LoaderCircle, Wrench } from 'lucide-svelte';
@@ -263,8 +264,8 @@
 								{/if}
 							</p>
 							<div class="flex shrink-0 items-center gap-2">
-								<button
-									class="icon-button h-fit min-h-auto w-fit min-w-auto shrink-0 p-1"
+								<IconButton
+									class="btn-sm"
 									onclick={() => handleToggleDescription(tool.id, !hasContentDisplayed)}
 								>
 									{#if hasContentDisplayed}
@@ -272,7 +273,7 @@
 									{:else}
 										<ChevronDown class="size-4" />
 									{/if}
-								</button>
+								</IconButton>
 								{#if project}
 									<Toggle
 										checked={selected.includes(tool.id) || allToolsEnabled}

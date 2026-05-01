@@ -327,7 +327,7 @@
 					{/if}
 
 					{#if d.needsUpdate}
-						<DotDotDot class="icon-button hover:dark:bg-base-100/50">
+						<DotDotDot class="hover:dark:bg-base-100/50">
 							{#snippet icon()}
 								<Ellipsis class="size-4" />
 							{/snippet}
@@ -368,7 +368,7 @@
 							</button>
 						</DotDotDot>
 						<button
-							class="icon-button hover:bg-black/50"
+							class="hover:bg-black/50"
 							onclick={(e) => {
 								e.stopPropagation();
 								if (selected[d.id]) {

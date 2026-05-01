@@ -30,6 +30,7 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import {
 		AlertTriangle,
@@ -420,7 +421,7 @@
 				{@const requiresOAuth =
 					catalogEntry?.manifest?.runtime === 'remote' &&
 					catalogEntry.manifest?.remoteConfig?.staticOAuthRequired}
-				<DotDotDot class="icon-button hover:dark:bg-base-100/50" classes={{ menu: 'p-0' }}>
+				<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0' }}>
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
 					{/snippet}
@@ -887,9 +888,9 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
-			<button class="icon-button hover:dark:bg-base-100/50">
+			<IconButton class="hover:dark:bg-base-100/50">
 				<StepForward class="size-4" />
-			</button>
+			</IconButton>
 		{/snippet}
 	</Table>
 </ResponsiveDialog>

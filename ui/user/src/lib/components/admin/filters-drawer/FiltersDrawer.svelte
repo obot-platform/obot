@@ -7,6 +7,7 @@
 
 <script lang="ts">
 	import { page } from '$app/state';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { AdminService } from '$lib/services';
 	import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from '$lib/services/admin/operations';
 	import type { AuditLogURLFilters } from '$lib/services/admin/types';
@@ -163,9 +164,9 @@
 >
 	<div class="relative w-full text-center">
 		<h4 class="p-4 text-xl font-semibold">Filters</h4>
-		<button class="icon-button absolute top-1/2 right-4 -translate-y-1/2" onclick={onClose}>
+		<IconButton class="absolute top-1/2 right-4 -translate-y-1/2" onclick={onClose}>
 			<X class="size-5" />
-		</button>
+		</IconButton>
 	</div>
 	<div
 		class="default-scrollbar-thin flex h-[calc(100%-60px)] w-full flex-col gap-4 overflow-y-auto p-4 pt-0"

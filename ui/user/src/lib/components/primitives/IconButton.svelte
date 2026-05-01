@@ -10,7 +10,8 @@
 		variant?: 'default' | 'error' | 'danger' | 'primary';
 	}
 
-	const defaultClasses = 'btn btn-ghost btn-square shrink-0';
+	const defaultClasses =
+		'btn btn-ghost btn-square shrink-0 disabled:cursor-not-allowed disabled:opacity-50';
 	let {
 		children,
 		class: className,
@@ -23,12 +24,13 @@
 {#if tooltipOptions}
 	<button
 		type="button"
+		aria-label={tooltipOptions.text}
 		class={twMerge(
 			defaultClasses,
 			variant === 'error'
 				? 'btn-error'
 				: variant === 'primary'
-					? 'btn-primary'
+					? 'btn-primary btn-soft'
 					: variant === 'danger'
 						? 'hover:text-error'
 						: '',

@@ -9,6 +9,7 @@
 	import EditExistingDeployment from '../mcp/EditExistingDeployment.svelte';
 	import McpServerActions from '../mcp/McpServerActions.svelte';
 	import McpServerInfoAndTools from '../mcp/McpServerInfoAndTools.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { ChevronLeft, Server, Trash2 } from 'lucide-svelte';
 
 	interface Props {
@@ -47,9 +48,9 @@
 		{#if !layout.sidebarOpen || responsive.isMobile}
 			<div class="flex w-full items-center justify-between gap-2 px-4 pt-4">
 				<div class="flex shrink-0 items-center gap-2">
-					<button class="icon-button" onclick={() => closeSidebarConfig(layout)}>
+					<IconButton onclick={() => closeSidebarConfig(layout)}>
 						<ChevronLeft class="size-6" />
-					</button>
+					</IconButton>
 					<h1 class="text-xl font-semibold capitalize">{mcpServer.alias || mcpServer.name}</h1>
 				</div>
 				<div class="flex shrink-0 items-center gap-2">

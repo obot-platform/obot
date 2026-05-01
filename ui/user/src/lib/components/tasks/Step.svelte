@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { transitionParentHeight } from '$lib/actions/size.svelte';
 	import { autoHeight } from '$lib/actions/textarea.js';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Message from '$lib/components/messages/Message.svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
@@ -14,6 +13,7 @@
 		type Task,
 		type TaskStep
 	} from '$lib/services';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { DraggableHandle, DraggableItem } from '../primitives/draggable';
 	import LoopStep from './LoopStep.svelte';
 	import { LoaderCircle, OctagonX, Play, RefreshCcw } from 'lucide-svelte';
@@ -297,29 +297,31 @@
 
 				{#if !readOnly}
 					<div class="flex items-start">
-						<button
-							class="icon-button"
-							class:text-primary={isLoopStep}
+						<IconButton
+							class={isLoopStep ? 'text-primary' : ''}
 							data-testid="step-loop-btn"
 							onclick={toggleLoop}
-							use:tooltip={isLoopStep
-								? 'Convert to regular step'
-								: 'Iterate through the results of this step'}
+							tooltip={{
+								text: isLoopStep
+									? 'Convert to regular step'
+									: 'Iterate through the results of this step'
+							}}
 						>
 							<Repeat class="size-4" />
-						</button>
+						</IconButton>
 
-						<button
-							class="icon-button"
+						<IconButton
 							data-testid="step-run-btn"
 							onclick={doRun}
-							use:tooltip={isRunning
-								? 'Abort'
-								: pending
-									? 'Running...'
-									: simpleStepMessages.length > 0
-										? 'Re-run Step'
-										: 'Run Step'}
+							tooltip={{
+								text: isRunning
+									? 'Abort'
+									: pending
+										? 'Running...'
+										: simpleStepMessages.length > 0
+											? 'Re-run Step'
+											: 'Run Step'
+							}}
 						>
 							{#if isRunning}
 								<OctagonX class="size-4" />
@@ -330,9 +332,9 @@
 							{:else}
 								<Play class="size-4" />
 							{/if}
-						</button>
-						<button
-							class="icon-button"
+						</IconButton>
+						<IconButton
+							variant="danger"
 							data-testid="step-delete-btn"
 							onclick={() => {
 								if (step.step?.trim()) {
@@ -342,22 +344,22 @@
 									onDelete?.();
 								}
 							}}
-							use:tooltip={'Delete Step'}
+							tooltip={{ text: 'Delete Step' }}
 						>
 							<Trash2 class="size-4" />
-						</button>
+						</IconButton>
 						<div class="flex grow">
 							<div class="size-10">
 								{#if (step.step?.trim() || '').length > 0}
-									<button
-										class="icon-button"
-										data-testid="step-add-btn"
-										onclick={onAdd}
-										use:tooltip={'Add Step'}
-										transition:fade={{ duration: 200 }}
-									>
-										<Plus class="size-4" />
-									</button>
+									<div transition:fade={{ duration: 200 }}>
+										<IconButton
+											data-testid="step-add-btn"
+											onclick={onAdd}
+											tooltip={{ text: 'Add Step' }}
+										>
+											<Plus class="size-4" />
+										</IconButton>
+									</div>
 								{/if}
 							</div>
 						</div>

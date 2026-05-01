@@ -2,6 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { AdminService, type MCPCatalog } from '$lib/services';
 	import { AlertTriangle, Link2, Pencil, Trash2, TriangleAlert } from 'lucide-svelte';
@@ -57,24 +58,23 @@
 			{#snippet actions(d)}
 				{#if !readonly}
 					{#if onEdit}
-						<button
-							class="icon-button"
+						<IconButton
 							onclick={() => {
 								const index = catalog?.sourceURLs?.indexOf(d.url) ?? -1;
 								onEdit(d.url, index);
 							}}
 						>
 							<Pencil class="size-4" />
-						</button>
+						</IconButton>
 					{/if}
-					<button
-						class="icon-button hover:text-error"
+					<IconButton
+						variant="danger"
 						onclick={() => {
 							deletingSource = { type: 'single', source: d.url };
 						}}
 					>
 						<Trash2 class="size-4" />
-					</button>
+					</IconButton>
 				{/if}
 			{/snippet}
 			{#snippet onRenderColumn(property, d)}

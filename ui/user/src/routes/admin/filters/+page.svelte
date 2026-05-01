@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { AdminService, type MCPFilter, type SystemMCPServerCatalogEntry } from '$lib/services';
@@ -143,16 +143,16 @@
 						>
 							{#snippet actions(d: MCPFilter)}
 								{#if !profile.current.isAdminReadonly?.()}
-									<button
-										class="icon-button hover:text-error"
+									<IconButton
+										variant="danger"
 										onclick={(e) => {
 											e.stopPropagation();
 											filterToDelete = d;
 										}}
-										use:tooltip={'Delete Filter'}
+										tooltip={{ text: 'Delete Filter' }}
 									>
 										<Trash2 class="size-4" />
-									</button>
+									</IconButton>
 								{/if}
 							{/snippet}
 							{#snippet onRenderColumn(property, d: (typeof tableData)[number])}

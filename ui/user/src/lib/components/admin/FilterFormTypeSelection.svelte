@@ -9,6 +9,7 @@
 	import type { MCPCatalogEntryFieldManifest } from '$lib/services';
 	import { randomUUID } from '$lib/utils';
 	import Select from '../Select.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2 } from 'lucide-svelte';
 
 	interface Props {
@@ -132,15 +133,15 @@
 					}
 				}}
 			/>
-			<button
-				class="icon-button hover:text-error"
+			<IconButton
+				variant="danger"
 				onclick={() => {
 					if (isBlocked) removeTypeFromOneList(option, 'block');
 					else if (isRedacted) removeTypeFromOneList(option, 'mutate');
 				}}
 			>
 				<Trash2 class="size-4" />
-			</button>
+			</IconButton>
 		</div>
 	{/each}
 	{#each unassignedCustomOptions as option, i (option.id)}
@@ -170,14 +171,14 @@
 					tryCommitUnassignedRow(i);
 				}}
 			/>
-			<button
-				class="icon-button hover:text-error"
+			<IconButton
+				variant="danger"
 				onclick={() => {
 					unassignedCustomOptions.splice(i, 1);
 				}}
 			>
 				<Trash2 class="size-4" />
-			</button>
+			</IconButton>
 		</div>
 	{/each}
 </div>

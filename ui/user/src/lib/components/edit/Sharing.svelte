@@ -6,6 +6,7 @@
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import { ChatService, type Project, type ProjectMember } from '$lib/services';
 	import { profile } from '$lib/stores';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Crown, Plus, Trash2 } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 
@@ -97,13 +98,9 @@
 						<span class="text-sm font-medium">Project Members</span>
 						{#if isOwnerOrAdmin}
 							<div class="flex gap-2">
-								<button
-									class="icon-button"
-									onclick={manageInvitations}
-									use:tooltip={'Manage invitations'}
-								>
+								<IconButton onclick={manageInvitations} tooltip={{ text: 'Manage invitations' }}>
 									<Plus class="size-4" />
-								</button>
+								</IconButton>
 							</div>
 						{/if}
 					</div>
@@ -130,13 +127,12 @@
 								{/if}
 							</div>
 							{#if isOwnerOrAdmin && profile.current.email !== member.email && !member.isOwner}
-								<button
-									class="icon-button"
+								<IconButton
 									onclick={() => (toDelete = member.email)}
-									use:tooltip={'Remove member'}
+									tooltip={{ text: 'Remove member' }}
 								>
 									<Trash2 class="size-4" />
-								</button>
+								</IconButton>
 							{/if}
 						</div>
 					{/each}

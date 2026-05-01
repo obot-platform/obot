@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import type { OnDemand } from '$lib/services';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2 } from 'lucide-svelte';
 
 	interface Props {
@@ -76,8 +76,7 @@
 						</td>
 						{#if !readOnly}
 							<td class="flex justify-end">
-								<button
-									class="icon-button"
+								<IconButton
 									onclick={() => {
 										const key = order[i];
 
@@ -87,10 +86,10 @@
 
 										order = order.filter((k) => k !== key);
 									}}
-									use:tooltip={'Remove Argument'}
+									tooltip={{ text: 'Remove Argument' }}
 								>
 									<Trash2 class="size-5" />
-								</button>
+								</IconButton>
 							</td>
 						{/if}
 					</tr>

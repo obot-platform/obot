@@ -6,6 +6,7 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import { PictureInPicture2 } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -32,14 +33,13 @@
 	}));
 </script>
 
-<button
-	class="icon-button"
+<IconButton
 	onclick={() => {
 		modelsDialog?.open();
 	}}
 >
 	<PictureInPicture2 class="size-5" />
-</button>
+</IconButton>
 
 <ResponsiveDialog
 	bind:this={modelsDialog}

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import type { MCPFilterResource, MCPFilterWebhookSelector } from '$lib/services';
 	import { mcpServersAndEntries } from '$lib/stores';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import { Plus, Trash2, X } from 'lucide-svelte';
@@ -196,13 +196,13 @@
 				Selector {selectorIndex + 1}
 			</h3>
 			{#if !readonly}
-				<button
-					class="icon-button text-error/50 hover:text-error"
+				<IconButton
+					variant="danger"
 					onclick={() => removeSelector(selectorIndex)}
-					use:tooltip={'Remove Selector'}
+					tooltip={{ text: 'Remove Selector' }}
 				>
 					<Trash2 class="size-4" />
-				</button>
+				</IconButton>
 			{/if}
 		</div>
 
@@ -252,14 +252,13 @@
 								disabled={readonly}
 							/>
 							{#if !readonly}
-								<button
-									type="button"
-									class="icon-button text-error/50 hover:text-error"
+								<IconButton
+									variant="danger"
 									onclick={() => removeIdentifier(selectorIndex, identifierIndex)}
-									use:tooltip={'Remove Identifier'}
+									tooltip={{ text: 'Remove Identifier' }}
 								>
 									<X class="size-4" />
-								</button>
+								</IconButton>
 							{/if}
 						</div>
 					{/each}
@@ -273,15 +272,15 @@
 	<Table data={mcpServersTableData} fields={['name']} noDataMessage="No MCP servers added.">
 		{#snippet actions(d)}
 			{#if !readonly}
-				<button
-					class="icon-button hover:text-error"
+				<IconButton
+					variant="danger"
 					onclick={() => {
 						form.resources = form.resources.filter((resource) => resource.id !== d.id);
 					}}
-					use:tooltip={'Remove MCP Server'}
+					tooltip={{ text: 'Remove MCP Server' }}
 				>
 					<Trash2 class="size-4" />
-				</button>
+				</IconButton>
 			{/if}
 		{/snippet}
 	</Table>

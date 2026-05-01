@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CopyButton from '$lib/components/CopyButton.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { Group, type AuditLog } from '$lib/services/admin/types';
 	import { profile, timePreference } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
@@ -48,9 +49,9 @@
 		<p class="text-base-content/40 text-xs font-light">
 			{auditLog.requestID}
 		</p>
-		<button onclick={onClose} class="icon-button absolute top-1/2 right-4 -translate-y-1/2">
+		<IconButton onclick={onClose} class="absolute top-1/2 right-4 -translate-y-1/2">
 			<X class="size-5" />
-		</button>
+		</IconButton>
 	</div>
 	<div class="default-scrollbar-thin relative h-[calc(100%-60px)] overflow-y-auto pb-4">
 		<div class="bg-base-300 absolute top-0 left-0 h-full w-1"></div>

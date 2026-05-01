@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
 	import type { ContainerizedRuntimeConfig } from '$lib/services/chat/types';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -238,13 +238,9 @@
 							onpaste={(e) => handlePaste(e, i)}
 						/>
 						{#if !readonly}
-							<button
-								class="icon-button"
-								onclick={() => removeArgument(i)}
-								use:tooltip={'Remove argument'}
-							>
+							<IconButton onclick={() => removeArgument(i)} tooltip={{ text: 'Remove argument' }}>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					</div>
 				{/each}

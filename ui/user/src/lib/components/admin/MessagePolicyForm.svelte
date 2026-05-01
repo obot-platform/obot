@@ -15,6 +15,7 @@
 	import { getUserDisplayName } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
 	import Select from '../Select.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchUsers from './SearchUsers.svelte';
 	import { CircleHelp, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
@@ -300,17 +301,17 @@
 				>
 					{#snippet actions(d)}
 						{#if !readonly}
-							<button
-								class="icon-button hover:text-error"
+							<IconButton
+								variant="danger"
 								onclick={() => {
 									messagePolicy.subjects = messagePolicy.subjects?.filter(
 										(subject) => subject.id !== d.id
 									);
 								}}
-								use:tooltip={'Delete User/Group'}
+								tooltip={{ text: 'Delete User/Group' }}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					{/snippet}
 				</Table>

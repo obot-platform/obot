@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Files from '$lib/components/tasks/Files.svelte';
 	import Step from '$lib/components/tasks/Step.svelte';
 	import { type Messages, type Project, type Task, type TaskStep } from '$lib/services';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { DraggableList } from '../primitives/draggable';
 	import { Eye, EyeClosed, UsersRound, ArrowBigDown } from 'lucide-svelte';
 	import { tick, untrack } from 'svelte';
@@ -259,8 +259,7 @@
 		<h4 class="text-lg font-semibold">Steps</h4>
 
 		{#if shouldShowToggleAllOutput}
-			<button
-				class="icon-button"
+			<IconButton
 				data-testid="steps-toggle-output-btn"
 				onclick={async () => {
 					if (showAllOutput) {
@@ -276,14 +275,14 @@
 						showAllOutput = true;
 					}
 				}}
-				use:tooltip={'Toggle All Output Visbility'}
+				tooltip={{ text: 'Toggle All Output Visbility' }}
 			>
 				{#if showAllOutput}
 					<Eye class="size-5" />
 				{:else}
 					<EyeClosed class="size-5" />
 				{/if}
-			</button>
+			</IconButton>
 		{/if}
 	</div>
 

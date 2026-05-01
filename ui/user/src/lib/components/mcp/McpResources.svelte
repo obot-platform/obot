@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import { getProjectMCPs, type ProjectMcpItem } from '$lib/context/projectMcps.svelte';
 	import {
@@ -12,6 +11,7 @@
 	import { errors } from '$lib/stores';
 	import { poll } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { LoaderCircle, HardDrive, Search, Download, ChevronsRight, Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
@@ -336,13 +336,12 @@
 							{#each resources as resource (resource.uri)}
 								{@const alreadyAdded = resourceFileExists(resource, mcp)}
 								<div class="resource flex items-center gap-2">
-									<button
-										class="icon-button"
+									<IconButton
 										onclick={() => downloadResource(resource, mcp)}
-										use:tooltip={'Download'}
+										tooltip={{ text: 'Download' }}
 									>
 										<Download class="size-4" />
-									</button>
+									</IconButton>
 									<button
 										class="flex grow gap-4 text-left"
 										onclick={() => {

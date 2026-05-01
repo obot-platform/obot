@@ -20,6 +20,7 @@
 	import CopyButton from '../CopyButton.svelte';
 	import PageLoading from '../PageLoading.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import CatalogConfigureForm, {
 		type CompositeLaunchFormData,
 		type LaunchFormData
@@ -801,9 +802,9 @@
 		<div class="flex flex-col gap-4 p-4">
 			{#if oauthURL}
 				<div class="absolute top-2 right-2">
-					<button class="icon-button" onclick={handleOauthClose}>
+					<IconButton onclick={handleOauthClose}>
 						<X class="size-4" />
-					</button>
+					</IconButton>
 				</div>
 				<div class="flex items-center gap-2">
 					<div class="h-fit shrink-0 self-start rounded-md bg-base-200 p-1 dark:bg-base-300">

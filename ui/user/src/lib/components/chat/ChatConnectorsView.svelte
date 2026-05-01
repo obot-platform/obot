@@ -15,6 +15,7 @@
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import {
 		CircleFadingArrowUp,
 		LoaderCircle,
@@ -170,10 +171,10 @@
 					d.data.manifest?.runtime === 'remote' &&
 					d.data.manifest?.remoteConfig?.staticOAuthRequired &&
 					!d.data.oauthCredentialConfigured}
-				<button
-					class="icon-button hover:dark:bg-base-100/50 disabled:cursor-not-allowed disabled:opacity-50"
+				<IconButton
+					class="hover:dark:bg-base-100/50"
 					disabled={requiresOAuthConfig}
-					use:tooltip={{
+					tooltip={{
 						text: requiresOAuthConfig ? 'OAuth configuration required' : '',
 						disablePortal: true
 					}}
@@ -209,7 +210,7 @@
 					}}
 				>
 					<StepForward class="size-4" />
-				</button>
+				</IconButton>
 			{/snippet}
 		</Table>
 	{/if}
@@ -257,9 +258,9 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
-			<button class="icon-button hover:dark:bg-base-100/50">
+			<IconButton class="hover:dark:bg-base-100/50">
 				<StepForward class="size-4" />
-			</button>
+			</IconButton>
 		{/snippet}
 	</Table>
 </ResponsiveDialog>

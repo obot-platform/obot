@@ -1,4 +1,5 @@
 <script lang="ts">
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { type SystemMCPServerCatalogEntry } from '$lib/services';
@@ -52,9 +53,9 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
-			<button class="icon-button hover:dark:bg-base-100/50">
+			<IconButton class="hover:dark:bg-base-100/50">
 				<StepForward class="size-4 text-base-content/40" />
-			</button>
+			</IconButton>
 		{/snippet}
 	</Table>
 {:else}

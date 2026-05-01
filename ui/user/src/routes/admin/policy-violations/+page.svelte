@@ -4,6 +4,7 @@
 	import Select from '$lib/components/Select.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
@@ -617,9 +618,9 @@
 				>
 					<div class="bg-primary absolute top-0 left-0 h-full w-1"></div>
 					<h3 class="text-lg font-semibold">Violation Detail</h3>
-					<button onclick={closeSidebar} class="icon-button">
+					<IconButton onclick={closeSidebar}>
 						<X class="size-5" />
-					</button>
+					</IconButton>
 				</div>
 
 				<div class="default-scrollbar-thin relative flex-1 overflow-y-auto pb-4">

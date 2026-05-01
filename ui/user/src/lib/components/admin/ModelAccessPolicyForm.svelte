@@ -18,6 +18,7 @@
 	import { goto } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchModels from './SearchModels.svelte';
 	import SearchUsers from './SearchUsers.svelte';
@@ -371,17 +372,17 @@
 				>
 					{#snippet actions(d)}
 						{#if !readonly}
-							<button
-								class="icon-button hover:text-error"
+							<IconButton
+								variant="danger"
 								onclick={() => {
 									modelAccessPolicy.subjects = modelAccessPolicy.subjects?.filter(
 										(subject) => subject.id !== d.id
 									);
 								}}
-								use:tooltip={'Delete User/Group'}
+								tooltip={{ text: 'Delete User/Group' }}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					{/snippet}
 				</Table>
@@ -444,16 +445,16 @@
 					{/snippet}
 					{#snippet actions(d)}
 						{#if !readonly}
-							<button
-								class="icon-button hover:text-error"
+							<IconButton
+								variant="danger"
 								onclick={() => {
 									modelAccessPolicy.models =
 										modelAccessPolicy.models?.filter((m) => m.id !== d.id) ?? [];
 								}}
-								use:tooltip={'Remove Model'}
+								tooltip={{ text: 'Remove Model' }}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					{/snippet}
 				</Table>

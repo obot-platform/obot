@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ModelAccessPolicyForm from '$lib/components/admin/ModelAccessPolicyForm.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { type ModelAccessPolicy } from '$lib/services/admin/types';
@@ -112,16 +112,16 @@
 	>
 		{#snippet actions(d)}
 			{#if !isReadonly}
-				<button
-					class="icon-button hover:text-error"
+				<IconButton
+					variant="danger"
 					onclick={(e) => {
 						e.stopPropagation();
 						policyToDelete = d;
 					}}
-					use:tooltip={'Delete Policy'}
+					tooltip={{ text: 'Delete Policy' }}
 				>
 					<Trash2 class="size-4" />
-				</button>
+				</IconButton>
 			{/if}
 		{/snippet}
 		{#snippet onRenderColumn(property, d)}

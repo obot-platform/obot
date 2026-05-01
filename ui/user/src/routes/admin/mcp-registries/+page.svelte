@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { invalidate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { type AccessControlRule, type OrgUser } from '$lib/services/admin/types';
@@ -178,16 +178,16 @@
 	>
 		{#snippet actions(d)}
 			{#if !isReadonly}
-				<button
-					class="icon-button hover:text-error"
+				<IconButton
+					variant="danger"
 					onclick={(e) => {
 						e.stopPropagation();
 						ruleToDelete = d;
 					}}
-					use:tooltip={'Delete Rule'}
+					tooltip={{ text: 'Delete Rule' }}
 				>
 					<Trash2 class="size-4" />
-				</button>
+				</IconButton>
 			{/if}
 		{/snippet}
 		{#snippet onRenderColumn(property, d)}

@@ -18,6 +18,7 @@
 		requiresUserConfiguration,
 		requiresAdminOAuthConfig
 	} from '$lib/services/chat/mcp';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Server, X, AlertTriangle } from 'lucide-svelte';
 	import { onMount, tick } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -339,9 +340,9 @@
 		<dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'fade' }}>
 			<div class="dialog-container relative flex w-full flex-col gap-4 p-4 md:w-sm">
 				<div class="absolute top-2 right-2">
-					<button class="icon-button" onclick={dismissCurrent}>
+					<IconButton onclick={dismissCurrent}>
 						<X class="size-4" />
-					</button>
+					</IconButton>
 				</div>
 				<div class="flex items-center gap-2">
 					<div class="h-fit shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-base-300">
@@ -389,9 +390,9 @@
 		<dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'fade' }}>
 			<div class="dialog-container relative flex w-full flex-col gap-4 p-4 md:w-sm">
 				<div class="absolute top-2 right-2">
-					<button class="icon-button" onclick={dismissCurrent}>
+					<IconButton onclick={dismissCurrent}>
 						<X class="size-4" />
-					</button>
+					</IconButton>
 				</div>
 				<div class="flex items-center gap-2">
 					<div class="h-fit shrink-0 self-start rounded-md bg-base-200 p-1 dark:bg-base-300">

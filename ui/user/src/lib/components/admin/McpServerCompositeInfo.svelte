@@ -10,6 +10,7 @@
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { openUrl } from '$lib/utils';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import { AlertCircle, ChevronRight, Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -113,9 +114,9 @@
 								<span class="text-base-content/40 text-sm">({catalogEntryServerId})</span>
 							{/if}
 						</div>
-						<div class="icon-button">
+						<IconButton>
 							<ChevronRight class="size-6" />
-						</div>
+						</IconButton>
 					</button>
 				{:else}
 					<div

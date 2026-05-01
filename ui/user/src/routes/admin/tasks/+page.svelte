@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import {
 		AdminService,
@@ -26,7 +26,6 @@
 	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { twMerge } from 'tailwind-merge';
 
 	let tasks = $state<ProjectTask[]>([]);
 	let threads = $state<ProjectThread[]>([]);
@@ -196,15 +195,9 @@
 						onSort={setSortUrlParams}
 					>
 						{#snippet actions()}
-							<button
-								class={twMerge('icon-button hover:text-primary')}
-								title="View Task"
-								use:tooltip={{
-									text: 'View Task'
-								}}
-							>
+							<IconButton variant="primary" tooltip={{ text: 'View Task' }}>
 								<Eye class="size-4" />
-							</button>
+							</IconButton>
 						{/snippet}
 						{#snippet onRenderColumn(property, task)}
 							{#if property === 'name'}

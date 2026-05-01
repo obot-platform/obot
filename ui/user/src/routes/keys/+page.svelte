@@ -3,6 +3,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ApiKeysService } from '$lib/services';
@@ -163,9 +164,9 @@
 						{/if}
 					{/snippet}
 					{#snippet actions(d)}
-						<button class="icon-button" onclick={() => (deletingKey = d)}>
+						<IconButton variant="danger" onclick={() => (deletingKey = d)}>
 							<Trash2 class="size-4" />
-						</button>
+						</IconButton>
 					{/snippet}
 				</Table>
 			{/if}

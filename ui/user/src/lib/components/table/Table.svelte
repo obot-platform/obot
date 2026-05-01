@@ -757,8 +757,7 @@
 
 {#snippet selectAll()}
 	<div class="flex items-center gap-1">
-		<button
-			class="icon-button"
+		<IconButton
 			onclick={(e) => {
 				e.stopPropagation();
 				if (Object.keys(selected).length > 0) {
@@ -784,7 +783,7 @@
 			{:else}
 				<Square class="size-5" />
 			{/if}
-		</button>
+		</IconButton>
 		{#if validateSelect}
 			<DotDotDot class="text-base-content/40" {disablePortal}>
 				{#snippet icon()}

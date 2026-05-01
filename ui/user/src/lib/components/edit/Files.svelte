@@ -20,6 +20,7 @@
 	} from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { responsive } from '$lib/stores';
+	import IconButton from '../primitives/IconButton.svelte';
 	import CollapsePane from './CollapsePane.svelte';
 	import { Download, Image, Plus } from 'lucide-svelte';
 	import { FileText, Trash2, Upload } from 'lucide-svelte/icons';
@@ -170,24 +171,24 @@
 							<span use:overflowToolTip>{file.name}</span>
 						</button>
 
-						<button
-							class="icon-button-small ms-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
+						<IconButton
+							class="btn-sm ms-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
 							onclick={() => {
 								EditorService.download([], project, file.name, apiOpts);
 							}}
 						>
 							<Download class="text-gray size-4" />
-						</button>
+						</IconButton>
 
-						<button
-							class="icon-button-small ms-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
+						<IconButton
+							class="btn-sm ms-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
 							onclick={() => {
 								fileToDelete = file.name;
 								menu?.toggle(false);
 							}}
 						>
 							<Trash2 class="text-gray size-4" />
-						</button>
+						</IconButton>
 					</div>
 				</li>
 			{/each}

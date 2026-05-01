@@ -494,13 +494,13 @@
 		{#if msg.file.content && isTextFile(msg.file.filename)}
 			<div class="flex gap-2">
 				<div>
-					<button
-						use:tooltip={'Copy file contents to clipboard'}
-						class="icon-button-small"
+					<IconButton
+						tooltip={{ text: 'Copy file contents to clipboard' }}
+						class="btn-sm"
 						onclick={() => copyContentToClipboard(msg.file?.content)}
 					>
-						<Copy class="h-4 w-4" />
-					</button>
+						<Copy class="size-4" />
+					</IconButton>
 				</div>
 			</div>
 		{/if}
@@ -605,13 +605,13 @@
 							/>
 						</button>
 						<div class="flex gap-2">
-							<button
-								class="icon-button-small"
-								use:tooltip={'Add to Workspace Files'}
+							<IconButton
+								class="btn-sm"
+								tooltip={{ text: 'Add to Workspace Files' }}
 								onclick={() => addImageContentInEditor(content)}
 							>
 								<FileSymlink class="size-4" />
-							</button>
+							</IconButton>
 							{@render downloadImageButton(
 								`data:${content.mimeType};base64,${content.data}`,
 								`image-${Date.now()}.${content.mimeType.split('/')[1]}`
@@ -873,9 +873,9 @@
 <MemoriesDialog bind:this={memoriesDialog} {project} />
 
 {#snippet downloadImageButton(data: string, filename: string)}
-	<button
-		class="icon-button-small"
-		use:tooltip={'Download'}
+	<IconButton
+		class="btn-sm"
+		tooltip={{ text: 'Download' }}
 		onclick={() => {
 			const link = document.createElement('a');
 			link.href = data;
@@ -886,7 +886,7 @@
 		}}
 	>
 		<Download class="size-4" />
-	</button>
+	</IconButton>
 {/snippet}
 
 <style lang="postcss">

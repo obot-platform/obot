@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { popover } from '$lib/actions';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project } from '$lib/services';
 	import { goto } from '$lib/url';
 	import Confirm from '../Confirm.svelte';
 	import PageLoading from '../PageLoading.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { ChevronDown, Plus, Settings } from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 
@@ -143,15 +143,16 @@
 				{/if}
 			</div>
 		</a>
-		<button
-			class="icon-button hover:text-primary flex-shrink-0 opacity-0 group-hover:opacity-100"
+		<IconButton
+			variant="primary"
+			class="opacity-0 group-hover:opacity-100"
 			onclick={() => {
 				goto(`/o/${p.id}?edit=true`);
 			}}
-			use:tooltip={'Configure Project'}
+			tooltip={{ text: 'Configure Project' }}
 		>
 			<Settings class="size-5" />
-		</button>
+		</IconButton>
 	</div>
 {/snippet}
 

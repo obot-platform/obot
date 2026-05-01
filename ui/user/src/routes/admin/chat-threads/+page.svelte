@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { AdminService, type ProjectThread, type Project, type OrgUser } from '$lib/services';
 	import { Group } from '$lib/services/admin/types';
@@ -194,21 +194,20 @@
 						onSort={setSortUrlParams}
 					>
 						{#snippet actions()}
-							<button
+							<IconButton
 								class={twMerge(
-									'icon-button',
 									isAuditor && 'hover:text-primary',
 									!isAuditor && 'opacity-50 hover:bg-transparent dark:hover:bg-transparent'
 								)}
 								title="View Thread"
-								use:tooltip={{
+								tooltip={{
 									text: isAuditor
 										? 'View Thread'
 										: 'To view details, auditing permissions are required.'
 								}}
 							>
 								<Eye class="size-4" />
-							</button>
+							</IconButton>
 						{/snippet}
 						{#snippet onRenderColumn(property, thread)}
 							{#if property === 'created'}

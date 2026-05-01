@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -642,26 +642,24 @@
 						<div
 							class="mt-4 flex items-center justify-center gap-4 border-t border-gray-200 p-4 pb-0 dark:border-gray-700"
 						>
-							<button
-								class="icon-button"
+							<IconButton
 								onclick={() => setGraphPage(cfg.id, Math.max(0, page - 1))}
 								disabled={page === 0}
-								use:tooltip={'Previous Page'}
+								tooltip={{ text: 'Previous Page' }}
 							>
 								<ChevronsLeft class="size-5" />
-							</button>
+							</IconButton>
 							<span class="text-sm">
 								Page {page + 1} of {maxPage + 1}
 								(showing {Math.min(graphPageSize, total - page * graphPageSize)} of {total} items)
 							</span>
-							<button
-								class="icon-button"
+							<IconButton
 								onclick={() => setGraphPage(cfg.id, Math.min(maxPage, page + 1))}
 								disabled={page >= maxPage}
-								use:tooltip={'Next Page'}
+								tooltip={{ text: 'Next Page' }}
 							>
 								<ChevronsRight class="size-5" />
-							</button>
+							</IconButton>
 						</div>
 					{/if}
 				</div>

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { transitionParentHeight } from '$lib/actions/size.svelte';
 	import { autoHeight } from '$lib/actions/textarea.js';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Message from '$lib/components/messages/Message.svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import { EditorService, type Messages, type Project } from '$lib/services';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Trash2, Plus } from 'lucide-svelte/icons';
 	import { linear } from 'svelte/easing';
 	import type { KeyboardEventHandler } from 'svelte/elements';
@@ -78,13 +78,13 @@
 
 		{#if !isReadOnly && !isStepRunned && !isStepRunning}
 			<div class="flex items-center">
-				<button class="icon-button" onclick={onDelete} use:tooltip={'Remove step from loop'}>
+				<IconButton onclick={onDelete} tooltip={{ text: 'Remove step from loop' }}>
 					<Trash2 class="size-4" />
-				</button>
+				</IconButton>
 
-				<button class="icon-button self-start" onclick={onAdd} use:tooltip={'Add step to loop'}>
+				<IconButton class="self-start" onclick={onAdd} tooltip={{ text: 'Add step to loop' }}>
 					<Plus class="size-4" />
-				</button>
+				</IconButton>
 			</div>
 		{/if}
 	</div>

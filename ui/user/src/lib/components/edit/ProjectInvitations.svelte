@@ -12,6 +12,7 @@
 	import { profile, responsive } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Trash2, Plus, Clock, X, Crown } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -252,13 +253,13 @@
 />
 
 <ResponsiveDialog bind:this={invitationDialog} class="relative p-4 py-8 md:w-lg" animate="fade">
-	<button
-		class="icon-button relative top-2 right-2 z-40 float-right self-end md:absolute"
+	<IconButton
+		class="relative top-2 right-2 z-40 float-right self-end md:absolute"
 		onclick={() => invitationDialog?.close()}
-		use:tooltip={{ disablePortal: true, text: 'Close Project Catalog' }}
+		tooltip={{ disablePortal: true, text: 'Close Project Catalog' }}
 	>
 		<X class="size-6" />
-	</button>
+	</IconButton>
 
 	<div class="flex flex-col items-center gap-4">
 		<img src="/user/images/sharing-agent.webp" alt="invitation" />

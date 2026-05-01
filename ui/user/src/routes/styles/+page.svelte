@@ -5,9 +5,10 @@
 <div class="flex h-dvh flex-col items-center justify-center gap-2 p-5">
 	<h2 class="self-center text-xl">Buttons</h2>
 	<div class="flex gap-2">
-		<button class="button">button</button>
-		<button class="button-secondary">button-secondary</button>
-		<button class="button-primary">button-primary</button>
+		<button class="btn">button</button>
+		<button class="btn btn-secondary">button-secondary</button>
+		<button class="btn btn-primary">button-primary</button>
+		<button class="btn btn-error">button-primary</button>
 	</div>
 
 	<h2 class="mt-5 self-center text-xl">Icons</h2>

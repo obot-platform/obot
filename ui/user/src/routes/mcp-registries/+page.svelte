@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import {
@@ -91,16 +91,16 @@
 						]}
 					>
 						{#snippet actions(d)}
-							<button
-								class="icon-button hover:text-error"
+							<IconButton
+								variant="danger"
 								onclick={(e) => {
 									e.stopPropagation();
 									ruleToDelete = d;
 								}}
-								use:tooltip={'Delete Rule'}
+								tooltip={{ text: 'Delete Rule' }}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/snippet}
 						{#snippet onRenderColumn(property, d)}
 							{#if property === 'servers'}

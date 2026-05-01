@@ -12,6 +12,7 @@
 	import { goto } from '$lib/url';
 	import { poll } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import ProjectConfigurationKnowledge from './ProjectConfigurationKnowledge.svelte';
 	import { LoaderCircle, X, AlertCircle, CircleFadingArrowUp } from 'lucide-svelte';
 	import { AlertTriangle } from 'lucide-svelte';
@@ -102,9 +103,9 @@
 		<div class="mb-4 flex items-center gap-2">
 			<h1 class="text-2xl font-semibold capitalize">Project Configuration</h1>
 			<div class="flex grow justify-end">
-				<button class="icon-button" onclick={() => closeAll(layout)}>
+				<IconButton onclick={() => closeAll(layout)}>
 					<X class="size-6" />
-				</button>
+				</IconButton>
 			</div>
 		</div>
 		<div class="flex flex-col gap-6">
