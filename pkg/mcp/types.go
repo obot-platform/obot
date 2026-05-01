@@ -384,7 +384,10 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		// Apply prefix if specified (e.g., "Bearer ", "sk-")
 		val = applyPrefix(val, env.Prefix)
 
-		if !env.File {
+		isFile := env.File || (env.SecretBinding != nil && env.SecretBinding.File)
+		isDynamic := env.DynamicFile || (env.SecretBinding != nil && env.SecretBinding.Dynamic)
+
+		if !isFile {
 			serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))
 			continue
 		}
@@ -392,7 +395,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		serverConfig.Files = append(serverConfig.Files, File{
 			Data:    val,
 			EnvKey:  env.Key,
-			Dynamic: env.DynamicFile,
+			Dynamic: isDynamic,
 		})
 	}
 

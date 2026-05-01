@@ -4606,6 +4606,20 @@ func schema_obot_platform_obot_apiclient_types_MCPSecretBinding(ref common.Refer
 							Format:  "",
 						},
 					},
+					"file": {
+						SchemaProps: spec.SchemaProps{
+							Description: "File mounts the secret value as a file under /files/ instead of injecting it as an environment variable. The env var KEY is still set, pointing to the file path (/files/...), so the process can locate it via os.Getenv.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"dynamic": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Dynamic is only valid when File is true. When set, changes to the source Kubernetes Secret propagate to the mounted file without restarting the pod (kubelet updates the volume in place). Without Dynamic, a secret change triggers a pod restart to pick up the new value.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name", "key"},
 			},

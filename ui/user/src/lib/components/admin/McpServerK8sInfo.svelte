@@ -337,7 +337,9 @@
 				headers.push({
 					id: key,
 					label: header?.name ?? 'Unknown',
-					value: header?.prefix ? header.prefix + revealedValues![key] : (revealedValues![key] ?? ''),
+					value: header?.prefix
+						? header.prefix + revealedValues![key]
+						: (revealedValues![key] ?? ''),
 					sensitive: header?.sensitive || false
 				});
 			}
@@ -475,9 +477,8 @@
 				<ul class="mt-1 list-disc pl-5">
 					{#each missingSecretBindings as binding}
 						<li>
-							<code class="font-mono">{binding.secretName}/{binding.secretKey}</code> (for <strong
-								>{binding.label}</strong
-							>)
+							<code class="font-mono">{binding.secretName}/{binding.secretKey}</code> (for
+							<strong>{binding.label}</strong>)
 						</li>
 					{/each}
 				</ul>
@@ -676,7 +677,12 @@
 	</div>
 {/snippet}
 
-{#snippet configurationRow(label: string, value: string, sensitive?: boolean, secretBinding?: MCPSecretBinding)}
+{#snippet configurationRow(
+	label: string,
+	value: string,
+	sensitive?: boolean,
+	secretBinding?: MCPSecretBinding
+)}
 	<div
 		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent px-4 py-1.5 shadow-sm"
 	>
@@ -684,9 +690,27 @@
 			<p class="col-span-4 text-sm font-semibold">{label}</p>
 			<div class="col-span-8 flex items-center justify-between">
 				{#if secretBinding}
-					<span class="text-on-surface1 text-sm">
-						Kubernetes Secret: <code class="font-mono">{secretBinding.name}</code> /
-						<code class="font-mono">{secretBinding.key}</code>
+					<span class="text-on-surface1 flex flex-wrap items-center gap-2 text-sm">
+						<span>
+							Kubernetes Secret: <code class="font-mono">{secretBinding.name}</code> /
+							<code class="font-mono">{secretBinding.key}</code>
+						</span>
+						{#if secretBinding.file}
+							<span
+								class="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+								title="Secret value is mounted as a file; the env var contains the file path"
+							>
+								file
+							</span>
+						{/if}
+						{#if secretBinding.dynamic}
+							<span
+								class="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
+								title="File updates in-place when the Secret changes — no pod restart needed"
+							>
+								dynamic
+							</span>
+						{/if}
 					</span>
 				{:else if sensitive}
 					<SensitiveInput {value} disabled name={label} />

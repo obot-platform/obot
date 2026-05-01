@@ -1038,7 +1038,9 @@ func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) err
 // catalog entries synced from git (gitManaged=true). They are mutually
 // exclusive with a static value, require non-empty name/key, and are rejected
 // in unsupported combinations (env bindings under remote runtime, file-backed
-// envs).
+// envs). The secretBinding.file and secretBinding.dynamic fields follow
+// additional constraints: file is not valid on header bindings, and dynamic
+// requires file.
 func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool) error {
 	check := func(kind, key string, h types.MCPHeader) error {
 		if h.SecretBinding == nil {
@@ -1052,6 +1054,9 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool) e
 		}
 		if h.SecretBinding.Name == "" || h.SecretBinding.Key == "" {
 			return fmt.Errorf("%s %q: secretBinding requires both name and key", kind, key)
+		}
+		if h.SecretBinding.Dynamic && !h.SecretBinding.File {
+			return fmt.Errorf("%s %q: secretBinding.dynamic requires secretBinding.file to be true", kind, key)
 		}
 		return nil
 	}
@@ -1071,6 +1076,9 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool) e
 	}
 	if manifest.RemoteConfig != nil {
 		for _, h := range manifest.RemoteConfig.Headers {
+			if h.SecretBinding != nil && h.SecretBinding.File {
+				return fmt.Errorf("header %q: secretBinding.file is not supported on headers", h.Key)
+			}
 			if err := check("header", h.Key, h); err != nil {
 				return err
 			}

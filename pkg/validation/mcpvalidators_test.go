@@ -1705,6 +1705,55 @@ func TestValidateSecretBindings(t *testing.T) {
 			},
 			gitManaged: true,
 		},
+		// secretBinding.file / secretBinding.dynamic rules
+		{
+			name: "secretBinding.file on a header is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{
+						Key:           "DD-API-KEY",
+						SecretBinding: &types.MCPSecretBinding{Name: "datadog-prod", Key: "api-key", File: true},
+					}},
+				},
+			},
+			gitManaged: true,
+			wantErr:    "secretBinding.file is not supported on headers",
+		},
+		{
+			name: "secretBinding.dynamic without file is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "DD_API_KEY",
+					SecretBinding: &types.MCPSecretBinding{Name: "datadog-prod", Key: "api-key", Dynamic: true},
+				}}},
+			},
+			gitManaged: true,
+			wantErr:    "secretBinding.dynamic requires secretBinding.file",
+		},
+		{
+			name: "secretBinding.file and dynamic together are accepted",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "DD_API_KEY",
+					SecretBinding: &types.MCPSecretBinding{Name: "datadog-prod", Key: "api-key", File: true, Dynamic: true},
+				}}},
+			},
+			gitManaged: true,
+		},
+		{
+			name: "secretBinding.file without dynamic is accepted",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key:           "DD_API_KEY",
+					SecretBinding: &types.MCPSecretBinding{Name: "datadog-prod", Key: "api-key", File: true},
+				}}},
+			},
+			gitManaged: true,
+		},
 	}
 
 	for _, tt := range tests {

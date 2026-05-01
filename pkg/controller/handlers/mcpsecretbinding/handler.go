@@ -118,7 +118,12 @@ func (h *Handler) SecretChanged(req router.Request, _ router.Response) error {
 		// fresh deploy that picks up the updated Secret — matching the
 		// behaviour of the configure UI flow. Errors are non-fatal: the
 		// annotation bump above already ensures fresh values on the next deploy.
-		if h.mcpSessionManager != nil {
+		//
+		// Exception: skip shutdown when every binding referencing this Secret
+		// is a dynamic file binding (file=true, dynamic=true). Those update
+		// in-place via kubelet Secret volume propagation — the pod keeps
+		// running and reads the new file content without restart.
+		if h.mcpSessionManager != nil && !mcp.ManifestHasOnlyDynamicFileBindingsForSecret(s.Spec.Manifest, name) {
 			if err := h.mcpSessionManager.ShutdownIdleServer(req.Ctx, s.Name); err != nil {
 				log.Errorf("shutdown mcpserver %s after secret rotation: %v", s.Name, err)
 			}

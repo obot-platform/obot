@@ -169,6 +169,30 @@ func hasAnyBinding(envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig)
 	return false
 }
 
+// ManifestHasOnlyDynamicFileBindingsForSecret reports true when every
+// secretBinding in manifest that references secretName is a dynamic file
+// binding (File=true AND Dynamic=true). Used by the secret-watch handler to
+// decide whether to shut down the running pod: non-dynamic bindings require
+// a pod restart to pick up new values; dynamic file bindings update in-place
+// via kubelet Secret volume propagation so the pod can keep running.
+func ManifestHasOnlyDynamicFileBindingsForSecret(manifest types.MCPServerManifest, secretName string) bool {
+	for _, e := range manifest.Env {
+		if e.SecretBinding != nil && e.SecretBinding.Name == secretName {
+			if !e.SecretBinding.File || !e.SecretBinding.Dynamic {
+				return false
+			}
+		}
+	}
+	if manifest.RemoteConfig != nil {
+		for _, h := range manifest.RemoteConfig.Headers {
+			if h.SecretBinding != nil && h.SecretBinding.Name == secretName {
+				return false // header bindings are never dynamic file bindings
+			}
+		}
+	}
+	return true
+}
+
 // ManifestReferencesSecret reports whether any env or header
 // secretBinding in manifest references the named Secret. Used by the
 // Secret-watch fan-in handler to filter MCPServers that should reconcile
