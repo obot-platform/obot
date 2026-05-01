@@ -3,6 +3,7 @@ package validation
 import (
 	"cmp"
 	"fmt"
+	"net"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -18,7 +19,7 @@ var (
 	// (some MCP clients reject them) but are permitted here so admins who know
 	// their clients can use them.
 	toolNameRegex = regexp.MustCompile(`^[A-Za-z0-9._/-]*$`)
-	hostnameRegex = regexp.MustCompile(`^(?:\*\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$`)
+	hostnameRegex = regexp.MustCompile(`^(?:\*\.)?[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$`)
 )
 
 const (
@@ -29,6 +30,100 @@ const (
 	// maxToolPrefixLength is the max length of a composite component tool prefix.
 	maxToolPrefixLength = 64
 )
+
+func validateEgressDomains(runtime types.Runtime, domains []string, denyAllEgress *bool) error {
+	if denyAllEgress != nil && *denyAllEgress && len(domains) > 0 {
+		return types.RuntimeValidationError{
+			Runtime: runtime,
+			Field:   "denyAllEgress",
+			Message: "denyAllEgress cannot be true when egressDomains are specified",
+		}
+	}
+
+	for i, domain := range domains {
+		domain = strings.TrimSpace(domain)
+		if domain == "" {
+			return types.RuntimeValidationError{
+				Runtime: runtime,
+				Field:   fmt.Sprintf("egressDomains[%d]", i),
+				Message: "egress domain cannot be empty",
+			}
+		}
+
+		if strings.Contains(domain, "://") {
+			return types.RuntimeValidationError{
+				Runtime: runtime,
+				Field:   fmt.Sprintf("egressDomains[%d]", i),
+				Message: "egress domain must not include a protocol",
+			}
+		}
+
+		if net.ParseIP(domain) != nil {
+			return types.RuntimeValidationError{
+				Runtime: runtime,
+				Field:   fmt.Sprintf("egressDomains[%d]", i),
+				Message: "egress domain must not be an IP address",
+			}
+		}
+
+		if strings.ContainsAny(domain, "/:") {
+			return types.RuntimeValidationError{
+				Runtime: runtime,
+				Field:   fmt.Sprintf("egressDomains[%d]", i),
+				Message: "egress domain must not include a path or port",
+			}
+		}
+
+		if !hostnameRegex.MatchString(domain) {
+			return types.RuntimeValidationError{
+				Runtime: runtime,
+				Field:   fmt.Sprintf("egressDomains[%d]", i),
+				Message: "egress domain must be a valid hostname or leading wildcard hostname",
+			}
+		}
+
+		hostname := strings.TrimPrefix(strings.ToLower(domain), "*.")
+		labels := strings.Split(hostname, ".")
+		if len(labels) < 2 {
+			return types.RuntimeValidationError{
+				Runtime: runtime,
+				Field:   fmt.Sprintf("egressDomains[%d]", i),
+				Message: "egress domain must contain at least two DNS labels",
+			}
+		}
+
+		if isDeniedEgressDomain(hostname) {
+			return types.RuntimeValidationError{
+				Runtime: runtime,
+				Field:   fmt.Sprintf("egressDomains[%d]", i),
+				Message: "egress domain is not allowed",
+			}
+		}
+	}
+
+	return nil
+}
+
+func isDeniedEgressDomain(hostname string) bool {
+	switch hostname {
+	case "localhost", "metadata.google.internal", "cluster.local":
+		return true
+	}
+
+	for _, suffix := range []string{
+		".localhost",
+		".cluster.local",
+		".svc",
+		".in-addr.arpa",
+		".ip6.arpa",
+	} {
+		if strings.HasSuffix(hostname, suffix) {
+			return true
+		}
+	}
+
+	return false
+}
 
 // RuntimeValidator defines the interface for validating runtime-specific configurations
 type RuntimeValidator interface {
@@ -123,6 +218,10 @@ func (v UVXValidator) validateUVXConfig(config types.UVXRuntimeConfig) error {
 		}
 	}
 
+	if err := validateEgressDomains(types.RuntimeUVX, config.EgressDomains, config.DenyAllEgress); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -207,6 +306,10 @@ func (v NPXValidator) validateNPXConfig(config types.NPXRuntimeConfig) error {
 				Message: "argument cannot be empty",
 			}
 		}
+	}
+
+	if err := validateEgressDomains(types.RuntimeNPX, config.EgressDomains, config.DenyAllEgress); err != nil {
+		return err
 	}
 
 	return nil
@@ -309,6 +412,10 @@ func (v ContainerizedValidator) validateContainerizedConfig(config types.Contain
 				Message: "argument cannot be empty",
 			}
 		}
+	}
+
+	if err := validateEgressDomains(types.RuntimeContainerized, config.EgressDomains, config.DenyAllEgress); err != nil {
+		return err
 	}
 
 	return nil

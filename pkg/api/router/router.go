@@ -24,6 +24,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		services.EmailServerName,
 		services.PostgresDSN,
 		services.MCPRuntimeBackend,
+		services.MCPNetworkPolicyEnabled,
+		services.MCPDefaultDenyAllEgress,
 		services.SupportDocker,
 		services.AuthEnabled,
 		services.DisableUpdateCheck,

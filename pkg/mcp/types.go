@@ -360,7 +360,6 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeContainerized:
-		serverConfig.Args = make([]string, 0, len(mcpServer.Spec.Manifest.ContainerizedConfig.Args))
 		if err := configureContainerizedRuntime(&serverConfig, mcpServer.Spec.Manifest.ContainerizedConfig, credEnv, fileEnvVars, mcpServer.Spec.Manifest.Runtime, true); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}

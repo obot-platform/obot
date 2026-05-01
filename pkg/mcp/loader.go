@@ -49,6 +49,9 @@ type Options struct {
 	ServiceName      string `usage:"The Kubernetes service name for the obot server"`
 	ServiceNamespace string `usage:"The Kubernetes namespace where the obot server runs"`
 
+	// Auto-populated by the Helm chart - used for network policy provider deployment
+	ServiceAccountName string `usage:"The Kubernetes service account name for the obot server"`
+
 	// Audit log configuration
 	MCPAuditLogPersistIntervalSeconds int `usage:"The interval in seconds to persist MCP audit logs to the database" default:"5"`
 	MCPAuditLogsPersistBatchSize      int `usage:"The number of MCP audit logs to persist in a single batch" default:"1000"`

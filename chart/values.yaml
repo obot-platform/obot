@@ -163,6 +163,20 @@ config:
   # config.OBOT_SERVER_MCPRUNTIME_BACKEND -- The runtime backend to use for MCP servers. Can be 'docker' or 'kubernetes'. Defaults to 'docker'. Setting this to 'kubernetes' will also create the necessary service account, role and rolebinding.
   OBOT_SERVER_MCPRUNTIME_BACKEND: "kubernetes"
 
+  # Network policy provider Helm chart configuration.
+  # config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO -- Helm repository URL for the network policy provider chart. Used when config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME is set.
+  OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO: ""
+  # config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME -- Helm chart name for the network policy provider chart. Setting this enables network policy integration.
+  OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME: ""
+  # config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_VERSION -- Helm chart version for the network policy provider chart.
+  OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_VERSION: ""
+  # config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_PATH -- Local filesystem path to the network policy provider chart. Setting this enables network policy integration.
+  OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_PATH: ""
+  # config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_VALUES -- YAML or JSON values blob merged into the network policy provider chart values.
+  OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_VALUES: ""
+  # config.OBOT_SERVER_MCPDEFAULT_DENY_ALL_EGRESS -- Default new MCP servers to allow all egress or deny all egress when a network policy provider is configured. Set to false to default to allow all egress, or true to default to deny all egress. Defaults to false.
+  OBOT_SERVER_MCPDEFAULT_DENY_ALL_EGRESS: ""
+
   # config.OBOT_SERVER_MCPAUDIT_LOG_PERSIST_INTERVAL_SECONDS -- The interval in seconds to persist MCP audit logs to the database. Defaults to 5 seconds.
   OBOT_SERVER_MCPAUDIT_LOG_PERSIST_INTERVAL_SECONDS: ""
   # config.OBOT_SERVER_MCPAUDIT_LOGS_PERSIST_BATCH_SIZE -- The batch size to use when persisting MCP audit logs to the database. Defaults to 1000

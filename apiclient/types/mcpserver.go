@@ -20,24 +20,30 @@ const (
 
 // UVXRuntimeConfig represents configuration for UVX runtime (Python packages via uvx)
 type UVXRuntimeConfig struct {
-	Package string   `json:"package"`        // Required: Python package name
-	Command string   `json:"command"`        // Optional: Specific command to run inside of the package. If empty, the package name will be treated as the command.
-	Args    []string `json:"args,omitempty"` // Optional: Additional arguments
+	Package       string   `json:"package"`                 // Required: Python package name
+	Command       string   `json:"command"`                 // Optional: Specific command to run inside of the package. If empty, the package name will be treated as the command.
+	Args          []string `json:"args,omitempty"`          // Optional: Additional arguments
+	EgressDomains []string `json:"egressDomains,omitempty"` // Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled
+	DenyAllEgress *bool    `json:"denyAllEgress,omitempty"` // Optional: Deny all egress when network policy enforcement is enabled
 }
 
 // NPXRuntimeConfig represents configuration for NPX runtime (Node.js packages via npx)
 type NPXRuntimeConfig struct {
-	Package string   `json:"package"`        // Required: NPM package name
-	Args    []string `json:"args,omitempty"` // Optional: Additional arguments
+	Package       string   `json:"package"`                 // Required: NPM package name
+	Args          []string `json:"args,omitempty"`          // Optional: Additional arguments
+	EgressDomains []string `json:"egressDomains,omitempty"` // Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled
+	DenyAllEgress *bool    `json:"denyAllEgress,omitempty"` // Optional: Deny all egress when network policy enforcement is enabled
 }
 
 // ContainerizedRuntimeConfig represents configuration for containerized runtime (Docker containers)
 type ContainerizedRuntimeConfig struct {
-	Image   string   `json:"image"`             // Required: Docker image name
-	Command string   `json:"command,omitempty"` // Optional: Override container command
-	Args    []string `json:"args,omitempty"`    // Optional: Container arguments
-	Port    int      `json:"port"`              // Required: Container port
-	Path    string   `json:"path"`              // Required: HTTP path for MCP endpoint
+	Image         string   `json:"image"`                   // Required: Docker image name
+	Command       string   `json:"command,omitempty"`       // Optional: Override container command
+	Args          []string `json:"args,omitempty"`          // Optional: Container arguments
+	Port          int      `json:"port"`                    // Required: Container port
+	Path          string   `json:"path"`                    // Required: HTTP path for MCP endpoint
+	EgressDomains []string `json:"egressDomains,omitempty"` // Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled
+	DenyAllEgress *bool    `json:"denyAllEgress,omitempty"` // Optional: Deny all egress when network policy enforcement is enabled
 }
 
 // RemoteRuntimeConfig represents configuration for remote runtime (External MCP servers)
@@ -411,9 +417,11 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 		serverManifest.UVXConfig = &UVXRuntimeConfig{
-			Package: catalogEntry.UVXConfig.Package,
-			Command: catalogEntry.UVXConfig.Command,
-			Args:    catalogEntry.UVXConfig.Args,
+			Package:       catalogEntry.UVXConfig.Package,
+			Command:       catalogEntry.UVXConfig.Command,
+			Args:          catalogEntry.UVXConfig.Args,
+			EgressDomains: catalogEntry.UVXConfig.EgressDomains,
+			DenyAllEgress: catalogEntry.UVXConfig.DenyAllEgress,
 		}
 
 	case RuntimeNPX:
@@ -425,8 +433,10 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 		serverManifest.NPXConfig = &NPXRuntimeConfig{
-			Package: catalogEntry.NPXConfig.Package,
-			Args:    catalogEntry.NPXConfig.Args,
+			Package:       catalogEntry.NPXConfig.Package,
+			Args:          catalogEntry.NPXConfig.Args,
+			EgressDomains: catalogEntry.NPXConfig.EgressDomains,
+			DenyAllEgress: catalogEntry.NPXConfig.DenyAllEgress,
 		}
 
 	case RuntimeContainerized:
@@ -438,11 +448,13 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 		serverManifest.ContainerizedConfig = &ContainerizedRuntimeConfig{
-			Image:   catalogEntry.ContainerizedConfig.Image,
-			Command: catalogEntry.ContainerizedConfig.Command,
-			Args:    catalogEntry.ContainerizedConfig.Args,
-			Port:    catalogEntry.ContainerizedConfig.Port,
-			Path:    catalogEntry.ContainerizedConfig.Path,
+			Image:         catalogEntry.ContainerizedConfig.Image,
+			Command:       catalogEntry.ContainerizedConfig.Command,
+			Args:          catalogEntry.ContainerizedConfig.Args,
+			Port:          catalogEntry.ContainerizedConfig.Port,
+			Path:          catalogEntry.ContainerizedConfig.Path,
+			EgressDomains: catalogEntry.ContainerizedConfig.EgressDomains,
+			DenyAllEgress: catalogEntry.ContainerizedConfig.DenyAllEgress,
 		}
 
 	case RuntimeRemote:
