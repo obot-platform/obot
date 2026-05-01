@@ -513,6 +513,13 @@ export const validateRuntimeForm = (
 	nameNotRequired: boolean = false
 ): Record<string, boolean> => {
 	const missingFields: Record<string, boolean> = {};
+	if (
+		formData.startupTimeoutSeconds !== undefined &&
+		(!Number.isInteger(formData.startupTimeoutSeconds) || formData.startupTimeoutSeconds <= 0)
+	) {
+		missingFields.startupTimeoutSeconds = true;
+	}
+
 	// Basic validation - name is required
 	if (!nameNotRequired && !formData.name.trim()) {
 		missingFields.name = true;
@@ -587,6 +594,7 @@ export const convertServerRuntimeFormDataToManifest = (
 	formData: RuntimeFormData
 ): MCPCatalogServerManifest => {
 	const { categories, ...baseData } = formData;
+	const startupTimeoutSeconds = baseData.startupTimeoutSeconds;
 
 	// Build base manifest structure for server
 	const serverManifest: MCPCatalogServerManifest = {
@@ -596,7 +604,12 @@ export const convertServerRuntimeFormDataToManifest = (
 			icon: baseData.icon,
 			env: baseData.env,
 			runtime: baseData.runtime,
-			...convertCategoriesToMetadata(categories)
+			...convertCategoriesToMetadata(categories),
+			...(typeof startupTimeoutSeconds === 'number' &&
+			Number.isInteger(startupTimeoutSeconds) &&
+			startupTimeoutSeconds > 0
+				? { startupTimeoutSeconds }
+				: {})
 		}
 	};
 

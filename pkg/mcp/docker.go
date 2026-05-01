@@ -767,6 +767,7 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		AuditLogMetadata:          server.AuditLogMetadata,
 		ContainerPath:             server.ContainerPath,
 		NanobotAgentName:          server.NanobotAgentName,
+		StartupTimeout:            server.StartupTimeout,
 	}, nil
 }
 
@@ -1016,6 +1017,9 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		} else {
 			containerID = resp.ID
 		}
+		if containerID != "" {
+			break
+		}
 	}
 	if containerID == "" {
 		return "", 0, fmt.Errorf("failed to create container")
@@ -1039,6 +1043,8 @@ func (d *dockerBackend) waitForContainer(ctx context.Context, containerID string
 		select {
 		case <-timeout:
 			return fmt.Errorf("timeout waiting for container to start")
+		case <-ctx.Done():
+			return fmt.Errorf("%w: timeout waiting for container to start", ErrHealthCheckTimeout)
 		case <-ticker.C:
 			inspect, err := d.client.ContainerInspect(ctx, containerID)
 			if err != nil {

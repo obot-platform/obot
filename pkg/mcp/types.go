@@ -6,12 +6,20 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+)
+
+const (
+	// MaxMCPServerStartupTimeout is the maximum value allowed to be used in ServerConfig.StartupTimeout
+	MaxMCPServerStartupTimeout = 10 * time.Minute
+	// defaultStartupTimeout is the default value used when ServerConfig.StartupTimeout is not set
+	defaultStartupTimeout = 60 * time.Second
 )
 
 type GlobalTokenStore interface {
@@ -72,6 +80,8 @@ type ServerConfig struct {
 	AuditLogToken    string `json:"auditLogToken"`
 	AuditLogEndpoint string `json:"auditLogEndpoint"`
 	AuditLogMetadata string `json:"auditLogMetadata"`
+
+	StartupTimeout time.Duration `json:"startupTimeout,omitempty"`
 }
 
 type File struct {
@@ -318,6 +328,13 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		powerUserWorkspaceID = mcpCatalogName
 	}
 
+	startupTimeout := time.Duration(mcpServer.Spec.Manifest.StartupTimeoutSeconds) * time.Second
+	if startupTimeout == 0 {
+		startupTimeout = defaultStartupTimeout
+	} else if startupTimeout > MaxMCPServerStartupTimeout {
+		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", mcpServer.Spec.Manifest.StartupTimeoutSeconds, MaxMCPServerStartupTimeout)
+	}
+
 	serverConfig := ServerConfig{
 		Env:                       make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
 		UserID:                    userID,
@@ -338,6 +355,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		AuthorizeEndpoint:         fmt.Sprintf("%s/oauth/authorize", issuer),
 		ComponentMCPServer:        mcpServer.Spec.CompositeName != "",
 		NanobotAgentName:          mcpServer.Spec.NanobotAgentID,
+		StartupTimeout:            startupTimeout,
 	}
 
 	if mcpServer.Spec.CompositeName == "" {
@@ -430,6 +448,13 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		displayName = systemServer.Name
 	}
 
+	startupTimeout := time.Duration(systemServer.Spec.Manifest.StartupTimeoutSeconds) * time.Second
+	if startupTimeout == 0 {
+		startupTimeout = defaultStartupTimeout
+	} else if startupTimeout > MaxMCPServerStartupTimeout {
+		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", systemServer.Spec.Manifest.StartupTimeoutSeconds, MaxMCPServerStartupTimeout)
+	}
+
 	serverConfig := ServerConfig{
 		Env:                       make([]string, 0, len(systemServer.Spec.Manifest.Env)),
 		MCPServerNamespace:        systemServer.Namespace,
@@ -448,6 +473,7 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		AuditLogToken:             secretsCred["AUDIT_LOG_TOKEN"],
 		AuditLogMetadata:          fmt.Sprintf("mcpID=%s,mcpServerDisplayName=%s", systemServer.Name, displayName),
 		SystemMCPServer:           true,
+		StartupTimeout:            startupTimeout,
 	}
 
 	var missingRequiredNames []string

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 )
 
 var (
@@ -961,6 +962,10 @@ func getRuntimeValidators() RuntimeValidators {
 }
 
 func ValidateServerManifest(manifest types.MCPServerManifest) error {
+	if err := validateStartupTimeout(manifest.Runtime, manifest.StartupTimeoutSeconds); err != nil {
+		return err
+	}
+
 	if validator, ok := getRuntimeValidators()[manifest.Runtime]; ok {
 		return validator.ValidateConfig(manifest)
 	}
@@ -973,6 +978,10 @@ func ValidateServerManifest(manifest types.MCPServerManifest) error {
 }
 
 func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
+	if err := validateStartupTimeout(manifest.Runtime, manifest.StartupTimeoutSeconds); err != nil {
+		return err
+	}
+
 	if validator, ok := getRuntimeValidators()[manifest.Runtime]; ok {
 		return validator.ValidateCatalogConfig(manifest)
 	}
@@ -1020,6 +1029,10 @@ func ValidateSystemMCPServerCatalogEntryManifest(manifest types.SystemMCPServerC
 }
 
 func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) error {
+	if err := validateStartupTimeout(manifest.Runtime, manifest.StartupTimeoutSeconds); err != nil {
+		return err
+	}
+
 	if validator, ok := getRuntimeValidators()[manifest.Runtime]; ok {
 		return validator.ValidateSystemConfig(manifest)
 	}
@@ -1029,4 +1042,23 @@ func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) err
 		Field:   "runtime",
 		Message: "unsupported runtime",
 	}
+}
+
+func validateStartupTimeout(runtime types.Runtime, startupTimeoutSeconds int) error {
+	if startupTimeoutSeconds < 0 {
+		return types.RuntimeValidationError{
+			Runtime: runtime,
+			Field:   "startupTimeoutSeconds",
+			Message: "must be greater than or equal to 0",
+		}
+	}
+	if startupTimeoutSeconds > int(mcp.MaxMCPServerStartupTimeout.Seconds()) {
+		return types.RuntimeValidationError{
+			Runtime: runtime,
+			Field:   "startupTimeoutSeconds",
+			Message: fmt.Sprintf("must be less than %d", int(mcp.MaxMCPServerStartupTimeout.Seconds())),
+		}
+	}
+
+	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1614,4 +1615,72 @@ func TestCompositeValidator_ValidateConfig_ToolPrefixLength(t *testing.T) {
 			require.Equal(t, tt.expectedError, err)
 		})
 	}
+}
+
+func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
+	t.Run("server manifest rejects negative startup timeout", func(t *testing.T) {
+		err := ValidateServerManifest(types.MCPServerManifest{
+			Runtime:               types.RuntimeRemote,
+			StartupTimeoutSeconds: -1,
+			RemoteConfig: &types.RemoteRuntimeConfig{
+				URL: "https://example.com/mcp",
+			},
+		})
+
+		require.Equal(t, types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "startupTimeoutSeconds",
+			Message: "must be greater than or equal to 0",
+		}, err)
+	})
+
+	t.Run("catalog manifest rejects negative startup timeout", func(t *testing.T) {
+		err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
+			Runtime:               types.RuntimeRemote,
+			StartupTimeoutSeconds: -1,
+			RemoteConfig: &types.RemoteCatalogConfig{
+				FixedURL: "https://example.com/mcp",
+			},
+		})
+
+		require.Equal(t, types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "startupTimeoutSeconds",
+			Message: "must be greater than or equal to 0",
+		}, err)
+	})
+
+	t.Run("server manifest rejects startup timeout above maximum", func(t *testing.T) {
+		maxStartupTimeoutSeconds := int(mcp.MaxMCPServerStartupTimeout.Seconds())
+		err := ValidateServerManifest(types.MCPServerManifest{
+			Runtime:               types.RuntimeRemote,
+			StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
+			RemoteConfig: &types.RemoteRuntimeConfig{
+				URL: "https://example.com/mcp",
+			},
+		})
+
+		require.Equal(t, types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "startupTimeoutSeconds",
+			Message: fmt.Sprintf("must be less than %d", maxStartupTimeoutSeconds),
+		}, err)
+	})
+
+	t.Run("catalog manifest rejects startup timeout above maximum", func(t *testing.T) {
+		maxStartupTimeoutSeconds := int(mcp.MaxMCPServerStartupTimeout.Seconds())
+		err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
+			Runtime:               types.RuntimeRemote,
+			StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
+			RemoteConfig: &types.RemoteCatalogConfig{
+				FixedURL: "https://example.com/mcp",
+			},
+		})
+
+		require.Equal(t, types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "startupTimeoutSeconds",
+			Message: fmt.Sprintf("must be less than %d", maxStartupTimeoutSeconds),
+		}, err)
+	})
 }

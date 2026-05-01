@@ -2,17 +2,21 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/watch"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -257,6 +261,219 @@ func TestK8sObjects_ServicePorts(t *testing.T) {
 	}
 }
 
+func TestAnalyzePodStatus(t *testing.T) {
+	tests := []struct {
+		name            string
+		pod             corev1.Pod
+		wantRetryable   bool
+		wantErr         error
+		wantErrContains string
+	}{
+		{
+			name: "running mcp container remains retryable",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase:             corev1.PodRunning,
+					ContainerStatuses: []corev1.ContainerStatus{{Name: "mcp"}},
+				},
+			},
+			wantRetryable:   true,
+			wantErrContains: "pod in phase Running",
+		},
+		{
+			name: "image pull backoff is retryable image pull",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodPending,
+					ContainerStatuses: []corev1.ContainerStatus{{
+						Name: "mcp",
+						State: corev1.ContainerState{
+							Waiting: &corev1.ContainerStateWaiting{Reason: "ImagePullBackOff"},
+						},
+					}},
+				},
+			},
+			wantRetryable:   true,
+			wantErr:         ErrImagePullFailed,
+			wantErrContains: "ImagePullBackOff",
+		},
+		{
+			name: "unschedulable pod remains retryable under pull/scheduling budget",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodPending,
+					Conditions: []corev1.PodCondition{{
+						Type:   corev1.PodScheduled,
+						Status: corev1.ConditionFalse,
+						Reason: corev1.PodReasonUnschedulable,
+					}},
+				},
+			},
+			wantRetryable:   true,
+			wantErr:         ErrPodSchedulingFailed,
+			wantErrContains: "unschedulable",
+		},
+		{
+			name: "crash loop fails permanently",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					ContainerStatuses: []corev1.ContainerStatus{{
+						Name: "mcp",
+						State: corev1.ContainerState{
+							Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff", Message: "back-off restarting failed container"},
+						},
+					}},
+				},
+			},
+			wantErr:         ErrPodCrashLoopBackOff,
+			wantErrContains: "back-off restarting failed container",
+		},
+		{
+			name: "failed phase fails health check timeout",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase:   corev1.PodFailed,
+					Message: "pod failed",
+				},
+			},
+			wantErr:         ErrHealthCheckTimeout,
+			wantErrContains: "pod failed",
+		},
+		{
+			name: "repeated terminated errors fail crash loop",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					ContainerStatuses: []corev1.ContainerStatus{{
+						Name:         "mcp",
+						RestartCount: 4,
+						State: corev1.ContainerState{
+							Terminated: &corev1.ContainerStateTerminated{ExitCode: 1, Reason: "Error"},
+						},
+					}},
+				},
+			},
+			wantErr:         ErrPodCrashLoopBackOff,
+			wantErrContains: "repeatedly crashing",
+		},
+		{
+			name: "evicted pod fails scheduling",
+			pod: corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase:   corev1.PodPending,
+					Reason:  "Evicted",
+					Message: "node had disk pressure",
+				},
+			},
+			wantErr:         ErrPodSchedulingFailed,
+			wantErrContains: "node had disk pressure",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			retryable, err := analyzePodStatus(&tt.pod)
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("analyzePodStatus() error = %v, want %v", err, tt.wantErr)
+				}
+			} else if tt.wantErrContains == "" && err != nil {
+				t.Fatalf("analyzePodStatus() error = %v, want nil", err)
+			}
+			if retryable != tt.wantRetryable {
+				t.Fatalf("analyzePodStatus() retryable = %v, want %v", retryable, tt.wantRetryable)
+			}
+			if tt.wantErrContains != "" && (err == nil || !strings.Contains(err.Error(), tt.wantErrContains)) {
+				t.Fatalf("analyzePodStatus() error = %q, want to contain %q", err, tt.wantErrContains)
+			}
+		})
+	}
+}
+
+type fakeWithWatch struct {
+	client.Client // controller-runtime fake for Get/List/Create etc.
+	watcher       *watch.FakeWatcher
+}
+
+func (f *fakeWithWatch) Watch(_ context.Context, _ client.ObjectList, _ ...client.ListOption) (watch.Interface, error) {
+	return f.watcher, nil
+}
+
+func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(appsv1) error = %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("AddToScheme(corev1) error = %v", err)
+	}
+
+	now := time.Now()
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-server",
+			Namespace: "obot-mcp",
+		},
+		Status: appsv1.DeploymentStatus{
+			ObservedGeneration: 1,
+			UpdatedReplicas:    1,
+		},
+	}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "test-server-pod",
+			Namespace:         "obot-mcp",
+			CreationTimestamp: metav1.NewTime(now.Add(-time.Minute)),
+			Labels: map[string]string{
+				"app": "test-server",
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			ContainerStatuses: []corev1.ContainerStatus{{
+				Name: "mcp",
+				State: corev1.ContainerState{
+					Running: &corev1.ContainerStateRunning{StartedAt: metav1.NewTime(now.Add(-2 * time.Second))},
+				},
+			}},
+		},
+	}
+
+	watcher := watch.NewFake()
+
+	go func() {
+		watcher.Add(&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-server", Namespace: "obot-mcp"},
+		})
+		watcher.Stop()
+	}()
+
+	client := &fakeWithWatch{
+		Client:  fake.NewClientBuilder().WithScheme(scheme).WithObjects(deployment, pod).Build(),
+		watcher: watcher,
+	}
+
+	k := &kubernetesBackend{
+		client:       client,
+		mcpNamespace: "obot-mcp",
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	_, err := k.updatedMCPPodName(ctx, "http://mcp.example.com", "test-server", ServerConfig{
+		Runtime:        types.RuntimeRemote,
+		StartupTimeout: time.Second,
+	}, "")
+	if !errors.Is(err, ErrHealthCheckTimeout) {
+		t.Fatalf("updatedMCPPodName() error = %v, want %v", err, ErrHealthCheckTimeout)
+	}
+	if err.Error() != "timed out waiting for MCP server to be ready after 5 watch retries: timeout waiting for Deployment test-server to meet condition" {
+		t.Fatalf("updatedMCPPodName() error = %q, want deployment timeout message", err)
+	}
+}
+
 func newTestKubernetesBackend(t *testing.T) *kubernetesBackend {
 	t.Helper()
 
@@ -273,7 +490,7 @@ func newTestKubernetesBackend(t *testing.T) *kubernetesBackend {
 	}
 }
 
-func findSecret(t *testing.T, objs []kclient.Object, secretName string) *corev1.Secret {
+func findSecret(t *testing.T, objs []client.Object, secretName string) *corev1.Secret {
 	t.Helper()
 
 	for _, obj := range objs {
@@ -287,7 +504,7 @@ func findSecret(t *testing.T, objs []kclient.Object, secretName string) *corev1.
 	return nil
 }
 
-func findService(t *testing.T, objs []kclient.Object, serviceName string) *corev1.Service {
+func findService(t *testing.T, objs []client.Object, serviceName string) *corev1.Service {
 	t.Helper()
 
 	for _, obj := range objs {
@@ -301,7 +518,7 @@ func findService(t *testing.T, objs []kclient.Object, serviceName string) *corev
 	return nil
 }
 
-func findDeployment(t *testing.T, objs []kclient.Object, deploymentName string) *appsv1.Deployment {
+func findDeployment(t *testing.T, objs []client.Object, deploymentName string) *appsv1.Deployment {
 	t.Helper()
 
 	for _, obj := range objs {
