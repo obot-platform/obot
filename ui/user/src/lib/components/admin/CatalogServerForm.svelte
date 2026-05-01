@@ -17,6 +17,7 @@
 	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import CustomConfigurationForm from '../mcp/CustomConfigurationForm.svelte';
+	import MultiUserHeadersForm from '../mcp/MultiUserHeadersForm.svelte';
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import RuntimeSelector from '../mcp/RuntimeSelector.svelte';
@@ -127,7 +128,8 @@
 				remoteConfig: undefined,
 				remoteServerConfig: undefined,
 				compositeConfig: undefined,
-				compositeServerConfig: undefined
+				compositeServerConfig: undefined,
+				multiUserConfig: type === 'multi' ? { userDefinedHeaders: [] } : undefined
 			};
 		}
 
@@ -149,7 +151,8 @@
 				remoteConfig: undefined,
 				remoteServerConfig: undefined,
 				compositeConfig: undefined,
-				compositeServerConfig: undefined
+				compositeServerConfig: undefined,
+				multiUserConfig: manifest.multiUserConfig ?? { userDefinedHeaders: [] }
 			};
 
 			// Initialize the appropriate runtime config based on the runtime type
@@ -624,6 +627,10 @@
 
 {#if !['remote', 'composite'].includes(formData.runtime)}
 	<CustomConfigurationForm bind:config={formData.env} {readonly} {type} />
+{/if}
+
+{#if type === 'multi' && formData.multiUserConfig}
+	<MultiUserHeadersForm bind:headers={formData.multiUserConfig.userDefinedHeaders} {readonly} />
 {/if}
 
 {#if !readonly}

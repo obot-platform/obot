@@ -234,7 +234,7 @@ func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
 		return
 	}
 
-	sess, ok := clientSessions.LoadAndDelete(clientID(server) + clientScope)
+	sess, ok := clientSessions.LoadAndDelete(clientID(server, clientScope))
 	if !ok || sess == nil {
 		return
 	}
@@ -359,9 +359,11 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 	return sm.backend.ensureServerDeployment(ctx, server, webhooks)
 }
 
-func clientID(server ServerConfig) string {
-	// The user ID is not part of the client ID.
+func serverID(server ServerConfig) string {
+	// The user ID is not part of the server ID.
 	server.UserID = ""
+	// Neither are the passthrough header values since they are per-user.
+	server.PassthroughHeaderValues = nil
 
 	// File values are dynamic and can be updated in place.
 	// Keep file env keys, but clear file contents before hashing.
@@ -378,6 +380,10 @@ func clientID(server ServerConfig) string {
 	server.Files = files
 
 	return "mcp" + hash.Digest(server)
+}
+
+func clientID(server ServerConfig, clientScope string) string {
+	return serverID(server) + hash.Digest(server.PassthroughHeaderValues) + clientScope
 }
 
 // GenerateToolPreviews creates a temporary MCP server from a catalog entry, lists its tools,

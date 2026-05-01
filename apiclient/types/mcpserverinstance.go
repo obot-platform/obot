@@ -2,6 +2,10 @@ package types
 
 type MCPServerInstance struct {
 	Metadata
+	// Configured indicates whether all required user-supplied configuration has been provided.
+	Configured bool `json:"configured"`
+	// MissingRequiredHeaders contains required headers from the MCP server's multi-user config that have not been provided.
+	MissingRequiredHeaders []string `json:"missingRequiredHeaders,omitempty"`
 	// UserID is the user that owns this MCP server instance.
 	UserID string `json:"userID,omitempty"`
 	// MCPServerID is the ID of the MCP server this instance is associated with.
@@ -14,6 +18,8 @@ type MCPServerInstance struct {
 	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
 	// ConnectURL is the URL to connect to the MCP server.
 	ConnectURL string `json:"connectURL,omitempty"`
+	// MultiUserConfig is the multi-user configuration for this instance, which is copied from the MCP server's manifest. This will be nil if the MCP server does not have multi-user config.
+	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
 }
 
 type MCPServerInstanceList List[MCPServerInstance]

@@ -73,7 +73,15 @@
 		if (!loading) return;
 		if (entry && !('isCatalogEntry' in entry) && id) {
 			if (entry.catalogEntryID) {
-				instances = [{ id: entry.id, userID: entry.userID, created: entry.created }];
+				instances = [
+					{
+						id: entry.id,
+						configured: entry.configured,
+						missingRequiredHeaders: entry.missingRequiredHeaders,
+						userID: entry.userID,
+						created: entry.created
+					}
+				];
 				loading = false;
 			} else {
 				if (entity === 'workspace') {

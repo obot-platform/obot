@@ -25,9 +25,9 @@
 		name?: string;
 		icon?: string;
 		disabled?: boolean; // source of truth; checkbox shows Enable and binds to !disabled
-		// When true, this component represents a multi-user server that is already
-		// configured at the org/admin level. In composite configuration flows we
-		// only allow toggling enable/disable, and hide all per-user config fields.
+		// When true, this component represents a multi-user server. Composite
+		// configuration can still collect the component instance's user-specific
+		// headers, but does not expose catalog-entry env/URL settings.
 		isMultiUser?: boolean;
 	};
 
@@ -56,6 +56,7 @@
 		disableOutsideClick?: boolean;
 		animate?: 'slide' | 'fade' | null;
 		displayDescriptionInline?: boolean;
+		configurationTitle?: string;
 	}
 	let {
 		form = $bindable(),
@@ -73,6 +74,7 @@
 		showAlias,
 		disableOutsideClick,
 		displayDescriptionInline,
+		configurationTitle,
 		animate = 'slide'
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -140,9 +142,6 @@
 
 	function componentHasConfig(comp?: ComponentLaunchFormData) {
 		if (!comp) return false;
-		// Multi-user component servers should not expose any configuration
-		// fields in this dialog; they are configured at the multi-user level.
-		if (comp.isMultiUser) return false;
 		const hasEnvs = Array.isArray(comp.envs) && comp.envs.length > 0;
 		const hasHeaders = Array.isArray(comp.headers) && comp.headers.length > 0;
 		const needsURL = Boolean(comp.hostname);
@@ -528,6 +527,10 @@
 						</div>
 					{/each}
 				{:else}
+					{#if configurationTitle}
+						<h4 class="text-sm font-semibold">{configurationTitle}</h4>
+					{/if}
+
 					{#if form.envs && form.envs.length > 0}
 						{#each form.envs as env, i (env.key)}
 							{@const highlightRequired = highlightedFields.has(env.key) && !env.value}
