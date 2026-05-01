@@ -181,9 +181,9 @@
 		</div>
 	{:else if scheduledExports.length === 0}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<Calendar class="text-surface3 size-24 opacity-50" />
-			<h4 class="text-on-surface1 text-lg font-semibold">No export schedules found.</h4>
-			<p class="text-on-surface1 text-sm font-light">
+			<Calendar class="text-base-content/80 size-24 opacity-50" />
+			<h4 class="text-base-content/40 text-lg font-semibold">No export schedules found.</h4>
+			<p class="text-base-content/40 text-sm font-light">
 				Create your first export schedule to automate your audit log exports.
 			</p>
 		</div>
@@ -209,9 +209,9 @@
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
-					<div class="flex flex-shrink-0 items-center gap-2">
+					<div class="flex shrink-0 items-center gap-2">
 						<div
-							class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
+							class="bg-base-200 flex items-center justify-center rounded-sm p-0.5 dark:bg-base-300"
 						>
 							<Calendar class="size-6" />
 						</div>
@@ -226,7 +226,7 @@
 				{/if}
 			{/snippet}
 			{#snippet actions(d)}
-				<DotDotDot class="icon-button hover:dark:bg-background/50">
+				<DotDotDot class="hover:dark:bg-base-100/50">
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
 					{/snippet}
@@ -293,7 +293,7 @@
 				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 					{#if bulkActionState === 'pause'}
 						<button
-							class="button flex items-center gap-1 text-sm font-normal"
+							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => {
 								selected = currentSelected;
 								handleBulkPause();
@@ -309,7 +309,7 @@
 						</button>
 					{:else if bulkActionState === 'resume'}
 						<button
-							class="button flex items-center gap-1 text-sm font-normal"
+							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => {
 								selected = currentSelected;
 								handleBulkResume();
@@ -325,7 +325,7 @@
 						</button>
 					{/if}
 					<button
-						class="button flex items-center gap-1 text-sm font-normal"
+						class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 						onclick={() => {
 							selected = currentSelected;
 							showDeleteConfirm = {

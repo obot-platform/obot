@@ -54,7 +54,7 @@
 >
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">
-			<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
+			<div class="bg-base-200 rounded-sm p-1 dark:bg-base-300">
 				{#if server?.manifest?.icon}
 					<img
 						src={server.manifest.icon}

@@ -130,7 +130,7 @@
 		</div>
 	{:else if !hasPrompts && variant !== 'messages'}
 		<div class="flex h-full flex-col items-center justify-center">
-			<p class="text-on-surface1 text-sm">No prompts available</p>
+			<p class="text-base-content/40 text-sm">No prompts available</p>
 		</div>
 	{:else}
 		{#each setsToUse as mcpPromptSet (mcpPromptSet.mcp.id)}
@@ -147,7 +147,7 @@
 							{#if mcpPromptSet.mcp.icon}
 								<img src={mcpPromptSet.mcp.icon} alt={mcpPromptSet.mcp.name} class="size-4" />
 							{:else}
-								<MessageSquarePlus class="text-on-surface1 size-4" />
+								<MessageSquarePlus class="text-base-content/40 size-4" />
 							{/if}
 						{/if}
 					</div>
@@ -155,7 +155,7 @@
 				</div>
 
 				<div
-					class="dark:border-surface3 flex flex-col border-0 bg-gray-50 p-2 shadow-inner dark:bg-gray-950"
+					class="dark:border-base-400 flex flex-col border-0 bg-gray-50 p-2 shadow-inner dark:bg-gray-950"
 				>
 					{#each mcpPromptSet.prompts as prompt (prompt.name)}
 						<button
@@ -164,15 +164,15 @@
 								indexMatchedPrompt?.prompt.name === prompt.name &&
 									indexMatchedPrompt?.mcp.id === mcpPromptSet.mcp.id &&
 									!isHovering &&
-									'bg-surface2 dark:bg-surface3 hover:bg-surface2 dark:hover:bg-surface3'
+									'bg-base-300 dark:bg-base-400 hover:bg-base-300 dark:hover:bg-base-400'
 							)}
 							onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
 						>
-							<div class="flex-shrink-0 rounded-sm">
+							<div class="shrink-0 rounded-sm">
 								{#if mcpPromptSet.mcp.icon}
 									<img src={mcpPromptSet.mcp.icon} alt={mcpPromptSet.mcp.name} class="size-6" />
 								{:else}
-									<MessageSquarePlus class="text-on-surface1 size-5" />
+									<MessageSquarePlus class="text-base-content/40 size-5" />
 								{/if}
 							</div>
 							<div class="flex flex-col">
@@ -180,13 +180,13 @@
 									{prompt.name}
 									{#if variant === 'popover' && prompt.arguments}
 										{#each prompt.arguments as argument (argument.name)}
-											<span class="text-on-surface1 text-xs">
+											<span class="text-base-content/40 text-xs">
 												[{argument.name}]
 											</span>
 										{/each}
 									{/if}
 								</p>
-								<p class="text-on-surface1 text-xs font-light">
+								<p class="text-base-content/40 text-xs font-light">
 									{prompt.description}
 								</p>
 							</div>

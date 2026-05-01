@@ -20,6 +20,7 @@
 	} from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { responsive } from '$lib/stores';
+	import IconButton from '../primitives/IconButton.svelte';
 	import CollapsePane from './CollapsePane.svelte';
 	import { Download, Image, Plus } from 'lucide-svelte';
 	import { FileText, Trash2, Upload } from 'lucide-svelte/icons';
@@ -170,24 +171,24 @@
 							<span use:overflowToolTip>{file.name}</span>
 						</button>
 
-						<button
-							class="icon-button-small ms-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
+						<IconButton
+							class="btn-sm ms-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
 							onclick={() => {
 								EditorService.download([], project, file.name, apiOpts);
 							}}
 						>
 							<Download class="text-gray size-4" />
-						</button>
+						</IconButton>
 
-						<button
-							class="icon-button-small ms-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
+						<IconButton
+							class="btn-sm ms-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
 							onclick={() => {
 								fileToDelete = file.name;
 								menu?.toggle(false);
 							}}
 						>
 							<Trash2 class="text-gray size-4" />
-						</button>
+						</IconButton>
 					</div>
 				</li>
 			{/each}
@@ -196,7 +197,7 @@
 	{#if thread}
 		<div class="flex items-center justify-end gap-4">
 			<McpResources {project} bind:threadID={currentThreadID} bind:currentThreadFiles={files} />
-			<label class="button mt-3 flex items-center justify-end gap-1 text-sm">
+			<label class="btn btn-secondary mt-3 flex items-center justify-end gap-1 text-sm">
 				{#await uploadInProgress}
 					<Loading class="size-4" />
 				{:catch error}
@@ -220,7 +221,7 @@
 			description="Content available to AI."
 			onLoad={loadFiles}
 			classes={{
-				button: primary ? 'button-icon-primary' : '',
+				button: primary ? 'btn btn-square btn-ghost btn-primary' : '',
 				menu: responsive.isMobile
 					? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full'
 					: ''
@@ -246,7 +247,7 @@
 			<div class="flex flex-col gap-4">
 				{@render content()}
 				<div class="flex justify-end">
-					<label class="button flex cursor-pointer items-center justify-end gap-1 text-xs">
+					<label class="btn btn-sm flex cursor-pointer items-center justify-end gap-1 text-xs">
 						{#await uploadInProgress}
 							<Loading class="size-4" />
 						{:catch error}

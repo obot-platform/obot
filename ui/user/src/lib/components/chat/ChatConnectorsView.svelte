@@ -15,6 +15,7 @@
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import {
 		CircleFadingArrowUp,
 		LoaderCircle,
@@ -123,7 +124,7 @@
 							)
 						: d.data}
 				{#if property === 'name'}
-					<div class="flex flex-shrink-0 items-center gap-2">
+					<div class="flex shrink-0 items-center gap-2">
 						<div class="icon">
 							{#if d.icon}
 								<img src={d.icon} alt={d.name} class="size-6" />
@@ -135,7 +136,7 @@
 							{d.name}
 							{#if server && requiresUserUpdate(server)}
 								<span
-									class="text-yellow-500"
+									class="text-warning"
 									use:tooltip={{
 										text: 'Server requires an update.',
 										disablePortal: true
@@ -170,10 +171,10 @@
 					d.data.manifest?.runtime === 'remote' &&
 					d.data.manifest?.remoteConfig?.staticOAuthRequired &&
 					!d.data.oauthCredentialConfigured}
-				<button
-					class="icon-button hover:dark:bg-background/50 disabled:cursor-not-allowed disabled:opacity-50"
+				<IconButton
+					class="hover:dark:bg-base-100/50"
 					disabled={requiresOAuthConfig}
-					use:tooltip={{
+					tooltip={{
 						text: requiresOAuthConfig ? 'OAuth configuration required' : '',
 						disablePortal: true
 					}}
@@ -209,7 +210,7 @@
 					}}
 				>
 					<StepForward class="size-4" />
-				</button>
+				</IconButton>
 			{/snippet}
 		</Table>
 	{/if}
@@ -257,9 +258,9 @@
 			{/if}
 		{/snippet}
 		{#snippet actions()}
-			<button class="icon-button hover:dark:bg-background/50">
+			<IconButton class="hover:dark:bg-base-100/50">
 				<StepForward class="size-4" />
-			</button>
+			</IconButton>
 		{/snippet}
 	</Table>
 </ResponsiveDialog>

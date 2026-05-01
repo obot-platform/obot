@@ -34,13 +34,13 @@
 
 {#if !loading && (!isModelProviderConfigured || !isAuthProviderConfigured) && profile.current?.isAdmin?.()}
 	<div
-		class="dark:bg-surface2 bg-background mb-4 flex min-h-44 justify-center overflow-hidden rounded-xl py-4"
+		class="dark:bg-base-300 bg-base-100 mb-4 flex min-h-44 justify-center overflow-hidden rounded-xl py-4"
 	>
 		<div
-			class="relative flex min-h-36 w-[calc(100%-4rem)] max-w-screen-md flex-row items-center justify-between gap-4 rounded-sm"
+			class="relative flex min-h-36 w-[calc(100%-4rem)] max-w-3xl flex-row items-center justify-between gap-4 rounded-sm"
 		>
-			<div class="absolute opacity-5 md:top-[-1.75rem] md:left-[-3.0rem] md:opacity-45">
-				<Logo variant="warning" class="md:h-[17.5rem] md:w-[17.5rem]" />
+			<div class="absolute opacity-5 md:-top-7 md:left-[-3.0rem] md:opacity-45">
+				<Logo variant="warning" class="md:h-70 md:w-70" />
 			</div>
 			<div class="relative z-10 flex flex-col gap-2 md:ml-64">
 				<h4 class="text-lg font-semibold">Wait! You've still got some setup to do!</h4>
@@ -57,18 +57,12 @@
 				{/if}
 				<div class="flex flex-row flex-wrap gap-2">
 					{#if !isModelProviderConfigured}
-						<a
-							href={resolve('/admin/model-providers')}
-							class="button grow bg-yellow-500 text-center text-sm text-black hover:bg-yellow-500/70"
-						>
+						<a href={resolve('/admin/model-providers')} class="btn btn-warning">
 							Configure Model Provider
 						</a>
 					{/if}
 					{#if !isAuthProviderConfigured}
-						<a
-							href={resolve('/admin/auth-providers')}
-							class="button grow bg-yellow-500 text-center text-sm text-black hover:bg-yellow-500/70"
-						>
+						<a href={resolve('/admin/auth-providers')} class="btn btn-warning">
 							Configure Auth Provider
 						</a>
 					{/if}

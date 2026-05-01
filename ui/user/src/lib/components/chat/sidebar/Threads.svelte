@@ -310,7 +310,10 @@
 			</div>
 			{#if (layout.threads?.length ?? 0) === 0}
 				<div class="flex justify-end" in:fade>
-					<button class="button flex items-center gap-1 text-xs" onclick={() => createThread()}>
+					<button
+						class="btn btn-sm btn-secondary flex items-center gap-1 text-xs"
+						onclick={() => createThread()}
+					>
 						<Plus class="size-4" /> Start New Chat
 					</button>
 				</div>
@@ -321,7 +324,7 @@
 			<div class="flex items-center justify-between">
 				<p class="text-md grow font-medium">Chats</p>
 				<button
-					class="hover:text-on-background text-on-surface1 p-2 transition-colors duration-200"
+					class="hover:text-base-content text-base-content/40 p-2 transition-colors duration-200"
 					onclick={createThread}
 					use:tooltip={'Start New Chat'}
 				>
@@ -337,8 +340,8 @@
 	<ul transition:fade>
 		{#each sortedThreads.slice(0, displayCount) as thread (thread.id)}
 			<li
-				class:bg-surface2={isCurrentThread(thread)}
-				class="hover:bg-surface3 group flex min-h-9 items-center gap-3 rounded-md font-light"
+				class:bg-base-300={isCurrentThread(thread)}
+				class="hover:bg-base-400 group flex min-h-9 items-center gap-3 rounded-md font-light"
 				animate:flip={{ duration: 200 }}
 			>
 				{#if editMode === thread.id}
@@ -408,7 +411,7 @@
 			</li>
 		{/each}
 		{#if layout.threads?.length && layout.threads?.length > displayCount}
-			<li class="hover:bg-surface3 flex w-full justify-center rounded-md p-2">
+			<li class="hover:bg-base-400 flex w-full justify-center rounded-md p-2">
 				<button class="w-full text-xs" onclick={loadMore}> Show More </button>
 			</li>
 		{/if}

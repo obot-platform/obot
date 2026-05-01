@@ -321,11 +321,11 @@
 			isOpen = false;
 		}
 	}}
-	class={isCompositeForm(form) ? 'bg-surface1 dark:bg-background' : ''}
+	class={isCompositeForm(form) ? 'bg-base-200 dark:bg-base-100' : ''}
 >
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">
-			<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
+			<div class="bg-base-200 rounded-sm p-1 dark:bg-base-300">
 				{#if icon}
 					<img src={icon} alt={name} class="size-8" />
 				{:else}
@@ -348,7 +348,7 @@
 {#snippet content()}
 	{#if error || localError}
 		<div class="notification-error flex items-center gap-2">
-			<AlertCircle class="size-6 flex-shrink-0 text-red-500" />
+			<AlertCircle class="size-6 shrink-0 text-error" />
 			<p class="flex flex-col text-sm font-light">
 				<span class="font-semibold">Error:</span>
 				<span>
@@ -368,7 +368,7 @@
 					<div class="flex flex-col gap-1">
 						<span class="flex items-center gap-2">
 							<label for="name"> Server Alias </label>
-							<span class="text-on-surface1">(optional)</span>
+							<span class="text-base-content/40">(optional)</span>
 							<InfoTooltip
 								text="Uses server name as default. Duplicate instances default to a number increment added at the end of name."
 							/>
@@ -380,7 +380,7 @@
 				{#if 'componentConfigs' in form}
 					{#each Object.entries(form.componentConfigs) as [compId, comp] (compId)}
 						<div
-							class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent shadow-sm"
+							class="dark:bg-base-300 dark:border-base-400 bg-base-100 rounded-lg border border-transparent shadow-sm"
 						>
 							<div class="flex items-center gap-2 p-2">
 								{#if comp.icon}
@@ -407,11 +407,11 @@
 												<span class="flex items-center gap-2">
 													<label
 														for={`${compId}-${env.key}`}
-														class={highlightRequired ? 'text-red-500' : ''}
+														class={highlightRequired ? 'text-error' : ''}
 													>
 														{env.name}
 														{#if !env.required}
-															<span class="text-on-surface1">(optional)</span>
+															<span class="text-base-content/40">(optional)</span>
 														{/if}
 													</label>
 													{#if !displayDescriptionInline}
@@ -435,7 +435,7 @@
 														class={twMerge(
 															'text-input-filled h-32 resize-y whitespace-pre-wrap',
 															highlightRequired &&
-																'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+																'border-error bg-error/20 ring-error focus:ring-1'
 														)}
 														onmousedown={() => (resizing = true)}
 														onmouseup={() => (resizing = false)}
@@ -449,12 +449,12 @@
 														class={twMerge(
 															'text-input-filled',
 															highlightRequired &&
-																'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+																'border-error bg-error/20 ring-error focus:ring-1'
 														)}
 													/>
 												{/if}
 												{#if displayDescriptionInline}
-													<p class="text-on-surface1 text-xs font-light break-all">
+													<p class="text-base-content/40 text-xs font-light break-all">
 														{env.description}
 													</p>
 												{/if}
@@ -470,11 +470,11 @@
 											<span class="flex items-center gap-2">
 												<label
 													for={`${compId}-${header.data.key}`}
-													class={highlightRequired ? 'text-red-500' : ''}
+													class={highlightRequired ? 'text-error' : ''}
 												>
 													{header.data.name}
 													{#if !header.data.required}
-														<span class="text-on-surface1">(optional)</span>
+														<span class="text-base-content/40">(optional)</span>
 													{/if}
 												</label>
 												{#if !displayDescriptionInline}
@@ -496,13 +496,12 @@
 													disabled={form.componentConfigs[compId].disabled}
 													class={twMerge(
 														'text-input-filled',
-														highlightRequired &&
-															'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+														highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
 													)}
 												/>
 											{/if}
 											{#if displayDescriptionInline}
-												<p class="text-on-surface1 text-xs font-light break-all">
+												<p class="text-base-content/40 text-xs font-light break-all">
 													{header.data.description}
 												</p>
 											{/if}
@@ -518,7 +517,7 @@
 											disabled={form.componentConfigs[compId].disabled}
 											class="text-input-filled"
 										/>
-										<span class="text-on-surface1 font-light">
+										<span class="text-base-content/40 font-light">
 											The URL must contain the hostname: <b class="font-semibold">{comp.hostname}</b
 											>
 										</span>
@@ -533,10 +532,10 @@
 							{@const highlightRequired = highlightedFields.has(env.key) && !env.value}
 							<div class="flex flex-col gap-1">
 								<span class="flex items-center gap-2">
-									<label for={env.key} class={highlightRequired ? 'text-red-500' : ''}>
+									<label for={env.key} class={highlightRequired ? 'text-error' : ''}>
 										{env.name}
 										{#if !env.required}
-											<span class="text-on-surface1">(optional)</span>
+											<span class="text-base-content/40">(optional)</span>
 										{/if}
 									</label>
 									{#if !displayDescriptionInline}
@@ -557,7 +556,7 @@
 										bind:value={form.envs[i].value}
 										class={twMerge(
 											'text-input-filled h-32 resize-y whitespace-pre-wrap',
-											highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+											highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
 										)}
 										onmousedown={() => (resizing = true)}
 										onmouseup={() => (resizing = false)}
@@ -569,12 +568,12 @@
 										bind:value={form.envs[i].value}
 										class={twMerge(
 											'text-input-filled',
-											highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+											highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
 										)}
 									/>
 								{/if}
 								{#if displayDescriptionInline}
-									<p class="text-on-surface1 text-xs font-light break-all">
+									<p class="text-base-content/40 text-xs font-light break-all">
 										{env.description}
 									</p>
 								{/if}
@@ -587,10 +586,10 @@
 							highlightedFields.has(header.data.key) && !header.data.value}
 						<div class="flex flex-col gap-1">
 							<span class="flex items-center gap-2">
-								<label for={header.data.key} class={highlightRequired ? 'text-red-500' : ''}>
+								<label for={header.data.key} class={highlightRequired ? 'text-error' : ''}>
 									{header.data.name}
 									{#if !header.data.required}
-										<span class="text-on-surface1">(optional)</span>
+										<span class="text-base-content/40">(optional)</span>
 									{/if}
 								</label>
 								<InfoTooltip text={header.data.description} />
@@ -608,7 +607,7 @@
 									bind:value={form!.headers![header.index].value}
 									class={twMerge(
 										'text-input-filled',
-										highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+										highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
 									)}
 								/>
 							{/if}
@@ -623,7 +622,7 @@
 							bind:value={form.url}
 							class="text-input-filled"
 						/>
-						<span class="text-on-surface1 font-light">
+						<span class="text-base-content/40 font-light">
 							The URL must contain the hostname: <b class="font-semibold">
 								{form.hostname}
 							</b>

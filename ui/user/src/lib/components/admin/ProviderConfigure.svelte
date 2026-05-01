@@ -271,10 +271,10 @@
 				<img
 					src={url}
 					alt={provider?.name}
-					class={twMerge('size-9 rounded-md p-1', !provider?.iconDark && 'bg-gray-600')}
+					class={twMerge('size-9 rounded-md p-1', !provider?.iconDark && 'bg-base-300')}
 				/>
 			{:else}
-				<img src={provider?.icon} alt={provider?.name} class="bg-surface1 size-9 rounded-md p-1" />
+				<img src={provider?.icon} alt={provider?.name} class="bg-base-200 size-9 rounded-md p-1" />
 			{/if}
 			Set Up {provider?.name}
 		</div>
@@ -294,7 +294,7 @@
 			/>
 			{#if error}
 				<div class="notification-error flex items-center gap-2">
-					<AlertCircle class="size-6 text-red-500" />
+					<AlertCircle class="size-6 text-error" />
 					<p class="flex flex-col text-sm font-light">
 						<span class="font-semibold">An error occurred!</span>
 						<span>
@@ -320,7 +320,7 @@
 									<li>
 										<button
 											class={twMerge(
-												'bg-surface1 hover:bg-surface2 text-gray rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
+												'bg-base-200 hover:bg-base-400 text-gray rounded-md px-4 py-2 text-sm font-medium transition-all duration-200',
 												isSelected &&
 													'bg-primary hover:bg-primary/90 active:bg-primary text-white shadow-sm'
 											)}
@@ -347,7 +347,7 @@
 									{@render booleanToggle(parameter)}
 								{:else}
 									<li class="flex flex-col gap-1">
-										<label for={parameter.name} class:text-red-500={error}
+										<label for={parameter.name} class:text-error={error}
 											>{parameter.friendlyName}</label
 										>
 										{#if parameter.description}
@@ -457,7 +457,12 @@
 		</form>
 		{#if !readonly}
 			<div class="mt-4 flex justify-end gap-2 p-4 pt-0">
-				<button class="button-primary" type="button" onclick={() => configure()} disabled={loading}>
+				<button
+					class="btn btn-primary"
+					type="button"
+					onclick={() => configure()}
+					disabled={loading}
+				>
 					{#if loading}
 						<LoaderCircle class="size-4 animate-spin" />
 					{:else}

@@ -4,6 +4,7 @@
 	import PlaintextEditor from './PlaintextEditor.svelte';
 	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
 	import { onMount, type Snippet, tick, untrack } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		id?: string;
@@ -139,13 +140,11 @@
 		type="submit"
 		onclick={() => submit()}
 		{disabled}
-		class="button-colors text-primary h-fit self-end rounded-full p-2 transition-all duration-100 hover:border-none {disabled
-			? 'cursor-not-allowed opacity-50'
-			: ''}"
+		class={twMerge('btn btn-circle', disabled ? 'cursor-not-allowed opacity-50' : '')}
 		title={disabled ? 'No model selected' : ''}
 	>
 		{#if readonly}
-			<div class="bg-background m-1.5 h-3 w-3 place-self-center rounded-xs"></div>
+			<div class="bg-base-100 m-1.5 h-3 w-3 place-self-center rounded-xs"></div>
 		{:else if pending}
 			<LoaderCircle class="animate-spin" />
 		{:else}
@@ -160,7 +159,7 @@
 		{@render inputPopover(value)}
 	{/if}
 	<div
-		class="focus-within:ring-primary bg-surface1 mt-4 flex h-fit max-h-[80svh] rounded-2xl focus-within:shadow-md focus-within:ring-1"
+		class="focus-within:ring-primary bg-base-200 mt-4 flex h-fit max-h-[80svh] rounded-2xl focus-within:shadow-md focus-within:ring-1"
 		style="anchor-name: --input-anchor"
 	>
 		<div class="flex min-h-full w-full flex-col" {id}>
@@ -212,6 +211,6 @@
 	}
 
 	.chat-footer {
-		background: linear-gradient(to bottom, rgb(0 0 0 / 0), var(--surface1) 40%);
+		background: linear-gradient(to bottom, rgb(0 0 0 / 0), var(--color-base-200) 40%);
 	}
 </style>

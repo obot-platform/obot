@@ -15,6 +15,7 @@
 	import { getUserDisplayName } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
 	import Select from '../Select.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchUsers from './SearchUsers.svelte';
 	import { CircleHelp, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
@@ -186,21 +187,21 @@
 					</h1>
 				</div>
 				{#if !readonly}
-					<button
-						class="button-destructive flex items-center gap-1 text-xs font-normal"
-						use:tooltip={'Delete Policy'}
+					<IconButton
+						variant="danger2"
+						tooltip={{ text: 'Delete Policy' }}
 						onclick={() => {
 							deletingPolicy = true;
 						}}
 					>
 						<Trash2 class="size-4" />
-					</button>
+					</IconButton>
 				{/if}
 			</div>
 		{/if}
 
 		<div
-			class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
+			class="dark:bg-base-200 dark:border-base-400 bg-base-100 rounded-lg border border-transparent p-4"
 		>
 			<div class="flex flex-col gap-6">
 				{#if !messagePolicy.id}
@@ -229,7 +230,7 @@
 								classes: ['w-72', 'break-normal', 'whitespace-pre-wrap', 'z-[60]']
 							}}
 						>
-							<CircleHelp class="text-on-surface1 size-3.5" />
+							<CircleHelp class="text-base-content/40 size-3.5" />
 						</div>
 					</label>
 					<textarea
@@ -266,12 +267,12 @@
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						{#if loadingUsersAndGroups}
-							<button class="button-primary flex items-center gap-1 text-sm" disabled>
+							<button class="btn btn-primary flex items-center gap-1 text-sm" disabled>
 								<Plus class="size-4" /> Add User/Group
 							</button>
 						{:else}
 							<button
-								class="button-primary flex items-center gap-1 text-sm"
+								class="btn btn-primary flex items-center gap-1 text-sm"
 								onclick={() => {
 									addUserGroupDialog?.open();
 								}}
@@ -300,17 +301,17 @@
 				>
 					{#snippet actions(d)}
 						{#if !readonly}
-							<button
-								class="icon-button hover:text-red-500"
+							<IconButton
+								variant="danger"
 								onclick={() => {
 									messagePolicy.subjects = messagePolicy.subjects?.filter(
 										(subject) => subject.id !== d.id
 									);
 								}}
-								use:tooltip={'Delete User/Group'}
+								tooltip={{ text: 'Delete User/Group' }}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					{/snippet}
 				</Table>
@@ -319,14 +320,14 @@
 	</div>
 	{#if !readonly}
 		<div
-			class="bg-surface1 text-on-surface1 dark:bg-background sticky bottom-0 left-0 z-50 flex w-full justify-end gap-2 py-4"
+			class="bg-base-200 text-base-content/40 dark:bg-base-100 sticky bottom-0 left-0 z-50 flex w-full justify-end gap-2 py-4"
 			out:fly={{ x: -100, duration }}
 			in:fly={{ x: -100 }}
 		>
 			<div class="flex w-full justify-end gap-2">
 				{#if !messagePolicy.id}
 					<button
-						class="button text-sm"
+						class="btn btn-secondary text-sm"
 						onclick={() => {
 							goto('/admin/message-policies');
 						}}
@@ -334,7 +335,7 @@
 						Cancel
 					</button>
 					<button
-						class="button-primary text-sm"
+						class="btn btn-primary text-sm"
 						disabled={!validate(messagePolicy) || saving}
 						onclick={async () => {
 							saving = true;
@@ -355,7 +356,7 @@
 					</button>
 				{:else}
 					<button
-						class="button-primary text-sm"
+						class="btn btn-primary text-sm"
 						disabled={!validate(messagePolicy) || !hasChanges || saving}
 						onclick={async () => {
 							if (!messagePolicy.id) return;

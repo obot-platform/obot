@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import { getProjectMCPs, type ProjectMcpItem } from '$lib/context/projectMcps.svelte';
 	import {
@@ -12,6 +11,7 @@
 	import { errors } from '$lib/stores';
 	import { poll } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { LoaderCircle, HardDrive, Search, Download, ChevronsRight, Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
@@ -285,29 +285,29 @@
 
 	<div class="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
 		<div class="relative">
-			<Search class="text-on-surface1 absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+			<Search class="text-base-content/40 absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 			<input
 				bind:this={searchInput}
 				bind:value={searchQuery}
 				type="text"
 				placeholder="Search by MCP server or resource name..."
-				class="focus:border-primary focus:ring-primary dark:focus:border-primary/50 bg-background dark:text-on-background w-full rounded-lg border border-gray-300 py-2 pr-4 pl-10 text-sm focus:ring-1 focus:outline-none dark:border-gray-600 dark:bg-gray-800"
+				class="focus:border-primary focus:ring-primary dark:focus:border-primary/50 bg-base-100 dark:text-on-background w-full rounded-lg border border-gray-300 py-2 pr-4 pl-10 text-sm focus:ring-1 focus:outline-none dark:border-gray-600 dark:bg-gray-800"
 			/>
 		</div>
 	</div>
 
 	<div
-		class="default-scrollbar-thin bg-surface1 flex flex-1 grow flex-col overflow-y-auto p-2 dark:bg-gray-950"
+		class="default-scrollbar-thin bg-base-200 flex flex-1 grow flex-col overflow-y-auto p-2 dark:bg-gray-950"
 	>
 		{#if loading}
 			<div class="flex h-full flex-col items-center justify-center">
 				<LoaderCircle class="size-6 animate-spin" />
-				<p class="text-on-surface1 mt-2 text-sm">Loading resources...</p>
+				<p class="text-base-content/40 mt-2 text-sm">Loading resources...</p>
 			</div>
 		{:else if filteredResources.length === 0}
 			<div class="flex h-full flex-col items-center justify-center">
 				<HardDrive class="size-12 text-gray-300" />
-				<p class="text-on-surface1 mt-2 text-sm">
+				<p class="text-base-content/40 mt-2 text-sm">
 					{searchQuery ? 'No resources found matching your search' : 'No resources available'}
 				</p>
 			</div>
@@ -318,7 +318,7 @@
 				{@const resources = serverResources.resources}
 				<div class="mb-4">
 					<div class="flex grow items-center gap-1 py-2 pl-1.5">
-						<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+						<div class="rounded-md bg-base-200 p-1 dark:bg-base-300">
 							{#if mcp.icon}
 								<img src={mcp.icon} alt={name} class="size-4" />
 							{:else}
@@ -336,13 +336,12 @@
 							{#each resources as resource (resource.uri)}
 								{@const alreadyAdded = resourceFileExists(resource, mcp)}
 								<div class="resource flex items-center gap-2">
-									<button
-										class="icon-button"
+									<IconButton
 										onclick={() => downloadResource(resource, mcp)}
-										use:tooltip={'Download'}
+										tooltip={{ text: 'Download' }}
 									>
 										<Download class="size-4" />
-									</button>
+									</IconButton>
 									<button
 										class="flex grow gap-4 text-left"
 										onclick={() => {
@@ -357,11 +356,11 @@
 									>
 										<div>
 											<p class="text-sm">{resource.name}</p>
-											<p class="text-on-surface1 text-xs font-light">{resource.mimeType}</p>
+											<p class="text-base-content/40 text-xs font-light">{resource.mimeType}</p>
 										</div>
 										<div class="flex grow"></div>
 										{#if alreadyAdded}
-											<div class="button-text flex items-center gap-1 p-2 pr-0 text-xs">
+											<div class="btn btn-text flex items-center gap-1 p-2 pr-0 text-xs">
 												{#if targetResourceUri === resource.uri}
 													<LoaderCircle class="size-3 animate-spin" />
 												{:else}
@@ -369,7 +368,7 @@
 												{/if}
 											</div>
 										{:else}
-											<div class="button-text flex items-center gap-1 p-2 pr-0 text-xs">
+											<div class="btn btn-text flex items-center gap-1 p-2 pr-0 text-xs">
 												{#if loadingFiles || targetResourceUri === resource.uri}
 													<LoaderCircle class="size-3 animate-spin" />
 												{:else}
@@ -384,9 +383,11 @@
 					{:else}
 						<div class="p-4 text-center">
 							{#if mcp.authenticated}
-								<p class="text-on-surface1 text-sm">No resources available</p>
+								<p class="text-base-content/40 text-sm">No resources available</p>
 							{:else}
-								<p class="text-on-surface1 text-sm">Authentication required to view resources</p>
+								<p class="text-base-content/40 text-sm">
+									Authentication required to view resources
+								</p>
 							{/if}
 						</div>
 					{/if}
@@ -415,17 +416,17 @@
 
 		&:not(:disabled) {
 			&:hover {
-				background-color: var(--surface2);
+				background-color: var(--color-base-300);
 			}
 		}
 
 		:global(.dark) & {
-			background-color: var(--surface2);
-			border: 1px solid var(--surface3);
+			background-color: var(--color-base-300);
+			border: 1px solid var(--color-base-400);
 
 			&:not(:disabled) {
 				&:hover {
-					background-color: var(--surface3);
+					background-color: var(--color-base-400);
 				}
 			}
 		}

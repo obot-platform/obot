@@ -137,7 +137,7 @@
 		<div class="flex flex-col gap-8">
 			<div class="flex flex-col gap-2">
 				<Search
-					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 					value={query}
 					onChange={updateQuery}
 					placeholder="Search by group name..."
@@ -181,7 +181,7 @@
 									</button>
 									{#if d.assignment}
 										<button
-											class="menu-button text-red-500"
+											class="menu-button text-error"
 											disabled={!profile.current.groups.includes(Group.OWNER) &&
 												d.roleId === Role.OWNER}
 											onclick={() => (deletingGroup = d)}
@@ -201,7 +201,7 @@
 	{#snippet rightNavActions()}
 		{#if !isAdminReadonly}
 			<button
-				class="button-primary w-full text-sm sm:w-auto"
+				class="btn btn-primary w-full text-sm sm:w-auto"
 				onclick={() => {
 					showAddAssignment = true;
 					addGroupAssignmentDialog?.clear();

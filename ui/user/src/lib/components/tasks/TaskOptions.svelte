@@ -50,16 +50,16 @@
 
 {#if !readOnly}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 bg-background flex grow flex-col overflow-visible rounded-lg p-5 shadow-sm dark:border"
+		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex grow flex-col overflow-visible rounded-lg p-5 shadow-sm dark:border"
 	>
 		{#if triggerType === 'onDemand' || triggerType === 'schedule'}
-			<div class="border-surface3 mb-4 flex flex-col gap-4 border-b pb-4">
+			<div class="border-base-400 mb-4 flex flex-col gap-4 border-b pb-4">
 				<div
 					class="flex w-full flex-col justify-start gap-4 lg:flex-row lg:items-center lg:justify-between"
 				>
 					<h3 class="text-lg font-semibold">How do you want to run this task?</h3>
 					<Dropdown
-						class="bg-surface2 xl:min-w-sm"
+						class="bg-base-300 xl:min-w-sm"
 						selected={selectedTrigger()}
 						values={options}
 						onSelected={selected}

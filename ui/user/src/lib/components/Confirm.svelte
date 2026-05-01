@@ -1,4 +1,5 @@
 <script lang="ts">
+	import IconButton from './primitives/IconButton.svelte';
 	import { CircleAlert, LoaderCircle, X } from 'lucide-svelte/icons';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -58,9 +59,9 @@
 	<div class="dialog-container w-[calc(100dvw-2rem)] md:w-md">
 		<div class="dialog-title p-4 pb-0">
 			{title}
-			<button type="button" onclick={oncancel}>
+			<IconButton onclick={oncancel} class="btn-sm dialog-close-btn">
 				<X class="size-5" />
-			</button>
+			</IconButton>
 		</div>
 		<div class={twMerge('flex flex-col items-center justify-center gap-2 p-4 pt-0', classes?.body)}>
 			{#if msgContent}
@@ -69,14 +70,14 @@
 				<div
 					class={twMerge(
 						'rounded-full p-2',
-						type === 'delete' ? 'bg-red-500/10' : 'bg-primary/10',
+						type === 'delete' ? 'bg-error/10' : 'bg-primary/10',
 						classes?.iconContainer
 					)}
 				>
 					<CircleAlert
 						class={twMerge(
 							'size-8',
-							type === 'delete' ? 'text-red-500' : 'text-primary',
+							type === 'delete' ? 'text-error' : 'text-primary',
 							classes?.icon
 						)}
 					/>
@@ -103,8 +104,8 @@
 						onclick={onsuccess}
 						type="button"
 						class={twMerge(
-							'flex w-full justify-center p-3',
-							type === 'delete' ? 'button-destructive' : 'button-primary',
+							'flex flex-1 justify-center p-3 btn',
+							type === 'delete' ? 'btn-error' : 'btn-primary',
 							classes?.confirm
 						)}
 						disabled={loading || disabled}
@@ -119,7 +120,7 @@
 				<button
 					onclick={oncancel}
 					type="button"
-					class="button w-full justify-center"
+					class="btn flex-1 flex justify-center"
 					disabled={loading}>{cancelText}</button
 				>
 			</div>

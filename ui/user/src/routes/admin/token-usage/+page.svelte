@@ -587,7 +587,7 @@
 			out:fade|global={{ duration: 300, delay: 500 }}
 		>
 			<div
-				class="bg-surface3/50 border-surface3 text-primary dark:text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
+				class="bg-base-400/50 border-base-400 text-primary dark:text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
 			>
 				<Loading class="size-32 stroke-1" />
 				<div class="text-2xl font-semibold">Loading data...</div>
@@ -596,7 +596,7 @@
 	{/if}
 
 	<div class="mb-4 flex flex-col gap-4" transition:fade={{ duration }}>
-		<div class="bg-surface2 dark:bg-surface1 w-full">
+		<div class="bg-base-300 dark:bg-base-200 w-full">
 			<div class="m-auto w-full px-4 py-4 md:max-w-(--breakpoint-xl) md:px-8">
 				<h4 class="font-semibold">Overall Stats</h4>
 				<div class="flex flex-col flex-wrap items-stretch gap-4 md:flex-row">
@@ -612,11 +612,11 @@
 			class="m-auto flex w-full max-w-full flex-col gap-4 px-4 md:max-w-(--breakpoint-xl) md:px-8"
 		>
 			<div class="flex w-full flex-wrap items-center justify-end gap-4">
-				<p class="text-on-surface1 w-full text-sm md:w-fit">Filter by:</p>
+				<p class="text-base-content/40 w-full text-sm md:w-fit">Filter by:</p>
 				<Select
-					class="dark:border-surface3 border border-transparent"
+					class="dark:border-base-400 border border-transparent"
 					classes={{
-						root: 'w-full md:flex-1 dark:border-surface3'
+						root: 'w-full md:flex-1 dark:border-base-400'
 					}}
 					options={usersOptions}
 					selected={selectedUserIdsForSelect}
@@ -634,9 +634,9 @@
 					displayCount={!!selectedUserIdsForSelect && selectedUserIdsForSelect !== 'all_users'}
 				/>
 				<Select
-					class="dark:border-surface3 border border-transparent"
+					class="dark:border-base-400 border border-transparent"
 					classes={{
-						root: 'w-full md:flex-1 dark:border-surface3'
+						root: 'w-full md:flex-1 dark:border-base-400'
 					}}
 					options={modelsOptions}
 					selected={filteredByModel}
@@ -653,7 +653,7 @@
 					buttonTitle="Models"
 					displayCount={!!filteredByModel && filteredByModel !== 'all_models'}
 				/>
-				<div class="bg-surface3 hidden h-8 w-0.5 md:block"></div>
+				<div class="bg-base-400 hidden h-8 w-0.5 md:block"></div>
 				<AuditLogCalendar start={startDate} end={endDate} onChange={handleDateRangeChange} />
 			</div>
 			{#if filteredByModel !== 'all_models' || selectedUserIdsForSelect !== 'all_users'}
@@ -701,8 +701,8 @@
 						<div class="flex shrink-0">
 							<button
 								class={twMerge(
-									'button-secondary rounded-r-none border border-r-0 text-xs',
-									selectedTokenType === 'input' && 'bg-surface2 border-surface2'
+									'btn btn-secondary rounded-r-none border border-r-0 text-xs',
+									selectedTokenType === 'input' && 'bg-base-300 border-base-300'
 								)}
 								onclick={() => handleTokenTypeChange('input')}
 							>
@@ -710,8 +710,8 @@
 							</button>
 							<button
 								class={twMerge(
-									'button-secondary rounded-l-none border text-xs',
-									selectedTokenType === 'output' && 'bg-surface2 border-surface2'
+									'btn btn-secondary rounded-l-none border text-xs',
+									selectedTokenType === 'output' && 'bg-base-300 border-base-300'
 								)}
 								onclick={() => handleTokenTypeChange('output')}
 							>
@@ -720,7 +720,7 @@
 						</div>
 					</div>
 					<Select
-						class="bg-surface2 dark:bg-background dark:border-surface3 w-[50dvw] border border-transparent shadow-inner md:w-64"
+						class="bg-base-300 dark:bg-base-100 dark:border-base-400 w-[50dvw] border border-transparent shadow-inner md:w-64"
 						options={[
 							{ label: 'Group by Token Type', id: 'group_by_default' },
 							{ label: 'Group by Users', id: 'group_by_users' },
@@ -755,7 +755,7 @@
 								{@const value = item.primaryTotal ?? 0}
 								<div class="flex flex-col gap-0 text-xs">
 									<div class="text-sm font-light">{item.key}</div>
-									<div class="text-on-surface1">{item.date}</div>
+									<div class="text-base-content/40">{item.date}</div>
 									<div class="tooltip-divider"></div>
 								</div>
 								<div class="flex flex-col gap-1">
@@ -798,7 +798,7 @@
 						</button>
 					</div>
 					<Select
-						class="bg-surface1 hover:bg-surface2 dark:bg-background dark:hover:bg-surface1 mb-1.5 border border-transparent shadow-none md:w-64"
+						class="bg-base-200 hover:bg-base-300 dark:bg-base-100 dark:hover:bg-base-200 mb-1.5 border border-transparent shadow-none md:w-64"
 						options={[
 							{ label: 'Sort by Name (A-Z)', id: 'sort_by_name' },
 							{ label: 'Sort by Name (Z-A)', id: 'sort_by_name_reverse' },
@@ -818,10 +818,10 @@
 						id="sub-view-sort-by-select"
 					/>
 				</div>
-				<div class="bg-surface3 h-0.5 w-full shrink-0 -translate-y-1"></div>
+				<div class="bg-base-400 h-0.5 w-full shrink-0 -translate-y-1"></div>
 
 				<Search
-					class="bg-background dark:border-surface3 mt-2 mb-3 border border-transparent"
+					class="bg-base-100 dark:border-base-400 mt-2 mb-3 border border-transparent"
 					value={subViewSearchQuery}
 					onChange={(value) => (subViewSearchQuery = value)}
 					placeholder={`Search ${selectedSubview === 'models' ? 'models' : 'users'}...`}
@@ -831,7 +831,7 @@
 					<div class="min-h-[300px]">
 						{#if !gridDataReady}
 							<div
-								class="text-on-surface1 flex items-center justify-center gap-2 py-12 text-sm"
+								class="text-base-content/40 flex items-center justify-center gap-2 py-12 text-sm"
 								aria-live="polite"
 							>
 								<Loading class="size-4 animate-spin" />
@@ -871,11 +871,11 @@
 														<div class="text-sm font-light">
 															{item.hoveredPart === 'primary' ? 'Input tokens' : 'Output tokens'}
 														</div>
-														<div class="text-on-surface1">{item.date}</div>
+														<div class="text-base-content/40">{item.date}</div>
 														<div class="tooltip-divider"></div>
 													</div>
 													<div class="flex flex-col gap-1">
-														<div class="text-on-background flex flex-col">
+														<div class="text-base-content flex flex-col">
 															<div class="text-xl font-bold">{value.toLocaleString()}</div>
 														</div>
 													</div>
@@ -887,7 +887,7 @@
 							</div>
 							{#if visibleChartCount < displayGraphItems.length}
 								<div
-									class="text-on-surface1 flex items-center justify-center gap-2 py-4 text-sm"
+									class="text-base-content/40 flex items-center justify-center gap-2 py-4 text-sm"
 									aria-live="polite"
 								>
 									<Loading class="size-4 animate-spin" />
@@ -895,13 +895,15 @@
 								</div>
 							{/if}
 						{:else}
-							<div class="text-on-surface1 mx-auto py-12 text-center text-sm font-light">
+							<div class="text-base-content/40 mx-auto py-12 text-center text-sm font-light">
 								No matches found.
 							</div>
 						{/if}
 					</div>
 				{:else}
-					<div class="text-on-surface1 mx-auto py-12 text-sm font-light">No data available.</div>
+					<div class="text-base-content/40 mx-auto py-12 text-sm font-light">
+						No data available.
+					</div>
 				{/if}
 			</div>
 		</div>
@@ -932,7 +934,7 @@
 	.divider-horizontal {
 		width: 1px;
 		height: auto;
-		background-color: var(--color-surface3);
+		background-color: var(--color-base-400);
 		margin-left: 1rem;
 		margin-right: 1rem;
 	}

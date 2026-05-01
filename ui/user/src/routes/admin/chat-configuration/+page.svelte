@@ -159,7 +159,7 @@
 									type="text"
 									id="name"
 									bind:value={baseAgent.name}
-									class="text-input-filled dark:bg-background"
+									class="text-input-filled dark:bg-base-100"
 									disabled={isAdminReadonly}
 								/>
 							</div>
@@ -169,7 +169,7 @@
 									type="text"
 									id="description"
 									bind:value={baseAgent.description}
-									class="text-input-filled dark:bg-background"
+									class="text-input-filled dark:bg-base-100"
 									disabled={isAdminReadonly}
 								/>
 							</div>
@@ -191,7 +191,7 @@
 							rows={6}
 							id="prompt"
 							bind:value={baseAgent.prompt}
-							class="text-input-filled dark:bg-background"
+							class="text-input-filled dark:bg-base-100"
 							placeholder={HELPER_TEXTS.prompt}
 							use:autoHeight
 							disabled={isAdminReadonly}
@@ -201,19 +201,19 @@
 
 				{#if !isAdminReadonly}
 					<div
-						class="bg-surface1 dark:bg-background sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
+						class="bg-base-200 dark:bg-base-100 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
 					>
 						{#if showSaved}
 							<span
 								in:fade={{ duration: 200 }}
-								class="text-on-surface1 flex min-h-10 items-center px-4 text-sm font-extralight"
+								class="text-base-content/40 flex min-h-10 items-center px-4 text-sm font-extralight"
 							>
 								Your changes have been saved.
 							</span>
 						{/if}
 
 						<button
-							class="button hover:bg-surface3 flex items-center gap-1 bg-transparent"
+							class="btn btn-secondary hover:bg-base-400 flex items-center gap-1 bg-transparent"
 							onclick={() => {
 								baseAgent = prevAgent;
 							}}
@@ -221,7 +221,7 @@
 							Reset
 						</button>
 						<button
-							class="button-primary flex items-center gap-1"
+							class="btn btn-primary flex items-center gap-1"
 							disabled={saving}
 							onclick={handleSave}
 						>
@@ -237,9 +237,9 @@
 				{/if}
 			{:else}
 				<div class="h-full w-full items-center justify-center">
-					<TriangleAlert class="text-on-surface1 size-24 opacity-50" />
-					<h4 class="text-on-surface1 text-lg font-semibold">An Error Occurred!</h4>
-					<p class="text-on-surface1 text-sm font-light">
+					<TriangleAlert class="text-base-content/80 size-24 opacity-50" />
+					<h4 class="text-base-content/40 text-lg font-semibold">An Error Occurred!</h4>
+					<p class="text-base-content/40 text-sm font-light">
 						We were unable to load the default base agent. Please try again later or contact
 						support.
 					</p>
@@ -252,7 +252,7 @@
 <ResponsiveDialog
 	bind:this={showAddModelsDialog}
 	title="Add Models"
-	class="dark:bg-surface1"
+	class="dark:bg-base-200"
 	classes={{
 		header: 'p-4 pb-0',
 		content: 'p-0'
@@ -265,7 +265,7 @@
 	{#if baseAgent}
 		<div class="mb-4 px-4">
 			<Search
-				class="dark:border-surface3 bg-background border border-transparent shadow-sm"
+				class="dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 				onChange={(val) => (addModelsSearch = val)}
 				placeholder="Search models..."
 			/>
@@ -284,8 +284,8 @@
 						{#each models as model (model.id)}
 							<button
 								class={twMerge(
-									'hover:bg-surface3 flex items-center justify-between gap-4 rounded-md bg-transparent p-2 font-light',
-									addModelsSelected[model.id] && 'bg-surface2'
+									'hover:bg-base-400 flex items-center justify-between gap-4 rounded-md bg-transparent p-2 font-light',
+									addModelsSelected[model.id] && 'bg-base-300'
 								)}
 								onclick={() => {
 									if (addModelsSelected[model.id]) {
@@ -308,8 +308,8 @@
 	{/if}
 
 	<div class="mt-auto flex justify-end gap-4 p-4">
-		<button class="button" onclick={resetAddModels}> Cancel </button>
-		<button class="button-primary" onclick={handleAddModels}> Add </button>
+		<button class="btn btn-secondary" onclick={resetAddModels}> Cancel </button>
+		<button class="btn btn-primary" onclick={handleAddModels}> Add </button>
 	</div>
 </ResponsiveDialog>
 

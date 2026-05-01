@@ -217,7 +217,7 @@
 							{#if showLoadOlderButton}
 								<div class="mb-4 flex justify-center">
 									<button
-										class="border-surface3 hover:bg-surface2 bg-background rounded-full border px-4 py-2 text-sm font-light transition-all duration-300"
+										class="border-base-400 hover:bg-base-300 bg-base-100 rounded-full border px-4 py-2 text-sm font-light transition-all duration-300"
 										onclick={loadOlderMessages}
 										disabled={loadingOlderMessages}
 									>
@@ -276,22 +276,22 @@
 													{msg.sent ? 'User' : msg.sourceName || 'Assistant'}
 												</span>
 												{#if msg.time}
-													<span class="text-on-surface1 text-xs">
+													<span class="text-base-content/40 text-xs">
 														{formatTimeAgo(msg.time.toISOString())}
 													</span>
 												{/if}
 											</div>
-											<div class="text-sm text-gray-700 dark:text-gray-300">
+											<div class="text-sm text-base-content/40">
 												{#if msg.message && msg.message.length > 0}
 													{#each msg.message as msgPart, i (i)}
 														<p class="mb-2 last:mb-0">{msgPart}</p>
 													{/each}
 												{:else}
-													<span class="text-on-surface1 italic">No message content</span>
+													<span class="text-base-content/40 italic">No message content</span>
 												{/if}
 											</div>
 											{#if msg.toolCall}
-												<div class="mt-2 rounded bg-gray-100 p-2 text-xs dark:bg-gray-800">
+												<div class="mt-2 rounded bg-base-300 p-2 text-xs">
 													<strong>Tool Call:</strong>
 													{msg.toolCall.name || 'Unknown tool'}
 												</div>
@@ -306,7 +306,7 @@
 						</div>
 					{:else if loadingMessages}
 						<div class="flex items-center justify-center py-12 text-center">
-							<div class="text-on-surface1">
+							<div class="text-base-content/40">
 								<LoaderCircle class="text-primary mx-auto mb-4 size-8 animate-spin" />
 								<h3 class="mb-2 text-lg font-medium">Loading Messages...</h3>
 								<p class="text-sm">Please wait while we load the thread messages.</p>
@@ -314,7 +314,7 @@
 						</div>
 					{:else}
 						<div class="flex items-center justify-center py-12 text-center">
-							<div class="text-on-surface1">
+							<div class="text-base-content/40">
 								<MessageCircle class="mx-auto mb-4 size-16" />
 								<h3 class="mb-2 text-lg font-medium">No Messages Found</h3>
 								<p class="text-sm">This thread doesn't have any messages yet.</p>

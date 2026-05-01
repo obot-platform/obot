@@ -20,9 +20,9 @@
 	});
 </script>
 
-<div class="border-surface2 dark:border-surface3 relative w-full rounded-lg border-2 p-5 pt-2">
+<div class="border-base-400 dark:border-base-400 relative w-full rounded-lg border-2 p-5 pt-2">
 	<h4
-		class="dark:bg-surface2 bg-background absolute top-0 left-3 w-fit -translate-y-3.5 px-2 text-base font-semibold"
+		class="dark:bg-base-300 bg-base-100 absolute top-0 left-3 w-fit -translate-y-3.5 px-2 text-base font-semibold"
 	>
 		{#if task?.onDemand?.params}
 			Arguments

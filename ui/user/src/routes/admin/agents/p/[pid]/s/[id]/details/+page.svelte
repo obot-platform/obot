@@ -48,7 +48,7 @@
 <Layout {title} showBackButton>
 	{#snippet rightNavActions()}
 		<button
-			class="button-primary flex items-center gap-1 text-sm"
+			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => (confirmImpersonate = true)}
 			use:tooltip={profile.current.canImpersonate?.() && agent?.userID !== profile.current.id
 				? undefined
@@ -100,7 +100,7 @@
 			>. Any actions you take will be attributed to this user. Are you sure you wish to continue?
 		</p>
 
-		<p class="text-on-surface1 mt-4 text-sm">Note: This will open in a new window.</p>
+		<p class="text-base-content/40 mt-4 text-sm">Note: This will open in a new window.</p>
 	{/snippet}
 </Confirm>
 

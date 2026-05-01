@@ -143,7 +143,7 @@
 							class={twMerge(
 								'flex w-full items-center gap-2 rounded-md border border-transparent p-2 text-left transition-colors duration-200',
 								selectedRules.includes(rule.id) && 'border-primary',
-								!hasEverything && 'dark:hover:bg-surface1 hover:bg-surface2'
+								!hasEverything && 'dark:hover:bg-base-200 hover:bg-base-400'
 							)}
 							onclick={() => {
 								if (hasEverything) return;
@@ -155,18 +155,20 @@
 							}}
 						>
 							<div class="grid w-full grid-cols-2 items-center gap-2">
-								<p class={twMerge('truncate', hasEverything && 'text-on-surface1')}>
+								<p class={twMerge('truncate', hasEverything && 'text-base-content/40')}>
 									{rule.displayName}
 								</p>
 								<div class="flex grow items-center justify-between">
-									<p class={twMerge('line-clamp-2 text-xs', hasEverything && 'text-on-surface1')}>
+									<p
+										class={twMerge('line-clamp-2 text-xs', hasEverything && 'text-base-content/40')}
+									>
 										{#if rule.subjects && rule.subjects.length > 0}
 											{rule.subjects?.map((s) => convertSubjectToDisplayName(s)).join(', ')}
 										{:else}
-											<i class="text-on-surface1">(Empty)</i>
+											<i class="text-base-content/40">(Empty)</i>
 										{/if}
 									</p>
-									<div class="flex-shrink-0">
+									<div class="shrink-0">
 										{#if hasEverything}
 											<InfoTooltip
 												class="size-4"
@@ -177,7 +179,7 @@
 										{:else if selectedRules.includes(rule.id)}
 											<CircleCheck class="text-primary size-4" />
 										{:else}
-											<Circle class="text-on-surface1 size-4" />
+											<Circle class="text-base-content/40 size-4" />
 										{/if}
 									</div>
 								</div>
@@ -190,10 +192,10 @@
 	{/if}
 	{#if accessControlRules.length > 0}
 		<div class="mt-auto flex justify-between gap-4">
-			<button class="button-primary" onclick={handleCreateNewRule}> Create New Registry </button>
+			<button class="btn btn-primary" onclick={handleCreateNewRule}> Create New Registry </button>
 			<div class="flex items-center gap-4">
 				<button
-					class="button-primary flex items-center gap-1"
+					class="btn btn-primary flex items-center gap-1"
 					onclick={handleAddToRules}
 					disabled={savingRules}
 				>
@@ -207,8 +209,8 @@
 		</div>
 	{:else}
 		<div class="mt-auto flex justify-end gap-4">
-			<button class="button" onclick={close}> Skip Step </button>
-			<button class="button-primary" onclick={handleCreateNewRule}> Create MCP Registry </button>
+			<button class="btn btn-secondary" onclick={close}> Skip Step </button>
+			<button class="btn btn-primary" onclick={handleCreateNewRule}> Create MCP Registry </button>
 		</div>
 	{/if}
 </ResponsiveDialog>

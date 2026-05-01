@@ -194,7 +194,7 @@
 					</p>
 				</div>
 				<button
-					class="button-primary flex items-center gap-1.5 text-sm font-normal"
+					class="btn btn-primary flex items-center gap-1.5 text-sm font-normal"
 					onclick={handleUpgradeClick}
 					disabled={upgrading}
 				>
@@ -245,7 +245,7 @@
 									{diff.name}
 									{#if !diff.newManifest}
 										<span
-											class="ml-2 rounded bg-red-500/10 px-2 py-0.5 text-xs font-normal text-red-500"
+											class="ml-2 rounded bg-error/10 px-2 py-0.5 text-xs font-normal text-error"
 										>
 											Removed
 										</span>

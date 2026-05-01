@@ -181,7 +181,7 @@
 			{#if !atLeastOneConfigured}
 				<div class="notification-alert mb-4 flex flex-col gap-2">
 					<div class="flex items-center gap-2">
-						<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+						<AlertTriangle class="size-6 shrink-0 self-start text-warning" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">No Auth Providers Configured!</p>
 					</div>
 					<span class="text-sm font-light break-all">
@@ -282,7 +282,7 @@
 				alt={confirmDeconfigureAuthProvider?.name}
 				class={twMerge(
 					'size-6 rounded-sm p-0.5',
-					!confirmDeconfigureAuthProvider?.iconDark && 'bg-surface1 dark:bg-gray-600'
+					!confirmDeconfigureAuthProvider?.iconDark && 'bg-base-200 dark:bg-base-300'
 				)}
 			/>
 			<h3 class="text-lg font-semibold">Deconfigure {confirmDeconfigureAuthProvider?.name}</h3>
@@ -335,7 +335,7 @@
 			<a class="button-auth group" href={setupTempLoginUrl} rel="external">
 				{#if configuringAuthProvider?.icon}
 					<img
-						class="h-6 w-6 rounded-full bg-transparent p-1 dark:bg-gray-600"
+						class="h-6 w-6 rounded-full bg-transparent p-1 dark:bg-base-300"
 						src={configuringAuthProvider.icon}
 						alt={configuringAuthProvider.name}
 					/>

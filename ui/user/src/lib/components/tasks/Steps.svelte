@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Files from '$lib/components/tasks/Files.svelte';
 	import Step from '$lib/components/tasks/Step.svelte';
 	import { type Messages, type Project, type Task, type TaskStep } from '$lib/services';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { DraggableList } from '../primitives/draggable';
 	import { Eye, EyeClosed, UsersRound, ArrowBigDown } from 'lucide-svelte';
 	import { tick, untrack } from 'svelte';
@@ -253,14 +253,13 @@
 
 <div
 	bind:this={element}
-	class="task-steps dark:bg-surface1 dark:border-surface3 bg-background relative rounded-lg p-5 pb-10 shadow-sm dark:border"
+	class="task-steps dark:bg-base-200 dark:border-base-400 bg-base-100 relative rounded-lg p-5 pb-10 shadow-sm dark:border"
 >
 	<div class="flex w-full items-center justify-between">
 		<h4 class="text-lg font-semibold">Steps</h4>
 
 		{#if shouldShowToggleAllOutput}
-			<button
-				class="icon-button"
+			<IconButton
 				data-testid="steps-toggle-output-btn"
 				onclick={async () => {
 					if (showAllOutput) {
@@ -276,14 +275,14 @@
 						showAllOutput = true;
 					}
 				}}
-				use:tooltip={'Toggle All Output Visbility'}
+				tooltip={{ text: 'Toggle All Output Visbility' }}
 			>
 				{#if showAllOutput}
 					<Eye class="size-5" />
 				{:else}
 					<EyeClosed class="size-5" />
 				{/if}
-			</button>
+			</IconButton>
 		{/if}
 	</div>
 
@@ -332,7 +331,7 @@
 	</DraggableList>
 
 	{#if error}
-		<div class="mt-2 text-red-500">{error}</div>
+		<div class="mt-2 text-error">{error}</div>
 	{/if}
 
 	{#if (!readOnly && isTaskRunning) || hasScrollingContent}
@@ -341,7 +340,7 @@
 		<div class="pointer-events-none absolute inset-0 z-10 flex items-end justify-end p-4">
 			<button
 				class={twMerge(
-					'bg-surface2 pointer-events-auto sticky right-0 bottom-4 box-border flex aspect-square h-8 items-center justify-center rounded-lg transition-colors duration-200',
+					'bg-base-300 pointer-events-auto sticky right-0 bottom-4 box-border flex aspect-square h-8 items-center justify-center rounded-lg transition-colors duration-200',
 					isFollowModeActive &&
 						'bg-primary/0 text-primary/70 hover:bg-primary/10 active:bg-primary/20 border border-current'
 				)}

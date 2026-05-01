@@ -378,7 +378,7 @@
 	{#if hasAdminAccess}
 		<button
 			onclick={handleRefreshEvents}
-			class="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+			class="rounded-md p-1 text-base-content/40 hover:bg-base-200 hover:text-base-content disabled:opacity-50 dark:text-base-content/40 dark:hover:bg-base-200 dark:hover:text-base-content"
 			disabled={refreshingEvents}
 		>
 			<RefreshCw class="size-4 {refreshingEvents ? 'animate-spin' : ''}" />
@@ -433,7 +433,7 @@
 								{/each}
 							</div>
 						{:else}
-							<span class="text-on-surface1 text-sm font-light">No configured headers.</span>
+							<span class="text-base-content/40 text-sm font-light">No configured headers.</span>
 						{/if}
 					</div>
 				{/if}
@@ -447,7 +447,7 @@
 							{/each}
 						</div>
 					{:else}
-						<span class="text-on-surface1 text-sm font-light"
+						<span class="text-base-content/40 text-sm font-light"
 							>No configured environment or file variables set.</span
 						>
 					{/if}
@@ -476,7 +476,7 @@
 					{/snippet}
 				</Table>
 			{:else}
-				<span class="text-on-surface1 text-sm font-light">No events.</span>
+				<span class="text-base-content/40 text-sm font-light">No events.</span>
 			{/if}
 		</div>
 	{/if}
@@ -488,7 +488,7 @@
 		<div class="notification-alert">
 			<div class="flex grow flex-col gap-2">
 				<div class="flex items-center gap-2">
-					<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+					<AlertTriangle class="size-6 shrink-0 self-start text-warning" />
 					<p class="my-0.5 flex flex-col text-sm font-semibold">
 						User Configuration Update Required
 					</p>
@@ -504,7 +504,7 @@
 	{#if hasAdminAccess}
 		<div class="flex flex-col gap-2">
 			<div
-				class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent p-4 shadow-sm"
+				class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col rounded-lg border border-transparent p-4 shadow-sm"
 			>
 				<div class="grid grid-cols-2 gap-4">
 					<p class="text-sm font-semibold">Status</p>
@@ -541,7 +541,7 @@
 			{#snippet actions(d)}
 				{@const auditLogsUrl = getAuditLogUrl(d)}
 				{#if auditLogsUrl}
-					<a href={resolve(auditLogsUrl as `/${string}`)} class="button-text"> View Audit Logs </a>
+					<a href={resolve(auditLogsUrl as `/${string}`)} class="btn btn-link"> View Audit Logs </a>
 				{/if}
 			{/snippet}
 		</Table>
@@ -550,7 +550,7 @@
 
 {#snippet detailRow(label: string, value: string, id: string)}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent p-4 shadow-sm"
+		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col rounded-lg border border-transparent p-4 shadow-sm"
 	>
 		<div class="grid grid-cols-12 gap-4">
 			<p class="col-span-4 text-sm font-semibold">{label}</p>
@@ -559,7 +559,7 @@
 				{#if id === 'status' && !readonly}
 					<button
 						onclick={() => (showRestartConfirm = true)}
-						class="button-primary flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+						class="btn btn-primary flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
 						disabled={restarting}
 					>
 						<RotateCcw class="size-3" />
@@ -573,7 +573,7 @@
 					{:then k8sSettingsStatus}
 						{#if k8sSettingsStatus?.needsK8sUpdate || mcpServer?.needsK8sUpdate}
 							<button
-								class="flex items-center gap-2 rounded-md bg-yellow-500/75 px-3 py-1.5 text-xs font-medium text-white hover:bg-yellow-500 disabled:opacity-50"
+								class="flex items-center gap-2 rounded-md bg-warning/75 px-3 py-1.5 text-xs font-medium text-warning-content hover:bg-warning disabled:opacity-50"
 								disabled={readonly}
 								onclick={() => (showUpdateK8sSettingsConfirm = true)}
 							>
@@ -590,7 +590,7 @@
 
 {#snippet configurationRow(label: string, value: string, sensitive?: boolean)}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent px-4 py-1.5 shadow-sm"
+		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col rounded-lg border border-transparent px-4 py-1.5 shadow-sm"
 	>
 		<div class="grid grid-cols-12 items-center gap-4">
 			<p class="col-span-4 text-sm font-semibold">{label}</p>

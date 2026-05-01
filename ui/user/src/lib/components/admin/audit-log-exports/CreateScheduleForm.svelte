@@ -258,7 +258,7 @@
 	}
 </script>
 
-<div class="dark:bg-surface2 bg-background rounded-md p-6 shadow-sm">
+<div class="dark:bg-base-200 bg-base-100 rounded-md p-6 shadow-sm">
 	<form
 		class="space-y-8"
 		onsubmit={(e) => {
@@ -267,10 +267,8 @@
 		}}
 	>
 		{#if !hasAuditorPermissions}
-			<div
-				class="flex items-start gap-3 rounded-md border border-yellow-500 bg-yellow-500/10 p-4 dark:bg-yellow-500/10"
-			>
-				<AlertTriangle class="size-5 text-yellow-500 dark:text-yellow-500" />
+			<div class="flex items-start gap-3 rounded-md border border-warning bg-warning/10 p-4">
+				<AlertTriangle class="size-5 text-warning" />
 				<div class="text-sm">
 					Exported logs will not include request/response headers and body information. Auditor role
 					is required to access this data.
@@ -301,7 +299,7 @@
 						required={mode !== 'view'}
 						readonly={mode === 'view'}
 					/>
-					<p class="text-on-surface1 text-xs">Unique name for this export schedule</p>
+					<p class="text-base-content/40 text-xs">Unique name for this export schedule</p>
 				</div>
 				<div class="flex flex-col gap-1">
 					<label class="text-sm font-medium" for="bucket">Bucket Name</label>
@@ -313,7 +311,9 @@
 						required={mode !== 'view'}
 						readonly={mode === 'view'}
 					/>
-					<p class="text-on-surface1 text-xs">Storage bucket name where exports will be saved</p>
+					<p class="text-base-content/40 text-xs">
+						Storage bucket name where exports will be saved
+					</p>
 				</div>
 			</div>
 
@@ -326,7 +326,7 @@
 					placeholder="Leave empty for default: mcp-audit-logs/YYYY/MM/DD/"
 					readonly={mode === 'view'}
 				/>
-				<p class="text-on-surface1 text-xs">
+				<p class="text-base-content/40 text-xs">
 					Path prefix within the bucket. If empty, defaults to "mcp-audit-logs/YYYY/MM/DD/" format
 					based on current date.
 				</p>
@@ -537,10 +537,10 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="user_id">User IDs</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
+								class="dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['user_id']?.map?.((d) => ({
 									id: d,
@@ -552,16 +552,16 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-on-surface1 text-xs">Comma-separated user IDs</p>
+							<p class="text-base-content/40 text-xs">Comma-separated user IDs</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="mcp_id">Server IDs</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
+								class="dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['mcp_id']?.map?.((d) => ({ id: d, label: d })) ?? []}
 								bind:selected={
@@ -570,16 +570,16 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-on-surface1 text-xs">Comma-separated server IDs</p>
+							<p class="text-base-content/40 text-xs">Comma-separated server IDs</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="mcp_server_display_name">Server Names</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
+								class="dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['mcp_server_display_name']?.map?.((d) => ({
 									id: d,
@@ -592,16 +592,16 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-on-surface1 text-xs">Comma-separated server display names</p>
+							<p class="text-base-content/40 text-xs">Comma-separated server display names</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="call_type">Call Types</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
+								class="dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['call_type']?.map?.((d) => ({
 									id: d,
@@ -613,16 +613,16 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-on-surface1 text-xs">Comma-separated call types</p>
+							<p class="text-base-content/40 text-xs">Comma-separated call types</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_name">Client Names</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
+								class="dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['client_name']?.map?.((d) => ({
 									id: d,
@@ -634,16 +634,16 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-on-surface1 text-xs">Comma-separated client names</p>
+							<p class="text-base-content/40 text-xs">Comma-separated client names</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="response_status">Response Status</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
+								class="dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['response_status']?.map?.((d) => ({
 									id: d,
@@ -656,16 +656,16 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-on-surface1 text-xs">Comma-separated HTTP status codes</p>
+							<p class="text-base-content/40 text-xs">Comma-separated HTTP status codes</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="session_id">Session IDs</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
+								class="dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['session_id']?.map?.((d) => ({
 									id: d,
@@ -677,16 +677,16 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-on-surface1 text-xs">Comma-separated session IDs</p>
+							<p class="text-base-content/40 text-xs">Comma-separated session IDs</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_ip">Client IPs</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
+								class="dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['client_ip']?.map?.((d) => ({
 									id: d,
@@ -698,17 +698,17 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-on-surface1 text-xs">Comma-separated IP addresses</p>
+							<p class="text-base-content/40 text-xs">Comma-separated IP addresses</p>
 						</div>
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="power_user_workspace_id"
 								>Catalog Entry Names</label
 							>
 							<Select
-								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
+								class="dark:border-base-400 bg-base-100 dark:bg-base-100 border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
-									clear: 'hover:bg-surface3 bg-transparent'
+									clear: 'hover:bg-base-400 bg-transparent'
 								}}
 								options={filtersOptions['mcp_server_catalog_entry_name']?.map?.((d) => ({
 									id: d,
@@ -722,7 +722,7 @@
 								multiple
 							/>
 
-							<p class="text-on-surface1 text-xs">Comma-separated catalog entry names</p>
+							<p class="text-base-content/40 text-xs">Comma-separated catalog entry names</p>
 						</div>
 					</div>
 				</div>
@@ -743,14 +743,14 @@
 		<div class="flex justify-end gap-3 pt-6">
 			<button
 				type="button"
-				class="button"
+				class="btn btn-secondary"
 				onclick={onCancel}
 				disabled={creating && mode !== 'view'}
 			>
 				{mode === 'view' ? 'Back' : 'Cancel'}
 			</button>
 			{#if mode !== 'view'}
-				<button type="submit" class="button-primary" disabled={creating}>
+				<button type="submit" class="btn btn-primary" disabled={creating}>
 					{#if creating}
 						<LoaderCircle class="size-4 animate-spin" />
 						{mode === 'edit' ? 'Saving Changes...' : 'Creating Schedule...'}
@@ -765,7 +765,7 @@
 
 <style lang="postcss">
 	:global(.schedule-dropdown) {
-		background-color: var(--surface2);
+		background-color: var(--color-base-300);
 		font-size: var(--text-md);
 		display: flex;
 		flex-grow: 1;

@@ -181,7 +181,7 @@
 			{:else}
 				<div class="px-4">
 					<Search
-						class="dark:bg-surface1 dark:border-surface3 shadow-inner dark:border"
+						class="dark:bg-base-200 dark:border-base-400 shadow-inner dark:border"
 						onChange={(val) => (search = val)}
 						value={search}
 						placeholder="Search by name..."
@@ -192,8 +192,8 @@
 					{#each filteredData as item (item.id)}
 						<button
 							class={twMerge(
-								'dark:hover:bg-surface1 hover:bg-surface2 flex w-full items-center gap-2 px-4 py-2 text-left',
-								selectedMap.has(item.id) && 'dark:bg-gray-920 bg-gray-50'
+								'dark:hover:bg-base-200 hover:bg-base-400 flex w-full items-center gap-2 px-4 py-2 text-left',
+								selectedMap.has(item.id) && 'bg-base-200/50'
 							)}
 							onclick={() => {
 								if (singleSelect) {
@@ -224,12 +224,12 @@
 									<div class="flex items-center gap-2">
 										<p class="truncate">{item.name}</p>
 										{#if item.registry}
-											<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-[10px]">
+											<div class="dark:bg-base-400 bg-base-300 rounded-full px-3 py-1 text-[10px]">
 												{item.registry}
 											</div>
 										{/if}
 									</div>
-									<span class="text-on-surface1 line-clamp-2 text-xs">
+									<span class="text-base-content/40 line-clamp-2 text-xs">
 										{stripMarkdownToText(item.description ?? '')}
 									</span>
 								</div>
@@ -254,10 +254,13 @@
 				{/if}
 			</div>
 			<div class="flex items-center gap-2">
-				<button class="button w-full md:w-fit" onclick={() => addMcpServerDialog?.close()}>
+				<button
+					class="btn btn-secondary w-full md:w-fit"
+					onclick={() => addMcpServerDialog?.close()}
+				>
 					Cancel
 				</button>
-				<button class="button-primary w-full md:w-fit" onclick={handleAdd}> Confirm </button>
+				<button class="btn btn-primary w-full md:w-fit" onclick={handleAdd}> Confirm </button>
 			</div>
 		{/if}
 	</div>

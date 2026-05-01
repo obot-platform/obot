@@ -235,7 +235,7 @@
 ></div>
 
 <div
-	class="bg-surface1 absolute flex rounded-3xl shadow-lg"
+	class="bg-base-200 absolute flex rounded-3xl shadow-lg"
 	bind:this={ttDiv}
 	class:hidden={!ttVisible}
 >

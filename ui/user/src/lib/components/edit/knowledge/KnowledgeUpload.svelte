@@ -65,7 +65,9 @@
 	});
 </script>
 
-<label class={twMerge('button flex items-center justify-end gap-1 text-sm', classes?.button)}>
+<label
+	class={twMerge('btn btn-secondary flex items-center justify-end gap-1 text-sm', classes?.button)}
+>
 	{#await uploadInProgress}
 		<Loading class="size-4" />
 	{:catch error}

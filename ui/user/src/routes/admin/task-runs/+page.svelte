@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import {
 		AdminService,
@@ -157,7 +157,7 @@
 			<div class="flex flex-col gap-2">
 				<Search
 					value={query}
-					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 					onChange={updateQuery}
 					placeholder="Search threads..."
 				/>
@@ -168,9 +168,9 @@
 					</div>
 				{:else if filteredThreads.length === 0}
 					<div class="flex w-full flex-col items-center justify-center py-12 text-center">
-						<MessageCircle class="text-on-surface1 size-24 opacity-50" />
-						<h3 class="text-on-surface1 mt-4 text-lg font-semibold">No task runs available</h3>
-						<p class="text-on-surface1 mt-2 text-sm font-light">
+						<MessageCircle class="text-base-content/80 size-24 opacity-50" />
+						<h3 class="text-base-content/40 mt-4 text-lg font-semibold">No task runs available</h3>
+						<p class="text-base-content/40 mt-2 text-sm font-light">
 							Task runs will appear here once they are created.
 						</p>
 					</div>
@@ -208,14 +208,13 @@
 						onSort={setSortUrlParams}
 					>
 						{#snippet actions()}
-							<button
+							<IconButton
 								class={twMerge(
-									'icon-button',
 									isAuditor && 'hover:text-primary',
 									!isAuditor && 'opacity-50 hover:bg-transparent dark:hover:bg-transparent'
 								)}
 								title="View Thread"
-								use:tooltip={{
+								tooltip={{
 									text: isAuditor
 										? 'View Task Run'
 										: 'To view details, auditing permissions are required.'
@@ -223,13 +222,13 @@
 								disabled={!isAuditor}
 							>
 								<Eye class="size-4" />
-							</button>
+							</IconButton>
 						{/snippet}
 						{#snippet onRenderColumn(property, thread)}
 							{#if property === 'name'}
 								<span>{thread.name || 'Unnamed Task Run'}</span>
 							{:else if property === 'created'}
-								<span class="text-on-surface1 text-sm">
+								<span class="text-base-content/40 text-sm">
 									{formatTimeAgo(thread.created).relativeTime}
 								</span>
 							{:else}

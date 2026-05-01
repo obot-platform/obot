@@ -536,7 +536,7 @@
 		out:fade|global={{ duration: 300, delay: 500 }}
 	>
 		<div
-			class="bg-surface3/50 border-surface3 text-primary dark:text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
+			class="bg-base-400/50 border-base-400 text-primary dark:text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
 		>
 			<Loading class="size-32 stroke-1" />
 			<div class="text-2xl font-semibold">Loading logs...</div>
@@ -547,7 +547,7 @@
 <div class="flex flex-col justify-end gap-2">
 	<div class="flex flex-col gap-4 md:flex-row">
 		<Search
-			class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 			onChange={handleQueryChange}
 			placeholder="Search..."
 			value={query}
@@ -562,7 +562,7 @@
 				/>
 
 				<button
-					class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button bg-background flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent shadow-sm"
+					class="btn btn-neutral h-12.5"
 					onclick={() => {
 						showFilters = true;
 						selectedAuditLog = undefined;
@@ -577,7 +577,7 @@
 	</div>
 	{#if profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.OWNER)}
 		<div class="mt-4 flex justify-end gap-2">
-			<DotDotDot class="button-primary w-fit text-sm" placement="bottom">
+			<DotDotDot class="btn btn-block btn-primary w-fit text-sm" placement="bottom">
 				{#snippet icon()}
 					<span class="flex items-center justify-center gap-1">
 						<Plus class="size-4" /> Create Export
@@ -592,7 +592,7 @@
 			</DotDotDot>
 
 			<button
-				class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button bg-background flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent shadow-sm"
+				class="btn btn-neutral"
 				onclick={() => {
 					goto('/admin/audit-logs/exports');
 				}}
@@ -609,12 +609,12 @@
 {#if auditLogsTotalItems > 0}
 	<!-- Timeline Graph (Placeholder) -->
 	<div
-		class="dark:bg-surface2 dark:border-surface3 bg-background text-on-background rounded-lg border border-transparent shadow-sm"
+		class="dark:bg-base-300 dark:border-base-400 bg-base-100 text-base-content/40 rounded-lg border border-transparent shadow-sm"
 	>
 		<h3 class="mb-2 px-4 pt-4 text-lg font-medium">Timeline</h3>
 		<div class="px-4">
 			{#if displayTimelineData.length > 0}
-				<div class="text-on-surface1 flex h-40 items-center justify-center rounded-md">
+				<div class="text-base-content/40 flex h-40 items-center justify-center rounded-md">
 					<StackedTimeline
 						start={timeRangeFilters.startTime}
 						end={timeRangeFilters.endTime}
@@ -627,14 +627,14 @@
 				</div>
 			{:else}
 				<div
-					class="text-on-surface1 flex h-40 items-center justify-center gap-2 rounded-md text-sm"
+					class="text-base-content/40 flex h-40 items-center justify-center gap-2 rounded-md text-sm"
 				>
 					<Loading class="size-5 animate-spin" />
 					<span>Preparing timeline…</span>
 				</div>
 			{/if}
 		</div>
-		<hr class="dark:border-surface3 my-4 border" />
+		<hr class="dark:border-base-400 my-4 border" />
 		<div class="flex items-center justify-between gap-2 px-4 pb-4 text-xs text-gray-600">
 			<div class="flex gap-4">
 				<div>{Intl.NumberFormat().format(remoteAuditLogs.length)} results</div>
@@ -652,7 +652,7 @@
 
 			<div class="flex gap-4">
 				<button
-					class="hover:text-on-surface1/80 active:text-on-surface1/100 flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
+					class="hover:text-base-content/40 active:text-base-content/80 flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
 					disabled={isReachedMin}
 					onclick={prevPage}
 				>
@@ -661,7 +661,7 @@
 				</button>
 
 				<button
-					class="hover:text-on-surface1/80 active:text-on-surface1/100 flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
+					class="hover:text-base-content/40 active:text-base-content/80 flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
 					disabled={isReachedMax}
 					onclick={nextPage}
 				>
@@ -692,16 +692,18 @@
 			{emptyContent}
 		></AuditLogsTable>
 	{:else if remoteAuditLogs.length > 0}
-		<div class="text-on-surface1 flex items-center justify-center gap-2 py-12 text-sm font-light">
+		<div
+			class="text-base-content/40 flex items-center justify-center gap-2 py-12 text-sm font-light"
+		>
 			<Loading class="size-5 animate-spin" />
 			<span>Preparing results…</span>
 		</div>
 	{/if}
 {:else if !showLoadingSpinner}
 	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
-		<Captions class="text-on-surface1 size-24 opacity-50" />
-		<h4 class="text-on-surface1 text-lg font-semibold">No audit logs</h4>
-		<p class="text-on-surface1 text-sm font-light">
+		<Captions class="text-base-content/40 size-24 opacity-50" />
+		<h4 class="text-base-content/40 text-lg font-semibold">No audit logs</h4>
+		<p class="text-base-content/40 text-sm font-light">
 			Currently, there are no audit logs for selected range or filters. Try modifying your search
 			criteria or try again later.
 		</p>
@@ -833,9 +835,9 @@
 <!-- Filter Confirmation Dialog -->
 {#if showFilterConfirmDialog}
 	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-		<div class="dark:bg-surface2 bg-background w-full max-w-2xl rounded-lg p-6 shadow-xl">
+		<div class="dark:bg-base-300 bg-base-100 w-full max-w-2xl rounded-lg p-6 shadow-xl">
 			<h3 class="mb-4 text-lg font-semibold">Apply Current Filters to Export?</h3>
-			<p class="text-on-surface1 mb-4 text-sm">
+			<p class="text-base-content/40 mb-4 text-sm">
 				You have active filters applied to the audit logs. Would you like to include these filters
 				in the export?
 			</p>
@@ -847,13 +849,13 @@
 					string
 				][]}
 				<div class="mb-4 rounded-md bg-gray-50 p-3 dark:bg-gray-800">
-					<h4 class="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">Active Filters:</h4>
-					<div class="text-on-surface1 space-y-1 text-xs">
+					<h4 class="mb-2 text-xs font-medium text-base-content/40">Active Filters:</h4>
+					<div class="text-base-content/40 space-y-1 text-xs">
 						{#if query}
-							<div class="break-words"><strong>Search:</strong> {query}</div>
+							<div class="wrap-break-word"><strong>Search:</strong> {query}</div>
 						{/if}
 						{#each entries as [key, value] (key)}
-							<div class="break-words">
+							<div class="wrap-break-word">
 								<strong>{getFilterDisplayLabel(key)}:</strong>
 								{getFilterDisplayValue(key, value)}
 							</div>
@@ -863,8 +865,10 @@
 			{/if}
 
 			<div class="flex justify-end gap-3">
-				<button class="button" onclick={() => handleFilterConfirmation(false)}> No </button>
-				<button class="button-primary" onclick={() => handleFilterConfirmation(true)}>
+				<button class="btn btn-secondary" onclick={() => handleFilterConfirmation(false)}>
+					No
+				</button>
+				<button class="btn btn-primary" onclick={() => handleFilterConfirmation(true)}>
 					Yes, Include Filters
 				</button>
 			</div>

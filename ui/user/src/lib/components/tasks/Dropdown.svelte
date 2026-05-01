@@ -47,7 +47,7 @@
 		{selected ? values[selected] : values[''] || ''}
 		<ChevronDown />
 	</button>
-	<div use:tooltip class="bg-background min-w-[150px] rounded-3xl shadow dark:bg-gray-900">
+	<div use:tooltip class="bg-base-100 min-w-[150px] rounded-3xl shadow dark:bg-gray-900">
 		<ul>
 			{#each Object.keys(values) as key (key)}
 				{@const value = values[key]}
@@ -55,7 +55,7 @@
 					<button
 						class:bg-gray-70={selected === key}
 						class:dark:bg-gray-800={selected === key}
-						class="w-full px-6 py-2.5 text-start capitalize hover:bg-gray-100 dark:hover:bg-gray-800"
+						class="w-full px-6 py-2.5 text-start capitalize hover:bg-base-300"
 						onclick={() => select(key)}
 					>
 						{value}

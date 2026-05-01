@@ -146,7 +146,7 @@
 						'text-input-filled base flex w-full flex-1 flex-col overflow-x-hidden overflow-y-auto font-mono',
 						klass,
 						classes?.wrapper,
-						error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1',
+						error && 'border-error bg-error/20 text-error ring-error focus:ring-1',
 						disabled && 'opacity-50',
 						!showSensitive ? 'hide' : ''
 					)}
@@ -202,7 +202,7 @@
 						aria-label="Resize"
 					>
 						<svg
-							class="h-full w-full text-gray-500 hover:text-gray-700"
+							class="h-full w-full text-base-content/40 hover:text-base-content"
 							viewBox="0 0 12 12"
 							fill="none"
 							stroke="currentColor"
@@ -220,7 +220,7 @@
 						'text-input-filled base flex min-h-full w-full flex-1 flex-col overflow-hidden rounded font-mono [box-shadow:none]',
 						klass,
 						classes?.wrapper,
-						error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1',
+						error && 'border-error bg-error/20 text-error ring-error focus:ring-1',
 						!showSensitive ? 'hide' : ''
 					)}
 				>
@@ -266,8 +266,7 @@
 				'text-input-filled w-full pr-10',
 				klass,
 				classes?.input,
-				error &&
-					'border-red-500 bg-red-500/20 [color:var(--color-red-500)] ring-red-500 focus:ring-1'
+				error && 'border-error bg-error/20 text-error ring-error focus:ring-1'
 			)}
 			{value}
 			type={showSensitive ? 'text' : 'password'}
@@ -289,7 +288,7 @@
 			<button
 				type="button"
 				class="cursor-pointer transition-colors duration-150"
-				class:text-red-500={error}
+				class:text-error={error}
 				onclick={toggleVisibility}
 			>
 				{#if showSensitive}

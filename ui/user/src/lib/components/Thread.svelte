@@ -29,6 +29,7 @@
 	import { goto } from '$lib/url';
 	import ResponsiveDialog from './ResponsiveDialog.svelte';
 	import McpPrompts from './mcp/McpPrompts.svelte';
+	import IconButton from './primitives/IconButton.svelte';
 	import { Bug, LoaderCircle, X } from 'lucide-svelte';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import type { UIEventHandler } from 'svelte/elements';
@@ -437,13 +438,13 @@
 					id="project-name"
 					type="text"
 					placeholder="Project Name"
-					class="ghost-input border-b-surface1 mb-2 w-full pt-0 pb-0 text-center text-base font-bold"
+					class="ghost-input border-b-base-200 mb-2 w-full pt-0 pb-0 text-center text-base font-bold"
 					bind:value={createProject.name}
 					bind:this={nameInput}
 				/>
 				<textarea
 					id="project-desc"
-					class="ghost-input border-b-surface1 text-md scrollbar-none mb-4 w-full grow resize-none pt-0.5 pb-0 text-center font-light"
+					class="ghost-input border-b-base-200 text-md scrollbar-none mb-4 w-full grow resize-none pt-0.5 pb-0 text-center font-light"
 					rows="1"
 					placeholder="A short description of your project"
 					use:autoHeight
@@ -451,12 +452,12 @@
 				></textarea>
 
 				<div class="mt-2 flex w-full flex-col justify-start text-left">
-					<label for="project-prompt" class="text-on-surface1 mb-1 text-sm font-semibold"
+					<label for="project-prompt" class="text-base-content/40 mb-1 text-sm font-semibold"
 						>Instructions</label
 					>
 					<textarea
 						id="project-prompt"
-						class="ghost-input bg-surface1 text-md scrollbar-none mb-4 w-full grow resize-none rounded-md p-4 text-left font-light shadow-inner"
+						class="ghost-input bg-base-200 text-md scrollbar-none mb-4 w-full grow resize-none rounded-md p-4 text-left font-light shadow-inner"
 						rows="4"
 						placeholder={HELPER_TEXTS.prompt}
 						use:autoHeight
@@ -464,7 +465,7 @@
 					></textarea>
 				</div>
 				<button
-					class="button-primary w-full text-sm"
+					class="btn btn-primary btn-sm w-full"
 					disabled={savingNewProject}
 					onclick={handleSaveNewProject}
 				>
@@ -477,17 +478,17 @@
 			{/if}
 		</div>
 
-		<button
-			class="icon-button absolute top-2 right-2"
+		<IconButton
+			class="absolute top-2 right-2"
 			onclick={() => {
 				createProject = undefined;
 			}}
 		>
 			<X class="size-6" />
-		</button>
+		</IconButton>
 
 		<div
-			class="bg-surface1 dark:bg-surface2 m-auto mt-4 h-[1px] w-96 max-w-sm self-center rounded-full"
+			class="bg-base-200 dark:bg-base-300 m-auto mt-4 h-px w-96 max-w-sm self-center rounded-full"
 		></div>
 	</div>
 {/snippet}
@@ -526,7 +527,7 @@
 				{#if showLoadOlderButton}
 					<div class="mb-4 flex justify-center">
 						<button
-							class="border-surface3 hover:bg-surface2 bg-background rounded-full border px-4 py-2 text-sm font-light transition-all duration-300"
+							class="border-base-400 hover:bg-base-300 bg-base-100 rounded-full border px-4 py-2 text-sm font-light transition-all duration-300"
 							onclick={loadOlderMessages}
 							disabled={loadingOlderMessages}
 						>
@@ -568,7 +569,7 @@
 
 		<div
 			class={twMerge(
-				'bg-background sticky z-30 flex w-full flex-col items-center pb-2 transition-transform duration-300',
+				'bg-base-100 sticky z-30 flex w-full flex-col items-center pb-2 transition-transform duration-300',
 				centerInput ? 'absolute top-1/2 -translate-y-[50%]' : 'bottom-0 -translate-y-[0%]'
 			)}
 		>
@@ -673,7 +674,7 @@
 					<div
 						class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"
 					>
-						<span class="text-on-surface1">Obot isn't perfect. Double check its work.</span>
+						<span class="text-base-content/40">Obot isn't perfect. Double check its work.</span>
 						<a
 							href="https://github.com/obot-platform/obot/issues/new?template=bug_report.md"
 							target="_blank"

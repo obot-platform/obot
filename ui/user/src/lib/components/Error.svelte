@@ -13,9 +13,9 @@
 <div in:fade class="flex items-center justify-center">
 	<div class="text-center">
 		<h3 class="text-on-background text-2xl font-semibold">Error</h3>
-		<p class="text-on-surface1">{error.message}</p>
+		<p class="text-base-content/40">{error.message}</p>
 		{#if onClick}
-			<button class="text-on-background mt-4 hover:underline" onclick={onClick}>Try again</button>
+			<button class="text-base-content/40 mt-4 hover:underline" onclick={onClick}>Try again</button>
 		{/if}
 	</div>
 </div>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { LaunchServerType, MCPCatalogEntryFieldManifest } from '$lib/services';
 	import Select from '../Select.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 
@@ -26,7 +27,7 @@
 <!-- Environment Variables / Files Section -->
 {#if !readonly || (readonly && config && config.length > 0)}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 	>
 		<h4 class="text-sm font-semibold">
 			{type === 'single' ? 'User Supplied Configuration' : 'Configuration'}
@@ -38,13 +39,13 @@
 					{@render overrideEnvTemplate({ config: config[i], index: i })}
 				{:else}
 					<div
-						class="dark:border-surface3 bg-surface2 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
+						class="dark:border-base-400 bg-base-300 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
 					>
 						<div class="flex w-full flex-col gap-4">
 							<div class="flex w-full flex-col gap-1">
 								<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
 								<Select
-									class="dark:border-surface3 bg-background border border-transparent"
+									class="dark:border-base-400 bg-base-100 border border-transparent"
 									classes={{
 										root: 'flex grow'
 									}}
@@ -65,7 +66,7 @@
 								/>
 							</div>
 
-							<p class="text-on-surface1 text-xs font-light">
+							<p class="text-base-content/40 text-xs font-light">
 								{#if config[i].file}
 									The value {type === 'single' ? 'the user supplies' : 'you provide'} will be written
 									to a file. An environment variable will be created using the name you specify in the
@@ -81,7 +82,7 @@
 							</p>
 
 							{#if type === 'single'}
-								<p class="text-on-surface1 text-xs font-light">
+								<p class="text-base-content/40 text-xs font-light">
 									The Name and Description fields will be displayed to the user when configuring
 									this server. The Key field will not.
 								</p>
@@ -89,7 +90,7 @@
 									<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
 									<input
 										id={`env-name-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
+										class="text-input-filled bg-base-100 w-full shadow-none"
 										bind:value={config[i].name}
 										disabled={readonly || isPrebuiltEntry}
 									/>
@@ -98,7 +99,7 @@
 									<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
 									<input
 										id={`env-description-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
+										class="text-input-filled bg-base-100 w-full shadow-none"
 										bind:value={config[i].description}
 										disabled={readonly || isPrebuiltEntry}
 									/>
@@ -107,7 +108,7 @@
 									<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
 									<input
 										id={`env-key-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
+										class="text-input-filled bg-base-100 w-full shadow-none"
 										bind:value={config[i].key}
 										placeholder="e.g. CUSTOM_API_KEY"
 										disabled={readonly || isPrebuiltEntry}
@@ -136,13 +137,13 @@
 									<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
 									<input
 										id={`env-key-${i}`}
-										class="text-input-filled bg-background w-full shadow-none"
+										class="text-input-filled bg-base-100 w-full shadow-none"
 										bind:value={config[i].key}
 										placeholder="e.g. CUSTOM_API_KEY"
 										disabled={readonly || isPrebuiltEntry}
 									/>
 									{#if isPrebuiltEntry && config[i].description}
-										<p class="text-on-surface1 text-xs font-light break-all">
+										<p class="text-base-content/40 text-xs font-light break-all">
 											{config[i].description}
 										</p>
 									{/if}
@@ -152,7 +153,7 @@
 									{#if config[i].file}
 										<textarea
 											id={`env-value-${i}`}
-											class="text-input-filled bg-background min-h-24 w-full resize-y shadow-none"
+											class="text-input-filled bg-base-100 min-h-24 w-full resize-y shadow-none"
 											bind:value={config[i].value}
 											disabled={readonly}
 											rows={(config[i].value ?? '').split('\n').length + 1}
@@ -160,7 +161,7 @@
 									{:else}
 										<input
 											id={`env-value-${i}`}
-											class="text-input-filled bg-background w-full shadow-none"
+											class="text-input-filled bg-base-100 w-full shadow-none"
 											bind:value={config[i].value}
 											placeholder="e.g. 123abcdef456"
 											disabled={readonly}
@@ -181,15 +182,15 @@
 							{/if}
 						</div>
 						{#if !readonly && !isPrebuiltEntry}
-							<button
-								class="icon-button hover:text-red-500"
+							<IconButton
+								variant="danger"
 								onclick={() => {
 									config.splice(i, 1);
 								}}
 								disabled={isPrebuiltEntry}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					</div>
 				{/if}

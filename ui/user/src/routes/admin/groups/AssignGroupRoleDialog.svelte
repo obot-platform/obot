@@ -145,7 +145,7 @@
 
 	{#if groupAssignment}
 		{#if groupAssignment.assignment.role}
-			<div class="dark:bg-surface1 mb-8 flex flex-col gap-1 rounded-lg bg-gray-50 p-3">
+			<div class="dark:bg-base-200 mb-8 flex flex-col gap-1 rounded-lg bg-gray-50 p-3">
 				<div class="flex items-center gap-2">
 					{#if groupAssignment.group.iconURL}
 						<img
@@ -154,11 +154,11 @@
 							class="size-5 rounded-full"
 						/>
 					{:else}
-						<GroupIcon class="text-on-surface1 size-5" />
+						<GroupIcon class="text-base-content/40 size-5" />
 					{/if}
 					<span class="font-semibold">{groupAssignment.group.name}</span>
 				</div>
-				<div class="text-on-surface1 text-xs">
+				<div class="text-base-content/40 text-xs">
 					Current: {getUserRoleLabel(groupAssignment.assignment.role)}
 				</div>
 			</div>
@@ -172,10 +172,10 @@
 			/>
 		</div>
 
-		<div class="mt-4 flex flex-shrink-0 justify-end gap-2">
-			<button class="button" onclick={handleClose}>Cancel</button>
+		<div class="mt-4 flex shrink-0 justify-end gap-2">
+			<button class="btn btn-secondary" onclick={handleClose}>Cancel</button>
 			<button
-				class="button-primary"
+				class="btn btn-primary"
 				onclick={handleConfirm}
 				disabled={loading || (!!groupAssignment.assignment.role && !hasChanges)}
 			>

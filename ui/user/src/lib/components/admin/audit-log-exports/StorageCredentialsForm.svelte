@@ -307,14 +307,14 @@
 </script>
 
 {#if loading}
-	<div class="dark:bg-surface2 bg-background rounded-md p-6 shadow-sm">
+	<div class="dark:bg-base-300 bg-base-100 rounded-md p-6 shadow-sm">
 		<div class="flex items-center justify-center py-8">
 			<LoaderCircle class="text-primary size-6 animate-spin" />
 			<span class="ml-2 text-sm text-gray-600">Loading storage credentials...</span>
 		</div>
 	</div>
 {:else}
-	<div class="dark:bg-surface2 bg-background rounded-md p-6 shadow-sm">
+	<div class="dark:bg-base-300 bg-base-100 rounded-md p-6 shadow-sm">
 		<form
 			class="gap-8"
 			onsubmit={(e) => {
@@ -323,10 +323,8 @@
 			}}
 		>
 			{#if existingCredentials}
-				<div
-					class="mb-6 flex items-start gap-3 rounded-md border border-yellow-500 bg-yellow-500/10 p-4"
-				>
-					<AlertTriangle class="size-5 flex-shrink-0 text-yellow-500" />
+				<div class="mb-6 flex items-start gap-3 rounded-md border border-warning bg-warning/10 p-4">
+					<AlertTriangle class="size-5 shrink-0 text-warning" />
 					<div class="flex-1 text-sm">
 						<p class="font-medium">Storage provider already configured</p>
 						<p class="mt-1 opacity-80">
@@ -507,7 +505,7 @@
 									growable
 									hideReveal
 								/>
-								<p class="text-on-surface1 text-xs">
+								<p class="text-base-content/40 text-xs">
 									Complete JSON key file for the service account
 								</p>
 							</div>
@@ -619,7 +617,7 @@
 				{#if form.provider !== 'custom'}
 					<button
 						type="button"
-						class="button-secondary"
+						class="btn btn-secondary"
 						onclick={handleTest}
 						disabled={testing || saving}
 					>
@@ -635,7 +633,7 @@
 				{#if !!existingCredentials}
 					<button
 						type="button"
-						class="button-destructive"
+						class="btn btn-error"
 						onclick={confirmDeleteCredentials}
 						disabled={testing || saving || deleting}
 					>
@@ -650,10 +648,15 @@
 				{/if}
 
 				<div class="ml-auto flex gap-3">
-					<button type="button" class="button" onclick={onCancel} disabled={saving || testing}>
+					<button
+						type="button"
+						class="btn btn-secondary"
+						onclick={onCancel}
+						disabled={saving || testing}
+					>
 						Cancel
 					</button>
-					<button type="submit" class="button-primary" disabled={saving || testing}>
+					<button type="submit" class="btn btn-primary" disabled={saving || testing}>
 						{#if saving}
 							<LoaderCircle class="size-4 animate-spin" />
 							Saving...

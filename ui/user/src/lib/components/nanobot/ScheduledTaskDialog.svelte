@@ -304,7 +304,10 @@
 							onclick={() => toggleSchedulePicker('weekly')}
 						>
 							<span
-								class={twMerge('truncate text-left', daysOfWeek.length === 0 && 'text-on-surface1')}
+								class={twMerge(
+									'truncate text-left',
+									daysOfWeek.length === 0 && 'text-base-content/40'
+								)}
 							>
 								{schedulePickerButtonLabel('weekly')}
 							</span>
@@ -345,7 +348,7 @@
 							<span
 								class={twMerge(
 									'truncate text-left',
-									daysOfMonth.length === 0 && 'text-on-surface1'
+									daysOfMonth.length === 0 && 'text-base-content/40'
 								)}
 							>
 								{schedulePickerButtonLabel('monthly')}
@@ -409,7 +412,7 @@
 
 		<div class="flex flex-col gap-3">
 			<label for="schedule-expiration" class="input-label text-base font-medium">
-				Expiration Date <span class="text-on-surface1 font-normal">(optional)</span>
+				Expiration Date <span class="text-base-content/40 font-normal">(optional)</span>
 			</label>
 			<DatePicker
 				id="schedule-expiration"
@@ -445,18 +448,14 @@
 				<div class="flex flex-wrap items-center justify-between gap-4">
 					<div class="space-y-1">
 						<div class="text-sm font-medium">Enabled</div>
-						<p class="text-on-surface1 text-sm">
+						<p class="text-base-content/40 text-sm">
 							Runs until it is disabled or reaches its expiration.
 						</p>
 					</div>
-					<input
-						type="checkbox"
-						class="toggle text-background dark:text-surface2 bg-surface3 checked:bg-primary border-transparent"
-						bind:checked={enabled}
-					/>
+					<input type="checkbox" class="toggle" bind:checked={enabled} />
 				</div>
 				{#if currentTask}
-					<div class="text-on-surface1 mt-4 text-sm">
+					<div class="text-base-content/40 mt-4 text-sm">
 						Timezone: <span class="text-base-content">{timezone}</span>
 					</div>
 				{/if}
