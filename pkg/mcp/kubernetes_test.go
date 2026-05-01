@@ -189,7 +189,7 @@ func TestK8sObjects_NonAgentShimKeepsAuditLogConfig(t *testing.T) {
 		MCPServerDisplayName: "Standard Server",
 		UserID:               "user-1",
 		OwnerUserID:          "user-2",
-		ContainerImage:       "ghcr.io/obot-platform/mcp-images/phat:main",
+		ContainerImage:       "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
 		ContainerPort:        8080,
 		ContainerPath:        "/mcp",
 		Command:              "server",
@@ -234,7 +234,7 @@ func TestK8sObjects_ServicePorts(t *testing.T) {
 				MCPServerDisplayName: "Test Server",
 				UserID:               "user-1",
 				OwnerUserID:          "user-2",
-				ContainerImage:       "ghcr.io/obot-platform/mcp-images/phat:main",
+				ContainerImage:       "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
 				ContainerPort:        8080,
 				ContainerPath:        "/mcp",
 				Command:              "server",
@@ -266,7 +266,7 @@ func newTestKubernetesBackend(t *testing.T) *kubernetesBackend {
 	}
 
 	return &kubernetesBackend{
-		baseImage:           "ghcr.io/obot-platform/mcp-images/phat:main",
+		baseImage:           "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
 		remoteShimBaseImage: "ghcr.io/obot-platform/remote-shim:main",
 		mcpNamespace:        "obot-mcp",
 		obotClient:          fake.NewClientBuilder().WithScheme(scheme).Build(),
