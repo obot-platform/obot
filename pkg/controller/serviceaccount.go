@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
+	"strconv"
 	"time"
 
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
 	corev1 "k8s.io/api/core/v1"
@@ -18,6 +19,7 @@ const (
 	serviceAccountRotationInterval = 10 * time.Hour
 	serviceAccountOverlapWindow    = time.Hour
 	serviceAccountRotationPeriod   = time.Minute
+	serviceAccountKeyIDAnnotation  = "obot.obot.ai/key-id"
 )
 
 var errRuntimeK8sConfigUnavailable = errors.New("runtime Kubernetes config is not configured")
@@ -45,7 +47,7 @@ func (c *Controller) runServiceAccountKeyRotation(ctx context.Context) {
 func (c *Controller) reconcileServiceAccountKeys(ctx context.Context) error {
 	var errs []error
 	for _, account := range serviceaccounts.All() {
-		if !serviceaccounts.Enabled(account, c.services.MCPRuntimeBackend) {
+		if !serviceaccounts.Enabled(account, c.services.MCPRuntimeBackend, c.services.MCPNetworkPolicyEnabled) {
 			if err := c.cleanupServiceAccountKey(ctx, account); err != nil {
 				errs = append(errs, err)
 			}
@@ -56,6 +58,19 @@ func (c *Controller) reconcileServiceAccountKeys(ctx context.Context) error {
 		}
 	}
 	return errors.Join(errs...)
+}
+
+// reconcileServiceAccountSecretChange restores the managed provider token secret
+// after manual changes or deletion, while preserving disabled-state cleanup.
+func (c *Controller) reconcileServiceAccountSecretChange(req router.Request, _ router.Response) error {
+	account, ok := serviceaccounts.Get(serviceaccounts.NetworkPolicyProvider)
+	if !ok {
+		return nil
+	}
+	if !serviceaccounts.Enabled(account, c.services.MCPRuntimeBackend, c.services.MCPNetworkPolicyEnabled) {
+		return c.cleanupServiceAccountKey(req.Ctx, account)
+	}
+	return c.reconcileServiceAccountKey(req.Ctx, account)
 }
 
 func (c *Controller) cleanupServiceAccountKey(ctx context.Context, account serviceaccounts.Account) error {
@@ -74,27 +89,20 @@ func (c *Controller) cleanupServiceAccountKey(ctx context.Context, account servi
 
 func (c *Controller) reconcileServiceAccountKey(ctx context.Context, account serviceaccounts.Account) error {
 	now := c.now().UTC()
-	if err := c.services.GatewayClient.DeleteExpiredServiceAccountAPIKeys(ctx, account.Name, now); err != nil {
-		return fmt.Errorf("failed to delete expired keys for %s: %w", account.Name, err)
-	}
-
 	keys, err := c.services.GatewayClient.ListServiceAccountAPIKeys(ctx, account.Name)
 	if err != nil {
 		return fmt.Errorf("failed to list keys for %s: %w", account.Name, err)
 	}
 
-	var latestActive *types.ServiceAccountAPIKey
-	for i := range keys {
-		key := &keys[i]
-		if key.ValidAfter.After(now) {
-			continue
-		}
-		if key.RetireAfter != nil && key.RetireAfter.Before(now) {
-			continue
-		}
-		if latestActive == nil || key.CreatedAt.After(latestActive.CreatedAt) {
-			latestActive = key
-		}
+	latestActive := latestActiveServiceAccountAPIKey(keys, now)
+	hasExpiredKey := hasExpiredServiceAccountAPIKey(keys, now)
+	beforeRotationOverlap := latestActive != nil && now.Sub(latestActive.CreatedAt) < serviceAccountRotationInterval-serviceAccountOverlapWindow
+	if latestActive != nil && !account.SecretManaged && !hasExpiredKey && beforeRotationOverlap {
+		return nil
+	}
+
+	if err := c.services.GatewayClient.DeleteExpiredServiceAccountAPIKeys(ctx, account.Name, now); err != nil {
+		return fmt.Errorf("failed to delete expired keys for %s: %w", account.Name, err)
 	}
 
 	secretToken, existingSecret, err := c.getServiceAccountSecretToken(ctx, account)
@@ -103,14 +111,20 @@ func (c *Controller) reconcileServiceAccountKey(ctx context.Context, account ser
 	}
 
 	secretCurrent := false
-	if secretToken != "" {
+	if secretToken != "" && latestActive != nil && existingSecret != nil && existingSecret.Annotations[serviceAccountKeyIDAnnotation] == strconv.FormatUint(uint64(latestActive.ID), 10) {
+		secretCurrent = true
+	} else if secretToken != "" {
 		existingKey, validateErr := c.services.GatewayClient.ValidateStorageServiceAccountToken(ctx, secretToken)
 		if validateErr == nil && existingKey.ServiceAccountName == account.Name && latestActive != nil && existingKey.ID == latestActive.ID {
 			secretCurrent = true
 		}
 	}
 
-	needsRotation := latestActive == nil || !secretCurrent || now.Sub(latestActive.CreatedAt) >= serviceAccountRotationInterval
+	if latestActive != nil && account.SecretManaged && !hasExpiredKey && beforeRotationOverlap && secretCurrent {
+		return nil
+	}
+
+	needsRotation := latestActive == nil || (account.SecretManaged && !secretCurrent) || now.Sub(latestActive.CreatedAt) >= serviceAccountRotationInterval
 	if !needsRotation {
 		return nil
 	}
@@ -121,7 +135,7 @@ func (c *Controller) reconcileServiceAccountKey(ctx context.Context, account ser
 	}
 
 	if account.SecretManaged {
-		if err := c.writeServiceAccountSecret(ctx, account, existingSecret, newKey.Token, newKey.CreatedAt, newKey.CreatedAt.Add(serviceAccountRotationInterval)); err != nil {
+		if err := c.writeServiceAccountSecret(ctx, account, existingSecret, newKey.PlaintextToken(), newKey.ID, newKey.CreatedAt, newKey.CreatedAt.Add(serviceAccountRotationInterval)); err != nil {
 			if deleteErr := c.services.GatewayClient.DeleteServiceAccountAPIKeyByID(ctx, newKey.ID); deleteErr != nil {
 				return errors.Join(err, fmt.Errorf("failed to roll back new key %d: %w", newKey.ID, deleteErr))
 			}
@@ -134,6 +148,32 @@ func (c *Controller) reconcileServiceAccountKey(ctx context.Context, account ser
 	}
 
 	return nil
+}
+
+func latestActiveServiceAccountAPIKey(keys []types.ServiceAccountAPIKey, now time.Time) *types.ServiceAccountAPIKey {
+	var latestActive *types.ServiceAccountAPIKey
+	for i := range keys {
+		key := &keys[i]
+		if key.ValidAfter.After(now) {
+			continue
+		}
+		if key.RetireAfter != nil && !key.RetireAfter.After(now) {
+			continue
+		}
+		if latestActive == nil || key.CreatedAt.After(latestActive.CreatedAt) {
+			latestActive = key
+		}
+	}
+	return latestActive
+}
+
+func hasExpiredServiceAccountAPIKey(keys []types.ServiceAccountAPIKey, now time.Time) bool {
+	for _, key := range keys {
+		if key.RetireAfter != nil && !key.RetireAfter.After(now) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Controller) getServiceAccountSecretToken(ctx context.Context, account serviceaccounts.Account) (string, *corev1.Secret, error) {
@@ -165,7 +205,7 @@ func (c *Controller) getServiceAccountSecretToken(ctx context.Context, account s
 	return string(secret.Data[account.SecretKey]), secret, nil
 }
 
-func (c *Controller) writeServiceAccountSecret(ctx context.Context, account serviceaccounts.Account, existing *corev1.Secret, token string, rotatedAt, expiresAt time.Time) error {
+func (c *Controller) writeServiceAccountSecret(ctx context.Context, account serviceaccounts.Account, existing *corev1.Secret, token string, keyID uint, rotatedAt, expiresAt time.Time) error {
 	runtimeClient, err := c.runtimeK8sClient()
 	if err != nil {
 		return fmt.Errorf("failed to build runtime client: %w", err)
@@ -188,6 +228,10 @@ func (c *Controller) writeServiceAccountSecret(ctx context.Context, account serv
 		secret.Labels = map[string]string{}
 	}
 	secret.Labels["app.kubernetes.io/name"] = "obot"
+	if secret.Annotations == nil {
+		secret.Annotations = map[string]string{}
+	}
+	secret.Annotations[serviceAccountKeyIDAnnotation] = strconv.FormatUint(uint64(keyID), 10)
 	secret.Type = corev1.SecretTypeOpaque
 	secret.Data = map[string][]byte{
 		account.SecretKey:                     []byte(token),
@@ -234,10 +278,10 @@ func (c *Controller) deleteServiceAccountSecret(ctx context.Context, account ser
 }
 
 func (c *Controller) runtimeNamespace() (string, error) {
-	if namespace := os.Getenv("POD_NAMESPACE"); namespace != "" {
-		return namespace, nil
+	if c.services.ServiceNamespace != "" {
+		return c.services.ServiceNamespace, nil
 	}
-	return "", errors.New("could not determine runtime namespace: POD_NAMESPACE environment variable not set")
+	return "", errors.New("could not determine runtime namespace: service namespace not configured")
 }
 
 func (c *Controller) runtimeK8sClient() (kclient.Client, error) {

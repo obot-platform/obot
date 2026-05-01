@@ -1744,7 +1744,6 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	if err = req.Read(&updated); err != nil {
 		return err
 	}
-
 	if updated.RemoteConfig != nil && !strings.HasPrefix(updated.RemoteConfig.URL, "http") {
 		updated.RemoteConfig.URL = "https://" + updated.RemoteConfig.URL
 	}

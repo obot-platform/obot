@@ -138,3 +138,44 @@ func TestValidatedAPIKeyCacheReturnsDeepCopy(t *testing.T) {
 		t.Fatal("expected cached ExpiresAt to be isolated from returned value")
 	}
 }
+
+func TestValidatedServiceAccountAPIKeyCacheHit(t *testing.T) {
+	t.Parallel()
+
+	c := &Client{
+		serviceAccountCache:    make(map[[32]byte]serviceAccountValidationCacheEntry),
+		serviceAccountCacheTTL: time.Minute,
+	}
+
+	now := time.Now()
+	want := &types.ServiceAccountAPIKey{ID: 7, ServiceAccountName: "NetworkPolicyProvider", ValidAfter: now.Add(-time.Minute)}
+
+	c.putValidatedServiceAccountAPIKeyInCache("sa-7-secret", want, now)
+
+	got, ok := c.getValidatedServiceAccountAPIKeyFromCache("sa-7-secret", now.Add(time.Second))
+	if !ok {
+		t.Fatal("expected cache hit")
+	}
+	if got.ID != want.ID || got.ServiceAccountName != want.ServiceAccountName {
+		t.Fatalf("unexpected cached value: %+v", got)
+	}
+	if got.PlaintextToken() != "sa-7-secret" {
+		t.Fatalf("expected returned cached key to include token, got %q", got.PlaintextToken())
+	}
+}
+
+func TestValidatedServiceAccountAPIKeyCacheExpires(t *testing.T) {
+	t.Parallel()
+
+	c := &Client{
+		serviceAccountCache:    make(map[[32]byte]serviceAccountValidationCacheEntry),
+		serviceAccountCacheTTL: time.Second,
+	}
+
+	now := time.Now()
+	c.putValidatedServiceAccountAPIKeyInCache("sa-7-secret", &types.ServiceAccountAPIKey{ID: 7, ValidAfter: now.Add(-time.Minute)}, now)
+
+	if _, ok := c.getValidatedServiceAccountAPIKeyFromCache("sa-7-secret", now.Add(2*time.Second)); ok {
+		t.Fatal("expected expired cache entry to miss")
+	}
+}

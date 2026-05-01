@@ -37,6 +37,7 @@ const (
 	UserGroupChangePrefix         = "ugc1"
 	GroupRoleChangePrefix         = "grc1"
 	MCPServerPrefix               = "ms1"
+	MCPNetworkPolicyPrefix        = "mnp1"
 	MCPServerInstancePrefix       = "msi1"
 	ProjectMCPServerPrefix        = "pms1"
 	CatalogPrefix                 = "mcat1"

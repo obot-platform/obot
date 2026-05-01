@@ -165,6 +165,8 @@ export interface Version {
 	enterprise?: boolean;
 	upgradeAvailable?: boolean;
 	engine?: 'docker' | 'kubernetes' | 'local';
+	mcpNetworkPolicyEnabled?: boolean;
+	mcpDefaultDenyAllEgress?: boolean;
 	autonomousToolUseEnabled?: boolean;
 	nanobotIntegration?: boolean;
 	messagePoliciesEnabled?: boolean;
@@ -301,11 +303,15 @@ export interface UVXRuntimeConfig {
 	package: string;
 	command?: string;
 	args?: string[];
+	egressDomains?: string[];
+	denyAllEgress?: boolean;
 }
 
 export interface NPXRuntimeConfig {
 	package: string;
 	args?: string[];
+	egressDomains?: string[];
+	denyAllEgress?: boolean;
 }
 
 export interface ContainerizedRuntimeConfig {
@@ -314,6 +320,8 @@ export interface ContainerizedRuntimeConfig {
 	path: string;
 	command?: string;
 	args?: string[];
+	egressDomains?: string[];
+	denyAllEgress?: boolean;
 }
 
 export interface RemoteRuntimeConfig {

@@ -1,8 +1,10 @@
 package mcpserver
 
 import (
+	"cmp"
 	"crypto/rand"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -28,22 +30,33 @@ import (
 var log = logger.Package()
 
 type Handler struct {
-	gptClient                   *gptscript.GPTScript
-	mcpSessionManager           *mcp.SessionManager
-	singleUserIdleShutdownDelay time.Duration
-	multiUserIdleShutdownDelay  time.Duration
-	agentIdleShutdownDelay      time.Duration
-	baseURL                     string
+	gptClient                    *gptscript.GPTScript
+	mcpSessionManager            *mcp.SessionManager
+	networkPolicyProviderEnabled bool
+	defaultDenyAllEgress         bool
+	singleUserIdleShutdownDelay  time.Duration
+	multiUserIdleShutdownDelay   time.Duration
+	agentIdleShutdownDelay       time.Duration
+	baseURL                      string
 }
 
-func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay, agentIdleShutdownDelay time.Duration, baseURL string) *Handler {
+func effectiveDenyAllEgress(v *bool, domains []string, defaultWhenEmpty bool) bool {
+	if v != nil {
+		return *v
+	}
+	return defaultWhenEmpty && len(domains) == 0
+}
+
+func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, networkPolicyProviderEnabled, defaultDenyAllEgress bool, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay, agentIdleShutdownDelay time.Duration, baseURL string) *Handler {
 	return &Handler{
-		gptClient:                   gptClient,
-		mcpSessionManager:           mcpSessionManager,
-		singleUserIdleShutdownDelay: singleUserIdleShutdownDelay,
-		multiUserIdleShutdownDelay:  multiUserIdleShutdownDelay,
-		agentIdleShutdownDelay:      agentIdleShutdownDelay,
-		baseURL:                     baseURL,
+		gptClient:                    gptClient,
+		mcpSessionManager:            mcpSessionManager,
+		networkPolicyProviderEnabled: networkPolicyProviderEnabled,
+		defaultDenyAllEgress:         defaultDenyAllEgress,
+		singleUserIdleShutdownDelay:  singleUserIdleShutdownDelay,
+		multiUserIdleShutdownDelay:   multiUserIdleShutdownDelay,
+		agentIdleShutdownDelay:       agentIdleShutdownDelay,
+		baseURL:                      baseURL,
 	}
 }
 
@@ -61,7 +74,7 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	drifted, err := configurationHasDrifted(server.Spec.Manifest, entry.Spec.Manifest)
+	drifted, err := configurationHasDrifted(server.Spec.Manifest, entry.Spec.Manifest, h.defaultDenyAllEgress)
 	if err != nil {
 		return err
 	}
@@ -71,6 +84,122 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		server.Status.NeedsUpdate = drifted
 		return req.Client.Status().Update(req.Ctx, server)
 	}
+	return nil
+}
+
+func (h *Handler) EnsureMCPNetworkPolicy(req router.Request, _ router.Response) error {
+	server := req.Object.(*v1.MCPServer)
+
+	if !h.networkPolicyProviderEnabled {
+		return h.deleteMCPNetworkPolicy(req, server.Namespace, server.Name)
+	}
+
+	// Don't create an MCPNetworkPolicy if this is an agent pod
+	if server.Spec.NanobotAgentID != "" {
+		return nil
+	}
+
+	var egressDomains []string
+	var denyAllEgress bool
+	switch server.Spec.Manifest.Runtime {
+	case types.RuntimeNPX:
+		if server.Spec.Manifest.NPXConfig != nil {
+			egressDomains = server.Spec.Manifest.NPXConfig.EgressDomains
+			denyAllEgress = effectiveDenyAllEgress(server.Spec.Manifest.NPXConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
+		}
+	case types.RuntimeUVX:
+		if server.Spec.Manifest.UVXConfig != nil {
+			egressDomains = server.Spec.Manifest.UVXConfig.EgressDomains
+			denyAllEgress = effectiveDenyAllEgress(server.Spec.Manifest.UVXConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
+		}
+	case types.RuntimeContainerized:
+		if server.Spec.Manifest.ContainerizedConfig != nil {
+			egressDomains = server.Spec.Manifest.ContainerizedConfig.EgressDomains
+			denyAllEgress = effectiveDenyAllEgress(server.Spec.Manifest.ContainerizedConfig.DenyAllEgress, egressDomains, h.defaultDenyAllEgress)
+		}
+	default:
+		return h.deleteMCPNetworkPolicy(req, server.Namespace, server.Name)
+	}
+
+	egressDomains = slices.Clone(egressDomains)
+	slices.Sort(egressDomains)
+
+	var policies v1.MCPNetworkPolicyList
+	if err := req.List(&policies, &kclient.ListOptions{
+		Namespace:     server.Namespace,
+		FieldSelector: fields.OneTermEqualSelector("spec.mcpServerName", server.Name),
+	}); err != nil {
+		return err
+	}
+
+	if len(policies.Items) == 0 {
+		return req.Client.Create(req.Ctx, &v1.MCPNetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: system.MCPNetworkPolicyPrefix,
+				Namespace:    server.Namespace,
+			},
+			Spec: v1.MCPNetworkPolicySpec{
+				MCPServerName: server.Name,
+				PodSelector: map[string]string{
+					"app": server.Name,
+				},
+				EgressDomains: egressDomains,
+				DenyAllEgress: denyAllEgress,
+			},
+		})
+	}
+
+	slices.SortFunc(policies.Items, func(left, right v1.MCPNetworkPolicy) int {
+		if c := left.CreationTimestamp.Compare(right.CreationTimestamp.Time); c != 0 {
+			return c
+		}
+		return cmp.Compare(left.Name, right.Name)
+	})
+
+	policy := &policies.Items[0]
+	for i := 1; i < len(policies.Items); i++ {
+		if err := req.Client.Delete(req.Ctx, &policies.Items[i]); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	if policy.Spec.MCPServerName == server.Name &&
+		maps.Equal(policy.Spec.PodSelector, map[string]string{"app": server.Name}) &&
+		slices.Equal(sortedClone(policy.Spec.EgressDomains), egressDomains) &&
+		policy.Spec.DenyAllEgress == denyAllEgress {
+		return nil
+	}
+
+	policy.Spec.MCPServerName = server.Name
+	policy.Spec.PodSelector = map[string]string{
+		"app": server.Name,
+	}
+	policy.Spec.EgressDomains = egressDomains
+	policy.Spec.DenyAllEgress = denyAllEgress
+	return req.Client.Update(req.Ctx, policy)
+}
+
+func sortedClone(values []string) []string {
+	cloned := slices.Clone(values)
+	slices.Sort(cloned)
+	return cloned
+}
+
+func (h *Handler) deleteMCPNetworkPolicy(req router.Request, namespace, name string) error {
+	var policies v1.MCPNetworkPolicyList
+	if err := req.List(&policies, &kclient.ListOptions{
+		Namespace:     namespace,
+		FieldSelector: fields.OneTermEqualSelector("spec.mcpServerName", name),
+	}); err != nil {
+		return err
+	}
+
+	for i := range policies.Items {
+		if err := req.Client.Delete(req.Ctx, &policies.Items[i]); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -107,7 +236,7 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 	return nil
 }
 
-func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest) (bool, error) {
+func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
 	// Check if runtime types differ
 	if serverManifest.Runtime != entryManifest.Runtime {
 		return true, nil
@@ -117,16 +246,16 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 	var drifted bool
 	switch serverManifest.Runtime {
 	case types.RuntimeUVX:
-		drifted = uvxConfigHasDrifted(serverManifest.UVXConfig, entryManifest.UVXConfig)
+		drifted = uvxConfigHasDrifted(serverManifest.UVXConfig, entryManifest.UVXConfig, defaultDenyAllEgress)
 	case types.RuntimeNPX:
-		drifted = npxConfigHasDrifted(serverManifest.NPXConfig, entryManifest.NPXConfig)
+		drifted = npxConfigHasDrifted(serverManifest.NPXConfig, entryManifest.NPXConfig, defaultDenyAllEgress)
 	case types.RuntimeContainerized:
-		drifted = containerizedConfigHasDrifted(serverManifest.ContainerizedConfig, entryManifest.ContainerizedConfig)
+		drifted = containerizedConfigHasDrifted(serverManifest.ContainerizedConfig, entryManifest.ContainerizedConfig, defaultDenyAllEgress)
 	case types.RuntimeRemote:
 		drifted = remoteConfigHasDrifted(serverManifest.RemoteConfig, entryManifest.RemoteConfig)
 	case types.RuntimeComposite:
 		var err error
-		drifted, err = compositeConfigHasDrifted(serverManifest.CompositeConfig, entryManifest.CompositeConfig)
+		drifted, err = compositeConfigHasDrifted(serverManifest.CompositeConfig, entryManifest.CompositeConfig, defaultDenyAllEgress)
 		if err != nil {
 			return false, err
 		}
@@ -143,7 +272,7 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 }
 
 // uvxConfigHasDrifted checks if UVX configuration has drifted
-func uvxConfigHasDrifted(serverConfig, entryConfig *types.UVXRuntimeConfig) bool {
+func uvxConfigHasDrifted(serverConfig, entryConfig *types.UVXRuntimeConfig, defaultDenyAllEgress bool) bool {
 	if serverConfig == nil && entryConfig == nil {
 		return false
 	}
@@ -153,11 +282,14 @@ func uvxConfigHasDrifted(serverConfig, entryConfig *types.UVXRuntimeConfig) bool
 
 	return serverConfig.Package != entryConfig.Package ||
 		serverConfig.Command != entryConfig.Command ||
-		!slices.Equal(serverConfig.Args, entryConfig.Args)
+		!slices.Equal(serverConfig.Args, entryConfig.Args) ||
+		!slices.Equal(serverConfig.EgressDomains, entryConfig.EgressDomains) ||
+		effectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
+			effectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
 }
 
 // npxConfigHasDrifted checks if NPX configuration has drifted
-func npxConfigHasDrifted(serverConfig, entryConfig *types.NPXRuntimeConfig) bool {
+func npxConfigHasDrifted(serverConfig, entryConfig *types.NPXRuntimeConfig, defaultDenyAllEgress bool) bool {
 	if serverConfig == nil && entryConfig == nil {
 		return false
 	}
@@ -166,11 +298,14 @@ func npxConfigHasDrifted(serverConfig, entryConfig *types.NPXRuntimeConfig) bool
 	}
 
 	return serverConfig.Package != entryConfig.Package ||
-		!slices.Equal(serverConfig.Args, entryConfig.Args)
+		!slices.Equal(serverConfig.Args, entryConfig.Args) ||
+		!slices.Equal(serverConfig.EgressDomains, entryConfig.EgressDomains) ||
+		effectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
+			effectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
 }
 
 // containerizedConfigHasDrifted checks if containerized configuration has drifted
-func containerizedConfigHasDrifted(serverConfig, entryConfig *types.ContainerizedRuntimeConfig) bool {
+func containerizedConfigHasDrifted(serverConfig, entryConfig *types.ContainerizedRuntimeConfig, defaultDenyAllEgress bool) bool {
 	if serverConfig == nil && entryConfig == nil {
 		return false
 	}
@@ -182,7 +317,10 @@ func containerizedConfigHasDrifted(serverConfig, entryConfig *types.Containerize
 		serverConfig.Command != entryConfig.Command ||
 		serverConfig.Port != entryConfig.Port ||
 		serverConfig.Path != entryConfig.Path ||
-		!slices.Equal(serverConfig.Args, entryConfig.Args)
+		!slices.Equal(serverConfig.Args, entryConfig.Args) ||
+		!slices.Equal(serverConfig.EgressDomains, entryConfig.EgressDomains) ||
+		effectiveDenyAllEgress(serverConfig.DenyAllEgress, serverConfig.EgressDomains, defaultDenyAllEgress) !=
+			effectiveDenyAllEgress(entryConfig.DenyAllEgress, entryConfig.EgressDomains, defaultDenyAllEgress)
 }
 
 // remoteConfigHasDrifted checks if remote configuration has drifted
@@ -212,7 +350,7 @@ func remoteConfigHasDrifted(serverConfig *types.RemoteRuntimeConfig, entryConfig
 }
 
 // compositeConfigHasDrifted checks if the composite configuration has drifted
-func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entryConfig *types.CompositeCatalogConfig) (bool, error) {
+func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entryConfig *types.CompositeCatalogConfig, defaultDenyAllEgress bool) (bool, error) {
 	if serverConfig == nil && entryConfig == nil {
 		return false, nil
 	}
@@ -249,7 +387,7 @@ func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entry
 		}
 
 		// Compare manifests
-		drifted, err := configurationHasDrifted(serverComponent.Manifest, entryComponent.Manifest)
+		drifted, err := configurationHasDrifted(serverComponent.Manifest, entryComponent.Manifest, defaultDenyAllEgress)
 		if err != nil || drifted {
 			return drifted, err
 		}

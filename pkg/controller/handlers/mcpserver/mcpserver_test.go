@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -441,7 +442,7 @@ func TestConfigurationHasDrifted(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			drifted, err := configurationHasDrifted(tt.serverManifest, tt.entryManifest)
+			drifted, err := configurationHasDrifted(tt.serverManifest, tt.entryManifest, false)
 
 			if tt.expectedError {
 				if err == nil {
@@ -504,16 +505,64 @@ func TestRuntimeSpecificDriftFunctions(t *testing.T) {
 				entryConfig:   &types.UVXRuntimeConfig{Package: "test", Args: []string{"arg2"}},
 				expectedDrift: true,
 			},
+			{
+				name:          "different egress domains",
+				serverConfig:  &types.UVXRuntimeConfig{Package: "test", EgressDomains: []string{"api.example.com"}},
+				entryConfig:   &types.UVXRuntimeConfig{Package: "test", EgressDomains: []string{"*.example.com"}},
+				expectedDrift: true,
+			},
+			{
+				name:          "different deny all egress",
+				serverConfig:  &types.UVXRuntimeConfig{Package: "test", DenyAllEgress: new(false)},
+				entryConfig:   &types.UVXRuntimeConfig{Package: "test", DenyAllEgress: new(true)},
+				expectedDrift: true,
+			},
 		}
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				result := uvxConfigHasDrifted(tt.serverConfig, tt.entryConfig)
+				result := uvxConfigHasDrifted(tt.serverConfig, tt.entryConfig, false)
 				if result != tt.expectedDrift {
 					t.Errorf("Expected drift=%v, got drift=%v", tt.expectedDrift, result)
 				}
 			})
 		}
+	})
+
+	t.Run("npxConfigHasDrifted", func(t *testing.T) {
+		result := npxConfigHasDrifted(
+			&types.NPXRuntimeConfig{Package: "test", DenyAllEgress: new(false)},
+			&types.NPXRuntimeConfig{Package: "test", DenyAllEgress: new(true)},
+			false,
+		)
+		if !result {
+			t.Errorf("Expected drift=true, got drift=%v", result)
+		}
+	})
+
+	t.Run("containerizedConfigHasDrifted", func(t *testing.T) {
+		result := containerizedConfigHasDrifted(
+			&types.ContainerizedRuntimeConfig{Image: "img", Port: 8080, Path: "/mcp", DenyAllEgress: new(false)},
+			&types.ContainerizedRuntimeConfig{Image: "img", Port: 8080, Path: "/mcp", DenyAllEgress: new(true)},
+			false,
+		)
+		if !result {
+			t.Errorf("Expected drift=true, got drift=%v", result)
+		}
+	})
+
+	t.Run("default deny semantics are compared effectively", func(t *testing.T) {
+		assert.False(t, uvxConfigHasDrifted(
+			&types.UVXRuntimeConfig{Package: "test", EgressDomains: []string{"api.example.com"}},
+			&types.UVXRuntimeConfig{Package: "test", EgressDomains: []string{"api.example.com"}, DenyAllEgress: new(false)},
+			true,
+		))
+
+		assert.True(t, uvxConfigHasDrifted(
+			&types.UVXRuntimeConfig{Package: "test"},
+			&types.UVXRuntimeConfig{Package: "test", DenyAllEgress: new(false)},
+			true,
+		))
 	})
 
 	t.Run("remoteConfigHasDrifted", func(t *testing.T) {
@@ -578,6 +627,13 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 	return fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithStatusSubresource(&v1.MCPServer{}).
+		WithIndex(&v1.MCPNetworkPolicy{}, "spec.mcpServerName", func(obj kclient.Object) []string {
+			policy := obj.(*v1.MCPNetworkPolicy)
+			if policy.Spec.MCPServerName == "" {
+				return nil
+			}
+			return []string{policy.Spec.MCPServerName}
+		}).
 		WithObjects(objects...).
 		Build()
 }
@@ -729,4 +785,159 @@ func TestShutdownIdleServersSkipsWhenShutdownDisabled(t *testing.T) {
 	}).ShutdownIdleServers(req, resp)
 	require.NoError(t, err)
 	assert.Zero(t, resp.Delay)
+}
+
+func TestEnsureMCPNetworkPolicyCreatesPolicy(t *testing.T) {
+	server := newMCPServer("egress-server")
+	server.Spec.Manifest.Runtime = types.RuntimeNPX
+	server.Spec.Manifest.NPXConfig = &types.NPXRuntimeConfig{
+		Package:       "@test/package",
+		EgressDomains: []string{"api.example.com", "*.google.com"},
+	}
+
+	client := newFakeClient(t, server)
+	req := router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}
+
+	err := (&Handler{networkPolicyProviderEnabled: true}).EnsureMCPNetworkPolicy(req, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var policies v1.MCPNetworkPolicyList
+	require.NoError(t, client.List(context.Background(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
+		"spec.mcpServerName": server.Name,
+	}))
+	require.Len(t, policies.Items, 1)
+	policy := policies.Items[0]
+	assert.True(t, strings.HasPrefix(policy.Name, "mnp1"))
+	assert.Equal(t, server.Name, policy.Spec.MCPServerName)
+	assert.Equal(t, map[string]string{"app": server.Name}, policy.Spec.PodSelector)
+	assert.Equal(t, []string{"*.google.com", "api.example.com"}, policy.Spec.EgressDomains)
+	assert.False(t, policy.Spec.DenyAllEgress)
+}
+
+func TestEnsureMCPNetworkPolicyCreatesDenyAllPolicy(t *testing.T) {
+	server := newMCPServer("deny-all-server")
+	server.Spec.Manifest.Runtime = types.RuntimeUVX
+	server.Spec.Manifest.UVXConfig = &types.UVXRuntimeConfig{
+		Package:       "test-package",
+		DenyAllEgress: new(true),
+	}
+
+	client := newFakeClient(t, server)
+	req := router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}
+
+	err := (&Handler{networkPolicyProviderEnabled: true}).EnsureMCPNetworkPolicy(req, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var policies v1.MCPNetworkPolicyList
+	require.NoError(t, client.List(context.Background(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
+		"spec.mcpServerName": server.Name,
+	}))
+	require.Len(t, policies.Items, 1)
+	assert.Empty(t, policies.Items[0].Spec.EgressDomains)
+	assert.True(t, policies.Items[0].Spec.DenyAllEgress)
+}
+
+func TestEnsureMCPNetworkPolicyDeletesPolicyWhenProviderDisabled(t *testing.T) {
+	server := newMCPServer("no-provider-server")
+	existing := &v1.MCPNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      server.Name,
+			Namespace: server.Namespace,
+		},
+		Spec: v1.MCPNetworkPolicySpec{
+			MCPServerName: server.Name,
+		},
+	}
+
+	client := newFakeClient(t, server, existing)
+	req := router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}
+
+	err := (&Handler{}).EnsureMCPNetworkPolicy(req, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var policies v1.MCPNetworkPolicyList
+	require.NoError(t, client.List(context.Background(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
+		"spec.mcpServerName": server.Name,
+	}))
+	require.Empty(t, policies.Items)
+}
+
+func TestEnsureMCPNetworkPolicySkipsNanobotAgentServer(t *testing.T) {
+	server := newMCPServer("nanobot-agent-server")
+	server.Spec.NanobotAgentID = "agent-1"
+	server.Spec.Manifest.Runtime = types.RuntimeNPX
+	server.Spec.Manifest.NPXConfig = &types.NPXRuntimeConfig{
+		Package:       "@test/package",
+		EgressDomains: []string{"api.example.com"},
+	}
+
+	client := newFakeClient(t, server)
+	req := router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}
+
+	err := (&Handler{networkPolicyProviderEnabled: true}).EnsureMCPNetworkPolicy(req, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var policies v1.MCPNetworkPolicyList
+	require.NoError(t, client.List(context.Background(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
+		"spec.mcpServerName": server.Name,
+	}))
+	require.Empty(t, policies.Items)
+}
+
+func TestEnsureMCPNetworkPolicyDeletesPolicyForUnsupportedRuntime(t *testing.T) {
+	server := newMCPServer("remote-server")
+	server.Spec.Manifest.Runtime = types.RuntimeRemote
+	server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{URL: "https://example.com/mcp"}
+
+	existing := &v1.MCPNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      server.Name,
+			Namespace: server.Namespace,
+		},
+		Spec: v1.MCPNetworkPolicySpec{
+			MCPServerName: server.Name,
+		},
+	}
+
+	client := newFakeClient(t, server, existing)
+	req := router.Request{
+		Client:    client,
+		Ctx:       context.Background(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}
+
+	err := (&Handler{networkPolicyProviderEnabled: true}).EnsureMCPNetworkPolicy(req, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var policies v1.MCPNetworkPolicyList
+	require.NoError(t, client.List(context.Background(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
+		"spec.mcpServerName": server.Name,
+	}))
+	require.Empty(t, policies.Items)
 }

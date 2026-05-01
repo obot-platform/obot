@@ -579,6 +579,10 @@ export const convertCategoriesToMetadata = (categories: string[]) => {
 		: undefined;
 };
 
+const sanitizeEgressDomains = (egressDomains?: string[]) => {
+	return egressDomains?.map((domain) => domain.trim()).filter(Boolean) || [];
+};
+
 export const convertServerRuntimeFormDataToManifest = (
 	formData: RuntimeFormData
 ): MCPCatalogServerManifest => {
@@ -602,7 +606,9 @@ export const convertServerRuntimeFormDataToManifest = (
 			if (baseData.npxConfig) {
 				serverManifest.manifest.npxConfig = {
 					package: baseData.npxConfig.package,
-					args: baseData.npxConfig.args?.filter((arg) => arg.trim()) || []
+					args: baseData.npxConfig.args?.filter((arg) => arg.trim()) || [],
+					egressDomains: sanitizeEgressDomains(baseData.npxConfig.egressDomains),
+					denyAllEgress: baseData.npxConfig.denyAllEgress
 				};
 			}
 			break;
@@ -611,7 +617,9 @@ export const convertServerRuntimeFormDataToManifest = (
 				serverManifest.manifest.uvxConfig = {
 					package: baseData.uvxConfig.package,
 					command: baseData.uvxConfig.command || undefined,
-					args: baseData.uvxConfig.args?.filter((arg) => arg.trim()) || []
+					args: baseData.uvxConfig.args?.filter((arg) => arg.trim()) || [],
+					egressDomains: sanitizeEgressDomains(baseData.uvxConfig.egressDomains),
+					denyAllEgress: baseData.uvxConfig.denyAllEgress
 				};
 			}
 			break;
@@ -622,7 +630,9 @@ export const convertServerRuntimeFormDataToManifest = (
 					port: baseData.containerizedConfig.port,
 					path: baseData.containerizedConfig.path,
 					command: baseData.containerizedConfig.command || undefined,
-					args: baseData.containerizedConfig.args?.filter((arg) => arg.trim()) || []
+					args: baseData.containerizedConfig.args?.filter((arg) => arg.trim()) || [],
+					egressDomains: sanitizeEgressDomains(baseData.containerizedConfig.egressDomains),
+					denyAllEgress: baseData.containerizedConfig.denyAllEgress
 				};
 			}
 			break;

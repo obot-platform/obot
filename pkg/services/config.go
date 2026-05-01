@@ -122,14 +122,20 @@ type Config struct {
 	DisableUpdateCheck          bool     `usage:"Disable Obot server update checks"`
 	EnableAutonomousToolUse     bool     `usage:"Allow all chat sessions to use tools without requesting user approval" default:"false" env:"OBOT_SERVER_ENABLE_AUTONOMOUS_TOOL_USE"`
 	// Sendgrid webhook
-	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
-	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
-	EnableRegistryAuth      bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
-	DisableLegacyChat       bool   `usage:"Disable legacy chat" default:"true"`
-	NanobotIntegration      bool   `usage:"Enable Nanobot integration" default:"true"`
-	EnableMessagePolicies   bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
-	MCPServerSearchImage    string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.1.1"`
-	NanobotAgentImage       string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/nanobot-ai/nanobot-agent:v0.0.77"`
+	SendgridWebhookUsername              string `usage:"The username for the sendgrid webhook to authenticate with"`
+	SendgridWebhookPassword              string `usage:"The password for the sendgrid webhook to authenticate with"`
+	EnableRegistryAuth                   bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
+	DisableLegacyChat                    bool   `usage:"Disable legacy chat" default:"true"`
+	NanobotIntegration                   bool   `usage:"Enable Nanobot integration" default:"true"`
+	EnableMessagePolicies                bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
+	MCPServerSearchImage                 string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.1.1"`
+	NanobotAgentImage                    string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/nanobot-ai/nanobot-agent:v0.0.77"`
+	MCPNetworkPolicyProviderChartRepo    string `usage:"Helm repository URL for the network policy provider chart"`
+	MCPNetworkPolicyProviderChartName    string `usage:"Helm chart name for the network policy provider chart"`
+	MCPNetworkPolicyProviderChartVersion string `usage:"Helm chart version for the network policy provider chart"`
+	MCPNetworkPolicyProviderChartPath    string `usage:"Local filesystem path to the network policy provider chart"`
+	MCPNetworkPolicyProviderValues       string `usage:"YAML or JSON values blob merged into the network policy provider chart values"`
+	MCPDefaultDenyAllEgress              bool   `usage:"Default new MCP servers to deny all egress when network policy enforcement is enabled" default:"false"`
 
 	// Published artifact storage
 	ArtifactStorageProvider       string `usage:"Storage provider for published artifacts (s3, gcs, azure, custom)" name:"artifact-storage-provider" env:"OBOT_ARTIFACT_STORAGE_PROVIDER"`
@@ -219,6 +225,11 @@ type Services struct {
 	// Local Kubernetes configuration for deployment monitoring
 	LocalK8sConfig     *rest.Config
 	MCPServerNamespace string
+	MCPClusterDomain   string
+	ServiceName        string
+	ServiceNamespace   string
+	ServiceAccountName string
+	StorageListenPort  int
 
 	// Parsed settings from Helm for k8s to pass to controller
 	// PodSchedulingSettingsFromHelm contains affinity, tolerations, resources, runtimeClassName
@@ -237,8 +248,15 @@ type Services struct {
 	AutonomousToolUseEnabled             bool
 	NanobotIntegration                   bool
 	MessagePoliciesEnabled               bool
+	MCPNetworkPolicyEnabled              bool
+	MCPDefaultDenyAllEgress              bool
 	MCPServerSearchImage                 string
 	NanobotAgentImage                    string
+	MCPNetworkPolicyProviderChartRepo    string
+	MCPNetworkPolicyProviderChartName    string
+	MCPNetworkPolicyProviderChartVersion string
+	MCPNetworkPolicyProviderChartPath    string
+	MCPNetworkPolicyProviderValues       string
 	SingleUserIdleServerShutdownInterval time.Duration
 	MultiUserIdleServerShutdownInterval  time.Duration
 	AgentIdleServerShutdownInterval      time.Duration
@@ -287,8 +305,8 @@ func copyKeys(envs []string) []string {
 	return newEnvs
 }
 
-// BuildLocalK8sConfig creates a Kubernetes config for local cluster access.
-func BuildLocalK8sConfig() (*rest.Config, error) {
+// buildLocalK8sConfig creates a Kubernetes config for local cluster access
+func buildLocalK8sConfig() (*rest.Config, error) {
 	cfg, err := rest.InClusterConfig()
 	if err == nil {
 		return cfg, nil
@@ -298,6 +316,10 @@ func BuildLocalK8sConfig() (*rest.Config, error) {
 		kubeconfig = k
 	}
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
+}
+
+func BuildLocalK8sConfig() (*rest.Config, error) {
+	return buildLocalK8sConfig()
 }
 
 // unmarshalJSONStrict unmarshals JSON with strict validation that rejects unknown fields
@@ -481,6 +503,34 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.ToolRegistries = []string{"github.com/obot-platform/tools"}
 	}
 
+	runtimeIsK8s := config.MCPRuntimeBackend == "kubernetes" || config.MCPRuntimeBackend == "k8s"
+	if runtimeIsK8s && config.StorageListenPort == 0 {
+		config.StorageListenPort = 8443
+	}
+
+	// Validate network policy provider configuration
+	mcpNetworkPolicyEnabled := config.MCPNetworkPolicyProviderChartPath != "" || config.MCPNetworkPolicyProviderChartName != ""
+	if mcpNetworkPolicyEnabled && !runtimeIsK8s {
+		return nil, fmt.Errorf("network policy provider requires MCP runtime backend to be kubernetes")
+	}
+	if !mcpNetworkPolicyEnabled {
+		config.MCPNetworkPolicyProviderChartRepo = ""
+		config.MCPNetworkPolicyProviderChartName = ""
+		config.MCPNetworkPolicyProviderChartVersion = ""
+		config.MCPNetworkPolicyProviderChartPath = ""
+		config.MCPNetworkPolicyProviderValues = ""
+	} else {
+		if config.MCPNetworkPolicyProviderChartPath != "" &&
+			(config.MCPNetworkPolicyProviderChartRepo != "" ||
+				config.MCPNetworkPolicyProviderChartName != "" ||
+				config.MCPNetworkPolicyProviderChartVersion != "") {
+			return nil, fmt.Errorf("network policy provider chart path cannot be combined with chart repo, name, or version")
+		}
+		if config.MCPNetworkPolicyProviderChartPath == "" && config.MCPNetworkPolicyProviderChartRepo == "" {
+			return nil, fmt.Errorf("network policy provider requires chart repo when using a remote chart")
+		}
+	}
+
 	// Sanitize DSN for logging (remove credentials)
 	sanitizedDSN := logutil.SanitizeDSN(config.DSN)
 	pkgLog.Infof("Connecting to database: dsn=%s", sanitizedDSN)
@@ -564,8 +614,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			return "", err
 		}
 		account, ok := serviceaccounts.Get(apiKey.ServiceAccountName)
-		if !ok || !serviceaccounts.Enabled(account, config.MCPRuntimeBackend) {
-			return "", fmt.Errorf("%w: service account %q disabled for backend %q", storageauthn.ErrInvalidServiceAccountToken, apiKey.ServiceAccountName, config.MCPRuntimeBackend)
+		if !ok || !serviceaccounts.Enabled(account, config.MCPRuntimeBackend, mcpNetworkPolicyEnabled) {
+			return "", fmt.Errorf("%w: service account %q disabled for backend %q or network policy provider enabled=%t", storageauthn.ErrInvalidServiceAccountToken, apiKey.ServiceAccountName, config.MCPRuntimeBackend, mcpNetworkPolicyEnabled)
 		}
 		return apiKey.ServiceAccountName, nil
 	})
@@ -574,7 +624,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// Build local Kubernetes config for deployment monitoring (optional)
 	var localK8sConfig *rest.Config
 	if config.MCPRuntimeBackend == "kubernetes" {
-		localK8sConfig, err = BuildLocalK8sConfig()
+		localK8sConfig, err = buildLocalK8sConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to build local Kubernetes config: %w", err)
 		}
@@ -1054,6 +1104,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		WebhookHelper:                        webhookHelper,
 		LocalK8sConfig:                       localK8sConfig,
 		MCPServerNamespace:                   config.MCPNamespace,
+		MCPClusterDomain:                     config.MCPClusterDomain,
+		ServiceName:                          config.ServiceName,
+		ServiceNamespace:                     config.ServiceNamespace,
+		ServiceAccountName:                   config.ServiceAccountName,
+		StorageListenPort:                    config.StorageListenPort,
 		PodSchedulingSettingsFromHelm:        podSchedulingSettings,
 		PSASettingsFromHelm:                  psaSettings,
 		DisableUpdateCheck:                   config.DisableUpdateCheck,
@@ -1068,8 +1123,15 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		RegistryNoAuth:                       registryNoAuth,
 		NanobotIntegration:                   config.NanobotIntegration,
 		MessagePoliciesEnabled:               config.EnableMessagePolicies,
+		MCPNetworkPolicyEnabled:              mcpNetworkPolicyEnabled,
+		MCPDefaultDenyAllEgress:              config.MCPDefaultDenyAllEgress,
 		MCPServerSearchImage:                 config.MCPServerSearchImage,
 		NanobotAgentImage:                    config.NanobotAgentImage,
+		MCPNetworkPolicyProviderChartRepo:    config.MCPNetworkPolicyProviderChartRepo,
+		MCPNetworkPolicyProviderChartName:    config.MCPNetworkPolicyProviderChartName,
+		MCPNetworkPolicyProviderChartVersion: config.MCPNetworkPolicyProviderChartVersion,
+		MCPNetworkPolicyProviderChartPath:    config.MCPNetworkPolicyProviderChartPath,
+		MCPNetworkPolicyProviderValues:       config.MCPNetworkPolicyProviderValues,
 		ArtifactBlobBucket:                   config.ArtifactStorageBucket,
 	}
 

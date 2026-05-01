@@ -74,7 +74,6 @@ func (h *SystemMCPServerHandler) Create(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
-
 	// Validate manifest
 	if err := validation.ValidateSystemMCPServerManifest(manifest); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
@@ -104,7 +103,6 @@ func (h *SystemMCPServerHandler) Update(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
-
 	// Validate manifest
 	if err := validation.ValidateSystemMCPServerManifest(manifest); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)

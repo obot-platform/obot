@@ -125,6 +125,7 @@ func (c *Client) runAPIKeyCacheCleanup(ctx context.Context) {
 			return
 		case now := <-ticker.C:
 			c.pruneExpiredValidatedAPIKeys(now)
+			c.pruneExpiredValidatedServiceAccountAPIKeys(now)
 		}
 	}
 }

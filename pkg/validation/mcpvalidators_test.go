@@ -826,6 +826,126 @@ func TestRemoteValidator_ValidateCatalogConfig_HeaderValidation(t *testing.T) {
 	}
 }
 
+func TestValidateEgressDomains(t *testing.T) {
+	tests := []struct {
+		name          string
+		runtime       types.Runtime
+		domains       []string
+		denyAllEgress *bool
+		expectError   bool
+		errorMsg      string
+	}{
+		{
+			name:    "accept exact domain",
+			runtime: types.RuntimeNPX,
+			domains: []string{"api.example.com"},
+		},
+		{
+			name:    "accept wildcard domain",
+			runtime: types.RuntimeUVX,
+			domains: []string{"*.example.com"},
+		},
+		{
+			name:        "reject protocol",
+			runtime:     types.RuntimeNPX,
+			domains:     []string{"https://example.com"},
+			expectError: true,
+			errorMsg:    "must not include a protocol",
+		},
+		{
+			name:        "reject path",
+			runtime:     types.RuntimeUVX,
+			domains:     []string{"example.com/path"},
+			expectError: true,
+			errorMsg:    "must not include a path or port",
+		},
+		{
+			name:        "reject port",
+			runtime:     types.RuntimeContainerized,
+			domains:     []string{"example.com:443"},
+			expectError: true,
+			errorMsg:    "must not include a path or port",
+		},
+		{
+			name:        "reject mid label wildcard",
+			runtime:     types.RuntimeNPX,
+			domains:     []string{"foo.*.example.com"},
+			expectError: true,
+			errorMsg:    "must be a valid hostname",
+		},
+		{
+			name:        "reject empty domain",
+			runtime:     types.RuntimeUVX,
+			domains:     []string{" "},
+			expectError: true,
+			errorMsg:    "cannot be empty",
+		},
+		{
+			name:        "reject wildcard all",
+			runtime:     types.RuntimeContainerized,
+			domains:     []string{"*"},
+			expectError: true,
+			errorMsg:    "must be a valid hostname or leading wildcard hostname",
+		},
+		{
+			name:        "reject IP address",
+			runtime:     types.RuntimeNPX,
+			domains:     []string{"169.254.169.254"},
+			expectError: true,
+			errorMsg:    "must not be an IP address",
+		},
+		{
+			name:        "reject single-label host",
+			runtime:     types.RuntimeUVX,
+			domains:     []string{"metadata"},
+			expectError: true,
+			errorMsg:    "at least two DNS labels",
+		},
+		{
+			name:        "reject broad wildcard",
+			runtime:     types.RuntimeContainerized,
+			domains:     []string{"*.com"},
+			expectError: true,
+			errorMsg:    "at least two DNS labels",
+		},
+		{
+			name:        "reject cluster internal domain",
+			runtime:     types.RuntimeNPX,
+			domains:     []string{"*.svc.cluster.local"},
+			expectError: true,
+			errorMsg:    "is not allowed",
+		},
+		{
+			name:        "reject reverse DNS domain",
+			runtime:     types.RuntimeNPX,
+			domains:     []string{"*.254.169.in-addr.arpa"},
+			expectError: true,
+			errorMsg:    "is not allowed",
+		},
+		{
+			name:          "reject domains when deny all egress enabled",
+			runtime:       types.RuntimeNPX,
+			domains:       []string{"example.com"},
+			denyAllEgress: new(true),
+			expectError:   true,
+			errorMsg:      "denyAllEgress cannot be true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateEgressDomains(tt.runtime, tt.domains, tt.denyAllEgress)
+			if tt.expectError {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errorMsg)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 	validator := CompositeValidator{}
 
