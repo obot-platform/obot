@@ -383,6 +383,14 @@ export interface MCPSubField {
 	sensitive: boolean;
 	value?: string;
 	prefix?: string;
+	secretBinding?: MCPSecretBinding;
+}
+
+export interface MCPSecretBinding {
+	name: string;
+	key: string;
+	file?: boolean;
+	dynamic?: boolean;
 }
 
 export interface MCP {

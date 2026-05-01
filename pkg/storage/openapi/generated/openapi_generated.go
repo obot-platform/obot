@@ -96,6 +96,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPPromptReadStats":                                 schema_obot_platform_obot_apiclient_types_MCPPromptReadStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPResourceReadStats":                               schema_obot_platform_obot_apiclient_types_MCPResourceReadStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPResourceRequests":                                schema_obot_platform_obot_apiclient_types_MCPResourceRequests(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPSecretBinding":                                   schema_obot_platform_obot_apiclient_types_MCPSecretBinding(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPSelector":                                        schema_obot_platform_obot_apiclient_types_MCPSelector(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServer":                                          schema_obot_platform_obot_apiclient_types_MCPServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntry":                              schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref),
@@ -4403,6 +4404,12 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 							Format: "",
 						},
 					},
+					"secretBinding": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretBinding binds this value to a key in a pre-existing Kubernetes Secret",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"),
+						},
+					},
 					"file": {
 						SchemaProps: spec.SchemaProps{
 							Default: false,
@@ -4421,6 +4428,8 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 				Required: []string{"name", "description", "key", "value", "sensitive", "required", "file"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"},
 	}
 }
 
@@ -4480,10 +4489,18 @@ func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"secretBinding": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretBinding binds this value to a key in a pre-existing Kubernetes Secret",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"),
+						},
+					},
 				},
 				Required: []string{"name", "description", "key", "value", "sensitive", "required"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"},
 	}
 }
 
@@ -4563,6 +4580,48 @@ func schema_obot_platform_obot_apiclient_types_MCPResourceRequests(ref common.Re
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPSecretBinding(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPSecretBinding references a single key in a pre-existing Kubernetes Secret in the MCP-server deployments namespace",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"file": {
+						SchemaProps: spec.SchemaProps{
+							Description: "File mounts the secret value as a file under /files/ instead of injecting it as an environment variable. The env var KEY is still set, pointing to the file path (/files/...), so the process can locate it via os.Getenv.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"dynamic": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Dynamic is only valid when File is true. When set, changes to the source Kubernetes Secret propagate to the mounted file without restarting the pod (kubelet updates the volume in place). Without Dynamic, a secret change triggers a pod restart to pick up the new value.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name", "key"},
 			},
 		},
 	}

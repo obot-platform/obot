@@ -10,9 +10,11 @@
 		convertCompositeInfoToLaunchFormData,
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
+		getSecretBindingEngineError,
 		requiresUserConfiguration,
 		requiresAdminOAuthConfig
 	} from '$lib/services/chat/mcp';
+	import { version } from '$lib/stores';
 	import CatalogConfigureForm, {
 		type CompositeLaunchFormData,
 		type LaunchFormData
@@ -55,9 +57,18 @@
 	let error = $state<string>();
 	let saving = $state(false);
 	let configuringServer = $state<MCPCatalogServer>();
+	let secretBindingEngineError = $derived(
+		version.current.engine === 'kubernetes'
+			? undefined
+			: getSecretBindingEngineError(configuringServer?.manifest)
+	);
 
 	async function handleInitCompositeForm(server: MCPCatalogServer) {
 		configuringServer = server;
+		error =
+			version.current.engine === 'kubernetes'
+				? undefined
+				: getSecretBindingEngineError(server.manifest);
 		configureForm = await convertCompositeInfoToLaunchFormData(server);
 	}
 
@@ -74,6 +85,10 @@
 			values = {};
 		}
 		configuringServer = server;
+		error =
+			version.current.engine === 'kubernetes'
+				? undefined
+				: getSecretBindingEngineError(server.manifest);
 		configureForm = {
 			envs: server.manifest.env?.map((env) => ({
 				...env,
@@ -232,4 +247,5 @@
 	onSave={handleConfigureFormUpdate}
 	submitText="Update"
 	loading={saving}
+	disableSave={!!secretBindingEngineError}
 />
