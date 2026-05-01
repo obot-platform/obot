@@ -348,7 +348,7 @@
 
 {#if project && !loading && !error}
 	<div class="sticky bottom-0 left-0 flex w-full justify-end bg-inherit py-4 md:px-4">
-		<button class="button-primary flex items-center gap-1" onclick={handleProjectToolsUpdate}>
+		<button class="btn btn-primary flex items-center gap-1" onclick={handleProjectToolsUpdate}>
 			Save
 		</button>
 	</div>

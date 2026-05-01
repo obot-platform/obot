@@ -703,7 +703,7 @@
 						<div class="inline-flex flex-col gap-2">
 							{#each msg.fields[0].options as option, i (i)}
 								<button
-									class="button-primary"
+									class="btn btn-primary"
 									onclick={() => (promptCredentials[msg.fields![0].name] = option)}
 								>
 									{option}
@@ -711,7 +711,7 @@
 							{/each}
 							{#if onSendCredentialsCancel}
 								<button
-									class="button-secondary hover:bg-base-400 border-transparent"
+									class="btn btn-secondary hover:bg-base-400 border-transparent"
 									type="button"
 									onclick={() => onSendCredentialsCancel(msg.promptId ?? '')}
 								>
@@ -728,7 +728,10 @@
 						{#if field.options}
 							<div class="flex flex-col gap-2">
 								{#each field.options as option, i (i)}
-									<button class="button" onclick={() => (promptCredentials[field.name] = option)}>
+									<button
+										class="btn btn-secondary"
+										onclick={() => (promptCredentials[field.name] = option)}
+									>
 										{option}
 									</button>
 								{/each}
@@ -747,21 +750,21 @@
 					</div>
 				{/each}
 
-				<span class="text-gray mt-1 flex grow items-end self-end text-sm">
+				<span class="text-base-content/40 mt-1 flex grow items-end self-end text-sm">
 					*The submitted contents are not visible to AI.
 				</span>
 
 				<div class="item-center flex gap-2 self-end">
 					{#if onSendCredentialsCancel}
 						<button
-							class="button-secondary"
+							class="btn btn-secondary"
 							type="button"
 							onclick={() => onSendCredentialsCancel(msg.promptId ?? '')}
 						>
 							Cancel
 						</button>
 					{/if}
-					<button class="button-primary" type="submit">Submit</button>
+					<button class="btn btn-primary" type="submit">Submit</button>
 				</div>
 			{/if}
 		</form>

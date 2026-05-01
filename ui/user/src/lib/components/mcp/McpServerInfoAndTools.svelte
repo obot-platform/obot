@@ -187,9 +187,9 @@
 									</span>
 								</div>
 								{#if !isAdminOAuthOnly}
-									<div class="flex flex-shrink-0 items-center">
+									<div class="flex shrink-0 items-center">
 										<button
-											class="button-primary text-sm"
+											class="btn btn-primary text-sm"
 											onclick={() => {
 												if (onEditConfiguration) {
 													onEditConfiguration();

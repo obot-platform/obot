@@ -185,7 +185,7 @@
 <!-- Use class:hidden to avoid Svelte 5 production build with conditional DOM cleanup -->
 <div class="contents" class:hidden={belongsToComposite}>
 	<button
-		class="button-primary flex w-full items-center gap-1 text-sm disabled:cursor-not-allowed disabled:opacity-50 md:w-fit"
+		class="btn btn-primary flex w-full items-center gap-1 text-sm disabled:cursor-not-allowed disabled:opacity-50 md:w-fit"
 		class:hidden={!(
 			(entry && !server) ||
 			(server &&
@@ -369,9 +369,9 @@
 		<p class="mb-2 text-center">Would you like to connect now?</p>
 		<div class="flex grow"></div>
 		<div class="flex flex-col gap-2">
-			<button class="button" onclick={() => launchDialog?.close()}>Skip</button>
+			<button class="btn btn-secondary" onclick={() => launchDialog?.close()}>Skip</button>
 			<button
-				class="button-primary"
+				class="btn btn-primary"
 				onclick={() => {
 					launchDialog?.close();
 					connectToServerDialog?.open({

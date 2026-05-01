@@ -177,7 +177,7 @@
 		{#if oauthStatus?.configured && onDelete}
 			<button
 				type="button"
-				class="button-destructive flex items-center gap-1"
+				class="btn btn-error flex items-center gap-1"
 				onclick={() => {
 					dialog?.close();
 					showDeleteConfirm = true;
@@ -194,14 +194,14 @@
 		{#if !oauthStatus?.configured}
 			<div class="flex gap-2">
 				{#if showSkip}
-					<button type="button" class="button" onclick={handleSkip} disabled={loading}>
+					<button type="button" class="btn btn-secondary" onclick={handleSkip} disabled={loading}>
 						Skip
 					</button>
 				{/if}
-				<button type="button" class="button" onclick={handleCancel} disabled={loading}>
+				<button type="button" class="btn btn-secondary" onclick={handleCancel} disabled={loading}>
 					Cancel
 				</button>
-				<button type="button" class="button-primary" onclick={handleSave} disabled={loading}>
+				<button type="button" class="btn btn-primary" onclick={handleSave} disabled={loading}>
 					{#if loading}
 						<LoaderCircle class="size-4 animate-spin" />
 					{:else}

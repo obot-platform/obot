@@ -1203,6 +1203,25 @@
 			background-color: color-mix(in oklab, var(--color-base-100) 80%, transparent);
 		}
 	}
+
+	.btn-text {
+		@layer daisyui.l1 {
+			outline-color: currentcolor;
+			--btn-border: #0000;
+			--btn-bg: #0000;
+			--btn-noise: none;
+			--btn-shadow: '';
+			&:not(.btn-disabled, .btn:disabled, .btn[disabled]) {
+				--btn-fg: color-mix(in oklab, var(--color-base-content) 50%, transparent);
+			}
+			&:is(.btn-active, :hover, :active:focus, :focus-visible) {
+				--btn-fg: var(--color-base-content);
+				--btn-border: #0000;
+				--btn-bg: #0000;
+				text-decoration-line: underline;
+			}
+		}
+	}
 }
 
 .nanobot .prose,

@@ -238,7 +238,7 @@
 			open ? 'p-4 pt-1' : 'pt-1 pb-4'
 		)}
 	>
-		<div class={twMerge(open ? 'self-end' : 'w-14 self-center')}>
+		<div class={twMerge(open ? 'self-end' : 'w-14 self-center flex items-center justify-center')}>
 			<Profile {agentId} {projectId} {impersonating} />
 		</div>
 

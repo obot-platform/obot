@@ -365,7 +365,7 @@
 			Skip, I'll Do Later
 		</button>
 		<button
-			class="button-primary"
+			class="btn btn-primary"
 			onclick={() => {
 				if (!configuringEntry) return;
 				ready = false;
@@ -427,7 +427,7 @@
 						href={oauthURL}
 						rel="external"
 						target="_blank"
-						class="button-primary flex w-full justify-center"
+						class="btn btn-primary flex w-full justify-center"
 					>
 						{#if loading}
 							<LoaderCircle class="size-4 animate-spin" />
@@ -438,7 +438,7 @@
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{:else}
 					<button
-						class="button-primary flex w-full justify-center"
+						class="btn btn-primary flex w-full justify-center"
 						disabled={loading}
 						onclick={handleConfigureToolsInit}
 					>

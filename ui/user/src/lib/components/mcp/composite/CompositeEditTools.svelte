@@ -179,7 +179,7 @@
 				/>
 				<button
 					type="button"
-					class="button px-3 py-1 text-xs"
+					class="btn btn-secondary btn-sm px-3 py-1"
 					onclick={() => {
 						toolPrefix = '';
 					}}
@@ -253,7 +253,7 @@
 								</p>
 							{/if}
 						</div>
-						<div class="flex flex-shrink-0 items-center gap-2">
+						<div class="flex shrink-0 items-center gap-2">
 							<!-- Enabled/disabled toggle for this tool -->
 							<Toggle
 								checked={tool.enabled}
@@ -265,7 +265,7 @@
 							/>
 							<button
 								type="button"
-								class="button px-3 py-1 text-xs"
+								class="btn btn-secondary btn-sm px-3 py-1"
 								onclick={() => {
 									// When expanding, initialize inputs with current effective values
 									if (!expandedTools[tool.id]) {
@@ -283,7 +283,7 @@
 
 					{#if isCustomized}
 						<div class="mt-1 flex items-center gap-1 text-[11px] text-amber-600">
-							<AlertTriangle class="size-3 flex-shrink-0" />
+							<AlertTriangle class="size-3 shrink-0" />
 							<p>
 								Modified: This tool has been customized. The description or name has been changed.
 							</p>
@@ -309,7 +309,7 @@
 							<div class="mt-2 flex justify-end">
 								<button
 									type="button"
-									class="button px-3 py-1 text-xs"
+									class="btn btn-sm btn-secondary px-3 py-1"
 									onclick={() => {
 										tool.overrideName = tool.name;
 										tool.overrideDescription = tool.description;
@@ -325,9 +325,9 @@
 		{/each}
 	</div>
 	<div class="bg-base-200 sticky bottom-0 left-0 mt-4 flex w-full justify-end gap-2 p-4">
-		<button class="button" onclick={handleCancel}>Cancel</button>
+		<button class="btn btn-secondary" onclick={handleCancel}>Cancel</button>
 		<button
-			class="button-primary"
+			class="btn btn-primary"
 			disabled={hasBlockingToolNameErrors || prefixIssue?.severity === 'error'}
 			onclick={() => {
 				onSuccess?.();
@@ -345,9 +345,7 @@
 	</p>
 
 	<div class="flex justify-end gap-3">
-		<button class="button" onclick={cancelDiscard}>Keep Editing</button>
-		<button class="button-primary bg-red-600 hover:bg-red-700" onclick={confirmDiscard}>
-			Discard Changes
-		</button>
+		<button class="btn btn-secondary" onclick={cancelDiscard}>Keep Editing</button>
+		<button class="btn btn-error" onclick={confirmDiscard}> Discard Changes </button>
 	</div>
 </ResponsiveDialog>

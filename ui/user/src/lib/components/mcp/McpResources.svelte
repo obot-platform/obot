@@ -360,7 +360,7 @@
 										</div>
 										<div class="flex grow"></div>
 										{#if alreadyAdded}
-											<div class="button-text flex items-center gap-1 p-2 pr-0 text-xs">
+											<div class="btn btn-text flex items-center gap-1 p-2 pr-0 text-xs">
 												{#if targetResourceUri === resource.uri}
 													<LoaderCircle class="size-3 animate-spin" />
 												{:else}
@@ -368,7 +368,7 @@
 												{/if}
 											</div>
 										{:else}
-											<div class="button-text flex items-center gap-1 p-2 pr-0 text-xs">
+											<div class="btn btn-text flex items-center gap-1 p-2 pr-0 text-xs">
 												{#if loadingFiles || targetResourceUri === resource.uri}
 													<LoaderCircle class="size-3 animate-spin" />
 												{:else}

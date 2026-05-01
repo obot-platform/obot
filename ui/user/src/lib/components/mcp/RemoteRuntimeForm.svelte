@@ -203,7 +203,7 @@
 			{#if !readonly}
 				<div class="flex justify-end">
 					<button
-						class="button flex items-center gap-1 text-xs"
+						class="btn btn-secondary btn-sm flex items-center gap-1"
 						onclick={() => {
 							if (!config.headers) {
 								config.headers = [];
@@ -482,7 +482,7 @@
 						</div>
 					{:else if onConfigureOAuth}
 						<button
-							class="button flex w-fit items-center gap-2 text-sm"
+							class="btn btn-secondary flex w-fit items-center gap-2 text-sm"
 							onclick={onConfigureOAuth}
 							disabled={readonly}
 							type="button"
@@ -499,7 +499,7 @@
 
 {#if variant === 'catalog'}
 	<button
-		class="button-text pl-0"
+		class="btn btn-text pl-0"
 		onclick={() => {
 			showAdvanced = !showAdvanced;
 

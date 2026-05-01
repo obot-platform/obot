@@ -169,7 +169,7 @@
 
 				{#if !readonly}
 					<div class="flex justify-end">
-						<button class="button flex items-center gap-1 text-xs" onclick={addArgument}>
+						<button class="btn btn-secondary btn-sm flex items-center gap-1" onclick={addArgument}>
 							<Plus class="size-4" /> Argument
 						</button>
 					</div>
