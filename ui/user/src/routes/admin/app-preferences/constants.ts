@@ -198,23 +198,23 @@ export const themeDarkIndicatorFields: { id: keyof AppPreferences['theme']; labe
 export const textLightFields: { id: keyof AppPreferences['theme']; label: string }[] = [
 	{
 		id: 'onBackgroundColor',
-		label: 'Primary Text'
+		label: 'Base Font Color'
 	},
 	{
 		id: 'onPrimaryColor',
-		label: 'Primary Text'
+		label: 'Primary Button Text'
 	},
 	{
 		id: 'onSuccessColor',
-		label: 'Success Text'
+		label: 'Success Button Text'
 	},
 	{
 		id: 'onWarningColor',
-		label: 'Warning Text'
+		label: 'Warning Button Text'
 	},
 	{
 		id: 'onErrorColor',
-		label: 'Error Text'
+		label: 'Error Button Text'
 	}
 ];
 
