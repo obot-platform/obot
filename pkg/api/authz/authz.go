@@ -177,6 +177,8 @@ var (
 			"GET /api/group-role-assignments",
 			"GET /api/group-role-assignments/",
 			"GET /api/mcp-catalogs/",
+			"GET /api/system-mcp-catalogs",
+			"GET /api/system-mcp-catalogs/",
 			"GET /api/mcp-webhook-validations",
 			"GET /api/mcp-webhook-validations/",
 			"GET /api/mcp-servers/",

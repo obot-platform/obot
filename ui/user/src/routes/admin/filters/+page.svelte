@@ -211,6 +211,7 @@
 		</button>
 		<button
 			class="menu-button"
+			disabled={systemCatalogEntries.length === 0}
 			onclick={() => {
 				builtInFiltersDialog?.open();
 			}}
