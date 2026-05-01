@@ -396,7 +396,7 @@ type fakeWithWatch struct {
 	watcher       *watch.FakeWatcher
 }
 
-func (f *fakeWithWatch) Watch(ctx context.Context, obj client.ObjectList, opts ...client.ListOption) (watch.Interface, error) {
+func (f *fakeWithWatch) Watch(_ context.Context, _ client.ObjectList, _ ...client.ListOption) (watch.Interface, error) {
 	return f.watcher, nil
 }
 
