@@ -18,12 +18,12 @@
 	import { formatTime } from '$lib/time';
 	import { hasTool } from '$lib/tools';
 	import { isTextFile } from '$lib/utils';
+	import IconButton from '../primitives/IconButton.svelte';
 	import highlight from 'highlight.js';
-	import { Paperclip } from 'lucide-svelte';
+	import { Paperclip, SquarePen } from 'lucide-svelte';
 	import {
 		FileText,
 		Copy,
-		Edit,
 		Info,
 		X,
 		Brain,
@@ -401,22 +401,21 @@
 		{/if}
 
 		{#if onDebugMessageRun && profile.current.hasAdminAccess?.()}
-			<button
-				class="button-icon"
+			<IconButton
 				onclick={async () => {
 					loadingDebug = true;
 					const response = await AdminService.listCallFramesForDebugRunById(msg.runID);
 					onDebugMessageRun(msg.runID, response);
 					loadingDebug = false;
 				}}
-				use:tooltip={'Debug Message Information'}
+				tooltip={{ text: 'Debug Message Information' }}
 			>
 				{#if loadingDebug}
 					<LoaderCircle class="size-4 animate-spin" />
 				{:else}
 					<Code class="size-4" />
 				{/if}
-			</button>
+			</IconButton>
 		{/if}
 	</div>
 {/snippet}
@@ -833,24 +832,24 @@
 				{#if !msg.sent && msg.done && !msg.toolCall && msg.time && content && !animating && content.length > 0}
 					<div class={twMerge('mt-2 -ml-1 flex gap-2', classes?.messageActions)}>
 						<div>
-							<button
-								use:tooltip={showCopied ? 'Copied!' : 'Copy message to clipboard'}
-								class="icon-button-small"
+							<IconButton
+								tooltip={{ text: showCopied ? 'Copied!' : 'Copy message to clipboard' }}
+								class="btn-sm"
 								onclick={() => copyContentToClipboard()}
 							>
-								<Copy class="h-4 w-4" />
-							</button>
+								<Copy class="size-4" />
+							</IconButton>
 						</div>
 
 						{#if !disableMessageToEditor}
 							<div>
-								<button
-									use:tooltip={'Open message in editor'}
-									class="icon-button-small"
+								<IconButton
+									tooltip={{ text: 'Open message in editor' }}
+									class="btn-sm"
 									onclick={() => openContentInEditor()}
 								>
-									<Edit class="h-4 w-4" />
-								</button>
+									<SquarePen class="size-4" />
+								</IconButton>
 							</div>
 						{/if}
 					</div>
@@ -858,7 +857,7 @@
 
 				{#if isAbortedContent}
 					<div class="mt-2 flex w-full items-center gap-1" class:justify-end={msg.sent}>
-						<div class="flex-shrink-0">
+						<div class="shrink-0">
 							<Info class="size-3" />
 						</div>
 						<p class="mb-0 text-xs">

@@ -220,7 +220,7 @@
 			description="Content available to AI."
 			onLoad={loadFiles}
 			classes={{
-				button: primary ? 'button-icon-primary' : '',
+				button: primary ? 'btn btn-square btn-ghost btn-primary' : '',
 				menu: responsive.isMobile
 					? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full'
 					: ''

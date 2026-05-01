@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import {
 		type Project,
 		type Memory,
@@ -13,6 +12,7 @@
 	import Confirm from './Confirm.svelte';
 	import DotDotDot from './DotDotDot.svelte';
 	import ResponsiveDialog from './ResponsiveDialog.svelte';
+	import IconButton from './primitives/IconButton.svelte';
 	import Table from './table/Table.svelte';
 	import { Trash2, RefreshCcw, Edit, Check, X as XIcon, Pencil } from 'lucide-svelte/icons';
 	import { onMount, tick } from 'svelte';
@@ -186,9 +186,9 @@
 		<div class="flex items-center justify-between">
 			<span class="text-text2 text-sm">{memories.length} memories</span>
 			<div class="flex gap-2">
-				<button class="icon-button" onclick={() => loadMemories()} use:tooltip={'Refresh Memories'}>
+				<IconButton tooltip={{ text: 'Refresh Memories' }} onclick={() => loadMemories()}>
 					<RefreshCcw class="size-4" />
-				</button>
+				</IconButton>
 
 				{@render deleteAllButton(preview)}
 			</div>
@@ -297,37 +297,37 @@
 
 {#snippet options(memory: Memory, inline: boolean)}
 	{#if editingMemoryId === memory.id && inline === editingPreview}
-		<button
-			class={twMerge('icon-button text-success', inline && 'min-h-auto min-w-auto p-1.5')}
+		<IconButton
+			class={twMerge('text-success', inline && 'min-h-auto min-w-auto p-1.5')}
 			onclick={saveEdit}
-			use:tooltip={'Save changes'}
+			tooltip={{ text: 'Save changes' }}
 		>
 			<Check class="size-4" />
-		</button>
-		<button
-			class={twMerge('icon-button text-error', inline && 'min-h-auto min-w-auto p-1.5')}
+		</IconButton>
+		<IconButton
+			class={twMerge('text-error', inline && 'min-h-auto min-w-auto p-1.5')}
 			onclick={cancelEdit}
-			use:tooltip={'Cancel'}
+			tooltip={{ text: 'Cancel' }}
 		>
 			<XIcon class="size-4" />
-		</button>
+		</IconButton>
 	{:else}
-		<button
-			class={twMerge('icon-button', inline && 'min-h-auto min-w-auto p-1.5')}
+		<IconButton
+			class={twMerge(inline && 'min-h-auto min-w-auto p-1.5')}
 			onclick={() => startEdit(memory, inline)}
 			disabled={loading}
-			use:tooltip={'Edit memory'}
+			tooltip={{ text: 'Edit memory' }}
 		>
 			<Edit class="size-4" />
-		</button>
-		<button
-			class={twMerge('icon-button', inline && 'min-h-auto min-w-auto p-1.5')}
+		</IconButton>
+		<IconButton
+			class={twMerge(inline && 'min-h-auto min-w-auto p-1.5')}
 			onclick={() => (deleteMemoryId = memory.id)}
 			disabled={loading}
-			use:tooltip={'Delete memory'}
+			tooltip={{ text: 'Delete memory' }}
 		>
 			<Trash2 class="size-4" />
-		</button>
+		</IconButton>
 	{/if}
 {/snippet}
 

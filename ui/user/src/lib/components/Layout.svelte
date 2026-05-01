@@ -2,7 +2,6 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
 	import {
@@ -21,6 +20,7 @@
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import BetaLogo from './navbar/BetaLogo.svelte';
 	import Profile from './navbar/Profile.svelte';
+	import IconButton from './primitives/IconButton.svelte';
 	import { Render } from './ui/render';
 	import {
 		AlarmClock,
@@ -42,8 +42,6 @@
 		RadioTower,
 		Server,
 		Settings,
-		SidebarClose,
-		SidebarOpen,
 		SquareLibrary,
 		UserCog,
 		Users,
@@ -58,7 +56,9 @@
 		ShieldX,
 		Bot,
 		LayoutDashboard,
-		Notebook
+		Notebook,
+		PanelLeftOpen,
+		PanelRightClose
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -673,13 +673,12 @@
 				</div>
 
 				<div class="flex justify-end px-3 py-2">
-					<button
-						use:tooltip={'Close Sidebar'}
-						class="icon-button"
+					<IconButton
+						tooltip={{ text: 'Close Sidebar' }}
 						onclick={() => (layout.sidebarOpen = false)}
 					>
-						<SidebarClose class="size-6" />
-					</button>
+						<PanelRightClose class="size-6" />
+					</IconButton>
 				</div>
 			</div>
 			{#if !responsive.isMobile && !disableResize}
@@ -788,13 +787,9 @@
 
 	{#if !layout.sidebarOpen && !hideSidebar && !leftSidebar}
 		<div class="absolute bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
-			<button
-				class="icon-button"
-				onclick={() => (layout.sidebarOpen = true)}
-				use:tooltip={'Open Sidebar'}
-			>
-				<SidebarOpen class="size-6" />
-			</button>
+			<IconButton onclick={() => (layout.sidebarOpen = true)} tooltip={{ text: 'Open Sidebar' }}>
+				<PanelLeftOpen class="size-6" />
+			</IconButton>
 		</div>
 	{/if}
 </div>
@@ -809,8 +804,8 @@
 
 {#snippet layoutHeaderContent()}
 	{#if showBackButton}
-		<button
-			class="icon-button shrink-0"
+		<IconButton
+			class="btn btn-square btn-ghost shrink-0"
 			onclick={() => {
 				if (onBackButtonClick) {
 					onBackButtonClick();
@@ -820,7 +815,7 @@
 			}}
 		>
 			<ChevronLeft class="size-6" />
-		</button>
+		</IconButton>
 	{/if}
 	{#if title}
 		<h1

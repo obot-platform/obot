@@ -3,6 +3,7 @@
 	import type { CallFrame, ToolReference } from '$lib/services';
 	import JsonTreeView from '../JsonTreeView.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { ChevronDown, ChevronUp, Code, Download, Maximize2, Minimize2 } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -92,7 +93,7 @@
 			<p class="text-xl font-semibold">Run ID: {runId}</p>
 		</div>
 		<button
-			class="button-icon"
+			class="btn btn-square btn-ghost"
 			onclick={() => (maximized = !maximized)}
 			use:tooltip={maximized ? 'Minimize' : 'Maximize'}
 		>
@@ -107,30 +108,24 @@
 		<div class="flex items-center justify-between gap-4 px-4 pt-2 pb-4">
 			<h4 class="text-lg font-semibold">Call Frames</h4>
 			<div class="flex items-center gap-2">
-				<button
-					class="button-icon"
+				<IconButton
 					onclick={handleDownload}
-					use:tooltip={{
-						disablePortal: true,
-						text: 'Download JSON'
-					}}
+					class="btn-sm"
+					tooltip={{ disablePortal: true, text: 'Download JSON' }}
 				>
 					<Download class="size-5" />
-				</button>
-				<button
-					class="button-icon"
+				</IconButton>
+				<IconButton
 					onclick={() => (expandAll = !expandAll)}
-					use:tooltip={{
-						disablePortal: true,
-						text: expandAll ? 'Collapse All' : 'Expand All'
-					}}
+					class="btn-sm"
+					tooltip={{ disablePortal: true, text: expandAll ? 'Collapse All' : 'Expand All' }}
 				>
 					{#if expandAll}
 						<ChevronUp class="size-5" />
 					{:else}
 						<ChevronDown class="size-5" />
 					{/if}
-				</button>
+				</IconButton>
 			</div>
 		</div>
 

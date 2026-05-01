@@ -2,6 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { AdminService, type MCPCatalog } from '$lib/services';
+	import IconButton from '../primitives/IconButton.svelte';
 	import { Info, TriangleAlert, X } from 'lucide-svelte';
 
 	interface Props {
@@ -54,9 +55,9 @@
 		{#if editingSource}
 			<h3 class="dialog-title">
 				{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
-				<button onclick={closeSourceDialog} class="icon-button dialog-close-btn">
+				<IconButton onclick={closeSourceDialog} class="btn-sm dialog-close-btn">
 					<X class="size-5" />
-				</button>
+				</IconButton>
 			</h3>
 
 			<div class="my-4 flex flex-col gap-1">

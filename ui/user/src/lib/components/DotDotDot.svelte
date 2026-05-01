@@ -22,7 +22,7 @@
 
 	let {
 		children,
-		class: clazz = 'icon-button',
+		class: clazz,
 		classes,
 		placement = 'right-start',
 		icon,
@@ -39,7 +39,7 @@
 </script>
 
 <button
-	class={clazz}
+	class={twMerge('btn', !clazz?.includes('btn-block') && 'btn-ghost btn-square', clazz)}
 	use:ref
 	onclick={(e) => {
 		toggle();

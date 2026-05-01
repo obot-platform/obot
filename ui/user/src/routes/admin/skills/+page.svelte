@@ -6,6 +6,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { AdminService } from '$lib/services';
 	import type { SkillRepository } from '$lib/services/admin/types';
@@ -454,9 +455,9 @@
 		{#if editingSource}
 			<h3 class="dialog-title">
 				{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
-				<button onclick={() => closeSourceDialog()} class="icon-button dialog-close-btn">
+				<IconButton onclick={() => closeSourceDialog()} class="btn-sm dialog-close-btn">
 					<X class="size-5" />
-				</button>
+				</IconButton>
 			</h3>
 
 			<div class="mt-4 mb-8 flex flex-col gap-4">

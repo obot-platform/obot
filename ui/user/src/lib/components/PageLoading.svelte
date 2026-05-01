@@ -1,4 +1,5 @@
 <script lang="ts">
+	import IconButton from './primitives/IconButton.svelte';
 	import { AlertCircle, LoaderCircle, X } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { onDestroy } from 'svelte';
@@ -88,9 +89,9 @@
 					errorClasses?.root
 				)}
 			>
-				<button class="icon-button absolute top-2 right-2 self-end" onclick={() => onClose?.()}
-					><X class="size-5" /></button
-				>
+				<IconButton class="absolute top-2 right-2 self-end" onclick={() => onClose?.()}>
+					<X class="size-5" />
+				</IconButton>
 
 				{#if errorPreContent}
 					{@render errorPreContent()}

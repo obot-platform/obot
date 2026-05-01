@@ -2,6 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import DotDotDot from '../DotDotDot.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import TableColumnFilter from './TableColumnFilter.svelte';
 	import TableHeader from './TableHeader.svelte';
 	import {
@@ -904,8 +905,7 @@
 			{@const canSelect = validateSelect ? validateSelect(d) : true}
 			{#if canSelect}
 				<td class="p-2">
-					<button
-						class="button-icon"
+					<IconButton
 						onclick={(e) => {
 							e.stopPropagation();
 							if (selected[d.id]) {
@@ -920,13 +920,13 @@
 						{:else}
 							<Square class="size-5" />
 						{/if}
-					</button>
+					</IconButton>
 				</td>
 			{:else}
 				<td class="p-2" use:tooltip={disabledSelectMessage || 'This item is not selectable'}>
-					<button class="button-icon opacity-30" disabled>
+					<IconButton class="opacity-30" disabled>
 						<Square class="size-5" />
-					</button>
+					</IconButton>
 				</td>
 			{/if}
 		{/if}

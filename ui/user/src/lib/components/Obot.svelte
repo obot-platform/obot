@@ -20,7 +20,8 @@
 	import McpServerRequirements from './chat/McpServerRequirements.svelte';
 	import McpServerActions from './mcp/McpServerActions.svelte';
 	import BetaLogo from './navbar/BetaLogo.svelte';
-	import { ChevronLeft, GripVertical, SidebarOpen } from 'lucide-svelte';
+	import IconButton from './primitives/IconButton.svelte';
+	import { ChevronLeft, GripVertical, PanelLeftOpen } from 'lucide-svelte';
 	import { X } from 'lucide-svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -203,9 +204,9 @@
 				<div class="dialog-container p-4">
 					<div class="dialog-title">
 						<h3 class="text-lg font-semibold">Keyboard Shortcuts</h3>
-						<button class="dialog-close-btn" onclick={() => shortcutsDialog?.close()}>
+						<IconButton class="btn-sm dialog-close-btn" onclick={() => shortcutsDialog?.close()}>
 							<X class="icon-default" />
-						</button>
+						</IconButton>
 					</div>
 					<div class="space-y-4">
 						<div class="grid grid-cols-2 gap-2">
@@ -255,20 +256,20 @@
 <McpServerRequirements assistantId={assistant?.id || ''} projectId={project.id} />
 
 {#snippet openSidebar()}
-	<button class="icon-button" onclick={() => (layout.sidebarOpen = true)}>
-		<SidebarOpen class="size-6" />
-	</button>
+	<IconButton onclick={() => (layout.sidebarOpen = true)}>
+		<PanelLeftOpen class="size-6" />
+	</IconButton>
 {/snippet}
 
 {#snippet projectMcpHeader(mcpServer: ProjectMCP)}
-	<button
-		class="icon-button mr-2 flex-shrink-0"
+	<IconButton
+		class="mr-2"
 		onclick={() => {
 			closeSidebarConfig(layout);
 		}}
 	>
 		<ChevronLeft class="size-6" />
-	</button>
+	</IconButton>
 	<h1 class="text-xl font-semibold">
 		{mcpServer.alias || mcpServer.name || 'MCP Server'}
 	</h1>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import IconButton from './primitives/IconButton.svelte';
 	import { CircleAlert, LoaderCircle, X } from 'lucide-svelte/icons';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -58,9 +59,9 @@
 	<div class="dialog-container w-[calc(100dvw-2rem)] md:w-md">
 		<div class="dialog-title p-4 pb-0">
 			{title}
-			<button type="button" onclick={oncancel}>
+			<IconButton onclick={oncancel} class="btn-sm dialog-close-btn">
 				<X class="size-5" />
-			</button>
+			</IconButton>
 		</div>
 		<div class={twMerge('flex flex-col items-center justify-center gap-2 p-4 pt-0', classes?.body)}>
 			{#if msgContent}

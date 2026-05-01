@@ -21,6 +21,7 @@
 	import { goto } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
+	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import SearchUsers from './SearchUsers.svelte';
@@ -371,17 +372,17 @@
 				>
 					{#snippet actions(d)}
 						{#if !readonly}
-							<button
-								class="icon-button hover:text-error"
+							<IconButton
+								variant="danger"
 								onclick={() => {
 									accessControlRule.subjects = accessControlRule.subjects?.filter(
 										(subject) => subject.id !== d.id
 									);
 								}}
-								use:tooltip={'Delete User/Group'}
+								tooltip={{ text: 'Delete User/Group' }}
 							>
 								<Trash2 class="size-4" />
-							</button>
+							</IconButton>
 						{/if}
 					{/snippet}
 				</Table>
@@ -394,7 +395,7 @@
 				{#if !readonly}
 					<div class="relative flex items-center gap-4">
 						<button
-							class="button-primary flex items-center gap-1 text-sm"
+							class="btn btn-primary flex items-center gap-1 text-sm"
 							onclick={() => {
 								addMcpServerDialog?.open();
 							}}
@@ -407,16 +408,16 @@
 			<Table data={mcpServersTableData} fields={['name']} noDataMessage="No MCP servers added.">
 				{#snippet actions(d)}
 					{#if !readonly}
-						<button
-							class="icon-button hover:text-error"
+						<IconButton
+							variant="danger"
 							onclick={() => {
 								accessControlRule.resources =
 									accessControlRule.resources?.filter((resource) => resource.id !== d.id) ?? [];
 							}}
-							use:tooltip={'Remove MCP Server'}
+							tooltip={{ text: 'Remove MCP Server' }}
 						>
 							<Trash2 class="size-4" />
-						</button>
+						</IconButton>
 					{/if}
 				{/snippet}
 			</Table>

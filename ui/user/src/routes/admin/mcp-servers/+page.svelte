@@ -346,7 +346,7 @@
 
 {#snippet addServerButton()}
 	<DotDotDot
-		class="button-primary w-full text-sm md:w-fit"
+		class="btn-primary btn-block w-full text-sm md:w-fit"
 		placement="bottom"
 		classes={{ popover: 'z-50' }}
 	>

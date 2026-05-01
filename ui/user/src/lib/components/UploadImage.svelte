@@ -46,7 +46,9 @@
 <label
 	class={twMerge(
 		'flex cursor-pointer items-center justify-center gap-2 px-4 py-2',
-		variant === 'icon' ? 'icon-button' : 'border-base-400 min-h-72 border-2 border-dashed p-4'
+		variant === 'icon'
+			? 'btn btn-square btn-ghost'
+			: 'border-base-400 min-h-72 border-2 border-dashed p-4'
 	)}
 >
 	{#await uploadInProgress}

@@ -29,6 +29,7 @@
 	import { goto } from '$lib/url';
 	import ResponsiveDialog from './ResponsiveDialog.svelte';
 	import McpPrompts from './mcp/McpPrompts.svelte';
+	import IconButton from './primitives/IconButton.svelte';
 	import { Bug, LoaderCircle, X } from 'lucide-svelte';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import type { UIEventHandler } from 'svelte/elements';
@@ -477,14 +478,14 @@
 			{/if}
 		</div>
 
-		<button
-			class="icon-button absolute top-2 right-2"
+		<IconButton
+			class="absolute top-2 right-2"
 			onclick={() => {
 				createProject = undefined;
 			}}
 		>
 			<X class="size-6" />
-		</button>
+		</IconButton>
 
 		<div
 			class="bg-base-200 dark:bg-base-300 m-auto mt-4 h-px w-96 max-w-sm self-center rounded-full"
