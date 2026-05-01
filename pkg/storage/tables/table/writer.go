@@ -55,6 +55,7 @@ type FormatFunc any
 
 func NewWriter(values [][]string, quiet bool, format string) Writer {
 	t := &writer{
+		//nolint:govet
 		funcMap: maps.Clone(FuncMap),
 	}
 

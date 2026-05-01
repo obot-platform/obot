@@ -237,6 +237,16 @@
 										label: 'Server Scheduling',
 										collapsible: false
 									}
+								: undefined,
+							version.current.engine === 'kubernetes'
+								? {
+										id: 'image-pull-secrets',
+										href: '/admin/image-pull-secrets',
+										icon: KeyRound,
+										label: 'Image Pull Secrets',
+										disabled: isBootStrapUser,
+										collapsible: false
+									}
 								: undefined
 						].filter(Boolean) as NavLink[]
 					},

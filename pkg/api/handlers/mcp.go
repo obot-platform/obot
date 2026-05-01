@@ -43,21 +43,33 @@ type MCPOAuthChecker interface {
 }
 
 type MCPHandler struct {
-	mcpSessionManager *mcp.SessionManager
-	mcpOAuthChecker   MCPOAuthChecker
-	acrHelper         *accesscontrolrule.Helper
-	mcpBackend        string
-	serverURL         string
+	mcpSessionManager   *mcp.SessionManager
+	mcpOAuthChecker     MCPOAuthChecker
+	acrHelper           *accesscontrolrule.Helper
+	mcpImagePullSecrets []string
+	serverURL           string
 }
 
-func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, mcpBackend, serverURL string) *MCPHandler {
+func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, mcpImagePullSecrets []string, serverURL string) *MCPHandler {
 	return &MCPHandler{
-		mcpSessionManager: mcpLoader,
-		mcpOAuthChecker:   mcpOAuthChecker,
-		acrHelper:         acrHelper,
-		mcpBackend:        mcpBackend,
-		serverURL:         serverURL,
+		mcpSessionManager:   mcpLoader,
+		mcpOAuthChecker:     mcpOAuthChecker,
+		acrHelper:           acrHelper,
+		mcpImagePullSecrets: mcpImagePullSecrets,
+		serverURL:           serverURL,
 	}
+}
+
+func (m *MCPHandler) currentImagePullSecretNames(req api.Context) ([]string, error) {
+	return mcp.CurrentImagePullSecretNames(req.Context(), req.Storage, m.mcpSessionManager.MCPRuntimeBackend(), m.mcpImagePullSecrets)
+}
+
+func (m *MCPHandler) currentK8sSettingsHash(req api.Context, settings v1.K8sSettingsSpec, serverRuntime types.Runtime, nanobotAgentServer bool) (string, error) {
+	imagePullSecretNames, err := m.currentImagePullSecretNames(req)
+	if err != nil {
+		return "", err
+	}
+	return mcp.ComputeK8sSettingsHash(settings, serverRuntime, nanobotAgentServer, imagePullSecretNames), nil
 }
 
 func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
@@ -1742,7 +1754,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	if err := validation.ValidateServerManifest(server.Spec.Manifest, !server.Spec.IsSingleUser()); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
-	if err := validation.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry, m.mcpBackend); err != nil {
+	if err := validation.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry, m.mcpSessionManager.MCPRuntimeBackend()); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -1852,7 +1864,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 			gitManagedEntry = catalogEntry.IsGitManaged()
 		}
 	}
-	if err := validation.ValidateSecretBindings(updated, gitManagedEntry, m.mcpBackend); err != nil {
+	if err := validation.ValidateSecretBindings(updated, gitManagedEntry, m.mcpSessionManager.MCPRuntimeBackend()); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	if err := validation.ValidateTemplateReferences(updated); err != nil {
@@ -3326,8 +3338,10 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 		return err
 	}
 
-	// Compute current K8s settings hash
-	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "")
+	currentHash, err := m.currentK8sSettingsHash(req, k8sSettings.Spec, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "")
+	if err != nil {
+		return err
+	}
 
 	// Compare deployed hash with current hash
 	needsUpdate := deployedHash != currentHash
@@ -3348,7 +3362,7 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 
 // RedeployWithK8sSettings redeploys a server with the current K8s settings
 func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
-	switch m.mcpBackend {
+	switch m.mcpSessionManager.MCPRuntimeBackend() {
 	case "kubernetes", "k8s":
 		// Supported
 	default:
@@ -3398,8 +3412,10 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 		return err
 	}
 
-	// Compute current K8s settings hash and check if update is needed
-	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, serverConfig.Runtime, serverConfig.NanobotAgentName != "")
+	currentHash, err := m.currentK8sSettingsHash(req, k8sSettings.Spec, serverConfig.Runtime, serverConfig.NanobotAgentName != "")
+	if err != nil {
+		return err
+	}
 	hashDrift := deployedHash != currentHash
 
 	// Trigger restart if hash drift OR if the server needs K8s update (e.g., PSA compliance)
@@ -3488,6 +3504,11 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateInCatalog(req api.Context) error
 		return fmt.Errorf("failed to get K8s settings: %w", err)
 	}
 
+	imagePullSecretNames, err := m.currentImagePullSecretNames(req)
+	if err != nil {
+		return err
+	}
+
 	// List all servers in the catalog
 	var servers v1.MCPServerList
 	if err := req.List(&servers, &kclient.ListOptions{
@@ -3517,7 +3538,7 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateInCatalog(req api.Context) error
 		}
 
 		// Check if hash differs from current settings
-		currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "")
+		currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "", imagePullSecretNames)
 		if server.Status.K8sSettingsHash != currentHash {
 			serversNeedingUpdate = append(serversNeedingUpdate, types.MCPServerNeedingK8sUpdate{
 				MCPServerID:             server.Name,
@@ -3539,6 +3560,11 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context
 		Name:      system.K8sSettingsName,
 	}, &k8sSettings); err != nil {
 		return fmt.Errorf("failed to get K8s settings: %w", err)
+	}
+
+	imagePullSecretNames, err := m.currentImagePullSecretNames(req)
+	if err != nil {
+		return err
 	}
 
 	// List all MCPServers (we'll filter for workspace servers below)
@@ -3575,7 +3601,7 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context
 		}
 
 		// Check if hash differs from current settings
-		currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "")
+		currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "", imagePullSecretNames)
 		if server.Status.K8sSettingsHash != currentHash {
 			serversNeedingUpdate = append(serversNeedingUpdate, types.MCPServerNeedingK8sUpdate{
 				MCPServerID:             server.Name,

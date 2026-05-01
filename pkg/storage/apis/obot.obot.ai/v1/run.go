@@ -26,6 +26,7 @@ const (
 	AccessControlRuleFinalizer     = "obot.obot.ai/access-control-rule"
 	SystemMCPServerFinalizer       = "obot.obot.ai/system-mcp-server"
 	NanobotAgentFinalizer          = "obot.obot.ai/nanobot-agent"
+	ImagePullSecretFinalizer       = "obot.obot.ai/image-pull-secret"
 
 	ModelProviderSyncAnnotation               = "obot.ai/model-provider-sync"
 	WorkflowSyncAnnotation                    = "obot.ai/workflow-sync"

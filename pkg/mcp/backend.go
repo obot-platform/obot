@@ -20,6 +20,15 @@ const (
 	serviceUnavailableGracePeriod = 10 * time.Second
 )
 
+func IsKubernetesBackend(backend string) bool {
+	switch strings.ToLower(strings.TrimSpace(backend)) {
+	case "kubernetes", "k8s":
+		return true
+	default:
+		return false
+	}
+}
+
 type backend interface {
 	// ensureServerDeployment will deploy a server if it is not already deployed, and return the updated ServerConfig
 	ensureServerDeployment(ctx context.Context, serverConfig ServerConfig, webhooks []Webhook) (ServerConfig, error)
