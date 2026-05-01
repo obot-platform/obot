@@ -2,6 +2,11 @@
 	"name": "user",
 	"version": "0.0.1",
 	"private": true,
+	"packageManager": "pnpm@11.0.3",
+	"engines": {
+		"node": ">=24.0",
+		"pnpm": ">=11.0"
+	},
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
