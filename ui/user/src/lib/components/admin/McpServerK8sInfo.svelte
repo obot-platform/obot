@@ -475,7 +475,7 @@
 			<span class="text-sm font-light">
 				The following Kubernetes Secrets referenced by this server could not be found:
 				<ul class="mt-1 list-disc pl-5">
-					{#each missingSecretBindings as binding}
+					{#each missingSecretBindings as binding (binding.secretName + '/' + binding.secretKey)}
 						<li>
 							<code class="font-mono">{binding.secretName}/{binding.secretKey}</code> (for
 							<strong>{binding.label}</strong>)
