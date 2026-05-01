@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/watch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -491,7 +490,7 @@ func newTestKubernetesBackend(t *testing.T) *kubernetesBackend {
 	}
 }
 
-func findSecret(t *testing.T, objs []kclient.Object, secretName string) *corev1.Secret {
+func findSecret(t *testing.T, objs []client.Object, secretName string) *corev1.Secret {
 	t.Helper()
 
 	for _, obj := range objs {
@@ -505,7 +504,7 @@ func findSecret(t *testing.T, objs []kclient.Object, secretName string) *corev1.
 	return nil
 }
 
-func findService(t *testing.T, objs []kclient.Object, serviceName string) *corev1.Service {
+func findService(t *testing.T, objs []client.Object, serviceName string) *corev1.Service {
 	t.Helper()
 
 	for _, obj := range objs {
@@ -519,7 +518,7 @@ func findService(t *testing.T, objs []kclient.Object, serviceName string) *corev
 	return nil
 }
 
-func findDeployment(t *testing.T, objs []kclient.Object, deploymentName string) *appsv1.Deployment {
+func findDeployment(t *testing.T, objs []client.Object, deploymentName string) *appsv1.Deployment {
 	t.Helper()
 
 	for _, obj := range objs {
