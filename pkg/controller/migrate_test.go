@@ -126,3 +126,87 @@ func TestMigratePublishedArtifactVisibility(t *testing.T) {
 		assert.Empty(t, publicArtifact.Status.Versions[0].Subjects)
 	})
 }
+
+func TestExtractAndClearMCPServerConfigValues(t *testing.T) {
+	manifest := types.MCPServerManifest{
+		Env: []types.MCPEnv{
+			{
+				MCPHeader: types.MCPHeader{
+					Key:   "TOKEN",
+					Value: "secret-token",
+				},
+			},
+			{
+				MCPHeader: types.MCPHeader{
+					Key: "EMPTY",
+				},
+			},
+			{
+				MCPHeader: types.MCPHeader{
+					Value: "missing-key",
+				},
+			},
+		},
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			Headers: []types.MCPHeader{
+				{
+					Key:   "Authorization",
+					Value: "Bearer secret",
+				},
+				{
+					Key: "X-Empty",
+				},
+			},
+		},
+	}
+
+	values, changed := extractAndClearMCPServerConfigValues(&manifest)
+
+	assert.True(t, changed)
+	assert.Equal(t, map[string]string{
+		"TOKEN":         "secret-token",
+		"Authorization": "Bearer secret",
+	}, values)
+	assert.Empty(t, manifest.Env[0].Value)
+	assert.Empty(t, manifest.Env[1].Value)
+	assert.Empty(t, manifest.Env[2].Value)
+	assert.Empty(t, manifest.RemoteConfig.Headers[0].Value)
+	assert.Empty(t, manifest.RemoteConfig.Headers[1].Value)
+}
+
+func TestExtractAndClearMCPServerConfigValuesNoValues(t *testing.T) {
+	manifest := types.MCPServerManifest{
+		Env: []types.MCPEnv{
+			{
+				MCPHeader: types.MCPHeader{
+					Key: "TOKEN",
+				},
+			},
+		},
+	}
+
+	values, changed := extractAndClearMCPServerConfigValues(&manifest)
+
+	assert.False(t, changed)
+	assert.Empty(t, values)
+}
+
+func TestMCPServerCredentialContext(t *testing.T) {
+	assert.Equal(t, "default-server-1", mcpServerCredentialContext(v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "server-1"},
+		Spec: v1.MCPServerSpec{
+			MCPCatalogID: "default",
+		},
+	}))
+
+	assert.Equal(t, "workspace-1-server-2", mcpServerCredentialContext(v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "server-2"},
+		Spec: v1.MCPServerSpec{
+			PowerUserWorkspaceID: "workspace-1",
+		},
+	}))
+
+	assert.Empty(t, mcpServerCredentialContext(v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "server-3"},
+	}))
+}
