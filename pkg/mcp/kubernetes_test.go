@@ -360,4 +360,3 @@ func assertHasAuditLogEnv(t *testing.T, env map[string][]byte) {
 		}
 	}
 }
-

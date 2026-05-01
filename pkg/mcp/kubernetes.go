@@ -2115,4 +2115,3 @@ func formatMemory(q resource.Quantity) string {
 		return fmt.Sprintf("%d", bytes)
 	}
 }
-

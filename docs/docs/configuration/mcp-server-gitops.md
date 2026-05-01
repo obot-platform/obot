@@ -130,7 +130,7 @@ env:
     sensitive: true
     description: Bound to a pre-existing Kubernetes Secret — no user input needed.
     secretBinding:
-      name: my-secret       # Kubernetes Secret name (in Obot's MCP namespace)
+      name: my-secret       # Kubernetes Secret name
       key: api_key          # Key within that Secret
 ```
 
