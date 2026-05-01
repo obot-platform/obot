@@ -762,6 +762,75 @@ export interface ServerK8sSettings {
 	currentSettings: K8sSettings;
 	deployedSettingsHash: string;
 }
+
+export type ImagePullSecretType = 'basic' | 'ecr';
+
+export interface ImagePullSecretCapability {
+	available: boolean;
+	reason?: string;
+	issuerURL?: string;
+	subject?: string;
+	audience?: string;
+}
+
+export interface ImagePullSecret {
+	id: string;
+	created?: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+	type?: string;
+	manifest: ImagePullSecretManifest;
+	status?: ImagePullSecretStatus;
+}
+
+export interface ImagePullSecretManifest {
+	enabled: boolean;
+	type?: ImagePullSecretType;
+	displayName?: string;
+	basic?: BasicImagePullSecretConfig;
+	ecr?: ECRImagePullSecretConfig;
+}
+
+export interface ImagePullSecretStatus {
+	secretName?: string;
+	passwordConfigured?: boolean;
+	subject?: string;
+	trustPolicyJSON?: string;
+	ecrPolicyJSON?: string;
+	lastReconciledTime?: string;
+	lastSuccessTime?: string;
+	lastError?: string;
+	tokenExpiresAt?: string;
+	registryEndpoints?: string[];
+}
+
+export interface BasicImagePullSecretConfig {
+	server?: string;
+	username?: string;
+	password?: string;
+}
+
+export interface ECRImagePullSecretConfig {
+	roleARN?: string;
+	region?: string;
+	issuerURL?: string;
+	audience?: string;
+	refreshSchedule?: string;
+}
+
+export interface ImagePullSecretTestRequest {
+	image?: string;
+}
+
+export interface ImagePullSecretTestResponse {
+	success: boolean;
+	message?: string;
+}
+
+export interface ImagePullSecretRefreshResponse {
+	message?: string;
+}
 export type CompositeServerToolRow = {
 	id: string;
 	name: string;

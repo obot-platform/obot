@@ -50,6 +50,7 @@ The values that are configurable, and how to change them, follow.
 - Resources: the default value is a memory request of `400Mi` with no memory limit or CPU requests/limits. This can be set in Helm using the `.mcpServerDefaults.resources` value, or via the Admin UI if not set in Helm values.
 - Image: the default value is `ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.20.5` and it can be changed by setting the Helm value `.config.OBOT_SERVER_MCPBASE_IMAGE`.
 - RuntimeClassName: can be set using `.mcpServerDefaults.runtimeClassName` in Helm, or via the admin UI if not set in Helm values. See [RuntimeClass](#runtimeclass) for details.
+- ImagePullSecrets: private registry credentials can be configured with static Helm `mcpImagePullSecrets` or managed image pull secrets in the admin UI. See [Image Pull Secrets](./image-pull-secrets.md).
 
 #### A note on Affinity, Tolerations, and Resources
 
@@ -267,3 +268,14 @@ PSA can also be configured via environment variables:
 
 Obot will create a Secret to contain the user-provided configuration values for the MCP server.
 Any configuration values that were marked as files will be in a separate Secret that is mounted in the `/files` directory in the container.
+
+### Image Pull Secrets
+
+Obot can attach Kubernetes image pull secrets to every MCP server Deployment. This is useful when MCP server images are stored in private registries.
+
+There are two modes:
+
+- Static Helm `mcpImagePullSecrets`, where Helm creates the Docker config JSON secrets and Obot uses those secret names.
+- Managed image pull secrets, where admins configure registry credentials in Obot and Obot creates the Kubernetes secrets in the MCP namespace.
+
+If static MCP image pull secrets are configured, they remain the source of truth and managed image pull secrets are disabled. For setup instructions, including Amazon ECR OIDC and IAM role configuration, see [Image Pull Secrets](./image-pull-secrets.md).

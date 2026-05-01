@@ -75,7 +75,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	memories := handlers.NewMemoryHandler()
 	workflows := handlers.NewWorkflowHandler()
 	images := handlers.NewImageHandler(services.GeminiClient)
-	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.MCPRuntimeBackend, services.ServerURL)
+	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.ServerURL)
 	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL, services.InternalServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
 	mcpGateway := mcpgateway.NewHandler(services.MCPLoader, services.WebhookHelper, services.OAuthServerConfig.ScopesSupported, services.NanobotIntegration)
@@ -88,6 +88,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth)
 	oauthClients := handlers.NewOAuthClientsHandler(services.OAuthServerConfig, services.ServerURL)
 	publishedArtifacts := handlers.NewPublishedArtifactHandler(services.ArtifactBlobStore, services.ArtifactBlobBucket)
+	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.LocalK8sInterfaceClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -702,6 +703,16 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	k8sSettingsHandler := handlers.NewK8sSettingsHandler()
 	mux.HandleFunc("GET /api/k8s-settings", k8sSettingsHandler.Get)
 	mux.HandleFunc("PUT /api/k8s-settings", k8sSettingsHandler.Update)
+
+	// Image Pull Secrets
+	mux.HandleFunc("GET /api/image-pull-secrets/capability", imagePullSecretsHandler.Capability)
+	mux.HandleFunc("GET /api/image-pull-secrets", imagePullSecretsHandler.List)
+	mux.HandleFunc("POST /api/image-pull-secrets", imagePullSecretsHandler.Create)
+	mux.HandleFunc("GET /api/image-pull-secrets/{id}", imagePullSecretsHandler.Get)
+	mux.HandleFunc("PUT /api/image-pull-secrets/{id}", imagePullSecretsHandler.Update)
+	mux.HandleFunc("DELETE /api/image-pull-secrets/{id}", imagePullSecretsHandler.Delete)
+	mux.HandleFunc("POST /api/image-pull-secrets/{id}/test", imagePullSecretsHandler.Test)
+	mux.HandleFunc("POST /api/image-pull-secrets/{id}/refresh", imagePullSecretsHandler.Refresh)
 
 	// MCP Capacity (admin only)
 	mcpCapacityHandler := handlers.NewMCPCapacityHandler(services.MCPLoader)

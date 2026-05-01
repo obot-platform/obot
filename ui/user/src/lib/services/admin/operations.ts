@@ -45,6 +45,12 @@ import type {
 	ScheduledAuditLogExportInput,
 	K8sSettings,
 	ServerK8sSettings,
+	ImagePullSecret,
+	ImagePullSecretCapability,
+	ImagePullSecretManifest,
+	ImagePullSecretRefreshResponse,
+	ImagePullSecretTestRequest,
+	ImagePullSecretTestResponse,
 	MCPCompositeDeletionDependency,
 	AppPreferences,
 	GroupRoleAssignment,
@@ -94,6 +100,7 @@ export type PaginatedResponse<T> = {
 	offset: number;
 	limit: number;
 };
+type RequestOptions = { fetch?: Fetcher; dontLogErrors?: boolean; signal?: AbortSignal };
 
 export async function listMCPCatalogs(opts?: { fetch?: Fetcher }): Promise<MCPCatalog[]> {
 	const response = (await doGet('/mcp-catalogs', opts)) as ItemsResponse<MCPCatalog>;
@@ -1302,6 +1309,66 @@ export async function listK8sSettings(opts?: { fetch?: Fetcher }) {
 
 export async function updateK8sSettings(settings: K8sSettings, opts?: { fetch?: Fetcher }) {
 	return (await doPut('/k8s-settings', settings, opts)) as K8sSettings;
+}
+
+export async function getImagePullSecretCapability(
+	opts?: RequestOptions
+): Promise<ImagePullSecretCapability> {
+	return (await doGet('/image-pull-secrets/capability', opts)) as ImagePullSecretCapability;
+}
+
+export async function listImagePullSecrets(opts?: RequestOptions): Promise<ImagePullSecret[]> {
+	const response = (await doGet('/image-pull-secrets', opts)) as ItemsResponse<ImagePullSecret>;
+	return response.items ?? [];
+}
+
+export async function getImagePullSecret(
+	id: string,
+	opts?: RequestOptions
+): Promise<ImagePullSecret> {
+	return (await doGet(`/image-pull-secrets/${id}`, opts)) as ImagePullSecret;
+}
+
+export async function createImagePullSecret(
+	input: ImagePullSecretManifest,
+	opts?: RequestOptions
+): Promise<ImagePullSecret> {
+	return (await doPost('/image-pull-secrets', input, opts)) as ImagePullSecret;
+}
+
+export async function updateImagePullSecret(
+	id: string,
+	input: ImagePullSecretManifest,
+	opts?: RequestOptions
+): Promise<ImagePullSecret> {
+	return (await doPut(`/image-pull-secrets/${id}`, input, opts)) as ImagePullSecret;
+}
+
+export async function deleteImagePullSecret(id: string, opts?: RequestOptions): Promise<void> {
+	await doDelete(`/image-pull-secrets/${id}`, opts);
+}
+
+export async function testImagePullSecret(
+	id: string,
+	input: ImagePullSecretTestRequest,
+	opts?: RequestOptions
+): Promise<ImagePullSecretTestResponse> {
+	return (await doPost(
+		`/image-pull-secrets/${id}/test`,
+		input,
+		opts
+	)) as ImagePullSecretTestResponse;
+}
+
+export async function refreshImagePullSecret(
+	id: string,
+	opts?: RequestOptions
+): Promise<ImagePullSecretRefreshResponse> {
+	return (await doPost(
+		`/image-pull-secrets/${id}/refresh`,
+		{},
+		opts
+	)) as ImagePullSecretRefreshResponse;
 }
 
 export async function getEula() {

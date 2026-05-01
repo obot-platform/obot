@@ -43,6 +43,8 @@ type Handler struct {
 	multiUserIdleShutdownDelay   time.Duration
 	agentIdleShutdownDelay       time.Duration
 	baseURL                      string
+	mcpRuntimeBackend            string
+	mcpImagePullSecrets          []string
 }
 
 func effectiveDenyAllEgress(v *bool, domains []string, defaultWhenEmpty bool) bool {
@@ -52,7 +54,7 @@ func effectiveDenyAllEgress(v *bool, domains []string, defaultWhenEmpty bool) bo
 	return defaultWhenEmpty && len(domains) == 0
 }
 
-func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, networkPolicyProviderEnabled, defaultDenyAllEgress bool, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay, agentIdleShutdownDelay time.Duration, baseURL string) *Handler {
+func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, networkPolicyProviderEnabled, defaultDenyAllEgress bool, singleUserIdleShutdownDelay, multiUserIdleShutdownDelay, agentIdleShutdownDelay time.Duration, baseURL string, mcpRuntimeBackend string, mcpImagePullSecrets []string) *Handler {
 	return &Handler{
 		gptClient:                    gptClient,
 		mcpSessionManager:            mcpSessionManager,
@@ -62,6 +64,8 @@ func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, 
 		multiUserIdleShutdownDelay:   multiUserIdleShutdownDelay,
 		agentIdleShutdownDelay:       agentIdleShutdownDelay,
 		baseURL:                      baseURL,
+		mcpRuntimeBackend:            mcpRuntimeBackend,
+		mcpImagePullSecrets:          mcpImagePullSecrets,
 	}
 }
 
@@ -208,8 +212,8 @@ func (h *Handler) deleteMCPNetworkPolicy(req router.Request, namespace, name str
 	return nil
 }
 
-// DetectK8sSettingsDrift detects when a server needs redeployment with new K8s settings
-// Note: This handler only sets NeedsK8sUpdate based on K8sSettings hash drift.
+// DetectK8sSettingsDrift detects when a server needs redeployment with new
+// K8s settings, including managed image pull secrets.
 // PSA compliance checking is handled separately in the deployment handler since it
 // requires access to the actual Deployment object to inspect container security contexts.
 func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) error {
@@ -229,11 +233,16 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 		return fmt.Errorf("failed to get K8s settings: %w", err)
 	}
 
-	// Compute current K8s settings hash
-	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+	imagePullSecretNames, err := mcp.CurrentImagePullSecretNames(req.Ctx, req.Client, h.mcpRuntimeBackend, h.mcpImagePullSecrets)
+	if err != nil {
+		return err
+	}
 
-	if server.Status.K8sSettingsHash != currentHash && !server.Status.NeedsK8sUpdate {
-		log.Infof("MCP server requires K8s redeploy due to settings drift: server=%s previousHash=%s newHash=%s", server.Name, server.Status.K8sSettingsHash, currentHash)
+	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, imagePullSecretNames)
+	shouldSetNeedsK8sUpdate := server.Status.K8sSettingsHash != currentHash && !server.Status.NeedsK8sUpdate
+
+	if shouldSetNeedsK8sUpdate {
+		log.Infof("MCP server requires K8s redeploy due to K8s settings drift: server=%s previousHash=%s newHash=%s", server.Name, server.Status.K8sSettingsHash, currentHash)
 		server.Status.NeedsK8sUpdate = true
 		return req.Client.Status().Update(req.Ctx, server)
 	}

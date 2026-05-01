@@ -39,6 +39,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderManifest":                               schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderStatus":                                 schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.AzureConfig":                                        schema_obot_platform_obot_apiclient_types_AzureConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.BasicImagePullSecretConfig":                         schema_obot_platform_obot_apiclient_types_BasicImagePullSecretConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.CatalogComponentServer":                             schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.ClientInfo":                                         schema_obot_platform_obot_apiclient_types_ClientInfo(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderMetadata":                             schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref),
@@ -84,6 +85,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.DeviceSkillStat":                                    schema_obot_platform_obot_apiclient_types_DeviceSkillStat(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceSkillStatList":                                schema_obot_platform_obot_apiclient_types_DeviceSkillStatList(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceSkillStatResponse":                            schema_obot_platform_obot_apiclient_types_DeviceSkillStatResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.ECRImagePullSecretConfig":                           schema_obot_platform_obot_apiclient_types_ECRImagePullSecretConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiver":                                      schema_obot_platform_obot_apiclient_types_EmailReceiver(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiverList":                                  schema_obot_platform_obot_apiclient_types_EmailReceiverList(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiverManifest":                              schema_obot_platform_obot_apiclient_types_EmailReceiverManifest(ref),
@@ -101,6 +103,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.GCSConfig":                                          schema_obot_platform_obot_apiclient_types_GCSConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignment":                                schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref),
 		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignmentList":                            schema_obot_platform_obot_apiclient_types_GroupRoleAssignmentList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ImagePullSecret":                                    schema_obot_platform_obot_apiclient_types_ImagePullSecret(ref),
+		"github.com/obot-platform/obot/apiclient/types.ImagePullSecretCapability":                          schema_obot_platform_obot_apiclient_types_ImagePullSecretCapability(ref),
+		"github.com/obot-platform/obot/apiclient/types.ImagePullSecretList":                                schema_obot_platform_obot_apiclient_types_ImagePullSecretList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ImagePullSecretManifest":                            schema_obot_platform_obot_apiclient_types_ImagePullSecretManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ImagePullSecretRefreshResponse":                     schema_obot_platform_obot_apiclient_types_ImagePullSecretRefreshResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.ImagePullSecretStatus":                              schema_obot_platform_obot_apiclient_types_ImagePullSecretStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.ImagePullSecretTestRequest":                         schema_obot_platform_obot_apiclient_types_ImagePullSecretTestRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ImagePullSecretTestResponse":                        schema_obot_platform_obot_apiclient_types_ImagePullSecretTestResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.Item":                                               schema_obot_platform_obot_apiclient_types_Item(ref),
 		"github.com/obot-platform/obot/apiclient/types.K8sSettings":                                        schema_obot_platform_obot_apiclient_types_K8sSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.K8sSettingsStatus":                                  schema_obot_platform_obot_apiclient_types_K8sSettingsStatus(ref),
@@ -344,6 +354,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AuditLogExportList":                schema_storage_apis_obotobotai_v1_AuditLogExportList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AuditLogExportSpec":                schema_storage_apis_obotobotai_v1_AuditLogExportSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.AuditLogExportStatus":              schema_storage_apis_obotobotai_v1_AuditLogExportStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.BasicImagePullSecretSpec":          schema_storage_apis_obotobotai_v1_BasicImagePullSecretSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.CronJob":                           schema_storage_apis_obotobotai_v1_CronJob(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.CronJobList":                       schema_storage_apis_obotobotai_v1_CronJobList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.CronJobSpec":                       schema_storage_apis_obotobotai_v1_CronJobSpec(ref),
@@ -353,6 +364,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAliasSpec":             schema_storage_apis_obotobotai_v1_DefaultModelAliasSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAliasStatus":           schema_storage_apis_obotobotai_v1_DefaultModelAliasStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DeploymentCondition":               schema_storage_apis_obotobotai_v1_DeploymentCondition(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ECRImagePullSecretSpec":            schema_storage_apis_obotobotai_v1_ECRImagePullSecretSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmptyStatus":                       schema_storage_apis_obotobotai_v1_EmptyStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall":                      schema_storage_apis_obotobotai_v1_ExternalCall(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult":                schema_storage_apis_obotobotai_v1_ExternalCallResult(ref),
@@ -360,6 +372,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChange":                   schema_storage_apis_obotobotai_v1_GroupRoleChange(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChangeList":               schema_storage_apis_obotobotai_v1_GroupRoleChangeList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChangeSpec":               schema_storage_apis_obotobotai_v1_GroupRoleChangeSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ImagePullSecret":                   schema_storage_apis_obotobotai_v1_ImagePullSecret(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ImagePullSecretList":               schema_storage_apis_obotobotai_v1_ImagePullSecretList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ImagePullSecretSpec":               schema_storage_apis_obotobotai_v1_ImagePullSecretSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ImagePullSecretStatus":             schema_storage_apis_obotobotai_v1_ImagePullSecretStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettings":                       schema_storage_apis_obotobotai_v1_K8sSettings(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsList":                   schema_storage_apis_obotobotai_v1_K8sSettingsList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsSpec":                   schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref),
@@ -2032,6 +2048,36 @@ func schema_obot_platform_obot_apiclient_types_AzureConfig(ref common.ReferenceC
 						},
 					},
 					"clientSecret": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_BasicImagePullSecretConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"server": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"password": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -4615,6 +4661,48 @@ func schema_obot_platform_obot_apiclient_types_DeviceSkillStatResponse(ref commo
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_ECRImagePullSecretConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"roleARN": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"region": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"issuerURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"audience": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"refreshSchedule": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_EmailReceiver(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5134,6 +5222,297 @@ func schema_obot_platform_obot_apiclient_types_GroupRoleAssignmentList(ref commo
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignment"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ImagePullSecret(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ImagePullSecret represents an admin-managed Kubernetes image pull secret.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ImagePullSecretManifest"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ImagePullSecretStatus"),
+						},
+					},
+				},
+				Required: []string{"Metadata", "manifest", "status"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.ImagePullSecretManifest", "github.com/obot-platform/obot/apiclient/types.ImagePullSecretStatus", "github.com/obot-platform/obot/apiclient/types.Metadata"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ImagePullSecretCapability(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"available": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"issuerURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"subject": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"audience": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"available"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ImagePullSecretList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.ImagePullSecret"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.ImagePullSecret"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ImagePullSecretManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"basic": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.BasicImagePullSecretConfig"),
+						},
+					},
+					"ecr": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.ECRImagePullSecretConfig"),
+						},
+					},
+				},
+				Required: []string{"enabled"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.BasicImagePullSecretConfig", "github.com/obot-platform/obot/apiclient/types.ECRImagePullSecretConfig"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ImagePullSecretRefreshResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ImagePullSecretStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"secretName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"passwordConfigured": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"subject": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"trustPolicyJSON": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"ecrPolicyJSON": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"lastReconciledTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"lastSuccessTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"lastError": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"tokenExpiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"registryEndpoints": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ImagePullSecretTestRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ImagePullSecretTestResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"success": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"success"},
+			},
+		},
 	}
 }
 
@@ -17249,6 +17628,30 @@ func schema_storage_apis_obotobotai_v1_AuditLogExportStatus(ref common.Reference
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_BasicImagePullSecretSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"server": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_CronJob(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -17609,6 +18012,48 @@ func schema_storage_apis_obotobotai_v1_DeploymentCondition(ref common.ReferenceC
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_ECRImagePullSecretSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"roleARN": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"region": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"issuerURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"audience": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"refreshSchedule": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_EmptyStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -17820,6 +18265,215 @@ func schema_storage_apis_obotobotai_v1_GroupRoleChangeSpec(ref common.ReferenceC
 				},
 			},
 		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ImagePullSecret(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ImagePullSecretSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ImagePullSecretStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ImagePullSecretSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ImagePullSecretStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ImagePullSecretList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ImagePullSecret"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ImagePullSecret", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ImagePullSecretSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"secretName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"basic": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.BasicImagePullSecretSpec"),
+						},
+					},
+					"ecr": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ECRImagePullSecretSpec"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.BasicImagePullSecretSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ECRImagePullSecretSpec"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ImagePullSecretStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"lastReconciledTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastSuccessTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastError": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"issuerURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"subject": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"audience": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"tokenExpiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"registryEndpoints": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 

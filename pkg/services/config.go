@@ -45,6 +45,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/gemini"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/imagepullsecrets"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/logutil"
@@ -69,6 +70,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
+	"k8s.io/client-go/kubernetes"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	gocache "k8s.io/client-go/tools/cache"
@@ -140,7 +142,6 @@ type Config struct {
 	MCPNetworkPolicyProviderChartPath    string `usage:"Local filesystem path to the network policy provider chart"`
 	MCPNetworkPolicyProviderValues       string `usage:"YAML or JSON values blob merged into the network policy provider chart values"`
 	MCPDefaultDenyAllEgress              bool   `usage:"Default new MCP servers to deny all egress when network policy enforcement is enabled" default:"false"`
-
 	// Published artifact storage
 	ArtifactStorageProvider       string `usage:"Storage provider for published artifacts (s3, gcs, azure, custom)" name:"artifact-storage-provider" env:"OBOT_ARTIFACT_STORAGE_PROVIDER"`
 	ArtifactStorageBucket         string `usage:"Bucket for published artifacts" name:"artifact-storage-bucket" env:"OBOT_ARTIFACT_STORAGE_BUCKET"`
@@ -227,14 +228,19 @@ type Services struct {
 	OAuthServerConfig              handlers.OAuthAuthorizationServerConfig
 	MCPOAuthClientSecretExpiration time.Duration
 
-	// Local Kubernetes configuration for deployment monitoring
-	LocalK8sConfig     *rest.Config
-	MCPServerNamespace string
-	MCPClusterDomain   string
-	ServiceName        string
-	ServiceNamespace   string
-	ServiceAccountName string
-	StorageListenPort  int
+	// Local Kubernetes clients for the MCP runtime cluster. The controller-runtime
+	// client handles object CRUD/watch paths; the typed client-go client is kept
+	// for APIs controller-runtime does not expose, such as ServiceAccount tokens.
+	LocalK8sConfig            *rest.Config
+	LocalK8sInterfaceClient   kubernetes.Interface
+	MCPServerNamespace        string
+	ServiceAccountIssuerURL   string
+	ServiceAccountIssuerError string
+	MCPClusterDomain          string
+	ServiceName               string
+	ServiceNamespace          string
+	ServiceAccountName        string
+	StorageListenPort         int
 
 	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
 	// cluster the obot pod runs in, where source Secrets for
@@ -256,6 +262,7 @@ type Services struct {
 	DisableUpdateCheck                   bool
 	DisableLegacyChat                    bool
 	MCPRuntimeBackend                    string
+	MCPImagePullSecrets                  []string
 	MCPRemoteShimBaseImage               string
 	MCPHTTPWebhookBaseImage              string
 	RegistryNoAuth                       bool
@@ -644,10 +651,25 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	// Build local Kubernetes config for deployment monitoring (optional)
 	var localK8sConfig *rest.Config
-	if config.MCPRuntimeBackend == "kubernetes" {
+	var localK8sInterfaceClient kubernetes.Interface
+	var serviceAccountIssuerURL string
+	var serviceAccountIssuerError string
+	if imagepullsecrets.IsKubernetesBackend(config.MCPRuntimeBackend) {
 		localK8sConfig, err = buildLocalK8sConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to build local Kubernetes config: %w", err)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to create local Kubernetes runtime client: %w", err)
+		}
+		localK8sInterfaceClient, err = kubernetes.NewForConfig(localK8sConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create local Kubernetes client: %w", err)
+		}
+		serviceAccountIssuerURL, err = imagepullsecrets.DiscoverServiceAccountIssuer(ctx, localK8sConfig)
+		if err != nil {
+			serviceAccountIssuerError = err.Error()
+			pkgLog.Warnf("Failed to discover Kubernetes service account issuer URL: %v", err)
 		}
 	}
 
@@ -1137,7 +1159,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		SkillAccessRuleHelper:                skillAccessRuleHelper,
 		WebhookHelper:                        webhookHelper,
 		LocalK8sConfig:                       localK8sConfig,
+		LocalK8sInterfaceClient:              localK8sInterfaceClient,
 		MCPServerNamespace:                   config.MCPNamespace,
+		ServiceAccountIssuerURL:              serviceAccountIssuerURL,
+		ServiceAccountIssuerError:            serviceAccountIssuerError,
 		MCPClusterDomain:                     config.MCPClusterDomain,
 		ServiceName:                          config.ServiceName,
 		ServiceNamespace:                     config.ServiceNamespace,
@@ -1149,6 +1174,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DisableLegacyChat:                    config.DisableLegacyChat,
 		AutonomousToolUseEnabled:             config.EnableAutonomousToolUse,
 		MCPRuntimeBackend:                    config.MCPRuntimeBackend,
+		MCPImagePullSecrets:                  config.MCPImagePullSecrets,
 		MCPRemoteShimBaseImage:               config.MCPRemoteShimBaseImage,
 		MCPHTTPWebhookBaseImage:              config.MCPHTTPWebhookBaseImage,
 		SingleUserIdleServerShutdownInterval: time.Duration(config.SingleUserIdleServerShutdownHours) * time.Hour,
