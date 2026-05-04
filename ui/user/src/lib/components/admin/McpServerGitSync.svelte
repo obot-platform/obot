@@ -81,8 +81,17 @@
 
 			<div class="mb-4 flex flex-col gap-1">
 				<div class="flex items-center justify-between">
-					<label for="catalog-source-token" class="text-sm font-light"
-						>Personal access token (optional)
+					<label for="catalog-source-token" class="flex items-center gap-1 text-sm font-light">
+						Personal access token (optional)
+						<span
+							use:tooltip={{
+								text: 'Required scopes:\n• GitHub: repo\n• GitLab: read_repository + read_api\n\nIf no token is set, Obot falls back to the GITHUB_AUTH_TOKEN environment variable.',
+								classes: ['max-w-md', 'whitespace-pre-line'],
+								disablePortal: true
+							}}
+						>
+							<Info class="text-surface3 size-3.5" />
+						</span>
 					</label>
 					{#if editingSource.index >= 0 && defaultCatalog?.sourceURLCredentials?.[defaultCatalog?.sourceURLs?.[editingSource.index]] === '*' && !editingSource.clearToken}
 						<button
