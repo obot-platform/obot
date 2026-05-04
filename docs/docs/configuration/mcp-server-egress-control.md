@@ -44,7 +44,7 @@ helm upgrade --install obot obot/obot \
   -f values.yaml
 ```
 
-When these values are set, Obot installs the Aviatrix provider chart as the Helm release `obot-network-policy-provider` in the MCP runtime namespace.
+When these values are set, Obot installs the Aviatrix provider chart as the Helm release `obot-network-policy-provider` in the namespace where Obot is installed. The chart is configured to manage egress-control resources for the MCP runtime namespace.
 
 ## Configure default egress behavior
 
