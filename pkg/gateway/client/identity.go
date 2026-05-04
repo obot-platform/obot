@@ -53,7 +53,7 @@ func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]type
 
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
 func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string) (*types.User, error) {
-	return c.EnsureIdentityWithRole(ctx, id, timezone, c.emailsWithExplictRoles[strings.ToLower(id.Email)])
+	return c.EnsureIdentityWithRole(ctx, id, timezone, c.emailsWithExplicitRoles[strings.ToLower(id.Email)])
 }
 
 // EnsureIdentityWithRole ensures the given identity exists in the database with the at least the given role, and returns the user associated with it.
