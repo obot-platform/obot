@@ -373,6 +373,26 @@
 		return manifest;
 	}
 
+	function omitSecretValuesFromServerManifest(
+		serverManifest: ReturnType<typeof convertServerRuntimeFormDataToManifest>
+	): ReturnType<typeof convertServerRuntimeFormDataToManifest> {
+		const manifest = { ...serverManifest.manifest };
+		if (manifest.env) {
+			manifest.env = manifest.env.map(({ value: _value, ...rest }) => {
+				return { value: '', ...rest };
+			});
+		}
+		if (manifest.remoteConfig?.headers) {
+			manifest.remoteConfig = {
+				...manifest.remoteConfig,
+				headers: manifest.remoteConfig.headers.map(({ value: _value, ...rest }) => {
+					return { value: '', ...rest };
+				})
+			};
+		}
+		return { ...serverManifest, manifest };
+	}
+
 	async function handleEntrySubmit(id: string) {
 		const manifest = convertToEntryManifest(formData);
 
@@ -404,13 +424,17 @@
 				entity === 'workspace'
 					? ChatService.updateWorkspaceMCPCatalogServer
 					: AdminService.updateMCPCatalogServer;
-			response = await updateServerFn(id, entry.id, serverManifest.manifest);
+			response = await updateServerFn(
+				id,
+				entry.id,
+				omitSecretValuesFromServerManifest(serverManifest).manifest
+			);
 		} else {
 			const createServerFn =
 				entity === 'workspace'
 					? ChatService.createWorkspaceMCPCatalogServer
 					: AdminService.createMCPCatalogServer;
-			response = await createServerFn(id, serverManifest);
+			response = await createServerFn(id, omitSecretValuesFromServerManifest(serverManifest));
 		}
 
 		let configValues: Record<string, string> = {};
