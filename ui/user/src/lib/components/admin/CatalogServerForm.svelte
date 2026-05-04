@@ -378,20 +378,16 @@
 	): ReturnType<typeof convertServerRuntimeFormDataToManifest> {
 		const manifest = { ...serverManifest.manifest };
 		if (manifest.env) {
-			manifest.env = manifest.env.map(
-				(env) =>
-					Object.fromEntries(Object.entries(env).filter(([key]) => key !== 'value')) as typeof env
-			);
+			manifest.env = manifest.env.map(({ value: _value, ...rest }) => {
+				return { value: '', ...rest };
+			});
 		}
 		if (manifest.remoteConfig?.headers) {
 			manifest.remoteConfig = {
 				...manifest.remoteConfig,
-				headers: manifest.remoteConfig.headers.map(
-					(header) =>
-						Object.fromEntries(
-							Object.entries(header).filter(([key]) => key !== 'value')
-						) as typeof header
-				)
+				headers: manifest.remoteConfig.headers.map(({ value: _value, ...rest }) => {
+					return { value: '', ...rest };
+				})
 			};
 		}
 		return { ...serverManifest, manifest };
