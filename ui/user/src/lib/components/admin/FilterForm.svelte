@@ -160,7 +160,7 @@
 	});
 
 	async function revealServerValues() {
-		if (!initialFilterId) return;
+		if (!initialFilterId || readonly) return;
 		try {
 			const response = await AdminService.revealMCPFilter(initialFilterId);
 
