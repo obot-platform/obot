@@ -216,9 +216,9 @@ func dropMCPOAuthTokenStateColumns(tx *gorm.DB) error {
 	return nil
 }
 
-// MigrateIfEntryNotFoundInMigrationsTable runs f only when the named migration
+// migrateIfEntryNotFoundInMigrationsTable runs f only when the named migration
 // has not already been recorded in the migrations table.
-func MigrateIfEntryNotFoundInMigrationsTable(tx *gorm.DB, name string, f func(*gorm.DB) error) error {
+func migrateIfEntryNotFoundInMigrationsTable(tx *gorm.DB, name string, f func(*gorm.DB) error) error {
 	var migration types.Migration
 	if err := tx.Where("name = ?", name).First(&migration).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err

@@ -103,7 +103,7 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to migrate published artifact visibility: %w", err)
 	}
 
-	if err := migrateMCPServerManifestValuesToCredentials(ctx, c.services.StorageClient, c.services.GPTClient); err != nil {
+	if err := migrateMultiUserMCPServerManifestValuesToCredentials(ctx, c.services.StorageClient, c.services.GPTClient); err != nil {
 		return fmt.Errorf("failed to migrate MCP server manifest values to credentials: %w", err)
 	}
 

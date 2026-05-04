@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -11,8 +12,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-const mcpServerManifestValuesCredentialMigrationName = "mcp_server_manifest_values_to_credentials"
 
 func addCatalogIDToAccessControlRules(ctx context.Context, client kclient.Client) error {
 	var acRules v1.AccessControlRuleList
@@ -73,7 +72,7 @@ func migratePublishedArtifactVisibility(ctx context.Context, client kclient.Clie
 	return nil
 }
 
-func migrateMCPServerManifestValuesToCredentials(ctx context.Context, client kclient.Client, gptClient *gptscript.GPTScript) error {
+func migrateMultiUserMCPServerManifestValuesToCredentials(ctx context.Context, client kclient.Client, gptClient *gptscript.GPTScript) error {
 	var servers v1.MCPServerList
 	if err := client.List(ctx, &servers); err != nil {
 		return err
@@ -92,19 +91,21 @@ func migrateMCPServerManifestValuesToCredentials(ctx context.Context, client kcl
 		}
 
 		if len(configValues) > 0 {
-			if _, err := gptClient.RevealCredential(ctx, []string{credCtx}, server.Name); err != nil {
-				if !errors.As(err, &gptscript.ErrNotFound{}) {
-					return fmt.Errorf("failed to find credential for MCP server %s: %w", server.Name, err)
-				}
+			if existingCred, err := gptClient.RevealCredential(ctx, []string{credCtx}, server.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+				return fmt.Errorf("failed to find credential for MCP server %s: %w", server.Name, err)
+			} else if err == nil {
+				// Copy the new config values into the existing credential values so we don't lose any existing values that aren't in the manifest.
+				maps.Copy(existingCred.Env, configValues)
+				configValues = existingCred.Env
+			}
 
-				if err := gptClient.CreateCredential(ctx, gptscript.Credential{
-					Context:  credCtx,
-					ToolName: server.Name,
-					Type:     gptscript.CredentialTypeTool,
-					Env:      configValues,
-				}); err != nil {
-					return fmt.Errorf("failed to create credential for MCP server %s: %w", server.Name, err)
-				}
+			if err := gptClient.CreateCredential(ctx, gptscript.Credential{
+				Context:  credCtx,
+				ToolName: server.Name,
+				Type:     gptscript.CredentialTypeTool,
+				Env:      configValues,
+			}); err != nil {
+				return fmt.Errorf("failed to create credential for MCP server %s: %w", server.Name, err)
 			}
 		}
 

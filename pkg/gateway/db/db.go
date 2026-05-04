@@ -56,7 +56,7 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to drop mcp_server_instance table: %w", err)
 	}
 
-	if err = MigrateIfEntryNotFoundInMigrationsTable(tx, "auditor_user_role", migrateUserRoles); err != nil {
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "auditor_user_role", migrateUserRoles); err != nil {
 		return fmt.Errorf("failed to migrate user roles: %w", err)
 	}
 
@@ -64,23 +64,23 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to migrate mcp_audit_log client info: %w", err)
 	}
 
-	if err = MigrateIfEntryNotFoundInMigrationsTable(tx, "drop_session_cookies", dropSessionCookiesTable); err != nil {
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_session_cookies", dropSessionCookiesTable); err != nil {
 		return fmt.Errorf("failed to drop session_cookies table: %w", err)
 	}
 
-	if err = MigrateIfEntryNotFoundInMigrationsTable(tx, "remove_github_groups", removeGitHubGroups); err != nil {
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "remove_github_groups", removeGitHubGroups); err != nil {
 		return fmt.Errorf("failed to remove GitHub groups: %w", err)
 	}
 
-	if err = MigrateIfEntryNotFoundInMigrationsTable(tx, "drop_obot_mcp_tokens", dropObotMCPTokensTable); err != nil {
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_obot_mcp_tokens", dropObotMCPTokensTable); err != nil {
 		return fmt.Errorf("failed to drop obot_mcp_tokens table: %w", err)
 	}
 
-	if err = MigrateIfEntryNotFoundInMigrationsTable(tx, "drop_mcp_oauth_token_state_columns", dropMCPOAuthTokenStateColumns); err != nil {
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_mcp_oauth_token_state_columns", dropMCPOAuthTokenStateColumns); err != nil {
 		return fmt.Errorf("failed to drop state columns from mcp_oauth_tokens: %w", err)
 	}
 
-	if err = MigrateIfEntryNotFoundInMigrationsTable(tx, "apikey_skills_access_backfill", migrateAPIKeySkillsAccess); err != nil {
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "apikey_skills_access_backfill", migrateAPIKeySkillsAccess); err != nil {
 		return fmt.Errorf("failed to migrate API key skills access: %w", err)
 	}
 
