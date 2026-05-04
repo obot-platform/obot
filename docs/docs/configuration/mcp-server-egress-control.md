@@ -61,7 +61,7 @@ With the default set to deny all, admins can still allow unrestricted egress for
 
 Configure egress domains on the MCP server runtime configuration. This is supported for `npx`, `uvx`, and `containerized` MCP servers.
 This can be configured in the UI when creating or editing an MCP server.
-See the YAML configuration examples if you manage MCP servers through git.
+See the YAML configuration examples if you manage MCP servers through Git.
 
 ### YAML configuration examples
 
@@ -136,8 +136,8 @@ Domain allowlists are enforced for HTTPS egress on TCP port `443`. Traffic to al
 Check that Obot installed the provider:
 
 ```bash
-helm status obot-network-policy-provider -n <mcp-runtime-namespace>
-kubectl get pods -n <mcp-runtime-namespace> -l app.kubernetes.io/name=aviatrix-network-policy-controller
+helm status obot-network-policy-provider -n <obot-namespace>
+kubectl get pods -n <obot-namespace> -l app.kubernetes.io/name=aviatrix-network-policy-controller
 ```
 
 Check that the Aviatrix provider created a `FirewallPolicy`:
@@ -150,6 +150,6 @@ kubectl describe firewallpolicy -n <mcp-runtime-namespace> <firewall-policy-name
 If the expected `FirewallPolicy` does not appear after configuring egress domains on an MCP server, inspect the provider pod logs and confirm that the `FirewallPolicy` CRD is installed:
 
 ```bash
-kubectl get crd firewallpolicies
-kubectl logs -n <mcp-runtime-namespace> -l app.kubernetes.io/name=aviatrix-network-policy-controller
+kubectl get crd firewallpolicies.networking.aviatrix.com
+kubectl logs -n <obot-namespace> -l app.kubernetes.io/name=aviatrix-network-policy-controller
 ```
