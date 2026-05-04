@@ -57,7 +57,7 @@
 			</button>
 		{/snippet}
 	</Table>
-{:else}
+{:else if filteredBuiltInFiltersData.length > 0}
 	<div class="p-4 md:p-0">
 		<button
 			class="p-4 rounded-sm flex items-center gap-6 justify-between bg-background dark:bg-surface1 shadow-md transition-colors duration-300 hover:bg-surface2 dark:hover:bg-surface2"
@@ -72,6 +72,6 @@
 			<StepForward class="size-4 shrink-0 text-on-surface1" />
 		</button>
 	</div>
-{/if}
 
-<div class="text-on-surface1 text-sm font-light mt-4 text-center italic">More Coming Soon!</div>
+	<div class="text-on-surface1 text-sm font-light mt-4 text-center italic">More Coming Soon!</div>
+{/if}
