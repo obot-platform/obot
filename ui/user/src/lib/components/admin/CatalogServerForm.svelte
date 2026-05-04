@@ -33,7 +33,11 @@
 		type?: LaunchServerType;
 		readonly?: boolean;
 		onCancel?: () => void;
-		onSubmit?: (id: string, type: LaunchServerType, message?: string) => void;
+		onSubmit?: (
+			data: MCPCatalogEntry | MCPCatalogServer,
+			type: LaunchServerType,
+			message?: string
+		) => void;
 		hideTitle?: boolean;
 		readonlyMessage?: Snippet;
 		onConfigureOAuth?: () => void;
@@ -498,30 +502,26 @@
 			// Check if OAuth config is needed - redirect to detail page first, then show modal there
 			if (!entry && type === 'remote' && formData.remoteConfig?.staticOAuthRequired) {
 				loading = false;
-				onSubmit?.(entryResponse.id, type, 'requires-oauth-config');
+				onSubmit?.(entryResponse, type, 'requires-oauth-config');
 				return;
 			}
 
-			if (isAtLeastPowerUserPlus) {
-				const existingRules =
-					entity === 'workspace'
-						? await ChatService.listWorkspaceAccessControlRules(id)
-						: await AdminService.listAccessControlRules();
-				const hasEverythingEveryoneRule = existingRules.some(
-					(rule) =>
-						rule.subjects?.some((s) => s.id === '*') && rule.resources?.some((r) => r.id === '*')
-				);
-
-				if (!entry && !hasEverythingEveryoneRule) {
-					await selectRulesDialog?.open();
-					loading = false;
-				} else {
-					loading = false;
-					onSubmit?.(entryResponse.id, type, 'MCP server updated successfully!');
-				}
+			const existingRules = isAtLeastPowerUserPlus
+				? entity === 'workspace'
+					? await ChatService.listWorkspaceAccessControlRules(id)
+					: await AdminService.listAccessControlRules()
+				: [];
+			const hasEverythingEveryoneRule = existingRules.some(
+				(rule) =>
+					rule.subjects?.some((s) => s.id === '*') && rule.resources?.some((r) => r.id === '*')
+			);
+			if (isAtLeastPowerUserPlus && !entry && !hasEverythingEveryoneRule) {
+				await selectRulesDialog?.open();
+				loading = false;
 			} else {
 				loading = false;
-				onSubmit?.(entryResponse.id, type, 'MCP server updated successfully!');
+				formData = convertToFormData(entryResponse);
+				onSubmit?.(entryResponse, type, 'MCP server updated successfully!');
 			}
 		} catch (error) {
 			loading = false;
@@ -681,7 +681,7 @@
 	entry={savedEntry}
 	onSubmit={() => {
 		if (savedEntry) {
-			onSubmit?.(savedEntry.id, type);
+			onSubmit?.(savedEntry, type);
 		}
 	}}
 	{entity}

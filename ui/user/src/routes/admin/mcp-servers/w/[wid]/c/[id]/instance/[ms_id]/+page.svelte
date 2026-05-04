@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
@@ -15,10 +13,6 @@
 	let { data } = $props();
 	let { workspaceId, catalogEntry, mcpServer, belongsToUser } = $derived(data);
 	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
-
-	function navigateToMcpServers() {
-		goto(resolve(`/admin/mcp-servers`));
-	}
 </script>
 
 <Layout
@@ -40,8 +34,6 @@
 				type={catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'single'}
 				id={workspaceId}
 				entity="workspace"
-				onCancel={navigateToMcpServers}
-				onSubmit={navigateToMcpServers}
 				readonly={belongsToUser ? false : profile.current.isAdminReadonly?.()}
 			/>
 		{/if}
