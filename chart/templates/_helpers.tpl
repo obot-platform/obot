@@ -123,6 +123,9 @@ Validate network policy provider Helm chart configuration.
 {{- if and $repo (not $name) -}}
 {{- fail "config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME is required when config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO is set" -}}
 {{- end -}}
+{{- if and $name (not $repo) -}}
+{{- fail "config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO is required when config.OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME is set" -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
