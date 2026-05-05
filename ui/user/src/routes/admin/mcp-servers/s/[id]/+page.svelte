@@ -7,7 +7,6 @@
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
-	import { goto } from '$lib/url';
 	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -45,12 +44,6 @@
 			entry={mcpServer}
 			type="multi"
 			id={DEFAULT_MCP_CATALOG_ID}
-			onCancel={() => {
-				goto('/admin/mcp-servers');
-			}}
-			onSubmit={async () => {
-				goto('/admin/mcp-servers');
-			}}
 			readonly={profile.current.isAdminReadonly?.()}
 		/>
 	</div>

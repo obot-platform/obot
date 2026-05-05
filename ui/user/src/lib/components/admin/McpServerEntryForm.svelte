@@ -16,6 +16,7 @@
 	import type { AccessControlRule, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import { getServerTypeLabel, getUserRegistry } from '$lib/services/chat/mcp';
 	import { profile } from '$lib/stores';
+	import { success } from '$lib/stores/success';
 	import { goto } from '$lib/url';
 	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
@@ -50,7 +51,7 @@
 		Users,
 		Wrench
 	} from 'lucide-svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -69,7 +70,7 @@
 	}
 
 	let {
-		entry,
+		entry: initialEntry,
 		server,
 		id,
 		entity = 'catalog',
@@ -82,6 +83,18 @@
 		limitViews,
 		configuredServers
 	}: Props = $props();
+
+	let entry = $state(untrack(() => initialEntry));
+	let lastSyncedInitialEntry = $state<MCPCatalogEntry | MCPCatalogServer | undefined>(undefined);
+
+	$effect(() => {
+		const next = initialEntry;
+		if (next !== lastSyncedInitialEntry) {
+			lastSyncedInitialEntry = next;
+			entry = next;
+		}
+	});
+
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 
 	// True owner: admin, workspace owner, or power user who created the server
@@ -230,14 +243,18 @@
 	function filterRulesByEntry(rules?: AccessControlRule[]) {
 		if (!entry || !rules) return [];
 		return rules.filter((r) =>
-			r.resources?.find((resource) => resource.id === entry.id || resource.id === '*')
+			r.resources?.find(
+				(resource) => (entry?.id && resource.id === entry.id) || resource.id === '*'
+			)
 		);
 	}
 
 	function filterFiltersByEntry(filters?: MCPFilter[]) {
 		if (!entry || !filters) return [];
 		return filters.filter((f) =>
-			f.resources?.find((resource) => resource.id === entry.id || resource.id === '*')
+			f.resources?.find(
+				(resource) => (entry?.id && resource.id === entry.id) || resource.id === '*'
+			)
 		);
 	}
 
@@ -509,6 +526,30 @@
 		}
 		staticOauthConfigModal?.open();
 	}
+
+	function handleCancel() {
+		if (onCancel) {
+			onCancel();
+		} else {
+			const url = profile.current.hasAdminAccess?.() ? '/admin/mcp-servers' : '/mcp-servers';
+			goto(url);
+		}
+	}
+
+	function handleSubmit(
+		updatedEntry: MCPCatalogEntry | MCPCatalogServer,
+		type: LaunchServerType,
+		message?: string
+	) {
+		if (onSubmit) {
+			onSubmit(updatedEntry.id, type, message);
+		} else {
+			entry = updatedEntry;
+			if (message) {
+				success.add(message);
+			}
+		}
+	}
 </script>
 
 <div
@@ -523,11 +564,7 @@
 			<div class="flex items-center gap-2">
 				<div class="icon">
 					{#if entry.manifest.icon}
-						<img
-							src={entry.manifest.icon}
-							alt={entry.manifest.name}
-							class="size-10 flex-shrink-0"
-						/>
+						<img src={entry.manifest.icon} alt={entry.manifest.name} class="size-10 shrink-0" />
 					{:else}
 						<Server class="size-10" />
 					{/if}
@@ -735,8 +772,8 @@
 			{readonly}
 			{id}
 			{entity}
-			{onCancel}
-			{onSubmit}
+			onCancel={handleCancel}
+			onSubmit={handleSubmit}
 			hideTitle={Boolean(entry)}
 			onConfigureOAuth={handleConfigureOAuth}
 		>

@@ -7,7 +7,6 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ChatService } from '$lib/services/index.js';
 	import { mcpServersAndEntries } from '$lib/stores/index.js';
-	import { goto } from '$lib/url';
 	import { type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -68,12 +67,6 @@
 				readonly={catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL}
 				id={workspaceId}
 				entity="workspace"
-				onCancel={() => {
-					goto('/mcp-servers');
-				}}
-				onSubmit={async () => {
-					goto('/mcp-servers');
-				}}
 				{hasExistingConfigured}
 				{configuredServers}
 			/>

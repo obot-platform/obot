@@ -13,8 +13,6 @@
 	import type { MCPServer, MCPCatalogServer } from '$lib/services/chat/types';
 	import { AdminService } from '$lib/services/index.js';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
-	import { success } from '$lib/stores/success';
-	import { goto } from '$lib/url';
 	import { CircleFadingArrowUp, Info, GitCompare } from 'lucide-svelte';
 	import { untrack, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -222,14 +220,6 @@
 					: 'single'}
 			readonly={isAdminReadonly || isSourcedEntry}
 			id={DEFAULT_MCP_CATALOG_ID}
-			onCancel={() => {
-				goto('/admin/mcp-servers');
-			}}
-			onSubmit={async (_id, _type, message) => {
-				if (message) {
-					success.add(message);
-				}
-			}}
 			{hasExistingConfigured}
 		/>
 	</div>
