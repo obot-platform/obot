@@ -5,7 +5,6 @@
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
-	import { goto } from '$lib/url';
 	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -45,12 +44,6 @@
 				type={catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'single'}
 				id={workspaceId}
 				entity="workspace"
-				onCancel={() => {
-					goto('/admin/mcp-servers');
-				}}
-				onSubmit={async () => {
-					goto('/admin/mcp-servers');
-				}}
 				{readonly}
 				{hasExistingConfigured}
 			/>

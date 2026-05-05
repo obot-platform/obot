@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
@@ -16,9 +14,6 @@
 	let title = $derived(
 		mcpServer?.alias || mcpServer?.manifest?.name || catalogEntry?.manifest?.name || 'MCP Server'
 	);
-	function navigateToMcpServers() {
-		goto(resolve(`/mcp-servers`));
-	}
 </script>
 
 <Layout
@@ -45,8 +40,6 @@
 				readonly={catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL}
 				id={workspaceId}
 				entity="workspace"
-				onCancel={navigateToMcpServers}
-				onSubmit={navigateToMcpServers}
 			/>
 		{/if}
 	</div>

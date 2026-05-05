@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
@@ -157,10 +155,6 @@
 		}
 	}
 
-	function navigateToMcpServers() {
-		goto(resolve(`/admin/mcp-servers`));
-	}
-
 	$effect(() => {
 		if (catalogEntry?.manifest.runtime === 'composite') {
 			untrack(() => mcpServersAndEntries.refreshAll());
@@ -214,8 +208,6 @@
 					: 'single'}
 			readonly={isAdminReadonly || isSourcedEntry}
 			id={DEFAULT_MCP_CATALOG_ID}
-			onCancel={navigateToMcpServers}
-			onSubmit={navigateToMcpServers}
 		/>
 	</div>
 </Layout>

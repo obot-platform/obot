@@ -5,7 +5,6 @@
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { profile } from '$lib/stores/index.js';
-	import { goto } from '$lib/url';
 	import { type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -34,12 +33,6 @@
 				type="multi"
 				id={workspaceId}
 				entity="workspace"
-				onCancel={() => {
-					goto('/admin/mcp-servers');
-				}}
-				onSubmit={async () => {
-					goto('/admin/mcp-servers');
-				}}
 				readonly={belongsToUser ? false : profile.current.isAdminReadonly?.()}
 			/>
 		{/if}
