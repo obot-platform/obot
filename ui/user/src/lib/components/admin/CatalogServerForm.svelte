@@ -9,6 +9,7 @@
 	import {
 		convertCategoriesToMetadata,
 		convertServerRuntimeFormDataToManifest,
+		sanitizeEgressDomains,
 		validateRuntimeForm
 	} from '$lib/services/chat/mcp';
 	import type { LaunchServerType, Runtime } from '$lib/services/chat/types';
@@ -296,11 +297,6 @@
 			revealCatalogServer(id, entry.id, entity);
 		}
 	});
-
-	function sanitizeEgressDomains(egressDomains?: string[] | string) {
-		const domains = Array.isArray(egressDomains) ? egressDomains : egressDomains?.split(',');
-		return domains?.map((domain) => domain.trim()).filter(Boolean) || [];
-	}
 
 	function convertToEntryManifest(formData: RuntimeFormData): MCPCatalogEntryServerManifest {
 		const { categories, ...baseData } = formData;

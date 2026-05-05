@@ -579,7 +579,7 @@ export const convertCategoriesToMetadata = (categories: string[]) => {
 		: undefined;
 };
 
-const sanitizeEgressDomains = (egressDomains?: string[] | string) => {
+export const sanitizeEgressDomains = (egressDomains?: string[] | string) => {
 	const domains = Array.isArray(egressDomains) ? egressDomains : egressDomains?.split(',');
 	return domains?.map((domain) => domain.trim()).filter(Boolean) || [];
 };
