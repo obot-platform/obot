@@ -54,6 +54,12 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_SERVICE_NAME` | The Kubernetes service name for the obot server. Automatically set by the helm chart when using kubernetes backend. Used to construct the internal service FQDN for token exchange endpoints. | - |
 | `OBOT_SERVER_SERVICE_NAMESPACE` | The Kubernetes namespace where the obot server runs. Automatically set by the helm chart when using kubernetes backend. Used to construct the internal service FQDN for token exchange endpoints. | - |
 | `OBOT_SERVER_DISALLOW_LOCALHOST_MCP` | Disallow MCP servers that try to connect to localhost. | `false` |
+| `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO` | Helm repository URL for the MCP server egress control provider chart. Used with `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME`. | - |
+| `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_NAME` | Helm chart name for the MCP server egress control provider. Setting this enables MCP server egress control. | - |
+| `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_VERSION` | Helm chart version for the MCP server egress control provider. | - |
+| `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_PATH` | Local filesystem path to an MCP server egress control provider chart. Setting this enables MCP server egress control and cannot be combined with chart repo, name, or version. | - |
+| `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_VALUES` | YAML or JSON values blob merged into the MCP server egress control provider chart values. | - |
+| `OBOT_SERVER_MCPDEFAULT_DENY_ALL_EGRESS` | Default new MCP servers to deny all egress when MCP server egress control is enabled and no egress domains are configured. | `false` |
 | `OBOT_SERVER_MCPPOD_SECURITY_ENABLED` | Enable Pod Security Admission labels on the MCP namespace. Only applies when using kubernetes backend. | `true` |
 | `OBOT_SERVER_MCPPOD_SECURITY_ENFORCE` | Pod Security Standards level to enforce for MCP namespace (privileged, baseline, or restricted). Only applies when using kubernetes backend. | `restricted` |
 | `OBOT_SERVER_MCPPOD_SECURITY_ENFORCE_VERSION` | Kubernetes version for the PSA enforce policy. Only applies when using kubernetes backend. | `latest` |
