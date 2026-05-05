@@ -44,8 +44,8 @@
 	const inputReadonly = $derived(readonly || toggleChecked);
 	const egressHelpText = $derived(
 		defaultDenyAllEgress
-			? 'Leave empty to deny all egress by default. Add domains to allow only those domains. Enable allow all to allow unrestricted egress.'
-			: 'Leave empty to allow all egress. Add domains to allow only those domains. Enable deny all to block all egress.'
+			? 'Leave empty to deny all egress by default. Add domains to allow only those domains. Enable allow all to allow unrestricted egress. Examples: example.com, *.example.com.'
+			: 'Leave empty to allow all egress. Add domains to allow only those domains. Enable deny all to block all egress. Examples: example.com, *.example.com.'
 	);
 
 	function handleEgressToggle(checked: boolean) {
@@ -199,7 +199,7 @@
 					bind:value={config.egressDomains}
 					class="text-input-filled dark:bg-background"
 					readonly={inputReadonly}
-					placeholder="example.com, *.example.com (hit &quot;Enter&quot; to insert)"
+					placeholder="hit &quot;Enter&quot; to insert"
 				/>
 				<p class="text-on-surface1 text-xs">{egressHelpText}</p>
 			</div>
