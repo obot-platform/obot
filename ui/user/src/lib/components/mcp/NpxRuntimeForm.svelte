@@ -34,7 +34,10 @@
 		config.egressDomains = [];
 	}
 
-	const explicitAllowAll = $derived(defaultDenyAllEgress && config.denyAllEgress === false);
+	const hasEgressDomains = $derived(config.egressDomains.some((domain) => domain.trim()));
+	const explicitAllowAll = $derived(
+		defaultDenyAllEgress && config.denyAllEgress === false && !hasEgressDomains
+	);
 	const explicitDenyAll = $derived(!defaultDenyAllEgress && config.denyAllEgress === true);
 	const toggleChecked = $derived(defaultDenyAllEgress ? explicitAllowAll : explicitDenyAll);
 	const toggleLabel = $derived(defaultDenyAllEgress ? 'Allow all egress' : 'Deny all egress');
