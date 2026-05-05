@@ -1,8 +1,8 @@
 ---
-title: MCP server egress control
+title: MCP Server Egress Control
 ---
 
-# MCP server egress control
+# MCP Server Egress Control
 
 MCP server egress control restricts which external domains Kubernetes-hosted MCP servers can reach. It is intended for production deployments where MCP servers may run third-party code and should only be allowed to call known external services.
 

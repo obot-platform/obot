@@ -136,7 +136,7 @@ Obot creates one ClusterIP service for each Deployment to expose its MCP server 
 
 Obot provides an optional NetworkPolicy to restrict network traffic from MCP server pods for enhanced security. When enabled, this policy limits what MCP servers can access on the network.
 
-For per-MCP-server domain allowlists, see [MCP server egress control](./mcp-server-egress-control.md).
+For per-MCP-server domain allowlists, see [MCP Server Egress Control](./mcp-server-egress-control.md).
 
 #### Configuration
 
