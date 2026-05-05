@@ -9,6 +9,7 @@
 	import {
 		convertCategoriesToMetadata,
 		convertServerRuntimeFormDataToManifest,
+		sanitizeEgressDomains,
 		validateRuntimeForm
 	} from '$lib/services/chat/mcp';
 	import type { LaunchServerType, Runtime } from '$lib/services/chat/types';
@@ -296,10 +297,6 @@
 			revealCatalogServer(id, entry.id, entity);
 		}
 	});
-
-	function sanitizeEgressDomains(egressDomains?: string[]) {
-		return egressDomains?.map((domain) => domain.trim()).filter(Boolean) || [];
-	}
 
 	function convertToEntryManifest(formData: RuntimeFormData): MCPCatalogEntryServerManifest {
 		const { categories, ...baseData } = formData;

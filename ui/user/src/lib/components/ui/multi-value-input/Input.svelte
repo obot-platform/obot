@@ -125,7 +125,7 @@
 						if (values.length === 0) break;
 						if (text.length) break;
 
-						value = values.slice(0, -1).join(',');
+						assignValues(values.slice(0, -1));
 					}
 
 					break;
