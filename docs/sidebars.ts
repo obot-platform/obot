@@ -70,6 +70,7 @@ const sidebars = {
         "configuration/user-roles",
         "configuration/mcp-server-gitops",
         "configuration/mcp-deployments-in-kubernetes",
+        "configuration/mcp-server-egress-control",
         "configuration/audit-log-export",
         "configuration/mcp-server-oauth-configuration",
         "configuration/server-configuration",
