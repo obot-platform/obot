@@ -85,7 +85,7 @@
 	}: Props = $props();
 
 	let entry = $state(untrack(() => initialEntry));
-	let lastSyncedInitialEntry = $state<MCPCatalogEntry | MCPCatalogServer | undefined>(undefined);
+	let lastSyncedInitialEntry: MCPCatalogEntry | MCPCatalogServer | undefined = undefined;
 
 	$effect(() => {
 		const next = initialEntry;
