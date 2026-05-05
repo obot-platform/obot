@@ -3506,9 +3506,36 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		return m.triggerCompositeUpdate(req, server, entry)
 	}
 
-	oldServer := server.DeepCopy()
+	// Shutdown the server, even if there is no credential
+	if err := m.removeMCPServer(req.Context(), server); err != nil {
+		return err
+	}
 
-	// Update the server manifest with the latest from the catalog entry
+	// Use RetryOnConflict because catalog-entry updates cause controller-side
+	// status writes (for example DetectDrift setting NeedsUpdate) that can race
+	// with this spec update and bump the ResourceVersion.
+	oldManifestHash := hash.Digest(server.Spec.Manifest)
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		var latest v1.MCPServer
+		if err := req.Get(&latest, server.Name); err != nil {
+			return err
+		}
+
+		if hash.Digest(latest.Spec.Manifest) != oldManifestHash {
+			return types.NewErrHTTP(http.StatusConflict, "manifest changed during update")
+		}
+
+		updateServerFromCatalogEntry(&latest, entry)
+		return req.Update(&latest)
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func updateServerFromCatalogEntry(server *v1.MCPServer, entry v1.MCPServerCatalogEntry) {
+	// Update the server manifest with the latest from the catalog entry.
 	server.Spec.Manifest.Metadata = entry.Spec.Manifest.Metadata
 	server.Spec.Manifest.Name = entry.Spec.Manifest.Name
 	server.Spec.Manifest.ShortDescription = entry.Spec.Manifest.ShortDescription
@@ -3520,17 +3547,17 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	server.Spec.Manifest.NPXConfig = entry.Spec.Manifest.NPXConfig
 	server.Spec.Manifest.ContainerizedConfig = entry.Spec.Manifest.ContainerizedConfig
 
-	// Handle remote runtime URL updates
+	// Handle remote runtime URL updates.
 	if entry.Spec.Manifest.Runtime == types.RuntimeRemote && entry.Spec.Manifest.RemoteConfig != nil {
 		if entry.Spec.Manifest.RemoteConfig.FixedURL != "" {
-			// Use the fixed URL from catalog entry
+			// Use the fixed URL from catalog entry.
 			server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
 				URL:                 entry.Spec.Manifest.RemoteConfig.FixedURL,
 				Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
 				StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 			}
 		} else if entry.Spec.Manifest.RemoteConfig.Hostname != "" {
-			// Check if the server's current URL matches the new hostname requirement
+			// Check if the server's current URL matches the new hostname requirement.
 			if server.Spec.Manifest.RemoteConfig != nil && server.Spec.Manifest.RemoteConfig.URL != "" {
 				hostnameMismatchErr := types.ValidateURLHostname(server.Spec.Manifest.RemoteConfig.URL, entry.Spec.Manifest.RemoteConfig.Hostname)
 
@@ -3546,7 +3573,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 					StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 				}
 			} else {
-				// No current URL, needs one
+				// No current URL, needs one.
 				server.Spec.NeedsURL = true
 				server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
 					Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
@@ -3561,20 +3588,9 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 			}
 		}
 	} else {
-		// For non-remote runtimes, clear the remote config
+		// For non-remote runtimes, clear the remote config.
 		server.Spec.Manifest.RemoteConfig = nil
 	}
-
-	// Shutdown the server, even if there is no credential
-	if err := m.removeMCPServer(req.Context(), *oldServer); err != nil {
-		return err
-	}
-
-	if err := req.Update(&server); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // triggerCompositeUpdate upgrades a composite server and all its component servers from the latest catalog entry
