@@ -3521,18 +3521,6 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 			return err
 		}
 
-		if latest.Spec.MCPCatalogID != "" || latest.Spec.PowerUserWorkspaceID != "" {
-			return types.NewErrBadRequest("cannot trigger update for a multi-user MCP server; use the UpdateServer endpoint instead")
-		}
-
-		if latest.Spec.CompositeName != "" {
-			return types.NewErrBadRequest("cannot trigger update on a component server; upgrade the parent composite server instead")
-		}
-
-		if latest.Spec.MCPServerCatalogEntryName != entry.Name {
-			return types.NewErrHTTP(http.StatusConflict, "catalog entry changed during update")
-		}
-
 		if hash.Digest(latest.Spec.Manifest) != oldManifestHash {
 			return types.NewErrHTTP(http.StatusConflict, "manifest changed during update")
 		}
