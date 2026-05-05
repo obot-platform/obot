@@ -85,6 +85,16 @@
 	}: Props = $props();
 
 	let entry = $state(untrack(() => initialEntry));
+	let lastSyncedInitialEntry = $state<MCPCatalogEntry | MCPCatalogServer | undefined>(undefined);
+
+	$effect(() => {
+		const next = initialEntry;
+		if (next !== lastSyncedInitialEntry) {
+			lastSyncedInitialEntry = next;
+			entry = next;
+		}
+	});
+
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 
 	// True owner: admin, workspace owner, or power user who created the server
