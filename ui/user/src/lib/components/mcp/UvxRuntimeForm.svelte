@@ -216,7 +216,7 @@
 					bind:value={config.egressDomains}
 					class="text-input-filled dark:bg-background"
 					readonly={inputReadonly}
-					placeholder="example.com, *.example.com"
+					placeholder="example.com, *.example.com (hit &quot;Enter&quot; to insert)"
 				/>
 				<p class="text-on-surface1 text-xs">{egressHelpText}</p>
 			</div>
