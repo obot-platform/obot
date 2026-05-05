@@ -119,7 +119,7 @@
 				{@const server =
 					'isCatalogEntry' in d.data
 						? mcpServersAndEntries.current.userConfiguredServers.find(
-								(server) => server.catalogEntryID === d.data.id && !server.alias
+								(server) => server.catalogEntryID === d.data.id
 							)
 						: d.data}
 				{#if property === 'name'}

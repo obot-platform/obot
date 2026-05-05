@@ -26,7 +26,7 @@
 		hasEditableConfiguration,
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
-	import { mcpServersAndEntries, profile, version } from '$lib/stores';
+	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl, isOwnSingleUserServer } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -860,8 +860,12 @@
 					break;
 				}
 				case 'disconnect': {
-					await ChatService.deleteSingleOrRemoteMcpServer(d.id);
-					mcpServersAndEntries.refreshUserConfiguredServers();
+					try {
+						await ChatService.deleteSingleOrRemoteMcpServer(d.id);
+						mcpServersAndEntries.refreshUserConfiguredServers();
+					} catch (error) {
+						errors.append(`Failed to disconnect MCP server: ${error}`);
+					}
 					break;
 				}
 				case 'restart': {
@@ -881,7 +885,7 @@
 	>
 		{#snippet onRenderColumn(property, d)}
 			{#if property === 'name'}
-				<div class="flex flex-shrink-0 items-center gap-2">
+				<div class="flex shrink-0 items-center gap-2">
 					<div class="icon">
 						{#if d.manifest.icon}
 							<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
