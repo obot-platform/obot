@@ -579,8 +579,9 @@ export const convertCategoriesToMetadata = (categories: string[]) => {
 		: undefined;
 };
 
-const sanitizeEgressDomains = (egressDomains?: string[]) => {
-	return egressDomains?.map((domain) => domain.trim()).filter(Boolean) || [];
+export const sanitizeEgressDomains = (egressDomains?: string[] | string) => {
+	const domains = Array.isArray(egressDomains) ? egressDomains : egressDomains?.split(',');
+	return domains?.map((domain) => domain.trim()).filter(Boolean) || [];
 };
 
 export const convertServerRuntimeFormDataToManifest = (
