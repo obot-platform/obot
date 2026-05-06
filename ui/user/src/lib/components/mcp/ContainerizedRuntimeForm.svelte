@@ -9,6 +9,7 @@
 
 	interface Props {
 		config: ContainerizedRuntimeConfig;
+		startupTimeoutSeconds?: number;
 		readonly?: boolean;
 		showEgressDomains?: boolean;
 		defaultDenyAllEgress?: boolean;
@@ -18,6 +19,7 @@
 	}
 	let {
 		config = $bindable(),
+		startupTimeoutSeconds = $bindable(),
 		readonly,
 		showEgressDomains = false,
 		defaultDenyAllEgress = false,
@@ -284,6 +286,27 @@
 			</div>
 		</div>
 	{/if}
+
+	<!-- Startup Timeout -->
+	<div class="flex items-center gap-4">
+		<label
+			for="containerized-startup-timeout"
+			class={twMerge('text-sm font-light', showRequired?.startupTimeoutSeconds && 'error')}
+			>Startup Timeout (seconds)</label
+		>
+		<input
+			type="number"
+			id="containerized-startup-timeout"
+			min="1"
+			placeholder="60"
+			bind:value={startupTimeoutSeconds}
+			class={twMerge(
+				'text-input-filled dark:bg-background w-32',
+				showRequired?.startupTimeoutSeconds && 'error'
+			)}
+			disabled={readonly}
+		/>
+	</div>
 
 	{@render children?.()}
 </div>

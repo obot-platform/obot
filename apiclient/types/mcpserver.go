@@ -166,6 +166,10 @@ type MCPServerCatalogEntryManifest struct {
 	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
+
+	// StartupTimeout configures the timeout to start and connect to an MCP Server. When unset, it defaults to 60s.
+	// The maximum allowed value is 600s (10 minutes). Attempting to set a higher value will cause an error.
+	StartupTimeoutSeconds int `json:"startupTimeoutSeconds,omitempty"`
 }
 
 // ToolOverride defines how a single component tool is exposed by the composite server
@@ -245,6 +249,7 @@ type MCPServerManifest struct {
 	Headers []MCPHeader `json:"headers,omitempty"`
 
 	IdleShutdownIntervalHours int `json:"idleShutdownIntervalHours,omitempty"`
+	StartupTimeoutSeconds     int `json:"startupTimeoutSeconds,omitempty"`
 }
 
 type MCPServer struct {
@@ -408,14 +413,15 @@ func (e RuntimeValidationError) Error() string {
 func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL string, disableHostnameValidation bool) (MCPServerManifest, error) {
 	serverManifest := MCPServerManifest{
 		// Copy common fields
-		Metadata:         catalogEntry.Metadata,
-		Name:             catalogEntry.Name,
-		ShortDescription: catalogEntry.ShortDescription,
-		Description:      catalogEntry.Description,
-		Icon:             catalogEntry.Icon,
-		ToolPreview:      catalogEntry.ToolPreview,
-		Runtime:          catalogEntry.Runtime,
-		Env:              catalogEntry.Env,
+		Metadata:              catalogEntry.Metadata,
+		Name:                  catalogEntry.Name,
+		ShortDescription:      catalogEntry.ShortDescription,
+		Description:           catalogEntry.Description,
+		Icon:                  catalogEntry.Icon,
+		ToolPreview:           catalogEntry.ToolPreview,
+		Runtime:               catalogEntry.Runtime,
+		Env:                   catalogEntry.Env,
+		StartupTimeoutSeconds: catalogEntry.StartupTimeoutSeconds,
 	}
 
 	// Handle runtime-specific mapping

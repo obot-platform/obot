@@ -413,6 +413,8 @@ export interface MCPServer {
 	remoteConfig?: RemoteRuntimeConfig;
 	compositeConfig?: CompositeRuntimeConfig;
 	multiUserConfig?: MultiUserConfig;
+
+	startupTimeoutSeconds?: number;
 }
 
 export interface MCPServerTool {
