@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CopyButton from '../CopyButton.svelte';
-	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
+	import { ChevronLeft, ChevronRight, Plus } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -37,6 +37,29 @@
 	let previousSelected = $state(options[0].key);
 	let isAnimating = $state(false);
 	let flyDirection = $state(100); // 100 for right, -100 for left
+
+	/** Base64-encodes a UTF-8 string (browser-safe; replaces Node's Buffer). */
+	function utf8ToBase64(value: string): string {
+		const bytes = new TextEncoder().encode(value);
+		const chunkSize = 0x8000;
+		let binary = '';
+		for (let i = 0; i < bytes.length; i += chunkSize) {
+			binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+		}
+		return btoa(binary);
+	}
+
+	function generateMcpLinks(name: string, config: Record<string, unknown>) {
+		const configString = JSON.stringify(config);
+
+		const cursorBase64 = utf8ToBase64(configString);
+		const cursorLink = `cursor://anysphere.cursor-deeplink/mcp/install?name=${name}&config=${cursorBase64}`;
+
+		const vscodeEncoded = encodeURIComponent(configString);
+		const vscodeLink = `vscode://mcp/install?${vscodeEncoded}`;
+
+		return { cursorLink, vscodeLink };
+	}
 
 	function getFlyDirection(newSelection: string, oldSelection: string): number {
 		const newIndex = options.findIndex((option) => option.key === newSelection);
@@ -91,6 +114,18 @@
 			window.removeEventListener('resize', checkScrollPosition);
 		};
 	});
+
+	const mcpLinks = $derived(
+		new Map(
+			servers.map((server) => [
+				server.name,
+				generateMcpLinks(server.name, {
+					command: 'npx',
+					args: ['mcp-remote@latest', server.url]
+				})
+			])
+		)
+	);
 </script>
 
 <div class="flex w-full items-center gap-2">
@@ -162,6 +197,32 @@
 					class="w-1/2 p-4"
 				>
 					{#if option.key === 'cursor'}
+						<div class="flex flex-col gap-2 w-full items-center justify-center mb-4">
+							{#each mcpLinks.entries() as [name, links] (name)}
+								{@const link = links.cursorLink}
+								<a
+									href={link}
+									rel="noopener noreferrer external"
+									target="_blank"
+									class="cursor-link group"
+								>
+									<span class="relative inline-flex size-4 shrink-0 items-center justify-center">
+										<img
+											src={option.value.icon}
+											alt={`${option.value.label} icon`}
+											class="size-4 rounded-sm bg-surface3 p-px transition-opacity duration-200 ease-in-out group-hover:opacity-0"
+										/>
+										<Plus
+											class="absolute size-4 text-current opacity-0 transition-opacity duration-200 ease-in-out group-hover:opacity-100"
+											strokeWidth={2.5}
+											aria-hidden="true"
+										/>
+									</span>
+									Add To Cursor
+								</a>
+							{/each}
+						</div>
+						<div class="divider">OR</div>
 						<p>
 							To add this MCP server to Cursor, update your <span class="snippet"
 								>~/.cursor/mcp.json</span
@@ -206,6 +267,32 @@ ${servers
 
 `)}
 					{:else if option.key === 'vscode'}
+						<div class="flex flex-col gap-2 w-full items-center justify-center mb-4">
+							{#each mcpLinks.entries() as [name, links] (name)}
+								{@const link = links.vscodeLink}
+								<a
+									href={link}
+									rel="noopener noreferrer external"
+									target="_blank"
+									class="vscode-link group"
+								>
+									<span class="relative inline-flex size-4 shrink-0 items-center justify-center">
+										<img
+											src={option.value.icon}
+											alt={`${option.value.label} icon`}
+											class="size-4 rounded-sm p-px transition-opacity duration-200 ease-in-out group-hover:opacity-0"
+										/>
+										<Plus
+											class="absolute size-4 text-current opacity-0 transition-opacity duration-200 ease-in-out group-hover:opacity-100"
+											strokeWidth={2.5}
+											aria-hidden="true"
+										/>
+									</span>
+									Add To VSCode
+								</a>
+							{/each}
+						</div>
+						<div class="divider">OR</div>
 						<p>
 							To add this MCP server to VSCode, update your <span class="snippet"
 								>.vscode/mcp.json</span
@@ -277,6 +364,46 @@ ${servers
 		to {
 			transform: scaleX(1);
 			opacity: 1;
+		}
+	}
+
+	.cursor-link {
+		background-color: var(--color-black);
+		color: var(--color-white);
+		font-size: var(--text-xs);
+		font-weight: 300;
+		padding: 0.5rem 1rem;
+		border-radius: var(--radius-xs);
+		transition: all 0.2s ease-in-out;
+		transition-property: background-color, border-color, color;
+		text-transform: uppercase;
+		width: fit-content;
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+
+		&:hover {
+			background-color: color-mix(in oklab, var(--color-black) 85%, var(--color-white));
+		}
+	}
+
+	.vscode-link {
+		background-color: #0065a9;
+		color: var(--color-white);
+		font-size: var(--text-xs);
+		font-weight: 300;
+		padding: 0.5rem 1rem;
+		border-radius: var(--radius-xs);
+		transition: all 0.2s ease-in-out;
+		transition-property: background-color, border-color, color;
+		text-transform: uppercase;
+		width: fit-content;
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+
+		&:hover {
+			background-color: color-mix(in oklab, #0065a9 90%, var(--color-white));
 		}
 	}
 
