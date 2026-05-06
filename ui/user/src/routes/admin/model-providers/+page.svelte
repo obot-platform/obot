@@ -20,6 +20,16 @@
 	import { onMount, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 
+	const nanobotIntegratedModels = [
+		CommonModelProviderIds.OPENAI,
+		CommonModelProviderIds.ANTHROPIC,
+		CommonModelProviderIds.AMAZON_BEDROCK,
+		CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
+		CommonModelProviderIds.AZURE,
+		CommonModelProviderIds.AZURE_ENTRA,
+		CommonModelProviderIds.OLLAMA
+	];
+
 	let { data } = $props();
 	let modelProviders = $state(untrack(() => data.modelProviders));
 	let providerConfigure = $state<ReturnType<typeof ProviderConfigure>>();
@@ -33,24 +43,20 @@
 		!!modelProviders.find((provider) => provider.id === CommonModelProviderIds.ANTHROPIC_BEDROCK)
 			?.configured
 	);
-	let modelProvidersToShow = $derived(
+	let isLegacyDisabled = $derived(version.current.disableLegacyChat);
+	let availableModelProviders = $derived(
 		hasAnthropicAwsBedrockConfigured
 			? modelProviders
 			: modelProviders.filter(
 					(provider) => provider.id !== CommonModelProviderIds.ANTHROPIC_BEDROCK
 				)
 	);
+	let modelProvidersToShow = $derived(
+		isLegacyDisabled
+			? availableModelProviders.filter((provider) => nanobotIntegratedModels.includes(provider.id))
+			: availableModelProviders
+	);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	let isLegacyDisabled = $derived(version.current.disableLegacyChat);
-	const nanobotIntegratedModels = [
-		CommonModelProviderIds.OPENAI,
-		CommonModelProviderIds.ANTHROPIC,
-		CommonModelProviderIds.AMAZON_BEDROCK,
-		CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
-		CommonModelProviderIds.AZURE,
-		CommonModelProviderIds.AZURE_ENTRA,
-		CommonModelProviderIds.OLLAMA
-	];
 	const defaultModelAliases = $derived(defaultModelAliasesStore.current);
 
 	initModels([]);
@@ -184,7 +190,6 @@
 						adminConfigStore.updateModelProviders(modelProviders);
 					}}
 					readonly={isAdminReadonly}
-					isComingSoon={isLegacyDisabled && !nanobotIntegratedModels.includes(modelProvider.id)}
 				>
 					{#snippet configuredActions(provider)}
 						<ListModels {provider} readonly={isAdminReadonly} />
