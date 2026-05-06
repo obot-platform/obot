@@ -9,6 +9,7 @@
 	} from '$lib/services';
 	import {
 		convertEntriesAndServersToTableData,
+		getConfiguredServersForCatalogEntry,
 		getServerTypeLabelByType,
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
@@ -116,12 +117,8 @@
 			initSort={{ property: 'connected', order: 'desc' }}
 		>
 			{#snippet onRenderColumn(property, d)}
-				{@const server =
-					'isCatalogEntry' in d.data
-						? mcpServersAndEntries.current.userConfiguredServers.find(
-								(server) => server.catalogEntryID === d.data.id
-							)
-						: d.data}
+				{@const configuredServers = 'isCatalogEntry' in d.data ? getConfiguredServersForCatalogEntry(d.data) : []}
+				{@const server = configuredServers.length === 1 ? configuredServers[0] : undefined}
 				{#if property === 'name'}
 					<div class="flex shrink-0 items-center gap-2">
 						<div class="icon">

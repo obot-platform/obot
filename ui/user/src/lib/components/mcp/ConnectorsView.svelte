@@ -864,7 +864,11 @@
 						await ChatService.deleteSingleOrRemoteMcpServer(d.id);
 						mcpServersAndEntries.refreshUserConfiguredServers();
 					} catch (error) {
-						errors.append(`Failed to disconnect MCP server: ${error}`);
+						errors.append(
+ 							error instanceof Error
+ 								? error
+ 								: new Error('Failed to disconnect MCP server', { cause: error })
+ 						);
 					}
 					break;
 				}

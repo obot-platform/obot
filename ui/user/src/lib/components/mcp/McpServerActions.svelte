@@ -10,7 +10,7 @@
 		type MCPServerInstance
 	} from '$lib/services';
 	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
-	import { mcpServersAndEntries, profile, version } from '$lib/stores';
+	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -319,8 +319,16 @@
 					break;
 				}
 				case 'disconnect': {
-					await ChatService.deleteSingleOrRemoteMcpServer(d.id);
-					mcpServersAndEntries.refreshUserConfiguredServers();
+					try {
+						await ChatService.deleteSingleOrRemoteMcpServer(d.id);
+						mcpServersAndEntries.refreshUserConfiguredServers();
+					} catch (error) {
+						errors.append(
+							error instanceof Error
+								? error
+								: new Error('Failed to disconnect MCP server', { cause: error })
+						);
+					}
 					break;
 				}
 				default:
