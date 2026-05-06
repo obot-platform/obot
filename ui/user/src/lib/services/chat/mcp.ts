@@ -365,8 +365,8 @@ export async function convertCompositeInfoToLaunchFormData(
 		const m = c.manifest;
 		const init = initial?.[id];
 		// Treat components that reference an MCP server ID (and not a catalog
-		// entry) as multi-user. Those are configured at the server level, so
-		// per-user composite config should only allow enable/disable toggling.
+		// entry) as multi-user. Their composite component instance can collect
+		// per-user headers from the server's multi-user configuration.
 		const isMultiUser = !!c.mcpServerID && !c.catalogEntryID;
 		componentConfigs[id] = {
 			name: m.name,
@@ -375,8 +375,6 @@ export async function convertCompositeInfoToLaunchFormData(
 				isMultiUser || !(m.remoteConfig && 'hostname' in m.remoteConfig)
 					? ''
 					: m.remoteConfig.hostname,
-			// For multi-user components, ignore any stored URL/config; they are
-			// managed at the multi-user server level.
 			url: isMultiUser ? undefined : (init?.url ?? m.remoteConfig?.fixedURL ?? ''),
 			disabled: init?.disabled ?? false,
 			isMultiUser,
@@ -388,7 +386,12 @@ export async function convertCompositeInfoToLaunchFormData(
 						value: init?.config?.[e.key] ?? ''
 					})),
 			headers: isMultiUser
-				? []
+				? (m.multiUserConfig?.userDefinedHeaders ?? []).map((h) => ({
+						...(h as unknown as Record<string, unknown>),
+						key: h.key,
+						value: init?.config?.[h.key] ?? '',
+						isStatic: false
+					}))
 				: (m.remoteConfig?.headers ?? []).map((h) => ({
 						...(h as unknown as Record<string, unknown>),
 						key: h.key,
@@ -596,6 +599,7 @@ export const convertServerRuntimeFormDataToManifest = (
 			description: baseData.description,
 			icon: baseData.icon,
 			env: baseData.env,
+			multiUserConfig: baseData.multiUserConfig,
 			runtime: baseData.runtime,
 			...convertCategoriesToMetadata(categories)
 		}

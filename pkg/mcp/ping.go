@@ -7,7 +7,7 @@ import (
 )
 
 func (sm *SessionManager) PingServer(ctx context.Context, serverConfig ServerConfig) (*nmcp.PingResult, error) {
-	client, err := sm.clientForMCPServer(ctx, serverConfig)
+	client, err := sm.clientForServer(ctx, serverConfig)
 	if err != nil {
 		return nil, err
 	}

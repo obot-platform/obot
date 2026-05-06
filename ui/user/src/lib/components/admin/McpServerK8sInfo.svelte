@@ -37,7 +37,7 @@
 		mcpServerId: string;
 		name: string;
 		mcpServerInstanceId?: string;
-		connectedUsers: (OrgUser & { mcpInstanceId?: string })[];
+		connectedUsers: (OrgUser & { mcpInstanceId?: string; mcpInstanceConfigured?: boolean })[];
 		title?: string;
 		classes?: {
 			title?: string;
@@ -529,10 +529,16 @@
 {#if hasAdminAccess && entity !== 'webhook-validation'}
 	<div>
 		<h2 class="mb-2 text-lg font-semibold">Connected Users</h2>
-		<Table data={connectedUsers ?? []} fields={['name']}>
+		<Table
+			data={connectedUsers ?? []}
+			fields={['name', 'updateStatus']}
+			headers={[{ title: 'Config Status', property: 'updateStatus' }]}
+		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'name'}
 					{d.email || d.username || 'Unknown'}
+				{:else if property === 'updateStatus'}
+					{d.mcpInstanceConfigured === false ? 'Not Configured' : 'Up to date'}
 				{:else}
 					{d[property as keyof typeof d]}
 				{/if}

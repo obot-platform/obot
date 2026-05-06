@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/obot-platform/nah/pkg/fields"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -90,6 +91,8 @@ type MCPServerInstanceSpec struct {
 	Template bool `json:"template,omitempty"`
 	// CompositeName is the name of the composite MCP server that this MCP server instance is a component of, if there is one.
 	CompositeName string `json:"compositeName,omitempty"`
+	// MultiUserConfig indicates the configuration required from the MCP server that this instance points to.
+	MultiUserConfig *types.MultiUserConfig `json:"multiUserConfig,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
