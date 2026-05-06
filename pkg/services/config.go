@@ -763,7 +763,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	var apiLocalK8sClient kclient.Client
 	if localK8sConfig != nil {
-		apiLocalK8sClient, err = kclient.New(localK8sConfig, kclient.Options{})
+		apiLocalK8sClient, err = kclient.New(localK8sConfig, kclient.Options{Scheme: scheme.Scheme})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build local k8s client for API server: %w", err)
 		}

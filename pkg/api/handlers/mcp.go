@@ -2206,18 +2206,14 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 			continue
 		}
 
+		sanitizeComponentConfig(config.Config, component.Manifest)
+
 		if component.Disabled != config.Disabled {
 			component.Disabled = config.Disabled
 			manifestChanged = true
 		}
 
 		if instance, instanceExists := existingInstances[componentID]; instanceExists && !component.Disabled {
-			for key, val := range config.Config {
-				if val == "" {
-					delete(config.Config, key)
-				}
-			}
-
 			componentCreds[componentID] = gptscript.Credential{
 				Context:  MCPServerInstanceCredentialContext(instance),
 				ToolName: instance.Name,
@@ -2253,13 +2249,6 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 
 					// Mark the composite manifest as changed
 					manifestChanged = true
-				}
-			}
-
-			// Remove empty values
-			for key, val := range config.Config {
-				if val == "" {
-					delete(config.Config, key)
 				}
 			}
 
@@ -2390,6 +2379,36 @@ func secretBoundTemplateKeys(urlTemplate string, envs []types.MCPEnv) []string {
 		return nil
 	}
 	return bound
+}
+
+func sanitizeComponentConfig(config map[string]string, manifest types.MCPServerManifest) {
+	if config == nil {
+		return
+	}
+
+	bound := map[string]struct{}{}
+	for _, env := range manifest.Env {
+		if env.SecretBinding != nil {
+			bound[env.Key] = struct{}{}
+		}
+	}
+	if manifest.RemoteConfig != nil {
+		for _, header := range manifest.RemoteConfig.Headers {
+			if header.SecretBinding != nil {
+				bound[header.Key] = struct{}{}
+			}
+		}
+	}
+
+	for key, val := range config {
+		if val == "" {
+			delete(config, key)
+			continue
+		}
+		if _, ok := bound[key]; ok {
+			delete(config, key)
+		}
+	}
 }
 
 // applyURLTemplate applies a URL template with environment variables
