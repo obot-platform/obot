@@ -206,8 +206,8 @@
 					options={activeModelOptions
 						.map((model) => ({
 							label: (SUGGESTED_MODEL_SELECTIONS[modelAlias.alias] ?? []).includes(model.name ?? '')
-								? `${model.name ?? ''} (Suggested)`
-								: (model.name ?? ''),
+								? `${model.displayName || model.name || ''} (Suggested)`
+								: (model.displayName || model.name || ''),
 							id: model.id
 						}))
 						.sort((a, b) => {

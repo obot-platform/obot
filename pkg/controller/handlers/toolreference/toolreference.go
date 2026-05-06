@@ -462,6 +462,10 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 
 	models := make([]client.Object, 0, len(availableModels.Models))
 	for _, model := range availableModels.Models {
+		displayName := model.Metadata["displayName"]
+		if displayName == "" {
+			displayName = model.ID
+		}
 		models = append(models, &v1.Model{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: req.Namespace,
@@ -472,8 +476,8 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 			},
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
-					Name:          model.ID,
-					DisplayName:   model.Metadata["displayName"],
+					Name:          strings.ReplaceAll(model.ID, "/", "-"),
+					DisplayName:   displayName,
 					TargetModel:   model.ID,
 					ModelProvider: toolRef.Name,
 					Active:        true,

@@ -398,7 +398,8 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 // resolvedLLMModel pairs the resolved target model name with its configured provider reference
 // and the dialect declared by that provider (if any).
 type resolvedLLMModel struct {
-	TargetModel     string
+	Name            string               // slugified Manifest.Name (e.g. "openai-gpt-4.1"), safe for K8s/URL use
+	TargetModel     string               // real upstream model ID (e.g. "openai/gpt-4.1")
 	ModelProvider   string               // e.g. "openai-model-provider", "anthropic-model-provider"
 	ProviderDialect nanobottypes.Dialect // from ProviderMeta.Dialect; empty if not declared
 }
@@ -453,7 +454,7 @@ func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider
 		APIKey:  fmt.Sprintf("${%s}", envVarName),
 		BaseURL: baseURL,
 	}
-	return p, fmt.Sprintf("%s/%s", p.Name, model.TargetModel)
+	return p, fmt.Sprintf("%s/%s", p.Name, model.Name)
 }
 
 // buildNanobotProviderConfigYAML generates a nanobot Config YAML containing only the
@@ -494,6 +495,7 @@ func getModelForAlias(ctx context.Context, client kclient.Client, namespace stri
 	}
 
 	return resolvedLLMModel{
+		Name:            model.Spec.Manifest.Name,
 		TargetModel:     model.Spec.Manifest.TargetModel,
 		ModelProvider:   model.Spec.Manifest.ModelProvider,
 		ProviderDialect: nanobottypes.Dialect(model.Spec.Manifest.Dialect),
@@ -554,6 +556,7 @@ func chooseModel(ctx context.Context, client kclient.Client, namespace string, m
 		for _, model := range models {
 			if model.Spec.Manifest.TargetModel == preferredName || model.Spec.Manifest.Name == preferredName {
 				return resolvedLLMModel{
+					Name:            model.Spec.Manifest.Name,
 					TargetModel:     model.Spec.Manifest.TargetModel,
 					ModelProvider:   model.Spec.Manifest.ModelProvider,
 					ProviderDialect: nanobottypes.Dialect(model.Spec.Manifest.Dialect),
@@ -568,6 +571,7 @@ func chooseModel(ctx context.Context, client kclient.Client, namespace string, m
 
 	if len(models) > 0 {
 		return resolvedLLMModel{
+			Name:            models[0].Spec.Manifest.Name,
 			TargetModel:     models[0].Spec.Manifest.TargetModel,
 			ModelProvider:   models[0].Spec.Manifest.ModelProvider,
 			ProviderDialect: nanobottypes.Dialect(models[0].Spec.Manifest.Dialect),

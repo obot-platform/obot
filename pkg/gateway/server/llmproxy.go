@@ -219,24 +219,28 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 
 // getModelFromReference retrieves the model with a matching reference name.
 // The reference name must be any one of the following:
-// - The target name of a default model alias
-// - The target name of the model itself
-// - The actual name of the model
+// - The name of a default model alias
+// - The slugified manifest name of the model (e.g. "openai-gpt-4.1")
+// - The target model ID (e.g. "gpt-4.1")
+// - The actual Kubernetes resource name of the model
 func getModelFromReference(ctx context.Context, client kclient.Client, namespace, modelReference string) (*v1.Model, error) {
 	m, err := alias.GetFromScope(ctx, client, "Model", namespace, modelReference)
 	if apierrors.IsNotFound(err) {
-		// Maybe the user is trying to get a model by the target name.
 		var models v1.ModelList
 		if err := client.List(ctx, &models, &kclient.ListOptions{
 			Namespace:     namespace,
-			FieldSelector: fields.OneTermEqualSelector("spec.manifest.targetModel", modelReference),
+			FieldSelector: fields.OneTermEqualSelector("spec.manifest.name", modelReference),
 		}); err != nil {
 			return nil, err
 		}
 
 		if len(models.Items) == 0 {
-			// Return the original error if no models are found.
-			return nil, err
+			if err := client.List(ctx, &models, &kclient.ListOptions{
+				Namespace:     namespace,
+				FieldSelector: fields.OneTermEqualSelector("spec.manifest.targetModel", modelReference),
+			}); err != nil {
+				return nil, err
+			}
 		}
 
 		// Return the oldest one.
