@@ -176,8 +176,15 @@
 					? compositeParent.alias || compositeParent.manifest.name
 					: '';
 
+				const instance = instancesMap.get(deployment.id);
 				const { updateStatus, updatesAvailable, updateStatusTooltip } =
-					getMcpServerDeploymentStatus(deployment, doesSupportK8sUpdates);
+					instance?.configured === false
+						? {
+								updateStatus: 'Not Configured',
+								updatesAvailable: ['Not Configured'],
+								updateStatusTooltip: undefined
+							}
+						: getMcpServerDeploymentStatus(deployment, doesSupportK8sUpdates);
 
 				return {
 					...deployment,
@@ -261,6 +268,10 @@
 		if (isInitialLoad) {
 			loading = false;
 		}
+	}
+
+	function hasInstanceConfiguration(server: MCPCatalogServer) {
+		return (server.manifest.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
 	}
 
 	async function handleBulkUpdate() {
@@ -611,6 +622,8 @@
 				{#snippet actions(d)}
 					{@const isComposite = !!d.compositeName}
 					{@const auditLogsUrl = getAuditLogsUrl(d)}
+					{@const instance = instancesMap.get(d.id)}
+					{@const hasMyConnection = d.isMyServer || !!instance}
 
 					<DotDotDot class="icon-button hover:dark:bg-background/50" classes={{ menu: 'p-0' }}>
 						{#snippet icon()}
@@ -618,7 +631,7 @@
 						{/snippet}
 
 						{#snippet children({ toggle })}
-							{#if !isComposite && d.isMyServer}
+							{#if !isComposite && hasMyConnection}
 								<div
 									class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
 								>
@@ -635,7 +648,7 @@
 											connectToServerDialog?.open({
 												entry,
 												server: d,
-												instance: instancesMap.get(d.id)
+												instance
 											});
 											toggle(false);
 										}}
@@ -648,7 +661,7 @@
 											onclick={async (e) => {
 												e.stopPropagation();
 												if (d) {
-													connectToServerDialog?.handleSetupChat(d, instancesMap.get(d.id));
+													connectToServerDialog?.handleSetupChat(d, instance);
 												}
 												toggle(false);
 											}}
@@ -687,6 +700,22 @@
 										{/if}
 									</span>
 								</a>
+								{#if instance && hasInstanceConfiguration(d)}
+									<button
+										class="menu-button"
+										onclick={(e) => {
+											e.stopPropagation();
+											connectToServerDialog?.open({
+												server: d,
+												instance,
+												configureInstance: true
+											});
+											toggle(false);
+										}}
+									>
+										<ServerCog class="size-4" /> Edit Configuration
+									</button>
+								{/if}
 								{#if d.needsUpdate && (d.isMyServer || (hasAdminAccess && !readonly))}
 									<button
 										class="menu-button-primary"
@@ -1099,11 +1128,14 @@
 <ConnectToServer
 	bind:this={connectToServerDialog}
 	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
+	onConnect={async () => {
+		await reload();
+	}}
 />
 
 <EditExistingDeployment
 	bind:this={editExistingDialog}
-	onUpdateConfigure={() => {
-		mcpServersAndEntries.refreshAll();
+	onUpdateConfigure={async () => {
+		await reload();
 	}}
 />

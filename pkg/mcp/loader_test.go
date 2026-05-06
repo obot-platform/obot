@@ -2,7 +2,7 @@ package mcp
 
 import "testing"
 
-func TestClientIDIgnoresDynamicFileData(t *testing.T) {
+func TestServerIDIgnoresDynamicFileData(t *testing.T) {
 	serverA := ServerConfig{
 		Runtime:       "containerized",
 		MCPServerName: "test-server",
@@ -20,12 +20,12 @@ func TestClientIDIgnoresDynamicFileData(t *testing.T) {
 		Dynamic: true,
 	}}
 
-	if clientID(serverA) != clientID(serverB) {
-		t.Fatalf("expected same client ID when only dynamic file data changes")
+	if serverID(serverA) != serverID(serverB) {
+		t.Fatalf("expected same server ID when only dynamic file data changes")
 	}
 }
 
-func TestClientIDIncludesStaticFileData(t *testing.T) {
+func TestServerIDIncludesStaticFileData(t *testing.T) {
 	serverA := ServerConfig{
 		Runtime:       "containerized",
 		MCPServerName: "test-server",
@@ -43,12 +43,12 @@ func TestClientIDIncludesStaticFileData(t *testing.T) {
 		Dynamic: false,
 	}}
 
-	if clientID(serverA) == clientID(serverB) {
+	if serverID(serverA) == serverID(serverB) {
 		t.Fatalf("expected different client IDs when static file data changes")
 	}
 }
 
-func TestClientIDIncludesFileEnvKeys(t *testing.T) {
+func TestServerIDIncludesFileEnvKeys(t *testing.T) {
 	serverA := ServerConfig{
 		Runtime:       "containerized",
 		MCPServerName: "test-server",
@@ -66,7 +66,40 @@ func TestClientIDIncludesFileEnvKeys(t *testing.T) {
 		Dynamic: true,
 	}}
 
-	if clientID(serverA) == clientID(serverB) {
+	if serverID(serverA) == serverID(serverB) {
 		t.Fatalf("expected different client IDs when file env key changes")
+	}
+}
+
+func TestServerIDIncludesPassThroughHeaderNames(t *testing.T) {
+	serverA := ServerConfig{
+		Runtime:                "remote",
+		MCPServerName:          "test-server",
+		URL:                    "https://example.com/mcp",
+		PassthroughHeaderNames: []string{"X-Test-Header"},
+	}
+
+	serverB := serverA
+	serverB.PassthroughHeaderNames = []string{"X-Other-Header"}
+
+	if serverID(serverA) == serverID(serverB) {
+		t.Fatalf("expected different client IDs when passthrough header names change")
+	}
+}
+
+func TestServerIDIgnoresPassThroughHeaderValues(t *testing.T) {
+	serverA := ServerConfig{
+		Runtime:                 "remote",
+		MCPServerName:           "test-server",
+		URL:                     "https://example.com/mcp",
+		PassthroughHeaderNames:  []string{"X-Test-Header"},
+		PassthroughHeaderValues: []string{"value-a"},
+	}
+
+	serverB := serverA
+	serverB.PassthroughHeaderValues = []string{"value-b"}
+
+	if serverID(serverA) != serverID(serverB) {
+		t.Fatalf("expected same server ID when only passthrough header values change")
 	}
 }

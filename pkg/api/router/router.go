@@ -439,6 +439,9 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mcp-server-instances", serverInstances.ListServerInstances)
 	mux.HandleFunc("GET /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.GetServerInstance)
 	mux.HandleFunc("POST /api/mcp-server-instances", serverInstances.CreateServerInstance)
+	mux.HandleFunc("POST /api/mcp-server-instances/{mcp_server_instance_id}/reveal", serverInstances.RevealConfig)
+	mux.HandleFunc("POST /api/mcp-server-instances/{mcp_server_instance_id}/configure", serverInstances.ConfigureServerInstance)
+	mux.HandleFunc("POST /api/mcp-server-instances/{mcp_server_instance_id}/deconfigure", serverInstances.DeconfigureServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.DeleteServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}/oauth", serverInstances.ClearOAuthCredentials)
 

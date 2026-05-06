@@ -65,6 +65,12 @@ type RemoteCatalogConfig struct {
 	StaticOAuthRequired bool        `json:"staticOAuthRequired,omitempty"` // Indicates static OAuth configuration is required
 }
 
+// MultiUserConfig represents configuration for multi-user MCP servers in catalog entries
+type MultiUserConfig struct {
+	// Headers that users should provide when configuring their server instance.
+	UserDefinedHeaders []MCPHeader `json:"userDefinedHeaders,omitempty"`
+}
+
 // CompositeCatalogConfig represents configuration for composite servers in catalog entries.
 type CompositeCatalogConfig struct {
 	ComponentServers []CatalogComponentServer `json:"componentServers"`
@@ -156,6 +162,9 @@ type MCPServerCatalogEntryManifest struct {
 	RemoteConfig        *RemoteCatalogConfig        `json:"remoteConfig,omitempty"`
 	CompositeConfig     *CompositeCatalogConfig     `json:"compositeConfig,omitempty"`
 
+	// MultiUserConfig is the multi-user specific configuration for this component server, if applicable.
+	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
+
 	Env []MCPEnv `json:"env,omitempty"`
 }
 
@@ -223,6 +232,9 @@ type MCPServerManifest struct {
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
 	CompositeConfig     *CompositeRuntimeConfig     `json:"compositeConfig,omitempty"`
+
+	// Multi-user specific configuration
+	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
 

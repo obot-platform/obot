@@ -119,6 +119,8 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 		}
 		req.Header.Set("Accept", "application/json,text/event-stream")
 		req.Header.Set("Content-Type", "application/json")
+		copyHeaders(req.Header, server.PassthroughHeaderNames, server.PassthroughHeaderValues)
+
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			continue
@@ -132,6 +134,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 				req, err := http.NewRequest(http.MethodDelete, url, nil)
 				if err == nil {
 					req.Header.Set("Mcp-Session-Id", sessionID)
+					copyHeaders(req.Header, server.PassthroughHeaderNames, server.PassthroughHeaderValues)
 					_, _ = http.DefaultClient.Do(req)
 				}
 			}
@@ -144,6 +147,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 			return fmt.Errorf("failed to create request: %w", err)
 		}
 		req.Header.Set("Accept", "text/event-stream")
+		copyHeaders(req.Header, server.PassthroughHeaderNames, server.PassthroughHeaderValues)
 
 		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
@@ -216,7 +220,7 @@ func constructMCPServerNanobotYAMLForComposite(servers []ComponentServer) ([]byt
 	return data, nil
 }
 
-func constructMCPServerNanobotYAML(name, url, command string, args []string, env, headers map[string][]byte, webhooks []Webhook) ([]byte, error) {
+func constructMCPServerNanobotYAML(name, url, command string, args, passthroughHeaders []string, env, headers map[string][]byte, webhooks []Webhook) ([]byte, error) {
 	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
 
 	webhookDefinitions := make(map[string][]string, len(webhooks))
@@ -241,12 +245,13 @@ func constructMCPServerNanobotYAML(name, url, command string, args []string, env
 
 	name = replacer.Replace(name)
 	mcpServers[name] = nanobotConfigMCPServer{
-		BaseURL: url,
-		Command: command,
-		Args:    args,
-		Env:     convertMapStringBytesToMapStringString(env),
-		Headers: convertMapStringBytesToMapStringString(headers),
-		Hooks:   webhookDefinitions,
+		BaseURL:            url,
+		Command:            command,
+		Args:               args,
+		Env:                convertMapStringBytesToMapStringString(env),
+		Headers:            convertMapStringBytesToMapStringString(headers),
+		PassthroughHeaders: passthroughHeaders,
+		Hooks:              webhookDefinitions,
 	}
 
 	config := nanobotConfig{
@@ -286,12 +291,13 @@ type nanobotConfigPublish struct {
 }
 
 type nanobotConfigMCPServer struct {
-	Command string              `json:"command,omitempty"`
-	Args    []string            `json:"args,omitempty"`
-	Hooks   map[string][]string `json:"hooks,omitempty"`
-	Env     map[string]string   `json:"env,omitempty"`
-	Headers map[string]string   `json:"headers,omitempty"`
-	BaseURL string              `json:"url,omitempty"`
+	Command            string              `json:"command,omitempty"`
+	Args               []string            `json:"args,omitempty"`
+	Hooks              map[string][]string `json:"hooks,omitempty"`
+	Env                map[string]string   `json:"env,omitempty"`
+	Headers            map[string]string   `json:"headers,omitempty"`
+	PassthroughHeaders []string            `json:"passthroughHeaders,omitempty"`
+	BaseURL            string              `json:"url,omitempty"`
 
 	ToolOverrides map[string]toolOverride `json:"toolOverrides,omitempty"`
 	ToolPrefix    string                  `json:"toolPrefix,omitempty"`

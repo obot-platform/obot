@@ -99,8 +99,8 @@ func TestApplyServerConfigToContainerConfigOverridesImageAndLabels(t *testing.T)
 		t.Fatalf("expected image %q, got %q", server.ContainerImage, config.Image)
 	}
 
-	if got, ok := config.Labels["mcp.config.hash"]; !ok || got != clientID(server) {
-		t.Fatalf("expected mcp.config.hash %q, got %q", clientID(server), got)
+	if got, ok := config.Labels["mcp.config.hash"]; !ok || got != serverID(server) {
+		t.Fatalf("expected mcp.config.hash %q, got %q", serverID(server), got)
 	}
 
 	if got, ok := config.Labels["mcp.file.env.keys.hash"]; !ok || got != fileEnvKeysHash(server.Files) {

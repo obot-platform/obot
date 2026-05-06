@@ -13,7 +13,7 @@ import (
 )
 
 func (sm *SessionManager) ListTools(ctx context.Context, serverConfig ServerConfig) ([]mcp.Tool, error) {
-	client, err := sm.clientForMCPServer(ctx, serverConfig)
+	client, err := sm.clientForServer(ctx, serverConfig)
 	if err != nil {
 		return nil, err
 	}

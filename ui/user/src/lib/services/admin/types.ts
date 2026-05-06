@@ -2,6 +2,7 @@ import {
 	type MCPServerTool,
 	type Project,
 	type RemoteRuntimeConfig,
+	type MultiUserConfig,
 	type Runtime,
 	type UVXRuntimeConfig,
 	type NPXRuntimeConfig,
@@ -73,6 +74,7 @@ export interface MCPCatalogEntryServerManifest {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin;
 	compositeConfig?: CompositeCatalogConfig;
+	multiUserConfig?: MultiUserConfig;
 }
 
 export interface MCPCatalogEntry {
@@ -137,12 +139,14 @@ export interface RuntimeFormData {
 	remoteServerConfig?: RemoteRuntimeConfigAdmin; // For servers
 	compositeConfig?: CompositeCatalogConfig; // For catalog entries
 	compositeServerConfig?: CompositeRuntimeConfig; // For servers
+	multiUserConfig?: MultiUserConfig; // For servers
 }
 
 export interface MCPCatalogServerManifest {
 	catalogEntryID?: string;
 	manifest: Omit<MCPCatalogEntryServerManifest, 'remoteConfig'> & {
 		remoteConfig?: RemoteRuntimeConfigAdmin;
+		multiUserConfig?: MultiUserConfig;
 	};
 }
 

@@ -960,7 +960,15 @@ func getRuntimeValidators() RuntimeValidators {
 	}
 }
 
-func ValidateServerManifest(manifest types.MCPServerManifest) error {
+func ValidateServerManifest(manifest types.MCPServerManifest, isMultiUser bool) error {
+	if manifest.MultiUserConfig != nil && !isMultiUser {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "multiUserConfig",
+			Message: "multiUserConfig may only be set for multi-user servers",
+		}
+	}
+
 	if validator, ok := getRuntimeValidators()[manifest.Runtime]; ok {
 		return validator.ValidateConfig(manifest)
 	}

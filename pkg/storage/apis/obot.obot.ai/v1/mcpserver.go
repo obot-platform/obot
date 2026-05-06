@@ -105,6 +105,7 @@ type MCPServerSpec struct {
 	// UserID is the user that created this server.
 	UserID string `json:"userID,omitempty"`
 	// SharedWithinMCPCatalogName is a deprecated field. It is renamed to MCPCatalogID.
+	// Deprecated: Use MCPCatalogID instead. This field is still populated for backward compatibility, but should not be set on new MCP servers.
 	SharedWithinMCPCatalogName string `json:"sharedWithinMCPCatalogName,omitempty"`
 	// MCPCatalogID contains the name of the MCPCatalog inside of which this server was directly created by the admin, if there is one.
 	MCPCatalogID string `json:"mcpCatalogID,omitempty"`

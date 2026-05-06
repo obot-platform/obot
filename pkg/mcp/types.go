@@ -36,8 +36,10 @@ type ServerConfig struct {
 	Files   []File   `json:"files"`
 
 	// Remote configuration.
-	URL     string   `json:"url"`
-	Headers []string `json:"headers"`
+	URL                     string   `json:"url"`
+	Headers                 []string `json:"headers"`
+	PassthroughHeaderNames  []string `json:"passthroughHeaderNames"`
+	PassthroughHeaderValues []string `json:"passthroughHeaderValues"`
 
 	// Containerized configuration.
 	ContainerImage string `json:"containerImage"`
@@ -116,9 +118,9 @@ func applyPrefix(value, prefix string) string {
 	return prefix + value
 }
 
-func configureUVXRuntime(serverConfig *ServerConfig, uvxConfig *types.UVXRuntimeConfig, credEnv map[string]string, fileEnvVars map[string]struct{}, runtime types.Runtime) error {
+func configureUVXRuntime(serverConfig *ServerConfig, uvxConfig *types.UVXRuntimeConfig, credEnv map[string]string, fileEnvVars map[string]struct{}) error {
 	if uvxConfig == nil {
-		return fmt.Errorf("runtime %s requires uvx config", runtime)
+		return fmt.Errorf("uvx runtime requires uvx config")
 	}
 
 	serverConfig.Command = "uvx"
@@ -135,9 +137,9 @@ func configureUVXRuntime(serverConfig *ServerConfig, uvxConfig *types.UVXRuntime
 	return nil
 }
 
-func configureNPXRuntime(serverConfig *ServerConfig, npxConfig *types.NPXRuntimeConfig, credEnv map[string]string, fileEnvVars map[string]struct{}, runtime types.Runtime) error {
+func configureNPXRuntime(serverConfig *ServerConfig, npxConfig *types.NPXRuntimeConfig, credEnv map[string]string, fileEnvVars map[string]struct{}) error {
 	if npxConfig == nil {
-		return fmt.Errorf("runtime %s requires npx config", runtime)
+		return fmt.Errorf("npx runtime requires npx config")
 	}
 
 	serverConfig.Command = "npx"
@@ -149,9 +151,9 @@ func configureNPXRuntime(serverConfig *ServerConfig, npxConfig *types.NPXRuntime
 	return nil
 }
 
-func configureContainerizedRuntime(serverConfig *ServerConfig, containerizedConfig *types.ContainerizedRuntimeConfig, credEnv map[string]string, fileEnvVars map[string]struct{}, runtime types.Runtime, expandImage bool) error {
+func configureContainerizedRuntime(serverConfig *ServerConfig, containerizedConfig *types.ContainerizedRuntimeConfig, credEnv map[string]string, fileEnvVars map[string]struct{}, expandImage bool) error {
 	if containerizedConfig == nil {
-		return fmt.Errorf("runtime %s requires containerized config", runtime)
+		return fmt.Errorf("containerized runtime requires containerized config")
 	}
 
 	serverConfig.ContainerImage = containerizedConfig.Image
@@ -168,38 +170,28 @@ func configureContainerizedRuntime(serverConfig *ServerConfig, containerizedConf
 	return nil
 }
 
-func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.RemoteRuntimeConfig, credEnv map[string]string, runtime types.Runtime) ([]string, error) {
+func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.RemoteRuntimeConfig, credEnv map[string]string) ([]string, error) {
 	if remoteConfig == nil {
-		return nil, fmt.Errorf("runtime %s requires remote config", runtime)
+		return nil, fmt.Errorf("remote runtime requires remote config")
 	}
 
 	var missingRequiredNames []string
 	serverConfig.URL = remoteConfig.URL
 	serverConfig.Headers = make([]string, 0, len(remoteConfig.Headers))
 	for _, header := range remoteConfig.Headers {
-		var (
-			val      string
-			hasValue bool
-		)
-
-		if header.Value != "" {
-			val = header.Value
-			hasValue = true
-		} else {
-			credVal, ok := credEnv[header.Key]
-			if ok && credVal != "" {
-				val = credVal
-				hasValue = true
-			}
+		val := header.Value
+		if val == "" {
+			val = credEnv[header.Key]
 		}
 
-		if !hasValue {
+		if val == "" {
 			if header.Required {
 				missingRequiredNames = append(missingRequiredNames, header.Key)
 			}
 			continue
 		}
 
+		// Only apply the prefix if the value is not static.
 		if header.Value == "" {
 			val = applyPrefix(val, header.Prefix)
 		}
@@ -352,20 +344,21 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 	// Handle runtime-specific configuration
 	switch mcpServer.Spec.Manifest.Runtime {
 	case types.RuntimeUVX:
-		if err := configureUVXRuntime(&serverConfig, mcpServer.Spec.Manifest.UVXConfig, credEnv, fileEnvVars, mcpServer.Spec.Manifest.Runtime); err != nil {
+		if err := configureUVXRuntime(&serverConfig, mcpServer.Spec.Manifest.UVXConfig, credEnv, fileEnvVars); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeNPX:
-		if err := configureNPXRuntime(&serverConfig, mcpServer.Spec.Manifest.NPXConfig, credEnv, fileEnvVars, mcpServer.Spec.Manifest.Runtime); err != nil {
+		if err := configureNPXRuntime(&serverConfig, mcpServer.Spec.Manifest.NPXConfig, credEnv, fileEnvVars); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeContainerized:
-		if err := configureContainerizedRuntime(&serverConfig, mcpServer.Spec.Manifest.ContainerizedConfig, credEnv, fileEnvVars, mcpServer.Spec.Manifest.Runtime, true); err != nil {
+		serverConfig.Args = make([]string, 0, len(mcpServer.Spec.Manifest.ContainerizedConfig.Args))
+		if err := configureContainerizedRuntime(&serverConfig, mcpServer.Spec.Manifest.ContainerizedConfig, credEnv, fileEnvVars, true); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeRemote:
 		var err error
-		missingRequiredNames, err = configureRemoteRuntime(&serverConfig, mcpServer.Spec.Manifest.RemoteConfig, credEnv, mcpServer.Spec.Manifest.Runtime)
+		missingRequiredNames, err = configureRemoteRuntime(&serverConfig, mcpServer.Spec.Manifest.RemoteConfig, credEnv)
 		if err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
@@ -455,20 +448,20 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 	// Handle runtime-specific configuration
 	switch systemServer.Spec.Manifest.Runtime {
 	case types.RuntimeUVX:
-		if err := configureUVXRuntime(&serverConfig, systemServer.Spec.Manifest.UVXConfig, credEnv, fileEnvVars, systemServer.Spec.Manifest.Runtime); err != nil {
+		if err := configureUVXRuntime(&serverConfig, systemServer.Spec.Manifest.UVXConfig, credEnv, fileEnvVars); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeNPX:
-		if err := configureNPXRuntime(&serverConfig, systemServer.Spec.Manifest.NPXConfig, credEnv, fileEnvVars, systemServer.Spec.Manifest.Runtime); err != nil {
+		if err := configureNPXRuntime(&serverConfig, systemServer.Spec.Manifest.NPXConfig, credEnv, fileEnvVars); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeContainerized:
-		if err := configureContainerizedRuntime(&serverConfig, systemServer.Spec.Manifest.ContainerizedConfig, credEnv, fileEnvVars, systemServer.Spec.Manifest.Runtime, false); err != nil {
+		if err := configureContainerizedRuntime(&serverConfig, systemServer.Spec.Manifest.ContainerizedConfig, credEnv, fileEnvVars, false); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeRemote:
 		var err error
-		missingRequiredNames, err = configureRemoteRuntime(&serverConfig, systemServer.Spec.Manifest.RemoteConfig, credEnv, systemServer.Spec.Manifest.Runtime)
+		missingRequiredNames, err = configureRemoteRuntime(&serverConfig, systemServer.Spec.Manifest.RemoteConfig, credEnv)
 		if err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
@@ -522,4 +515,22 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 	}
 
 	return serverConfig, missingRequiredNames, nil
+}
+
+func copyHeaders[T header](headers T, keys, values []string) {
+	for i, key := range keys {
+		if i < len(values) {
+			headers.Set(key, values[i])
+		}
+	}
+}
+
+type header interface {
+	Set(key, value string)
+}
+
+type headerMap map[string]string
+
+func (h headerMap) Set(key, value string) {
+	h[key] = value
 }

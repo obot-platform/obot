@@ -56,6 +56,7 @@
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
 	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
+	let configureFormTitle = $state<string>();
 
 	let chatLoading = $state(false);
 	let chatLoadingProgress = $state(0);
@@ -117,6 +118,7 @@
 	}
 
 	function initConfigureForm(item: MCPCatalogEntry) {
+		configureFormTitle = undefined;
 		configureForm = {
 			name: '',
 			envs: item.manifest?.env?.map((env) => ({
@@ -134,7 +136,37 @@
 		};
 	}
 
+	async function initMultiUserInstanceForm(
+		item: MCPCatalogServer,
+		currentInstance?: MCPServerInstance
+	) {
+		configureFormTitle = 'User Specific Configuration';
+		let values: Record<string, string> = {};
+		if (currentInstance) {
+			try {
+				values = await ChatService.revealMcpServerInstance(currentInstance.id, {
+					dontLogErrors: true
+				});
+			} catch (_error) {
+				values = {};
+			}
+		}
+		configureForm = {
+			headers: item.manifest?.multiUserConfig?.userDefinedHeaders?.map((header) => ({
+				...header,
+				value: values[header.key] ?? '',
+				isStatic: false
+			}))
+		};
+		configDialog?.open();
+	}
+
+	function hasMultiUserInstanceConfiguration(item?: MCPCatalogServer) {
+		return (item?.manifest?.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
+	}
+
 	function initCompositeForm(item: MCPCatalogEntry) {
+		configureFormTitle = undefined;
 		// For composite: open form first to collect per-component URLs before creating
 		if (item.manifest.runtime === 'composite') {
 			const components = item.manifest?.compositeConfig?.componentServers || [];
@@ -171,7 +203,12 @@
 								value: ''
 							})),
 					headers: isMultiUser
-						? []
+						? (m.multiUserConfig?.userDefinedHeaders ?? []).map((h) => ({
+								...(h as unknown as Record<string, unknown>),
+								key: h.key,
+								value: '',
+								isStatic: false
+							}))
 						: (m.remoteConfig?.headers ?? []).map((h) => ({
 								...(h as unknown as Record<string, unknown>),
 								key: h.key,
@@ -426,14 +463,22 @@
 		try {
 			const response = await ChatService.createMcpServerInstance(server.id);
 			instance = response;
-			oauthURL = await getOauthURL();
-			if (oauthURL) {
-				oauthDialog?.showModal();
-			} else {
-				handleConnect();
+			if (hasMultiUserInstanceConfiguration(server)) {
+				await initMultiUserInstanceForm(server, response);
+				return;
 			}
+			await finishMultiUserServerConnect();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'An unknown error occurred';
+		}
+	}
+
+	async function finishMultiUserServerConnect() {
+		oauthURL = await getOauthURL();
+		if (oauthURL) {
+			oauthDialog?.showModal();
+		} else {
+			handleConnect();
 		}
 	}
 
@@ -495,6 +540,21 @@
 
 	async function handleConfigureForm() {
 		if (!configureForm) return;
+		if (server && !entry && instance) {
+			try {
+				configDialog?.close();
+				const lf = configureForm as LaunchFormData;
+				const configuredInstance = await ChatService.configureMcpServerInstance(
+					instance.id,
+					convertEnvHeadersToRecord(undefined, lf.headers)
+				);
+				instance = configuredInstance;
+				await finishMultiUserServerConnect();
+			} catch (err) {
+				error = err instanceof Error ? err.message : 'An unknown error occurred';
+			}
+			return;
+		}
 
 		if (launchState === 'relaunching' && server && entry) {
 			configDialog?.close();
@@ -550,11 +610,13 @@
 	export function open({
 		server: initServer,
 		entry: initEntry,
-		instance: initInstance
+		instance: initInstance,
+		configureInstance
 	}: {
 		server?: MCPCatalogServer;
 		entry?: MCPCatalogEntry;
 		instance?: MCPServerInstance;
+		configureInstance?: boolean;
 	}) {
 		server = initServer;
 		entry = initEntry;
@@ -562,7 +624,16 @@
 
 		ensureOauthVisibilityListener();
 
-		if ((entry && server) || (server && instance)) {
+		if (server && instance && configureInstance && hasMultiUserInstanceConfiguration(server)) {
+			initMultiUserInstanceForm(server, instance);
+		} else if (
+			server &&
+			instance &&
+			!instance.configured &&
+			hasMultiUserInstanceConfiguration(server)
+		) {
+			initMultiUserInstanceForm(server, instance);
+		} else if ((entry && server) || (server && instance)) {
 			handleConnect();
 		} else {
 			if (initEntry && !initServer) {
@@ -741,6 +812,7 @@
 	loading={saving}
 	isNew={!isConfigured}
 	showAlias={isConfigured}
+	configurationTitle={configureFormTitle}
 />
 
 <PageLoading

@@ -14,7 +14,7 @@
 	import CatalogEditAliasForm from './CatalogEditAliasForm.svelte';
 
 	interface Props {
-		onUpdateConfigure?: () => void;
+		onUpdateConfigure?: () => void | Promise<void>;
 	}
 	let { onUpdateConfigure }: Props = $props();
 
@@ -161,7 +161,7 @@
 			clearTimeout(timeout1);
 			clearTimeout(timeout2);
 			clearTimeout(timeout3);
-			onUpdateConfigure?.();
+			await onUpdateConfigure?.();
 
 			setTimeout(() => {
 				editing = false;

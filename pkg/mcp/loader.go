@@ -27,7 +27,7 @@ var log = logger.Package()
 type Options struct {
 	MCPBaseImage                      string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.20.4"`
 	MCPHTTPWebhookBaseImage           string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.20.4"`
-	MCPRemoteShimBaseImage            string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/nanobot-ai/nanobot:v0.0.77"`
+	MCPRemoteShimBaseImage            string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/nanobot-ai/nanobot:v0.0.78"`
 	MCPNamespace                      string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
 	MCPClusterDomain                  string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
 	DisallowLocalhostMCP              bool     `usage:"Allow MCP containers to run on localhost"`
@@ -234,7 +234,7 @@ func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
 		return
 	}
 
-	sess, ok := clientSessions.LoadAndDelete(clientID(server) + clientScope)
+	sess, ok := clientSessions.LoadAndDelete(clientID(server, clientScope))
 	if !ok || sess == nil {
 		return
 	}
@@ -359,9 +359,11 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 	return sm.backend.ensureServerDeployment(ctx, server, webhooks)
 }
 
-func clientID(server ServerConfig) string {
-	// The user ID is not part of the client ID.
+func serverID(server ServerConfig) string {
+	// The user ID is not part of the server ID.
 	server.UserID = ""
+	// Neither are the passthrough header values since they are per-user.
+	server.PassthroughHeaderValues = nil
 
 	// File values are dynamic and can be updated in place.
 	// Keep file env keys, but clear file contents before hashing.
@@ -378,6 +380,10 @@ func clientID(server ServerConfig) string {
 	server.Files = files
 
 	return "mcp" + hash.Digest(server)
+}
+
+func clientID(server ServerConfig, clientScope string) string {
+	return serverID(server) + hash.Digest(server.PassthroughHeaderValues) + clientScope
 }
 
 // GenerateToolPreviews creates a temporary MCP server from a catalog entry, lists its tools,

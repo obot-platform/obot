@@ -30,6 +30,8 @@
 		<McpServerActions
 			server={mcpServer}
 			{promptInitialLaunch}
+			readonly={profile.current.isAdminReadonly?.()}
+			allowMultiUserServerConfigurationEdit
 			onOAuthConfigured={() => {
 				if (!mcpServer) return;
 				AdminService.getMCPCatalogServer(DEFAULT_MCP_CATALOG_ID, mcpServer.id).then((server) => {

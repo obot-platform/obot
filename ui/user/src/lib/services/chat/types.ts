@@ -337,6 +337,10 @@ export interface RemoteCatalogConfig {
 	headers?: MCPSubField[];
 }
 
+export interface MultiUserConfig {
+	userDefinedHeaders?: MCPSubField[];
+}
+
 export interface CompositeRuntimeConfig {
 	componentServers: ComponentServer[];
 }
@@ -408,6 +412,7 @@ export interface MCPServer {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteRuntimeConfig;
 	compositeConfig?: CompositeRuntimeConfig;
+	multiUserConfig?: MultiUserConfig;
 }
 
 export interface MCPServerTool {
@@ -807,6 +812,9 @@ export interface MCPServerInstance {
 	deleted?: string;
 	links?: Record<string, string>;
 	metadata?: Record<string, string>;
+	multiUserConfig?: MultiUserConfig;
+	configured: boolean;
+	missingRequiredHeaders?: string[];
 	userID: string;
 	mcpServerID?: string;
 	mcpCatalogID?: string;

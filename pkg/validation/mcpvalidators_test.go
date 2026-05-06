@@ -10,6 +10,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestValidateServerManifestForCatalog_MultiUserConfig(t *testing.T) {
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeNPX,
+		NPXConfig: &types.NPXRuntimeConfig{
+			Package: "test-server",
+		},
+	}
+
+	require.NoError(t, ValidateServerManifest(manifest, true))
+
+	manifest.MultiUserConfig = &types.MultiUserConfig{}
+	require.Equal(t, types.RuntimeValidationError{
+		Runtime: types.RuntimeNPX,
+		Field:   "multiUserConfig",
+		Message: "multiUserConfig may only be set for multi-user servers",
+	}, ValidateServerManifest(manifest, false))
+	require.NoError(t, ValidateServerManifest(manifest, true))
+}
+
 func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
 	validator := RemoteValidator{}
 

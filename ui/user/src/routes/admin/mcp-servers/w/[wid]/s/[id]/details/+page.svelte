@@ -15,6 +15,9 @@
 	let users = $state<OrgUser[]>([]);
 	let instances = $state<MCPServerInstance[]>([]);
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
+	let currentUserInstance = $derived(
+		instances.find((instance) => instance.userID === profile.current.id)
+	);
 
 	onMount(async () => {
 		if (!mcpServer) return;
@@ -29,7 +32,12 @@
 
 <Layout {title} showBackButton>
 	{#snippet rightNavActions()}
-		<McpServerActions server={mcpServer} />
+		<McpServerActions
+			server={mcpServer}
+			instance={currentUserInstance}
+			readonly={belongsToUser ? false : profile.current.isAdminReadonly?.()}
+			allowMultiUserServerConfigurationEdit={belongsToUser || !profile.current.isAdminReadonly?.()}
+		/>
 	{/snippet}
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: PAGE_TRANSITION_DURATION }}>
 		{#if loading}
@@ -48,7 +56,8 @@
 							const user = usersMap.get(instance.userID)!;
 							return {
 								...user,
-								mcpInstanceId: instance.id
+								mcpInstanceId: instance.id,
+								mcpInstanceConfigured: instance.configured
 							};
 						})}
 						title="Details"

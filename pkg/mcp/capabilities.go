@@ -7,7 +7,7 @@ import (
 )
 
 func (sm *SessionManager) ServerCapabilities(ctx context.Context, serverConfig ServerConfig) (nmcp.ServerCapabilities, error) {
-	client, err := sm.clientForMCPServer(ctx, serverConfig)
+	client, err := sm.clientForServer(ctx, serverConfig)
 	if err != nil {
 		return nmcp.ServerCapabilities{}, err
 	}
