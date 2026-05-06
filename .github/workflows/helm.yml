@@ -5,15 +5,17 @@ on:
     branches:
       - main
     paths:
+      - .github/workflows/helm.yml
       - chart/**
   pull_request:
     branches:
       - main
     paths:
+      - .github/workflows/helm.yml
       - chart/**
 
 jobs:
-  lint:
+  build:
     runs-on: depot-ubuntu-22.04
 
     steps:
@@ -24,4 +26,18 @@ jobs:
         uses: azure/setup-helm@v4
 
       - name: Lint Helm chart
-        run: helm lint chart
+        run: helm lint chart --set dev.useEmbeddedDb=true
+
+      - name: Render Helm chart
+        run: helm template obot chart --namespace obot --set dev.useEmbeddedDb=true
+
+      - name: Test Helm install
+        run: helm install obot chart --namespace obot --create-namespace --dry-run=client --set dev.useEmbeddedDb=true
+
+      - name: Build Helm chart package
+        run: |
+          mkdir -p packaged
+          helm package chart --destination packaged
+
+      - name: Verify Helm chart package
+        run: test -f packaged/*.tgz
