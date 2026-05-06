@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/nanobot-ai/nanobot/pkg/mcp"
@@ -17,6 +18,9 @@ func (sm *SessionManager) ListTools(ctx context.Context, serverConfig ServerConf
 	if err != nil {
 		return nil, err
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
 
 	resp, err := client.ListTools(ctx)
 	if err != nil {

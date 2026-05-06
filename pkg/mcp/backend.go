@@ -53,8 +53,6 @@ var (
 
 func ensureServerReady(ctx context.Context, url string, server ServerConfig) error {
 	// Ensure we can actually hit the service URL.
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
 	client := &http.Client{
 		Timeout: time.Second,
 	}
@@ -66,7 +64,12 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 		var firstServiceUnavailable time.Time
 
 		for {
-			resp, err := client.Get(url)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+			if err != nil {
+				return fmt.Errorf("failed to create request: %w", err)
+			}
+
+			resp, err := client.Do(req)
 			if err == nil {
 				resp.Body.Close()
 				switch resp.StatusCode {
@@ -113,7 +116,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 		case <-time.After(100 * time.Millisecond):
 		}
 
-		req, err := http.NewRequest(http.MethodPost, url, strings.NewReader(streamableHTTPHealthcheckBody))
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, strings.NewReader(streamableHTTPHealthcheckBody))
 		if err != nil {
 			return fmt.Errorf("failed to create request: %w", err)
 		}
@@ -131,7 +134,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 			if sessionID := resp.Header.Get("Mcp-Session-Id"); sessionID != "" {
 				// Send a cancellation, since we don't need this session.
 				// If we get any errors, ignore them, because it doesn't matter for us.
-				req, err := http.NewRequest(http.MethodDelete, url, nil)
+				req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
 				if err == nil {
 					req.Header.Set("Mcp-Session-Id", sessionID)
 					copyHeaders(req.Header, server.PassthroughHeaderNames, server.PassthroughHeaderValues)
@@ -142,7 +145,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 		}
 
 		// Fallback to trying SSE.
-		req, err = http.NewRequest(http.MethodGet, url, nil)
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create request: %w", err)
 		}
@@ -155,14 +158,14 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 		}
 
 		if resp.StatusCode == http.StatusOK {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			readCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 
 			// Start looking for an event with "endpoint".
 			scanner := bufio.NewScanner(resp.Body)
 		scannerLoop:
 			for scanner.Scan() {
 				select {
-				case <-ctx.Done():
+				case <-readCtx.Done():
 					break scannerLoop
 				default:
 					if strings.Contains(scanner.Text(), "endpoint") {

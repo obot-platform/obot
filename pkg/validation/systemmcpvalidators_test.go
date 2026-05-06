@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -124,6 +125,30 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 			},
 			expectError: true,
 			errorField:  "uvxConfig",
+		},
+		{
+			name: "invalid - negative startup timeout",
+			manifest: types.SystemMCPServerManifest{
+				Runtime:               types.RuntimeRemote,
+				StartupTimeoutSeconds: -1,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://example.com/mcp",
+				},
+			},
+			expectError: true,
+			errorField:  "startupTimeoutSeconds",
+		},
+		{
+			name: "invalid - startup timeout above maximum",
+			manifest: types.SystemMCPServerManifest{
+				Runtime:               types.RuntimeRemote,
+				StartupTimeoutSeconds: int(mcp.MaxMCPServerStartupTimeout.Seconds()) + 1,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://example.com/mcp",
+				},
+			},
+			expectError: true,
+			errorField:  "startupTimeoutSeconds",
 		},
 	}
 

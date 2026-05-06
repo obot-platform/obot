@@ -356,6 +356,9 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 		}
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, server.StartupTimeout)
+	defer cancel()
+
 	return sm.backend.ensureServerDeployment(ctx, server, webhooks)
 }
 
