@@ -182,6 +182,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OAuthClient":                                        schema_obot_platform_obot_apiclient_types_OAuthClient(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthClientList":                                    schema_obot_platform_obot_apiclient_types_OAuthClientList(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthClientManifest":                                schema_obot_platform_obot_apiclient_types_OAuthClientManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthMetadata":                                      schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthToken":                                         schema_obot_platform_obot_apiclient_types_OAuthToken(ref),
 		"github.com/obot-platform/obot/apiclient/types.OnEmail":                                            schema_obot_platform_obot_apiclient_types_OnEmail(ref),
 		"github.com/obot-platform/obot/apiclient/types.OnWebhook":                                          schema_obot_platform_obot_apiclient_types_OnWebhook(ref),
@@ -436,6 +437,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientList":                   schema_storage_apis_obotobotai_v1_OAuthClientList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientSpec":                   schema_storage_apis_obotobotai_v1_OAuthClientSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthClientStatus":                 schema_storage_apis_obotobotai_v1_OAuthClientStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthMetadata":                     schema_storage_apis_obotobotai_v1_OAuthMetadata(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthToken":                        schema_storage_apis_obotobotai_v1_OAuthToken(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenList":                    schema_storage_apis_obotobotai_v1_OAuthTokenList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenSpec":                    schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref),
@@ -6406,6 +6408,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							},
 						},
 					},
+					"oauthMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OAuthMetadata contains discovered OAuth metadata for remote MCP servers.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.OAuthMetadata"),
+						},
+					},
 					"k8sSettingsHash": {
 						SchemaProps: spec.SchemaProps{
 							Description: "K8sSettingsHash contains the hash of K8s settings this server was deployed with",
@@ -6432,7 +6440,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.DeploymentCondition", "github.com/obot-platform/obot/apiclient/types.MCPServerManifest", "github.com/obot-platform/obot/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.DeploymentCondition", "github.com/obot-platform/obot/apiclient/types.MCPServerManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.OAuthMetadata"},
 	}
 }
 
@@ -9702,6 +9710,48 @@ func schema_obot_platform_obot_apiclient_types_OAuthClientManifest(ref common.Re
 							Description: "SoftwareVersion is a version identifier string for the client software identified by \"software_id\". Optional.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"protectedResourceUrl": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"authorizationServerUrl": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"protectedResourceMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"authorizationServerMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"dynamicClientRegistration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 				},
@@ -19464,18 +19514,37 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
+					"oauthMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OAuthMetadata contains discovered OAuth metadata for remote MCP servers.",
+							Ref:         ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthMetadata"),
+						},
+					},
+					"lastOAuthMetadataSync": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastOAuthMetadataSync is the time of the last OAuth metadata sync attempt.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
 					"lastRequestTime": {
 						SchemaProps: spec.SchemaProps{
 							Description: "LastRequestTime is the time of the last request to the server, in 15 minute granularity.",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
+					"idle": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Idle indicates whether the server is currently idle.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"lastRequestTime"},
+				Required: []string{"lastOAuthMetadataSync", "lastRequestTime"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DeploymentCondition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DeploymentCondition", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthMetadata", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -21146,6 +21215,48 @@ func schema_storage_apis_obotobotai_v1_OAuthClientStatus(ref common.ReferenceCal
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_OAuthMetadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"protectedResourceUrl": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"authorizationServerUrl": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"protectedResourceMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"authorizationServerMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"dynamicClientRegistration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
 			},
 		},
 	}

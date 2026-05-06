@@ -267,6 +267,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPNetworkPolicy)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerInstanceUserCount)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SyncOAuthCredentialStatus)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SyncOAuthMetadata)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerSecretInfo)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureCompositeComponents)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.ShutdownIdleServers)

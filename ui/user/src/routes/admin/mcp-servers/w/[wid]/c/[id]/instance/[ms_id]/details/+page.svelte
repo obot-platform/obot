@@ -2,6 +2,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		AdminService,
@@ -52,6 +53,9 @@
 				{catalogEntry}
 				{mcpServer}
 			/>
+			{#if mcpServer?.manifest.runtime === 'remote'}
+				<OAuthMetadataDebug metadata={mcpServer.oauthMetadata} />
+			{/if}
 		{:else}
 			<div class="notification-info p-3 text-sm font-light">
 				<div class="flex items-center gap-3">
