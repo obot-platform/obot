@@ -865,10 +865,10 @@
 						mcpServersAndEntries.refreshUserConfiguredServers();
 					} catch (error) {
 						errors.append(
- 							error instanceof Error
- 								? error
- 								: new Error('Failed to disconnect MCP server', { cause: error })
- 						);
+							error instanceof Error
+								? error
+								: new Error('Failed to disconnect MCP server', { cause: error })
+						);
 					}
 					break;
 				}

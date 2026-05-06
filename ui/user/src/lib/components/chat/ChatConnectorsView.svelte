@@ -117,7 +117,8 @@
 			initSort={{ property: 'connected', order: 'desc' }}
 		>
 			{#snippet onRenderColumn(property, d)}
-				{@const configuredServers = 'isCatalogEntry' in d.data ? getConfiguredServersForCatalogEntry(d.data) : []}
+				{@const configuredServers =
+					'isCatalogEntry' in d.data ? getConfiguredServersForCatalogEntry(d.data) : []}
 				{@const server = configuredServers.length === 1 ? configuredServers[0] : undefined}
 				{#if property === 'name'}
 					<div class="flex shrink-0 items-center gap-2">
