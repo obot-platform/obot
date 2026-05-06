@@ -4,7 +4,11 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
+	import {
+		getConfiguredServersForCatalogEntry,
+		getDisplayLabelForCatalogEntry
+	} from '$lib/services/chat/mcp';
+	import { profile } from '$lib/stores';
 	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -12,15 +16,12 @@
 
 	let { data } = $props();
 	let { workspaceId, catalogEntry, belongsToUser } = $derived(data);
-	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
 
-	const hasExistingConfigured = $derived(
-		Boolean(
-			catalogEntry &&
-			mcpServersAndEntries.current.userConfiguredServers.some(
-				(server) => server.catalogEntryID === catalogEntry?.id
-			)
-		)
+	const configuredServers = $derived(
+		catalogEntry && getConfiguredServersForCatalogEntry(catalogEntry)
+	);
+	const title = $derived(
+		catalogEntry && getDisplayLabelForCatalogEntry(catalogEntry, configuredServers)
 	);
 
 	let readonly = $derived(belongsToUser ? false : profile.current.isAdminReadonly?.());
@@ -45,7 +46,7 @@
 				id={workspaceId}
 				entity="workspace"
 				{readonly}
-				{hasExistingConfigured}
+				{configuredServers}
 			/>
 		{/if}
 	</div>

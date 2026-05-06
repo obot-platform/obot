@@ -9,10 +9,14 @@
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
+	import { AdminService } from '$lib/services';
 	import type { MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
+	import {
+		getConfiguredServersForCatalogEntry,
+		getDisplayLabelForCatalogEntry
+	} from '$lib/services/chat/mcp';
 	import type { MCPServer, MCPCatalogServer } from '$lib/services/chat/types';
-	import { AdminService } from '$lib/services/index.js';
-	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
+	import { profile } from '$lib/stores';
 	import { CircleFadingArrowUp, Info, GitCompare } from 'lucide-svelte';
 	import { untrack, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -50,13 +54,8 @@
 	} | null = $state(null);
 
 	let upgradeSuccessDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	const hasExistingConfigured = $derived(
-		Boolean(
-			catalogEntry &&
-			mcpServersAndEntries.current.userConfiguredServers.some(
-				(server) => server.catalogEntryID === catalogEntry?.id
-			)
-		)
+	const configuredServers = $derived(
+		catalogEntry && getConfiguredServersForCatalogEntry(catalogEntry)
 	);
 
 	async function handleUpgradeClick() {
@@ -164,7 +163,9 @@
 		}
 	}
 
-	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
+	let title = $derived(
+		catalogEntry && getDisplayLabelForCatalogEntry(catalogEntry, configuredServers)
+	);
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 	let promptOAuthConfig = $derived(page.url.searchParams.get('configure-oauth') === 'true');
 </script>
@@ -220,7 +221,7 @@
 					: 'single'}
 			readonly={isAdminReadonly || isSourcedEntry}
 			id={DEFAULT_MCP_CATALOG_ID}
-			{hasExistingConfigured}
+			{configuredServers}
 		/>
 	</div>
 </Layout>

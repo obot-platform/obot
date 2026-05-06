@@ -63,7 +63,6 @@
 		readonly?: boolean;
 		onCancel?: () => void;
 		onSubmit?: (id: string, type: LaunchServerType, message?: string) => void;
-		hasExistingConfigured?: boolean;
 		isDialogView?: boolean;
 		limitViews?: string[];
 		configuredServers?: MCPCatalogServer[];
@@ -78,7 +77,6 @@
 		readonly,
 		onCancel,
 		onSubmit,
-		hasExistingConfigured,
 		isDialogView,
 		limitViews,
 		configuredServers
@@ -105,6 +103,7 @@
 			(entry && isOwnSingleUserServer(entry, profile.current?.id))
 	);
 
+	let hasExistingConfigured = $derived(entry && configuredServers && configuredServers.length > 0);
 	// Basic user who just connected to a catalog entry
 	let basicUserConnected = $derived(!trueOwner && entry && !server && hasExistingConfigured);
 
@@ -573,7 +572,11 @@
 					{#if entry && server}
 						{server.alias || entry.manifest.name}
 					{:else if entry}
-						{entry.manifest.name}
+						{#if configuredServers && configuredServers.length === 1}
+							{configuredServers[0].alias}
+						{:else}
+							{entry.manifest.name}
+						{/if}
 					{/if}
 				</h1>
 				<div class="pill-rounded">

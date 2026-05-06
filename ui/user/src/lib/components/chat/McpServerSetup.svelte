@@ -9,7 +9,7 @@
 		type Project,
 		type ProjectMCP
 	} from '$lib/services';
-	import { createProjectMcp } from '$lib/services/chat/mcp';
+	import { createProjectMcp, getConfiguredServersForCatalogEntry } from '$lib/services/chat/mcp';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
@@ -66,13 +66,8 @@
 	let catalogDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 
-	let hasExistingConfigured = $derived(
-		Boolean(
-			selected?.entry &&
-			mcpServersAndEntries.current.userConfiguredServers.find(
-				(userConfiguredServer) => userConfiguredServer.catalogEntryID === selected?.entry?.id
-			)
-		)
+	let configuredServers = $derived(
+		selected?.entry && getConfiguredServersForCatalogEntry(selected?.entry)
 	);
 
 	const type = $derived(
@@ -211,7 +206,7 @@
 				{type}
 				readonly
 				entity="workspace"
-				{hasExistingConfigured}
+				{configuredServers}
 				isDialogView
 				limitViews={['overview', 'tools']}
 			/>

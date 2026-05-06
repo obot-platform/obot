@@ -5,8 +5,11 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import {
+		getConfiguredServersForCatalogEntry,
+		getDisplayLabelForCatalogEntry
+	} from '$lib/services/chat/mcp';
 	import { ChatService } from '$lib/services/index.js';
-	import { mcpServersAndEntries } from '$lib/stores/index.js';
 	import { type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -14,21 +17,11 @@
 
 	let { data } = $props();
 	let { workspaceId, catalogEntry } = $derived(data);
-	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
-	const hasExistingConfigured = $derived(
-		Boolean(
-			catalogEntry &&
-			mcpServersAndEntries.current.userConfiguredServers.some(
-				(server) => server.catalogEntryID === catalogEntry?.id
-			)
-		)
-	);
 	const configuredServers = $derived(
-		catalogEntry
-			? mcpServersAndEntries.current.userConfiguredServers.filter(
-					(server) => server.catalogEntryID === catalogEntry?.id
-				)
-			: []
+		catalogEntry && getConfiguredServersForCatalogEntry(catalogEntry)
+	);
+	const title = $derived(
+		catalogEntry && getDisplayLabelForCatalogEntry(catalogEntry, configuredServers)
 	);
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 	let promptOAuthConfig = $derived(page.url.searchParams.get('configure-oauth') === 'true');
@@ -67,7 +60,6 @@
 				readonly={catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL}
 				id={workspaceId}
 				entity="workspace"
-				{hasExistingConfigured}
 				{configuredServers}
 			/>
 		{/if}

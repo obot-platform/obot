@@ -768,3 +768,18 @@ export function conflictIssue(
 	if (!duplicates.has(effectiveName)) return undefined;
 	return { severity: 'error', message: 'Tool name is not unique.' };
 }
+
+export function getConfiguredServersForCatalogEntry(entry: MCPCatalogEntry) {
+	return mcpServersAndEntries.current.userConfiguredServers.filter(
+		(server) => server.catalogEntryID === entry.id
+	);
+}
+
+export function getDisplayLabelForCatalogEntry(
+	entry: MCPCatalogEntry,
+	configuredServers?: MCPCatalogServer[]
+) {
+	return configuredServers && configuredServers.length === 1
+		? (configuredServers[0].alias ?? entry.manifest?.name)
+		: (entry.manifest?.name ?? '');
+}

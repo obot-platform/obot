@@ -4,7 +4,8 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { profile } from '$lib/stores/index.js';
+	import { getDisplayLabelForCatalogEntry } from '$lib/services/chat/mcp';
+	import { profile } from '$lib/stores';
 	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -12,7 +13,9 @@
 
 	let { data } = $props();
 	let { workspaceId, catalogEntry, mcpServer, belongsToUser } = $derived(data);
-	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
+	let title = $derived(
+		catalogEntry && mcpServer && getDisplayLabelForCatalogEntry(catalogEntry, [mcpServer])
+	);
 </script>
 
 <Layout
