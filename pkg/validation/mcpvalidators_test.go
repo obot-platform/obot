@@ -1644,7 +1644,7 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 			RemoteConfig: &types.RemoteRuntimeConfig{
 				URL: "https://example.com/mcp",
 			},
-		})
+		}, false)
 
 		require.Equal(t, types.RuntimeValidationError{
 			Runtime: types.RuntimeRemote,
@@ -1677,7 +1677,7 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 			RemoteConfig: &types.RemoteRuntimeConfig{
 				URL: "https://example.com/mcp",
 			},
-		})
+		}, false)
 
 		require.Equal(t, types.RuntimeValidationError{
 			Runtime: types.RuntimeRemote,
