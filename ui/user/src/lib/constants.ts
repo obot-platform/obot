@@ -44,6 +44,7 @@ export const PAGE_SIZE = 50;
 
 export const CommonModelProviderIds = {
 	OLLAMA: 'ollama-model-provider',
+	GENERIC_RESPONSES: 'generic-responses-model-provider',
 	GROQ: 'groq-model-provider',
 	VLLM: 'vllm-model-provider',
 	ANTHROPIC: 'anthropic-model-provider',
@@ -66,7 +67,8 @@ export const RecommendedModelProviders = [
 	CommonModelProviderIds.AMAZON_BEDROCK,
 	CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
 	CommonModelProviderIds.AZURE,
-	CommonModelProviderIds.AZURE_ENTRA
+	CommonModelProviderIds.AZURE_ENTRA,
+	CommonModelProviderIds.GENERIC_RESPONSES
 ];
 
 export const PROJECT_MCP_SERVER_NAME = 'MCP Servers';

@@ -27,7 +27,7 @@
 		CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
 		CommonModelProviderIds.AZURE,
 		CommonModelProviderIds.AZURE_ENTRA,
-		CommonModelProviderIds.OLLAMA
+		CommonModelProviderIds.GENERIC_RESPONSES
 	];
 
 	let { data } = $props();
@@ -166,7 +166,7 @@
 		<div class="grid grid-cols-1 gap-4 px-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 			{#each sortedModelProviders as modelProvider (modelProvider.id)}
 				<ProviderCard
-					experimental={modelProvider.id === CommonModelProviderIds.OLLAMA}
+					experimental={modelProvider.id === CommonModelProviderIds.GENERIC_RESPONSES}
 					provider={modelProvider}
 					deprecated={modelProvider.id === CommonModelProviderIds.ANTHROPIC_BEDROCK}
 					recommended={!isLegacyDisabled && RecommendedModelProviders.includes(modelProvider.id)}
