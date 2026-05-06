@@ -55,8 +55,9 @@
 		const cursorBase64 = utf8ToBase64(configString);
 		const cursorLink = `cursor://anysphere.cursor-deeplink/mcp/install?name=${name}&config=${cursorBase64}`;
 
-		const vscodeEncoded = encodeURIComponent(configString);
-		const vscodeLink = `vscode://mcp/install?${vscodeEncoded}`;
+		const vscodePayload = JSON.stringify({ name, ...config });
+		const vscodeEncoded = encodeURIComponent(vscodePayload);
+		const vscodeLink = `vscode:mcp/install?${vscodeEncoded}`;
 
 		return { cursorLink, vscodeLink };
 	}
