@@ -146,7 +146,7 @@ func TestNanobotParseModelProviderBuiltinFallbacks(t *testing.T) {
 		{system.AnthropicModelProviderTool, nanobottypes.DialectAnthropicMessages, "https://obot.example.com/api/llm-proxy/anthropic"},
 		{"unknown-model-provider", nanobottypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy"},
 	} {
-		model := resolvedLLMModel{TargetModel: "my-model", ModelProvider: tc.modelProvider}
+		model := resolvedLLMModel{Name: "my-model", ModelProvider: tc.modelProvider}
 		p, qualifiedName := h.parseModelProvider(model)
 		if p.Dialect != tc.wantDialect {
 			t.Errorf("%s: dialect = %q, want %q", tc.modelProvider, p.Dialect, tc.wantDialect)
@@ -298,10 +298,12 @@ func TestMultipleProvidersWhenLLMAndMiniDiffer(t *testing.T) {
 	h := &Handler{serverURL: "https://obot.example.com"}
 
 	llmModel := resolvedLLMModel{
+		Name:          "claude-sonnet-4-6",
 		TargetModel:   "claude-sonnet-4-6",
 		ModelProvider: system.AnthropicModelProviderTool,
 	}
 	miniModel := resolvedLLMModel{
+		Name:          "gpt-4.1-mini",
 		TargetModel:   "gpt-4.1-mini",
 		ModelProvider: system.OpenAIModelProviderTool,
 	}
