@@ -7,7 +7,7 @@ import (
 
 	"github.com/gptscript-ai/cmd"
 	"github.com/gptscript-ai/gptscript/pkg/embedded"
-	"github.com/nanobot-ai/nanobot/pkg/supervise"
+	"github.com/obot-platform/nanobot/pkg/supervise"
 	"github.com/obot-platform/obot/pkg/cli"
 )
 

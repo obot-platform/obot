@@ -166,7 +166,7 @@ func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 		MCPServerDisplayName: "Nanobot Agent Server",
 		UserID:               "user-1",
 		OwnerUserID:          "user-2",
-		ContainerImage:       "ghcr.io/nanobot-ai/nanobot:latest",
+		ContainerImage:       "ghcr.io/obot-platform/nanobot:latest",
 		ContainerPort:        8080,
 		ContainerPath:        "/mcp",
 		Command:              "nanobot",

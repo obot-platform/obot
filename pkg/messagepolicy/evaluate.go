@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	nanobottypes "github.com/nanobot-ai/nanobot/pkg/types"
+	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"

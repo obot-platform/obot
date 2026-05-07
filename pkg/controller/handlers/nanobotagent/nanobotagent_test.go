@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	nanobottypes "github.com/nanobot-ai/nanobot/pkg/types"
+	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
