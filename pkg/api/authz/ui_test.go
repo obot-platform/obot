@@ -232,6 +232,24 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "/mcp-connect is rejected by UI fallback",
+			path: "/mcp-connect/ms1test",
+			user: &user.DefaultInfo{
+				Name:   "anonymous",
+				Groups: []string{UnauthenticatedGroup},
+			},
+			expected: false,
+		},
+		{
+			name: "/oauth is rejected by UI fallback",
+			path: "/oauth/authorize",
+			user: &user.DefaultInfo{
+				Name:   "anonymous",
+				Groups: []string{UnauthenticatedGroup},
+			},
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {
