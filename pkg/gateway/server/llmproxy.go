@@ -243,6 +243,10 @@ func getModelFromReference(ctx context.Context, client kclient.Client, namespace
 			}
 		}
 
+		if len(models.Items) == 0 {
+			return nil, errors.New("no models found")
+		}
+
 		// Return the oldest one.
 		sort.Slice(models.Items, func(i, j int) bool {
 			return models.Items[i].CreationTimestamp.Before(&models.Items[j].CreationTimestamp)
