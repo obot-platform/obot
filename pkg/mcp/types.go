@@ -327,6 +327,14 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", mcpServer.Spec.Manifest.StartupTimeoutSeconds, MaxMCPServerStartupTimeout)
 	}
 
+	var passthroughHeaderNames []string
+	if mcpServer.Spec.Manifest.MultiUserConfig != nil && len(mcpServer.Spec.Manifest.MultiUserConfig.UserDefinedHeaders) > 0 {
+		passthroughHeaderNames = make([]string, len(mcpServer.Spec.Manifest.MultiUserConfig.UserDefinedHeaders))
+		for i, header := range mcpServer.Spec.Manifest.MultiUserConfig.UserDefinedHeaders {
+			passthroughHeaderNames[i] = header.Key
+		}
+	}
+
 	serverConfig := ServerConfig{
 		Env:                       make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
 		UserID:                    userID,
@@ -345,6 +353,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		TokenExchangeEndpoint:     fmt.Sprintf("%s/oauth/token", issuer),
 		JWKSEndpoint:              fmt.Sprintf("%s/oauth/jwks.json", issuer),
 		AuthorizeEndpoint:         fmt.Sprintf("%s/oauth/authorize", issuer),
+		PassthroughHeaderNames:    passthroughHeaderNames,
 		ComponentMCPServer:        mcpServer.Spec.CompositeName != "",
 		NanobotAgentName:          mcpServer.Spec.NanobotAgentID,
 		StartupTimeout:            startupTimeout,
