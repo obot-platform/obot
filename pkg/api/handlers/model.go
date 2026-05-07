@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -245,10 +246,16 @@ func convertModel(model v1.Model, toolRef v1.ToolReference) (types.Model, error)
 
 func validateModelManifestAndSetDefaults(newModel *v1.Model) error {
 	var errs []error
-	if newModel.Spec.Manifest.TargetModel == "" {
+	if strings.TrimSpace(newModel.Spec.Manifest.Name) == "" {
+		newModel.Spec.Manifest.Name = strings.ReplaceAll(strings.TrimSpace(newModel.Spec.Manifest.TargetModel), "/", "-")
+	}
+	if strings.TrimSpace(newModel.Spec.Manifest.Name) == "" {
+		errs = append(errs, fmt.Errorf("field name is required"))
+	}
+	if strings.TrimSpace(newModel.Spec.Manifest.TargetModel) == "" {
 		errs = append(errs, fmt.Errorf("field targetModel is required"))
 	}
-	if newModel.Spec.Manifest.ModelProvider == "" {
+	if strings.TrimSpace(newModel.Spec.Manifest.ModelProvider) == "" {
 		errs = append(errs, fmt.Errorf("field modelProvider is required"))
 	}
 
