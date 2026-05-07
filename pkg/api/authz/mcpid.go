@@ -41,6 +41,13 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user us
 		// For single-user MCP servers, ensure the user owns the server.
 		return mcpServer.Spec.UserID == user.GetUID(), nil
 
+	case system.IsSystemMCPServerID(resources.MCPID):
+		var systemMCPServer v1.SystemMCPServer
+		if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.MCPID), &systemMCPServer); err != nil {
+			return false, err
+		}
+		// If this is a system MCP server, then allow access. The system MCP server will enforce its own authorization.
+		return systemMCPServer.Spec.Manifest.Enabled == nil || *systemMCPServer.Spec.Manifest.Enabled, nil
 	default:
 		var entry v1.MCPServerCatalogEntry
 		if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.MCPID), &entry); err != nil {
