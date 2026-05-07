@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
-	"github.com/nanobot-ai/nanobot/pkg/mcp"
+	"github.com/obot-platform/nanobot/pkg/mcp"
 	otypes "github.com/obot-platform/obot/apiclient/types"
 )
 
