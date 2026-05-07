@@ -153,7 +153,7 @@ Obot requires:
 
 #### Generic Responses Compatible Provider
 
-Use **Responses Compatible Generic Provider** to connect Obot to any Responses-compatible API.
+Use **Generic Responses Compatible Provider** to connect Obot to any Responses-compatible API.
 
 This provider supports:
 - A provider-level **Base URL** and optional **API Key**
