@@ -1,0 +1,54 @@
+name: Post Security Advisories to Slack
+
+on:
+  repository_advisory:
+    types: [reported]
+
+permissions: {}
+
+jobs:
+  notify-slack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post to Slack
+        uses: actions/github-script@v8
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.COMMUNITY_ISSUES_SLACK_WEBHOOK_URL }}
+        with:
+          script: |
+            const adv = context.payload.repository_advisory;
+            // https://api.slack.com/reference/surfaces/formatting#escaping
+            // Escaping < also neutralizes Slack mention syntax (<!channel>, <@U123>, etc.).
+            const escape = (s) => String(s ?? '')
+              .replaceAll('&', '&amp;')
+              .replaceAll('<', '&lt;')
+              .replaceAll('>', '&gt;');
+            const summary = escape(adv.summary) || '(no summary)';
+            const severity = escape(adv.severity) || 'unset';
+            const cveId = escape(adv.cve_id) || 'unassigned';
+            const url = adv.html_url;
+            const payload = {
+              text: 'New security advisory reported',
+              blocks: [
+                {
+                  type: 'section',
+                  text: {
+                    type: 'mrkdwn',
+                    text: [
+                      '*New Security Advisory Reported*',
+                      `<${url}|${summary}>`,
+                      `Severity: ${severity}`,
+                      `CVE ID: ${cveId}`,
+                    ].join('\n'),
+                  },
+                },
+              ],
+            };
+            const response = await fetch(process.env.SLACK_WEBHOOK_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+              core.setFailed(`Slack webhook returned ${response.status}: ${await response.text()}`);
+            }
