@@ -3,8 +3,7 @@ import { AdminService } from '$lib/services';
 import type { DeviceScanStats } from '$lib/services/admin/types';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
-
-const DEFAULT_WINDOW_MS = 60 * 24 * 60 * 60 * 1000;
+import { DEFAULT_WINDOW_MS } from './constants';
 
 export const load: PageLoad = async ({ url, fetch }) => {
 	const end = url.searchParams.get('end') ?? new Date().toISOString();

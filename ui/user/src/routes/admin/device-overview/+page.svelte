@@ -15,6 +15,7 @@
 	} from '$lib/services';
 	import { replaceState } from '$lib/url';
 	import { openUrl } from '$lib/utils';
+	import { DEFAULT_WINDOW_MS } from './constants';
 	import {
 		ChevronRight,
 		Laptop,
@@ -49,7 +50,7 @@
 		untrack(
 			() =>
 				data?.range ?? {
-					start: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+					start: new Date(Date.now() - DEFAULT_WINDOW_MS).toISOString(),
 					end: new Date().toISOString()
 				}
 		)
@@ -160,7 +161,7 @@
 
 	function syncUrl() {
 		const next = new URL(page.url);
-		const defaultStart = Date.now() - 60 * 24 * 60 * 60 * 1000;
+		const defaultStart = Date.now() - DEFAULT_WINDOW_MS;
 		const startMs = new Date(range.start).getTime();
 		const endMs = new Date(range.end).getTime();
 		if (Math.abs(startMs - defaultStart) > 60_000 || Math.abs(endMs - Date.now()) > 60_000) {

@@ -47,22 +47,9 @@
 		}))
 	);
 
-	let userById = $state<Record<string, OrgUser | null>>({});
-
-	$effect(() => {
-		for (const r of rows) {
-			const id = r.submitted_by;
-			if (!id || id in userById) continue;
-			userById[id] = null;
-			AdminService.getUser(id, { dontLogErrors: true })
-				.then((u) => {
-					userById[id] = u;
-				})
-				.catch(() => {
-					userById[id] = null;
-				});
-		}
-	});
+	const userById = $derived<Map<string, OrgUser>>(
+		new Map((data?.users ?? []).map((u) => [u.id, u]))
+	);
 
 	function userDisplay(u: OrgUser): string {
 		return u.displayName ?? u.email ?? u.username ?? u.id;
@@ -74,7 +61,7 @@
 		return rows.filter((r) => {
 			if ((r.device_id ?? '').toLowerCase().includes(q)) return true;
 			if ((r.username ?? '').toLowerCase().includes(q)) return true;
-			const u = r.submitted_by ? userById[r.submitted_by] : null;
+			const u = r.submitted_by ? userById.get(r.submitted_by) : undefined;
 			if (u && userDisplay(u).toLowerCase().includes(q)) return true;
 			return false;
 		});
@@ -173,7 +160,7 @@
 					{#if property === 'short_device_id'}
 						<span class="font-mono text-xs" title={d.device_id}>{d.short_device_id}</span>
 					{:else if property === 'username'}
-						{@const u = d.submitted_by ? userById[d.submitted_by] : null}
+						{@const u = d.submitted_by ? userById.get(d.submitted_by) : undefined}
 						{#if u}
 							<div class="flex items-center gap-2">
 								<div

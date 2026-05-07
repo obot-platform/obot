@@ -1,6 +1,7 @@
 package devicescan
 
 import (
+	"context"
 	"io/fs"
 	"path"
 	"strings"
@@ -54,10 +55,17 @@ const skillGlob = "**/SKILL.md"
 // streams: scanner-attributed project hits, and skill-marker paths for
 // scanProjectSkills.
 //
+// Depth is counted in path components: a top-level entry under root is
+// depth 1, so maxDepth=N means "walk up to N path segments below the
+// root" (top-level files matched at maxDepth=1).
+//
 // Files at fs-relative paths in skipPaths are dropped before
 // dispatching (used to suppress the redundant project hit on a path
 // that was already opened as a global config).
-func walkProject(fsys fs.FS, scanners []ClientScanner, maxDepth int, skipPaths map[string]bool) ([]projectHit, []string) {
+//
+// Honours ctx: if cancelled / deadline-exceeded, the walk aborts early
+// and returns whatever was matched so far.
+func walkProject(ctx context.Context, fsys fs.FS, scanners []ClientScanner, maxDepth int, skipPaths map[string]bool) ([]projectHit, []string) {
 	if fsys == nil {
 		return nil, nil
 	}
@@ -91,6 +99,9 @@ func walkProject(fsys fs.FS, scanners []ClientScanner, maxDepth int, skipPaths m
 		skillHits []string
 	)
 	_ = fs.WalkDir(fsys, ".", func(rel string, d fs.DirEntry, err error) error {
+		if cerr := ctx.Err(); cerr != nil {
+			return cerr
+		}
 		if err != nil {
 			return nil
 		}
@@ -101,6 +112,9 @@ func walkProject(fsys fs.FS, scanners []ClientScanner, maxDepth int, skipPaths m
 			if markerSkipDirs[d.Name()] {
 				return fs.SkipDir
 			}
+			// depth=1 for top-level entries under root. SkipDir on a
+			// dir at depth==maxDepth means we don't descend into it,
+			// so files match at depths 1…maxDepth (inclusive).
 			depth := strings.Count(rel, "/") + 1
 			if depth >= maxDepth {
 				return fs.SkipDir

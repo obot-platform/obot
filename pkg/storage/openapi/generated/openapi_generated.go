@@ -3700,7 +3700,7 @@ func schema_obot_platform_obot_apiclient_types_DeviceScanSkill(ref common.Refere
 				Properties: map[string]spec.Schema{
 					"client": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Client is the canonical client name; empty for free-floating SKILL.md files.",
+							Description: "Client is the canonical client name; \"multi\" for free-floating SKILL.md files with no canonical owning client (e.g. .agents/skills, .agent/skills, project skills outside a known client tree).",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",

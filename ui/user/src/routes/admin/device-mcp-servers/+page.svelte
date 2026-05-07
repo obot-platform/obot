@@ -6,15 +6,14 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { type DeviceMCPServerStat } from '$lib/services';
-	import { replaceState } from '$lib/url';
+	import { setFilterUrlParams } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Server } from 'lucide-svelte';
-	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 
-	let nameFilter = $state(untrack(() => page.url.searchParams.get('name') ?? ''));
+	let nameFilter = $derived(page.url.searchParams.get('name') ?? '');
 
 	type Row = DeviceMCPServerStat & { id: string };
 
@@ -32,11 +31,7 @@
 	);
 
 	function updateName(value: string) {
-		nameFilter = value;
-		const next = new URL(page.url);
-		if (value) next.searchParams.set('name', value);
-		else next.searchParams.delete('name');
-		replaceState(next, {});
+		setFilterUrlParams('name', value ? [value] : []);
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;

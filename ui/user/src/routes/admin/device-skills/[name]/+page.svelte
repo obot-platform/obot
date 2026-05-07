@@ -27,7 +27,7 @@
 	let pageIndex = $state(untrack(() => Math.floor((data?.occurrences?.offset ?? 0) / PAGE_SIZE)));
 	let loading = $state(false);
 
-	let skillName = $derived(decodeURIComponent(page.params.name ?? ''));
+	let skillName = $derived(page.params.name ?? '');
 
 	type Row = DeviceSkillOccurrence & {
 		id: string;

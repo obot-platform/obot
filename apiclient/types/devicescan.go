@@ -87,7 +87,10 @@ type DeviceScanMCPServer struct {
 
 // DeviceScanSkill is one skill (SKILL.md) observation.
 type DeviceScanSkill struct {
-	// Client is the canonical client name; empty for free-floating SKILL.md files.
+	// Client is the canonical client name; "multi" for free-floating
+	// SKILL.md files with no canonical owning client (e.g.
+	// .agents/skills, .agent/skills, project skills outside a known
+	// client tree).
 	Client string `json:"client"`
 	// ProjectPath is the project root for project-scope skills.
 	ProjectPath string `json:"project_path,omitempty"`

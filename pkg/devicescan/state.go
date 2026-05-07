@@ -84,7 +84,8 @@ func (s *scanState) addFile(rel string) (string, error) {
 
 	data, err := fs.ReadFile(s.fsys, rel)
 	if err != nil {
-		f.Oversized = true
+		// Unreadable (perms / IO). Record path + size only; leave
+		// Oversized=false so the UI doesn't mislabel it.
 		s.files[abs] = f
 		return abs, nil
 	}

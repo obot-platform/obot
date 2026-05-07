@@ -36,7 +36,7 @@ var (
 	// on the wire observation. Dirs with no canonical owning client
 	// (`.agents/skills`, `.agent/skills`) are intentionally absent —
 	// skills found in those locations come through scanProjectSkills
-	// with client="" instead.
+	// with client=multiClient ("multi") instead.
 	globalSkillDirs = []struct {
 		rel  string
 		tool string

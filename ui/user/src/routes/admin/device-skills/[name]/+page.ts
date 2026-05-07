@@ -21,7 +21,7 @@ export const load: PageLoad = async ({
 		items: [],
 		total: 0,
 		limit: PAGE_SIZE,
-		offset: 0
+		offset
 	};
 	try {
 		[detail, occurrences] = await Promise.all([

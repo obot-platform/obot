@@ -58,7 +58,7 @@ func Scan(ctx context.Context, fsys fs.FS, homeAbs string, maxDepth int) (types.
 	if err := ctx.Err(); err != nil {
 		return types.DeviceScan{}, err
 	}
-	hits, skillHits := walkProject(s.fsys, allScanners, maxDepth, skipPaths)
+	hits, skillHits := walkProject(ctx, s.fsys, allScanners, maxDepth, skipPaths)
 
 	// Phase 3: dispatch project hits to their owning scanner.
 	for _, h := range hits {
