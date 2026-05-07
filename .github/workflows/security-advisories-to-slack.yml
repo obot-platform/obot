@@ -1,0 +1,26 @@
+name: Post Security Advisories to Slack
+
+on:
+  repository_advisory:
+    types: [reported]
+
+jobs:
+  notify-slack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post to Slack
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.COMMUNITY_ISSUES_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "New security advisory reported"
+            blocks:
+              - type: "section"
+                text:
+                  type: "mrkdwn"
+                  text: |
+                    *New Security Advisory Reported*
+                    <${{ github.event.repository_advisory.html_url }}|${{ github.event.repository_advisory.summary }}>
+                    Severity: ${{ github.event.repository_advisory.severity }}
+                    CVE ID: ${{ github.event.repository_advisory.cve_id }}
