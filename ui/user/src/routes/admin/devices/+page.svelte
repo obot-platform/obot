@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, type DeviceScan, type DeviceScanList, type OrgUser } from '$lib/services';
@@ -10,7 +11,7 @@
 	import { replaceState } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { debounce } from 'es-toolkit';
-	import { ChevronsLeft, ChevronsRight, Laptop } from 'lucide-svelte';
+	import { Laptop } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -189,25 +190,14 @@
 			</Table>
 
 			{#if total > PAGE_SIZE}
-				<div class="flex items-center justify-center gap-4 pt-2">
-					<button
-						class="button-text flex items-center gap-1 text-xs"
-						disabled={pageIndex === 0 || loading}
-						onclick={() => fetchPage(pageIndex - 1)}
-					>
-						<ChevronsLeft class="size-4" /> Previous
-					</button>
-					<p class="text-on-surface1 text-xs">
-						{pageIndex + 1} of {lastPageIndex + 1} · {total} device{total === 1 ? '' : 's'}
-					</p>
-					<button
-						class="button-text flex items-center gap-1 text-xs"
-						disabled={pageIndex >= lastPageIndex || loading}
-						onclick={() => fetchPage(pageIndex + 1)}
-					>
-						Next <ChevronsRight class="size-4" />
-					</button>
-				</div>
+				<Pagination
+					{pageIndex}
+					{lastPageIndex}
+					{total}
+					{loading}
+					itemLabelSingular="device"
+					onPageChange={fetchPage}
+				/>
 			{/if}
 		{/if}
 	</div>

@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
+	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
@@ -11,9 +12,9 @@
 		type DeviceSkillOccurrenceList
 	} from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
-	import { goto, replaceState } from '$lib/url';
+	import { goto, setFilterUrlParams } from '$lib/url';
 	import { openUrl } from '$lib/utils';
-	import { ChevronsLeft, ChevronsRight, FileText } from 'lucide-svelte';
+	import { FileText } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -24,7 +25,9 @@
 	let occurrencesResp = $state<DeviceSkillOccurrenceList>(
 		untrack(() => data?.occurrences ?? { items: [], total: 0, limit: PAGE_SIZE, offset: 0 })
 	);
-	let pageIndex = $state(untrack(() => Math.floor((data?.occurrences?.offset ?? 0) / PAGE_SIZE)));
+	let pageIndex = $derived(
+		Math.floor(Number(page.url.searchParams.get('offset') ?? 0) / PAGE_SIZE)
+	);
 	let loading = $state(false);
 
 	let skillName = $derived(page.params.name ?? '');
@@ -55,11 +58,7 @@
 				limit: PAGE_SIZE,
 				offset: idx * PAGE_SIZE
 			});
-			pageIndex = idx;
-			const next = new URL(page.url);
-			if (idx > 0) next.searchParams.set('offset', String(idx * PAGE_SIZE));
-			else next.searchParams.delete('offset');
-			replaceState(next, {});
+			setFilterUrlParams('offset', idx > 0 ? [String(idx * PAGE_SIZE)] : []);
 		} finally {
 			loading = false;
 		}
@@ -175,25 +174,7 @@
 				</Table>
 
 				{#if total > PAGE_SIZE}
-					<div class="flex items-center justify-center gap-4 pt-2">
-						<button
-							class="button-text flex items-center gap-1 text-xs"
-							disabled={pageIndex === 0 || loading}
-							onclick={() => fetchPage(pageIndex - 1)}
-						>
-							<ChevronsLeft class="size-4" /> Previous
-						</button>
-						<p class="text-on-surface1 text-xs">
-							{pageIndex + 1} of {lastPageIndex + 1}
-						</p>
-						<button
-							class="button-text flex items-center gap-1 text-xs"
-							disabled={pageIndex >= lastPageIndex || loading}
-							onclick={() => fetchPage(pageIndex + 1)}
-						>
-							Next <ChevronsRight class="size-4" />
-						</button>
-					</div>
+					<Pagination {pageIndex} {lastPageIndex} {total} {loading} onPageChange={fetchPage} />
 				{/if}
 			</div>
 		{/if}

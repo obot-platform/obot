@@ -436,7 +436,6 @@
 					data={timelineRows}
 					categoryKey="category"
 					dateKey="scanned_at"
-					legend={{ hideCategoryLabel: true }}
 				/>
 			</div>
 		{/if}
