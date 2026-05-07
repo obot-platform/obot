@@ -293,34 +293,6 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 				})
 			}
 		}
-
-		// Verify user still has access to the server
-		if system.IsMCPServerID(req.MCPID) {
-			var server v1.MCPServer
-			if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &server); err != nil {
-				pkgLog.Infof("Denied API key auth request: reason=mcp_server_not_found keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
-				return apiContext.Write(apiKeyAuthResponse{
-					Allowed: false,
-					Reason:  "MCP server not found",
-				})
-			}
-
-			hasAccess, err := s.userHasAccessToMCPServerByUserID(apiContext, &server, apiKey.UserID)
-			if err != nil {
-				pkgLog.Infof("Denied API key auth request: reason=access_check_failed keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
-				return apiContext.Write(apiKeyAuthResponse{
-					Allowed: false,
-					Reason:  fmt.Sprintf("failed to verify access: %v", err),
-				})
-			}
-			if !hasAccess {
-				pkgLog.Infof("Denied API key auth request: reason=user_lost_mcp_access keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
-				return apiContext.Write(apiKeyAuthResponse{
-					Allowed: false,
-					Reason:  "user does not have access to this MCP server",
-				})
-			}
-		}
 	}
 
 	pkgLog.Debugf("Authorized API key request: keyUserID=%d mcpID=%s wildcardScope=%v", apiKey.UserID, req.MCPID, hasWildcard)
@@ -339,36 +311,6 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	}
 
 	return err
-}
-
-// userHasAccessToMCPServerByUserID checks if a specific user has access to the given MCPServer.
-// This is used in the auth webhook where we don't have an authenticated api.Context.
-func (s *Server) userHasAccessToMCPServerByUserID(apiContext api.Context, server *v1.MCPServer, userID uint) (bool, error) {
-	userIDStr := strconv.FormatUint(uint64(userID), 10)
-
-	// Owner always has access
-	if server.Spec.UserID == userIDStr {
-		return true, nil
-	}
-
-	// Get user info with groups for ACR checks
-	userInfo, err := apiContext.GatewayClient.UserInfoByID(apiContext.Context(), userID)
-	if err != nil {
-		return false, fmt.Errorf("failed to get user info: %w", err)
-	}
-
-	// Check ACR for catalog-scoped servers
-	if server.Spec.MCPCatalogID != "" {
-		return s.acrHelper.UserHasAccessToMCPServerInCatalog(userInfo, server.Name, server.Spec.MCPCatalogID)
-	}
-
-	// Check ACR for workspace-scoped servers
-	if server.Spec.PowerUserWorkspaceID != "" {
-		return s.acrHelper.UserHasAccessToMCPServerInWorkspace(userInfo, server.Name, server.Spec.PowerUserWorkspaceID, server.Spec.UserID)
-	}
-
-	// If not owner and not in catalog/workspace, no access
-	return false, nil
 }
 
 // updateKeyLastUsedTime updates the last used timestamp for an API key.
