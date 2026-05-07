@@ -40,6 +40,7 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user us
 
 		// For single-user MCP servers, ensure the user owns the server.
 		return mcpServer.Spec.UserID == user.GetUID(), nil
+
 	default:
 		var entry v1.MCPServerCatalogEntry
 		if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.MCPID), &entry); err != nil {
