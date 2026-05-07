@@ -370,7 +370,6 @@ var (
 			"GET /api/me",
 			"GET /api/users",
 			"GET /api/groups",
-			"/mcp-connect/",
 			"POST /api/published-artifacts",
 			"GET /api/published-artifacts",
 			"GET /api/published-artifacts/{id}",

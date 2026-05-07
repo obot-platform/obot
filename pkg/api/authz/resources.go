@@ -22,6 +22,9 @@ var apiResources = map[string][]string{
 		"GET    /mcp-connect/{mcp_id}",
 		"POST   /mcp-connect/{mcp_id}",
 		"DELETE /mcp-connect/{mcp_id}",
+		"GET    /mcp-connect/{mcp_id}/",
+		"POST   /mcp-connect/{mcp_id}/",
+		"DELETE /mcp-connect/{mcp_id}/",
 		"GET    /api/mcp-stats/{mcp_id}",
 		"GET    /api/mcp-audit-logs/{mcp_id}",
 		"GET    /api/assistants",
@@ -225,7 +228,6 @@ var apiResources = map[string][]string{
 		//
 		"GET    /api/tool-references",
 		"GET    /api/tool-references/{id}",
-		"GET    /{ui}/projects/{id}",
 		"GET    /api/users/{user_id}",
 		"PATCH  /api/users/{user_id}",
 		"GET    /api/users/{user_id}/activities",
@@ -284,6 +286,14 @@ var apiResources = map[string][]string{
 		"DELETE /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}",
 		"GET    /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}",
 		"PUT    /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}",
+	},
+	types.GroupAPIKey: {
+		"GET    /mcp-connect/{mcp_id}",
+		"POST   /mcp-connect/{mcp_id}",
+		"DELETE /mcp-connect/{mcp_id}",
+		"GET    /mcp-connect/{mcp_id}/",
+		"POST   /mcp-connect/{mcp_id}/",
+		"DELETE /mcp-connect/{mcp_id}/",
 	},
 }
 
