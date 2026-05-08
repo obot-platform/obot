@@ -1049,6 +1049,15 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 				return v1.MCPServer{}, v1.MCPServerInstance{}, err
 			}
 			if len(instances.Items) == 0 {
+				// Check that the multi-user server doesn't have any required configuration.
+				if server.Spec.Manifest.MultiUserConfig != nil {
+					for _, header := range server.Spec.Manifest.MultiUserConfig.UserDefinedHeaders {
+						if header.Required {
+							return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an instance for the multi-user MCP server %s", id)
+						}
+					}
+				}
+
 				// If none exist, then create one for the user.
 				instance := v1.MCPServerInstance{
 					ObjectMeta: metav1.ObjectMeta{
