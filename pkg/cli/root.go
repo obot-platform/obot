@@ -43,7 +43,9 @@ func New() *cobra.Command {
 	}
 	return cmd.Command(root,
 		&Server{},
-		&Token{root: root},
+		&Login{root: root},
+		&Logout{root: root},
+		&Scan{root: root},
 		&Version{},
 	)
 }

@@ -70,7 +70,17 @@ import type {
 	SystemMCPServer,
 	SystemMCPServerCatalogEntry,
 	SystemMCPServerCatalogEntryManifest,
-	SystemMCPServerManifest
+	SystemMCPServerManifest,
+	DeviceMCPServerOccurrenceResponse,
+	DeviceMCPServerDetail,
+	DeviceScan,
+	DeviceScanListFilters,
+	DeviceScanResponse,
+	DeviceScanStats,
+	DeviceSkillListFilters,
+	DeviceSkillOccurrenceResponse,
+	DeviceSkillDetail,
+	DeviceSkillStatResponse
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -1799,6 +1809,93 @@ export async function getSystemMCPServerTools(
 	opts?: { fetch?: Fetcher }
 ): Promise<MCPServerTool[]> {
 	return (await doGet(`/system-mcp-servers/${id}/tools`, opts)) as MCPServerTool[];
+}
+
+// Device scans
+
+export async function listDeviceScans(
+	filters?: DeviceScanListFilters,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceScanResponse> {
+	const queryString = buildQueryString(filters ?? {});
+	return (await doGet(
+		`/devices/scans${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as DeviceScanResponse;
+}
+
+export async function getDeviceScan(
+	id: number | string,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceScan> {
+	return (await doGet(`/devices/scans/${id}`, opts)) as DeviceScan;
+}
+
+export async function deleteDeviceScan(id: number | string): Promise<void> {
+	await doDelete(`/devices/scans/${id}`);
+}
+
+export async function getDeviceMCPServerDetail(
+	configHash: string,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceMCPServerDetail> {
+	return (await doGet(
+		`/devices/mcp-servers/${encodeURIComponent(configHash)}`,
+		opts
+	)) as DeviceMCPServerDetail;
+}
+
+export async function listDeviceMCPServerOccurrences(
+	configHash: string,
+	page: { limit?: number; offset?: number },
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceMCPServerOccurrenceResponse> {
+	const queryString = buildQueryString(page ?? {});
+	return (await doGet(
+		`/devices/mcp-servers/${encodeURIComponent(configHash)}/occurrences${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as DeviceMCPServerOccurrenceResponse;
+}
+
+export async function getDeviceScanStats(
+	range?: { start?: string; end?: string },
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceScanStats> {
+	const queryString = buildQueryString(range ?? {});
+	return (await doGet(
+		`/devices/scan-stats${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as DeviceScanStats;
+}
+
+export async function listDeviceSkills(
+	filters?: DeviceSkillListFilters,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceSkillStatResponse> {
+	const queryString = buildQueryString(filters ?? {});
+	return (await doGet(
+		`/devices/skills${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as DeviceSkillStatResponse;
+}
+
+export async function getDeviceSkillDetail(
+	name: string,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceSkillDetail> {
+	return (await doGet(`/devices/skills/${encodeURIComponent(name)}`, opts)) as DeviceSkillDetail;
+}
+
+export async function listDeviceSkillOccurrences(
+	name: string,
+	page: { limit?: number; offset?: number },
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceSkillOccurrenceResponse> {
+	const queryString = buildQueryString(page ?? {});
+	return (await doGet(
+		`/devices/skills/${encodeURIComponent(name)}/occurrences${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as DeviceSkillOccurrenceResponse;
 }
 
 export async function restartNanobotAgentDeployments(opts?: {

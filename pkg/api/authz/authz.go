@@ -90,6 +90,12 @@ var (
 		"/api/message-policy-violations",
 		"/api/message-policy-violations/",
 		"GET /api/message-policy-violation-stats",
+		"/api/devices/scans",
+		"/api/devices/scans/",
+		"/api/devices/scan-stats",
+		"/api/devices/mcp-servers/",
+		"/api/devices/skills",
+		"/api/devices/skills/",
 		"/api/available-models",
 		"/api/available-models/",
 		"/api/default-model-aliases",
@@ -213,6 +219,12 @@ var (
 			"GET /api/message-policy-violations/filter-options/{filter}",
 			"GET /api/message-policy-violations/{id}",
 			"GET /api/message-policy-violation-stats",
+			"GET /api/devices/scans",
+			"GET /api/devices/scans/",
+			"GET /api/devices/scan-stats",
+			"GET /api/devices/mcp-servers/",
+			"GET /api/devices/skills",
+			"GET /api/devices/skills/",
 			"GET /api/token-usage",
 			"GET /api/total-token-usage",
 			"GET /api/nanobot-agents",
@@ -321,6 +333,11 @@ var (
 			// Allow basic users to create and list ProjectV2 resources
 			"POST /api/projectsv2",
 			"GET /api/projectsv2",
+
+			// Device scans: any authenticated user can submit a scan via
+			// `obot scan`. Reads are admin/owner/auditor-only, gated by
+			// the rules above.
+			"POST /api/devices/scans",
 		},
 
 		types.GroupPowerUserPlus: {

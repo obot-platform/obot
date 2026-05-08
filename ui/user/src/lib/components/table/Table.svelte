@@ -86,6 +86,16 @@
 	let page = $state(0);
 	let total = $derived(data.length);
 
+	// Keep page within bounds when total shrinks.
+	$effect(() => {
+		if (pageSize && total > 0) {
+			const maxPage = Math.max(0, Math.ceil(total / pageSize) - 1);
+			if (page > maxPage) page = maxPage;
+		} else if (page !== 0) {
+			page = 0;
+		}
+	});
+
 	let sortableFields = $derived(new Set(sortable));
 	let filterableFields = $derived(new Set(filterable));
 	let sortedBy = $derived<{ property: string; order: 'asc' | 'desc' } | undefined>(
