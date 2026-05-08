@@ -20,7 +20,7 @@ docker run -d --name obot -p 8080:8080 \
   ghcr.io/obot-platform/obot:latest
 ```
 
-The `OBOT_BOOTSTRAP_TOKEN` value can be anything you want, at least eight characters long. This is the value you will provide for initial authentication to begin configuring Obot.
+The `OBOT_BOOTSTRAP_TOKEN` value can be anything you want, at least six characters long. This is the value you will provide for initial authentication to begin configuring Obot.
 Replace \<API KEY\> with your OpenAI API key. You can also set `ANTHROPIC_API_KEY` or omit these environment variables completely and configure model providers through the UI.
 
 Open [http://localhost:8080](http://localhost:8080) in your browser to access the Obot UI.
