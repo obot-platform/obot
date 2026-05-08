@@ -244,7 +244,7 @@ func getModelFromReference(ctx context.Context, client kclient.Client, namespace
 		}
 
 		if len(models.Items) == 0 {
-			return nil, errors.New("no models found")
+			return nil, fmt.Errorf("model %q not found", modelReference)
 		}
 
 		// Return the oldest one.
