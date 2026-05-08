@@ -210,6 +210,13 @@
 		selectServerMode = mode;
 	}
 
+	function handleConnectToServer({ instance }: { instance?: MCPServerInstance }) {
+		if (instance) {
+			mcpServersAndEntries.refreshUserInstances();
+		}
+		onConnect?.({ instance });
+	}
+
 	async function handleConfigureOAuth(entry: MCPCatalogEntry) {
 		oauthConfigEntry = entry;
 		try {
@@ -389,7 +396,7 @@
 				{:else if property === 'status'}
 					{#if d.status}
 						<div
-							class={d.status === 'Requires OAuth Config'
+							class={d.status === 'Requires OAuth Config' || d.status === 'Configuration Required'
 								? 'pill-warning'
 								: 'pill-primary bg-primary'}
 						>
@@ -452,10 +459,13 @@
 													handleShowSelectServerDialog(catalogEntry, 'chat');
 												}
 											} else {
-												connectToServerDialog?.handleSetupChat(
-													d.data as MCPCatalogServer,
-													instancesMap.get(d.id)
-												);
+												const server = d.data as MCPCatalogServer;
+												const instance = instancesMap.get(d.id);
+												if (instance && !instance.configured) {
+													connectToServerDialog?.open({ server, instance });
+												} else {
+													connectToServerDialog?.handleSetupChat(server, instance);
+												}
 											}
 											toggle(false);
 										}}
@@ -823,7 +833,7 @@
 <ConnectToServer
 	bind:this={connectToServerDialog}
 	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
-	{onConnect}
+	onConnect={handleConnectToServer}
 />
 
 <ResponsiveDialog
