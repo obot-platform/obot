@@ -4,6 +4,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
@@ -79,7 +80,7 @@
 	let syncInterval = new SvelteMap<string, ReturnType<typeof setInterval>>();
 
 	let editingSource = $state<
-		{ index: number; value: string; name: string; ref: string } | undefined
+		{ index: number; value: string; name: string; ref: string; token: string } | undefined
 	>(undefined);
 	let sourceError = $state<string | undefined>(undefined);
 	let saving = $state(false);
@@ -206,7 +207,7 @@
 			<button
 				class="button-primary flex items-center gap-1 text-sm"
 				onclick={() => {
-					editingSource = { index: -1, value: '', name: '', ref: 'main' };
+					editingSource = { index: -1, value: '', name: '', ref: 'main', token: '' };
 					sourceDialog?.showModal();
 				}}
 			>
@@ -489,6 +490,16 @@
 						>The branch, commit SHA, or tag to index and pull skills from.</span
 					>
 				</div>
+				<div class="flex flex-col gap-1">
+					<label for="skill-source-token" class="flex items-center gap-1 text-sm font-light">
+						Personal access token (optional)
+					</label>
+					<SensitiveInput
+						name="skill-source-token"
+						placeholder="Required for private repositories"
+						bind:value={editingSource.token}
+					/>
+				</div>
 			</div>
 
 			{#if sourceError}
@@ -515,11 +526,15 @@
 						sourceError = undefined;
 
 						try {
-							const response = await AdminService.createSkillRepository({
+							const manifest: Parameters<typeof AdminService.createSkillRepository>[0] = {
 								displayName: editingSource.name,
 								repoURL: editingSource.value,
 								ref: editingSource.ref
-							});
+							};
+							if (editingSource.token) {
+								manifest.sourceURLCredentials = { [editingSource.value]: editingSource.token };
+							}
+							const response = await AdminService.createSkillRepository(manifest);
 							skillRepositories = [...skillRepositories, response];
 							sync(response.id);
 							closeSourceDialog();

@@ -22,6 +22,7 @@ import (
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/git"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
@@ -323,7 +324,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 	var entries []types.MCPServerCatalogEntryManifest
 
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
-		if isGitRepoURL(sourceURL) {
+		if git.IsGitRepoURL(sourceURL) {
 			var err error
 			entries, err = readGitCatalogEntries[types.MCPServerCatalogEntryManifest](ctx, sourceURL, token)
 			if err != nil {
@@ -423,7 +424,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 
 func readCatalogManifests[T any](ctx context.Context, sourceURL, token string) ([]T, error) {
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
-		if isGitRepoURL(sourceURL) {
+		if git.IsGitRepoURL(sourceURL) {
 			entries, err := readGitCatalogEntries[T](ctx, sourceURL, token)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
@@ -505,6 +506,34 @@ func sanitizeCatalogEntryManifest(entry *types.MCPServerCatalogEntryManifest) {
 			entry.RemoteConfig.Headers[i] = header
 		}
 	}
+}
+
+// isPathSafe checks if a file path is safe to read (not a symlink and within bounds).
+func isPathSafe(path, baseDir string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("symbolic links are not allowed for security reasons")
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	absBaseDir, err := filepath.Abs(baseDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute base directory: %w", err)
+	}
+
+	if !strings.HasPrefix(absPath, absBaseDir+string(filepath.Separator)) {
+		return fmt.Errorf("file path is outside the allowed directory")
+	}
+
+	return nil
 }
 
 func readCatalogDirectory[T any](catalog string) ([]T, error) {
