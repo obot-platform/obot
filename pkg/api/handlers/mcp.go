@@ -38,14 +38,12 @@ var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 const requestTimeUpdateInterval = 15 * time.Minute
 
 type missingRequiredConfigErr struct {
-	missing []string
-	err     *types.ErrHTTP
+	err *types.ErrHTTP
 }
 
 func newMissingRequiredConfigErr(missing []string) *missingRequiredConfigErr {
 	return &missingRequiredConfigErr{
-		missing: missing,
-		err:     types.NewErrBadRequest("missing required config: %s", strings.Join(missing, ", ")),
+		err: types.NewErrBadRequest("missing required config: %s", strings.Join(missing, ", ")),
 	}
 }
 
@@ -2083,30 +2081,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		return err
 	}
 
-	// Strip values for any bound key before persisting to the credential
-	// store. Bound values are sourced from Kubernetes Secrets and must
-	// never be written into the cred store — a misbehaving UI might send
-	// a value for a bound key, but persisting it would (a) leak that
-	// value via reveal endpoints and (b) shadow the Secret-backed value
-	// if the merge ever ran with credEnv-precedence.
-	for _, env := range mcpServer.Spec.Manifest.Env {
-		if env.SecretBinding != nil {
-			delete(envVars, env.Key)
-		}
-	}
-	if mcpServer.Spec.Manifest.RemoteConfig != nil {
-		for _, h := range mcpServer.Spec.Manifest.RemoteConfig.Headers {
-			if h.SecretBinding != nil {
-				delete(envVars, h.Key)
-			}
-		}
-	}
-
-	for key, val := range envVars {
-		if val == "" {
-			delete(envVars, key)
-		}
-	}
+	sanitizeConfig(envVars, mcpServer.Spec.Manifest)
 
 	if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
 		Context:  credCtx,
@@ -2206,7 +2181,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 			continue
 		}
 
-		sanitizeComponentConfig(config.Config, component.Manifest)
+		sanitizeConfig(config.Config, component.Manifest)
 
 		if component.Disabled != config.Disabled {
 			component.Disabled = config.Disabled
@@ -2381,7 +2356,7 @@ func secretBoundTemplateKeys(urlTemplate string, envs []types.MCPEnv) []string {
 	return bound
 }
 
-func sanitizeComponentConfig(config map[string]string, manifest types.MCPServerManifest) {
+func sanitizeConfig(config map[string]string, manifest types.MCPServerManifest) {
 	if config == nil {
 		return
 	}

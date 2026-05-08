@@ -317,3 +317,27 @@ func TestSecretBoundTemplateKeys(t *testing.T) {
 		})
 	}
 }
+
+func TestSanitizeConfig(t *testing.T) {
+	manifest := types.MCPServerManifest{
+		Env: []types.MCPEnv{
+			{MCPHeader: types.MCPHeader{Key: "ENV_BOUND", SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "env"}}},
+		},
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			Headers: []types.MCPHeader{
+				{Key: "HEADER_BOUND", SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "header"}},
+			},
+		},
+	}
+
+	config := map[string]string{
+		"KEEP":         "value",
+		"EMPTY":        "",
+		"ENV_BOUND":    "should-remove",
+		"HEADER_BOUND": "should-remove",
+	}
+
+	sanitizeConfig(config, manifest)
+
+	assert.Equal(t, map[string]string{"KEEP": "value"}, config)
+}
