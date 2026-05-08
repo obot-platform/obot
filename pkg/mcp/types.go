@@ -510,6 +510,8 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 			val      string
 			hasValue bool
 		)
+
+		// Check for static value first
 		if env.Value != "" {
 			val = env.Value
 			hasValue = true
@@ -529,8 +531,8 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 			continue
 		}
 
-		// Apply prefix to non-literal values. Static (env.Value) values
-		// keep "no prefix" semantics.
+		// Apply prefix if specified (e.g., "Bearer ", "sk-")
+		// Only apply to user-supplied values, not static values
 		if env.Value == "" {
 			val = applyPrefix(val, env.Prefix)
 		}
