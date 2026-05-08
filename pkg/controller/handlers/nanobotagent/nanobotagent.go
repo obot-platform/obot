@@ -398,7 +398,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 // resolvedLLMModel pairs the resolved target model name with its configured provider reference
 // and the dialect declared by that provider (if any).
 type resolvedLLMModel struct {
-	Name            string               // slugified Manifest.Name (e.g. "openai-gpt-4.1"), safe for K8s/URL use
+	Name            string               // model Manifest.Name as stored on the Model resource
 	TargetModel     string               // real upstream model ID (e.g. "openai/gpt-4.1")
 	ModelProvider   string               // e.g. "openai-model-provider", "anthropic-model-provider"
 	ProviderDialect nanobottypes.Dialect // from ProviderMeta.Dialect; empty if not declared
