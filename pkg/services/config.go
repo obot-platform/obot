@@ -67,6 +67,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
+	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	"k8s.io/client-go/rest"
 	gocache "k8s.io/client-go/tools/cache"
@@ -763,7 +764,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	var apiLocalK8sClient kclient.Client
 	if localK8sConfig != nil {
-		apiLocalK8sClient, err = kclient.New(localK8sConfig, kclient.Options{Scheme: scheme.Scheme})
+		apiLocalK8sClient, err = kclient.New(localK8sConfig, kclient.Options{Scheme: k8sscheme.Scheme})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build local k8s client for API server: %w", err)
 		}

@@ -63,11 +63,9 @@ func New(services *services.Services) (*Controller, error) {
 			return nil, fmt.Errorf("failed to create local Kubernetes router: %w", err)
 		}
 
-		c.runtimeClient, err = kclient.New(services.LocalK8sConfig, kclient.Options{
-			Scheme: scheme.Scheme,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create runtime Kubernetes client: %w", err)
+		c.runtimeClient = services.LocalK8sClient
+		if c.runtimeClient == nil {
+			return nil, fmt.Errorf("failed to initialize runtime Kubernetes client")
 		}
 	}
 
