@@ -49,7 +49,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	toolRefs := handlers.NewToolReferenceHandler()
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler(services.ModelAccessPolicyHelper)
-	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPLoader, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper)
+	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPRuntimeBackend, services.MCPLoader, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper)
 	systemMCPCatalogs := handlers.NewSystemMCPCatalogHandler(services.DefaultSystemMCPCatalogPath)
 	accessControlRules := handlers.NewAccessControlRuleHandler()
 	skillRepositories := handlers.NewSkillRepositoryHandler()

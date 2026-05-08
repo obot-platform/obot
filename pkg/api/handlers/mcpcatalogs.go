@@ -32,21 +32,45 @@ var dnsLabelRegex = regexp.MustCompile("[^a-z0-9-]+")
 type MCPCatalogHandler struct {
 	defaultCatalogPath string
 	serverURL          string
+	mcpBackend         string
 	sessionManager     *mcp.SessionManager
 	oauthChecker       MCPOAuthChecker
 	gatewayClient      *gclient.Client
 	acrHelper          *accesscontrolrule.Helper
 }
 
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBackend string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
 		defaultCatalogPath: defaultCatalogPath,
 		serverURL:          serverURL,
+		mcpBackend:         mcpBackend,
 		sessionManager:     sessionManager,
 		oauthChecker:       oauthChecker,
 		gatewayClient:      gatewayClient,
 		acrHelper:          acrHelper,
 	}
+}
+
+func (h *MCPCatalogHandler) rejectBindingsIfNotKubernetes(manifest types.MCPServerCatalogEntryManifest) error {
+	if h.mcpBackend == "kubernetes" || h.mcpBackend == "k8s" {
+		return nil
+	}
+
+	for _, env := range manifest.Env {
+		if env.SecretBinding != nil {
+			return types.NewErrBadRequest("secretBinding requires the kubernetes MCP runtime backend")
+		}
+	}
+
+	if manifest.RemoteConfig != nil {
+		for _, header := range manifest.RemoteConfig.Headers {
+			if header.SecretBinding != nil {
+				return types.NewErrBadRequest("secretBinding requires the kubernetes MCP runtime backend")
+			}
+		}
+	}
+
+	return nil
 }
 
 // List returns all catalogs.
@@ -282,6 +306,9 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
+	if err := h.rejectBindingsIfNotKubernetes(manifest); err != nil {
+		return err
+	}
 
 	// Handle composite catalog entries
 	if manifest.Runtime == types.RuntimeComposite && manifest.CompositeConfig != nil {
@@ -366,6 +393,9 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	var manifest types.MCPServerCatalogEntryManifest
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
+	}
+	if err := h.rejectBindingsIfNotKubernetes(manifest); err != nil {
+		return err
 	}
 	if err := validation.ValidateCatalogEntryManifest(manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
@@ -1714,6 +1744,9 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	// Validate the refreshed manifest to ensure it's still valid
 	if err := validation.ValidateCatalogEntryManifest(entry.Spec.Manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+	}
+	if err := h.rejectBindingsIfNotKubernetes(entry.Spec.Manifest); err != nil {
+		return err
 	}
 	// Preserve the git-managed status of the original entry when re-validating.
 	entryGitManaged := entry.IsGitManaged()
