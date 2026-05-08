@@ -68,6 +68,7 @@ type Handler struct {
 	gptClient                *gptscript.GPTScript
 	gatewayClient            *gclient.Client
 	accessControlRuleHelper  *accesscontrolrule.Helper
+	mcpBackend               string
 }
 
 // revealCatalogCredential retrieves a stored PAT for the given source URL.
@@ -87,13 +88,14 @@ func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sour
 	return cred.Env[sourceURL]
 }
 
-func New(defaultCatalogPath, defaultSystemCatalogPath string, gptClient *gptscript.GPTScript, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper) *Handler {
+func New(defaultCatalogPath, defaultSystemCatalogPath string, gptClient *gptscript.GPTScript, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpBackend string) *Handler {
 	return &Handler{
 		defaultCatalogPath:       defaultCatalogPath,
 		defaultSystemCatalogPath: defaultSystemCatalogPath,
 		gptClient:                gptClient,
 		gatewayClient:            gatewayClient,
 		accessControlRuleHelper:  accessControlRuleHelper,
+		mcpBackend:               mcpBackend,
 	}
 }
 
@@ -439,7 +441,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			continue
 		}
 		// secretBinding references are only allowed for git-managed entries.
-		if err := validation.ValidateSecretBindingsCatalogEntry(entry, catalogEntry.IsGitManaged()); err != nil {
+		if err := validation.ValidateSecretBindingsCatalogEntry(entry, catalogEntry.IsGitManaged(), h.mcpBackend); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}

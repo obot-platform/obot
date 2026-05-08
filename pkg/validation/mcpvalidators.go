@@ -1093,14 +1093,17 @@ func validateStartupTimeout(runtime types.Runtime, startupTimeoutSeconds int) er
 
 // ValidateSecretBindings enforces the rules for secretBinding references on
 // env vars and headers. Bindings are GitOps-only: they may only appear on
-// catalog entries synced from git (gitManaged=true). They are mutually
-// exclusive with a static value, require non-empty name/key, and are rejected
-// in unsupported combinations (env bindings under remote runtime, file-backed
-// envs).
-func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool) error {
+// catalog entries synced from git (gitManaged=true). They also require the
+// kubernetes MCP runtime backend, are mutually exclusive with a static value,
+// require non-empty name/key, and are rejected in unsupported combinations
+// (env bindings under remote runtime).
+func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool, mcpBackend string) error {
 	check := func(kind, key string, h types.MCPHeader) error {
 		if h.SecretBinding == nil {
 			return nil
+		}
+		if mcpBackend != "kubernetes" && mcpBackend != "k8s" {
+			return fmt.Errorf("%s %q: secretBinding requires the kubernetes MCP runtime backend", kind, key)
 		}
 		if !gitManaged {
 			return fmt.Errorf("%s %q: secretBinding is only allowed on git-synced catalog entries", kind, key)
@@ -1118,9 +1121,6 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool) e
 		if env.SecretBinding != nil {
 			if manifest.Runtime == types.RuntimeRemote {
 				return fmt.Errorf("env %q: secretBinding on env vars is not supported for remote runtime", env.Key)
-			}
-			if env.File {
-				return fmt.Errorf("env %q: secretBinding on file-backed envs is not supported", env.Key)
 			}
 		}
 		if err := check("env", env.Key, env.MCPHeader); err != nil {
@@ -1142,9 +1142,10 @@ func ValidateSecretBindings(manifest types.MCPServerManifest, gitManaged bool) e
 // carry the runtime/env shape of MCPServerManifest directly) by extracting
 // the fields that matter for binding validation. The catalog-entry manifest
 // uses the same MCPEnv/MCPHeader types, so we reuse the core logic.
-func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged bool) error {
-	// Reject URL templates that reference secret-bound env vars. The secret
-	// value would be expanded into the stored URL, leaking it via the API.
+func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryManifest, gitManaged bool, mcpBackend string) error {
+	// Reject URL templates that reference secret-bound env vars. Remote
+	// secretBinding support is limited to headers; URL templates are not a
+	// supported binding target.
 	if manifest.RemoteConfig != nil && manifest.RemoteConfig.URLTemplate != "" {
 		bound := make(map[string]bool, len(manifest.Env))
 		for _, env := range manifest.Env {
@@ -1165,7 +1166,7 @@ func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryMani
 		Env:          manifest.Env,
 		RemoteConfig: remoteCatalogToRuntime(manifest.RemoteConfig),
 	}
-	return ValidateSecretBindings(synthetic, gitManaged)
+	return ValidateSecretBindings(synthetic, gitManaged, mcpBackend)
 }
 
 func remoteCatalogToRuntime(c *types.RemoteCatalogConfig) *types.RemoteRuntimeConfig {

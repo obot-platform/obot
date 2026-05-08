@@ -2,9 +2,6 @@ package handlers
 
 import (
 	"testing"
-
-	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNormalizeName(t *testing.T) {
@@ -159,28 +156,4 @@ func TestNormalizeNameKubernetesCompliance(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestRejectBindingsIfNotKubernetes(t *testing.T) {
-	binding := &types.MCPSecretBinding{Name: "my-secret", Key: "token"}
-
-	t.Run("rejects env binding on docker backend", func(t *testing.T) {
-		h := &MCPCatalogHandler{mcpBackend: "docker"}
-		err := h.rejectBindingsIfNotKubernetes(types.MCPServerCatalogEntryManifest{
-			Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "API_KEY", SecretBinding: binding}}},
-		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "requires the kubernetes MCP runtime backend")
-	})
-
-	t.Run("allows header binding on kubernetes backend", func(t *testing.T) {
-		h := &MCPCatalogHandler{mcpBackend: "kubernetes"}
-		err := h.rejectBindingsIfNotKubernetes(types.MCPServerCatalogEntryManifest{
-			Runtime: types.RuntimeRemote,
-			RemoteConfig: &types.RemoteCatalogConfig{
-				Headers: []types.MCPHeader{{Key: "Authorization", SecretBinding: binding}},
-			},
-		})
-		require.NoError(t, err)
-	})
 }

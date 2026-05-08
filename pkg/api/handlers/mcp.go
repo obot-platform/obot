@@ -78,36 +78,6 @@ func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.H
 	}
 }
 
-// rejectBindingsIfNotKubernetes fails closed when a manifest carries any
-// secretBinding but the runtime backend can't resolve it. Only the kubernetes
-// backend projects SecretKeyRef via kubelet; on docker, bindings would be
-// silently ignored.
-func (m *MCPHandler) rejectBindingsIfNotKubernetes(manifest types.MCPServerManifest) error {
-	if m.mcpBackend == "kubernetes" {
-		return nil
-	}
-	if manifestHasSecretBindings(manifest) {
-		return types.NewErrBadRequest("secretBinding requires the kubernetes MCP runtime backend")
-	}
-	return nil
-}
-
-func manifestHasSecretBindings(manifest types.MCPServerManifest) bool {
-	for _, env := range manifest.Env {
-		if env.SecretBinding != nil {
-			return true
-		}
-	}
-	if manifest.RemoteConfig != nil {
-		for _, h := range manifest.RemoteConfig.Headers {
-			if h.SecretBinding != nil {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 	var (
 		entry v1.MCPServerCatalogEntry
@@ -1803,11 +1773,8 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	if err := validation.ValidateServerManifest(server.Spec.Manifest, server.Spec.MCPCatalogID != "" || server.Spec.PowerUserWorkspaceID != ""); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
-	if err := validation.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry); err != nil {
+	if err := validation.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry, m.mcpBackend); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
-	}
-	if err := m.rejectBindingsIfNotKubernetes(server.Spec.Manifest); err != nil {
-		return err
 	}
 
 	addExtractedEnvVars(&server)
@@ -1916,11 +1883,8 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 			gitManagedEntry = catalogEntry.IsGitManaged()
 		}
 	}
-	if err := validation.ValidateSecretBindings(updated, gitManagedEntry); err != nil {
+	if err := validation.ValidateSecretBindings(updated, gitManagedEntry, m.mcpBackend); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
-	}
-	if err := m.rejectBindingsIfNotKubernetes(updated); err != nil {
-		return err
 	}
 	if err := validation.ValidateTemplateReferences(updated); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
@@ -2040,10 +2004,6 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		if catalogEntry.Spec.Manifest.Runtime == types.RuntimeRemote &&
 			catalogEntry.Spec.Manifest.RemoteConfig != nil &&
 			catalogEntry.Spec.Manifest.RemoteConfig.URLTemplate != "" {
-			if boundKeys := secretBoundTemplateKeys(catalogEntry.Spec.Manifest.RemoteConfig.URLTemplate, catalogEntry.Spec.Manifest.Env); len(boundKeys) > 0 {
-				return types.NewErrBadRequest("url template cannot reference secret-bound env vars: %s", strings.Join(boundKeys, ", "))
-			}
-
 			// Apply the URL template with environment variables
 			finalURL, err := applyURLTemplate(catalogEntry.Spec.Manifest.RemoteConfig.URLTemplate, envVars)
 			if err != nil {
@@ -2203,9 +2163,6 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 				// Handle URL changes for templates and hostname constraints
 				originalURL := remoteConfig.URL
 				if remoteConfig.URLTemplate != "" {
-					if boundKeys := secretBoundTemplateKeys(remoteConfig.URLTemplate, component.Manifest.Env); len(boundKeys) > 0 {
-						return types.NewErrBadRequest("component %s url template cannot reference secret-bound env vars: %s", componentID, strings.Join(boundKeys, ", "))
-					}
 					finalURL, err := applyURLTemplate(remoteConfig.URLTemplate, config.Config)
 					if err != nil {
 						return fmt.Errorf("failed to apply URL template %w", err)
@@ -2321,39 +2278,6 @@ func kickMCPServerControllers(req api.Context, server *v1.MCPServer) error {
 		server.Annotations["obot.obot.ai/configured-at"] = metav1.Now().Format(time.RFC3339)
 		return req.Update(server)
 	})
-}
-
-func secretBoundTemplateKeys(urlTemplate string, envs []types.MCPEnv) []string {
-	if urlTemplate == "" || len(envs) == 0 {
-		return nil
-	}
-
-	referenced := map[string]struct{}{}
-	for _, match := range envVarRegex.FindAllStringSubmatch(urlTemplate, -1) {
-		if len(match) > 1 {
-			referenced[match[1]] = struct{}{}
-		}
-	}
-
-	if len(referenced) == 0 {
-		return nil
-	}
-
-	bound := make([]string, 0)
-	for _, env := range envs {
-		if env.SecretBinding != nil {
-			if _, ok := referenced[env.Key]; ok {
-				bound = append(bound, env.Key)
-			}
-		}
-	}
-
-	slices.Sort(bound)
-	bound = slices.Compact(bound)
-	if len(bound) == 0 {
-		return nil
-	}
-	return bound
 }
 
 func sanitizeConfig(config map[string]string, manifest types.MCPServerManifest) {

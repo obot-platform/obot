@@ -1711,6 +1711,7 @@ func TestValidateSecretBindings(t *testing.T) {
 		name       string
 		manifest   types.MCPServerManifest
 		gitManaged bool
+		backend    string
 		wantErr    string // substring; "" = expect no error
 	}{
 		{
@@ -1722,6 +1723,7 @@ func TestValidateSecretBindings(t *testing.T) {
 				},
 			},
 			gitManaged: false,
+			backend:    "docker",
 		},
 		{
 			name: "bound header requires git-managed",
@@ -1732,6 +1734,7 @@ func TestValidateSecretBindings(t *testing.T) {
 				},
 			},
 			gitManaged: false,
+			backend:    "kubernetes",
 			wantErr:    "git-synced catalog entries",
 		},
 		{
@@ -1743,6 +1746,19 @@ func TestValidateSecretBindings(t *testing.T) {
 				},
 			},
 			gitManaged: true,
+			backend:    "kubernetes",
+		},
+		{
+			name: "bound header rejected on non-kubernetes backend",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{Key: "DD-API-KEY", SecretBinding: binding}},
+				},
+			},
+			gitManaged: true,
+			backend:    "docker",
+			wantErr:    "requires the kubernetes MCP runtime backend",
 		},
 		{
 			name: "binding and static value are mutually exclusive",
@@ -1753,6 +1769,7 @@ func TestValidateSecretBindings(t *testing.T) {
 				},
 			},
 			gitManaged: true,
+			backend:    "kubernetes",
 			wantErr:    "mutually exclusive",
 		},
 		{
@@ -1764,6 +1781,7 @@ func TestValidateSecretBindings(t *testing.T) {
 				},
 			},
 			gitManaged: true,
+			backend:    "kubernetes",
 			wantErr:    "requires both name and key",
 		},
 		{
@@ -1774,16 +1792,17 @@ func TestValidateSecretBindings(t *testing.T) {
 				RemoteConfig: &types.RemoteRuntimeConfig{},
 			},
 			gitManaged: true,
+			backend:    "kubernetes",
 			wantErr:    "not supported for remote runtime",
 		},
 		{
-			name: "legacy env.file with secret binding is rejected",
+			name: "file-backed env with secret binding is accepted",
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeContainerized,
 				Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "DD_API_KEY", SecretBinding: binding}, File: true}},
 			},
 			gitManaged: true,
-			wantErr:    "file-backed envs",
+			backend:    "kubernetes",
 		},
 		{
 			name: "bound env accepted for git-managed containerized",
@@ -1792,6 +1811,7 @@ func TestValidateSecretBindings(t *testing.T) {
 				Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "DD_API_KEY", SecretBinding: binding}}},
 			},
 			gitManaged: true,
+			backend:    "kubernetes",
 		},
 		{
 			name: "dynamicFile without file is accepted and ignored",
@@ -1803,6 +1823,7 @@ func TestValidateSecretBindings(t *testing.T) {
 				}},
 			},
 			gitManaged: true,
+			backend:    "kubernetes",
 		},
 		{
 			name: "file and dynamicFile together are accepted",
@@ -1815,12 +1836,13 @@ func TestValidateSecretBindings(t *testing.T) {
 				}},
 			},
 			gitManaged: true,
+			backend:    "kubernetes",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSecretBindings(tt.manifest, tt.gitManaged)
+			err := ValidateSecretBindings(tt.manifest, tt.gitManaged, tt.backend)
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 				return
@@ -1840,6 +1862,18 @@ func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
 		wantErr  string
 	}{
 		{
+			name: "urlTemplate referencing non-bound env is allowed",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "HOST", Required: true,
+				}}},
+				RemoteConfig: &types.RemoteCatalogConfig{
+					URLTemplate: "https://${HOST}/mcp",
+				},
+			},
+		},
+		{
 			name: "urlTemplate referencing secret-bound env is rejected",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeRemote,
@@ -1851,18 +1885,6 @@ func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
 				},
 			},
 			wantErr: "remoteConfig.urlTemplate references secret-bound env var",
-		},
-		{
-			name: "urlTemplate referencing non-bound env is allowed",
-			manifest: types.MCPServerCatalogEntryManifest{
-				Runtime: types.RuntimeRemote,
-				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
-					Key: "HOST", Required: true,
-				}}},
-				RemoteConfig: &types.RemoteCatalogConfig{
-					URLTemplate: "https://${HOST}/mcp",
-				},
-			},
 		},
 		{
 			name: "no urlTemplate with bound env passes to core check",
@@ -1877,7 +1899,7 @@ func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true)
+			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, "kubernetes")
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 				return
