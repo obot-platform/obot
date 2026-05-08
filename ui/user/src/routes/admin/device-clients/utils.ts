@@ -81,7 +81,10 @@ function augmentUsersWithClientPaths(
 	}));
 }
 
-function mergeOrgUsers(existing: DeviceClientUser[], additions: DeviceClientUser[]): DeviceClientUser[] {
+function mergeOrgUsers(
+	existing: DeviceClientUser[],
+	additions: DeviceClientUser[]
+): DeviceClientUser[] {
 	const byId = new Map<string, DeviceClientUser>();
 	for (const u of existing) byId.set(u.id, u);
 	for (const u of additions) {
