@@ -1,11 +1,65 @@
 package mcp
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
+
+func TestServerToServerConfig_MultiUserPassthroughHeaders(t *testing.T) {
+	baseURL := "http://localhost:8080"
+	tests := []struct {
+		name     string
+		config   *types.MultiUserConfig
+		expected []string
+	}{
+		{
+			name:     "no multi-user config",
+			expected: nil,
+		},
+		{
+			name: "user-defined headers",
+			config: &types.MultiUserConfig{
+				UserDefinedHeaders: []types.MCPHeader{
+					{Key: "X-Tenant-ID", Required: true},
+					{Key: "X-Account-ID"},
+				},
+			},
+			expected: []string{"X-Tenant-ID", "X-Account-ID"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mcpServer := v1.MCPServer{
+				Spec: v1.MCPServerSpec{
+					Manifest: types.MCPServerManifest{
+						Runtime: types.RuntimeRemote,
+						RemoteConfig: &types.RemoteRuntimeConfig{
+							URL: "https://example.com/mcp",
+						},
+						MultiUserConfig: tt.config,
+					},
+				},
+			}
+			mcpServer.Name = "test-server"
+
+			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", nil, nil)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(missing) > 0 {
+				t.Fatalf("expected no missing config, got %v", missing)
+			}
+
+			if !slices.Equal(config.PassthroughHeaderNames, tt.expected) {
+				t.Fatalf("expected passthrough header names %v, got %v", tt.expected, config.PassthroughHeaderNames)
+			}
+		})
+	}
+}
 
 func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 	baseURL := "http://localhost:8080"
