@@ -147,38 +147,38 @@ When `file: true` the secret value is written to a file under `/files/` and the 
 env:
   - key: TLS_CERT
     name: TLS Certificate
+    file: true
     required: true
     sensitive: true
     description: PEM certificate; mounted as a file at the path stored in TLS_CERT.
     secretBinding:
       name: my-tls-secret
       key: tls.crt
-      file: true
 ```
 
 The application reads the certificate path from `os.Getenv("TLS_CERT")` and opens the file at that path.
 
 #### Dynamic file binding
 
-Adding `dynamic: true` (requires `file: true`) allows the mounted file to update **without restarting the pod** when the source Kubernetes Secret changes. The application is responsible for watching/re-reading the file for changes.
+Adding `dynamicFile: true` (requires `file: true`) allows the mounted file to update **without restarting the pod** when the source Kubernetes Secret changes. The application is responsible for watching/re-reading the file for changes. This only has an effect when `file: true`.
 
 ```yaml
 env:
   - key: API_CREDENTIALS
     name: API Credentials File
+    file: true
+    dynamicFile: true
     required: true
     sensitive: true
     description: Credentials file updated in-place when the Secret rotates — no pod restart needed.
     secretBinding:
       name: rotating-api-creds
       key: credentials.json
-      file: true
-      dynamic: true
 ```
 
 **Constraints:**
-- `dynamic: true` requires `file: true`.
-- `file` and `dynamic` are not supported on header bindings.
+- `dynamicFile` is ignored unless `file: true`.
+- `file` and `dynamicFile` are not supported on header bindings.
 
 #### Header binding (remote servers)
 
