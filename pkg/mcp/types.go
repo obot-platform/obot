@@ -189,23 +189,12 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 	serverConfig.URL = remoteConfig.URL
 	serverConfig.Headers = make([]string, 0, len(remoteConfig.Headers))
 	for _, header := range remoteConfig.Headers {
-		var (
-			val      string
-			hasValue bool
-		)
-
-		if header.Value != "" {
-			val = header.Value
-			hasValue = true
-		} else {
-			credVal, ok := credEnv[header.Key]
-			if ok && credVal != "" {
-				val = credVal
-				hasValue = true
-			}
+		val := header.Value
+		if val == "" {
+			val = credEnv[header.Key]
 		}
 
-		if !hasValue {
+		if val == "" {
 			if header.Required {
 				missingRequiredNames = append(missingRequiredNames, header.Key)
 			}
@@ -518,13 +507,12 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 	// Process environment variables
 	for _, env := range systemServer.Spec.Manifest.Env {
 		var (
-			val                   string
-			hasValue, fromLiteral bool
+			val      string
+			hasValue bool
 		)
 		if env.Value != "" {
 			val = env.Value
 			hasValue = true
-			fromLiteral = true
 		} else {
 			// Fall back to user-configured value from credentials
 			credVal, ok := credEnv[env.Key]
@@ -543,7 +531,7 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 
 		// Apply prefix to non-literal values. Static (env.Value) values
 		// keep "no prefix" semantics.
-		if !fromLiteral {
+		if env.Value == "" {
 			val = applyPrefix(val, env.Prefix)
 		}
 
