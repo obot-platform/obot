@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
@@ -301,6 +302,9 @@ type MCPServer struct {
 	// DeploymentConditions contains key deployment conditions that indicate deployment health.
 	DeploymentConditions []DeploymentCondition `json:"deploymentConditions,omitempty"`
 
+	// OAuthMetadata contains discovered OAuth metadata for remote MCP servers.
+	OAuthMetadata *OAuthMetadata `json:"oauthMetadata,omitempty"`
+
 	// K8sSettingsHash contains the hash of K8s settings this server was deployed with
 	K8sSettingsHash string `json:"k8sSettingsHash,omitempty"`
 
@@ -310,6 +314,14 @@ type MCPServer struct {
 
 	// CompositeName is the name of the composite server that this MCP server is a component of, if there is one.
 	CompositeName string `json:"compositeName,omitempty"`
+}
+
+type OAuthMetadata struct {
+	ProtectedResourceURL        string          `json:"protectedResourceUrl,omitempty"`
+	AuthorizationServerURL      string          `json:"authorizationServerUrl,omitempty"`
+	ProtectedResourceMetadata   json.RawMessage `json:"protectedResourceMetadata,omitempty"`
+	AuthorizationServerMetadata json.RawMessage `json:"authorizationServerMetadata,omitempty"`
+	DynamicClientRegistration   bool            `json:"dynamicClientRegistration,omitempty"`
 }
 
 type DeploymentCondition struct {

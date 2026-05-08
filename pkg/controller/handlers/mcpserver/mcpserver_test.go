@@ -651,6 +651,55 @@ func newMCPServer(name string) *v1.MCPServer {
 	}
 }
 
+func TestShouldSyncOAuthMetadata(t *testing.T) {
+	now := time.Now()
+
+	tests := []struct {
+		name            string
+		lastRequestTime metav1.Time
+		lastSyncTime    metav1.Time
+		expected        bool
+	}{
+		{
+			name:     "skips server with no requests",
+			expected: false,
+		},
+		{
+			name:            "syncs after request with no previous sync",
+			lastRequestTime: metav1.NewTime(now.Add(-5 * time.Minute)),
+			expected:        true,
+		},
+		{
+			name:            "skips when last request predates sync",
+			lastRequestTime: metav1.NewTime(now.Add(-2 * time.Hour)),
+			lastSyncTime:    metav1.NewTime(now.Add(-90 * time.Minute)),
+			expected:        false,
+		},
+		{
+			name:            "skips when sync interval has not elapsed",
+			lastRequestTime: metav1.NewTime(now.Add(-10 * time.Minute)),
+			lastSyncTime:    metav1.NewTime(now.Add(-30 * time.Minute)),
+			expected:        false,
+		},
+		{
+			name:            "syncs after interval and newer request",
+			lastRequestTime: metav1.NewTime(now.Add(-10 * time.Minute)),
+			lastSyncTime:    metav1.NewTime(now.Add(-2 * time.Hour)),
+			expected:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := newMCPServer("test-server")
+			server.Status.LastRequestTime = tt.lastRequestTime
+			server.Status.LastOAuthMetadataSync = tt.lastSyncTime
+
+			assert.Equal(t, tt.expected, shouldSyncOAuthMetadata(server, now))
+		})
+	}
+}
+
 func TestShutdownIdleServersSetsLastRequestTimeForOlderServers(t *testing.T) {
 	server := newMCPServer("older-server")
 	server.CreationTimestamp = metav1.NewTime(time.Now().Add(-2 * time.Hour))

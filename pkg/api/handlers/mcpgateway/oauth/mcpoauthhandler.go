@@ -119,6 +119,8 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		if err != nil {
 			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)
 		} else {
+			// Best effort
+			_ = f.mcpSessionManager.CloseClient(req.Context(), mcpServerConfig, "Obot OAuth Check")
 			errChan <- nil
 		}
 	}()

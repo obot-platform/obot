@@ -306,7 +306,7 @@ func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server Se
 
 func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, transformRemote bool) (ServerConfig, error) {
 	var webhooks []Webhook
-	if !server.ComponentMCPServer && !server.SystemMCPServer {
+	if (server.Runtime != otypes.RuntimeRemote || transformRemote) && !server.ComponentMCPServer && !server.SystemMCPServer {
 		// Don't get webhooks for servers that are components of composite servers.
 		// The webhooks would be called at the composite level.
 		var err error

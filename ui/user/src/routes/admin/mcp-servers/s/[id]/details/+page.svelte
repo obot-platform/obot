@@ -2,6 +2,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, type MCPServerInstance, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
@@ -67,6 +68,9 @@
 						title={mcpServer.manifest.name}
 						readonly={profile.current.isAdminReadonly?.()}
 					/>
+					{#if mcpServer.manifest.runtime === 'remote'}
+						<OAuthMetadataDebug metadata={mcpServer.oauthMetadata} />
+					{/if}
 				{/if}
 			</div>
 		{/if}

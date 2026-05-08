@@ -797,6 +797,7 @@ export interface MCPCatalogServer {
 	type: string;
 	mcpServerInstanceUserCount?: number;
 	manifest: MCPServer;
+	oauthMetadata?: OAuthMetadata;
 	needsUpdate?: boolean;
 	needsK8sUpdate?: boolean;
 	needsURL?: boolean;
@@ -806,6 +807,14 @@ export interface MCPCatalogServer {
 	deploymentStatus?: string;
 	compositeName?: string;
 	canConnect?: boolean;
+}
+
+export interface OAuthMetadata {
+	protectedResourceUrl?: string;
+	authorizationServerUrl?: string;
+	protectedResourceMetadata?: Record<string, unknown>;
+	authorizationServerMetadata?: Record<string, unknown>;
+	dynamicClientRegistration?: boolean;
 }
 
 export interface MCPServerInstance {

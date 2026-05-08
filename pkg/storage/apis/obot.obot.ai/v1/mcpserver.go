@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"encoding/json"
 	"slices"
 	"strconv"
 
@@ -157,8 +158,22 @@ type MCPServerStatus struct {
 	// OAuthCredentialConfigured indicates whether OAuth credentials have been configured
 	// for this server's catalog entry. Only relevant for remote servers that require static OAuth.
 	OAuthCredentialConfigured bool `json:"oauthCredentialConfigured,omitempty"`
+	// OAuthMetadata contains discovered OAuth metadata for remote MCP servers.
+	OAuthMetadata *OAuthMetadata `json:"oauthMetadata,omitempty"`
+	// LastOAuthMetadataSync is the time of the last OAuth metadata sync attempt.
+	LastOAuthMetadataSync metav1.Time `json:"lastOAuthMetadataSync,omitzero"`
 	// LastRequestTime is the time of the last request to the server, in 15 minute granularity.
 	LastRequestTime metav1.Time `json:"lastRequestTime,omitzero"`
+	// Idle indicates whether the server is currently idle.
+	Idle bool `json:"idle,omitempty"`
+}
+
+type OAuthMetadata struct {
+	ProtectedResourceURL        string          `json:"protectedResourceUrl,omitempty"`
+	AuthorizationServerURL      string          `json:"authorizationServerUrl,omitempty"`
+	ProtectedResourceMetadata   json.RawMessage `json:"protectedResourceMetadata,omitempty"`
+	AuthorizationServerMetadata json.RawMessage `json:"authorizationServerMetadata,omitempty"`
+	DynamicClientRegistration   bool            `json:"dynamicClientRegistration,omitempty"`
 }
 
 type DeploymentCondition struct {
