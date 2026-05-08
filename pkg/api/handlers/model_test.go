@@ -21,6 +21,18 @@ func TestValidateModelManifestAndSetDefaults(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("rejects slash-containing name", func(t *testing.T) {
+		model := &v1.Model{Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+			Name:          "openai/gpt-4.1",
+			TargetModel:   "openai/gpt-4.1",
+			ModelProvider: "openai-model-provider",
+		}}}
+
+		err := validateModelManifestAndSetDefaults(model)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "field name must be a single path segment")
+	})
+
 	t.Run("defaults empty name from target model", func(t *testing.T) {
 		model := &v1.Model{Spec: v1.ModelSpec{Manifest: types.ModelManifest{
 			Name:          "   ",
