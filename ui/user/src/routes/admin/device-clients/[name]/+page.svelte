@@ -6,8 +6,9 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { formatDeviceCommand } from '$lib/format.js';
 	import { goto } from '$lib/url';
+	import { openUrl } from '$lib/utils.js';
 	import type { DeviceClient } from '../utils.js';
-	import { CheckIcon, Cpu, PencilRuler, Server, Users, XIcon } from 'lucide-svelte';
+	import { CheckIcon, PencilRuler, Server, Users, XIcon } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 
 	type TabIcon = typeof Users | typeof Server | typeof PencilRuler;
@@ -103,7 +104,20 @@
 							endpoint:
 								s.transport === 'stdio' ? formatDeviceCommand(s.command, s.args) : s.url || '—'
 						}))}
-						<Table data={rows} fields={['name', 'transport', 'endpoint']}>
+						<Table
+							data={rows}
+							fields={['name', 'transport', 'endpoint']}
+							onClickRow={(d, isCtrlClick) => {
+								if (!d.configHash) {
+									console.error('No config hash found for MCP server', d);
+									return;
+								}
+								openUrl(
+									resolve(`/admin/device-mcp-servers/${encodeURIComponent(d.configHash)}`),
+									isCtrlClick
+								);
+							}}
+						>
 							{#snippet onRenderColumn(property, d)}
 								{#if property === 'name'}
 									<span class="font-mono text-xs">{d.name}</span>
@@ -132,6 +146,9 @@
 								{ title: 'Description', property: 'description' },
 								{ title: 'Has Scripts', property: 'hasScripts' }
 							]}
+							onClickRow={(d, isCtrlClick) => {
+								openUrl(resolve(`/admin/device-skills/${encodeURIComponent(d.name)}`), isCtrlClick);
+							}}
 						>
 							{#snippet onRenderColumn(property, d)}
 								{#if property === 'name'}
