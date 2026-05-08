@@ -306,7 +306,7 @@
 						<Table
 							data={mcpRows}
 							pageSize={PAGE_SIZE}
-							fields={['client', 'scope', 'name', 'transport', 'endpoint']}
+							fields={['name', 'client', 'scope', 'transport', 'endpoint']}
 							headers={[
 								{ title: 'Client', property: 'client' },
 								{ title: 'Scope', property: 'scope' },
@@ -328,6 +328,13 @@
 									<span class="font-mono text-xs">{d.name}</span>
 								{:else if property === 'endpoint'}
 									<span class="font-mono text-xs">{d.endpoint}</span>
+								{:else if property === 'client'}
+									<a
+										class="btn-link text-blue-500"
+										href={resolve(`/admin/device-clients/${encodeURIComponent(d.client)}`)}
+									>
+										{d.client}
+									</a>
 								{:else}
 									{d[property as keyof MCPRow] ?? '—'}
 								{/if}
@@ -341,7 +348,7 @@
 						<Table
 							data={skillRows}
 							pageSize={PAGE_SIZE}
-							fields={['client', 'scope', 'name', 'description', 'hasScripts', 'files_count']}
+							fields={['name', 'client', 'scope', 'description', 'hasScripts', 'files_count']}
 							headers={[
 								{ title: 'Client', property: 'client' },
 								{ title: 'Scope', property: 'scope' },
@@ -364,6 +371,13 @@
 									<span class="text-on-surface1 text-xs">{d.description ?? '—'}</span>
 								{:else if property === 'hasScripts'}
 									{d.hasScripts ? 'yes' : 'no'}
+								{:else if property === 'client'}
+									<a
+										class="btn-link text-blue-500"
+										href={resolve(`/admin/device-clients/${encodeURIComponent(d.client)}`)}
+									>
+										{d.client}
+									</a>
 								{:else}
 									{d[property as keyof SkillRow] ?? '—'}
 								{/if}
@@ -378,9 +392,9 @@
 							data={pluginRows}
 							pageSize={PAGE_SIZE}
 							fields={[
+								'name',
 								'client',
 								'scope',
-								'name',
 								'pluginType',
 								'version',
 								'enabled',
@@ -409,6 +423,13 @@
 									{d.enabled ? 'yes' : 'no'}
 								{:else if property === 'version'}
 									<span class="font-mono text-xs">{d.version ?? '—'}</span>
+								{:else if property === 'client'}
+									<a
+										class="btn-link text-blue-500"
+										href={resolve(`/admin/device-clients/${encodeURIComponent(d.client)}`)}
+									>
+										{d.client}
+									</a>
 								{:else}
 									{d[property as keyof PluginRow] ?? '—'}
 								{/if}
