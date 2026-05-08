@@ -231,7 +231,8 @@ function convertServersToTableData(
 		.filter((server) => !server.catalogEntryID && !server.deleted)
 		.map((server) => {
 			const registry = getUserRegistry(server, usersMap);
-			const connected = instancesMap?.has(server.id);
+			const instance = instancesMap?.get(server.id);
+			const connected = !!instance;
 			return {
 				id: server.id,
 				name: server.manifest.name ?? '',
@@ -244,7 +245,11 @@ function convertServersToTableData(
 				created: server.created,
 				registry,
 				connected,
-				status: connected ? 'Connected' : ''
+				status: connected
+					? instance.configured === false
+						? 'Configuration Required'
+						: 'Connected'
+					: ''
 			};
 		});
 }
