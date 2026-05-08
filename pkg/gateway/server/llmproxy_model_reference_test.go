@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -30,8 +30,8 @@ func TestGetModelFromReference_ReturnsNotFoundWhenNameAndTargetMiss(t *testing.T
 		t.Fatal("expected error, got nil")
 	}
 
-	if !strings.Contains(err.Error(), `model "missing-model" not found`) {
-		t.Fatalf("expected not found error, got %v", err)
+	if !apierrors.IsNotFound(err) {
+		t.Fatalf("expected not found error type, got %T: %v", err, err)
 	}
 }
 

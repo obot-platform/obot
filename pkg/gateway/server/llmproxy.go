@@ -32,6 +32,7 @@ import (
 	"github.com/tidwall/gjson"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -244,7 +245,7 @@ func getModelFromReference(ctx context.Context, client kclient.Client, namespace
 		}
 
 		if len(models.Items) == 0 {
-			return nil, fmt.Errorf("model %q not found", modelReference)
+			return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "model"}, modelReference)
 		}
 
 		// Return the oldest one.
@@ -280,7 +281,7 @@ func getModelFromReference(ctx context.Context, client kclient.Client, namespace
 		return respModel, nil
 	}
 
-	return nil, fmt.Errorf("model %q not found", modelReference)
+	return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "model"}, modelReference)
 }
 
 func envVarForModelProvider(modelProvider v1.ToolReference) (string, error) {
