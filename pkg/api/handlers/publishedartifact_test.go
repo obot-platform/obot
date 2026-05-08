@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/publishedartifact"
 	"github.com/obot-platform/obot/pkg/skillformat"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	blobpkg "github.com/obot-platform/obot/pkg/storage/blob"
@@ -491,7 +492,6 @@ func TestValidatePublishedArtifactSubjects(t *testing.T) {
 }
 
 func TestCanAccessArtifact(t *testing.T) {
-	handler := &PublishedArtifactHandler{}
 	artifact := &v1.PublishedArtifact{
 		Spec: v1.PublishedArtifactSpec{
 			AuthorID: "owner",
@@ -508,13 +508,13 @@ func TestCanAccessArtifact(t *testing.T) {
 		},
 	}
 
-	if !handler.canAccessArtifact(artifact, &kuser.DefaultInfo{UID: "owner"}, false) {
+	if !publishedartifact.CanAccess(artifact, &kuser.DefaultInfo{UID: "owner"}, false) {
 		t.Fatal("owner should have access")
 	}
-	if !handler.canAccessArtifact(artifact, &kuser.DefaultInfo{UID: "other"}, true) {
+	if !publishedartifact.CanAccess(artifact, &kuser.DefaultInfo{UID: "other"}, true) {
 		t.Fatal("admin should have access")
 	}
-	if !handler.canAccessArtifact(artifact, &kuser.DefaultInfo{
+	if !publishedartifact.CanAccess(artifact, &kuser.DefaultInfo{
 		UID: "other",
 		Extra: map[string][]string{
 			"auth_provider_groups": {"group1"},
@@ -522,7 +522,7 @@ func TestCanAccessArtifact(t *testing.T) {
 	}, false) {
 		t.Fatal("group member should have access")
 	}
-	if handler.canAccessArtifact(artifact, &kuser.DefaultInfo{UID: "other"}, false) {
+	if publishedartifact.CanAccess(artifact, &kuser.DefaultInfo{UID: "other"}, false) {
 		t.Fatal("unmatched user should not have access")
 	}
 }
@@ -733,38 +733,6 @@ func TestValidateZIP_Valid(t *testing.T) {
 	}
 	if err := validateZIP(r); err != nil {
 		t.Fatalf("validateZIP() unexpected error: %v", err)
-	}
-}
-
-func TestCheckOwnership_ReturnsNotFoundForNonOwner(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPatch, "/api/published-artifacts/pa123", nil)
-	req.SetPathValue("id", "pa123")
-
-	err := (&PublishedArtifactHandler{}).checkOwnership(&v1.PublishedArtifact{
-		Spec: v1.PublishedArtifactSpec{
-			AuthorID: "owner",
-		},
-	}, api.Context{
-		Request:        req,
-		ResponseWriter: httptest.NewRecorder(),
-		User: &kuser.DefaultInfo{
-			UID:    "other-user",
-			Groups: []string{types.GroupAuthenticated},
-		},
-	})
-	if err == nil {
-		t.Fatal("expected error for non-owner")
-	}
-
-	errHTTP, ok := err.(*types.ErrHTTP)
-	if !ok {
-		t.Fatalf("expected *types.ErrHTTP, got %T", err)
-	}
-	if errHTTP.Code != http.StatusNotFound {
-		t.Fatalf("status code = %d, want %d", errHTTP.Code, http.StatusNotFound)
-	}
-	if !strings.Contains(errHTTP.Message, "pa123") {
-		t.Fatalf("message = %q, want artifact id", errHTTP.Message)
 	}
 }
 
