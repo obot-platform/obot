@@ -21,22 +21,14 @@ import (
 
 // mockFetcher implements the repositoryFetcher interface for testing.
 type mockFetcher struct {
-	fetchFn             func(ctx context.Context, repoURL, ref string) (*fetchedRepository, error)
-	materializeCommitFn func(ctx context.Context, repoURL, commitSHA string) (*fetchedRepository, error)
+	fetchFn func(ctx context.Context, repoURL, token, ref string) (*fetchedRepository, error)
 }
 
-func (m *mockFetcher) Fetch(ctx context.Context, repoURL, ref string) (*fetchedRepository, error) {
+func (m *mockFetcher) Fetch(ctx context.Context, repoURL, token, ref string) (*fetchedRepository, error) {
 	if m.fetchFn != nil {
-		return m.fetchFn(ctx, repoURL, ref)
+		return m.fetchFn(ctx, repoURL, token, ref)
 	}
 	return nil, fmt.Errorf("fetchFn not set")
-}
-
-func (m *mockFetcher) MaterializeCommit(ctx context.Context, repoURL, commitSHA string) (*fetchedRepository, error) {
-	if m.materializeCommitFn != nil {
-		return m.materializeCommitFn(ctx, repoURL, commitSHA)
-	}
-	return nil, fmt.Errorf("materializeCommitFn not set")
 }
 
 // newFakeClient creates a fake k8s client with the storage scheme and status subresources.
@@ -277,7 +269,7 @@ func TestSync(t *testing.T) {
 
 		h := &Handler{
 			fetcher: &mockFetcher{
-				fetchFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					return fetched, nil
 				},
 			},
@@ -322,7 +314,7 @@ func TestSync(t *testing.T) {
 		fetchCalled := false
 		h := &Handler{
 			fetcher: &mockFetcher{
-				fetchFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					fetchCalled = true
 					return nil, fmt.Errorf("should not be called")
 				},
@@ -362,7 +354,7 @@ func TestSync(t *testing.T) {
 		fetchCalled := false
 		h := &Handler{
 			fetcher: &mockFetcher{
-				fetchFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					fetchCalled = true
 					return fetched, nil
 				},
@@ -397,7 +389,7 @@ func TestSync(t *testing.T) {
 
 		h := &Handler{
 			fetcher: &mockFetcher{
-				fetchFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					return nil, fmt.Errorf("network timeout")
 				},
 			},
@@ -438,7 +430,7 @@ func TestSync(t *testing.T) {
 
 		h := &Handler{
 			fetcher: &mockFetcher{
-				fetchFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					return &fetchedRepository{
 						RepoRoot:  root,
 						CommitSHA: "abc123",
@@ -638,7 +630,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 		require.NoError(t, os.MkdirAll(skillDir, 0o755))
 
 		fetcher := &mockFetcher{
-			materializeCommitFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+			fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 				return &fetchedRepository{
 					RepoRoot:  root,
 					CommitSHA: "abc123",
@@ -669,7 +661,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(root, "not-a-dir"), []byte("file"), 0o644))
 
 		fetcher := &mockFetcher{
-			materializeCommitFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+			fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 				return &fetchedRepository{
 					RepoRoot:  root,
 					CommitSHA: "abc123",
@@ -696,7 +688,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 		root := t.TempDir()
 
 		fetcher := &mockFetcher{
-			materializeCommitFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+			fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 				return &fetchedRepository{
 					RepoRoot:  root,
 					CommitSHA: "abc123",
@@ -729,7 +721,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 		}
 
 		fetcher := &mockFetcher{
-			materializeCommitFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+			fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 				return &fetchedRepository{
 					RepoRoot:  root,
 					CommitSHA: "abc123",
