@@ -6,6 +6,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { formatDeviceCommand } from '$lib/format.js';
 	import { AdminService } from '$lib/services';
 	import { deleteDeviceScan } from '$lib/services/admin/operations';
 	import {
@@ -133,7 +134,7 @@
 		mcpServers.map((m) => ({
 			...m,
 			scope: deriveScope(m.projectPath),
-			endpoint: m.transport === 'stdio' ? formatCommand(m.command, m.args) : m.url || '—'
+			endpoint: m.transport === 'stdio' ? formatDeviceCommand(m.command, m.args) : m.url || '—'
 		}))
 	);
 
@@ -164,12 +165,6 @@
 
 	let deviceIdParam = $derived(page.params.device_id);
 	let scanIdParam = $derived(page.params.scan_id);
-
-	function formatCommand(cmd?: string, args?: string[]): string {
-		if (!cmd) return '—';
-		const parts = [cmd, ...(args ?? [])];
-		return parts.join(' ');
-	}
 
 	function capabilitySummary(p: DeviceScanPlugin): string {
 		const caps: string[] = [];
@@ -495,27 +490,3 @@
 		{msg}
 	</div>
 {/snippet}
-
-<style lang="postcss">
-	.tab-button {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 0.75rem;
-		border-bottom: 2px solid transparent;
-		font-size: 0.875rem;
-		color: var(--on-surface1, #6b7280);
-		transition:
-			color 200ms,
-			border-color 200ms;
-
-		&:hover {
-			color: inherit;
-		}
-	}
-	.tab-active {
-		color: inherit;
-		border-bottom-color: var(--primary);
-		font-weight: 500;
-	}
-</style>

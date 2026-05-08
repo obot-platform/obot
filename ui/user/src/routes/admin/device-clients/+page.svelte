@@ -1,26 +1,31 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_SIZE, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { setFilterUrlParams } from '$lib/url';
-	import { compileDeviceClients } from './utils';
+	import { openUrl } from '$lib/utils';
+	import { type DeviceClient } from './utils';
 	import { Server } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
-	let clientsMap = $derived(compileDeviceClients(data?.devices?.items ?? []));
-	let clients = $derived(Array.from(clientsMap.values()));
+	let clients = $derived(data?.clients ?? []);
 
 	let nameFilter = $state(untrack(() => page.url.searchParams.get('name') ?? ''));
 
-	let rows = $derived<ReturnType<typeof compileDeviceClients>>(
+	let rows = $derived<DeviceClient[]>(
 		nameFilter
 			? clients.filter((c) => c.name.toLowerCase().includes(nameFilter.toLowerCase()))
 			: clients
 	);
+
+	$effect(() => {
+		console.log(clients);
+	});
 
 	function updateName(value: string) {
 		nameFilter = value;
@@ -60,16 +65,15 @@
 			<Table
 				data={rows}
 				pageSize={PAGE_SIZE}
-				fields={['name', 'skills', 'mcpServers', 'userIds']}
+				fields={['name', 'mcpServers', 'skills', 'users']}
 				headers={[
 					{ title: 'Name', property: 'name' },
-					{ title: 'Skills', property: 'skills' },
 					{ title: 'MCP Servers', property: 'mcpServers' },
-					{ title: 'Users', property: 'userIds' }
+					{ title: 'Skills', property: 'skills' },
+					{ title: 'Users', property: 'users' }
 				]}
-				onClickRow={(_d, _isCtrlClick) => {
-					// todo: since we don't have a dedicated /device/client/[name] endpoint,
-					// have device content show on form from this route
+				onClickRow={(d, isCtrlClick) => {
+					openUrl(resolve(`/admin/device-clients/${encodeURIComponent(d.name)}`), isCtrlClick);
 				}}
 			>
 				{#snippet onRenderColumn(property, d)}
@@ -83,8 +87,8 @@
 						{d.skills.length}
 					{:else if property === 'mcpServers'}
 						{d.mcpServers.length}
-					{:else if property === 'userIds'}
-						{d.userIds.length}
+					{:else if property === 'users'}
+						{d.users.length}
 					{:else}
 						{d[property as keyof DeviceClient]}
 					{/if}

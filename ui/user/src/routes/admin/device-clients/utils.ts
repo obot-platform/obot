@@ -2,12 +2,20 @@ import type {
 	DeviceScan,
 	DeviceScanClient,
 	DeviceScanMCPServer,
-	DeviceScanSkill
+	DeviceScanSkill,
+	OrgUser
 } from '$lib/services/admin/types';
 
-interface DeviceClient extends DeviceScanClient {
+export type DeviceClientUser = OrgUser & {
+	userConfigPath?: string;
+	userInstallPath?: string;
+};
+
+// TODO: move to admin/types when /api/devices/client route is available
+export interface DeviceClient {
 	id: string; // equivalent to name for now
-	userIds: string[];
+	name: string;
+	users: DeviceClientUser[];
 	skills: DeviceScanSkill[];
 	mcpServers: DeviceScanMCPServer[];
 }
@@ -43,10 +51,63 @@ function uniqStrings(xs: string[]): string[] {
 	return out;
 }
 
-export const compileDeviceClients = (devices: DeviceScan[]) => {
+/** Minimal OrgUser when a scan references an id not present in the org directory. */
+function orgUserPlaceholder(id: string): OrgUser {
+	return {
+		id,
+		username: id,
+		email: '',
+		created: '',
+		explicitRole: false,
+		role: 0,
+		effectiveRole: 0,
+		groups: [],
+		iconURL: ''
+	};
+}
+
+function resolveOrgUsers(ids: string[], orgUserById: Map<string, OrgUser>): OrgUser[] {
+	return uniqStrings(ids).map((id) => orgUserById.get(id) ?? orgUserPlaceholder(id));
+}
+
+function augmentUsersWithClientPaths(
+	users: OrgUser[],
+	client: DeviceScanClient
+): DeviceClientUser[] {
+	return users.map((u) => ({
+		...u,
+		userInstallPath: client.installPath,
+		userConfigPath: client.configPath
+	}));
+}
+
+function mergeOrgUsers(existing: DeviceClientUser[], additions: DeviceClientUser[]): DeviceClientUser[] {
+	const byId = new Map<string, DeviceClientUser>();
+	for (const u of existing) byId.set(u.id, u);
+	for (const u of additions) {
+		const prev = byId.get(u.id);
+		if (!prev) {
+			byId.set(u.id, u);
+		} else {
+			byId.set(u.id, {
+				...prev,
+				...u,
+				userInstallPath: u.userInstallPath ?? prev.userInstallPath,
+				userConfigPath: u.userConfigPath ?? prev.userConfigPath
+			});
+		}
+	}
+	return [...byId.values()];
+}
+
+export const compileDeviceClients = (devices: DeviceScan[], users: OrgUser[]) => {
+	const orgUserById = new Map<string, OrgUser>(users.map((u) => [u.id, u]));
 	return devices?.reduce<Map<string, DeviceClient>>((acc, scan) => {
-		const users = scanUserIds(scan);
 		for (const client of scan.clients ?? []) {
+			const scanUsers = augmentUsersWithClientPaths(
+				resolveOrgUsers(scanUserIds(scan), orgUserById),
+				client
+			);
 			const key = client.name.trim() || '__unnamed__';
 			const skillsForClient = (scan.skills ?? []).filter((s) => s.client === client.name);
 			const mcpForClient = (scan.mcpServers ?? []).filter((m) => m.client === client.name);
@@ -62,18 +123,17 @@ export const compileDeviceClients = (devices: DeviceScan[]) => {
 				for (const m of mcpForClient) mcpByKey[mcpDedupeKey(m)] = m;
 
 				acc.set(key, {
-					...existing,
-					...client,
 					id: key,
-					userIds: uniqStrings([...existing.userIds, ...users]),
+					name: existing.name,
+					users: mergeOrgUsers(existing.users, scanUsers),
 					skills: Object.values(skillByKey),
 					mcpServers: Object.values(mcpByKey)
 				});
 			} else {
 				acc.set(key, {
-					...client,
 					id: key,
-					userIds: uniqStrings(users),
+					name: client.name,
+					users: scanUsers,
 					skills: skillsForClient,
 					mcpServers: mcpForClient
 				});

@@ -61,7 +61,7 @@
 		Notebook,
 		Laptop,
 		ScanLine,
-		Dock
+		MonitorCheck
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -303,7 +303,7 @@
 							{
 								id: 'device-clients',
 								href: '/admin/device-clients',
-								icon: Dock,
+								icon: MonitorCheck,
 								label: 'Device Clients',
 								disabled: isBootStrapUser,
 								collapsible: false
