@@ -166,14 +166,16 @@
 					<h3 class="text-base font-semibold">Configuration</h3>
 					<CopyButton text={renderConfig(server)} />
 				</div>
-				<pre
-					class="dark:bg-surface3 bg-surface1 max-h-96 overflow-auto rounded p-3 font-mono text-xs">{renderConfig(
-						server
-					)}</pre>
-				<p class="text-on-surface1 text-xs">
-					Reconstructed from parsed fields. <code>&lt;set&gt;</code> indicates the key was present but
-					the value was not captured.
-				</p>
+				<div class="dark:bg-surface2 bg-background flex flex-col gap-2 rounded-md p-3 shadow-sm">
+					<pre
+						class="dark:bg-surface3 bg-surface1 text-on-background max-h-96 overflow-auto rounded p-2 font-mono text-xs">{renderConfig(
+							server
+						)}</pre>
+					<p class="text-on-surface1 text-xs">
+						Reconstructed from parsed fields. <code>&lt;set&gt;</code> indicates the key was present but
+						the value was not captured.
+					</p>
+				</div>
 			</div>
 		{/if}
 	</div>
