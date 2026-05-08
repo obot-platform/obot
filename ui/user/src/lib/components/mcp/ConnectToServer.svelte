@@ -461,12 +461,13 @@
 	async function handleMultiUserServer() {
 		if (!server || server.catalogEntryID) return;
 		try {
-			const response = await ChatService.createMcpServerInstance(server.id);
-			instance = response;
 			if (hasMultiUserInstanceConfiguration(server)) {
-				await initMultiUserInstanceForm(server, response);
+				await initMultiUserInstanceForm(server);
 				return;
 			}
+
+			const response = await ChatService.createMcpServerInstance(server.id);
+			instance = response;
 			await finishMultiUserServerConnect();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -540,18 +541,24 @@
 
 	async function handleConfigureForm() {
 		if (!configureForm) return;
-		if (server && !entry && instance) {
+		if (server && !entry && hasMultiUserInstanceConfiguration(server)) {
 			try {
-				configDialog?.close();
+				saving = true;
 				const lf = configureForm as LaunchFormData;
+				if (!instance) {
+					instance = await ChatService.createMcpServerInstance(server.id);
+				}
 				const configuredInstance = await ChatService.configureMcpServerInstance(
 					instance.id,
 					convertEnvHeadersToRecord(undefined, lf.headers)
 				);
 				instance = configuredInstance;
+				configDialog?.close();
 				await finishMultiUserServerConnect();
 			} catch (err) {
 				error = err instanceof Error ? err.message : 'An unknown error occurred';
+			} finally {
+				saving = false;
 			}
 			return;
 		}
