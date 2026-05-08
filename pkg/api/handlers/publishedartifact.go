@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/publishedartifact"
 	"github.com/obot-platform/obot/pkg/skillformat"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/blob"
@@ -123,7 +124,7 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 		}
 
 		// Update existing artifact with a new version.
-		previousVersionSubjects := versionSubjects(&existing, existing.Spec.LatestVersion)
+		previousVersionSubjects := publishedartifact.VersionSubjects(&existing, existing.Spec.LatestVersion)
 		version := existing.Spec.LatestVersion + 1
 
 		// Stamp publish metadata into SKILL.md before uploading the next version.
@@ -266,7 +267,7 @@ func (h *PublishedArtifactHandler) List(req api.Context) error {
 	for i := range artifacts.Items {
 		a := &artifacts.Items[i]
 
-		if !h.canAccessArtifact(a, req.User, req.UserIsAdmin()) {
+		if !publishedartifact.CanAccess(a, req.User, req.UserIsAdmin()) {
 			continue
 		}
 
@@ -297,10 +298,6 @@ func (h *PublishedArtifactHandler) Get(req api.Context) error {
 		return err
 	}
 
-	if err := h.checkVisibility(&artifact, req); err != nil {
-		return err
-	}
-
 	return req.Write(convertPublishedArtifactForRequester(&artifact, req.User, req.UserIsAdmin()))
 }
 
@@ -315,11 +312,7 @@ func (h *PublishedArtifactHandler) Download(req api.Context) error {
 		return err
 	}
 
-	if err := h.checkVisibility(&artifact, req); err != nil {
-		return err
-	}
-
-	version := h.defaultDownloadVersion(&artifact, req.User, req.UserIsAdmin())
+	version := publishedartifact.DefaultDownloadVersion(&artifact, req.User, req.UserIsAdmin())
 	if version == 0 {
 		return types.NewErrNotFound("artifact %s not found", id)
 	}
@@ -329,10 +322,6 @@ func (h *PublishedArtifactHandler) Download(req api.Context) error {
 			return types.NewErrBadRequest("invalid version: %s", v)
 		}
 		version = parsed
-	}
-
-	if !h.canAccessArtifactVersion(&artifact, version, req.User, req.UserIsAdmin()) {
-		return types.NewErrNotFound("version %d not found", version)
 	}
 
 	log.Debugf("Download requested: artifact=%s name=%q version=%d", id, artifact.Spec.Name, version)
@@ -382,16 +371,9 @@ func (h *PublishedArtifactHandler) GetSkillMD(req api.Context) error {
 		return err
 	}
 
-	if err := h.checkVisibility(&artifact, req); err != nil {
-		return err
-	}
-
 	version, err := strconv.Atoi(req.PathValue("version"))
 	if err != nil || version < 1 {
 		return types.NewErrBadRequest("invalid version: %s", req.PathValue("version"))
-	}
-	if !h.canAccessArtifactVersion(&artifact, version, req.User, req.UserIsAdmin()) {
-		return types.NewErrNotFound("version %d not found", version)
 	}
 
 	// Find the blob key for the requested version
@@ -462,10 +444,6 @@ func (h *PublishedArtifactHandler) Update(req api.Context) error {
 		return err
 	}
 
-	if err := h.checkOwnership(&artifact, req); err != nil {
-		return err
-	}
-
 	var update publishedArtifactUpdateRequest
 	if err := req.Read(&update); err != nil {
 		return err
@@ -492,7 +470,7 @@ func (h *PublishedArtifactHandler) Update(req api.Context) error {
 			}
 			version = *update.Version
 		}
-		entry := findVersionEntry(&artifact, version)
+		entry := publishedartifact.VersionEntry(&artifact, version)
 		if entry == nil {
 			return types.NewErrNotFound("version %d not found", version)
 		}
@@ -519,10 +497,6 @@ func (h *PublishedArtifactHandler) Delete(req api.Context) error {
 		return err
 	}
 
-	if err := h.checkOwnership(&artifact, req); err != nil {
-		return err
-	}
-
 	log.Debugf("Deleting artifact %s (%s), removing %d version blobs", id, artifact.Spec.Name, len(artifact.Status.Versions))
 
 	// Delete all version blobs
@@ -538,62 +512,6 @@ func (h *PublishedArtifactHandler) Delete(req api.Context) error {
 
 	log.Infof("Deleted artifact %s (%s)", id, artifact.Spec.Name)
 	return nil
-}
-
-func (h *PublishedArtifactHandler) checkVisibility(artifact *v1.PublishedArtifact, req api.Context) error {
-	if h.canAccessArtifact(artifact, req.User, req.UserIsAdmin()) {
-		return nil
-	}
-	return types.NewErrNotFound("artifact %s not found", req.PathValue("id"))
-}
-
-func (h *PublishedArtifactHandler) canAccessArtifact(artifact *v1.PublishedArtifact, requester user.Info, isAdmin bool) bool {
-	if requester == nil {
-		return false
-	}
-	if isAdmin || artifact.Spec.AuthorID == requester.GetUID() {
-		return true
-	}
-	for _, version := range artifact.Status.Versions {
-		if subjectsContainUser(version.Subjects, requester) {
-			return true
-		}
-	}
-	return false
-}
-
-func (h *PublishedArtifactHandler) checkOwnership(artifact *v1.PublishedArtifact, req api.Context) error {
-	if artifact.Spec.AuthorID == req.User.GetUID() || req.UserIsAdmin() {
-		return nil
-	}
-	return types.NewErrNotFound("artifact %s not found", req.PathValue("id"))
-}
-
-func (h *PublishedArtifactHandler) canAccessArtifactVersion(artifact *v1.PublishedArtifact, version int, requester user.Info, isAdmin bool) bool {
-	if requester == nil {
-		return false
-	}
-	if isAdmin || artifact.Spec.AuthorID == requester.GetUID() {
-		return findVersionEntry(artifact, version) != nil
-	}
-	return subjectsContainUser(versionSubjects(artifact, version), requester)
-}
-
-func (h *PublishedArtifactHandler) defaultDownloadVersion(artifact *v1.PublishedArtifact, requester user.Info, isAdmin bool) int {
-	if requester == nil {
-		return 0
-	}
-	if isAdmin || artifact.Spec.AuthorID == requester.GetUID() {
-		return artifact.Spec.LatestVersion
-	}
-
-	latestVisible := 0
-	for _, version := range artifact.Status.Versions {
-		if subjectsContainUser(version.Subjects, requester) && version.Version > latestVisible {
-			latestVisible = version.Version
-		}
-	}
-	return latestVisible
 }
 
 func validatePublishedArtifactSubjects(subjects []types.Subject) error {
@@ -615,60 +533,6 @@ func validatePublishedArtifactSubjects(subjects []types.Subject) error {
 	}
 
 	return nil
-}
-
-func findVersionEntry(artifact *v1.PublishedArtifact, version int) *types.PublishedArtifactVersionEntry {
-	for i := range artifact.Status.Versions {
-		if artifact.Status.Versions[i].Version == version {
-			return &artifact.Status.Versions[i]
-		}
-	}
-	return nil
-}
-
-func versionSubjects(artifact *v1.PublishedArtifact, version int) []types.Subject {
-	entry := findVersionEntry(artifact, version)
-	if entry == nil {
-		return nil
-	}
-	return entry.Subjects[:]
-}
-
-func subjectsContainUser(subjects []types.Subject, requester user.Info) bool {
-	if requester == nil {
-		return false
-	}
-	userID := requester.GetUID()
-	groups := authGroupSet(requester)
-	for _, subject := range subjects {
-		switch subject.Type {
-		case types.SubjectTypeUser:
-			if subject.ID == userID {
-				return true
-			}
-		case types.SubjectTypeGroup:
-			if _, ok := groups[subject.ID]; ok {
-				return true
-			}
-		case types.SubjectTypeSelector:
-			if subject.ID == "*" {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-func authGroupSet(requester user.Info) map[string]struct{} {
-	if requester == nil {
-		return map[string]struct{}{}
-	}
-	result := make(map[string]struct{}, len(requester.GetExtra()["auth_provider_groups"]))
-	for _, group := range requester.GetExtra()["auth_provider_groups"] {
-		result[group] = struct{}{}
-	}
-	return result
 }
 
 // validateZIP checks the ZIP archive for file count limits, total declared uncompressed size,
@@ -900,7 +764,7 @@ func visibleVersionSummaries(a *v1.PublishedArtifact, requester user.Info, isAdm
 
 	result := make([]types.PublishedArtifactVersionSummary, 0, len(a.Status.Versions))
 	for _, version := range a.Status.Versions {
-		if a.Spec.AuthorID != requester.GetUID() && !isAdmin && !subjectsContainUser(version.Subjects, requester) {
+		if a.Spec.AuthorID != requester.GetUID() && !isAdmin && !publishedartifact.SubjectsContainUser(version.Subjects, requester) {
 			continue
 		}
 		result = append(result, types.PublishedArtifactVersionSummary{

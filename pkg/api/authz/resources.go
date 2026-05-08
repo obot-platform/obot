@@ -196,6 +196,11 @@ var apiResources = map[string][]string{
 		"GET    /api/templates",
 		"GET    /api/templates/{template_public_id}",
 		"POST   /api/templates/{template_public_id}",
+		"GET    /api/published-artifacts/{artifact_id}",
+		"GET    /api/published-artifacts/{artifact_id}/download",
+		"GET    /api/published-artifacts/{artifact_id}/{artifact_version}/skill",
+		"PUT    /api/published-artifacts/{artifact_id}",
+		"DELETE /api/published-artifacts/{artifact_id}",
 
 		// These can be removed when we get rid of the legacy admin side of things.
 		"DELETE /api/threads/{thread_id}",
@@ -294,6 +299,10 @@ var apiResources = map[string][]string{
 		"GET    /mcp-connect/{mcp_id}/",
 		"POST   /mcp-connect/{mcp_id}/",
 		"DELETE /mcp-connect/{mcp_id}/",
+		"GET    /api/published-artifacts/{artifact_id}",
+		"PUT    /api/published-artifacts/{artifact_id}",
+		"GET    /api/published-artifacts/{artifact_id}/download",
+		"GET    /api/published-artifacts/{artifact_id}/{artifact_version}/skill",
 	},
 }
 
@@ -316,6 +325,8 @@ type Resources struct {
 	WorkspaceID            string
 	NanobotAgentID         string
 	ProjectV2ID            string
+	PublishedArtifactID    string
+	ArtifactVersion        string
 	Authorizated           ResourcesAuthorized
 }
 
@@ -333,6 +344,7 @@ type ResourcesAuthorized struct {
 	PowerUserWorkspace *v1.PowerUserWorkspace
 	NanobotAgent       *v1.NanobotAgent
 	ProjectV2          *v1.ProjectV2
+	PublishedArtifact  *v1.PublishedArtifact
 }
 
 func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user.Info) (bool, error) {
@@ -354,6 +366,8 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		WorkspaceID:            vars("workspace_id"),
 		NanobotAgentID:         vars("nanobot_agent_id"),
 		ProjectV2ID:            vars("projectv2_id"),
+		PublishedArtifactID:    vars("artifact_id"),
+		ArtifactVersion:        vars("artifact_version"),
 	}
 
 	if !a.checkUser(user, vars("user_id")) {
@@ -421,6 +435,10 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 	}
 
 	if ok, err := a.checkNanobotAgent(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkPublishedArtifact(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 
