@@ -91,7 +91,7 @@ func Token(ctx context.Context, baseURL string, noExpiration, forceRefresh bool)
 	}
 
 	if token, ok := scopedTokens[baseURL]; ok && !forceRefresh && testToken(ctx, baseURL, token) {
-		fmt.Println("Existing token is valid, no refresh needed")
+		fmt.Fprintln(os.Stderr, "Existing token is valid, no refresh needed")
 		return token, nil
 	}
 

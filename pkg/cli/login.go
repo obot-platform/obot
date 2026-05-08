@@ -2,12 +2,15 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
 
 type Login struct {
 	NoExpiration bool `usage:"Set the token to never expire"`
+	ForceRefresh bool `usage:"Force refresh the token even if a valid one is cached"`
+	PrintToken   bool `usage:"Print the token to stdout after logging in"`
 	root         *Obot
 }
 
@@ -18,9 +21,13 @@ func (l *Login) Customize(cmd *cobra.Command) {
 }
 
 func (l *Login) Run(cmd *cobra.Command, _ []string) error {
-	if _, err := l.root.Client.GetToken(cmd.Context(), l.NoExpiration, true); err != nil {
+	token, err := l.root.Client.GetToken(cmd.Context(), l.NoExpiration, l.ForceRefresh)
+	if err != nil {
 		return err
 	}
-	fmt.Printf("Logged in to %s\n", l.root.Client.BaseURL)
+	fmt.Fprintf(os.Stderr, "Logged in to %s\n", l.root.Client.BaseURL)
+	if l.PrintToken {
+		fmt.Println(token)
+	}
 	return nil
 }
