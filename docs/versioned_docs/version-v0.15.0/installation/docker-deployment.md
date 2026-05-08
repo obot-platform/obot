@@ -35,7 +35,11 @@ docker run -d \
   ghcr.io/obot-platform/obot:latest
 ```
 
-#### With Authentication
+:::important
+Running Obot without authentication is not recommended unless you are behind a secure firewall, as unauthenticated users could launch MCP servers by sending requests to port 8080 on your system.
+:::
+
+#### With Authentication (Recommended)
 
 ```bash
 docker run -d \
