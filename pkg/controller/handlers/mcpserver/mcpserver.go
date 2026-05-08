@@ -3,8 +3,10 @@ package mcpserver
 import (
 	"cmp"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
+	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -28,6 +31,8 @@ import (
 )
 
 var log = logger.Package()
+
+const oauthMetadataSyncInterval = time.Hour
 
 type Handler struct {
 	gptClient                    *gptscript.GPTScript
@@ -837,6 +842,102 @@ func (h *Handler) SyncOAuthCredentialStatus(req router.Request, _ router.Respons
 	return nil
 }
 
+func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error {
+	server := req.Object.(*v1.MCPServer)
+	if server.Status.Idle {
+		// Server is idle, don't do anything.
+		return nil
+	}
+
+	if server.Spec.Manifest.Runtime != types.RuntimeRemote || server.Spec.Manifest.RemoteConfig == nil {
+		return setOAuthMetadata(req, server, new(v1.OAuthMetadata), nil)
+	}
+
+	if !shouldSyncOAuthMetadata(server, time.Now()) {
+		return nil
+	}
+
+	var credCtxs []string
+	if server.Spec.MCPCatalogID != "" {
+		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)}
+	} else if server.Spec.PowerUserWorkspaceID != "" {
+		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)}
+	} else {
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
+	}
+
+	cred, err := h.gptClient.RevealCredential(req.Ctx, credCtxs, server.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to reveal credential: %w", err)
+	}
+
+	serverConfig, missingConfig, err := mcp.ServerToServerConfig(*server, server.ValidConnectURLs(h.baseURL), h.baseURL, server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Env, nil)
+	if err != nil {
+		return fmt.Errorf("failed to convert MCP server to server config: %w", err)
+	} else if len(missingConfig) > 0 {
+		return nil
+	}
+
+	metadata, err := nmcp.GetOAuthMetadata(req.Ctx, nmcp.Server{
+		BaseURL: serverConfig.URL,
+		Headers: serverConfigHeaders(serverConfig),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get OAuth metadata: %w", err)
+	}
+
+	statusMetadata := &v1.OAuthMetadata{
+		ProtectedResourceURL:        metadata.ProtectedResourceMetadataURL,
+		AuthorizationServerURL:      metadata.AuthorizationServerMetadataURL,
+		ProtectedResourceMetadata:   metadata.ProtectedResourceMetadata,
+		AuthorizationServerMetadata: metadata.AuthorizationServerMetadata,
+		DynamicClientRegistration:   metadata.DynamicClientRegistration,
+	}
+
+	syncTime := metav1.Now()
+	return setOAuthMetadata(req, server, statusMetadata, &syncTime)
+}
+
+func shouldSyncOAuthMetadata(server *v1.MCPServer, now time.Time) bool {
+	lastSync := server.Status.LastOAuthMetadataSync
+	if server.Status.LastRequestTime.IsZero() || !server.Status.LastRequestTime.After(lastSync.Time) {
+		return false
+	}
+
+	return lastSync.IsZero() || now.Sub(lastSync.Time) >= oauthMetadataSyncInterval
+}
+
+func setOAuthMetadata(req router.Request, server *v1.MCPServer, statusMetadata *v1.OAuthMetadata, syncTime *metav1.Time) error {
+	metadataChanged := !reflect.DeepEqual(server.Status.OAuthMetadata, statusMetadata)
+	syncTimeChanged := syncTime != nil && !server.Status.LastOAuthMetadataSync.Equal(syncTime)
+	if metadataChanged || syncTimeChanged {
+		server.Status.OAuthMetadata = statusMetadata
+		if syncTime != nil {
+			server.Status.LastOAuthMetadataSync = *syncTime
+		}
+		log.Infof("Updated MCP server OAuth metadata: server=%s", server.Name)
+		return req.Client.Status().Update(req.Ctx, server)
+	}
+
+	return nil
+}
+
+func serverConfigHeaders(serverConfig mcp.ServerConfig) map[string]string {
+	result := make(map[string]string, len(serverConfig.PassthroughHeaderNames)+len(serverConfig.Headers))
+	for i, key := range serverConfig.PassthroughHeaderNames {
+		if i < len(serverConfig.PassthroughHeaderValues) {
+			result[key] = serverConfig.PassthroughHeaderValues[i]
+		}
+	}
+	for _, header := range serverConfig.Headers {
+		key, value, ok := strings.Cut(header, "=")
+		if ok {
+			result[key] = value
+		}
+	}
+	return result
+}
+
 func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) error {
 	mcpServer := req.Object.(*v1.MCPServer)
 	if mcpServer.Status.LastRequestTime.IsZero() {
@@ -863,6 +964,12 @@ func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) 
 
 	if idleInterval < 0 {
 		// If the idleInterval is negative, then shutdown is disabled for this server.
+		if mcpServer.Status.Idle {
+			mcpServer.Status.Idle = false
+			if err := req.Client.Status().Update(req.Ctx, mcpServer); err != nil {
+				return fmt.Errorf("failed to update idle status for server %s: %w", mcpServer.Name, err)
+			}
+		}
 		return nil
 	}
 
@@ -870,9 +977,25 @@ func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) 
 		if err := h.mcpSessionManager.ShutdownIdleServer(req.Ctx, mcpServer.Name); err != nil {
 			return fmt.Errorf("failed to shutdown idle server %s: %w", mcpServer.Name, err)
 		}
-	} else if retry := idleInterval - since; retry < 10*time.Hour {
-		// All objects are retried every 10 hours. If we should retry sooner, then trigger a retry.
-		resp.RetryAfter(retry)
+
+		if !mcpServer.Status.Idle {
+			mcpServer.Status.Idle = true
+			if err := req.Client.Status().Update(req.Ctx, mcpServer); err != nil {
+				return fmt.Errorf("failed to update idle status for server %s: %w", mcpServer.Name, err)
+			}
+		}
+	} else {
+		if mcpServer.Status.Idle {
+			mcpServer.Status.Idle = false
+			if err := req.Client.Status().Update(req.Ctx, mcpServer); err != nil {
+				return fmt.Errorf("failed to update idle status for server %s: %w", mcpServer.Name, err)
+			}
+		}
+
+		if retry := idleInterval - since; retry < 10*time.Hour {
+			// All objects are retried every 10 hours. If we should retry sooner, then trigger a retry.
+			resp.RetryAfter(retry)
+		}
 	}
 
 	return nil

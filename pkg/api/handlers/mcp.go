@@ -1944,6 +1944,9 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
+	if err := kickMCPServerControllers(req, &mcpServer); err != nil {
+		return fmt.Errorf("failed to trigger MCP server reconciliation: %w", err)
+	}
 
 	slug, err := SlugForMCPServer(req.Context(), req.Storage, mcpServer, req.User.GetUID(), catalogID, workspaceID)
 	if err != nil {
@@ -2127,6 +2130,13 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 	if err := g.Wait(); err != nil {
 		return fmt.Errorf("failed to save credentials for components: %w", err)
 	}
+	for id := range componentCreds {
+		if server, ok := existingServers[id]; ok {
+			if err := kickMCPServerControllers(req, &server); err != nil {
+				return fmt.Errorf("failed to trigger component MCP server reconciliation: %w", err)
+			}
+		}
+	}
 
 	if manifestChanged {
 		// The composite MCP server's manifest has changed due to component configuration changes (e.g. Disabled or RemoteConfig fields)
@@ -2154,6 +2164,19 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 	}
 
 	return req.Write(ConvertMCPServer(compositeServer, nil, m.serverURL, slug, components...))
+}
+
+func kickMCPServerControllers(req api.Context, server *v1.MCPServer) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := req.Get(server, server.Name); err != nil {
+			return err
+		}
+		if server.Annotations == nil {
+			server.Annotations = make(map[string]string, 1)
+		}
+		server.Annotations["obot.obot.ai/configured-at"] = metav1.Now().Format(time.RFC3339)
+		return req.Update(server)
+	})
 }
 
 // applyURLTemplate applies a URL template with environment variables
@@ -2665,6 +2688,7 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		DeploymentReadyReplicas:     server.Status.DeploymentReadyReplicas,
 		DeploymentReplicas:          server.Status.DeploymentReplicas,
 		DeploymentConditions:        conditions,
+		OAuthMetadata:               convertOAuthMetadata(server.Status.OAuthMetadata),
 		K8sSettingsHash:             server.Status.K8sSettingsHash,
 		Template:                    server.Spec.Template,
 		CompositeName:               server.Spec.CompositeName,
@@ -2695,6 +2719,20 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 	}
 
 	return converted
+}
+
+func convertOAuthMetadata(metadata *v1.OAuthMetadata) *types.OAuthMetadata {
+	if metadata == nil {
+		return nil
+	}
+
+	return &types.OAuthMetadata{
+		ProtectedResourceURL:        metadata.ProtectedResourceURL,
+		AuthorizationServerURL:      metadata.AuthorizationServerURL,
+		ProtectedResourceMetadata:   metadata.ProtectedResourceMetadata,
+		AuthorizationServerMetadata: metadata.AuthorizationServerMetadata,
+		DynamicClientRegistration:   metadata.DynamicClientRegistration,
+	}
 }
 
 func SlugForMCPServer(ctx context.Context, client kclient.Client, server v1.MCPServer, userID, catalogID, workspaceID string) (string, error) {
