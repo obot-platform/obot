@@ -40,6 +40,8 @@ export const UNAUTHORIZED_PATHS = new Set(['/', '/privacy-policy', '/terms-of-se
 
 export const PAGE_TRANSITION_DURATION = 200;
 
+export const PAGE_SIZE = 50;
+
 export const CommonModelProviderIds = {
 	OLLAMA: 'ollama-model-provider',
 	GROQ: 'groq-model-provider',

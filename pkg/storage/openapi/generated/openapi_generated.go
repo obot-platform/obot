@@ -57,6 +57,29 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasList":                              schema_obot_platform_obot_apiclient_types_DefaultModelAliasList(ref),
 		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasManifest":                          schema_obot_platform_obot_apiclient_types_DefaultModelAliasManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeploymentCondition":                                schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceClientStat":                                   schema_obot_platform_obot_apiclient_types_DeviceClientStat(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerDetail":                              schema_obot_platform_obot_apiclient_types_DeviceMCPServerDetail(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrence":                          schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrence(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrenceList":                      schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrenceList(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrenceResponse":                  schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrenceResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerStat":                                schema_obot_platform_obot_apiclient_types_DeviceMCPServerStat(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScan":                                         schema_obot_platform_obot_apiclient_types_DeviceScan(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanClient":                                   schema_obot_platform_obot_apiclient_types_DeviceScanClient(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanFile":                                     schema_obot_platform_obot_apiclient_types_DeviceScanFile(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanList":                                     schema_obot_platform_obot_apiclient_types_DeviceScanList(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanMCPServer":                                schema_obot_platform_obot_apiclient_types_DeviceScanMCPServer(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanManifest":                                 schema_obot_platform_obot_apiclient_types_DeviceScanManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanPlugin":                                   schema_obot_platform_obot_apiclient_types_DeviceScanPlugin(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanResponse":                                 schema_obot_platform_obot_apiclient_types_DeviceScanResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanSkill":                                    schema_obot_platform_obot_apiclient_types_DeviceScanSkill(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceScanStats":                                    schema_obot_platform_obot_apiclient_types_DeviceScanStats(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceSkillDetail":                                  schema_obot_platform_obot_apiclient_types_DeviceSkillDetail(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceSkillOccurrence":                              schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrence(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceSkillOccurrenceList":                          schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrenceList(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceSkillOccurrenceResponse":                      schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrenceResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceSkillStat":                                    schema_obot_platform_obot_apiclient_types_DeviceSkillStat(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceSkillStatList":                                schema_obot_platform_obot_apiclient_types_DeviceSkillStatList(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceSkillStatResponse":                            schema_obot_platform_obot_apiclient_types_DeviceSkillStatResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiver":                                      schema_obot_platform_obot_apiclient_types_EmailReceiver(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiverList":                                  schema_obot_platform_obot_apiclient_types_EmailReceiverList(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiverManifest":                              schema_obot_platform_obot_apiclient_types_EmailReceiverManifest(ref),
@@ -2771,6 +2794,1606 @@ func schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref common.Re
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceClientStat(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceClientStat is one row of the per-client rollup.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the canonical client name.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"deviceCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceCount is the number of distinct devices with this client.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"userCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserCount is the number of distinct submitters with this client.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"observationCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservationCount is the total number of client rows for this name.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"name", "deviceCount", "userCount", "observationCount"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceMCPServerDetail(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceMCPServerDetail is the GET /api/devices/mcp-servers/{config_hash} response. EnvKeys and HeaderKeys are not in the hash and may vary per observation; they are unioned across all observations.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"DeviceMCPServerStat": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceMCPServerStat"),
+						},
+					},
+					"envKeys": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EnvKeys is the set union of env var names referenced across observations of this hash.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"headerKeys": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HeaderKeys is the set union of HTTP header names referenced across observations of this hash.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"DeviceMCPServerStat", "envKeys", "headerKeys"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerStat"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrence(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceMCPServerOccurrence is one device's latest-scan row for a specific ConfigHash.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"deviceScanID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceScanID is the parent scan's primary key.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"deviceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceID is the device that submitted the parent scan.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"client": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Client is the canonical client name on this row.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scope": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Scope is \"global\" or \"project\".",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scannedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScannedAt is when the parent scan was collected on the device.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"index": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Index is the position of this row inside the parent scan's MCPServers slice.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"deviceScanID", "deviceID", "client", "scope", "scannedAt", "index"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrenceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrence"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrence"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrenceResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceMCPServerOccurrenceResponse is returned by GET /api/devices/mcp-servers/{config_hash}/occurrences.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrence"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrence"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceMCPServerStat(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceMCPServerStat is one row of the fleet-wide MCP aggregation, keyed by ConfigHash. Identity fields (Name, Transport, Command, Args, URL) are stable within a hash group by construction — they are inputs to the hash itself.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"configHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConfigHash is the aggregation key.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"transport": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"command": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"args": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"deviceCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceCount is the number of distinct devices observing this hash.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"userCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserCount is the number of distinct submitters observing this hash.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"clientCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClientCount is the number of distinct client names observing this hash.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"observationCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservationCount is the total number of rows with this hash.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"configHash", "name", "transport", "deviceCount", "userCount", "clientCount", "observationCount"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScan(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScan is a persisted scan: the submitted manifest plus server-assigned fields.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"scannerVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScannerVersion is the obot version that produced the scan.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scannedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScannedAt is when the scanner finished collecting on the device.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"deviceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceID is the persisted per-device identifier so re-scans collate.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hostname is the device hostname at scan time.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"os": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OS is the operating system (darwin, linux, windows).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"arch": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Arch is the CPU architecture (amd64, arm64).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Username is the OS user that ran the scan.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Files are the config / manifest files captured during the scan, deduped by absolute path.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanFile"),
+									},
+								},
+							},
+						},
+					},
+					"mcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServers are the MCP server observations.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanMCPServer"),
+									},
+								},
+							},
+						},
+					},
+					"skills": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Skills are the skill observations (SKILL.md hits).",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanSkill"),
+									},
+								},
+							},
+						},
+					},
+					"plugins": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Plugins are the plugin observations.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanPlugin"),
+									},
+								},
+							},
+						},
+					},
+					"clients": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Clients are the per-client presence + roll-up rows.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanClient"),
+									},
+								},
+							},
+						},
+					},
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the server-assigned primary key.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"receivedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ReceivedAt is the server's receipt timestamp.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"submittedBy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SubmittedBy is the user ID of the caller that posted the scan.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"scannerVersion", "scannedAt", "deviceID", "hostname", "os", "arch", "files", "mcpServers", "skills", "plugins", "clients", "id", "receivedAt", "submittedBy"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceScanClient", "github.com/obot-platform/obot/apiclient/types.DeviceScanFile", "github.com/obot-platform/obot/apiclient/types.DeviceScanMCPServer", "github.com/obot-platform/obot/apiclient/types.DeviceScanPlugin", "github.com/obot-platform/obot/apiclient/types.DeviceScanSkill", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanClient(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanClient is a per-device record for an AI client. Carries presence facts plus roll-ups summarising what the device has configured for this client.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the canonical client name (e.g. \"claudecode\", \"cursor\").",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Version is the client version, when one was discoverable.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"binaryPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "BinaryPath is the resolved $PATH location of the client binary.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"installPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InstallPath is the install location (e.g. an /Applications bundle).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"configPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConfigPath is the client's primary config directory under $HOME.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hasMCPServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasMCPServers is true when at least one MCPServers row references this client.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hasSkills": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasSkills is true when at least one Skills row references this client.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hasPlugins": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasPlugins is true when at least one Plugins row references this client.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name", "hasMCPServers", "hasSkills", "hasPlugins"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanFile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanFile is one captured config or manifest file.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Path is the absolute path on the device.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"sizeBytes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SizeBytes is the file size in bytes.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"oversized": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Oversized is true when the file exceeded the per-file content cap.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"content": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Content is the raw file bytes; omitted when Oversized.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"path", "sizeBytes", "oversized"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScan"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceScan"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanMCPServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanMCPServer is one MCP server observation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"client": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Client is the canonical client name (e.g. \"cursor\"); empty for orphans.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"projectPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProjectPath is the project root for project-scope observations; empty for global.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"file": {
+						SchemaProps: spec.SchemaProps{
+							Description: "File is the absolute path of the defining config file.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"configHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConfigHash is the content-addressed identity for fleet-wide aggregation. Computed over Name, Transport, Command, Args, URL only — env / header keys are excluded so a server with a rotated secret stays one entity.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"envKeys": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EnvKeys are the env var names referenced by the server config (values redacted).",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"headerKeys": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HeaderKeys are the HTTP header names referenced by the server config (values redacted).",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the server's configured name.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"transport": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Transport is \"stdio\", \"http\", \"sse\", etc.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"command": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Command is the stdio command, if any.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"args": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Args are the stdio command arguments.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL is the remote endpoint for HTTP / SSE transports.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"client", "envKeys", "headerKeys", "name", "transport"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanManifest is what `obot scan` submits. Server-assigned fields (id, receivedAt, submittedBy) live on DeviceScan instead.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"scannerVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScannerVersion is the obot version that produced the scan.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scannedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScannedAt is when the scanner finished collecting on the device.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"deviceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceID is the persisted per-device identifier so re-scans collate.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hostname is the device hostname at scan time.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"os": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OS is the operating system (darwin, linux, windows).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"arch": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Arch is the CPU architecture (amd64, arm64).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Username is the OS user that ran the scan.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Files are the config / manifest files captured during the scan, deduped by absolute path.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanFile"),
+									},
+								},
+							},
+						},
+					},
+					"mcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServers are the MCP server observations.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanMCPServer"),
+									},
+								},
+							},
+						},
+					},
+					"skills": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Skills are the skill observations (SKILL.md hits).",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanSkill"),
+									},
+								},
+							},
+						},
+					},
+					"plugins": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Plugins are the plugin observations.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanPlugin"),
+									},
+								},
+							},
+						},
+					},
+					"clients": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Clients are the per-client presence + roll-up rows.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScanClient"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"scannerVersion", "scannedAt", "deviceID", "hostname", "os", "arch", "files", "mcpServers", "skills", "plugins", "clients"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceScanClient", "github.com/obot-platform/obot/apiclient/types.DeviceScanFile", "github.com/obot-platform/obot/apiclient/types.DeviceScanMCPServer", "github.com/obot-platform/obot/apiclient/types.DeviceScanPlugin", "github.com/obot-platform/obot/apiclient/types.DeviceScanSkill", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanPlugin(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanPlugin is one plugin observation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"client": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Client is the canonical client name that owns the plugin host.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"projectPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProjectPath is the project root for project-scope plugins.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"configPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConfigPath is the absolute path of the plugin's defining manifest.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the plugin name.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"pluginType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PluginType identifies the plugin kind (extension, marketplace package, etc.).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Version is the plugin version.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Description is the plugin description from its manifest.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"author": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Author is the plugin author from its manifest.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"marketplace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Marketplace is the source marketplace, if applicable.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Files lists every file collected from the plugin directory.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enabled is true when the plugin is enabled per the host's config.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hasMCPServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasMCPServers is true when the plugin defines MCP servers.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hasSkills": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasSkills is true when the plugin defines skills.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hasRules": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasRules is true when the plugin defines rules.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hasCommands": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasCommands is true when the plugin defines commands.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"hasHooks": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasHooks is true when the plugin defines hooks.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"client", "name", "pluginType", "files", "enabled", "hasMCPServers", "hasSkills", "hasRules", "hasCommands", "hasHooks"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanResponse is returned by GET /api/devices/scans.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceScan"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceScan"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanSkill(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanSkill is one skill (SKILL.md) observation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"client": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Client is the canonical client name; \"multi\" for free-floating SKILL.md files with no canonical owning client (e.g. .agents/skills, .agent/skills, project skills outside a known client tree).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"projectPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProjectPath is the project root for project-scope skills.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"file": {
+						SchemaProps: spec.SchemaProps{
+							Description: "File is the absolute path of the SKILL.md file.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the skill name (typically the SKILL.md frontmatter name).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Description is the skill description from frontmatter.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Files lists SKILL.md plus any supporting artifacts in the skill directory.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"hasScripts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasScripts indicates the skill ships at least one executable script.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"gitRemoteURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GitRemoteURL is the git remote of the skill's enclosing repo, if any.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"client", "name", "files", "hasScripts"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceScanStats(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceScanStats is returned by GET /api/devices/scan-stats.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"timeStart": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TimeStart is the inclusive lower bound of the rollup window.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"timeEnd": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TimeEnd is the exclusive upper bound of the rollup window.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"deviceCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceCount is the number of distinct devices in the window.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"userCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserCount is the number of distinct submitters in the window.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"clients": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Clients is the full ranked per-client breakdown.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceClientStat"),
+									},
+								},
+							},
+						},
+					},
+					"mcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServers is the full ranked per-ConfigHash breakdown.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceMCPServerStat"),
+									},
+								},
+							},
+						},
+					},
+					"skills": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Skills is the full ranked per-skill breakdown.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceSkillStat"),
+									},
+								},
+							},
+						},
+					},
+					"scanTimestamps": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScanTimestamps is every scan submission's scanned_at inside the window, sorted ascending. The dashboard chart buckets these client-side in the user's local timezone. Counts every submission, not just the latest-per-device subset that drives the other rollups.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"timeStart", "timeEnd", "deviceCount", "userCount", "clients", "mcpServers", "skills", "scanTimestamps"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceClientStat", "github.com/obot-platform/obot/apiclient/types.DeviceMCPServerStat", "github.com/obot-platform/obot/apiclient/types.DeviceSkillStat", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceSkillDetail(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceSkillDetail is the GET /api/devices/skills/{name} response. The metadata fields come from one canonical observation and are not guaranteed to be stable across observations sharing the same name.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"DeviceSkillStat": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceSkillStat"),
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Description is the skill's short summary.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hasScripts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasScripts is true when the skill ships executable scripts.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"gitRemoteURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GitRemoteURL is the upstream repo, if any.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Files lists every file collected from the skill directory.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"DeviceSkillStat", "hasScripts"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceSkillStat"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrence(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceSkillOccurrence is one device's latest-scan row for a specific skill name.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"deviceScanID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceScanID is the parent scan's primary key.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"deviceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceID is the device that submitted the parent scan.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"client": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Client is the canonical client name on this row.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scope": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Scope is \"global\" or \"project\".",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"projectPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProjectPath is the project root for project-scope rows.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scannedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScannedAt is when the parent scan was collected on the device.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"index": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Index is the position of this row inside the parent scan's Skills slice.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"deviceScanID", "deviceID", "client", "scope", "scannedAt", "index"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrenceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceSkillOccurrence"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceSkillOccurrence"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrenceResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceSkillOccurrenceResponse is returned by GET /api/devices/skills/{name}/occurrences.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceSkillOccurrence"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceSkillOccurrence"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceSkillStat(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceSkillStat is one row of the per-skill rollup.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the skill name (the aggregation key).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"deviceCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeviceCount is the number of distinct devices with this skill.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"userCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserCount is the number of distinct submitters with this skill.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"observationCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservationCount is the total number of skill rows for this name.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"name", "deviceCount", "userCount", "observationCount"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceSkillStatList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceSkillStat"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceSkillStat"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceSkillStatResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceSkillStatResponse is returned by GET /api/devices/skills.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceSkillStat"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceSkillStat"},
 	}
 }
 

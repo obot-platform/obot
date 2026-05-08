@@ -41,6 +41,8 @@
 		tooltipContent?: Snippet<[DonutTooltipItem]>;
 		/** When set, the footer legend shows these entries instead of one row per slice. */
 		legend?: DonutLegendItem[];
+		/** Hides the footer legend entirely. */
+		hideLegend?: boolean;
 	}
 
 	let {
@@ -49,7 +51,8 @@
 		donutRatio = 0.58,
 		formatValue = (v) => String(v),
 		tooltipContent,
-		legend
+		legend,
+		hideLegend = false
 	}: Props = $props();
 
 	const defaultPalette = [
@@ -427,7 +430,7 @@
 		{/if}
 	</div>
 
-	{#if total > 0 && data.length > 0}
+	{#if total > 0 && data.length > 0 && !hideLegend}
 		<ul class="flex flex-wrap gap-x-4 gap-y-1 text-xs justify-center">
 			{#if legend}
 				{#each legend as row, i (row.label)}
