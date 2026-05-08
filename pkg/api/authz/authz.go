@@ -339,12 +339,10 @@ var (
 			"POST /api/projectsv2",
 			"GET /api/projectsv2",
 
-			// Device scans: any authenticated user can submit and read
-			// their own scans. The handler enforces own-vs-all so non-
-			// privileged callers only see scans they submitted.
+			// Device scans: any authenticated user can submit a scan via
+			// `obot scan`. Reads are admin/owner/auditor-only, gated by
+			// the rules above.
 			"POST /api/devices/scans",
-			"GET /api/devices/scans",
-			"GET /api/devices/scans/{scan_id}",
 		},
 
 		types.GroupPowerUserPlus: {

@@ -107,16 +107,16 @@
 			stats?.clients,
 			(c) => c.name,
 			(c) => c.name,
-			(c) => c.device_count
+			(c) => c.deviceCount
 		)
 	);
 
 	let mcpBuckets = $derived(
 		buildTop<DeviceMCPServerStat>(
-			stats?.mcp_servers,
-			(m) => m.config_hash,
+			stats?.mcpServers,
+			(m) => m.configHash,
 			(m) => m.name?.trim() || '(unnamed)',
-			(m) => m.device_count,
+			(m) => m.deviceCount,
 			'mcp'
 		)
 	);
@@ -126,7 +126,7 @@
 			stats?.skills,
 			(s) => s.name,
 			(s) => s.name,
-			(s) => s.device_count,
+			(s) => s.deviceCount,
 			'skill'
 		)
 	);
@@ -136,19 +136,19 @@
 	}
 
 	let totalClientGroups = $derived(stats?.clients?.length ?? 0);
-	let totalMcpGroups = $derived(stats?.mcp_servers?.length ?? 0);
+	let totalMcpGroups = $derived(stats?.mcpServers?.length ?? 0);
 	let totalSkillGroups = $derived(stats?.skills?.length ?? 0);
 
 	type TimelineRow = { scanned_at: string; category: 'scans' };
 
 	let timelineRows = $derived<TimelineRow[]>(
-		(stats?.scan_timestamps ?? []).map((ts) => ({
+		(stats?.scanTimestamps ?? []).map((ts) => ({
 			scanned_at: ts,
 			category: 'scans' as const
 		}))
 	);
 
-	let totalScansInWindow = $derived(stats?.scan_timestamps?.length ?? 0);
+	let totalScansInWindow = $derived(stats?.scanTimestamps?.length ?? 0);
 
 	async function reload() {
 		loading = true;
@@ -197,14 +197,14 @@
 		{
 			key: 'devices',
 			label: 'Unique Devices',
-			value: stats?.device_count ?? 0,
+			value: stats?.deviceCount ?? 0,
 			icon: Laptop,
 			seeMore: 'devices'
 		},
 		{
 			key: 'users',
 			label: 'Unique Users',
-			value: stats?.user_count ?? 0,
+			value: stats?.userCount ?? 0,
 			icon: Users
 		},
 		{
@@ -251,7 +251,7 @@
 			/>
 		</div>
 
-		{#if !stats || stats.device_count === 0}
+		{#if !stats || stats.deviceCount === 0}
 			<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
 				<ScanLine class="text-on-surface1 size-24 opacity-50" />
 				<h4 class="text-on-surface1 text-lg font-semibold">No device scans in this window</h4>

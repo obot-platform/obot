@@ -11,6 +11,7 @@ const windsurfGlobalConfigRel = ".codeium/windsurf/mcp_config.json"
 type windsurfScanner struct{}
 
 func (windsurfScanner) Name() string { return "windsurf" }
+
 func (windsurfScanner) Presence() clientPresenceDef {
 	return clientPresenceDef{
 		binaries:    []string{"windsurf"},
@@ -18,7 +19,9 @@ func (windsurfScanner) Presence() clientPresenceDef {
 		configPaths: []string{".windsurf", ".codeium"},
 	}
 }
+
 func (windsurfScanner) GlobalConfigPaths() []string { return []string{windsurfGlobalConfigRel} }
+
 func (windsurfScanner) ProjectGlobs() []string {
 	return []string{"**/.windsurf/mcp_config.json"}
 }

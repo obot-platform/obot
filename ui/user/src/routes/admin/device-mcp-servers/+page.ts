@@ -9,14 +9,14 @@ export const load: PageLoad = async ({ url, fetch }) => {
 	const end = url.searchParams.get('end') ?? undefined;
 
 	let stats: DeviceScanStats = {
-		time_start: '',
-		time_end: '',
-		device_count: 0,
-		user_count: 0,
+		timeStart: '',
+		timeEnd: '',
+		deviceCount: 0,
+		userCount: 0,
 		clients: [],
-		mcp_servers: [],
+		mcpServers: [],
 		skills: [],
-		scan_timestamps: []
+		scanTimestamps: []
 	};
 	try {
 		stats = await AdminService.getDeviceScanStats({ start, end }, { fetch });

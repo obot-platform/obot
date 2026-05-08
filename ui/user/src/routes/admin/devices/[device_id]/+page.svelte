@@ -32,7 +32,7 @@
 	let activeTab = $state<Tab>('mcp');
 
 	let submittedByUser = $state<OrgUser | undefined>();
-	let submittedById = $derived(latest?.submitted_by);
+	let submittedById = $derived(latest?.submittedBy);
 
 	$effect(() => {
 		const id = submittedById;
@@ -50,10 +50,10 @@
 	});
 
 	let scannedTime = $derived(
-		latest ? formatTimeAgo(latest.scanned_at) : { relativeTime: '', fullDate: '' }
+		latest ? formatTimeAgo(latest.scannedAt) : { relativeTime: '', fullDate: '' }
 	);
 
-	let mcpServers = $derived<DeviceScanMCPServer[]>(latest?.mcp_servers ?? []);
+	let mcpServers = $derived<DeviceScanMCPServer[]>(latest?.mcpServers ?? []);
 	let skills = $derived<DeviceScanSkill[]>(latest?.skills ?? []);
 	let plugins = $derived<DeviceScanPlugin[]>(latest?.plugins ?? []);
 	let clients = $derived<DeviceScanClient[]>(latest?.clients ?? []);
@@ -95,27 +95,27 @@
 
 	function capabilitySummary(p: DeviceScanPlugin): string {
 		const caps: string[] = [];
-		if (p.has_mcp_servers) caps.push('mcp');
-		if (p.has_skills) caps.push('skills');
-		if (p.has_rules) caps.push('rules');
-		if (p.has_commands) caps.push('commands');
-		if (p.has_hooks) caps.push('hooks');
+		if (p.hasMCPServers) caps.push('mcp');
+		if (p.hasSkills) caps.push('skills');
+		if (p.hasRules) caps.push('rules');
+		if (p.hasCommands) caps.push('commands');
+		if (p.hasHooks) caps.push('hooks');
 		return caps.length ? caps.join(', ') : '—';
 	}
 
 	function clientHasSummary(c: DeviceScanClient): string {
 		const caps: string[] = [];
-		if (c.has_mcp_servers) caps.push('mcp');
-		if (c.has_skills) caps.push('skills');
-		if (c.has_plugins) caps.push('plugins');
+		if (c.hasMCPServers) caps.push('mcp');
+		if (c.hasSkills) caps.push('skills');
+		if (c.hasPlugins) caps.push('plugins');
 		return caps.length ? caps.join(', ') : '—';
 	}
 
 	function clientPathsSummary(c: DeviceScanClient): string {
 		const parts: string[] = [];
-		if (c.binary_path) parts.push(c.binary_path);
-		if (c.install_path) parts.push(c.install_path);
-		if (c.config_path) parts.push(c.config_path);
+		if (c.binaryPath) parts.push(c.binaryPath);
+		if (c.installPath) parts.push(c.installPath);
+		if (c.configPath) parts.push(c.configPath);
 		return parts.join(', ') || '—';
 	}
 
@@ -128,7 +128,7 @@
 			...m,
 			id: `${m.client}-${m.name}-${i}`,
 			index: i,
-			scope: deriveScope(m.project_path),
+			scope: deriveScope(m.projectPath),
 			endpoint: m.transport === 'stdio' ? formatCommand(m.command, m.args) : m.url || '—'
 		}))
 	);
@@ -138,7 +138,7 @@
 			...s,
 			id: `${s.client}-${s.name}-${i}`,
 			index: i,
-			scope: deriveScope(s.project_path),
+			scope: deriveScope(s.projectPath),
 			files_count: (s.files ?? []).length
 		}))
 	);
@@ -148,7 +148,7 @@
 			...p,
 			id: `${p.client}-${p.name}-${i}`,
 			index: i,
-			scope: deriveScope(p.project_path),
+			scope: deriveScope(p.projectPath),
 			capabilities: capabilitySummary(p)
 		}))
 	);
@@ -178,10 +178,10 @@
 	let historyRows = $derived<HistoryRow[]>(
 		scans.map((s, i) => ({
 			id: s.id,
-			scanned_at: s.scanned_at,
-			scanned_relative: formatTimeAgo(s.scanned_at).relativeTime,
-			scanner_version: s.scanner_version || '—',
-			mcp_count: s.mcp_servers?.length ?? 0,
+			scanned_at: s.scannedAt,
+			scanned_relative: formatTimeAgo(s.scannedAt).relativeTime,
+			scanner_version: s.scannerVersion || '—',
+			mcp_count: s.mcpServers?.length ?? 0,
 			skill_count: s.skills?.length ?? 0,
 			plugin_count: s.plugins?.length ?? 0,
 			client_count: s.clients?.length ?? 0,
@@ -237,8 +237,8 @@
 								</div>
 								<span>{userDisplay(submittedByUser)}</span>
 							</div>
-						{:else if latest.submitted_by}
-							<span class="font-mono text-xs">{latest.submitted_by}</span>
+						{:else if latest.submittedBy}
+							<span class="font-mono text-xs">{latest.submittedBy}</span>
 						{:else}
 							<span class="text-on-surface1">—</span>
 						{/if}
@@ -251,7 +251,7 @@
 					<dd class="font-mono">{latest.hostname || '—'}</dd>
 
 					<dt class="text-on-surface1 text-xs font-medium tracking-wide uppercase">Scanner</dt>
-					<dd class="font-mono">{latest.scanner_version || '—'}</dd>
+					<dd class="font-mono">{latest.scannerVersion || '—'}</dd>
 
 					<dt class="text-on-surface1 text-xs font-medium tracking-wide uppercase">Last scanned</dt>
 					<dd use:tooltip={scannedTime.fullDate}>
@@ -342,16 +342,16 @@
 						<Table
 							data={skillRows}
 							pageSize={PAGE_SIZE}
-							fields={['client', 'scope', 'name', 'description', 'has_scripts', 'files_count']}
+							fields={['client', 'scope', 'name', 'description', 'hasScripts', 'files_count']}
 							headers={[
 								{ title: 'Client', property: 'client' },
 								{ title: 'Scope', property: 'scope' },
 								{ title: 'Name', property: 'name' },
 								{ title: 'Description', property: 'description' },
-								{ title: 'Has Scripts', property: 'has_scripts' },
+								{ title: 'Has Scripts', property: 'hasScripts' },
 								{ title: 'Files', property: 'files_count' }
 							]}
-							sortable={['client', 'scope', 'name', 'description', 'has_scripts', 'files_count']}
+							sortable={['client', 'scope', 'name', 'description', 'hasScripts', 'files_count']}
 							filterable={['client', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
@@ -363,8 +363,8 @@
 							{#snippet onRenderColumn(property, d: SkillRow)}
 								{#if property === 'description'}
 									<span class="text-on-surface1 text-xs">{d.description ?? '—'}</span>
-								{:else if property === 'has_scripts'}
-									{d.has_scripts ? 'yes' : 'no'}
+								{:else if property === 'hasScripts'}
+									{d.hasScripts ? 'yes' : 'no'}
 								{:else}
 									{d[property as keyof SkillRow] ?? '—'}
 								{/if}
@@ -382,7 +382,7 @@
 								'client',
 								'scope',
 								'name',
-								'plugin_type',
+								'pluginType',
 								'version',
 								'enabled',
 								'capabilities'
@@ -391,13 +391,13 @@
 								{ title: 'Client', property: 'client' },
 								{ title: 'Scope', property: 'scope' },
 								{ title: 'Name', property: 'name' },
-								{ title: 'Type', property: 'plugin_type' },
+								{ title: 'Type', property: 'pluginType' },
 								{ title: 'Version', property: 'version' },
 								{ title: 'Enabled', property: 'enabled' },
 								{ title: 'Capabilities', property: 'capabilities' }
 							]}
-							sortable={['client', 'name', 'plugin_type', 'version']}
-							filterable={['client', 'plugin_type', 'scope']}
+							sortable={['client', 'name', 'pluginType', 'version']}
+							filterable={['client', 'pluginType', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
 									resolve(`/admin/devices/${deviceId}/scans/${latest.id}/plugins/${d.index}`),

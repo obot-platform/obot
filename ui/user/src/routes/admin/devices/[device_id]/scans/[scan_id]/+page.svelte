@@ -33,9 +33,9 @@
 	let activeTab = $state<Tab>('mcp');
 
 	let submittedByUser = $state<OrgUser | undefined>();
-	let submittedById = $derived(scan?.submitted_by);
+	let submittedById = $derived(scan?.submittedBy);
 	let isLatest = $state(false);
-	let scanDeviceId = $derived(scan?.device_id);
+	let scanDeviceId = $derived(scan?.deviceID);
 	let scanIdNum = $derived(scan?.id);
 
 	$effect(() => {
@@ -95,13 +95,13 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 
-	let mcpServers = $derived<DeviceScanMCPServer[]>(scan?.mcp_servers ?? []);
+	let mcpServers = $derived<DeviceScanMCPServer[]>(scan?.mcpServers ?? []);
 	let skills = $derived<DeviceScanSkill[]>(scan?.skills ?? []);
 	let plugins = $derived<DeviceScanPlugin[]>(scan?.plugins ?? []);
 	let clients = $derived<DeviceScanClient[]>(scan?.clients ?? []);
 
 	let scannedTime = $derived(
-		scan ? formatTimeAgo(scan.scanned_at) : { relativeTime: '', fullDate: '' }
+		scan ? formatTimeAgo(scan.scannedAt) : { relativeTime: '', fullDate: '' }
 	);
 
 	type MCPRow = DeviceScanMCPServer & {
@@ -138,7 +138,7 @@
 			...m,
 			id: `${m.client}-${m.name}-${i}`,
 			index: i,
-			scope: deriveScope(m.project_path),
+			scope: deriveScope(m.projectPath),
 			endpoint: m.transport === 'stdio' ? formatCommand(m.command, m.args) : m.url || '—'
 		}))
 	);
@@ -148,7 +148,7 @@
 			...s,
 			id: `${s.client}-${s.name}-${i}`,
 			index: i,
-			scope: deriveScope(s.project_path),
+			scope: deriveScope(s.projectPath),
 			files_count: (s.files ?? []).length
 		}))
 	);
@@ -158,7 +158,7 @@
 			...p,
 			id: `${p.client}-${p.name}-${i}`,
 			index: i,
-			scope: deriveScope(p.project_path),
+			scope: deriveScope(p.projectPath),
 			capabilities: capabilitySummary(p)
 		}))
 	);
@@ -184,27 +184,27 @@
 
 	function capabilitySummary(p: DeviceScanPlugin): string {
 		const caps: string[] = [];
-		if (p.has_mcp_servers) caps.push('mcp');
-		if (p.has_skills) caps.push('skills');
-		if (p.has_rules) caps.push('rules');
-		if (p.has_commands) caps.push('commands');
-		if (p.has_hooks) caps.push('hooks');
+		if (p.hasMCPServers) caps.push('mcp');
+		if (p.hasSkills) caps.push('skills');
+		if (p.hasRules) caps.push('rules');
+		if (p.hasCommands) caps.push('commands');
+		if (p.hasHooks) caps.push('hooks');
 		return caps.length ? caps.join(', ') : '—';
 	}
 
 	function clientHasSummary(c: DeviceScanClient): string {
 		const caps: string[] = [];
-		if (c.has_mcp_servers) caps.push('mcp');
-		if (c.has_skills) caps.push('skills');
-		if (c.has_plugins) caps.push('plugins');
+		if (c.hasMCPServers) caps.push('mcp');
+		if (c.hasSkills) caps.push('skills');
+		if (c.hasPlugins) caps.push('plugins');
 		return caps.length ? caps.join(', ') : '—';
 	}
 
 	function clientPathsSummary(c: DeviceScanClient): string {
 		const parts: string[] = [];
-		if (c.binary_path) parts.push(c.binary_path);
-		if (c.install_path) parts.push(c.install_path);
-		if (c.config_path) parts.push(c.config_path);
+		if (c.binaryPath) parts.push(c.binaryPath);
+		if (c.installPath) parts.push(c.installPath);
+		if (c.configPath) parts.push(c.configPath);
 		return parts.join(', ') || '—';
 	}
 
@@ -237,8 +237,8 @@
 				<dl class="grid flex-1 grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2 text-sm">
 					<dt class="text-on-surface1 text-xs font-medium uppercase tracking-wide">Device ID</dt>
 					<dd class="flex items-center gap-2">
-						<span class="font-mono text-base font-semibold">{scan.device_id}</span>
-						<CopyButton text={scan.device_id} />
+						<span class="font-mono text-base font-semibold">{scan.deviceID}</span>
+						<CopyButton text={scan.deviceID} />
 						{#if isLatest}
 							<span
 								class="bg-primary/15 text-primary rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide"
@@ -271,15 +271,15 @@
 								</div>
 								<span>{userDisplay(submittedByUser)}</span>
 							</div>
-						{:else if scan.submitted_by}
-							<span class="font-mono text-xs">{scan.submitted_by}</span>
+						{:else if scan.submittedBy}
+							<span class="font-mono text-xs">{scan.submittedBy}</span>
 						{:else}
 							<span class="text-on-surface1">—</span>
 						{/if}
 					</dd>
 
 					<dt class="text-on-surface1 text-xs font-medium uppercase tracking-wide">Scanner</dt>
-					<dd class="font-mono">{scan.scanner_version || '—'}</dd>
+					<dd class="font-mono">{scan.scannerVersion || '—'}</dd>
 
 					<dt class="text-on-surface1 text-xs font-medium uppercase tracking-wide">Scanned</dt>
 					<dd use:tooltip={scannedTime.fullDate}>
@@ -376,16 +376,16 @@
 						<Table
 							data={skillRows}
 							pageSize={PAGE_SIZE}
-							fields={['client', 'scope', 'name', 'description', 'has_scripts', 'files_count']}
+							fields={['client', 'scope', 'name', 'description', 'hasScripts', 'files_count']}
 							headers={[
 								{ title: 'Client', property: 'client' },
 								{ title: 'Scope', property: 'scope' },
 								{ title: 'Name', property: 'name' },
 								{ title: 'Description', property: 'description' },
-								{ title: 'Has Scripts', property: 'has_scripts' },
+								{ title: 'Has Scripts', property: 'hasScripts' },
 								{ title: 'Files', property: 'files_count' }
 							]}
-							sortable={['client', 'scope', 'name', 'description', 'has_scripts', 'files_count']}
+							sortable={['client', 'scope', 'name', 'description', 'hasScripts', 'files_count']}
 							filterable={['client', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
@@ -397,8 +397,8 @@
 							{#snippet onRenderColumn(property, d: SkillRow)}
 								{#if property === 'description'}
 									<span class="text-on-surface1 text-xs">{d.description ?? '—'}</span>
-								{:else if property === 'has_scripts'}
-									{d.has_scripts ? 'yes' : 'no'}
+								{:else if property === 'hasScripts'}
+									{d.hasScripts ? 'yes' : 'no'}
 								{:else}
 									{d[property as keyof SkillRow] ?? '—'}
 								{/if}
@@ -416,7 +416,7 @@
 								'client',
 								'scope',
 								'name',
-								'plugin_type',
+								'pluginType',
 								'version',
 								'enabled',
 								'capabilities'
@@ -425,13 +425,13 @@
 								{ title: 'Client', property: 'client' },
 								{ title: 'Scope', property: 'scope' },
 								{ title: 'Name', property: 'name' },
-								{ title: 'Type', property: 'plugin_type' },
+								{ title: 'Type', property: 'pluginType' },
 								{ title: 'Version', property: 'version' },
 								{ title: 'Enabled', property: 'enabled' },
 								{ title: 'Capabilities', property: 'capabilities' }
 							]}
-							sortable={['client', 'name', 'plugin_type', 'version']}
-							filterable={['client', 'plugin_type', 'scope']}
+							sortable={['client', 'name', 'pluginType', 'version']}
+							filterable={['client', 'pluginType', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
 									`/admin/devices/${deviceIdParam}/scans/${scanId}/plugins/${d.index}`,
@@ -490,7 +490,7 @@
 	show={deleteOpen}
 	loading={deleting}
 	title="Delete device scan"
-	msg={scan ? `Delete scan for device ${scan.device_id}?` : 'Delete this scan?'}
+	msg={scan ? `Delete scan for device ${scan.deviceID}?` : 'Delete this scan?'}
 	note={deleteError ??
 		'This permanently removes the scan and all associated MCP server, skill, plugin, client, and file rows. This cannot be undone.'}
 	onsuccess={confirmDelete}

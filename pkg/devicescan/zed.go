@@ -36,6 +36,7 @@ type zedContextServer struct {
 type zedScanner struct{}
 
 func (zedScanner) Name() string { return "zed" }
+
 func (zedScanner) Presence() clientPresenceDef {
 	return clientPresenceDef{
 		binaries:    []string{"zed"},
@@ -43,8 +44,10 @@ func (zedScanner) Presence() clientPresenceDef {
 		configPaths: []string{".config/zed"},
 	}
 }
+
 func (zedScanner) GlobalConfigPaths() []string { return []string{zedGlobalConfigRel} }
-func (zedScanner) ProjectGlobs() []string      { return []string{"**/.zed/settings.json"} }
+
+func (zedScanner) ProjectGlobs() []string { return []string{"**/.zed/settings.json"} }
 
 func (zedScanner) ScanGlobal(s *scanState) []types.DeviceScanMCPServer {
 	cfg, ok := readJSON[zedSettings](s.fsys, zedGlobalConfigRel)

@@ -1,6 +1,6 @@
 import { handleRouteError } from '$lib/errors';
 import { AdminService } from '$lib/services';
-import type { DeviceSkillStatList } from '$lib/services/admin/types';
+import type { DeviceSkillStatResponse } from '$lib/services/admin/types';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
@@ -10,7 +10,7 @@ export const load: PageLoad = async ({ url, fetch }) => {
 	const offset = parseInt(url.searchParams.get('offset') ?? '0', 10) || 0;
 	const name = url.searchParams.get('name') ?? '';
 
-	let skills: DeviceSkillStatList = { items: [], total: 0, limit: PAGE_SIZE, offset };
+	let skills: DeviceSkillStatResponse = { items: [], total: 0, limit: PAGE_SIZE, offset };
 	try {
 		skills = await AdminService.listDeviceSkills(
 			{ limit: PAGE_SIZE, offset, name: name || undefined },

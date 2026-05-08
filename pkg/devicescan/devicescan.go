@@ -18,12 +18,15 @@ import (
 	"sort"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 )
+
+var log = logger.Package()
 
 // Scan runs the full collection pipeline against fsys (rooted at
 // homeAbs) and returns the assembled DeviceScan. Per-phase errors are
-// silently dropped so a missing or malformed config never aborts the
-// rest of the scan. Context cancellation propagates.
+// dropped (logged at debug level) so a missing or malformed config
+// never aborts the rest of the scan. Context cancellation propagates.
 //
 // Server-assigned envelope fields (ScannerVersion, ScannedAt, DeviceID,
 // Hostname, OS, Arch, Username, ID, ReceivedAt, SubmittedBy) are left
@@ -31,7 +34,7 @@ import (
 //
 // maxDepth caps how deep the project walk descends from the home root
 // when looking for project-scope configs and SKILL.md files.
-func Scan(ctx context.Context, fsys fs.FS, homeAbs string, maxDepth int) (types.DeviceScan, error) {
+func Scan(ctx context.Context, fsys fs.FS, homeAbs string, maxDepth int) (types.DeviceScanManifest, error) {
 	s := newScanState(fsys, homeAbs)
 
 	var (
@@ -45,7 +48,7 @@ func Scan(ctx context.Context, fsys fs.FS, homeAbs string, maxDepth int) (types.
 	skipPaths := map[string]bool{}
 	for _, c := range allScanners {
 		if err := ctx.Err(); err != nil {
-			return types.DeviceScan{}, err
+			return types.DeviceScanManifest{}, err
 		}
 		mcps = append(mcps, c.ScanGlobal(s)...)
 		for _, p := range c.GlobalConfigPaths() {
@@ -56,14 +59,14 @@ func Scan(ctx context.Context, fsys fs.FS, homeAbs string, maxDepth int) (types.
 	// Phase 2: single project walk against all scanner globs +
 	// SKILL.md.
 	if err := ctx.Err(); err != nil {
-		return types.DeviceScan{}, err
+		return types.DeviceScanManifest{}, err
 	}
 	hits, skillHits := walkProject(ctx, s.fsys, allScanners, maxDepth, skipPaths)
 
 	// Phase 3: dispatch project hits to their owning scanner.
 	for _, h := range hits {
 		if err := ctx.Err(); err != nil {
-			return types.DeviceScan{}, err
+			return types.DeviceScanManifest{}, err
 		}
 		mcps = append(mcps, h.scanner.ScanProject(s, h.path)...)
 	}
@@ -76,7 +79,7 @@ func Scan(ctx context.Context, fsys fs.FS, homeAbs string, maxDepth int) (types.
 			continue
 		}
 		if err := ctx.Err(); err != nil {
-			return types.DeviceScan{}, err
+			return types.DeviceScanManifest{}, err
 		}
 		ps, ms, sks := pc.ScanPlugins(s)
 		plugins = append(plugins, ps...)
@@ -86,7 +89,7 @@ func Scan(ctx context.Context, fsys fs.FS, homeAbs string, maxDepth int) (types.
 
 	// Phase 5: skills (global dirs first, then walk hits).
 	if err := ctx.Err(); err != nil {
-		return types.DeviceScan{}, err
+		return types.DeviceScanManifest{}, err
 	}
 	skills = append(skills, scanGlobalSkills(s)...)
 	skills = append(skills, scanProjectSkills(s, skillHits)...)
@@ -94,7 +97,7 @@ func Scan(ctx context.Context, fsys fs.FS, homeAbs string, maxDepth int) (types.
 	// Phase 6: client presence detection (uses real OS access for
 	// $PATH and absolute paths like /Applications).
 	if err := ctx.Err(); err != nil {
-		return types.DeviceScan{}, err
+		return types.DeviceScanManifest{}, err
 	}
 	scanClientPresence(s, homeAbs)
 
@@ -103,30 +106,19 @@ func Scan(ctx context.Context, fsys fs.FS, homeAbs string, maxDepth int) (types.
 }
 
 // build flattens the accumulated state and observation slices into a
-// wire-shape DeviceScan. Files are path-sorted, clients are
-// name-sorted; observations stay in the order they were emitted. Empty
-// slices are kept non-nil so JSON serialisation produces `[]` rather
-// than `null`.
+// submission manifest. Files are path-sorted, clients are name-sorted;
+// observations stay in the order they were emitted.
 //
 // Synthesises a clients[] entry for any client name referenced by an
 // observation that doesn't already have a presence-detected row, except
 // for the multiClient sentinel.
-func build(s *scanState, mcps []types.DeviceScanMCPServer, skills []types.DeviceScanSkill, plugins []types.DeviceScanPlugin) types.DeviceScan {
-	out := types.DeviceScan{
+func build(s *scanState, mcps []types.DeviceScanMCPServer, skills []types.DeviceScanSkill, plugins []types.DeviceScanPlugin) types.DeviceScanManifest {
+	out := types.DeviceScanManifest{
 		Files:      make([]types.DeviceScanFile, 0, len(s.files)),
 		Clients:    make([]types.DeviceScanClient, 0, len(s.clients)),
 		MCPServers: mcps,
 		Skills:     skills,
 		Plugins:    plugins,
-	}
-	if out.MCPServers == nil {
-		out.MCPServers = []types.DeviceScanMCPServer{}
-	}
-	if out.Skills == nil {
-		out.Skills = []types.DeviceScanSkill{}
-	}
-	if out.Plugins == nil {
-		out.Plugins = []types.DeviceScanPlugin{}
 	}
 
 	paths := make([]string, 0, len(s.files))

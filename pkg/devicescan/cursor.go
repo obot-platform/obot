@@ -18,6 +18,7 @@ const (
 type cursorScanner struct{}
 
 func (cursorScanner) Name() string { return "cursor" }
+
 func (cursorScanner) Presence() clientPresenceDef {
 	return clientPresenceDef{
 		binaries:    []string{"cursor"},
@@ -25,8 +26,10 @@ func (cursorScanner) Presence() clientPresenceDef {
 		configPaths: []string{".cursor"},
 	}
 }
+
 func (cursorScanner) GlobalConfigPaths() []string { return []string{cursorGlobalConfigRel} }
-func (cursorScanner) ProjectGlobs() []string      { return []string{"**/.cursor/mcp.json"} }
+
+func (cursorScanner) ProjectGlobs() []string { return []string{"**/.cursor/mcp.json"} }
 
 func (cursorScanner) ScanGlobal(s *scanState) []types.DeviceScanMCPServer {
 	return emitJSONServersGlobal(s, cursorGlobalConfigRel, "mcpServers", "cursor")
@@ -63,6 +66,7 @@ func (cursorScanner) ScanPlugins(s *scanState) (
 		pluginRel := path.Join(cursorPluginCacheRel, p.Name())
 		hashes, err := fs.ReadDir(s.fsys, pluginRel)
 		if err != nil {
+			log.Debugf("cursor: skipping plugin %q: %v", pluginRel, err)
 			continue
 		}
 		for _, h := range hashes {

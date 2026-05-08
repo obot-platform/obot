@@ -7,9 +7,9 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		AdminService,
-		type DeviceSkillDetail,
 		type DeviceSkillOccurrence,
-		type DeviceSkillOccurrenceList
+		type DeviceSkillOccurrenceResponse,
+		type DeviceSkillDetail
 	} from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto, setFilterUrlParams } from '$lib/url';
@@ -22,7 +22,7 @@
 	const PAGE_SIZE = untrack(() => data?.pageSize ?? 50);
 
 	let detail = $derived<DeviceSkillDetail | null | undefined>(data?.detail);
-	let occurrencesResp = $state<DeviceSkillOccurrenceList>(
+	let occurrencesResp = $state<DeviceSkillOccurrenceResponse>(
 		untrack(() => data?.occurrences ?? { items: [], total: 0, limit: PAGE_SIZE, offset: 0 })
 	);
 	let pageIndex = $derived(
@@ -34,16 +34,16 @@
 
 	type Row = DeviceSkillOccurrence & {
 		id: string;
-		short_device_id: string;
-		scanned_relative: string;
+		shortDeviceID: string;
+		scannedRelative: string;
 	};
 
 	let rows = $derived<Row[]>(
 		(occurrencesResp.items ?? []).map((o, i) => ({
 			...o,
-			id: `${o.device_scan_id}-${o.index}-${i}`,
-			short_device_id: (o.device_id ?? '').slice(0, 12),
-			scanned_relative: formatTimeAgo(o.scanned_at).relativeTime
+			id: `${o.deviceScanID}-${o.index}-${i}`,
+			shortDeviceID: (o.deviceID ?? '').slice(0, 12),
+			scannedRelative: formatTimeAgo(o.scannedAt).relativeTime
 		}))
 	);
 
@@ -94,17 +94,17 @@
 				<div class="flex flex-col gap-2">
 					<h2 class="flex items-center gap-2 text-xl font-semibold">
 						{detail.name}
-						{#if detail.has_scripts}
+						{#if detail.hasScripts}
 							<span class="pill-primary bg-primary text-xs">has scripts</span>
 						{/if}
 					</h2>
 					<div class="text-on-surface1 flex flex-wrap items-center gap-3 text-xs">
-						<span>{detail.device_count} device{detail.device_count === 1 ? '' : 's'}</span>
+						<span>{detail.deviceCount} device{detail.deviceCount === 1 ? '' : 's'}</span>
 						<span>·</span>
-						<span>{detail.user_count} user{detail.user_count === 1 ? '' : 's'}</span>
+						<span>{detail.userCount} user{detail.userCount === 1 ? '' : 's'}</span>
 						<span>·</span>
 						<span>
-							{detail.observation_count} observation{detail.observation_count === 1 ? '' : 's'}
+							{detail.observationCount} observation{detail.observationCount === 1 ? '' : 's'}
 						</span>
 					</div>
 				</div>
@@ -117,10 +117,10 @@
 				{/if}
 
 				<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-					{#if detail.git_remote_url}
+					{#if detail.gitRemoteURL}
 						<div class="flex flex-col gap-1">
 							<span class="text-on-surface2 text-xs uppercase">Git remote</span>
-							<code class="font-mono text-xs break-all">{detail.git_remote_url}</code>
+							<code class="font-mono text-xs break-all">{detail.gitRemoteURL}</code>
 						</div>
 					{/if}
 					{#if detail.files?.length}
@@ -147,26 +147,26 @@
 				</h3>
 				<Table
 					data={rows}
-					fields={['short_device_id', 'scanned_relative', 'client', 'scope', 'project_path']}
+					fields={['shortDeviceID', 'scannedRelative', 'client', 'scope', 'projectPath']}
 					headers={[
-						{ title: 'Device', property: 'short_device_id' },
-						{ title: 'Scanned', property: 'scanned_relative' },
+						{ title: 'Device', property: 'shortDeviceID' },
+						{ title: 'Scanned', property: 'scannedRelative' },
 						{ title: 'Client', property: 'client' },
 						{ title: 'Scope', property: 'scope' },
-						{ title: 'Project', property: 'project_path' }
+						{ title: 'Project', property: 'projectPath' }
 					]}
 					onClickRow={(d, isCtrlClick) => {
 						openUrl(
-							resolve(`/admin/devices/${d.device_id}/scans/${d.device_scan_id}/skills/${d.index}`),
+							resolve(`/admin/devices/${d.deviceID}/scans/${d.deviceScanID}/skills/${d.index}`),
 							isCtrlClick
 						);
 					}}
 				>
 					{#snippet onRenderColumn(property, d: Row)}
-						{#if property === 'short_device_id'}
-							<span class="font-mono text-xs" title={d.device_id}>{d.short_device_id}</span>
-						{:else if property === 'project_path'}
-							<span class="text-on-surface1 font-mono text-xs">{d.project_path ?? '—'}</span>
+						{#if property === 'shortDeviceID'}
+							<span class="font-mono text-xs" title={d.deviceID}>{d.shortDeviceID}</span>
+						{:else if property === 'projectPath'}
+							<span class="text-on-surface1 font-mono text-xs">{d.projectPath ?? '—'}</span>
 						{:else}
 							{d[property as keyof Row]}
 						{/if}

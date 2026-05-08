@@ -25,11 +25,14 @@ type hermesEntry struct {
 type hermesScanner struct{}
 
 func (hermesScanner) Name() string { return "hermes" }
+
 func (hermesScanner) Presence() clientPresenceDef {
 	return clientPresenceDef{binaries: []string{"hermes"}, configPaths: []string{".hermes"}}
 }
+
 func (hermesScanner) GlobalConfigPaths() []string { return []string{hermesGlobalConfigRel} }
-func (hermesScanner) ProjectGlobs() []string      { return nil } // global config only
+
+func (hermesScanner) ProjectGlobs() []string { return nil } // global config only
 
 func (hermesScanner) ScanGlobal(s *scanState) []types.DeviceScanMCPServer {
 	cfg, ok := readYAML[hermesConfig](s.fsys, hermesGlobalConfigRel)

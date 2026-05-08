@@ -9,6 +9,10 @@ import (
 	"github.com/gobwas/glob"
 )
 
+// skillGlob is the pattern used to discover SKILL.md files during the
+// project walk. Skill hits are routed separately from MCP hits.
+const skillGlob = "**/SKILL.md"
+
 // markerSkipDirs are basenames the project walk prunes when descending.
 // The set covers dependency caches, build outputs, system / app-support
 // trees that can't host project configs, and the macOS Trash. Matching
@@ -46,10 +50,6 @@ type projectHit struct {
 	scanner ClientScanner
 }
 
-// skillGlob is the pattern used to discover SKILL.md files during the
-// project walk. Skill hits are routed separately from MCP hits.
-const skillGlob = "**/SKILL.md"
-
 // walkProject walks fsys from root once, matching every file against
 // every scanner's ProjectGlobs and the SKILL.md pattern, returning two
 // streams: scanner-attributed project hits, and skill-marker paths for
@@ -84,6 +84,7 @@ func walkProject(ctx context.Context, fsys fs.FS, scanners []ClientScanner, maxD
 		for _, p := range patterns {
 			g, err := glob.Compile(p, '/')
 			if err != nil {
+				log.Debugf("%s: skipping bad project glob %q: %v", sc.Name(), p, err)
 				continue
 			}
 			entry.globs = append(entry.globs, g)

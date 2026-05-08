@@ -1130,18 +1130,18 @@ export interface SystemMCPServerCatalogEntry {
 
 export interface DeviceScanFile {
 	path: string;
-	size_bytes: number;
+	sizeBytes: number;
 	oversized: boolean;
 	content?: string;
 }
 
 export interface DeviceScanMCPServer {
 	client: string;
-	project_path?: string;
+	projectPath?: string;
 	file?: string;
-	config_hash?: string;
-	env_keys: string[];
-	header_keys: string[];
+	configHash?: string;
+	envKeys: string[];
+	headerKeys: string[];
 	name: string;
 	transport: string;
 	command?: string;
@@ -1151,58 +1151,58 @@ export interface DeviceScanMCPServer {
 
 export interface DeviceScanSkill {
 	client: string;
-	project_path?: string;
+	projectPath?: string;
 	file?: string;
 	name: string;
 	description?: string;
 	files: string[];
-	has_scripts: boolean;
-	git_remote_url?: string;
+	hasScripts: boolean;
+	gitRemoteURL?: string;
 }
 
 export interface DeviceScanPlugin {
 	client: string;
-	project_path?: string;
-	config_path?: string;
+	projectPath?: string;
+	configPath?: string;
 	name: string;
-	plugin_type: string;
+	pluginType: string;
 	version?: string;
 	description?: string;
 	author?: string;
 	marketplace?: string;
 	files: string[];
 	enabled: boolean;
-	has_mcp_servers: boolean;
-	has_skills: boolean;
-	has_rules: boolean;
-	has_commands: boolean;
-	has_hooks: boolean;
+	hasMCPServers: boolean;
+	hasSkills: boolean;
+	hasRules: boolean;
+	hasCommands: boolean;
+	hasHooks: boolean;
 }
 
 export interface DeviceScanClient {
 	name: string;
 	version?: string;
-	binary_path?: string;
-	install_path?: string;
-	config_path?: string;
-	has_mcp_servers: boolean;
-	has_skills: boolean;
-	has_plugins: boolean;
+	binaryPath?: string;
+	installPath?: string;
+	configPath?: string;
+	hasMCPServers: boolean;
+	hasSkills: boolean;
+	hasPlugins: boolean;
 }
 
 export interface DeviceScan {
 	id: number;
-	received_at: string;
-	submitted_by?: string;
-	scanner_version: string;
-	scanned_at: string;
-	device_id: string;
+	receivedAt: string;
+	submittedBy?: string;
+	scannerVersion: string;
+	scannedAt: string;
+	deviceID: string;
 	hostname: string;
 	os: string;
 	arch: string;
 	username?: string;
 	files: DeviceScanFile[];
-	mcp_servers: DeviceScanMCPServer[];
+	mcpServers: DeviceScanMCPServer[];
 	skills: DeviceScanSkill[];
 	plugins: DeviceScanPlugin[];
 	clients: DeviceScanClient[];
@@ -1210,6 +1210,9 @@ export interface DeviceScan {
 
 export interface DeviceScanList {
 	items: DeviceScan[] | null;
+}
+
+export interface DeviceScanResponse extends DeviceScanList {
 	total: number;
 	limit: number;
 	offset: number;
@@ -1223,74 +1226,65 @@ export type DeviceScanListFilters = {
 	groupByDevice?: boolean;
 };
 
-// Aggregated MCP server view: one row per ConfigHash collapsed across
-// every device's latest scan within the requested time window.
-
 export interface DeviceMCPServerStat {
-	config_hash: string;
+	configHash: string;
 	name: string;
 	transport: string;
 	command?: string;
 	args?: string[];
 	url?: string;
-	device_count: number;
-	user_count: number;
-	client_count: number;
-	scope_count: number;
-	observation_count: number;
+	deviceCount: number;
+	userCount: number;
+	clientCount: number;
+	observationCount: number;
 }
 
+// DeviceMCPServerDetail extends the rollup row with EnvKeys and
+// HeaderKeys, which are not in the hash and may vary per observation.
+
 export interface DeviceMCPServerDetail extends DeviceMCPServerStat {
-	env_keys: string[];
-	header_keys: string[];
+	envKeys: string[] | null;
+	headerKeys: string[] | null;
 }
 
 export interface DeviceMCPServerOccurrence {
-	device_scan_id: number;
-	device_id: string;
+	deviceScanID: number;
+	deviceID: string;
 	client: string;
 	scope: string;
-	scanned_at: string;
+	scannedAt: string;
 	index: number;
 }
 
 export interface DeviceMCPServerOccurrenceList {
 	items: DeviceMCPServerOccurrence[] | null;
+}
+
+export interface DeviceMCPServerOccurrenceResponse extends DeviceMCPServerOccurrenceList {
 	total: number;
 	limit: number;
 	offset: number;
 }
 
-// Skills aggregation views. Backed by /api/devices/skills (paginated
-// list), /api/devices/skills/{name} (per-skill detail), and
-// /api/devices/skills/{name}/occurrences.
+export interface DeviceClientStat {
+	name: string;
+	deviceCount: number;
+	userCount: number;
+	observationCount: number;
+}
+
+export interface DeviceSkillStat {
+	name: string;
+	deviceCount: number;
+	userCount: number;
+	observationCount: number;
+}
 
 export interface DeviceSkillStatList {
 	items: DeviceSkillStat[] | null;
-	total: number;
-	limit: number;
-	offset: number;
 }
 
-export interface DeviceSkillDetail extends DeviceSkillStat {
-	description?: string;
-	has_scripts: boolean;
-	git_remote_url?: string;
-	files?: string[];
-}
-
-export interface DeviceSkillOccurrence {
-	device_scan_id: number;
-	device_id: string;
-	client: string;
-	scope: string;
-	project_path?: string;
-	scanned_at: string;
-	index: number;
-}
-
-export interface DeviceSkillOccurrenceList {
-	items: DeviceSkillOccurrence[] | null;
+export interface DeviceSkillStatResponse extends DeviceSkillStatList {
 	total: number;
 	limit: number;
 	offset: number;
@@ -1308,30 +1302,47 @@ export type DeviceSkillListFilters = {
 	sortOrder?: 'asc' | 'desc';
 };
 
+// DeviceSkillDetail is the per-skill drill-down. Metadata fields come
+// from one canonical observation and are not guaranteed stable across
+// observations sharing the same name.
+
+export interface DeviceSkillDetail extends DeviceSkillStat {
+	description?: string;
+	hasScripts: boolean;
+	gitRemoteURL?: string;
+	files?: string[];
+}
+
+export interface DeviceSkillOccurrence {
+	deviceScanID: number;
+	deviceID: string;
+	client: string;
+	scope: string;
+	projectPath?: string;
+	scannedAt: string;
+	index: number;
+}
+
+export interface DeviceSkillOccurrenceList {
+	items: DeviceSkillOccurrence[] | null;
+}
+
+export interface DeviceSkillOccurrenceResponse extends DeviceSkillOccurrenceList {
+	total: number;
+	limit: number;
+	offset: number;
+}
+
 // Dashboard rollup — single payload, full ranked breakdowns over each
 // device's latest scan in the window. Returned by GET /api/devices/scan-stats.
 
-export interface DeviceClientStat {
-	name: string;
-	device_count: number;
-	user_count: number;
-	observation_count: number;
-}
-
-export interface DeviceSkillStat {
-	name: string;
-	device_count: number;
-	user_count: number;
-	observation_count: number;
-}
-
 export interface DeviceScanStats {
-	time_start: string;
-	time_end: string;
-	device_count: number;
-	user_count: number;
+	timeStart: string;
+	timeEnd: string;
+	deviceCount: number;
+	userCount: number;
 	clients: DeviceClientStat[] | null;
-	mcp_servers: DeviceMCPServerStat[] | null;
+	mcpServers: DeviceMCPServerStat[] | null;
 	skills: DeviceSkillStat[] | null;
-	scan_timestamps: string[] | null;
+	scanTimestamps: string[] | null;
 }

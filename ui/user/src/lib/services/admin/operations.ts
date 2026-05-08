@@ -71,16 +71,16 @@ import type {
 	SystemMCPServerCatalogEntry,
 	SystemMCPServerCatalogEntryManifest,
 	SystemMCPServerManifest,
+	DeviceMCPServerOccurrenceResponse,
 	DeviceMCPServerDetail,
-	DeviceMCPServerOccurrenceList,
 	DeviceScan,
-	DeviceScanList,
 	DeviceScanListFilters,
+	DeviceScanResponse,
 	DeviceScanStats,
-	DeviceSkillDetail,
 	DeviceSkillListFilters,
-	DeviceSkillOccurrenceList,
-	DeviceSkillStatList
+	DeviceSkillOccurrenceResponse,
+	DeviceSkillDetail,
+	DeviceSkillStatResponse
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -1816,12 +1816,12 @@ export async function getSystemMCPServerTools(
 export async function listDeviceScans(
 	filters?: DeviceScanListFilters,
 	opts?: { fetch?: Fetcher }
-): Promise<DeviceScanList> {
+): Promise<DeviceScanResponse> {
 	const queryString = buildQueryString(filters ?? {});
 	return (await doGet(
 		`/devices/scans${queryString ? `?${queryString}` : ''}`,
 		opts
-	)) as DeviceScanList;
+	)) as DeviceScanResponse;
 }
 
 export async function getDeviceScan(
@@ -1834,9 +1834,6 @@ export async function getDeviceScan(
 export async function deleteDeviceScan(id: number | string): Promise<void> {
 	await doDelete(`/devices/scans/${id}`);
 }
-
-// Device MCP servers — per-ConfigHash detail + occurrences only.
-// The fleet-wide list aggregate has been replaced by getDeviceScanStats.
 
 export async function getDeviceMCPServerDetail(
 	configHash: string,
@@ -1852,17 +1849,14 @@ export async function listDeviceMCPServerOccurrences(
 	configHash: string,
 	page: { limit?: number; offset?: number },
 	opts?: { fetch?: Fetcher }
-): Promise<DeviceMCPServerOccurrenceList> {
+): Promise<DeviceMCPServerOccurrenceResponse> {
 	const queryString = buildQueryString(page ?? {});
 	return (await doGet(
 		`/devices/mcp-servers/${encodeURIComponent(configHash)}/occurrences${queryString ? `?${queryString}` : ''}`,
 		opts
-	)) as DeviceMCPServerOccurrenceList;
+	)) as DeviceMCPServerOccurrenceResponse;
 }
 
-// Device dashboard rollup — single endpoint, full ranked breakdowns.
-// Mirrors GetMCPUsageStats: one transaction, multiple GROUP BYs, no
-// top-N truncation. Caller slices for the pie charts.
 export async function getDeviceScanStats(
 	range?: { start?: string; end?: string },
 	opts?: { fetch?: Fetcher }
@@ -1874,17 +1868,15 @@ export async function getDeviceScanStats(
 	)) as DeviceScanStats;
 }
 
-// Device skills (fleet-wide aggregation by skill name).
-
 export async function listDeviceSkills(
 	filters?: DeviceSkillListFilters,
 	opts?: { fetch?: Fetcher }
-): Promise<DeviceSkillStatList> {
+): Promise<DeviceSkillStatResponse> {
 	const queryString = buildQueryString(filters ?? {});
 	return (await doGet(
 		`/devices/skills${queryString ? `?${queryString}` : ''}`,
 		opts
-	)) as DeviceSkillStatList;
+	)) as DeviceSkillStatResponse;
 }
 
 export async function getDeviceSkillDetail(
@@ -1898,12 +1890,12 @@ export async function listDeviceSkillOccurrences(
 	name: string,
 	page: { limit?: number; offset?: number },
 	opts?: { fetch?: Fetcher }
-): Promise<DeviceSkillOccurrenceList> {
+): Promise<DeviceSkillOccurrenceResponse> {
 	const queryString = buildQueryString(page ?? {});
 	return (await doGet(
 		`/devices/skills/${encodeURIComponent(name)}/occurrences${queryString ? `?${queryString}` : ''}`,
 		opts
-	)) as DeviceSkillOccurrenceList;
+	)) as DeviceSkillOccurrenceResponse;
 }
 
 export async function restartNanobotAgentDeployments(opts?: {

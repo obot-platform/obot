@@ -1,9 +1,7 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
-	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -16,34 +14,25 @@ import (
 	"gorm.io/gorm"
 )
 
-// dashboardWindowDefault is the rolling window applied to GetScanStats
-// when the caller doesn't pass start/end. Matches the picker default
-// on /admin/device-overview.
+// dashboardWindowDefault is the default rolling window applied to GetScanStats.
 const dashboardWindowDefault = 60 * 24 * time.Hour
 
-// DeviceScansHandler serves the `obot scan` ingest + read API. Any
-// authenticated user may submit a scan via POST and read their own
-// scans via GET; admins / owners / auditors see every scan.
+// DeviceScansHandler serves the `obot scan` ingest + read API
 type DeviceScansHandler struct{}
 
 func NewDeviceScansHandler() *DeviceScansHandler {
 	return &DeviceScansHandler{}
 }
 
-// maxDeviceScanBodyBytes caps a single submission. Real payloads are
-// well under this — `obot scan` itself is ~500 KiB on a busy laptop.
-// 16 MiB is a generous ceiling that still protects against abuse.
-const maxDeviceScanBodyBytes = 16 * 1024 * 1024
-
 // Submit handles POST /api/devices/scans. The caller's identity is
 // recorded as SubmittedBy; ID and ReceivedAt are server-assigned.
 func (*DeviceScansHandler) Submit(req api.Context) error {
-	var payload types.DeviceScan
-	if err := readJSONBody(req, &payload, maxDeviceScanBodyBytes); err != nil {
+	var manifest types.DeviceScanManifest
+	if err := req.Read(&manifest); err != nil {
 		return err
 	}
 
-	scan := gtypes.DeviceScanFromWire(payload)
+	scan := gtypes.DeviceScanFromManifest(manifest)
 	scan.SubmittedBy = req.User.GetUID()
 
 	if err := req.GatewayClient.InsertDeviceScan(req.Context(), &scan); err != nil {
@@ -53,18 +42,12 @@ func (*DeviceScansHandler) Submit(req api.Context) error {
 	return req.WriteCreated(gtypes.ConvertDeviceScan(scan))
 }
 
-// List handles GET /api/devices/scans. Non-privileged callers only see
-// scans they themselves submitted; admins / owners / auditors see all
-// scans, with optional submitted_by / device_id filters.
+// List handles GET /api/devices/scans. Optional submitted_by / device_id
+// filters narrow the result.
 func (*DeviceScansHandler) List(req api.Context) error {
 	opts := parseDeviceScanListOpts(req.URL.Query())
 	if opts.Limit == 0 {
 		opts.Limit = 100
-	}
-	if !privilegedDeviceScanReader(req) {
-		// Hard pin to the caller, regardless of any submitted_by query
-		// parameter they tried to pass.
-		opts.SubmittedBy = []string{req.User.GetUID()}
 	}
 
 	scans, total, err := req.GatewayClient.ListDeviceScans(req.Context(), opts)
@@ -76,18 +59,16 @@ func (*DeviceScansHandler) List(req api.Context) error {
 	for _, s := range scans {
 		items = append(items, gtypes.ConvertDeviceScan(s))
 	}
-	return req.Write(types.DeviceScanList{
-		Items:  items,
-		Total:  total,
-		Limit:  opts.Limit,
-		Offset: opts.Offset,
+	return req.Write(types.DeviceScanResponse{
+		DeviceScanList: types.DeviceScanList{Items: items},
+		Total:          total,
+		Limit:          opts.Limit,
+		Offset:         opts.Offset,
 	})
 }
 
 // Get handles GET /api/devices/scans/{scan_id}. Returns the scan
 // envelope plus all child rows (MCP servers, skills, plugins, files).
-// A non-privileged caller asking for someone else's scan gets 404
-// (never 403) so we don't leak that the scan exists.
 func (*DeviceScansHandler) Get(req api.Context) error {
 	id, err := parseDeviceScanID(req.PathValue("scan_id"))
 	if err != nil {
@@ -100,29 +81,17 @@ func (*DeviceScansHandler) Get(req api.Context) error {
 		}
 		return err
 	}
-	if !privilegedDeviceScanReader(req) && scan.SubmittedBy != req.User.GetUID() {
-		return types.NewErrNotFound("device scan %d not found", id)
-	}
 	return req.Write(gtypes.ConvertDeviceScan(*scan))
 }
 
-// Delete handles DELETE /api/devices/scans/{scan_id}. Admin / owner
-// only — auditors are read-only by design. Authz at the router layer
-// enforces this; the handler only runs for callers that already cleared
-// the gate.
+// Delete handles DELETE /api/devices/scans/{scan_id}. Idempotent:
+// succeeds whether or not a scan with that id existed.
 func (*DeviceScansHandler) Delete(req api.Context) error {
 	id, err := parseDeviceScanID(req.PathValue("scan_id"))
 	if err != nil {
 		return err
 	}
-	if err := req.GatewayClient.DeleteDeviceScan(req.Context(), id); err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types.NewErrNotFound("device scan %d not found", id)
-		}
-		return err
-	}
-	req.WriteHeader(http.StatusNoContent)
-	return nil
+	return req.GatewayClient.DeleteDeviceScan(req.Context(), id)
 }
 
 func parseDeviceScanID(raw string) (uint, error) {
@@ -134,12 +103,6 @@ func parseDeviceScanID(raw string) (uint, error) {
 		return 0, types.NewErrBadRequest("invalid device scan id: %v", err)
 	}
 	return uint(id), nil
-}
-
-// privilegedDeviceScanReader returns true if the caller is allowed to
-// see scans they didn't submit themselves.
-func privilegedDeviceScanReader(req api.Context) bool {
-	return req.UserIsAdmin() || req.UserIsOwner() || req.UserIsAuditor()
 }
 
 func parseDeviceScanListOpts(query url.Values) gateway.DeviceScanListOptions {
@@ -190,12 +153,9 @@ func parseMultiValueDeviceScan(query url.Values, key string) []string {
 }
 
 // GetMCPServerDetail handles GET /api/devices/mcp-servers/{config_hash}.
-// Returns the all-time aggregate for that hash plus Args / EnvKeys /
-// HeaderKeys.
+// Returns the all-time aggregate for that hash plus Args, EnvKeys,
+// and HeaderKeys.
 func (*DeviceScansHandler) GetMCPServerDetail(req api.Context) error {
-	if !privilegedDeviceScanReader(req) {
-		return types.NewErrForbidden("forbidden")
-	}
 	hash := req.PathValue("config_hash")
 	if hash == "" {
 		return types.NewErrBadRequest("missing config_hash")
@@ -215,9 +175,6 @@ func (*DeviceScansHandler) GetMCPServerDetail(req api.Context) error {
 // row per (device, observation) of the given hash from each device's
 // all-time latest scan.
 func (*DeviceScansHandler) ListMCPServerOccurrences(req api.Context) error {
-	if !privilegedDeviceScanReader(req) {
-		return types.NewErrForbidden("forbidden")
-	}
 	hash := req.PathValue("config_hash")
 	if hash == "" {
 		return types.NewErrBadRequest("missing config_hash")
@@ -250,22 +207,17 @@ func (*DeviceScansHandler) ListMCPServerOccurrences(req api.Context) error {
 			Index:        r.Index,
 		})
 	}
-	return req.Write(types.DeviceMCPServerOccurrenceList{
-		Items:  items,
-		Total:  total,
-		Limit:  limit,
-		Offset: offset,
+	return req.Write(types.DeviceMCPServerOccurrenceResponse{
+		DeviceMCPServerOccurrenceList: types.DeviceMCPServerOccurrenceList{Items: items},
+		Total:                         total,
+		Limit:                         limit,
+		Offset:                        offset,
 	})
 }
 
 // ListSkills handles GET /api/devices/skills. Paginated, sortable,
-// optional name LIKE filter and time-window scoping. Mirrors the
-// (deleted) /api/devices/mcp-servers list endpoint shape so the
-// /admin/device-skills page can drive a list view from it.
+// optional name LIKE filter and time-window scoping.
 func (*DeviceScansHandler) ListSkills(req api.Context) error {
-	if !privilegedDeviceScanReader(req) {
-		return types.NewErrForbidden("forbidden")
-	}
 	opts, err := parseSkillStatListOpts(req.URL.Query())
 	if err != nil {
 		return err
@@ -287,92 +239,11 @@ func (*DeviceScansHandler) ListSkills(req api.Context) error {
 			ObservationCount: r.ObservationCount,
 		})
 	}
-	return req.Write(types.DeviceSkillStatList{
-		Items:  items,
-		Total:  total,
-		Limit:  opts.Limit,
-		Offset: opts.Offset,
-	})
-}
-
-// GetSkill handles GET /api/devices/skills/{name}. Returns the
-// all-time per-skill aggregate plus representative description /
-// has_scripts / git_remote_url / files from one canonical row.
-func (*DeviceScansHandler) GetSkill(req api.Context) error {
-	if !privilegedDeviceScanReader(req) {
-		return types.NewErrForbidden("forbidden")
-	}
-	name := req.PathValue("name")
-	if name == "" {
-		return types.NewErrBadRequest("missing skill name")
-	}
-	detail, err := req.GatewayClient.GetSkillDetail(req.Context(), name)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types.NewErrNotFound("skill %q not found", name)
-		}
-		return err
-	}
-	return req.Write(types.DeviceSkillDetail{
-		DeviceSkillStat: types.DeviceSkillStat{
-			Name:             detail.Name,
-			DeviceCount:      detail.DeviceCount,
-			UserCount:        detail.UserCount,
-			ObservationCount: detail.ObservationCount,
-		},
-		Description:  detail.Description,
-		HasScripts:   detail.HasScripts,
-		GitRemoteURL: detail.GitRemoteURL,
-		Files:        detail.Files,
-	})
-}
-
-// ListSkillOccurrences handles
-// GET /api/devices/skills/{name}/occurrences. Returns one row per
-// (device, observation) of the given skill name from each device's
-// all-time latest scan.
-func (*DeviceScansHandler) ListSkillOccurrences(req api.Context) error {
-	if !privilegedDeviceScanReader(req) {
-		return types.NewErrForbidden("forbidden")
-	}
-	name := req.PathValue("name")
-	if name == "" {
-		return types.NewErrBadRequest("missing skill name")
-	}
-	q := req.URL.Query()
-	limit := 50
-	if v := q.Get("limit"); v != "" {
-		if l, err := strconv.Atoi(v); err == nil && l > 0 {
-			limit = l
-		}
-	}
-	offset := 0
-	if v := q.Get("offset"); v != "" {
-		if o, err := strconv.Atoi(v); err == nil && o >= 0 {
-			offset = o
-		}
-	}
-	rows, total, err := req.GatewayClient.ListSkillOccurrences(req.Context(), name, limit, offset)
-	if err != nil {
-		return err
-	}
-	items := make([]types.DeviceSkillOccurrence, 0, len(rows))
-	for _, r := range rows {
-		items = append(items, types.DeviceSkillOccurrence{
-			DeviceScanID: r.DeviceScanID,
-			DeviceID:     r.DeviceID,
-			Client:       r.Client,
-			Scope:        r.Scope,
-			ProjectPath:  r.ProjectPath,
-			ScannedAt:    *types.NewTime(r.ScannedAt),
-			Index:        r.Index,
-		})
-	}
-	return req.Write(types.DeviceSkillOccurrenceList{
-		Items:  items,
-		Total:  total,
-		Limit:  limit,
-		Offset: offset,
+	return req.Write(types.DeviceSkillStatResponse{
+		DeviceSkillStatList: types.DeviceSkillStatList{Items: items},
+		Total:               total,
+		Limit:               opts.Limit,
+		Offset:              opts.Offset,
 	})
 }
 
@@ -409,15 +280,87 @@ func parseSkillStatListOpts(query url.Values) (gateway.SkillStatListOptions, err
 	return opts, nil
 }
 
+// GetSkill handles GET /api/devices/skills/{name}. Returns the
+// all-time per-skill aggregate plus representative Description /
+// HasScripts / GitRemoteURL / Files from one canonical row.
+func (*DeviceScansHandler) GetSkill(req api.Context) error {
+	name := req.PathValue("name")
+	if name == "" {
+		return types.NewErrBadRequest("missing skill name")
+	}
+	detail, err := req.GatewayClient.GetSkillDetail(req.Context(), name)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return types.NewErrNotFound("skill %q not found", name)
+		}
+		return err
+	}
+	return req.Write(types.DeviceSkillDetail{
+		DeviceSkillStat: types.DeviceSkillStat{
+			Name:             detail.Name,
+			DeviceCount:      detail.DeviceCount,
+			UserCount:        detail.UserCount,
+			ObservationCount: detail.ObservationCount,
+		},
+		Description:  detail.Description,
+		HasScripts:   detail.HasScripts,
+		GitRemoteURL: detail.GitRemoteURL,
+		Files:        detail.Files,
+	})
+}
+
+// ListSkillOccurrences handles
+// GET /api/devices/skills/{name}/occurrences. Returns one row per
+// (device, observation) of the given skill name from each device's
+// all-time latest scan.
+func (*DeviceScansHandler) ListSkillOccurrences(req api.Context) error {
+	name := req.PathValue("name")
+	if name == "" {
+		return types.NewErrBadRequest("missing skill name")
+	}
+	q := req.URL.Query()
+	limit := 50
+	if v := q.Get("limit"); v != "" {
+		if l, err := strconv.Atoi(v); err == nil && l > 0 {
+			limit = l
+		}
+	}
+	offset := 0
+	if v := q.Get("offset"); v != "" {
+		if o, err := strconv.Atoi(v); err == nil && o >= 0 {
+			offset = o
+		}
+	}
+	rows, total, err := req.GatewayClient.ListSkillOccurrences(req.Context(), name, limit, offset)
+	if err != nil {
+		return err
+	}
+	items := make([]types.DeviceSkillOccurrence, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, types.DeviceSkillOccurrence{
+			DeviceScanID: r.DeviceScanID,
+			DeviceID:     r.DeviceID,
+			Client:       r.Client,
+			Scope:        r.Scope,
+			ProjectPath:  r.ProjectPath,
+			ScannedAt:    *types.NewTime(r.ScannedAt),
+			Index:        r.Index,
+		})
+	}
+	return req.Write(types.DeviceSkillOccurrenceResponse{
+		DeviceSkillOccurrenceList: types.DeviceSkillOccurrenceList{Items: items},
+		Total:                     total,
+		Limit:                     limit,
+		Offset:                    offset,
+	})
+}
+
 // GetScanStats handles GET /api/devices/scan-stats. Single-call
 // dashboard rollup: distinct device count + ranked breakdowns of
 // clients, MCP servers, and skills computed over each device's
 // latest scan in the window. Default window is the last 60 days
 // when no start/end is supplied. Admin / owner / auditor only.
 func (*DeviceScansHandler) GetScanStats(req api.Context) error {
-	if !privilegedDeviceScanReader(req) {
-		return types.NewErrForbidden("forbidden")
-	}
 	q := req.URL.Query()
 	end := time.Now()
 	start := end.Add(-dashboardWindowDefault)
@@ -490,7 +433,6 @@ func convertMCPServerStat(r gtypes.MCPServerStat) types.DeviceMCPServerStat {
 		DeviceCount:      r.DeviceCount,
 		UserCount:        r.UserCount,
 		ClientCount:      r.ClientCount,
-		ScopeCount:       r.ScopeCount,
 		ObservationCount: r.ObservationCount,
 	}
 }
@@ -501,20 +443,4 @@ func convertMCPServerDetail(d gtypes.MCPServerDetail) types.DeviceMCPServerDetai
 		EnvKeys:             d.EnvKeys,
 		HeaderKeys:          d.HeaderKeys,
 	}
-}
-
-// readJSONBody reads + unmarshals a JSON request body, returning a
-// 413 if the body exceeds maxBytes and a 400 if the JSON is malformed.
-func readJSONBody(req api.Context, dst any, maxBytes int64) error {
-	data, err := req.Body(api.BodyOptions{MaxBytes: maxBytes})
-	if err != nil {
-		return err
-	}
-	if len(data) == 0 {
-		return types.NewErrBadRequest("empty request body")
-	}
-	if err := json.Unmarshal(data, dst); err != nil {
-		return types.NewErrBadRequest("invalid request body: %v", err)
-	}
-	return nil
 }

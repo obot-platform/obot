@@ -26,7 +26,10 @@ func (openclawScanner) Presence() clientPresenceDef {
 	}
 }
 
-func (openclawScanner) GlobalConfigPaths() []string                                { return nil }
-func (openclawScanner) ProjectGlobs() []string                                     { return nil }
-func (openclawScanner) ScanGlobal(*scanState) []types.DeviceScanMCPServer          { return nil }
+func (openclawScanner) GlobalConfigPaths() []string { return nil }
+
+func (openclawScanner) ProjectGlobs() []string { return nil }
+
+func (openclawScanner) ScanGlobal(*scanState) []types.DeviceScanMCPServer { return nil }
+
 func (openclawScanner) ScanProject(*scanState, string) []types.DeviceScanMCPServer { return nil }

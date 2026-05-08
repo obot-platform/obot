@@ -14,14 +14,14 @@
 	let backHref = $derived(`/admin/devices/${page.params.device_id}/scans/${page.params.scan_id}`);
 
 	let files = $derived(lookupFiles(scan?.files, plugin?.files));
-	let scope = $derived(plugin?.project_path ? 'project' : 'global');
+	let scope = $derived(plugin?.projectPath ? 'project' : 'global');
 
 	let capabilities = $derived(
 		plugin
 			? [
-					{ key: 'rules', has: plugin.has_rules },
-					{ key: 'commands', has: plugin.has_commands },
-					{ key: 'hooks', has: plugin.has_hooks }
+					{ key: 'rules', has: plugin.hasRules },
+					{ key: 'commands', has: plugin.hasCommands },
+					{ key: 'hooks', has: plugin.hasHooks }
 				].filter((c) => c.has)
 			: []
 	);
@@ -48,7 +48,7 @@
 					{#if plugin.version}
 						<span class="text-on-surface1 font-mono text-sm">v{plugin.version}</span>
 					{/if}
-					<span class="pill-primary bg-primary">{plugin.plugin_type}</span>
+					<span class="pill-primary bg-primary">{plugin.pluginType}</span>
 					<span class="dark:bg-surface3 bg-surface2 rounded px-1.5 py-0.5 font-mono text-xs">
 						{plugin.client}
 					</span>
@@ -77,13 +77,13 @@
 						<dt class="text-on-surface1">Marketplace</dt>
 						<dd class="font-mono text-xs break-all">{plugin.marketplace}</dd>
 					{/if}
-					{#if plugin.config_path}
+					{#if plugin.configPath}
 						<dt class="text-on-surface1">File</dt>
-						<dd class="font-mono text-xs break-all">{plugin.config_path}</dd>
+						<dd class="font-mono text-xs break-all">{plugin.configPath}</dd>
 					{/if}
-					{#if plugin.project_path}
+					{#if plugin.projectPath}
 						<dt class="text-on-surface1">Project path</dt>
-						<dd class="font-mono text-xs break-all">{plugin.project_path}</dd>
+						<dd class="font-mono text-xs break-all">{plugin.projectPath}</dd>
 					{/if}
 					<dt class="text-on-surface1">Capabilities</dt>
 					<dd>
@@ -117,7 +117,7 @@
 								<div class="flex flex-wrap items-center gap-2 text-xs">
 									<span class="font-mono break-all">{path}</span>
 									{#if file}
-										<span class="text-on-surface1">{formatBytes(file.size_bytes)}</span>
+										<span class="text-on-surface1">{formatBytes(file.sizeBytes)}</span>
 										{#if file.oversized}
 											<span class="pill bg-warning">oversized</span>
 										{/if}

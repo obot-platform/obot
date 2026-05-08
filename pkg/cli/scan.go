@@ -48,7 +48,7 @@ func (s *Scan) Run(cmd *cobra.Command, _ []string) error {
 		username = u.Username
 	}
 
-	result := types.DeviceScan{
+	manifest := types.DeviceScanManifest{
 		ScannerVersion: version.Get().String(),
 		ScannedAt:      types.Time{Time: time.Now().UTC()},
 		DeviceID:       deviceID,
@@ -75,22 +75,22 @@ func (s *Scan) Run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("scan: %w", err)
 	}
 
-	result.Files = collected.Files
-	result.MCPServers = collected.MCPServers
-	result.Skills = collected.Skills
-	result.Plugins = collected.Plugins
-	result.Clients = collected.Clients
+	manifest.Files = collected.Files
+	manifest.MCPServers = collected.MCPServers
+	manifest.Skills = collected.Skills
+	manifest.Plugins = collected.Plugins
+	manifest.Clients = collected.Clients
 
 	if s.DryRun {
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
-		return enc.Encode(result)
+		return enc.Encode(manifest)
 	}
 
 	if s.root.Client == nil {
 		return fmt.Errorf("scan: no API client configured (set OBOT_TOKEN and OBOT_BASE_URL, or pass --dry-run)")
 	}
-	resp, err := s.root.Client.SubmitDeviceScan(ctx, result)
+	resp, err := s.root.Client.SubmitDeviceScan(ctx, manifest)
 	if err != nil {
 		return fmt.Errorf("submit scan: %w", err)
 	}

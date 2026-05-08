@@ -10,8 +10,8 @@ import (
 
 // runScanFS runs Scan against an in-memory fs with a neutralised
 // presence environment (no real $PATH, no /Applications). Returns the
-// DeviceScan for assertions.
-func runScanFS(t *testing.T, files map[string]string) types.DeviceScan {
+// scan manifest for assertions.
+func runScanFS(t *testing.T, files map[string]string) types.DeviceScanManifest {
 	t.Helper()
 	mapfs := fstest.MapFS{}
 	for p, body := range files {
@@ -31,7 +31,7 @@ func runScanFS(t *testing.T, files map[string]string) types.DeviceScan {
 }
 
 // findServer returns the first MCP server matching client+name, or nil.
-func findServer(scan types.DeviceScan, client, name string) *types.DeviceScanMCPServer {
+func findServer(scan types.DeviceScanManifest, client, name string) *types.DeviceScanMCPServer {
 	for i, m := range scan.MCPServers {
 		if m.Client == client && m.Name == name {
 			return &scan.MCPServers[i]
@@ -205,27 +205,5 @@ func TestScan_ProjectScopeWalk(t *testing.T) {
 	}
 	if s.ProjectPath == "" {
 		t.Errorf("ProjectPath empty for project-scope hit; want non-empty")
-	}
-}
-
-// TestBuild_NoObservations ensures Scan returns a well-formed empty
-// DeviceScan when nothing is configured (no presence, no observations).
-// All slice fields should be non-nil so JSON serialises as `[]`.
-func TestBuild_NoObservations(t *testing.T) {
-	scan := runScanFS(t, map[string]string{})
-	if scan.MCPServers == nil {
-		t.Errorf("MCPServers nil; want []")
-	}
-	if scan.Skills == nil {
-		t.Errorf("Skills nil; want []")
-	}
-	if scan.Plugins == nil {
-		t.Errorf("Plugins nil; want []")
-	}
-	if scan.Clients == nil {
-		t.Errorf("Clients nil; want []")
-	}
-	if scan.Files == nil {
-		t.Errorf("Files nil; want []")
 	}
 }

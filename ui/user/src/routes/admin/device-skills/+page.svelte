@@ -6,7 +6,7 @@
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { AdminService, type DeviceSkillStat, type DeviceSkillStatList } from '$lib/services';
+	import { AdminService, type DeviceSkillStat, type DeviceSkillStatResponse } from '$lib/services';
 	import { replaceState } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { debounce } from 'es-toolkit';
@@ -17,7 +17,7 @@
 	let { data } = $props();
 	const PAGE_SIZE = untrack(() => data?.pageSize ?? 50);
 
-	let skillsResp = $state<DeviceSkillStatList>(
+	let skillsResp = $state<DeviceSkillStatResponse>(
 		untrack(() => data?.skills ?? { items: [], total: 0, limit: PAGE_SIZE, offset: 0 })
 	);
 	let pageIndex = $state(untrack(() => Math.floor((data?.skills?.offset ?? 0) / PAGE_SIZE)));
@@ -102,12 +102,12 @@
 		{:else}
 			<Table
 				data={rows}
-				fields={['name', 'device_count', 'user_count', 'observation_count']}
+				fields={['name', 'deviceCount', 'userCount', 'observationCount']}
 				headers={[
 					{ title: 'Name', property: 'name' },
-					{ title: 'Devices', property: 'device_count' },
-					{ title: 'Users', property: 'user_count' },
-					{ title: 'Observations', property: 'observation_count' }
+					{ title: 'Devices', property: 'deviceCount' },
+					{ title: 'Users', property: 'userCount' },
+					{ title: 'Observations', property: 'observationCount' }
 				]}
 				onClickRow={(d, isCtrlClick) => {
 					openUrl(resolve(`/admin/device-skills/${encodeURIComponent(d.name)}`), isCtrlClick);

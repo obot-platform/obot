@@ -17,7 +17,7 @@ func (l *Logout) Customize(cmd *cobra.Command) {
 	cmd.Args = cobra.NoArgs
 }
 
-func (l *Logout) Run(_ *cobra.Command, _ []string) error {
+func (l *Logout) Run(*cobra.Command, []string) error {
 	removed, err := internal.Logout()
 	if err != nil {
 		return err

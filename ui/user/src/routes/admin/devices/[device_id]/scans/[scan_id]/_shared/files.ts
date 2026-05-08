@@ -29,7 +29,7 @@ export function findParentPlugin(
 ): { index: number; name: string } | undefined {
 	if (!scan || !file) return undefined;
 	const idx =
-		scan.plugins?.findIndex((p) => p.config_path === file || p.files?.includes(file)) ?? -1;
+		scan.plugins?.findIndex((p) => p.configPath === file || p.files?.includes(file)) ?? -1;
 	if (idx < 0) return undefined;
 	return { index: idx, name: scan.plugins[idx].name };
 }

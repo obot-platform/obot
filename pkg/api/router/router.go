@@ -799,21 +799,14 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		mux.HandleFunc("GET /api/message-policy-violation-stats", policyViolations.GetStats)
 	}
 
-	// Device Scans (`obot scan` ingest + read API)
+	// Device Scans
 	mux.HandleFunc("POST /api/devices/scans", deviceScans.Submit)
 	mux.HandleFunc("GET /api/devices/scans", deviceScans.List)
 	mux.HandleFunc("GET /api/devices/scans/{scan_id}", deviceScans.Get)
 	mux.HandleFunc("DELETE /api/devices/scans/{scan_id}", deviceScans.Delete)
-
-	// Device MCP Servers — per-ConfigHash detail + occurrences only.
-	// The fleet-wide list aggregate has been replaced by /api/devices/scan-stats.
+	mux.HandleFunc("GET /api/devices/scan-stats", deviceScans.GetScanStats)
 	mux.HandleFunc("GET /api/devices/mcp-servers/{config_hash}", deviceScans.GetMCPServerDetail)
 	mux.HandleFunc("GET /api/devices/mcp-servers/{config_hash}/occurrences", deviceScans.ListMCPServerOccurrences)
-
-	// Device Scan dashboard rollup (one-shot stats for the admin dashboard).
-	mux.HandleFunc("GET /api/devices/scan-stats", deviceScans.GetScanStats)
-
-	// Device Skills (fleet-wide aggregation by skill name).
 	mux.HandleFunc("GET /api/devices/skills", deviceScans.ListSkills)
 	mux.HandleFunc("GET /api/devices/skills/{name}", deviceScans.GetSkill)
 	mux.HandleFunc("GET /api/devices/skills/{name}/occurrences", deviceScans.ListSkillOccurrences)

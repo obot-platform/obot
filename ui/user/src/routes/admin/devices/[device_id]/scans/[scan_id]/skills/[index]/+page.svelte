@@ -16,7 +16,7 @@
 
 	let files = $derived(lookupFiles(scan?.files, skill?.files));
 	let parentPlugin = $derived(findParentPlugin(scan, skill?.file));
-	let scope = $derived(skill?.project_path ? 'project' : 'global');
+	let scope = $derived(skill?.projectPath ? 'project' : 'global');
 	let clientLabel = $derived(skill?.client || '—');
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -44,7 +44,7 @@
 					<span class="dark:bg-surface3 bg-surface2 rounded px-1.5 py-0.5 font-mono text-xs">
 						{scope}
 					</span>
-					{#if skill.has_scripts}
+					{#if skill.hasScripts}
 						<span class="pill-primary bg-primary">scripts</span>
 					{/if}
 				</div>
@@ -54,17 +54,17 @@
 						<dt class="text-on-surface1">Description</dt>
 						<dd>{skill.description}</dd>
 					{/if}
-					{#if skill.git_remote_url}
+					{#if skill.gitRemoteURL}
 						<dt class="text-on-surface1">Git remote</dt>
-						<dd class="font-mono text-xs break-all">{skill.git_remote_url}</dd>
+						<dd class="font-mono text-xs break-all">{skill.gitRemoteURL}</dd>
 					{/if}
 					{#if skill.file}
 						<dt class="text-on-surface1">File</dt>
 						<dd class="font-mono text-xs break-all">{skill.file}</dd>
 					{/if}
-					{#if skill.project_path}
+					{#if skill.projectPath}
 						<dt class="text-on-surface1">Project path</dt>
-						<dd class="font-mono text-xs break-all">{skill.project_path}</dd>
+						<dd class="font-mono text-xs break-all">{skill.projectPath}</dd>
 					{/if}
 					{#if parentPlugin}
 						<dt class="text-on-surface1">Part of plugin</dt>
@@ -95,7 +95,7 @@
 								<div class="flex flex-wrap items-center gap-2 text-xs">
 									<span class="font-mono break-all">{path}</span>
 									{#if file}
-										<span class="text-on-surface1">{formatBytes(file.size_bytes)}</span>
+										<span class="text-on-surface1">{formatBytes(file.sizeBytes)}</span>
 										{#if file.oversized}
 											<span class="pill bg-warning">oversized</span>
 										{/if}

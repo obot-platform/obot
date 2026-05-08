@@ -15,6 +15,7 @@ const (
 type vscodeScanner struct{}
 
 func (vscodeScanner) Name() string { return "vscode" }
+
 func (vscodeScanner) Presence() clientPresenceDef {
 	return clientPresenceDef{
 		binaries:    []string{"code"},
@@ -22,8 +23,10 @@ func (vscodeScanner) Presence() clientPresenceDef {
 		configPaths: []string{".vscode", "Library/Application Support/Code"},
 	}
 }
+
 func (vscodeScanner) GlobalConfigPaths() []string { return []string{vscodeGlobalConfigRel} }
-func (vscodeScanner) ProjectGlobs() []string      { return []string{"**/.vscode/mcp.json"} }
+
+func (vscodeScanner) ProjectGlobs() []string { return []string{"**/.vscode/mcp.json"} }
 
 // VS Code uses "servers" rather than "mcpServers" for both global and
 // project configs; entries follow the standard JSON shape.

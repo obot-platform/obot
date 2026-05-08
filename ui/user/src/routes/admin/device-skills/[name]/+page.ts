@@ -1,6 +1,6 @@
 import { handleRouteError } from '$lib/errors';
 import { AdminService } from '$lib/services';
-import type { DeviceSkillDetail, DeviceSkillOccurrenceList } from '$lib/services/admin/types';
+import type { DeviceSkillOccurrenceResponse, DeviceSkillDetail } from '$lib/services/admin/types';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
@@ -17,7 +17,7 @@ export const load: PageLoad = async ({
 }) => {
 	const offset = parseInt(url.searchParams.get('offset') ?? '0', 10) || 0;
 	let detail: DeviceSkillDetail | null = null;
-	let occurrences: DeviceSkillOccurrenceList = {
+	let occurrences: DeviceSkillOccurrenceResponse = {
 		items: [],
 		total: 0,
 		limit: PAGE_SIZE,

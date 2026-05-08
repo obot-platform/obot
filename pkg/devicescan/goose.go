@@ -29,11 +29,14 @@ type gooseExtension struct {
 type gooseScanner struct{}
 
 func (gooseScanner) Name() string { return "goose" }
+
 func (gooseScanner) Presence() clientPresenceDef {
 	return clientPresenceDef{binaries: []string{"goose"}, configPaths: []string{".config/goose"}}
 }
+
 func (gooseScanner) GlobalConfigPaths() []string { return []string{gooseGlobalConfigRel} }
-func (gooseScanner) ProjectGlobs() []string      { return nil }
+
+func (gooseScanner) ProjectGlobs() []string { return nil }
 
 func (gooseScanner) ScanGlobal(s *scanState) []types.DeviceScanMCPServer {
 	cfg, ok := readYAML[gooseConfig](s.fsys, gooseGlobalConfigRel)

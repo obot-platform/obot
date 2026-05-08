@@ -6,9 +6,9 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		AdminService,
-		type DeviceMCPServerDetail,
 		type DeviceMCPServerOccurrence,
-		type DeviceMCPServerOccurrenceList
+		type DeviceMCPServerOccurrenceResponse,
+		type DeviceMCPServerDetail
 	} from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto, setFilterUrlParams } from '$lib/url';
@@ -20,7 +20,7 @@
 	const PAGE_SIZE = untrack(() => data?.pageSize ?? 50);
 
 	let detail = $derived<DeviceMCPServerDetail | null | undefined>(data?.detail);
-	let occurrencesResp = $state<DeviceMCPServerOccurrenceList>(
+	let occurrencesResp = $state<DeviceMCPServerOccurrenceResponse>(
 		untrack(() => data?.occurrences ?? { items: [], total: 0, limit: PAGE_SIZE, offset: 0 })
 	);
 	let pageIndex = $derived(
@@ -32,16 +32,16 @@
 
 	type Row = DeviceMCPServerOccurrence & {
 		id: string;
-		short_device_id: string;
-		scanned_relative: string;
+		shortDeviceID: string;
+		scannedRelative: string;
 	};
 
 	let rows = $derived<Row[]>(
 		(occurrencesResp.items ?? []).map((o, i) => ({
 			...o,
-			id: `${o.device_scan_id}-${o.index}-${i}`,
-			short_device_id: (o.device_id ?? '').slice(0, 12),
-			scanned_relative: formatTimeAgo(o.scanned_at).relativeTime
+			id: `${o.deviceScanID}-${o.index}-${i}`,
+			shortDeviceID: (o.deviceID ?? '').slice(0, 12),
+			scannedRelative: formatTimeAgo(o.scannedAt).relativeTime
 		}))
 	);
 
@@ -99,11 +99,11 @@
 						<span class="pill-primary bg-primary text-xs">{detail.transport}</span>
 					</h2>
 					<div class="text-on-surface1 flex flex-wrap items-center gap-3 text-xs">
-						<span>{detail.device_count} device{detail.device_count === 1 ? '' : 's'}</span>
+						<span>{detail.deviceCount} device{detail.deviceCount === 1 ? '' : 's'}</span>
 						<span>·</span>
-						<span>{detail.user_count} user{detail.user_count === 1 ? '' : 's'}</span>
+						<span>{detail.userCount} user{detail.userCount === 1 ? '' : 's'}</span>
 						<span>·</span>
-						<span>{detail.client_count} client{detail.client_count === 1 ? '' : 's'}</span>
+						<span>{detail.clientCount} client{detail.clientCount === 1 ? '' : 's'}</span>
 					</div>
 				</div>
 
@@ -122,21 +122,21 @@
 							<code class="font-mono text-xs break-all">{detail.url}</code>
 						</div>
 					{/if}
-					{#if detail.env_keys?.length}
+					{#if detail.envKeys?.length}
 						<div class="flex flex-col gap-1">
 							<span class="text-on-surface2 text-xs uppercase">Env keys</span>
 							<div class="flex flex-wrap gap-1">
-								{#each detail.env_keys as k (k)}
+								{#each detail.envKeys as k (k)}
 									<code class="bg-surface3 rounded px-1.5 py-0.5 font-mono text-xs">{k}</code>
 								{/each}
 							</div>
 						</div>
 					{/if}
-					{#if detail.header_keys?.length}
+					{#if detail.headerKeys?.length}
 						<div class="flex flex-col gap-1">
 							<span class="text-on-surface2 text-xs uppercase">Header keys</span>
 							<div class="flex flex-wrap gap-1">
-								{#each detail.header_keys as k (k)}
+								{#each detail.headerKeys as k (k)}
 									<code class="bg-surface3 rounded px-1.5 py-0.5 font-mono text-xs">{k}</code>
 								{/each}
 							</div>
@@ -151,23 +151,23 @@
 				</h3>
 				<Table
 					data={rows}
-					fields={['short_device_id', 'scanned_relative', 'client', 'scope']}
+					fields={['shortDeviceID', 'scannedRelative', 'client', 'scope']}
 					headers={[
-						{ title: 'Device', property: 'short_device_id' },
-						{ title: 'Scanned', property: 'scanned_relative' },
+						{ title: 'Device', property: 'shortDeviceID' },
+						{ title: 'Scanned', property: 'scannedRelative' },
 						{ title: 'Client', property: 'client' },
 						{ title: 'Scope', property: 'scope' }
 					]}
 					onClickRow={(d, isCtrlClick) => {
 						openUrl(
-							`/admin/devices/${d.device_id}/scans/${d.device_scan_id}/mcp/${d.index}`,
+							`/admin/devices/${d.deviceID}/scans/${d.deviceScanID}/mcp/${d.index}`,
 							isCtrlClick
 						);
 					}}
 				>
 					{#snippet onRenderColumn(property, d: Row)}
-						{#if property === 'short_device_id'}
-							<span class="font-mono text-xs" title={d.device_id}>{d.short_device_id}</span>
+						{#if property === 'shortDeviceID'}
+							<span class="font-mono text-xs" title={d.deviceID}>{d.shortDeviceID}</span>
 						{:else}
 							{d[property as keyof Row]}
 						{/if}

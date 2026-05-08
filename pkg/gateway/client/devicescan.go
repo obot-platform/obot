@@ -39,18 +39,10 @@ func (c *Client) GetDeviceScan(ctx context.Context, id uint) (*types.DeviceScan,
 	return &s, nil
 }
 
-// DeleteDeviceScan removes a scan and its child rows. Children cascade
-// via the gorm OnDelete:CASCADE constraints on DeviceScan. Returns
-// gorm.ErrRecordNotFound if no scan with that id exists.
+// DeleteDeviceScan removes a scan and its child rows. Idempotent:
+// returns nil when no scan with that id exists.
 func (c *Client) DeleteDeviceScan(ctx context.Context, id uint) error {
-	res := c.db.WithContext(ctx).Delete(&types.DeviceScan{}, id)
-	if res.Error != nil {
-		return fmt.Errorf("failed to delete device scan: %w", res.Error)
-	}
-	if res.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
+	return c.db.WithContext(ctx).Delete(&types.DeviceScan{}, id).Error
 }
 
 // DeviceScanListOptions filters the scan-envelope list endpoint.
@@ -122,9 +114,7 @@ type DeviceScanStatsOptions struct {
 // GetDeviceScanStats returns the dashboard rollup for a window: the
 // distinct device count and three ranked breakdowns (clients, MCP
 // servers, skills) computed over each device's latest scan in the
-// window. Mirrors the GetMCPUsageStats pattern: a single transaction
-// with multiple GROUP BYs, returning every group (no top-N truncation
-// — the caller picks).
+// window. Returns every group; the caller picks any top-N.
 func (c *Client) GetDeviceScanStats(ctx context.Context, opts DeviceScanStatsOptions) (*DeviceScanStatsResult, error) {
 	out := &DeviceScanStatsResult{StartTime: opts.StartTime, EndTime: opts.EndTime}
 
@@ -172,10 +162,8 @@ func (c *Client) GetDeviceScanStats(ctx context.Context, opts DeviceScanStatsOpt
 			return fmt.Errorf("aggregate clients: %w", err)
 		}
 
-		// MCP servers: GROUP BY config_hash. Same shape as the per-hash
-		// detail query, just batched. Args is intentionally NOT loaded —
-		// the dashboard doesn't need it; clients drilling into the detail
-		// page get it via GetMCPServerDetail.
+		// MCP servers: GROUP BY config_hash. Args is omitted because JSONB
+		// has no MAX() in Postgres and the dashboard doesn't need it.
 		if err := tx.Table("device_scan_mcp_servers AS m").
 			Joins("JOIN device_scans AS s ON s.id = m.device_scan_id").
 			Where("s.id IN (?)", latest).
@@ -187,7 +175,6 @@ func (c *Client) GetDeviceScanStats(ctx context.Context, opts DeviceScanStatsOpt
 				COUNT(DISTINCT s.device_id) AS device_count,
 				COUNT(DISTINCT s.submitted_by) AS user_count,
 				COUNT(DISTINCT m.client) AS client_count,
-				COUNT(DISTINCT m.scope) AS scope_count,
 				COUNT(*) AS observation_count`).
 			Group("m.config_hash").
 			Order("device_count DESC, m.config_hash ASC").
@@ -239,9 +226,7 @@ func (c *Client) GetDeviceScanStats(ctx context.Context, opts DeviceScanStatsOpt
 	return out, nil
 }
 
-// DeviceScanStatsResult is the dashboard rollup payload returned to
-// the API layer; see DeviceScanStats in apiclient/types for the wire
-// shape.
+// DeviceScanStatsResult is the dashboard rollup payload.
 type DeviceScanStatsResult struct {
 	StartTime      time.Time
 	EndTime        time.Time
@@ -253,12 +238,12 @@ type DeviceScanStatsResult struct {
 	ScanTimestamps []time.Time
 }
 
-// GetMCPServerDetail returns a single aggregated row keyed by
-// config_hash. The aggregation is unbounded (all-time, all latest
-// scans per device), per the detail-page semantics. Args / EnvKeys /
-// HeaderKeys are pulled from the underlying observations: Args from
-// any single canonical row (constant within a hash); EnvKeys and
-// HeaderKeys are unioned across all observations.
+// GetMCPServerDetail returns the aggregated row keyed by config_hash
+// plus the union of EnvKeys / HeaderKeys observed across the canonical
+// rows. The aggregation is unbounded (all-time, all latest scans per
+// device). Args is pulled from a canonical row (constant within a
+// hash group, but JSONB has no MAX() in Postgres so it can't be
+// selected with the GROUP BY).
 func (c *Client) GetMCPServerDetail(ctx context.Context, configHash string) (*types.MCPServerDetail, error) {
 	if configHash == "" {
 		return nil, errors.New("empty config hash")
@@ -280,7 +265,6 @@ func (c *Client) GetMCPServerDetail(ctx context.Context, configHash string) (*ty
 			COUNT(DISTINCT s.device_id) AS device_count,
 			COUNT(DISTINCT s.submitted_by) AS user_count,
 			COUNT(DISTINCT m.client) AS client_count,
-			COUNT(DISTINCT m.scope) AS scope_count,
 			COUNT(*) AS observation_count`).
 		Group("m.config_hash").
 		Scan(&agg)
@@ -291,14 +275,15 @@ func (c *Client) GetMCPServerDetail(ctx context.Context, configHash string) (*ty
 		return nil, gorm.ErrRecordNotFound
 	}
 
-	// Pull Args/EnvKeys/HeaderKeys from the actual rows. Args is constant
-	// within a hash group; EnvKeys / HeaderKeys are unioned in Go.
+	// Pull Args from a canonical row, and union EnvKeys / HeaderKeys
+	// across every observation of this hash (those keys are not in the
+	// hash, so they may differ per row).
 	var canonical []types.DeviceScanMCPServer
 	if err := db.
 		Where("config_hash = ?", configHash).
 		Where("device_scan_id IN (?)", latest).
 		Find(&canonical).Error; err != nil {
-		return nil, fmt.Errorf("failed to load mcp server details: %w", err)
+		return nil, fmt.Errorf("failed to load mcp server canonical rows: %w", err)
 	}
 
 	out := &types.MCPServerDetail{MCPServerStat: agg}
@@ -326,97 +311,9 @@ func (c *Client) GetMCPServerDetail(ctx context.Context, configHash string) (*ty
 	return out, nil
 }
 
-// SkillStatListOptions filters and orders the paginated skill stats
-// list. The time window applies to the parent device_scans (only
-// scans inside the window are candidates for "latest per device"
-// selection). Zero-valued bounds are treated as unbounded.
-type SkillStatListOptions struct {
-	StartTime time.Time
-	EndTime   time.Time
-	Name      string // case-insensitive LIKE match against skill name
-	SortBy    string // name | device_count | user_count | observation_count
-	SortOrder string // asc | desc
-	Limit     int
-	Offset    int
-}
-
-var skillStatSortColumns = map[string]string{
-	"name":              "name",
-	"device_count":      "device_count",
-	"user_count":        "user_count",
-	"observation_count": "observation_count",
-}
-
-// ListSkillStats returns one row per distinct skill name observed in
-// the latest scan of any device within the requested window. Mirrors
-// the (deleted) AggregateMCPServers shape — paginated, sortable,
-// optional name filter — so the admin /admin/device-skills page can
-// drive a list view from it.
-func (c *Client) ListSkillStats(ctx context.Context, opts SkillStatListOptions) ([]types.SkillStat, int64, error) {
-	db := c.db.WithContext(ctx)
-	latest := db.Model(&types.DeviceScan{}).Select("MAX(id)")
-	if !opts.StartTime.IsZero() {
-		latest = latest.Where("scanned_at >= ?", opts.StartTime)
-	}
-	if !opts.EndTime.IsZero() {
-		latest = latest.Where("scanned_at < ?", opts.EndTime)
-	}
-	latest = latest.Group("device_id")
-
-	base := db.Table("device_scan_skills AS sk").
-		Joins("JOIN device_scans AS s ON s.id = sk.device_scan_id").
-		Where("s.id IN (?)", latest).
-		Where("sk.name <> ''")
-
-	if opts.Name != "" {
-		like := "LIKE"
-		if db.Name() == "postgres" {
-			like = "ILIKE"
-		}
-		base = base.Where(fmt.Sprintf("sk.name %s ?", like), "%"+opts.Name+"%")
-	}
-
-	var total int64
-	if err := base.Session(&gorm.Session{}).
-		Distinct("sk.name").
-		Count(&total).Error; err != nil {
-		return nil, 0, fmt.Errorf("failed to count skill stats: %w", err)
-	}
-
-	sortCol := skillStatSortColumns[opts.SortBy]
-	if sortCol == "" {
-		sortCol = "device_count"
-	}
-	sortDir := "DESC"
-	if strings.EqualFold(opts.SortOrder, "asc") {
-		sortDir = "ASC"
-	}
-
-	q := base.Session(&gorm.Session{}).
-		Select(`sk.name AS name,
-			COUNT(DISTINCT s.device_id) AS device_count,
-			COUNT(DISTINCT s.submitted_by) AS user_count,
-			COUNT(*) AS observation_count`).
-		Group("sk.name").
-		Order(fmt.Sprintf("%s %s, sk.name ASC", sortCol, sortDir))
-
-	if opts.Limit > 0 {
-		q = q.Limit(opts.Limit)
-	}
-	if opts.Offset > 0 {
-		q = q.Offset(opts.Offset)
-	}
-
-	var rows []types.SkillStat
-	if err := q.Scan(&rows).Error; err != nil {
-		return nil, 0, fmt.Errorf("failed to aggregate skill stats: %w", err)
-	}
-	return rows, total, nil
-}
-
 // GetSkillDetail returns the full per-skill payload for the dashboard
-// drill-down: aggregated counts plus representative description /
-// has_scripts / git_remote_url / files from one canonical row in the
+// drill-down: aggregated counts plus representative Description /
+// HasScripts / GitRemoteURL / Files from one canonical row in the
 // latest-scan-per-device subset. The aggregation is unbounded
 // (all-time, all latest scans per device), matching the per-hash MCP
 // detail's semantics.
@@ -445,8 +342,8 @@ func (c *Client) GetSkillDetail(ctx context.Context, name string) (*types.SkillD
 		return nil, gorm.ErrRecordNotFound
 	}
 
-	// Pull a canonical row for description / has_scripts / git_remote_url
-	// / files. Sort by id ASC for determinism.
+	// Pull a canonical row for Description / HasScripts / GitRemoteURL
+	// / Files. Sort by id ASC for determinism.
 	var canonical types.DeviceScanSkill
 	if err := db.
 		Where("name = ?", name).
@@ -508,6 +405,92 @@ func (c *Client) ListSkillOccurrences(ctx context.Context, name string, limit, o
 	var rows []types.SkillOccurrence
 	if err := q.Scan(&rows).Error; err != nil {
 		return nil, 0, fmt.Errorf("failed to list skill occurrences: %w", err)
+	}
+	return rows, total, nil
+}
+
+// SkillStatListOptions filters and orders the paginated skill stats
+// list. The time window applies to the parent device_scans (only
+// scans inside the window are candidates for "latest per device"
+// selection). Zero-valued bounds are treated as unbounded.
+type SkillStatListOptions struct {
+	StartTime time.Time
+	EndTime   time.Time
+	Name      string // case-insensitive LIKE match against skill name
+	SortBy    string // name | device_count | user_count | observation_count
+	SortOrder string // asc | desc
+	Limit     int
+	Offset    int
+}
+
+var skillStatSortColumns = map[string]string{
+	"name":              "name",
+	"device_count":      "device_count",
+	"user_count":        "user_count",
+	"observation_count": "observation_count",
+}
+
+// ListSkillStats returns one row per distinct skill name observed in
+// the latest scan of any device within the requested window.
+// Paginated, sortable, optional name LIKE filter.
+func (c *Client) ListSkillStats(ctx context.Context, opts SkillStatListOptions) ([]types.SkillStat, int64, error) {
+	db := c.db.WithContext(ctx)
+	latest := db.Model(&types.DeviceScan{}).Select("MAX(id)")
+	if !opts.StartTime.IsZero() {
+		latest = latest.Where("scanned_at >= ?", opts.StartTime)
+	}
+	if !opts.EndTime.IsZero() {
+		latest = latest.Where("scanned_at < ?", opts.EndTime)
+	}
+	latest = latest.Group("device_id")
+
+	base := db.Table("device_scan_skills AS sk").
+		Joins("JOIN device_scans AS s ON s.id = sk.device_scan_id").
+		Where("s.id IN (?)", latest).
+		Where("sk.name <> ''")
+
+	if opts.Name != "" {
+		like := "LIKE"
+		if db.Name() == "postgres" {
+			like = "ILIKE"
+		}
+		base = base.Where(fmt.Sprintf("sk.name %s ?", like), "%"+opts.Name+"%")
+	}
+
+	var total int64
+	if err := base.Session(&gorm.Session{}).
+		Distinct("sk.name").
+		Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count skill stats: %w", err)
+	}
+
+	sortCol := skillStatSortColumns[opts.SortBy]
+	if sortCol == "" {
+		sortCol = "device_count"
+	}
+	sortDir := "DESC"
+	if strings.EqualFold(opts.SortOrder, "asc") {
+		sortDir = "ASC"
+	}
+
+	q := base.Session(&gorm.Session{}).
+		Select(`sk.name AS name,
+			COUNT(DISTINCT s.device_id) AS device_count,
+			COUNT(DISTINCT s.submitted_by) AS user_count,
+			COUNT(*) AS observation_count`).
+		Group("sk.name").
+		Order(fmt.Sprintf("%s %s, sk.name ASC", sortCol, sortDir))
+
+	if opts.Limit > 0 {
+		q = q.Limit(opts.Limit)
+	}
+	if opts.Offset > 0 {
+		q = q.Offset(opts.Offset)
+	}
+
+	var rows []types.SkillStat
+	if err := q.Scan(&rows).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to aggregate skill stats: %w", err)
 	}
 	return rows, total, nil
 }

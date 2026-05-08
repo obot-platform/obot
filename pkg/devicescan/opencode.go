@@ -44,12 +44,15 @@ type opencodeEntry struct {
 type opencodeScanner struct{}
 
 func (opencodeScanner) Name() string { return "opencode" }
+
 func (opencodeScanner) Presence() clientPresenceDef {
 	return clientPresenceDef{binaries: []string{"opencode"}, configPaths: []string{".config/opencode"}}
 }
+
 func (opencodeScanner) GlobalConfigPaths() []string {
 	return []string{opencodeGlobalConfigJSONRel, opencodeGlobalConfigJSONCRel}
 }
+
 func (opencodeScanner) ProjectGlobs() []string { return []string{"**/opencode.json"} }
 
 func (opencodeScanner) ScanGlobal(s *scanState) []types.DeviceScanMCPServer {
@@ -171,6 +174,7 @@ func scanOpenCodeLocalPlugins(s *scanState) (
 		// Standalone plugin file.
 		fileAbs, err := s.addFile(itemRel)
 		if err != nil {
+			log.Debugf("opencode: skipping plugin file %q: %v", itemRel, err)
 			continue
 		}
 		base := strings.TrimSuffix(e.Name(), path.Ext(e.Name()))

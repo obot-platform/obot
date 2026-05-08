@@ -40,15 +40,18 @@ type claudeDesktopConfig struct {
 type claudeDesktopScanner struct{}
 
 func (claudeDesktopScanner) Name() string { return "claude_desktop" }
+
 func (claudeDesktopScanner) Presence() clientPresenceDef {
 	return clientPresenceDef{
 		appBundles:  []string{"Claude.app"},
 		configPaths: []string{"Library/Application Support/Claude", ".config/Claude"},
 	}
 }
+
 func (claudeDesktopScanner) GlobalConfigPaths() []string {
 	return []string{claudeDesktopExtRel, claudeDesktopConfigRel}
 }
+
 func (claudeDesktopScanner) ProjectGlobs() []string { return nil }
 
 func (c claudeDesktopScanner) ScanGlobal(s *scanState) []types.DeviceScanMCPServer {

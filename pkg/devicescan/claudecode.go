@@ -43,11 +43,14 @@ type claudeSettings struct {
 type claudeCodeScanner struct{}
 
 func (claudeCodeScanner) Name() string { return "claude_code" }
+
 func (claudeCodeScanner) Presence() clientPresenceDef {
 	return clientPresenceDef{binaries: []string{"claude"}, configPaths: []string{".claude"}}
 }
+
 func (claudeCodeScanner) GlobalConfigPaths() []string { return []string{claudeGlobalConfigRel} }
-func (claudeCodeScanner) ProjectGlobs() []string      { return []string{"**/.mcp.json"} }
+
+func (claudeCodeScanner) ProjectGlobs() []string { return []string{"**/.mcp.json"} }
 
 func (claudeCodeScanner) ScanGlobal(s *scanState) []types.DeviceScanMCPServer {
 	cfg, ok := readJSON[claudeCodeConfig](s.fsys, claudeGlobalConfigRel)

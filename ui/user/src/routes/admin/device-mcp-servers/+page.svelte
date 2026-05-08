@@ -4,23 +4,24 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { PAGE_SIZE, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { type DeviceMCPServerStat } from '$lib/services';
 	import { setFilterUrlParams } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Server } from 'lucide-svelte';
+	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 
-	let nameFilter = $derived(page.url.searchParams.get('name') ?? '');
+	let nameFilter = $state(untrack(() => page.url.searchParams.get('name') ?? ''));
 
 	type Row = DeviceMCPServerStat & { id: string };
 
 	let allRows = $derived<Row[]>(
-		(data?.stats?.mcp_servers ?? []).map((s) => ({
+		(data?.stats?.mcpServers ?? []).map((s) => ({
 			...s,
-			id: s.config_hash
+			id: s.configHash
 		}))
 	);
 
@@ -31,6 +32,7 @@
 	);
 
 	function updateName(value: string) {
+		nameFilter = value;
 		setFilterUrlParams('name', value ? [value] : []);
 	}
 
@@ -66,17 +68,18 @@
 		{:else}
 			<Table
 				data={rows}
-				fields={['name', 'transport', 'device_count', 'user_count', 'observation_count']}
+				pageSize={PAGE_SIZE}
+				fields={['name', 'transport', 'deviceCount', 'userCount', 'observationCount']}
 				headers={[
 					{ title: 'Name', property: 'name' },
 					{ title: 'Transport', property: 'transport' },
-					{ title: 'Devices', property: 'device_count' },
-					{ title: 'Users', property: 'user_count' },
-					{ title: 'Observations', property: 'observation_count' }
+					{ title: 'Devices', property: 'deviceCount' },
+					{ title: 'Users', property: 'userCount' },
+					{ title: 'Observations', property: 'observationCount' }
 				]}
 				onClickRow={(d, isCtrlClick) => {
 					openUrl(
-						resolve(`/admin/device-mcp-servers/${encodeURIComponent(d.config_hash)}`),
+						resolve(`/admin/device-mcp-servers/${encodeURIComponent(d.configHash)}`),
 						isCtrlClick
 					);
 				}}

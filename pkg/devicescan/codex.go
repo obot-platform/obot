@@ -40,11 +40,14 @@ type codexEntry struct {
 type codexScanner struct{}
 
 func (codexScanner) Name() string { return "codex" }
+
 func (codexScanner) Presence() clientPresenceDef {
 	return clientPresenceDef{binaries: []string{"codex"}, configPaths: []string{".codex"}}
 }
+
 func (codexScanner) GlobalConfigPaths() []string { return []string{codexGlobalConfigRel} }
-func (codexScanner) ProjectGlobs() []string      { return []string{"**/.codex/config.toml"} }
+
+func (codexScanner) ProjectGlobs() []string { return []string{"**/.codex/config.toml"} }
 
 func (codexScanner) ScanGlobal(s *scanState) []types.DeviceScanMCPServer {
 	cfg, ok := readTOML[codexConfig](s.fsys, codexGlobalConfigRel)
@@ -152,6 +155,7 @@ func (codexScanner) ScanPlugins(s *scanState) (
 		mktRel := path.Join(codexPluginCacheRel, mkt.Name())
 		plugins, err := fs.ReadDir(s.fsys, mktRel)
 		if err != nil {
+			log.Debugf("codex: skipping marketplace %q: %v", mktRel, err)
 			continue
 		}
 		for _, p := range plugins {
@@ -192,6 +196,7 @@ func (codexScanner) ScanPlugins(s *scanState) (
 func pickHighestVersionDir(fsys fs.FS, pluginRel string) (string, string, bool) {
 	entries, err := fs.ReadDir(fsys, pluginRel)
 	if err != nil {
+		log.Debugf("codex: skipping plugin %q: %v", pluginRel, err)
 		return "", "", false
 	}
 	type cand struct {

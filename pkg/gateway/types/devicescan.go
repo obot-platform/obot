@@ -126,16 +126,18 @@ type DeviceScanFile struct {
 // must already be loaded (via Preload) for them to appear in the result.
 func ConvertDeviceScan(s DeviceScan) types2.DeviceScan {
 	out := types2.DeviceScan{
-		ID:             s.ID,
-		ReceivedAt:     *types2.NewTime(s.CreatedAt),
-		SubmittedBy:    s.SubmittedBy,
-		ScannerVersion: s.ScannerVersion,
-		ScannedAt:      *types2.NewTime(s.ScannedAt),
-		DeviceID:       s.DeviceID,
-		Hostname:       s.Hostname,
-		OS:             s.OS,
-		Arch:           s.Arch,
-		Username:       s.Username,
+		ID:          s.ID,
+		ReceivedAt:  *types2.NewTime(s.CreatedAt),
+		SubmittedBy: s.SubmittedBy,
+		DeviceScanManifest: types2.DeviceScanManifest{
+			ScannerVersion: s.ScannerVersion,
+			ScannedAt:      *types2.NewTime(s.ScannedAt),
+			DeviceID:       s.DeviceID,
+			Hostname:       s.Hostname,
+			OS:             s.OS,
+			Arch:           s.Arch,
+			Username:       s.Username,
+		},
 	}
 	if len(s.Files) > 0 {
 		out.Files = make([]types2.DeviceScanFile, len(s.Files))
@@ -247,14 +249,12 @@ func ConvertDeviceScanPlugin(p DeviceScanPlugin) types2.DeviceScanPlugin {
 	}
 }
 
-// MCPServerStat is one row of the device-fleet MCP aggregation:
-// every DeviceScanMCPServer with the same ConfigHash, observed in any
-// device's latest scan within the requested time window, collapses into
-// a single entity. Identity fields (Name, Transport, Command, URL, Args)
-// are constant within a ConfigHash group by construction — they're inputs
-// to the hash itself. Args can't be selected with MAX() because JSONB
-// has no max operator in Postgres, so the list query populates it via a
-// post-hoc batched lookup keyed by the page's config_hashes.
+// MCPServerStat is one row of the device-fleet MCP aggregation: every
+// DeviceScanMCPServer with the same ConfigHash, observed in any
+// device's latest scan within the requested time window, collapses
+// into a single entity. Identity fields (Name, Transport, Command,
+// URL, Args) are constant within a ConfigHash group by construction.
+// Args is loaded post-hoc because JSONB has no MAX() in Postgres.
 type MCPServerStat struct {
 	ConfigHash       string                      `gorm:"column:config_hash"`
 	Name             string                      `gorm:"column:name"`
@@ -265,24 +265,19 @@ type MCPServerStat struct {
 	DeviceCount      int64                       `gorm:"column:device_count"`
 	UserCount        int64                       `gorm:"column:user_count"`
 	ClientCount      int64                       `gorm:"column:client_count"`
-	ScopeCount       int64                       `gorm:"column:scope_count"`
 	ObservationCount int64                       `gorm:"column:observation_count"`
 }
 
-// MCPServerDetail is the detail-page payload: an aggregated
-// row plus the union of EnvKeys / HeaderKeys observed across every
-// occurrence (those are deliberately excluded from the hash). Args
-// lives on the embedded MCPServerStat.
+// MCPServerDetail is the per-hash detail payload: an aggregated row
+// plus the union of EnvKeys / HeaderKeys observed across every
+// occurrence (those are deliberately excluded from the hash).
 type MCPServerDetail struct {
 	MCPServerStat
 	EnvKeys    []string
 	HeaderKeys []string
 }
 
-// ClientStat is one row of the dashboard's per-client rollup: every
-// DeviceScanClient with the same Name, observed in any device's
-// latest scan within the requested window. DeviceCount counts unique
-// devices, UserCount unique submitters, ObservationCount total rows.
+// ClientStat is one row of the per-client rollup.
 type ClientStat struct {
 	Name             string `gorm:"column:name"`
 	DeviceCount      int64  `gorm:"column:device_count"`
@@ -290,10 +285,7 @@ type ClientStat struct {
 	ObservationCount int64  `gorm:"column:observation_count"`
 }
 
-// SkillStat is the skills counterpart to ClientStat. Skills are
-// identified by Name only (string equality) so the same skill name
-// observed under multiple clients or projects collapses into a single
-// row.
+// SkillStat is one row of the per-skill rollup.
 type SkillStat struct {
 	Name             string `gorm:"column:name"`
 	DeviceCount      int64  `gorm:"column:device_count"`
@@ -304,9 +296,8 @@ type SkillStat struct {
 // SkillDetail is the per-skill detail payload: an aggregated row plus
 // representative metadata pulled from a single canonical row in the
 // latest-scan-per-device subset. Description / HasScripts /
-// GitRemoteURL / Files come from one observation (typically the
-// alphabetically-first one) — they may differ across occurrences in
-// theory, but in practice they're stable per skill name.
+// GitRemoteURL / Files come from one observation and are not
+// guaranteed to be stable across observations sharing the same name.
 type SkillDetail struct {
 	SkillStat
 	Description  string
@@ -342,10 +333,11 @@ type SkillOccurrence struct {
 	Index        int       `gorm:"column:idx"`
 }
 
-// DeviceScanFromWire builds a gateway DeviceScan + its children from a
-// wire-format payload. Caller is responsible for setting SubmittedBy on
-// the returned struct before passing it to InsertDeviceScan.
-func DeviceScanFromWire(p types2.DeviceScan) DeviceScan {
+// DeviceScanFromManifest builds a gateway DeviceScan + its children
+// from a submission manifest. Caller is responsible for setting
+// SubmittedBy on the returned struct before passing it to
+// InsertDeviceScan.
+func DeviceScanFromManifest(p types2.DeviceScanManifest) DeviceScan {
 	s := DeviceScan{
 		DeviceID:       p.DeviceID,
 		Hostname:       p.Hostname,
@@ -444,8 +436,8 @@ func DeviceScanFromWire(p types2.DeviceScan) DeviceScan {
 }
 
 // deriveScope returns "global" when projectPath is empty, "project"
-// otherwise. The wire shape no longer carries scope; we compute it on
-// ingest and persist denormalized for fast list/aggregation queries.
+// otherwise. Persisted denormalized to keep list/aggregation queries
+// off the projectPath column.
 func deriveScope(projectPath string) string {
 	if projectPath == "" {
 		return "global"

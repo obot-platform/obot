@@ -13,7 +13,7 @@
 	let { data } = $props();
 	let scan = $derived(data?.scan);
 	let index = $derived(Number(page.params.index));
-	let server = $derived<DeviceScanMCPServer | undefined>(scan?.mcp_servers?.[index]);
+	let server = $derived<DeviceScanMCPServer | undefined>(scan?.mcpServers?.[index]);
 	let backHref = $derived(`/admin/devices/${page.params.device_id}/scans/${page.params.scan_id}`);
 
 	let endpoint = $derived(
@@ -25,18 +25,18 @@
 	);
 
 	let parentPlugin = $derived(findParentPlugin(scan, server?.file));
-	let scope = $derived(server?.project_path ? 'project' : 'global');
+	let scope = $derived(server?.projectPath ? 'project' : 'global');
 
 	function renderConfig(s: DeviceScanMCPServer): string {
 		const entry: Record<string, unknown> = { type: s.transport };
 		if (s.command) entry.command = s.command;
 		if (s.args && s.args.length > 0) entry.args = s.args;
 		if (s.url) entry.url = s.url;
-		if (s.env_keys && s.env_keys.length > 0) {
-			entry.env = Object.fromEntries(s.env_keys.map((k) => [k, '<set>']));
+		if (s.envKeys && s.envKeys.length > 0) {
+			entry.env = Object.fromEntries(s.envKeys.map((k) => [k, '<set>']));
 		}
-		if (s.header_keys && s.header_keys.length > 0) {
-			entry.headers = Object.fromEntries(s.header_keys.map((k) => [k, '<set>']));
+		if (s.headerKeys && s.headerKeys.length > 0) {
+			entry.headers = Object.fromEntries(s.headerKeys.map((k) => [k, '<set>']));
 		}
 		return JSON.stringify({ [s.name]: entry }, null, 2);
 	}
@@ -98,9 +98,9 @@
 					{/if}
 					<dt class="text-on-surface1">Env keys</dt>
 					<dd>
-						{#if server.env_keys && server.env_keys.length > 0}
+						{#if server.envKeys && server.envKeys.length > 0}
 							<div class="flex flex-wrap gap-1">
-								{#each server.env_keys as k (k)}
+								{#each server.envKeys as k (k)}
 									<span
 										class="dark:bg-surface3 bg-surface2 rounded px-1.5 py-0.5 font-mono text-xs"
 									>
@@ -114,9 +114,9 @@
 					</dd>
 					<dt class="text-on-surface1">Header keys</dt>
 					<dd>
-						{#if server.header_keys && server.header_keys.length > 0}
+						{#if server.headerKeys && server.headerKeys.length > 0}
 							<div class="flex flex-wrap gap-1">
-								{#each server.header_keys as k (k)}
+								{#each server.headerKeys as k (k)}
 									<span
 										class="dark:bg-surface3 bg-surface2 rounded px-1.5 py-0.5 font-mono text-xs"
 									>
@@ -145,17 +145,17 @@
 							</a>
 						</dd>
 					{/if}
-					{#if server.project_path}
+					{#if server.projectPath}
 						<dt class="text-on-surface1">Project path</dt>
-						<dd class="font-mono text-xs break-all">{server.project_path}</dd>
+						<dd class="font-mono text-xs break-all">{server.projectPath}</dd>
 					{/if}
-					{#if server.config_hash}
+					{#if server.configHash}
 						<dt class="text-on-surface1">Config hash</dt>
 						<dd class="flex items-center gap-1">
-							<span class="font-mono text-xs" use:tooltip={server.config_hash}>
-								{shortHash(server.config_hash)}
+							<span class="font-mono text-xs" use:tooltip={server.configHash}>
+								{shortHash(server.configHash)}
 							</span>
-							<CopyButton text={server.config_hash} />
+							<CopyButton text={server.configHash} />
 						</dd>
 					{/if}
 				</dl>

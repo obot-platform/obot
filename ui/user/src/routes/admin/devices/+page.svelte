@@ -6,7 +6,12 @@
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { AdminService, type DeviceScan, type DeviceScanList, type OrgUser } from '$lib/services';
+	import {
+		AdminService,
+		type DeviceScan,
+		type DeviceScanResponse,
+		type OrgUser
+	} from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
 	import { replaceState } from '$lib/url';
 	import { openUrl } from '$lib/utils';
@@ -18,10 +23,12 @@
 	let { data } = $props();
 	const PAGE_SIZE = untrack(() => data?.pageSize ?? 50);
 
-	let devicesResp = $state<DeviceScanList>(
+	let devicesResp = $state<DeviceScanResponse>(
 		untrack(() => data?.devices ?? { items: [], total: 0, limit: PAGE_SIZE, offset: 0 })
 	);
-	let pageIndex = $state(untrack(() => Math.floor((data?.devices?.offset ?? 0) / PAGE_SIZE)));
+	let pageIndex = $state(
+		untrack(() => Math.floor(Number(page.url.searchParams.get('offset') ?? 0) / PAGE_SIZE))
+	);
 	let loading = $state(false);
 	let query = $state(untrack(() => page.url.searchParams.get('query') ?? ''));
 
@@ -38,13 +45,13 @@
 	let rows = $derived<Row[]>(
 		(devicesResp.items ?? []).map((s) => ({
 			...s,
-			short_device_id: (s.device_id ?? '').slice(0, 12),
+			short_device_id: (s.deviceID ?? '').slice(0, 12),
 			os_arch: `${s.os} / ${s.arch}`,
-			mcp_count: s.mcp_servers?.length ?? 0,
+			mcp_count: s.mcpServers?.length ?? 0,
 			skill_count: s.skills?.length ?? 0,
 			plugin_count: s.plugins?.length ?? 0,
 			client_count: s.clients?.length ?? 0,
-			scanned_relative: formatTimeAgo(s.scanned_at).relativeTime
+			scanned_relative: formatTimeAgo(s.scannedAt).relativeTime
 		}))
 	);
 
@@ -60,9 +67,9 @@
 		const q = query.trim().toLowerCase();
 		if (!q) return rows;
 		return rows.filter((r) => {
-			if ((r.device_id ?? '').toLowerCase().includes(q)) return true;
+			if ((r.deviceID ?? '').toLowerCase().includes(q)) return true;
 			if ((r.username ?? '').toLowerCase().includes(q)) return true;
-			const u = r.submitted_by ? userById.get(r.submitted_by) : undefined;
+			const u = r.submittedBy ? userById.get(r.submittedBy) : undefined;
 			if (u && userDisplay(u).toLowerCase().includes(q)) return true;
 			return false;
 		});
@@ -154,14 +161,14 @@
 				sortable={['short_device_id', 'os_arch', 'username']}
 				filterable={['os_arch']}
 				onClickRow={(d, isCtrlClick) => {
-					openUrl(resolve(`/admin/devices/${d.device_id}`), isCtrlClick);
+					openUrl(resolve(`/admin/devices/${d.deviceID}`), isCtrlClick);
 				}}
 			>
 				{#snippet onRenderColumn(property, d: Row)}
 					{#if property === 'short_device_id'}
-						<span class="font-mono text-xs" title={d.device_id}>{d.short_device_id}</span>
+						<span class="font-mono text-xs" title={d.deviceID}>{d.short_device_id}</span>
 					{:else if property === 'username'}
-						{@const u = d.submitted_by ? userById.get(d.submitted_by) : undefined}
+						{@const u = d.submittedBy ? userById.get(d.submittedBy) : undefined}
 						{#if u}
 							<div class="flex items-center gap-2">
 								<div
