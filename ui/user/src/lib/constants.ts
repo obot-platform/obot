@@ -67,8 +67,7 @@ export const RecommendedModelProviders = [
 	CommonModelProviderIds.AMAZON_BEDROCK,
 	CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
 	CommonModelProviderIds.AZURE,
-	CommonModelProviderIds.AZURE_ENTRA,
-	CommonModelProviderIds.GENERIC_RESPONSES
+	CommonModelProviderIds.AZURE_ENTRA
 ];
 
 export const PROJECT_MCP_SERVER_NAME = 'MCP Servers';
