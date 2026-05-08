@@ -185,7 +185,17 @@
 	<title>Obot | Device {deviceId.slice(0, 12)}</title>
 </svelte:head>
 
-<Layout title="Device" showBackButton onBackButtonClick={() => goto(resolve('/admin/devices'))}>
+<Layout
+	title="Device"
+	showBackButton
+	onBackButtonClick={() => {
+		if (typeof window !== 'undefined' && window.history.length > 1) {
+			window.history.back();
+		} else {
+			goto(resolve('/admin/devices'));
+		}
+	}}
+>
 	<div
 		class="flex flex-col gap-6"
 		in:fly={{ x: 100, duration, delay: duration }}

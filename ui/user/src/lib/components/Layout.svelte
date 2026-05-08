@@ -60,7 +60,8 @@
 		LayoutDashboard,
 		Notebook,
 		Laptop,
-		ScanLine
+		ScanLine,
+		Dock
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -280,6 +281,30 @@
 								href: '/admin/devices',
 								icon: ScanLine,
 								label: 'Devices',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'device-skills',
+								href: '/admin/device-skills',
+								icon: PencilRuler,
+								label: 'Device Skills',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'device-mcps',
+								href: '/admin/device-mcp-servers',
+								icon: Server,
+								label: 'Device MCP Servers',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'device-clients',
+								href: '/admin/device-clients',
+								icon: Dock,
+								label: 'Device Clients',
 								disabled: isBootStrapUser,
 								collapsible: false
 							}
@@ -835,7 +860,7 @@
 {/if}
 
 {#snippet layoutHeaderContent()}
-	{#if showBackButton}
+	{#if (showBackButton && history && history.length > 1) || onBackButtonClick}
 		<button
 			class="icon-button flex-shrink-0"
 			onclick={() => {

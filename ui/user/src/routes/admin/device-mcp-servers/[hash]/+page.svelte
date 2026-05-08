@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import Pagination from '$lib/components/table/Pagination.svelte';
@@ -165,7 +166,11 @@
 				>
 					{#snippet onRenderColumn(property, d: Row)}
 						{#if property === 'shortDeviceID'}
-							<span class="font-mono text-xs" title={d.deviceID}>{d.shortDeviceID}</span>
+							<a
+								href={resolve(`/admin/devices/${d.deviceID}`)}
+								class="font-mono text-xs btn-link text-blue-500"
+								title={d.deviceID}>{d.shortDeviceID}</a
+							>
 						{:else}
 							{d[property as keyof Row]}
 						{/if}
