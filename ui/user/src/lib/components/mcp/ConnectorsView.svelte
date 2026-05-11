@@ -36,6 +36,7 @@
 		Captions,
 		CircleFadingArrowUp,
 		Ellipsis,
+		KeyRound,
 		LoaderCircle,
 		MessageCircle,
 		PencilLine,
@@ -62,7 +63,8 @@
 		| 'disconnect'
 		| 'chat'
 		| 'server-details'
-		| 'restart';
+		| 'restart'
+		| 'reauthenticate';
 
 	interface Props {
 		entity?: 'workspace' | 'catalog';
@@ -197,6 +199,21 @@
 
 	function hasInstanceConfiguration(server: MCPCatalogServer) {
 		return (server.manifest.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
+	}
+
+	function hasOAuth(server: MCPCatalogServer) {
+		return (
+			server.manifest.runtime === 'remote' && Object.keys(server.oauthMetadata ?? {}).length > 0
+		);
+	}
+
+	async function reauthenticateServer(server: MCPCatalogServer) {
+		await ChatService.clearMcpServerOAuth(server.id);
+		await connectToServerDialog?.authenticate(
+			server,
+			server.catalogEntryID ? entriesMap.get(server.catalogEntryID) : undefined
+		);
+		mcpServersAndEntries.refreshUserConfiguredServers();
 	}
 
 	function handleShowSelectServerDialog(
@@ -423,6 +440,7 @@
 				{@const matchingServers = catalogEntry
 					? getConfiguredServersForCatalogEntry(catalogEntry)
 					: []}
+				{@const oauthServers = matchingServers.filter(hasOAuth)}
 				{@const matchingInstance =
 					d.connected && d.type === 'multi' ? instancesMap.get(d.data.id) : undefined}
 				{@const hasConnectedOptions = isCatalogEntry
@@ -477,6 +495,26 @@
 								{#if catalogEntry}
 									{@render editCatalogEntryAction(catalogEntry, matchingServers)}
 									{@render renameCatalogEntryAction(catalogEntry, matchingServers)}
+								{/if}
+
+								{#if oauthServers.length > 0 && catalogEntry}
+									<button
+										class="menu-button hover:bg-surface3"
+										onclick={async (e) => {
+											e.stopPropagation();
+											if (oauthServers.length === 1) {
+												await reauthenticateServer(oauthServers[0]);
+											} else {
+												selectedConfiguredServers = oauthServers;
+												selectedEntry = catalogEntry;
+												selectServerMode = 'reauthenticate';
+												selectServerDialog?.open();
+											}
+											toggle(false);
+										}}
+									>
+										<KeyRound class="size-4" /> Reauthenticate
+									</button>
 								{/if}
 
 								{#if matchingInstance && !isCatalogEntry && hasInstanceConfiguration(d.data as MCPCatalogServer)}
@@ -877,6 +915,10 @@
 				case 'restart': {
 					await ChatService.restartMcpServer(d.id);
 					mcpServersAndEntries.refreshUserConfiguredServers();
+					break;
+				}
+				case 'reauthenticate': {
+					await reauthenticateServer(d);
 					break;
 				}
 				default:

@@ -98,6 +98,19 @@
 		}
 	}
 
+	export async function authenticate(item: MCPCatalogServer, parentEntry?: MCPCatalogEntry) {
+		server = item;
+		entry = parentEntry;
+		instance = undefined;
+		oauthVerifying = false;
+		oauthURL = await getOauthURL();
+		if (oauthURL) {
+			oauthDialog?.showModal();
+		} else {
+			handleConnect();
+		}
+	}
+
 	function getUniqueAlias(serverName: string): string | undefined {
 		const nameLower = serverName.toLowerCase();
 

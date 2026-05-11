@@ -1445,6 +1445,13 @@ export async function deleteSingleOrRemoteMcpServer(id: string): Promise<void> {
 	await doDelete(`/mcp-servers/${id}`);
 }
 
+export async function clearMcpServerOAuth(
+	id: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/mcp-servers/${id}/oauth`, opts);
+}
+
 export async function configureSingleOrRemoteMcpServer(
 	id: string,
 	envs: Record<string, string>
