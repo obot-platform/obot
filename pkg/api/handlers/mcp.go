@@ -1491,28 +1491,6 @@ func serverForAction(req api.Context) (v1.MCPServer, mcp.ServerConfig, error) {
 	return server, serverConfig, err
 }
 
-// serverForRead is like serverForAction but tolerates a "missing required config"
-// error by falling back to a minimal ServerConfig containing only MCPServerName.
-// Use this for read-only observation endpoints (details, logs) that only need the
-// deployment name and must remain functional even when a required secret is absent.
-// If the deployment is not running and config is incomplete, the caller will get a
-// meaningful error from the backend rather than a premature 400.
-func serverForRead(req api.Context) (v1.MCPServer, mcp.ServerConfig, error) {
-	var server v1.MCPServer
-	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
-		return server, mcp.ServerConfig{}, err
-	}
-
-	serverConfig, err := serverConfigForAction(req, server)
-	if err != nil {
-		if _, ok := errors.AsType[*missingRequiredConfigErr](err); ok {
-			return server, mcp.ServerConfig{MCPServerName: server.Name}, nil
-		}
-		return server, mcp.ServerConfig{}, err
-	}
-	return server, serverConfig, nil
-}
-
 func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
 	server, serverConfig, err := serverForAction(req)
 	if err != nil {
@@ -3170,7 +3148,7 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 }
 
 func (m *MCPHandler) GetServerDetails(req api.Context) error {
-	server, serverConfig, err := serverForRead(req)
+	server, serverConfig, err := serverForAction(req)
 	if err != nil {
 		return err
 	}
@@ -3626,7 +3604,7 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context
 }
 
 func (m *MCPHandler) StreamServerLogs(req api.Context) error {
-	server, serverConfig, err := serverForRead(req)
+	server, serverConfig, err := serverForAction(req)
 	if err != nil {
 		return err
 	}
