@@ -23,6 +23,26 @@ class PromptResponse:
 
 
 @dataclass
+class TurnEvalDetail:
+    """Per-turn DeepEval outcome (conversation workflow cases)."""
+
+    turn_index: int
+    passed: bool
+    score: Optional[float] = None
+    threshold: Optional[float] = None
+    reason: str = ""
+    prompt: str = ""
+
+    def format_message(self) -> str:
+        parts: list[str] = []
+        if self.score is not None:
+            parts.append("score=%.3f (threshold=%s)" % (self.score, self.threshold))
+        if self.reason:
+            parts.append("reason=%s" % self.reason)
+        return "; ".join(parts) if parts else "evaluated (turn %d)" % self.turn_index
+
+
+@dataclass
 class Result:
     name: str = ""
     pass_: bool = False
@@ -30,6 +50,9 @@ class Result:
     message: str = ""
     trajectory: list[str] = field(default_factory=list)
     prompt_responses: list[PromptResponse] = field(default_factory=list)
+    turn_eval_details: list[TurnEvalDetail] = field(default_factory=list)
+    # User prompt for single-turn cases without turn_eval_details (e.g. blog post elicitation).
+    case_prompt: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -42,6 +65,18 @@ class Result:
                 {"phase": p.phase, "prompt": p.prompt, "response": p.response}
                 for p in self.prompt_responses
             ],
+            "turn_eval_details": [
+                {
+                    "turn_index": t.turn_index,
+                    "pass": t.passed,
+                    "score": t.score,
+                    "threshold": t.threshold,
+                    "reason": t.reason,
+                    "prompt": t.prompt,
+                }
+                for t in self.turn_eval_details
+            ],
+            "case_prompt": self.case_prompt,
         }
 
 

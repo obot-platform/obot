@@ -20,6 +20,7 @@ import sys
 
 from eval.core.framework import pass_count, run_all
 from eval.core.cases import all_cases
+from eval.core.run_summary import write_run_summary
 
 
 def main() -> int:
@@ -49,13 +50,15 @@ def main() -> int:
 
     results = run_all(cases, base_url, auth_header)
     passed = pass_count(results)
+    json_path, txt_path = write_run_summary(results)
+    print("[eval] Summary written to:\n  %s\n  %s" % (json_path, txt_path))
     for r in results:
         print(
             "[%s] pass=%s duration=%.2fms msg=%s"
             % (r.name, r.pass_, r.duration_ms, r.message)
         )
+    print("evals: %d/%d cases passed" % (passed, len(results)))
     if passed < len(results):
-        print("evals: %d/%d passed" % (passed, len(results)))
         return 1
     return 0
 

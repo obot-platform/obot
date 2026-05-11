@@ -91,10 +91,17 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r eval_py/requirements.txt
 
-      - name: Run live evals (3 cases)
+      - name: Run live conversation evals (one batch + combined summary)
         working-directory: eval_py
-        run: |
-          python -m eval.run nanobot_python_code_review_conversation_eval
-          python -m eval.run nanobot_deep_news_briefing_conversation_eval
-          python -m eval.run nanobot_antv_dual_axes_conversation_eval
+        run: python -m eval.run nanobot_conversation_workflows
+
+      - name: Upload eval run summary (JSON + text)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-run-summary
+          path: |
+            eval_py/eval/data/eval_run_summary.json
+            eval_py/eval/data/eval_run_summary.txt
+          if-no-files-found: ignore
 

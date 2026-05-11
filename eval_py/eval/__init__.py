@@ -5,6 +5,7 @@ from .core.framework import (
     Result,
     Case,
     Context,
+    TurnEvalDetail,
     run_all,
     pass_count,
 )
@@ -14,6 +15,7 @@ __all__ = [
     "Result",
     "Case",
     "Context",
+    "TurnEvalDetail",
     "run_all",
     "pass_count",
     "all_cases",

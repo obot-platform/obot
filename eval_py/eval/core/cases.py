@@ -5,7 +5,7 @@ import os
 import time
 import uuid
 
-from .framework import Case, Context, Result
+from .framework import Case, Context, Result, TurnEvalDetail
 from ..clients.client import Client, project_id, agent_id
 from ..helper import event_stream_data, paths
 from ..workflow.workflow_prompt import CONTENT_PUBLISHING_PHASED_PROMPTS, get_conversation_turns
@@ -146,6 +146,7 @@ def run_workflow_conversation_eval(ctx: Context) -> Result:
     tools_per_phase: list[list[str]] = []
     eval_passed_per_turn: list[bool] = []
     eval_messages: list[str] = []
+    turn_details: list[TurnEvalDetail] = []
     result = Result(pass_=False, message="")
 
     try:
@@ -182,12 +183,14 @@ def run_workflow_conversation_eval(ctx: Context) -> Result:
 
             # Run DeepEval for this turn (no manual step later)
             from ..agent_deepeval_generic import run_deepeval_for_turn
-            passed, msg = run_deepeval_for_turn(
+            detail = run_deepeval_for_turn(
                 prompt_text, response_text or "", distinct_raw_sse or "", criteria, turn_index=phase
             )
-            eval_passed_per_turn.append(passed)
+            turn_details.append(detail)
+            eval_passed_per_turn.append(detail.passed)
+            msg = detail.format_message()
             eval_messages.append("turn %d: %s" % (phase, msg))
-            ctx.append_step("Turn %d DeepEval: pass=%s %s", phase, passed, msg)
+            ctx.append_step("Turn %d DeepEval: pass=%s %s", phase, detail.passed, msg)
             if phase < len(turns) - 1:
                 time.sleep(1)
 
@@ -195,10 +198,11 @@ def run_workflow_conversation_eval(ctx: Context) -> Result:
         result = Result(
             pass_=all_passed,
             message="turns %d: %s" % (len(turns), "; ".join(eval_messages)),
+            turn_eval_details=list(turn_details),
         )
     except Exception as e:
         ctx.append_step("Error: %s" % e)
-        result = Result(pass_=False, message=str(e))
+        result = Result(pass_=False, message=str(e), turn_eval_details=list(turn_details))
     finally:
         out_path = event_stream_data.write_step_eval_output_file_multi_phase(
             "nanobot_workflow_conversation_eval", ctx.trajectory, raw_sse_per_phase, session_id, tools_per_phase=tools_per_phase
@@ -406,7 +410,7 @@ def run_blog_post_elicitation_eval(ctx: Context) -> Result:
                    "likely that this environment does not emit elicitation/create "
                    "events on the events stream. Treating as informational/skip.")
             ctx.append_step("Blog post elicitation eval skipped (no SSE): %s", msg)
-            return Result(pass_=True, message=msg)
+            return Result(pass_=True, message=msg, case_prompt=prompt_text)
 
         # Basic assertions: we should see an elicitation/create event and question metadata.
         passed = "elicitation/create" in raw_sse and "ai.nanobot.meta/question" in raw_sse
@@ -415,10 +419,10 @@ def run_blog_post_elicitation_eval(ctx: Context) -> Result:
         else:
             msg = "event stream missing elicitation/create or question metadata"
         ctx.append_step("Blog post elicitation eval: pass=%s %s", passed, msg)
-        return Result(pass_=passed, message=msg)
+        return Result(pass_=passed, message=msg, case_prompt=prompt_text)
     except Exception as e:
         ctx.append_step("Error (blog post elicitation): %s", e)
-        return Result(pass_=False, message=str(e))
+        return Result(pass_=False, message=str(e), case_prompt=prompt_text)
     finally:
         out_path = event_stream_data.write_step_eval_output_file(
             "nanobot_blog_post_elicitation_eval",
