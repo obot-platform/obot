@@ -17,6 +17,7 @@ import (
 func TestChooseModelPrefersKnownNames(t *testing.T) {
 	models := []v1.Model{
 		{
+			ObjectMeta: metav1.ObjectMeta{Name: "ollama-qwen3"},
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
 					Name:        "other",
@@ -27,6 +28,7 @@ func TestChooseModelPrefersKnownNames(t *testing.T) {
 			},
 		},
 		{
+			ObjectMeta: metav1.ObjectMeta{Name: "openai-gpt-5.4"},
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
 					Name:        "gpt-5.4",
@@ -43,14 +45,15 @@ func TestChooseModelPrefersKnownNames(t *testing.T) {
 		t.Fatalf("expected model, got error: %v", err)
 	}
 
-	if model.TargetModel != "gpt-5.4" {
-		t.Fatalf("expected gpt-5.4, got %q", model.TargetModel)
+	if model.Name != "openai-gpt-5.4" {
+		t.Fatalf("expected openai-gpt-5.4, got %q", model.Name)
 	}
 }
 
 func TestChooseModelFallsBackToFirstActiveModel(t *testing.T) {
 	models := []v1.Model{
 		{
+			ObjectMeta: metav1.ObjectMeta{Name: "groq-llama-3.1-70b-versatile"},
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
 					Name:        "model-a",
@@ -67,14 +70,15 @@ func TestChooseModelFallsBackToFirstActiveModel(t *testing.T) {
 		t.Fatalf("expected model, got error: %v", err)
 	}
 
-	if model.TargetModel != "model-a" {
-		t.Fatalf("expected model-a, got %q", model.TargetModel)
+	if model.Name != "groq-llama-3.1-70b-versatile" {
+		t.Fatalf("expected groq-llama-3.1-70b-versatile, got %q", model.Name)
 	}
 }
 
 func TestChooseModelPrefersSuggestedOrder(t *testing.T) {
 	models := []v1.Model{
 		{
+			ObjectMeta: metav1.ObjectMeta{Name: "anthropic-claude-sonnet-4-6"},
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
 					Name:        "claude-sonnet-4-6",
@@ -85,6 +89,7 @@ func TestChooseModelPrefersSuggestedOrder(t *testing.T) {
 			},
 		},
 		{
+			ObjectMeta: metav1.ObjectMeta{Name: "openai-gpt-5.4"},
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
 					Name:        "gpt-5.4",
@@ -101,8 +106,8 @@ func TestChooseModelPrefersSuggestedOrder(t *testing.T) {
 		t.Fatalf("expected model, got error: %v", err)
 	}
 
-	if model.TargetModel != "gpt-5.4" {
-		t.Fatalf("expected gpt-5.4, got %q", model.TargetModel)
+	if model.Name != "openai-gpt-5.4" {
+		t.Fatalf("expected openai-gpt-5.4, got %q", model.Name)
 	}
 }
 
@@ -120,7 +125,7 @@ func TestNanobotParseModelProviderDeclaredDialectDrivesURL(t *testing.T) {
 		{nanobottypes.DialectBifrostRequest, "https://obot.example.com/api/llm-proxy"},
 	} {
 		model := resolvedLLMModel{
-			TargetModel:     "some-model",
+			Name:            "some-model",
 			ModelProvider:   "custom-model-provider",
 			ProviderDialect: tc.dialect,
 		}
@@ -280,8 +285,8 @@ func TestResolveModelCarriesProviderAndDialect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if model.TargetModel != "llama-3.1-70b-versatile" {
-		t.Errorf("TargetModel = %q, want llama-3.1-70b-versatile", model.TargetModel)
+	if model.Name != "groq-llama" {
+		t.Errorf("Name = %q, want groq-llama", model.Name)
 	}
 	if model.ModelProvider != "groq-model-provider" {
 		t.Errorf("ModelProvider = %q, want groq-model-provider", model.ModelProvider)
@@ -298,24 +303,22 @@ func TestMultipleProvidersWhenLLMAndMiniDiffer(t *testing.T) {
 	h := &Handler{serverURL: "https://obot.example.com"}
 
 	llmModel := resolvedLLMModel{
-		Name:          "claude-sonnet-4-6",
-		TargetModel:   "claude-sonnet-4-6",
+		Name:          "anthropic-claude-sonnet-4-6",
 		ModelProvider: system.AnthropicModelProviderTool,
 	}
 	miniModel := resolvedLLMModel{
-		Name:          "gpt-4.1-mini",
-		TargetModel:   "gpt-4.1-mini",
+		Name:          "openai-gpt-4.1-mini",
 		ModelProvider: system.OpenAIModelProviderTool,
 	}
 
 	llmProvider, llmDefault := h.parseModelProvider(llmModel)
 	miniProvider, miniDefault := h.parseModelProvider(miniModel)
 
-	if llmDefault != system.AnthropicModelProviderTool+"/claude-sonnet-4-6" {
-		t.Errorf("llmDefault = %q, want %s/claude-sonnet-4-6", llmDefault, system.AnthropicModelProviderTool)
+	if llmDefault != system.AnthropicModelProviderTool+"/anthropic-claude-sonnet-4-6" {
+		t.Errorf("llmDefault = %q, want %s/anthropic-claude-sonnet-4-6", llmDefault, system.AnthropicModelProviderTool)
 	}
-	if miniDefault != system.OpenAIModelProviderTool+"/gpt-4.1-mini" {
-		t.Errorf("miniDefault = %q, want %s/gpt-4.1-mini", miniDefault, system.OpenAIModelProviderTool)
+	if miniDefault != system.OpenAIModelProviderTool+"/openai-gpt-4.1-mini" {
+		t.Errorf("miniDefault = %q, want %s/openai-gpt-4.1-mini", miniDefault, system.OpenAIModelProviderTool)
 	}
 
 	yaml, err := buildNanobotProviderConfigYAML(llmProvider, miniProvider)
@@ -380,6 +383,7 @@ func TestChooseModelMiniFallsBackToResolvedLLM(t *testing.T) {
 
 	models := []v1.Model{
 		{
+			ObjectMeta: metav1.ObjectMeta{Name: "openai-gpt-5.4"},
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
 					Name:        "gpt-5.4",
@@ -396,7 +400,7 @@ func TestChooseModelMiniFallsBackToResolvedLLM(t *testing.T) {
 		t.Fatalf("expected model, got error: %v", err)
 	}
 
-	if model.TargetModel != "gpt-5.4" {
-		t.Fatalf("expected gpt-5.4, got %q", model.TargetModel)
+	if model.Name != "openai-gpt-5.4" {
+		t.Fatalf("expected openai-gpt-5.4, got %q", model.Name)
 	}
 }

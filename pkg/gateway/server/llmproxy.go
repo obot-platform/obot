@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,7 +30,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -221,40 +219,10 @@ func (s *Server) dispatchLLMProxy(req api.Context) error {
 // getModelFromReference retrieves the model with a matching reference name.
 // The reference name must be any one of the following:
 // - The name of a default model alias
-// - The slugified manifest name of the model (e.g. "openai-gpt-4.1")
-// - The target model ID (e.g. "gpt-4.1")
 // - The actual Kubernetes resource name of the model
 func getModelFromReference(ctx context.Context, client kclient.Client, namespace, modelReference string) (*v1.Model, error) {
 	m, err := alias.GetFromScope(ctx, client, "Model", namespace, modelReference)
-	if apierrors.IsNotFound(err) {
-		var models v1.ModelList
-		if err := client.List(ctx, &models, &kclient.ListOptions{
-			Namespace:     namespace,
-			FieldSelector: fields.OneTermEqualSelector("spec.manifest.name", modelReference),
-		}); err != nil {
-			return nil, err
-		}
-
-		if len(models.Items) == 0 {
-			if err := client.List(ctx, &models, &kclient.ListOptions{
-				Namespace:     namespace,
-				FieldSelector: fields.OneTermEqualSelector("spec.manifest.targetModel", modelReference),
-			}); err != nil {
-				return nil, err
-			}
-		}
-
-		if len(models.Items) == 0 {
-			return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "model"}, modelReference)
-		}
-
-		// Return the oldest one.
-		sort.Slice(models.Items, func(i, j int) bool {
-			return models.Items[i].CreationTimestamp.Before(&models.Items[j].CreationTimestamp)
-		})
-
-		return &models.Items[0], nil
-	} else if err != nil {
+	if err != nil {
 		return nil, err
 	}
 
@@ -327,6 +295,15 @@ func extractModelFromBody(body []byte) string {
 		return model
 	}
 	return gjson.GetBytes(body, "response.model").String()
+}
+
+func rewriteTopLevelModelInBody(body []byte, model string) ([]byte, error) {
+	var bodyMap map[string]any
+	if err := json.Unmarshal(body, &bodyMap); err != nil {
+		return nil, err
+	}
+	bodyMap["model"] = model
+	return json.Marshal(bodyMap)
 }
 
 // copyBody returns a copy of the bytes in a request body.
@@ -998,33 +975,31 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 
 	targetModel := extractModelFromBody(body)
 	if targetModel != "" {
-		// Get the models matching the target model and provider.
-		var models v1.ModelList
-		if err := req.List(&models, &kclient.ListOptions{
-			Namespace: l.modelProvider.Namespace,
-			FieldSelector: fields.SelectorFromSet(map[string]string{
-				"spec.manifest.targetModel":   targetModel,
-				"spec.manifest.modelProvider": l.modelProvider.Name,
-			}),
-		}); err != nil {
-			return fmt.Errorf("failed to list models: %w", err)
+		model, err := getModelFromReference(req.Context(), req.Storage, l.modelProvider.Namespace, targetModel)
+		if err != nil {
+			return fmt.Errorf("failed to get model: %w", err)
+		}
+		if model.Spec.Manifest.ModelProvider != l.modelProvider.Name {
+			return types2.NewErrForbidden("user does not have permission to use model %q", targetModel)
 		}
 
-		var hasAccess bool
-		for _, model := range models.Items {
-			var err error
-			hasAccess, err = l.mapHelper.UserHasAccessToModel(req.User, model.Name)
-			if err != nil {
-				return fmt.Errorf("failed to check user access to model %q: %w", model.Name, err)
-			}
-			if hasAccess {
-				break
-			}
+		hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, model.Name)
+		if err != nil {
+			return fmt.Errorf("failed to check user access to model %q: %w", model.Name, err)
 		}
-
 		if !hasAccess {
 			return types2.NewErrForbidden("user does not have permission to use model %q", targetModel)
 		}
+
+		targetModel = model.Spec.Manifest.TargetModel
+
+		// Replace the model resource name with the actual provider model name
+		body, err = rewriteTopLevelModelInBody(body, targetModel)
+		if err != nil {
+			return fmt.Errorf("failed to rewrite model in request body: %w", err)
+		}
+		req.Request.Body = io.NopCloser(bytes.NewReader(body))
+		req.ContentLength = int64(len(body))
 	}
 
 	// Evaluate message policies if the helper is available and we have a user.

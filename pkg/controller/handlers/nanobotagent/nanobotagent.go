@@ -395,11 +395,10 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	return nil
 }
 
-// resolvedLLMModel pairs the resolved target model name with its configured provider reference
+// resolvedLLMModel pairs the resolved model resource name with its configured provider reference
 // and the dialect declared by that provider (if any).
 type resolvedLLMModel struct {
-	Name            string               // model Manifest.Name as stored on the Model resource
-	TargetModel     string               // real upstream model ID (e.g. "openai/gpt-4.1")
+	Name            string               // Kubernetes Model resource name
 	ModelProvider   string               // e.g. "openai-model-provider", "anthropic-model-provider"
 	ProviderDialect nanobottypes.Dialect // from ProviderMeta.Dialect; empty if not declared
 }
@@ -494,9 +493,12 @@ func getModelForAlias(ctx context.Context, client kclient.Client, namespace stri
 		return resolvedLLMModel{}, err
 	}
 
+	if strings.TrimSpace(model.Spec.Manifest.TargetModel) == "" {
+		return resolvedLLMModel{}, fmt.Errorf("model %q has no target model", model.Name)
+	}
+
 	return resolvedLLMModel{
-		Name:            model.Spec.Manifest.Name,
-		TargetModel:     model.Spec.Manifest.TargetModel,
+		Name:            model.Name,
 		ModelProvider:   model.Spec.Manifest.ModelProvider,
 		ProviderDialect: nanobottypes.Dialect(model.Spec.Manifest.Dialect),
 	}, nil
@@ -511,7 +513,7 @@ func getModelForAlias(ctx context.Context, client kclient.Client, namespace stri
 // no preferred mini model is available. All other aliases fall back to the
 // first active LLM model available.
 func resolveModel(ctx context.Context, client kclient.Client, namespace string, aliasName types.DefaultModelAliasType) (resolvedLLMModel, error) {
-	if model, err := getModelForAlias(ctx, client, namespace, aliasName); err == nil && strings.TrimSpace(model.TargetModel) != "" {
+	if model, err := getModelForAlias(ctx, client, namespace, aliasName); err == nil {
 		return model, nil
 	}
 
@@ -556,8 +558,7 @@ func chooseModel(ctx context.Context, client kclient.Client, namespace string, m
 		for _, model := range models {
 			if model.Spec.Manifest.TargetModel == preferredName || model.Spec.Manifest.Name == preferredName {
 				return resolvedLLMModel{
-					Name:            model.Spec.Manifest.Name,
-					TargetModel:     model.Spec.Manifest.TargetModel,
+					Name:            model.Name,
 					ModelProvider:   model.Spec.Manifest.ModelProvider,
 					ProviderDialect: nanobottypes.Dialect(model.Spec.Manifest.Dialect),
 				}, nil
@@ -571,8 +572,7 @@ func chooseModel(ctx context.Context, client kclient.Client, namespace string, m
 
 	if len(models) > 0 {
 		return resolvedLLMModel{
-			Name:            models[0].Spec.Manifest.Name,
-			TargetModel:     models[0].Spec.Manifest.TargetModel,
+			Name:            models[0].Name,
 			ModelProvider:   models[0].Spec.Manifest.ModelProvider,
 			ProviderDialect: nanobottypes.Dialect(models[0].Spec.Manifest.Dialect),
 		}, nil
