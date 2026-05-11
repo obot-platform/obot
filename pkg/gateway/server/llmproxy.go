@@ -304,14 +304,6 @@ func rewriteModelInBody(body []byte, model string) ([]byte, error) {
 	}
 	if _, ok := bodyMap["model"]; ok {
 		bodyMap["model"] = model
-	} else if message, ok := bodyMap["message"].(map[string]any); ok {
-		if _, ok := message["model"]; ok {
-			message["model"] = model
-		}
-	} else if response, ok := bodyMap["response"].(map[string]any); ok {
-		if _, ok := response["model"]; ok {
-			response["model"] = model
-		}
 	}
 	return json.Marshal(bodyMap)
 }
@@ -990,7 +982,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 			return fmt.Errorf("failed to get model: %w", err)
 		}
 		if model.Spec.Manifest.ModelProvider != l.modelProvider.Name {
-			return types2.NewErrForbidden("user does not have permission to use model %q", targetModel)
+			return types2.NewErrBadRequest("requested model does not match configured provider %q", targetModel)
 		}
 
 		hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, model.Name)

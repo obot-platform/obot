@@ -337,35 +337,15 @@ func TestExtractModelFromBody(t *testing.T) {
 }
 
 func TestRewriteModelInBody(t *testing.T) {
-	tests := []struct {
-		name string
-		body string
-	}{
-		{
-			"top-level model",
-			`{"model":"anthropic-model-provider/anthropic-claude-sonnet-4-6","messages":[{"role":"user","content":"hello"}]}`,
-		},
-		{
-			"nested under message",
-			`{"type":"message_start","message":{"model":"anthropic-model-provider/anthropic-claude-sonnet-4-6"}}`,
-		},
-		{
-			"nested under response",
-			`{"type":"response.completed","response":{"model":"anthropic-model-provider/anthropic-claude-sonnet-4-6"}}`,
-		},
+	body := `{"model":"anthropic-model-provider/anthropic-claude-sonnet-4-6","messages":[{"role":"user","content":"hello"}]}`
+
+	rewritten, err := rewriteModelInBody([]byte(body), "claude-sonnet-4-6")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rewritten, err := rewriteModelInBody([]byte(tt.body), "claude-sonnet-4-6")
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-
-			if got := extractModelFromBody(rewritten); got != "claude-sonnet-4-6" {
-				t.Fatalf("model = %q, want claude-sonnet-4-6", got)
-			}
-		})
+	if got := extractModelFromBody(rewritten); got != "claude-sonnet-4-6" {
+		t.Fatalf("model = %q, want claude-sonnet-4-6", got)
 	}
 }
 
