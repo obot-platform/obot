@@ -374,16 +374,16 @@
 
 	function getServerUrl(server: MCPCatalogServer) {
 		if (server.powerUserWorkspaceID) {
-			return `/admin/mcp-servers/w/${server.powerUserWorkspaceID}/s/${server.id}`;
+			return `/admin/mcp-servers/w/${server.powerUserWorkspaceID}/s/${server.id}?view=server-instances`;
 		}
-		return `/admin/mcp-servers/s/${server.id}`;
+		return `/admin/mcp-servers/s/${server.id}?view=server-instances`;
 	}
 
 	function getEntryUrl(entry: MCPCatalogEntry) {
 		if (entry.powerUserWorkspaceID) {
-			return `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}`;
+			return `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}?view=server-instances`;
 		}
-		return `/admin/mcp-servers/c/${entry.id}`;
+		return `/admin/mcp-servers/c/${entry.id}?view=server-instances`;
 	}
 </script>
 

@@ -19,11 +19,7 @@
 >
 	<div class="flex-1" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex min-h-full flex-col gap-8 pb-8">
-			<AuditLogsPageContent
-				mcpId={null}
-				mcpServerCatalogEntryName={null}
-				mcpServerDisplayName={null}
-			/>
+			<AuditLogsPageContent />
 		</div>
 	</div>
 </Layout>
