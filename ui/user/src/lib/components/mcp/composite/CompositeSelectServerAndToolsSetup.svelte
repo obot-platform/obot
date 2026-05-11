@@ -13,6 +13,7 @@
 		convertEnvHeadersToRecord,
 		deriveToolPrefix,
 		getSecretBindingEngineError,
+		isKubernetesRuntimeBackend,
 		hasEditableConfiguration
 	} from '$lib/services/chat/mcp';
 	import { mcpServersAndEntries, version } from '$lib/stores';
@@ -75,7 +76,7 @@
 	let listeningOauthVisibility = $state(false);
 	let error = $state<string>();
 	let secretBindingEngineError = $derived(
-		version.current.engine === 'kubernetes'
+		isKubernetesRuntimeBackend(version.current.engine)
 			? undefined
 			: getSecretBindingEngineError(configuringEntry?.manifest)
 	);

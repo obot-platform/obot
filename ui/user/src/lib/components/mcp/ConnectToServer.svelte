@@ -15,6 +15,7 @@
 		convertEnvHeadersToRecord,
 		createProjectMcp,
 		getSecretBindingEngineError,
+		isKubernetesRuntimeBackend,
 		hasEditableConfiguration
 	} from '$lib/services/chat/mcp';
 	import { version } from '$lib/stores';
@@ -54,7 +55,9 @@
 	let manifest = $derived(server?.manifest || entry?.manifest);
 	let isConfigured = $derived(Boolean((entry && server) || (server && instance)));
 	let secretBindingEngineError = $derived(
-		version.current.engine === 'kubernetes' ? undefined : getSecretBindingEngineError(manifest)
+		isKubernetesRuntimeBackend(version.current.engine)
+			? undefined
+			: getSecretBindingEngineError(manifest)
 	);
 
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();

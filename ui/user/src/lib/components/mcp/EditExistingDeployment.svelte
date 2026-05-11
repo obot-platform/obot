@@ -5,7 +5,8 @@
 		convertCompositeInfoToLaunchFormData,
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
-		getSecretBindingEngineError
+		getSecretBindingEngineError,
+		isKubernetesRuntimeBackend
 	} from '$lib/services/chat/mcp';
 	import { version } from '$lib/stores';
 	import PageLoading from '../PageLoading.svelte';
@@ -30,7 +31,7 @@
 	let editingError = $state<string>();
 	let editingManifest = $derived(server?.manifest);
 	let secretBindingEngineError = $derived(
-		version.current.engine === 'kubernetes'
+		isKubernetesRuntimeBackend(version.current.engine)
 			? undefined
 			: getSecretBindingEngineError(editingManifest)
 	);
@@ -50,7 +51,7 @@
 		server = initServer;
 		entry = initEntry;
 		editingError =
-			version.current.engine === 'kubernetes'
+			isKubernetesRuntimeBackend(version.current.engine)
 				? undefined
 				: getSecretBindingEngineError(initServer.manifest);
 

@@ -143,6 +143,10 @@ export function manifestHasSecretBindings(manifest?: SecretBindingManifest | nul
 	return false;
 }
 
+export function isKubernetesRuntimeBackend(engine?: string | null): boolean {
+	return engine === 'kubernetes' || engine === 'k8s';
+}
+
 export function getSecretBindingEngineError(
 	manifest?: SecretBindingManifest | null
 ): string | undefined {

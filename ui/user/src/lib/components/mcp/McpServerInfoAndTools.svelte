@@ -11,6 +11,7 @@
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
 		getSecretBindingEngineError,
+		isKubernetesRuntimeBackend,
 		requiresUserConfiguration,
 		requiresAdminOAuthConfig
 	} from '$lib/services/chat/mcp';
@@ -58,7 +59,7 @@
 	let saving = $state(false);
 	let configuringServer = $state<MCPCatalogServer>();
 	let secretBindingEngineError = $derived(
-		version.current.engine === 'kubernetes'
+		isKubernetesRuntimeBackend(version.current.engine)
 			? undefined
 			: getSecretBindingEngineError(configuringServer?.manifest)
 	);
@@ -66,7 +67,7 @@
 	async function handleInitCompositeForm(server: MCPCatalogServer) {
 		configuringServer = server;
 		error =
-			version.current.engine === 'kubernetes'
+			isKubernetesRuntimeBackend(version.current.engine)
 				? undefined
 				: getSecretBindingEngineError(server.manifest);
 		configureForm = await convertCompositeInfoToLaunchFormData(server);
@@ -86,7 +87,7 @@
 		}
 		configuringServer = server;
 		error =
-			version.current.engine === 'kubernetes'
+			isKubernetesRuntimeBackend(version.current.engine)
 				? undefined
 				: getSecretBindingEngineError(server.manifest);
 		configureForm = {
