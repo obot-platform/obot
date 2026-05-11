@@ -493,10 +493,6 @@ func getModelForAlias(ctx context.Context, client kclient.Client, namespace stri
 		return resolvedLLMModel{}, err
 	}
 
-	if strings.TrimSpace(model.Spec.Manifest.TargetModel) == "" {
-		return resolvedLLMModel{}, fmt.Errorf("model %q has no target model", model.Name)
-	}
-
 	return resolvedLLMModel{
 		Name:            model.Name,
 		ModelProvider:   model.Spec.Manifest.ModelProvider,
