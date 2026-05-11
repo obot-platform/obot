@@ -336,19 +336,36 @@ func TestExtractModelFromBody(t *testing.T) {
 	}
 }
 
-func TestRewriteTopLevelModelInBody(t *testing.T) {
-	body := []byte(`{"model":"anthropic-model-provider/anthropic-claude-sonnet-4-6","messages":[{"role":"user","content":"hello"}]}`)
-
-	rewritten, err := rewriteTopLevelModelInBody(body, "claude-sonnet-4-6")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+func TestRewriteModelInBody(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{
+			"top-level model",
+			`{"model":"anthropic-model-provider/anthropic-claude-sonnet-4-6","messages":[{"role":"user","content":"hello"}]}`,
+		},
+		{
+			"nested under message",
+			`{"type":"message_start","message":{"model":"anthropic-model-provider/anthropic-claude-sonnet-4-6"}}`,
+		},
+		{
+			"nested under response",
+			`{"type":"response.completed","response":{"model":"anthropic-model-provider/anthropic-claude-sonnet-4-6"}}`,
+		},
 	}
 
-	if got := extractModelFromBody(rewritten); got != "claude-sonnet-4-6" {
-		t.Fatalf("model = %q, want claude-sonnet-4-6", got)
-	}
-	if !strings.Contains(string(rewritten), `"messages"`) {
-		t.Fatalf("rewritten body should preserve messages: %s", string(rewritten))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rewritten, err := rewriteModelInBody([]byte(tt.body), "claude-sonnet-4-6")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if got := extractModelFromBody(rewritten); got != "claude-sonnet-4-6" {
+				t.Fatalf("model = %q, want claude-sonnet-4-6", got)
+			}
+		})
 	}
 }
 

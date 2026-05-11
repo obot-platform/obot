@@ -297,12 +297,22 @@ func extractModelFromBody(body []byte) string {
 	return gjson.GetBytes(body, "response.model").String()
 }
 
-func rewriteTopLevelModelInBody(body []byte, model string) ([]byte, error) {
+func rewriteModelInBody(body []byte, model string) ([]byte, error) {
 	var bodyMap map[string]any
 	if err := json.Unmarshal(body, &bodyMap); err != nil {
 		return nil, err
 	}
-	bodyMap["model"] = model
+	if _, ok := bodyMap["model"]; ok {
+		bodyMap["model"] = model
+	} else if message, ok := bodyMap["message"].(map[string]any); ok {
+		if _, ok := message["model"]; ok {
+			message["model"] = model
+		}
+	} else if response, ok := bodyMap["response"].(map[string]any); ok {
+		if _, ok := response["model"]; ok {
+			response["model"] = model
+		}
+	}
 	return json.Marshal(bodyMap)
 }
 
@@ -994,7 +1004,7 @@ func (l *llmProviderProxy) proxy(req api.Context) error {
 		targetModel = model.Spec.Manifest.TargetModel
 
 		// Replace the model resource name with the actual provider model name
-		body, err = rewriteTopLevelModelInBody(body, targetModel)
+		body, err = rewriteModelInBody(body, targetModel)
 		if err != nil {
 			return fmt.Errorf("failed to rewrite model in request body: %w", err)
 		}
