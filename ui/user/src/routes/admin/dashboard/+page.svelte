@@ -404,9 +404,11 @@
 					hasDeviceScans ? ' col-span-12 @min-3xl:col-span-5' : 'col-span-12'
 				)}
 			>
-				<div class="col-span-12 border-b border-surface2 px-4 py-2">
-					<h4 class="flex items-center font-light text-xs uppercase">On Platform</h4>
-				</div>
+				{#if hasDeviceScans}
+					<div class="col-span-12 border-b border-surface2 px-4 py-2">
+						<h4 class="flex items-center font-light text-xs uppercase">On Platform</h4>
+					</div>
+				{/if}
 				{#each platformStatTiles as platformStat (platformStat.id)}
 					{@render platformStatCell(platformStat)}
 				{/each}
