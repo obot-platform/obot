@@ -59,26 +59,22 @@
 	let clients = $derived<DeviceScanClient[]>(latest?.clients ?? []);
 
 	type MCPRow = DeviceScanMCPServer & {
-		id: string;
-		index: number;
+		id: number;
 		scope: string;
 		endpoint: string;
 	};
 	type SkillRow = DeviceScanSkill & {
-		id: string;
-		index: number;
+		id: number;
 		scope: string;
 		files_count: number;
 	};
 	type PluginRow = DeviceScanPlugin & {
-		id: string;
-		index: number;
+		id: number;
 		scope: string;
 		capabilities: string;
 	};
 	type ClientRow = DeviceScanClient & {
 		id: string;
-		index: number;
 		paths_display: string;
 		has_display: string;
 	};
@@ -124,30 +120,27 @@
 	}
 
 	let mcpRows = $derived<MCPRow[]>(
-		mcpServers.map((m, i) => ({
+		mcpServers.map((m) => ({
 			...m,
-			id: `${m.client}-${m.name}-${i}`,
-			index: i,
+			id: m.id ?? 0,
 			scope: deriveScope(m.projectPath),
 			endpoint: m.transport === 'stdio' ? formatCommand(m.command, m.args) : m.url || '—'
 		}))
 	);
 
 	let skillRows = $derived<SkillRow[]>(
-		skills.map((s, i) => ({
+		skills.map((s) => ({
 			...s,
-			id: `${s.client}-${s.name}-${i}`,
-			index: i,
+			id: s.id ?? 0,
 			scope: deriveScope(s.projectPath),
 			files_count: (s.files ?? []).length
 		}))
 	);
 
 	let pluginRows = $derived<PluginRow[]>(
-		plugins.map((p, i) => ({
+		plugins.map((p) => ({
 			...p,
-			id: `${p.client}-${p.name}-${i}`,
-			index: i,
+			id: p.id ?? 0,
 			scope: deriveScope(p.projectPath),
 			capabilities: capabilitySummary(p)
 		}))
@@ -157,7 +150,6 @@
 		clients.map((c, i) => ({
 			...c,
 			id: `${c.name}-${i}`,
-			index: i,
 			paths_display: clientPathsSummary(c),
 			has_display: clientHasSummary(c)
 		}))
@@ -319,7 +311,7 @@
 							filterable={['client', 'transport', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									resolve(`/admin/devices/${deviceId}/scans/${latest.id}/mcp/${d.index}`),
+									resolve(`/admin/devices/${deviceId}/scans/${latest?.id}/mcp/${d.id}`),
 									isCtrlClick
 								);
 							}}
@@ -355,7 +347,7 @@
 							filterable={['client', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									resolve(`/admin/devices/${deviceId}/scans/${latest.id}/skills/${d.index}`),
+									resolve(`/admin/devices/${deviceId}/scans/${latest?.id}/skills/${d.id}`),
 									isCtrlClick
 								);
 							}}
@@ -400,7 +392,7 @@
 							filterable={['client', 'pluginType', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									resolve(`/admin/devices/${deviceId}/scans/${latest.id}/plugins/${d.index}`),
+									resolve(`/admin/devices/${deviceId}/scans/${latest?.id}/plugins/${d.id}`),
 									isCtrlClick
 								);
 							}}

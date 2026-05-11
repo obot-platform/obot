@@ -1136,6 +1136,7 @@ export interface DeviceScanFile {
 }
 
 export interface DeviceScanMCPServer {
+	id?: number;
 	client: string;
 	projectPath?: string;
 	file?: string;
@@ -1150,6 +1151,7 @@ export interface DeviceScanMCPServer {
 }
 
 export interface DeviceScanSkill {
+	id?: number;
 	client: string;
 	projectPath?: string;
 	file?: string;
@@ -1161,6 +1163,7 @@ export interface DeviceScanSkill {
 }
 
 export interface DeviceScanPlugin {
+	id?: number;
 	client: string;
 	projectPath?: string;
 	configPath?: string;
@@ -1253,7 +1256,9 @@ export interface DeviceMCPServerOccurrence {
 	client: string;
 	scope: string;
 	scannedAt: string;
-	index: number;
+	// id is the row's PK in device_scan_mcp_servers; use it as the
+	// {id} segment of scan-scoped detail URLs.
+	id: number;
 }
 
 export interface DeviceMCPServerOccurrenceList {
@@ -1320,7 +1325,9 @@ export interface DeviceSkillOccurrence {
 	scope: string;
 	projectPath?: string;
 	scannedAt: string;
-	index: number;
+	// id is the row's PK in device_scan_skills; use it as the {id}
+	// segment of scan-scoped detail URLs.
+	id: number;
 }
 
 export interface DeviceSkillOccurrenceList {

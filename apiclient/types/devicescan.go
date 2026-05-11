@@ -2,6 +2,10 @@ package types
 
 // DeviceScanManifest is what `obot scan` submits. Server-assigned
 // fields (id, receivedAt, submittedBy) live on DeviceScan instead.
+// Child observations share the same wire type for submission and
+// response — the ID field is server-set and decoded into a zero value
+// on submission, which DeviceScanFromManifest deliberately does not
+// copy. Submitters cannot trample existing row PKs.
 type DeviceScanManifest struct {
 	// ScannerVersion is the obot version that produced the scan.
 	ScannerVersion string `json:"scannerVersion"`
@@ -64,8 +68,13 @@ type DeviceScanFile struct {
 	Content string `json:"content,omitempty"`
 }
 
-// DeviceScanMCPServer is one MCP server observation.
+// DeviceScanMCPServer is one MCP server observation. On submission ID
+// is zero and server-assigned on insert; on responses it is the row's
+// PK inside device_scan_mcp_servers. Use ID as the {id} segment of
+// scan-scoped detail URLs.
 type DeviceScanMCPServer struct {
+	// ID is the row's primary key. Server-set; ignored on submission.
+	ID uint `json:"id,omitempty"`
 	// Client is the canonical client name (e.g. "cursor"); empty for orphans.
 	Client string `json:"client"`
 	// ProjectPath is the project root for project-scope observations; empty for global.
@@ -92,8 +101,13 @@ type DeviceScanMCPServer struct {
 	URL string `json:"url,omitempty"`
 }
 
-// DeviceScanSkill is one skill (SKILL.md) observation.
+// DeviceScanSkill is one skill (SKILL.md) observation. On submission
+// ID is zero and server-assigned on insert; on responses it is the
+// row's PK inside device_scan_skills. Use ID as the {id} segment of
+// scan-scoped detail URLs.
 type DeviceScanSkill struct {
+	// ID is the row's primary key. Server-set; ignored on submission.
+	ID uint `json:"id,omitempty"`
 	// Client is the canonical client name; "multi" for free-floating
 	// SKILL.md files with no canonical owning client (e.g.
 	// .agents/skills, .agent/skills, project skills outside a known
@@ -137,8 +151,13 @@ type DeviceScanClient struct {
 	HasPlugins bool `json:"hasPlugins"`
 }
 
-// DeviceScanPlugin is one plugin observation.
+// DeviceScanPlugin is one plugin observation. On submission ID is
+// zero and server-assigned on insert; on responses it is the row's
+// PK inside device_scan_plugins. Use ID as the {id} segment of
+// scan-scoped detail URLs.
 type DeviceScanPlugin struct {
+	// ID is the row's primary key. Server-set; ignored on submission.
+	ID uint `json:"id,omitempty"`
 	// Client is the canonical client name that owns the plugin host.
 	Client string `json:"client"`
 	// ProjectPath is the project root for project-scope plugins.
@@ -294,8 +313,9 @@ type DeviceMCPServerOccurrence struct {
 	Scope string `json:"scope"`
 	// ScannedAt is when the parent scan was collected on the device.
 	ScannedAt Time `json:"scannedAt"`
-	// Index is the position of this row inside the parent scan's MCPServers slice.
-	Index int `json:"index"`
+	// ID is the PK of this row inside device_scan_mcp_servers. Use it
+	// to deep-link to /api/devices/scans/{deviceScanID}/mcp-servers/{id}.
+	ID uint `json:"id"`
 }
 
 type DeviceMCPServerOccurrenceList List[DeviceMCPServerOccurrence]
@@ -324,8 +344,9 @@ type DeviceSkillOccurrence struct {
 	ProjectPath string `json:"projectPath,omitempty"`
 	// ScannedAt is when the parent scan was collected on the device.
 	ScannedAt Time `json:"scannedAt"`
-	// Index is the position of this row inside the parent scan's Skills slice.
-	Index int `json:"index"`
+	// ID is the PK of this row inside device_scan_skills. Use it to
+	// deep-link to /api/devices/scans/{deviceScanID}/skills/{id}.
+	ID uint `json:"id"`
 }
 
 type DeviceSkillOccurrenceList List[DeviceSkillOccurrence]

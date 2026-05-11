@@ -364,9 +364,9 @@ func (c *Client) GetSkillDetail(ctx context.Context, name string) (*types.SkillD
 
 // ListSkillOccurrences returns one row per (device, observation) for
 // the given skill name, drawn from the all-time latest scan of every
-// device. Sorted scanned_at DESC, paginated. Index is the position
-// inside the parent scan's Skills slice (so the UI can deep-link to
-// /admin/device-scans/{scan_id}/skills/{index}).
+// device. Sorted scanned_at DESC, paginated. ID is the row's PK
+// inside device_scan_skills (so the UI can deep-link to
+// /admin/device-scans/{scan_id}/skills/{id}).
 func (c *Client) ListSkillOccurrences(ctx context.Context, name string, limit, offset int) ([]types.SkillOccurrence, int64, error) {
 	if name == "" {
 		return nil, 0, errors.New("empty skill name")
@@ -385,14 +385,13 @@ func (c *Client) ListSkillOccurrences(ctx context.Context, name string, limit, o
 	}
 
 	q := base.Session(&gorm.Session{}).
-		Select(`sk.device_scan_id AS device_scan_id,
+		Select(`sk.id AS id,
+			sk.device_scan_id AS device_scan_id,
 			s.device_id AS device_id,
 			sk.client AS client,
 			sk.scope AS scope,
 			sk.project_path AS project_path,
-			s.scanned_at AS scanned_at,
-			(SELECT COUNT(*) FROM device_scan_skills sk2
-			 WHERE sk2.device_scan_id = sk.device_scan_id AND sk2.id < sk.id) AS idx`).
+			s.scanned_at AS scanned_at`).
 		Order("s.scanned_at DESC, sk.id ASC")
 
 	if limit > 0 {
@@ -517,13 +516,12 @@ func (c *Client) ListMCPServerOccurrences(ctx context.Context, configHash string
 	}
 
 	q := base.Session(&gorm.Session{}).
-		Select(`m.device_scan_id AS device_scan_id,
+		Select(`m.id AS id,
+			m.device_scan_id AS device_scan_id,
 			s.device_id AS device_id,
 			m.client AS client,
 			m.scope AS scope,
-			s.scanned_at AS scanned_at,
-			(SELECT COUNT(*) FROM device_scan_mcp_servers m2
-			 WHERE m2.device_scan_id = m.device_scan_id AND m2.id < m.id) AS idx`).
+			s.scanned_at AS scanned_at`).
 		Order("s.scanned_at DESC, m.id ASC")
 
 	if limit > 0 {
