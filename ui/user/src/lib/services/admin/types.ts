@@ -114,6 +114,7 @@ export interface MCPCatalogEntryFieldManifest {
 	sensitive: boolean;
 	value: string;
 	file?: boolean;
+	dynamicFile?: boolean;
 	prefix?: string;
 	secretBinding?: MCPSecretBinding;
 }

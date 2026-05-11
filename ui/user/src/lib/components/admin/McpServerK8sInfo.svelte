@@ -301,6 +301,8 @@
 		label: string;
 		value: string;
 		sensitive: boolean;
+		file?: boolean;
+		dynamicFile?: boolean;
 		secretBinding?: MCPSecretBinding;
 	};
 
@@ -330,7 +332,9 @@
 					id: key,
 					label: env?.name ?? 'Unknown',
 					value: env?.prefix ? env.prefix + revealedValues![key] : (revealedValues![key] ?? ''),
-					sensitive: env?.sensitive || false
+					sensitive: env?.sensitive || false,
+					file: env?.file,
+					dynamicFile: env?.dynamicFile
 				});
 			} else if (headerMap.has(key)) {
 				const header = headerMap.get(key);
@@ -354,6 +358,8 @@
 					label: env.name ?? env.key,
 					value: '',
 					sensitive: false,
+					file: env.file,
+					dynamicFile: env.dynamicFile,
 					secretBinding: env.secretBinding
 				});
 			}
@@ -532,7 +538,14 @@
 					{#if envs.length > 0}
 						<div class="flex flex-col gap-2">
 							{#each envs as env (env.id)}
-								{@render configurationRow(env.label, env.value, env.sensitive, env.secretBinding)}
+								{@render configurationRow(
+									env.label,
+									env.value,
+									env.sensitive,
+									env.secretBinding,
+									env.file,
+									env.dynamicFile
+								)}
 							{/each}
 						</div>
 					{:else}
@@ -687,7 +700,9 @@
 	label: string,
 	value: string,
 	sensitive?: boolean,
-	secretBinding?: MCPSecretBinding
+	secretBinding?: MCPSecretBinding,
+	file?: boolean,
+	dynamicFile?: boolean
 )}
 	<div
 		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent px-4 py-1.5 shadow-sm"
@@ -701,7 +716,7 @@
 							Kubernetes Secret: <code class="font-mono">{secretBinding.name}</code> /
 							<code class="font-mono">{secretBinding.key}</code>
 						</span>
-						{#if secretBinding.file}
+						{#if file}
 							<span
 								class="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
 								title="Secret value is mounted as a file; the env var contains the file path"
@@ -709,7 +724,7 @@
 								file
 							</span>
 						{/if}
-						{#if secretBinding.dynamic}
+						{#if dynamicFile}
 							<span
 								class="rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
 								title="File updates in-place when the Secret changes — no pod restart needed"

@@ -292,14 +292,14 @@
 								required
 							</span>
 						{/if}
-						{#if item.secretBinding?.file}
+						{#if source === 'env' && item.file}
 							<span
 								class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
 							>
 								file
 							</span>
 						{/if}
-						{#if item.secretBinding?.dynamic}
+						{#if source === 'env' && item.dynamicFile}
 							<span
 								class="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300"
 							>
