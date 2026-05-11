@@ -3,33 +3,47 @@
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_SIZE, PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { setFilterUrlParams } from '$lib/url';
+	import { setFilterUrlParams, setUrlParam } from '$lib/url';
 	import { openUrl } from '$lib/utils';
-	import { type DeviceClient } from './utils';
 	import { Server } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
-	let clients = $derived(data?.clients ?? []);
-
+	let clients = $derived(data?.clients?.items ?? []);
+	let total = $derived(data?.clients?.total ?? 0);
+	let userMap = $derived(new Map(data?.users?.map((u) => [u.id, u]) ?? []));
+	let rows = $derived(
+		clients.map((c) => ({
+			id: c.name ?? '',
+			name: c.name ?? '',
+			mcpServers: c.mcpServers ?? [],
+			skills: c.skills ?? [],
+			users:
+				c.users?.map((u) => userMap.get(u) ?? { id: u, displayName: u, email: u, username: u }) ??
+				[]
+		}))
+	);
+	let pageSize = $derived(parseInt(page.url.searchParams.get('pageSize') ?? '50', 10) ?? 50);
+	let pageIndex = $derived(Math.floor((data?.clients?.offset ?? 0) / pageSize));
+	let lastPageIndex = $derived(total > 0 ? Math.ceil(total / pageSize) - 1 : 0);
 	let nameFilter = $state(untrack(() => page.url.searchParams.get('name') ?? ''));
 
-	let rows = $derived<DeviceClient[]>(
-		nameFilter
-			? clients.filter((c) => c.name.toLowerCase().includes(nameFilter.toLowerCase()))
-			: clients
+	let filteredRows = $derived(
+		nameFilter ? rows.filter((c) => c.name.toLowerCase().includes(nameFilter.toLowerCase())) : rows
 	);
-
-	$effect(() => {
-		console.log(clients);
-	});
 
 	function updateName(value: string) {
 		nameFilter = value;
 		setFilterUrlParams('name', value ? [value] : []);
+	}
+
+	function fetchPage(idx: number) {
+		setUrlParam(page.url, 'name', nameFilter);
+		setFilterUrlParams('offset', idx > 0 ? [String(idx * pageSize)] : []);
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -63,7 +77,7 @@
 			</div>
 		{:else}
 			<Table
-				data={rows}
+				data={filteredRows}
 				pageSize={PAGE_SIZE}
 				fields={['name', 'mcpServers', 'skills', 'users']}
 				headers={[
@@ -90,10 +104,19 @@
 					{:else if property === 'users'}
 						{d.users.length}
 					{:else}
-						{d[property as keyof DeviceClient]}
+						{d[property as keyof (typeof rows)[number]]}
 					{/if}
 				{/snippet}
 			</Table>
+		{/if}
+		{#if total > PAGE_SIZE}
+			<Pagination
+				{pageIndex}
+				{lastPageIndex}
+				{total}
+				itemLabelSingular="skill"
+				onPageChange={fetchPage}
+			/>
 		{/if}
 	</div>
 </Layout>

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -534,4 +535,246 @@ func (c *Client) ListMCPServerOccurrences(ctx context.Context, configHash string
 		return nil, 0, fmt.Errorf("failed to list occurrences: %w", err)
 	}
 	return rows, total, nil
+}
+
+// DeviceClientFleetSummary is the gateway-layer aggregate for one client
+// name; callers map it to apiclient types.
+type DeviceClientFleetSummary struct {
+	Name       string
+	Users      []string
+	Skills     []string
+	MCPServers []types.MCPServerStat
+}
+
+// ListDeviceClientFleetSummaries returns one row per distinct client name
+// observed in device_scan_clients on each device's all-time latest scan,
+// paginated by name. Each row lists distinct submitters, skill names, and
+// MCP servers (by config_hash) attributed to that client on those scans.
+func (c *Client) ListDeviceClientFleetSummaries(ctx context.Context, limit, offset int) ([]DeviceClientFleetSummary, int64, error) {
+	db := c.db.WithContext(ctx)
+	latest := db.Model(&types.DeviceScan{}).Select("MAX(id)").Group("device_id")
+
+	base := db.Table("device_scan_clients AS cl").
+		Joins("JOIN device_scans AS s ON s.id = cl.device_scan_id").
+		Where("s.id IN (?)", latest).
+		Where("cl.name <> ''")
+
+	var total int64
+	if err := base.Session(&gorm.Session{}).Distinct("cl.name").Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count distinct clients: %w", err)
+	}
+
+	qNames := base.Session(&gorm.Session{}).
+		Distinct("cl.name").
+		Order("cl.name ASC")
+	if limit > 0 {
+		qNames = qNames.Limit(limit)
+	}
+	if offset > 0 {
+		qNames = qNames.Offset(offset)
+	}
+
+	var names []string
+	if err := qNames.Pluck("cl.name", &names).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list client names: %w", err)
+	}
+	if len(names) == 0 {
+		return nil, total, nil
+	}
+
+	out, err := c.deviceClientFleetSummariesForNames(ctx, names)
+	if err != nil {
+		return nil, 0, err
+	}
+	return out, total, nil
+}
+
+// GetDeviceClientFleetSummary returns the aggregate for a single client
+// name, or gorm.ErrRecordNotFound when that name never appears on any
+// device's latest scan.
+func (c *Client) GetDeviceClientFleetSummary(ctx context.Context, name string) (*DeviceClientFleetSummary, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, errors.New("empty client name")
+	}
+	db := c.db.WithContext(ctx)
+	latest := db.Model(&types.DeviceScan{}).Select("MAX(id)").Group("device_id")
+	var cnt int64
+	if err := db.Table("device_scan_clients AS cl").
+		Joins("JOIN device_scans AS s ON s.id = cl.device_scan_id").
+		Where("s.id IN (?)", latest).
+		Where("cl.name = ?", name).
+		Count(&cnt).Error; err != nil {
+		return nil, err
+	}
+	if cnt == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	summaries, err := c.deviceClientFleetSummariesForNames(ctx, []string{name})
+	if err != nil {
+		return nil, err
+	}
+	if len(summaries) == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return &summaries[0], nil
+}
+
+func (c *Client) deviceClientFleetSummariesForNames(ctx context.Context, names []string) ([]DeviceClientFleetSummary, error) {
+	db := c.db.WithContext(ctx)
+	latest := db.Model(&types.DeviceScan{}).Select("MAX(id)").Group("device_id")
+
+	type userRow struct {
+		ClientName  string `gorm:"column:client_name"`
+		SubmittedBy string `gorm:"column:submitted_by"`
+	}
+	var userRows []userRow
+	if err := db.Table("device_scan_clients AS cl").
+		Joins("JOIN device_scans AS s ON s.id = cl.device_scan_id").
+		Where("s.id IN (?)", latest).
+		Where("cl.name IN ?", names).
+		Where("s.submitted_by <> ''").
+		Distinct("cl.name", "s.submitted_by").
+		Select("cl.name AS client_name, s.submitted_by AS submitted_by").
+		Scan(&userRows).Error; err != nil {
+		return nil, fmt.Errorf("failed to load client users: %w", err)
+	}
+
+	usersByClient := map[string]map[string]struct{}{}
+	for _, row := range userRows {
+		if usersByClient[row.ClientName] == nil {
+			usersByClient[row.ClientName] = map[string]struct{}{}
+		}
+		usersByClient[row.ClientName][row.SubmittedBy] = struct{}{}
+	}
+
+	type skillRow struct {
+		Client    string `gorm:"column:client"`
+		SkillName string `gorm:"column:skill_name"`
+	}
+	var skillRows []skillRow
+	if err := db.Table("device_scan_skills AS sk").
+		Joins("JOIN device_scans AS s ON s.id = sk.device_scan_id").
+		Where("s.id IN (?)", latest).
+		Where("sk.client IN ?", names).
+		Where("sk.client <> ?", "multi").
+		Where("sk.name <> ''").
+		Distinct("sk.client", "sk.name").
+		Select("sk.client AS client, sk.name AS skill_name").
+		Scan(&skillRows).Error; err != nil {
+		return nil, fmt.Errorf("failed to load client skills: %w", err)
+	}
+
+	skillsByClient := map[string]map[string]struct{}{}
+	for _, row := range skillRows {
+		if skillsByClient[row.Client] == nil {
+			skillsByClient[row.Client] = map[string]struct{}{}
+		}
+		skillsByClient[row.Client][row.SkillName] = struct{}{}
+	}
+
+	type mcpAggRow struct {
+		Client     string `gorm:"column:client"`
+		ConfigHash string `gorm:"column:config_hash"`
+		Name       string `gorm:"column:name"`
+		Transport  string `gorm:"column:transport"`
+		Command    string `gorm:"column:command"`
+		URL        string `gorm:"column:url"`
+	}
+	var mcpRows []mcpAggRow
+	if err := db.Table("device_scan_mcp_servers AS m").
+		Joins("JOIN device_scans AS s ON s.id = m.device_scan_id").
+		Where("s.id IN (?)", latest).
+		Where("m.client IN ?", names).
+		Where("m.client <> ?", "multi").
+		Select(`m.client AS client, m.config_hash AS config_hash,
+			MAX(m.name) AS name, MAX(m.transport) AS transport,
+			MAX(m.command) AS command, MAX(m.url) AS url`).
+		Group("m.client, m.config_hash").
+		Scan(&mcpRows).Error; err != nil {
+		return nil, fmt.Errorf("failed to aggregate client mcp servers: %w", err)
+	}
+
+	mcpByClient := map[string][]mcpAggRow{}
+	hashSet := map[string]struct{}{}
+	for _, row := range mcpRows {
+		mcpByClient[row.Client] = append(mcpByClient[row.Client], row)
+		if row.ConfigHash != "" {
+			hashSet[row.ConfigHash] = struct{}{}
+		}
+	}
+
+	argsByHash := map[string][]string{}
+	if len(hashSet) > 0 {
+		hashes := make([]string, 0, len(hashSet))
+		for h := range hashSet {
+			hashes = append(hashes, h)
+		}
+		slices.Sort(hashes)
+
+		var canon []types.DeviceScanMCPServer
+		if err := db.
+			Where("config_hash IN ?", hashes).
+			Where("device_scan_id IN (?)", latest).
+			Where("client IN ?", names).
+			Where("client <> ?", "multi").
+			Order("id ASC").
+			Find(&canon).Error; err != nil {
+			return nil, fmt.Errorf("failed to load canonical mcp rows: %w", err)
+		}
+		for _, row := range canon {
+			if row.ConfigHash == "" {
+				continue
+			}
+			if _, ok := argsByHash[row.ConfigHash]; ok {
+				continue
+			}
+			argsByHash[row.ConfigHash] = append([]string(nil), row.Args...)
+		}
+	}
+
+	out := make([]DeviceClientFleetSummary, 0, len(names))
+	for _, name := range names {
+		userSet := usersByClient[name]
+		users := make([]string, 0, len(userSet))
+		for u := range userSet {
+			users = append(users, u)
+		}
+		slices.Sort(users)
+
+		skillSet := skillsByClient[name]
+		skills := make([]string, 0, len(skillSet))
+		for s := range skillSet {
+			skills = append(skills, s)
+		}
+		slices.Sort(skills)
+
+		var mcps []types.MCPServerStat
+		for _, row := range mcpByClient[name] {
+			mcps = append(mcps, types.MCPServerStat{
+				ConfigHash:         row.ConfigHash,
+				Name:               row.Name,
+				Transport:          row.Transport,
+				Command:            row.Command,
+				URL:                row.URL,
+				Args:               argsByHash[row.ConfigHash],
+				DeviceCount:        0,
+				UserCount:          0,
+				ClientCount:        0,
+				ObservationCount: 0,
+			})
+		}
+		slices.SortFunc(mcps, func(a, b types.MCPServerStat) int {
+			return strings.Compare(a.ConfigHash, b.ConfigHash)
+		})
+
+		out = append(out, DeviceClientFleetSummary{
+			Name:       name,
+			Users:      users,
+			Skills:     skills,
+			MCPServers: mcps,
+		})
+	}
+	return out, nil
 }

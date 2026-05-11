@@ -80,7 +80,10 @@ import type {
 	DeviceSkillListFilters,
 	DeviceSkillOccurrenceResponse,
 	DeviceSkillDetail,
-	DeviceSkillStatResponse
+	DeviceSkillStatResponse,
+	DeviceClientFleetSummary,
+	DeviceClientFleetSummaryResponse,
+	DeviceClientListFilters
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -1884,6 +1887,27 @@ export async function getDeviceSkillDetail(
 	opts?: { fetch?: Fetcher }
 ): Promise<DeviceSkillDetail> {
 	return (await doGet(`/devices/skills/${encodeURIComponent(name)}`, opts)) as DeviceSkillDetail;
+}
+
+export async function listDeviceClients(
+	filters?: DeviceClientListFilters,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceClientFleetSummaryResponse> {
+	const queryString = buildQueryString(filters ?? {});
+	return (await doGet(
+		`/devices/clients${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as DeviceClientFleetSummaryResponse;
+}
+
+export async function getDeviceClient(
+	name: string,
+	opts?: { fetch?: Fetcher }
+): Promise<DeviceClientFleetSummary> {
+	return (await doGet(
+		`/devices/clients/${encodeURIComponent(name)}`,
+		opts
+	)) as DeviceClientFleetSummary;
 }
 
 export async function listDeviceSkillOccurrences(

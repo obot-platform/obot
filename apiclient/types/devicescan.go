@@ -351,3 +351,28 @@ type DeviceSkillOccurrenceResponse struct {
 	Limit                     int   `json:"limit"`
 	Offset                    int   `json:"offset"`
 }
+
+// DeviceClientFleetSummary rolls up latest-scan-per-device data for one
+// canonical client name (from device_scan_clients).
+type DeviceClientFleetSummary struct {
+	// Name is the canonical client identifier (e.g. "cursor", "claude-code").
+	Name string `json:"name"`
+	// Users are distinct scan submitters whose latest scan lists this client.
+	Users []string `json:"users"`
+	// Skills are distinct skill names observed with Client == Name in those
+	// latest scans; rows with client "multi" are excluded.
+	Skills []string `json:"skills"`
+	// MCPServers are distinct MCP servers (by ConfigHash) observed with
+	// Client == Name in those latest scans; rows with client "multi" are excluded.
+	MCPServers []DeviceMCPServerStat `json:"mcpServers"`
+}
+
+type DeviceClientFleetSummaryList List[DeviceClientFleetSummary]
+
+// DeviceClientFleetSummaryResponse is returned by GET /api/devices/clients.
+type DeviceClientFleetSummaryResponse struct {
+	DeviceClientFleetSummaryList `json:",inline"`
+	Total                        int64 `json:"total"`
+	Limit                        int    `json:"limit"`
+	Offset                       int    `json:"offset"`
+}

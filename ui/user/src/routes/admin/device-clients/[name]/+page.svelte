@@ -5,10 +5,10 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { formatDeviceCommand } from '$lib/format.js';
+	import type { DeviceClientFleetSummary } from '$lib/services';
 	import { goto } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
-	import type { DeviceClient } from '../utils.js';
-	import { CheckIcon, PencilRuler, Server, Users, XIcon } from 'lucide-svelte';
+	import { PencilRuler, Server, Users } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 
 	type TabIcon = typeof Users | typeof Server | typeof PencilRuler;
@@ -17,9 +17,20 @@
 
 	type Tab = 'mcp' | 'skills' | 'users';
 
-	let detail = $derived<DeviceClient | null | undefined>(data?.client);
-	let activeTab = $state<Tab>('users');
+	let client = $derived<DeviceClientFleetSummary | null | undefined>(data.client);
+	let userMap = $derived(new Map(data?.users?.map((u) => [u.id, u]) ?? []));
+	let detail = $derived({
+		...client,
+		users:
+			client?.users?.map(
+				(u) => userMap.get(u) ?? { id: u, displayName: u, email: u, username: u }
+			) ?? []
+	});
+	let hasMcpServers = $derived(client?.mcpServers?.length ?? 0 > 0);
+	let hasSkills = $derived(client?.skills?.length ?? 0 > 0);
 	let clientName = $derived(page.params.name ?? '');
+
+	let activeTab = $state<Tab>('users');
 
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
@@ -44,7 +55,7 @@
 		in:fly={{ x: 100, duration, delay: duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		{#if !detail}
+		{#if !client}
 			<p class="text-on-surface1 text-sm font-light">Client not found.</p>
 		{:else}
 			<div class="dark:bg-surface2 bg-background flex flex-col gap-4 rounded-md p-4 shadow-sm">
@@ -55,13 +66,17 @@
 					<div class="text-on-surface1 flex flex-wrap items-center gap-3 text-xs">
 						<span>{detail.users.length} user{detail.users.length === 1 ? '' : 's'}</span>
 						<span>·</span>
-						<span
-							>{detail.mcpServers.length} mcp server{detail.mcpServers.length === 1
-								? ''
-								: 's'}</span
-						>
-						<span>·</span>
-						<span>{detail.skills.length} skill{detail.skills.length === 1 ? '' : 's'}</span>
+						{#if detail.mcpServers}
+							<span
+								>{detail.mcpServers.length} mcp server{detail.mcpServers.length === 1
+									? ''
+									: 's'}</span
+							>
+						{/if}
+						{#if detail.skills}
+							<span>·</span>
+							<span>{detail.skills.length} skill{detail.skills.length === 1 ? '' : 's'}</span>
+						{/if}
 					</div>
 				</div>
 			</div>
@@ -69,8 +84,8 @@
 			<div class="flex flex-col gap-2">
 				<div class="border-surface2 dark:border-surface2 flex gap-2 border-b">
 					{@render tabButton('users', Users, 'Users', detail.users.length)}
-					{@render tabButton('mcp', Server, 'MCP Servers', detail.mcpServers.length)}
-					{@render tabButton('skills', PencilRuler, 'Skills', detail.skills.length)}
+					{@render tabButton('mcp', Server, 'MCP Servers', detail.mcpServers?.length ?? 0)}
+					{@render tabButton('skills', PencilRuler, 'Skills', detail.skills?.length ?? 0)}
 				</div>
 
 				{#if activeTab === 'users'}
@@ -85,22 +100,22 @@
 						{#snippet onRenderColumn(property, d)}
 							{#if property === 'email'}
 								{d.displayName || d.email || '-'}
-							{:else if property === 'userInstallPath'}
+								<!-- {:else if property === 'userInstallPath'}
 								<span class="text-on-surface1 font-mono text-xs"
 									>{[d.userInstallPath, d.userConfigPath].filter(Boolean).join(', ')}</span
-								>
+								> -->
 							{:else}
-								{d[property as keyof DeviceClient['users'][number]]}
+								{d[property as keyof (typeof detail.users)[number]]}
 							{/if}
 						{/snippet}
 					</Table>
 				{:else if activeTab === 'mcp'}
-					{#if detail.mcpServers.length === 0}
+					{#if !hasMcpServers}
 						{@render emptyTab('No MCP servers found for this client.')}
 					{:else}
-						{@const rows = detail.mcpServers.map((s, i) => ({
+						{@const rows = detail.mcpServers!.map((s, i) => ({
 							...s,
-							id: `${s.client}-${s.name}-${i}`,
+							id: `${client.name}-${s.name}-${i}`,
 							endpoint:
 								s.transport === 'stdio' ? formatDeviceCommand(s.command, s.args) : s.url || '—'
 						}))}
@@ -130,12 +145,13 @@
 						</Table>
 					{/if}
 				{:else if activeTab === 'skills'}
-					{#if detail.skills.length === 0}
+					{#if !hasSkills}
 						{@render emptyTab('No skills found for this client.')}
 					{:else}
-						{@const rows = detail.skills.map((s, i) => ({
-							...s,
-							id: `${s.client}-${s.name}-${i}`
+						{@const rows = detail.skills!.map((s, i) => ({
+							// todo: skills should contain more information
+							name: s,
+							id: `${client.name}-${s}-${i}`
 						}))}
 
 						<Table
@@ -153,7 +169,7 @@
 							{#snippet onRenderColumn(property, d)}
 								{#if property === 'name'}
 									{d.name}
-								{:else if property === 'description'}
+									<!-- {:else if property === 'description'}
 									<span class="text-on-surface1 text-xs">{d.description ?? '—'}</span>
 								{:else if property === 'hasScripts'}
 									{#if d.hasScripts}
@@ -162,7 +178,7 @@
 										<XIcon class="text-on-surface1 size-3 shrink-0" />
 									{/if}
 								{:else if property === 'files'}
-									{d.files.length || '-'}
+									{d.files.length || '-'} -->
 								{/if}
 							{/snippet}
 						</Table>

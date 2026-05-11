@@ -1,21 +1,25 @@
 import { handleRouteError } from '$lib/errors';
 import { AdminService } from '$lib/services';
-import type { DeviceScanResponse, OrgUser } from '$lib/services/admin/types';
+import type { DeviceClientFleetSummaryResponse, OrgUser } from '$lib/services/admin/types';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
-import { compileDeviceClients } from './utils';
 
-const PAGE_SIZE = 100;
-export const load: PageLoad = async ({ fetch }) => {
-	let devices: DeviceScanResponse = { items: [], total: 0, limit: PAGE_SIZE, offset: 0 };
+export const load: PageLoad = async ({ fetch, url }) => {
+	const limit = parseInt(url.searchParams.get('pageSize') ?? '50', 10) || 50;
+	const offset = parseInt(url.searchParams.get('offset') ?? '0', 10) || 0;
+	let clients: DeviceClientFleetSummaryResponse = {
+		items: [],
+		total: 0,
+		limit,
+		offset
+	};
 	let users: OrgUser[] = [];
 	try {
-		[devices, users] = await Promise.all([
-			AdminService.listDeviceScans({ limit: PAGE_SIZE, offset: 0, groupByDevice: true }, { fetch }),
-			AdminService.listUsers({ fetch }).catch(() => [] as OrgUser[])
+		[clients, users] = await Promise.all([
+			AdminService.listDeviceClients({ limit, offset }, { fetch }),
+			AdminService.listUsers({ fetch })
 		]);
-		const clientsMap = compileDeviceClients(devices.items ?? [], users ?? []);
-		return { clients: [...clientsMap.values()] };
+		return { clients, users };
 	} catch (err) {
 		handleRouteError(err, '/admin/device-clients', profile.current);
 	}

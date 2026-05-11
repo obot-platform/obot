@@ -1276,6 +1276,30 @@ export interface DeviceClientStat {
 	observationCount: number;
 }
 
+/** Rolls up latest-scan-per-device data for one canonical client name. */
+export interface DeviceClientFleetSummary {
+	name: string;
+	users: string[] | null;
+	skills: string[] | null;
+	mcpServers: DeviceMCPServerStat[] | null;
+}
+
+export interface DeviceClientFleetSummaryList {
+	items: DeviceClientFleetSummary[] | null;
+}
+
+/** Returned by GET /api/devices/clients */
+export interface DeviceClientFleetSummaryResponse extends DeviceClientFleetSummaryList {
+	total: number;
+	limit: number;
+	offset: number;
+}
+
+export type DeviceClientListFilters = {
+	limit?: number;
+	offset?: number;
+};
+
 export interface DeviceSkillStat {
 	name: string;
 	deviceCount: number;

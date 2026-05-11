@@ -2,11 +2,13 @@ package client
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 func insertScan(t *testing.T, c *Client, scan types.DeviceScan) types.DeviceScan {
@@ -241,5 +243,87 @@ func TestGetMCPServerDetail(t *testing.T) {
 	}
 	if len(d.HeaderKeys) != 1 || d.HeaderKeys[0] != "X-Auth" {
 		t.Errorf("header keys: want [X-Auth], got %v", d.HeaderKeys)
+	}
+}
+
+func TestDeviceClientFleetSummaries(t *testing.T) {
+	c := newTestClient(t)
+	ctx := context.Background()
+
+	now := time.Now().UTC()
+	h1 := "hash-one"
+	insertScan(t, c, types.DeviceScan{
+		SubmittedBy: "alice", DeviceID: "dev-1", ScannedAt: now,
+		Clients: []types.DeviceScanClient{
+			{Name: "claude-code"},
+			{Name: "cursor"},
+		},
+		Skills: []types.DeviceScanSkill{
+			{Client: "claude-code", Name: "skill-a"},
+			{Client: "multi", Name: "floating"},
+		},
+		MCPServers: []types.DeviceScanMCPServer{
+			{Client: "claude-code", Name: "mcp1", Transport: "stdio", ConfigHash: h1, Args: datatypes.JSONSlice[string]{"a"}},
+		},
+	})
+	insertScan(t, c, types.DeviceScan{
+		SubmittedBy: "bob", DeviceID: "dev-2", ScannedAt: now.Add(time.Hour),
+		Clients:     []types.DeviceScanClient{{Name: "codex"}},
+		Skills:      []types.DeviceScanSkill{{Client: "codex", Name: "skill-b"}},
+	})
+
+	list, total, err := c.ListDeviceClientFleetSummaries(ctx, 50, 0)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if total != 3 {
+		t.Errorf("total distinct clients: want 3, got %d", total)
+	}
+	if len(list) != 3 {
+		t.Fatalf("want 3 rows, got %d", len(list))
+	}
+
+	var cc *DeviceClientFleetSummary
+	for i := range list {
+		if list[i].Name == "claude-code" {
+			cc = &list[i]
+			break
+		}
+	}
+	if cc == nil {
+		t.Fatal("missing claude-code")
+	}
+	if len(cc.Users) != 1 || cc.Users[0] != "alice" {
+		t.Errorf("claude-code users: %+v", cc.Users)
+	}
+	if len(cc.Skills) != 1 || cc.Skills[0] != "skill-a" {
+		t.Errorf("claude-code skills (multi excluded): %+v", cc.Skills)
+	}
+	if len(cc.MCPServers) != 1 || cc.MCPServers[0].ConfigHash != h1 || len(cc.MCPServers[0].Args) != 1 || cc.MCPServers[0].Args[0] != "a" {
+		t.Errorf("claude-code mcps: %+v", cc.MCPServers)
+	}
+
+	_, err = c.GetDeviceClientFleetSummary(ctx, "nonexistent")
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Errorf("want ErrRecordNotFound, got %v", err)
+	}
+
+	g, err := c.GetDeviceClientFleetSummary(ctx, "codex")
+	if err != nil {
+		t.Fatalf("get codex: %v", err)
+	}
+	if len(g.Users) != 1 || g.Users[0] != "bob" || len(g.Skills) != 1 || g.Skills[0] != "skill-b" {
+		t.Errorf("codex summary: users=%v skills=%v", g.Users, g.Skills)
+	}
+
+	list2, total2, err := c.ListDeviceClientFleetSummaries(ctx, 1, 1)
+	if err != nil {
+		t.Fatalf("list page 2: %v", err)
+	}
+	if total2 != 3 {
+		t.Errorf("paginated total: want 3, got %d", total2)
+	}
+	if len(list2) != 1 {
+		t.Fatalf("limit=1 offset=1: want 1 row, got %d", len(list2))
 	}
 }
