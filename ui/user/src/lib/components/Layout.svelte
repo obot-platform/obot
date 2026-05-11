@@ -285,77 +285,6 @@
 							}
 						]
 					},
-					{
-						id: 'agent-management',
-						icon: Bot,
-						label: 'Obot Agent Management',
-						collapsible: true,
-						items: [
-							{
-								id: 'tokens',
-								href: '/admin/token-usage',
-								icon: Coins,
-								label: 'Token Usage',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'model-providers',
-								href: '/admin/model-providers',
-								icon: Boxes,
-								label: 'Model Providers',
-								collapsible: false
-							},
-
-							{
-								id: 'model-access-policies',
-								href: '/admin/model-access-policies',
-								icon: LockKeyhole,
-								label: 'Model Access Policies',
-								collapsible: false
-							},
-							...(version.current.messagePoliciesEnabled
-								? [
-										{
-											id: 'message-policies',
-											href: '/admin/message-policies',
-											icon: ShieldAlert,
-											label: 'Message Policies',
-											collapsible: false
-										},
-										{
-											id: 'policy-violations',
-											href: '/admin/policy-violations',
-											icon: ShieldX,
-											label: 'Message Policy Violations',
-											collapsible: false
-										}
-									]
-								: []),
-							...(version.current.nanobotIntegration
-								? [
-										{
-											id: 'admin-agents',
-											href: '/admin/agents',
-											icon: Bots,
-											label: 'Agents',
-											collapsible: false,
-											disabled: isBootStrapUser || !agentLinkEnabled
-										},
-										{
-											id: 'launch-agent-chat',
-											href: '/agent',
-											icon: BotMessageSquare,
-											label: 'Launch Agent',
-											disabled: isBootStrapUser || !agentLinkEnabled,
-											collapsible: false,
-											noteIcon: !agentLinkEnabled ? LockOpen : undefined,
-											note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
-										}
-									]
-								: [])
-						]
-					},
 					...(version.current.disableLegacyChat !== true
 						? [
 								{
@@ -455,6 +384,78 @@
 								disabled: !version.current.authEnabled,
 								collapsible: false
 							}
+						]
+					},
+
+					{
+						id: 'agent-management',
+						icon: Bot,
+						label: 'Obot Agent Management',
+						collapsible: true,
+						items: [
+							{
+								id: 'tokens',
+								href: '/admin/token-usage',
+								icon: Coins,
+								label: 'Token Usage',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'model-providers',
+								href: '/admin/model-providers',
+								icon: Boxes,
+								label: 'Model Providers',
+								collapsible: false
+							},
+
+							{
+								id: 'model-access-policies',
+								href: '/admin/model-access-policies',
+								icon: LockKeyhole,
+								label: 'Model Access Policies',
+								collapsible: false
+							},
+							...(version.current.messagePoliciesEnabled
+								? [
+										{
+											id: 'message-policies',
+											href: '/admin/message-policies',
+											icon: ShieldAlert,
+											label: 'Message Policies',
+											collapsible: false
+										},
+										{
+											id: 'policy-violations',
+											href: '/admin/policy-violations',
+											icon: ShieldX,
+											label: 'Message Policy Violations',
+											collapsible: false
+										}
+									]
+								: []),
+							...(version.current.nanobotIntegration
+								? [
+										{
+											id: 'admin-agents',
+											href: '/admin/agents',
+											icon: Bots,
+											label: 'Agents',
+											collapsible: false,
+											disabled: isBootStrapUser || !agentLinkEnabled
+										},
+										{
+											id: 'launch-agent-chat',
+											href: '/agent',
+											icon: BotMessageSquare,
+											label: 'Launch Agent',
+											disabled: isBootStrapUser || !agentLinkEnabled,
+											collapsible: false,
+											noteIcon: !agentLinkEnabled ? LockOpen : undefined,
+											note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
+										}
+									]
+								: [])
 						]
 					},
 					{
@@ -565,9 +566,10 @@
 	$effect(() => {
 		const isAdminOrBootstrapUser =
 			profile.current.loaded &&
-			(profile.current.groups.includes(Group.ADMIN) || profile.current.isBootstrapUser?.());
+			(profile.current.hasAdminAccess?.() || profile.current.isBootstrapUser?.());
 		if (isAdminOrBootstrapUser && isAdminRoute) {
 			adminConfigStore.initialize();
+			collapsed['agent-management'] = true;
 		}
 	});
 
@@ -632,11 +634,8 @@
 									{/if}
 								</div>
 								{#if link.collapsible}
-									<button
-										class="px-2"
-										onclick={() => (collapsed[link.label] = !collapsed[link.label])}
-									>
-										{#if collapsed[link.label]}
+									<button class="px-2" onclick={() => (collapsed[link.id] = !collapsed[link.id])}>
+										{#if collapsed[link.id]}
 											<ChevronUp class="size-5" />
 										{:else}
 											<ChevronDown class="size-5" />
@@ -644,7 +643,7 @@
 									</button>
 								{/if}
 							</div>
-							{#if !collapsed[link.label || '']}
+							{#if !collapsed[link.id]}
 								<div in:slide={{ axis: 'y' }}>
 									{#if onRenderSubContent}
 										{@render onRenderSubContent(link.label)}
