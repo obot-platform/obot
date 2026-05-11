@@ -569,7 +569,9 @@
 			(profile.current.hasAdminAccess?.() || profile.current.isBootstrapUser?.());
 		if (isAdminOrBootstrapUser && isAdminRoute) {
 			adminConfigStore.initialize();
-			collapsed['agent-management'] = true;
+			if (collapsed['agent-management'] === undefined) {
+				collapsed['agent-management'] = true;
+			}
 		}
 	});
 
