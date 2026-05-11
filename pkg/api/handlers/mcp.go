@@ -37,24 +37,6 @@ var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
 const requestTimeUpdateInterval = 15 * time.Minute
 
-type missingRequiredConfigErr struct {
-	err *types.ErrHTTP
-}
-
-func newMissingRequiredConfigErr(missing []string) *missingRequiredConfigErr {
-	return &missingRequiredConfigErr{
-		err: types.NewErrBadRequest("missing required config: %s", strings.Join(missing, ", ")),
-	}
-}
-
-func (e *missingRequiredConfigErr) Error() string {
-	return e.err.Error()
-}
-
-func (e *missingRequiredConfigErr) Unwrap() error {
-	return e.err
-}
-
 // MCPOAuthChecker will check the OAuth status for an MCP server. This interface breaks an import cycle.
 type MCPOAuthChecker interface {
 	CheckForMCPAuth(req api.Context, server v1.MCPServer, config mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error)
@@ -1466,7 +1448,7 @@ func serverConfigForAction(req api.Context, server v1.MCPServer) (mcp.ServerConf
 	}
 
 	if len(missingConfig) > 0 {
-		return mcp.ServerConfig{}, newMissingRequiredConfigErr(missingConfig)
+		return mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
 	}
 
 	// Best effort to update the last request time.
