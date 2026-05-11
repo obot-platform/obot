@@ -2827,6 +2827,7 @@ func convertOAuthMetadata(metadata *v1.OAuthMetadata) *types.OAuthMetadata {
 		ProtectedResourceMetadata:   metadata.ProtectedResourceMetadata,
 		AuthorizationServerMetadata: metadata.AuthorizationServerMetadata,
 		DynamicClientRegistration:   metadata.DynamicClientRegistration,
+		ClientRegistration:          metadata.ClientRegistration,
 	}
 }
 

@@ -187,6 +187,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OAuthClient":                                        schema_obot_platform_obot_apiclient_types_OAuthClient(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthClientList":                                    schema_obot_platform_obot_apiclient_types_OAuthClientList(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthClientManifest":                                schema_obot_platform_obot_apiclient_types_OAuthClientManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthDebuggerAuthorizationURL":                      schema_obot_platform_obot_apiclient_types_OAuthDebuggerAuthorizationURL(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthDebuggerAuthorizationURLRequest":               schema_obot_platform_obot_apiclient_types_OAuthDebuggerAuthorizationURLRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthDebuggerTokenRequest":                          schema_obot_platform_obot_apiclient_types_OAuthDebuggerTokenRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthMetadata":                                      schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthToken":                                         schema_obot_platform_obot_apiclient_types_OAuthToken(ref),
 		"github.com/obot-platform/obot/apiclient/types.OnEmail":                                            schema_obot_platform_obot_apiclient_types_OnEmail(ref),
@@ -9979,6 +9982,79 @@ func schema_obot_platform_obot_apiclient_types_OAuthClientManifest(ref common.Re
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_OAuthDebuggerAuthorizationURL(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"oauthURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"oauthURL"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OAuthDebuggerAuthorizationURLRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"state"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OAuthDebuggerTokenRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"code": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"code", "state"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -10013,6 +10089,12 @@ func schema_obot_platform_obot_apiclient_types_OAuthMetadata(ref common.Referenc
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
+						},
+					},
+					"clientRegistration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
 						},
 					},
 				},
@@ -21597,6 +21679,12 @@ func schema_storage_apis_obotobotai_v1_OAuthMetadata(ref common.ReferenceCallbac
 						},
 					},
 					"authorizationServerMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"clientRegistration": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "byte",

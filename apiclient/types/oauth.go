@@ -108,3 +108,17 @@ type OAuthToken struct {
 	ExpiresIn    int    `json:"expires_in"`
 	TokenType    string `json:"token_type"`
 }
+
+type OAuthDebuggerAuthorizationURLRequest struct {
+	State string `json:"state"`
+}
+
+type OAuthDebuggerAuthorizationURL struct {
+	OAuthURL string `json:"oauthURL"`
+	State    string `json:"state,omitempty"`
+}
+
+type OAuthDebuggerTokenRequest struct {
+	Code  string `json:"code"`
+	State string `json:"state"`
+}

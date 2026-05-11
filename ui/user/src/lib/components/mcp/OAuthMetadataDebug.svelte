@@ -75,6 +75,16 @@
 						)}</pre>
 				</div>
 			{/if}
+
+			{#if metadata.clientRegistration}
+				<div class="grid gap-1">
+					<p class="font-medium">Client Registration</p>
+					<pre
+						class="bg-surface1 dark:bg-surface2 mt-1 overflow-auto rounded-md p-3 text-xs">{formatJSON(
+							metadata.clientRegistration
+						)}</pre>
+				</div>
+			{/if}
 		</div>
 	{/if}
 </div>
