@@ -21,6 +21,7 @@
 	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
 	import {
 		LoaderCircle,
+		KeyRound,
 		MessageCircle,
 		PencilLine,
 		ReceiptText,
@@ -104,6 +105,9 @@
 			: []
 	);
 	let requiresUpdate = $derived(server && requiresUserUpdate(server));
+	let canReauthenticate = $derived(
+		server?.manifest.runtime === 'remote' && Object.keys(server.oauthMetadata ?? {}).length > 0
+	);
 	let canConfigure = $derived(
 		entry && (entry.manifest.runtime === 'composite' || hasEditableConfiguration(entry))
 	);
@@ -201,6 +205,12 @@
 	function handleShowSelectServerDialog(mode: ServerSelectMode = 'connect') {
 		selectServerDialog?.open();
 		selectServerMode = mode;
+	}
+
+	async function reauthenticateServer(item: MCPCatalogServer) {
+		await ChatService.clearMcpServerOAuth(item.id);
+		await connectToServerDialog?.authenticate(item, entry);
+		refresh();
 	}
 </script>
 
@@ -449,6 +459,18 @@
 						}}
 					>
 						<PencilLine class="size-4" /> Rename
+					</button>
+				{/if}
+				{#if server && canReauthenticate}
+					<button
+						class="menu-button"
+						onclick={async (e) => {
+							e.stopPropagation();
+							toggle(false);
+							await reauthenticateServer(server);
+						}}
+					>
+						<KeyRound class="size-4" /> Reauthenticate
 					</button>
 				{/if}
 				{#if canConfigure}
