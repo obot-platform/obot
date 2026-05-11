@@ -54,7 +54,6 @@ func TestValidateModelManifestAndSetDefaults(t *testing.T) {
 
 		err := validateModelManifestAndSetDefaults(model)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "field name is required")
 		assert.Contains(t, err.Error(), "field targetModel is required")
 	})
 }

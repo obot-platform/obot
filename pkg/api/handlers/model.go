@@ -250,9 +250,7 @@ func validateModelManifestAndSetDefaults(newModel *v1.Model) error {
 	if newModel.Spec.Manifest.Name == "" {
 		newModel.Spec.Manifest.Name = strings.ReplaceAll(strings.TrimSpace(newModel.Spec.Manifest.TargetModel), "/", "-")
 	}
-	if newModel.Spec.Manifest.Name == "" {
-		errs = append(errs, fmt.Errorf("field name is required"))
-	} else if strings.Contains(newModel.Spec.Manifest.Name, "/") {
+	if strings.Contains(newModel.Spec.Manifest.Name, "/") {
 		errs = append(errs, fmt.Errorf("field name must be a single path segment and must not contain '/'"))
 	}
 	if strings.TrimSpace(newModel.Spec.Manifest.TargetModel) == "" {
