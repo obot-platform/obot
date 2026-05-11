@@ -27,6 +27,7 @@ from deepeval import evaluate
 from deepeval.metrics import GEval
 from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 
+from .core.framework import TurnEvalDetail
 from .helper import paths
 
 
@@ -338,14 +339,20 @@ def run_deepeval_for_turn(
     raw_sse: str,
     criteria: List[str],
     turn_index: int = 0,
-) -> Tuple[bool, str]:
+) -> TurnEvalDetail:
     """
     Run DeepEval on a single conversation turn with custom criteria.
     Used by conversation workflow: after each turn we evaluate the response, then send the next prompt.
-    Returns (passed, message).
     """
     if not criteria:
-        return True, "no criteria (skip eval)"
+        return TurnEvalDetail(
+            turn_index=turn_index,
+            passed=True,
+            score=None,
+            threshold=None,
+            reason="no criteria (skip eval)",
+            prompt=user_prompt or "",
+        )
 
     # Prefer final assistant text reconstructed from raw SSE (deduplicated by event id),
     # so DeepEval sees the cleaned-up reply instead of streaming repetitions.
@@ -385,15 +392,26 @@ def run_deepeval_for_turn(
         threshold = getattr(metric, "threshold", 0.7)
         reason = getattr(metric, "reason", "")
         passed = (score is None) or (score >= threshold)
-        msg_parts = []
-        if score is not None:
-            msg_parts.append(f"score={score:.3f} (threshold={threshold})")
-        if reason:
-            msg_parts.append(f"reason={reason}")
-        msg = "; ".join(msg_parts) if msg_parts else f"evaluated (turn {turn_index})"
-        return passed, msg
+        reason_str = str(reason) if reason else ""
+        sc = float(score) if score is not None else None
+        th = float(threshold) if threshold is not None else None
+        return TurnEvalDetail(
+            turn_index=turn_index,
+            passed=passed,
+            score=sc,
+            threshold=th,
+            reason=reason_str,
+            prompt=user_prompt or "",
+        )
     except Exception as e:
-        return False, "eval error (turn %d): %s" % (turn_index, str(e))
+        return TurnEvalDetail(
+            turn_index=turn_index,
+            passed=False,
+            score=None,
+            threshold=None,
+            reason="eval error (turn %d): %s" % (turn_index, str(e)),
+            prompt=user_prompt or "",
+        )
 
 
 def run_deepeval_generic_for_latest_step_eval() -> None:

@@ -19,8 +19,9 @@ eval_py/
     ├── agent_deepeval.py           # Static + latest fixture DeepEval
     ├── agent_deepeval_generic.py   # Generic metrics on step_eval output; run_deepeval_for_turn
     ├── core/
-    │   ├── framework.py            # Case, Context, Result, run_all, pass_count
-    │   └── cases.py                # all_cases(), workflow + blog-post runners
+    │   ├── framework.py            # Case, Context, Result, TurnEvalDetail, run_all, pass_count
+    │   ├── cases.py                # all_cases(), workflow + blog-post runners
+    │   └── run_summary.py          # eval_run_summary.json / .txt + optional GitHub job summary
     ├── clients/
     │   ├── client.py               # REST (version, projects, agents, MCP URL)
     │   └── mcp_client.py           # MCP + SSE / async response collection
@@ -77,7 +78,6 @@ Use the venv interpreter for all commands below, e.g. `.\venv\Scripts\python.exe
 |----------|----------------|---------|
 | **`OPENAI_API_KEY`** | Conversation evals (per-turn DeepEval), static DeepEval | DeepEval / judge model calls. |
 | **`OBOT_EVAL_BASE_URL`** | `python -m eval.run …` | Obot API base URL, e.g. `http://localhost:8080`. |
-| **`OBOT_EVAL_AUTH_HEADER`** | Live API calls (if your server requires auth) | e.g. `Cookie: obot_access_token=...` or `Bearer …`. |
 | **`OBOT_EVAL_API_LOG`** | Optional | If set, REST/MCP traffic is appended to that file path. |
 | **`OBOT_EVAL_CONVERSATION_WORKFLOW`** | Optional | Override workflow id when using the shared runner (defaults per wrapper case). |
 
@@ -101,7 +101,6 @@ Use the venv interpreter for all commands below, e.g. `.\venv\Scripts\python.exe
 ```bash
 cd eval_py
 export OBOT_EVAL_BASE_URL=http://localhost:8080
-export OBOT_EVAL_AUTH_HEADER='Cookie: obot_access_token=YOUR_TOKEN'
 export OPENAI_API_KEY=sk-...
 python -m eval.run
 ```
@@ -111,7 +110,6 @@ python -m eval.run
 ```powershell
 cd eval_py
 $env:OBOT_EVAL_BASE_URL = "http://localhost:8080"
-$env:OBOT_EVAL_AUTH_HEADER = "Cookie: obot_access_token=YOUR_TOKEN"
 $env:OPENAI_API_KEY = "sk-..."
 .\venv\Scripts\python.exe -m eval.run
 ```
@@ -120,7 +118,22 @@ $env:OPENAI_API_KEY = "sk-..."
 - **`python -m eval.run nanobot_python_code_review_conversation_eval`** — one case.
 - **`python -m eval.run nanobot_conversation_workflows`** — the three conversation workflows only.
 
-Artifacts are written under **`eval/data/`** (e.g. `step_eval_output.txt`, `step_eval_output_distinct.txt`, `data.json`, and per-workflow `python_review.txt`, `news.txt`, `antv_charts.txt` when applicable).
+Step-eval and trace files are written under **`eval/data/`** (e.g. `step_eval_output.txt`, `step_eval_output_distinct.txt`, `data.json`, and per-workflow `python_review.txt`, `news.txt`, `antv_charts.txt` when applicable). See **Eval run summary** below for the aggregated pass/score report.
+
+---
+
+## Eval run summary
+
+After every **`python -m eval.run …`** invocation, the CLI writes a **combined** summary for the cases that ran in that process (so one file covers the whole batch, e.g. all cases or `nanobot_conversation_workflows` only).
+
+| Output | Path | Contents |
+|--------|------|----------|
+| **JSON** | `eval/data/eval_run_summary.json` | Machine-readable: `cases_total`, `cases_passed`, `case_pass_rate`, `mean_turn_score` (when DeepEval scored turns), `turns_scored`, and per-case `name`, `pass`, `duration_ms`, `message`, optional **`case_prompt`**, and **`turns`** with `turn`, `pass`, `score`, `threshold`, **`prompt`**, `reason`. |
+| **Text** | `eval/data/eval_run_summary.txt` | Same information in a readable plain-text layout (prompts indented under each turn or case). |
+
+On **GitHub Actions**, if `GITHUB_STEP_SUMMARY` is set (default on hosted runners), a short markdown block is also appended to the workflow **job summary** (pass count, pass rate, optional mean turn score, truncated prompts). Full prompts and reasons stay in **`eval_run_summary.json`** — download the **`eval-run-summary`** artifact from the workflow run to inspect that file in detail.
+
+**Tip:** Run several conversation cases in **one** command (e.g. `nanobot_conversation_workflows`) so a single summary reflects all of them; running cases in separate processes overwrites the same two summary paths each time.
 
 ---
 
@@ -154,8 +167,9 @@ python -m eval.agent_deepeval_generic
 
 Workflow: **`.github/workflows/nanobot-python-evals.yml`**
 
-- **Static job** — daily schedule + every run: checkout, Python 3.11, `pip install -r eval_py/requirements.txt`, `python -m eval.agent_deepeval all`. Needs repo secret **`OPENAI_API_KEY`**.
-- **Live job** — only on **`workflow_dispatch`** with **`run_live: true`**: starts `ghcr.io/obot-platform/obot:latest`, then runs three conversation cases from `eval_py`. You may need to extend the workflow with **`OBOT_EVAL_AUTH_HEADER`** (secret) if your Obot instance requires auth.
+- **Static job** — daily schedule + every run: checkout, Python 3.11, `pip install -r eval_py/requirements.txt`, `python -m eval.agent_deepeval all`. Needs repo secret **`OPENAI_API_KEY`**. This path does **not** emit `eval_run_summary.json` (that file is produced by `python -m eval.run` only).
+- **Live job** — only on **`workflow_dispatch`** with **`run_live: true`**: starts `ghcr.io/obot-platform/obot:latest`, then runs **`python -m eval.run nanobot_conversation_workflows`** once (all three conversation workflows in one batch). Needs **`OPENAI_API_KEY`**. You may need to add **`OBOT_EVAL_AUTH_HEADER`** (repo secret) if your Obot instance requires auth.
+- **Artifacts** — the live job uploads **`eval-run-summary`** (`eval_run_summary.json` and `eval_run_summary.txt` under `eval_py/eval/data/`) with **`if: always()`** so you can inspect results even when a case fails. The workflow run’s **Summary** tab shows the short markdown report from `GITHUB_STEP_SUMMARY`.
 
 ---
 
