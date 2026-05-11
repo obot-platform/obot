@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -17,7 +18,7 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { openUrl } from '$lib/utils';
-	import { Boxes, Cpu, MonitorCheck, PencilRuler, Server } from 'lucide-svelte';
+	import { Boxes, Cpu, Ellipsis, MonitorCheck, PencilRuler, Scale, Server } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 
 	type Tab = 'mcp' | 'skills' | 'plugins' | 'clients';
@@ -339,6 +340,26 @@
 									{d[property as keyof MCPRow] ?? '—'}
 								{/if}
 							{/snippet}
+
+							{#snippet actions(d)}
+								<DotDotDot class="icon-button hover:dark:bg-background/50">
+									{#snippet icon()}
+										<Ellipsis class="size-4" />
+									{/snippet}
+									{#snippet children({ toggle })}
+										<button
+											class="menu-button"
+											onclick={(e) => {
+												const isCtrlClick = e.ctrlKey || e.metaKey;
+												openUrl(resolve(`/admin/device-mcp-servers/${d.configHash}`), isCtrlClick);
+												toggle();
+											}}
+										>
+											<Scale class="size-4" /> View Related Occurrences
+										</button>
+									{/snippet}
+								</DotDotDot>
+							{/snippet}
 						</Table>
 					{/if}
 				{:else if activeTab === 'skills'}
@@ -381,6 +402,26 @@
 								{:else}
 									{d[property as keyof SkillRow] ?? '—'}
 								{/if}
+							{/snippet}
+
+							{#snippet actions(d)}
+								<DotDotDot class="icon-button hover:dark:bg-background/50">
+									{#snippet icon()}
+										<Ellipsis class="size-4" />
+									{/snippet}
+									{#snippet children({ toggle })}
+										<button
+											class="menu-button"
+											onclick={(e) => {
+												const isCtrlClick = e.ctrlKey || e.metaKey;
+												openUrl(resolve(`/admin/device-skills/${d.name}`), isCtrlClick);
+												toggle();
+											}}
+										>
+											<Scale class="size-4" /> View Related Occurrences
+										</button>
+									{/snippet}
+								</DotDotDot>
 							{/snippet}
 						</Table>
 					{/if}

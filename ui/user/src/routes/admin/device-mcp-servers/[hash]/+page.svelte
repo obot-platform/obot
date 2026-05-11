@@ -146,12 +146,13 @@
 
 			<div class="flex flex-col gap-2">
 				<h3 class="text-on-surface1 text-sm font-semibold">
-					Devices · {total} occurrence{total === 1 ? '' : 's'}
+					Occurrences · {total}
 				</h3>
 				<Table
 					data={rows}
-					fields={['shortDeviceID', 'scannedRelative', 'client', 'scope']}
+					fields={['id', 'shortDeviceID', 'scannedRelative', 'client', 'scope']}
 					headers={[
+						{ title: '#', property: 'id' },
 						{ title: 'Device', property: 'shortDeviceID' },
 						{ title: 'Scanned', property: 'scannedRelative' },
 						{ title: 'Client', property: 'client' },
