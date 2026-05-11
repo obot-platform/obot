@@ -1276,11 +1276,20 @@ export interface DeviceClientStat {
 	observationCount: number;
 }
 
+/** One skill row on a device client fleet summary (client match; excludes "multi"). */
+export interface DeviceClientFleetSkill {
+	name: string;
+	description?: string;
+	hasScripts: boolean;
+	/** Number of file paths recorded for that skill observation. */
+	files: number;
+}
+
 /** Rolls up latest-scan-per-device data for one canonical client name. */
 export interface DeviceClientFleetSummary {
 	name: string;
 	users: string[] | null;
-	skills: string[] | null;
+	skills: DeviceClientFleetSkill[] | null;
 	mcpServers: DeviceMCPServerStat[] | null;
 }
 

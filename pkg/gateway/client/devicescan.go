@@ -537,19 +537,28 @@ func (c *Client) ListMCPServerOccurrences(ctx context.Context, configHash string
 	return rows, total, nil
 }
 
+// DeviceClientFleetSkill is gateway-layer skill metadata for client summaries.
+type DeviceClientFleetSkill struct {
+	Name        string
+	Description string
+	HasScripts  bool
+	Files       int
+}
+
 // DeviceClientFleetSummary is the gateway-layer aggregate for one client
 // name; callers map it to apiclient types.
 type DeviceClientFleetSummary struct {
 	Name       string
 	Users      []string
-	Skills     []string
+	Skills     []DeviceClientFleetSkill
 	MCPServers []types.MCPServerStat
 }
 
 // ListDeviceClientFleetSummaries returns one row per distinct client name
 // observed in device_scan_clients on each device's all-time latest scan,
-// paginated by name. Each row lists distinct submitters, skill names, and
-// MCP servers (by config_hash) attributed to that client on those scans.
+// paginated by name. Each row lists distinct submitters, skills with
+// metadata, and MCP servers (by config_hash) attributed to that client on
+// those scans.
 func (c *Client) ListDeviceClientFleetSummaries(ctx context.Context, limit, offset int) ([]DeviceClientFleetSummary, int64, error) {
 	db := c.db.WithContext(ctx)
 	latest := db.Model(&types.DeviceScan{}).Select("MAX(id)").Group("device_id")
@@ -649,29 +658,39 @@ func (c *Client) deviceClientFleetSummariesForNames(ctx context.Context, names [
 		usersByClient[row.ClientName][row.SubmittedBy] = struct{}{}
 	}
 
-	type skillRow struct {
-		Client    string `gorm:"column:client"`
-		SkillName string `gorm:"column:skill_name"`
-	}
-	var skillRows []skillRow
+	var skillObs []types.DeviceScanSkill
 	if err := db.Table("device_scan_skills AS sk").
 		Joins("JOIN device_scans AS s ON s.id = sk.device_scan_id").
 		Where("s.id IN (?)", latest).
 		Where("sk.client IN ?", names).
 		Where("sk.client <> ?", "multi").
 		Where("sk.name <> ''").
-		Distinct("sk.client", "sk.name").
-		Select("sk.client AS client, sk.name AS skill_name").
-		Scan(&skillRows).Error; err != nil {
-		return nil, fmt.Errorf("failed to load client skills: %w", err)
+		Order("sk.client ASC, sk.name ASC, sk.id ASC").
+		Find(&skillObs).Error; err != nil {
+		return nil, fmt.Errorf("failed to load client skill metadata: %w", err)
 	}
 
-	skillsByClient := map[string]map[string]struct{}{}
-	for _, row := range skillRows {
-		if skillsByClient[row.Client] == nil {
-			skillsByClient[row.Client] = map[string]struct{}{}
+	skillsByClient := map[string][]DeviceClientFleetSkill{}
+	seenSkillKey := map[string]map[string]struct{}{}
+	for _, sk := range skillObs {
+		if seenSkillKey[sk.Client] == nil {
+			seenSkillKey[sk.Client] = map[string]struct{}{}
 		}
-		skillsByClient[row.Client][row.SkillName] = struct{}{}
+		if _, dup := seenSkillKey[sk.Client][sk.Name]; dup {
+			continue
+		}
+		seenSkillKey[sk.Client][sk.Name] = struct{}{}
+		skillsByClient[sk.Client] = append(skillsByClient[sk.Client], DeviceClientFleetSkill{
+			Name:        sk.Name,
+			Description: sk.Description,
+			HasScripts:  sk.HasScripts,
+			Files:       len(sk.Files),
+		})
+	}
+	for cl := range skillsByClient {
+		slices.SortFunc(skillsByClient[cl], func(a, b DeviceClientFleetSkill) int {
+			return strings.Compare(a.Name, b.Name)
+		})
 	}
 
 	type mcpAggRow struct {
@@ -743,13 +762,6 @@ func (c *Client) deviceClientFleetSummariesForNames(ctx context.Context, names [
 		}
 		slices.Sort(users)
 
-		skillSet := skillsByClient[name]
-		skills := make([]string, 0, len(skillSet))
-		for s := range skillSet {
-			skills = append(skills, s)
-		}
-		slices.Sort(skills)
-
 		var mcps []types.MCPServerStat
 		for _, row := range mcpByClient[name] {
 			mcps = append(mcps, types.MCPServerStat{
@@ -768,6 +780,11 @@ func (c *Client) deviceClientFleetSummariesForNames(ctx context.Context, names [
 		slices.SortFunc(mcps, func(a, b types.MCPServerStat) int {
 			return strings.Compare(a.ConfigHash, b.ConfigHash)
 		})
+
+		skills := skillsByClient[name]
+		if skills == nil {
+			skills = []DeviceClientFleetSkill{}
+		}
 
 		out = append(out, DeviceClientFleetSummary{
 			Name:       name,

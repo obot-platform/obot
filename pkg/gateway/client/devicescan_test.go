@@ -259,7 +259,11 @@ func TestDeviceClientFleetSummaries(t *testing.T) {
 			{Name: "cursor"},
 		},
 		Skills: []types.DeviceScanSkill{
-			{Client: "claude-code", Name: "skill-a"},
+			{
+				Client: "claude-code", Name: "skill-a",
+				Description: "Skill A summary", HasScripts: true,
+				Files: datatypes.JSONSlice[string]{"SKILL.md", "run.sh"},
+			},
 			{Client: "multi", Name: "floating"},
 		},
 		MCPServers: []types.DeviceScanMCPServer{
@@ -269,7 +273,10 @@ func TestDeviceClientFleetSummaries(t *testing.T) {
 	insertScan(t, c, types.DeviceScan{
 		SubmittedBy: "bob", DeviceID: "dev-2", ScannedAt: now.Add(time.Hour),
 		Clients:     []types.DeviceScanClient{{Name: "codex"}},
-		Skills:      []types.DeviceScanSkill{{Client: "codex", Name: "skill-b"}},
+		Skills: []types.DeviceScanSkill{{
+			Client: "codex", Name: "skill-b", Description: "B", HasScripts: false,
+			Files: datatypes.JSONSlice[string]{"SKILL.md"},
+		}},
 	})
 
 	list, total, err := c.ListDeviceClientFleetSummaries(ctx, 50, 0)
@@ -296,8 +303,11 @@ func TestDeviceClientFleetSummaries(t *testing.T) {
 	if len(cc.Users) != 1 || cc.Users[0] != "alice" {
 		t.Errorf("claude-code users: %+v", cc.Users)
 	}
-	if len(cc.Skills) != 1 || cc.Skills[0] != "skill-a" {
-		t.Errorf("claude-code skills (multi excluded): %+v", cc.Skills)
+	if len(cc.Skills) != 1 {
+		t.Fatalf("claude-code skills: want 1, got %d", len(cc.Skills))
+	}
+	if cc.Skills[0].Name != "skill-a" || cc.Skills[0].Description != "Skill A summary" || !cc.Skills[0].HasScripts || cc.Skills[0].Files != 2 {
+		t.Errorf("claude-code skills[0]: %+v", cc.Skills[0])
 	}
 	if len(cc.MCPServers) != 1 || cc.MCPServers[0].ConfigHash != h1 || len(cc.MCPServers[0].Args) != 1 || cc.MCPServers[0].Args[0] != "a" {
 		t.Errorf("claude-code mcps: %+v", cc.MCPServers)
@@ -312,8 +322,11 @@ func TestDeviceClientFleetSummaries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get codex: %v", err)
 	}
-	if len(g.Users) != 1 || g.Users[0] != "bob" || len(g.Skills) != 1 || g.Skills[0] != "skill-b" {
+	if len(g.Users) != 1 || g.Users[0] != "bob" || len(g.Skills) != 1 {
 		t.Errorf("codex summary: users=%v skills=%v", g.Users, g.Skills)
+	}
+	if g.Skills[0].Name != "skill-b" || g.Skills[0].Files != 1 || g.Skills[0].HasScripts {
+		t.Errorf("codex skills[0]: %+v", g.Skills[0])
 	}
 
 	list2, total2, err := c.ListDeviceClientFleetSummaries(ctx, 1, 1)

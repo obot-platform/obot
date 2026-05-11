@@ -446,8 +446,8 @@ func convertMCPServerDetail(d gtypes.MCPServerDetail) types.DeviceMCPServerDetai
 }
 
 // ListClients handles GET /api/devices/clients. Paginated distinct client
-// names from each device's latest scan, with users / skills / MCP rows
-// attributed to that client.
+// names from each device's latest scan, with users, skill metadata, and MCP
+// rows attributed to that client.
 func (*DeviceScansHandler) ListClients(req api.Context) error {
 	q := req.URL.Query()
 	limit := 100
@@ -501,10 +501,19 @@ func convertDeviceClientFleetSummary(r gateway.DeviceClientFleetSummary) types.D
 	for i := range r.MCPServers {
 		mcps[i] = convertMCPServerStat(r.MCPServers[i])
 	}
+	skills := make([]types.DeviceClientFleetSkill, len(r.Skills))
+	for i := range r.Skills {
+		skills[i] = types.DeviceClientFleetSkill{
+			Name:        r.Skills[i].Name,
+			Description: r.Skills[i].Description,
+			HasScripts:  r.Skills[i].HasScripts,
+			Files:       r.Skills[i].Files,
+		}
+	}
 	return types.DeviceClientFleetSummary{
 		Name:       r.Name,
 		Users:      r.Users,
-		Skills:     r.Skills,
+		Skills:     skills,
 		MCPServers: mcps,
 	}
 }

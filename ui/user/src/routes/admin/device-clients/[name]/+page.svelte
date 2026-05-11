@@ -8,7 +8,7 @@
 	import type { DeviceClientFleetSummary } from '$lib/services';
 	import { goto } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
-	import { PencilRuler, Server, Users } from 'lucide-svelte';
+	import { CheckIcon, PencilRuler, Server, Users, XIcon } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 
 	type TabIcon = typeof Users | typeof Server | typeof PencilRuler;
@@ -149,9 +149,8 @@
 						{@render emptyTab('No skills found for this client.')}
 					{:else}
 						{@const rows = detail.skills!.map((s, i) => ({
-							// todo: skills should contain more information
-							name: s,
-							id: `${client.name}-${s}-${i}`
+							...s,
+							id: `${client.name}-${s.name}-${i}`
 						}))}
 
 						<Table
@@ -169,7 +168,7 @@
 							{#snippet onRenderColumn(property, d)}
 								{#if property === 'name'}
 									{d.name}
-									<!-- {:else if property === 'description'}
+								{:else if property === 'description'}
 									<span class="text-on-surface1 text-xs">{d.description ?? '—'}</span>
 								{:else if property === 'hasScripts'}
 									{#if d.hasScripts}
@@ -178,7 +177,7 @@
 										<XIcon class="text-on-surface1 size-3 shrink-0" />
 									{/if}
 								{:else if property === 'files'}
-									{d.files.length || '-'} -->
+									{d.files || '-'}
 								{/if}
 							{/snippet}
 						</Table>
