@@ -29,10 +29,10 @@ export async function createProjectMcp(project: Project, mcpId: string, alias?: 
 	return await ChatService.createProjectMCP(project.assistantID, project.id, mcpId, alias);
 }
 
-export function isValidMcpConfig(mcpConfig: MCPServerInfo) {
+export function isValidMcpConfig(mcpConfig: MCPServerInfo): boolean {
 	return (
-		mcpConfig.env?.every((env) => hasSecretBinding(env) || !env.required || env.value) &&
-		mcpConfig.headers?.every(
+		(mcpConfig.env ?? []).every((env) => hasSecretBinding(env) || !env.required || env.value) &&
+		(mcpConfig.headers ?? []).every(
 			(header) => hasSecretBinding(header) || !header.required || header.value
 		)
 	);
