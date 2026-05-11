@@ -765,15 +765,15 @@ func (c *Client) deviceClientFleetSummariesForNames(ctx context.Context, names [
 		var mcps []types.MCPServerStat
 		for _, row := range mcpByClient[name] {
 			mcps = append(mcps, types.MCPServerStat{
-				ConfigHash:         row.ConfigHash,
-				Name:               row.Name,
-				Transport:          row.Transport,
-				Command:            row.Command,
-				URL:                row.URL,
-				Args:               argsByHash[row.ConfigHash],
-				DeviceCount:        0,
-				UserCount:          0,
-				ClientCount:        0,
+				ConfigHash:       row.ConfigHash,
+				Name:             row.Name,
+				Transport:        row.Transport,
+				Command:          row.Command,
+				URL:              row.URL,
+				Args:             argsByHash[row.ConfigHash],
+				DeviceCount:      0,
+				UserCount:        0,
+				ClientCount:      0,
 				ObservationCount: 0,
 			})
 		}

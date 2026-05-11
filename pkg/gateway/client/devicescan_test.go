@@ -272,7 +272,7 @@ func TestDeviceClientFleetSummaries(t *testing.T) {
 	})
 	insertScan(t, c, types.DeviceScan{
 		SubmittedBy: "bob", DeviceID: "dev-2", ScannedAt: now.Add(time.Hour),
-		Clients:     []types.DeviceScanClient{{Name: "codex"}},
+		Clients: []types.DeviceScanClient{{Name: "codex"}},
 		Skills: []types.DeviceScanSkill{{
 			Client: "codex", Name: "skill-b", Description: "B", HasScripts: false,
 			Files: datatypes.JSONSlice[string]{"SKILL.md"},
