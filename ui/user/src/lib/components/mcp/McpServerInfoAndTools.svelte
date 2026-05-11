@@ -66,10 +66,9 @@
 
 	async function handleInitCompositeForm(server: MCPCatalogServer) {
 		configuringServer = server;
-		error =
-			isKubernetesRuntimeBackend(version.current.engine)
-				? undefined
-				: getSecretBindingEngineError(server.manifest);
+		error = isKubernetesRuntimeBackend(version.current.engine)
+			? undefined
+			: getSecretBindingEngineError(server.manifest);
 		configureForm = await convertCompositeInfoToLaunchFormData(server);
 	}
 
@@ -86,10 +85,9 @@
 			values = {};
 		}
 		configuringServer = server;
-		error =
-			isKubernetesRuntimeBackend(version.current.engine)
-				? undefined
-				: getSecretBindingEngineError(server.manifest);
+		error = isKubernetesRuntimeBackend(version.current.engine)
+			? undefined
+			: getSecretBindingEngineError(server.manifest);
 		configureForm = {
 			envs: server.manifest.env?.map((env) => ({
 				...env,

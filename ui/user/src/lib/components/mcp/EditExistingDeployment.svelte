@@ -50,10 +50,9 @@
 	}) {
 		server = initServer;
 		entry = initEntry;
-		editingError =
-			isKubernetesRuntimeBackend(version.current.engine)
-				? undefined
-				: getSecretBindingEngineError(initServer.manifest);
+		editingError = isKubernetesRuntimeBackend(version.current.engine)
+			? undefined
+			: getSecretBindingEngineError(initServer.manifest);
 
 		if (entry?.manifest.runtime === 'composite') {
 			configureForm = await convertCompositeInfoToLaunchFormData(server);
