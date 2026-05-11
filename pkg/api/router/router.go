@@ -870,7 +870,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, services.RegistryNoAuth, mux)
 
 	// Obot OAuth
-	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.ServerURL, mux)
+	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.ServerURL, services.MCPOAuthClientSecretExpiration, mux)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)
