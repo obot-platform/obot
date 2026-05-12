@@ -120,7 +120,7 @@ Secret bindings are only available on git-managed catalog entries, and only when
 
 #### Basic env var binding
 
-The resolved value is injected into the nanobot pod as an environment variable, exactly like a user-supplied credential.
+The resolved value is injected into the MCP server pod as an environment variable — this works for `npx`, `uvx`, and `containerized` runtimes (not `remote`, which uses header bindings instead).
 
 ```yaml
 env:
