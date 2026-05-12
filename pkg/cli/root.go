@@ -5,10 +5,10 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/gptscript-ai/cmd"
-	"github.com/gptscript-ai/gptscript/pkg/env"
 	"github.com/obot-platform/obot/apiclient"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/cli/internal"
+	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -36,10 +36,7 @@ func (a *Obot) PersistentPre(*cobra.Command, []string) error {
 
 func New() *cobra.Command {
 	root := &Obot{
-		Client: &apiclient.Client{
-			BaseURL: env.VarOrDefault("OBOT_BASE_URL", "http://localhost:8080/api"),
-			Token:   os.Getenv("OBOT_TOKEN"),
-		},
+		Client: newClient(),
 	}
 	return cmd.Command(root,
 		&Server{},
@@ -52,4 +49,21 @@ func New() *cobra.Command {
 
 func (a *Obot) Run(cmd *cobra.Command, _ []string) error {
 	return cmd.Help()
+}
+
+func newClient() *apiclient.Client {
+	baseURL := os.Getenv("OBOT_BASE_URL")
+	if baseURL == "" {
+		if cfg, err := localconfig.Load(); err == nil && cfg.DefaultURL != "" {
+			baseURL = localconfig.APIBaseURL(cfg.DefaultURL)
+		}
+	}
+	if baseURL == "" {
+		baseURL = "http://localhost:8080/api"
+	}
+
+	return &apiclient.Client{
+		BaseURL: baseURL,
+		Token:   os.Getenv("OBOT_TOKEN"),
+	}
 }
