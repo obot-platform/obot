@@ -31,8 +31,24 @@ func ValidateRepositoryURL(repoURL string) error {
 	if u.Scheme != "https" {
 		return fmt.Errorf("repository URL must use HTTPS")
 	}
+	if u.User != nil {
+		return fmt.Errorf("repository URL must not include credentials")
+	}
 	if !gitpkg.IsGitRepoURL(repoURL) {
 		return fmt.Errorf("repository URL does not appear to be a git repository")
+	}
+
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	switch u.Host {
+	case "github.com", "gitlab.com":
+		if len(parts) < 2 || parts[0] == "" || parts[1] == "" {
+			return fmt.Errorf("repository URL must include an owner and repository")
+		}
+	default:
+		path := strings.TrimSuffix(u.Path, "/")
+		if !strings.HasSuffix(path, ".git") && !strings.Contains(path, ".git/") {
+			return fmt.Errorf("repository URL path must include a .git repository boundary")
+		}
 	}
 	return nil
 }
