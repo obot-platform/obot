@@ -20,6 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const maxSkillMDBytes = 1024 * 1024
+
 func buildSkillsFromRepository(repoRoot string, repo *v1.SkillRepository, commitSHA string, indexedAt metav1.Time) ([]*v1.Skill, error) {
 	directories, err := discoverSkillDirectories(repoRoot)
 	if err != nil {

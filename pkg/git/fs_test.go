@@ -1,4 +1,4 @@
-package mcpcatalog
+package git
 
 import (
 	"testing"
