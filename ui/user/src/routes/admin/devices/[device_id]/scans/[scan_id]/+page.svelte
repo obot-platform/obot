@@ -130,33 +130,27 @@
 	}
 
 	let mcpRows = $derived<MCPRow[]>(
-		mcpServers
-			.filter((m): m is DeviceScanMCPServer & { id: number } => !!m.id)
-			.map((m) => ({
-				...m,
-				scope: deriveScope(m.projectPath),
-				endpoint: m.transport === 'stdio' ? formatCommand(m.command, m.args) : m.url || '—'
-			}))
+		mcpServers.map((m) => ({
+			...m,
+			scope: deriveScope(m.projectPath),
+			endpoint: m.transport === 'stdio' ? formatCommand(m.command, m.args) : m.url || '—'
+		}))
 	);
 
 	let skillRows = $derived<SkillRow[]>(
-		skills
-			.filter((s): s is DeviceScanSkill & { id: number } => !!s.id)
-			.map((s) => ({
-				...s,
-				scope: deriveScope(s.projectPath),
-				files_count: (s.files ?? []).length
-			}))
+		skills.map((s) => ({
+			...s,
+			scope: deriveScope(s.projectPath),
+			files_count: (s.files ?? []).length
+		}))
 	);
 
 	let pluginRows = $derived<PluginRow[]>(
-		plugins
-			.filter((p): p is DeviceScanPlugin & { id: number } => !!p.id)
-			.map((p) => ({
-				...p,
-				scope: deriveScope(p.projectPath),
-				capabilities: capabilitySummary(p)
-			}))
+		plugins.map((p) => ({
+			...p,
+			scope: deriveScope(p.projectPath),
+			capabilities: capabilitySummary(p)
+		}))
 	);
 
 	let clientRows = $derived<ClientRow[]>(

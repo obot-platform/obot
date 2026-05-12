@@ -31,6 +31,6 @@ export function findParentPlugin(
 ): { id: number; name: string } | undefined {
 	if (!scan || !file) return undefined;
 	const match = scan.plugins?.find((p) => p.configPath === file || p.files?.includes(file));
-	if (!match || !match.id) return undefined;
+	if (!match) return undefined;
 	return { id: match.id, name: match.name };
 }

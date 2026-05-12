@@ -1136,7 +1136,7 @@ export interface DeviceScanFile {
 }
 
 export interface DeviceScanMCPServer {
-	id?: number;
+	id: number;
 	client: string;
 	projectPath?: string;
 	file?: string;
@@ -1151,7 +1151,7 @@ export interface DeviceScanMCPServer {
 }
 
 export interface DeviceScanSkill {
-	id?: number;
+	id: number;
 	client: string;
 	projectPath?: string;
 	file?: string;
@@ -1163,7 +1163,7 @@ export interface DeviceScanSkill {
 }
 
 export interface DeviceScanPlugin {
-	id?: number;
+	id: number;
 	client: string;
 	projectPath?: string;
 	configPath?: string;
