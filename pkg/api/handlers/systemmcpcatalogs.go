@@ -288,6 +288,9 @@ func normalizeAndValidateCatalogSourceURLs(sourceURLs []string, localPath string
 }
 
 func mergeCatalogTokens(sourceURLs []string, incoming, existing map[string]string) map[string]string {
+	incoming = normalizeCatalogTokenMap(incoming)
+	existing = normalizeCatalogTokenMap(existing)
+
 	activeURLs := make(map[string]struct{}, len(sourceURLs))
 	for _, u := range sourceURLs {
 		activeURLs[u] = struct{}{}
@@ -319,6 +322,26 @@ func mergeCatalogTokens(sourceURLs []string, incoming, existing map[string]strin
 	return newTokens
 }
 
+func normalizeCatalogTokenMap(tokens map[string]string) map[string]string {
+	if len(tokens) == 0 {
+		return nil
+	}
+
+	normalized := make(map[string]string, len(tokens))
+	for sourceURL, token := range tokens {
+		normalized[normalizeCatalogTokenKey(sourceURL)] = token
+	}
+	return normalized
+}
+
+func normalizeCatalogTokenKey(sourceURL string) string {
+	sourceURL = strings.TrimSpace(sourceURL)
+	if sourceURL != "" && !strings.Contains(sourceURL, "://") && !strings.HasPrefix(sourceURL, "/") {
+		sourceURL = "https://" + sourceURL
+	}
+	return sourceURL
+}
+
 func storeCatalogTokens(req api.Context, catalogName string, tokens, existing map[string]string) error {
 	if len(tokens) > 0 {
 		if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
@@ -338,6 +361,8 @@ func storeCatalogTokens(req api.Context, catalogName string, tokens, existing ma
 }
 
 func maskCatalogCredentials(sourceURLs []string, tokenEnv map[string]string) map[string]string {
+	tokenEnv = normalizeCatalogTokenMap(tokenEnv)
+
 	var maskedCredentials map[string]string
 	for _, u := range sourceURLs {
 		if _, ok := tokenEnv[u]; ok {

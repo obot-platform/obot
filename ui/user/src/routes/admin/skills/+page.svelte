@@ -526,13 +526,14 @@
 						sourceError = undefined;
 
 						try {
+							const repoURL = editingSource.value.trim();
 							const manifest: Parameters<typeof AdminService.createSkillRepository>[0] = {
 								displayName: editingSource.name,
-								repoURL: editingSource.value,
+								repoURL,
 								ref: editingSource.ref
 							};
 							if (editingSource.token) {
-								manifest.sourceURLCredentials = { [editingSource.value]: editingSource.token };
+								manifest.sourceURLCredentials = { [repoURL]: editingSource.token };
 							}
 							const response = await AdminService.createSkillRepository(manifest);
 							skillRepositories = [...skillRepositories, response];
