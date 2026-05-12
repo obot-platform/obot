@@ -62,6 +62,12 @@ func (in *MCPServerCatalogEntry) DeleteRefs() []Ref {
 	}
 }
 
+// IsGitManaged mirrors the existing GitOps heuristic: sourced, non-editable
+// catalog entries are treated as git-managed
+func (in *MCPServerCatalogEntry) IsGitManaged() bool {
+	return !in.Spec.Editable && in.Spec.SourceURL != ""
+}
+
 type MCPServerCatalogEntrySpec struct {
 	Manifest         types.MCPServerCatalogEntryManifest `json:"manifest,omitempty"`
 	UnsupportedTools []string                            `json:"unsupportedTools,omitempty"`

@@ -493,7 +493,11 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		maps.Copy(secretEnvData, nanobotOTELEnv("nanobot-agent", nil))
 	}
 
-	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvData) + hash.Digest(nonDynamicFileData) + hash.Digest(webhooks))
+	// Resolved secretBinding values are merged into secretEnvData by the
+	// caller (sm.ServerToServerConfig), so any rotation naturally bumps
+	// this revision via hash.Digest(secretEnvData) — no separate term
+	// needed.
+	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvData) + hash.Digest(nonDynamicFileData) + hash.Digest(webhooks) + hash.Digest(headerData))
 
 	// Fetch K8s settings
 	k8sSettings, err := k.getK8sSettings(ctx)

@@ -112,6 +112,8 @@
 					>
 						{d.updateStatus || '--'}
 					</div>
+				{:else if property === 'deploymentStatus'}
+					{d.deploymentStatus || '--'}
 				{:else}
 					{d[property as keyof typeof d]}
 				{/if}

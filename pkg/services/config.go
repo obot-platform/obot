@@ -69,10 +69,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
+	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	gocache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	// Setup nah logging
 	_ "github.com/obot-platform/nah/pkg/logrus"
@@ -233,6 +235,15 @@ type Services struct {
 	ServiceNamespace   string
 	ServiceAccountName string
 	StorageListenPort  int
+
+	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
+	// cluster the obot pod runs in, where source Secrets for
+	// secretBindings live. Nil on the docker backend.
+	LocalK8sClient kclient.Client
+
+	// ObotNamespace is the Kubernetes namespace in which the obot server
+	// runs; mcp.MergeBoundCreds reads source Secrets from here.
+	ObotNamespace string
 
 	// Parsed settings from Helm for k8s to pass to controller
 	// PodSchedulingSettingsFromHelm contains affinity, tolerations, resources, runtimeClassName
@@ -761,6 +772,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
+	var apiLocalK8sClient kclient.Client
+	if localK8sConfig != nil {
+		apiLocalK8sClient, err = kclient.New(localK8sConfig, kclient.Options{Scheme: k8sscheme.Scheme})
+		if err != nil {
+			return nil, fmt.Errorf("failed to build local k8s client for API server: %w", err)
+		}
+	}
+
 	gptscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, mcpSessionManager)
 	if err != nil {
 		return nil, err
@@ -1057,10 +1076,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		StorageClient:         storageClient,
 		Router:                r,
 		GPTClient:             gptscriptClient,
+		LocalK8sClient:        apiLocalK8sClient,
+		ObotNamespace:         config.ServiceNamespace,
 		APIServer: server.NewServer(
 			storageClient,
 			gatewayClient,
 			gptscriptClient,
+			apiLocalK8sClient,
+			config.ServiceNamespace,
 			authn.NewAuthenticator(authenticators),
 			authz.NewAuthorizer(r.Backend(), storageClient, config.DevMode, acrHelper, registryNoAuth),
 			proxyManager,

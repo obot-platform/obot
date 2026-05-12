@@ -33,6 +33,16 @@ type Context struct {
 	GatewayClient *gclient.Client
 	User          user.Info
 	APIBaseURL    string
+
+	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
+	// cluster the obot pod runs in, where source Secrets for
+	// secretBindings live. Nil on the docker backend
+	LocalK8sClient client.Client
+
+	// ObotNamespace is the Kubernetes namespace in which the obot server
+	// runs; mcp.MergeBoundCreds reads source Secrets from here. Empty
+	// when LocalK8sClient is nil.
+	ObotNamespace string
 }
 
 type (
