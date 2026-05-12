@@ -245,6 +245,19 @@ func TestMigrateStartupTimeoutSeconds(t *testing.T) {
 			t.Errorf("Expected legacy timeout cleared, got %d", manifest.StartupTimeoutSeconds)
 		}
 	})
+
+	t.Run("ignores invalid runtime legacy timeout", func(t *testing.T) {
+		manifest := MCPServerManifest{
+			Runtime:               RuntimeRemote,
+			StartupTimeoutSeconds: -1,
+			RemoteConfig: &RemoteRuntimeConfig{
+				URL: "https://example.com/mcp",
+			},
+		}
+		if timeout := manifest.RuntimeStartupTimeoutSeconds(); timeout != 0 {
+			t.Errorf("Expected remote legacy timeout to be ignored, got %d", timeout)
+		}
+	})
 }
 
 func TestMapCatalogEntryToServer_RemoteFixedURL(t *testing.T) {

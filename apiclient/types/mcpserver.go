@@ -428,17 +428,20 @@ func startupTimeoutSeconds(runtime Runtime, uvxConfig *UVXRuntimeConfig, npxConf
 		if uvxConfig != nil && uvxConfig.StartupTimeoutSeconds != 0 {
 			return uvxConfig.StartupTimeoutSeconds
 		}
+		return legacyStartupTimeoutSeconds
 	case RuntimeNPX:
 		if npxConfig != nil && npxConfig.StartupTimeoutSeconds != 0 {
 			return npxConfig.StartupTimeoutSeconds
 		}
+		return legacyStartupTimeoutSeconds
 	case RuntimeContainerized:
 		if containerizedConfig != nil && containerizedConfig.StartupTimeoutSeconds != 0 {
 			return containerizedConfig.StartupTimeoutSeconds
 		}
+		return legacyStartupTimeoutSeconds
 	}
 
-	return legacyStartupTimeoutSeconds
+	return 0
 }
 
 func (m MCPServerCatalogEntryManifest) RuntimeStartupTimeoutSeconds() int {
@@ -450,10 +453,6 @@ func (m MCPServerManifest) RuntimeStartupTimeoutSeconds() int {
 }
 
 func (m SystemMCPServerManifest) RuntimeStartupTimeoutSeconds() int {
-	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, m.StartupTimeoutSeconds)
-}
-
-func (m SystemMCPServerCatalogEntryManifest) RuntimeStartupTimeoutSeconds() int {
 	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, m.StartupTimeoutSeconds)
 }
 
