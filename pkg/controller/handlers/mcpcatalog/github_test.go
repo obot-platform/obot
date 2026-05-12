@@ -110,6 +110,51 @@ func TestParseGitURL(t *testing.T) {
 	}
 }
 
+func TestGitCloneAuthAttempts(t *testing.T) {
+	tests := []struct {
+		name          string
+		catalogToken  string
+		fallbackToken string
+		want          []gitCloneAuthAttempt
+	}{
+		{
+			name:         "catalog token only",
+			catalogToken: "catalog-token",
+			want: []gitCloneAuthAttempt{
+				{name: "catalog token", token: "catalog-token"},
+			},
+		},
+		{
+			name:          "catalog token ignores fallback token",
+			catalogToken:  "catalog-token",
+			fallbackToken: "fallback-token",
+			want: []gitCloneAuthAttempt{
+				{name: "catalog token", token: "catalog-token"},
+			},
+		},
+		{
+			name: "anonymous only",
+			want: []gitCloneAuthAttempt{
+				{name: "anonymous"},
+			},
+		},
+		{
+			name:          "anonymous then fallback token",
+			fallbackToken: "fallback-token",
+			want: []gitCloneAuthAttempt{
+				{name: "anonymous"},
+				{name: "fallback token", token: "fallback-token"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, gitCloneAuthAttempts(tt.catalogToken, tt.fallbackToken))
+		})
+	}
+}
+
 func TestReadGitCatalog(t *testing.T) {
 	tests := []struct {
 		name       string
