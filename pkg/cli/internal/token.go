@@ -222,7 +222,9 @@ func testToken(ctx context.Context, baseURL, token string) bool {
 	if err != nil {
 		return false
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

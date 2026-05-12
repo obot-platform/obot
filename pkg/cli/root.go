@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/fatih/color"
@@ -54,7 +55,9 @@ func (a *Obot) Run(cmd *cobra.Command, _ []string) error {
 func newClient() *apiclient.Client {
 	baseURL := os.Getenv("OBOT_BASE_URL")
 	if baseURL == "" {
-		if cfg, err := localconfig.Load(); err == nil && cfg.DefaultURL != "" {
+		if cfg, err := localconfig.Load(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to load Obot config: %v\n", err)
+		} else if cfg.DefaultURL != "" {
 			baseURL = localconfig.APIBaseURL(cfg.DefaultURL)
 		}
 	}

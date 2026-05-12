@@ -36,6 +36,16 @@ func TestNormalizeAppURL(t *testing.T) {
 			want: "https://obot.example.com/path",
 		},
 		{
+			name: "accept API base URL",
+			raw:  "https://obot.example.com/api",
+			want: "https://obot.example.com",
+		},
+		{
+			name: "accept nested API base URL",
+			raw:  "https://obot.example.com/obot/api/",
+			want: "https://obot.example.com/obot",
+		},
+		{
 			name:    "empty",
 			raw:     " ",
 			wantErr: true,
@@ -53,6 +63,11 @@ func TestNormalizeAppURL(t *testing.T) {
 		{
 			name:    "missing host",
 			raw:     "https:///obot",
+			wantErr: true,
+		},
+		{
+			name:    "userinfo",
+			raw:     "https://user:pass@obot.example.com",
 			wantErr: true,
 		},
 	}
@@ -85,6 +100,15 @@ func TestAPIBaseURL(t *testing.T) {
 	got = APIBaseURL("https://obot.example.com/")
 	if got != "https://obot.example.com/api" {
 		t.Fatalf("expected API URL from trailing slash input, got %q", got)
+	}
+
+	appURL, err := NormalizeAppURL("https://obot.example.com/api")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got = APIBaseURL(appURL)
+	if got != "https://obot.example.com/api" {
+		t.Fatalf("expected API URL from API base URL input, got %q", got)
 	}
 }
 

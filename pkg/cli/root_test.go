@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/adrg/xdg"
@@ -56,6 +58,31 @@ func TestNewClientFallsBackToLocalhost(t *testing.T) {
 	}
 }
 
+func TestNewClientWarnsOnInvalidConfig(t *testing.T) {
+	restore := useRootTestEnv(t)
+	defer restore()
+
+	configPath := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "obot", "config.json")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(configPath, []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var baseURL string
+	stderr := captureStderr(t, func() {
+		client := newClient()
+		baseURL = client.BaseURL
+	})
+	if baseURL != "http://localhost:8080/api" {
+		t.Fatalf("expected localhost fallback, got %q", baseURL)
+	}
+	if !strings.Contains(stderr, "Warning: failed to load Obot config:") {
+		t.Fatalf("expected config warning, got %q", stderr)
+	}
+}
+
 func useRootTestEnv(t *testing.T) func() {
 	t.Helper()
 
@@ -89,4 +116,32 @@ func useRootTestEnv(t *testing.T) func() {
 		}
 		xdg.Reload()
 	}
+}
+
+func captureStderr(t *testing.T, fn func()) string {
+	t.Helper()
+
+	oldStderr := os.Stderr
+	readFile, writeFile, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stderr = writeFile
+	defer func() {
+		os.Stderr = oldStderr
+	}()
+
+	fn()
+
+	if err := writeFile.Close(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(readFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := readFile.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
 }

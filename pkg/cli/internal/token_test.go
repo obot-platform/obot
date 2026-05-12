@@ -77,7 +77,7 @@ func TestTokenUsesKeyringTokenScopedByAppURL(t *testing.T) {
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
 		switch r.Header.Get("Authorization") {
-		case "Bearer":
+		case "":
 			_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
 		case "Bearer keyring-token":
 			_ = json.NewEncoder(w).Encode(types.User{Username: "alice"})
