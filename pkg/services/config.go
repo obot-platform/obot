@@ -41,6 +41,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	gserver "github.com/obot-platform/obot/pkg/gateway/server"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	otime "github.com/obot-platform/obot/pkg/gateway/time"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/gemini"
 	"github.com/obot-platform/obot/pkg/hash"
@@ -128,6 +129,7 @@ type Config struct {
 	DisableLegacyChat                    bool   `usage:"Disable legacy chat" default:"true"`
 	NanobotIntegration                   bool   `usage:"Enable Nanobot integration" default:"true"`
 	EnableMessagePolicies                bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
+	MCPOAuthClientExpiration             string `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
 	MCPServerSearchImage                 string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.2.0"`
 	NanobotAgentImage                    string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/obot-platform/nanobot-agent:v0.0.80"`
 	MCPNetworkPolicyProviderChartRepo    string `usage:"Helm repository URL for the network policy provider chart"`
@@ -220,7 +222,8 @@ type Services struct {
 	MCPOAuthTokenStorage mcp.GlobalTokenStore
 
 	// OAuth configuration
-	OAuthServerConfig handlers.OAuthAuthorizationServerConfig
+	OAuthServerConfig              handlers.OAuthAuthorizationServerConfig
+	MCPOAuthClientSecretExpiration time.Duration
 
 	// Local Kubernetes configuration for deployment monitoring
 	LocalK8sConfig     *rest.Config
@@ -501,6 +504,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	if len(config.ToolRegistries) < 1 {
 		config.ToolRegistries = []string{"github.com/obot-platform/tools"}
+	}
+	oauthClientExpiration, err := otime.ParseDuration(config.MCPOAuthClientExpiration)
+	if err != nil {
+		return nil, fmt.Errorf("invalid MCP OAuth client expiration: %w", err)
+	}
+	if oauthClientExpiration < time.Minute {
+		return nil, fmt.Errorf("invalid MCP OAuth client expiration: must be at least 1 minute")
 	}
 
 	runtimeIsK8s := config.MCPRuntimeBackend == "kubernetes" || config.MCPRuntimeBackend == "k8s"
@@ -1059,31 +1069,32 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			config.Hostname,
 			registryNoAuth,
 		),
-		PersistentTokenServer:       persistentTokenServer,
-		Invoker:                     invoker,
-		GatewayServer:               gatewayServer,
-		GatewayClient:               gatewayClient,
-		KnowledgeSetIngestionLimit:  config.KnowledgeSetIngestionLimit,
-		EmailServerName:             config.EmailServerName,
-		SupportDocker:               config.Docker,
-		AuthEnabled:                 config.EnableAuthentication,
-		SendgridWebhookUsername:     config.SendgridWebhookUsername,
-		SendgridWebhookPassword:     config.SendgridWebhookPassword,
-		ProxyManager:                proxyManager,
-		ProviderDispatcher:          providerDispatcher,
-		Bootstrapper:                bootstrapper,
-		AgentsDir:                   config.AgentsDir,
-		GeminiClient:                geminiClient,
-		Otel:                        otel,
-		AuditLogger:                 auditLogger,
-		PostgresDSN:                 postgresDSN,
-		RetentionPolicy:             retentionPolicy,
-		DefaultMCPCatalogPath:       config.DefaultMCPCatalogPath,
-		DefaultSystemMCPCatalogPath: config.DefaultSystemMCPCatalogPath,
-		DefaultSkillRepoURL:         config.DefaultSkillRepoURL,
-		DefaultSkillRepoRef:         config.DefaultSkillRepoRef,
-		MCPLoader:                   mcpSessionManager,
-		MCPOAuthTokenStorage:        mcpOAuthTokenStorage,
+		PersistentTokenServer:          persistentTokenServer,
+		Invoker:                        invoker,
+		GatewayServer:                  gatewayServer,
+		GatewayClient:                  gatewayClient,
+		KnowledgeSetIngestionLimit:     config.KnowledgeSetIngestionLimit,
+		EmailServerName:                config.EmailServerName,
+		SupportDocker:                  config.Docker,
+		AuthEnabled:                    config.EnableAuthentication,
+		SendgridWebhookUsername:        config.SendgridWebhookUsername,
+		SendgridWebhookPassword:        config.SendgridWebhookPassword,
+		ProxyManager:                   proxyManager,
+		ProviderDispatcher:             providerDispatcher,
+		Bootstrapper:                   bootstrapper,
+		AgentsDir:                      config.AgentsDir,
+		GeminiClient:                   geminiClient,
+		Otel:                           otel,
+		AuditLogger:                    auditLogger,
+		PostgresDSN:                    postgresDSN,
+		RetentionPolicy:                retentionPolicy,
+		DefaultMCPCatalogPath:          config.DefaultMCPCatalogPath,
+		DefaultSystemMCPCatalogPath:    config.DefaultSystemMCPCatalogPath,
+		DefaultSkillRepoURL:            config.DefaultSkillRepoURL,
+		DefaultSkillRepoRef:            config.DefaultSkillRepoRef,
+		MCPLoader:                      mcpSessionManager,
+		MCPOAuthTokenStorage:           mcpOAuthTokenStorage,
+		MCPOAuthClientSecretExpiration: oauthClientExpiration,
 		OAuthServerConfig: handlers.OAuthAuthorizationServerConfig{
 			Issuer:                            config.Hostname,
 			AuthorizationEndpoint:             fmt.Sprintf("%s/oauth/authorize", config.Hostname),

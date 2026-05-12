@@ -1,6 +1,8 @@
 package oauth
 
 import (
+	"time"
+
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
@@ -8,20 +10,22 @@ import (
 )
 
 type handler struct {
-	oauthChecker *MCPOAuthHandlerFactory
-	tokenService *persistent.TokenService
-	oauthConfig  handlers.OAuthAuthorizationServerConfig
-	tokenStore   mcp.GlobalTokenStore
-	baseURL      string
+	oauthChecker     *MCPOAuthHandlerFactory
+	tokenService     *persistent.TokenService
+	oauthConfig      handlers.OAuthAuthorizationServerConfig
+	tokenStore       mcp.GlobalTokenStore
+	baseURL          string
+	clientExpiration time.Duration
 }
 
-func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, oauthConfig handlers.OAuthAuthorizationServerConfig, baseURL string, mux *server.Server) {
+func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, oauthConfig handlers.OAuthAuthorizationServerConfig, baseURL string, clientSecretExpiration time.Duration, mux *server.Server) {
 	h := &handler{
-		tokenStore:   tokenStore,
-		tokenService: tokenService,
-		oauthConfig:  oauthConfig,
-		baseURL:      baseURL,
-		oauthChecker: oauthChecker,
+		tokenStore:       tokenStore,
+		tokenService:     tokenService,
+		oauthConfig:      oauthConfig,
+		baseURL:          baseURL,
+		oauthChecker:     oauthChecker,
+		clientExpiration: clientSecretExpiration,
 	}
 
 	mux.HandleFunc("POST /oauth/register/{mcp_id}", h.register)
