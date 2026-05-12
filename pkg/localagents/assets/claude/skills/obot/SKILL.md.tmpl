@@ -1,0 +1,26 @@
+---
+name: obot
+description: Use the Obot CLI to discover and install skills.
+---
+
+# Obot
+
+Use the local `obot` CLI for Obot skill discovery and installation.
+
+These instructions are rendered for `{{ .AgentID }}`.
+
+Authentication is managed by `obot login`. Do not ask the user for Obot API tokens, and do not call Obot APIs directly.
+
+To find installable skills from Obot, run:
+
+```sh
+obot skills search <query>
+```
+
+To install a skill from Obot, run:
+
+```sh
+obot skills install --agent {{ .InstallAgentArg }} <skill>
+```
+
+Prefer the CLI for Obot-managed skills instead of hand-editing installed skill files from Obot.
