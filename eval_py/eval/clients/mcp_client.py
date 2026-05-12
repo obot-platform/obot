@@ -1,5 +1,6 @@
 """MCP JSON-RPC client for Obot MCP gateway (initialize, chat, events stream)."""
 import json
+import os
 import threading
 import time
 import uuid
@@ -71,17 +72,33 @@ class MCPClient:
         return out, resp.status_code, dict(resp.headers)
 
     def initialize(self) -> tuple[str, int]:
-        _, status, headers = self._do("initialize", {
+        """
+        Open an MCP session. Retries on non-200 because the gateway may return 500
+        while the nanobot MCP server is still launching (common in CI right after
+        POST /agents or right after /api/me becomes healthy).
+
+        Tune with OBOT_EVAL_MCP_INIT_RETRIES (default 12) and
+        OBOT_EVAL_MCP_INIT_RETRY_DELAY_SEC (default 2.5).
+        """
+        max_retries = max(1, int((os.environ.get("OBOT_EVAL_MCP_INIT_RETRIES") or "12").strip() or "12"))
+        delay_sec = max(0.0, float((os.environ.get("OBOT_EVAL_MCP_INIT_RETRY_DELAY_SEC") or "2.5").strip() or "2.5"))
+        params = {
             "protocolVersion": "2024-11-05",
             "capabilities": {"elicitation": {}},
             "clientInfo": {"name": "obot-eval-py", "version": "0.0.1"},
-        })
-        if status != 200:
-            return "", status
-        session_id = headers.get("Mcp-Session-Id") or headers.get("mcp-session-id", "")
-        if not session_id:
-            raise RuntimeError("initialize: missing Mcp-Session-Id header")
-        return session_id, status
+        }
+        last_status = 0
+        for attempt in range(max_retries):
+            _, status, headers = self._do("initialize", params)
+            last_status = status
+            if status == 200:
+                session_id = headers.get("Mcp-Session-Id") or headers.get("mcp-session-id", "")
+                if not session_id:
+                    raise RuntimeError("initialize: missing Mcp-Session-Id header")
+                return session_id, status
+            if attempt + 1 < max_retries and delay_sec > 0:
+                time.sleep(delay_sec)
+        return "", last_status
 
     def notifications_initialized(self, session_id: str) -> int:
         _, status, _ = self._do("notifications/initialized", {}, session_id=session_id)

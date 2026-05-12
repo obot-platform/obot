@@ -65,7 +65,7 @@ jobs:
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e OPENAI_API_KEY="${OPENAI_API_KEY}" \
             -e OBOT_SERVER_DISABLE_UPDATE_CHECK=true \
-            ghcr.io/obot-platform/obot:latest
+            ghcr.io/obot-platform/obot:latest --pull=always
 
       - name: Wait for Obot to be ready
         run: |
@@ -81,6 +81,10 @@ jobs:
           echo "OBOT did not become ready in time."
           exit 1
 
+      # /api/me can succeed before the MCP gateway can launch nanobot; evals hit MCP immediately.
+      - name: Brief settle before MCP evals
+        run: sleep 10
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -93,7 +97,7 @@ jobs:
 
       - name: Run live conversation evals (one batch + combined summary)
         working-directory: eval_py
-        run: python -m eval.run nanobot_python_code_review_conversation_eval
+        run: python -m eval.run nanobot_conversation_workflows
 
       - name: Upload eval run summary (JSON + text)
         if: always()

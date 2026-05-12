@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import time
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -23,13 +24,15 @@ def ensure_project_and_agent(client: "Client") -> Optional[str]:
 
     Set OBOT_EVAL_SKIP_AUTO_PROJECT=1 to disable (evals fail fast if nothing exists).
 
-    Optional: OBOT_EVAL_PROJECT_DISPLAY_NAME, OBOT_EVAL_AGENT_DISPLAY_NAME
+    Optional: OBOT_EVAL_PROJECT_DISPLAY_NAME, OBOT_EVAL_AGENT_DISPLAY_NAME,
+    OBOT_EVAL_POST_CREATE_SLEEP_SEC (seconds to wait after creating project/agent; default 5).
     """
     if _truthy_env("OBOT_EVAL_SKIP_AUTO_PROJECT"):
         return None
 
-    from ..clients.client import agent_id, project_id
+    from ..clients.client import project_id
 
+    created_resource = False
     projects, st = client.list_projects_v2()
     if st != 200:
         return "list projects (before setup): status=%s" % st
@@ -40,6 +43,7 @@ def ensure_project_and_agent(client: "Client") -> Optional[str]:
         if cst not in (200, 201) or not proj:
             return "create project: status=%s body=%r" % (cst, proj)
         projects = [proj]
+        created_resource = True
 
     pid = project_id(projects[0])
     if not pid:
@@ -54,5 +58,13 @@ def ensure_project_and_agent(client: "Client") -> Optional[str]:
         agent, ast = client.create_nanobot_agent(pid, display_name=aname)
         if ast not in (200, 201) or not agent:
             return "create nanobot agent: status=%s body=%r" % (ast, agent)
+        created_resource = True
+
+    # First MCP connect starts the nanobot server; give controllers/Docker a moment
+    # so initialize is less likely to return 500 (especially in GitHub Actions).
+    if created_resource:
+        sec = float((os.environ.get("OBOT_EVAL_POST_CREATE_SLEEP_SEC") or "5").strip() or "5")
+        if sec > 0:
+            time.sleep(sec)
 
     return None
