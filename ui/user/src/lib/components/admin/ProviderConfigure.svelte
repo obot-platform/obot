@@ -293,13 +293,13 @@
 				disabled={readonly}
 			/>
 			{#if error}
-				<div class="notification-error flex items-center gap-2">
-					<AlertCircle class="size-6 text-red-500" />
-					<p class="flex flex-col text-sm font-light">
+				<div class="notification-error flex min-w-0 items-start gap-2 overflow-hidden">
+					<AlertCircle class="mt-0.5 size-6 shrink-0 text-red-500" />
+					<p class="min-w-0 flex flex-col text-sm font-light">
 						<span class="font-semibold">An error occurred!</span>
-						<span>
+						<span class="max-h-28 overflow-auto break-words pr-1">
 							Your configuration could not be saved because it failed validation: <b
-								class="font-semibold">{error}</b
+								class="break-all font-semibold">{error}</b
 							>
 						</span>
 					</p>
