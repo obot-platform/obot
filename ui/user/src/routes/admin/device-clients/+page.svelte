@@ -6,6 +6,7 @@
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_SIZE, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { AdminService } from '$lib/services/index.js';
 	import { setFilterUrlParams, setUrlParam } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Server } from 'lucide-svelte';
@@ -13,8 +14,9 @@
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
-	let clients = $derived(data?.clients?.items ?? []);
-	let total = $derived(data?.clients?.total ?? 0);
+	let clientsData = $state(untrack(() => data?.clients ?? { items: [], total: 0, offset: 0 }));
+	let clients = $derived(clientsData.items ?? []);
+	let total = $derived(clientsData.total ?? 0);
 	let userMap = $derived(new Map(data?.users?.map((u) => [u.id, u]) ?? []));
 	let rows = $derived(
 		clients.map((c) => ({
@@ -28,13 +30,26 @@
 		}))
 	);
 	let pageSize = $derived(parseInt(page.url.searchParams.get('pageSize') ?? '50', 10) ?? 50);
-	let pageIndex = $derived(Math.floor((data?.clients?.offset ?? 0) / pageSize));
+	let pageIndex = $derived(Math.floor((clientsData.offset ?? 0) / pageSize));
 	let lastPageIndex = $derived(total > 0 ? Math.ceil(total / pageSize) - 1 : 0);
-	let nameFilter = $state(untrack(() => page.url.searchParams.get('name') ?? ''));
+	let nameFilter = $derived(page.url.searchParams.get('name') ?? '');
+	let loading = $state(false);
 
 	let filteredRows = $derived(
 		nameFilter ? rows.filter((c) => c.name.toLowerCase().includes(nameFilter.toLowerCase())) : rows
 	);
+
+	async function reload() {
+		loading = true;
+		try {
+			clientsData = await AdminService.listDeviceClients({
+				limit: PAGE_SIZE,
+				offset: pageIndex * PAGE_SIZE
+			});
+		} finally {
+			loading = false;
+		}
+	}
 
 	function updateName(value: string) {
 		nameFilter = value;
@@ -44,6 +59,7 @@
 	function fetchPage(idx: number) {
 		setUrlParam(page.url, 'name', nameFilter);
 		setFilterUrlParams('offset', idx > 0 ? [String(idx * pageSize)] : []);
+		reload();
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -63,7 +79,7 @@
 			value={nameFilter}
 			class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
 			onChange={updateName}
-			placeholder="Search by server name..."
+			placeholder="Search by client name..."
 		/>
 
 		{#if clients.length === 0}
@@ -114,7 +130,8 @@
 				{pageIndex}
 				{lastPageIndex}
 				{total}
-				itemLabelSingular="skill"
+				itemLabelSingular="client"
+				{loading}
 				onPageChange={fetchPage}
 			/>
 		{/if}

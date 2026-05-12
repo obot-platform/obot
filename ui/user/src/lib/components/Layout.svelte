@@ -860,7 +860,7 @@
 {/if}
 
 {#snippet layoutHeaderContent()}
-	{#if (showBackButton && history && history.length > 1) || onBackButtonClick}
+	{#if showBackButton}
 		<button
 			class="icon-button flex-shrink-0"
 			onclick={() => {

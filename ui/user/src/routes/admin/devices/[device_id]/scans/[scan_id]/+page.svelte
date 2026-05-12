@@ -352,6 +352,7 @@
 									<a
 										class="btn-link text-blue-500"
 										href={resolve(`/admin/device-clients/${encodeURIComponent(d.client)}`)}
+										onclick={(e) => e.stopPropagation()}
 									>
 										{d.client}
 									</a>
@@ -395,6 +396,7 @@
 									<a
 										class="btn-link text-blue-500"
 										href={resolve(`/admin/device-clients/${encodeURIComponent(d.client)}`)}
+										onclick={(e) => e.stopPropagation()}
 									>
 										{d.client}
 									</a>
@@ -447,6 +449,7 @@
 									<a
 										class="btn-link text-blue-500"
 										href={resolve(`/admin/device-clients/${encodeURIComponent(d.client)}`)}
+										onclick={(e) => e.stopPropagation()}
 									>
 										{d.client}
 									</a>

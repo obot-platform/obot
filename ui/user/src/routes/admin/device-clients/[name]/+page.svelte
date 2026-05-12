@@ -91,19 +91,12 @@
 				{#if activeTab === 'users'}
 					<Table
 						data={detail.users}
-						fields={['email', 'userInstallPath']}
-						headers={[
-							{ title: 'User', property: 'email' },
-							{ title: 'Paths', property: 'userInstallPath' }
-						]}
+						fields={['email']}
+						headers={[{ title: 'User', property: 'email' }]}
 					>
 						{#snippet onRenderColumn(property, d)}
 							{#if property === 'email'}
 								{d.displayName || d.email || '-'}
-								<!-- {:else if property === 'userInstallPath'}
-								<span class="text-on-surface1 font-mono text-xs"
-									>{[d.userInstallPath, d.userConfigPath].filter(Boolean).join(', ')}</span
-								> -->
 							{:else}
 								{d[property as keyof (typeof detail.users)[number]]}
 							{/if}

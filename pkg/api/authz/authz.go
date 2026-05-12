@@ -227,7 +227,7 @@ var (
 			"GET /api/devices/mcp-servers/",
 			"GET /api/devices/skills",
 			"GET /api/devices/skills/",
-			"GET /api/devices/client",
+			"GET /api/devices/clients",
 			"GET /api/devices/clients/",
 			"GET /api/token-usage",
 			"GET /api/total-token-usage",
