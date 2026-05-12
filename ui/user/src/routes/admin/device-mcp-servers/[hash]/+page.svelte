@@ -31,15 +31,13 @@
 	let configHash = $derived(page.params.hash);
 
 	type Row = DeviceMCPServerOccurrence & {
-		id: string;
 		shortDeviceID: string;
 		scannedRelative: string;
 	};
 
 	let rows = $derived<Row[]>(
-		(occurrencesResp.items ?? []).map((o, i) => ({
+		(occurrencesResp.items ?? []).map((o) => ({
 			...o,
-			id: `${o.deviceScanID}-${o.index}-${i}`,
 			shortDeviceID: (o.deviceID ?? '').slice(0, 12),
 			scannedRelative: formatTimeAgo(o.scannedAt).relativeTime
 		}))
@@ -160,7 +158,7 @@
 					]}
 					onClickRow={(d, isCtrlClick) => {
 						openUrl(
-							`/admin/devices/${d.deviceID}/scans/${d.deviceScanID}/mcp/${d.index}`,
+							`/admin/devices/${d.deviceID}/scans/${d.deviceScanID}/mcp/${d.id}`,
 							isCtrlClick
 						);
 					}}

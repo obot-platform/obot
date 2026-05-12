@@ -243,36 +243,3 @@ func TestGetMCPServerDetail(t *testing.T) {
 		t.Errorf("header keys: want [X-Auth], got %v", d.HeaderKeys)
 	}
 }
-
-// TestListMCPServerOccurrences_PaginationAndIndex verifies the
-// occurrence index is the row's position within its parent scan.
-func TestListMCPServerOccurrences_PaginationAndIndex(t *testing.T) {
-	c := newTestClient(t)
-	ctx := context.Background()
-
-	now := time.Now().UTC()
-	hash := "h"
-	// Scan with the target row at index 1 (second of three).
-	insertScan(t, c, types.DeviceScan{
-		SubmittedBy: "u", DeviceID: "d", ScannedAt: now,
-		MCPServers: []types.DeviceScanMCPServer{
-			{Client: "claude-code", Name: "first", Transport: "stdio", ConfigHash: "other-1"},
-			{Client: "claude-code", Name: "target", Transport: "stdio", ConfigHash: hash},
-			{Client: "claude-code", Name: "third", Transport: "stdio", ConfigHash: "other-2"},
-		},
-	})
-
-	rows, total, err := c.ListMCPServerOccurrences(ctx, hash, 50, 0)
-	if err != nil {
-		t.Fatalf("list failed: %v", err)
-	}
-	if total != 1 {
-		t.Errorf("total: want 1, got %d", total)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("rows: want 1, got %d", len(rows))
-	}
-	if rows[0].Index != 1 {
-		t.Errorf("occurrence index within parent scan: want 1, got %d", rows[0].Index)
-	}
-}

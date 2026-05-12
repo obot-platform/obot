@@ -33,15 +33,13 @@
 	let skillName = $derived(page.params.name ?? '');
 
 	type Row = DeviceSkillOccurrence & {
-		id: string;
 		shortDeviceID: string;
 		scannedRelative: string;
 	};
 
 	let rows = $derived<Row[]>(
-		(occurrencesResp.items ?? []).map((o, i) => ({
+		(occurrencesResp.items ?? []).map((o) => ({
 			...o,
-			id: `${o.deviceScanID}-${o.index}-${i}`,
 			shortDeviceID: (o.deviceID ?? '').slice(0, 12),
 			scannedRelative: formatTimeAgo(o.scannedAt).relativeTime
 		}))
@@ -157,7 +155,7 @@
 					]}
 					onClickRow={(d, isCtrlClick) => {
 						openUrl(
-							resolve(`/admin/devices/${d.deviceID}/scans/${d.deviceScanID}/skills/${d.index}`),
+							resolve(`/admin/devices/${d.deviceID}/scans/${d.deviceScanID}/skills/${d.id}`),
 							isCtrlClick
 						);
 					}}

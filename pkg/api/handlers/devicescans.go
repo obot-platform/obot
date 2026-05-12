@@ -204,7 +204,7 @@ func (*DeviceScansHandler) ListMCPServerOccurrences(req api.Context) error {
 			Client:       r.Client,
 			Scope:        r.Scope,
 			ScannedAt:    *types.NewTime(r.ScannedAt),
-			Index:        r.Index,
+			ID:           r.ID,
 		})
 	}
 	return req.Write(types.DeviceMCPServerOccurrenceResponse{
@@ -344,7 +344,7 @@ func (*DeviceScansHandler) ListSkillOccurrences(req api.Context) error {
 			Scope:        r.Scope,
 			ProjectPath:  r.ProjectPath,
 			ScannedAt:    *types.NewTime(r.ScannedAt),
-			Index:        r.Index,
+			ID:           r.ID,
 		})
 	}
 	return req.Write(types.DeviceSkillOccurrenceResponse{
