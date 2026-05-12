@@ -20,14 +20,14 @@
 	let client = $derived<DeviceClientFleetSummary | null | undefined>(data.client);
 	let userMap = $derived(new Map(data?.users?.map((u) => [u.id, u]) ?? []));
 	let detail = $derived({
-		...client,
+		...(client ?? {}),
 		users:
 			client?.users?.map(
 				(u) => userMap.get(u) ?? { id: u, displayName: u, email: u, username: u }
 			) ?? []
 	});
-	let hasMcpServers = $derived(client?.mcpServers?.length ?? 0 > 0);
-	let hasSkills = $derived(client?.skills?.length ?? 0 > 0);
+	let hasMcpServers = $derived((client?.mcpServers?.length ?? 0) > 0);
+	let hasSkills = $derived((client?.skills?.length ?? 0) > 0);
 	let clientName = $derived(page.params.name ?? '');
 
 	let activeTab = $state<Tab>('users');

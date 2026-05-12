@@ -170,8 +170,11 @@
 							<a
 								href={resolve(`/admin/devices/${d.deviceID}`)}
 								class="font-mono text-xs btn-link text-blue-500"
-								title={d.deviceID}>{d.shortDeviceID}</a
+								title={d.deviceID}
+								onclick={(e) => e.stopPropagation()}
 							>
+								{d.shortDeviceID}
+							</a>
 						{:else}
 							{d[property as keyof Row]}
 						{/if}

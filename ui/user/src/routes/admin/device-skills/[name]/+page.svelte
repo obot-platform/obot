@@ -166,8 +166,11 @@
 							<a
 								href={resolve(`/admin/devices/${d.deviceID}`)}
 								class="font-mono text-xs btn-link text-blue-500"
-								title={d.deviceID}>{d.shortDeviceID}</a
+								title={d.deviceID}
+								onclick={(e) => e.stopPropagation()}
 							>
+								{d.shortDeviceID}
+							</a>
 						{:else if property === 'projectPath'}
 							<span class="text-on-surface1 font-mono text-xs">{d.projectPath ?? '—'}</span>
 						{:else}

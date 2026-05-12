@@ -351,8 +351,15 @@
 										<button
 											class="menu-button"
 											onclick={(e) => {
+												if (!d.configHash) {
+													console.error('No config hash found for MCP server', d);
+													return;
+												}
 												const isCtrlClick = e.ctrlKey || e.metaKey;
-												openUrl(resolve(`/admin/device-mcp-servers/${d.configHash}`), isCtrlClick);
+												openUrl(
+													resolve(`/admin/device-mcp-servers/${encodeURIComponent(d.configHash)}`),
+													isCtrlClick
+												);
 												toggle();
 											}}
 										>

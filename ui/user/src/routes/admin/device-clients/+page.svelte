@@ -39,12 +39,12 @@
 		nameFilter ? rows.filter((c) => c.name.toLowerCase().includes(nameFilter.toLowerCase())) : rows
 	);
 
-	async function reload() {
+	async function reload(idx: number) {
 		loading = true;
 		try {
 			clientsData = await AdminService.listDeviceClients({
-				limit: PAGE_SIZE,
-				offset: pageIndex * PAGE_SIZE
+				limit: pageSize,
+				offset: idx * pageSize
 			});
 		} finally {
 			loading = false;
@@ -59,7 +59,7 @@
 	function fetchPage(idx: number) {
 		setUrlParam(page.url, 'name', nameFilter);
 		setFilterUrlParams('offset', idx > 0 ? [String(idx * pageSize)] : []);
-		reload();
+		reload(idx);
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
