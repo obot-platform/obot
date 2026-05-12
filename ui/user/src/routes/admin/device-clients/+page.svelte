@@ -9,7 +9,7 @@
 	import { AdminService } from '$lib/services/index.js';
 	import { setFilterUrlParams, setUrlParam } from '$lib/url';
 	import { openUrl } from '$lib/utils';
-	import { Server } from 'lucide-svelte';
+	import { MonitorCheck } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -84,7 +84,7 @@
 
 		{#if clients.length === 0}
 			<div class="mx-auto mt-12 flex w-md flex-col items-center gap-4 text-center">
-				<Server class="text-on-surface1 size-24 opacity-50" />
+				<MonitorCheck class="text-on-surface1 size-24 opacity-50" />
 				<h4 class="text-on-surface1 text-lg font-semibold">No clients observed yet</h4>
 				<p class="text-on-surface1 text-sm font-light">
 					Run <code class="font-mono">obot scan</code> from a managed device with clients to populate

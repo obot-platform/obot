@@ -53,6 +53,8 @@
 	import { fade, fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
+	let { data } = $props();
+	let hasDeviceScans = $derived(data?.hasDeviceScans ?? false);
 	let loading = $state(true);
 	let loadingToolUsage = $state(true);
 	let loadingDeviceScanStats = $state(true);
@@ -66,7 +68,6 @@
 	let topServerUsage = $state<TopServerUsageRow[]>([]);
 	let avgToolCallResponseTime = $state<AvgToolCallResponseTimeRow[]>([]);
 	let deviceScanStats = $state<DeviceScanStats | null>(null);
-	let hasDeviceScans = $state<boolean>(false);
 	let maxToolsToShow = $derived(hasDeviceScans ? 3 : 5);
 	let maxServersToShow = $derived(hasDeviceScans ? 10 : 12);
 
