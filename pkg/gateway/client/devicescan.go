@@ -554,12 +554,24 @@ type DeviceClientFleetSummary struct {
 	MCPServers []types.MCPServerStat
 }
 
+// DeviceClientFleetListOptions configures ListDeviceClientFleetSummaries.
+type DeviceClientFleetListOptions struct {
+	// Name, when non-empty after trimming, restricts distinct client names to
+	// those matching as a case-insensitive substring (LIKE/ILIKE %Name%).
+	Name string
+	// Limit is the max number of client rows to return; 0 means no limit.
+	Limit int
+	// Offset skips that many client names in name order.
+	Offset int
+}
+
 // ListDeviceClientFleetSummaries returns one row per distinct client name
 // observed in device_scan_clients on each device's all-time latest scan,
 // paginated by name. Each row lists distinct submitters, skills with
 // metadata, and MCP servers (by config_hash) attributed to that client on
-// those scans.
-func (c *Client) ListDeviceClientFleetSummaries(ctx context.Context, limit, offset int) ([]DeviceClientFleetSummary, int64, error) {
+// those scans. Optional Name filters distinct names by case-insensitive
+// substring match.
+func (c *Client) ListDeviceClientFleetSummaries(ctx context.Context, opts DeviceClientFleetListOptions) ([]DeviceClientFleetSummary, int64, error) {
 	db := c.db.WithContext(ctx)
 	latest := db.Model(&types.DeviceScan{}).Select("MAX(id)").Group("device_id")
 
@@ -567,6 +579,15 @@ func (c *Client) ListDeviceClientFleetSummaries(ctx context.Context, limit, offs
 		Joins("JOIN device_scans AS s ON s.id = cl.device_scan_id").
 		Where("s.id IN (?)", latest).
 		Where("cl.name <> ''")
+
+	nameFilter := strings.TrimSpace(opts.Name)
+	if nameFilter != "" {
+		like := "LIKE"
+		if db.Name() == "postgres" {
+			like = "ILIKE"
+		}
+		base = base.Where(fmt.Sprintf("cl.name %s ?", like), "%"+nameFilter+"%")
+	}
 
 	var total int64
 	if err := base.Session(&gorm.Session{}).Distinct("cl.name").Count(&total).Error; err != nil {
@@ -576,11 +597,11 @@ func (c *Client) ListDeviceClientFleetSummaries(ctx context.Context, limit, offs
 	qNames := base.Session(&gorm.Session{}).
 		Distinct("cl.name").
 		Order("cl.name ASC")
-	if limit > 0 {
-		qNames = qNames.Limit(limit)
+	if opts.Limit > 0 {
+		qNames = qNames.Limit(opts.Limit)
 	}
-	if offset > 0 {
-		qNames = qNames.Offset(offset)
+	if opts.Offset > 0 {
+		qNames = qNames.Offset(opts.Offset)
 	}
 
 	var names []string

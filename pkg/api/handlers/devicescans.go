@@ -447,7 +447,9 @@ func convertMCPServerDetail(d gtypes.MCPServerDetail) types.DeviceMCPServerDetai
 
 // ListClients handles GET /api/devices/clients. Paginated distinct client
 // names from each device's latest scan, with users, skill metadata, and MCP
-// rows attributed to that client.
+// rows attributed to that client. Optional query param `name` filters to
+// client names that contain the given substring (case-insensitive on
+// PostgreSQL).
 func (*DeviceScansHandler) ListClients(req api.Context) error {
 	q := req.URL.Query()
 	limit := 100
@@ -462,8 +464,13 @@ func (*DeviceScansHandler) ListClients(req api.Context) error {
 			offset = o
 		}
 	}
+	name := strings.TrimSpace(q.Get("name"))
 
-	rows, total, err := req.GatewayClient.ListDeviceClientFleetSummaries(req.Context(), limit, offset)
+	rows, total, err := req.GatewayClient.ListDeviceClientFleetSummaries(req.Context(), gateway.DeviceClientFleetListOptions{
+		Name:   name,
+		Limit:  limit,
+		Offset: offset,
+	})
 	if err != nil {
 		return err
 	}

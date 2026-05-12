@@ -351,6 +351,8 @@
 										<button
 											class="menu-button"
 											onclick={(e) => {
+												e.stopPropagation();
+												e.preventDefault();
 												if (!d.configHash) {
 													console.error('No config hash found for MCP server', d);
 													return;

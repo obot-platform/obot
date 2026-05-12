@@ -1305,6 +1305,8 @@ export interface DeviceClientFleetSummaryResponse extends DeviceClientFleetSumma
 }
 
 export type DeviceClientListFilters = {
+	/** Case-insensitive substring match on client name (server uses ILIKE on PostgreSQL). */
+	name?: string;
 	limit?: number;
 	offset?: number;
 };

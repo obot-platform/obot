@@ -46,7 +46,8 @@
 		try {
 			clientsData = await AdminService.listDeviceClients({
 				limit: pageSize,
-				offset: idx * pageSize
+				offset: idx * pageSize,
+				name: nameFilter
 			});
 		} finally {
 			loading = false;
@@ -56,6 +57,7 @@
 	function updateName(value: string) {
 		nameFilter = value;
 		setFilterUrlParams('name', value ? [value] : []);
+		reload(0);
 	}
 
 	function fetchPage(idx: number) {

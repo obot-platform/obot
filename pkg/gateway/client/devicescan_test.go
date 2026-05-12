@@ -279,7 +279,7 @@ func TestDeviceClientFleetSummaries(t *testing.T) {
 		}},
 	})
 
-	list, total, err := c.ListDeviceClientFleetSummaries(ctx, 50, 0)
+	list, total, err := c.ListDeviceClientFleetSummaries(ctx, DeviceClientFleetListOptions{Limit: 50})
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -288,6 +288,22 @@ func TestDeviceClientFleetSummaries(t *testing.T) {
 	}
 	if len(list) != 3 {
 		t.Fatalf("want 3 rows, got %d", len(list))
+	}
+
+	filtered, fTotal, err := c.ListDeviceClientFleetSummaries(ctx, DeviceClientFleetListOptions{Name: "claude", Limit: 50})
+	if err != nil {
+		t.Fatalf("list name=claude: %v", err)
+	}
+	if fTotal != 1 || len(filtered) != 1 || filtered[0].Name != "claude-code" {
+		t.Errorf("name filter claude: want total=1 row=claude-code, got total=%d rows=%+v", fTotal, filtered)
+	}
+
+	codeMatches, codeTotal, err := c.ListDeviceClientFleetSummaries(ctx, DeviceClientFleetListOptions{Name: "code", Limit: 50})
+	if err != nil {
+		t.Fatalf("list name=code: %v", err)
+	}
+	if codeTotal != 2 || len(codeMatches) != 2 {
+		t.Errorf("name filter code: want 2 clients (claude-code, codex), got total=%d len=%d", codeTotal, len(codeMatches))
 	}
 
 	var cc *DeviceClientFleetSummary
@@ -329,7 +345,7 @@ func TestDeviceClientFleetSummaries(t *testing.T) {
 		t.Errorf("codex skills[0]: %+v", g.Skills[0])
 	}
 
-	list2, total2, err := c.ListDeviceClientFleetSummaries(ctx, 1, 1)
+	list2, total2, err := c.ListDeviceClientFleetSummaries(ctx, DeviceClientFleetListOptions{Limit: 1, Offset: 1})
 	if err != nil {
 		t.Fatalf("list page 2: %v", err)
 	}
