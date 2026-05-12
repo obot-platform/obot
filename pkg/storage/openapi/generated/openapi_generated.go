@@ -2942,16 +2942,16 @@ func schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrence(ref com
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
-					"index": {
+					"id": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Index is the position of this row inside the parent scan's MCPServers slice.",
+							Description: "ID is the observation's stable identifier.",
 							Default:     0,
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
 					},
 				},
-				Required: []string{"deviceScanID", "deviceID", "client", "scope", "scannedAt", "index"},
+				Required: []string{"deviceScanID", "deviceID", "client", "scope", "scannedAt", "id"},
 			},
 		},
 		Dependencies: []string{
@@ -3443,9 +3443,16 @@ func schema_obot_platform_obot_apiclient_types_DeviceScanMCPServer(ref common.Re
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DeviceScanMCPServer is one MCP server observation.",
+				Description: "DeviceScanMCPServer is one MCP server observation. ID is server-assigned on insert and stable across responses.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the row's primary key. Server-set; ignored on submission.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 					"client": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Client is the canonical client name (e.g. \"cursor\"); empty for orphans.",
@@ -3561,7 +3568,7 @@ func schema_obot_platform_obot_apiclient_types_DeviceScanManifest(ref common.Ref
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DeviceScanManifest is what `obot scan` submits. Server-assigned fields (id, receivedAt, submittedBy) live on DeviceScan instead.",
+				Description: "DeviceScanManifest is what `obot scan` submits. Server-assigned fields (id, receivedAt, submittedBy) live on DeviceScan instead. Child observations share the same wire type for submission and response — the ID field is server-set and decoded into a zero value on submission, which DeviceScanFromManifest deliberately does not copy. Submitters cannot trample existing row PKs.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"scannerVersion": {
@@ -3700,9 +3707,16 @@ func schema_obot_platform_obot_apiclient_types_DeviceScanPlugin(ref common.Refer
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DeviceScanPlugin is one plugin observation.",
+				Description: "DeviceScanPlugin is one plugin observation. ID is server-assigned on insert and stable across responses.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the row's primary key. Server-set; ignored on submission.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 					"client": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Client is the canonical client name that owns the plugin host.",
@@ -3893,9 +3907,16 @@ func schema_obot_platform_obot_apiclient_types_DeviceScanSkill(ref common.Refere
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DeviceScanSkill is one skill (SKILL.md) observation.",
+				Description: "DeviceScanSkill is one skill (SKILL.md) observation. ID is server-assigned on insert and stable across responses.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the row's primary key. Server-set; ignored on submission.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 					"client": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Client is the canonical client name; \"multi\" for free-floating SKILL.md files with no canonical owning client (e.g. .agents/skills, .agent/skills, project skills outside a known client tree).",
@@ -4180,16 +4201,16 @@ func schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrence(ref common.
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
-					"index": {
+					"id": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Index is the position of this row inside the parent scan's Skills slice.",
+							Description: "ID is the observation's stable identifier.",
 							Default:     0,
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
 					},
 				},
-				Required: []string{"deviceScanID", "deviceID", "client", "scope", "scannedAt", "index"},
+				Required: []string{"deviceScanID", "deviceID", "client", "scope", "scannedAt", "id"},
 			},
 		},
 		Dependencies: []string{

@@ -22,14 +22,15 @@ export function shortHash(h?: string): string {
 
 // findParentPlugin returns the plugin observation whose defining file or
 // supporting files contain `file`. Used to cross-link MCP servers and
-// skills back to the plugin that emitted them.
+// skills back to the plugin that emitted them. The returned id is the
+// plugin row's PK, suitable for the {id} segment of scan-scoped detail
+// URLs.
 export function findParentPlugin(
 	scan: DeviceScan | undefined,
 	file: string | undefined
-): { index: number; name: string } | undefined {
+): { id: number; name: string } | undefined {
 	if (!scan || !file) return undefined;
-	const idx =
-		scan.plugins?.findIndex((p) => p.configPath === file || p.files?.includes(file)) ?? -1;
-	if (idx < 0) return undefined;
-	return { index: idx, name: scan.plugins[idx].name };
+	const match = scan.plugins?.find((p) => p.configPath === file || p.files?.includes(file));
+	if (!match) return undefined;
+	return { id: match.id, name: match.name };
 }

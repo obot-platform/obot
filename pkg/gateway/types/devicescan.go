@@ -201,6 +201,7 @@ func ConvertDeviceScanFile(f DeviceScanFile) types2.DeviceScanFile {
 
 func ConvertDeviceScanMCPServer(m DeviceScanMCPServer) types2.DeviceScanMCPServer {
 	return types2.DeviceScanMCPServer{
+		ID:          m.ID,
 		Client:      m.Client,
 		ProjectPath: m.ProjectPath,
 		File:        m.File,
@@ -217,6 +218,7 @@ func ConvertDeviceScanMCPServer(m DeviceScanMCPServer) types2.DeviceScanMCPServe
 
 func ConvertDeviceScanSkill(s DeviceScanSkill) types2.DeviceScanSkill {
 	return types2.DeviceScanSkill{
+		ID:           s.ID,
 		Client:       s.Client,
 		ProjectPath:  s.ProjectPath,
 		File:         s.File,
@@ -230,6 +232,7 @@ func ConvertDeviceScanSkill(s DeviceScanSkill) types2.DeviceScanSkill {
 
 func ConvertDeviceScanPlugin(p DeviceScanPlugin) types2.DeviceScanPlugin {
 	return types2.DeviceScanPlugin{
+		ID:            p.ID,
 		Client:        p.Client,
 		ProjectPath:   p.ProjectPath,
 		ConfigPath:    p.ConfigPath,
@@ -307,22 +310,18 @@ type SkillDetail struct {
 }
 
 // MCPServerOccurrence is one device's latest-scan instance of a given
-// ConfigHash. Index is the position of the row inside the parent scan's
-// MCPServers slice (GORM preload order, by id ASC) so the UI can deep-
-// link to /admin/device-scans/{deviceScanID}/mcp/{index}.
+// ConfigHash.
 type MCPServerOccurrence struct {
 	DeviceScanID uint      `gorm:"column:device_scan_id"`
 	DeviceID     string    `gorm:"column:device_id"`
 	Client       string    `gorm:"column:client"`
 	Scope        string    `gorm:"column:scope"`
 	ScannedAt    time.Time `gorm:"column:scanned_at"`
-	Index        int       `gorm:"column:idx"`
+	ID           uint      `gorm:"column:id"`
 }
 
 // SkillOccurrence is one device's latest-scan instance of a given
-// skill name. Index is the position of the row inside the parent
-// scan's Skills slice (GORM preload order) so the UI can deep-link
-// to /admin/device-scans/{deviceScanID}/skills/{index}.
+// skill name.
 type SkillOccurrence struct {
 	DeviceScanID uint      `gorm:"column:device_scan_id"`
 	DeviceID     string    `gorm:"column:device_id"`
@@ -330,7 +329,7 @@ type SkillOccurrence struct {
 	Scope        string    `gorm:"column:scope"`
 	ProjectPath  string    `gorm:"column:project_path"`
 	ScannedAt    time.Time `gorm:"column:scanned_at"`
-	Index        int       `gorm:"column:idx"`
+	ID           uint      `gorm:"column:id"`
 }
 
 // DeviceScanFromManifest builds a gateway DeviceScan + its children
