@@ -50,6 +50,12 @@ func NormalizeAppURL(raw string) (string, error) {
 	if parsed.User != nil {
 		return "", fmt.Errorf("app URL must not include user info")
 	}
+	if parsed.RawQuery != "" {
+		return "", fmt.Errorf("app URL must not include a query string")
+	}
+	if parsed.Fragment != "" {
+		return "", fmt.Errorf("app URL must not include a fragment")
+	}
 
 	normalized := strings.TrimRight(parsed.String(), "/")
 	normalized = strings.TrimSuffix(normalized, "/api")

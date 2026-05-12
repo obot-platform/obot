@@ -70,6 +70,16 @@ func TestNormalizeAppURL(t *testing.T) {
 			raw:     "https://user:pass@obot.example.com",
 			wantErr: true,
 		},
+		{
+			name:    "query string",
+			raw:     "https://obot.example.com?x=y",
+			wantErr: true,
+		},
+		{
+			name:    "fragment",
+			raw:     "https://obot.example.com#section",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
