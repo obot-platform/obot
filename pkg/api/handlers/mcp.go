@@ -1907,7 +1907,8 @@ func (m *MCPHandler) UpdateServerAlias(req api.Context) error {
 		return err
 	}
 
-	if !server.Spec.IsSingleUser() {
+	// TODO(IsSingleUser): determine if workspace servers (PowerUserWorkspaceID != "") should also be blocked here.
+	if server.Spec.MCPCatalogID != "" {
 		return types.NewErrBadRequest("cannot update alias for a multi-user MCP server")
 	}
 
@@ -2757,7 +2758,8 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 	var connectURL string
 	// Only single-user servers get a connect URL.
 	// Multi-user servers have connect URLs on the MCPServerInstances instead.
-	if server.Spec.IsSingleUser() {
+	// TODO(IsSingleUser): determine if workspace servers (PowerUserWorkspaceID != "") should get a connect URL.
+	if server.Spec.MCPCatalogID == "" {
 		connectURL = system.MCPConnectURL(serverURL, slug)
 	}
 
@@ -3656,7 +3658,8 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return fmt.Errorf("failed to get server: %w", err)
 	}
 
-	if !mcpServer.Spec.IsSingleUser() {
+	// TODO(IsSingleUser): determine if workspace servers (PowerUserWorkspaceID != "") should also be blocked here.
+	if mcpServer.Spec.MCPCatalogID != "" {
 		return types.NewErrBadRequest("cannot update the URL for a multi-user MCP server; use the UpdateServer endpoint instead")
 	}
 

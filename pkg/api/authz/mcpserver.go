@@ -20,7 +20,8 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, u u
 	}
 
 	// If the user owns the MCP server, then authorization is granted.
-	if mcpServer.Spec.UserID == u.GetUID() && mcpServer.Spec.IsSingleUser() {
+	// TODO(IsSingleUser): determine if workspace servers (PowerUserWorkspaceID != "") should also get direct access here.
+	if mcpServer.Spec.UserID == u.GetUID() && mcpServer.Spec.MCPCatalogID == "" {
 		resources.Authorizated.MCPServer = &mcpServer
 		return true, nil
 	}

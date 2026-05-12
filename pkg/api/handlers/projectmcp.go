@@ -58,7 +58,8 @@ func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.M
 	}
 	pmcp.Alias = mcpServer.Spec.Alias
 
-	if mcpServer.Spec.IsSingleUser() {
+	// TODO(IsSingleUser): determine if workspace servers should also apply here.
+	if mcpServer.Spec.MCPCatalogID == "" {
 		// For single-user and composite servers, grab more status information from the MCP server.
 		// We don't show this for shared servers, because the user can't do anything about it
 		// if something is wrong with one of those; only the admin can.
@@ -120,7 +121,8 @@ func (p *ProjectMCPHandler) ListServer(req api.Context) error {
 		if mcpServer != nil {
 			mcpServers[server.Name] = *mcpServer
 
-			if mcpServer.Spec.IsSingleUser() {
+			// TODO(IsSingleUser): determine if workspace servers should also apply here.
+	if mcpServer.Spec.MCPCatalogID == "" {
 				credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name))
 			}
 		}
@@ -159,7 +161,8 @@ func (p *ProjectMCPHandler) ListServer(req api.Context) error {
 
 		// Gather components for single-user composite servers
 		var components []types.MCPServer
-		if mcpServer.Spec.IsSingleUser() && mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		// TODO(IsSingleUser): determine if workspace servers should also apply here.
+	if mcpServer.Spec.MCPCatalogID == "" && mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
 			if c, err := resolveCompositeComponents(req, mcpServer); err == nil {
 				components = c
 			} else {
@@ -224,7 +227,8 @@ func (p *ProjectMCPHandler) CreateServer(req api.Context) error {
 	}
 
 	var cred map[string]string
-	if mcpServer.Spec.IsSingleUser() {
+	// TODO(IsSingleUser): determine if workspace servers should also apply here.
+	if mcpServer.Spec.MCPCatalogID == "" {
 		gptscriptCred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name)}, mcpServer.Name)
 		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
@@ -243,7 +247,8 @@ func (p *ProjectMCPHandler) CreateServer(req api.Context) error {
 
 	// Gather components for single-user composite servers
 	var components []types.MCPServer
-	if mcpServer.Spec.IsSingleUser() && mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+	// TODO(IsSingleUser): determine if workspace servers should also apply here.
+	if mcpServer.Spec.MCPCatalogID == "" && mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
 		if c, err := resolveCompositeComponents(req, *mcpServer); err == nil {
 			components = c
 		} else {
@@ -265,7 +270,8 @@ func (p *ProjectMCPHandler) GetServer(req api.Context) error {
 	}
 
 	var cred map[string]string
-	if mcpServer.Spec.IsSingleUser() {
+	// TODO(IsSingleUser): determine if workspace servers should also apply here.
+	if mcpServer.Spec.MCPCatalogID == "" {
 		gptscriptCred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name)}, mcpServer.Name)
 		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
@@ -280,7 +286,8 @@ func (p *ProjectMCPHandler) GetServer(req api.Context) error {
 
 	// Gather components for single-user composite servers
 	var components []types.MCPServer
-	if mcpServer.Spec.IsSingleUser() && mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+	// TODO(IsSingleUser): determine if workspace servers should also apply here.
+	if mcpServer.Spec.MCPCatalogID == "" && mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
 		if c, err := resolveCompositeComponents(req, *mcpServer); err == nil {
 			components = c
 		} else {
@@ -302,7 +309,8 @@ func (p *ProjectMCPHandler) DeleteServer(req api.Context) error {
 	}
 
 	var cred map[string]string
-	if mcpServer.Spec.IsSingleUser() {
+	// TODO(IsSingleUser): determine if workspace servers should also apply here.
+	if mcpServer.Spec.MCPCatalogID == "" {
 		gptscriptCred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name)}, mcpServer.Name)
 		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
@@ -325,7 +333,8 @@ func (p *ProjectMCPHandler) DeleteServer(req api.Context) error {
 
 	// Gather components for single-user composite servers
 	var components []types.MCPServer
-	if mcpServer.Spec.IsSingleUser() && mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+	// TODO(IsSingleUser): determine if workspace servers should also apply here.
+	if mcpServer.Spec.MCPCatalogID == "" && mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
 		if c, err := resolveCompositeComponents(req, *mcpServer); err == nil {
 			components = c
 		} else {
