@@ -2,7 +2,9 @@ import { browser } from '$app/environment';
 
 const store = $state({
 	timeFormat: getTimeFormat(),
+	developerMode: getDeveloperMode(),
 	setTimeFormat,
+	setDeveloperMode,
 	initialize
 });
 
@@ -11,6 +13,7 @@ function initialize() {
 		return;
 	}
 	store.timeFormat = getTimeFormat();
+	store.developerMode = getDeveloperMode();
 }
 
 function setTimeFormat(timeFormat: '12h' | '24h') {
@@ -18,6 +21,13 @@ function setTimeFormat(timeFormat: '12h' | '24h') {
 		localStorage.setItem('timeFormat', timeFormat);
 	}
 	store.timeFormat = timeFormat;
+}
+
+function setDeveloperMode(developerMode: boolean) {
+	if (browser) {
+		localStorage.setItem('developerMode', developerMode.toString());
+	}
+	store.developerMode = developerMode;
 }
 
 function getTimeFormat(): '12h' | '24h' {
@@ -29,6 +39,14 @@ function getTimeFormat(): '12h' | '24h' {
 		return '24h';
 	}
 	return '12h';
+}
+
+function getDeveloperMode(): boolean {
+	if (!browser) {
+		return false;
+	}
+	const developerMode = localStorage.getItem('developerMode') ?? 'false';
+	return developerMode === 'true';
 }
 
 export default store;

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { VirtualPageTable } from '$lib/components/ui';
-	import { mcpServersAndEntries, timePreference } from '$lib/stores';
+	import { mcpServersAndEntries, userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
 	import { throttle } from '$lib/utils';
 	import { GripVertical } from 'lucide-svelte';
@@ -214,7 +214,7 @@
 						<td class="px-6 py-3">
 							{item.index + 1}
 						</td>
-						{@render td(formatLogTimestamp(d.createdAt, timePreference.timeFormat))}
+						{@render td(formatLogTimestamp(d.createdAt, userDeviceSettings.timeFormat))}
 						{@render td(getUserDisplayName(d.userID))}
 						{@render td(
 							d.mcpID

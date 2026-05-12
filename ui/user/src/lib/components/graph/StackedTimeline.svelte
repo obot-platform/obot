@@ -1,6 +1,6 @@
 <script lang="ts" generics="T extends object">
 	import { lightenHex } from '$lib/colors';
-	import { darkMode, timePreference } from '$lib/stores';
+	import { darkMode, userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
 	import IconButton from '../primitives/IconButton.svelte';
 	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
@@ -634,7 +634,7 @@
 
 			<svg width={clientWidth} height={clientHeight} viewBox={`0 0 ${clientWidth} ${clientHeight}`}>
 				<g transform="translate({paddingLeft}, {paddingTop})">
-					{#key timePreference.timeFormat}
+					{#key userDeviceSettings.timeFormat}
 						<g
 							class="x-axis text-base-content/15 dark:text-base-content/10"
 							transform="translate(0 {innerHeight})"
@@ -642,7 +642,7 @@
 								const selection = select(node);
 
 								const format = timeFormat;
-								const use24h = timePreference.timeFormat === '24h';
+								const use24h = userDeviceSettings.timeFormat === '24h';
 
 								const formatMillisecond = format('.%L'),
 									formatSecond = format(':%S'),
@@ -908,7 +908,7 @@
 									currentItem = {
 										key: d.category,
 										value: `${(d.seg[1] as number) - (d.seg[0] as number)}`,
-										date: formatLogTimestamp(bucketKey, timePreference.timeFormat),
+										date: formatLogTimestamp(bucketKey, userDeviceSettings.timeFormat),
 										count,
 										...(ps != null && {
 											primaryTotal: ps.primary,

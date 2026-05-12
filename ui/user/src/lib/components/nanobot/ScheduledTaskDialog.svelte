@@ -10,7 +10,7 @@
 		ScheduledTask,
 		UpdateScheduledTaskRequest
 	} from '$lib/services/nanobot/types';
-	import { errors, timePreference } from '$lib/stores';
+	import { errors, userDeviceSettings } from '$lib/stores';
 	import {
 		buildCronSchedule,
 		defaultTaskScheduleForm,
@@ -400,7 +400,7 @@
 
 				<div class="flex flex-col gap-2">
 					<TimeInput
-						format={timePreference.timeFormat}
+						format={userDeviceSettings.timeFormat}
 						date={timeAsDate}
 						onChange={(d) => {
 							time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;

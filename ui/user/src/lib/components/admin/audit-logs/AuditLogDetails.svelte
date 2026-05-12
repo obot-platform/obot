@@ -2,7 +2,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { Group, type AuditLog } from '$lib/services/admin/types';
-	import { profile, timePreference } from '$lib/stores';
+	import { profile, userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
 	import { X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -42,7 +42,7 @@
 			)}
 		></div>
 		<h3 class="text-lg font-semibold">
-			{formatLogTimestamp(auditLog.createdAt, timePreference.timeFormat)}
+			{formatLogTimestamp(auditLog.createdAt, userDeviceSettings.timeFormat)}
 		</h3>
 		<p class="text-muted-content text-xs font-light">
 			{auditLog.requestID}
