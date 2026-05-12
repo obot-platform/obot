@@ -32,7 +32,7 @@
 	let pageSize = $derived(parseInt(page.url.searchParams.get('pageSize') ?? '50', 10) ?? 50);
 	let pageIndex = $derived(Math.floor((clientsData.offset ?? 0) / pageSize));
 	let lastPageIndex = $derived(total > 0 ? Math.ceil(total / pageSize) - 1 : 0);
-	let nameFilter = $derived(page.url.searchParams.get('name') ?? '');
+	let nameFilter = $state(untrack(() => page.url.searchParams.get('name') ?? ''));
 	let loading = $state(false);
 
 	let filteredRows = $derived(
@@ -94,7 +94,7 @@
 		{:else}
 			<Table
 				data={filteredRows}
-				pageSize={PAGE_SIZE}
+				{pageSize}
 				fields={['name', 'mcpServers', 'skills', 'users']}
 				headers={[
 					{ title: 'Name', property: 'name' },
