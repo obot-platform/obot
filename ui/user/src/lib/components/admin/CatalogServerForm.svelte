@@ -160,18 +160,19 @@
 				multiUserConfig: manifest.multiUserConfig ?? { userDefinedHeaders: [] }
 			};
 
-			formData.startupTimeoutSeconds = manifest.startupTimeoutSeconds;
-
 			// Initialize the appropriate runtime config based on the runtime type
 			switch (manifest.runtime) {
 				case 'npx':
 					formData.npxConfig = normalizeNpxConfig(manifest.npxConfig);
+					formData.startupTimeoutSeconds = manifest.npxConfig?.startupTimeoutSeconds ?? manifest.startupTimeoutSeconds;
 					break;
 				case 'uvx':
 					formData.uvxConfig = normalizeUvxConfig(manifest.uvxConfig);
+					formData.startupTimeoutSeconds = manifest.uvxConfig?.startupTimeoutSeconds ?? manifest.startupTimeoutSeconds;
 					break;
 				case 'containerized':
 					formData.containerizedConfig = normalizeContainerizedConfig(manifest.containerizedConfig);
+					formData.startupTimeoutSeconds = manifest.containerizedConfig?.startupTimeoutSeconds ?? manifest.startupTimeoutSeconds;
 					break;
 				case 'remote':
 					formData.remoteServerConfig = manifest.remoteConfig
@@ -203,18 +204,19 @@
 				remoteServerConfig: undefined
 			};
 
-			formData.startupTimeoutSeconds = manifest.startupTimeoutSeconds;
-
 			// Initialize the appropriate runtime config based on the runtime type
 			switch (manifest.runtime) {
 				case 'npx':
 					formData.npxConfig = normalizeNpxConfig(manifest.npxConfig);
+					formData.startupTimeoutSeconds = manifest.npxConfig?.startupTimeoutSeconds ?? manifest.startupTimeoutSeconds;
 					break;
 				case 'uvx':
 					formData.uvxConfig = normalizeUvxConfig(manifest.uvxConfig);
+					formData.startupTimeoutSeconds = manifest.uvxConfig?.startupTimeoutSeconds ?? manifest.startupTimeoutSeconds;
 					break;
 				case 'containerized':
 					formData.containerizedConfig = normalizeContainerizedConfig(manifest.containerizedConfig);
+					formData.startupTimeoutSeconds = manifest.containerizedConfig?.startupTimeoutSeconds ?? manifest.startupTimeoutSeconds;
 					break;
 				case 'remote':
 					formData.remoteConfig = manifest.remoteConfig || { fixedURL: '', headers: [] };
@@ -312,6 +314,12 @@
 	function convertToEntryManifest(formData: RuntimeFormData): MCPCatalogEntryServerManifest {
 		const { categories, ...baseData } = formData;
 		const startupTimeoutSeconds = baseData.startupTimeoutSeconds;
+		const startupTimeoutConfig =
+			typeof startupTimeoutSeconds === 'number' &&
+			Number.isInteger(startupTimeoutSeconds) &&
+			startupTimeoutSeconds > 0
+				? { startupTimeoutSeconds }
+				: {};
 
 		// Build base manifest structure
 		const manifest: MCPCatalogEntryServerManifest = {
@@ -320,12 +328,7 @@
 			icon: baseData.icon,
 			env: baseData.env,
 			runtime: baseData.runtime,
-			...convertCategoriesToMetadata(categories),
-			...(typeof startupTimeoutSeconds === 'number' &&
-			Number.isInteger(startupTimeoutSeconds) &&
-			startupTimeoutSeconds > 0
-				? { startupTimeoutSeconds }
-				: {})
+			...convertCategoriesToMetadata(categories)
 		};
 
 		// Add runtime-specific config based on the runtime type
@@ -336,7 +339,8 @@
 						package: baseData.npxConfig.package,
 						args: baseData.npxConfig.args?.filter((arg) => arg.trim()) || [],
 						egressDomains: sanitizeEgressDomains(baseData.npxConfig.egressDomains),
-						denyAllEgress: baseData.npxConfig.denyAllEgress
+						denyAllEgress: baseData.npxConfig.denyAllEgress,
+						...startupTimeoutConfig
 					};
 				}
 				break;
@@ -347,7 +351,8 @@
 						command: baseData.uvxConfig.command || undefined,
 						args: baseData.uvxConfig.args?.filter((arg) => arg.trim()) || [],
 						egressDomains: sanitizeEgressDomains(baseData.uvxConfig.egressDomains),
-						denyAllEgress: baseData.uvxConfig.denyAllEgress
+						denyAllEgress: baseData.uvxConfig.denyAllEgress,
+						...startupTimeoutConfig
 					};
 				}
 				break;
@@ -360,7 +365,8 @@
 						command: baseData.containerizedConfig.command || undefined,
 						args: baseData.containerizedConfig.args?.filter((arg) => arg.trim()) || [],
 						egressDomains: sanitizeEgressDomains(baseData.containerizedConfig.egressDomains),
-						denyAllEgress: baseData.containerizedConfig.denyAllEgress
+						denyAllEgress: baseData.containerizedConfig.denyAllEgress,
+						...startupTimeoutConfig
 					};
 				}
 				break;

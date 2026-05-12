@@ -320,11 +320,12 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		powerUserWorkspaceID = mcpCatalogName
 	}
 
-	startupTimeout := time.Duration(mcpServer.Spec.Manifest.StartupTimeoutSeconds) * time.Second
+	startupTimeoutSeconds := mcpServer.Spec.Manifest.RuntimeStartupTimeoutSeconds()
+	startupTimeout := time.Duration(startupTimeoutSeconds) * time.Second
 	if startupTimeout == 0 {
 		startupTimeout = defaultStartupTimeout
 	} else if startupTimeout > MaxMCPServerStartupTimeout {
-		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", mcpServer.Spec.Manifest.StartupTimeoutSeconds, MaxMCPServerStartupTimeout)
+		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", startupTimeoutSeconds, MaxMCPServerStartupTimeout)
 	}
 
 	var passthroughHeaderNames []string
@@ -450,11 +451,12 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		displayName = systemServer.Name
 	}
 
-	startupTimeout := time.Duration(systemServer.Spec.Manifest.StartupTimeoutSeconds) * time.Second
+	startupTimeoutSeconds := systemServer.Spec.Manifest.RuntimeStartupTimeoutSeconds()
+	startupTimeout := time.Duration(startupTimeoutSeconds) * time.Second
 	if startupTimeout == 0 {
 		startupTimeout = defaultStartupTimeout
 	} else if startupTimeout > MaxMCPServerStartupTimeout {
-		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", systemServer.Spec.Manifest.StartupTimeoutSeconds, MaxMCPServerStartupTimeout)
+		return ServerConfig{}, nil, fmt.Errorf("input %d exceeds the max of %s", startupTimeoutSeconds, MaxMCPServerStartupTimeout)
 	}
 
 	serverConfig := ServerConfig{

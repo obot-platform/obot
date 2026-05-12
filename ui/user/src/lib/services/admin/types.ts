@@ -76,6 +76,7 @@ export interface MCPCatalogEntryServerManifest {
 	compositeConfig?: CompositeCatalogConfig;
 	multiUserConfig?: MultiUserConfig;
 
+	/** Legacy top-level field used only while older resources migrate. */
 	startupTimeoutSeconds?: number;
 }
 

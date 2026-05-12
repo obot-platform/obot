@@ -21,30 +21,33 @@ const (
 
 // UVXRuntimeConfig represents configuration for UVX runtime (Python packages via uvx)
 type UVXRuntimeConfig struct {
-	Package       string   `json:"package"`                 // Required: Python package name
-	Command       string   `json:"command"`                 // Optional: Specific command to run inside of the package. If empty, the package name will be treated as the command.
-	Args          []string `json:"args,omitempty"`          // Optional: Additional arguments
-	EgressDomains []string `json:"egressDomains,omitempty"` // Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled
-	DenyAllEgress *bool    `json:"denyAllEgress,omitempty"` // Optional: Deny all egress when network policy enforcement is enabled
+	Package               string   `json:"package"`                         // Required: Python package name
+	Command               string   `json:"command"`                         // Optional: Specific command to run inside of the package. If empty, the package name will be treated as the command.
+	Args                  []string `json:"args,omitempty"`                  // Optional: Additional arguments
+	EgressDomains         []string `json:"egressDomains,omitempty"`         // Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled
+	DenyAllEgress         *bool    `json:"denyAllEgress,omitempty"`         // Optional: Deny all egress when network policy enforcement is enabled
+	StartupTimeoutSeconds int      `json:"startupTimeoutSeconds,omitempty"` // Optional: Timeout to start and connect to the MCP server, in seconds. Defaults to 60s, max 600s.
 }
 
 // NPXRuntimeConfig represents configuration for NPX runtime (Node.js packages via npx)
 type NPXRuntimeConfig struct {
-	Package       string   `json:"package"`                 // Required: NPM package name
-	Args          []string `json:"args,omitempty"`          // Optional: Additional arguments
-	EgressDomains []string `json:"egressDomains,omitempty"` // Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled
-	DenyAllEgress *bool    `json:"denyAllEgress,omitempty"` // Optional: Deny all egress when network policy enforcement is enabled
+	Package               string   `json:"package"`                         // Required: NPM package name
+	Args                  []string `json:"args,omitempty"`                  // Optional: Additional arguments
+	EgressDomains         []string `json:"egressDomains,omitempty"`         // Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled
+	DenyAllEgress         *bool    `json:"denyAllEgress,omitempty"`         // Optional: Deny all egress when network policy enforcement is enabled
+	StartupTimeoutSeconds int      `json:"startupTimeoutSeconds,omitempty"` // Optional: Timeout to start and connect to the MCP server, in seconds. Defaults to 60s, max 600s.
 }
 
 // ContainerizedRuntimeConfig represents configuration for containerized runtime (Docker containers)
 type ContainerizedRuntimeConfig struct {
-	Image         string   `json:"image"`                   // Required: Docker image name
-	Command       string   `json:"command,omitempty"`       // Optional: Override container command
-	Args          []string `json:"args,omitempty"`          // Optional: Container arguments
-	Port          int      `json:"port"`                    // Required: Container port
-	Path          string   `json:"path"`                    // Required: HTTP path for MCP endpoint
-	EgressDomains []string `json:"egressDomains,omitempty"` // Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled
-	DenyAllEgress *bool    `json:"denyAllEgress,omitempty"` // Optional: Deny all egress when network policy enforcement is enabled
+	Image                 string   `json:"image"`                           // Required: Docker image name
+	Command               string   `json:"command,omitempty"`               // Optional: Override container command
+	Args                  []string `json:"args,omitempty"`                  // Optional: Container arguments
+	Port                  int      `json:"port"`                            // Required: Container port
+	Path                  string   `json:"path"`                            // Required: HTTP path for MCP endpoint
+	EgressDomains         []string `json:"egressDomains,omitempty"`         // Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled
+	DenyAllEgress         *bool    `json:"denyAllEgress,omitempty"`         // Optional: Deny all egress when network policy enforcement is enabled
+	StartupTimeoutSeconds int      `json:"startupTimeoutSeconds,omitempty"` // Optional: Timeout to start and connect to the MCP server, in seconds. Defaults to 60s, max 600s.
 }
 
 // RemoteRuntimeConfig represents configuration for remote runtime (External MCP servers)
@@ -168,8 +171,8 @@ type MCPServerCatalogEntryManifest struct {
 
 	Env []MCPEnv `json:"env,omitempty"`
 
-	// StartupTimeout configures the timeout to start and connect to an MCP Server. When unset, it defaults to 60s.
-	// The maximum allowed value is 600s (10 minutes). Attempting to set a higher value will cause an error.
+	// Legacy top-level field used only for migration. Use the active runtime config's startupTimeoutSeconds instead.
+	// +k8s:openapi-gen=false
 	StartupTimeoutSeconds int `json:"startupTimeoutSeconds,omitempty"`
 }
 
@@ -250,7 +253,9 @@ type MCPServerManifest struct {
 	Headers []MCPHeader `json:"headers,omitempty"`
 
 	IdleShutdownIntervalHours int `json:"idleShutdownIntervalHours,omitempty"`
-	StartupTimeoutSeconds     int `json:"startupTimeoutSeconds,omitempty"`
+	// Legacy top-level field used only for migration. Use the active runtime config's startupTimeoutSeconds instead.
+	// +k8s:openapi-gen=false
+	StartupTimeoutSeconds int `json:"startupTimeoutSeconds,omitempty"`
 }
 
 type MCPServer struct {
@@ -417,6 +422,81 @@ func (e RuntimeValidationError) Error() string {
 	return fmt.Sprintf("runtime %s validation error for field %s: %s", e.Runtime, e.Field, e.Message)
 }
 
+func startupTimeoutSeconds(runtime Runtime, uvxConfig *UVXRuntimeConfig, npxConfig *NPXRuntimeConfig, containerizedConfig *ContainerizedRuntimeConfig, legacyStartupTimeoutSeconds int) int {
+	switch runtime {
+	case RuntimeUVX:
+		if uvxConfig != nil && uvxConfig.StartupTimeoutSeconds != 0 {
+			return uvxConfig.StartupTimeoutSeconds
+		}
+	case RuntimeNPX:
+		if npxConfig != nil && npxConfig.StartupTimeoutSeconds != 0 {
+			return npxConfig.StartupTimeoutSeconds
+		}
+	case RuntimeContainerized:
+		if containerizedConfig != nil && containerizedConfig.StartupTimeoutSeconds != 0 {
+			return containerizedConfig.StartupTimeoutSeconds
+		}
+	}
+
+	return legacyStartupTimeoutSeconds
+}
+
+func (m MCPServerCatalogEntryManifest) RuntimeStartupTimeoutSeconds() int {
+	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, m.StartupTimeoutSeconds)
+}
+
+func (m MCPServerManifest) RuntimeStartupTimeoutSeconds() int {
+	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, m.StartupTimeoutSeconds)
+}
+
+func (m SystemMCPServerManifest) RuntimeStartupTimeoutSeconds() int {
+	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, m.StartupTimeoutSeconds)
+}
+
+func (m SystemMCPServerCatalogEntryManifest) RuntimeStartupTimeoutSeconds() int {
+	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, m.StartupTimeoutSeconds)
+}
+
+func migrateStartupTimeoutSeconds(runtime Runtime, uvxConfig *UVXRuntimeConfig, npxConfig *NPXRuntimeConfig, containerizedConfig *ContainerizedRuntimeConfig, legacyStartupTimeoutSeconds *int) bool {
+	if legacyStartupTimeoutSeconds == nil || *legacyStartupTimeoutSeconds == 0 {
+		return false
+	}
+
+	switch runtime {
+	case RuntimeUVX:
+		if uvxConfig != nil && uvxConfig.StartupTimeoutSeconds == 0 {
+			uvxConfig.StartupTimeoutSeconds = *legacyStartupTimeoutSeconds
+		}
+	case RuntimeNPX:
+		if npxConfig != nil && npxConfig.StartupTimeoutSeconds == 0 {
+			npxConfig.StartupTimeoutSeconds = *legacyStartupTimeoutSeconds
+		}
+	case RuntimeContainerized:
+		if containerizedConfig != nil && containerizedConfig.StartupTimeoutSeconds == 0 {
+			containerizedConfig.StartupTimeoutSeconds = *legacyStartupTimeoutSeconds
+		}
+	}
+
+	*legacyStartupTimeoutSeconds = 0
+	return true
+}
+
+func (m *MCPServerCatalogEntryManifest) MigrateStartupTimeoutSeconds() bool {
+	return migrateStartupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, &m.StartupTimeoutSeconds)
+}
+
+func (m *MCPServerManifest) MigrateStartupTimeoutSeconds() bool {
+	return migrateStartupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, &m.StartupTimeoutSeconds)
+}
+
+func (m *SystemMCPServerManifest) MigrateStartupTimeoutSeconds() bool {
+	return migrateStartupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, &m.StartupTimeoutSeconds)
+}
+
+func (m *SystemMCPServerCatalogEntryManifest) MigrateStartupTimeoutSeconds() bool {
+	return migrateStartupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, &m.StartupTimeoutSeconds)
+}
+
 // MapCatalogEntryToServer converts an MCPServerCatalogEntryManifest to an MCPServerManifest
 // For remote runtime, userURL is used when the catalog entry has a hostname constraint
 // If disableHostnameValidation is true, the hostname constraint is not validated.
@@ -425,15 +505,14 @@ func (e RuntimeValidationError) Error() string {
 func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL string, disableHostnameValidation bool) (MCPServerManifest, error) {
 	serverManifest := MCPServerManifest{
 		// Copy common fields
-		Metadata:              catalogEntry.Metadata,
-		Name:                  catalogEntry.Name,
-		ShortDescription:      catalogEntry.ShortDescription,
-		Description:           catalogEntry.Description,
-		Icon:                  catalogEntry.Icon,
-		ToolPreview:           catalogEntry.ToolPreview,
-		Runtime:               catalogEntry.Runtime,
-		Env:                   catalogEntry.Env,
-		StartupTimeoutSeconds: catalogEntry.StartupTimeoutSeconds,
+		Metadata:         catalogEntry.Metadata,
+		Name:             catalogEntry.Name,
+		ShortDescription: catalogEntry.ShortDescription,
+		Description:      catalogEntry.Description,
+		Icon:             catalogEntry.Icon,
+		ToolPreview:      catalogEntry.ToolPreview,
+		Runtime:          catalogEntry.Runtime,
+		Env:              catalogEntry.Env,
 	}
 
 	// Handle runtime-specific mapping
@@ -447,11 +526,12 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 		serverManifest.UVXConfig = &UVXRuntimeConfig{
-			Package:       catalogEntry.UVXConfig.Package,
-			Command:       catalogEntry.UVXConfig.Command,
-			Args:          catalogEntry.UVXConfig.Args,
-			EgressDomains: catalogEntry.UVXConfig.EgressDomains,
-			DenyAllEgress: catalogEntry.UVXConfig.DenyAllEgress,
+			Package:               catalogEntry.UVXConfig.Package,
+			Command:               catalogEntry.UVXConfig.Command,
+			Args:                  catalogEntry.UVXConfig.Args,
+			EgressDomains:         catalogEntry.UVXConfig.EgressDomains,
+			DenyAllEgress:         catalogEntry.UVXConfig.DenyAllEgress,
+			StartupTimeoutSeconds: startupTimeoutSeconds(RuntimeUVX, catalogEntry.UVXConfig, catalogEntry.NPXConfig, catalogEntry.ContainerizedConfig, catalogEntry.StartupTimeoutSeconds),
 		}
 
 	case RuntimeNPX:
@@ -463,10 +543,11 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 		serverManifest.NPXConfig = &NPXRuntimeConfig{
-			Package:       catalogEntry.NPXConfig.Package,
-			Args:          catalogEntry.NPXConfig.Args,
-			EgressDomains: catalogEntry.NPXConfig.EgressDomains,
-			DenyAllEgress: catalogEntry.NPXConfig.DenyAllEgress,
+			Package:               catalogEntry.NPXConfig.Package,
+			Args:                  catalogEntry.NPXConfig.Args,
+			EgressDomains:         catalogEntry.NPXConfig.EgressDomains,
+			DenyAllEgress:         catalogEntry.NPXConfig.DenyAllEgress,
+			StartupTimeoutSeconds: startupTimeoutSeconds(RuntimeNPX, catalogEntry.UVXConfig, catalogEntry.NPXConfig, catalogEntry.ContainerizedConfig, catalogEntry.StartupTimeoutSeconds),
 		}
 
 	case RuntimeContainerized:
@@ -478,13 +559,14 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 		serverManifest.ContainerizedConfig = &ContainerizedRuntimeConfig{
-			Image:         catalogEntry.ContainerizedConfig.Image,
-			Command:       catalogEntry.ContainerizedConfig.Command,
-			Args:          catalogEntry.ContainerizedConfig.Args,
-			Port:          catalogEntry.ContainerizedConfig.Port,
-			Path:          catalogEntry.ContainerizedConfig.Path,
-			EgressDomains: catalogEntry.ContainerizedConfig.EgressDomains,
-			DenyAllEgress: catalogEntry.ContainerizedConfig.DenyAllEgress,
+			Image:                 catalogEntry.ContainerizedConfig.Image,
+			Command:               catalogEntry.ContainerizedConfig.Command,
+			Args:                  catalogEntry.ContainerizedConfig.Args,
+			Port:                  catalogEntry.ContainerizedConfig.Port,
+			Path:                  catalogEntry.ContainerizedConfig.Path,
+			EgressDomains:         catalogEntry.ContainerizedConfig.EgressDomains,
+			DenyAllEgress:         catalogEntry.ContainerizedConfig.DenyAllEgress,
+			StartupTimeoutSeconds: startupTimeoutSeconds(RuntimeContainerized, catalogEntry.UVXConfig, catalogEntry.NPXConfig, catalogEntry.ContainerizedConfig, catalogEntry.StartupTimeoutSeconds),
 		}
 
 	case RuntimeRemote:

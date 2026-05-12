@@ -21,6 +21,8 @@ type SystemMCPServerManifest struct {
 
 	Env []MCPEnv `json:"env,omitempty"`
 
+	// Legacy top-level field used only for migration. Use the active runtime config's startupTimeoutSeconds instead.
+	// +k8s:openapi-gen=false
 	StartupTimeoutSeconds int `json:"startupTimeoutSeconds,omitempty"`
 }
 

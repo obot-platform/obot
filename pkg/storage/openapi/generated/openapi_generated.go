@@ -2434,6 +2434,13 @@ func schema_obot_platform_obot_apiclient_types_ContainerizedRuntimeConfig(ref co
 							Format:      "",
 						},
 					},
+					"startupTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: Deny all egress when network policy enforcement is enabled",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 				Required: []string{"image", "port", "path"},
 			},
@@ -6678,13 +6685,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							},
 						},
 					},
-					"startupTimeoutSeconds": {
-						SchemaProps: spec.SchemaProps{
-							Description: "StartupTimeout configures the timeout to start and connect to an MCP Server. When unset, it defaults to 60s. The maximum allowed value is 600s (10 minutes). Attempting to set a higher value will cause an error.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
 				},
 				Required: []string{"name", "shortDescription", "description", "icon", "runtime"},
 			},
@@ -7135,12 +7135,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 						},
 					},
 					"idleShutdownIntervalHours": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
-					"startupTimeoutSeconds": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int32",
@@ -9091,6 +9085,13 @@ func schema_obot_platform_obot_apiclient_types_NPXRuntimeConfig(ref common.Refer
 							Description: "Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled",
 							Type:        []string{"boolean"},
 							Format:      "",
+						},
+					},
+					"startupTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: Deny all egress when network policy enforcement is enabled",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},
@@ -13861,12 +13862,6 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 							},
 						},
 					},
-					"startupTimeoutSeconds": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
 				},
 				Required: []string{"name", "shortDescription", "description", "icon", "runtime"},
 			},
@@ -15448,6 +15443,13 @@ func schema_obot_platform_obot_apiclient_types_UVXRuntimeConfig(ref common.Refer
 							Description: "Optional: Empty means allow all, otherwise allow only the listed domains when network policy enforcement is enabled",
 							Type:        []string{"boolean"},
 							Format:      "",
+						},
+					},
+					"startupTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: Deny all egress when network policy enforcement is enabled",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},

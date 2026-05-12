@@ -3,10 +3,40 @@ package mcp
 import (
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
+
+func TestServerToServerConfig_StartupTimeoutFromRuntimeConfig(t *testing.T) {
+	baseURL := "http://localhost:8080"
+	mcpServer := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image:                 "test-image",
+					Port:                  8080,
+					Path:                  "/mcp",
+					StartupTimeoutSeconds: 90,
+				},
+			},
+		},
+	}
+	mcpServer.Name = "test-server"
+
+	config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "test-user-id", "test-scope", "test-catalog", nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(missing) > 0 {
+		t.Fatalf("expected no missing config, got %v", missing)
+	}
+	if config.StartupTimeout != 90*time.Second {
+		t.Fatalf("expected startup timeout 90s, got %s", config.StartupTimeout)
+	}
+}
 
 func TestServerToServerConfig_MultiUserPassthroughHeaders(t *testing.T) {
 	baseURL := "http://localhost:8080"
