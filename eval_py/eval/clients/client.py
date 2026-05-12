@@ -62,6 +62,40 @@ class Client:
         data = json.loads(body)
         return data.get("items", []), status
 
+    def create_project_v2(self, display_name: str) -> tuple[Optional[dict], int]:
+        """POST /api/projectsv2 — same as Nanobot UI create project (no launch needed)."""
+        body, status = self._do("POST", "/api/projectsv2", {"displayName": display_name})
+        if status not in (200, 201):
+            return None, status
+        try:
+            return json.loads(body), status
+        except json.JSONDecodeError:
+            return None, status
+
+    def create_nanobot_agent(
+        self,
+        project_id: str,
+        *,
+        display_name: str = "Eval agent",
+        description: str = "",
+        default_agent: str = "",
+    ) -> tuple[Optional[dict], int]:
+        """POST /api/projectsv2/{project_id}/agents — creates agent; MCP starts on first connect."""
+        payload: dict = {}
+        if display_name:
+            payload["displayName"] = display_name
+        if description:
+            payload["description"] = description
+        if default_agent:
+            payload["defaultAgent"] = default_agent
+        body, status = self._do("POST", "/api/projectsv2/%s/agents" % project_id, payload)
+        if status not in (200, 201):
+            return None, status
+        try:
+            return json.loads(body), status
+        except json.JSONDecodeError:
+            return None, status
+
     def list_agents(self, project_id: str) -> tuple[list[dict], int]:
         body, status = self._do("GET", f"/api/projectsv2/{project_id}/agents")
         if status != 200:
