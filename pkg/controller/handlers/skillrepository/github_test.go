@@ -24,6 +24,14 @@ func TestValidateRepositoryURL(t *testing.T) {
 			url:  "https://gitlab.com/owner/repo",
 		},
 		{
+			name: "valid GitHub URL with ref path",
+			url:  "https://github.com/owner/repo/main",
+		},
+		{
+			name: "valid GitLab subgroup with .git suffix",
+			url:  "https://gitlab.com/group/subgroup/repo.git/main",
+		},
+		{
 			name: "valid with .git suffix",
 			url:  "https://example.com/owner/repo.git",
 		},
@@ -40,6 +48,26 @@ func TestValidateRepositoryURL(t *testing.T) {
 		{
 			name:    "non-git HTTPS URL",
 			url:     "https://example.com/some/page",
+			wantErr: "does not appear to be a git repository",
+		},
+		{
+			name:    "GitHub owner only rejected",
+			url:     "https://github.com/owner",
+			wantErr: "owner and repository",
+		},
+		{
+			name:    "GitLab owner only rejected",
+			url:     "https://gitlab.com/owner",
+			wantErr: "owner and repository",
+		},
+		{
+			name:    "embedded credentials rejected",
+			url:     "https://token@github.com/owner/repo",
+			wantErr: "must not include credentials",
+		},
+		{
+			name:    "non-GitHub host without .git rejected",
+			url:     "https://example.com/owner/repo",
 			wantErr: "does not appear to be a git repository",
 		},
 		{
