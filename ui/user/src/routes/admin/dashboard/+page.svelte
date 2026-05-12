@@ -396,35 +396,41 @@
 </script>
 
 <Layout title="Dashboard" classes={{ childrenContainer: 'max-w-none', container: '' }}>
-	<div class="@container grid grid-cols-12 gap-4">
+	<div class="@container grid min-w-0 w-full max-w-full grid-cols-12 gap-4">
 		<div class="col-span-12 grid grid-cols-12 gap-4">
 			<div
 				class={twMerge(
-					' grid grid-cols-12 gap-0 paper p-0',
-					hasDeviceScans ? ' col-span-12 @min-3xl:col-span-5' : 'col-span-12'
+					'paper flex min-w-0 flex-col gap-0 p-0',
+					hasDeviceScans ? ' col-span-12 @3xl:col-span-5' : 'col-span-12'
 				)}
 			>
 				{#if hasDeviceScans}
-					<div class="col-span-12 border-b border-surface2 px-4 py-2">
+					<div class="shrink-0 border-b border-surface2 px-4 py-2">
 						<h4 class="flex items-center font-light text-xs uppercase">On Platform</h4>
 					</div>
 				{/if}
-				{#each platformStatTiles as platformStat (platformStat.id)}
-					{@render platformStatCell(platformStat)}
-				{/each}
+				<div class="@container min-w-0 w-full max-w-full">
+					<div class="grid w-full grid-cols-2 gap-0 @md:grid-cols-12">
+						{#each platformStatTiles as platformStat (platformStat.id)}
+							{@render platformStatCell(platformStat)}
+						{/each}
+					</div>
+				</div>
 			</div>
 			{#if hasDeviceScans}
 				<div
-					class="gap-0 paper p-0 col-span-12 @min-3xl:col-span-7"
+					class="gap-0 paper min-w-0 p-0 col-span-12 @3xl:col-span-7"
 					in:fly={{ x: 100, duration: 150 }}
 				>
 					<div class="col-span-12 border-b border-surface2 px-4 py-2">
 						<h4 class="flex items-center font-light text-xs uppercase">Device Scans</h4>
 					</div>
-					<div class="flex items-center">
-						{#each deviceScanTiles as deviceScanStat (deviceScanStat.id)}
-							{@render deviceScanStatCell(deviceScanStat)}
-						{/each}
+					<div class="@container min-w-0 w-full max-w-full">
+						<div class="grid grid-cols-2 gap-0 @md:flex @md:items-center">
+							{#each deviceScanTiles as deviceScanStat (deviceScanStat.id)}
+								{@render deviceScanStatCell(deviceScanStat)}
+							{/each}
+						</div>
 					</div>
 				</div>
 			{/if}
@@ -433,7 +439,7 @@
 		<div
 			class={twMerge(
 				'flex flex-col gap-4 col-span-12',
-				hasDeviceScans ? '@min-3xl:col-span-5' : '@min-3xl:col-span-8'
+				hasDeviceScans ? '@3xl:col-span-5' : '@3xl:col-span-8'
 			)}
 		>
 			{#if hasDeviceScans}
@@ -485,7 +491,7 @@
 		</div>
 		{#if hasDeviceScans}
 			<div
-				class="col-span-12 @min-3xl:col-span-7 flex flex-col gap-4"
+				class="col-span-12 @3xl:col-span-7 flex flex-col gap-4"
 				in:fly={{ x: 100, duration: 150 }}
 			>
 				{#if loadingDeviceScanStats}
@@ -501,7 +507,7 @@
 						totalGroups={totalDeviceScanSkillGroups}
 						emptyMsg="No skills observed yet."
 						class="h-fit"
-						classes={{ graphContainer: 'w-1/2', graph: 'h-56 w-full' }}
+						classes={{ graphContainer: '@md:w-1/2', graph: 'h-56 w-full' }}
 					/>
 					<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
 						<DeviceScanDonutCard
@@ -531,7 +537,7 @@
 			</div>
 		{:else}
 			<div
-				class="col-span-12 @min-3xl:col-span-4 flex flex-col gap-4"
+				class="col-span-12 @3xl:col-span-4 flex flex-col gap-4"
 				in:fly={{ x: 100, duration: 150 }}
 			>
 				{@render serverActivityGraph()}
@@ -720,7 +726,9 @@
 
 {#snippet platformStatCell(platformStat: (typeof platformStatTiles)[number])}
 	{@const defaultClasses = 'col-span-4 p-2 flex gap-4 items-center justify-between w-full'}
-	<div class="col-span-4 px-2 my-2 flex not-last:border-r not-last:border-surface2">
+	<div
+		class="col-span-1 min-w-0 border-r-0 px-2 my-2 flex [&:last-child:nth-child(odd)]:col-span-2 @md:col-span-4 @md:[&:last-child:nth-child(odd)]:col-span-4 @md:not-last:border-r @md:not-last:border-surface2"
+	>
 		{#if platformStat.seeMore && !isBootStrapUser}
 			<a
 				class={twMerge(
@@ -741,7 +749,9 @@
 
 {#snippet deviceScanStatCell(deviceScanStat: (typeof deviceScanTiles)[number])}
 	{@const defaultClasses = 'p-2 flex gap-4 items-center justify-between w-full'}
-	<div class="flex-1 px-2 my-2 flex not-last:border-r not-last:border-surface2">
+	<div
+		class="col-span-1 min-w-0 flex border-r-0 px-2 my-2 [&:last-child:nth-child(odd)]:col-span-2 @md:flex-1 @md:col-span-auto @md:[&:last-child:nth-child(odd)]:col-span-auto @md:not-last:border-r @md:not-last:border-surface2"
+	>
 		{#if deviceScanStat.seeMore}
 			<a
 				href={resolve(deviceScanStat.seeMore as `/${string}`)}
@@ -789,7 +799,7 @@
 {#snippet popularTools()}
 	<div
 		class={twMerge(
-			'paper gap-1 col-span-12 flex flex-col @min-3xl:col-span-6 ',
+			'paper gap-1 col-span-12 flex flex-col @3xl:col-span-6 ',
 			!hasDeviceScans && 'h-full min-h-72'
 		)}
 	>
@@ -853,7 +863,7 @@
 {#snippet toolAverageResponseTime()}
 	<div
 		class={twMerge(
-			'paper gap-1 col-span-12 flex flex-col @min-3xl:col-span-6',
+			'paper gap-1 col-span-12 flex flex-col @3xl:col-span-6',
 			!hasDeviceScans && 'h-full min-h-72'
 		)}
 	>
