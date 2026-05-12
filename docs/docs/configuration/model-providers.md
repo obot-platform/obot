@@ -10,7 +10,7 @@ Obot supports a variety of model providers, including:
 - OpenAI
 - Anthropic
 - xAI
-- [Ollama](#ollama)
+- [Generic Responses Compatible Provider](#generic-responses-compatible-provider)
 - Groq
 - vLLM
 - DeepSeek
@@ -151,16 +151,46 @@ Obot requires:
 - **API Key** — your Bedrock API key
 - **AWS Region** — the region where your inference profiles are configured (e.g. `us-east-1`)
 
-#### Ollama
+#### Generic Responses Compatible Provider
 
-[Ollama](https://ollama.ai/) allows you to run LLMs locally. Two configuration steps are required to use it with Obot:
+Use **Generic Responses Compatible Provider** to connect Obot to any Responses-compatible API.
 
-1. **Expose Ollama to the network** - By default, Ollama only binds to `127.0.0.1:11434`. Since Obot runs in a container, `localhost` addresses resolve to Obot's container, not your host. Set `OLLAMA_HOST=0.0.0.0` before starting Ollama, then use your host's IP address in the endpoint URL.
+This provider supports:
+- A provider-level **Base URL** and optional **API Key**
 
-2. **Set the Ollama host**
-   ```
-   http://<your-host-ip>:11434
-   ```
-   - If you are running Obot in Docker, you should use `http://host.docker.internal:11434`. For linux users, run Obot in Docker with this additional flag `--add-host=host.docker.internal:host-gateway` or use an alternative method of allowing the container to access the host network
+##### Common examples
 
-See [Ollama's FAQ](https://docs.ollama.com/faq) for platform-specific instructions on setting `OLLAMA_HOST`.
+- **Ollama**: `http://127.0.0.1:11434/v1`
+- **LiteLLM**: `http://<litellm-host>:4000/v1`
+
+##### Using Ollama
+
+[Ollama](https://ollama.ai/) allows you to run models locally. When Obot runs in Docker, make Ollama reachable from the container:
+
+1. **Expose Ollama to the network**
+   Set `OLLAMA_HOST=0.0.0.0` before starting Ollama.
+
+2. **Set Base URL in Obot**
+   Use one of:
+   - `http://host.docker.internal:11434/v1` (recommended for Docker Desktop)
+   - `http://<your-host-ip>:11434/v1`
+
+For Linux Docker, add `--add-host=host.docker.internal:host-gateway` (or use another host-networking approach) so `host.docker.internal` resolves inside the Obot container.
+
+See [Ollama's FAQ](https://docs.ollama.com/faq) for platform-specific details.
+
+##### LiteLLM config example
+
+If you use LiteLLM, Obot works with LiteLLM's wildcard model list:
+
+```yaml
+model_list:
+  - model_name: openai/*
+    litellm_params:
+      model: openai/*
+      api_key: os.environ/OPENAI_API_KEY
+```
+
+In Obot, models discovered through this provider are currently treated as **Language Model (LLM chat)** models by default.
+
+If your upstream includes non-chat-capable models, use more specific model mappings instead of a broad wildcard, or avoid using these models with Obot.

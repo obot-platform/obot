@@ -44,6 +44,7 @@ export const PAGE_SIZE = 50;
 
 export const CommonModelProviderIds = {
 	OLLAMA: 'ollama-model-provider',
+	GENERIC_RESPONSES: 'generic-responses-model-provider',
 	GROQ: 'groq-model-provider',
 	VLLM: 'vllm-model-provider',
 	ANTHROPIC: 'anthropic-model-provider',

@@ -336,6 +336,19 @@ func TestExtractModelFromBody(t *testing.T) {
 	}
 }
 
+func TestRewriteModelInBody(t *testing.T) {
+	body := `{"model":"anthropic-model-provider/anthropic-claude-sonnet-4-6","messages":[{"role":"user","content":"hello"}]}`
+
+	rewritten, err := rewriteModelInBody([]byte(body), "claude-sonnet-4-6")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if got := extractModelFromBody(rewritten); got != "claude-sonnet-4-6" {
+		t.Fatalf("model = %q, want claude-sonnet-4-6", got)
+	}
+}
+
 func TestLLMTransformRequest_RemovesAcceptEncoding(t *testing.T) {
 	u := mustParseURL("https://api.example.com/v1")
 	director := llmTransformRequest(*u, nil)
