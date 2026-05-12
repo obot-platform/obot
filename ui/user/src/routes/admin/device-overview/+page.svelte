@@ -227,7 +227,7 @@
 				<DeviceScanTimelineCard
 					rangeStart={range.start}
 					rangeEnd={range.end}
-					timelineRows={timelineRows}
+					{timelineRows}
 					totalSubmissions={totalScansInWindow}
 				/>
 			</div>
