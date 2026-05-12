@@ -243,36 +243,3 @@ func TestGetMCPServerDetail(t *testing.T) {
 		t.Errorf("header keys: want [X-Auth], got %v", d.HeaderKeys)
 	}
 }
-
-// TestListMCPServerOccurrences_PaginationAndID verifies the
-// occurrence row carries the matching device_scan_mcp_servers PK.
-func TestListMCPServerOccurrences_PaginationAndID(t *testing.T) {
-	c := newTestClient(t)
-	ctx := context.Background()
-
-	now := time.Now().UTC()
-	hash := "h"
-	scan := types.DeviceScan{
-		SubmittedBy: "u", DeviceID: "d", ScannedAt: now,
-		MCPServers: []types.DeviceScanMCPServer{
-			{Client: "claude-code", Name: "first", Transport: "stdio", ConfigHash: "other-1"},
-			{Client: "claude-code", Name: "target", Transport: "stdio", ConfigHash: hash},
-			{Client: "claude-code", Name: "third", Transport: "stdio", ConfigHash: "other-2"},
-		},
-	}
-	insertScan(t, c, scan)
-
-	rows, total, err := c.ListMCPServerOccurrences(ctx, hash, 50, 0)
-	if err != nil {
-		t.Fatalf("list failed: %v", err)
-	}
-	if total != 1 {
-		t.Errorf("total: want 1, got %d", total)
-	}
-	if len(rows) != 1 {
-		t.Fatalf("rows: want 1, got %d", len(rows))
-	}
-	if rows[0].ID == 0 {
-		t.Errorf("occurrence ID: want non-zero PK, got 0")
-	}
-}

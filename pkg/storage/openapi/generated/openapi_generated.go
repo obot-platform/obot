@@ -2944,7 +2944,7 @@ func schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrence(ref com
 					},
 					"id": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ID is the PK of this row inside device_scan_mcp_servers. Use it to deep-link to /api/devices/scans/{deviceScanID}/mcp-servers/{id}.",
+							Description: "ID is the observation's stable identifier.",
 							Default:     0,
 							Type:        []string{"integer"},
 							Format:      "int32",
@@ -3443,7 +3443,7 @@ func schema_obot_platform_obot_apiclient_types_DeviceScanMCPServer(ref common.Re
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DeviceScanMCPServer is one MCP server observation. On submission ID is zero and server-assigned on insert; on responses it is the row's PK inside device_scan_mcp_servers. Use ID as the {id} segment of scan-scoped detail URLs.",
+				Description: "DeviceScanMCPServer is one MCP server observation. ID is server-assigned on insert and stable across responses.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"id": {
@@ -3707,7 +3707,7 @@ func schema_obot_platform_obot_apiclient_types_DeviceScanPlugin(ref common.Refer
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DeviceScanPlugin is one plugin observation. On submission ID is zero and server-assigned on insert; on responses it is the row's PK inside device_scan_plugins. Use ID as the {id} segment of scan-scoped detail URLs.",
+				Description: "DeviceScanPlugin is one plugin observation. ID is server-assigned on insert and stable across responses.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"id": {
@@ -3907,7 +3907,7 @@ func schema_obot_platform_obot_apiclient_types_DeviceScanSkill(ref common.Refere
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "DeviceScanSkill is one skill (SKILL.md) observation. On submission ID is zero and server-assigned on insert; on responses it is the row's PK inside device_scan_skills. Use ID as the {id} segment of scan-scoped detail URLs.",
+				Description: "DeviceScanSkill is one skill (SKILL.md) observation. ID is server-assigned on insert and stable across responses.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"id": {
@@ -4203,7 +4203,7 @@ func schema_obot_platform_obot_apiclient_types_DeviceSkillOccurrence(ref common.
 					},
 					"id": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ID is the PK of this row inside device_scan_skills. Use it to deep-link to /api/devices/scans/{deviceScanID}/skills/{id}.",
+							Description: "ID is the observation's stable identifier.",
 							Default:     0,
 							Type:        []string{"integer"},
 							Format:      "int32",

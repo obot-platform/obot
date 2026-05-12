@@ -1256,8 +1256,6 @@ export interface DeviceMCPServerOccurrence {
 	client: string;
 	scope: string;
 	scannedAt: string;
-	// id is the row's PK in device_scan_mcp_servers; use it as the
-	// {id} segment of scan-scoped detail URLs.
 	id: number;
 }
 
@@ -1325,8 +1323,6 @@ export interface DeviceSkillOccurrence {
 	scope: string;
 	projectPath?: string;
 	scannedAt: string;
-	// id is the row's PK in device_scan_skills; use it as the {id}
-	// segment of scan-scoped detail URLs.
 	id: number;
 }
 

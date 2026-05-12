@@ -310,9 +310,7 @@ type SkillDetail struct {
 }
 
 // MCPServerOccurrence is one device's latest-scan instance of a given
-// ConfigHash. ID is the row's PK inside device_scan_mcp_servers, used
-// by the UI to deep-link to
-// /admin/device-scans/{deviceScanID}/mcp-servers/{id}.
+// ConfigHash.
 type MCPServerOccurrence struct {
 	DeviceScanID uint      `gorm:"column:device_scan_id"`
 	DeviceID     string    `gorm:"column:device_id"`
@@ -323,9 +321,7 @@ type MCPServerOccurrence struct {
 }
 
 // SkillOccurrence is one device's latest-scan instance of a given
-// skill name. ID is the row's PK inside device_scan_skills, used by
-// the UI to deep-link to
-// /admin/device-scans/{deviceScanID}/skills/{id}.
+// skill name.
 type SkillOccurrence struct {
 	DeviceScanID uint      `gorm:"column:device_scan_id"`
 	DeviceID     string    `gorm:"column:device_id"`

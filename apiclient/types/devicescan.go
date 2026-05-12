@@ -68,10 +68,8 @@ type DeviceScanFile struct {
 	Content string `json:"content,omitempty"`
 }
 
-// DeviceScanMCPServer is one MCP server observation. On submission ID
-// is zero and server-assigned on insert; on responses it is the row's
-// PK inside device_scan_mcp_servers. Use ID as the {id} segment of
-// scan-scoped detail URLs.
+// DeviceScanMCPServer is one MCP server observation. ID is
+// server-assigned on insert and stable across responses.
 type DeviceScanMCPServer struct {
 	// ID is the row's primary key. Server-set; ignored on submission.
 	ID uint `json:"id,omitempty"`
@@ -101,10 +99,8 @@ type DeviceScanMCPServer struct {
 	URL string `json:"url,omitempty"`
 }
 
-// DeviceScanSkill is one skill (SKILL.md) observation. On submission
-// ID is zero and server-assigned on insert; on responses it is the
-// row's PK inside device_scan_skills. Use ID as the {id} segment of
-// scan-scoped detail URLs.
+// DeviceScanSkill is one skill (SKILL.md) observation. ID is
+// server-assigned on insert and stable across responses.
 type DeviceScanSkill struct {
 	// ID is the row's primary key. Server-set; ignored on submission.
 	ID uint `json:"id,omitempty"`
@@ -151,10 +147,8 @@ type DeviceScanClient struct {
 	HasPlugins bool `json:"hasPlugins"`
 }
 
-// DeviceScanPlugin is one plugin observation. On submission ID is
-// zero and server-assigned on insert; on responses it is the row's
-// PK inside device_scan_plugins. Use ID as the {id} segment of
-// scan-scoped detail URLs.
+// DeviceScanPlugin is one plugin observation. ID is server-assigned
+// on insert and stable across responses.
 type DeviceScanPlugin struct {
 	// ID is the row's primary key. Server-set; ignored on submission.
 	ID uint `json:"id,omitempty"`
@@ -313,8 +307,7 @@ type DeviceMCPServerOccurrence struct {
 	Scope string `json:"scope"`
 	// ScannedAt is when the parent scan was collected on the device.
 	ScannedAt Time `json:"scannedAt"`
-	// ID is the PK of this row inside device_scan_mcp_servers. Use it
-	// to deep-link to /api/devices/scans/{deviceScanID}/mcp-servers/{id}.
+	// ID is the observation's stable identifier.
 	ID uint `json:"id"`
 }
 
@@ -344,8 +337,7 @@ type DeviceSkillOccurrence struct {
 	ProjectPath string `json:"projectPath,omitempty"`
 	// ScannedAt is when the parent scan was collected on the device.
 	ScannedAt Time `json:"scannedAt"`
-	// ID is the PK of this row inside device_scan_skills. Use it to
-	// deep-link to /api/devices/scans/{deviceScanID}/skills/{id}.
+	// ID is the observation's stable identifier.
 	ID uint `json:"id"`
 }
 

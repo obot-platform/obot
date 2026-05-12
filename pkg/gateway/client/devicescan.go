@@ -364,9 +364,7 @@ func (c *Client) GetSkillDetail(ctx context.Context, name string) (*types.SkillD
 
 // ListSkillOccurrences returns one row per (device, observation) for
 // the given skill name, drawn from the all-time latest scan of every
-// device. Sorted scanned_at DESC, paginated. ID is the row's PK
-// inside device_scan_skills (so the UI can deep-link to
-// /admin/device-scans/{scan_id}/skills/{id}).
+// device. Sorted scanned_at DESC, paginated.
 func (c *Client) ListSkillOccurrences(ctx context.Context, name string, limit, offset int) ([]types.SkillOccurrence, int64, error) {
 	if name == "" {
 		return nil, 0, errors.New("empty skill name")
