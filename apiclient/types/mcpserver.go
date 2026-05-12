@@ -22,6 +22,23 @@ const (
 	defaultStartupTimeoutSeconds = 60
 )
 
+// ServerUserType specifies whether a catalog entry or MCP server is single-user or multi-user.
+type ServerUserType string
+
+const (
+	// ServerUserTypeSingleUser indicates each user gets their own MCP server instance.
+	// This is the default when the field is empty.
+	ServerUserTypeSingleUser ServerUserType = "singleUser"
+	// ServerUserTypeMultiUser indicates all users share a single MCP server.
+	ServerUserTypeMultiUser ServerUserType = "multiUser"
+)
+
+// IsSingleUser returns true if the type represents a single-user server.
+// An empty value defaults to single-user for backward compatibility.
+func (t ServerUserType) IsSingleUser() bool {
+	return t == "" || t == ServerUserTypeSingleUser
+}
+
 // UVXRuntimeConfig represents configuration for UVX runtime (Python packages via uvx)
 type UVXRuntimeConfig struct {
 	Package               string   `json:"package"`                         // Required: Python package name
@@ -171,6 +188,10 @@ type MCPServerCatalogEntryManifest struct {
 
 	// MultiUserConfig is the multi-user specific configuration for this component server, if applicable.
 	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
+
+	// ServerUserType specifies whether this catalog entry produces single-user or multi-user servers.
+	// Only "singleUser" is currently supported. Empty value defaults to "singleUser".
+	ServerUserType ServerUserType `json:"serverUserType,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
 }
@@ -326,6 +347,20 @@ type MCPServer struct {
 
 	// CompositeName is the name of the composite server that this MCP server is a component of, if there is one.
 	CompositeName string `json:"compositeName,omitempty"`
+
+	// ServerUserType specifies whether this is a single-user or multi-user MCP server.
+	// Empty value uses legacy inference from MCPCatalogID and PowerUserWorkspaceID.
+	ServerUserType ServerUserType `json:"serverUserType,omitempty"`
+}
+
+// IsSingleUser returns true if this is a single-user MCP server.
+// For servers created before this field existed, falls back to legacy inference from ownership fields.
+func (s MCPServer) IsSingleUser() bool {
+	if s.ServerUserType != "" {
+		return s.ServerUserType.IsSingleUser()
+	}
+	// Legacy fallback: infer from ownership fields
+	return s.MCPCatalogID == "" && s.PowerUserWorkspaceID == ""
 }
 
 type OAuthMetadata struct {

@@ -20,7 +20,7 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, u u
 	}
 
 	// If the user owns the MCP server, then authorization is granted.
-	if mcpServer.Spec.UserID == u.GetUID() && mcpServer.Spec.MCPCatalogID == "" {
+	if mcpServer.Spec.UserID == u.GetUID() && mcpServer.Spec.IsSingleUser() {
 		resources.Authorizated.MCPServer = &mcpServer
 		return true, nil
 	}

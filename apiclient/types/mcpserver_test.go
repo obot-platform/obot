@@ -1,6 +1,8 @@
 package types
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestMapCatalogEntryToServer_UVX(t *testing.T) {
 	catalogEntry := MCPServerCatalogEntryManifest{
@@ -487,6 +489,90 @@ func TestValidateURLMatchesHostname(t *testing.T) {
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return
+			}
+		})
+	}
+}
+
+func TestServerUserType_IsSingleUser(t *testing.T) {
+	tests := []struct {
+		name       string
+		serverType ServerUserType
+		want       bool
+	}{
+		{
+			name:       "empty defaults to single-user",
+			serverType: "",
+			want:       true,
+		},
+		{
+			name:       "explicit singleUser",
+			serverType: ServerUserTypeSingleUser,
+			want:       true,
+		},
+		{
+			name:       "multiUser returns false",
+			serverType: ServerUserTypeMultiUser,
+			want:       false,
+		},
+		{
+			name:       "unknown value returns false",
+			serverType: ServerUserType("unknown"),
+			want:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.serverType.IsSingleUser(); got != tt.want {
+				t.Errorf("ServerUserType(%q).IsSingleUser() = %v, want %v", tt.serverType, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMCPServer_IsSingleUser(t *testing.T) {
+	tests := []struct {
+		name   string
+		server MCPServer
+		want   bool
+	}{
+		{
+			name:   "new server with singleUser type",
+			server: MCPServer{ServerUserType: ServerUserTypeSingleUser},
+			want:   true,
+		},
+		{
+			name:   "new server with multiUser type",
+			server: MCPServer{ServerUserType: ServerUserTypeMultiUser},
+			want:   false,
+		},
+		{
+			name:   "legacy single-user: empty type, no catalog/workspace",
+			server: MCPServer{MCPCatalogID: "", PowerUserWorkspaceID: ""},
+			want:   true,
+		},
+		{
+			name:   "legacy multi-user: empty type, catalog set",
+			server: MCPServer{MCPCatalogID: "default"},
+			want:   false,
+		},
+		{
+			name:   "legacy multi-user: empty type, workspace set",
+			server: MCPServer{PowerUserWorkspaceID: "ws-1"},
+			want:   false,
+		},
+		{
+			name:   "ServerUserType takes precedence over legacy fields",
+			server: MCPServer{ServerUserType: ServerUserTypeSingleUser, MCPCatalogID: "default"},
+			want:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.server.IsSingleUser(); got != tt.want {
+				t.Errorf("MCPServer.IsSingleUser() = %v, want %v", got, tt.want)
 			}
 		})
 	}

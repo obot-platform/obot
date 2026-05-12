@@ -996,6 +996,10 @@ func ValidateServerManifest(manifest types.MCPServerManifest, isMultiUser bool) 
 }
 
 func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
+	if !manifest.ServerUserType.IsSingleUser() {
+		return fmt.Errorf("unsupported serverUserType %q: only %q is currently supported for catalog entries", manifest.ServerUserType, types.ServerUserTypeSingleUser)
+	}
+
 	if err := validateRuntimeStartupTimeout(manifest.Runtime, manifest.RuntimeStartupTimeoutSeconds()); err != nil {
 		return err
 	}

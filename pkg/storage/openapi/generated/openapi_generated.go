@@ -6702,6 +6702,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"serverUserType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServerUserType specifies whether this is a single-user or multi-user MCP server. Empty value uses legacy inference from MCPCatalogID and PowerUserWorkspaceID.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "manifest", "userID", "configured", "catalogEntryID", "powerUserWorkspaceID"},
 			},
@@ -6930,6 +6937,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 						SchemaProps: spec.SchemaProps{
 							Description: "MultiUserConfig is the multi-user specific configuration for this component server, if applicable.",
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MultiUserConfig"),
+						},
+					},
+					"serverUserType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServerUserType specifies whether this catalog entry produces single-user or multi-user servers. Only \"singleUser\" is currently supported. Empty value defaults to \"singleUser\".",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"env": {
@@ -19659,6 +19673,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 					"nanobotAgentID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "NanobotAgentID is the name of the NanobotAgent that created this MCP server, if there is one.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serverUserType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServerUserType specifies whether this is a single-user or multi-user MCP server. Empty value uses legacy inference from MCPCatalogID and PowerUserWorkspaceID.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

@@ -168,6 +168,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 		Spec: v1.MCPServerSpec{
 			UserID:         agent.Spec.UserID,
 			NanobotAgentID: agent.Name,
+			ServerUserType: types.ServerUserTypeSingleUser,
 			Manifest: types.MCPServerManifest{
 				Name:             agent.Name,
 				ShortDescription: agent.Spec.DisplayName,

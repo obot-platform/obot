@@ -1569,7 +1569,7 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 			}
 
 			// Verify this is actually a multi-user server
-			if server.Spec.MCPCatalogID == "" && server.Spec.PowerUserWorkspaceID == "" {
+			if server.Spec.IsSingleUser() {
 				return types.NewErrBadRequest("server %s is not a multi-user server", component.MCPServerID)
 			}
 

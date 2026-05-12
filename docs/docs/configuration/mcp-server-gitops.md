@@ -112,6 +112,18 @@ env:
     description: Description of this variable
 ```
 
+### Server User Type
+
+```yaml
+serverUserType: singleUser  # Optional, defaults to "singleUser"
+```
+
+The `serverUserType` field specifies how users interact with the catalog entry:
+
+- `singleUser` (default): Each user who installs this catalog entry gets their own independent MCP server instance.
+
+Omitting the field or setting it to `""` is equivalent to `singleUser`.
+
 ### Kubernetes Secret Bindings
 
 Secret bindings let you wire an env var, header, or file to a key in an externally-managed Kubernetes Secret instead of asking the user to supply the value at install time.

@@ -771,6 +771,7 @@ func (*Handler) copyMCPServer(req router.Request, sourcePMS *v1.ProjectMCPServer
 				MCPCatalogID:              sourceMCPServer.Spec.MCPCatalogID,
 				PowerUserWorkspaceID:      sourceMCPServer.Spec.PowerUserWorkspaceID,
 				Template:                  thread.Spec.Template,
+				ServerUserType:            sourceMCPServer.Spec.ServerUserType,
 			},
 		}
 
@@ -788,6 +789,7 @@ func (*Handler) copyMCPServer(req router.Request, sourcePMS *v1.ProjectMCPServer
 		copiedMCPServer.Spec.MCPCatalogID = sourceMCPServer.Spec.MCPCatalogID
 		copiedMCPServer.Spec.PowerUserWorkspaceID = sourceMCPServer.Spec.PowerUserWorkspaceID
 		copiedMCPServer.Spec.Template = thread.Spec.Template
+		copiedMCPServer.Spec.ServerUserType = sourceMCPServer.Spec.ServerUserType
 
 		if err := req.Client.Update(req.Ctx, &copiedMCPServer); err != nil {
 			return nil, err

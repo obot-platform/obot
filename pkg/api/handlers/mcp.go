@@ -1048,7 +1048,7 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 			return v1.MCPServer{}, v1.MCPServerInstance{}, err
 		}
 
-		if server.Spec.MCPCatalogID != "" || server.Spec.PowerUserWorkspaceID != "" {
+		if !server.Spec.IsSingleUser() {
 			// This is a multi-user MCP server, and user is trying to connect to it.
 			// List the MCP server instances, sort by creation time, and take the first one.
 			var instances v1.MCPServerInstanceList
@@ -1709,6 +1709,12 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return types.NewErrForbidden("user does not have access to MCP server catalog entry")
 		}
 
+		// Validate that the catalog entry type matches the route.
+		// Single-user routes only support single-user catalog entries.
+		if catalogID == "" && workspaceID == "" && !catalogEntry.Spec.Manifest.ServerUserType.IsSingleUser() {
+			return types.NewErrBadRequest("only single-user catalog entries are supported")
+		}
+
 		// Block server creation if OAuth is required but not configured
 		if entryRequiresStaticOAuthCreds(catalogEntry) {
 			return types.NewErrBadRequest("catalog entry requires OAuth configuration by an administrator before it can be used")
@@ -1730,7 +1736,14 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return types.NewErrBadRequest("catalogEntryID is required")
 	}
 
-	if err := validation.ValidateServerManifest(server.Spec.Manifest, server.Spec.MCPCatalogID != "" || server.Spec.PowerUserWorkspaceID != ""); err != nil {
+	// Set ServerUserType explicitly based on the route.
+	if catalogID != "" || workspaceID != "" {
+		server.Spec.ServerUserType = types.ServerUserTypeMultiUser
+	} else {
+		server.Spec.ServerUserType = types.ServerUserTypeSingleUser
+	}
+
+	if err := validation.ValidateServerManifest(server.Spec.Manifest, !server.Spec.IsSingleUser()); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	if err := validation.ValidateSecretBindings(server.Spec.Manifest, gitManagedEntry, m.mcpBackend); err != nil {
@@ -1832,7 +1845,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return err
 	}
 
-	if err := validation.ValidateServerManifest(updated, existing.Spec.MCPCatalogID != "" || existing.Spec.PowerUserWorkspaceID != ""); err != nil {
+	if err := validation.ValidateServerManifest(updated, !existing.Spec.IsSingleUser()); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -1894,7 +1907,7 @@ func (m *MCPHandler) UpdateServerAlias(req api.Context) error {
 		return err
 	}
 
-	if server.Spec.MCPCatalogID != "" {
+	if !server.Spec.IsSingleUser() {
 		return types.NewErrBadRequest("cannot update alias for a multi-user MCP server")
 	}
 
@@ -1976,7 +1989,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			}
 			mcpServer.Spec.Manifest.RemoteConfig.URL = finalURL
 
-			if err := validation.ValidateServerManifest(mcpServer.Spec.Manifest, mcpServer.Spec.MCPCatalogID != "" || mcpServer.Spec.PowerUserWorkspaceID != ""); err != nil {
+			if err := validation.ValidateServerManifest(mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser()); err != nil {
 				return types.NewErrBadRequest("validation failed: %v", err)
 			}
 
@@ -2744,7 +2757,7 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 	var connectURL string
 	// Only single-user servers get a connect URL.
 	// Multi-user servers have connect URLs on the MCPServerInstances instead.
-	if server.Spec.MCPCatalogID == "" {
+	if server.Spec.IsSingleUser() {
 		connectURL = system.MCPConnectURL(serverURL, slug)
 	}
 
@@ -2788,6 +2801,7 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		Template:                    server.Spec.Template,
 		CompositeName:               server.Spec.CompositeName,
 		NanobotAgentID:              server.Spec.NanobotAgentID,
+		ServerUserType:              server.Spec.ServerUserType,
 	}
 
 	// For composite servers, also consider component configuration if provided
@@ -3185,8 +3199,7 @@ func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 	if !req.UserIsAdmin() {
 		// Allow users to restart their own single-user servers.
 		userOwnsServer := server.Spec.UserID == req.User.GetUID() &&
-			server.Spec.MCPCatalogID == "" &&
-			server.Spec.PowerUserWorkspaceID == ""
+			server.Spec.IsSingleUser()
 
 		if !userOwnsServer {
 			// Fall back to workspace-based authorization
@@ -3592,7 +3605,7 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 	}
 
 	// If this is a single-user MCP server that belongs to the user, then let them access the logs.
-	if server.Spec.UserID != req.User.GetUID() || server.Spec.PowerUserWorkspaceID != "" || server.Spec.MCPCatalogID != "" {
+	if server.Spec.UserID != req.User.GetUID() || !server.Spec.IsSingleUser() {
 		// If the user doesn't own the server and is not an admin or auditor, check if they have access to the workspace.
 		if !req.UserIsAdmin() && !req.UserIsAuditor() {
 			workspaceID := req.PathValue("workspace_id")
@@ -3643,7 +3656,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return fmt.Errorf("failed to get server: %w", err)
 	}
 
-	if mcpServer.Spec.MCPCatalogID != "" {
+	if !mcpServer.Spec.IsSingleUser() {
 		return types.NewErrBadRequest("cannot update the URL for a multi-user MCP server; use the UpdateServer endpoint instead")
 	}
 
@@ -3700,7 +3713,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 	mcpServer.Spec.NeedsURL = false
 	mcpServer.Spec.PreviousURL = ""
 
-	if err := validation.ValidateServerManifest(mcpServer.Spec.Manifest, mcpServer.Spec.MCPCatalogID != "" || mcpServer.Spec.PowerUserWorkspaceID != ""); err != nil {
+	if err := validation.ValidateServerManifest(mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser()); err != nil {
 		return err
 	}
 
@@ -3722,7 +3735,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		return err
 	}
 
-	if server.Spec.MCPCatalogID != "" || server.Spec.PowerUserWorkspaceID != "" {
+	if !server.Spec.IsSingleUser() {
 		return types.NewErrBadRequest("cannot trigger update for a multi-user MCP server; use the UpdateServer endpoint instead")
 	}
 
