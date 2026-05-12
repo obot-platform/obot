@@ -629,8 +629,10 @@ func TestMaterializeSkillSource(t *testing.T) {
 		skillDir := filepath.Join(root, "my-skill")
 		require.NoError(t, os.MkdirAll(skillDir, 0o755))
 
+		var gotRef string
 		fetcher := &mockFetcher{
-			fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
+			fetchFn: func(_ context.Context, _, _, ref string) (*fetchedRepository, error) {
+				gotRef = ref
 				return &fetchedRepository{
 					RepoRoot:  root,
 					CommitSHA: "abc123",
@@ -643,6 +645,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "test-skill"},
 			Spec: v1.SkillSpec{
 				RepoURL:      "https://github.com/owner/repo",
+				RepoRef:      "main",
 				CommitSHA:    "abc123",
 				RelativePath: "my-skill",
 			},
@@ -654,6 +657,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 		assert.DirExists(t, path)
 		absSkillDir, _ := filepath.Abs(skillDir)
 		assert.Equal(t, absSkillDir, path)
+		assert.Equal(t, "abc123", gotRef)
 	})
 
 	t.Run("relativePath is file not dir", func(t *testing.T) {

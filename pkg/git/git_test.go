@@ -152,3 +152,55 @@ func TestCloneAuthAttempts(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateRef(t *testing.T) {
+	tests := []struct {
+		name    string
+		ref     string
+		wantErr bool
+	}{
+		{name: "branch", ref: "main"},
+		{name: "nested branch", ref: "feature/git-sync"},
+		{name: "tag", ref: "v1.2.3"},
+		{name: "commit sha", ref: "0123456789abcdef0123456789abcdef01234567"},
+		{name: "empty", wantErr: true},
+		{name: "path traversal", ref: "feature/../main", wantErr: true},
+		{name: "leading dash", ref: "-main", wantErr: true},
+		{name: "contains colon", ref: "main:other", wantErr: true},
+		{name: "contains whitespace", ref: "main branch", wantErr: true},
+		{name: "trimmed whitespace", ref: " main", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateRef(tt.ref)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestCloneRefAttempts(t *testing.T) {
+	t.Run("implicit ref only tries branch", func(t *testing.T) {
+		assert.Equal(t, []cloneRefAttempt{
+			{name: "branch", referenceName: "refs/heads/main", depth: 1},
+		}, cloneRefAttempts("main", false))
+	})
+
+	t.Run("explicit ref tries branch then tag", func(t *testing.T) {
+		assert.Equal(t, []cloneRefAttempt{
+			{name: "branch", referenceName: "refs/heads/v1.0.0", depth: 1},
+			{name: "tag", referenceName: "refs/tags/v1.0.0", depth: 1},
+		}, cloneRefAttempts("v1.0.0", true))
+	})
+
+	t.Run("commit sha checks out hash", func(t *testing.T) {
+		sha := "0123456789abcdef0123456789abcdef01234567"
+		assert.Equal(t, []cloneRefAttempt{
+			{name: "commit", checkoutHash: sha},
+		}, cloneRefAttempts(sha, true))
+	})
+}

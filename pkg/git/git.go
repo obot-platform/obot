@@ -33,6 +33,13 @@ type cloneAuthAttempt struct {
 	token string
 }
 
+type cloneRefAttempt struct {
+	name          string
+	referenceName plumbing.ReferenceName
+	checkoutHash  string
+	depth         int
+}
+
 func cloneAuthAttempts(token, fallbackToken string) []cloneAuthAttempt {
 	if token != "" {
 		return []cloneAuthAttempt{{name: "token", token: token}}
@@ -95,9 +102,11 @@ func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitS
 		return "", "", nil, err
 	}
 
-	branch := ref
-	if branch == "" {
-		branch = urlBranch
+	resolvedRef := ref
+	if resolvedRef == "" {
+		resolvedRef = urlBranch
+	} else if err := validateRef(resolvedRef); err != nil {
+		return "", "", nil, err
 	}
 
 	fallbackToken := os.Getenv("GITHUB_AUTH_TOKEN")
@@ -137,54 +146,69 @@ func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitS
 	cleanupFn := func() { _ = os.RemoveAll(parentDir) }
 
 	attempts := cloneAuthAttempts(token, fallbackToken)
-	attemptErrs := make([]error, len(attempts))
-	for i, attempt := range attempts {
-		tempDir, err := os.MkdirTemp(parentDir, "clone-*")
-		if err != nil {
-			cleanupFn()
-			return "", "", nil, fmt.Errorf("failed to create temporary directory: %w", err)
-		}
-
-		cloneOptions := &gogit.CloneOptions{
-			URL:           cloneURL,
-			Depth:         1,
-			ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branch)),
-		}
-
-		if attempt.token != "" {
-			cloneOptions.Auth = &githttp.BasicAuth{
-				Username: "x-access-token", // Accepted as a dummy username by GitHub and GitLab.
-				Password: attempt.token,
-			}
-		}
-
-		limitedFS := &sizeLimitedFS{
-			Filesystem: osfs.New(tempDir),
-			maxBytes:   maxRepoSizeMB * 1024 * 1024,
-		}
-		storer := gitfs.NewStorage(chroot.New(limitedFS, ".git"), cache.NewObjectLRUDefault())
-
-		clonedRepo, cloneErr := gogit.CloneContext(ctx, storer, limitedFS, cloneOptions)
-		if cloneErr != nil {
-			attemptErrs[i] = fmt.Errorf("%s: %w", attempt.name, cloneErr)
-			if errors.Is(cloneErr, errRepoTooLarge) {
+	refAttempts := cloneRefAttempts(resolvedRef, ref != "")
+	attemptErrs := make([]error, 0, len(attempts)*len(refAttempts))
+	for _, attempt := range attempts {
+		for _, refAttempt := range refAttempts {
+			tempDir, err := os.MkdirTemp(parentDir, "clone-*")
+			if err != nil {
 				cleanupFn()
-				return "", "", nil, fmt.Errorf("repository is too large (limit: %d MB)", maxRepoSizeMB)
+				return "", "", nil, fmt.Errorf("failed to create temporary directory: %w", err)
 			}
-			if isContextError(cloneErr) {
+
+			cloneOptions := &gogit.CloneOptions{
+				URL:           cloneURL,
+				Depth:         refAttempt.depth,
+				ReferenceName: refAttempt.referenceName,
+			}
+
+			if attempt.token != "" {
+				cloneOptions.Auth = &githttp.BasicAuth{
+					Username: "x-access-token", // Accepted as a dummy username by GitHub and GitLab.
+					Password: attempt.token,
+				}
+			}
+
+			limitedFS := &sizeLimitedFS{
+				Filesystem: osfs.New(tempDir),
+				maxBytes:   maxRepoSizeMB * 1024 * 1024,
+			}
+			storer := gitfs.NewStorage(chroot.New(limitedFS, ".git"), cache.NewObjectLRUDefault())
+
+			clonedRepo, cloneErr := gogit.CloneContext(ctx, storer, limitedFS, cloneOptions)
+			if cloneErr != nil {
+				attemptErrs = append(attemptErrs, fmt.Errorf("%s %s: %w", attempt.name, refAttempt.name, cloneErr))
+				if errors.Is(cloneErr, errRepoTooLarge) {
+					cleanupFn()
+					return "", "", nil, fmt.Errorf("repository is too large (limit: %d MB)", maxRepoSizeMB)
+				}
+				if isContextError(cloneErr) {
+					cleanupFn()
+					return "", "", nil, fmt.Errorf("failed to clone repository: %w", cloneErr)
+				}
+				continue
+			}
+
+			if refAttempt.checkoutHash != "" {
+				worktree, err := clonedRepo.Worktree()
+				if err != nil {
+					cleanupFn()
+					return "", "", nil, fmt.Errorf("failed to open worktree: %w", err)
+				}
+				if err := worktree.Checkout(&gogit.CheckoutOptions{Hash: plumbing.NewHash(refAttempt.checkoutHash)}); err != nil {
+					attemptErrs = append(attemptErrs, fmt.Errorf("%s %s: %w", attempt.name, refAttempt.name, err))
+					continue
+				}
+			}
+
+			head, err := clonedRepo.Head()
+			if err != nil {
 				cleanupFn()
-				return "", "", nil, fmt.Errorf("failed to clone repository: %w", cloneErr)
+				return "", "", nil, fmt.Errorf("failed to resolve HEAD: %w", err)
 			}
-			continue
-		}
 
-		head, err := clonedRepo.Head()
-		if err != nil {
-			cleanupFn()
-			return "", "", nil, fmt.Errorf("failed to resolve HEAD: %w", err)
+			return tempDir, head.Hash().String(), cleanupFn, nil
 		}
-
-		return tempDir, head.Hash().String(), cleanupFn, nil
 	}
 
 	cleanupFn()
@@ -253,14 +277,50 @@ func parseGitURL(repoURL string) (string, string, error) {
 }
 
 func validateBranchName(branch string) error {
-	if branch == "" {
-		return fmt.Errorf("branch name cannot be empty")
+	return validateRef(branch)
+}
+
+func validateRef(ref string) error {
+	if ref == "" {
+		return fmt.Errorf("ref name cannot be empty")
 	}
-	if strings.Contains(branch, "..") || strings.Contains(branch, "\\") ||
-		strings.Contains(branch, ":") || strings.HasPrefix(branch, "-") {
-		return fmt.Errorf("invalid branch name: %s", branch)
+	if strings.TrimSpace(ref) != ref || strings.ContainsAny(ref, " \t\n\r") || strings.Contains(ref, "..") || strings.Contains(ref, "\\") ||
+		strings.Contains(ref, ":") || strings.HasPrefix(ref, "-") {
+		return fmt.Errorf("invalid ref name: %s", ref)
 	}
 	return nil
+}
+
+func cloneRefAttempts(ref string, explicit bool) []cloneRefAttempt {
+	if isFullCommitSHA(ref) {
+		return []cloneRefAttempt{{name: "commit", checkoutHash: ref}}
+	}
+
+	attempts := []cloneRefAttempt{{
+		name:          "branch",
+		referenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", ref)),
+		depth:         1,
+	}}
+	if explicit {
+		attempts = append(attempts, cloneRefAttempt{
+			name:          "tag",
+			referenceName: plumbing.ReferenceName(fmt.Sprintf("refs/tags/%s", ref)),
+			depth:         1,
+		})
+	}
+	return attempts
+}
+
+func isFullCommitSHA(ref string) bool {
+	if len(ref) != 40 {
+		return false
+	}
+	for _, c := range ref {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
+			return false
+		}
+	}
+	return true
 }
 
 func isContextError(err error) bool {

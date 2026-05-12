@@ -247,7 +247,7 @@ func materializeSkillSource(ctx context.Context, fetcher repositoryFetcher, skil
 		return nil, "", fmt.Errorf("skill %s is missing relativePath", skill.Name)
 	}
 
-	fetched, err := fetcher.Fetch(ctx, skill.Spec.RepoURL, "", skill.Spec.RepoRef)
+	fetched, err := fetcher.Fetch(ctx, skill.Spec.RepoURL, "", skill.Spec.CommitSHA)
 	if err != nil {
 		return nil, "", err
 	}
