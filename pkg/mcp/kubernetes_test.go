@@ -157,6 +157,7 @@ func TestNewKubernetesBackend_ServiceFQDN(t *testing.T) {
 		})
 	}
 }
+
 func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 	k := newTestKubernetesBackend(t)
 

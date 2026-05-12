@@ -1703,3 +1703,390 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 		}, err)
 	})
 }
+
+func TestValidateSecretBindings(t *testing.T) {
+	binding := &types.MCPSecretBinding{Name: "datadog-prod", Key: "api-key"}
+
+	tests := []struct {
+		name       string
+		manifest   types.MCPServerManifest
+		gitManaged bool
+		backend    string
+		wantErr    string // substring; "" = expect no error
+	}{
+		{
+			name: "no bindings is allowed regardless",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{Key: "X-Foo", Value: "bar"}},
+				},
+			},
+			gitManaged: false,
+			backend:    "docker",
+		},
+		{
+			name: "bound header requires git-managed",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{Key: "DD-API-KEY", SecretBinding: binding}},
+				},
+			},
+			gitManaged: false,
+			backend:    "kubernetes",
+			wantErr:    "git-synced catalog entries",
+		},
+		{
+			name: "bound header accepted for git-managed remote",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{Key: "DD-API-KEY", SecretBinding: binding}},
+				},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+		},
+		{
+			name: "bound header rejected on non-kubernetes backend",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{Key: "DD-API-KEY", SecretBinding: binding}},
+				},
+			},
+			gitManaged: true,
+			backend:    "docker",
+			wantErr:    "requires the kubernetes MCP runtime backend",
+		},
+		{
+			name: "binding and static value are mutually exclusive",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{Key: "DD-API-KEY", Value: "literal", SecretBinding: binding}},
+				},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+			wantErr:    "mutually exclusive",
+		},
+		{
+			name: "binding requires non-empty name/key",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					Headers: []types.MCPHeader{{Key: "DD-API-KEY", SecretBinding: &types.MCPSecretBinding{Name: "datadog-prod"}}},
+				},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+			wantErr:    "requires both name and key",
+		},
+		{
+			name: "bound env under remote runtime is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime:      types.RuntimeRemote,
+				Env:          []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "DD_API_KEY", SecretBinding: binding}}},
+				RemoteConfig: &types.RemoteRuntimeConfig{},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+			wantErr:    "not supported for remote runtime",
+		},
+		{
+			name: "file-backed env with secret binding is accepted",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "DD_API_KEY", SecretBinding: binding}, File: true}},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+		},
+		{
+			name: "bound env accepted for git-managed containerized",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "DD_API_KEY", SecretBinding: binding}}},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+		},
+		{
+			name: "dynamicFile without file is accepted and ignored",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{
+					MCPHeader:   types.MCPHeader{Key: "DD_API_KEY", SecretBinding: binding},
+					DynamicFile: true,
+				}},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+		},
+		{
+			name: "file and dynamicFile together are accepted",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{
+					MCPHeader:   types.MCPHeader{Key: "DD_API_KEY"},
+					File:        true,
+					DynamicFile: true,
+				}},
+			},
+			gitManaged: true,
+			backend:    "kubernetes",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSecretBindings(tt.manifest, tt.gitManaged, tt.backend)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestValidateSecretBindingsCatalogEntry_URLTemplate(t *testing.T) {
+	binding := &types.MCPSecretBinding{Name: "my-secret", Key: "token"}
+
+	tests := []struct {
+		name     string
+		manifest types.MCPServerCatalogEntryManifest
+		wantErr  string
+	}{
+		{
+			name: "urlTemplate referencing non-bound env is allowed",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "HOST", Required: true,
+				}}},
+				RemoteConfig: &types.RemoteCatalogConfig{
+					URLTemplate: "https://${HOST}/mcp",
+				},
+			},
+		},
+		{
+			name: "urlTemplate referencing secret-bound env is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "TOKEN", Required: true, SecretBinding: binding,
+				}}},
+				RemoteConfig: &types.RemoteCatalogConfig{
+					URLTemplate: "https://example.com/${TOKEN}/mcp",
+				},
+			},
+			wantErr: "remoteConfig.urlTemplate references secret-bound env var",
+		},
+		{
+			name: "no urlTemplate with bound env passes to core check",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+					Key: "TOKEN", Required: true, SecretBinding: binding,
+				}}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateSecretBindingsCatalogEntry(tt.manifest, true, "kubernetes")
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestValidateTemplateReferences_Server(t *testing.T) {
+	required := types.MCPEnv{MCPHeader: types.MCPHeader{Key: "TAG", Required: true}}
+	optional := types.MCPEnv{MCPHeader: types.MCPHeader{Key: "TAG", Required: false}}
+
+	tests := []struct {
+		name     string
+		manifest types.MCPServerManifest
+		wantErr  string // substring; "" = expect no error
+	}{
+		{
+			name: "no templates is fine",
+			manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--flag", "value"}},
+			},
+		},
+		{
+			name: "npx templated arg with required env passes",
+			manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--tag=${TAG}"}},
+				Env:       []types.MCPEnv{required},
+			},
+		},
+		{
+			name: "npx templated arg with optional env is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--tag=${TAG}"}},
+				Env:       []types.MCPEnv{optional},
+			},
+			wantErr: "must be required=true",
+		},
+		{
+			name: "uvx templated command with required env passes",
+			manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeUVX,
+				UVXConfig: &types.UVXRuntimeConfig{Package: "pkg", Command: "${TAG}"},
+				Env:       []types.MCPEnv{required},
+			},
+		},
+		{
+			name: "containerized templated arg with optional env is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image: "img",
+					Args:  []string{"--tag=${TAG}"},
+				},
+				Env: []types.MCPEnv{optional},
+			},
+			wantErr: "must be required=true",
+		},
+		{
+			name: "remote URL template with optional env is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://${TAG}.example.com/mcp",
+				},
+				Env: []types.MCPEnv{optional},
+			},
+			wantErr: "must be required=true",
+		},
+		{
+			name: "remote header value templated by optional env is rejected",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL:     "https://example.com/mcp",
+					Headers: []types.MCPHeader{{Key: "Authorization", Value: "Bearer ${TAG}"}},
+				},
+				Env: []types.MCPEnv{optional},
+			},
+			wantErr: "must be required=true",
+		},
+		{
+			name: "undeclared template ref is tolerated for server manifests",
+			manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--tag=${TAG}"}},
+				// no env declared — auto-extraction will add Required=true later
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTemplateReferences(tt.manifest)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestValidateTemplateReferences_CatalogEntry(t *testing.T) {
+	required := types.MCPEnv{MCPHeader: types.MCPHeader{Key: "TAG", Required: true}}
+	optional := types.MCPEnv{MCPHeader: types.MCPHeader{Key: "TAG", Required: false}}
+
+	tests := []struct {
+		name     string
+		manifest types.MCPServerCatalogEntryManifest
+		wantErr  string
+	}{
+		{
+			name: "templated arg with required env passes",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--tag=${TAG}"}},
+				Env:       []types.MCPEnv{required},
+			},
+		},
+		{
+			name: "templated arg with undeclared env is rejected for catalog entries",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--tag=${TAG}"}},
+				// no env declared
+			},
+			wantErr: "undeclared",
+		},
+		{
+			name: "remote FixedURL template with required env passes",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://${TAG}.example.com/mcp",
+				},
+				Env: []types.MCPEnv{required},
+			},
+		},
+		{
+			name: "npx templated arg with optional env is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "pkg", Args: []string{"--tag=${TAG}"}},
+				Env:       []types.MCPEnv{optional},
+			},
+			wantErr: "must be required=true",
+		},
+		{
+			name: "remote URLTemplate with optional env is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					URLTemplate: "https://${TAG}.example.com/mcp",
+				},
+				Env: []types.MCPEnv{optional},
+			},
+			wantErr: "must be required=true",
+		},
+		{
+			name: "remote header value templated by undeclared env is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://example.com/mcp",
+					Headers:  []types.MCPHeader{{Key: "Authorization", Value: "Bearer ${TAG}"}},
+				},
+			},
+			wantErr: "undeclared",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateTemplateReferencesCatalogEntry(tt.manifest)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}

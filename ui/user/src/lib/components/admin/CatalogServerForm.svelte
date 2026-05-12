@@ -9,6 +9,7 @@
 	import {
 		convertCategoriesToMetadata,
 		convertServerRuntimeFormDataToManifest,
+		hasSecretBinding,
 		sanitizeEgressDomains,
 		validateRuntimeForm
 	} from '$lib/services/chat/mcp';
@@ -83,6 +84,9 @@
 
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	const showEgressDomains = $derived(!!version.current.mcpNetworkPolicyEnabled);
+	const secretBoundHeaders = $derived(
+		(formData.remoteConfig?.headers ?? []).filter((h) => hasSecretBinding(h))
+	);
 	const defaultDenyAllEgress = $derived(!!version.current.mcpDefaultDenyAllEgress);
 
 	function defaultNpxConfig() {
@@ -648,7 +652,18 @@
 		onFieldChange={updateRequired}
 		isNewEntry={!entry}
 		{onConfigureOAuth}
-	/>
+	>
+		{#snippet afterHeaders()}
+			{#if secretBoundHeaders.length > 0}
+				<CustomConfigurationForm
+					bind:config={formData.env}
+					{readonly}
+					{type}
+					{secretBoundHeaders}
+				/>
+			{/if}
+		{/snippet}
+	</RemoteRuntimeForm>
 {:else if formData.runtime === 'composite' && formData.compositeConfig}
 	<CompositeRuntimeForm
 		bind:config={formData.compositeConfig}
@@ -660,7 +675,7 @@
 {/if}
 <!-- Environment Variables Section -->
 {#if !['remote', 'composite'].includes(formData.runtime)}
-	<CustomConfigurationForm bind:config={formData.env} {readonly} {type} />
+	<CustomConfigurationForm bind:config={formData.env} {readonly} {type} {secretBoundHeaders} />
 {/if}
 
 {#if type === 'multi' && formData.multiUserConfig}

@@ -608,6 +608,18 @@ func TestRuntimeSpecificDriftFunctions(t *testing.T) {
 				entryConfig:   &types.RemoteCatalogConfig{Hostname: "api2.example.com"},
 				expectedDrift: false,
 			},
+			{
+				name: "headers match despite order",
+				serverConfig: &types.RemoteRuntimeConfig{Headers: []types.MCPHeader{
+					{Key: "X-Second", Value: "second"},
+					{Key: "X-First", Value: "first"},
+				}},
+				entryConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{
+					{Key: "X-First", Value: "first"},
+					{Key: "X-Second", Value: "second"},
+				}},
+				expectedDrift: false,
+			},
 		}
 
 		for _, tt := range tests {

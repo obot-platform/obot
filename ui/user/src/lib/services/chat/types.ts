@@ -381,12 +381,19 @@ export interface ToolOverride {
 export interface MCPSubField {
 	description: string;
 	file?: boolean;
+	dynamicFile?: boolean;
 	key: string;
 	name: string;
 	required: boolean;
 	sensitive: boolean;
 	value?: string;
 	prefix?: string;
+	secretBinding?: MCPSecretBinding;
+}
+
+export interface MCPSecretBinding {
+	name: string;
+	key: string;
 }
 
 export interface MCP {

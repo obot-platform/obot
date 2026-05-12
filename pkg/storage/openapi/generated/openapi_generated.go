@@ -119,6 +119,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPPromptReadStats":                                 schema_obot_platform_obot_apiclient_types_MCPPromptReadStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPResourceReadStats":                               schema_obot_platform_obot_apiclient_types_MCPResourceReadStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPResourceRequests":                                schema_obot_platform_obot_apiclient_types_MCPResourceRequests(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPSecretBinding":                                   schema_obot_platform_obot_apiclient_types_MCPSecretBinding(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPSelector":                                        schema_obot_platform_obot_apiclient_types_MCPSelector(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServer":                                          schema_obot_platform_obot_apiclient_types_MCPServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntry":                              schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref),
@@ -6050,6 +6051,12 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 							Format: "",
 						},
 					},
+					"secretBinding": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretBinding binds this value to a key in a pre-existing Kubernetes Secret",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"),
+						},
+					},
 					"file": {
 						SchemaProps: spec.SchemaProps{
 							Default: false,
@@ -6068,6 +6075,8 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 				Required: []string{"name", "description", "key", "value", "sensitive", "required", "file"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"},
 	}
 }
 
@@ -6127,10 +6136,18 @@ func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"secretBinding": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretBinding binds this value to a key in a pre-existing Kubernetes Secret",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"),
+						},
+					},
 				},
 				Required: []string{"name", "description", "key", "value", "sensitive", "required"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"},
 	}
 }
 
@@ -6210,6 +6227,34 @@ func schema_obot_platform_obot_apiclient_types_MCPResourceRequests(ref common.Re
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPSecretBinding(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPSecretBinding references a single key in a pre-existing Kubernetes Secret in the Obot namespace (the namespace where the Obot server runs)",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"name", "key"},
 			},
 		},
 	}

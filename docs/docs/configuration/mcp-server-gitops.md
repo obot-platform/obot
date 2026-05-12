@@ -112,6 +112,92 @@ env:
     description: Description of this variable
 ```
 
+### Kubernetes Secret Bindings
+
+Secret bindings let you wire an env var, header, or file to a key in an externally-managed Kubernetes Secret instead of asking the user to supply the value at install time.
+
+Secret bindings are only available on git-managed catalog entries, and only when Obot is using the Kubernetes MCP runtime backend.
+
+#### Basic env var binding
+
+The resolved value is injected into the MCP server pod as an environment variable — this works for `npx`, `uvx`, and `containerized` runtimes (not `remote`, which uses header bindings instead).
+
+```yaml
+env:
+  - key: API_KEY
+    name: API Key
+    required: true
+    sensitive: true
+    description: Bound to a pre-existing Kubernetes Secret — no user input needed.
+    secretBinding:
+      name: my-secret       # Kubernetes Secret name
+      key: api_key          # Key within that Secret
+```
+
+**Constraints:**
+- Not supported for `remote` runtime env vars (use a header binding instead).
+- `required: false` is allowed — when the Secret or key is absent the server deploys without that env var.
+- For `remoteConfig.urlTemplate`, `${VAR}` placeholders must not reference env vars that use `secretBinding`.
+
+#### File binding
+
+When `file: true` the secret value is written to a file under `/files/` and the env var is set to the file path. This is useful for secrets that applications expect to read from the filesystem.
+
+```yaml
+env:
+  - key: TLS_CERT
+    name: TLS Certificate
+    file: true
+    required: true
+    sensitive: true
+    description: PEM certificate; mounted as a file at the path stored in TLS_CERT.
+    secretBinding:
+      name: my-tls-secret
+      key: tls.crt
+```
+
+The application reads the certificate path from `os.Getenv("TLS_CERT")` and opens the file at that path.
+
+#### Dynamic file binding
+
+Adding `dynamicFile: true` (requires `file: true`) allows the mounted file to update **without restarting the pod** when the source Kubernetes Secret changes. The application is responsible for watching/re-reading the file for changes. This only has an effect when `file: true`.
+
+```yaml
+env:
+  - key: API_CREDENTIALS
+    name: API Credentials File
+    file: true
+    dynamicFile: true
+    required: true
+    sensitive: true
+    description: Credentials file updated in-place when the Secret rotates — no pod restart needed.
+    secretBinding:
+      name: rotating-api-creds
+      key: credentials.json
+```
+
+**Constraints:**
+- `dynamicFile` is ignored unless `file: true`.
+- `file` and `dynamicFile` are not supported on header bindings.
+
+#### Header binding (remote servers)
+
+For `remote` runtime servers, bind an outbound HTTP header to a Kubernetes Secret key:
+
+```yaml
+runtime: remote
+remoteConfig:
+  fixedURL: https://api.example.com/mcp
+  headers:
+    - key: Authorization
+      name: API Token
+      required: true
+      sensitive: true
+      secretBinding:
+        name: api-token-secret
+        key: token
+```
+
 ### Runtime Configuration
 
 For remote servers:
