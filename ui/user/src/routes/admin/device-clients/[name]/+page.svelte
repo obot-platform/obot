@@ -170,7 +170,7 @@
 										<XIcon class="text-on-surface1 size-3 shrink-0" />
 									{/if}
 								{:else if property === 'files'}
-									{d.files || '-'}
+									{d.files ?? '-'}
 								{/if}
 							{/snippet}
 						</Table>

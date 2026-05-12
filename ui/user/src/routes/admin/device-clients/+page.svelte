@@ -29,7 +29,9 @@
 				[]
 		}))
 	);
-	let pageSize = $derived(parseInt(page.url.searchParams.get('pageSize') ?? '50', 10) ?? 50);
+	let pageSize = $derived(
+		parseInt(page.url.searchParams.get('pageSize') ?? String(PAGE_SIZE), 10) ?? PAGE_SIZE
+	);
 	let pageIndex = $derived(Math.floor((clientsData.offset ?? 0) / pageSize));
 	let lastPageIndex = $derived(total > 0 ? Math.ceil(total / pageSize) - 1 : 0);
 	let nameFilter = $state(untrack(() => page.url.searchParams.get('name') ?? ''));
@@ -125,7 +127,7 @@
 				{/snippet}
 			</Table>
 		{/if}
-		{#if total > PAGE_SIZE}
+		{#if total > pageSize}
 			<Pagination
 				{pageIndex}
 				{lastPageIndex}

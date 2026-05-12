@@ -423,7 +423,10 @@
 											class="menu-button"
 											onclick={(e) => {
 												const isCtrlClick = e.ctrlKey || e.metaKey;
-												openUrl(resolve(`/admin/device-skills/${d.name}`), isCtrlClick);
+												openUrl(
+													resolve(`/admin/device-skills/${encodeURIComponent(d.name)}`),
+													isCtrlClick
+												);
 												toggle();
 											}}
 										>

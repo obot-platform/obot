@@ -243,13 +243,9 @@
 				loadingToolUsage = false;
 			});
 
-		Promise.all([
-			AdminService.getDeviceScanStats({ start: start.toISOString(), end: end.toISOString() }),
-			AdminService.listDeviceScans()
-		])
-			.then(([stats, scans]) => {
+		AdminService.getDeviceScanStats({ start: start.toISOString(), end: end.toISOString() })
+			.then((stats) => {
 				deviceScanStats = stats;
-				hasDeviceScans = scans.total > 0;
 			})
 			.catch((error) => {
 				if (error?.name === 'AbortError') return;
