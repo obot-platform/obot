@@ -285,12 +285,12 @@ class MCPClient:
                                     if expected_prompt.strip() in text_val:
                                         turn_seen_prompt = True
                                         break
-                                    # For long prompts, server may echo truncated or in chunks; match on prefix
-                                    if len(expected_prompt.strip()) > 400:
-                                        prefix = expected_prompt.strip()[:200]
-                                        if prefix and prefix in text_val:
-                                            turn_seen_prompt = True
-                                            break
+                                    # Prefix match for long prompts and short stable anchors (e.g. [[ANTV_EVAL:P2]]).
+                                    prefix_len = 200 if len(expected_prompt.strip()) > 400 else min(80, len(expected_prompt.strip()))
+                                    prefix = expected_prompt.strip()[:prefix_len]
+                                    if prefix and prefix in text_val:
+                                        turn_seen_prompt = True
+                                        break
 
                         if expected_prompt is None:
                             # Segment mode: keep only the last assistant block (after last user message)
