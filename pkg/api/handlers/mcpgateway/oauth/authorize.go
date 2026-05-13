@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"net/http"
 	"net/url"
 	"slices"
@@ -424,33 +423,19 @@ func (h *handler) maybeHandleDebuggerCallback(req api.Context) (bool, error) {
 	errorCode := req.URL.Query().Get("error")
 	errorDescription := req.URL.Query().Get("error_description")
 
-	req.ResponseWriter.Header().Set("Content-Type", "text/html; charset=utf-8")
+	q := url.Values{}
+	q.Set("state", state)
 	if errorCode != "" {
-		req.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprintf(req.ResponseWriter, `<!doctype html>
-<html><head><title>OAuth Debugger Error</title></head>
-<body>
-<h1>OAuth Debugger Error</h1>
-<p><strong>Error:</strong> %s</p>
-<p><strong>Description:</strong> %s</p>
-<p><strong>State:</strong> %s</p>
-</body></html>`, html.EscapeString(errorCode), html.EscapeString(errorDescription), html.EscapeString(state))
-		return true, nil
+		q.Set("error", errorCode)
+		if errorDescription != "" {
+			q.Set("error_description", errorDescription)
+		}
+	} else {
+		q.Set("code", code)
 	}
 
-	req.ResponseWriter.Header().Set("Cache-Control", "no-store")
-	req.ResponseWriter.Header().Set("Pragma", "no-cache")
-	_, _ = fmt.Fprintf(req.ResponseWriter, `<!doctype html>
-<html><head><title>OAuth Debugger Code</title></head>
-<body>
-<h1>OAuth Debugger Code</h1>
-<p>Copy this code into the debugger token exchange step.</p>
-<p><strong>Code:</strong></p>
-<pre>%s</pre>
-<p><strong>State:</strong></p>
-<pre>%s</pre>
-</body></html>`, html.EscapeString(code), html.EscapeString(state))
-
+	dest := url.URL{Path: "/oauth-debugger/callback", RawQuery: q.Encode()}
+	http.Redirect(req.ResponseWriter, req.Request, dest.String(), http.StatusFound)
 	return true, nil
 }
 
