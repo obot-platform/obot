@@ -768,9 +768,9 @@ func (*Handler) copyMCPServer(req router.Request, sourcePMS *v1.ProjectMCPServer
 				Alias:                     sourceMCPServer.Spec.Alias,
 				UserID:                    thread.Spec.UserID,
 				MCPServerCatalogEntryName: sourceMCPServer.Spec.MCPServerCatalogEntryName,
-				MCPCatalogID:         sourceMCPServer.Spec.MCPCatalogID,
-				PowerUserWorkspaceID: sourceMCPServer.Spec.PowerUserWorkspaceID,
-				Template:             thread.Spec.Template,
+				MCPCatalogID:              sourceMCPServer.Spec.MCPCatalogID,
+				PowerUserWorkspaceID:      sourceMCPServer.Spec.PowerUserWorkspaceID,
+				Template:                  thread.Spec.Template,
 			},
 		}
 
