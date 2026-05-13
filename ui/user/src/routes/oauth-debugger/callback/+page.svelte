@@ -14,7 +14,7 @@
 
 <main
 	id="main-content"
-	class="text-on-background bg-surface1 flex min-h-dvh items-center justify-center px-4 py-16"
+	class="text-on-background dark:bg-background bg-surface1 flex min-h-dvh items-center justify-center px-4 py-16"
 >
 	<div
 		class={twMerge(
