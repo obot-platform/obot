@@ -26,7 +26,17 @@
 	<title>Obot | Skill {skill?.name ?? ''}</title>
 </svelte:head>
 
-<Layout title={skill?.name || 'Skill'} showBackButton onBackButtonClick={() => goto(backHref)}>
+<Layout
+	title={skill?.name || 'Skill'}
+	showBackButton
+	onBackButtonClick={() => {
+		if (typeof window !== 'undefined' && window.history.length > 1) {
+			window.history.back();
+		} else {
+			goto(backHref);
+		}
+	}}
+>
 	<div
 		class="flex flex-col gap-6"
 		in:fly={{ x: 100, duration, delay: duration }}

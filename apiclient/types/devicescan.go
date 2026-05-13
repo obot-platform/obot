@@ -351,3 +351,42 @@ type DeviceSkillOccurrenceResponse struct {
 	Limit                     int   `json:"limit"`
 	Offset                    int   `json:"offset"`
 }
+
+// DeviceClientFleetSkill is one skill row on a device client fleet summary
+// (client match, not "multi"; canonical row is earliest observation id per
+// client + skill name).
+type DeviceClientFleetSkill struct {
+	// Name is the skill name (typically from SKILL.md frontmatter).
+	Name string `json:"name"`
+	// Description is the short summary from frontmatter when present.
+	Description string `json:"description,omitempty"`
+	// HasScripts is true when the skill directory includes executable scripts.
+	HasScripts bool `json:"hasScripts"`
+	// Files is the number of file paths recorded for that skill observation.
+	Files int `json:"files"`
+}
+
+// DeviceClientFleetSummary rolls up latest-scan-per-device data for one
+// canonical client name (from device_scan_clients).
+type DeviceClientFleetSummary struct {
+	// Name is the canonical client identifier (e.g. "cursor", "claude-code").
+	Name string `json:"name"`
+	// Users are distinct scan submitters whose latest scan lists this client.
+	Users []string `json:"users"`
+	// Skills lists one entry per distinct skill name with metadata on each
+	// device's latest scan (client match; excludes "multi").
+	Skills []DeviceClientFleetSkill `json:"skills"`
+	// MCPServers are distinct MCP servers (by ConfigHash) observed with
+	// Client == Name in those latest scans; rows with client "multi" are excluded.
+	MCPServers []DeviceMCPServerStat `json:"mcpServers"`
+}
+
+type DeviceClientFleetSummaryList List[DeviceClientFleetSummary]
+
+// DeviceClientFleetSummaryResponse is returned by GET /api/devices/clients.
+type DeviceClientFleetSummaryResponse struct {
+	DeviceClientFleetSummaryList `json:",inline"`
+	Total                        int64 `json:"total"`
+	Limit                        int    `json:"limit"`
+	Offset                       int    `json:"offset"`
+}

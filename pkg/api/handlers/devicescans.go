@@ -444,3 +444,83 @@ func convertMCPServerDetail(d gtypes.MCPServerDetail) types.DeviceMCPServerDetai
 		HeaderKeys:          d.HeaderKeys,
 	}
 }
+
+// ListClients handles GET /api/devices/clients. Paginated distinct client
+// names from each device's latest scan, with users, skill metadata, and MCP
+// rows attributed to that client. Optional query param `name` filters to
+// client names that contain the given substring (case-insensitive on
+// PostgreSQL).
+func (*DeviceScansHandler) ListClients(req api.Context) error {
+	q := req.URL.Query()
+	limit := 100
+	if v := q.Get("limit"); v != "" {
+		if l, err := strconv.Atoi(v); err == nil && l > 0 {
+			limit = l
+		}
+	}
+	offset := 0
+	if v := q.Get("offset"); v != "" {
+		if o, err := strconv.Atoi(v); err == nil && o >= 0 {
+			offset = o
+		}
+	}
+	name := strings.TrimSpace(q.Get("name"))
+
+	rows, total, err := req.GatewayClient.ListDeviceClientFleetSummaries(req.Context(), gateway.DeviceClientFleetListOptions{
+		Name:   name,
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		return err
+	}
+
+	items := make([]types.DeviceClientFleetSummary, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, convertDeviceClientFleetSummary(r))
+	}
+	return req.Write(types.DeviceClientFleetSummaryResponse{
+		DeviceClientFleetSummaryList: types.DeviceClientFleetSummaryList{Items: items},
+		Total:                        total,
+		Limit:                        limit,
+		Offset:                       offset,
+	})
+}
+
+// GetClient handles GET /api/devices/clients/{name}.
+func (*DeviceScansHandler) GetClient(req api.Context) error {
+	name := req.PathValue("name")
+	if name == "" {
+		return types.NewErrBadRequest("missing client name")
+	}
+	summary, err := req.GatewayClient.GetDeviceClientFleetSummary(req.Context(), name)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return types.NewErrNotFound("client %q not found", name)
+		}
+		return err
+	}
+	return req.Write(convertDeviceClientFleetSummary(*summary))
+}
+
+func convertDeviceClientFleetSummary(r gateway.DeviceClientFleetSummary) types.DeviceClientFleetSummary {
+	mcps := make([]types.DeviceMCPServerStat, len(r.MCPServers))
+	for i := range r.MCPServers {
+		mcps[i] = convertMCPServerStat(r.MCPServers[i])
+	}
+	skills := make([]types.DeviceClientFleetSkill, len(r.Skills))
+	for i := range r.Skills {
+		skills[i] = types.DeviceClientFleetSkill{
+			Name:        r.Skills[i].Name,
+			Description: r.Skills[i].Description,
+			HasScripts:  r.Skills[i].HasScripts,
+			Files:       r.Skills[i].Files,
+		}
+	}
+	return types.DeviceClientFleetSummary{
+		Name:       r.Name,
+		Users:      r.Users,
+		Skills:     skills,
+		MCPServers: mcps,
+	}
+}

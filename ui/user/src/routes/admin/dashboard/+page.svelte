@@ -2,181 +2,77 @@
 	import { resolve } from '$app/paths';
 	import Layout from '$lib/components/Layout.svelte';
 	import TweenedMetric from '$lib/components/TweenedMetric.svelte';
-	import McpServerGitSync from '$lib/components/admin/McpServerGitSync.svelte';
-	import {
-		transformTopToolCalls,
-		transformTopServerUsage,
-		transformAvgToolCallResponseTime
-	} from '$lib/components/admin/usage/utils';
-	import DonutGraph, {
-		type DonutDatum,
-		type DonutLegendItem
-	} from '$lib/components/graph/DonutGraph.svelte';
+	import DeviceScanDonutCard from '$lib/components/admin/device-scan/DeviceScanDonutCard.svelte';
+	import DeviceScanTimelineCard from '$lib/components/admin/device-scan/DeviceScanTimelineCard.svelte';
+	import { buildDeviceScanTopBuckets } from '$lib/components/admin/device-scan/deviceScanTopBuckets';
+	import DonutGraph, { type DonutDatum } from '$lib/components/graph/DonutGraph.svelte';
 	import HorizontalBarGraph from '$lib/components/graph/HorizontalBarGraph.svelte';
-	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { formatNumber } from '$lib/format';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import {
 		AdminService,
-		type AuditLogUsageStats,
-		type LaunchServerType,
+		type DeviceClientStat,
+		type DeviceMCPServerStat,
+		type DeviceScanStats,
+		type DeviceSkillStat,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser,
 		type TotalTokenUsage
 	} from '$lib/services';
 	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
-	import { goto } from '$lib/url';
-	import { isWithinInterval, set, subMonths } from 'date-fns';
-	import { Activity, ChevronRight, Coins, Server, Siren, Users, Wrench } from 'lucide-svelte';
+	import { ENTRY_TYPE_GRAPH_META, entryTypeDonutLegend } from './constants';
+	import type { AvgToolCallResponseTimeRow, TopServerUsageRow, TopToolCallRow } from './types';
+	import {
+		avgToolCallResponseTimeFromStats,
+		catalogServerEntryKind,
+		deploymentStatusGridColClass,
+		deploymentStatusGridShowBorderRight,
+		deploymentStatusSortKey,
+		mixHex,
+		normalizeServerDeploymentStatus,
+		topServersFromStats,
+		topToolCallsFromStats
+	} from './utils';
+	import { isWithinInterval, subMonths } from 'date-fns';
+	import {
+		Activity,
+		ChevronRight,
+		Coins,
+		Laptop,
+		MonitorCheck,
+		PencilRuler,
+		Server,
+		Siren,
+		Users,
+		Wrench
+	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { fade } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
-	const TOP_TOOLS_LIMIT = 5;
-	const TOP_SERVERS_LIMIT = 12;
-
-	const DEPLOYMENT_STATUS_ORDER = [
-		'Available',
-		'Progressing',
-		'Unavailable',
-		'Needs Attention',
-		'Shutdown',
-		'Unknown'
-	] as const;
-
-	const ENTRY_TYPE_GRAPH_META: {
-		key: 'multi' | 'single' | 'remote' | 'composite';
-		label: string;
-		baseColor: string;
-	}[] = [
-		{ key: 'multi', label: 'Multi-User', baseColor: '#fee090' },
-		{ key: 'single', label: 'Single-User', baseColor: '#f46d43' },
-		{ key: 'remote', label: 'Remote', baseColor: '#4575b4' },
-		{ key: 'composite', label: 'Composite', baseColor: '#BFB4ACFF' }
-	];
-
-	const entryTypeDonutLegend: DonutLegendItem[] = ENTRY_TYPE_GRAPH_META.map(
-		({ label, baseColor }) => ({ label, color: baseColor })
-	);
-
-	function mixHex(base: string, toward: string, t: number): string {
-		const parse = (hex: string) => {
-			const s = hex.replace('#', '');
-			const full = s.length === 3 ? [...s].map((c) => c + c).join('') : s;
-			return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
-		};
-		const [r1, g1, b1] = parse(base);
-		const [r2, g2, b2] = parse(toward);
-		const blend = (a: number, b: number) => Math.round(a + (b - a) * t);
-		const r = blend(r1, r2);
-		const g = blend(g1, g2);
-		const b = blend(b1, b2);
-		return `#${[r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('')}`;
-	}
-
-	function deploymentStatusSortKey(status: string): number {
-		const i = DEPLOYMENT_STATUS_ORDER.indexOf(status as (typeof DEPLOYMENT_STATUS_ORDER)[number]);
-		return i >= 0 ? i : DEPLOYMENT_STATUS_ORDER.length;
-	}
-
-	function catalogServerEntryKind(
-		server: MCPCatalogServer
-	): 'multi' | 'single' | 'remote' | 'composite' {
-		if (!server.catalogEntryID) return 'multi';
-		if (server.manifest.runtime === 'composite') return 'composite';
-		if (server.manifest.runtime === 'remote') return 'remote';
-		return 'single';
-	}
-
-	function normalizeServerDeploymentStatus(server: MCPCatalogServer): string {
-		const raw = server.deploymentStatus?.trim();
-		if (raw && DEPLOYMENT_STATUS_ORDER.includes(raw as (typeof DEPLOYMENT_STATUS_ORDER)[number]))
-			return raw;
-		if (raw) return raw;
-		return 'Unknown';
-	}
-
-	/** 12-column grid: 3× col-span-4 per full row; last row fills width (6+6 or 12). */
-	function deploymentStatusRowLayout(total: number): {
-		itemsInLastRow: number;
-		lastRowStart: number;
-	} {
-		const rem = total % 3;
-		const itemsInLastRow = rem === 0 ? 3 : rem;
-		const lastRowStart = total - itemsInLastRow;
-		return { itemsInLastRow, lastRowStart };
-	}
-
-	function deploymentStatusGridColClass(i: number, total: number): string {
-		const { itemsInLastRow, lastRowStart } = deploymentStatusRowLayout(total);
-		if (i < lastRowStart) return 'col-span-4';
-		if (itemsInLastRow === 1) return 'col-span-12';
-		if (itemsInLastRow === 2) return 'col-span-6';
-		return 'col-span-4';
-	}
-
-	function deploymentStatusGridShowBorderRight(i: number, total: number): boolean {
-		const { itemsInLastRow, lastRowStart } = deploymentStatusRowLayout(total);
-		if (i >= lastRowStart) {
-			if (itemsInLastRow === 1) return false;
-			if (itemsInLastRow === 2) return i === lastRowStart;
-			return i < lastRowStart + 2;
-		}
-		return i % 3 !== 2;
-	}
-
+	let { data } = $props();
+	let hasDeviceScans = $derived(data?.hasDeviceScans ?? false);
 	let loading = $state(true);
 	let loadingToolUsage = $state(true);
+	let loadingDeviceScanStats = $state(true);
 
 	let usersData = $state<OrgUser[]>([]);
 	let totalTokensData = $state<TotalTokenUsage>();
 
-	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-	let sourceDialog = $state<ReturnType<typeof McpServerGitSync>>();
-
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
-
-	type TopToolCallRow = {
-		compositeKey: string;
-		toolLabel: string;
-		count: number;
-		serverDisplayName: string;
-	};
-
-	type TopServerUsageRow = { serverName: string; count: number };
-
-	type AvgToolCallResponseTimeRow = {
-		toolName: string;
-		averageResponseTimeMs: number;
-		serverDisplayName: string;
-	};
 
 	let topToolCalls = $state<TopToolCallRow[]>([]);
 	let topServerUsage = $state<TopServerUsageRow[]>([]);
 	let avgToolCallResponseTime = $state<AvgToolCallResponseTimeRow[]>([]);
+	let deviceScanStats = $state<DeviceScanStats | null>(null);
+	let maxToolsToShow = $derived(hasDeviceScans ? 3 : 5);
+	let maxServersToShow = $derived(hasDeviceScans ? 10 : 12);
 
 	const end = new Date();
 	const start = subMonths(end, 1);
-
-	function topToolCallsFromStats(stats: AuditLogUsageStats | undefined): TopToolCallRow[] {
-		return transformTopToolCalls(stats).map((t) => ({
-			compositeKey: t.toolName,
-			toolLabel: t.toolName,
-			count: t.count,
-			serverDisplayName: t.serverDisplayName
-		}));
-	}
-
-	function topServersFromStats(stats: AuditLogUsageStats | undefined): TopServerUsageRow[] {
-		return transformTopServerUsage(stats);
-	}
-
-	function avgToolCallResponseTimeFromStats(stats: AuditLogUsageStats | undefined) {
-		return transformAvgToolCallResponseTime(stats);
-	}
 
 	let monthlyActiveUsers = $derived(
 		usersData.filter(
@@ -320,12 +216,9 @@
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 
 	onMount(async () => {
-		const endToolStats = set(new Date(), { milliseconds: 0, seconds: 59 });
-		const startToolStats = subMonths(endToolStats, 1);
-
 		AdminService.listAuditLogUsageStats({
-			start_time: startToolStats.toISOString(),
-			end_time: endToolStats.toISOString()
+			start_time: start.toISOString(),
+			end_time: end.toISOString()
 		})
 			.then((stats) => {
 				const statsToUse = (stats.items ?? []).filter(
@@ -338,12 +231,9 @@
 					...stats,
 					items: statsToUse
 				};
-				topToolCalls = topToolCallsFromStats(adjustedStats).slice(0, TOP_TOOLS_LIMIT);
-				topServerUsage = topServersFromStats(adjustedStats).slice(0, TOP_SERVERS_LIMIT);
-				avgToolCallResponseTime = avgToolCallResponseTimeFromStats(adjustedStats).slice(
-					0,
-					TOP_TOOLS_LIMIT
-				);
+				topToolCalls = topToolCallsFromStats(adjustedStats);
+				topServerUsage = topServersFromStats(adjustedStats);
+				avgToolCallResponseTime = avgToolCallResponseTimeFromStats(adjustedStats);
 			})
 			.catch((error) => {
 				if (error?.name === 'AbortError') return;
@@ -351,6 +241,18 @@
 			})
 			.finally(() => {
 				loadingToolUsage = false;
+			});
+
+		AdminService.getDeviceScanStats({ start: start.toISOString(), end: end.toISOString() })
+			.then((stats) => {
+				deviceScanStats = stats;
+			})
+			.catch((error) => {
+				if (error?.name === 'AbortError') return;
+				errors.append(error);
+			})
+			.finally(() => {
+				loadingDeviceScanStats = false;
 			});
 
 		const [users, tokens, catalogServers, workspaceServers] = await Promise.all([
@@ -367,11 +269,6 @@
 		loading = false;
 	});
 
-	function handleSelectServerType(type: LaunchServerType) {
-		selectServerTypeDialog?.close();
-		goto(resolve(`/admin/mcp-servers?new=${type}`));
-	}
-
 	function getServerUrl(server: MCPCatalogServer) {
 		if (server.powerUserWorkspaceID) {
 			return `/admin/mcp-servers/w/${server.powerUserWorkspaceID}/s/${server.id}?view=server-instances`;
@@ -385,82 +282,175 @@
 		}
 		return `/admin/mcp-servers/c/${entry.id}?view=server-instances`;
 	}
+
+	const platformStatTiles = $derived([
+		{
+			id: 'total-users',
+			label: 'Total Users',
+			loading,
+			value: usersData.length,
+			icon: Users,
+			seeMore: '/admin/users'
+		},
+		{
+			id: 'monthly-active-users',
+			label: 'Monthly Active Users',
+			loading,
+			value: monthlyActiveUsers,
+			icon: Activity,
+			seeMore: '/admin/users'
+		},
+		{
+			id: 'total-tokens',
+			label: 'Total Tokens',
+			loading,
+			value: totalTokensData?.totalTokens ?? 0,
+			icon: Coins,
+			seeMore: '/admin/token-usage'
+		}
+	]);
+
+	let deviceScanClientBuckets = $derived(
+		buildDeviceScanTopBuckets<DeviceClientStat>(
+			deviceScanStats?.clients,
+			(c) => c.name,
+			(c) => c.name,
+			(c) => c.deviceCount
+		)
+	);
+	let deviceScanMcpBuckets = $derived(
+		buildDeviceScanTopBuckets<DeviceMCPServerStat>(
+			deviceScanStats?.mcpServers,
+			(m) => m.configHash,
+			(m) => m.name?.trim() || '(unnamed)',
+			(m) => m.deviceCount,
+			'mcp'
+		)
+	);
+	let deviceScanSkillBuckets = $derived(
+		buildDeviceScanTopBuckets<DeviceSkillStat>(
+			deviceScanStats?.skills,
+			(s) => s.name,
+			(s) => s.name,
+			(s) => s.deviceCount,
+			'skill'
+		)
+	);
+	let totalDeviceScanClientGroups = $derived(deviceScanStats?.clients?.length ?? 0);
+	let totalDeviceScanMcpGroups = $derived(deviceScanStats?.mcpServers?.length ?? 0);
+	let totalDeviceScanSkillGroups = $derived(deviceScanStats?.skills?.length ?? 0);
+
+	type DeviceScanTimelineRow = { scanned_at: string; category: 'scans' };
+	let deviceScanTimelineRows = $derived<DeviceScanTimelineRow[]>(
+		(deviceScanStats?.scanTimestamps ?? []).map((ts) => ({
+			scanned_at: ts,
+			category: 'scans' as const
+		}))
+	);
+	let totalDeviceScanSubmissions = $derived(deviceScanStats?.scanTimestamps?.length ?? 0);
+
+	let deviceScanTiles = $derived([
+		{
+			id: 'device-overview',
+			label: 'Unique Devices',
+			loading: loadingDeviceScanStats,
+			value: deviceScanStats?.deviceCount ?? 0,
+			icon: Laptop,
+			seeMore: '/admin/devices'
+		},
+		{
+			id: 'device-users',
+			label: 'Unique Users',
+			loading: loadingDeviceScanStats,
+			value: deviceScanStats?.userCount ?? 0,
+			icon: Users
+		},
+		{
+			id: 'device-clients',
+			label: 'Unique Clients',
+			loading: loadingDeviceScanStats,
+			value: deviceScanStats?.clients?.length ?? 0,
+			icon: MonitorCheck,
+			seeMore: '/admin/device-clients'
+		},
+		{
+			id: 'device-mcps',
+			label: 'Unique MCPs',
+			loading: loadingDeviceScanStats,
+			value: deviceScanStats?.mcpServers?.length ?? 0,
+			icon: Server,
+			seeMore: '/admin/device-mcp-servers'
+		},
+		{
+			id: 'device-skills',
+			label: 'Unique Skills',
+			loading: loadingDeviceScanStats,
+			value: deviceScanStats?.skills?.length ?? 0,
+			icon: PencilRuler,
+			seeMore: '/admin/device-skills'
+		}
+	]);
 </script>
 
 <Layout title="Dashboard" classes={{ childrenContainer: 'max-w-none', container: '' }}>
-	<div class="@container grid grid-cols-12 gap-4">
-		<div class="flex flex-col col-span-12 @min-[768px]:col-span-8 gap-4">
-			<!-- this token usage graph-->
-			<div class="grid grid-cols-12 gap-4">
-				<div class="col-span-12 @min-[768px]:col-span-4">
-					<div class="paper gap-2 h-full">
-						<div class="text-xs text-on-surface1 flex items-center gap-1">Total Users</div>
-						<div class="flex w-full justify-between">
-							{#if loading}
-								<Loading class="size-8" />
-							{:else}
-								<div class="text-3xl font-semibold">
-									<TweenedMetric holdAtZero={loading} target={usersData.length} />
-								</div>
-								<Users class="size-8 text-primary" />
-							{/if}
-						</div>
-						{#if !isBootStrapUser}
-							<a
-								href={resolve('/admin/users')}
-								class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-							>
-								See More <ChevronRight class="size-3" />
-							</a>
-						{/if}
+	<div class="@container grid min-w-0 w-full max-w-full grid-cols-12 gap-4">
+		<div class="col-span-12 grid grid-cols-12 gap-4">
+			<div
+				class={twMerge(
+					'paper flex min-w-0 flex-col gap-0 p-0',
+					hasDeviceScans ? ' col-span-12 @3xl:col-span-5' : 'col-span-12'
+				)}
+			>
+				{#if hasDeviceScans}
+					<div class="shrink-0 border-b border-surface2 px-4 py-2">
+						<h4 class="flex items-center font-light text-xs uppercase">On Platform</h4>
 					</div>
-				</div>
-				<div class="col-span-12 @min-[768px]:col-span-4">
-					<div class="paper gap-2 h-full">
-						<div class="text-xs text-on-surface1 flex items-center gap-1">Monthly Active Users</div>
-						<div class="flex w-full justify-between">
-							{#if loading}
-								<Loading class="size-8" />
-							{:else}
-								<div class="text-3xl font-semibold">
-									<TweenedMetric holdAtZero={loading} target={monthlyActiveUsers} />
-								</div>
-								<Activity class="size-8 text-primary" />
-							{/if}
-						</div>
-						<div class="text-xs text-on-surface1">Last 30 Days</div>
-					</div>
-				</div>
-				<div class="col-span-12 @min-[768px]:col-span-4">
-					<div class="paper gap-2 h-full">
-						<div class="text-xs text-on-surface1 flex items-center gap-1">Total Tokens</div>
-						<div class="flex w-full justify-between">
-							{#if loading}
-								<Loading class="size-8" />
-							{:else}
-								<div class="text-3xl font-semibold">
-									<TweenedMetric
-										holdAtZero={loading}
-										target={totalTokensData?.totalTokens ?? 0}
-										format={(n) => formatNumber(Math.max(0, Math.round(n)))}
-									/>
-								</div>
-								<Coins class="size-8 text-primary" />
-							{/if}
-						</div>
-						{#if !isBootStrapUser}
-							<a
-								href={resolve('/admin/token-usage')}
-								class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-							>
-								See More <ChevronRight class="size-3" />
-							</a>
-						{/if}
+				{/if}
+				<div class="@container min-w-0 w-full max-w-full">
+					<div class="grid w-full grid-cols-2 gap-0 @md:grid-cols-12">
+						{#each platformStatTiles as platformStat (platformStat.id)}
+							{@render platformStatCell(platformStat)}
+						{/each}
 					</div>
 				</div>
 			</div>
+			{#if hasDeviceScans}
+				<div
+					class="gap-0 paper min-w-0 p-0 col-span-12 @3xl:col-span-7"
+					in:fly={{ x: 100, duration: 150 }}
+				>
+					<div class="col-span-12 border-b border-surface2 px-4 py-2">
+						<h4 class="flex items-center font-light text-xs uppercase">Device Scans</h4>
+					</div>
+					<div class="@container min-w-0 w-full max-w-full">
+						<div class="grid grid-cols-2 gap-0 @md:flex @md:items-center">
+							{#each deviceScanTiles as deviceScanStat (deviceScanStat.id)}
+								{@render deviceScanStatCell(deviceScanStat)}
+							{/each}
+						</div>
+					</div>
+				</div>
+			{/if}
+		</div>
+
+		<div
+			class={twMerge(
+				'flex flex-col gap-4 col-span-12',
+				hasDeviceScans ? '@3xl:col-span-5' : '@3xl:col-span-8'
+			)}
+		>
+			{#if hasDeviceScans}
+				{@render serverActivityGraph()}
+				{@render topServerDeploymentList()}
+			{/if}
+
 			{#if loadingToolUsage}
-				<div class="bg-surface3 h-[400px] animate-pulse rounded-md"></div>
+				<div
+					class={twMerge(
+						'bg-surface3 animate-pulse rounded-md',
+						hasDeviceScans ? 'h-81' : 'h-[400px]'
+					)}
+				></div>
 			{:else}
 				<div in:fade={{ duration: 150 }} class="paper gap-1 w-full min-h-72">
 					<div class="flex flex-wrap items-center justify-between gap-4">
@@ -471,11 +461,11 @@
 						</h4>
 					</div>
 					<HorizontalBarGraph
-						data={topServerUsage}
+						data={topServerUsage.slice(0, maxServersToShow)}
 						labelKey="serverName"
 						valueKey="count"
 						formatValue={(value) => Math.round(value).toString()}
-						class="h-[400px]"
+						class={hasDeviceScans ? 'h-67.5' : 'h-[400px]'}
 					>
 						{#snippet tooltipContent(item)}
 							<div class="flex flex-col gap-0 text-xs">
@@ -489,290 +479,446 @@
 				</div>
 			{/if}
 
-			<div class="grid grid-cols-12 gap-4 grow">
-				<div class="paper h-full gap-1 col-span-12 @min-[768px]:col-span-6 flex flex-col min-h-72">
-					<h4 class="flex items-center gap-2 font-semibold mb-1">
-						Recently Popular Tools
-						<span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
-					</h4>
-					{#if loadingToolUsage}
-						<div class="pt-2 flex flex-col gap-4 w-full">
-							{#each Array.from({ length: TOP_TOOLS_LIMIT }) as _, i (i)}
-								<div class="flex gap-2 items-center animate-pulse w-full">
-									<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
-									<div class="flex flex-col gap-2 flex-1">
-										<div class="h-4 w-full rounded bg-surface3"></div>
-										<div class="h-3 w-full rounded bg-surface3"></div>
-									</div>
-								</div>
-							{/each}
-						</div>
-					{:else if topToolCalls.length === 0}
-						<p
-							class="text-xs text-on-surface1 pt-2 font-light grow flex items-center justify-center h-full text-center"
-						>
-							No recent tool calls.
-						</p>
-					{:else}
-						<ul class="pt-2 flex flex-col gap-2">
-							{#each topToolCalls as row (row.compositeKey)}
-								<li class="flex gap-2 items-center">
-									<div
-										class="size-8 items-center justify-center shrink-0 bg-surface1 dark:bg-surface2 rounded-md p-1"
-									>
-										<Wrench class="size-6 opacity-65 shrink-0" />
-									</div>
-									<div class="flex flex-col gap-1 min-w-0">
-										<p class="text-sm font-medium truncate">
-											{row.toolLabel.split('.').slice(1).join('.') || row.compositeKey}
-										</p>
-										<p class="text-xs text-on-surface1">
-											{formatNumber(row.count)} calls · {row.serverDisplayName}
-										</p>
-									</div>
-								</li>
-							{/each}
-						</ul>
-					{/if}
-					<div class="flex grow min-h-0"></div>
-					{#if topToolCalls.length > 0 && !isBootStrapUser}
-						<a
-							href={resolve('/admin/usage')}
-							class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
-						>
-							See More <ChevronRight class="size-3" />
-						</a>
-					{/if}
-				</div>
-				<div class="paper h-full gap-1 col-span-12 @min-[768px]:col-span-6 flex flex-col min-h-72">
-					<h4 class="flex items-center gap-2 font-semibold mb-1">
-						Tool Call Average Response Time
-						<span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
-					</h4>
-					{#if loadingToolUsage}
-						<div class="pt-2 flex flex-col gap-4 w-full">
-							{#each Array.from({ length: TOP_TOOLS_LIMIT }) as _, i (i)}
-								<div class="flex gap-2 items-center animate-pulse w-full">
-									<div class="flex flex-col gap-2 flex-1">
-										<div class="h-4 w-full rounded bg-surface3"></div>
-										<div class="h-3 w-full rounded bg-surface3"></div>
-									</div>
-								</div>
-							{/each}
-						</div>
-					{:else if avgToolCallResponseTime.length === 0}
-						<p
-							class="text-xs text-on-surface1 pt-2 font-light grow flex items-center justify-center h-full text-center"
-						>
-							No recent tool calls.
-						</p>
-					{:else}
-						<div class="pt-2 flex flex-col gap-4 w-full">
-							<ul class="flex flex-col gap-2">
-								{#each avgToolCallResponseTime as row (row.toolName)}
-									<li class="flex gap-2 items-center">
-										<div class="flex flex-col gap-1 min-w-0 grow pr-4">
-											<p class="text-sm font-medium truncate">
-												{row.toolName.split('.').slice(1).join('.')}
-											</p>
-											<p class="text-xs text-on-surface1">
-												{row.serverDisplayName}
-											</p>
-										</div>
-										<div class="text-sm">
-											{row.averageResponseTimeMs}ms
-										</div>
-									</li>
-								{/each}
-							</ul>
-						</div>
-					{/if}
-					<div class="flex grow min-h-0"></div>
-					{#if avgToolCallResponseTime.length > 0 && !isBootStrapUser}
-						<a
-							href={resolve('/admin/usage')}
-							class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
-						>
-							See More <ChevronRight class="size-3" />
-						</a>
-					{/if}
-				</div>
-			</div>
-		</div>
-		<div class="col-span-12 @min-[768px]:col-span-4 flex flex-col gap-4">
-			{#if serverAndEntries.loading || loading}
-				<div class="bg-surface3 h-[530px] animate-pulse rounded-md"></div>
-				<div class="paper gap-1 flex grow">
-					<h4 class="flex items-center gap-2 font-semibold">Most Popular Servers</h4>
-					<div class="pt-2 flex flex-col gap-4">
-						{#each Array.from({ length: 5 }) as _, i (i)}
-							<div class="flex gap-2 items-center animate-pulse w-full">
-								<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
-								<div class="flex flex-col gap-2 flex-1">
-									<div class="h-4 w-full rounded bg-surface3"></div>
-									<div class="h-3 w-full rounded bg-surface3"></div>
-								</div>
-							</div>
-						{/each}
-					</div>
-				</div>
-			{:else}
-				<div in:fade={{ duration: 150 }} class="paper min-h-96">
-					<h4 class="font-semibold">Server Activity</h4>
-					{#if doesSupportK8sUpdates && deploymentStatusBreakdown.length > 0}
-						<div class="mb-2 grid grid-cols-12 gap-x-2 gap-y-5">
-							{#each deploymentStatusBreakdown as row, i (row.status)}
-								<div
-									class={twMerge(
-										'flex flex-col items-center justify-center px-1 text-center',
-										deploymentStatusGridColClass(i, deploymentStatusBreakdown.length),
-										deploymentStatusGridShowBorderRight(i, deploymentStatusBreakdown.length) &&
-											'border-r border-surface2'
-									)}
-								>
-									<div class="flex items-center gap-1">
-										<div class="text-3xl font-semibold">
-											<TweenedMetric target={row.count} />
-										</div>
-										{#if row.status === 'Available'}
-											<Server class="size-6 text-primary" />
-										{:else if row.status === 'Needs Attention'}
-											<Siren class="size-6 text-yellow-500" />
-										{:else}
-											<Server class="size-6 text-on-surface1/75" />
-										{/if}
-									</div>
-									<div class="text-xs">{row.status}</div>
-								</div>
-							{/each}
-						</div>
-					{:else}
-						<div class="mb-2 flex flex-col justify-center items-center">
-							<div class="flex w-full gap-2 items-center justify-center">
-								<div class="text-3xl font-semibold">
-									<TweenedMetric target={totalServers} />
-								</div>
-								<Server class="size-6 text-primary" />
-							</div>
-							<div class="text-xs">Total Currently Active</div>
-						</div>
-					{/if}
-
-					<div class="h-80 flex flex-col items-center justify-center">
-						{#if graphData.some((g) => g.value > 0)}
-							<DonutGraph
-								class="h-80"
-								donutRatio={0.65}
-								data={graphData}
-								legend={doesSupportK8sUpdates ? entryTypeDonutLegend : undefined}
-							/>
-						{:else}
-							<p class="font-light text-xs text-on-surface1 pt-2 text-center">
-								No servers have been deployed yet.
-							</p>
-						{/if}
-					</div>
-
-					{#if !isBootStrapUser && totalServers > 0}
-						<div class="flex justify-end">
-							<a
-								href={resolve('/admin/mcp-servers?view=deployments')}
-								class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-							>
-								See More <ChevronRight class="size-3" />
-							</a>
-						</div>
-					{/if}
-				</div>
-				<div in:fade={{ duration: 150 }} class="paper gap-1 flex grow">
-					<h4 class="flex items-center gap-2 font-semibold">Most Deployed Servers</h4>
-					{#if mcpServersAndEntries.current.loading || loading}
-						<div class="pt-2 flex flex-col gap-4">
-							{#each Array.from({ length: 5 }) as _, i (i)}
-								<div class="flex gap-2 items-center animate-pulse w-full">
-									<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
-									<div class="flex flex-col gap-2 flex-1">
-										<div class="h-4 w-full rounded bg-surface3"></div>
-										<div class="h-3 w-full rounded bg-surface3"></div>
-									</div>
-								</div>
-							{/each}
-						</div>
-					{:else if popularServers.length > 0}
-						<div class="pt-2 flex flex-col gap-2">
-							{#each popularServers as info (info.id)}
-								{@const icon =
-									'server' in info ? info.server?.manifest.icon : info.entry?.manifest.icon}
-								{@const displayName =
-									'server' in info
-										? (info.server?.alias ?? info.server?.manifest.name)
-										: info.entry?.manifest.name}
-								{@const description =
-									'server' in info
-										? info.server?.manifest.description
-										: info.entry?.manifest.description}
-								{@const url = info.server
-									? getServerUrl(info.server)
-									: info.entry
-										? getEntryUrl(info.entry)
-										: undefined}
-								<a
-									class="flex gap-2 items-center dark:hover:bg-surface2 hover:bg-surface1 transition-colors duration-150 -mx-2 px-2 py-1 rounded-md"
-									href={url ? resolve(url as `/${string}`) : undefined}
-								>
-									{#if icon}
-										<img
-											src={icon}
-											alt={info.id}
-											class="size-9 bg-surface1 dark:bg-surface2 rounded-md p-1"
-										/>
-									{:else}
-										<Server class="size-9 opacity-65 bg-surface1 rounded-md p-1" />
-									{/if}
-									<div class="flex flex-col gap-0.5 max-w-[calc(100%-4.5rem)]">
-										<p class="text-sm font-medium">{displayName}</p>
-										{#if description}
-											<p class="text-xs truncate line-clamp-1 break-all font-light">
-												{stripMarkdownToText(description ?? '')}
-											</p>
-										{/if}
-										<p class="text-xs text-on-surface1 italic">Deployed {info.count} times</p>
-									</div>
-									<ChevronRight class="size-5 shrink-0" />
-								</a>
-							{/each}
-						</div>
-					{:else}
-						<p
-							class="text-xs text-on-surface1 pt-2 font-light text-center h-full flex items-center justify-center"
-						>
-							No servers have been deployed yet.
-						</p>
-					{/if}
-					<div class="flex grow"></div>
-					{#if popularServers.length > 0 && !isBootStrapUser}
-						<a
-							href={resolve('/admin/mcp-servers')}
-							class="justify-end self-end text-[11px] translate-x-2 transition-colors duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-						>
-							See More <ChevronRight class="size-3" />
-						</a>
-					{/if}
+			{#if !hasDeviceScans}
+				<div class={twMerge('grid grid-cols-12 gap-4 grow')}>
+					{@render popularTools()}
+					{@render toolAverageResponseTime()}
 				</div>
 			{/if}
 		</div>
+		{#if hasDeviceScans}
+			<div
+				class="col-span-12 @3xl:col-span-7 flex flex-col gap-4"
+				in:fly={{ x: 100, duration: 150 }}
+			>
+				{#if loadingDeviceScanStats}
+					<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+						{#each Array.from({ length: 4 }) as _, i (i)}
+							<div class="paper min-h-72 animate-pulse bg-surface3/40"></div>
+						{/each}
+					</div>
+				{:else}
+					<DeviceScanDonutCard
+						title="Top Device Skills"
+						buckets={deviceScanSkillBuckets}
+						totalGroups={totalDeviceScanSkillGroups}
+						emptyMsg="No skills observed yet."
+						class="h-fit"
+						classes={{ graphContainer: '@md:w-1/2', graph: 'h-56 w-full' }}
+					/>
+					<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+						<DeviceScanDonutCard
+							legendOnBottom
+							title="Device Clients"
+							buckets={deviceScanClientBuckets}
+							totalGroups={totalDeviceScanClientGroups}
+							emptyMsg="No clients observed yet."
+						/>
+						<DeviceScanDonutCard
+							legendOnBottom
+							title="Top Device MCP Servers"
+							buckets={deviceScanMcpBuckets}
+							totalGroups={totalDeviceScanMcpGroups}
+							emptyMsg="No MCP servers observed yet."
+						/>
+					</div>
+					<div class="h-80">
+						<DeviceScanTimelineCard
+							rangeStart={start}
+							rangeEnd={end}
+							timelineRows={deviceScanTimelineRows}
+							totalSubmissions={totalDeviceScanSubmissions}
+						/>
+					</div>
+				{/if}
+			</div>
+		{:else}
+			<div
+				class="col-span-12 @3xl:col-span-4 flex flex-col gap-4"
+				in:fly={{ x: 100, duration: 150 }}
+			>
+				{@render serverActivityGraph()}
+				{@render topServerDeploymentList()}
+			</div>
+		{/if}
+		{#if hasDeviceScans}
+			<div class="col-span-12 grid grid-cols-12 gap-4">
+				{@render popularTools()}
+				{@render toolAverageResponseTime()}
+			</div>
+		{/if}
 	</div>
 </Layout>
 
-<McpServerGitSync
-	bind:this={sourceDialog}
-	onSync={async () => {
-		await AdminService.refreshMCPCatalog(DEFAULT_MCP_CATALOG_ID);
-		goto('/admin/mcp-servers');
-	}}
-	defaultCatalogId={DEFAULT_MCP_CATALOG_ID}
-/>
-<SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={handleSelectServerType} />
+{#snippet serverActivityGraph()}
+	{#if serverAndEntries.loading || loading}
+		<div class={twMerge('bg-surface3 animate-pulse rounded-md', 'h-[530px]')}></div>
+		<div class="paper gap-1 flex grow">
+			<h4 class="flex items-center gap-2 font-semibold">Most Popular Servers</h4>
+			<div class="pt-2 flex flex-col gap-4">
+				{#each Array.from({ length: 5 }) as _, i (i)}
+					<div class="flex gap-2 items-center animate-pulse w-full">
+						<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
+						<div class="flex flex-col gap-2 flex-1">
+							<div class="h-4 w-full rounded bg-surface3"></div>
+							<div class="h-3 w-full rounded bg-surface3"></div>
+						</div>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{:else}
+		<div
+			in:fade={{ duration: 150 }}
+			class={twMerge('paper', hasDeviceScans ? 'min-h-64' : 'min-h-96')}
+		>
+			<h4 class="font-semibold">Server Activity</h4>
+			{#if doesSupportK8sUpdates && deploymentStatusBreakdown.length > 0}
+				<div class="mb-2 grid grid-cols-12 gap-x-2 gap-y-5">
+					{#each deploymentStatusBreakdown as row, i (row.status)}
+						<div
+							class={twMerge(
+								'flex flex-col items-center justify-center px-1 text-center',
+								deploymentStatusGridColClass(i, deploymentStatusBreakdown.length),
+								deploymentStatusGridShowBorderRight(i, deploymentStatusBreakdown.length) &&
+									'border-r border-surface2'
+							)}
+						>
+							<div class="flex items-center gap-1">
+								<div class={twMerge('font-semibold', hasDeviceScans ? 'text-xl' : 'text-3xl')}>
+									<TweenedMetric target={row.count} />
+								</div>
+								{#if row.status === 'Available'}
+									<Server class="size-6 text-primary" />
+								{:else if row.status === 'Needs Attention'}
+									<Siren class="size-6 text-yellow-500" />
+								{:else}
+									<Server class="size-6 text-on-surface1/75" />
+								{/if}
+							</div>
+							<div class="text-xs">{row.status}</div>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<div class="mb-2 flex flex-col justify-center items-center">
+					<div class="flex w-full gap-2 items-center justify-center">
+						<div class={twMerge('font-semibold', hasDeviceScans ? 'text-xl' : 'text-3xl')}>
+							<TweenedMetric target={totalServers} />
+						</div>
+						<Server class="size-6 text-primary" />
+					</div>
+					<div class="text-xs">Total Currently Active</div>
+				</div>
+			{/if}
+
+			<div
+				class={twMerge(
+					'flex flex-col items-center justify-center',
+					hasDeviceScans ? 'h-64' : 'h-80'
+				)}
+			>
+				{#if graphData.some((g) => g.value > 0)}
+					<DonutGraph
+						class={twMerge('h-80', hasDeviceScans ? 'h-64' : '')}
+						donutRatio={0.65}
+						data={graphData}
+						legend={doesSupportK8sUpdates ? entryTypeDonutLegend : undefined}
+					/>
+				{:else}
+					<p class="font-light text-xs text-on-surface1 pt-2 text-center">
+						No servers have been deployed yet.
+					</p>
+				{/if}
+			</div>
+
+			{#if !isBootStrapUser && totalServers > 0}
+				<div class="flex justify-end">
+					<a
+						href={resolve('/admin/mcp-servers?view=deployments')}
+						class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+					>
+						See More <ChevronRight class="size-3" />
+					</a>
+				</div>
+			{/if}
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet topServerDeploymentList()}
+	<div in:fade={{ duration: 150 }} class="paper gap-1 flex grow">
+		<h4 class="flex items-center gap-2 font-semibold">Most Deployed Servers</h4>
+		{#if mcpServersAndEntries.current.loading || loading}
+			<div class="pt-2 flex flex-col gap-4">
+				{#each Array.from({ length: 5 }) as _, i (i)}
+					<div class="flex gap-2 items-center animate-pulse w-full">
+						<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
+						<div class="flex flex-col gap-2 flex-1">
+							<div class="h-4 w-full rounded bg-surface3"></div>
+							<div class="h-3 w-full rounded bg-surface3"></div>
+						</div>
+					</div>
+				{/each}
+			</div>
+		{:else if popularServers.length > 0}
+			<div class="pt-2 flex flex-col gap-2">
+				{#each popularServers as info (info.id)}
+					{@const icon = 'server' in info ? info.server?.manifest.icon : info.entry?.manifest.icon}
+					{@const displayName =
+						'server' in info
+							? (info.server?.alias ?? info.server?.manifest.name)
+							: info.entry?.manifest.name}
+					{@const description =
+						'server' in info ? info.server?.manifest.description : info.entry?.manifest.description}
+					{@const url = info.server
+						? getServerUrl(info.server)
+						: info.entry
+							? getEntryUrl(info.entry)
+							: undefined}
+					<a
+						class="flex gap-2 items-center dark:hover:bg-surface2 hover:bg-surface1 transition-colors duration-150 -mx-2 px-2 py-1 rounded-md"
+						href={url ? resolve(url as `/${string}`) : undefined}
+					>
+						{#if icon}
+							<img
+								src={icon}
+								alt={info.id}
+								class="size-9 bg-surface1 dark:bg-surface2 rounded-md p-1"
+							/>
+						{:else}
+							<Server class="size-9 opacity-65 bg-surface1 rounded-md p-1" />
+						{/if}
+						<div class="flex flex-col gap-0.5 max-w-[calc(100%-4.5rem)]">
+							<p class="text-sm font-medium">{displayName}</p>
+							{#if description}
+								<p class="text-xs truncate line-clamp-1 break-all font-light">
+									{stripMarkdownToText(description ?? '')}
+								</p>
+							{/if}
+							<p class="text-xs text-on-surface1 italic">Deployed {info.count} times</p>
+						</div>
+						<ChevronRight class="size-5 shrink-0" />
+					</a>
+				{/each}
+			</div>
+		{:else}
+			<p
+				class="text-xs text-on-surface1 pt-2 font-light text-center h-full flex items-center justify-center"
+			>
+				No servers have been deployed yet.
+			</p>
+		{/if}
+		<div class="flex grow"></div>
+		{#if popularServers.length > 0 && !isBootStrapUser}
+			<a
+				href={resolve('/admin/mcp-servers')}
+				class="justify-end self-end text-[11px] translate-x-2 transition-colors duration-200 bg-surface3/50 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
+			>
+				See More <ChevronRight class="size-3" />
+			</a>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet platformStatCell(platformStat: (typeof platformStatTiles)[number])}
+	{@const defaultClasses = 'col-span-4 p-2 flex gap-4 items-center justify-between w-full'}
+	<div
+		class="col-span-1 min-w-0 border-r-0 px-2 my-2 flex [&:last-child:nth-child(odd)]:col-span-2 @md:col-span-4 @md:[&:last-child:nth-child(odd)]:col-span-4 @md:not-last:border-r @md:not-last:border-surface2"
+	>
+		{#if platformStat.seeMore && !isBootStrapUser}
+			<a
+				class={twMerge(
+					defaultClasses,
+					'group w-full hover:bg-surface2/50 transition-colors duration-200 rounded-md'
+				)}
+				href={resolve(platformStat.seeMore as `/${string}`)}
+			>
+				{@render statContent(platformStat)}
+			</a>
+		{:else}
+			<div class={defaultClasses}>
+				{@render statContent(platformStat)}
+			</div>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet deviceScanStatCell(deviceScanStat: (typeof deviceScanTiles)[number])}
+	{@const defaultClasses = 'p-2 flex gap-4 items-center justify-between w-full'}
+	<div
+		class="col-span-1 min-w-0 flex border-r-0 px-2 my-2 [&:last-child:nth-child(odd)]:col-span-2 @md:flex-1 @md:col-span-auto @md:[&:last-child:nth-child(odd)]:col-span-auto @md:not-last:border-r @md:not-last:border-surface2"
+	>
+		{#if deviceScanStat.seeMore}
+			<a
+				href={resolve(deviceScanStat.seeMore as `/${string}`)}
+				class={twMerge(
+					defaultClasses,
+					'group w-full hover:bg-surface2/50 transition-colors duration-200 rounded-md'
+				)}
+			>
+				{@render statContent(deviceScanStat)}
+			</a>
+		{:else}
+			<div class={defaultClasses}>
+				{@render statContent(deviceScanStat)}
+			</div>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet statContent(platformStat: (typeof platformStatTiles | typeof deviceScanTiles)[number])}
+	<div class="w-full">
+		<div class="text-xs text-on-surface1 flex items-center gap-1 shrink-0 mb-0.5">
+			{platformStat.label}
+		</div>
+
+		<div class="flex items-center gap-1 justify-between">
+			{#if platformStat.loading}
+				<Loading class="size-6" />
+			{:else}
+				<div class="text-xl font-semibold">
+					<TweenedMetric holdAtZero={platformStat.loading} target={platformStat.value} />
+				</div>
+			{/if}
+			<div class="relative size-4 shrink-0">
+				<platformStat.icon
+					class="size-4 text-primary transition-opacity duration-200 group-hover:opacity-0"
+				/>
+				<ChevronRight
+					class="pointer-events-none text-on-surface1 absolute inset-0 size-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+				/>
+			</div>
+		</div>
+	</div>
+{/snippet}
+
+{#snippet popularTools()}
+	<div
+		class={twMerge(
+			'paper gap-1 col-span-12 flex flex-col @3xl:col-span-6 ',
+			!hasDeviceScans && 'h-full min-h-72'
+		)}
+	>
+		<h4 class="flex items-center gap-2 font-semibold mb-1">
+			Recently Popular Tools
+			<span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
+		</h4>
+		{#if loadingToolUsage}
+			<div class="pt-2 flex flex-col gap-4 w-full">
+				{#each Array.from({ length: maxToolsToShow }) as _, i (i)}
+					<div class="flex gap-2 items-center animate-pulse w-full">
+						<div class="size-8 rounded-md bg-surface3 shrink-0"></div>
+						<div class="flex flex-col gap-2 flex-1">
+							<div class="h-4 w-full rounded bg-surface3"></div>
+							<div class="h-3 w-full rounded bg-surface3"></div>
+						</div>
+					</div>
+				{/each}
+			</div>
+		{:else if topToolCalls.length === 0}
+			<p
+				class="text-xs text-on-surface1 pt-2 font-light grow flex items-center justify-center h-full text-center"
+			>
+				No recent tool calls.
+			</p>
+		{:else}
+			<ul class="pt-2 flex flex-col gap-2">
+				{#each topToolCalls.slice(0, maxToolsToShow) as row (row.compositeKey)}
+					<li class="flex gap-2 items-center">
+						<div
+							class="size-8 items-center justify-center shrink-0 bg-surface1 dark:bg-surface2 rounded-md p-1"
+						>
+							<Wrench class="size-6 opacity-65 shrink-0" />
+						</div>
+						<div class="flex flex-col gap-1 min-w-0">
+							<p class="text-sm font-medium truncate">
+								{row.toolLabel.split('.').slice(1).join('.') || row.compositeKey}
+							</p>
+							<p class="text-xs text-on-surface1">
+								{formatNumber(row.count)} calls · {row.serverDisplayName}
+							</p>
+						</div>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+		{#if !hasDeviceScans}
+			<div class="flex grow min-h-0"></div>
+		{/if}
+		{#if topToolCalls.length > 0 && !isBootStrapUser}
+			<a
+				href={resolve('/admin/usage')}
+				class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
+			>
+				See More <ChevronRight class="size-3" />
+			</a>
+		{/if}
+	</div>
+{/snippet}
+
+{#snippet toolAverageResponseTime()}
+	<div
+		class={twMerge(
+			'paper gap-1 col-span-12 flex flex-col @3xl:col-span-6',
+			!hasDeviceScans && 'h-full min-h-72'
+		)}
+	>
+		<h4 class="flex items-center gap-2 font-semibold mb-1">
+			Tool Call Average Response Time
+			<span class="text-on-surface1 text-xs font-light">(Last 30 Days)</span>
+		</h4>
+		{#if loadingToolUsage}
+			<div class="pt-2 flex flex-col gap-4 w-full">
+				{#each Array.from({ length: maxToolsToShow }) as _, i (i)}
+					<div class="flex gap-2 items-center animate-pulse w-full">
+						<div class="flex flex-col gap-2 flex-1">
+							<div class="h-4 w-full rounded bg-surface3"></div>
+							<div class="h-3 w-full rounded bg-surface3"></div>
+						</div>
+					</div>
+				{/each}
+			</div>
+		{:else if avgToolCallResponseTime.length === 0}
+			<p
+				class="text-xs text-on-surface1 pt-2 font-light grow flex items-center justify-center h-full text-center"
+			>
+				No recent tool calls.
+			</p>
+		{:else}
+			<div class="pt-2 flex flex-col gap-4 w-full">
+				<ul class="flex flex-col gap-2">
+					{#each avgToolCallResponseTime.slice(0, maxToolsToShow) as row (row.toolName)}
+						<li class="flex gap-2 items-center">
+							<div class="flex flex-col gap-1 min-w-0 grow pr-4">
+								<p class="text-sm font-medium truncate">
+									{row.toolName.split('.').slice(1).join('.')}
+								</p>
+								<p class="text-xs text-on-surface1">
+									{row.serverDisplayName}
+								</p>
+							</div>
+							<div class="text-sm">
+								{row.averageResponseTimeMs.toFixed(2)}ms
+							</div>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
+		{#if !hasDeviceScans}
+			<div class="flex grow min-h-0"></div>
+		{/if}
+		{#if avgToolCallResponseTime.length > 0 && !isBootStrapUser}
+			<a
+				href={resolve('/admin/usage')}
+				class="text-[11px] translate-x-2 self-end bg-surface3/50 transition-colors duration-200 hover:bg-surface3 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
+			>
+				See More <ChevronRight class="size-3" />
+			</a>
+		{/if}
+	</div>
+{/snippet}
 
 <svelte:head>
 	<title>Obot | Dashboard</title>

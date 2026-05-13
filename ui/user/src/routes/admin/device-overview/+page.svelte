@@ -3,8 +3,9 @@
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
-	import DonutGraph, { type DonutDatum } from '$lib/components/graph/DonutGraph.svelte';
-	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
+	import DeviceScanDonutCard from '$lib/components/admin/device-scan/DeviceScanDonutCard.svelte';
+	import DeviceScanTimelineCard from '$lib/components/admin/device-scan/DeviceScanTimelineCard.svelte';
+	import { buildDeviceScanTopBuckets } from '$lib/components/admin/device-scan/deviceScanTopBuckets';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		AdminService,
@@ -30,21 +31,6 @@
 
 	let { data } = $props();
 
-	const TOP_N = 10;
-	const PALETTE = [
-		'#4575b4',
-		'#74add1',
-		'#abd9e9',
-		'#e0f3f8',
-		'#fee090',
-		'#fdae61',
-		'#f46d43',
-		'#d73027',
-		'#a50026',
-		'#7f3b08'
-	];
-	const OTHER_COLOR = 'var(--surface3, #6b7280)';
-
 	let stats = $state<DeviceScanStats | null>(untrack(() => data?.stats ?? null));
 	let range = $state<{ start: string; end: string }>(
 		untrack(
@@ -57,53 +43,8 @@
 	);
 	let loading = $state(false);
 
-	type Drilldown = 'mcp' | 'skill' | undefined;
-
-	type TopBucket = {
-		key: string;
-		label: string;
-		value: number;
-		color: string;
-		isOther: boolean;
-		otherCount?: number;
-		drilldown: Drilldown;
-	};
-
-	function buildTop<T>(
-		items: T[] | null | undefined,
-		key: (t: T) => string,
-		label: (t: T) => string,
-		value: (t: T) => number,
-		drilldown: Drilldown = undefined
-	): TopBucket[] {
-		const all = (items ?? []).filter((t) => value(t) > 0);
-		const sorted = [...all].sort((a, b) => value(b) - value(a));
-		const top = sorted.slice(0, TOP_N).map<TopBucket>((t, i) => ({
-			key: key(t),
-			label: label(t),
-			value: value(t),
-			color: PALETTE[i] ?? OTHER_COLOR,
-			isOther: false,
-			drilldown
-		}));
-		const tail = sorted.slice(TOP_N);
-		const otherSum = tail.reduce((s, t) => s + value(t), 0);
-		if (otherSum > 0) {
-			top.push({
-				key: '__other__',
-				label: 'Other',
-				value: otherSum,
-				color: OTHER_COLOR,
-				isOther: true,
-				otherCount: tail.length,
-				drilldown: undefined
-			});
-		}
-		return top;
-	}
-
 	let clientBuckets = $derived(
-		buildTop<DeviceClientStat>(
+		buildDeviceScanTopBuckets<DeviceClientStat>(
 			stats?.clients,
 			(c) => c.name,
 			(c) => c.name,
@@ -112,7 +53,7 @@
 	);
 
 	let mcpBuckets = $derived(
-		buildTop<DeviceMCPServerStat>(
+		buildDeviceScanTopBuckets<DeviceMCPServerStat>(
 			stats?.mcpServers,
 			(m) => m.configHash,
 			(m) => m.name?.trim() || '(unnamed)',
@@ -122,7 +63,7 @@
 	);
 
 	let skillBuckets = $derived(
-		buildTop<DeviceSkillStat>(
+		buildDeviceScanTopBuckets<DeviceSkillStat>(
 			stats?.skills,
 			(s) => s.name,
 			(s) => s.name,
@@ -130,10 +71,6 @@
 			'skill'
 		)
 	);
-
-	function bucketsToDonut(buckets: TopBucket[]): DonutDatum[] {
-		return buckets.map((b) => ({ label: b.label, value: b.value, color: b.color }));
-	}
 
 	let totalClientGroups = $derived(stats?.clients?.length ?? 0);
 	let totalMcpGroups = $derived(stats?.mcpServers?.length ?? 0);
@@ -269,10 +206,30 @@
 			</div>
 
 			<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-				{@render donutCard('Clients', clientBuckets, totalClientGroups, 'No clients observed yet.')}
-				{@render donutCard('Top MCPs', mcpBuckets, totalMcpGroups, 'No MCP servers observed yet.')}
-				{@render donutCard('Top Skills', skillBuckets, totalSkillGroups, 'No skills observed yet.')}
-				{@render timelineCard()}
+				<DeviceScanDonutCard
+					title="Clients"
+					buckets={clientBuckets}
+					totalGroups={totalClientGroups}
+					emptyMsg="No clients observed yet."
+				/>
+				<DeviceScanDonutCard
+					title="Top MCPs"
+					buckets={mcpBuckets}
+					totalGroups={totalMcpGroups}
+					emptyMsg="No MCP servers observed yet."
+				/>
+				<DeviceScanDonutCard
+					title="Top Skills"
+					buckets={skillBuckets}
+					totalGroups={totalSkillGroups}
+					emptyMsg="No skills observed yet."
+				/>
+				<DeviceScanTimelineCard
+					rangeStart={range.start}
+					rangeEnd={range.end}
+					{timelineRows}
+					totalSubmissions={totalScansInWindow}
+				/>
 			</div>
 		{/if}
 	</div>
@@ -329,131 +286,4 @@
 		<span class="text-2xl font-semibold tabular-nums">{tile.value}</span>
 	</div>
 	<tile.icon class="text-primary size-7 shrink-0" />
-{/snippet}
-
-{#snippet donutCard(title: string, buckets: TopBucket[], totalGroups: number, emptyMsg: string)}
-	<div class="paper flex h-full flex-col gap-2">
-		<div class="flex items-baseline justify-between gap-2">
-			<h4 class="font-semibold">{title}</h4>
-			{#if totalGroups > TOP_N}
-				<span class="text-on-surface1 text-xs">
-					top {TOP_N} of {totalGroups}
-				</span>
-			{:else if totalGroups > 0}
-				<span class="text-on-surface1 text-xs">
-					{totalGroups}
-					{totalGroups === 1 ? 'entry' : 'entries'}
-				</span>
-			{/if}
-		</div>
-
-		{#if buckets.length === 0}
-			<p class="text-on-surface1 py-8 text-center text-sm font-light">{emptyMsg}</p>
-		{:else}
-			<div class="flex flex-col items-center gap-4 sm:flex-row">
-				<div class="size-56 shrink-0">
-					<DonutGraph class="h-56 w-56" data={bucketsToDonut(buckets)} hideLegend />
-				</div>
-				<ul class="flex w-full flex-col gap-1 text-sm">
-					{#each buckets as bucket (bucket.key)}
-						{#if bucket.drilldown === 'mcp' && !bucket.isOther}
-							<li>
-								<a
-									href={resolve(`/admin/device-mcp-servers/${encodeURIComponent(bucket.key)}`)}
-									onclick={(e) => {
-										e.preventDefault();
-										openUrl(
-											resolve(`/admin/device-mcp-servers/${encodeURIComponent(bucket.key)}`),
-											e.ctrlKey || e.metaKey
-										);
-									}}
-									class="hover:bg-surface1 dark:hover:bg-surface2 group -mx-1 flex items-center gap-2 rounded-md px-1 py-0.5 transition-colors"
-								>
-									<span
-										class="size-3 shrink-0 rounded-full"
-										style="background-color: {bucket.color}"
-									></span>
-									<span class="flex-1 truncate">{bucket.label}</span>
-									<span class="text-on-surface1 tabular-nums">{bucket.value}</span>
-									<ChevronRight class="text-on-surface1 size-3 opacity-0 group-hover:opacity-100" />
-								</a>
-							</li>
-						{:else if bucket.drilldown === 'skill' && !bucket.isOther}
-							<li>
-								<a
-									href={resolve(`/admin/device-skills/${encodeURIComponent(bucket.key)}`)}
-									onclick={(e) => {
-										e.preventDefault();
-										openUrl(
-											resolve(`/admin/device-skills/${encodeURIComponent(bucket.key)}`),
-											e.ctrlKey || e.metaKey
-										);
-									}}
-									class="hover:bg-surface1 dark:hover:bg-surface2 group -mx-1 flex items-center gap-2 rounded-md px-1 py-0.5 transition-colors"
-								>
-									<span
-										class="size-3 shrink-0 rounded-full"
-										style="background-color: {bucket.color}"
-									></span>
-									<span class="flex-1 truncate">{bucket.label}</span>
-									<span class="text-on-surface1 tabular-nums">{bucket.value}</span>
-									<ChevronRight class="text-on-surface1 size-3 opacity-0 group-hover:opacity-100" />
-								</a>
-							</li>
-						{:else}
-							{@render legendStatic(bucket)}
-						{/if}
-					{/each}
-				</ul>
-			</div>
-		{/if}
-	</div>
-{/snippet}
-
-{#snippet timelineCard()}
-	<div class="paper flex h-full flex-col gap-2">
-		<div class="flex items-baseline justify-between gap-2">
-			<h4 class="font-semibold">Scan Timeline</h4>
-			{#if totalScansInWindow > 0}
-				<span class="text-on-surface1 text-xs">
-					{totalScansInWindow}
-					{totalScansInWindow === 1 ? 'submission' : 'submissions'}
-				</span>
-			{/if}
-		</div>
-
-		{#if timelineRows.length === 0}
-			<p
-				class="text-on-surface1 flex min-h-56 flex-1 items-center justify-center text-sm font-light"
-			>
-				No scan submissions in this window.
-			</p>
-		{:else}
-			<div class="text-on-surface1 flex min-h-56 flex-1 items-center justify-center">
-				<StackedTimeline
-					start={new Date(range.start)}
-					end={new Date(range.end)}
-					data={timelineRows}
-					categoryKey="category"
-					dateKey="scanned_at"
-				/>
-			</div>
-		{/if}
-	</div>
-{/snippet}
-
-{#snippet legendStatic(bucket: TopBucket)}
-	<li
-		class="-mx-1 flex items-center gap-2 rounded-md px-1 py-0.5"
-		class:text-on-surface1={bucket.isOther}
-	>
-		<span class="size-3 shrink-0 rounded-full" style="background-color: {bucket.color}"></span>
-		<span class="flex-1 truncate" class:italic={bucket.isOther}>
-			{bucket.label}
-			{#if bucket.isOther && bucket.otherCount !== undefined}
-				<span class="text-on-surface1 ml-1 not-italic">({bucket.otherCount} more)</span>
-			{/if}
-		</span>
-		<span class="text-on-surface1 tabular-nums">{bucket.value}</span>
-	</li>
 {/snippet}

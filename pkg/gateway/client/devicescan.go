@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -534,4 +535,284 @@ func (c *Client) ListMCPServerOccurrences(ctx context.Context, configHash string
 		return nil, 0, fmt.Errorf("failed to list occurrences: %w", err)
 	}
 	return rows, total, nil
+}
+
+// DeviceClientFleetSkill is gateway-layer skill metadata for client summaries.
+type DeviceClientFleetSkill struct {
+	Name        string
+	Description string
+	HasScripts  bool
+	Files       int
+}
+
+// DeviceClientFleetSummary is the gateway-layer aggregate for one client
+// name; callers map it to apiclient types.
+type DeviceClientFleetSummary struct {
+	Name       string
+	Users      []string
+	Skills     []DeviceClientFleetSkill
+	MCPServers []types.MCPServerStat
+}
+
+// DeviceClientFleetListOptions configures ListDeviceClientFleetSummaries.
+type DeviceClientFleetListOptions struct {
+	// Name, when non-empty after trimming, restricts distinct client names to
+	// those matching as a case-insensitive substring (LIKE/ILIKE %Name%).
+	Name string
+	// Limit is the max number of client rows to return; 0 means no limit.
+	Limit int
+	// Offset skips that many client names in name order.
+	Offset int
+}
+
+// ListDeviceClientFleetSummaries returns one row per distinct client name
+// observed in device_scan_clients on each device's all-time latest scan,
+// paginated by name. Each row lists distinct submitters, skills with
+// metadata, and MCP servers (by config_hash) attributed to that client on
+// those scans. Optional Name filters distinct names by case-insensitive
+// substring match.
+func (c *Client) ListDeviceClientFleetSummaries(ctx context.Context, opts DeviceClientFleetListOptions) ([]DeviceClientFleetSummary, int64, error) {
+	db := c.db.WithContext(ctx)
+	latest := db.Model(&types.DeviceScan{}).Select("MAX(id)").Group("device_id")
+
+	base := db.Table("device_scan_clients AS cl").
+		Joins("JOIN device_scans AS s ON s.id = cl.device_scan_id").
+		Where("s.id IN (?)", latest).
+		Where("cl.name <> ''")
+
+	nameFilter := strings.TrimSpace(opts.Name)
+	if nameFilter != "" {
+		like := "LIKE"
+		if db.Name() == "postgres" {
+			like = "ILIKE"
+		}
+		base = base.Where(fmt.Sprintf("cl.name %s ?", like), "%"+nameFilter+"%")
+	}
+
+	var total int64
+	if err := base.Session(&gorm.Session{}).Distinct("cl.name").Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count distinct clients: %w", err)
+	}
+
+	qNames := base.Session(&gorm.Session{}).
+		Distinct("cl.name").
+		Order("cl.name ASC")
+	if opts.Limit > 0 {
+		qNames = qNames.Limit(opts.Limit)
+	}
+	if opts.Offset > 0 {
+		qNames = qNames.Offset(opts.Offset)
+	}
+
+	var names []string
+	if err := qNames.Pluck("cl.name", &names).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to list client names: %w", err)
+	}
+	if len(names) == 0 {
+		return nil, total, nil
+	}
+
+	out, err := c.deviceClientFleetSummariesForNames(ctx, names)
+	if err != nil {
+		return nil, 0, err
+	}
+	return out, total, nil
+}
+
+// GetDeviceClientFleetSummary returns the aggregate for a single client
+// name, or gorm.ErrRecordNotFound when that name never appears on any
+// device's latest scan.
+func (c *Client) GetDeviceClientFleetSummary(ctx context.Context, name string) (*DeviceClientFleetSummary, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, errors.New("empty client name")
+	}
+	db := c.db.WithContext(ctx)
+	latest := db.Model(&types.DeviceScan{}).Select("MAX(id)").Group("device_id")
+	var cnt int64
+	if err := db.Table("device_scan_clients AS cl").
+		Joins("JOIN device_scans AS s ON s.id = cl.device_scan_id").
+		Where("s.id IN (?)", latest).
+		Where("cl.name = ?", name).
+		Count(&cnt).Error; err != nil {
+		return nil, err
+	}
+	if cnt == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	summaries, err := c.deviceClientFleetSummariesForNames(ctx, []string{name})
+	if err != nil {
+		return nil, err
+	}
+	if len(summaries) == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return &summaries[0], nil
+}
+
+func (c *Client) deviceClientFleetSummariesForNames(ctx context.Context, names []string) ([]DeviceClientFleetSummary, error) {
+	db := c.db.WithContext(ctx)
+	latest := db.Model(&types.DeviceScan{}).Select("MAX(id)").Group("device_id")
+
+	type userRow struct {
+		ClientName  string `gorm:"column:client_name"`
+		SubmittedBy string `gorm:"column:submitted_by"`
+	}
+	var userRows []userRow
+	if err := db.Table("device_scan_clients AS cl").
+		Joins("JOIN device_scans AS s ON s.id = cl.device_scan_id").
+		Where("s.id IN (?)", latest).
+		Where("cl.name IN ?", names).
+		Where("s.submitted_by <> ''").
+		Distinct("cl.name", "s.submitted_by").
+		Select("cl.name AS client_name, s.submitted_by AS submitted_by").
+		Scan(&userRows).Error; err != nil {
+		return nil, fmt.Errorf("failed to load client users: %w", err)
+	}
+
+	usersByClient := map[string]map[string]struct{}{}
+	for _, row := range userRows {
+		if usersByClient[row.ClientName] == nil {
+			usersByClient[row.ClientName] = map[string]struct{}{}
+		}
+		usersByClient[row.ClientName][row.SubmittedBy] = struct{}{}
+	}
+
+	var skillObs []types.DeviceScanSkill
+	if err := db.Table("device_scan_skills AS sk").
+		Joins("JOIN device_scans AS s ON s.id = sk.device_scan_id").
+		Where("s.id IN (?)", latest).
+		Where("sk.client IN ?", names).
+		Where("sk.client <> ?", "multi").
+		Where("sk.name <> ''").
+		Order("sk.client ASC, sk.name ASC, sk.id ASC").
+		Find(&skillObs).Error; err != nil {
+		return nil, fmt.Errorf("failed to load client skill metadata: %w", err)
+	}
+
+	skillsByClient := map[string][]DeviceClientFleetSkill{}
+	seenSkillKey := map[string]map[string]struct{}{}
+	for _, sk := range skillObs {
+		if seenSkillKey[sk.Client] == nil {
+			seenSkillKey[sk.Client] = map[string]struct{}{}
+		}
+		if _, dup := seenSkillKey[sk.Client][sk.Name]; dup {
+			continue
+		}
+		seenSkillKey[sk.Client][sk.Name] = struct{}{}
+		skillsByClient[sk.Client] = append(skillsByClient[sk.Client], DeviceClientFleetSkill{
+			Name:        sk.Name,
+			Description: sk.Description,
+			HasScripts:  sk.HasScripts,
+			Files:       len(sk.Files),
+		})
+	}
+	for cl := range skillsByClient {
+		slices.SortFunc(skillsByClient[cl], func(a, b DeviceClientFleetSkill) int {
+			return strings.Compare(a.Name, b.Name)
+		})
+	}
+
+	type mcpAggRow struct {
+		Client     string `gorm:"column:client"`
+		ConfigHash string `gorm:"column:config_hash"`
+		Name       string `gorm:"column:name"`
+		Transport  string `gorm:"column:transport"`
+		Command    string `gorm:"column:command"`
+		URL        string `gorm:"column:url"`
+	}
+	var mcpRows []mcpAggRow
+	if err := db.Table("device_scan_mcp_servers AS m").
+		Joins("JOIN device_scans AS s ON s.id = m.device_scan_id").
+		Where("s.id IN (?)", latest).
+		Where("m.client IN ?", names).
+		Where("m.client <> ?", "multi").
+		Select(`m.client AS client, m.config_hash AS config_hash,
+			MAX(m.name) AS name, MAX(m.transport) AS transport,
+			MAX(m.command) AS command, MAX(m.url) AS url`).
+		Group("m.client, m.config_hash").
+		Scan(&mcpRows).Error; err != nil {
+		return nil, fmt.Errorf("failed to aggregate client mcp servers: %w", err)
+	}
+
+	mcpByClient := map[string][]mcpAggRow{}
+	hashSet := map[string]struct{}{}
+	for _, row := range mcpRows {
+		mcpByClient[row.Client] = append(mcpByClient[row.Client], row)
+		if row.ConfigHash != "" {
+			hashSet[row.ConfigHash] = struct{}{}
+		}
+	}
+
+	argsByHash := map[string][]string{}
+	if len(hashSet) > 0 {
+		hashes := make([]string, 0, len(hashSet))
+		for h := range hashSet {
+			hashes = append(hashes, h)
+		}
+		slices.Sort(hashes)
+
+		var canon []types.DeviceScanMCPServer
+		if err := db.
+			Where("config_hash IN ?", hashes).
+			Where("device_scan_id IN (?)", latest).
+			Where("client IN ?", names).
+			Where("client <> ?", "multi").
+			Order("id ASC").
+			Find(&canon).Error; err != nil {
+			return nil, fmt.Errorf("failed to load canonical mcp rows: %w", err)
+		}
+		for _, row := range canon {
+			if row.ConfigHash == "" {
+				continue
+			}
+			if _, ok := argsByHash[row.ConfigHash]; ok {
+				continue
+			}
+			argsByHash[row.ConfigHash] = append([]string(nil), row.Args...)
+		}
+	}
+
+	out := make([]DeviceClientFleetSummary, 0, len(names))
+	for _, name := range names {
+		userSet := usersByClient[name]
+		users := make([]string, 0, len(userSet))
+		for u := range userSet {
+			users = append(users, u)
+		}
+		slices.Sort(users)
+
+		var mcps []types.MCPServerStat
+		for _, row := range mcpByClient[name] {
+			mcps = append(mcps, types.MCPServerStat{
+				ConfigHash:       row.ConfigHash,
+				Name:             row.Name,
+				Transport:        row.Transport,
+				Command:          row.Command,
+				URL:              row.URL,
+				Args:             argsByHash[row.ConfigHash],
+				DeviceCount:      0,
+				UserCount:        0,
+				ClientCount:      0,
+				ObservationCount: 0,
+			})
+		}
+		slices.SortFunc(mcps, func(a, b types.MCPServerStat) int {
+			return strings.Compare(a.ConfigHash, b.ConfigHash)
+		})
+
+		skills := skillsByClient[name]
+		if skills == nil {
+			skills = []DeviceClientFleetSkill{}
+		}
+
+		out = append(out, DeviceClientFleetSummary{
+			Name:       name,
+			Users:      users,
+			Skills:     skills,
+			MCPServers: mcps,
+		})
+	}
+	return out, nil
 }

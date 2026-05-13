@@ -57,6 +57,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasList":                              schema_obot_platform_obot_apiclient_types_DefaultModelAliasList(ref),
 		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasManifest":                          schema_obot_platform_obot_apiclient_types_DefaultModelAliasManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeploymentCondition":                                schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSkill":                             schema_obot_platform_obot_apiclient_types_DeviceClientFleetSkill(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummary":                           schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummary(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummaryList":                       schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummaryList(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummaryResponse":                   schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummaryResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceClientStat":                                   schema_obot_platform_obot_apiclient_types_DeviceClientStat(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerDetail":                              schema_obot_platform_obot_apiclient_types_DeviceMCPServerDetail(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrence":                          schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrence(ref),
@@ -2797,6 +2801,196 @@ func schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref common.Re
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceClientFleetSkill(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceClientFleetSkill is one skill row on a device client fleet summary (client match, not \"multi\"; canonical row is earliest observation id per client + skill name).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the skill name (typically from SKILL.md frontmatter).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Description is the short summary from frontmatter when present.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hasScripts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HasScripts is true when the skill directory includes executable scripts.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"files": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Files is the number of file paths recorded for that skill observation.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"name", "hasScripts", "files"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummary(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceClientFleetSummary rolls up latest-scan-per-device data for one canonical client name (from device_scan_clients).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the canonical client identifier (e.g. \"cursor\", \"claude-code\").",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"users": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Users are distinct scan submitters whose latest scan lists this client.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"skills": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Skills lists one entry per distinct skill name with metadata on each device's latest scan (client match; excludes \"multi\").",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSkill"),
+									},
+								},
+							},
+						},
+					},
+					"mcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServers are distinct MCP servers (by ConfigHash) observed with Client == Name in those latest scans; rows with client \"multi\" are excluded.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceMCPServerStat"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "users", "skills", "mcpServers"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSkill", "github.com/obot-platform/obot/apiclient/types.DeviceMCPServerStat"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummaryList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummary"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummary"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceClientFleetSummaryResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceClientFleetSummaryResponse is returned by GET /api/devices/clients.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummary"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.DeviceClientFleetSummary"},
 	}
 }
 

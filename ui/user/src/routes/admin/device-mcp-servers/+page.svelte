@@ -40,10 +40,10 @@
 </script>
 
 <svelte:head>
-	<title>Obot | MCP Servers</title>
+	<title>Obot | Device MCP Servers</title>
 </svelte:head>
 
-<Layout title="MCP Servers">
+<Layout title="Device MCP Servers">
 	<div
 		class="flex h-full w-full flex-col gap-4"
 		in:fly={{ x: 100, duration, delay: duration }}
