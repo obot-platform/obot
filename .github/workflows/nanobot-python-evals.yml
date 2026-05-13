@@ -87,7 +87,7 @@ jobs:
 
       - name: Run live conversation evals (all 3 workflows + combined summary)
         working-directory: eval_py
-        run: python -m eval.run nanobot_python_code_review_conversation_eval
+        run: python -m eval.run nanobot_conversation_workflows
 
       - name: Upload eval run summary (JSON + text)
         if: always()
