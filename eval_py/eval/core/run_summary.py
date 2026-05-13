@@ -30,15 +30,14 @@ def build_run_summary_payload(results: list[Result]) -> dict:
             if t.score is not None:
                 all_scores.append(t.score)
             turn_entry = {
-                    "turn": t.turn_index,
-                    "pass": t.passed,
-                    "score": t.score,
-                    "threshold": t.threshold,
-                    "reason": t.reason,
-                    "prompt": t.prompt,
-                }
-            if not t.passed and t.assistant_response:
-                turn_entry["assistant_response"] = t.assistant_response
+                "turn": t.turn_index,
+                "pass": t.passed,
+                "score": t.score,
+                "threshold": t.threshold,
+                "reason": t.reason,
+                "prompt": t.prompt,
+                "assistant_response": t.assistant_response or "",
+            }
             turns_out.append(turn_entry)
         cases_out.append(
             {
@@ -106,8 +105,9 @@ def append_github_job_summary(payload: dict) -> None:
         )
         lines.append("")
     lines.append(
-        "For full prompts, per-turn scores, reasons, and failed-turn LLM responses, "
-        "open the **eval-run-summary** workflow artifact (`eval_run_summary.json`)."
+        "For full per-turn prompts, LLM responses, scores, and reasons, open the "
+        "**eval-run-summary** workflow artifact (`eval_run_summary.json`). "
+        "This job summary shows LLM responses for **failed** turns only."
     )
     lines.append("")
     for c in payload["cases"]:
@@ -192,12 +192,12 @@ def write_run_summary(results: list[Result]) -> tuple[str, str]:
                 lines.append("    prompt:")
                 for pl in t["prompt"].splitlines():
                     lines.append("      %s" % pl)
-            if t.get("reason"):
-                lines.append("    reason: %s" % t["reason"])
-            if not t["pass"] and t.get("assistant_response"):
+            if t.get("assistant_response"):
                 lines.append("    assistant_response:")
                 for rl in t["assistant_response"].splitlines():
                     lines.append("      %s" % rl)
+            if t.get("reason"):
+                lines.append("    reason: %s" % t["reason"])
         lines.append("")
     with open(txt_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines).rstrip() + "\n")
