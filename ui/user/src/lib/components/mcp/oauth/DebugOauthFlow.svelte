@@ -192,36 +192,38 @@
 		errors={errors.preparingAuthorization}
 		hasResults={Boolean(results.preparingAuthorization)}
 	>
-		{@const authorizationURL = (results.preparingAuthorization as OAuthDebuggerAuthorizationURL)
-			.oauthURL}
-		<div class="flex flex-col gap-2">
-			<pre
-				class="bg-surface2 p-2 rounded-md overflow-x-auto text-xs my-0 text-on-background">{JSON.stringify(
-					results.preparingAuthorization,
-					null,
-					2
-				)}</pre>
+		{#if results.preparingAuthorization}
+			{@const authorizationURL = (results.preparingAuthorization as OAuthDebuggerAuthorizationURL)
+				.oauthURL}
+			<div class="flex flex-col gap-2">
+				<pre
+					class="bg-surface2 p-2 rounded-md overflow-x-auto text-xs my-0 text-on-background">{JSON.stringify(
+						results.preparingAuthorization,
+						null,
+						2
+					)}</pre>
 
-			<p class="text-xs text-on-surface2">
-				Click the button below or copy the URL above to your browser to request authorization and
-				acquire an authorization code.
-			</p>
-			<p class="text-xs text-on-surface2">
-				Copy & paste the authorization code into the next step below to continue.
-			</p>
-			<a
-				href={authorizationURL}
-				target="_blank"
-				rel="external"
-				class="button-primary text-sm text-center"
-				onclick={() => {
-					expanded.authorizationCode = true;
-					expanded.preparingAuthorization = false;
-				}}
-			>
-				Get Authorization Code
-			</a>
-		</div>
+				<p class="text-xs text-on-surface2">
+					Click the button below or copy the URL above to your browser to request authorization and
+					acquire an authorization code.
+				</p>
+				<p class="text-xs text-on-surface2">
+					Copy & paste the authorization code into the next step below to continue.
+				</p>
+				<a
+					href={authorizationURL}
+					target="_blank"
+					rel="external"
+					class="button-primary text-sm text-center"
+					onclick={() => {
+						expanded.authorizationCode = true;
+						expanded.preparingAuthorization = false;
+					}}
+				>
+					Get Authorization Code
+				</a>
+			</div>
+		{/if}
 	</DebugOauthSection>
 
 	<DebugOauthSection
