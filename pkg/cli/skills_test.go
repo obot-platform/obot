@@ -64,7 +64,7 @@ func TestSkillsSearchCallsAPIWithQueryAndLimit(t *testing.T) {
 }
 
 func TestSkillsSearchEmptyResult(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(types.SkillList{})
 	}))
 	defer server.Close()
@@ -80,7 +80,7 @@ func TestSkillsSearchEmptyResult(t *testing.T) {
 }
 
 func TestSkillsSearchJSONMode(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(types.SkillList{Items: []types.Skill{{
 			Metadata:      types.Metadata{ID: "sk1"},
 			SkillManifest: types.SkillManifest{Name: "github-review"},
