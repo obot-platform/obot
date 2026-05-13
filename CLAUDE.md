@@ -122,6 +122,50 @@ Users with Power User role (or higher) have their own PowerUserWorkspace for cre
 
 REST API handlers are in `/pkg/api/handlers/`. Each handler file corresponds to a resource type (agents, assistants, threads, credentials, etc.). The API server runs on port 8080 by default.
 
+## Engineering Patterns and Review Expectations
+
+Before adding new mechanisms, search for nearby Obot patterns and follow them. Prefer the repository's existing controller, storage, API, and UI conventions over introducing a parallel approach. If a requested implementation conflicts with strong local patterns, surface the tradeoff before coding and document the reason when the requested approach is still the right choice.
+
+### Controllers and Kubernetes Runtime
+
+- Before implementing new Kubernetes runtime mechanisms such as CronJobs, Jobs, helper pods, sidecars, or external loops, check whether the existing Obot controller framework should own the lifecycle. If the requested approach differs from established controller patterns, call out the tradeoff before coding and record the reason in the PR.
+- Treat controllers as the source of truth for derived Kubernetes state. API handlers may request changes or set intent, but should not duplicate controller drift/reconcile logic unless there is a clear reason.
+- When changing Kubernetes drift detection, test creation, update, removal, and externally injected/defaulted fields. Be careful that ignoring extra actual fields does not hide stale desired configuration that should be removed.
+- Trust guarantees provided by the controller framework and defaulting. Avoid defensive nil checks, impossible branches, and redundant validation when framework behavior or defaulting already prevents the state.
+
+### API, Storage, and Type Shape
+
+- Keep user-set configuration visually distinct from computed status, runtime details, and derived fields. Prefer embedded manifest-style structs for user input and pointer sub-structs for type-specific configuration.
+- For resources with multiple modes or backends, put mode-specific fields in separate structs referenced by pointer rather than one flat struct with many optional fields.
+- Keep API error status codes and messages consistent for equivalent failure modes across handlers.
+- Avoid custom `env` tags in service config unless nearby code already requires them; use the established `OBOT_SERVER_...` naming convention.
+
+### Handler and Helper Code
+
+- Convert methods should map data only. Do not hide side effects, expensive calls, validation, runtime lookups, credential access, or status computation inside `convert` helpers.
+- Use standard-library helpers for parsing and formatting when available, especially networking helpers such as `net.SplitHostPort` and `net.JoinHostPort`.
+- Prefer simple, addressable values over clever pointer construction. For example, assign function results like `metav1.Now()` to a local variable before taking an address.
+- Keep helper boundaries natural. If two helpers always have to be called together or share the same lifecycle, consider combining them or moving the shared responsibility to the caller.
+
+### Tests
+
+- Add focused unit tests for new parsing, validation, registry/auth flows, controller reconcile transitions, and drift/hash behavior.
+- For reconciler changes, cover enabled/disabled states, invalid specs, cleanup, status updates, and idempotency.
+- For API changes that trigger reconcile or redeploy behavior, cover both direct spec changes and status/intent flags such as `NeedsK8sUpdate`.
+
+### Agent Self-Review Checklist
+
+Before handing work back or requesting review, inspect the diff for:
+
+- New Kubernetes resources or background processing whose lifecycle should be compared against controller ownership.
+- Duplicated reconcile/drift logic outside controllers.
+- Flat API/storage structs that would be clearer as manifest plus type-specific sub-structs.
+- Convert methods doing more than data mapping.
+- Inconsistent HTTP statuses or error text for the same kind of failure.
+- Custom parsing where standard-library helpers exist.
+- Defensive checks for states the framework cannot produce.
+- Missing tests for removal, defaulting, external mutation, and failure paths.
+
 ## Go Linting Configuration
 
 Uses golangci-lint v2.9.0 with these linters enabled: errcheck, govet, ineffassign, revive, staticcheck, thelper, unused, whitespace. Formatters: gofmt, goimports.
