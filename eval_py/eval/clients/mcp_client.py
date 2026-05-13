@@ -1,5 +1,6 @@
 """MCP JSON-RPC client for Obot MCP gateway (initialize, chat, events stream)."""
 import json
+import os
 import threading
 import time
 import uuid
@@ -71,17 +72,33 @@ class MCPClient:
         return out, resp.status_code, dict(resp.headers)
 
     def initialize(self) -> tuple[str, int]:
-        _, status, headers = self._do("initialize", {
+        """
+        Open an MCP session. Retries on non-200 because the gateway may return 500
+        while the nanobot MCP server is still launching (common in CI right after
+        POST /agents or right after /api/me becomes healthy).
+
+        Tune with OBOT_EVAL_MCP_INIT_RETRIES (default 12) and
+        OBOT_EVAL_MCP_INIT_RETRY_DELAY_SEC (default 2.5).
+        """
+        max_retries = max(1, int((os.environ.get("OBOT_EVAL_MCP_INIT_RETRIES") or "12").strip() or "12"))
+        delay_sec = max(0.0, float((os.environ.get("OBOT_EVAL_MCP_INIT_RETRY_DELAY_SEC") or "2.5").strip() or "2.5"))
+        params = {
             "protocolVersion": "2024-11-05",
             "capabilities": {"elicitation": {}},
             "clientInfo": {"name": "obot-eval-py", "version": "0.0.1"},
-        })
-        if status != 200:
-            return "", status
-        session_id = headers.get("Mcp-Session-Id") or headers.get("mcp-session-id", "")
-        if not session_id:
-            raise RuntimeError("initialize: missing Mcp-Session-Id header")
-        return session_id, status
+        }
+        last_status = 0
+        for attempt in range(max_retries):
+            _, status, headers = self._do("initialize", params)
+            last_status = status
+            if status == 200:
+                session_id = headers.get("Mcp-Session-Id") or headers.get("mcp-session-id", "")
+                if not session_id:
+                    raise RuntimeError("initialize: missing Mcp-Session-Id header")
+                return session_id, status
+            if attempt + 1 < max_retries and delay_sec > 0:
+                time.sleep(delay_sec)
+        return "", last_status
 
     def notifications_initialized(self, session_id: str) -> int:
         _, status, _ = self._do("notifications/initialized", {}, session_id=session_id)
@@ -159,6 +176,10 @@ class MCPClient:
             stream_ready.set()
         out: list[str] = []
         tools_used: list[str] = []
+        # Assistant streaming often sends cumulative `text` for the same items[].id with partial=true;
+        # keep the latest snapshot per id instead of appending every snapshot (avoids "ItIt'sIt's..." duplication).
+        assistant_latest_by_item_id: dict[str, str] = {}
+        assistant_item_ids_in_order: list[str] = []
         seen_created_id: set[tuple[str, str]] = set()
         # Collect (message_key, block_lines); message_key = (created, id) for data blocks, None for others
         blocks_in_order: list[tuple[Optional[tuple[str, str]], list[str]]] = []
@@ -173,7 +194,8 @@ class MCPClient:
         # (content after the last user message) so multi-turn eval gets this turn's response only.
         assistant_segments: list[list[str]] = []
         tools_per_segment: list[list[str]] = []
-        current_assistant_chunks: list[str] = []
+        current_assistant_by_id: dict[str, str] = {}
+        current_assistant_order: list[str] = []
         current_tools: list[str] = []
         current_event: Optional[str] = None
         current_data_lines: list[str] = []
@@ -197,9 +219,37 @@ class MCPClient:
                 pass
             return None
 
+        def _assistant_item_key(item: dict) -> str:
+            iid = item.get("id")
+            if isinstance(iid, str) and iid:
+                return iid
+            return "__default__"
+
+        def _record_expected_prompt_assistant_text(item: dict) -> None:
+            nonlocal turn_has_assistant
+            text = item.get("text")
+            if not isinstance(text, str):
+                return
+            key = _assistant_item_key(item)
+            if key not in assistant_latest_by_item_id:
+                assistant_item_ids_in_order.append(key)
+            assistant_latest_by_item_id[key] = text
+            turn_has_assistant = True
+
+        def _record_segment_assistant_text(item: dict) -> None:
+            nonlocal turn_has_assistant
+            text = item.get("text")
+            if not isinstance(text, str):
+                return
+            key = _assistant_item_key(item)
+            if key not in current_assistant_by_id:
+                current_assistant_order.append(key)
+            current_assistant_by_id[key] = text
+            turn_has_assistant = True
+
         def flush_event():
             nonlocal current_event, current_data_lines, current_raw_lines, turn_seen_prompt, turn_has_assistant
-            nonlocal current_assistant_chunks, current_tools
+            nonlocal current_tools, current_assistant_by_id, current_assistant_order
             if not current_raw_lines:
                 current_data_lines = []
                 current_raw_lines = []
@@ -245,18 +295,22 @@ class MCPClient:
                         if expected_prompt is None:
                             # Segment mode: keep only the last assistant block (after last user message)
                             if role == "user":
-                                if current_assistant_chunks:
-                                    assistant_segments.append(current_assistant_chunks)
-                                    tools_per_segment.append(list(current_tools))
-                                current_assistant_chunks = []
+                                if current_assistant_order:
+                                    seg = "".join(
+                                        current_assistant_by_id.get(k, "") for k in current_assistant_order
+                                    )
+                                    if seg:
+                                        assistant_segments.append([seg])
+                                        tools_per_segment.append(list(current_tools))
+                                current_assistant_by_id = {}
+                                current_assistant_order = []
                                 current_tools = []
                             if role == "assistant" and isinstance(items, list):
                                 for item in items:
                                     if not isinstance(item, dict):
                                         continue
-                                    if item.get("type") == "text" and item.get("text"):
-                                        current_assistant_chunks.append(item["text"])
-                                        turn_has_assistant = True
+                                    if item.get("type") == "text":
+                                        _record_segment_assistant_text(item)
                                     if item.get("type") == "tool" and item.get("name"):
                                         current_tools.append(item["name"])
                         else:
@@ -265,9 +319,8 @@ class MCPClient:
                                 for item in items:
                                     if not isinstance(item, dict):
                                         continue
-                                    if item.get("type") == "text" and item.get("text"):
-                                        out.append(item["text"])
-                                        turn_has_assistant = True
+                                    if item.get("type") == "text":
+                                        _record_expected_prompt_assistant_text(item)
                                     if item.get("type") == "tool" and item.get("name"):
                                         tools_used.append(item["name"])
                     except json.JSONDecodeError:
@@ -330,14 +383,23 @@ class MCPClient:
 
         # Do not deduplicate by line: blank lines separate SSE events; dropping them breaks the stream
         raw_sse = "\n".join(raw_sse_lines)
-        if expected_prompt is None and (assistant_segments or current_assistant_chunks):
-            if current_assistant_chunks:
-                assistant_segments.append(current_assistant_chunks)
-                tools_per_segment.append(current_tools)
+        if expected_prompt is None and (assistant_segments or current_assistant_order):
+            if current_assistant_order:
+                seg = "".join(current_assistant_by_id.get(k, "") for k in current_assistant_order)
+                if seg:
+                    assistant_segments.append([seg])
+                    tools_per_segment.append(list(current_tools))
             result = "".join(assistant_segments[-1]) if assistant_segments else ""
             tools_used_dedup = list(dict.fromkeys(tools_per_segment[-1])) if tools_per_segment else []
         else:
-            result = "".join(out)
+            if assistant_item_ids_in_order:
+                result = "".join(
+                    assistant_latest_by_item_id[k]
+                    for k in assistant_item_ids_in_order
+                    if k in assistant_latest_by_item_id
+                )
+            else:
+                result = "".join(out)
             tools_used_dedup = list(dict.fromkeys(tools_used))
         summary = "(event-stream response, %d bytes assistant text)" % len(result)
         if len(result) > 0 and len(result) <= 500:
