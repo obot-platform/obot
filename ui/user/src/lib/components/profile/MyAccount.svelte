@@ -149,8 +149,8 @@
 			<div class="flex flex-col gap-1">
 				<p>Enable Developer Mode</p>
 				<span class="text-sm font-light opacity-70">
-					When enabled, additional debugging capabilities such as OAuthentication verification will
-					be available on this device.
+					When enabled, additional debugging capabilities such as OAuth verification will be
+					available on this device.
 				</span>
 			</div>
 			<Toggle
@@ -159,8 +159,8 @@
 				onChange={handleDeveloperModeToggle}
 			/>
 		</div>
+		<hr />
 	{/if}
-	<hr />
 
 	<div class="mt-2 flex flex-col gap-4 py-3">
 		{#if version.current.sessionStore === 'db'}

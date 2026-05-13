@@ -52,7 +52,7 @@
 	let results = $state<Record<string, unknown | null>>({
 		clientRegistration: null,
 		preparingAuthorization: null,
-		authorizatonCode: null,
+		authorizationCode: null,
 		tokenRequest: null
 	});
 
@@ -106,11 +106,9 @@
 			.then((result) => {
 				results.tokenRequest = result;
 				currentStep = DEBUG_FLOW_STEPS.authenticationComplete;
-				console.log('token request result', result);
 			})
 			.catch((error) => {
 				errors.tokenRequest = error instanceof Error ? error.message : String(error);
-				console.log('token request error', error);
 			})
 			.finally(() => {
 				results.authorizationCode = 'Authorization code has been exchanged.';
@@ -232,7 +230,7 @@
 		title="Request & Acquire Authorization Code"
 		errors={errors.authorizationCode}
 		hasResults={Boolean(results.authorizationCode)}
-		showContent
+		showContent={currentStep === DEBUG_FLOW_STEPS.preparingAuthorization}
 	>
 		{#if results.authorizationCode}
 			<pre

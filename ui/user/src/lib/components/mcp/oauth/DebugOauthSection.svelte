@@ -26,6 +26,8 @@
 		classes,
 		showContent
 	}: Props = $props();
+
+	const canExpand = $derived(!!(errors || hasResults || showContent));
 </script>
 
 <details
@@ -36,7 +38,14 @@
 	name={title}
 	bind:open
 >
-	<summary class="collapse-title font-semibold text-sm flex items-center gap-2">
+	<summary
+		class="collapse-title font-semibold text-sm flex items-center gap-2"
+		onclick={(e) => {
+			if (!canExpand && !open) {
+				e.preventDefault();
+			}
+		}}
+	>
 		{@render statusIcon()}
 		{title}
 	</summary>
