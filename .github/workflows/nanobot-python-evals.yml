@@ -55,7 +55,7 @@ jobs:
             -v /var/run/docker.sock:/var/run/docker.sock \
             -e OPENAI_API_KEY="${OPENAI_API_KEY}" \
             -e OBOT_SERVER_DISABLE_UPDATE_CHECK=true \
-            ghcr.io/obot-platform/obot:latest
+            ghcr.io/obot-platform/obot:latest --pull=always
 
       - name: Wait for Obot to be ready
         run: |
@@ -87,7 +87,7 @@ jobs:
 
       - name: Run live conversation evals (all 3 workflows + combined summary)
         working-directory: eval_py
-        run: python -m eval.run nanobot_conversation_workflows
+        run: python -m eval.run nanobot_python_code_review_conversation_eval
 
       - name: Upload eval run summary (JSON + text)
         if: always()
