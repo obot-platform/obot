@@ -859,14 +859,13 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 	}
 
 	var credCtxs []string
-	if server.Spec.MCPCatalogID != "" {
+	if server.Spec.IsCatalogServer() {
 		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)}
-	} else if server.Spec.PowerUserWorkspaceID != "" {
+	} else if server.Spec.IsPowerUserWorkspaceServer() {
 		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)}
 	} else {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
+		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)}
 	}
-
 	cred, err := h.gptClient.RevealCredential(req.Ctx, credCtxs, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to reveal credential: %w", err)

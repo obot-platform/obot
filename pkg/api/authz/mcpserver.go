@@ -36,7 +36,7 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, u u
 
 		resources.Authorizated.MCPServer = &mcpServer
 		return true, nil
-	} else if mcpServer.Spec.PowerUserWorkspaceID != "" {
+	} else if mcpServer.Spec.IsPowerUserWorkspaceServer() {
 		hasAccess, err := a.acrHelper.UserHasAccessToMCPServerInWorkspace(u, mcpServer.Name, mcpServer.Spec.PowerUserWorkspaceID, mcpServer.Spec.UserID)
 		if err != nil || !hasAccess {
 			return false, err

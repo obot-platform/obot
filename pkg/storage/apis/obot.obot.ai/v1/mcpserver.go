@@ -146,6 +146,16 @@ func (s MCPServerSpec) IsOwnedBy(userID string) bool {
 	return s.UserID == userID && s.IsSingleUser()
 }
 
+// IsCatalogServer returns true if this server is owned by a catalog (admin-deployed multi-user server).
+func (s MCPServerSpec) IsCatalogServer() bool {
+	return s.MCPCatalogID != ""
+}
+
+// IsPowerUserWorkspaceServer returns true if this server is owned by a PowerUserWorkspace.
+func (s MCPServerSpec) IsPowerUserWorkspaceServer() bool {
+	return s.PowerUserWorkspaceID != ""
+}
+
 type MCPServerStatus struct {
 	// MCPCatalogID is the catalog ID of the catalog entry that this MCP server is based on.
 	MCPCatalogID string `json:"mcpCatalogID,omitempty"`

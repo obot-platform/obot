@@ -6,6 +6,30 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
+func TestMCPServerSpec_IsCatalogServer(t *testing.T) {
+	if (MCPServerSpec{MCPCatalogID: "default"}).IsCatalogServer() != true {
+		t.Error("expected true for catalog server")
+	}
+	if (MCPServerSpec{PowerUserWorkspaceID: "ws-1"}).IsCatalogServer() != false {
+		t.Error("expected false for workspace server")
+	}
+	if (MCPServerSpec{}).IsCatalogServer() != false {
+		t.Error("expected false for single-user server")
+	}
+}
+
+func TestMCPServerSpec_IsPowerUserWorkspaceServer(t *testing.T) {
+	if (MCPServerSpec{PowerUserWorkspaceID: "ws-1"}).IsPowerUserWorkspaceServer() != true {
+		t.Error("expected true for workspace server")
+	}
+	if (MCPServerSpec{MCPCatalogID: "default"}).IsPowerUserWorkspaceServer() != false {
+		t.Error("expected false for catalog server")
+	}
+	if (MCPServerSpec{}).IsPowerUserWorkspaceServer() != false {
+		t.Error("expected false for single-user server")
+	}
+}
+
 func TestMCPServerSpec_IsOwnedBy(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -56,9 +80,9 @@ func TestMCPServerSpec_IsOwnedBy(t *testing.T) {
 
 func TestMCPServerSpec_IsSingleUser(t *testing.T) {
 	tests := []struct {
-		name   string
-		spec   MCPServerSpec
-		want   bool
+		name string
+		spec MCPServerSpec
+		want bool
 	}{
 		{
 			name: "explicit singleUser type",

@@ -255,12 +255,12 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 			hasAccess = true
 		} else {
 			// Apply ACR filtering for regular users and for admins without ?all=true
-			if server.Spec.MCPCatalogID != "" {
+			if server.Spec.IsCatalogServer() {
 				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
 				if err != nil {
 					return fmt.Errorf("failed to check access: %w", err)
 				}
-			} else if server.Spec.PowerUserWorkspaceID != "" {
+			} else if server.Spec.IsPowerUserWorkspaceServer() {
 				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), req.User, server.Name, server.Spec.PowerUserWorkspaceID)
 				if err != nil {
 					return fmt.Errorf("failed to check access: %w", err)
@@ -2968,9 +2968,9 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 
 	var credCtxs []string
 	for _, server := range allowedServers {
-		if server.Spec.MCPCatalogID != "" {
+		if server.Spec.IsCatalogServer() {
 			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
-		} else if server.Spec.PowerUserWorkspaceID != "" {
+		} else if server.Spec.IsPowerUserWorkspaceServer() {
 			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
 		}
 	}
@@ -3064,9 +3064,9 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 			err       error
 		)
 
-		if server.Spec.MCPCatalogID != "" {
+		if server.Spec.IsCatalogServer() {
 			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
-		} else if server.Spec.PowerUserWorkspaceID != "" {
+		} else if server.Spec.IsPowerUserWorkspaceServer() {
 			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID, server.Spec.UserID)
 		}
 		if err != nil {
@@ -3079,9 +3079,9 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 
 	// Get credential context based on server scoping
 	var credCtxs []string
-	if server.Spec.MCPCatalogID != "" {
+	if server.Spec.IsCatalogServer() {
 		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)}
-	} else if server.Spec.PowerUserWorkspaceID != "" {
+	} else if server.Spec.IsPowerUserWorkspaceServer() {
 		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)}
 	}
 
