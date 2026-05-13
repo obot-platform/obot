@@ -147,6 +147,11 @@ Before adding new mechanisms, search for nearby Obot patterns and follow them. P
 - Prefer simple, addressable values over clever pointer construction. For example, assign function results like `metav1.Now()` to a local variable before taking an address.
 - Keep helper boundaries natural. If two helpers always have to be called together or share the same lifecycle, consider combining them or moving the shared responsibility to the caller.
 
+### Code Style and Naming
+
+- Follow naming conventions and styles already established in the surrounding package when adding variables, types, interfaces, functions, and methods. Prefer local consistency over introducing a new naming scheme.
+- Avoid one-line helper functions or methods unless they satisfy an interface, clarify a repeated domain concept, or match an established local pattern. Inline simple expressions when a helper only hides obvious code.
+
 ### Tests
 
 - Add focused unit tests for new parsing, validation, registry/auth flows, controller reconcile transitions, and drift/hash behavior.
@@ -161,6 +166,8 @@ Before handing work back or requesting review, inspect the diff for:
 - Duplicated reconcile/drift logic outside controllers.
 - Flat API/storage structs that would be clearer as manifest plus type-specific sub-structs.
 - Convert methods doing more than data mapping.
+- New names that do not match surrounding package conventions.
+- One-line helpers that hide simple expressions without adding domain clarity.
 - Inconsistent HTTP statuses or error text for the same kind of failure.
 - Custom parsing where standard-library helpers exist.
 - Defensive checks for states the framework cannot produce.
