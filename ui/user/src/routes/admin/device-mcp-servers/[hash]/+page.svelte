@@ -37,8 +37,9 @@
 	};
 
 	let rows = $derived<Row[]>(
-		(occurrencesResp.items ?? []).map((o) => ({
+		(occurrencesResp.items ?? []).map((o, i) => ({
 			...o,
+			rowIndex: (i + 1).toString(),
 			shortDeviceID: (o.deviceID ?? '').slice(0, 12),
 			scannedRelative: formatTimeAgo(o.scannedAt).relativeTime
 		}))
@@ -150,9 +151,9 @@
 				</h3>
 				<Table
 					data={rows}
-					fields={['id', 'shortDeviceID', 'scannedRelative', 'client', 'scope']}
+					fields={['rowIndex', 'shortDeviceID', 'scannedRelative', 'client', 'scope']}
 					headers={[
-						{ title: '#', property: 'id' },
+						{ title: '#', property: 'rowIndex' },
 						{ title: 'Device', property: 'shortDeviceID' },
 						{ title: 'Scanned', property: 'scannedRelative' },
 						{ title: 'Client', property: 'client' },
