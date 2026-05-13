@@ -32,6 +32,7 @@ class TurnEvalDetail:
     threshold: Optional[float] = None
     reason: str = ""
     prompt: str = ""
+    assistant_response: str = ""
 
     def format_message(self) -> str:
         parts: list[str] = []
@@ -73,6 +74,7 @@ class Result:
                     "threshold": t.threshold,
                     "reason": t.reason,
                     "prompt": t.prompt,
+                    "assistant_response": t.assistant_response,
                 }
                 for t in self.turn_eval_details
             ],
