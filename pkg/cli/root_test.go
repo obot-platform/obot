@@ -34,6 +34,41 @@ func TestNewClientUsesEnvOverrides(t *testing.T) {
 	}
 }
 
+func TestNewClientNormalizesEnvBaseURL(t *testing.T) {
+	tests := []struct {
+		name string
+		env  string
+		want string
+	}{
+		{
+			name: "app URL",
+			env:  "https://env.example.com",
+			want: "https://env.example.com/api",
+		},
+		{
+			name: "API URL trailing slash",
+			env:  "https://env.example.com/api/",
+			want: "https://env.example.com/api",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			restore := useRootTestEnv(t)
+			defer restore()
+
+			if err := os.Setenv("OBOT_BASE_URL", tt.env); err != nil {
+				t.Fatal(err)
+			}
+
+			client := newClient()
+			if client.BaseURL != tt.want {
+				t.Fatalf("expected normalized base URL %q, got %q", tt.want, client.BaseURL)
+			}
+		})
+	}
+}
+
 func TestNewClientUsesConfiguredDefaultURL(t *testing.T) {
 	restore := useRootTestEnv(t)
 	defer restore()

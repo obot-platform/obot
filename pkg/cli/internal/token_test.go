@@ -54,12 +54,38 @@ func (f *fakeCredentialStore) Delete(appURL string) error {
 }
 
 func TestAppURLForAPIBaseURL(t *testing.T) {
-	got, err := AppURLForAPIBaseURL("https://obot.example.com/api/")
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name    string
+		baseURL string
+		want    string
+	}{
+		{
+			name:    "app URL",
+			baseURL: "https://obot.example.com",
+			want:    "https://obot.example.com",
+		},
+		{
+			name:    "API URL",
+			baseURL: "https://obot.example.com/api",
+			want:    "https://obot.example.com",
+		},
+		{
+			name:    "API URL trailing slash",
+			baseURL: "https://obot.example.com/api/",
+			want:    "https://obot.example.com",
+		},
 	}
-	if got != "https://obot.example.com" {
-		t.Fatalf("expected app URL, got %q", got)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := AppURLForAPIBaseURL(tt.baseURL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Fatalf("expected app URL %q, got %q", tt.want, got)
+			}
+		})
 	}
 }
 
@@ -209,8 +235,12 @@ func TestLogoutDeletesSelectedAppURLToken(t *testing.T) {
 	restore := useCredentialStore(t, store)
 	defer restore()
 
-	if err := Logout("https://obot.example.com/"); err != nil {
+	removed, err := Logout("https://obot.example.com/")
+	if err != nil {
 		t.Fatal(err)
+	}
+	if !removed {
+		t.Fatalf("expected selected token to be removed")
 	}
 	if _, ok := store.tokens["https://obot.example.com"]; ok {
 		t.Fatalf("expected selected token to be deleted")
@@ -225,8 +255,12 @@ func TestLogoutNotFound(t *testing.T) {
 	restore := useCredentialStore(t, store)
 	defer restore()
 
-	if err := Logout("https://obot.example.com"); err != nil {
+	removed, err := Logout("https://obot.example.com")
+	if err != nil {
 		t.Fatal(err)
+	}
+	if removed {
+		t.Fatalf("expected no token to be removed")
 	}
 }
 

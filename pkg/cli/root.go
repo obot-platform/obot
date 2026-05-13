@@ -54,6 +54,14 @@ func (a *Obot) Run(cmd *cobra.Command, _ []string) error {
 
 func newClient() *apiclient.Client {
 	baseURL := os.Getenv("OBOT_BASE_URL")
+	if baseURL != "" {
+		if appURL, err := internal.AppURLForAPIBaseURL(baseURL); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: invalid OBOT_BASE_URL: %v\n", err)
+			baseURL = ""
+		} else {
+			baseURL = localconfig.APIBaseURL(appURL)
+		}
+	}
 	if baseURL == "" {
 		if cfg, err := localconfig.Load(); err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: failed to load Obot config: %v\n", err)
