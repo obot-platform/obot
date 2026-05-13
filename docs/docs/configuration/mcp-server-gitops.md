@@ -122,7 +122,7 @@ The `serverUserType` field specifies how users interact with the catalog entry:
 
 - `singleUser` (default): Each user who installs this catalog entry gets their own independent MCP server instance.
 
-Omitting the field or setting it to `""` is equivalent to `singleUser`.
+Omitting the field or setting it to `""` is equivalent to `singleUser`. Currently only `singleUser` is supported; other values will be rejected at validation time.
 
 ### Kubernetes Secret Bindings
 

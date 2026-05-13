@@ -22,7 +22,7 @@ const (
 	defaultStartupTimeoutSeconds = 60
 )
 
-// ServerUserType specifies whether a catalog entry or MCP server is single-user or multi-user.
+// ServerUserType specifies whether a catalog entry is a single-user or multi-user template.
 type ServerUserType string
 
 const (
@@ -241,7 +241,6 @@ type MCPSecretBinding struct {
 	Name string `json:"name"`
 	Key  string `json:"key"`
 }
-
 
 type MCPEnv struct {
 	MCPHeader `json:",inline"`
