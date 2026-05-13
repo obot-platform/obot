@@ -81,6 +81,10 @@ jobs:
           echo "OBOT did not become ready in time."
           exit 1
 
+      # /api/me can succeed before the MCP gateway can launch nanobot; evals hit MCP immediately.
+      - name: Brief settle before MCP evals
+        run: sleep 10
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

@@ -80,6 +80,13 @@ Use the venv interpreter for all commands below, e.g. `.\venv\Scripts\python.exe
 | **`OBOT_EVAL_BASE_URL`** | `python -m eval.run …` | Obot API base URL, e.g. `http://localhost:8080`. |
 | **`OBOT_EVAL_API_LOG`** | Optional | If set, REST/MCP traffic is appended to that file path. |
 | **`OBOT_EVAL_CONVERSATION_WORKFLOW`** | Optional | Override workflow id when using the shared runner (defaults per wrapper case). |
+| **`OBOT_EVAL_SKIP_AUTO_PROJECT`** | Optional | If `1` / `true`, do **not** auto-create an empty projectsv2 project + nanobot agent before evals (default: auto-create when the project list is empty). |
+| **`OBOT_EVAL_PROJECT_DISPLAY_NAME`** | Optional | Display name for the auto-created project (default: `eval-py`). |
+| **`OBOT_EVAL_AGENT_DISPLAY_NAME`** | Optional | Display name for the auto-created nanobot agent (default: `Eval agent`). |
+
+### Auto project + agent (no UI, no `/launch`)
+
+Fresh Obot instances (for example Docker in CI) often have **no projects**. Before running cases, `eval.run` calls **`POST /api/projectsv2`** and, if that project has no agents, **`POST /api/projectsv2/{id}/agents`** — the same REST surface the Nanobot UI uses. You do **not** need to open the app or call **`POST .../agents/{id}/launch`**: the MCP gateway **starts the nanobot MCP server on first connect** when eval hits `mcp-connect`.
 
 ---
 

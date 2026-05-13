@@ -113,12 +113,18 @@ def run_all(cases: list[Case], base_url: str, auth_header: str) -> list[Result]:
 
 def _run_cases(cases: list[Case], base_url: str, auth_header: str) -> list[Result]:
     from ..clients.client import Client
+    from ..helper.nanobot_setup import ensure_project_and_agent
+
     client = Client(base_url, auth_header)
+    setup_err = ensure_project_and_agent(client)
     results = []
     for c in cases:
         ctx = Context(base_url, client)
         start = time.perf_counter()
-        result = c.run(ctx)
+        if setup_err:
+            result = Result(pass_=False, message=setup_err)
+        else:
+            result = c.run(ctx)
         result.name = c.name
         result.duration_ms = (time.perf_counter() - start) * 1000
         result.trajectory = list(ctx.trajectory)
