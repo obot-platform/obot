@@ -788,9 +788,8 @@ func (h *Handler) DeleteUnauthorizedMCPServersForCatalog(req router.Request, _ r
 		}
 		// Iterate through each MCPServer and make sure it is still allowed to exist.
 		for _, server := range mcpServers.Items {
-			// TODO(IsSingleUser): determine if workspace servers (PowerUserWorkspaceID != "") should also be skipped here.
-			if !server.DeletionTimestamp.IsZero() || server.Spec.ThreadName != "" || server.Spec.MCPCatalogID != "" {
-				// For legacy project-scoped servers and multi-user servers created by the admin, we don't need to check them.
+			if !server.DeletionTimestamp.IsZero() || server.Spec.ThreadName != "" || !server.Spec.IsSingleUser() {
+				// For legacy project-scoped servers and multi-user servers, we don't need to check them.
 				continue
 			}
 
