@@ -1,33 +1,47 @@
 package devicescan
 
 import (
-	"io/fs"
-	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-const (
-	claudeGlobalConfigRel     = ".claude.json"
-	claudeSettingsRel         = ".claude/settings.json"
-	claudeInstalledPluginsRel = ".claude/plugins/installed_plugins.json"
-	claudePluginManifestSub   = ".claude-plugin/plugin.json"
-)
+var claudeSettingsPath = filepath.Join(homeDir, ".claude/settings.json")
 
-// claudeCodeConfig is the shape of ~/.claude.json: a global mcpServers
-// map plus a projects map keyed by absolute project path, each with its
-// own mcpServers block.
-type claudeCodeConfig struct {
+var claudeCode = client{
+	name:     "claude_code",
+	binaries: []string{"claude"},
+	directRules: []parseRule{
+		{target: filepath.Join(homeDir, ".claude.json"), parse: parseClaudeGlobalConfig},
+		{target: filepath.Join(homeDir, ".claude/skills"), parse: parseSkillDir("claude_code")},
+		{target: filepath.Join(homeDir, ".claude/plugins/installed_plugins.json"), parse: parseClaudePlugins},
+	},
+	walkRules: []parseRule{
+		{target: ".mcp.json", parse: parseClaudeProjectMCP},
+	},
+	// Direct paths above own these subtrees; the central walk should
+	// not descend into them.
+	walkSkipPrefixes: []string{".claude/plugins", ".claude/skills"},
+}
+
+// claudeGlobalConfig is the shape of ~/.claude.json: a top-level
+// mcpServers map plus a projects map keyed by absolute project path,
+// each with its own mcpServers block.
+type claudeGlobalConfig struct {
 	MCPServers map[string]mcpServerSpec `json:"mcpServers"`
 	Projects   map[string]struct {
 		MCPServers map[string]mcpServerSpec `json:"mcpServers"`
 	} `json:"projects"`
 }
 
+// claudeProjectMCPFile is the shape of a project-scope .mcp.json.
+type claudeProjectMCPFile struct {
+	MCPServers map[string]mcpServerSpec `json:"mcpServers"`
+}
+
 // claudePluginsRegistry is the shape of installed_plugins.json: a
-// `plugins` map keyed by "name@marketplace" → list of installations.
+// plugins map keyed by "name@marketplace" → list of installations.
 type claudePluginsRegistry struct {
 	Plugins map[string][]struct {
 		InstallPath string `json:"installPath"`
@@ -35,84 +49,128 @@ type claudePluginsRegistry struct {
 	} `json:"plugins"`
 }
 
-// claudeSettings — only the field we read.
 type claudeSettings struct {
 	EnabledPlugins map[string]bool `json:"enabledPlugins"`
 }
 
-type claudeCodeScanner struct{}
-
-func (claudeCodeScanner) Name() string { return "claude_code" }
-
-func (claudeCodeScanner) Presence() clientPresenceDef {
-	return clientPresenceDef{binaries: []string{"claude"}, configPaths: []string{".claude"}}
-}
-
-func (claudeCodeScanner) GlobalConfigPaths() []string { return []string{claudeGlobalConfigRel} }
-
-func (claudeCodeScanner) ProjectGlobs() []string { return []string{"**/.mcp.json"} }
-
-func (claudeCodeScanner) ScanGlobal(s *scanState) []types.DeviceScanMCPServer {
-	cfg, ok := readJSON[claudeCodeConfig](s.fsys, claudeGlobalConfigRel)
+func parseClaudeGlobalConfig(path string) parseResult {
+	cfg, ok := readJSON[claudeGlobalConfig](path)
 	if !ok {
-		return nil
+		return parseResult{}
 	}
-	configAbs := s.addFileOrAbs(claudeGlobalConfigRel)
 
-	out := make([]types.DeviceScanMCPServer, 0, len(cfg.MCPServers))
-	for name, e := range cfg.MCPServers {
-		out = append(out, e.toServer(name, "claude_code", configAbs, ""))
+	out := parseResult{files: []types.DeviceScanFile{readScanFile(path)}}
+	for _, name := range sortedMapKeys(cfg.MCPServers) {
+		var (
+			e         = cfg.MCPServers[name]
+			transport = normalizeTransport(e.Type, e.Transport, e.URL)
+		)
+		out.mcps = append(out.mcps, types.DeviceScanMCPServer{
+			Client:     "claude_code",
+			File:       path,
+			Name:       name,
+			Transport:  transport,
+			Command:    e.Command,
+			Args:       e.Args,
+			URL:        e.URL,
+			EnvKeys:    sortedMapKeys(e.Env),
+			HeaderKeys: sortedMapKeys(e.Headers),
+			ConfigHash: mcpConfigHash(name, transport, e.Command, e.Args, e.URL),
+		})
 	}
-	for projKey, proj := range cfg.Projects {
-		for name, e := range proj.MCPServers {
-			out = append(out, e.toServer(name, "claude_code", configAbs, projKey))
+
+	for _, projKey := range sortedMapKeys(cfg.Projects) {
+		for _, name := range sortedMapKeys(cfg.Projects[projKey].MCPServers) {
+			var (
+				e         = cfg.Projects[projKey].MCPServers[name]
+				transport = normalizeTransport(e.Type, e.Transport, e.URL)
+			)
+			out.mcps = append(out.mcps, types.DeviceScanMCPServer{
+				Client:      "claude_code",
+				ProjectPath: projKey,
+				File:        path,
+				Name:        name,
+				Transport:   transport,
+				Command:     e.Command,
+				Args:        e.Args,
+				URL:         e.URL,
+				EnvKeys:     sortedMapKeys(e.Env),
+				HeaderKeys:  sortedMapKeys(e.Headers),
+				ConfigHash:  mcpConfigHash(name, transport, e.Command, e.Args, e.URL),
+			})
 		}
 	}
 	return out
 }
 
-func (claudeCodeScanner) ScanProject(s *scanState, configRel string) []types.DeviceScanMCPServer {
-	projectAbs := s.abs(path.Dir(configRel))
-	return emitJSONServersProject(s, configRel, "mcpServers", "claude_code", projectAbs)
-}
-
-// ScanPlugins reads installed_plugins.json and emits a Plugin observation
-// (plus nested MCPServer / Skill observations) for each installation that
-// resolves to a directory under the home fs.
-func (claudeCodeScanner) ScanPlugins(s *scanState) (
-	[]types.DeviceScanPlugin, []types.DeviceScanMCPServer, []types.DeviceScanSkill,
-) {
-	registry, ok := readJSON[claudePluginsRegistry](s.fsys, claudeInstalledPluginsRel)
-	if !ok || len(registry.Plugins) == 0 {
-		return nil, nil, nil
+func parseClaudeProjectMCP(path string) parseResult {
+	cfg, ok := readJSON[claudeProjectMCPFile](path)
+	if !ok {
+		return parseResult{}
 	}
 
-	settings, _ := readJSON[claudeSettings](s.fsys, claudeSettingsRel)
+	out := parseResult{files: []types.DeviceScanFile{readScanFile(path)}}
+	for _, name := range sortedMapKeys(cfg.MCPServers) {
+		var (
+			e         = cfg.MCPServers[name]
+			transport = normalizeTransport(e.Type, e.Transport, e.URL)
+		)
+		out.mcps = append(out.mcps, types.DeviceScanMCPServer{
+			Client:      "claude_code",
+			ProjectPath: filepath.Dir(path),
+			File:        path,
+			Name:        name,
+			Transport:   transport,
+			Command:     e.Command,
+			Args:        e.Args,
+			URL:         e.URL,
+			EnvKeys:     sortedMapKeys(e.Env),
+			HeaderKeys:  sortedMapKeys(e.Headers),
+			ConfigHash:  mcpConfigHash(name, transport, e.Command, e.Args, e.URL),
+		})
+	}
+
+	return out
+}
+
+// parseClaudePlugins reads installed_plugins.json and emits one
+// plugin observation per installation that resolves to a directory
+// on the filesystem, along with nested MCP servers and skills.
+func parseClaudePlugins(path string) parseResult {
+	registry, ok := readJSON[claudePluginsRegistry](path)
+	if !ok || len(registry.Plugins) == 0 {
+		return parseResult{}
+	}
 
 	var (
-		ps  []types.DeviceScanPlugin
-		ms  []types.DeviceScanMCPServer
-		sks []types.DeviceScanSkill
+		settings, _  = readJSON[claudeSettings](claudeSettingsPath)
+		registryFile = readScanFile(path)
 	)
-	for pluginKey, installs := range registry.Plugins {
-		pluginName, marketplace := splitPluginKey(pluginKey)
+
+	out := parseResult{files: []types.DeviceScanFile{registryFile}}
+	for _, pluginKey := range sortedMapKeys(registry.Plugins) {
+		var (
+			installs                   = registry.Plugins[pluginKey]
+			pluginName, marketplace, _ = strings.Cut(pluginKey, "@")
+		)
+
 		for _, install := range installs {
 			if install.InstallPath == "" {
 				continue
 			}
-			installRel, ok := relUnderHome(s.homeAbs, install.InstallPath)
-			if !ok || !dirExists(s.fsys, installRel) {
+
+			if !dirExists(install.InstallPath) {
 				continue
 			}
-			manifestRel := path.Join(installRel, claudePluginManifestSub)
-			if !fileExists(s.fsys, manifestRel) {
+
+			manifestPath := filepath.Join(install.InstallPath, ".claude-plugin/plugin.json")
+			if !fileExists(manifestPath) {
 				continue
 			}
-			ep := emitPlugin(s, emitPluginOpts{
-				installRel:      installRel,
-				manifestRel:     manifestRel,
-				pluginType:      "claude_code_plugin",
+
+			sub := parsePluginInstall(install.InstallPath, manifestPath, pluginInstallOpts{
 				client:          "claude_code",
+				pluginType:      "claude_code_plugin",
 				marketplace:     marketplace,
 				enabled:         settings.EnabledPlugins[pluginKey],
 				nameFallback:    pluginName,
@@ -120,66 +178,32 @@ func (claudeCodeScanner) ScanPlugins(s *scanState) (
 				nestedMCPRel:    []string{"mcp.json", ".mcp.json"},
 				mcpServerXform:  substituteClaudePluginRoot(install.InstallPath),
 			})
-			ps = append(ps, ep.plugin)
-			ms = append(ms, ep.servers...)
-			sks = append(sks, ep.skills...)
+			out.merge(sub)
 		}
 	}
-	return ps, ms, sks
+
+	return out
 }
 
 // substituteClaudePluginRoot returns an mcpServerXform that replaces
-// ${CLAUDE_PLUGIN_ROOT} with installPathAbs in the command, args, env,
-// and url fields of a parsed mcpServerSpec.
-func substituteClaudePluginRoot(installPathAbs string) func(*mcpServerSpec) {
+// ${CLAUDE_PLUGIN_ROOT} with installPath inside the command, args,
+// env, and url fields of a parsed mcpServerSpec.
+func substituteClaudePluginRoot(installPath string) func(*mcpServerSpec) {
 	return func(e *mcpServerSpec) {
 		sub := func(s string) string {
-			return strings.ReplaceAll(s, "${CLAUDE_PLUGIN_ROOT}", installPathAbs)
+			return strings.ReplaceAll(s, "${CLAUDE_PLUGIN_ROOT}", installPath)
 		}
 		e.Command = sub(e.Command)
 		e.URL = sub(e.URL)
+
 		for i, a := range e.Args {
 			e.Args[i] = sub(a)
 		}
+
 		for k, v := range e.Env {
 			if str, ok := v.(string); ok {
 				e.Env[k] = sub(str)
 			}
 		}
 	}
-}
-
-// readEnabledPluginsMap reads enabledPlugins from a settings file (used
-// by Cursor as well as Claude Code) and returns it as map[key]bool.
-func readEnabledPluginsMap(fsys fs.FS, rel string) map[string]bool {
-	type settings struct {
-		EnabledPlugins map[string]bool `json:"enabledPlugins"`
-	}
-	out, ok := readJSON[settings](fsys, rel)
-	if !ok {
-		return nil
-	}
-	return out.EnabledPlugins
-}
-
-// splitPluginKey separates "name@marketplace" plugin keys into their parts.
-func splitPluginKey(key string) (name, marketplace string) {
-	at := strings.IndexByte(key, '@')
-	if at < 0 {
-		return key, ""
-	}
-	return key[:at], key[at+1:]
-}
-
-// relUnderHome converts an absolute path into its fs-relative form when
-// the path lies under homeAbs. ok=false otherwise.
-func relUnderHome(homeAbs, abs string) (string, bool) {
-	rel, err := filepath.Rel(homeAbs, abs)
-	if err != nil {
-		return "", false
-	}
-	if strings.HasPrefix(rel, "..") {
-		return "", false
-	}
-	return filepath.ToSlash(rel), true
 }

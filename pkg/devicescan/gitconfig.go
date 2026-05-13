@@ -1,26 +1,25 @@
 package devicescan
 
 import (
-	"io/fs"
-	"path"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
-// readGitOrigin returns the `url` value of the `[remote "origin"]` section
-// in dir/.git/config, or "" if the file is missing, malformed, or the
-// section/url is absent. No subprocess is spawned — this is a plain
-// fs.ReadFile and a tiny INI scan.
+// readGitOrigin returns the `url` value of the `[remote "origin"]`
+// section in dir/.git/config, or "" if the file is missing,
+// malformed, or the section/url is absent.
 //
-// Worktree-style .git files (which contain `gitdir: <path>` rather than a
-// directory) are not followed; v1 covers the common case of an in-repo
-// .git directory.
-func readGitOrigin(fsys fs.FS, dirRel string) string {
-	data, err := fs.ReadFile(fsys, path.Join(dirRel, ".git", "config"))
+// Worktree-style .git files (which contain `gitdir: <path>` rather
+// than a directory) are not followed; v1 covers the common case of an
+// in-repo .git directory.
+func readGitOrigin(dir string) string {
+	data, err := os.ReadFile(filepath.Join(dir, ".git", "config"))
 	if err != nil {
 		return ""
 	}
 
-	inOrigin := false
+	var inOrigin bool
 	for line := range strings.SplitSeq(string(data), "\n") {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {

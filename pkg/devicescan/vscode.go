@@ -1,40 +1,64 @@
 package devicescan
 
 import (
-	"path"
+	"path/filepath"
 
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-// VS Code on-disk layout. The macOS path is relative to $HOME; on other
-// platforms the file simply will not exist and ScanGlobal is a no-op.
-const (
-	vscodeGlobalConfigRel = "Library/Application Support/Code/User/mcp.json"
-)
+var vscodeMCPPath = filepath.Join(configDir, "Code/User/mcp.json")
 
-type vscodeScanner struct{}
+var vscode = client{
+	name:      "vscode",
+	binaries:  []string{"code"},
+	appBundle: "Visual Studio Code.app",
+	directRules: []parseRule{
+		{target: vscodeMCPPath, parse: parseVSCodeMCP},
+	},
+	walkRules: []parseRule{
+		{target: ".vscode/mcp.json", parse: parseVSCodeMCP},
+	},
+}
 
-func (vscodeScanner) Name() string { return "vscode" }
+// vscodeMCPFile is the shape of VS Code's mcp.json — note VS Code
+// uses "servers" rather than "mcpServers" for the top-level key.
+type vscodeMCPFile struct {
+	Servers map[string]mcpServerSpec `json:"servers"`
+}
 
-func (vscodeScanner) Presence() clientPresenceDef {
-	return clientPresenceDef{
-		binaries:    []string{"code"},
-		appBundles:  []string{"Visual Studio Code.app"},
-		configPaths: []string{".vscode", "Library/Application Support/Code"},
+// parseVSCodeMCP handles both the global mcp.json and any project-scope
+// hit. Project rel is two levels deep inside the owning project
+// (<proj>/.vscode/mcp.json).
+func parseVSCodeMCP(path string) parseResult {
+	cfg, ok := readJSON[vscodeMCPFile](path)
+	if !ok {
+		return parseResult{}
 	}
-}
 
-func (vscodeScanner) GlobalConfigPaths() []string { return []string{vscodeGlobalConfigRel} }
+	var projectPath string
+	if path != vscodeMCPPath {
+		projectPath = filepath.Dir(filepath.Dir(path))
+	}
 
-func (vscodeScanner) ProjectGlobs() []string { return []string{"**/.vscode/mcp.json"} }
-
-// VS Code uses "servers" rather than "mcpServers" for both global and
-// project configs; entries follow the standard JSON shape.
-func (vscodeScanner) ScanGlobal(s *scanState) []types.DeviceScanMCPServer {
-	return emitJSONServersGlobal(s, vscodeGlobalConfigRel, "servers", "vscode")
-}
-
-func (vscodeScanner) ScanProject(s *scanState, configRel string) []types.DeviceScanMCPServer {
-	projectAbs := s.abs(path.Dir(path.Dir(configRel)))
-	return emitJSONServersProject(s, configRel, "servers", "vscode", projectAbs)
+	out := parseResult{files: []types.DeviceScanFile{readScanFile(path)}}
+	for _, name := range sortedMapKeys(cfg.Servers) {
+		var (
+			e         = cfg.Servers[name]
+			transport = normalizeTransport(e.Type, e.Transport, e.URL)
+		)
+		out.mcps = append(out.mcps, types.DeviceScanMCPServer{
+			Client:      "vscode",
+			ProjectPath: projectPath,
+			File:        path,
+			Name:        name,
+			Transport:   transport,
+			Command:     e.Command,
+			Args:        e.Args,
+			URL:         e.URL,
+			EnvKeys:     sortedMapKeys(e.Env),
+			HeaderKeys:  sortedMapKeys(e.Headers),
+			ConfigHash:  mcpConfigHash(name, transport, e.Command, e.Args, e.URL),
+		})
+	}
+	return out
 }

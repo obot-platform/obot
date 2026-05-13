@@ -1,25 +1,33 @@
 package devicescan
 
 import (
-	"io/fs"
-	"path"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-// Zed on-disk layout. macOS-style extensions path. Other platforms expose
-// their extensions under different roots that we do not currently scan.
-const (
-	zedGlobalConfigRel = ".config/zed/settings.json"
-	zedExtensionsRel   = "Library/Application Support/Zed/extensions/installed"
-	zedExtensionPrefix = "mcp-server-"
-)
+var zedSettingsPath = filepath.Join(homeDir, ".config/zed/settings.json")
 
-// zedSettings has only the field we care about. Zed's `context_servers`
-// map keys use opaque server names; values follow Zed's own schema:
-// either {url, env, headers} for SSE or {command, args, env} for stdio,
-// with an optional explicit `enabled: false` skip.
+var zed = client{
+	name:      "zed",
+	binaries:  []string{"zed"},
+	appBundle: "Zed.app",
+	directRules: []parseRule{
+		{target: zedSettingsPath, parse: parseZedSettings},
+		// macOS-only extensions tree. On Linux/Windows os.Stat will
+		// return ENOENT and parseZedExtensions will skip.
+		{target: filepath.Join(homeDir, "Library/Application Support/Zed/extensions/installed"), parse: parseZedExtensions},
+	},
+	walkRules: []parseRule{
+		{target: ".zed/settings.json", parse: parseZedSettings},
+	},
+}
+
+// zedSettings has only the field we care about — Zed's
+// `context_servers` map keys are opaque server names; values follow
+// Zed's own schema.
 type zedSettings struct {
 	ContextServers map[string]zedContextServer `json:"context_servers"`
 }
@@ -33,125 +41,110 @@ type zedContextServer struct {
 	Enabled *bool          `json:"enabled"`
 }
 
-type zedScanner struct{}
-
-func (zedScanner) Name() string { return "zed" }
-
-func (zedScanner) Presence() clientPresenceDef {
-	return clientPresenceDef{
-		binaries:    []string{"zed"},
-		appBundles:  []string{"Zed.app"},
-		configPaths: []string{".config/zed"},
-	}
-}
-
-func (zedScanner) GlobalConfigPaths() []string { return []string{zedGlobalConfigRel} }
-
-func (zedScanner) ProjectGlobs() []string { return []string{"**/.zed/settings.json"} }
-
-func (zedScanner) ScanGlobal(s *scanState) []types.DeviceScanMCPServer {
-	cfg, ok := readJSON[zedSettings](s.fsys, zedGlobalConfigRel)
-	configAbs := ""
-	if ok {
-		configAbs = s.addFileOrAbs(zedGlobalConfigRel)
-	}
-	emitted, out := emitZedContextServers(cfg.ContextServers, configAbs, "")
-	out = append(out, mergeZedExtensions(s, configAbs, emitted)...)
-	return out
-}
-
-func (zedScanner) ScanProject(s *scanState, configRel string) []types.DeviceScanMCPServer {
-	cfg, ok := readJSON[zedSettings](s.fsys, configRel)
+// parseZedSettings handles both ~/.config/zed/settings.json and any
+// project-scope hit. Project rel is two levels deep inside the owning
+// project (<proj>/.zed/settings.json). Emits one MCP observation per
+// context_servers entry: URL → sse; command → stdio; neither
+// (settings-only extension placeholders) → drop.
+func parseZedSettings(path string) parseResult {
+	cfg, ok := readJSON[zedSettings](path)
 	if !ok {
-		return nil
+		return parseResult{}
 	}
-	configAbs := s.addFileOrAbs(configRel)
-	projectAbs := s.abs(path.Dir(path.Dir(configRel)))
-	_, out := emitZedContextServers(cfg.ContextServers, configAbs, projectAbs)
-	return out
-}
 
-// emitZedContextServers parses Zed's context_servers map. Returns the set
-// of server names emitted (so the extensions merge can dedupe) and the
-// observation slice.
-func emitZedContextServers(servers map[string]zedContextServer, configAbs, projectAbs string) (map[string]bool, []types.DeviceScanMCPServer) {
-	emitted := map[string]bool{}
-	out := make([]types.DeviceScanMCPServer, 0, len(servers))
-	for name, e := range servers {
+	var projectPath string
+	if path != zedSettingsPath {
+		projectPath = filepath.Dir(filepath.Dir(path))
+	}
+
+	out := parseResult{files: []types.DeviceScanFile{readScanFile(path)}}
+	for _, name := range sortedMapKeys(cfg.ContextServers) {
+		e := cfg.ContextServers[name]
 		if e.Enabled != nil && !*e.Enabled {
 			continue
 		}
-		obs, ok := e.toServer(name, configAbs, projectAbs)
-		if !ok {
+
+		switch {
+		case e.URL != "":
+			out.mcps = append(out.mcps, types.DeviceScanMCPServer{
+				Client:      "zed",
+				ProjectPath: projectPath,
+				File:        path,
+				Name:        name,
+				Transport:   "sse",
+				URL:         e.URL,
+				HeaderKeys:  sortedMapKeys(e.Headers),
+				ConfigHash:  mcpConfigHash(name, "sse", "", nil, e.URL),
+			})
+		case e.Command != "":
+			out.mcps = append(out.mcps, types.DeviceScanMCPServer{
+				Client:      "zed",
+				ProjectPath: projectPath,
+				File:        path,
+				Name:        name,
+				Transport:   "stdio",
+				Command:     e.Command,
+				Args:        e.Args,
+				EnvKeys:     sortedMapKeys(e.Env),
+				ConfigHash:  mcpConfigHash(name, "stdio", e.Command, e.Args, ""),
+			})
+		}
+	}
+
+	return out
+}
+
+// parseZedExtensions scans the extensions tree for folders prefixed
+// mcp-server- and emits one stdio observation per extension that does
+// not already appear in the global settings (i.e. the user has the
+// extension installed but has not configured a context_servers entry
+// for it). Command/args are blank because the extension supplies them
+// at runtime.
+func parseZedExtensions(dirPath string) parseResult {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return parseResult{}
+	}
+
+	var (
+		cfg, _   = readJSON[zedSettings](zedSettingsPath)
+		existing = map[string]struct{}{}
+	)
+	for name, e := range cfg.ContextServers {
+		if e.URL == "" && e.Command == "" {
 			continue
 		}
-		out = append(out, obs)
-		emitted[name] = true
-	}
-	return emitted, out
-}
 
-// toServer parses a Zed context-server entry. URL → sse; command → stdio;
-// neither (settings-only extension placeholders) → drop.
-func (e zedContextServer) toServer(name, configAbs, projectAbs string) (types.DeviceScanMCPServer, bool) {
-	if e.URL != "" {
-		return types.DeviceScanMCPServer{
-			Client:      "zed",
-			ProjectPath: projectAbs,
-			File:        configAbs,
-			Name:        name,
-			Transport:   "sse",
-			URL:         e.URL,
-			EnvKeys:     sortedMapKeys(e.Env),
-			HeaderKeys:  sortedMapKeys(e.Headers),
-			ConfigHash:  mcpConfigHash(name, "sse", "", nil, e.URL),
-		}, true
+		existing[name] = struct{}{}
 	}
-	if e.Command != "" {
-		return types.DeviceScanMCPServer{
-			Client:      "zed",
-			ProjectPath: projectAbs,
-			File:        configAbs,
-			Name:        name,
-			Transport:   "stdio",
-			Command:     e.Command,
-			Args:        e.Args,
-			EnvKeys:     sortedMapKeys(e.Env),
-			HeaderKeys:  []string{},
-			ConfigHash:  mcpConfigHash(name, "stdio", e.Command, e.Args, ""),
-		}, true
-	}
-	return types.DeviceScanMCPServer{}, false
-}
 
-// mergeZedExtensions scans the macOS extensions tree for folders prefixed
-// with mcp-server- and emits a stdio observation for each name not
-// already present in `existing`. The extension itself supplies command/
-// args at runtime, so we leave those blank.
-func mergeZedExtensions(s *scanState, configAbs string, existing map[string]bool) []types.DeviceScanMCPServer {
-	entries, err := fs.ReadDir(s.fsys, zedExtensionsRel)
-	if err != nil {
-		return nil
+	// File on observations is the settings path when it exists; blank
+	// otherwise (extension is installed but has no settings to point at).
+	var configPath string
+	if fileExists(zedSettingsPath) {
+		configPath = zedSettingsPath
 	}
-	var out []types.DeviceScanMCPServer
+
+	var out parseResult
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
-		if !strings.HasPrefix(e.Name(), zedExtensionPrefix) {
+
+		if !strings.HasPrefix(e.Name(), "mcp-server-") {
 			continue
 		}
+
 		name := e.Name()
-		if existing[name] {
+		if _, ok := existing[name]; ok {
 			continue
 		}
-		out = append(out, types.DeviceScanMCPServer{
+
+		out.mcps = append(out.mcps, types.DeviceScanMCPServer{
 			Client:     "zed",
-			File:       configAbs,
+			File:       configPath,
 			Name:       name,
 			Transport:  "stdio",
-			EnvKeys:    []string{},
-			HeaderKeys: []string{},
 			ConfigHash: mcpConfigHash(name, "stdio", "", nil, ""),
 		})
 	}

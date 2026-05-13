@@ -1,37 +1,51 @@
 package devicescan
 
 import (
-	"io/fs"
-	"path"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-const (
-	opencodeGlobalConfigJSONRel  = ".config/opencode/opencode.json"
-	opencodeGlobalConfigJSONCRel = ".config/opencode/opencode.jsonc"
-	opencodeLocalPluginsRel      = ".config/opencode/plugins"
-	opencodeNPMCacheRel          = ".cache/opencode/node_modules"
-)
-
-var opencodePluginExts = map[string]bool{
-	".js":  true,
-	".ts":  true,
-	".mjs": true,
-	".mts": true,
+var opencodePluginExts = map[string]struct{}{
+	".js":  {},
+	".ts":  {},
+	".mjs": {},
+	".mts": {},
 }
 
-// opencodeConfig is opencode.json's shape: top-level `mcp` map of named
-// entries, plus `plugin` array listing npm package plugin names.
+var (
+	opencodeJSONPath  = filepath.Join(homeDir, ".config/opencode/opencode.json")
+	opencodeJSONCPath = filepath.Join(homeDir, ".config/opencode/opencode.jsonc")
+)
+
+var opencode = client{
+	name:     "opencode",
+	binaries: []string{"opencode"},
+	directRules: []parseRule{
+		{target: opencodeJSONPath, parse: parseOpencodeConfig},
+		{target: opencodeJSONCPath, parse: parseOpencodeConfig},
+		{target: filepath.Join(homeDir, ".config/opencode/skills"), parse: parseSkillDir("opencode")},
+		{target: filepath.Join(homeDir, ".config/opencode/plugins"), parse: parseOpencodeLocalPlugins},
+		{target: filepath.Join(homeDir, ".cache/opencode/node_modules"), parse: parseOpencodeNPMPlugins},
+	},
+	walkRules: []parseRule{
+		{target: "opencode.json", parse: parseOpencodeConfig},
+	},
+	walkSkipPrefixes: []string{".config/opencode/plugins", ".config/opencode/skills"},
+}
+
+// opencodeConfig is opencode.json's shape: a top-level mcp map of
+// named entries plus a `plugin` array of npm package names.
 type opencodeConfig struct {
 	MCP    map[string]opencodeEntry `json:"mcp"`
 	Plugin []string                 `json:"plugin"`
 }
 
-// opencodeEntry has OpenCode-specific transport tags ("local"/"remote")
-// and a Command-as-array shape for stdio.
+// opencodeEntry has OpenCode-specific transport tags ("local" /
+// "remote") and a Command-as-array shape for stdio.
 type opencodeEntry struct {
 	Type        string         `json:"type"`
 	Command     []string       `json:"command"`
@@ -41,244 +55,176 @@ type opencodeEntry struct {
 	Enabled     *bool          `json:"enabled"`
 }
 
-type opencodeScanner struct{}
-
-func (opencodeScanner) Name() string { return "opencode" }
-
-func (opencodeScanner) Presence() clientPresenceDef {
-	return clientPresenceDef{binaries: []string{"opencode"}, configPaths: []string{".config/opencode"}}
-}
-
-func (opencodeScanner) GlobalConfigPaths() []string {
-	return []string{opencodeGlobalConfigJSONRel, opencodeGlobalConfigJSONCRel}
-}
-
-func (opencodeScanner) ProjectGlobs() []string { return []string{"**/opencode.json"} }
-
-func (opencodeScanner) ScanGlobal(s *scanState) []types.DeviceScanMCPServer {
-	var out []types.DeviceScanMCPServer
-	for _, rel := range []string{opencodeGlobalConfigJSONRel, opencodeGlobalConfigJSONCRel} {
-		cfg, ok := readJSON[opencodeConfig](s.fsys, rel)
-		if !ok {
-			continue
-		}
-		configAbs := s.addFileOrAbs(rel)
-		out = append(out, opencodeEmit(cfg.MCP, configAbs, "")...)
-	}
-	return out
-}
-
-func (opencodeScanner) ScanProject(s *scanState, configRel string) []types.DeviceScanMCPServer {
-	cfg, ok := readJSON[opencodeConfig](s.fsys, configRel)
+// parseOpencodeConfig handles both global opencode.{json,jsonc} and
+// any project-scope opencode.json. Project rel is one level deep
+// inside the owning project (<proj>/opencode.json). Emits one MCP
+// observation per mcp entry: "local" (stdio with command-as-array) or
+// "remote" (http with URL); other types are dropped.
+func parseOpencodeConfig(path string) parseResult {
+	cfg, ok := readJSON[opencodeConfig](path)
 	if !ok {
-		return nil
+		return parseResult{}
 	}
-	configAbs := s.addFileOrAbs(configRel)
-	projectAbs := s.abs(path.Dir(configRel))
-	return opencodeEmit(cfg.MCP, configAbs, projectAbs)
-}
-
-func opencodeEmit(servers map[string]opencodeEntry, configAbs, projectAbs string) []types.DeviceScanMCPServer {
-	out := make([]types.DeviceScanMCPServer, 0, len(servers))
-	for name, e := range servers {
+	file := readScanFile(path)
+	var projectPath string
+	if path != opencodeJSONPath && path != opencodeJSONCPath {
+		projectPath = filepath.Dir(path)
+	}
+	out := parseResult{files: []types.DeviceScanFile{file}}
+	for _, name := range sortedMapKeys(cfg.MCP) {
+		e := cfg.MCP[name]
 		if e.Enabled != nil && !*e.Enabled {
 			continue
 		}
-		obs, ok := e.toServer(name, configAbs, projectAbs)
-		if !ok {
-			continue
+
+		switch e.Type {
+		case "local":
+			if len(e.Command) == 0 {
+				continue
+			}
+			cmd := e.Command[0]
+			var args []string
+			if len(e.Command) > 1 {
+				args = e.Command[1:]
+			}
+			out.mcps = append(out.mcps, types.DeviceScanMCPServer{
+				Client:      "opencode",
+				ProjectPath: projectPath,
+				File:        path,
+				Name:        name,
+				Transport:   "stdio",
+				Command:     cmd,
+				Args:        args,
+				EnvKeys:     sortedMapKeys(e.Environment),
+				ConfigHash:  mcpConfigHash(name, "stdio", cmd, args, ""),
+			})
+		case "remote":
+			if e.URL == "" {
+				continue
+			}
+			out.mcps = append(out.mcps, types.DeviceScanMCPServer{
+				Client:      "opencode",
+				ProjectPath: projectPath,
+				File:        path,
+				Name:        name,
+				Transport:   "http",
+				URL:         e.URL,
+				HeaderKeys:  sortedMapKeys(e.Headers),
+				ConfigHash:  mcpConfigHash(name, "http", "", nil, e.URL),
+			})
 		}
-		out = append(out, obs)
 	}
 	return out
 }
 
-func (e opencodeEntry) toServer(name, configAbs, projectAbs string) (types.DeviceScanMCPServer, bool) {
-	switch e.Type {
-	case "local":
-		if len(e.Command) == 0 {
-			return types.DeviceScanMCPServer{}, false
-		}
-		cmd := e.Command[0]
-		var args []string
-		if len(e.Command) > 1 {
-			args = e.Command[1:]
-		}
-		return types.DeviceScanMCPServer{
-			Client:      "opencode",
-			ProjectPath: projectAbs,
-			File:        configAbs,
-			Name:        name,
-			Transport:   "stdio",
-			Command:     cmd,
-			Args:        args,
-			EnvKeys:     sortedMapKeys(e.Environment),
-			HeaderKeys:  []string{},
-			ConfigHash:  mcpConfigHash(name, "stdio", cmd, args, ""),
-		}, true
-	case "remote":
-		if e.URL == "" {
-			return types.DeviceScanMCPServer{}, false
-		}
-		return types.DeviceScanMCPServer{
-			Client:      "opencode",
-			ProjectPath: projectAbs,
-			File:        configAbs,
-			Name:        name,
-			Transport:   "http",
-			URL:         e.URL,
-			EnvKeys:     []string{},
-			HeaderKeys:  sortedMapKeys(e.Headers),
-			ConfigHash:  mcpConfigHash(name, "http", "", nil, e.URL),
-		}, true
-	}
-	return types.DeviceScanMCPServer{}, false
-}
-
-// ScanPlugins emits Plugin observations for OpenCode plugins. Two
-// sources: subdirectories under ~/.config/opencode/plugins/, and npm
-// packages listed under opencode.json's `plugin` array, found in
-// ~/.cache/opencode/node_modules/<pkg>/.
-func (opencodeScanner) ScanPlugins(s *scanState) (
-	[]types.DeviceScanPlugin, []types.DeviceScanMCPServer, []types.DeviceScanSkill,
-) {
-	ps1, ms1, sks1 := scanOpenCodeLocalPlugins(s)
-	ps2, ms2, sks2 := scanOpenCodeNPMPlugins(s)
-	return append(ps1, ps2...), append(ms1, ms2...), append(sks1, sks2...)
-}
-
-func scanOpenCodeLocalPlugins(s *scanState) (
-	[]types.DeviceScanPlugin, []types.DeviceScanMCPServer, []types.DeviceScanSkill,
-) {
-	entries, err := fs.ReadDir(s.fsys, opencodeLocalPluginsRel)
+// parseOpencodeLocalPlugins enumerates ~/.config/opencode/plugins/.
+// Subdirectories become package-style plugins; standalone .js/.ts
+// files become file-style plugins.
+func parseOpencodeLocalPlugins(dirPath string) parseResult {
+	entries, err := os.ReadDir(dirPath)
 	if err != nil {
-		return nil, nil, nil
+		return parseResult{}
 	}
-	var (
-		ps  []types.DeviceScanPlugin
-		ms  []types.DeviceScanMCPServer
-		sks []types.DeviceScanSkill
-	)
+	var out parseResult
 	for _, e := range entries {
-		itemRel := path.Join(opencodeLocalPluginsRel, e.Name())
+		itemPath := filepath.Join(dirPath, e.Name())
 		if e.IsDir() {
-			ep := emitOpenCodePluginDir(s, itemRel, e.Name(), "opencode_plugin", "")
-			ps = append(ps, ep.plugin)
-			ms = append(ms, ep.servers...)
-			sks = append(sks, ep.skills...)
+			sub := emitOpencodePluginDir(itemPath, e.Name(), "opencode_plugin", "")
+			out.merge(sub)
 			continue
 		}
-		if !opencodePluginExts[path.Ext(e.Name())] {
+		if _, ok := opencodePluginExts[filepath.Ext(e.Name())]; !ok {
 			continue
 		}
-		// Standalone plugin file.
-		fileAbs, err := s.addFile(itemRel)
-		if err != nil {
-			log.Debugf("opencode: skipping plugin file %q: %v", itemRel, err)
+		file := readScanFile(itemPath)
+		if file.Path == "" {
+			log.Debugf("opencode: skipping plugin file %q", itemPath)
 			continue
 		}
-		base := strings.TrimSuffix(e.Name(), path.Ext(e.Name()))
-		ps = append(ps, types.DeviceScanPlugin{
+		base := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+		out.files = append(out.files, file)
+		out.plugins = append(out.plugins, types.DeviceScanPlugin{
 			Client:     "opencode",
-			ConfigPath: fileAbs,
+			ConfigPath: itemPath,
 			Name:       base,
 			PluginType: "opencode_plugin",
 			Enabled:    true,
-			Files:      []string{fileAbs},
+			Files:      []string{itemPath},
 			HasHooks:   true,
 		})
 	}
-	return ps, ms, sks
+	return out
 }
 
-func scanOpenCodeNPMPlugins(s *scanState) (
-	[]types.DeviceScanPlugin, []types.DeviceScanMCPServer, []types.DeviceScanSkill,
-) {
-	names := readOpenCodeNPMPluginNames(s.fsys, opencodeGlobalConfigJSONRel)
-	for _, n := range readOpenCodeNPMPluginNames(s.fsys, opencodeGlobalConfigJSONCRel) {
+// parseOpencodeNPMPlugins reads npm package names listed under the
+// `plugin` array of either opencode.json or opencode.jsonc, then
+// looks each one up under ~/.cache/opencode/node_modules/<pkg>/.
+func parseOpencodeNPMPlugins(dirPath string) parseResult {
+	names := readOpencodeNPMPluginNames(opencodeJSONPath)
+	for _, n := range readOpencodeNPMPluginNames(opencodeJSONCPath) {
 		if !slices.Contains(names, n) {
 			names = append(names, n)
 		}
 	}
 	if len(names) == 0 {
-		return nil, nil, nil
+		return parseResult{}
 	}
-	if !dirExists(s.fsys, opencodeNPMCacheRel) {
-		return nil, nil, nil
-	}
-	var (
-		ps  []types.DeviceScanPlugin
-		ms  []types.DeviceScanMCPServer
-		sks []types.DeviceScanSkill
-	)
+	var out parseResult
 	for _, pkg := range names {
-		pkgRel := path.Join(opencodeNPMCacheRel, pkg)
-		if !dirExists(s.fsys, pkgRel) {
+		pkgPath := filepath.Join(dirPath, pkg)
+		if !dirExists(pkgPath) {
 			continue
 		}
-		ep := emitOpenCodePluginDir(s, pkgRel, pkg, "opencode_npm_plugin", "npm")
-		ps = append(ps, ep.plugin)
-		ms = append(ms, ep.servers...)
-		sks = append(sks, ep.skills...)
+		sub := emitOpencodePluginDir(pkgPath, pkg, "opencode_npm_plugin", "npm")
+		out.merge(sub)
 	}
-	return ps, ms, sks
+	return out
 }
 
-// emitOpenCodePluginDir reads a plugin directory's package.json (if any)
-// for metadata and produces an emittedPlugin. Nested MCP config is looked
-// up at {mcp.json, .mcp.json}.
-func emitOpenCodePluginDir(s *scanState, installRel, fallbackName, pluginType, marketplace string) emittedPlugin {
-	packageRel := path.Join(installRel, "package.json")
-	pkg, _ := readJSON[map[string]any](s.fsys, packageRel)
-	name, version, description, author := manifestMetadata(pkg)
-	if name == "" {
-		name = fallbackName
-	}
-
-	supporting := s.listArtifactPaths(installRel, pluginExts)
-
-	mcpRaw, mcpSourceRel := pluginMCPServersBlock(s.fsys, installRel, []string{"mcp.json", ".mcp.json"}, pkg, packageRel)
-	mcpSourceAbs := ""
-	if mcpSourceRel != "" {
-		mcpSourceAbs = s.addFileOrAbs(mcpSourceRel)
-	}
-	pluginFileAbs := ""
-	if pkg != nil {
-		pluginFileAbs = s.addFileOrAbs(packageRel)
-	}
-
-	var servers []types.DeviceScanMCPServer
-	for serverName, raw := range mcpRaw {
-		entry, ok := decodeMCPServerSpec(raw)
-		if !ok {
-			continue
+// emitOpencodePluginDir reads one plugin directory and emits its
+// observation. OpenCode plugin manifests live in package.json
+// (NPM-style), which the shared parsePluginInstall already handles
+// generically — but OpenCode's "plugin" notion doesn't quite align
+// with the other clients' (everything is a hook host), so the wire
+// HasHooks rollup is forced true here.
+func emitOpencodePluginDir(installPath, fallbackName, pluginType, marketplace string) parseResult {
+	manifestPath := filepath.Join(installPath, "package.json")
+	if !fileExists(manifestPath) {
+		// No manifest — emit a stub plugin row keyed on the dir name.
+		return parseResult{
+			plugins: []types.DeviceScanPlugin{{
+				Client:     "opencode",
+				Name:       fallbackName,
+				PluginType: pluginType,
+				Enabled:    true,
+				Files:      listArtifactPaths(installPath, pluginExts),
+				HasHooks:   true,
+			}},
 		}
-		servers = append(servers, entry.toServer(serverName, "opencode", mcpSourceAbs, ""))
 	}
 
-	return emittedPlugin{
-		plugin: types.DeviceScanPlugin{
-			Client:        "opencode",
-			ConfigPath:    pluginFileAbs,
-			Name:          name,
-			PluginType:    pluginType,
-			Version:       version,
-			Description:   description,
-			Author:        author,
-			Enabled:       true,
-			Marketplace:   marketplace,
-			Files:         supporting,
-			HasMCPServers: len(mcpRaw) > 0,
-			HasHooks:      true,
-		},
-		servers: servers,
+	sub := parsePluginInstall(installPath, manifestPath, pluginInstallOpts{
+		client:       "opencode",
+		pluginType:   pluginType,
+		marketplace:  marketplace,
+		enabled:      true,
+		nameFallback: fallbackName,
+		nestedMCPRel: []string{"mcp.json", ".mcp.json"},
+	})
+
+	// override: OpenCode plugins are unconditional hook hosts (see docstring).
+	for i := range sub.plugins {
+		sub.plugins[i].HasHooks = true
 	}
+
+	return sub
 }
 
-func readOpenCodeNPMPluginNames(fsys fs.FS, rel string) []string {
-	cfg, ok := readJSON[opencodeConfig](fsys, rel)
+func readOpencodeNPMPluginNames(path string) []string {
+	cfg, ok := readJSON[opencodeConfig](path)
 	if !ok {
 		return nil
 	}
+
 	return cfg.Plugin
 }

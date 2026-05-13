@@ -9,71 +9,58 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-// clientPresenceDef describes how to detect that a given AI client is
-// installed on the device. Each field is a list because most clients
-// have one or two canonical names; the first match wins per category.
-type clientPresenceDef struct {
-	binaries    []string
-	appBundles  []string
-	configPaths []string
-}
+// detectPresence runs the OS signal checks for c and, if any fire,
+// returns the wire DeviceScanClient row plus true. Real-OS access —
+// $PATH lookup, /Applications stat (darwin only), and config-path
+// existence checks. Returns (zero, false) for clients with no signals
+// or with an empty name.
+func detectPresence(c client) (types.DeviceScanClient, bool) {
+	if c.name == "" {
+		return types.DeviceScanClient{}, false
+	}
 
-// clientAppBundleDirs is overridable in tests so detection doesn't
-// depend on the real /Applications tree. nil → platform defaults
-// (/Applications and ~/Applications on darwin).
-var clientAppBundleDirs []string
-
-// detectClientPresence returns the first-matching binary, install
-// path, and config path for def. Empty strings mean no signal in that
-// category. Caller emits a clients[] row only if at least one is set.
-func detectClientPresence(def clientPresenceDef, home string) (binary, install, configPath string) {
-	for _, b := range def.binaries {
+	var binary string
+	for _, b := range c.binaries {
 		if p, err := exec.LookPath(b); err == nil && p != "" {
 			binary = p
 			break
 		}
 	}
 
-	if runtime.GOOS == "darwin" && len(def.appBundles) > 0 {
-		bundles := clientAppBundleDirs
-		if bundles == nil {
-			bundles = []string{"/Applications", filepath.Join(home, "Applications")}
-		}
-	bundleLoop:
-		for _, name := range def.appBundles {
-			for _, dir := range bundles {
-				candidate := filepath.Join(dir, name)
-				if fi, err := os.Stat(candidate); err == nil && fi.IsDir() {
-					install = candidate
-					break bundleLoop
-				}
+	var install string
+	if runtime.GOOS == "darwin" && c.appBundle != "" {
+		for _, dir := range []string{macAppsDir, filepath.Join(homeDir, "Applications")} {
+			candidate := filepath.Join(dir, c.appBundle)
+			if fi, err := os.Stat(candidate); err == nil && fi.IsDir() {
+				install = candidate
+				break
 			}
 		}
 	}
 
-	for _, rel := range def.configPaths {
-		candidate := filepath.Join(home, rel)
-		if fi, err := os.Stat(candidate); err == nil && fi.IsDir() {
-			configPath = candidate
+	// configPath: first directRules target that exists. Provides a
+	// presence signal for GUI apps that aren't in $PATH (e.g. Claude
+	// Desktop on Linux).
+	var configPath string
+	for _, r := range c.directRules {
+		if r.target == "" {
+			continue
+		}
+
+		if _, err := os.Stat(r.target); err == nil {
+			configPath = r.target
 			break
 		}
 	}
-	return
-}
 
-// scanClientPresence runs presence detection for every registered
-// scanner and adds a clients[] row whenever any signal fires.
-func scanClientPresence(s *scanState, home string) {
-	for _, c := range allScanners {
-		binary, install, configPath := detectClientPresence(c.Presence(), home)
-		if binary == "" && install == "" && configPath == "" {
-			continue
-		}
-		s.addClient(types.DeviceScanClient{
-			Name:        c.Name(),
-			BinaryPath:  binary,
-			InstallPath: install,
-			ConfigPath:  configPath,
-		})
+	if binary == "" && install == "" && configPath == "" {
+		return types.DeviceScanClient{}, false
 	}
+
+	return types.DeviceScanClient{
+		Name:        c.name,
+		BinaryPath:  binary,
+		InstallPath: install,
+		ConfigPath:  configPath,
+	}, true
 }

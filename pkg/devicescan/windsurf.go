@@ -1,36 +1,76 @@
 package devicescan
 
 import (
-	"path"
+	"cmp"
+	"path/filepath"
 
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-const windsurfGlobalConfigRel = ".codeium/windsurf/mcp_config.json"
+var windsurfMCPPath = filepath.Join(homeDir, ".codeium/windsurf/mcp_config.json")
 
-type windsurfScanner struct{}
+var windsurf = client{
+	name:      "windsurf",
+	binaries:  []string{"windsurf"},
+	appBundle: "Windsurf.app",
+	directRules: []parseRule{
+		{target: windsurfMCPPath, parse: parseWindsurfMCP},
+	},
+	walkRules: []parseRule{
+		{target: ".windsurf/mcp_config.json", parse: parseWindsurfMCP},
+	},
+}
 
-func (windsurfScanner) Name() string { return "windsurf" }
+// windsurfMCPFile is the shape of Windsurf's mcp_config.json — a
+// top-level mcpServers map keyed by server name.
+type windsurfMCPFile struct {
+	MCPServers map[string]windsurfEntry `json:"mcpServers"`
+}
 
-func (windsurfScanner) Presence() clientPresenceDef {
-	return clientPresenceDef{
-		binaries:    []string{"windsurf"},
-		appBundles:  []string{"Windsurf.app"},
-		configPaths: []string{".windsurf", ".codeium"},
+// windsurfEntry extends the canonical mcpServerSpec with `serverUrl`,
+// the alternate URL spelling Windsurf's docs publish for remote
+// servers. Both URL and ServerURL collapse to the same logical
+// endpoint at the parser call site.
+type windsurfEntry struct {
+	mcpServerSpec
+	ServerURL string `json:"serverUrl"`
+}
+
+// parseWindsurfMCP handles both the global mcp_config.json and any
+// project-scope hit. Project rel is two levels deep inside the owning
+// project (<proj>/.windsurf/mcp_config.json).
+func parseWindsurfMCP(path string) parseResult {
+	cfg, ok := readJSON[windsurfMCPFile](path)
+	if !ok {
+		return parseResult{}
 	}
-}
 
-func (windsurfScanner) GlobalConfigPaths() []string { return []string{windsurfGlobalConfigRel} }
+	var projectPath string
+	if path != windsurfMCPPath {
+		projectPath = filepath.Dir(filepath.Dir(path))
+	}
 
-func (windsurfScanner) ProjectGlobs() []string {
-	return []string{"**/.windsurf/mcp_config.json"}
-}
+	out := parseResult{files: []types.DeviceScanFile{readScanFile(path)}}
+	for _, name := range sortedMapKeys(cfg.MCPServers) {
+		var (
+			e         = cfg.MCPServers[name]
+			url       = cmp.Or(e.URL, e.ServerURL)
+			transport = normalizeTransport(e.Type, e.Transport, url)
+		)
+		out.mcps = append(out.mcps, types.DeviceScanMCPServer{
+			Client:      "windsurf",
+			ProjectPath: projectPath,
+			File:        path,
+			Name:        name,
+			Transport:   transport,
+			Command:     e.Command,
+			Args:        e.Args,
+			URL:         url,
+			EnvKeys:     sortedMapKeys(e.Env),
+			HeaderKeys:  sortedMapKeys(e.Headers),
+			ConfigHash:  mcpConfigHash(name, transport, e.Command, e.Args, url),
+		})
+	}
 
-func (windsurfScanner) ScanGlobal(s *scanState) []types.DeviceScanMCPServer {
-	return emitJSONServersGlobal(s, windsurfGlobalConfigRel, "mcpServers", "windsurf")
-}
-
-func (windsurfScanner) ScanProject(s *scanState, configRel string) []types.DeviceScanMCPServer {
-	projectAbs := s.abs(path.Dir(path.Dir(configRel)))
-	return emitJSONServersProject(s, configRel, "mcpServers", "windsurf", projectAbs)
+	return out
 }

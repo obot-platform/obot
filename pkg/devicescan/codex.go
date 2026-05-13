@@ -1,25 +1,33 @@
 package devicescan
 
 import (
-	"io/fs"
-	"path"
-	"regexp"
-	"sort"
-	"strconv"
+	"cmp"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"golang.org/x/mod/semver"
 )
 
-const (
-	codexGlobalConfigRel   = ".codex/config.toml"
-	codexPluginCacheRel    = ".codex/plugins/cache"
-	codexPluginManifestSub = ".codex-plugin/plugin.json"
-)
+var codexConfigPath = filepath.Join(homeDir, ".codex/config.toml")
+
+var codex = client{
+	name:     "codex",
+	binaries: []string{"codex"},
+	directRules: []parseRule{
+		{target: codexConfigPath, parse: parseCodexConfig},
+		{target: filepath.Join(homeDir, ".codex/skills"), parse: parseSkillDir("codex")},
+		{target: filepath.Join(homeDir, ".codex/plugins/cache"), parse: parseCodexPlugins},
+	},
+	walkRules: []parseRule{
+		{target: ".codex/config.toml", parse: parseCodexConfig},
+	},
+	walkSkipPrefixes: []string{".codex/plugins", ".codex/skills"},
+}
 
 // codexConfig is Codex's TOML shape: a top-level mcp_servers map of
-// named entries. Codex has a unique header model captured separately
-// (see codexEntry.headerKeys).
+// named entries with Codex-specific header model.
 type codexConfig struct {
 	MCPServers map[string]codexEntry `toml:"mcp_servers"`
 }
@@ -37,243 +45,172 @@ type codexEntry struct {
 	Enabled           *bool          `toml:"enabled"`
 }
 
-type codexScanner struct{}
-
-func (codexScanner) Name() string { return "codex" }
-
-func (codexScanner) Presence() clientPresenceDef {
-	return clientPresenceDef{binaries: []string{"codex"}, configPaths: []string{".codex"}}
-}
-
-func (codexScanner) GlobalConfigPaths() []string { return []string{codexGlobalConfigRel} }
-
-func (codexScanner) ProjectGlobs() []string { return []string{"**/.codex/config.toml"} }
-
-func (codexScanner) ScanGlobal(s *scanState) []types.DeviceScanMCPServer {
-	cfg, ok := readTOML[codexConfig](s.fsys, codexGlobalConfigRel)
+// parseCodexConfig handles both the global ~/.codex/config.toml and
+// any project-scope hit. Project rel is two levels deep inside the
+// owning project (<proj>/.codex/config.toml). Emits one MCP
+// observation per [mcp_servers.<name>] table. Codex header semantics:
+// http_headers (literal map), env_http_headers (header_name → env_var
+// name), and bearer_token_env_var (yields an implicit Authorization
+// header). Only header *names* propagate.
+func parseCodexConfig(path string) parseResult {
+	cfg, ok := readTOML[codexConfig](path)
 	if !ok {
-		return nil
+		return parseResult{}
 	}
-	configAbs := s.addFileOrAbs(codexGlobalConfigRel)
-	return codexEmit(cfg.MCPServers, configAbs, "")
-}
 
-func (codexScanner) ScanProject(s *scanState, configRel string) []types.DeviceScanMCPServer {
-	cfg, ok := readTOML[codexConfig](s.fsys, configRel)
-	if !ok {
-		return nil
+	var (
+		projectPath string
+		file        = readScanFile(path)
+	)
+	if path != codexConfigPath {
+		projectPath = filepath.Dir(filepath.Dir(path))
 	}
-	configAbs := s.addFileOrAbs(configRel)
-	projectAbs := s.abs(path.Dir(path.Dir(configRel)))
-	return codexEmit(cfg.MCPServers, configAbs, projectAbs)
-}
 
-func codexEmit(servers map[string]codexEntry, configAbs, projectAbs string) []types.DeviceScanMCPServer {
-	out := make([]types.DeviceScanMCPServer, 0, len(servers))
-	for name, e := range servers {
+	out := parseResult{files: []types.DeviceScanFile{file}}
+	for _, name := range sortedMapKeys(cfg.MCPServers) {
+		var (
+			e           = cfg.MCPServers[name]
+			headerNames = map[string]struct{}{}
+		)
 		if e.Enabled != nil && !*e.Enabled {
 			continue
 		}
-		out = append(out, e.toServer(name, configAbs, projectAbs))
+
+		for k := range e.HTTPHeaders {
+			headerNames[k] = struct{}{}
+		}
+
+		for k := range e.EnvHTTPHeaders {
+			headerNames[k] = struct{}{}
+		}
+
+		if e.BearerTokenEnvVar != "" {
+			headerNames["Authorization"] = struct{}{}
+		}
+
+		transport := codexTransport(e.Type, e.Transport, e.URL)
+		out.mcps = append(out.mcps, types.DeviceScanMCPServer{
+			Client:      "codex",
+			ProjectPath: projectPath,
+			File:        path,
+			Name:        name,
+			Transport:   transport,
+			Command:     e.Command,
+			Args:        e.Args,
+			URL:         e.URL,
+			EnvKeys:     sortedMapKeys(e.Env),
+			HeaderKeys:  sortedMapKeys(headerNames),
+			ConfigHash:  mcpConfigHash(name, transport, e.Command, e.Args, e.URL),
+		})
 	}
 	return out
-}
-
-// toServer converts a [mcp_servers.<name>] table into wire shape.
-// Codex header semantics: http_headers (literal map), env_http_headers
-// (header_name → env_var), and bearer_token_env_var (yields an
-// "Authorization" header). Only header *names* propagate to HeaderKeys.
-func (e codexEntry) toServer(name, configAbs, projectAbs string) types.DeviceScanMCPServer {
-	transport := codexTransport(e.Type, e.Transport, e.URL)
-
-	headerNames := map[string]bool{}
-	for k := range e.HTTPHeaders {
-		headerNames[k] = true
-	}
-	for k := range e.EnvHTTPHeaders {
-		headerNames[k] = true
-	}
-	if e.BearerTokenEnvVar != "" {
-		headerNames["Authorization"] = true
-	}
-	headerKeys := make([]string, 0, len(headerNames))
-	for k := range headerNames {
-		headerKeys = append(headerKeys, k)
-	}
-	sort.Strings(headerKeys)
-
-	return types.DeviceScanMCPServer{
-		Client:      "codex",
-		ProjectPath: projectAbs,
-		File:        configAbs,
-		Name:        name,
-		Transport:   transport,
-		Command:     e.Command,
-		Args:        e.Args,
-		URL:         e.URL,
-		EnvKeys:     sortedMapKeys(e.Env),
-		HeaderKeys:  headerKeys,
-		ConfigHash:  mcpConfigHash(name, transport, e.Command, e.Args, e.URL),
-	}
 }
 
 // codexTransport differs from the standard rule because Codex defaults
 // remote (URL-only) servers to streamable-http rather than sse.
 func codexTransport(typeField, transportField, urlField string) string {
-	if explicit := firstNonEmpty(typeField, transportField); explicit != "" {
-		n := strings.ReplaceAll(strings.ToLower(strings.TrimSpace(explicit)), "_", "-")
-		if n == "streamablehttp" {
-			n = "streamable-http"
+	if explicit := cmp.Or(typeField, transportField); explicit != "" {
+		transport := strings.ReplaceAll(strings.ToLower(strings.TrimSpace(explicit)), "_", "-")
+		if transport == "streamablehttp" {
+			transport = "streamable-http"
 		}
-		return n
+
+		return transport
 	}
+
 	if urlField != "" {
 		return "streamable-http"
 	}
+
 	return "stdio"
 }
 
-// ScanPlugins walks .codex/plugins/cache/<marketplace>/<plugin>/<ver>/
-// and emits a Plugin observation for the highest-semver version of each
-// plugin that has a manifest at .codex-plugin/plugin.json.
-func (codexScanner) ScanPlugins(s *scanState) (
-	[]types.DeviceScanPlugin, []types.DeviceScanMCPServer, []types.DeviceScanSkill,
-) {
-	mkts, err := fs.ReadDir(s.fsys, codexPluginCacheRel)
+// parseCodexPlugins walks .codex/plugins/cache/<marketplace>/<plugin>/
+// and emits a plugin observation for the highest-semver version of
+// each plugin that ships a manifest at .codex-plugin/plugin.json.
+func parseCodexPlugins(dirPath string) parseResult {
+	marketplaces, err := os.ReadDir(dirPath)
 	if err != nil {
-		return nil, nil, nil
+		return parseResult{}
 	}
-	var (
-		ps  []types.DeviceScanPlugin
-		ms  []types.DeviceScanMCPServer
-		sks []types.DeviceScanSkill
-	)
-	for _, mkt := range mkts {
-		if !mkt.IsDir() {
+	var out parseResult
+	for _, marketplace := range marketplaces {
+		if !marketplace.IsDir() {
 			continue
 		}
-		mktRel := path.Join(codexPluginCacheRel, mkt.Name())
-		plugins, err := fs.ReadDir(s.fsys, mktRel)
+
+		var (
+			marketplacePath = filepath.Join(dirPath, marketplace.Name())
+			plugins, err    = os.ReadDir(marketplacePath)
+		)
 		if err != nil {
-			log.Debugf("codex: skipping marketplace %q: %v", mktRel, err)
+			log.Debugf("codex: skipping marketplace %q: %v", marketplace, err)
 			continue
 		}
+
 		for _, p := range plugins {
 			if !p.IsDir() {
 				continue
 			}
-			pluginRel := path.Join(mktRel, p.Name())
-			versionRel, version, ok := pickHighestVersionDir(s.fsys, pluginRel)
+
+			var (
+				pluginPath               = filepath.Join(marketplacePath, p.Name())
+				versionPath, version, ok = highestVersionDir(pluginPath)
+			)
 			if !ok {
 				continue
 			}
-			manifestRel := path.Join(versionRel, codexPluginManifestSub)
-			if !fileExists(s.fsys, manifestRel) {
+
+			manifestPath := filepath.Join(versionPath, ".codex-plugin/plugin.json")
+			if !fileExists(manifestPath) {
 				continue
 			}
-			ep := emitPlugin(s, emitPluginOpts{
-				installRel:      versionRel,
-				manifestRel:     manifestRel,
-				pluginType:      "codex_plugin",
+
+			sub := parsePluginInstall(versionPath, manifestPath, pluginInstallOpts{
 				client:          "codex",
-				marketplace:     mkt.Name(),
+				pluginType:      "codex_plugin",
+				marketplace:     marketplace.Name(),
 				enabled:         true,
 				nameFallback:    p.Name(),
 				versionFallback: version,
 				nestedMCPRel:    []string{"mcp.json", ".mcp.json"},
 			})
-			ps = append(ps, ep.plugin)
-			ms = append(ms, ep.servers...)
-			sks = append(sks, ep.skills...)
+			out.merge(sub)
 		}
 	}
-	return ps, ms, sks
+	return out
 }
 
-// pickHighestVersionDir returns the version subdirectory with the
-// highest semver-aware key, the directory's basename (the version
-// string), and ok. Non-directory entries are ignored.
-func pickHighestVersionDir(fsys fs.FS, pluginRel string) (string, string, bool) {
-	entries, err := fs.ReadDir(fsys, pluginRel)
+// highestVersionDir returns the version subdirectory with the
+// highest semver key, the directory's basename (the version string),
+// and ok. Non-directory entries and invalid semver names are ignored.
+func highestVersionDir(pluginPath string) (string, string, bool) {
+	entries, err := os.ReadDir(pluginPath)
 	if err != nil {
-		log.Debugf("codex: skipping plugin %q: %v", pluginRel, err)
+		log.Debugf("codex: skipping plugin %q: %v", pluginPath, err)
 		return "", "", false
 	}
-	type cand struct {
-		name string
-		key  []vPart
-	}
-	cands := make([]cand, 0, len(entries))
+
+	var highestVersion, highestName string
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
-		cands = append(cands, cand{name: e.Name(), key: versionSortKey(e.Name())})
+
+		canonical := semver.Canonical("v" + strings.TrimPrefix(e.Name(), "v"))
+		if canonical == "" {
+			continue
+		}
+
+		if semver.Compare(canonical, highestVersion) > 0 {
+			highestVersion = canonical
+			highestName = e.Name()
+		}
 	}
-	if len(cands) == 0 {
+
+	if highestVersion == "" {
 		return "", "", false
 	}
-	sort.Slice(cands, func(i, j int) bool {
-		return compareVParts(cands[i].key, cands[j].key) > 0 // descending
-	})
-	top := cands[0].name
-	return path.Join(pluginRel, top), top, true
-}
 
-// vPart is one segment of a parsed version string. kind 0 = numeric
-// segment / numeric prerelease, kind 1 = alpha segment / alpha
-// prerelease token, kind 2 = release sentinel (appended when the
-// version has no prerelease suffix).
-type vPart struct {
-	kind int
-	n    int
-	s    string
-}
-
-func versionSortKey(name string) []vPart {
-	versionStr, prerelease, hasDash := strings.Cut(name, "-")
-	var parts []vPart
-	for seg := range strings.SplitSeq(versionStr, ".") {
-		if n, err := strconv.Atoi(seg); err == nil {
-			parts = append(parts, vPart{0, n, ""})
-		} else {
-			parts = append(parts, vPart{1, 0, seg})
-		}
-	}
-	if hasDash && prerelease != "" {
-		for _, tok := range alphaNumTokens(prerelease) {
-			if n, err := strconv.Atoi(tok); err == nil {
-				parts = append(parts, vPart{0, n, ""})
-			} else {
-				parts = append(parts, vPart{1, 0, tok})
-			}
-		}
-	} else {
-		parts = append(parts, vPart{2, 0, ""})
-	}
-	return parts
-}
-
-var alphaNumRe = regexp.MustCompile(`[A-Za-z]+|\d+`)
-
-func alphaNumTokens(s string) []string {
-	return alphaNumRe.FindAllString(s, -1)
-}
-
-func compareVParts(a, b []vPart) int {
-	for i := 0; i < len(a) && i < len(b); i++ {
-		if a[i].kind != b[i].kind {
-			return a[i].kind - b[i].kind
-		}
-		if a[i].n != b[i].n {
-			return a[i].n - b[i].n
-		}
-		if a[i].s != b[i].s {
-			if a[i].s < b[i].s {
-				return -1
-			}
-			return 1
-		}
-	}
-	return len(a) - len(b)
+	return filepath.Join(pluginPath, highestName), highestName, true
 }
