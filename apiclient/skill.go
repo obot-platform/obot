@@ -35,13 +35,15 @@ func (c *Client) ListSkills(ctx context.Context, query string, limit int) (types
 	return result, err
 }
 
-func (c *Client) GetSkill(ctx context.Context, id string) (*types.Skill, error) {
+func (c *Client) GetSkill(ctx context.Context, id string) (types.Skill, error) {
 	_, resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/skills/%s", url.PathEscape(id)), nil)
 	if err != nil {
-		return nil, err
+		return types.Skill{}, err
 	}
 
-	return toObject(resp, &types.Skill{})
+	obj := types.Skill{}
+	_, err = toObject(resp, &obj)
+	return obj, err
 }
 
 func (c *Client) DownloadSkill(ctx context.Context, id string) ([]byte, error) {
