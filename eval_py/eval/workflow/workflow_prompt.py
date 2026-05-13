@@ -120,7 +120,7 @@ Use the tool: generate_dual_axes_chart
 OBJECTIVE:
 Visualize Revenue vs Profit Margin trend for the year 2025 and generate business insights.
 
-PHASE 1 — DATASET (Use this exact dataset)
+PHASE 1 - DATASET (Use this exact dataset)
 
 [
   { "month": "Jan", "revenue": 120000, "profit_margin": 18 },
@@ -151,36 +151,27 @@ In this phase, confirm that the dataset is valid and ready to use. If you see an
     },
     {
         # Phase 2 – Chart configuration
-        "prompt": """PHASE 2 — CHART CONFIGURATION
+        "prompt": """PHASE 2 - CHART CONFIGURATION (chart setup only; do not repeat Phase 1 validation)
 
-Now, describe exactly how you would configure the AntV generate_dual_axes_chart call using this dataset:
+Using the same 12-month dataset from Phase 1, describe how to configure `generate_dual_axes_chart`:
 
-- X-axis → month
-- Left Y-axis → revenue (Column chart)
-- Right Y-axis → profit_margin (Line chart)
-- Chart title → "Revenue vs Profit Margin – 2025 Trend Analysis"
-- Enable tooltip
-- Enable legend
-- Smooth line → true
-- Responsive → true
-- Show grid lines
+- X-axis -> month
+- Left Y-axis -> revenue (column series)
+- Right Y-axis -> profit_margin (line series)
+- Title -> "Revenue vs Profit Margin - 2025 Trend Analysis"
+- Tooltip, legend, smooth line, responsive layout, and grid lines enabled
+- Revenue formatted as currency ($); profit_margin formatted as %
+- Distinct colors for the column and line series; data labels on the line series
 
-Formatting:
-- Format revenue as currency ($)
-- Format profit_margin as %
-- Show data labels on line series
-- Use distinct colors for column and line
-
-Assume the dataset has already been validated in Phase 1. Do NOT re-validate the data.
-Do NOT invent a different dataset. Focus only on explaining the chart configuration and formatting in a way that could be passed to AntV or another charting library.""",
+Reply with the chart mapping and formatting plan only. Do not re-validate the dataset.""",
         "criteria": [
-            "Describes a dual-axes configuration with month on X, revenue as columns on the left Y-axis, and profit_margin as a line on the right Y-axis.",
-            "Mentions key formatting details such as currency formatting for revenue, percentage formatting for profit_margin, and distinct colors for the two series.",
+            "Describes dual-axes chart setup with month on X, revenue on the left axis, and profit_margin on the right axis (column + line or equivalent).",
+            "Mentions at least two of: chart title, currency formatting for revenue, percentage formatting for profit_margin, or distinct series colors.",
         ],
     },
     {
         # Phase 3 – Visual analysis and insights
-        "prompt": """PHASE 3 — VISUAL ANALYSIS
+        "prompt": """PHASE 3 - VISUAL ANALYSIS
 
 Assume the chart has been generated correctly. Based on the revenue and profit_margin values in the dataset, provide:
 
