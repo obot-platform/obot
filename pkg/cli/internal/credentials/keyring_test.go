@@ -49,7 +49,7 @@ func (f *fakeKeyring) Delete(service, user string) error {
 
 func TestKeyringStoreScopesTokensByAppURL(t *testing.T) {
 	kr := newFakeKeyring()
-	store := NewKeyringStoreWith("obot-test", kr)
+	store := newKeyringStoreWith("obot-test", kr)
 
 	if err := store.Set("https://obot.example.com", "token-a"); err != nil {
 		t.Fatal(err)
@@ -68,7 +68,7 @@ func TestKeyringStoreScopesTokensByAppURL(t *testing.T) {
 }
 
 func TestKeyringStoreMapsNotFound(t *testing.T) {
-	store := NewKeyringStoreWith("obot-test", newFakeKeyring())
+	store := newKeyringStoreWith("obot-test", newFakeKeyring())
 
 	_, err := store.Get("https://obot.example.com")
 	if !IsNotFound(err) {
@@ -76,8 +76,8 @@ func TestKeyringStoreMapsNotFound(t *testing.T) {
 	}
 
 	err = store.Delete("https://obot.example.com")
-	if !IsNotFound(err) {
-		t.Fatalf("expected ErrNotFound from Delete, got %v", err)
+	if err != nil {
+		t.Fatalf("expected nil from Delete, got %v", err)
 	}
 }
 
@@ -85,7 +85,7 @@ func TestKeyringStorePreservesKeyringErrors(t *testing.T) {
 	keyringErr := errors.New("keyring unavailable")
 	kr := newFakeKeyring()
 	kr.err = keyringErr
-	store := NewKeyringStoreWith("obot-test", kr)
+	store := newKeyringStoreWith("obot-test", kr)
 
 	if _, err := store.Get("https://obot.example.com"); !errors.Is(err, keyringErr) {
 		t.Fatalf("expected keyring error from Get, got %v", err)

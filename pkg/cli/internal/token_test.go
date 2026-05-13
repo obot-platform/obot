@@ -48,9 +48,6 @@ func (f *fakeCredentialStore) Delete(appURL string) error {
 	if f.err != nil {
 		return f.err
 	}
-	if _, ok := f.tokens[appURL]; !ok {
-		return credentials.ErrNotFound
-	}
 	delete(f.tokens, appURL)
 	f.deleted = append(f.deleted, appURL)
 	return nil
@@ -212,12 +209,8 @@ func TestLogoutDeletesSelectedAppURLToken(t *testing.T) {
 	restore := useCredentialStore(t, store)
 	defer restore()
 
-	removed, err := Logout("https://obot.example.com/")
-	if err != nil {
+	if err := Logout("https://obot.example.com/"); err != nil {
 		t.Fatal(err)
-	}
-	if !removed {
-		t.Fatalf("expected token to be removed")
 	}
 	if _, ok := store.tokens["https://obot.example.com"]; ok {
 		t.Fatalf("expected selected token to be deleted")
@@ -232,12 +225,8 @@ func TestLogoutNotFound(t *testing.T) {
 	restore := useCredentialStore(t, store)
 	defer restore()
 
-	removed, err := Logout("https://obot.example.com")
-	if err != nil {
+	if err := Logout("https://obot.example.com"); err != nil {
 		t.Fatal(err)
-	}
-	if removed {
-		t.Fatalf("expected no removal")
 	}
 }
 

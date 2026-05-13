@@ -33,20 +33,14 @@ func AppURLForAPIBaseURL(baseURL string) (string, error) {
 	return localconfig.NormalizeAppURL(appURL)
 }
 
-// Logout removes the keyring token for appURL. Returns true if a
-// credential was removed.
-func Logout(appURL string) (bool, error) {
+// Logout removes the keyring token for appURL.
+func Logout(appURL string) error {
 	appURL, err := localconfig.NormalizeAppURL(appURL)
 	if err != nil {
-		return false, err
+		return err
 	}
-	if err := credentialStore.Delete(appURL); err != nil {
-		if credentials.IsNotFound(err) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
+
+	return credentialStore.Delete(appURL)
 }
 
 func enter(ctx context.Context) error {

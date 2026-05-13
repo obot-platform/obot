@@ -19,7 +19,7 @@ func (l *Logout) Customize(cmd *cobra.Command) {
 	cmd.Args = cobra.NoArgs
 }
 
-func (l *Logout) Run(*cobra.Command, []string) error {
+func (l *Logout) Run(cmd *cobra.Command, _ []string) error {
 	appURL := l.URL
 	if appURL == "" {
 		var err error
@@ -35,13 +35,8 @@ func (l *Logout) Run(*cobra.Command, []string) error {
 		}
 	}
 
-	removed, err := internal.Logout(appURL)
-	if err != nil {
+	if err := internal.Logout(appURL); err != nil {
 		return err
-	}
-	if !removed {
-		fmt.Println("No stored credentials found")
-		return nil
 	}
 	fmt.Println("Logged out")
 	return nil

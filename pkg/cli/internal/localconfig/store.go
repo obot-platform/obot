@@ -59,9 +59,6 @@ func NormalizeAppURL(raw string) (string, error) {
 
 	normalized := strings.TrimRight(parsed.String(), "/")
 	normalized = strings.TrimSuffix(normalized, "/api")
-	if normalized == parsed.Scheme+":" {
-		return "", fmt.Errorf("app URL must include a host")
-	}
 	return normalized, nil
 }
 

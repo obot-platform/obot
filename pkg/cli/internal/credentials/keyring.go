@@ -6,9 +6,9 @@ import (
 	keyringlib "github.com/zalando/go-keyring"
 )
 
-// Keyring is the subset of github.com/zalando/go-keyring used by the
+// keyring is the subset of github.com/zalando/go-keyring used by the
 // CLI. Tests can provide an in-memory implementation.
-type Keyring interface {
+type keyring interface {
 	Get(service, user string) (string, error)
 	Set(service, user, secret string) error
 	Delete(service, user string) error
@@ -31,18 +31,15 @@ func (keyringFuncs) Delete(service, user string) error {
 // KeyringStore stores one bearer token per normalized Obot app URL.
 type KeyringStore struct {
 	service string
-	keyring Keyring
+	keyring keyring
 }
 
 // NewKeyringStore returns a Store backed by the host OS keyring.
 func NewKeyringStore() *KeyringStore {
-	return NewKeyringStoreWith(DefaultService, keyringFuncs{})
+	return newKeyringStoreWith(DefaultService, keyringFuncs{})
 }
 
-// NewKeyringStoreWith returns a keyring store using the supplied
-// service and keyring implementation. It is exported for tests and for
-// future command wiring that needs dependency injection.
-func NewKeyringStoreWith(service string, keyring Keyring) *KeyringStore {
+func newKeyringStoreWith(service string, keyring keyring) *KeyringStore {
 	if service == "" {
 		service = DefaultService
 	}
@@ -67,7 +64,7 @@ func (s *KeyringStore) Set(appURL, token string) error {
 func (s *KeyringStore) Delete(appURL string) error {
 	err := s.keyring.Delete(s.service, appURL)
 	if errors.Is(err, keyringlib.ErrNotFound) {
-		return ErrNotFound
+		return nil
 	}
 	return err
 }

@@ -17,6 +17,8 @@ var ErrNotFound = errors.New("credential not found")
 type Store interface {
 	Get(appURL string) (string, error)
 	Set(appURL, token string) error
+	// Delete removes the credential for appURL. Missing credentials are
+	// not an error.
 	Delete(appURL string) error
 }
 
