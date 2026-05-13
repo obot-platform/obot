@@ -354,15 +354,15 @@ def run_deepeval_for_turn(
             prompt=user_prompt or "",
         )
 
-    # Prefer final assistant text reconstructed from raw SSE (deduplicated by event id),
-    # so DeepEval sees the cleaned-up reply instead of streaming repetitions.
-    if raw_sse:
+    # MCP client already isolates this turn's assistant text. Only parse SSE when empty;
+    # _parse_sse_to_trace concatenates every assistant block in the stream (including
+    # replayed history), which breaks multi-turn evals such as antv_dual_axes_viz.
+    if not (assistant_text and assistant_text.strip()) and raw_sse:
         try:
             trace = _parse_sse_to_trace(raw_sse)
             if trace.final_report:
                 assistant_text = trace.final_report
         except Exception:
-            # Fall back silently to provided assistant_text
             pass
 
     context = [
