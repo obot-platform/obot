@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -130,6 +131,29 @@ func TestParseSkillArchiveRequiresSkillMD(t *testing.T) {
 	}
 }
 
+func TestParseSkillArchiveRejectsTooManyFiles(t *testing.T) {
+	entries := []zipTestEntry{{
+		Name:    skillformat.SkillMainFile,
+		Content: "---\nname: safe-name\ndescription: Safe.\n---\n",
+		Mode:    0644,
+	}}
+	for i := range maxSkillArchiveFiles {
+		entries = append(entries, zipTestEntry{
+			Name:    filepath.Join("docs", "file-"+strconv.Itoa(i)+".md"),
+			Content: "doc",
+			Mode:    0644,
+		})
+	}
+
+	_, err := ParseSkillArchive(buildSkillZip(t, entries), "safe-name")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "too many files") {
+		t.Fatalf("error = %v, want too many files", err)
+	}
+}
+
 func TestParseSkillArchiveFallsBackToSanitizedName(t *testing.T) {
 	archive, err := ParseSkillArchive(buildSkillZip(t, []zipTestEntry{{
 		Name:    skillformat.SkillMainFile,
@@ -146,6 +170,20 @@ func TestParseSkillArchiveFallsBackToSanitizedName(t *testing.T) {
 	}
 	if name != "github-review" {
 		t.Fatalf("installName = %q, want github-review", name)
+	}
+}
+
+func TestParseSkillArchiveReportsValidatedInstallName(t *testing.T) {
+	_, err := ParseSkillArchive(buildSkillZip(t, []zipTestEntry{{
+		Name:    skillformat.SkillMainFile,
+		Content: "# No frontmatter\n",
+		Mode:    0644,
+	}}), "!!!")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), `invalid skill name ""`) {
+		t.Fatalf("error = %v, want sanitized name", err)
 	}
 }
 

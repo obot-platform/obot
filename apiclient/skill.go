@@ -11,6 +11,10 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
+const MaxSkillDownloadBytes = 100 * 1024 * 1024
+
+var maxSkillDownloadBytes int64 = MaxSkillDownloadBytes
+
 func (c *Client) ListSkills(ctx context.Context, query string, limit int) (types.SkillList, error) {
 	values := url.Values{}
 	if query != "" {
@@ -53,5 +57,17 @@ func (c *Client) DownloadSkill(ctx context.Context, id string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 
-	return io.ReadAll(resp.Body)
+	if resp.ContentLength > maxSkillDownloadBytes {
+		return nil, fmt.Errorf("skill download exceeds maximum size of %d bytes", maxSkillDownloadBytes)
+	}
+
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxSkillDownloadBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxSkillDownloadBytes {
+		return nil, fmt.Errorf("skill download exceeds maximum size of %d bytes", maxSkillDownloadBytes)
+	}
+
+	return data, nil
 }

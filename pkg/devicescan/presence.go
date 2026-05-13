@@ -62,9 +62,10 @@ func detectClientPresence(def clientPresenceDef, home string) (binary, install, 
 }
 
 func DetectClaudeCodePresence(home string) types.DeviceScanClient {
-	binary, install, configPath := detectClientPresence(claudeCodeScanner{}.Presence(), home)
+	scanner := claudeCodeScanner{}
+	binary, install, configPath := detectClientPresence(scanner.Presence(), home)
 	return types.DeviceScanClient{
-		Name:        claudeCodeScanner{}.Name(),
+		Name:        scanner.Name(),
 		BinaryPath:  binary,
 		InstallPath: install,
 		ConfigPath:  configPath,

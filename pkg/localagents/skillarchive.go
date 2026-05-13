@@ -27,6 +27,12 @@ type SkillArchiveFile struct {
 	Mode    fs.FileMode
 }
 
+const (
+	maxSkillArchiveFiles             = 50
+	maxSkillArchiveEntryBytes        = 100 * 1024 * 1024
+	maxSkillArchiveUncompressedBytes = 100 * 1024 * 1024
+)
+
 var (
 	nonSkillNameChars = regexp.MustCompile(`[^a-z0-9-]+`)
 	multipleDashes    = regexp.MustCompile(`-+`)
@@ -40,8 +46,13 @@ func ParseSkillArchive(data []byte, fallbackName string) (SkillArchive, error) {
 	if err != nil {
 		return SkillArchive{}, fmt.Errorf("invalid skill ZIP: %w", err)
 	}
+	if len(reader.File) > maxSkillArchiveFiles {
+		return SkillArchive{}, fmt.Errorf("skill archive contains too many files (%d, max %d)", len(reader.File), maxSkillArchiveFiles)
+	}
 
 	entries := make([]SkillArchiveFile, 0, len(reader.File))
+	var totalUncompressed uint64
+	var totalRead int
 	for _, file := range reader.File {
 		if file.Mode()&fs.ModeSymlink != 0 {
 			return SkillArchive{}, fmt.Errorf("skill archive contains symlink %q", file.Name)
@@ -58,16 +69,32 @@ func ParseSkillArchive(data []byte, fallbackName string) (SkillArchive, error) {
 		if file.FileInfo().IsDir() {
 			continue
 		}
+		if file.UncompressedSize64 > uint64(maxSkillArchiveEntryBytes) {
+			return SkillArchive{}, fmt.Errorf("skill archive entry %q exceeds maximum size of %d bytes", file.Name, maxSkillArchiveEntryBytes)
+		}
+		if totalUncompressed > uint64(maxSkillArchiveUncompressedBytes)-file.UncompressedSize64 {
+			return SkillArchive{}, fmt.Errorf("skill archive total uncompressed size exceeds maximum size of %d bytes", maxSkillArchiveUncompressedBytes)
+		}
+		totalUncompressed += file.UncompressedSize64
 
 		rc, err := file.Open()
 		if err != nil {
 			return SkillArchive{}, fmt.Errorf("failed to open archive entry %q: %w", file.Name, err)
 		}
-		content, readErr := io.ReadAll(rc)
+		remaining := maxSkillArchiveUncompressedBytes - totalRead
+		readLimit := min(maxSkillArchiveEntryBytes, remaining)
+		content, readErr := io.ReadAll(io.LimitReader(rc, int64(readLimit)+1))
 		closeErr := rc.Close()
 		if readErr != nil {
 			return SkillArchive{}, fmt.Errorf("failed to read archive entry %q: %w", file.Name, readErr)
 		}
+		if len(content) > maxSkillArchiveEntryBytes {
+			return SkillArchive{}, fmt.Errorf("skill archive entry %q exceeds maximum size of %d bytes", file.Name, maxSkillArchiveEntryBytes)
+		}
+		if len(content) > remaining {
+			return SkillArchive{}, fmt.Errorf("skill archive total uncompressed size exceeds maximum size of %d bytes", maxSkillArchiveUncompressedBytes)
+		}
+		totalRead += len(content)
 		if closeErr != nil {
 			return SkillArchive{}, fmt.Errorf("failed to close archive entry %q: %w", file.Name, closeErr)
 		}
@@ -128,7 +155,7 @@ func (s SkillArchive) installName() (string, error) {
 		name = sanitizeSkillName(s.Name)
 	}
 	if err := skillformat.ValidateName(name); err != nil {
-		return "", fmt.Errorf("invalid skill name %q: %w", s.Name, err)
+		return "", fmt.Errorf("invalid skill name %q: %w", name, err)
 	}
 	return name, nil
 }

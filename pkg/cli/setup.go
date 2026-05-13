@@ -37,13 +37,12 @@ func (s *Setup) Run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	if err := localconfig.Save(localconfig.Config{DefaultURL: appURL}); err != nil {
-		return fmt.Errorf("save Obot config: %w", err)
-	}
-
 	s.root.Client.BaseURL = localconfig.APIBaseURL(appURL)
 	if _, err := s.root.Client.GetToken(ctx, false, false); err != nil {
 		return err
+	}
+	if err := localconfig.Save(localconfig.Config{DefaultURL: appURL}); err != nil {
+		return fmt.Errorf("save Obot config: %w", err)
 	}
 	fmt.Fprintf(cmd.ErrOrStderr(), "Logged in to %s\n", appURL)
 

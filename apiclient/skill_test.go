@@ -3,6 +3,8 @@ package apiclient
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -74,6 +76,47 @@ func TestDownloadSkillReturnsRawBytes(t *testing.T) {
 	got, err := (&Client{BaseURL: server.URL}).DownloadSkill(context.Background(), "sk1")
 	require.NoError(t, err)
 	require.Equal(t, want, got)
+}
+
+func TestDownloadSkillRejectsOversizedContentLength(t *testing.T) {
+	oldMax := maxSkillDownloadBytes
+	maxSkillDownloadBytes = 8
+	t.Cleanup(func() { maxSkillDownloadBytes = oldMax })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", fmt.Sprint(maxSkillDownloadBytes+1))
+	}))
+	defer server.Close()
+
+	_, err := (&Client{BaseURL: server.URL}).DownloadSkill(context.Background(), "sk1")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "skill download exceeds maximum size")
+}
+
+func TestDownloadSkillRejectsOversizedBody(t *testing.T) {
+	oldMax := maxSkillDownloadBytes
+	maxSkillDownloadBytes = 8
+	t.Cleanup(func() { maxSkillDownloadBytes = oldMax })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/zip")
+		_, err := io.Copy(w, io.LimitReader(repeatingReader('x'), maxSkillDownloadBytes+1))
+		require.NoError(t, err)
+	}))
+	defer server.Close()
+
+	_, err := (&Client{BaseURL: server.URL}).DownloadSkill(context.Background(), "sk1")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "skill download exceeds maximum size")
+}
+
+type repeatingReader byte
+
+func (r repeatingReader) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = byte(r)
+	}
+	return len(p), nil
 }
 
 func TestSkillHelpersPropagateHTTPErrors(t *testing.T) {
