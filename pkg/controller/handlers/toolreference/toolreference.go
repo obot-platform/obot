@@ -24,6 +24,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,22 +78,24 @@ func indexEntryCount(idx index) int {
 }
 
 type Handler struct {
-	gptClient      *gptscript.GPTScript
-	gatewayClient  *gateway.Client
-	dispatcher     *dispatcher.Dispatcher
-	registryURLs   []string
-	lastChecksLock *sync.RWMutex
-	lastChecks     map[string]time.Time
+	gptClient       *gptscript.GPTScript
+	gatewayClient   *gateway.Client
+	dispatcher      *dispatcher.Dispatcher
+	registryURLs    []string
+	licenseProvider *license.KeygenProvider
+	lastChecksLock  *sync.RWMutex
+	lastChecks      map[string]time.Time
 }
 
-func New(gptClient *gptscript.GPTScript, gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, registryURLs []string) *Handler {
+func New(gptClient *gptscript.GPTScript, gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, registryURLs []string, licenseProvider *license.KeygenProvider) *Handler {
 	return &Handler{
-		gptClient:      gptClient,
-		gatewayClient:  gatewayClient,
-		dispatcher:     dispatcher,
-		registryURLs:   registryURLs,
-		lastChecks:     make(map[string]time.Time),
-		lastChecksLock: new(sync.RWMutex),
+		gptClient:       gptClient,
+		gatewayClient:   gatewayClient,
+		dispatcher:      dispatcher,
+		registryURLs:    registryURLs,
+		licenseProvider: licenseProvider,
+		lastChecks:      make(map[string]time.Time),
+		lastChecksLock:  new(sync.RWMutex),
 	}
 }
 
@@ -249,6 +252,7 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 	toolRef.Status.Reference = toolRef.Spec.Reference
 	toolRef.Status.Commit = ""
 	toolRef.Status.Tool = nil
+	toolRef.Status.Configured = false
 	toolRef.Status.Error = ""
 
 	h.lastChecksLock.Lock()
@@ -285,6 +289,56 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 	if err != nil {
 		toolRef.Status.Error = err.Error()
 	}
+
+	return nil
+}
+
+func (h *Handler) SetConfiguredStatus(req router.Request, _ router.Response) error {
+	toolRef := req.Object.(*v1.ToolReference)
+	if toolRef.Status.Tool == nil {
+		if toolRef.Status.Configured {
+			toolRef.Status.Configured = false
+		}
+		return nil
+	}
+
+	if toolRef.Spec.Type != v1.ToolReferenceTypeModelProvider && toolRef.Spec.Type != v1.ToolReferenceTypeAuthProvider {
+		return nil
+	}
+
+	providerStatus, err := providers.ConvertProviderToolRef(*toolRef, nil, h.licenseProvider)
+	if err != nil {
+		return err
+	}
+
+	if len(providerStatus.RequiredConfigurationParameters) == 0 {
+		toolRef.Status.Configured = true
+		return nil
+	}
+
+	credContexts := []string{string(toolRef.UID)}
+	if toolRef.Spec.Type == v1.ToolReferenceTypeModelProvider {
+		credContexts = append(credContexts, system.GenericModelProviderCredentialContext)
+	} else {
+		credContexts = append(credContexts, system.GenericAuthProviderCredentialContext)
+	}
+
+	cred, err := h.gptClient.RevealCredential(req.Ctx, credContexts, toolRef.Name)
+	if err != nil {
+		if errors.As(err, &gptscript.ErrNotFound{}) {
+			toolRef.Status.Configured = false
+			return nil
+		}
+		return fmt.Errorf("failed to reveal credential for tool reference %q: %w", toolRef.Name, err)
+	}
+
+	providerStatus, err = providers.ConvertProviderToolRef(*toolRef, cred.Env, h.licenseProvider)
+	if err != nil {
+		return err
+	}
+
+	toolRef.Status.Configured = providerStatus.Configured
+	toolRef.Status.MissingConfigurationParameters = providerStatus.MissingConfigurationParameters
 
 	return nil
 }
@@ -401,7 +455,7 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		return nil
 	}
 
-	mps, err := providers.ConvertModelProviderToolRef(*toolRef, nil)
+	mps, err := providers.ConvertModelProviderToolRef(*toolRef, nil, h.licenseProvider)
 	if err != nil {
 		return err
 	}
@@ -414,7 +468,7 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 			}
 			return err
 		}
-		mps, err = providers.ConvertModelProviderToolRef(*toolRef, cred.Secrets)
+		mps, err = providers.ConvertModelProviderToolRef(*toolRef, cred.Secrets, h.licenseProvider)
 		if err != nil {
 			return err
 		}
@@ -535,7 +589,7 @@ func (h *Handler) CleanupModelProvider(req router.Request, _ router.Response) er
 		return nil
 	}
 
-	mps, err := providers.ConvertModelProviderToolRef(*toolRef, nil)
+	mps, err := providers.ConvertModelProviderToolRef(*toolRef, nil, h.licenseProvider)
 	if err != nil {
 		return err
 	}

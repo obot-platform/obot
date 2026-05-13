@@ -174,6 +174,7 @@ export interface BaseProvider {
 	name: string;
 	configured: boolean;
 	created: string;
+	missingEntitlements?: string[];
 	missingConfigurationParameters?: string[];
 	optionalConfigurationParameters?: ProviderParameter[];
 	requiredConfigurationParameters?: ProviderParameter[];
@@ -453,6 +454,19 @@ export interface ServerK8sSettings {
 	needsK8sUpdate: boolean;
 	currentSettings: K8sSettings;
 	deployedSettingsHash: string;
+}
+
+// Licensing
+export interface License {
+	licenseKey: string;
+	source: string;
+	locked: boolean;
+	enterprise: boolean;
+	entitlements: string[] | null;
+}
+
+export interface LicenseManifest {
+	licenseKey: string;
 }
 
 // MCP capacity

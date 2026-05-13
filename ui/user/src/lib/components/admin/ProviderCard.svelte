@@ -3,7 +3,14 @@
 	import type { BaseProvider } from '$lib/services/admin/types';
 	import { darkMode } from '$lib/stores';
 	import DotDotDot from '../DotDotDot.svelte';
-	import { CircleSlash, CircleCheck, Construction, FlaskConicalIcon } from 'lucide-svelte';
+	import {
+		CircleSlash,
+		CircleCheck,
+		Construction,
+		FlaskConicalIcon,
+		TriangleAlert,
+		CircleAlert
+	} from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -18,6 +25,7 @@
 		readonly?: boolean;
 		disableConfigure?: boolean;
 		isComingSoon?: boolean;
+		licenseKey?: string;
 	}
 
 	const {
@@ -30,8 +38,13 @@
 		deprecated,
 		readonly,
 		disableConfigure,
-		isComingSoon
+		isComingSoon,
+		licenseKey
 	}: Props = $props();
+
+	const isLicenseRequired = $derived(
+		provider.missingEntitlements && provider.missingEntitlements.length > 0
+	);
 </script>
 
 <div
@@ -84,8 +97,16 @@
 		<img src={provider.icon} alt={provider.name} class="size-16 rounded-md p-1" />
 	{/if}
 	<h4 class="text-center text-lg font-semibold">{provider.name}</h4>
-	<div class="border-base-400 rounded-md border px-2 py-1">
-		<span class="flex items-center gap-2 text-xs font-light">
+	<div
+		class={twMerge(
+			'border-base-400 rounded-md border px-2 py-1',
+			isLicenseRequired &&
+				!provider.configured &&
+				'border-transparent bg-base-200 dark:bg-base-300 text-muted-content',
+			isLicenseRequired && provider.configured && 'border-transparent bg-warning/10 text-warning'
+		)}
+	>
+		<span class="flex items-center gap-1.5 text-xs font-light">
 			{#if deprecated}
 				<div
 					class="rounded-md bg-warning px-2 py-1 text-[10px] font-medium"
@@ -97,7 +118,13 @@
 					Deprecated
 				</div>
 			{/if}
-			{#if provider.configured}
+			{#if isLicenseRequired}
+				{#if provider.configured}
+					<TriangleAlert class="size-4 text-warning" /> License {licenseKey ? 'Invalid' : 'Missing'}
+				{:else}
+					<CircleAlert class="size-4 text-muted-content" /> License Required
+				{/if}
+			{:else if provider.configured}
 				<CircleCheck class="size-4 text-success" /> Configured
 			{:else}
 				<CircleSlash class="size-4 text-error" /> Not Configured

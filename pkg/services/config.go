@@ -47,6 +47,7 @@ import (
 	"github.com/obot-platform/obot/pkg/imagepullsecrets"
 	"github.com/obot-platform/obot/pkg/invoke"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
+	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/logutil"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
@@ -88,6 +89,7 @@ type (
 	RateLimiterConfig ratelimiter.Options
 	EncryptionConfig  encryption.Options
 	MCPConfig         mcp.Options
+	KeygenConfig      license.Config
 )
 
 type MetricsAuthConfig struct {
@@ -145,6 +147,7 @@ type Config struct {
 	AuditConfig
 	RateLimiterConfig
 	MCPConfig
+	KeygenConfig
 	services.Config
 }
 
@@ -252,6 +255,9 @@ type Services struct {
 	// Published artifact blob storage
 	ArtifactBlobStore  blob.BlobStore
 	ArtifactBlobBucket string
+
+	// License provider
+	LicenseProvider *license.KeygenProvider
 }
 
 const (
@@ -904,6 +910,11 @@ func New(ctx context.Context, config Config) (*Services, func(), error) {
 		gptscriptClient,
 	)
 
+	keygenProvider, err := license.NewProvider(ctx, gatewayClient, license.Config(config.KeygenConfig))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create keygen provider: %w", err)
+	}
+
 	providerDispatcher := dispatcher.New(invoker, storageClient, gatewayClient, postgresDSN)
 
 	var msgPolicyHelper *messagepolicy.Helper
@@ -1043,6 +1054,7 @@ func New(ctx context.Context, config Config) (*Services, func(), error) {
 			config.Hostname,
 			oauthServerConfig.ScopesSupported,
 			registryNoAuth,
+			keygenProvider,
 		),
 		PersistentTokenServer: persistentTokenServer,
 		Invoker:               invoker,
@@ -1101,6 +1113,7 @@ func New(ctx context.Context, config Config) (*Services, func(), error) {
 		MCPNetworkPolicyProviderChartPath:    config.MCPNetworkPolicyProviderChartPath,
 		MCPNetworkPolicyProviderValues:       config.MCPNetworkPolicyProviderValues,
 		ArtifactBlobBucket:                   config.ArtifactStorageBucket,
+		LicenseProvider:                      keygenProvider,
 	}
 
 	if (config.ArtifactStorageProvider == "") != (config.ArtifactStorageBucket == "") {

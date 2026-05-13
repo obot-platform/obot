@@ -19,6 +19,7 @@
 	import Tour from './Tour.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
+	import LicenseViolationBanner from './admin/license/LicenseViolationBanner.svelte';
 	import BetaLogo from './navbar/BetaLogo.svelte';
 	import Profile from './navbar/Profile.svelte';
 	import IconButton from './primitives/IconButton.svelte';
@@ -57,7 +58,8 @@
 		ScanLine,
 		MonitorCheck,
 		PanelRightClose,
-		PanelLeftOpen
+		PanelLeftOpen,
+		KeySquare
 	} from 'lucide-svelte';
 	import { type Component, type Snippet, untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -438,6 +440,14 @@
 						label: 'Branding',
 						disabled: false,
 						collapsible: false
+					},
+					{
+						id: 'license',
+						href: '/admin/license',
+						icon: KeySquare,
+						label: 'License',
+						disabled: false,
+						collapsible: false
 					}
 				]
 			: [
@@ -680,47 +690,48 @@
 			as="main"
 			{...main?.props}
 		>
-			{#if banner}
-				{@render banner()}
-			{/if}
-			<Navbar
-				class={twMerge('dark:bg-base-100 sticky top-0 left-0 z-50 w-full', classes?.navbar)}
-				{hideProfileButton}
-			>
-				{#snippet leftContent()}
-					{#if overrideLeftMenu}
-						{@render overrideLeftMenu()}
-					{:else if (!layout.sidebarOpen || hideSidebar) && !leftSidebar}
-						<BetaLogo />
-					{/if}
-				{/snippet}
-				{#snippet centerContent()}
-					{#if (layout.sidebarOpen && !hideSidebar) || alwaysShowHeaderTitle}
-						<div
-							class={twMerge(
-								'flex w-full items-center gap-2',
-								showBackButton ? 'md:ml-4' : 'md:mx-6'
-							)}
-						>
-							{@render layoutHeaderContent()}
-						</div>
-					{/if}
-				{/snippet}
-				{#snippet rightContent()}
-					{#if rightNavActions && layout.sidebarOpen && !hideSidebar}
-						{@render rightNavActions()}
-					{/if}
-				{/snippet}
-				{#snippet rightMenu()}
-					{#if overrideRightMenu}
-						{@render overrideRightMenu()}
-					{:else if !hideProfileButton}
-						<div class="flex h-16 shrink-0 items-center">
-							<Profile />
-						</div>
-					{/if}
-				{/snippet}
-			</Navbar>
+			<div class="sticky top-0 left-0 z-50 w-full">
+				{#if banner}
+					{@render banner()}
+				{:else if isAdminRoute && version.current.licenseEntitlementViolations}
+					<LicenseViolationBanner />
+				{/if}
+				<Navbar class={twMerge('dark:bg-base-100', classes?.navbar)} {hideProfileButton}>
+					{#snippet leftContent()}
+						{#if overrideLeftMenu}
+							{@render overrideLeftMenu()}
+						{:else if (!layout.sidebarOpen || hideSidebar) && !leftSidebar}
+							<BetaLogo />
+						{/if}
+					{/snippet}
+					{#snippet centerContent()}
+						{#if (layout.sidebarOpen && !hideSidebar) || alwaysShowHeaderTitle}
+							<div
+								class={twMerge(
+									'flex w-full items-center gap-2',
+									showBackButton ? 'md:ml-4' : 'md:mx-6'
+								)}
+							>
+								{@render layoutHeaderContent()}
+							</div>
+						{/if}
+					{/snippet}
+					{#snippet rightContent()}
+						{#if rightNavActions && layout.sidebarOpen && !hideSidebar}
+							{@render rightNavActions()}
+						{/if}
+					{/snippet}
+					{#snippet rightMenu()}
+						{#if overrideRightMenu}
+							{@render overrideRightMenu()}
+						{:else if !hideProfileButton}
+							<div class="flex h-16 shrink-0 items-center">
+								<Profile />
+							</div>
+						{/if}
+					{/snippet}
+				</Navbar>
+			</div>
 
 			<div
 				class={twMerge(

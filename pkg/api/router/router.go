@@ -19,15 +19,18 @@ import (
 func Router(ctx context.Context, services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
 
-	version, err := handlers.NewVersionHandler(ctx,
-		services.GatewayClient,
-		services.PostgresDSN,
-		services.MCPRuntimeBackend,
-		services.MCPNetworkPolicyEnabled,
-		services.MCPDefaultDenyAllEgress,
-		services.AuthEnabled,
-		services.DisableUpdateCheck,
-		services.MessagePoliciesEnabled)
+	version, err := handlers.NewVersionHandler(ctx, handlers.VersionHandlerOptions{
+		GatewayClient:           services.GatewayClient,
+		StorageClient:           services.StorageClient,
+		LicenseProvider:         services.LicenseProvider,
+		PostgresDSN:             services.PostgresDSN,
+		Engine:                  services.MCPRuntimeBackend,
+		MCPNetworkPolicyEnabled: services.MCPNetworkPolicyEnabled,
+		MCPDefaultDenyAllEgress: services.MCPDefaultDenyAllEgress,
+		AuthEnabled:             services.AuthEnabled,
+		DisableUpdateCheck:      services.DisableUpdateCheck,
+		MessagePoliciesEnabled:  services.MessagePoliciesEnabled,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -43,13 +46,13 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	skills := handlers.NewSkillHandler(services.SkillAccessRuleHelper)
 	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler(services.ServerURL, services.AccessControlRuleHelper)
 	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler(services.MCPLoader)
-	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher)
-	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.Invoker)
+	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher, services.LicenseProvider)
+	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.Invoker, services.LicenseProvider)
 	modelAccessPolicies := handlers.NewModelAccessPolicyHandler()
 	messagePolicies := handlers.NewMessagePolicyHandler()
 	policyViolations := handlers.NewMessagePolicyViolationHandler()
 	deviceScans := handlers.NewDeviceScansHandler()
-	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN)
+	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN, services.LicenseProvider)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	images := handlers.NewImageHandler()
 	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.MCPImagePullSecrets, services.ServerURL)
@@ -64,6 +67,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	oauthClients := handlers.NewOAuthClientsHandler(services.OAuthServerConfig, services.ServerURL)
 	publishedArtifacts := handlers.NewPublishedArtifactHandler(services.ArtifactBlobStore, services.ArtifactBlobBucket)
 	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
+	licenseHandler := handlers.NewLicenseHandler(services.LicenseProvider)
 
 	credHandler := handlers.NewCredentialHandler(services.HTTPListenPort, services.CredstoreToken)
 
@@ -76,6 +80,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
+
+	// License
+	mux.HandleFunc("GET /api/license", licenseHandler.Get)
+	mux.HandleFunc("PUT /api/license", licenseHandler.Update)
+	mux.HandleFunc("DELETE /api/license", licenseHandler.Delete)
 
 	// MCP Catalog Entries (user routes to access single-user and remote MCP servers from all sources)
 	mux.HandleFunc("GET /api/all-mcps/entries", mcp.ListEntriesFromAllSources)

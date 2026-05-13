@@ -7,7 +7,8 @@ type CommonProviderMetadata struct {
 	Link        string `json:"link,omitempty"`
 	// Dialect specifies the LLM API format used by this provider
 	// (e.g. "AnthropicMessages", "OpenAIChatCompletions", "OpenAIResponses").
-	Dialect string `json:"dialect,omitempty"`
+	Dialect              string   `json:"dialect,omitempty"`
+	RequiredEntitlements []string `json:"requiredEntitlements,omitempty"`
 }
 
 type CommonProviderStatus struct {
@@ -16,6 +17,7 @@ type CommonProviderStatus struct {
 	RequiredConfigurationParameters []ProviderConfigurationParameter `json:"requiredConfigurationParameters,omitempty"`
 	OptionalConfigurationParameters []ProviderConfigurationParameter `json:"optionalConfigurationParameters,omitempty"`
 	MissingConfigurationParameters  []string                         `json:"missingConfigurationParameters,omitempty"`
+	MissingEntitlements             []string                         `json:"missingEntitlements,omitempty"`
 	Error                           string                           `json:"error,omitempty"`
 }
 

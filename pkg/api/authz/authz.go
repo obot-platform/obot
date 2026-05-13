@@ -50,6 +50,7 @@ var (
 		"GET /debug/pprof/",
 		"GET /debug/triggers",
 		"GET /debug/metrics",
+		"/api/license",
 		"/api/auth-providers",
 		"/api/auth-providers/",
 		"/api/model-providers",

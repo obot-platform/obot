@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -16,7 +17,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/storage"
 	"github.com/obot-platform/obot/pkg/version"
 	"golang.org/x/mod/module"
 	"gorm.io/gorm"
@@ -40,48 +43,53 @@ func sessionStoreFromPostgresDSN(postgresDSN string) SessionStore {
 	return SessionStoreCookie
 }
 
+type VersionHandlerOptions struct {
+	GatewayClient           *client.Client
+	StorageClient           storage.Client
+	LicenseProvider         *license.KeygenProvider
+	PostgresDSN             string
+	Engine                  string
+	MCPNetworkPolicyEnabled bool
+	MCPDefaultDenyAllEgress bool
+	AuthEnabled             bool
+	DisableUpdateCheck      bool
+	MessagePoliciesEnabled  bool
+}
+
 type VersionHandler struct {
-	gptscriptVersion        string
-	authEnabled             bool
-	sessionStore            SessionStore
-	enterprise              bool
-	engine                  string
-	mcpNetworkPolicyEnabled bool
-	mcpDefaultDenyAllEgress bool
-	messagePoliciesEnabled  bool
+	VersionHandlerOptions
+
+	gptscriptVersion string
+	sessionStore     SessionStore
 
 	upgradeServerURL string
 	upgradeAvailable bool
 	latestVersion    string
-	upgradeLock      sync.RWMutex
+
+	upgradeLock sync.RWMutex
 }
 
-func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, postgresDSN, engine string, mcpNetworkPolicyEnabled, mcpDefaultDenyAllEgress, authEnabled, disableUpdateCheck, messagePoliciesEnabled bool) (*VersionHandler, error) {
+func NewVersionHandler(ctx context.Context, opts VersionHandlerOptions) (*VersionHandler, error) {
 	upgradeServerBaseURL := defaultUpgradeServerBaseURL
 	if os.Getenv("OBOT_UPGRADE_SERVER_URL") != "" {
 		upgradeServerBaseURL = os.Getenv("OBOT_UPGRADE_SERVER_URL")
 	}
 
 	v := &VersionHandler{
-		gptscriptVersion:        getGPTScriptVersion(),
-		authEnabled:             authEnabled,
-		sessionStore:            sessionStoreFromPostgresDSN(postgresDSN),
-		enterprise:              os.Getenv("OBOT_ENTERPRISE") == "true",
-		upgradeServerURL:        fmt.Sprintf("%s/check-upgrade", upgradeServerBaseURL),
-		engine:                  engine,
-		mcpNetworkPolicyEnabled: mcpNetworkPolicyEnabled,
-		mcpDefaultDenyAllEgress: mcpDefaultDenyAllEgress,
-		messagePoliciesEnabled:  messagePoliciesEnabled,
+		VersionHandlerOptions: opts,
+		gptscriptVersion:      getGPTScriptVersion(),
+		sessionStore:          sessionStoreFromPostgresDSN(opts.PostgresDSN),
+		upgradeServerURL:      fmt.Sprintf("%s/check-upgrade", upgradeServerBaseURL),
 	}
 
 	currentVersion, _, _ := strings.Cut(version.Get().String(), "+")
 	currentVersion, _, _ = strings.Cut(currentVersion, "-")
 
 	// Don't start the upgrade check if the interval is non-positive or if this is a development version.
-	if !disableUpdateCheck && (!strings.HasPrefix(currentVersion, "v0.0.0") || os.Getenv("OBOT_FORCE_UPGRADE_CHECK") == "true") {
-		p, err := gatewayClient.GetProperty(ctx, installationIDPropertyKey)
+	if !opts.DisableUpdateCheck && (!strings.HasPrefix(currentVersion, "v0.0.0") || os.Getenv("OBOT_FORCE_UPGRADE_CHECK") == "true") {
+		p, err := opts.GatewayClient.GetProperty(ctx, installationIDPropertyKey)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			p, err = gatewayClient.SetProperty(ctx, installationIDPropertyKey, uuid.NewString())
+			p, err = opts.GatewayClient.SetProperty(ctx, installationIDPropertyKey, uuid.NewString())
 			if err != nil {
 				return nil, fmt.Errorf("failed to set installation ID property: %w", err)
 			}
@@ -89,22 +97,21 @@ func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, postgr
 			return nil, fmt.Errorf("failed to get installation ID property: %w", err)
 		}
 
-		distribution := "oss"
-		if v.enterprise {
-			distribution = "enterprise"
-		}
-
-		go v.startUpgradeCheck(ctx, p.Value, currentVersion, engine, distribution)
+		go v.startUpgradeCheck(ctx, p.Value, currentVersion, opts.Engine)
 	}
 
 	return v, nil
 }
 
 func (v *VersionHandler) GetVersion(req api.Context) error {
-	return req.Write(v.getVersionResponse())
+	response, err := v.getVersionResponse(req.Context())
+	if err != nil {
+		return err
+	}
+	return req.Write(response)
 }
 
-func (v *VersionHandler) getVersionResponse() map[string]any {
+func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any, error) {
 	versions := os.Getenv("OBOT_SERVER_VERSIONS")
 	values := make(map[string]any, len(versions)+9)
 	if versions != "" {
@@ -124,23 +131,49 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 
 	values["obot"] = version.Get().String()
 	values["gptscript"] = v.gptscriptVersion
-	values["authEnabled"] = v.authEnabled
+	values["authEnabled"] = v.AuthEnabled
 	values["sessionStore"] = v.sessionStore
-	values["enterprise"] = v.enterprise
-	engine := v.engine
+	values["enterprise"] = v.LicenseProvider.HasValidLicense()
+	values["licenseEntitlements"] = v.LicenseProvider.Entitlements()
+
+	engine := v.Engine
 	if mcp.IsKubernetesBackend(engine) {
 		engine = mcp.RuntimeBackendKubernetes
 	}
 	values["engine"] = engine
-	values["mcpNetworkPolicyEnabled"] = v.mcpNetworkPolicyEnabled
-	values["mcpDefaultDenyAllEgress"] = v.mcpDefaultDenyAllEgress
-	values["messagePoliciesEnabled"] = v.messagePoliciesEnabled
+
+	values["mcpNetworkPolicyEnabled"] = v.MCPNetworkPolicyEnabled
+	values["mcpDefaultDenyAllEgress"] = v.MCPDefaultDenyAllEgress
+	values["messagePoliciesEnabled"] = v.MessagePoliciesEnabled
+
+	violations, err := v.LicenseProvider.ConfiguredProviderViolations(ctx, v.StorageClient)
+	if err != nil {
+		return nil, err
+	}
+	values["licenseEntitlementViolations"] = violations
+	values["missingLicenseEntitlements"] = missingEntitlements(violations)
+
 	v.upgradeLock.RLock()
 	values["upgradeAvailable"] = v.upgradeAvailable
 	values["latestVersion"] = v.latestVersion
 	v.upgradeLock.RUnlock()
 
-	return values
+	return values, nil
+}
+
+func missingEntitlements(violations []license.ProviderViolation) []string {
+	seen := make(map[string]struct{})
+	for _, violation := range violations {
+		for _, entitlement := range violation.MissingEntitlements {
+			seen[entitlement] = struct{}{}
+		}
+	}
+	missing := make([]string, 0, len(seen))
+	for entitlement := range seen {
+		missing = append(missing, entitlement)
+	}
+	slices.Sort(missing)
+	return missing
 }
 
 const gptscriptModulePath = "github.com/gptscript-ai/gptscript"
@@ -187,12 +220,16 @@ func simplifyModuleVersion(version string) string {
 	return strings.Join(components, "-")
 }
 
-func (v *VersionHandler) startUpgradeCheck(ctx context.Context, installationID, currentVersion, engine, distribution string) {
+func (v *VersionHandler) startUpgradeCheck(ctx context.Context, installationID, currentVersion, engine string) {
 	timer := time.NewTimer(updateCheckInterval)
 	defer timer.Stop()
 
 	var err error
 	for {
+		distribution := "oss"
+		if v.LicenseProvider.HasValidLicense() {
+			distribution = "enterprise"
+		}
 		if err = v.checkForUpgrade(ctx, installationID, currentVersion, engine, distribution); err != nil {
 			log.Debugf("failed to check for server upgrade: %v", err)
 		}
