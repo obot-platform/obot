@@ -74,10 +74,10 @@
 </script>
 
 <svelte:head>
-	<title>Obot | Skills</title>
+	<title>Obot | Device Skills</title>
 </svelte:head>
 
-<Layout title="Skills">
+<Layout title="Device Skills">
 	<div
 		class="flex h-full w-full flex-col gap-4"
 		in:fly={{ x: 100, duration, delay: duration }}

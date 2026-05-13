@@ -75,3 +75,9 @@ export const formatBase64ToBlob = (base64: string, type: string): Blob => {
 	const bytes = convertBase64ToBytes(base64);
 	return new Blob([bytes], { type });
 };
+
+export const formatDeviceCommand = (cmd?: string, args?: string[]): string => {
+	if (!cmd) return '—';
+	const parts = [cmd, ...(args ?? [])];
+	return parts.join(' ');
+};

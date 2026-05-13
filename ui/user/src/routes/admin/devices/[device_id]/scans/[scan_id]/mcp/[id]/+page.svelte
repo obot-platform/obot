@@ -53,7 +53,13 @@
 <Layout
 	title={server?.name || 'MCP Server'}
 	showBackButton
-	onBackButtonClick={() => goto(backHref)}
+	onBackButtonClick={() => {
+		if (typeof window !== 'undefined' && window.history.length > 1) {
+			window.history.back();
+		} else {
+			goto(backHref);
+		}
+	}}
 >
 	<div
 		class="flex flex-col gap-6"

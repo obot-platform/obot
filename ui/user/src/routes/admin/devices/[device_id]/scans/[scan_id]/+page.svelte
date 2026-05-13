@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -6,6 +7,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { formatDeviceCommand } from '$lib/format.js';
 	import { AdminService } from '$lib/services';
 	import { deleteDeviceScan } from '$lib/services/admin/operations';
 	import {
@@ -133,7 +135,7 @@
 		mcpServers.map((m) => ({
 			...m,
 			scope: deriveScope(m.projectPath),
-			endpoint: m.transport === 'stdio' ? formatCommand(m.command, m.args) : m.url || '—'
+			endpoint: m.transport === 'stdio' ? formatDeviceCommand(m.command, m.args) : m.url || '—'
 		}))
 	);
 
@@ -164,12 +166,6 @@
 
 	let deviceIdParam = $derived(page.params.device_id);
 	let scanIdParam = $derived(page.params.scan_id);
-
-	function formatCommand(cmd?: string, args?: string[]): string {
-		if (!cmd) return '—';
-		const parts = [cmd, ...(args ?? [])];
-		return parts.join(' ');
-	}
 
 	function capabilitySummary(p: DeviceScanPlugin): string {
 		const caps: string[] = [];
@@ -330,11 +326,11 @@
 						<Table
 							data={mcpRows}
 							pageSize={PAGE_SIZE}
-							fields={['client', 'scope', 'name', 'transport', 'endpoint']}
+							fields={['name', 'client', 'scope', 'transport', 'endpoint']}
 							headers={[
+								{ title: 'Name', property: 'name' },
 								{ title: 'Client', property: 'client' },
 								{ title: 'Scope', property: 'scope' },
-								{ title: 'Name', property: 'name' },
 								{ title: 'Transport', property: 'transport' },
 								{ title: 'Endpoint', property: 'endpoint' }
 							]}
@@ -352,6 +348,14 @@
 									<span class="font-mono text-xs">{d.name}</span>
 								{:else if property === 'endpoint'}
 									<span class="font-mono text-xs">{d.endpoint}</span>
+								{:else if property === 'client'}
+									<a
+										class="btn-link text-blue-500"
+										href={resolve(`/admin/device-clients/${encodeURIComponent(d.client)}`)}
+										onclick={(e) => e.stopPropagation()}
+									>
+										{d.client}
+									</a>
 								{:else}
 									{d[property as keyof MCPRow] ?? '—'}
 								{/if}
@@ -365,7 +369,7 @@
 						<Table
 							data={skillRows}
 							pageSize={PAGE_SIZE}
-							fields={['client', 'scope', 'name', 'description', 'hasScripts', 'files_count']}
+							fields={['name', 'client', 'scope', 'description', 'hasScripts', 'files_count']}
 							headers={[
 								{ title: 'Client', property: 'client' },
 								{ title: 'Scope', property: 'scope' },
@@ -388,6 +392,14 @@
 									<span class="text-on-surface1 text-xs">{d.description ?? '—'}</span>
 								{:else if property === 'hasScripts'}
 									{d.hasScripts ? 'yes' : 'no'}
+								{:else if property === 'client'}
+									<a
+										class="btn-link text-blue-500"
+										href={resolve(`/admin/device-clients/${encodeURIComponent(d.client)}`)}
+										onclick={(e) => e.stopPropagation()}
+									>
+										{d.client}
+									</a>
 								{:else}
 									{d[property as keyof SkillRow] ?? '—'}
 								{/if}
@@ -402,9 +414,9 @@
 							data={pluginRows}
 							pageSize={PAGE_SIZE}
 							fields={[
+								'name',
 								'client',
 								'scope',
-								'name',
 								'pluginType',
 								'version',
 								'enabled',
@@ -433,6 +445,14 @@
 									{d.enabled ? 'yes' : 'no'}
 								{:else if property === 'version'}
 									<span class="font-mono text-xs">{d.version ?? '—'}</span>
+								{:else if property === 'client'}
+									<a
+										class="btn-link text-blue-500"
+										href={resolve(`/admin/device-clients/${encodeURIComponent(d.client)}`)}
+										onclick={(e) => e.stopPropagation()}
+									>
+										{d.client}
+									</a>
 								{:else}
 									{d[property as keyof PluginRow] ?? '—'}
 								{/if}
@@ -453,6 +473,12 @@
 								{ title: 'Paths', property: 'paths_display' },
 								{ title: 'Has', property: 'has_display' }
 							]}
+							onClickRow={(d, isCtrlClick) => {
+								openUrl(
+									resolve(`/admin/device-clients/${encodeURIComponent(d.name)}`),
+									isCtrlClick
+								);
+							}}
 							sortable={['name']}
 							filterable={['name']}
 						>
@@ -495,27 +521,3 @@
 		{msg}
 	</div>
 {/snippet}
-
-<style lang="postcss">
-	.tab-button {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem 0.75rem;
-		border-bottom: 2px solid transparent;
-		font-size: 0.875rem;
-		color: var(--on-surface1, #6b7280);
-		transition:
-			color 200ms,
-			border-color 200ms;
-
-		&:hover {
-			color: inherit;
-		}
-	}
-	.tab-active {
-		color: inherit;
-		border-bottom-color: var(--primary);
-		font-weight: 500;
-	}
-</style>

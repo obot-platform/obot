@@ -810,6 +810,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/devices/skills", deviceScans.ListSkills)
 	mux.HandleFunc("GET /api/devices/skills/{name}", deviceScans.GetSkill)
 	mux.HandleFunc("GET /api/devices/skills/{name}/occurrences", deviceScans.ListSkillOccurrences)
+	mux.HandleFunc("GET /api/devices/clients", deviceScans.ListClients)
+	mux.HandleFunc("GET /api/devices/clients/{name}", deviceScans.GetClient)
 
 	// Available Models
 	mux.HandleFunc("GET /api/available-models", availableModels.List)
