@@ -6,6 +6,54 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
+func TestMCPServerSpec_IsOwnedBy(t *testing.T) {
+	tests := []struct {
+		name   string
+		spec   MCPServerSpec
+		userID string
+		want   bool
+	}{
+		{
+			name:   "single-user server owned by user",
+			spec:   MCPServerSpec{ServerUserType: types.ServerUserTypeSingleUser, UserID: "user-1"},
+			userID: "user-1",
+			want:   true,
+		},
+		{
+			name:   "single-user server owned by different user",
+			spec:   MCPServerSpec{ServerUserType: types.ServerUserTypeSingleUser, UserID: "user-1"},
+			userID: "user-2",
+			want:   false,
+		},
+		{
+			name:   "multi-user server — never directly owned",
+			spec:   MCPServerSpec{ServerUserType: types.ServerUserTypeMultiUser, UserID: "user-1"},
+			userID: "user-1",
+			want:   false,
+		},
+		{
+			name:   "legacy single-user: no catalog/workspace",
+			spec:   MCPServerSpec{UserID: "user-1"},
+			userID: "user-1",
+			want:   true,
+		},
+		{
+			name:   "legacy multi-user: catalog set — not directly owned even if UserID matches",
+			spec:   MCPServerSpec{UserID: "user-1", MCPCatalogID: "default"},
+			userID: "user-1",
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.spec.IsOwnedBy(tt.userID); got != tt.want {
+				t.Errorf("MCPServerSpec.IsOwnedBy(%q) = %v, want %v", tt.userID, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestMCPServerSpec_IsSingleUser(t *testing.T) {
 	tests := []struct {
 		name   string

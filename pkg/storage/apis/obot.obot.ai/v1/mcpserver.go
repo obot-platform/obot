@@ -140,6 +140,12 @@ func (s MCPServerSpec) IsSingleUser() bool {
 	return s.MCPCatalogID == "" && s.PowerUserWorkspaceID == ""
 }
 
+// IsOwnedBy returns true if the given user directly owns this server.
+// Only true for single-user servers — multi-user servers are accessed via ACR, not direct ownership.
+func (s MCPServerSpec) IsOwnedBy(userID string) bool {
+	return s.UserID == userID && s.IsSingleUser()
+}
+
 type MCPServerStatus struct {
 	// MCPCatalogID is the catalog ID of the catalog entry that this MCP server is based on.
 	MCPCatalogID string `json:"mcpCatalogID,omitempty"`

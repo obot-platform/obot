@@ -765,7 +765,7 @@ func (h *Handler) findMCPServer(req api.Context, serverName, reverseDNS string) 
 	// Get the credentials for the server. We ignore errors if we get any,
 	// as we can still convert the server anyway and display it.
 	// Worst-case scenario is that a server that is configured will show up without a connect URL.
-	if server.Spec.UserID == req.User.GetUID() && server.Spec.IsSingleUser() {
+	if server.Spec.IsOwnedBy(req.User.GetUID()) {
 		// Personal server - user owns it
 		slug, err = handlers.SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), "", "")
 		if err != nil {
