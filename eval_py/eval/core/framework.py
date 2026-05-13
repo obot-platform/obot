@@ -121,10 +121,13 @@ def _run_cases(cases: list[Case], base_url: str, auth_header: str) -> list[Resul
     for c in cases:
         ctx = Context(base_url, client)
         start = time.perf_counter()
-        if setup_err:
-            result = Result(pass_=False, message=setup_err)
-        else:
-            result = c.run(ctx)
+        try:
+            if setup_err:
+                result = Result(pass_=False, message=setup_err)
+            else:
+                result = c.run(ctx)
+        except Exception as e:
+            result = Result(pass_=False, message=str(e))
         result.name = c.name
         result.duration_ms = (time.perf_counter() - start) * 1000
         result.trajectory = list(ctx.trajectory)
@@ -134,3 +137,10 @@ def _run_cases(cases: list[Case], base_url: str, auth_header: str) -> list[Resul
 
 def pass_count(results: list[Result]) -> int:
     return sum(1 for r in results if r.pass_)
+
+
+def overall_pass(results: list[Result]) -> bool:
+    """True when at least one case passed. Fail only when every case failed."""
+    if not results:
+        return False
+    return pass_count(results) > 0
