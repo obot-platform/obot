@@ -65,14 +65,6 @@ func New(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, 
 	}
 }
 
-func (h *Handler) MigrateStartupTimeoutSeconds(req router.Request, _ router.Response) error {
-	server := req.Object.(*v1.MCPServer)
-	if !server.Spec.Manifest.MigrateStartupTimeoutSeconds() {
-		return nil
-	}
-	return req.Client.Update(req.Ctx, server)
-}
-
 func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
 

@@ -1704,16 +1704,4 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 			Message: fmt.Sprintf("must be less than %d", maxStartupTimeoutSeconds),
 		}, err)
 	})
-
-	t.Run("remote manifest ignores legacy startup timeout", func(t *testing.T) {
-		err := ValidateServerManifest(types.MCPServerManifest{
-			Runtime:               types.RuntimeRemote,
-			StartupTimeoutSeconds: -1,
-			RemoteConfig: &types.RemoteRuntimeConfig{
-				URL: "https://example.com/mcp",
-			},
-		}, false)
-
-		require.NoError(t, err)
-	})
 }

@@ -170,10 +170,6 @@ type MCPServerCatalogEntryManifest struct {
 	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
-
-	// Legacy top-level field used only for migration. Use the active runtime config's startupTimeoutSeconds instead.
-	// +k8s:openapi-gen=false
-	StartupTimeoutSeconds int `json:"startupTimeoutSeconds,omitempty"`
 }
 
 // ToolOverride defines how a single component tool is exposed by the composite server
@@ -253,9 +249,6 @@ type MCPServerManifest struct {
 	Headers []MCPHeader `json:"headers,omitempty"`
 
 	IdleShutdownIntervalHours int `json:"idleShutdownIntervalHours,omitempty"`
-	// Legacy top-level field used only for migration. Use the active runtime config's startupTimeoutSeconds instead.
-	// +k8s:openapi-gen=false
-	StartupTimeoutSeconds int `json:"startupTimeoutSeconds,omitempty"`
 }
 
 type MCPServer struct {
@@ -422,78 +415,35 @@ func (e RuntimeValidationError) Error() string {
 	return fmt.Sprintf("runtime %s validation error for field %s: %s", e.Runtime, e.Field, e.Message)
 }
 
-func startupTimeoutSeconds(runtime Runtime, uvxConfig *UVXRuntimeConfig, npxConfig *NPXRuntimeConfig, containerizedConfig *ContainerizedRuntimeConfig, legacyStartupTimeoutSeconds int) int {
+func startupTimeoutSeconds(runtime Runtime, uvxConfig *UVXRuntimeConfig, npxConfig *NPXRuntimeConfig, containerizedConfig *ContainerizedRuntimeConfig) int {
 	switch runtime {
 	case RuntimeUVX:
-		if uvxConfig != nil && uvxConfig.StartupTimeoutSeconds != 0 {
+		if uvxConfig != nil {
 			return uvxConfig.StartupTimeoutSeconds
 		}
-		return legacyStartupTimeoutSeconds
 	case RuntimeNPX:
-		if npxConfig != nil && npxConfig.StartupTimeoutSeconds != 0 {
+		if npxConfig != nil {
 			return npxConfig.StartupTimeoutSeconds
 		}
-		return legacyStartupTimeoutSeconds
 	case RuntimeContainerized:
-		if containerizedConfig != nil && containerizedConfig.StartupTimeoutSeconds != 0 {
+		if containerizedConfig != nil {
 			return containerizedConfig.StartupTimeoutSeconds
 		}
-		return legacyStartupTimeoutSeconds
 	}
 
 	return 0
 }
 
 func (m MCPServerCatalogEntryManifest) RuntimeStartupTimeoutSeconds() int {
-	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, m.StartupTimeoutSeconds)
+	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig)
 }
 
 func (m MCPServerManifest) RuntimeStartupTimeoutSeconds() int {
-	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, m.StartupTimeoutSeconds)
+	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig)
 }
 
 func (m SystemMCPServerManifest) RuntimeStartupTimeoutSeconds() int {
-	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, m.StartupTimeoutSeconds)
-}
-
-func migrateStartupTimeoutSeconds(runtime Runtime, uvxConfig *UVXRuntimeConfig, npxConfig *NPXRuntimeConfig, containerizedConfig *ContainerizedRuntimeConfig, legacyStartupTimeoutSeconds *int) bool {
-	if legacyStartupTimeoutSeconds == nil || *legacyStartupTimeoutSeconds == 0 {
-		return false
-	}
-
-	switch runtime {
-	case RuntimeUVX:
-		if uvxConfig != nil && uvxConfig.StartupTimeoutSeconds == 0 {
-			uvxConfig.StartupTimeoutSeconds = *legacyStartupTimeoutSeconds
-		}
-	case RuntimeNPX:
-		if npxConfig != nil && npxConfig.StartupTimeoutSeconds == 0 {
-			npxConfig.StartupTimeoutSeconds = *legacyStartupTimeoutSeconds
-		}
-	case RuntimeContainerized:
-		if containerizedConfig != nil && containerizedConfig.StartupTimeoutSeconds == 0 {
-			containerizedConfig.StartupTimeoutSeconds = *legacyStartupTimeoutSeconds
-		}
-	}
-
-	*legacyStartupTimeoutSeconds = 0
-	return true
-}
-
-func (m *MCPServerCatalogEntryManifest) MigrateStartupTimeoutSeconds() bool {
-	return migrateStartupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, &m.StartupTimeoutSeconds)
-}
-
-func (m *MCPServerManifest) MigrateStartupTimeoutSeconds() bool {
-	return migrateStartupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, &m.StartupTimeoutSeconds)
-}
-
-func (m *SystemMCPServerManifest) MigrateStartupTimeoutSeconds() bool {
-	return migrateStartupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, &m.StartupTimeoutSeconds)
-}
-
-func (m *SystemMCPServerCatalogEntryManifest) MigrateStartupTimeoutSeconds() bool {
-	return migrateStartupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig, &m.StartupTimeoutSeconds)
+	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig)
 }
 
 // MapCatalogEntryToServer converts an MCPServerCatalogEntryManifest to an MCPServerManifest
@@ -530,7 +480,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			Args:                  catalogEntry.UVXConfig.Args,
 			EgressDomains:         catalogEntry.UVXConfig.EgressDomains,
 			DenyAllEgress:         catalogEntry.UVXConfig.DenyAllEgress,
-			StartupTimeoutSeconds: startupTimeoutSeconds(RuntimeUVX, catalogEntry.UVXConfig, catalogEntry.NPXConfig, catalogEntry.ContainerizedConfig, catalogEntry.StartupTimeoutSeconds),
+			StartupTimeoutSeconds: catalogEntry.UVXConfig.StartupTimeoutSeconds,
 		}
 
 	case RuntimeNPX:
@@ -546,7 +496,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			Args:                  catalogEntry.NPXConfig.Args,
 			EgressDomains:         catalogEntry.NPXConfig.EgressDomains,
 			DenyAllEgress:         catalogEntry.NPXConfig.DenyAllEgress,
-			StartupTimeoutSeconds: startupTimeoutSeconds(RuntimeNPX, catalogEntry.UVXConfig, catalogEntry.NPXConfig, catalogEntry.ContainerizedConfig, catalogEntry.StartupTimeoutSeconds),
+			StartupTimeoutSeconds: catalogEntry.NPXConfig.StartupTimeoutSeconds,
 		}
 
 	case RuntimeContainerized:
@@ -565,7 +515,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			Path:                  catalogEntry.ContainerizedConfig.Path,
 			EgressDomains:         catalogEntry.ContainerizedConfig.EgressDomains,
 			DenyAllEgress:         catalogEntry.ContainerizedConfig.DenyAllEgress,
-			StartupTimeoutSeconds: startupTimeoutSeconds(RuntimeContainerized, catalogEntry.UVXConfig, catalogEntry.NPXConfig, catalogEntry.ContainerizedConfig, catalogEntry.StartupTimeoutSeconds),
+			StartupTimeoutSeconds: catalogEntry.ContainerizedConfig.StartupTimeoutSeconds,
 		}
 
 	case RuntimeRemote:

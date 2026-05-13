@@ -478,18 +478,17 @@ func (m *MCPWebhookValidationHandler) resolveManifestFromCatalogEntry(req api.Co
 
 func systemMCPServerManifestFromCatalogEntry(entry types.SystemMCPServerCatalogEntryManifest, disabled bool) types.SystemMCPServerManifest {
 	manifest := types.SystemMCPServerManifest{
-		Metadata:              entry.Metadata,
-		Name:                  entry.Name,
-		ShortDescription:      entry.ShortDescription,
-		Description:           entry.Description,
-		Icon:                  entry.Icon,
-		Enabled:               new(!disabled),
-		Runtime:               entry.Runtime,
-		UVXConfig:             entry.UVXConfig,
-		NPXConfig:             entry.NPXConfig,
-		ContainerizedConfig:   entry.ContainerizedConfig,
-		Env:                   entry.Env,
-		StartupTimeoutSeconds: entry.StartupTimeoutSeconds,
+		Metadata:            entry.Metadata,
+		Name:                entry.Name,
+		ShortDescription:    entry.ShortDescription,
+		Description:         entry.Description,
+		Icon:                entry.Icon,
+		Enabled:             new(!disabled),
+		Runtime:             entry.Runtime,
+		UVXConfig:           entry.UVXConfig,
+		NPXConfig:           entry.NPXConfig,
+		ContainerizedConfig: entry.ContainerizedConfig,
+		Env:                 entry.Env,
 	}
 
 	if entry.RemoteConfig != nil {

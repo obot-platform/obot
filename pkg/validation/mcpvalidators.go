@@ -1028,20 +1028,19 @@ func ValidateSystemMCPServerCatalogEntryManifest(manifest types.SystemMCPServerC
 	}
 
 	return ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
-		Metadata:              manifest.Metadata,
-		Name:                  manifest.Name,
-		ShortDescription:      manifest.ShortDescription,
-		Description:           manifest.Description,
-		Icon:                  manifest.Icon,
-		RepoURL:               manifest.RepoURL,
-		ToolPreview:           manifest.ToolPreview,
-		Runtime:               manifest.Runtime,
-		UVXConfig:             manifest.UVXConfig,
-		NPXConfig:             manifest.NPXConfig,
-		ContainerizedConfig:   manifest.ContainerizedConfig,
-		RemoteConfig:          manifest.RemoteConfig,
-		Env:                   manifest.Env,
-		StartupTimeoutSeconds: manifest.StartupTimeoutSeconds,
+		Metadata:            manifest.Metadata,
+		Name:                manifest.Name,
+		ShortDescription:    manifest.ShortDescription,
+		Description:         manifest.Description,
+		Icon:                manifest.Icon,
+		RepoURL:             manifest.RepoURL,
+		ToolPreview:         manifest.ToolPreview,
+		Runtime:             manifest.Runtime,
+		UVXConfig:           manifest.UVXConfig,
+		NPXConfig:           manifest.NPXConfig,
+		ContainerizedConfig: manifest.ContainerizedConfig,
+		RemoteConfig:        manifest.RemoteConfig,
+		Env:                 manifest.Env,
 	})
 }
 

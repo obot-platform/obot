@@ -71,22 +71,6 @@ func (h *Handler) DeleteEntriesWithoutRuntime(req router.Request, _ router.Respo
 	return nil
 }
 
-func (*Handler) MigrateStartupTimeoutSeconds(req router.Request, _ router.Response) error {
-	entry := req.Object.(*v1.MCPServerCatalogEntry)
-	if !entry.Spec.Manifest.MigrateStartupTimeoutSeconds() {
-		return nil
-	}
-	return req.Client.Update(req.Ctx, entry)
-}
-
-func (*Handler) MigrateSystemStartupTimeoutSeconds(req router.Request, _ router.Response) error {
-	entry := req.Object.(*v1.SystemMCPServerCatalogEntry)
-	if !entry.Spec.Manifest.MigrateStartupTimeoutSeconds() {
-		return nil
-	}
-	return req.Client.Update(req.Ctx, entry)
-}
-
 // UpdateManifestHashAndLastUpdated updates the manifest hash and last updated timestamp when configuration changes
 func (*Handler) UpdateManifestHashAndLastUpdated(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)

@@ -42,14 +42,6 @@ func New(gptClient *gptscript.GPTScript, mcpLoader *mcp.SessionManager, serverUR
 	}
 }
 
-func (h *Handler) MigrateStartupTimeoutSeconds(req router.Request, _ router.Response) error {
-	systemServer := req.Object.(*v1.SystemMCPServer)
-	if !systemServer.Spec.Manifest.MigrateStartupTimeoutSeconds() {
-		return nil
-	}
-	return req.Client.Update(req.Ctx, systemServer)
-}
-
 // EnsureSecretInfo ensures an OAuthClient and token exchange credentials exist for the system MCP server.
 func (h *Handler) EnsureSecretInfo(req router.Request, _ router.Response) error {
 	systemServer := req.Object.(*v1.SystemMCPServer)

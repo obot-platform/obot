@@ -244,7 +244,6 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServerCatalogEntry{}).FinalizeFunc(v1.MCPServerCatalogEntryFinalizer, mcpServerCatalogEntryHandler.RemoveOAuthCredentials)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.DeleteEntriesWithoutRuntime)
-	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.MigrateStartupTimeoutSeconds)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.UpdateManifestHashAndLastUpdated)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.CleanupNestedCompositeEntries)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.DetectCompositeDrift)
@@ -254,13 +253,11 @@ func (c *Controller) setupRoutes() {
 
 	// SystemMCPServerCatalogEntry
 	root.Type(&v1.SystemMCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.SystemMCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.MigrateSystemStartupTimeoutSeconds)
 	root.Type(&v1.SystemMCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.UpdateSystemManifestHashAndLastUpdated)
 
 	// MCPServer
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPCatalogID)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateSharedWithinMCPCatalogName)
-	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateStartupTimeoutSeconds)
 	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DeleteServersWithoutRuntime)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DeleteServersForAnonymousUser)
@@ -347,7 +344,6 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ProjectMCPServer{}).HandlerFunc(cleanup.Cleanup)
 
 	// System MCP Servers
-	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.MigrateStartupTimeoutSeconds)
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureSecretInfo)
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureDeployment)
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(cleanup.Cleanup)

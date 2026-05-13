@@ -416,9 +416,6 @@ export interface MCPServer {
 	remoteConfig?: RemoteRuntimeConfig;
 	compositeConfig?: CompositeRuntimeConfig;
 	multiUserConfig?: MultiUserConfig;
-
-	/** Legacy top-level field used only while older resources migrate. */
-	startupTimeoutSeconds?: number;
 }
 
 export interface MCPServerTool {

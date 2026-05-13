@@ -164,18 +164,15 @@
 			switch (manifest.runtime) {
 				case 'npx':
 					formData.npxConfig = normalizeNpxConfig(manifest.npxConfig);
-					formData.startupTimeoutSeconds =
-						manifest.npxConfig?.startupTimeoutSeconds ?? manifest.startupTimeoutSeconds;
+					formData.startupTimeoutSeconds = manifest.npxConfig?.startupTimeoutSeconds;
 					break;
 				case 'uvx':
 					formData.uvxConfig = normalizeUvxConfig(manifest.uvxConfig);
-					formData.startupTimeoutSeconds =
-						manifest.uvxConfig?.startupTimeoutSeconds ?? manifest.startupTimeoutSeconds;
+					formData.startupTimeoutSeconds = manifest.uvxConfig?.startupTimeoutSeconds;
 					break;
 				case 'containerized':
 					formData.containerizedConfig = normalizeContainerizedConfig(manifest.containerizedConfig);
-					formData.startupTimeoutSeconds =
-						manifest.containerizedConfig?.startupTimeoutSeconds ?? manifest.startupTimeoutSeconds;
+					formData.startupTimeoutSeconds = manifest.containerizedConfig?.startupTimeoutSeconds;
 					break;
 				case 'remote':
 					formData.remoteServerConfig = manifest.remoteConfig
@@ -211,18 +208,15 @@
 			switch (manifest.runtime) {
 				case 'npx':
 					formData.npxConfig = normalizeNpxConfig(manifest.npxConfig);
-					formData.startupTimeoutSeconds =
-						manifest.npxConfig?.startupTimeoutSeconds ?? manifest.startupTimeoutSeconds;
+					formData.startupTimeoutSeconds = manifest.npxConfig?.startupTimeoutSeconds;
 					break;
 				case 'uvx':
 					formData.uvxConfig = normalizeUvxConfig(manifest.uvxConfig);
-					formData.startupTimeoutSeconds =
-						manifest.uvxConfig?.startupTimeoutSeconds ?? manifest.startupTimeoutSeconds;
+					formData.startupTimeoutSeconds = manifest.uvxConfig?.startupTimeoutSeconds;
 					break;
 				case 'containerized':
 					formData.containerizedConfig = normalizeContainerizedConfig(manifest.containerizedConfig);
-					formData.startupTimeoutSeconds =
-						manifest.containerizedConfig?.startupTimeoutSeconds ?? manifest.startupTimeoutSeconds;
+					formData.startupTimeoutSeconds = manifest.containerizedConfig?.startupTimeoutSeconds;
 					break;
 				case 'remote':
 					formData.remoteConfig = manifest.remoteConfig || { fixedURL: '', headers: [] };
