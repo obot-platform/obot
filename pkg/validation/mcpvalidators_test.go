@@ -2093,6 +2093,74 @@ func TestValidateTemplateReferences_CatalogEntry(t *testing.T) {
 	}
 }
 
+func TestValidateCatalogEntryForRoute(t *testing.T) {
+	singleUserManifest := types.MCPServerCatalogEntryManifest{ServerUserType: types.ServerUserTypeSingleUser}
+	multiUserManifest := types.MCPServerCatalogEntryManifest{ServerUserType: types.ServerUserTypeMultiUser}
+	defaultManifest := types.MCPServerCatalogEntryManifest{} // empty = singleUser
+
+	tests := []struct {
+		name        string
+		manifest    types.MCPServerCatalogEntryManifest
+		catalogID   string
+		workspaceID string
+		expectError bool
+	}{
+		{
+			name:        "single-user entry on single-user route: ok",
+			manifest:    singleUserManifest,
+			catalogID:   "",
+			workspaceID: "",
+			expectError: false,
+		},
+		{
+			name:        "empty serverUserType on single-user route: ok",
+			manifest:    defaultManifest,
+			catalogID:   "",
+			workspaceID: "",
+			expectError: false,
+		},
+		{
+			name:        "multiUser entry on single-user route: rejected",
+			manifest:    multiUserManifest,
+			catalogID:   "",
+			workspaceID: "",
+			expectError: true,
+		},
+		{
+			name:        "single-user entry on catalog route: rejected (deploying catalog entries as multi-user not yet supported)",
+			manifest:    singleUserManifest,
+			catalogID:   "default",
+			workspaceID: "",
+			expectError: true,
+		},
+		{
+			name:        "single-user entry on workspace route: rejected (deploying catalog entries as multi-user not yet supported)",
+			manifest:    singleUserManifest,
+			catalogID:   "",
+			workspaceID: "ws-1",
+			expectError: true,
+		},
+		{
+			name:        "multiUser entry on catalog route: rejected (deploying catalog entries as multi-user not yet supported)",
+			manifest:    multiUserManifest,
+			catalogID:   "default",
+			workspaceID: "",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateCatalogEntryForRoute(tt.manifest, tt.catalogID, tt.workspaceID)
+			if tt.expectError && err == nil {
+				t.Error("expected error, got nil")
+			} else if !tt.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
 func TestValidateCatalogEntryManifest_ServerUserType(t *testing.T) {
 	baseManifest := types.MCPServerCatalogEntryManifest{
 		Runtime: types.RuntimeNPX,

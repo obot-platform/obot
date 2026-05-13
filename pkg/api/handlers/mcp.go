@@ -1709,10 +1709,9 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return types.NewErrForbidden("user does not have access to MCP server catalog entry")
 		}
 
-		// Validate that the catalog entry type matches the route.
-		// Single-user routes only support single-user catalog entries.
-		if catalogID == "" && workspaceID == "" && !catalogEntry.Spec.Manifest.ServerUserType.IsSingleUser() {
-			return types.NewErrBadRequest("only single-user catalog entries are supported")
+		// Validate that the catalog entry type is compatible with the route used.
+		if err := validation.ValidateCatalogEntryForRoute(catalogEntry.Spec.Manifest, catalogID, workspaceID); err != nil {
+			return types.NewErrBadRequest("%v", err)
 		}
 
 		// Block server creation if OAuth is required but not configured
