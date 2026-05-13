@@ -125,18 +125,10 @@ type MCPServerSpec struct {
 	CompositeName string `json:"compositeName,omitempty"`
 	// NanobotAgentID is the name of the NanobotAgent that created this MCP server, if there is one.
 	NanobotAgentID string `json:"nanobotAgentID,omitempty"`
-	// ServerUserType specifies whether this is a single-user or multi-user MCP server.
-	// Empty value uses legacy inference from MCPCatalogID and PowerUserWorkspaceID.
-	ServerUserType types.ServerUserType `json:"serverUserType,omitempty"`
 }
 
 // IsSingleUser returns true if this is a single-user MCP server.
-// For servers created before this field existed, falls back to legacy inference from ownership fields.
 func (s MCPServerSpec) IsSingleUser() bool {
-	if s.ServerUserType != "" {
-		return s.ServerUserType.IsSingleUser()
-	}
-	// Legacy fallback: infer from ownership fields
 	return s.MCPCatalogID == "" && s.PowerUserWorkspaceID == ""
 }
 

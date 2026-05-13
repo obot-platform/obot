@@ -347,19 +347,10 @@ type MCPServer struct {
 
 	// CompositeName is the name of the composite server that this MCP server is a component of, if there is one.
 	CompositeName string `json:"compositeName,omitempty"`
-
-	// ServerUserType specifies whether this is a single-user or multi-user MCP server.
-	// Empty value uses legacy inference from MCPCatalogID and PowerUserWorkspaceID.
-	ServerUserType ServerUserType `json:"serverUserType,omitempty"`
 }
 
 // IsSingleUser returns true if this is a single-user MCP server.
-// For servers created before this field existed, falls back to legacy inference from ownership fields.
 func (s MCPServer) IsSingleUser() bool {
-	if s.ServerUserType != "" {
-		return s.ServerUserType.IsSingleUser()
-	}
-	// Legacy fallback: infer from ownership fields
 	return s.MCPCatalogID == "" && s.PowerUserWorkspaceID == ""
 }
 

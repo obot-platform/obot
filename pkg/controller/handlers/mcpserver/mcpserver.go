@@ -741,7 +741,6 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 					MCPServerCatalogEntryName: component.CatalogEntryID,
 					UserID:                    compositeServer.Spec.UserID,
 					CompositeName:             compositeServer.Name,
-					ServerUserType:            types.ServerUserTypeSingleUser,
 				},
 			})
 

@@ -1736,13 +1736,6 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return types.NewErrBadRequest("catalogEntryID is required")
 	}
 
-	// Set ServerUserType explicitly based on the route.
-	if catalogID != "" || workspaceID != "" {
-		server.Spec.ServerUserType = types.ServerUserTypeMultiUser
-	} else {
-		server.Spec.ServerUserType = types.ServerUserTypeSingleUser
-	}
-
 	if err := validation.ValidateServerManifest(server.Spec.Manifest, !server.Spec.IsSingleUser()); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
@@ -2801,7 +2794,6 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		Template:                    server.Spec.Template,
 		CompositeName:               server.Spec.CompositeName,
 		NanobotAgentID:              server.Spec.NanobotAgentID,
-		ServerUserType:              server.Spec.ServerUserType,
 	}
 
 	// For composite servers, also consider component configuration if provided

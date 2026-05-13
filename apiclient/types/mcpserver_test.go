@@ -538,34 +538,19 @@ func TestMCPServer_IsSingleUser(t *testing.T) {
 		want   bool
 	}{
 		{
-			name:   "new server with singleUser type",
-			server: MCPServer{ServerUserType: ServerUserTypeSingleUser},
-			want:   true,
-		},
-		{
-			name:   "new server with multiUser type",
-			server: MCPServer{ServerUserType: ServerUserTypeMultiUser},
-			want:   false,
-		},
-		{
-			name:   "legacy single-user: empty type, no catalog/workspace",
+			name:   "no catalog/workspace: single-user",
 			server: MCPServer{MCPCatalogID: "", PowerUserWorkspaceID: ""},
 			want:   true,
 		},
 		{
-			name:   "legacy multi-user: empty type, catalog set",
+			name:   "catalog set: multi-user",
 			server: MCPServer{MCPCatalogID: "default"},
 			want:   false,
 		},
 		{
-			name:   "legacy multi-user: empty type, workspace set",
+			name:   "workspace set: multi-user",
 			server: MCPServer{PowerUserWorkspaceID: "ws-1"},
 			want:   false,
-		},
-		{
-			name:   "ServerUserType takes precedence over legacy fields",
-			server: MCPServer{ServerUserType: ServerUserTypeSingleUser, MCPCatalogID: "default"},
-			want:   true,
 		},
 	}
 
