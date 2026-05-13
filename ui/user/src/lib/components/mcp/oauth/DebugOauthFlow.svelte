@@ -8,6 +8,7 @@
 	import OAuthMetadataDebug from '../OAuthMetadataDebug.svelte';
 	import DebugOauthSection from './DebugOauthSection.svelte';
 	import { onMount } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		mcpServer: MCPCatalogServer;
@@ -25,41 +26,57 @@
 
 	let currentStep = $state(DEBUG_FLOW_STEPS.metadataDiscovery);
 	let authorizationCodeInput = $state<string>('');
+	let showRequired = $state(false);
 
-	let expanded = $state<Record<string, boolean>>({
-		metadataDiscovery: false,
-		clientRegistration: false,
-		preparingAuthorization: false,
-		authorizationCode: false,
-		tokenRequest: false
-	});
+	function resetExpanded() {
+		return {
+			metadataDiscovery: false,
+			clientRegistration: false,
+			preparingAuthorization: false,
+			authorizationCode: false,
+			tokenRequest: false
+		};
+	}
 
-	let loading = $state<Record<string, boolean>>({
-		metadataDiscovery: true,
-		clientRegistration: false,
-		preparingAuthorization: false,
-		authorizationCode: false,
-		tokenRequest: false
-	});
+	function resetLoading() {
+		return {
+			metadataDiscovery: true,
+			clientRegistration: false,
+			preparingAuthorization: false,
+			authorizationCode: false,
+			tokenRequest: false
+		};
+	}
 
-	let errors = $state<Record<string, string | null>>({
-		clientRegistration: null,
-		preparingAuthorization: null,
-		authorizationCode: null,
-		tokenRequest: null
-	});
+	function resetErrors() {
+		return {
+			clientRegistration: null,
+			preparingAuthorization: null,
+			authorizationCode: null,
+			tokenRequest: null
+		};
+	}
 
-	let results = $state<Record<string, unknown | null>>({
-		clientRegistration: null,
-		preparingAuthorization: null,
-		authorizationCode: null,
-		tokenRequest: null
-	});
+	function resetResults() {
+		return {
+			clientRegistration: null,
+			preparingAuthorization: null,
+			authorizationCode: null,
+			tokenRequest: null
+		};
+	}
+	let expanded = $state<Record<string, boolean>>(resetExpanded());
+
+	let loading = $state<Record<string, boolean>>(resetLoading());
+
+	let errors = $state<Record<string, string | null>>(resetErrors());
+
+	let results = $state<Record<string, unknown | null>>(resetResults());
 
 	function fetchClientRegistration() {
 		expanded.metadataDiscovery = false;
 		loading.clientRegistration = true;
-		AdminService.registerMcpServerOAuthDebuggerClient(mcpServer.id)
+		AdminService.registerMcpServerOAuthDebuggerClient(mcpServer.id, { dontLogErrors: true })
 			.then((result) => {
 				results.clientRegistration = result;
 			})
@@ -75,9 +92,13 @@
 	function fetchAuthorizationURL(clientRegistration: OAuthDebuggerRegisterClientResponse) {
 		expanded.clientRegistration = false;
 		loading.preparingAuthorization = true;
-		AdminService.getMCPServerOAuthDebuggerAuthorizationURL(mcpServer.id, {
-			state: clientRegistration.state
-		})
+		AdminService.getMCPServerOAuthDebuggerAuthorizationURL(
+			mcpServer.id,
+			{
+				state: clientRegistration.state
+			},
+			{ dontLogErrors: true }
+		)
 			.then((result) => {
 				results.preparingAuthorization = result;
 			})
@@ -87,6 +108,7 @@
 			.finally(() => {
 				loading.preparingAuthorization = false;
 				expanded.preparingAuthorization = true;
+				expanded.authorizationCode = true;
 			});
 	}
 
@@ -99,10 +121,14 @@
 
 		expanded.authorizationCode = false;
 		loading.tokenRequest = true;
-		AdminService.exchangeMCPServerOAuthDebuggerToken(mcpServer.id, {
-			code: authorizationCode,
-			state: (results.clientRegistration as OAuthDebuggerRegisterClientResponse).state as string
-		})
+		AdminService.exchangeMCPServerOAuthDebuggerToken(
+			mcpServer.id,
+			{
+				code: authorizationCode,
+				state: (results.clientRegistration as OAuthDebuggerRegisterClientResponse).state as string
+			},
+			{ dontLogErrors: true }
+		)
 			.then((result) => {
 				results.tokenRequest = result;
 				currentStep = DEBUG_FLOW_STEPS.authenticationComplete;
@@ -132,6 +158,10 @@
 				currentStep = DEBUG_FLOW_STEPS.preparingAuthorization;
 				break;
 			case DEBUG_FLOW_STEPS.preparingAuthorization:
+				if (!authorizationCodeInput) {
+					showRequired = true;
+					return;
+				}
 				fetchTokenRequest(authorizationCodeInput);
 				currentStep = DEBUG_FLOW_STEPS.tokenRequest;
 				break;
@@ -140,7 +170,18 @@
 		}
 	}
 
-	onMount(() => {
+	function handleRestart() {
+		expanded = resetExpanded();
+		errors = resetErrors();
+		results = resetResults();
+		loading = resetLoading();
+		currentStep = DEBUG_FLOW_STEPS.metadataDiscovery;
+		authorizationCodeInput = '';
+		showRequired = false;
+		validateMetadata();
+	}
+
+	function validateMetadata() {
 		if (mcpServer.oauthMetadata) {
 			results.metadataDiscovery = mcpServer.oauthMetadata;
 		} else {
@@ -148,6 +189,10 @@
 		}
 		expanded.metadataDiscovery = true;
 		loading.metadataDiscovery = false;
+	}
+
+	onMount(() => {
+		validateMetadata();
 	});
 
 	const stepLoading = $derived(Object.values(loading).some(Boolean));
@@ -217,7 +262,6 @@
 					class="button-primary text-sm text-center"
 					onclick={() => {
 						expanded.authorizationCode = true;
-						expanded.preparingAuthorization = false;
 					}}
 				>
 					Get Authorization Code
@@ -248,8 +292,17 @@
 					bind:value={authorizationCodeInput}
 					type="text"
 					id="authorization-code"
-					class="input-text-filled bg-surface1 dark:bg-background mt-0.5"
+					class={twMerge(
+						'text-input-filled bg-surface1 dark:bg-background mt-0.5',
+						showRequired && 'error'
+					)}
+					oninput={() => {
+						showRequired = false;
+					}}
 				/>
+				{#if showRequired}
+					<p class="text-xs text-red-500 my-1">Authorization code is required</p>
+				{/if}
 			</label>
 		{/if}
 	</DebugOauthSection>
@@ -285,11 +338,17 @@
 <div
 	class="sticky bottom-0 left-0 w-full bg-background dark:bg-surface1 p-4 border-t border-surface2 dark:border-surface1"
 >
-	<button
-		class="button-primary text-sm"
-		disabled={stepLoading || currentStep === DEBUG_FLOW_STEPS.authenticationComplete}
-		onclick={handleNextStep}
-	>
-		Continue Next Step
-	</button>
+	<div class="flex justify-between gap-4">
+		<button
+			class="button-primary text-sm"
+			disabled={stepLoading ||
+				currentStep === DEBUG_FLOW_STEPS.authenticationComplete ||
+				Object.values(errors).some(Boolean)}
+			onclick={handleNextStep}
+		>
+			Continue Next Step
+		</button>
+
+		<button class="button text-sm" onclick={handleRestart}> Restart </button>
+	</div>
 </div>

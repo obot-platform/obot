@@ -1944,7 +1944,7 @@ export async function restartNanobotAgentDeployments(opts?: {
 
 export async function registerMcpServerOAuthDebuggerClient(
 	serverID: string,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<OAuthDebuggerRegisterClientResponse> {
 	return (await doPost(
 		`/mcp-servers/${serverID}/oauth-debugger/client`,
@@ -1956,7 +1956,7 @@ export async function registerMcpServerOAuthDebuggerClient(
 export async function getMCPServerOAuthDebuggerAuthorizationURL(
 	serverID: string,
 	body: OAuthDebuggerAuthorizationURLRequest,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<OAuthDebuggerAuthorizationURL> {
 	return (await doPost(
 		`/mcp-servers/${serverID}/oauth-debugger/authorization-url`,
@@ -1968,7 +1968,7 @@ export async function getMCPServerOAuthDebuggerAuthorizationURL(
 export async function exchangeMCPServerOAuthDebuggerToken(
 	serverID: string,
 	body: OAuthDebuggerTokenRequest,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<OAuthToken> {
 	return (await doPost(`/mcp-servers/${serverID}/oauth-debugger/token`, body, opts)) as OAuthToken;
 }
