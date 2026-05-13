@@ -40,7 +40,7 @@
 				class="flex uppercase font-medium font-mono text-xs items-center gap-2 self-center bg-surface2 dark:bg-background hover:bg-surface3 dark:hover:bg-surface1 rounded-xs px-4 py-2 w-64 justify-center"
 			>
 				<span class="p-0.5 rounded-sm dark:bg-surface2">
-					<img src={option.icon} alt={option.label} class="size-4" />
+					<img src={option.icon} alt={`${option.label} branding icon`} class="size-4" />
 				</span>
 				{option.label}
 			</a>
