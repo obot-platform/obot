@@ -135,34 +135,19 @@ func (c ClaudeCode) InstallSkill(ctx context.Context, home string, skill SkillAr
 	if err != nil {
 		return InstallResult{}, err
 	}
-	if err := skill.validateFiles(); err != nil {
-		return InstallResult{}, err
+
+	target := filepath.Join(claudeCodeSkillsRoot(home), name)
+	if err := skill.ExtractTo(target); err != nil {
+		return InstallResult{}, fmt.Errorf("install %s skill: %w", name, err)
 	}
 
-	files := make([]installFile, 0, len(skill.Files))
+	installed := make([]string, 0, len(skill.Files))
 	for _, file := range skill.Files {
 		rel, err := cleanArchiveRelPath(file.RelPath)
 		if err != nil {
 			return InstallResult{}, err
 		}
-		files = append(files, installFile{
-			RelPath: rel,
-			Content: file.Content,
-			Mode:    file.Mode,
-		})
-	}
-	sort.SliceStable(files, func(i, j int) bool {
-		return files[i].RelPath < files[j].RelPath
-	})
-
-	target := filepath.Join(claudeCodeSkillsRoot(home), name)
-	if err := replaceDir(target, files); err != nil {
-		return InstallResult{}, fmt.Errorf("install %s skill: %w", name, err)
-	}
-
-	installed := make([]string, 0, len(files))
-	for _, file := range files {
-		installed = append(installed, filepath.Join(target, filepath.FromSlash(file.RelPath)))
+		installed = append(installed, filepath.Join(target, filepath.FromSlash(rel)))
 	}
 	sort.Strings(installed)
 

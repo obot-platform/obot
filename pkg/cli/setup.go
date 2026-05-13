@@ -160,7 +160,7 @@ func parseSetupAgents(raw string) (setupAgentSelection, error) {
 	selection := setupAgentSelection{
 		agentIDs: map[string]bool{},
 	}
-	for _, part := range strings.Split(raw, ",") {
+	for part := range strings.SplitSeq(raw, ",") {
 		value := strings.TrimSpace(part)
 		switch value {
 		case "":
