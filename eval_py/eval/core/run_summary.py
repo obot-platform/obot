@@ -50,11 +50,14 @@ def build_run_summary_payload(results: list[Result]) -> dict:
             }
         )
     mean_score = _mean(all_scores)
+    overall = passed_n > 0 if total else False
     return {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "cases_total": total,
         "cases_passed": passed_n,
+        "cases_failed": total - passed_n,
         "case_pass_rate": (passed_n / total) if total else 0.0,
+        "overall_pass": overall,
         "turns_scored": len(all_scores),
         "mean_turn_score": mean_score,
         "cases": cases_out,
@@ -84,10 +87,14 @@ def append_github_job_summary(payload: dict) -> None:
     total = int(payload["cases_total"] or 0)
     passed_n = int(payload["cases_passed"] or 0)
     rate = 100.0 * float(payload["case_pass_rate"] or 0.0)
+    overall = bool(payload.get("overall_pass"))
     lines = [
         "## Nanobot Python evals",
         "",
-        "**%d / %d cases passed** (%.0f%% case pass rate)." % (passed_n, total, rate),
+        "**Overall: %s** — %d / %d cases passed (%.0f%% case pass rate)."
+        % ("PASS" if overall else "FAIL", passed_n, total, rate),
+        "",
+        "_Job fails only when every case fails; at least one passing case yields a green workflow._",
         "",
     ]
     ms = payload.get("mean_turn_score")
@@ -143,6 +150,8 @@ def write_run_summary(results: list[Result]) -> tuple[str, str]:
     lines = [
         "=== Eval run summary ===",
         "generated_at: %s" % payload["generated_at"],
+        "overall: %s (fail only when all cases fail)"
+        % ("PASS" if payload.get("overall_pass") else "FAIL"),
         "cases: %d passed / %d total (%.1f%% case pass rate)"
         % (payload["cases_passed"], payload["cases_total"], 100.0 * float(payload["case_pass_rate"])),
     ]

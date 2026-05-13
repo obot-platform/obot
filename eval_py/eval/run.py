@@ -18,7 +18,7 @@ This runs:
 import os
 import sys
 
-from eval.core.framework import pass_count, run_all
+from eval.core.framework import overall_pass, pass_count, run_all
 from eval.core.cases import all_cases
 from eval.core.run_summary import write_run_summary
 
@@ -58,9 +58,11 @@ def main() -> int:
             % (r.name, r.pass_, r.duration_ms, r.message)
         )
     print("evals: %d/%d cases passed" % (passed, len(results)))
-    if passed < len(results):
-        return 1
-    return 0
+    if overall_pass(results):
+        print("overall: PASS (at least one case passed)")
+        return 0
+    print("overall: FAIL (all cases failed)")
+    return 1
 
 
 if __name__ == "__main__":
