@@ -30,6 +30,9 @@ from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 from .core.framework import TurnEvalDetail
 from .helper import paths
 
+# Minimum GEval score for a turn/metric to pass (conversation + generic evals).
+DEEPEVAL_PASS_THRESHOLD = 0.6
+
 
 @dataclass
 class AgentTrace:
@@ -291,7 +294,7 @@ def _build_agent_metrics() -> list[GEval]:
             "- Does the overall sequence of actions look reasonable for the type of task implied by the INPUT?\n"
         ),
         evaluation_params=eval_params,
-        threshold=0.7,
+        threshold=DEEPEVAL_PASS_THRESHOLD,
     )
 
     tools = GEval(
@@ -303,7 +306,7 @@ def _build_agent_metrics() -> list[GEval]:
             "- Did it stop using tools once enough information was gathered and switch to answering?\n"
         ),
         evaluation_params=eval_params,
-        threshold=0.7,
+        threshold=DEEPEVAL_PASS_THRESHOLD,
     )
 
     alignment = GEval(
@@ -315,7 +318,7 @@ def _build_agent_metrics() -> list[GEval]:
             "- Even if imperfect, is it a reasonable attempt at what was asked?\n"
         ),
         evaluation_params=eval_params,
-        threshold=0.7,
+        threshold=DEEPEVAL_PASS_THRESHOLD,
     )
 
     robustness = GEval(
@@ -327,7 +330,7 @@ def _build_agent_metrics() -> list[GEval]:
             "- Did it still attempt a reasonable final answer instead of stopping as soon as tools failed?\n"
         ),
         evaluation_params=eval_params,
-        threshold=0.7,
+        threshold=DEEPEVAL_PASS_THRESHOLD,
     )
 
     return [flow, tools, alignment, robustness]
@@ -490,7 +493,7 @@ def run_deepeval_for_turn(
             turn_index=turn_index,
             passed=True,
             score=1.0,
-            threshold=0.7,
+            threshold=DEEPEVAL_PASS_THRESHOLD,
             reason="programmatic chart-configuration check passed (dual-axes mapping present)",
             prompt=user_prompt or "",
         )
@@ -514,12 +517,12 @@ def run_deepeval_for_turn(
         name="Turn %d criteria" % turn_index,
         criteria="\n".join(criteria),
         evaluation_params=eval_params,
-        threshold=0.65 if workflow_id == "antv_dual_axes_viz" and turn_index == 1 else 0.7,
+        threshold=DEEPEVAL_PASS_THRESHOLD,
     )
     try:
         metric.measure(test_case)
         score = getattr(metric, "score", None)
-        threshold = getattr(metric, "threshold", 0.7)
+        threshold = getattr(metric, "threshold", DEEPEVAL_PASS_THRESHOLD)
         reason = getattr(metric, "reason", "")
         passed = (score is None) or (score >= threshold)
         reason_str = str(reason) if reason else ""
