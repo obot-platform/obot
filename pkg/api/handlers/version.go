@@ -41,19 +41,14 @@ func sessionStoreFromPostgresDSN(postgresDSN string) SessionStore {
 }
 
 type VersionHandler struct {
-	gptscriptVersion         string
-	emailDomain              string
-	supportDocker            bool
-	authEnabled              bool
-	disableLegacyChat        bool
-	sessionStore             SessionStore
-	enterprise               bool
-	engine                   string
-	mcpNetworkPolicyEnabled  bool
-	mcpDefaultDenyAllEgress  bool
-	autonomousToolUseEnabled bool
-	nanobotIntegration       bool
-	messagePoliciesEnabled   bool
+	gptscriptVersion        string
+	authEnabled             bool
+	sessionStore            SessionStore
+	enterprise              bool
+	engine                  string
+	mcpNetworkPolicyEnabled bool
+	mcpDefaultDenyAllEgress bool
+	messagePoliciesEnabled  bool
 
 	upgradeServerURL string
 	upgradeAvailable bool
@@ -61,27 +56,22 @@ type VersionHandler struct {
 	upgradeLock      sync.RWMutex
 }
 
-func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, mcpNetworkPolicyEnabled, mcpDefaultDenyAllEgress, supportDocker, authEnabled, disableUpdateCheck, disableLegacyChat, autonomousToolUseEnabled, nanobotIntegration, messagePoliciesEnabled bool) (*VersionHandler, error) {
+func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, postgresDSN, engine string, mcpNetworkPolicyEnabled, mcpDefaultDenyAllEgress, authEnabled, disableUpdateCheck, messagePoliciesEnabled bool) (*VersionHandler, error) {
 	upgradeServerBaseURL := defaultUpgradeServerBaseURL
 	if os.Getenv("OBOT_UPGRADE_SERVER_URL") != "" {
 		upgradeServerBaseURL = os.Getenv("OBOT_UPGRADE_SERVER_URL")
 	}
 
 	v := &VersionHandler{
-		emailDomain:              emailDomain,
-		gptscriptVersion:         getGPTScriptVersion(),
-		supportDocker:            supportDocker,
-		authEnabled:              authEnabled,
-		disableLegacyChat:        disableLegacyChat,
-		sessionStore:             sessionStoreFromPostgresDSN(postgresDSN),
-		enterprise:               os.Getenv("OBOT_ENTERPRISE") == "true",
-		upgradeServerURL:         fmt.Sprintf("%s/check-upgrade", upgradeServerBaseURL),
-		engine:                   engine,
-		mcpNetworkPolicyEnabled:  mcpNetworkPolicyEnabled,
-		mcpDefaultDenyAllEgress:  mcpDefaultDenyAllEgress,
-		autonomousToolUseEnabled: autonomousToolUseEnabled,
-		nanobotIntegration:       nanobotIntegration,
-		messagePoliciesEnabled:   messagePoliciesEnabled,
+		gptscriptVersion:        getGPTScriptVersion(),
+		authEnabled:             authEnabled,
+		sessionStore:            sessionStoreFromPostgresDSN(postgresDSN),
+		enterprise:              os.Getenv("OBOT_ENTERPRISE") == "true",
+		upgradeServerURL:        fmt.Sprintf("%s/check-upgrade", upgradeServerBaseURL),
+		engine:                  engine,
+		mcpNetworkPolicyEnabled: mcpNetworkPolicyEnabled,
+		mcpDefaultDenyAllEgress: mcpDefaultDenyAllEgress,
+		messagePoliciesEnabled:  messagePoliciesEnabled,
 	}
 
 	currentVersion, _, _ := strings.Cut(version.Get().String(), "+")
@@ -134,10 +124,7 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 
 	values["obot"] = version.Get().String()
 	values["gptscript"] = v.gptscriptVersion
-	values["emailDomain"] = v.emailDomain
-	values["dockerSupported"] = v.supportDocker
 	values["authEnabled"] = v.authEnabled
-	values["disableLegacyChat"] = v.disableLegacyChat
 	values["sessionStore"] = v.sessionStore
 	values["enterprise"] = v.enterprise
 	engine := v.engine
@@ -147,8 +134,6 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 	values["engine"] = engine
 	values["mcpNetworkPolicyEnabled"] = v.mcpNetworkPolicyEnabled
 	values["mcpDefaultDenyAllEgress"] = v.mcpDefaultDenyAllEgress
-	values["autonomousToolUseEnabled"] = v.autonomousToolUseEnabled
-	values["nanobotIntegration"] = v.nanobotIntegration
 	values["messagePoliciesEnabled"] = v.messagePoliciesEnabled
 	v.upgradeLock.RLock()
 	values["upgradeAvailable"] = v.upgradeAvailable

@@ -16,22 +16,17 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 )
 
 type Handler struct {
-	gptClient        *gptscript.GPTScript
-	gatewayClient    *client.Client
-	credProvider     *auditlogexport.GPTScriptCredentialProvider
-	encryptionConfig *encryptionconfig.EncryptionConfiguration
+	gatewayClient *client.Client
+	credProvider  *auditlogexport.GPTScriptCredentialProvider
 }
 
-func NewHandler(gptClient *gptscript.GPTScript, gatewayClient *client.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration) *Handler {
+func NewHandler(gptClient *gptscript.GPTScript, gatewayClient *client.Client) *Handler {
 	return &Handler{
-		gptClient:        gptClient,
-		gatewayClient:    gatewayClient,
-		credProvider:     auditlogexport.NewGPTScriptCredentialProvider(gptClient),
-		encryptionConfig: encryptionConfig,
+		gatewayClient: gatewayClient,
+		credProvider:  auditlogexport.NewGPTScriptCredentialProvider(gptClient),
 	}
 }
 

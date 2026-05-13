@@ -590,37 +590,6 @@ func preferredModelsForAlias(aliasName types.DefaultModelAliasType) []string {
 	return preferred
 }
 
-func (h *Handler) DeleteMCPServer(req router.Request, _ router.Response) error {
-	agent := req.Object.(*v1.NanobotAgent)
-
-	mcpServerName := system.MCPServerPrefix + agent.Name
-
-	// Delete the MCPServer object
-	var mcpServer v1.MCPServer
-	err := req.Get(&mcpServer, agent.Namespace, mcpServerName)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			// MCPServer doesn't exist, nothing to delete
-			return nil
-		}
-		return fmt.Errorf("failed to get MCPServer: %w", err)
-	}
-
-	// Delete associated tokens before deleting the server
-	if err := h.deleteTokens(req.Ctx, agent, mcpServerName); err != nil {
-		return fmt.Errorf("failed to delete tokens: %w", err)
-	}
-
-	// Delete the MCPServer object (credential will be automatically cleaned up)
-	if err := req.Client.Delete(req.Ctx, &mcpServer); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to delete MCPServer: %w", err)
-		}
-	}
-
-	return nil
-}
-
 // deleteTokens deletes the API key and MCP token associated with the MCP server.
 func (h *Handler) deleteTokens(ctx context.Context, agent *v1.NanobotAgent, mcpServerName string) error {
 	credCtx := fmt.Sprintf("%s-%s", agent.Spec.UserID, mcpServerName)

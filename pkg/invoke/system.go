@@ -3,17 +3,10 @@ package invoke
 import (
 	"context"
 	"encoding/json"
-	"errors"
-	"strings"
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/mcp"
-	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type SystemTaskOptions struct {
@@ -31,82 +24,6 @@ func complete(opts []SystemTaskOptions) (result SystemTaskOptions) {
 		}
 	}
 	return
-}
-
-func (i *Invoker) EphemeralThreadTask(ctx context.Context, mcpSessionManager *mcp.SessionManager, gptClient *gptscript.GPTScript, thread *v1.Thread, tool, input any, opts ...SystemTaskOptions) (string, error) {
-	opt := complete(opts)
-
-	inputString, err := inputToString(input)
-	if err != nil {
-		return "", err
-	}
-
-	var extraEnv []string
-	if toolString, ok := tool.(string); ok {
-		toolRef, err := render.ResolveToolReference(ctx, i.uncached, "", thread.Namespace, toolString)
-		if err != nil {
-			return "", err
-		}
-
-		var agent v1.Agent
-		if thread.Spec.AgentName != "" {
-			if err := i.uncached.Get(ctx, router.Key(thread.Namespace, thread.Spec.AgentName), &agent); err != nil {
-				return "", err
-			}
-		}
-
-		renderedAgent, err := render.Agent(ctx, mcpSessionManager, i.uncached, &v1.Agent{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: thread.Namespace,
-			},
-			Spec: v1.AgentSpec{
-				Manifest: types.AgentManifest{
-					Prompt: "#!sys.call " + toolRef,
-					Tools:  []string{toolRef},
-					Env:    agent.Spec.Manifest.Env,
-				},
-			},
-		}, i.serverURL, i.internalServerURL, render.AgentOptions{
-			Thread: thread,
-		})
-		if err != nil {
-			return "", err
-		}
-
-		tool = renderedAgent.Tools
-		extraEnv = renderedAgent.Env
-	}
-
-	var credContexts []string
-	if thread.Name != "" {
-		credContexts = append(credContexts, thread.Name)
-	}
-	if thread.Spec.AgentName != "" {
-		credContexts = append(credContexts, thread.Spec.AgentName)
-	}
-	if thread.Namespace != "" {
-		credContexts = append(credContexts, thread.Namespace)
-	}
-
-	resp, err := i.createRun(ctx, gptClient, i.uncached, thread, tool, inputString, runOptions{
-		Ephemeral:            true,
-		Env:                  append(opt.Env, extraEnv...),
-		CredentialContextIDs: append(opt.CredentialContextIDs, credContexts...),
-		Synchronous:          true,
-		Timeout:              opt.Timeout,
-	})
-	if err != nil {
-		return "", err
-	}
-	defer resp.Close()
-	result := strings.Builder{}
-	for event := range resp.Events {
-		if event.Error != "" {
-			return "", errors.New(event.Error)
-		}
-		result.WriteString(event.Content)
-	}
-	return result.String(), nil
 }
 
 func inputToString(input any) (string, error) {
@@ -153,7 +70,6 @@ func (i *Invoker) SystemTask(ctx context.Context, gptClient *gptscript.GPTScript
 	return i.createRun(ctx, gptClient, i.uncached, thread, tool, inputString, runOptions{
 		Env:                  opt.Env,
 		CredentialContextIDs: credContexts,
-		Synchronous:          true,
 		Timeout:              opt.Timeout,
 	})
 }

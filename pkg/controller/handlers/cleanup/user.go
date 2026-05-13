@@ -1,7 +1,6 @@
 package cleanup
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -53,8 +52,8 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	}
 	log.Infof("Removed user identities during cleanup: userID=%s identities=%d", userID, len(identities))
 
-	var agents v1.NanobotAgentList
-	if err := req.List(&agents, &kclient.ListOptions{
+	var projects v1.ProjectList
+	if err := req.List(&projects, &kclient.ListOptions{
 		Namespace: req.Namespace,
 		FieldSelector: fields.SelectorFromSet(map[string]string{
 			"spec.userID": userID,
@@ -63,12 +62,12 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	for _, agent := range agents.Items {
-		if err := req.Delete(&agent); err != nil {
+	for _, project := range projects.Items {
+		if err := req.Delete(&project); err != nil {
 			return err
 		}
 	}
-	log.Infof("Deleted nanobot agents during user cleanup: userID=%s agents=%d", userID, len(agents.Items))
+	log.Infof("Deleted projects during user cleanup: userID=%s projects=%d", userID, len(projects.Items))
 
 	// Delete any API keys the user created. Nanobot-agent keys are handled by the
 	// NanobotAgent delete flow above; this sweeps user-created keys plus anything
@@ -83,27 +82,6 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		}
 	}
 	log.Infof("Deleted API keys during user cleanup: userID=%s keys=%d", userID, len(apiKeys))
-
-	var threads v1.ThreadList
-	if err := req.List(&threads, &kclient.ListOptions{
-		Namespace: req.Namespace,
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.userUID": userID,
-		}),
-	}); err != nil {
-		return err
-	}
-
-	var deletedProjectThreads int
-	for _, thread := range threads.Items {
-		if thread.Spec.Project {
-			if err := req.Delete(&thread); err != nil {
-				return err
-			}
-			deletedProjectThreads++
-		}
-	}
-	log.Infof("Deleted project threads during user cleanup: userID=%s threads=%d", userID, deletedProjectThreads)
 
 	var servers v1.MCPServerList
 	if err := req.List(&servers, &kclient.ListOptions{
@@ -174,12 +152,6 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	}
 	log.Infof("Updated access control rules during user cleanup: userID=%s rules=%d", userID, updatedACRs)
 
-	deletedAuthorizations, err := deleteThreadAuthorizationsForUser(req.Ctx, req.Client, userID)
-	if err != nil {
-		return fmt.Errorf("failed to delete thread authorizations for user %d: %w", userDelete.Spec.UserID, err)
-	}
-	log.Infof("Deleted thread authorizations during user cleanup: userID=%s authorizations=%d", userID, deletedAuthorizations)
-
 	// Delete the user's PowerUserWorkspace if it exists
 	var workspaces v1.PowerUserWorkspaceList
 	if err := req.List(&workspaces, &kclient.ListOptions{
@@ -201,23 +173,4 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	// If everything is cleaned up successfully, then delete this object because we don't need it.
 	log.Infof("Completed user cleanup: userID=%s", userID)
 	return req.Delete(userDelete)
-}
-
-func deleteThreadAuthorizationsForUser(ctx context.Context, storageClient kclient.Client, userID string) (int, error) {
-	var memberships v1.ThreadAuthorizationList
-	if err := storageClient.List(ctx, &memberships, kclient.MatchingFields{
-		"spec.userID": userID,
-	}); err != nil {
-		return 0, err
-	}
-
-	var deleted int
-	for _, membership := range memberships.Items {
-		if err := storageClient.Delete(ctx, &membership); err != nil {
-			return deleted, err
-		}
-		deleted++
-	}
-
-	return deleted, nil
 }

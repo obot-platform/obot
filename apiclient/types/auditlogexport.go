@@ -69,6 +69,16 @@ type ScheduledAuditLogExportResponse struct {
 	LastRunAt             Time                  `json:"lastRunAt,omitempty"`
 }
 
+type Schedule struct {
+	// Valid values are: "hourly", "daily", "weekly", "monthly"
+	Interval string `json:"interval"`
+	Hour     int    `json:"hour"`
+	Minute   int    `json:"minute"`
+	Day      int    `json:"day"`
+	Weekday  int    `json:"weekday"`
+	TimeZone string `json:"timezone"`
+}
+
 // ScheduledAuditLogExportListResponse represents a list of scheduled audit log exports
 type ScheduledAuditLogExportListResponse struct {
 	Items []ScheduledAuditLogExportResponse `json:"items"`

@@ -6,7 +6,6 @@ import (
 )
 
 type RunState struct {
-	UserID     string    `json:"userID"`
 	Name       string    `json:"name" gorm:"primaryKey"`
 	Namespace  string    `json:"namespace" gorm:"primaryKey"`
 	CreatedAt  time.Time `json:"createdAt"`

@@ -22,24 +22,20 @@ import (
 )
 
 type Handler struct {
-	mcpSessionManager         *mcp.SessionManager
-	webhookHelper             *mcp.WebhookHelper
-	nanobotIntegrationEnabled bool
-	scope                     string
-	transport                 http.RoundTripper
+	mcpSessionManager *mcp.SessionManager
+	scope             string
+	transport         http.RoundTripper
 }
 
-func NewHandler(mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.WebhookHelper, scopesSupported []string, nanobotIntegrationEnabled bool) *Handler {
+func NewHandler(mcpSessionManager *mcp.SessionManager, scopesSupported []string) *Handler {
 	var scope string
 	if len(scopesSupported) > 0 {
 		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(scopesSupported, " "))
 	}
 	return &Handler{
-		mcpSessionManager:         mcpSessionManager,
-		webhookHelper:             webhookHelper,
-		nanobotIntegrationEnabled: nanobotIntegrationEnabled,
-		scope:                     scope,
-		transport:                 otelhttp.NewTransport(http.DefaultTransport),
+		mcpSessionManager: mcpSessionManager,
+		scope:             scope,
+		transport:         otelhttp.NewTransport(http.DefaultTransport),
 	}
 }
 
@@ -120,7 +116,7 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, str
 	}
 
 	// Add-hoc authorization for nanobot agents
-	if h.nanobotIntegrationEnabled && mcpServerConfig.NanobotAgentName != "" {
+	if mcpServerConfig.NanobotAgentName != "" {
 		var agent v1.NanobotAgent
 		if err = req.Get(&agent, mcpServerConfig.NanobotAgentName); err != nil {
 			return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to get nanobot agent %q: %w", mcpServerConfig.NanobotAgentName, err)
@@ -135,7 +131,7 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, str
 		return mcp.ServerConfig{}, "", false, fmt.Errorf("failed to launch mcp server: %w", err)
 	}
 
-	return mcpServerConfig, url, h.nanobotIntegrationEnabled && mcpServerConfig.NanobotAgentName != "", nil
+	return mcpServerConfig, url, mcpServerConfig.NanobotAgentName != "", nil
 }
 
 func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (mcp.ServerConfig, string, bool, error) {

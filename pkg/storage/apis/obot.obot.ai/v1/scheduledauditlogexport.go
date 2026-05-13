@@ -71,13 +71,6 @@ type Schedule struct {
 	TimeZone string `json:"timezone"`
 }
 
-type NotificationConfig struct {
-	OnSuccess bool   `json:"onSuccess,omitempty"`
-	OnFailure bool   `json:"onFailure,omitempty"`
-	Webhook   string `json:"webhook,omitempty"`
-	Email     string `json:"email,omitempty"`
-}
-
 type ScheduledAuditLogExportStatus struct {
 	TotalExportsCreated int64        `json:"totalExportsCreated,omitempty"`
 	Error               string       `json:"error,omitempty"`

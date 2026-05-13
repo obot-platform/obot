@@ -20,7 +20,6 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/mcp"
-	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
@@ -201,14 +200,13 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 	} else {
 		// List servers scoped to the user.
 		fieldSelector = kclient.MatchingFields{
-			"spec.userID":     req.User.GetUID(),
-			"spec.threadName": "",
+			"spec.userID": req.User.GetUID(),
 		}
 	}
 
 	var servers v1.MCPServerList
 	if err := req.List(&servers, fieldSelector); err != nil {
-		return nil
+		return fmt.Errorf("failed to list MCP servers: %w", err)
 	}
 
 	credCtxs := make([]string, 0, len(servers.Items))
@@ -338,19 +336,6 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 		credCtxs = []string{fmt.Sprintf("%s-%s", catalogID, server.Name)}
 	} else if workspaceID != "" {
 		credCtxs = []string{fmt.Sprintf("%s-%s", workspaceID, server.Name)}
-	} else if req.PathValue("project_id") != "" {
-		project, err := getProjectThread(req)
-		if err != nil {
-			return err
-		}
-
-		credCtxs = []string{
-			fmt.Sprintf("%s-%s", project.Name, server.Name),
-		}
-		if project.IsSharedProject() {
-			// Add default credentials shared by the agent for this MCP server if available.
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
-		}
 	} else {
 		credCtxs = []string{fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name)}
 	}
@@ -696,24 +681,7 @@ func (m *MCPHandler) GetTools(req api.Context) error {
 		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support tools")
 	}
 
-	var allowedTools []string
-	if server.Spec.ThreadName != "" {
-		thread, err := getThreadForScope(req)
-		if err != nil {
-			return err
-		}
-
-		thread, err = projects.GetFirst(req.Context(), req.Storage, thread, func(project *v1.Thread) (bool, error) {
-			return project.Spec.Manifest.AllowedMCPTools[server.Name] != nil, nil
-		})
-		if err != nil {
-			return fmt.Errorf("failed to get project: %w", err)
-		}
-
-		allowedTools = thread.Spec.Manifest.AllowedMCPTools[server.Name]
-	}
-
-	tools, err := toolsForServer(req.Context(), m.mcpSessionManager, server, serverConfig, allowedTools)
+	tools, err := toolsForServer(req.Context(), m.mcpSessionManager, server, serverConfig)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -728,145 +696,6 @@ func (m *MCPHandler) GetTools(req api.Context) error {
 	}
 
 	return req.Write(tools)
-}
-
-func (m *MCPHandler) SetTools(req api.Context) error {
-	thread, err := getThreadForScope(req)
-	if err != nil {
-		return err
-	}
-
-	var mcpServer v1.MCPServer
-	if err = req.Get(&mcpServer, req.PathValue("mcp_server_id")); err != nil {
-		return err
-	}
-
-	var tools []string
-	if err = req.Read(&tools); err != nil {
-		return err
-	}
-
-	project, err := getProjectThread(req)
-	if err != nil {
-		return err
-	}
-
-	credCtxs := []string{
-		fmt.Sprintf("%s-%s", project.Name, mcpServer.Name),
-	}
-	if project.IsSharedProject() {
-		// Add default credentials shared by the agent for this MCP server if available.
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", mcpServer.Spec.ThreadName, mcpServer.Name))
-	}
-
-	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, mcpServer.Name)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return fmt.Errorf("failed to find credential: %w", err)
-	}
-
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, mcpServer.Spec.Manifest.Env, mcpServer.Spec.Manifest.RemoteConfig, cred.Env)
-	if err != nil {
-		return fmt.Errorf("failed to resolve secret bindings: %w", err)
-	}
-
-	catalogName := mcpServer.Spec.MCPCatalogID
-	if catalogName == "" {
-		catalogName = mcpServer.Status.MCPCatalogID
-	}
-	if catalogName == "" {
-		// For multi-user servers in a workspace, use the workspace ID as the catalog name
-		catalogName = mcpServer.Spec.PowerUserWorkspaceID
-	}
-	// Look up catalog entry for catalog name if needed
-	if mcpServer.Spec.MCPServerCatalogEntryName != "" {
-		var entry v1.MCPServerCatalogEntry
-		if err := req.Get(&entry, mcpServer.Spec.MCPServerCatalogEntryName); err != nil {
-			return fmt.Errorf("failed to get MCP server catalog entry: %w", err)
-		}
-		if catalogName == "" {
-			catalogName = entry.Spec.MCPCatalogName
-		}
-		if catalogName == "" {
-			catalogName = entry.Spec.PowerUserWorkspaceID
-		}
-	}
-
-	tokenExchangeCred, err := req.GPTClient.RevealCredential(req.Context(), []string{mcpServer.Name}, mcpServer.Name)
-	if err != nil {
-		return fmt.Errorf("failed to find token exchange credential: %w", err)
-	}
-
-	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
-	var (
-		serverConfig         mcp.ServerConfig
-		missingRequiredNames []string
-	)
-	if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
-		var componentServers v1.MCPServerList
-		if err = req.List(&componentServers,
-			kclient.InNamespace(mcpServer.Namespace),
-			kclient.MatchingFields{"spec.compositeName": mcpServer.Name},
-		); err != nil {
-			return fmt.Errorf("failed to list component servers: %w", err)
-		}
-
-		var componentInstances v1.MCPServerInstanceList
-		if err = req.List(&componentInstances,
-			kclient.InNamespace(mcpServer.Namespace),
-			kclient.MatchingFields{"spec.compositeName": mcpServer.Name},
-		); err != nil {
-			return fmt.Errorf("failed to list component servers instances: %w", err)
-		}
-
-		serverConfig, missingRequiredNames, err = mcp.CompositeServerToServerConfig(mcpServer, componentServers.Items, componentInstances.Items, mcpServer.ValidConnectURLs(baseURL), baseURL, req.User.GetUID(), project.Name, catalogName, mergedEnv, tokenExchangeCred.Env)
-	} else {
-		serverConfig, missingRequiredNames, err = mcp.ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, req.User.GetUID(), project.Name, catalogName, mergedEnv, tokenExchangeCred.Env)
-	}
-	if err != nil {
-		return fmt.Errorf("failed to get server config: %w", err)
-	}
-
-	if len(missingRequiredNames) > 0 {
-		return types.NewErrBadRequest("MCP server %s is missing required parameters: %s", mcpServer.Name, strings.Join(missingRequiredNames, ", "))
-	}
-
-	mcpTools, err := toolsForServer(req.Context(), m.mcpSessionManager, mcpServer, serverConfig, tools)
-	if err != nil {
-		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
-		}
-		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-		}
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
-			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
-		}
-		return fmt.Errorf("failed to render tools: %w", err)
-	}
-
-	if thread.Spec.Manifest.AllowedMCPTools == nil {
-		thread.Spec.Manifest.AllowedMCPTools = make(map[string][]string)
-	}
-
-	if slices.Contains(tools, "*") {
-		thread.Spec.Manifest.AllowedMCPTools[mcpServer.Name] = []string{"*"}
-	} else {
-		for _, t := range tools {
-			if !slices.ContainsFunc(mcpTools, func(tool types.MCPServerTool) bool {
-				return tool.ID == t
-			}) {
-				return types.NewErrBadRequest("tool %q is not a recognized tool for MCP server %q", t, mcpServer.Name)
-			}
-		}
-
-		thread.Spec.Manifest.AllowedMCPTools[mcpServer.Name] = tools
-	}
-
-	if err = req.Update(thread); err != nil {
-		return fmt.Errorf("failed to update thread: %w", err)
-	}
-
-	return nil
 }
 
 func (m *MCPHandler) GetResources(req api.Context) error {
@@ -1347,21 +1176,6 @@ func serverConfigForAction(req api.Context, server v1.MCPServer) (mcp.ServerConf
 	} else if server.Spec.PowerUserWorkspaceID != "" {
 		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
 		scope = server.Spec.PowerUserWorkspaceID
-	} else if server.Spec.ThreadName != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name))
-
-		if req.PathValue("project_id") != "" {
-			project, err := getProjectThread(req)
-			if err != nil {
-				return mcp.ServerConfig{}, err
-			}
-
-			if project.IsSharedProject() {
-				credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
-			}
-		}
-
-		scope = server.Spec.ThreadName
 	} else {
 		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
 		scope = server.Spec.UserID
@@ -2552,7 +2366,7 @@ func (m *MCPHandler) revealCompositeServer(req api.Context, compositeServer v1.M
 	return req.Write(map[string]any{"componentConfigs": result})
 }
 
-func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, server v1.MCPServer, serverConfig mcp.ServerConfig, allowedTools []string) ([]types.MCPServerTool, error) {
+func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, server v1.MCPServer, serverConfig mcp.ServerConfig) ([]types.MCPServerTool, error) {
 	gTools, err := mcpSessionManager.ListTools(ctx, serverConfig)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
@@ -2566,7 +2380,7 @@ func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, 
 		return nil, err
 	}
 
-	return mcp.ConvertTools(gTools, allowedTools, server.Spec.UnsupportedTools)
+	return mcp.ConvertTools(gTools, server.Spec.UnsupportedTools)
 }
 
 func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer) error {

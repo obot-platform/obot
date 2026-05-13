@@ -470,20 +470,6 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 	return serverConfig, missingRequiredNames, nil
 }
 
-func ProjectServerToConfig(projectMCPServer v1.ProjectMCPServer, publicBaseURL, internalBaseURL, userID string) (ServerConfig, error) {
-	return ServerConfig{
-		URL:                projectMCPServer.ConnectURL(internalBaseURL),
-		UserID:             userID,
-		OwnerUserID:        projectMCPServer.Spec.UserID,
-		MCPServerNamespace: projectMCPServer.Namespace,
-		MCPServerName:      projectMCPServer.Spec.Manifest.MCPID,
-		Scope:              fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
-		Runtime:            types.RuntimeRemote,
-		Audiences:          []string{projectMCPServer.Audience(publicBaseURL)},
-		ProjectMCPServer:   true,
-	}, nil
-}
-
 // SystemServerToServerConfig converts a v1.SystemMCPServer to a ServerConfig for deployment
 func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []string, issuer string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
 	fileEnvVars := make(map[string]struct{})

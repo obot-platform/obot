@@ -2,13 +2,10 @@ package v1
 
 import (
 	"github.com/obot-platform/nah/pkg/fields"
-	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var (
-	_ fields.Fields = (*ToolReference)(nil)
-)
+var _ fields.Fields = (*ToolReference)(nil)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -29,8 +26,6 @@ func (in *ToolReference) Get(field string) string {
 		switch field {
 		case "spec.type":
 			return string(in.Spec.Type)
-		case "spec.bundleToolName":
-			return in.Spec.BundleToolName
 		}
 	}
 
@@ -50,21 +45,13 @@ func (in *ToolReference) GetColumns() [][]string {
 	}
 }
 
-func (in *ToolReference) DeleteRefs() []Ref {
-	return []Ref{
-		{ObjType: new(ToolReference), Name: in.Spec.BundleToolName},
-	}
-}
-
 type ToolReferenceSpec struct {
-	Type           types.ToolReferenceType `json:"type,omitempty"`
-	ToolMetadata   map[string]string       `json:"toolMetadata,omitempty"`
-	Builtin        bool                    `json:"builtin,omitempty"`
-	Reference      string                  `json:"reference,omitempty"`
-	Active         *bool                   `json:"active,omitempty"`
-	Bundle         bool                    `json:"bundle,omitempty"`
-	BundleToolName string                  `json:"bundleToolName,omitempty"`
-	ForceRefresh   metav1.Time             `json:"forceRefresh,omitempty"`
+	Type         ToolReferenceType `json:"type,omitempty"`
+	ToolMetadata map[string]string `json:"toolMetadata,omitempty"`
+	Builtin      bool              `json:"builtin,omitempty"`
+	Reference    string            `json:"reference,omitempty"`
+	Active       *bool             `json:"active,omitempty"`
+	ForceRefresh metav1.Time       `json:"forceRefresh,omitempty"`
 }
 
 type ToolShortDescription struct {
@@ -95,3 +82,10 @@ type ToolReferenceList struct {
 
 	Items []ToolReference `json:"items"`
 }
+
+type ToolReferenceType string
+
+const (
+	ToolReferenceTypeModelProvider ToolReferenceType = "modelProvider"
+	ToolReferenceTypeAuthProvider  ToolReferenceType = "authProvider"
+)

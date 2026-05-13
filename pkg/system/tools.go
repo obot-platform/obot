@@ -12,8 +12,6 @@ const (
 	WorkflowTool               = "workflow"
 	TasksTool                  = "tasks"
 	TasksWorkflowTool          = "tasks-workflow"
-	DockerTool                 = "docker"
-	ShellTool                  = "shell"
 	DockerShellIDTool          = "docker-shell-id"
 	ExistingCredTool           = "existing-credential"
 	KnowledgeCredID            = "knowledge"

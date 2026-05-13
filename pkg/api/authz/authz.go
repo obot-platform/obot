@@ -27,32 +27,8 @@ var (
 		"GET /api/skills/{id}/download",
 	)
 	adminAndOwnerRules = []string{
-		"/api/agents",
-		"/api/agents/",
-		"/api/projects",
-		"/api/projects/",
-		"/api/shares",
-		"/api/shares/",
-		"/api/tasks",
-		"/api/tasks/",
-		"/api/threads",
-		"GET /api/threads/{id}",
-		"GET /api/threads/{id}/files",
-		"GET /api/threads/{id}/knowledge-files",
 		"/api/tool-references",
 		"/api/tool-references/",
-		"GET /api/agents/{agent}/runs",
-		"GET /api/agents/{agent}/threads/{thread}/runs",
-		"GET /api/runs",
-		"GET /api/runs/{id}",
-		"GET /api/threads/{thread}/runs",
-		"/api/webhooks",
-		"/api/webhooks/",
-		"/api/sendgrid",
-		"/api/email-receivers",
-		"/api/email-receivers/",
-		"/api/cronjobs",
-		"/api/cronjobs/",
 		"/api/mcp-catalogs",
 		"/api/mcp-catalogs/",
 		"/api/mcp-servers",
@@ -78,8 +54,6 @@ var (
 		"/api/auth-providers/",
 		"/api/model-providers",
 		"/api/model-providers/",
-		"/api/file-scanner-providers",
-		"/api/file-scanner-providers/",
 		"GET /api/bookstrap",
 		"/api/models",
 		"/api/models/",
@@ -102,8 +76,6 @@ var (
 		"/api/available-models/",
 		"/api/default-model-aliases",
 		"/api/default-model-aliases/",
-		"/api/workflows",
-		"/api/workflows/",
 		"GET /api/users",
 		"GET /api/groups",
 		"/api/group-role-assignments",
@@ -117,7 +89,6 @@ var (
 		"DELETE /api/tokens/{id}",
 		"/api/oauth-apps",
 		"/api/oauth-apps/",
-		"/api/file-scanner-config",
 		"/api/user-default-role-settings",
 		"/api/setup/",
 		"/api/k8s-settings",
@@ -159,8 +130,8 @@ var (
 		"GET /api/admin-api-keys/{id}",
 		"DELETE /api/admin-api-keys/{id}",
 
-		"/api/projectsv2",
-		"/api/projectsv2/",
+		"/api/projects",
+		"/api/projects/",
 		"GET /api/nanobot-agents",
 	}
 	staticRules = map[string][]string{
@@ -176,10 +147,6 @@ var (
 			"GET /api/mcp-stats",
 			"GET /api/mcp-stats/{mcp_id}",
 			"GET /api/mcp-capacity",
-			"GET /api/threads",
-			"GET /api/threads/",
-			"GET /api/runs",
-			"GET /api/runs/",
 			"GET /api/users",
 			"GET /api/users/",
 			"GET /api/groups",
@@ -192,9 +159,6 @@ var (
 			"GET /api/mcp-webhook-validations",
 			"GET /api/mcp-webhook-validations/",
 			"GET /api/mcp-servers/",
-			"GET /api/tasks",
-			"GET /api/tasks/",
-			"GET /api/agents",
 			"GET /api/model-access-policies",
 			"GET /api/model-access-policies/",
 			"GET /api/message-policies",
@@ -203,8 +167,6 @@ var (
 			"GET /api/k8s-settings",
 			"POST /api/auth-providers/",
 			"GET /api/workspaces/",
-			"GET /api/projects/",
-			"GET /api/assistants/{assistant_id}/projects/",
 			"/api/audit-log-exports/",
 			"/api/audit-log-exports/{id}",
 			"/api/scheduled-audit-log-exports",
@@ -239,7 +201,6 @@ var (
 			// Allow access to the oauth2 endpoints
 			"/oauth2/",
 
-			"POST /api/webhooks/{namespace}/{id}",
 			"GET /api/token-request/{id}",
 			"POST /api/token-request",
 			"GET /api/token-request/{id}/{service}",
@@ -265,12 +226,6 @@ var (
 			"GET /api/auth-providers",
 			"GET /api/auth-providers/{id}",
 
-			"POST /api/slack/events",
-
-			// Allow public access to read display info for featured Obots
-			// This is used in the unauthenticated landing page
-			"GET /api/shares",
-			"GET /api/templates",
 			"GET /api/tool-references",
 
 			"GET /.well-known/",
@@ -295,20 +250,12 @@ var (
 		},
 
 		types.GroupBasic: {
-			"/api/assistants",
 			"/api/llm-proxy/",
 			"POST /api/prompt",
 			"GET /api/models",
 			"GET /api/model-providers",
 			"GET /api/users",
 			"GET /api/groups",
-
-			// Allow authenticated users to read and accept/reject project invitations.
-			// The security depends on the code being an unguessable UUID string,
-			// which is the project owner shares with the user that they are inviting.
-			"GET /api/projectinvitations/{code}",
-			"POST /api/projectinvitations/{code}",
-			"DELETE /api/projectinvitations/{code}",
 
 			// Allow authenticated users to read servers and entries from MCP catalogs.
 			// The authz logic is handled in the routes themselves, for now.
@@ -336,8 +283,8 @@ var (
 			"GET /api/skills/{id}/download",
 
 			// Allow basic users to create and list ProjectV2 resources
-			"POST /api/projectsv2",
-			"GET /api/projectsv2",
+			"POST /api/projects",
+			"GET /api/projects",
 
 			// Device scans: any authenticated user can submit a scan via
 			// `obot scan`. Reads are admin/owner/auditor-only, gated by

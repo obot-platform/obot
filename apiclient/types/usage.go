@@ -13,13 +13,6 @@ type TokenUsage struct {
 
 type TokenUsageList List[TokenUsage]
 
-type TokenUsageByDate struct {
-	Date  string       `json:"date"`
-	Items []TokenUsage `json:"items"`
-}
-
-type TokenUsageSeries []TokenUsageByDate
-
 type RemainingTokenUsage struct {
 	UserID                    string `json:"userID,omitempty"`
 	PromptTokens              int    `json:"promptTokens"`
@@ -27,5 +20,3 @@ type RemainingTokenUsage struct {
 	UnlimitedPromptTokens     bool   `json:"unlimitedPromptTokens"`
 	UnlimitedCompletionTokens bool   `json:"unlimitedCompletionTokens"`
 }
-
-type RemainingTokenUsageList List[RemainingTokenUsage]

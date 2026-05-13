@@ -14,12 +14,12 @@ import type {
 type ItemsResponse<T> = { items: T[] | null };
 
 export async function listProjectsV2(opts?: { fetch?: Fetcher }): Promise<ProjectV2[]> {
-	const response = (await doGet('/projectsv2', opts)) as ItemsResponse<ProjectV2>;
+	const response = (await doGet('/projects', opts)) as ItemsResponse<ProjectV2>;
 	return response.items ?? [];
 }
 
 export async function getProjectV2(id: string, opts?: { fetch?: Fetcher }): Promise<ProjectV2> {
-	const response = (await doGet(`/projectsv2/${id}`, opts)) as ProjectV2;
+	const response = (await doGet(`/projects/${id}`, opts)) as ProjectV2;
 	return response;
 }
 
@@ -27,7 +27,7 @@ export async function createProjectV2(
 	request: ProjectV2CreateRequest,
 	opts?: { fetch?: Fetcher }
 ): Promise<ProjectV2> {
-	const response = (await doPost('/projectsv2', request, opts)) as ProjectV2;
+	const response = (await doPost('/projects', request, opts)) as ProjectV2;
 	return response;
 }
 
@@ -36,12 +36,12 @@ export async function updateProjectV2(
 	request: ProjectV2UpdateRequest,
 	opts?: { fetch?: Fetcher }
 ): Promise<ProjectV2> {
-	const response = (await doPut(`/projectsv2/${id}`, request, opts)) as ProjectV2;
+	const response = (await doPut(`/projects/${id}`, request, opts)) as ProjectV2;
 	return response;
 }
 
 export async function deleteProjectV2(id: string): Promise<void> {
-	await doDelete(`/projectsv2/${id}`);
+	await doDelete(`/projects/${id}`);
 }
 
 export async function listProjectV2Agents(
@@ -49,7 +49,7 @@ export async function listProjectV2Agents(
 	opts?: { fetch?: Fetcher }
 ): Promise<ProjectV2Agent[]> {
 	const response = (await doGet(
-		`/projectsv2/${projectId}/agents`,
+		`/projects/${projectId}/agents`,
 		opts
 	)) as ItemsResponse<ProjectV2Agent>;
 	return response.items ?? [];
@@ -61,7 +61,7 @@ export async function getProjectV2Agent(
 	opts?: { fetch?: Fetcher }
 ): Promise<ProjectV2Agent> {
 	const response = (await doGet(
-		`/projectsv2/${projectId}/agents/${agentId}`,
+		`/projects/${projectId}/agents/${agentId}`,
 		opts
 	)) as ProjectV2Agent;
 	return response;
@@ -72,11 +72,7 @@ export async function createProjectV2Agent(
 	request: ProjectV2AgentCreateRequest,
 	opts?: { fetch?: Fetcher }
 ): Promise<ProjectV2Agent> {
-	const response = (await doPost(
-		`/projectsv2/${projectId}/agents`,
-		request,
-		opts
-	)) as ProjectV2Agent;
+	const response = (await doPost(`/projects/${projectId}/agents`, request, opts)) as ProjectV2Agent;
 	return response;
 }
 
@@ -87,7 +83,7 @@ export async function updateProjectV2Agent(
 	opts?: { fetch?: Fetcher }
 ): Promise<ProjectV2Agent> {
 	const response = (await doPut(
-		`/projectsv2/${projectId}/agents/${agentId}`,
+		`/projects/${projectId}/agents/${agentId}`,
 		request,
 		opts
 	)) as ProjectV2Agent;
@@ -95,7 +91,7 @@ export async function updateProjectV2Agent(
 }
 
 export async function deleteProjectV2Agent(projectId: string, agentId: string): Promise<void> {
-	await doDelete(`/projectsv2/${projectId}/agents/${agentId}`);
+	await doDelete(`/projects/${projectId}/agents/${agentId}`);
 }
 
 export async function launchProjectV2Agent(
@@ -104,7 +100,7 @@ export async function launchProjectV2Agent(
 	opts?: { fetch?: Fetcher }
 ): Promise<unknown> {
 	const response = (await doPost(
-		`/projectsv2/${projectId}/agents/${agentId}/launch`,
+		`/projects/${projectId}/agents/${agentId}/launch`,
 		{},
 		opts
 	)) as unknown;

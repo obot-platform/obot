@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -39,7 +38,7 @@ func (mp *ModelProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	if ref.Spec.Type != types.ToolReferenceTypeModelProvider {
+	if ref.Spec.Type != v1.ToolReferenceTypeModelProvider {
 		return types.NewErrNotFound(
 			"model provider %q not found",
 			ref.Name,
@@ -72,45 +71,11 @@ func (mp *ModelProviderHandler) ByID(req api.Context) error {
 }
 
 func (mp *ModelProviderHandler) List(req api.Context) error {
-	assistantID := req.PathValue("assistant_id")
-	projectID := req.PathValue("project_id")
-
-	var allowedModelProviders []string
-	if assistantID != "" {
-		agent, err := getAssistant(req, assistantID)
-		if err != nil {
-			return fmt.Errorf("failed to get assistant: %w", err)
-		}
-
-		allowedModelProviders = agent.Spec.Manifest.AllowedModelProviders
-
-		project, err := getProjectThread(req)
-		if err != nil {
-			return fmt.Errorf("failed to get project: %w", err)
-		}
-
-		// Add any model providers on the project to the allowed list if they aren't already on there.
-		// This protects against the agent changing allowed model providers, but the project is already configured with one that is removed.
-		if project.Spec.DefaultModelProvider != "" && !slices.Contains(allowedModelProviders, project.Spec.DefaultModelProvider) {
-			allowedModelProviders = append(allowedModelProviders, project.Spec.DefaultModelProvider)
-		}
-
-		for modelProvider := range project.Spec.Models {
-			if modelProvider != "" && !slices.Contains(allowedModelProviders, modelProvider) {
-				allowedModelProviders = append(allowedModelProviders, modelProvider)
-			}
-		}
-
-		if len(allowedModelProviders) == 0 {
-			return req.Write(types.ModelProviderList{})
-		}
-	}
-
 	var refList v1.ToolReferenceList
 	if err := req.List(&refList, &kclient.ListOptions{
 		Namespace: req.Namespace(),
 		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.type": string(types.ToolReferenceTypeModelProvider),
+			"spec.type": string(v1.ToolReferenceTypeModelProvider),
 		}),
 	}); err != nil {
 		return err
@@ -118,18 +83,10 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 
 	credCtxs := make([]string, 0, len(refList.Items)+1)
 	for _, ref := range refList.Items {
-		if projectID == "" {
-			credCtxs = append(credCtxs, string(ref.UID))
-		} else if slices.Contains(allowedModelProviders, ref.Name) {
-			// When listing for a specific agent/projects, only list the model providers allowed by the agent.
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", projectID, ref.Name))
-		}
+		credCtxs = append(credCtxs, string(ref.UID))
 	}
 
-	if projectID == "" {
-		credCtxs = append(credCtxs, system.GenericModelProviderCredentialContext)
-	}
-
+	credCtxs = append(credCtxs, system.GenericModelProviderCredentialContext)
 	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
 		CredentialContexts: credCtxs,
 	})
@@ -145,15 +102,9 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 	resp := make([]types.ModelProvider, 0, len(refList.Items))
 	var env map[string]string
 	for _, ref := range refList.Items {
-		if projectID == "" {
-			env = credMap[string(ref.UID)+ref.Name]
-			if env == nil {
-				env = credMap[system.GenericModelProviderCredentialContext+ref.Name]
-			}
-		} else if slices.Contains(allowedModelProviders, ref.Name) {
-			env = credMap[fmt.Sprintf("%s-%s", projectID, ref.Name)+ref.Name]
-		} else {
-			continue
+		env = credMap[string(ref.UID)+ref.Name]
+		if env == nil {
+			env = credMap[system.GenericModelProviderCredentialContext+ref.Name]
 		}
 
 		modelProvider, err := convertToolReferenceToModelProvider(ref, env)
@@ -176,28 +127,13 @@ func (ve *modelProviderValidationError) Error() string {
 }
 
 func (mp *ModelProviderHandler) Validate(req api.Context) error {
-	assistantID := req.PathValue("assistant_id")
-	projectID := req.PathValue("project_id")
 	modelProvider := req.PathValue("model_provider_id")
-
-	if assistantID != "" {
-		// Ensure that this agent allows this model provider.
-		agent, err := getAssistant(req, assistantID)
-		if err != nil {
-			return fmt.Errorf("failed to get assistant: %w", err)
-		}
-
-		if !slices.Contains(agent.Spec.Manifest.AllowedModelProviders, modelProvider) {
-			return types.NewErrBadRequest("model provider %q is not allowed for assistant %q", modelProvider, agent.Name)
-		}
-	}
-
 	var ref v1.ToolReference
 	if err := req.Get(&ref, modelProvider); err != nil {
 		return err
 	}
 
-	if ref.Spec.Type != types.ToolReferenceTypeModelProvider {
+	if ref.Spec.Type != v1.ToolReferenceTypeModelProvider {
 		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
 	}
 
@@ -215,12 +151,11 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 
 	thread := &v1.Thread{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-%s-validate-%s", system.ThreadPrefix, ref.Name, projectID),
+			GenerateName: fmt.Sprintf("%s-%s-validates", system.ThreadPrefix, ref.Name),
 			Namespace:    ref.Namespace,
 		},
 		Spec: v1.ThreadSpec{
-			SystemTask: true,
-			Ephemeral:  true,
+			Ephemeral: true,
 		},
 	}
 
@@ -255,27 +190,13 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 }
 
 func (mp *ModelProviderHandler) Configure(req api.Context) error {
-	assistantID := req.PathValue("assistant_id")
-	projectID := req.PathValue("project_id")
 	modelProvider := req.PathValue("model_provider_id")
-	if assistantID != "" {
-		// Ensure that this agent allows this model provider.
-		agent, err := getAssistant(req, assistantID)
-		if err != nil {
-			return fmt.Errorf("failed to get assistant: %w", err)
-		}
-
-		if !slices.Contains(agent.Spec.Manifest.AllowedModelProviders, modelProvider) {
-			return types.NewErrBadRequest("model provider %q is not allowed for assistant %q", modelProvider, agent.Name)
-		}
-	}
-
 	var ref v1.ToolReference
 	if err := req.Get(&ref, modelProvider); err != nil {
 		return err
 	}
 
-	if ref.Spec.Type != types.ToolReferenceTypeModelProvider {
+	if ref.Spec.Type != v1.ToolReferenceTypeModelProvider {
 		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
 	}
 
@@ -286,11 +207,6 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 
 	// If this is a "global" model provider, then the generic model provider context is added to handle more git-ops-ian deployments.
 	credCtxs := []string{string(ref.UID), system.GenericModelProviderCredentialContext}
-	if projectID != "" {
-		// If this is project-based, then only use the one context.
-		credCtxs = []string{fmt.Sprintf("%s-%s", projectID, ref.Name)}
-	}
-
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
 	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, ref.Name)
 	if err != nil {
@@ -316,18 +232,16 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	if assistantID == "" {
-		// We only need to reprocess the model provider if this is the "global" model provider.
-		mp.dispatcher.StopModelProvider(ref.Namespace, ref.Name)
+	// We only need to reprocess the model provider if this is the "global" model provider.
+	mp.dispatcher.StopModelProvider(ref.Namespace, ref.Name)
 
-		if ref.Annotations[v1.ModelProviderSyncAnnotation] == "" {
-			if ref.Annotations == nil {
-				ref.Annotations = make(map[string]string, 1)
-			}
-			ref.Annotations[v1.ModelProviderSyncAnnotation] = "true"
-		} else {
-			delete(ref.Annotations, v1.ModelProviderSyncAnnotation)
+	if ref.Annotations[v1.ModelProviderSyncAnnotation] == "" {
+		if ref.Annotations == nil {
+			ref.Annotations = make(map[string]string, 1)
 		}
+		ref.Annotations[v1.ModelProviderSyncAnnotation] = "true"
+	} else {
+		delete(ref.Annotations, v1.ModelProviderSyncAnnotation)
 	}
 
 	return req.Update(&ref)
@@ -343,7 +257,7 @@ func (mp *ModelProviderHandler) Deconfigure(req api.Context) error {
 		return err
 	}
 
-	if ref.Spec.Type != types.ToolReferenceTypeModelProvider {
+	if ref.Spec.Type != v1.ToolReferenceTypeModelProvider {
 		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
 	}
 
@@ -382,37 +296,18 @@ func (mp *ModelProviderHandler) Deconfigure(req api.Context) error {
 }
 
 func (mp *ModelProviderHandler) Reveal(req api.Context) error {
-	assistantID := req.PathValue("assistant_id")
-	projectID := req.PathValue("project_id")
 	modelProvider := req.PathValue("model_provider_id")
-	if assistantID != "" {
-		// Ensure that this agent allows this model provider.
-		agent, err := getAssistant(req, assistantID)
-		if err != nil {
-			return fmt.Errorf("failed to get assistant: %w", err)
-		}
-
-		if !slices.Contains(agent.Spec.Manifest.AllowedModelProviders, modelProvider) {
-			return types.NewErrBadRequest("model provider %q is not allowed for assistant %q", modelProvider, agent.Name)
-		}
-	}
-
 	var ref v1.ToolReference
 	if err := req.Get(&ref, modelProvider); err != nil {
 		return err
 	}
 
-	if ref.Spec.Type != types.ToolReferenceTypeModelProvider {
+	if ref.Spec.Type != v1.ToolReferenceTypeModelProvider {
 		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
 	}
 
 	// If this is a "global" model provider, then the generic model provider context is added to handle more git-ops-ian deployments.
 	credCtxs := []string{string(ref.UID), system.GenericModelProviderCredentialContext}
-	if projectID != "" {
-		// If this is project-based, then only use the one context.
-		credCtxs = []string{fmt.Sprintf("%s-%s", projectID, ref.Name)}
-	}
-
 	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, ref.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to reveal credential: %w", err)
@@ -429,7 +324,7 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		return err
 	}
 
-	if ref.Spec.Type != types.ToolReferenceTypeModelProvider {
+	if ref.Spec.Type != v1.ToolReferenceTypeModelProvider {
 		return types.NewErrBadRequest("%q is not a model provider", ref.Name)
 	}
 

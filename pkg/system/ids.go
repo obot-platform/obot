@@ -27,7 +27,6 @@ const (
 	ModelPrefix                   = "m1"
 	AliasPrefix                   = "al1"
 	DefaultModelAliasPrefix       = "dma1"
-	ToolPrefix                    = "tl1"
 	ProjectPrefix                 = "p1"
 	ThreadTemplatePrefix          = "tt1"
 	SlackReceiverPrefix           = "sr1"
@@ -70,10 +69,6 @@ func IsThreadID(id string) bool {
 
 func IsThreadTemplateID(id string) bool {
 	return strings.HasPrefix(id, ThreadTemplatePrefix)
-}
-
-func IsToolID(id string) bool {
-	return strings.HasPrefix(id, ToolPrefix)
 }
 
 func IsAgentID(id string) bool {

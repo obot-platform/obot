@@ -155,17 +155,10 @@ type TokenContext struct {
 	MCPID string
 
 	// The following fields are for runs
-	Namespace         string
-	RunID             string
-	ThreadID          string
-	ProjectID         string
-	TopLevelProjectID string
-	ModelProvider     string
-	Model             string
-	AgentID           string
-	WorkflowID        string
-	WorkflowStepID    string
-	Scope             string
+	Namespace     string
+	ModelProvider string
+	Model         string
+	Scope         string
 
 	TokenType TokenType
 }
@@ -192,14 +185,9 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 				Name:   tokenContext.Scope,
 				Groups: tokenContext.UserGroups,
 				Extra: map[string][]string{
-					"obot:runID":             {tokenContext.RunID},
-					"obot:threadID":          {tokenContext.ThreadID},
-					"obot:topLevelProjectID": {tokenContext.TopLevelProjectID},
-					"obot:projectID":         {tokenContext.ProjectID},
-					"obot:agentID":           {tokenContext.AgentID},
-					"obot:userID":            {tokenContext.UserID},
-					"obot:userName":          {tokenContext.UserName},
-					"obot:userEmail":         {tokenContext.UserEmail},
+					"obot:userID":    {tokenContext.UserID},
+					"obot:userName":  {tokenContext.UserName},
+					"obot:userEmail": {tokenContext.UserEmail},
 				},
 			},
 		}, true, nil
@@ -307,16 +295,9 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		AuthProviderUserID:    getStringClaim("AuthProviderUserID"),
 		MCPID:                 getStringClaim("MCPID"),
 		Namespace:             getStringClaim("Namespace"),
-		RunID:                 getStringClaim("RunID"),
-		ThreadID:              getStringClaim("ThreadID"),
-		ProjectID:             getStringClaim("ProjectID"),
-		TopLevelProjectID:     getStringClaim("TopLevelProjectID"),
 		ModelProvider:         getStringClaim("ModelProvider"),
 		Model:                 getStringClaim("Model"),
-		AgentID:               getStringClaim("AgentID"),
 		Scope:                 getStringClaim("Scope"),
-		WorkflowID:            getStringClaim("WorkflowID"),
-		WorkflowStepID:        getStringClaim("WorkflowStepID"),
 		TokenType:             TokenType(getStringClaim("TokenType")),
 		// These two fields were the latter names and changed the former.
 		// This makes this backwards compatible with older tokens.
@@ -346,16 +327,9 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (stri
 		"AuthProviderUserID":    context.AuthProviderUserID,
 		"MCPID":                 context.MCPID,
 		"Namespace":             context.Namespace,
-		"RunID":                 context.RunID,
-		"ThreadID":              context.ThreadID,
-		"ProjectID":             context.ProjectID,
-		"TopLevelProjectID":     context.TopLevelProjectID,
 		"ModelProvider":         context.ModelProvider,
 		"Model":                 context.Model,
-		"AgentID":               context.AgentID,
 		"Scope":                 context.Scope,
-		"WorkflowID":            context.WorkflowID,
-		"WorkflowStepID":        context.WorkflowStepID,
 		"TokenType":             string(context.TokenType),
 	}
 

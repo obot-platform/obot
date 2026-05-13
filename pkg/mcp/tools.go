@@ -30,16 +30,14 @@ func (sm *SessionManager) ListTools(ctx context.Context, serverConfig ServerConf
 	return resp.Tools, nil
 }
 
-func ConvertTools(tools []mcp.Tool, allowedTools, unsupportedTools []string) ([]otypes.MCPServerTool, error) {
-	allTools := allowedTools == nil || slices.Contains(allowedTools, "*")
-
+func ConvertTools(tools []mcp.Tool, unsupportedTools []string) ([]otypes.MCPServerTool, error) {
 	convertedTools := make([]otypes.MCPServerTool, 0, len(tools))
 	for _, t := range tools {
 		mcpTool := otypes.MCPServerTool{
 			ID:          t.Name,
 			Name:        t.Name,
 			Description: t.Description,
-			Enabled:     allTools && !slices.Contains(unsupportedTools, t.Name) || slices.Contains(allowedTools, t.Name),
+			Enabled:     !slices.Contains(unsupportedTools, t.Name),
 			Unsupported: slices.Contains(unsupportedTools, t.Name),
 		}
 

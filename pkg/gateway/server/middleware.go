@@ -6,7 +6,7 @@ import (
 
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/context"
-	"github.com/obot-platform/obot/pkg/gateway/log"
+	glog "github.com/obot-platform/obot/pkg/gateway/log"
 )
 
 func apply(h api.HandlerFunc, m ...api.Middleware) api.HandlerFunc {
@@ -50,7 +50,7 @@ func addRequestID(next api.HandlerFunc) api.HandlerFunc {
 
 func addLogger(next api.HandlerFunc) api.HandlerFunc {
 	return func(apiContext api.Context) error {
-		logger := log.NewWithID(context.GetRequestID(apiContext.Context()))
+		logger := glog.NewWithID(context.GetRequestID(apiContext.Context()))
 		if apiContext.User != nil {
 			logger = logger.Fields("username", apiContext.User.GetName())
 		}

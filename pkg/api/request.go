@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
-	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -56,55 +55,6 @@ func (r *Context) IsStreamRequested() bool {
 
 func (r *Context) Accepts(contentType string) bool {
 	return slices.Contains(r.Request.Header.Values("Accept"), contentType)
-}
-
-func (r *Context) WriteEvents(events <-chan types.Progress) error {
-	// Check if SSE is requested
-	sendEvents := r.IsStreamRequested()
-
-	sendJSON := r.Accepts("application/json")
-	if sendEvents {
-		r.ResponseWriter.Header().Set("Content-Type", "text/event-stream")
-		defer func() {
-			_ = r.WriteDataEvent(EventClose{})
-		}()
-	}
-
-	var (
-		lastFlush time.Time
-		toWrite   []types.Progress
-	)
-	if sendEvents {
-		if _, err := r.ResponseWriter.Write([]byte("event: start\ndata: {}\n\n")); err != nil {
-			return err
-		}
-		r.Flush()
-	}
-	for event := range events {
-		if sendEvents {
-			if err := r.WriteDataEvent(event); err != nil {
-				return err
-			}
-		} else if sendJSON {
-			toWrite = append(toWrite, event)
-		} else {
-			if err := r.Write([]byte(event.Content)); err != nil {
-				return err
-			}
-			if lastFlush.IsZero() || time.Since(lastFlush) > 500*time.Millisecond {
-				r.Flush()
-				lastFlush = time.Now()
-			}
-		}
-	}
-
-	if sendJSON {
-		return r.Write(map[string]any{
-			"items": toWrite,
-		})
-	}
-
-	return nil
 }
 
 func (r *Context) Read(obj any) error {
@@ -166,41 +116,6 @@ func (r *Context) write(obj any, code int) error {
 	r.ResponseWriter.Header().Set("Content-Type", "application/json")
 	r.WriteHeader(code)
 	return json.NewEncoder(r.ResponseWriter).Encode(obj)
-}
-
-type EventClose struct{}
-
-func (r *Context) WriteDataEvent(obj any) error {
-	if prg, ok := obj.(types.Progress); ok && prg.RunID != "" {
-		if prg.RunComplete {
-			if _, err := r.ResponseWriter.Write([]byte("id: " + prg.RunID + ":after\n")); err != nil {
-				return err
-			}
-		} else {
-			if _, err := r.ResponseWriter.Write([]byte("id: " + prg.RunID + "\n")); err != nil {
-				return err
-			}
-		}
-	}
-	if _, ok := obj.(EventClose); ok {
-		_, err := r.ResponseWriter.Write([]byte("event: close\ndata: {}\n\n"))
-		return err
-	}
-	data, err := json.Marshal(obj)
-	if err != nil {
-		return err
-	}
-	if _, err = r.ResponseWriter.Write([]byte("data: ")); err != nil {
-		return err
-	}
-	if _, err = r.ResponseWriter.Write(data); err != nil {
-		return err
-	}
-	if _, err = r.ResponseWriter.Write([]byte("\n\n")); err != nil {
-		return err
-	}
-	r.Flush()
-	return nil
 }
 
 func (r *Context) Flush() {

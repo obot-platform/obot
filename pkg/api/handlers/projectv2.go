@@ -64,7 +64,7 @@ func (h *ProjectV2Handler) Create(req api.Context) error {
 
 func (h *ProjectV2Handler) ByID(req api.Context) error {
 	var project v1.ProjectV2
-	if err := req.Get(&project, req.PathValue("projectv2_id")); err != nil {
+	if err := req.Get(&project, req.PathValue("project_id")); err != nil {
 		return err
 	}
 
@@ -73,7 +73,7 @@ func (h *ProjectV2Handler) ByID(req api.Context) error {
 
 func (h *ProjectV2Handler) Update(req api.Context) error {
 	var (
-		id      = req.PathValue("projectv2_id")
+		id      = req.PathValue("project_id")
 		project v1.ProjectV2
 	)
 
@@ -95,7 +95,7 @@ func (h *ProjectV2Handler) Update(req api.Context) error {
 }
 
 func (h *ProjectV2Handler) Delete(req api.Context) error {
-	var id = req.PathValue("projectv2_id")
+	var id = req.PathValue("project_id")
 
 	return req.Delete(&v1.ProjectV2{
 		ObjectMeta: metav1.ObjectMeta{
