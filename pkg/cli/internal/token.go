@@ -6,35 +6,49 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
-	"github.com/adrg/xdg"
 	"github.com/fatih/color"
 	"github.com/google/uuid"
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/cli/internal/credentials"
+	"github.com/obot-platform/obot/pkg/cli/internal/localconfig"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/pkg/browser"
 )
 
-// Logout removes the local token file. Returns true if a file was removed.
-func Logout() (bool, error) {
-	tokenFile, err := xdg.ConfigFile(filepath.Join("obot", "token"))
+var credentialStore credentials.Store = credentials.NewKeyringStore()
+var openBrowser = browser.OpenURL
+
+// AppURLForAPIBaseURL returns the app URL that owns credentials for an
+// API base URL.
+func AppURLForAPIBaseURL(baseURL string) (string, error) {
+	appURL := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	appURL = strings.TrimSuffix(appURL, "/api")
+	return localconfig.NormalizeAppURL(appURL)
+}
+
+// Logout removes the keyring token for appURL. It returns false when no
+// token was stored for the URL.
+func Logout(appURL string) (bool, error) {
+	appURL, err := localconfig.NormalizeAppURL(appURL)
 	if err != nil {
 		return false, err
 	}
-	if err := os.Remove(tokenFile); err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
+
+	if _, err := credentialStore.Get(appURL); err != nil {
+		if credentials.IsNotFound(err) {
 			return false, nil
 		}
-		return false, fmt.Errorf("removing %s: %w", tokenFile, err)
+		return false, err
 	}
-	return true, nil
+
+	return true, credentialStore.Delete(appURL)
 }
 
 func enter(ctx context.Context) error {
@@ -61,6 +75,21 @@ func Token(ctx context.Context, baseURL string, noExpiration, forceRefresh bool)
 		return "", nil
 	}
 
+	appURL, err := AppURLForAPIBaseURL(baseURL)
+	if err != nil {
+		return "", err
+	}
+
+	token, tokenErr := credentialStore.Get(appURL)
+	hasStoredToken := tokenErr == nil
+	if tokenErr != nil && !credentials.IsNotFound(tokenErr) {
+		return "", tokenErr
+	}
+	if hasStoredToken && !forceRefresh && testToken(ctx, baseURL, token) {
+		fmt.Fprintln(os.Stderr, "Existing token is valid, no refresh needed")
+		return token, nil
+	}
+
 	authProviders, err := getAuthProviderServiceInfo(ctx, baseURL)
 	if err != nil {
 		return "", err
@@ -70,30 +99,6 @@ func Token(ctx context.Context, baseURL string, noExpiration, forceRefresh bool)
 
 	ctx, sigCancel := signal.NotifyContext(ctx, os.Interrupt)
 	defer sigCancel()
-
-	tokenFile, err := xdg.ConfigFile(filepath.Join("obot", "token"))
-	if err != nil {
-		return "", err
-	}
-
-	var existed bool
-	tokenData, err := os.ReadFile(tokenFile)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return "", fmt.Errorf("reading %s: %w", tokenFile, err)
-	} else if err == nil {
-		existed = true
-	}
-
-	var scopedTokens map[string]string
-	if err = json.Unmarshal(tokenData, &scopedTokens); err != nil {
-		// Ignore unmarshal errors and just store new tokens.
-		scopedTokens = make(map[string]string, 1)
-	}
-
-	if token, ok := scopedTokens[baseURL]; ok && !forceRefresh && testToken(ctx, baseURL, token) {
-		fmt.Fprintln(os.Stderr, "Existing token is valid, no refresh needed")
-		return token, nil
-	}
 
 	provider, err := userSelectAuthProvider(authProviders)
 	if err != nil {
@@ -106,7 +111,7 @@ func Token(ctx context.Context, baseURL string, noExpiration, forceRefresh bool)
 		return "", fmt.Errorf("failed to create login request: %w", err)
 	}
 
-	if !existed {
+	if !hasStoredToken {
 		fmt.Println()
 		fmt.Println(color.GreenString("Authentication is needed"))
 		fmt.Println(color.GreenString("========================"))
@@ -122,23 +127,17 @@ func Token(ctx context.Context, baseURL string, noExpiration, forceRefresh bool)
 	}
 
 	fmt.Printf("Opening browser to %s. if there is an issue paste this link into a browser manually\n", loginURL)
-	_ = browser.OpenURL(loginURL)
+	_ = openBrowser(loginURL)
 
 	ctx, timeoutCancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer timeoutCancel()
 
-	token, err := get(ctx, baseURL, uuid)
+	token, err = get(ctx, baseURL, uuid)
 	if err != nil {
 		return "", fmt.Errorf("failed to get token: %w", err)
 	}
 
-	scopedTokens[baseURL] = token
-	tokenData, err = json.Marshal(scopedTokens)
-	if err != nil {
-		return "", fmt.Errorf("failed to store token: %w", err)
-	}
-
-	return token, os.WriteFile(tokenFile, tokenData, 0600)
+	return token, credentialStore.Set(appURL, token)
 }
 
 type createRequest struct {
@@ -225,7 +224,9 @@ func testToken(ctx context.Context, baseURL, token string) bool {
 	if err != nil {
 		return false
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
