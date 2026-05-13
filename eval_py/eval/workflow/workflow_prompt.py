@@ -113,7 +113,8 @@ DEEP_NEWS_BRIEFING_TURNS = [
 ANTV_DUAL_AXES_TURNS = [
     {
         # Phase 1 – Dataset validation and understanding
-        "prompt": """I want to create a professional business visualization using the AntV Charts MCP server.
+        "prompt": """[[ANTV_EVAL:P1]]
+I want to create a professional business visualization using the AntV Charts MCP server.
 
 Use the tool: generate_dual_axes_chart
 
@@ -151,7 +152,8 @@ In this phase, confirm that the dataset is valid and ready to use. If you see an
     },
     {
         # Phase 2 – Chart configuration
-        "prompt": """PHASE 2 - CHART CONFIGURATION (chart setup only; do not repeat Phase 1 validation)
+        "prompt": """[[ANTV_EVAL:P2]]
+PHASE 2 - CHART CONFIGURATION (chart setup only; do not repeat Phase 1 validation)
 
 Using the same 12-month dataset from Phase 1, describe how to configure `generate_dual_axes_chart`:
 
@@ -167,11 +169,13 @@ Reply with the chart mapping and formatting plan only. Do not re-validate the da
         "criteria": [
             "Describes dual-axes chart setup with month on X, revenue on the left axis, and profit_margin on the right axis (column + line or equivalent).",
             "Mentions at least two of: chart title, currency formatting for revenue, percentage formatting for profit_margin, or distinct series colors.",
+            "If the response also repeats Phase 1 dataset validation, ignore that portion and score based on whether chart configuration is present.",
         ],
     },
     {
         # Phase 3 – Visual analysis and insights
-        "prompt": """PHASE 3 - VISUAL ANALYSIS
+        "prompt": """[[ANTV_EVAL:P3]]
+PHASE 3 - VISUAL ANALYSIS
 
 Assume the chart has been generated correctly. Based on the revenue and profit_margin values in the dataset, provide:
 

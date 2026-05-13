@@ -47,6 +47,9 @@ def _expected_prompt_for_workflow(workflow_id: str, prompt_text: str) -> str | N
     if workflow_id == "deep_news_briefing":
         return None
     if workflow_id == "antv_dual_axes_viz":
+        for marker in ("[[ANTV_EVAL:P1]]", "[[ANTV_EVAL:P2]]", "[[ANTV_EVAL:P3]]"):
+            if marker in (prompt_text or ""):
+                return marker
         for line in (prompt_text or "").splitlines():
             stripped = line.strip()
             if stripped.startswith("PHASE "):
@@ -190,7 +193,12 @@ def run_workflow_conversation_eval(ctx: Context) -> Result:
             # Run DeepEval for this turn (no manual step later)
             from ..agent_deepeval_generic import run_deepeval_for_turn
             detail = run_deepeval_for_turn(
-                prompt_text, response_text or "", distinct_raw_sse or "", criteria, turn_index=phase
+                prompt_text,
+                response_text or "",
+                distinct_raw_sse or "",
+                criteria,
+                turn_index=phase,
+                workflow_id=workflow_id,
             )
             turn_details.append(detail)
             eval_passed_per_turn.append(detail.passed)
