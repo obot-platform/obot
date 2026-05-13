@@ -36,7 +36,7 @@ const (
 var (
 	nonSkillNameChars = regexp.MustCompile(`[^a-z0-9-]+`)
 	multipleDashes    = regexp.MustCompile(`-+`)
-	windowsDrivePath  = regexp.MustCompile(`^[A-Za-z]:/`)
+	windowsDrivePath  = regexp.MustCompile(`^[A-Za-z]:`)
 )
 
 // ParseSkillArchive validates downloaded skill ZIP bytes and returns a
@@ -199,6 +199,9 @@ func cleanArchiveRelPath(rel string) (string, error) {
 	if strings.HasPrefix(rel, "/") || windowsDrivePath.MatchString(rel) {
 		return "", fmt.Errorf("skill archive contains absolute path %q", rel)
 	}
+	if hasColonPathSegment(rel) {
+		return "", fmt.Errorf("skill archive contains non-portable path %q", rel)
+	}
 	if hasDotDotPathSegment(rel) {
 		return "", fmt.Errorf("skill archive path escapes target directory: %q", rel)
 	}
@@ -212,6 +215,15 @@ func cleanArchiveRelPath(rel string) (string, error) {
 	}
 
 	return cleaned, nil
+}
+
+func hasColonPathSegment(rel string) bool {
+	for segment := range strings.SplitSeq(rel, "/") {
+		if strings.Contains(segment, ":") {
+			return true
+		}
+	}
+	return false
 }
 
 func hasDotDotPathSegment(rel string) bool {

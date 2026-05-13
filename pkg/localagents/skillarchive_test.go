@@ -87,6 +87,14 @@ func TestParseSkillArchiveRejectsUnsafeEntries(t *testing.T) {
 			entry: zipTestEntry{Name: `C:\tmp\escape`, Content: "bad"},
 		},
 		{
+			name:  "windows drive-relative path",
+			entry: zipTestEntry{Name: `C:tmp\escape`, Content: "bad"},
+		},
+		{
+			name:  "colon path segment",
+			entry: zipTestEntry{Name: "docs/read:me.md", Content: "bad"},
+		},
+		{
 			name:  "parent traversal",
 			entry: zipTestEntry{Name: "../escape", Content: "bad"},
 		},
