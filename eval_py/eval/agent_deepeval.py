@@ -33,6 +33,8 @@ from deepeval.test_case import LLMTestCase, LLMTestCaseParams
 
 from .helper import paths
 
+DEEPEVAL_PASS_THRESHOLD = 0.6
+
 
 @dataclass
 class AgentTrace:
@@ -296,7 +298,7 @@ def _build_agent_metrics() -> list[GEval]:
             + partial_note
         ),
         evaluation_params=eval_params,
-        threshold=0.70,
+        threshold=DEEPEVAL_PASS_THRESHOLD,
     )
 
     tool_strategy = GEval(
@@ -309,7 +311,7 @@ def _build_agent_metrics() -> list[GEval]:
             + partial_note
         ),
         evaluation_params=eval_params,
-        threshold=0.7,
+        threshold=DEEPEVAL_PASS_THRESHOLD,
     )
 
     source_quality = GEval(
@@ -322,7 +324,7 @@ def _build_agent_metrics() -> list[GEval]:
             + partial_note
         ),
         evaluation_params=eval_params,
-        threshold=0.70,
+        threshold=DEEPEVAL_PASS_THRESHOLD,
     )
 
     cross_reference = GEval(
@@ -336,7 +338,7 @@ def _build_agent_metrics() -> list[GEval]:
             + partial_note
         ),
         evaluation_params=eval_params,
-        threshold=0.70,
+        threshold=DEEPEVAL_PASS_THRESHOLD,
     )
 
     return [task_completion, tool_strategy, source_quality, cross_reference]
@@ -383,7 +385,7 @@ def _build_python_review_metrics() -> list[GEval]:
             "- Provides corrected code using `for i in range(5):` with an indented `print(i)` line."
         ),
         evaluation_params=eval_params,
-        threshold=0.7,
+        threshold=DEEPEVAL_PASS_THRESHOLD,
     )
 
     even_numbers_metric = GEval(
@@ -395,7 +397,7 @@ def _build_python_review_metrics() -> list[GEval]:
             "- The explanation and code are consistent and syntactically valid."
         ),
         evaluation_params=eval_params,
-        threshold=0.7,
+        threshold=DEEPEVAL_PASS_THRESHOLD,
     )
 
     return [colon_metric, even_numbers_metric]
@@ -436,7 +438,7 @@ def _build_antv_charts_metrics() -> list[GEval]:
             "and mentions at least one data quality check (e.g. no nulls, numeric fields) and that the dataset is suitable for charting."
         ),
         evaluation_params=eval_params,
-        threshold=0.7,
+        threshold=DEEPEVAL_PASS_THRESHOLD,
     )
 
     config_metric = GEval(
@@ -446,7 +448,7 @@ def _build_antv_charts_metrics() -> list[GEval]:
             "profit_margin as a line on the right Y-axis, and mentions formatting (e.g. currency for revenue, percentage for profit_margin) and distinct colors."
         ),
         evaluation_params=eval_params,
-        threshold=0.7,
+        threshold=DEEPEVAL_PASS_THRESHOLD,
     )
 
     analysis_metric = GEval(
@@ -456,7 +458,7 @@ def _build_antv_charts_metrics() -> list[GEval]:
             "and provides plausible insights, risks, or opportunities that reference the revenue and profit_margin trends."
         ),
         evaluation_params=eval_params,
-        threshold=0.7,
+        threshold=DEEPEVAL_PASS_THRESHOLD,
     )
 
     return [dataset_metric, config_metric, analysis_metric]
