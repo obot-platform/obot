@@ -40,16 +40,22 @@ def _expected_prompt_for_workflow(workflow_id: str, prompt_text: str) -> str | N
     """
     Decide how to match SSE events for a conversation workflow.
 
-    - For deep_news_briefing and antv_dual_axes_viz: return None so we capture all
-      assistant content for potentially long, multi-phase prompts without relying
-      on exact echo matching.
-    - For other workflows (e.g. python_code_review): use the prompt text so we
-      associate assistant content strictly with this turn's user message.
+    - For deep_news_briefing: return None so we capture all assistant content for a
+      single long prompt with tool calls without relying on exact echo matching.
+    - For multi-turn workflows: use a stable prompt anchor for SSE turn isolation.
     """
     if workflow_id == "deep_news_briefing":
         return None
     if workflow_id == "antv_dual_axes_viz":
-        return None
+        for line in (prompt_text or "").splitlines():
+            stripped = line.strip()
+            if stripped.startswith("PHASE "):
+                # Match on the phase header line only (avoids em-dash / length mismatches).
+                return stripped[:100]
+        text = (prompt_text or "").strip()
+        if len(text) > 400:
+            return text[:200]
+        return text or None
     return prompt_text or None
 
 
