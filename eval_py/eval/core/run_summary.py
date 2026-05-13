@@ -29,8 +29,7 @@ def build_run_summary_payload(results: list[Result]) -> dict:
         for t in r.turn_eval_details:
             if t.score is not None:
                 all_scores.append(t.score)
-            turns_out.append(
-                {
+            turn_entry = {
                     "turn": t.turn_index,
                     "pass": t.passed,
                     "score": t.score,
@@ -38,7 +37,9 @@ def build_run_summary_payload(results: list[Result]) -> dict:
                     "reason": t.reason,
                     "prompt": t.prompt,
                 }
-            )
+            if not t.passed and t.assistant_response:
+                turn_entry["assistant_response"] = t.assistant_response
+            turns_out.append(turn_entry)
         cases_out.append(
             {
                 "name": r.name,
@@ -105,8 +106,8 @@ def append_github_job_summary(payload: dict) -> None:
         )
         lines.append("")
     lines.append(
-        "For full prompts, per-turn scores, and reasons, open the **eval-run-summary** "
-        "workflow artifact (`eval_run_summary.json`)."
+        "For full prompts, per-turn scores, reasons, and failed-turn LLM responses, "
+        "open the **eval-run-summary** workflow artifact (`eval_run_summary.json`)."
     )
     lines.append("")
     for c in payload["cases"]:
@@ -124,9 +125,18 @@ def append_github_job_summary(payload: dict) -> None:
                 "- Turn **%d**: pass=%s, score=%s (threshold=%s)"
                 % (t["turn"], t["pass"], sc_s, t["threshold"])
             )
+            if not t["pass"] and t.get("reason"):
+                lines.append("  - **Reason:** %s" % t["reason"])
             if t.get("prompt"):
                 lines.append("")
+                lines.append("**Turn %d prompt**" % t["turn"])
+                lines.append("")
                 lines.append(_md_fenced_snippet(t["prompt"], max_len=600))
+            if not t["pass"] and t.get("assistant_response"):
+                lines.append("")
+                lines.append("**Turn %d LLM response (failed)**" % t["turn"])
+                lines.append("")
+                lines.append(_md_fenced_snippet(t["assistant_response"], max_len=1200))
         lines.append("")
     with open(path, "a", encoding="utf-8") as fh:
         fh.write("\n".join(lines))
@@ -184,6 +194,10 @@ def write_run_summary(results: list[Result]) -> tuple[str, str]:
                     lines.append("      %s" % pl)
             if t.get("reason"):
                 lines.append("    reason: %s" % t["reason"])
+            if not t["pass"] and t.get("assistant_response"):
+                lines.append("    assistant_response:")
+                for rl in t["assistant_response"].splitlines():
+                    lines.append("      %s" % rl)
         lines.append("")
     with open(txt_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines).rstrip() + "\n")

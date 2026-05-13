@@ -451,8 +451,15 @@ def run_deepeval_for_turn(
     Run DeepEval on a single conversation turn with custom criteria.
     Used by conversation workflow: after each turn we evaluate the response, then send the next prompt.
     """
+    llm_response = assistant_text or ""
+
+    def _detail(**kwargs) -> TurnEvalDetail:
+        if "assistant_response" not in kwargs:
+            kwargs["assistant_response"] = llm_response
+        return TurnEvalDetail(**kwargs)
+
     if not criteria:
-        return TurnEvalDetail(
+        return _detail(
             turn_index=turn_index,
             passed=True,
             score=None,
@@ -468,6 +475,7 @@ def run_deepeval_for_turn(
         extracted = extract_assistant_after_anchor(raw_sse, marker)
         if extracted.strip():
             assistant_text = extracted
+    llm_response = assistant_text or ""
     if not (assistant_text and assistant_text.strip()) and raw_sse:
         try:
             trace = _parse_sse_to_trace(raw_sse)
@@ -478,7 +486,7 @@ def run_deepeval_for_turn(
 
     # AntV Phase 2 often repeats dataset validation but still includes chart config.
     if workflow_id == "antv_dual_axes_viz" and turn_index == 1 and _antv_phase2_chart_config_present(assistant_text):
-        return TurnEvalDetail(
+        return _detail(
             turn_index=turn_index,
             passed=True,
             score=1.0,
@@ -526,7 +534,7 @@ def run_deepeval_for_turn(
             passed = True
             sc = max(sc or 0.0, 0.75)
             reason_str = "GEval below threshold but programmatic chart-config check passed; %s" % reason_str
-        return TurnEvalDetail(
+        return _detail(
             turn_index=turn_index,
             passed=passed,
             score=sc,
@@ -535,7 +543,7 @@ def run_deepeval_for_turn(
             prompt=user_prompt or "",
         )
     except Exception as e:
-        return TurnEvalDetail(
+        return _detail(
             turn_index=turn_index,
             passed=False,
             score=None,
