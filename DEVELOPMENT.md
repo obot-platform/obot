@@ -172,16 +172,17 @@ make telepresence-setup
 This target runs:
 
 ```bash
-kubectl create deployment obot --image=alpine --dry-run=client -o yaml -- sleep infinity | kubectl apply -f -
-kubectl create service clusterip obot --tcp=80:8080 --dry-run=client -o yaml | kubectl apply -f -
-kubectl patch svc obot --type='json' -p='[{"op":"replace","path":"/spec/ports/0/name","value":"http"}]'
+kubectl create deployment obot-upstream --image=alpine --dry-run=client -o yaml -- sleep infinity | kubectl apply -f -
+kubectl create service clusterip obot-upstream --tcp=8080:8080 --dry-run=client -o yaml | kubectl apply -f -
+kubectl patch svc obot-upstream --type='json' -p='[{"op":"replace","path":"/spec/ports/0/name","value":"http"}]'
+kubectl apply -f tools/obot-proxy.yaml
 telepresence quit -s
 telepresence connect
-kubectl rollout restart deployment/obot
-telepresence intercept obot -p 8080:80
+kubectl rollout restart deployment/obot-upstream
+telepresence intercept obot-upstream -p 8080:8080
 ```
 
-The service exposes port 80 so pods can reach Obot at `http://obot.default.svc.cluster.local` with no explicit port in URLs. The intercept maps service port 80 to your local port 8080.
+`obot-upstream` is the Telepresence intercept target — traffic to it routes to your local port 8080. `tools/obot-proxy.yaml` deploys an nginx pod as the `obot` Service (port 80). Pods reach Obot at `http://obot.default.svc.cluster.local` → nginx → `obot-upstream` (Telepresence) → your local process. nginx rewrites `http://localhost:8080` → `http://obot.default.svc.cluster.local` in response bodies so that OAuth metadata URLs are correct for pods, while your browser continues to use `http://localhost:8080` directly.
 
 The user UI dev server allows `*.svc.cluster.local` in development, so namespace/service changes for local k8s + Telepresence flows do not require manual `vite.config.ts` edits.
 
@@ -190,7 +191,7 @@ Verify the intercept is `ACTIVE` with `telepresence list`.
 ### 4. Configure Obot environment variables
 
 ```bash
-export OBOT_SERVER_MCPRUNTIME_BACKEND='k8s-local'
+export OBOT_SERVER_MCPRUNTIME_BACKEND='k8s'
 export OBOT_SERVER_SERVICE_NAME=obot
 export OBOT_SERVER_SERVICE_NAMESPACE=default
 
@@ -199,18 +200,16 @@ export OBOT_SERVER_NANOBOT_AGENT_IMAGE='nanobot-agent:local'
 export OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE='nanobot:local'
 ```
 
-With this setup, `TransformObotHostname` rewrites all URLs injected into pod secrets from `http://localhost:8080` to `http://obot.default.svc.cluster.local` (derived automatically from `SERVICE_NAME` and `SERVICE_NAMESPACE`), which Telepresence routes back to your local process.
-
 ### Troubleshooting
 
 - **`ImagePullBackOff`**: Image isn't in containerd — re-run `nerdctl load`.
 - **`timed out waiting for MCP server to be ready: <url>`**: The URL in the error shows what Obot is trying to reach. If it's `*.svc.kubernetes` instead of `*.svc.cluster.local`, check `OBOT_SERVER_MCPCLUSTER_DOMAIN`.
-- **Telepresence `NO_AGENT`**: Pod was created before intercept — run `kubectl rollout restart deployment/obot`.
+- **Telepresence `NO_AGENT`**: Pod was created before intercept — run `kubectl rollout restart deployment/obot-upstream`.
 - **PSA violations on `tel-agent-init`**: Namespace enforce level must be `privileged` (step 2 above).
 - **Stale intercept conflict** (`conflict with intercept ... on port 8080`): A previous intercept is stuck in the Traffic Manager. Reset it with:
   ```bash
   kubectl delete pod -n ambassador -l app=traffic-manager
-  kubectl rollout restart deployment/obot
+  kubectl rollout restart deployment/obot-upstream
   telepresence connect --namespace default
-  telepresence intercept obot -p 8080:80
+  telepresence intercept obot-upstream -p 8080:8080
   ```

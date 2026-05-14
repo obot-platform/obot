@@ -49,7 +49,6 @@ type kubernetesBackend struct {
 	mcpClusterDomain              string
 	serviceFQDN                   string
 	imagePullSecrets              []string
-	imagePullPolicy               corev1.PullPolicy
 	auditLogsBatchSize            int
 	auditLogsFlushIntervalSeconds int
 	obotClient                    kclient.Client
@@ -68,11 +67,6 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 		serviceFQDN = fmt.Sprintf("%s.%s.svc.%s", opts.ServiceName, opts.ServiceNamespace, opts.MCPClusterDomain)
 	}
 
-	pullPolicy := corev1.PullAlways
-	if IsLocalKubernetesRuntimeBackend(opts.MCPRuntimeBackend) {
-		pullPolicy = corev1.PullIfNotPresent
-	}
-
 	return &kubernetesBackend{
 		clientset:                     clientset,
 		client:                        client,
@@ -82,7 +76,6 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 		mcpClusterDomain:              opts.MCPClusterDomain,
 		serviceFQDN:                   serviceFQDN,
 		imagePullSecrets:              opts.MCPImagePullSecrets,
-		imagePullPolicy:               pullPolicy,
 		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
 		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
 		obotClient:                    obotClient,
@@ -633,7 +626,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			containers = append(containers, corev1.Container{
 				Name:            server.MCPServerName + "-shim",
 				Image:           k.remoteShimBaseImage,
-				ImagePullPolicy: k.getPullPolicy(),
+				ImagePullPolicy: corev1.PullAlways,
 				Ports: []corev1.ContainerPort{{
 					Name:          portName,
 					ContainerPort: int32(shimPort),
@@ -706,7 +699,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	containers = append(containers, corev1.Container{
 		Name:            "mcp",
 		Image:           image,
-		ImagePullPolicy: k.getPullPolicy(),
+		ImagePullPolicy: corev1.PullAlways,
 		Ports: []corev1.ContainerPort{{
 			Name:          portName,
 			ContainerPort: int32(port),
@@ -1573,15 +1566,6 @@ func ValidatePSALevel(level string) bool {
 	default:
 		return false
 	}
-}
-
-// getPullPolicy returns the configured image pull policy, defaulting to Always.
-func (k *kubernetesBackend) getPullPolicy() corev1.PullPolicy {
-	if k.imagePullPolicy == "" {
-		return corev1.PullAlways
-	}
-
-	return k.imagePullPolicy
 }
 
 // getContainerSecurityContext returns the appropriate container security context based on PSA level

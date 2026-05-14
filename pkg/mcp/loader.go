@@ -28,15 +28,10 @@ const (
 	RuntimeBackendDocker          = "docker"
 	RuntimeBackendKubernetes      = "kubernetes"
 	RuntimeBackendKubernetesShort = "k8s"
-	RuntimeBackendKubernetesLocal = "k8s-local"
 )
 
 func IsKubernetesRuntimeBackend(backend string) bool {
-	return backend == RuntimeBackendKubernetes || backend == RuntimeBackendKubernetesShort || backend == RuntimeBackendKubernetesLocal
-}
-
-func IsLocalKubernetesRuntimeBackend(backend string) bool {
-	return backend == RuntimeBackendKubernetesLocal
+	return backend == RuntimeBackendKubernetes || backend == RuntimeBackendKubernetesShort
 }
 
 type Options struct {
@@ -46,7 +41,7 @@ type Options struct {
 	MCPNamespace                      string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
 	MCPClusterDomain                  string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
 	DisallowLocalhostMCP              bool     `usage:"Allow MCP containers to run on localhost"`
-	MCPRuntimeBackend                 string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or k8s. Defaults to docker." default:"docker"`
+	MCPRuntimeBackend                 string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or k8s. Defaults to docker" default:"docker"`
 	MCPImagePullSecrets               []string `usage:"The name of the image pull secret to use for pulling MCP images"`
 	SingleUserIdleServerShutdownHours int      `usage:"The interval in hours to check for idle MCP servers designated to a single user and shut them down, set to -1 to disable shutdown" default:"24"`
 	MultiUserIdleServerShutdownHours  int      `usage:"The interval in hours to check for idle multi-user MCP servers and shut them down, set to -1 to disable" default:"168"`
@@ -90,7 +85,6 @@ type SessionManager struct {
 	sessions          sync.Map
 	tokenService      TokenService
 	baseURL           string
-	internalBaseURL   string
 	allowLocalhostMCP bool
 
 	webhookHelper *WebhookHelper
@@ -121,7 +115,7 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 		}
 
 		backend = dockerBackend
-	case RuntimeBackendKubernetes, RuntimeBackendKubernetesShort, RuntimeBackendKubernetesLocal:
+	case RuntimeBackendKubernetes, RuntimeBackendKubernetesShort:
 		if localK8sConfig == nil {
 			return nil, fmt.Errorf("use of Kubernetes backend requested but no local K8s config available")
 		}
@@ -164,27 +158,17 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
 	}
 
-	var internalBaseURL string
-	if IsLocalKubernetesRuntimeBackend(opts.MCPRuntimeBackend) && opts.ServiceName != "" && opts.ServiceNamespace != "" {
-		internalBaseURL = fmt.Sprintf("http://%s.%s.svc.%s", opts.ServiceName, opts.ServiceNamespace, opts.MCPClusterDomain)
-	}
-
 	return &SessionManager{
 		webhookHelper:     webhookHelper,
 		tokenService:      tokenService,
 		backend:           backend,
 		baseURL:           baseURL,
-		internalBaseURL:   internalBaseURL,
 		allowLocalhostMCP: !opts.DisallowLocalhostMCP,
 	}, nil
 }
 
 func (sm *SessionManager) TransformObotHostname(hostname string) string {
 	return sm.backend.transformObotHostname(hostname)
-}
-
-func (sm *SessionManager) InternalBaseURL() string {
-	return sm.internalBaseURL
 }
 
 // Load is used by GPTScript to load tools from dynamic MCP server tool definitions.

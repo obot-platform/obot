@@ -66,6 +66,6 @@ func mcpBackendMatches(required, actual string) bool {
 	if required == actual {
 		return true
 	}
-	// "kubernetes" matches any kubernetes variant (k8s, k8s-local)
-	return required == "kubernetes" && (actual == "k8s" || actual == "k8s-local")
+	// "kubernetes" matches the k8s shorthand
+	return required == "kubernetes" && actual == "k8s"
 }

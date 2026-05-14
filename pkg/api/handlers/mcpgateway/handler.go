@@ -25,8 +25,6 @@ type Handler struct {
 	mcpSessionManager         *mcp.SessionManager
 	webhookHelper             *mcp.WebhookHelper
 	nanobotIntegrationEnabled bool
-	internalBaseURL           string
-	internalHost              string
 	scope                     string
 	transport                 http.RoundTripper
 }
@@ -36,13 +34,10 @@ func NewHandler(mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.Webhoo
 	if len(scopesSupported) > 0 {
 		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(scopesSupported, " "))
 	}
-	internalBaseURL, internalHost, _ := handlers.NormalizeOrigin(mcpSessionManager.InternalBaseURL())
 	return &Handler{
 		mcpSessionManager:         mcpSessionManager,
 		webhookHelper:             webhookHelper,
 		nanobotIntegrationEnabled: nanobotIntegrationEnabled,
-		internalBaseURL:           internalBaseURL,
-		internalHost:              internalHost,
 		scope:                     scope,
 		transport:                 otelhttp.NewTransport(http.DefaultTransport),
 	}
@@ -50,14 +45,7 @@ func NewHandler(mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.Webhoo
 
 func (h *Handler) Proxy(req api.Context) error {
 	if req.User.GetUID() == "anonymous" {
-		resourceBaseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
-		// If an internal client reached Obot through the configured internal base URL,
-		// advertise that URL in OAuth metadata instead of the external API base URL.
-		// This enables local Obot development with a Kubernetes MCP backend.
-		if h.internalBaseURL != "" && handlers.HostnameMatches(req.Host, h.internalHost) {
-			resourceBaseURL = h.internalBaseURL
-		}
-		req.ResponseWriter.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource%s"%s`, resourceBaseURL, req.URL.Path, h.scope))
+		req.ResponseWriter.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource%s"%s`, strings.TrimSuffix(req.APIBaseURL, "/api"), req.URL.Path, h.scope))
 		return apierrors.NewUnauthorized("user is not authenticated")
 	}
 

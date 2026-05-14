@@ -869,7 +869,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("/oauth2/", services.ProxyManager.HandlerFunc)
 
 	// Well-known
-	wellknown.SetupHandlers(services.ServerURL, services.MCPLoader.InternalBaseURL(), services.OAuthServerConfig, services.RegistryNoAuth, mux)
+	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, services.RegistryNoAuth, mux)
 
 	// Obot OAuth
 	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.ServerURL, services.MCPOAuthClientSecretExpiration, mux)

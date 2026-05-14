@@ -6,21 +6,16 @@ import (
 )
 
 type handler struct {
-	baseURL         string
-	internalBaseURL string
-	internalHost    string
-	config          handlers.OAuthAuthorizationServerConfig
-	registryNoAuth  bool
+	baseURL        string
+	config         handlers.OAuthAuthorizationServerConfig
+	registryNoAuth bool
 }
 
-func SetupHandlers(baseURL, internalBaseURL string, config handlers.OAuthAuthorizationServerConfig, registryNoAuth bool, mux *server.Server) {
-	internalBaseURL, internalHost, _ := handlers.NormalizeOrigin(internalBaseURL)
+func SetupHandlers(baseURL string, config handlers.OAuthAuthorizationServerConfig, registryNoAuth bool, mux *server.Server) {
 	h := &handler{
-		baseURL:         baseURL,
-		internalBaseURL: internalBaseURL,
-		internalHost:    internalHost,
-		config:          config,
-		registryNoAuth:  registryNoAuth,
+		baseURL:        baseURL,
+		config:         config,
+		registryNoAuth: registryNoAuth,
 	}
 
 	mux.HandleFunc("GET /.well-known/oauth-protected-resource/mcp-connect/{mcp_id}", h.oauthProtectedResource)

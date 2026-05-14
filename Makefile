@@ -50,13 +50,14 @@ otel-jaeger-logs:
 	docker compose -f tools/jaeger-compose.yaml logs -f
 
 telepresence-setup:
-	kubectl create deployment obot --image=alpine --dry-run=client -o yaml -- sleep infinity | kubectl apply -f -
-	kubectl create service clusterip obot --tcp=80:8080 --dry-run=client -o yaml | kubectl apply -f -
-	kubectl patch svc obot --type='json' -p='[{"op":"replace","path":"/spec/ports/0/name","value":"http"}]'
+	kubectl create deployment obot-upstream --image=alpine --dry-run=client -o yaml -- sleep infinity | kubectl apply -f -
+	kubectl create service clusterip obot-upstream --tcp=8080:8080 --dry-run=client -o yaml | kubectl apply -f -
+	kubectl patch svc obot-upstream --type='json' -p='[{"op":"replace","path":"/spec/ports/0/name","value":"http"}]'
+	kubectl apply -f tools/obot-proxy.yaml
 	telepresence quit -s
 	telepresence connect
-	kubectl rollout restart deployment/obot
-	telepresence intercept obot -p 8080:80
+	kubectl rollout restart deployment/obot-upstream
+	telepresence intercept obot-upstream -p 8080:8080
 
 # Lint the project
 lint: lint-go
