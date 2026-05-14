@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -73,6 +74,7 @@ func (s *Setup) Run(cmd *cobra.Command, _ []string) error {
 	}
 
 	var installed []localagents.InstallResult
+	var installErrs []error
 	for _, installer := range installers {
 		detection := detections[installer.ID()]
 		shouldInstall := selection.detected && detection.State == localagents.DetectionPresent
@@ -87,9 +89,13 @@ func (s *Setup) Run(cmd *cobra.Command, _ []string) error {
 		}
 		result, err := installer.InstallBootstrap(ctx, home)
 		if err != nil {
-			return err
+			installErrs = append(installErrs, fmt.Errorf("install bootstrap for %s: %w", installer.DisplayName(), err))
+			continue
 		}
 		installed = append(installed, result)
+	}
+	if err := errors.Join(installErrs...); err != nil {
+		return err
 	}
 
 	if len(installed) == 0 {

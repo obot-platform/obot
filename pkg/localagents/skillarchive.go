@@ -254,7 +254,7 @@ func rootSkillFiles(files []SkillArchiveFile) ([]SkillArchiveFile, error) {
 	// Also accept archives created by zipping the skill directory itself:
 	// <dir>/SKILL.md, <dir>/scripts/..., etc. That wrapper directory is not
 	// part of the installed skill, so all files must share one top-level dir.
-	root := ""
+	var root string
 	for _, file := range files {
 		first, _, ok := strings.Cut(file.RelPath, "/")
 		if !ok || first == "" {

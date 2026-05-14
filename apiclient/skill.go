@@ -13,7 +13,7 @@ import (
 
 const MaxSkillDownloadBytes = 100 * 1024 * 1024
 
-var maxSkillDownloadBytes int64 = MaxSkillDownloadBytes
+var maxSkillDownloadBytes int64 = MaxSkillDownloadBytes // We are doing this for unit testing purposes
 
 func (c *Client) ListSkills(ctx context.Context, query string, limit int) (types.SkillList, error) {
 	values := url.Values{}

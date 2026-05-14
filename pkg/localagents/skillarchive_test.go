@@ -62,12 +62,12 @@ func TestParseSkillArchiveStripsSingleRootDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := map[string]bool{}
+	got := map[string]struct{}{}
 	for _, file := range archive.Files {
-		got[file.RelPath] = true
+		got[file.RelPath] = struct{}{}
 	}
 	for _, rel := range []string{"SKILL.md", "docs/readme.md"} {
-		if !got[rel] {
+		if _, ok := got[rel]; !ok {
 			t.Fatalf("expected rooted file %q in %#v", rel, got)
 		}
 	}
