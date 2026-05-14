@@ -130,26 +130,28 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 		{
 			name: "invalid - negative startup timeout",
 			manifest: types.SystemMCPServerManifest{
-				Runtime:               types.RuntimeRemote,
-				StartupTimeoutSeconds: -1,
-				RemoteConfig: &types.RemoteRuntimeConfig{
-					URL: "https://example.com/mcp",
+				Runtime: types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{
+					Package:               "test-package",
+					StartupTimeoutSeconds: -1,
 				},
 			},
 			expectError: true,
-			errorField:  "startupTimeoutSeconds",
+			errorField:  "npxConfig.startupTimeoutSeconds",
 		},
 		{
 			name: "invalid - startup timeout above maximum",
 			manifest: types.SystemMCPServerManifest{
-				Runtime:               types.RuntimeRemote,
-				StartupTimeoutSeconds: int(mcp.MaxMCPServerStartupTimeout.Seconds()) + 1,
-				RemoteConfig: &types.RemoteRuntimeConfig{
-					URL: "https://example.com/mcp",
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image:                 "test-image",
+					Port:                  8080,
+					Path:                  "/mcp",
+					StartupTimeoutSeconds: int(mcp.MaxMCPServerStartupTimeout.Seconds()) + 1,
 				},
 			},
 			expectError: true,
-			errorField:  "startupTimeoutSeconds",
+			errorField:  "containerizedConfig.startupTimeoutSeconds",
 		},
 		{
 			name: "invalid - env secret binding is not allowed",

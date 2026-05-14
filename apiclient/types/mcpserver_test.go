@@ -132,6 +132,26 @@ func TestMapCatalogEntryToServer_Containerized(t *testing.T) {
 	}
 }
 
+func TestMapCatalogEntryToServer_StartupTimeout(t *testing.T) {
+	t.Run("copies nested startup timeout", func(t *testing.T) {
+		result, err := MapCatalogEntryToServer(MCPServerCatalogEntryManifest{
+			Runtime: RuntimeContainerized,
+			ContainerizedConfig: &ContainerizedRuntimeConfig{
+				Image:                 "test/mcp-server:latest",
+				Port:                  8080,
+				Path:                  "/mcp",
+				StartupTimeoutSeconds: 120,
+			},
+		}, "", false)
+		if err != nil {
+			t.Fatalf("Expected no error, got: %v", err)
+		}
+		if result.ContainerizedConfig.StartupTimeoutSeconds != 120 {
+			t.Errorf("Expected startup timeout 120, got %d", result.ContainerizedConfig.StartupTimeoutSeconds)
+		}
+	})
+}
+
 func TestMapCatalogEntryToServer_RemoteFixedURL(t *testing.T) {
 	catalogEntry := MCPServerCatalogEntryManifest{
 		Name:        "Test Remote Server",

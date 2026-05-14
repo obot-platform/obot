@@ -224,6 +224,9 @@ func (v UVXValidator) validateUVXConfig(config types.UVXRuntimeConfig) error {
 	if err := validateEgressDomains(types.RuntimeUVX, config.EgressDomains, config.DenyAllEgress); err != nil {
 		return err
 	}
+	if err := validateStartupTimeout(types.RuntimeUVX, "uvxConfig.startupTimeoutSeconds", config.StartupTimeoutSeconds); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -312,6 +315,9 @@ func (v NPXValidator) validateNPXConfig(config types.NPXRuntimeConfig) error {
 	}
 
 	if err := validateEgressDomains(types.RuntimeNPX, config.EgressDomains, config.DenyAllEgress); err != nil {
+		return err
+	}
+	if err := validateStartupTimeout(types.RuntimeNPX, "npxConfig.startupTimeoutSeconds", config.StartupTimeoutSeconds); err != nil {
 		return err
 	}
 
@@ -418,6 +424,9 @@ func (v ContainerizedValidator) validateContainerizedConfig(config types.Contain
 	}
 
 	if err := validateEgressDomains(types.RuntimeContainerized, config.EgressDomains, config.DenyAllEgress); err != nil {
+		return err
+	}
+	if err := validateStartupTimeout(types.RuntimeContainerized, "containerizedConfig.startupTimeoutSeconds", config.StartupTimeoutSeconds); err != nil {
 		return err
 	}
 
@@ -971,8 +980,7 @@ func ValidateServerManifest(manifest types.MCPServerManifest, isMultiUser bool) 
 			Message: "multiUserConfig may only be set for multi-user servers",
 		}
 	}
-
-	if err := validateStartupTimeout(manifest.Runtime, manifest.StartupTimeoutSeconds); err != nil {
+	if err := validateRuntimeStartupTimeout(manifest.Runtime, manifest.RuntimeStartupTimeoutSeconds()); err != nil {
 		return err
 	}
 
@@ -988,7 +996,7 @@ func ValidateServerManifest(manifest types.MCPServerManifest, isMultiUser bool) 
 }
 
 func ValidateCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
-	if err := validateStartupTimeout(manifest.Runtime, manifest.StartupTimeoutSeconds); err != nil {
+	if err := validateRuntimeStartupTimeout(manifest.Runtime, manifest.RuntimeStartupTimeoutSeconds()); err != nil {
 		return err
 	}
 
@@ -1039,7 +1047,7 @@ func ValidateSystemMCPServerCatalogEntryManifest(manifest types.SystemMCPServerC
 }
 
 func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) error {
-	if err := validateStartupTimeout(manifest.Runtime, manifest.StartupTimeoutSeconds); err != nil {
+	if err := validateRuntimeStartupTimeout(manifest.Runtime, manifest.RuntimeStartupTimeoutSeconds()); err != nil {
 		return err
 	}
 
@@ -1072,18 +1080,31 @@ func ValidateSystemMCPServerManifest(manifest types.SystemMCPServerManifest) err
 	}
 }
 
-func validateStartupTimeout(runtime types.Runtime, startupTimeoutSeconds int) error {
+func validateRuntimeStartupTimeout(runtime types.Runtime, startupTimeoutSeconds int) error {
+	switch runtime {
+	case types.RuntimeUVX:
+		return validateStartupTimeout(runtime, "uvxConfig.startupTimeoutSeconds", startupTimeoutSeconds)
+	case types.RuntimeNPX:
+		return validateStartupTimeout(runtime, "npxConfig.startupTimeoutSeconds", startupTimeoutSeconds)
+	case types.RuntimeContainerized:
+		return validateStartupTimeout(runtime, "containerizedConfig.startupTimeoutSeconds", startupTimeoutSeconds)
+	default:
+		return nil
+	}
+}
+
+func validateStartupTimeout(runtime types.Runtime, field string, startupTimeoutSeconds int) error {
 	if startupTimeoutSeconds < 0 {
 		return types.RuntimeValidationError{
 			Runtime: runtime,
-			Field:   "startupTimeoutSeconds",
+			Field:   field,
 			Message: "must be greater than or equal to 0",
 		}
 	}
 	if startupTimeoutSeconds > int(mcp.MaxMCPServerStartupTimeout.Seconds()) {
 		return types.RuntimeValidationError{
 			Runtime: runtime,
-			Field:   "startupTimeoutSeconds",
+			Field:   field,
 			Message: fmt.Sprintf("must be less than %d", int(mcp.MaxMCPServerStartupTimeout.Seconds())),
 		}
 	}

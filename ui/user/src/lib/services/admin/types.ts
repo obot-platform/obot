@@ -76,8 +76,6 @@ export interface MCPCatalogEntryServerManifest {
 	remoteConfig?: RemoteCatalogConfigAdmin;
 	compositeConfig?: CompositeCatalogConfig;
 	multiUserConfig?: MultiUserConfig;
-
-	startupTimeoutSeconds?: number;
 }
 
 export interface MCPCatalogEntry {

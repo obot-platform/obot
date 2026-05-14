@@ -305,6 +305,7 @@ export interface UVXRuntimeConfig {
 	args?: string[];
 	egressDomains?: string[];
 	denyAllEgress?: boolean;
+	startupTimeoutSeconds?: number;
 }
 
 export interface NPXRuntimeConfig {
@@ -312,6 +313,7 @@ export interface NPXRuntimeConfig {
 	args?: string[];
 	egressDomains?: string[];
 	denyAllEgress?: boolean;
+	startupTimeoutSeconds?: number;
 }
 
 export interface ContainerizedRuntimeConfig {
@@ -322,6 +324,7 @@ export interface ContainerizedRuntimeConfig {
 	args?: string[];
 	egressDomains?: string[];
 	denyAllEgress?: boolean;
+	startupTimeoutSeconds?: number;
 }
 
 export interface RemoteRuntimeConfig {
@@ -420,8 +423,6 @@ export interface MCPServer {
 	remoteConfig?: RemoteRuntimeConfig;
 	compositeConfig?: CompositeRuntimeConfig;
 	multiUserConfig?: MultiUserConfig;
-
-	startupTimeoutSeconds?: number;
 }
 
 export interface MCPServerTool {

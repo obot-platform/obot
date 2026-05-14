@@ -651,6 +651,12 @@ export const convertServerRuntimeFormDataToManifest = (
 ): MCPCatalogServerManifest => {
 	const { categories, ...baseData } = formData;
 	const startupTimeoutSeconds = baseData.startupTimeoutSeconds;
+	const startupTimeoutConfig =
+		typeof startupTimeoutSeconds === 'number' &&
+		Number.isInteger(startupTimeoutSeconds) &&
+		startupTimeoutSeconds > 0
+			? { startupTimeoutSeconds }
+			: {};
 
 	// Build base manifest structure for server
 	const serverManifest: MCPCatalogServerManifest = {
@@ -661,12 +667,7 @@ export const convertServerRuntimeFormDataToManifest = (
 			env: baseData.env,
 			multiUserConfig: baseData.multiUserConfig,
 			runtime: baseData.runtime,
-			...convertCategoriesToMetadata(categories),
-			...(typeof startupTimeoutSeconds === 'number' &&
-			Number.isInteger(startupTimeoutSeconds) &&
-			startupTimeoutSeconds > 0
-				? { startupTimeoutSeconds }
-				: {})
+			...convertCategoriesToMetadata(categories)
 		}
 	};
 
@@ -678,7 +679,8 @@ export const convertServerRuntimeFormDataToManifest = (
 					package: baseData.npxConfig.package,
 					args: baseData.npxConfig.args?.filter((arg) => arg.trim()) || [],
 					egressDomains: sanitizeEgressDomains(baseData.npxConfig.egressDomains),
-					denyAllEgress: baseData.npxConfig.denyAllEgress
+					denyAllEgress: baseData.npxConfig.denyAllEgress,
+					...startupTimeoutConfig
 				};
 			}
 			break;
@@ -689,7 +691,8 @@ export const convertServerRuntimeFormDataToManifest = (
 					command: baseData.uvxConfig.command || undefined,
 					args: baseData.uvxConfig.args?.filter((arg) => arg.trim()) || [],
 					egressDomains: sanitizeEgressDomains(baseData.uvxConfig.egressDomains),
-					denyAllEgress: baseData.uvxConfig.denyAllEgress
+					denyAllEgress: baseData.uvxConfig.denyAllEgress,
+					...startupTimeoutConfig
 				};
 			}
 			break;
@@ -702,7 +705,8 @@ export const convertServerRuntimeFormDataToManifest = (
 					command: baseData.containerizedConfig.command || undefined,
 					args: baseData.containerizedConfig.args?.filter((arg) => arg.trim()) || [],
 					egressDomains: sanitizeEgressDomains(baseData.containerizedConfig.egressDomains),
-					denyAllEgress: baseData.containerizedConfig.denyAllEgress
+					denyAllEgress: baseData.containerizedConfig.denyAllEgress,
+					...startupTimeoutConfig
 				};
 			}
 			break;
