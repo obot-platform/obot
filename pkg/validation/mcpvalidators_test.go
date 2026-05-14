@@ -1639,32 +1639,32 @@ func TestCompositeValidator_ValidateConfig_ToolPrefixLength(t *testing.T) {
 func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 	t.Run("server manifest rejects negative startup timeout", func(t *testing.T) {
 		err := ValidateServerManifest(types.MCPServerManifest{
-			Runtime:               types.RuntimeRemote,
-			StartupTimeoutSeconds: -1,
-			RemoteConfig: &types.RemoteRuntimeConfig{
-				URL: "https://example.com/mcp",
+			Runtime: types.RuntimeNPX,
+			NPXConfig: &types.NPXRuntimeConfig{
+				Package:               "test-package",
+				StartupTimeoutSeconds: -1,
 			},
 		}, false)
 
 		require.Equal(t, types.RuntimeValidationError{
-			Runtime: types.RuntimeRemote,
-			Field:   "startupTimeoutSeconds",
+			Runtime: types.RuntimeNPX,
+			Field:   "npxConfig.startupTimeoutSeconds",
 			Message: "must be greater than or equal to 0",
 		}, err)
 	})
 
 	t.Run("catalog manifest rejects negative startup timeout", func(t *testing.T) {
 		err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
-			Runtime:               types.RuntimeRemote,
-			StartupTimeoutSeconds: -1,
-			RemoteConfig: &types.RemoteCatalogConfig{
-				FixedURL: "https://example.com/mcp",
+			Runtime: types.RuntimeUVX,
+			UVXConfig: &types.UVXRuntimeConfig{
+				Package:               "test-package",
+				StartupTimeoutSeconds: -1,
 			},
 		})
 
 		require.Equal(t, types.RuntimeValidationError{
-			Runtime: types.RuntimeRemote,
-			Field:   "startupTimeoutSeconds",
+			Runtime: types.RuntimeUVX,
+			Field:   "uvxConfig.startupTimeoutSeconds",
 			Message: "must be greater than or equal to 0",
 		}, err)
 	})
@@ -1672,16 +1672,18 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 	t.Run("server manifest rejects startup timeout above maximum", func(t *testing.T) {
 		maxStartupTimeoutSeconds := int(mcp.MaxMCPServerStartupTimeout.Seconds())
 		err := ValidateServerManifest(types.MCPServerManifest{
-			Runtime:               types.RuntimeRemote,
-			StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
-			RemoteConfig: &types.RemoteRuntimeConfig{
-				URL: "https://example.com/mcp",
+			Runtime: types.RuntimeContainerized,
+			ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+				Image:                 "test-image",
+				Port:                  8080,
+				Path:                  "/mcp",
+				StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
 			},
 		}, false)
 
 		require.Equal(t, types.RuntimeValidationError{
-			Runtime: types.RuntimeRemote,
-			Field:   "startupTimeoutSeconds",
+			Runtime: types.RuntimeContainerized,
+			Field:   "containerizedConfig.startupTimeoutSeconds",
 			Message: fmt.Sprintf("must be less than %d", maxStartupTimeoutSeconds),
 		}, err)
 	})
@@ -1689,16 +1691,16 @@ func TestValidateManifestStartupTimeoutNonNegative(t *testing.T) {
 	t.Run("catalog manifest rejects startup timeout above maximum", func(t *testing.T) {
 		maxStartupTimeoutSeconds := int(mcp.MaxMCPServerStartupTimeout.Seconds())
 		err := ValidateCatalogEntryManifest(types.MCPServerCatalogEntryManifest{
-			Runtime:               types.RuntimeRemote,
-			StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
-			RemoteConfig: &types.RemoteCatalogConfig{
-				FixedURL: "https://example.com/mcp",
+			Runtime: types.RuntimeNPX,
+			NPXConfig: &types.NPXRuntimeConfig{
+				Package:               "test-package",
+				StartupTimeoutSeconds: maxStartupTimeoutSeconds + 1,
 			},
 		})
 
 		require.Equal(t, types.RuntimeValidationError{
-			Runtime: types.RuntimeRemote,
-			Field:   "startupTimeoutSeconds",
+			Runtime: types.RuntimeNPX,
+			Field:   "npxConfig.startupTimeoutSeconds",
 			Message: fmt.Sprintf("must be less than %d", maxStartupTimeoutSeconds),
 		}, err)
 	})
