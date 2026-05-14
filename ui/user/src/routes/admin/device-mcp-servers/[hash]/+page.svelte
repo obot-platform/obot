@@ -39,7 +39,7 @@
 	let rows = $derived<Row[]>(
 		(occurrencesResp.items ?? []).map((o, i) => ({
 			...o,
-			rowIndex: (i + 1).toString(),
+			rowIndex: ((occurrencesResp.offset ?? 0) + i + 1).toString(),
 			shortDeviceID: (o.deviceID ?? '').slice(0, 12),
 			scannedRelative: formatTimeAgo(o.scannedAt).relativeTime
 		}))
