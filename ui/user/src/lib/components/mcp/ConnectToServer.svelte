@@ -772,7 +772,7 @@
 
 	{#if server}
 		{@const url = instance ? instance.connectURL : server.connectURL}
-		<div class="flex items-center gap-4">
+		<div class="flex items-center gap-4 md:p-0 p-4">
 			<div class="mb-4 flex grow flex-col gap-1">
 				<label for="connectURL" class="font-light">Connection URL</label>
 				<div class="mock-input-btn flex w-full items-center justify-between gap-2 shadow-inner">
@@ -804,11 +804,13 @@
 		</div>
 
 		{#if url}
-			<HowToConnect servers={[{ url, name }]} />
+			<HowToConnect />
 		{/if}
 
 		{#if entry && !hideActions}
-			<p class="text-on-surface1 flex items-center justify-end gap-2 text-sm font-light">
+			<p
+				class="text-on-surface1 flex items-center justify-end gap-2 text-sm font-light md:px-0 px-4"
+			>
 				Need to set up a different instance?
 				<button
 					class="button-small button-primary hover:bg-primary px-3 text-xs"

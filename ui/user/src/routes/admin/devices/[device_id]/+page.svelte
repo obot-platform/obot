@@ -330,13 +330,7 @@
 								{:else if property === 'endpoint'}
 									<span class="font-mono text-xs">{d.endpoint}</span>
 								{:else if property === 'client'}
-									<a
-										class="btn-link text-blue-500"
-										href={resolve(`/admin/device-clients/${encodeURIComponent(d.client)}`)}
-										onclick={(e) => e.stopPropagation()}
-									>
-										{d.client}
-									</a>
+									{@render clientLink(d.client)}
 								{:else}
 									{d[property as keyof MCPRow] ?? '—'}
 								{/if}
@@ -403,13 +397,7 @@
 								{:else if property === 'hasScripts'}
 									{d.hasScripts ? 'yes' : 'no'}
 								{:else if property === 'client'}
-									<a
-										class="btn-link text-blue-500"
-										href={resolve(`/admin/device-clients/${encodeURIComponent(d.client)}`)}
-										onclick={(e) => e.stopPropagation()}
-									>
-										{d.client}
-									</a>
+									{@render clientLink(d.client)}
 								{:else}
 									{d[property as keyof SkillRow] ?? '—'}
 								{/if}
@@ -479,13 +467,7 @@
 								{:else if property === 'version'}
 									<span class="font-mono text-xs">{d.version ?? '—'}</span>
 								{:else if property === 'client'}
-									<a
-										class="btn-link text-blue-500"
-										href={resolve(`/admin/device-clients/${encodeURIComponent(d.client)}`)}
-										onclick={(e) => e.stopPropagation()}
-									>
-										{d.client}
-									</a>
+									{@render clientLink(d.client)}
 								{:else}
 									{d[property as keyof PluginRow] ?? '—'}
 								{/if}
@@ -581,6 +563,20 @@
 		<Cpu class="size-4 opacity-50" />
 		{msg}
 	</div>
+{/snippet}
+
+{#snippet clientLink(client?: string)}
+	{#if client && client.trim() !== 'multi'}
+		<a
+			class="btn-link text-blue-500"
+			href={resolve(`/admin/device-clients/${encodeURIComponent(client)}`)}
+			onclick={(e) => e.stopPropagation()}
+		>
+			{client}
+		</a>
+	{:else}
+		{client || '-'}
+	{/if}
 {/snippet}
 
 <style lang="postcss">
