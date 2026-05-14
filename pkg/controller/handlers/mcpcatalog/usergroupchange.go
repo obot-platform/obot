@@ -86,11 +86,6 @@ func (h *Handler) deleteUnauthorizedServersForUser(ctx context.Context, client k
 				continue
 			}
 
-			// Only handle single-user catalog entries here.
-			if !entry.Spec.Manifest.ServerUserType.IsSingleUser() {
-				continue
-			}
-
 			// Check access based on whether the catalog entry is in a workspace or regular catalog
 			if entry.Spec.PowerUserWorkspaceID != "" {
 				// Catalog entry is in a PowerUserWorkspace
