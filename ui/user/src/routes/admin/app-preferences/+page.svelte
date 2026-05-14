@@ -12,15 +12,17 @@
 	import Select from '$lib/components/Select.svelte';
 	import UploadImage from '$lib/components/UploadImage.svelte';
 	import CustomConfigurationForm from '$lib/components/mcp/CustomConfigurationForm.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type AppPreferences } from '$lib/services';
-	import { darkMode, profile } from '$lib/stores';
+	import { darkMode, profile, responsive } from '$lib/stores';
 	import appPreferences, {
 		compileAppPreferences,
 		FONT_FAMILY_PRESETS
 	} from '$lib/stores/appPreferences.svelte';
+	import { success } from '$lib/stores/success';
 	import { formatTimeAgo } from '$lib/time';
 	import TintedSurfaceHueTintShadeControls from './TintedSurfaceHueTintShadeControls.svelte';
 	import {
@@ -37,7 +39,15 @@
 		standardIconFields
 	} from './constants.js';
 	import 'devicon/devicon.min.css';
-	import { CircleAlert, HouseIcon, Info, Pencil, X } from 'lucide-svelte';
+	import {
+		CircleAlert,
+		HouseIcon,
+		Info,
+		PanelRightClose,
+		PanelRightOpen,
+		Pencil,
+		X
+	} from 'lucide-svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -47,8 +57,8 @@
 	let form = $state<AppPreferences>(untrack(() => data.appPreferences));
 	let prevAppPreferences = $state<AppPreferences>(untrack(() => data.appPreferences));
 	let saving = $state(false);
-	let showSaved = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();
+	let showConfigurationSidebar = $state(untrack(() => (responsive.isMobile ? false : true)));
 
 	let editUrlDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let uploadImage = $state<ReturnType<typeof UploadImage>>();
@@ -62,6 +72,12 @@
 	let selectedSurfaceMode = $state<'solid' | 'tinted'>('solid');
 	let selectedConfigurationMode = $state<'theme' | 'logos'>('theme');
 	let isPerThemeColorsEnabled = $state(false);
+
+	$effect(() => {
+		if (!responsive.isMobile) {
+			showConfigurationSidebar = true;
+		}
+	});
 
 	function isLogoAssetUrl(s: string): boolean {
 		const t = s.trim();
@@ -275,10 +291,7 @@
 			await invalidateAll();
 			prevAppPreferences = saveForm;
 			customSurfaces = surfacesSnapshotFromTheme(saveForm.theme);
-			showSaved = true;
-			timeout = setTimeout(() => {
-				showSaved = false;
-			}, 3000);
+			success.add('Your changes have been saved.');
 		} catch (err) {
 			console.error(err);
 			// default behavior will show snackbar error
@@ -289,19 +302,48 @@
 </script>
 
 <Layout title="Branding" classes={{ container: 'pb-0' }}>
+	{#if responsive.isMobile && !showConfigurationSidebar}
+		<div class="fixed top-20 right-4 z-40">
+			<IconButton
+				onclick={() => (showConfigurationSidebar = !showConfigurationSidebar)}
+				tooltip={{ text: 'Open Branding Sidebar' }}
+			>
+				<PanelRightOpen class="size-6 text-muted-content" />
+			</IconButton>
+		</div>
+	{/if}
+
 	{#snippet rightSidebar()}
 		<div
-			class="bg-base-100 dark:bg-base-200 border-base-300 h-dvh w-sm min-w-sm overflow-y-auto border-l flex flex-col"
+			class={twMerge(
+				'bg-base-100 dark:bg-base-200 border-base-300 overflow-y-auto border-l flex flex-col transition-transform',
+				responsive.isMobile
+					? 'fixed z-40 h-[calc(100dvh-4rem)] w-dvw top-16 translate-x-full'
+					: 'static w-sm min-w-sm h-dvh',
+				responsive.isMobile && showConfigurationSidebar ? 'translate-x-0' : ''
+			)}
 		>
 			<div class="flex flex-col divide-y divide-base-300">
-				<div class="flex items-center justify-between px-4 py-2">
-					<h3 class="text-base font-semibold">Configuration</h3>
+				{#if responsive.isMobile}
 					<div
-						class="flex items-center p-1.5 bg-base-200 dark:bg-base-300 rounded-4xl shadow-inner"
+						class="flex justify-between items-center p-4 sticky bg-base-100 dark:bg-base-200 top-0 left-0"
+					>
+						<h3 class="text-base font-semibold">Configuration</h3>
+						<IconButton onclick={() => (showConfigurationSidebar = !showConfigurationSidebar)}>
+							<PanelRightClose class="size-6 text-muted-content" />
+						</IconButton>
+					</div>
+				{/if}
+				<div class="flex items-center justify-between px-4 py-2">
+					{#if !responsive.isMobile}
+						<h3 class="text-base font-semibold">Configuration</h3>
+					{/if}
+					<div
+						class="flex items-center p-1.5 bg-base-200 dark:bg-base-300 rounded-4xl shadow-inner w-full md:w-auto"
 					>
 						<button
 							class={twMerge(
-								'btn btn-sm rounded-r-none!',
+								'btn btn-sm rounded-r-none! w-1/2 md:w-auto',
 								selectedConfigurationMode === 'theme' ? 'btn-primary' : 'btn-secondary'
 							)}
 							onclick={() => {
@@ -310,7 +352,7 @@
 						>
 						<button
 							class={twMerge(
-								'btn btn-sm rounded-l-none!',
+								'btn btn-sm rounded-l-none! w-1/2 md:w-auto',
 								selectedConfigurationMode === 'logos' ? 'btn-primary' : 'btn-secondary'
 							)}
 							onclick={() => {
@@ -405,16 +447,6 @@
 			{/if}
 		</div>
 	{/snippet}
-	{#if showSaved}
-		<div class="absolute bottom-0 right-0">
-			<span
-				in:fade={{ duration: 200 }}
-				class="text-muted-content flex min-h-10 items-center px-4 text-sm font-extralight"
-			>
-				Your changes have been saved.
-			</span>
-		</div>
-	{/if}
 	<div class="relative h-full w-full @container mb-8" transition:fade={{ duration }}>
 		<div>
 			<div class="notification-info p-3 text-sm font-light">
