@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const oauthDebuggerPendingStateMarker = "oauth-debugger"
+const OAuthDebuggerPendingStateMarker = "oauth-debugger"
 
 // RegisterOAuthDebuggerClient registers an OAuth client for an MCP server and saves it for later debugger steps.
 func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
@@ -65,6 +65,8 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 		if registered.Scope != "" {
 			registration.Scope = registered.Scope
 		}
+	} else {
+		registered = oauthDebuggerStaticClient(clientID, clientSecret, authServer)
 	}
 
 	if clientID == "" {
@@ -79,7 +81,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 		req.User.GetUID(),
 		server.Name,
 		serverConfig.URL,
-		oauthDebuggerPendingStateMarker,
+		OAuthDebuggerPendingStateMarker,
 		state,
 		oauth2.GenerateVerifier(),
 		conf,
@@ -116,7 +118,7 @@ func (m *MCPHandler) GetOAuthDebuggerAuthorizationURL(req api.Context) error {
 		return err
 	}
 
-	if storedClient.UserID != req.User.GetUID() || storedClient.MCPID != server.Name || storedClient.OAuthAuthRequestID != oauthDebuggerPendingStateMarker {
+	if storedClient.UserID != req.User.GetUID() || storedClient.MCPID != server.Name || storedClient.OAuthAuthRequestID != OAuthDebuggerPendingStateMarker {
 		return types.NewErrNotFound("OAuth debugger client not found")
 	}
 
@@ -154,7 +156,7 @@ func (m *MCPHandler) ExchangeOAuthDebuggerToken(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	if pendingState.UserID != req.User.GetUID() || pendingState.MCPID != server.Name || pendingState.URL != serverConfig.URL || pendingState.OAuthAuthRequestID != oauthDebuggerPendingStateMarker {
+	if pendingState.UserID != req.User.GetUID() || pendingState.MCPID != server.Name || pendingState.URL != serverConfig.URL || pendingState.OAuthAuthRequestID != OAuthDebuggerPendingStateMarker {
 		return types.NewErrNotFound("OAuth debugger authorization state not found")
 	}
 
@@ -176,18 +178,18 @@ func (m *MCPHandler) ExchangeOAuthDebuggerToken(req api.Context) error {
 	}
 
 	return req.Write(types.OAuthToken{
-		AccessToken:  halfToken(token.AccessToken),
-		RefreshToken: halfToken(token.RefreshToken),
+		AccessToken:  quarterToken(token.AccessToken),
+		RefreshToken: quarterToken(token.RefreshToken),
 		TokenType:    token.TokenType,
 		ExpiresIn:    expiresIn,
 	})
 }
 
-func halfToken(token string) string {
+func quarterToken(token string) string {
 	if token == "" {
 		return ""
 	}
-	return token[:len(token)/2] + "..."
+	return token[:len(token)/4] + "..."
 }
 
 func (m *MCPHandler) validateOAuthDebuggerServer(req api.Context, server v1.MCPServer) error {
@@ -290,6 +292,17 @@ func (m *MCPHandler) lookupStaticOAuthClient(req api.Context, server v1.MCPServe
 	}
 
 	return "", "", nil
+}
+
+func oauthDebuggerStaticClient(clientID, clientSecret string, authServer nmcp.AuthorizationServerMetadata) types.OAuthClient {
+	client := types.OAuthClient{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		Static:       true,
+		AuthorizeURL: authServer.AuthorizationEndpoint,
+		TokenURL:     authServer.TokenEndpoint,
+	}
+	return client
 }
 
 func oauthDebuggerConfig(clientID, clientSecret, authURL, tokenURL, tokenEndpointAuthMethod, redirectURL, scope string) *oauth2.Config {

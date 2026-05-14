@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/auth"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -415,8 +416,10 @@ func (h *handler) maybeHandleDebuggerCallback(req api.Context) (bool, error) {
 	}
 
 	pendingState, err := h.oauthChecker.stateMgr.gatewayClient.GetMCPOAuthPendingState(req.Context(), state)
-	if err != nil || pendingState.OAuthAuthRequestID != "oauth-debugger" {
+	if errors.Is(err, gorm.ErrRecordNotFound) || pendingState.OAuthAuthRequestID != handlers.OAuthDebuggerPendingStateMarker {
 		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("failed to get pending state: %w", err)
 	}
 
 	code := req.URL.Query().Get("code")

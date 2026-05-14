@@ -138,6 +138,25 @@ func TestOAuthDebuggerAuthStyle(t *testing.T) {
 	}
 }
 
+func TestOAuthDebuggerStaticClient(t *testing.T) {
+	authServer := nmcp.AuthorizationServerMetadata{
+		AuthorizationEndpoint: "https://auth.example.com/authorize",
+		TokenEndpoint:         "https://auth.example.com/token",
+	}
+
+	client := oauthDebuggerStaticClient("client-id", "client-secret", authServer)
+
+	if !client.Static {
+		t.Fatal("expected static client")
+	}
+	if client.ClientID != "client-id" || client.ClientSecret != "client-secret" {
+		t.Fatalf("expected static credentials to be set, got %q/%q", client.ClientID, client.ClientSecret)
+	}
+	if client.AuthorizeURL != authServer.AuthorizationEndpoint || client.TokenURL != authServer.TokenEndpoint {
+		t.Fatalf("expected auth server URLs to be set")
+	}
+}
+
 func mustJSON(t *testing.T, v any) json.RawMessage {
 	t.Helper()
 	b, err := json.Marshal(v)
