@@ -61,6 +61,17 @@ func detectClientPresence(def clientPresenceDef, home string) (binary, install, 
 	return
 }
 
+func DetectClaudeCodePresence(home string) types.DeviceScanClient {
+	scanner := claudeCodeScanner{}
+	binary, install, configPath := detectClientPresence(scanner.Presence(), home)
+	return types.DeviceScanClient{
+		Name:        scanner.Name(),
+		BinaryPath:  binary,
+		InstallPath: install,
+		ConfigPath:  configPath,
+	}
+}
+
 // scanClientPresence runs presence detection for every registered
 // scanner and adds a clients[] row whenever any signal fires.
 func scanClientPresence(s *scanState, home string) {
