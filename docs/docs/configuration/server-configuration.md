@@ -71,6 +71,7 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_DISABLE_UPDATE_CHECK` | Disable the Obot server update check. (v0.14.0+) | `false ` |
 | `OBOT_SERVER_NANOBOT_INTEGRATION` | Enable Nanobot integration. Set to `false` to disable Nanobot routes and integration behavior. | `true` |
 | `OBOT_SERVER_DISABLE_LEGACY_CHAT` | Disable legacy chat APIs/UI paths surfaced by the server. | `true` |
+| `OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION` | The expiration time for dynamically registered MCP OAuth clients. Must be a valid duration string and may include days, hours, or minutes. | `30d` |
 | `OBOT_SERVER_ENABLE_MESSAGE_POLICIES` | Enable Message Policies for LLM proxy content enforcement. When enabled, Obot exposes the Message Policies and Message Policy Violations admin views and evaluates configured policies on user messages and tool calls. | `false` |
 | `OBOT_ARTIFACT_STORAGE_PROVIDER` | Storage provider for published workflows. Supported values: `s3`, `gcs`, `azure`, `custom`. If unset, Obot stores published workflows on local disk. | - |
 | `OBOT_ARTIFACT_STORAGE_BUCKET` | Bucket or container name used for published workflow storage when `OBOT_ARTIFACT_STORAGE_PROVIDER` is set. | - |

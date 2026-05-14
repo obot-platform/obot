@@ -188,6 +188,8 @@ config:
   OBOT_SERVER_NANOBOT_INTEGRATION: true
   # config.OBOT_SERVER_DISABLE_LEGACY_CHAT -- Disable legacy chat APIs/UX paths. Defaults to true.
   OBOT_SERVER_DISABLE_LEGACY_CHAT: true
+  # config.OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION -- The expiration time for dynamically registered MCP OAuth clients. Must be a valid duration string and may include days, hours, or minutes. Defaults to 30d.
+  OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION: ""
 
   # config.OBOT_ARTIFACT_STORAGE_PROVIDER -- Storage provider for published workflows. Can be 's3', 'gcs', 'azure', or 'custom'. If unset, local disk storage is used.
   OBOT_ARTIFACT_STORAGE_PROVIDER: ""
