@@ -19,7 +19,7 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, u u
 		return false, err
 	}
 
-	// If the user owns the MCP server, then authorization is granted.
+	// If the user owns this server (personal or workspace), grant direct access.
 	if mcpServer.Spec.IsOwnedBy(u.GetUID()) {
 		resources.Authorizated.MCPServer = &mcpServer
 		return true, nil

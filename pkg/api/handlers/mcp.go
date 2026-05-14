@@ -3189,8 +3189,7 @@ func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 
 	if !req.UserIsAdmin() {
 		// Allow users to restart their own single-user servers.
-		userOwnsServer := server.Spec.IsOwnedBy(req.User.GetUID())
-
+		userOwnsServer := server.Spec.IsOwnedBy(req.User.GetUID()) && server.Spec.IsSingleUser()
 		if !userOwnsServer {
 			// Fall back to workspace-based authorization
 			workspaceID := req.PathValue("workspace_id")
@@ -3595,7 +3594,7 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 	}
 
 	// If this is a single-user MCP server that belongs to the user, then let them access the logs.
-	if !server.Spec.IsOwnedBy(req.User.GetUID()) {
+	if !server.Spec.IsOwnedBy(req.User.GetUID()) || !server.Spec.IsSingleUser() {
 		// If the user doesn't own the server and is not an admin or auditor, check if they have access to the workspace.
 		if !req.UserIsAdmin() && !req.UserIsAuditor() {
 			workspaceID := req.PathValue("workspace_id")

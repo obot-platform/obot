@@ -34,28 +34,28 @@ func TestMCPServerSpec_IsOwnedBy(t *testing.T) {
 		want   bool
 	}{
 		{
-			name:   "single-user server owned by user",
+			name:   "matching UserID",
 			spec:   MCPServerSpec{UserID: "user-1"},
 			userID: "user-1",
 			want:   true,
 		},
 		{
-			name:   "single-user server owned by different user",
+			name:   "non-matching UserID",
 			spec:   MCPServerSpec{UserID: "user-1"},
 			userID: "user-2",
 			want:   false,
 		},
 		{
-			name:   "catalog server — never directly owned even if UserID matches",
+			name:   "admin-deployed catalog server — not owned even if UserID matches",
 			spec:   MCPServerSpec{UserID: "user-1", MCPCatalogID: "default"},
 			userID: "user-1",
 			want:   false,
 		},
 		{
-			name:   "workspace server — never directly owned even if UserID matches",
+			name:   "workspace server with matching UserID — owned",
 			spec:   MCPServerSpec{UserID: "user-1", PowerUserWorkspaceID: "ws-1"},
 			userID: "user-1",
-			want:   false,
+			want:   true,
 		},
 	}
 
